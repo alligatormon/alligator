@@ -6,16 +6,14 @@ set(COMMON lib${PROJECT_NAME})
 #set(CLI ${PROJECT_NAME}_cli)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
-#set(UDP ${PROJECT_NAME}_udp)
 #set(JP ${PROJECT_NAME}_jp)
-#set(AGGREGATOR ${PROJECT_NAME}_aggregator)
-#set(AGGREGATOR3 ${PROJECT_NAME}_aggregator3)
 
-#set(CMAKE_C_FLAGS "-Wall -g -Wextra -Wpointer-arith -Wno-unused-parameter -Wno-deprecated-declarations -Werror")
-#set(CMAKE_C_FLAGS "-Werror -Wall -Wextra -Wswitch-default -Wswitch-enum")
-#set(CMAKE_C_FLAGS "-Werror -Wall -Wextra")
-set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 set(CMAKE_BUILD_TYPE Debug)
+
+IF(WIN32)
+ELSE(WIN32)
+	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
+ENDIF(WIN32)
 
 include_directories(/usr/include)
 include_directories(/usr/local/include)
@@ -112,9 +110,6 @@ set(CPACK_GENERATOR RPM)
 #install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)
 
 install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
-#install(FILES dnscheck.sh
-#	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE WORLD_EXECUTE
-#	DESTINATION /usr/bin)
 install(FILES alligator
         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
         DESTINATION /usr/bin)
