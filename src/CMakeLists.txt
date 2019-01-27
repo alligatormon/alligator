@@ -1,0 +1,128 @@
+cmake_minimum_required(VERSION 3.6)
+
+project(alligator VERSION 1.10.0)
+
+set(COMMON lib${PROJECT_NAME})
+#set(CLI ${PROJECT_NAME}_cli)
+set(HEAD ${PROJECT_NAME})
+set(CLIENT ${PROJECT_NAME}_client)
+#set(UDP ${PROJECT_NAME}_udp)
+#set(JP ${PROJECT_NAME}_jp)
+#set(AGGREGATOR ${PROJECT_NAME}_aggregator)
+#set(AGGREGATOR3 ${PROJECT_NAME}_aggregator3)
+
+#set(CMAKE_C_FLAGS "-Wall -g -Wextra -Wpointer-arith -Wno-unused-parameter -Wno-deprecated-declarations -Werror")
+#set(CMAKE_C_FLAGS "-Werror -Wall -Wextra -Wswitch-default -Wswitch-enum")
+#set(CMAKE_C_FLAGS "-Werror -Wall -Wextra")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
+set(CMAKE_BUILD_TYPE Debug)
+
+include_directories(/usr/include)
+include_directories(/usr/local/include)
+include_directories(/usr/local/opt/openssl/include/)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+link_directories(/usr/local/lib64/)
+link_directories(/usr/local/lib/)
+link_directories(/usr/local/opt/openssl/lib/)
+
+add_library(${COMMON} STATIC
+	events/uv_alloc.c
+	events/a_signal.c
+	events/httpserver.c
+	events/client.c
+	events/process.c
+	events/unix_client.c
+	events/unix_server.c
+	events/unixgram.c
+	events/udp.c
+	events/icmp.c
+	events/general.c
+	events/filetailer.c
+	events/fs_write.c
+	parsers/prom_format.c
+	parsers/multiparser.c
+	parsers/clickhouse.c
+	parsers/redis.c
+	parsers/http_proto.c
+	common/selector.c
+	common/https_tls_check.c
+	common/rtime.c
+	common/validator.c
+	common/base64.c
+	common/http.c
+	dstructures/metric.c
+	dstructures/tommy.c
+	dstructures/rbtree.c
+	config/aggregate.c
+	config/file.c
+	config/context.c
+	system/linux.c
+	dstructures/tommyds/tommyds/tommyarray.c
+	dstructures/tommyds/tommyds/tommyhashdyn.c
+	dstructures/tommyds/tommyds/tommyhashlin.c
+	dstructures/tommyds/tommyds/tommylist.c
+	dstructures/tommyds/tommyds/tommyhash.c
+	dstructures/tommyds/tommyds/tommyarray.c
+	dstructures/tommyds/tommyds/tommytree.c
+	dstructures/tommyds/tommyds/tommytrie.c
+	dstructures/tommyds/tommyds/tommyarrayblk.c
+  )
+
+#add_executable(${CLIENT} events/server_handler.c)
+#target_link_libraries(${CLIENT} ${COMMON} uv)
+
+#add_executable(${UDP} events/udp.c)
+#target_link_libraries(${UDP} ${COMMON} uv)
+
+add_executable(${HEAD} main.c)
+set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
+
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+   target_link_libraries(${HEAD} ${COMMON} ssl crypto uv curl)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+    target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat curl)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd curl)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
+#add_executable(${JP} json_parser.c)
+#target_link_libraries(${JP} ${COMMON} jansson)
+
+#add_library(aggregator3_lib thpool/thpool.c)
+#target_link_libraries(aggregator3_lib pthread)
+#add_executable(${AGGREGATOR3} aggregator3.c)
+#target_link_libraries(${AGGREGATOR3} uv aggregator3_lib)
+
+#set_target_properties(${COMMON} ${PLUGIN} PROPERTIES
+#  PREFIX ""
+#  CXX_STANDARD 14
+#  CXX_STANDARD_REQUIRED ON
+#  COMPILE_OPTIONS -fPIC -Wall -Wextra
+#  )
+
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+
+set(CPACK_GENERATOR RPM)
+
+#install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)
+
+install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
+#install(FILES dnscheck.sh
+#	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE WORLD_EXECUTE
+#	DESTINATION /usr/bin)
+install(FILES alligator
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+        DESTINATION /usr/bin)
+
+install(DIRECTORY DESTINATION /var/lib/alligator/)
+
+set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/bin
+                                                  /usr/lib/systemd
+                                                  /usr/lib/systemd/system)
+
+include(CPack)

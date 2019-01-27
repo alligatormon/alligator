@@ -1,0 +1,14 @@
+stages:
+- test
+
+image: amoshi/cbuiler
+
+tests:
+  stage: test
+  script:
+  - yum -y install libuv-devel
+  - cd src/dstructures/
+  - git clone https://github.com/amadvance/tommyds.git
+  - cd ../
+  - cmake3 .
+  - make

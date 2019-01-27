@@ -1,0 +1,9 @@
+src/Makefile
+src/alligator
+src/CMakeFiles
+src/CMakeCache.txt
+src/libliballigator.a
+src/alligator.conf
+src/CPackConfig.cmake
+src/CPackSourceConfig.cmake
+src/cmake_install.cmake
