@@ -23,4 +23,4 @@ clone_script:
 build_script:
 - cd src
 - cmake .
-- mak3
+- make
