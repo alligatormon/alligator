@@ -15,9 +15,13 @@ configuration:
 - Debug
 - Release
 
+
 environment:
   matrix:
   - TOOLCHAIN: msvc14
+
+init:
+  - git config --global core.autocrlf input
 
 build_script:
 - cmake src
