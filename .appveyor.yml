@@ -20,11 +20,6 @@ clone_script:
 - cmd: git clone -q --recurse-submodules -j2 --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
 - cmd: git checkout -qf %APPVEYOR_REPO_COMMIT%
 
-environment:
-  matrix:
-  - LWS_METHOD: x64
-    CMAKE_ARGS: -DCMAKE_GENERATOR_PLATFORM=x64 -DLIBUV_INCLUDE_DIRS=C:\assets\libuv64\include -DLIBUV_LIBRARIES=C:\assets\libuv64\libuv.lib
-
 install:
 - mkdir c:\assets
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win64-msvc141.zip
