@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 int validate_domainname(char *domainname, size_t len)
 {
 	if ( len > 30 )
