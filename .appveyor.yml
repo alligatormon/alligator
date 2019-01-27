@@ -1,7 +1,8 @@
 image: Visual Studio 2015
 
 init:
-- git config 
+  - git config --global core.autocrlf input
+
 clone_folder: c:\app
 shallow_clone: true
 
@@ -14,9 +15,6 @@ platform:
 configuration:
 - Debug
 - Release
-
-init:
-  - git config --global core.autocrlf input
 
 build_script:
 - cmake src
