@@ -22,6 +22,7 @@ clone_script:
 
 install:
 - mkdir c:\assets
+- copy NUL c:\assets\unistd.h
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win64-msvc141.zip
 - mkdir c:\assets\libuv64
 - 7z x -oc:\assets\libuv64 libuv-1.24.0-win64-msvc141.zip

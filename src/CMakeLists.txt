@@ -12,6 +12,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 IF(WIN32)
 	include_directories(C:\\assets\\libuv64\\include)
+	include_directories(C:\\assets\\)
 	link_directories(C:\\assets\\libuv64\\libuv.lib)
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
