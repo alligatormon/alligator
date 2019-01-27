@@ -1,0 +1,23 @@
+image: Visual Studio 2015
+
+init:
+- git config 
+clone_folder: c:\app
+shallow_clone: true
+
+matrix:
+  fast_finish: false
+
+platform:
+- x64
+
+configuration:
+- Debug
+- Release
+
+environment:
+  matrix:
+  - TOOLCHAIN: msvc14
+
+build_script:
+- cmake src
