@@ -16,8 +16,10 @@ configuration:
 - Debug
 - Release
 
-build_script:
+install:
 - git submodule update --init --recursive
+
+build_script:
 - cd src
 - cmake .
 - mak3
