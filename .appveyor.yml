@@ -17,4 +17,7 @@ configuration:
 - Release
 
 build_script:
-- cmake src
+- git submodule update --init --recursive
+- cd src
+- cmake .
+- mak3
