@@ -35,7 +35,7 @@ void write_cb(uv_fs_t* req) {
 	if (result < 0) {
 		printf("Error at writing file: %s\n", uv_strerror(result));
 	}
-	uv_fs_close(loop, fs_info->close_req, req->file, exit_cb);
+	uv_fs_close(loop, fs_info->close_req, (uv_file)req->file, exit_cb);
 }
  
 void open_cb(uv_fs_t* req) {
