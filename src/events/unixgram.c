@@ -1,5 +1,4 @@
-// Based on: http://beej.us/guide/bgipc/output/html/multipage/unixsock.html (code from "Beej's Guide to Network Programming" is public domain).
-// Modifications by: Scott Kuhl
+#ifndef _WIN32
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -217,3 +216,4 @@ void unixgram_server_handler(char *addr, void* parser_handler)
 	//}
 	//close(s);
 }
+#endif

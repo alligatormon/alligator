@@ -1,3 +1,4 @@
+#ifndef _WIN32
 #include <uv.h> 
 #include <stdio.h> 
 #include <stdlib.h> 
@@ -99,3 +100,4 @@ void unix_client_handler()
 	uv_timer_init(loop, uggregator_timer);
 	uv_timer_start(uggregator_timer, uggregator_timer_cb, 1000, 1000);
 }
+#endif

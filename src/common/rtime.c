@@ -27,7 +27,8 @@ r_time setrtime()
 	rt.nsec=timer1.tv_nsec;
 	return rt;
 #else // win32
-	return {0, 0};
+	r_time rt = {0, 0};
+	return rt;
 #endif
 }
 
