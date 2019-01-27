@@ -10,21 +10,25 @@
 
 r_time setrtime()
 {
-#ifdef __MACH__
+#ifndef _WIN32 //win32
+#ifdef __MACH__ //mach
 	clock_serv_t cclock;
 	mach_timespec_t timer1;
 	host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
 	clock_get_time(cclock, &timer1);
 	mach_port_deallocate(mach_task_self(), cclock);
 
-#else
+#else //mach
 	struct timespec timer1;
 	clock_gettime(CLOCK_REALTIME, &timer1);
-#endif
+#endif //mach
 	r_time rt;
 	rt.sec=timer1.tv_sec;
 	rt.nsec=timer1.tv_nsec;
 	return rt;
+#else // win32
+	return {0, 0};
+#endif
 }
 
 void getrtime(r_time t1, r_time t2)
