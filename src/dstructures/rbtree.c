@@ -1,4 +1,3 @@
-#include <unistd.h>
 #include "rbtree.h"
 #include "dstructures/tommy.h"
 #include "main.h"

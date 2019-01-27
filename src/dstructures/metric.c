@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <unistd.h>
 #include "rbtree.h"
 #include "metric.h"
 #include "main.h"

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "main.h"
 char* gen_http_query(int http_type, char *method_query, char *host, char *useragent, char *auth)
 {
 	size_t size_useragent, size_auth, size_method_query;

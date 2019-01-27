@@ -4,8 +4,6 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <time.h>
-#include <sys/time.h>
 #include "tommyds/tommyds/tommy.h"
 #include "common/rtime.h"
 #include "common/selector.h"
