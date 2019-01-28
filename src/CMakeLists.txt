@@ -37,7 +37,6 @@ IF(WIN32)
 		dstructures/rbtree.c
 		config/aggregate.c
 		config/file.c
-		config/context.c
 		system/linux.c
 	)
 	add_executable(${HEAD} win32.c)
