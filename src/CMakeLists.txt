@@ -16,7 +16,6 @@ IF(WIN32)
 	link_directories(C:\\assets\\libuv64\\libuv.lib)
 	add_library(${COMMON} STATIC
 		events/uv_alloc.c
-		events/a_signal.c
 		events/httpserver.c
 		events/client.c
 		events/process.c
