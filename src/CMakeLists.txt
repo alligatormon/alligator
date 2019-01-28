@@ -41,6 +41,7 @@ IF(WIN32)
 		system/linux.c
 	)
 	add_executable(${HEAD} win32.c)
+	target_link_libraries(${HEAD} ${COMMON})
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 	include_directories(/usr/include)
