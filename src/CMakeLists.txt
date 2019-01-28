@@ -15,6 +15,7 @@ IF(WIN32)
 	include_directories(C:\\assets\\)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	link_directories(C:\\assets\\libuv64\\lib)
+	link_directories(${CMAKE_CURRENT_BINARY_DIR})
 	add_library(${COMMON} STATIC
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c
