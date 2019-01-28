@@ -14,61 +14,88 @@ IF(WIN32)
 	include_directories(C:\\assets\\libuv64\\include)
 	include_directories(C:\\assets\\)
 	link_directories(C:\\assets\\libuv64\\libuv.lib)
+	add_library(${COMMON} STATIC
+		events/uv_alloc.c
+		events/a_signal.c
+		events/httpserver.c
+		events/client.c
+		events/process.c
+		common/base64.c
+		common/http.c
+		dstructures/metric.c
+		dstructures/tommy.c
+		dstructures/rbtree.c
+		config/aggregate.c
+		config/file.c
+		config/context.c
+		system/linux.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommyhashdyn.c
+		dstructures/tommyds/tommyds/tommyhashlin.c
+		dstructures/tommyds/tommyds/tommylist.c
+		dstructures/tommyds/tommyds/tommyhash.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommytree.c
+		dstructures/tommyds/tommyds/tommytrie.c
+		dstructures/tommyds/tommyds/tommyarrayblk.c
+	)
+	add_executable(${HEAD} win32.c)
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
+	include_directories(/usr/include)
+	include_directories(/usr/local/include)
+	include_directories(/usr/local/opt/openssl/include/)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+	link_directories(/usr/local/lib64/)
+	link_directories(/usr/local/lib/)
+	link_directories(/usr/local/opt/openssl/lib/)
+
+	add_library(${COMMON} STATIC
+		events/uv_alloc.c
+		events/a_signal.c
+		events/httpserver.c
+		events/client.c
+		events/process.c
+		events/unix_client.c
+		events/unix_server.c
+		events/unixgram.c
+		events/udp.c
+		events/icmp.c
+		events/general.c
+		events/filetailer.c
+		events/fs_write.c
+		parsers/prom_format.c
+		parsers/multiparser.c
+		parsers/clickhouse.c
+		parsers/redis.c
+		parsers/http_proto.c
+		common/selector.c
+		common/https_tls_check.c
+		common/rtime.c
+		common/validator.c
+		common/base64.c
+		common/http.c
+		dstructures/metric.c
+		dstructures/tommy.c
+		dstructures/rbtree.c
+		config/aggregate.c
+		config/file.c
+		config/context.c
+		system/linux.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommyhashdyn.c
+		dstructures/tommyds/tommyds/tommyhashlin.c
+		dstructures/tommyds/tommyds/tommylist.c
+		dstructures/tommyds/tommyds/tommyhash.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommytree.c
+		dstructures/tommyds/tommyds/tommytrie.c
+		dstructures/tommyds/tommyds/tommyarrayblk.c
+	)
+	add_executable(${HEAD} main.c)
 ENDIF(WIN32)
 
-include_directories(/usr/include)
-include_directories(/usr/local/include)
-include_directories(/usr/local/opt/openssl/include/)
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
-link_directories(/usr/local/lib64/)
-link_directories(/usr/local/lib/)
-link_directories(/usr/local/opt/openssl/lib/)
-
-add_library(${COMMON} STATIC
-	events/uv_alloc.c
-	events/a_signal.c
-	events/httpserver.c
-	events/client.c
-	events/process.c
-	events/unix_client.c
-	events/unix_server.c
-	events/unixgram.c
-	events/udp.c
-	events/icmp.c
-	events/general.c
-	events/filetailer.c
-	events/fs_write.c
-	parsers/prom_format.c
-	parsers/multiparser.c
-	parsers/clickhouse.c
-	parsers/redis.c
-	parsers/http_proto.c
-	common/selector.c
-	common/https_tls_check.c
-	common/rtime.c
-	common/validator.c
-	common/base64.c
-	common/http.c
-	dstructures/metric.c
-	dstructures/tommy.c
-	dstructures/rbtree.c
-	config/aggregate.c
-	config/file.c
-	config/context.c
-	system/linux.c
-	dstructures/tommyds/tommyds/tommyarray.c
-	dstructures/tommyds/tommyds/tommyhashdyn.c
-	dstructures/tommyds/tommyds/tommyhashlin.c
-	dstructures/tommyds/tommyds/tommylist.c
-	dstructures/tommyds/tommyds/tommyhash.c
-	dstructures/tommyds/tommyds/tommyarray.c
-	dstructures/tommyds/tommyds/tommytree.c
-	dstructures/tommyds/tommyds/tommytrie.c
-	dstructures/tommyds/tommyds/tommyarrayblk.c
-  )
 
 #add_executable(${CLIENT} events/server_handler.c)
 #target_link_libraries(${CLIENT} ${COMMON} uv)
@@ -76,7 +103,6 @@ add_library(${COMMON} STATIC
 #add_executable(${UDP} events/udp.c)
 #target_link_libraries(${UDP} ${COMMON} uv)
 
-add_executable(${HEAD} main.c)
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
