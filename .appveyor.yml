@@ -22,6 +22,7 @@ clone_script:
 
 install:
 - call "C:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.cmd" /x64
+- call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
 - mkdir c:\assets
 - copy NUL c:\assets\unistd.h
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win64-msvc141.zip
