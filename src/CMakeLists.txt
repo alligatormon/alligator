@@ -41,7 +41,7 @@ IF(WIN32)
 		system/linux.c
 	)
 	add_executable(${HEAD} win32.c)
-	target_link_libraries(${HEAD} ${COMMON} uv)
+	target_link_libraries(${HEAD} ${COMMON} uv.lib)
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 	include_directories(/usr/include)
@@ -108,13 +108,13 @@ ENDIF(WIN32)
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-   target_link_libraries(${HEAD} ${COMMON} ssl crypto uv curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv curl)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat curl)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd curl)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
@@ -142,13 +142,13 @@ set(CPACK_GENERATOR RPM)
 
 install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 install(FILES alligator
-        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-        DESTINATION /usr/bin)
+	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+	DESTINATION /usr/bin)
 
 install(DIRECTORY DESTINATION /var/lib/alligator/)
 
-set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION /usr/bin
-                                                  /usr/lib/systemd
-                                                  /usr/lib/systemd/system)
+set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
+							/usr/lib/systemd
+							/usr/lib/systemd/system)
 
 include(CPack)
