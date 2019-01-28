@@ -13,8 +13,17 @@ set(CMAKE_BUILD_TYPE Debug)
 IF(WIN32)
 	include_directories(C:\\assets\\libuv64\\include)
 	include_directories(C:\\assets\\)
-	link_directories(C:\\assets\\libuv64\\libuv.lib)
+	link_directories(C:\\assets\\libuv64\\lib)
 	add_library(${COMMON} STATIC
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommyhashdyn.c
+		dstructures/tommyds/tommyds/tommyhashlin.c
+		dstructures/tommyds/tommyds/tommylist.c
+		dstructures/tommyds/tommyds/tommyhash.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommytree.c
+		dstructures/tommyds/tommyds/tommytrie.c
+		dstructures/tommyds/tommyds/tommyarrayblk.c
 		events/uv_alloc.c
 		events/httpserver.c
 		events/client.c
@@ -28,15 +37,6 @@ IF(WIN32)
 		config/file.c
 		config/context.c
 		system/linux.c
-		dstructures/tommyds/tommyds/tommyarray.c
-		dstructures/tommyds/tommyds/tommyhashdyn.c
-		dstructures/tommyds/tommyds/tommyhashlin.c
-		dstructures/tommyds/tommyds/tommylist.c
-		dstructures/tommyds/tommyds/tommyhash.c
-		dstructures/tommyds/tommyds/tommyarray.c
-		dstructures/tommyds/tommyds/tommytree.c
-		dstructures/tommyds/tommyds/tommytrie.c
-		dstructures/tommyds/tommyds/tommyarrayblk.c
 	)
 	add_executable(${HEAD} win32.c)
 ELSE(WIN32)
