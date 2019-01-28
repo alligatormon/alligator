@@ -13,6 +13,7 @@ set(CMAKE_BUILD_TYPE Debug)
 IF(WIN32)
 	include_directories(C:\\assets\\libuv64\\include)
 	include_directories(C:\\assets\\)
+	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 	link_directories(C:\\assets\\libuv64\\lib)
 	add_library(${COMMON} STATIC
 		dstructures/tommyds/tommyds/tommyarray.c
