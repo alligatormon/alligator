@@ -88,9 +88,7 @@ int main(int argc, char **argv)
 
 	tcp_client_handler();
 #ifndef __APPLE__
-#ifndef _WIN32
 	icmp_client_handler();
-#endif
 #endif
 	process_handler();
 	unix_client_handler();

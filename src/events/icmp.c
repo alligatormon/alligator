@@ -1,5 +1,4 @@
 #ifndef __APPLE__
-#ifndef _WIN32
 #include <stdio.h> 
 #include <sys/types.h> 
 #include <sys/socket.h> 
@@ -267,5 +266,4 @@ void do_icmp_client(char *addr)
 //		do_icmp(argv[i]);
 //	}
 //}
-#endif
 #endif

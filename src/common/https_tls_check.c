@@ -3,6 +3,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+//#include <resolv.h>
 #include <netdb.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -14,6 +16,7 @@
 #include "main.h"
 
 #include <sys/types.h>
+#include <sys/socket.h>
 //#include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -22,8 +25,6 @@
 #define FAIL	-1
 
 
-#ifndef _WIN32
-#include <sys/socket.h>
 int connect_w_to(const char* hostname, int port) { 
 	int res, valopt; 
 	struct sockaddr_in addr; 
@@ -211,7 +212,6 @@ void check_https_cert(const char* hostname)
 	close(server);
 	SSL_CTX_free(ctx);
 }
-#endif
 
 int domainname_compare(const void* arg, const void* obj)
 {
