@@ -34,5 +34,5 @@ install:
 
 build_script:
 - cd src
-- cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DCMAKE_C_COMPILER=C:\Program Files\LLVM\bin\clang-cl.exe .
+- cmake -DCMAKE_GENERATOR_PLATFORM=x64 .
 - cmake --build .
