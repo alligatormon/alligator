@@ -30,9 +30,17 @@ install:
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win32-msvc141.zip
 - mkdir c:\assets\libuv32
 - 7z x -oc:\assets\libuv32 libuv-1.24.0-win32-msvc141.zip
+- set PATH=%PATH%;"C:\Program Files\LLVM\bin"
+- clang-cl -v
+- set CC=clang-cl -mrtm
+- set CXX=clang-cl -mrtm
+- call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+#- call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
+- set CMAKE_CXX_COMPILER="C:\Program Files\LLVM\bin\clang-cl"
+- set CMAKE_C_COMPILER="C:\Program Files\LLVM\bin\clang-cl"
 
 
 build_script:
 - cd src
-- cmake -DCMAKE_GENERATOR_PLATFORM=x64 .
+- cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DCMAKE_TOOLCHAIN_FILE=c:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake .
 - cmake --build .
