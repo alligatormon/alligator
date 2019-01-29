@@ -33,5 +33,5 @@ install:
 
 build_script:
 - cd src
-- cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DCMAKE_C_COMPILER=clang-cl.exe -T"LLVM-vs2014" .
+- cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DCMAKE_C_COMPILER=clang-cl.exe -T"LLVM-vs2017" .
 - cmake --build .
