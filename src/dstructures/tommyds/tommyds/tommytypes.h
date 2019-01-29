@@ -35,7 +35,7 @@
 /* types */
 
 #include <stddef.h>
-#include <stdafx.h>
+#include <inttypes.h>
 
 #ifdef _MSC_VER
 typedef unsigned tommy_uint32_t; /**< Generic uint32_t type. */
