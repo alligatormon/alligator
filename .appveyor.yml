@@ -14,7 +14,7 @@ platform:
 
 configuration:
 - Debug
-- Release
+#- Release
 
 clone_script:
 - cmd: git clone -q --recurse-submodules -j2 --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
