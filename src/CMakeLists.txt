@@ -11,6 +11,8 @@ set(CLIENT ${PROJECT_NAME}_client)
 set(CMAKE_BUILD_TYPE Debug)
 
 IF(WIN32)
+	set(CMAKE_CXX_COMPILER C:\\Program Files\\LLVM\\bin\\clang-cl.exe)
+	set(CMAKE_C_COMPILER C:\\Program Files\\LLVM\\bin\\clang-cl.exe)
 	include_directories(C:\\assets\\libuv64\\include)
 	include_directories(C:\\assets\\)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
