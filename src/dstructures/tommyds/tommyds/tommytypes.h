@@ -38,6 +38,11 @@
 #include <inttypes.h>
 
 #ifdef _MSC_VER
+#include <inttypes.h>
+#define _int64_t long long int
+#define _int64 long long int
+#define __int64 long long int
+#define __int32 int
 typedef unsigned tommy_uint32_t; /**< Generic uint32_t type. */
 typedef unsigned _int64 tommy_uint64_t; /**< Generic uint64_t type. */
 typedef size_t tommy_uintptr_t; /**< Generic uintptr_t type. */
