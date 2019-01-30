@@ -42,6 +42,7 @@ IF(WIN32)
 		parsers/winparser.c
 		common/rtime.c
 		common/selector.c
+		system/windows.c
 		#parsers/prom_format.c
 		#events/process.c
 		#events/fs_write.c
