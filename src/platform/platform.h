@@ -6,4 +6,9 @@
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
+#include <inttypes.h>
+#define _int64_t long long int
+#define _int64 long long int
+#define __int64 long long int
+#define __int32 int
 #endif

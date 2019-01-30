@@ -1,11 +1,11 @@
 #pragma once
+#include "platform/platform.h"
 #include "dstructures/tommy.h"
 #include <uv.h>
 #include "dstructures/metric.h"
 #include "parsers/multiparser.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"
-#include "platform/platform.h"
 #include "common/selector.h"
 #include "events/general.h"
 #include "events/a_signal.h"
