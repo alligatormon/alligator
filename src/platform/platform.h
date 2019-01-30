@@ -11,4 +11,10 @@
 #define _int64 long long int
 #define __int64 long long int
 #define __int32 int
+char* strndup(char *str, size_t sz)
+{
+	char *ret = malloc(sz);
+	strlcpy(ret, str, sz);
+	return ret;
+}
 #endif

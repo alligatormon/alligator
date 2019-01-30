@@ -40,6 +40,9 @@ IF(WIN32)
 		config/aggregate.c
 		config/file.c
 		system/linux.c
+		parsers/multiparser.c
+		common/rtime.c
+		events/fs_write.c
 	)
 	add_executable(${HEAD} win32.c)
 	target_link_libraries(${HEAD} ${COMMON} uv.lib)
