@@ -6,7 +6,6 @@
 
 void do_http_post(char *buf, size_t len, char *response)
 {
-#ifndef _WIN32
 	char *body;
 	if ( !( body = strstr(buf, "\n\n") ) )
 	{
@@ -42,7 +41,6 @@ void do_http_post(char *buf, size_t len, char *response)
 			prom_getmetrics_n(body+2, strlen(body+2));
 		}
 	}
-#endif
 	strlcpy(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 400 Bad Query\n\n")+1);
 }
 

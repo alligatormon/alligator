@@ -39,7 +39,7 @@ IF(WIN32)
 		config/aggregate.c
 		config/file.c
 		system/linux.c
-		parsers/multiparser.c
+		parsers/winparser.c
 		common/rtime.c
 		common/selector.c
 		#parsers/prom_format.c
