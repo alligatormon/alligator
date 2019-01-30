@@ -31,7 +31,6 @@ IF(WIN32)
 		events/uv_alloc.c
 		events/httpserver.c
 		events/client.c
-		events/process.c
 		common/base64.c
 		common/http.c
 		dstructures/metric.c
@@ -42,7 +41,8 @@ IF(WIN32)
 		system/linux.c
 		parsers/multiparser.c
 		common/rtime.c
-		events/fs_write.c
+		#events/process.c
+		#events/fs_write.c
 	)
 	add_executable(${HEAD} win32.c)
 	target_link_libraries(${HEAD} ${COMMON} uv.lib)
