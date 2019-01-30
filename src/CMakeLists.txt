@@ -28,6 +28,8 @@ IF(WIN32)
 		dstructures/tommyds/tommyds/tommytree.c
 		dstructures/tommyds/tommyds/tommytrie.c
 		dstructures/tommyds/tommyds/tommyarrayblk.c
+		system/windows.c
+		common/selector.c
 		events/uv_alloc.c
 		events/httpserver.c
 		events/client.c
@@ -41,8 +43,6 @@ IF(WIN32)
 		system/linux.c
 		parsers/winparser.c
 		common/rtime.c
-		common/selector.c
-		system/windows.c
 		#parsers/prom_format.c
 		#events/process.c
 		#events/fs_write.c

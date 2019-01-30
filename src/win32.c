@@ -23,7 +23,7 @@ void config_context_initialize()
 	extern aconf *ac;
 	ac->config_ctx = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->config_ctx);
-	config_context *ctx;
+	//config_context *ctx;
 
 	//ctx = calloc(1, sizeof(*ctx));
 	//ctx->key = strdup("aggregate");

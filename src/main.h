@@ -50,3 +50,5 @@ typedef struct aconf
 	// config parser handlers
 	tommy_hashdyn* config_ctx;
 } aconf;
+
+void get_system_metrics();
