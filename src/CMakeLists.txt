@@ -41,6 +41,8 @@ IF(WIN32)
 		system/linux.c
 		parsers/multiparser.c
 		common/rtime.c
+		parsers/prom_format.c
+		common/selector.c
 		#events/process.c
 		#events/fs_write.c
 	)

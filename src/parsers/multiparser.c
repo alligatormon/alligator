@@ -16,7 +16,9 @@ void do_http_post(char *buf, size_t len, char *response)
 				if ( !strncmp(body+4, "certificate_https_check", strlen("certificate_https_check")) )
 				{
 					//puts("add certificate checking:");
+#ifndef _WIN32
 					https_ssl_check_push(body +5 +strlen("certificate_https_check"));
+#endif
 				}
 				else
 				{
@@ -32,7 +34,9 @@ void do_http_post(char *buf, size_t len, char *response)
 		if ( !strncmp(body+2, "certificate_https_check", strlen("certificate_https_check")) )
 		{
 			//puts("add certificate checking");
+#ifndef _WIN32
 			https_ssl_check_push(body +3 +strlen("certificate_https_check"));
+#endif
 		}
 		else
 		{
