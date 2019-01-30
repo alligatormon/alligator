@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
 
 	tcp_client_handler();
-	process_handler();
+	//process_handler();
 	get_system_metrics();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
