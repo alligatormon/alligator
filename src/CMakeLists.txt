@@ -43,6 +43,7 @@ IF(WIN32)
 		system/linux.c
 		parsers/winparser.c
 		common/rtime.c
+		platform/windows.c
 		#parsers/prom_format.c
 		#events/process.c
 		#events/fs_write.c
