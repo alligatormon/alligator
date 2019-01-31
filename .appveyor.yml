@@ -13,15 +13,14 @@ platform:
 - x64
 
 configuration:
-- Debug
-#- Release
+#- Debug
+- Release
 
 clone_script:
 - cmd: git clone -q --recurse-submodules -j2 --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
 - cmd: git checkout -qf %APPVEYOR_REPO_COMMIT%
 
 install:
-#- call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
 - mkdir c:\assets
 - copy NUL c:\assets\unistd.h
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win64-msvc141.zip
@@ -30,12 +29,6 @@ install:
 - appveyor DownloadFile https://downloads.datastax.com/cpp-driver/windows/dependencies/libuv/v1.24.0/libuv-1.24.0-win32-msvc141.zip
 - mkdir c:\assets\libuv32
 - 7z x -oc:\assets\libuv32 libuv-1.24.0-win32-msvc141.zip
-- set PATH="C:\Program Files\LLVM\bin";%PATH%
-- clang-cl -v
-- set CC=clang-cl -mrtm
-- set CXX=clang-cl -mrtm
-#- call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
-#- call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
 
 environment:
   DEPLOY_PASS:
@@ -45,4 +38,4 @@ build_script:
 - cd src
 - cmake -DCMAKE_GENERATOR_PLATFORM=x64 .
 - cmake --build .
-- curl -su win:%DEPLOY_PASS% -T C:\app\src\bin\Debug\alligator.exe http://amoshi.ru/repo/test2/
+- curl -su win:%DEPLOY_PASS% -T C:\app\src\bin\Release\alligator.exe http://amoshi.ru/repo/test2/
