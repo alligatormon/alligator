@@ -46,7 +46,6 @@ aconf* configuration()
 	ac->process_script_dir = "/var/alligator/spawner";
 	ac->process_cnt = 0;
 	tommy_hashdyn_init(ac->aggregator);
-	tommy_hashdyn_init(ac->iggregator);
 	tommy_hashdyn_init(ac->process_spawner);
 
 	ac->request_cnt = 0;
