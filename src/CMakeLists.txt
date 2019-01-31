@@ -20,11 +20,38 @@ IF(WIN32)
 	link_directories(C:\\assets\\libuv64\\lib)
 	link_directories(${CMAKE_CURRENT_BINARY_DIR})
 	add_library(${COMMON} STATIC
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommyhashdyn.c
+		dstructures/tommyds/tommyds/tommyhashlin.c
+		dstructures/tommyds/tommyds/tommylist.c
+		dstructures/tommyds/tommyds/tommyhash.c
+		dstructures/tommyds/tommyds/tommyarray.c
+		dstructures/tommyds/tommyds/tommytree.c
+		dstructures/tommyds/tommyds/tommytrie.c
+		dstructures/tommyds/tommyds/tommyarrayblk.c
+		system/windows.c
+		common/selector.c
+		events/uv_alloc.c
+		events/httpserver.c
+		events/client.c
+		common/base64.c
+		common/http.c
+		dstructures/metric.c
+		dstructures/tommy.c
+		dstructures/rbtree.c
+		config/aggregate.c
+		config/file.c
+		system/linux.c
+		parsers/winparser.c
+		common/rtime.c
 		platform/windows.c
+		#parsers/prom_format.c
+		#events/process.c
+		#events/fs_write.c
 	)
 	add_executable(${HEAD} win32.c)
 	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator")
-	target_link_libraries(${HEAD} ${COMMON})
+	target_link_libraries(${HEAD} ${COMMON} uv.lib)
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 	include_directories(/usr/include)
