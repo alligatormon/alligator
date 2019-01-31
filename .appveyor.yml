@@ -45,5 +45,5 @@ build_script:
 - cd src
 - cmake -DCMAKE_GENERATOR_PLATFORM=x64 .
 - cmake --build .
-- dir bin/Debug/
+- powershell tree bin
 - curl -su win:%DEPLOY_PASS% -T bin/Debug* http://amoshi.ru/api/test2/
