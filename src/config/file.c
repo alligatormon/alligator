@@ -84,13 +84,21 @@ int split_config(char *file)
 	int64_t fdsize = ftell(fd);
 	rewind(fd);
 
-	char *buf = malloc(fdsize);
+#ifdef _WIN64
+	int psize = 65535;
+#else
+	int psize = 0;
+#endif
+
+	char *buf = malloc(fdsize+psize);
 	size_t rc = fread(buf, 1, fdsize, fd);
+#ifndef _WIN64
 	if (rc != fdsize)
 	{
-		fprintf(stderr, "I/O err read %s\n'%s'(%zu) rc=%zu, fdsize=%zu\n", file, buf, strlen(buf), rc, fdsize);
+		fprintf(stderr, "I/O err read %s\n", file);
 		return 0;
 	}
+#endif
 	mtlen *mt = split_char_to_mtlen(buf);
 	//int64_t i;
 	//for (i=0;i<mt->m;i++)
