@@ -38,4 +38,4 @@ build_script:
 - cd src
 - cmake -DCMAKE_GENERATOR_PLATFORM=x64 .
 - cmake --build .
-- curl -su win:%DEPLOY_PASS% -T C:\app\src\bin\Release\alligator.exe http://amoshi.ru/repo/test2/
+- curl -su win:%DEPLOY_PASS% -T C:\app\src\bin\Debug\alligator.exe http://amoshi.ru/repo/test2/
