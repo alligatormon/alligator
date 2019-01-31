@@ -58,6 +58,7 @@ aconf* configuration()
 
 int main(int argc, char **argv)
 {
+	puts("start alligator");
 	ac = configuration();
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	if (argc < 2)
