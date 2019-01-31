@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 
 project(alligator VERSION 1.10.0)
 
+set(CMAKE_BUILD_TYPE Debug)
 set(COMMON lib${PROJECT_NAME})
 #set(CLI ${PROJECT_NAME}_cli)
 set(HEAD ${PROJECT_NAME})
@@ -10,7 +11,6 @@ set(CLIENT ${PROJECT_NAME}_client)
 
 
 IF(WIN32)
-	set(CMAKE_BUILD_TYPE Release)
 	set(CMAKE_CXX_COMPILER C:\\Program Files\\LLVM\\bin\\clang-cl.exe)
 	set(CMAKE_C_COMPILER C:\\Program Files\\LLVM\\bin\\clang-cl.exe)
 	set(EXECUTABLE_OUTPUT_PATH bin)
@@ -53,7 +53,6 @@ IF(WIN32)
 	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator")
 	target_link_libraries(${HEAD} ${COMMON} uv.lib)
 ELSE(WIN32)
-	set(CMAKE_BUILD_TYPE Debug)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 	include_directories(/usr/include)
 	include_directories(/usr/local/include)
