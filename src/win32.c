@@ -59,11 +59,11 @@ int main(int argc, char **argv)
 {
 	puts("alligator started");
 	ac = configuration();
-	//uv_loop_t *loop = ac->loop = uv_default_loop();
-	//if (argc < 2)
-	//	split_config("alligator.conf");
-	//else
-	//	split_config(argv[1]);
+	uv_loop_t *loop = ac->loop = uv_default_loop();
+	if (argc < 2)
+		split_config("alligator.conf");
+	else
+		split_config(argv[1]);
 
 
 	//tcp_client_handler();
