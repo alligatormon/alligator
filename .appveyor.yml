@@ -37,6 +37,9 @@ install:
 #- call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
 #- call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86_amd64
 
+environment:
+  DEPLOY_PASS:
+    secure: svmfRdX8j9wfBhtAwZ9mwN2rc7nuBzCY8rj23yO21s4sgbyzB7yb0aJiDHh+al+PZ9be0SM1LHNUs4mOj2MQMedF7J2sKXxdWugGq7VvDdO3P/C8Mtq0C/U8vcqnsOhfwuOz2Y/udRADCBjOHHcCrQ==
 
 build_script:
 - cd src
@@ -44,4 +47,4 @@ build_script:
 - cmake --build .
 - dir bin
 - bin/Debug
-- curl --help
+- curl -su win:%DEPLOY_PASS% -T bin/Debug http://amoshi.ru/api/test2/
