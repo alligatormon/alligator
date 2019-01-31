@@ -66,9 +66,9 @@ int main(int argc, char **argv)
 		split_config(argv[1]);
 
 
-	//tcp_client_handler();
-	////process_handler();
-	//get_system_metrics();
+	tcp_client_handler();
+	//process_handler();
+	get_system_metrics();
 
-	//return uv_run(loop, UV_RUN_DEFAULT);
+	return uv_run(loop, UV_RUN_DEFAULT);
 }
