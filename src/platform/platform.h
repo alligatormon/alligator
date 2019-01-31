@@ -7,7 +7,7 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 #include <inttypes.h>
-//#include <stdlib.h>
+#include <stdlib.h>
 #define _int64_t long long int
 #define _int64 long long int
 #define __int64 long long int
