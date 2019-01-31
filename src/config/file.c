@@ -85,9 +85,9 @@ int split_config(char *file)
 	rewind(fd);
 
 #ifdef _WIN64
-	int psize = 65535;
+	int32_t psize = 10000;
 #else
-	int psize = 0;
+	int32_t psize = 0;
 #endif
 
 	char *buf = malloc(fdsize+psize);
@@ -99,12 +99,14 @@ int split_config(char *file)
 		return 0;
 	}
 #endif
+	puts("mtlen config");
 	mtlen *mt = split_char_to_mtlen(buf);
 	//int64_t i;
 	//for (i=0;i<mt->m;i++)
 	//{
 	//	printf("%"d64": %s\n", i, mt->st[i].s);
 	//}
+	puts("parse config");
 	parse_config(mt);
 
 	fclose(fd);
