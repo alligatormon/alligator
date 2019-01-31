@@ -50,7 +50,7 @@ IF(WIN32)
 		#events/fs_write.c
 	)
 	add_executable(${HEAD} win32.c)
-	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator.exe")
+	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator")
 	target_link_libraries(${HEAD} ${COMMON} uv.lib)
 ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
