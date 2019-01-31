@@ -88,7 +88,7 @@ int split_config(char *file)
 	size_t rc = fread(buf, 1, fdsize, fd);
 	if (rc != fdsize)
 	{
-		fprintf(stderr, "I/O err read %s\n", file);
+		fprintf(stderr, "I/O err read %s\n'%s'(%zu) rc=%zu, fdsize=%zu\n", file, buf, strlen(buf), rc, fdsize);
 		return 0;
 	}
 	mtlen *mt = split_char_to_mtlen(buf);
