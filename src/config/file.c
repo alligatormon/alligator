@@ -25,6 +25,7 @@ mtlen* split_char_to_mtlen(char *str)
 	int64_t i, j, k;
 	puts("3");
 	size_t len = strlen(str);
+	printf("buf %s with size %zu\n", str, len);
 	puts("4");
 	for (i=0, j=0, k=0; i<len; i++)
 	{
