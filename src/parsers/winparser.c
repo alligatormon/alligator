@@ -100,6 +100,7 @@
 void alligator_multiparser(char *buf, size_t len, void (*handler)(char*, size_t, char*, int), char *response)
 {
 	printf("parsing '%s'(%zu)\n", buf, len);
+	*response = 0;
 	//if ( handler )
 	//	handler(buf, len, NULL, 0);
 	//int rc = 0;
