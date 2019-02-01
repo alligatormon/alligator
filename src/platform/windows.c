@@ -22,7 +22,7 @@ strlcpy(char *dst, const char *src, size_t siz)
 }
 char* strndup(char *str, size_t sz)
 {
-	char *ret = malloc(sz);
-	strlcpy(ret, str, sz);
+	char *ret = malloc(sz+1);
+	strlcpy(ret, str, sz+1);
 	return ret;
 }
