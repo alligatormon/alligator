@@ -29,7 +29,7 @@ mtlen* split_char_to_mtlen(char *str)
 	puts("4");
 	for (i=0, j=0, k=0; i<len; i++)
 	{
-	puts("5");
+		printf("5: %"d64":%"d64":%"d64"\n", i, j, k);
 		if ( isspace(str[i]) )
 			continue;
 	puts("6");
