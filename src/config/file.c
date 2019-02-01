@@ -128,6 +128,7 @@ int split_config(char *file)
 		return 0;
 	}
 #endif
+	buf[rc] = 0;
 	puts("mtlen config");
 	mtlen *mt = split_char_to_mtlen(buf);
 	puts("mtlen config end");
