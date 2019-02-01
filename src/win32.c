@@ -23,17 +23,17 @@ void config_context_initialize()
 	extern aconf *ac;
 	ac->config_ctx = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->config_ctx);
-	//config_context *ctx;
+	config_context *ctx;
 
-	//ctx = calloc(1, sizeof(*ctx));
-	//ctx->key = strdup("aggregate");
-	//ctx->handler = context_aggregate_parser;
-	//tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("aggregate");
+	ctx->handler = context_aggregate_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
 
-	//ctx = calloc(1, sizeof(*ctx));
-	//ctx->key = strdup("entrypoint");
-	//ctx->handler = context_entrypoint_parser;
-	//tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("entrypoint");
+	ctx->handler = context_entrypoint_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
 }
 
 aconf* configuration()
