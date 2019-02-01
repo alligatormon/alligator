@@ -44,23 +44,23 @@
 //	strlcpy(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 400 Bad Query\n\n")+1);
 //}
 //
-//void do_http_get(char *buf, size_t len, char *response)
-//{
-//	if (strstr(buf, "/api"))
-//	{
-//	}
-//	else
-//	{
-//		stlen str;
-//		str.l = 1;
-//		str.s = response;
-//		str.s[0] = 0;
-//		stlentext(&str, "HTTP/1.1 200 OK\n\n");
-//
-//		metric_labels_print(&str);
-//	}
-//}
-//
+void do_http_get(char *buf, size_t len, char *response)
+{
+	if (strstr(buf, "/api"))
+	{
+	}
+	else
+	{
+		stlen str;
+		str.l = 1;
+		str.s = response;
+		str.s[0] = 0;
+		stlentext(&str, "HTTP/1.1 200 OK\n\n");
+
+		metric_labels_print(&str);
+	}
+}
+
 //void do_http_put(char *buf, size_t len, char *response)
 //{
 //	strlcpy(response, "HTTP/1.1 400 Bad Query\n\n", strlen("HTTP/1.1 400 Bad Query\n\n")+1);
@@ -76,20 +76,20 @@
 //		prom_getmetrics_n(tmp+4, strlen(tmp)-4);
 //}
 //
-//int http_parser(char *buf, size_t len, char *response)
-//{
+int http_parser(char *buf, size_t len, char *response)
+{
 //	if ( !strncmp(buf, "POST", 4) )
 //		do_http_post(buf, len, response);
 //	else if ( !strncmp(buf, "HTTP/", 5) )
 //		do_http_response(buf, len, response);
-//	else if ( !strncmp(buf, "GET", 3) )
-//		do_http_get(buf, len, response);
+	else if ( !strncmp(buf, "GET", 3) )
+		do_http_get(buf, len, response);
 //	else if ( !strncmp(buf, "PUT", 3) )
 //	 	do_http_put(buf, len, response);
 //	else	return 0;
 //	return 1;
-//}
-//
+}
+
 //int plain_parser(char *buf, size_t len)
 //{
 //	//selector_get_plain_metrics(buf, len, "\n", " ", "", 0 );
@@ -104,6 +104,6 @@ void alligator_multiparser(char *buf, size_t len, void (*handler)(char*, size_t,
 	//if ( handler )
 	//	handler(buf, len, NULL, 0);
 	//int rc = 0;
-	//if ( (rc = http_parser(buf, len, response)) ) {}
+	if ( (rc = http_parser(buf, len, response)) ) {}
 	//else if ( (rc = plain_parser(buf, len)) ) {}
 }
