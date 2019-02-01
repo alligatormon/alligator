@@ -42,6 +42,7 @@ IF(WIN32)
 		config/aggregate.c
 		config/file.c
 		system/linux.c
+		config/context.c
 		parsers/winparser.c
 		common/rtime.c
 		platform/windows.c
