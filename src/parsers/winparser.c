@@ -82,7 +82,7 @@ int http_parser(char *buf, size_t len, char *response)
 //		do_http_post(buf, len, response);
 //	else if ( !strncmp(buf, "HTTP/", 5) )
 //		do_http_response(buf, len, response);
-	else if ( !strncmp(buf, "GET", 3) )
+	if ( !strncmp(buf, "GET", 3) )
 		do_http_get(buf, len, response);
 //	else if ( !strncmp(buf, "PUT", 3) )
 //	 	do_http_put(buf, len, response);
@@ -103,7 +103,7 @@ void alligator_multiparser(char *buf, size_t len, void (*handler)(char*, size_t,
 	*response = 0;
 	//if ( handler )
 	//	handler(buf, len, NULL, 0);
-	//int rc = 0;
+	int rc = 0;
 	if ( (rc = http_parser(buf, len, response)) ) {}
 	//else if ( (rc = plain_parser(buf, len)) ) {}
 }
