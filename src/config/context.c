@@ -73,11 +73,13 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 		//printf("%"d64": %s\n", *i, mt->st[*i].s);
 		if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 			tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), NULL);
+#ifndef _WIN64
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
 			udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), NULL);
 		else if (!strncmp(mt->st[*i-1].s, "unixgram", 8))
 			unixgram_server_handler(mt->st[*i].s, NULL);
 		else if (!strncmp(mt->st[*i-1].s, "unix", 4))
 			unix_server_handler(mt->st[*i].s, NULL);
+#endif
 	}
 }
