@@ -68,7 +68,7 @@ void parse_config(mtlen *mt)
 	int64_t i;
 	for (i=0;i<mt->m;i++)
 	{
-		//printf("%"d64": %s %zu %p\n", i, mt->st[i].s, tommy_hashdyn_count(ac->config_ctx), ac->config_ctx);
+		printf("%"d64": %s %zu %p\n", i, mt->st[i].s, tommy_hashdyn_count(ac->config_ctx), ac->config_ctx);
 		config_context *ctx = tommy_hashdyn_search(ac->config_ctx, context_compare, mt->st[i].s, tommy_strhash_u32(0, mt->st[i].s));
 		if (ctx)
 			ctx->handler(mt, &i);
