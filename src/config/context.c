@@ -21,6 +21,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_tcp_client(hi->host, hi->port, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n");
 		}
+#ifndef _WIN64
 #ifndef __APPLE__
 		else if (!strcmp(mt->st[*i-1].s, "icmp"))
 		{
@@ -59,6 +60,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_tcp_client(hi->host, hi->port, redis_handler, "INFO\n");
 		}
+#endif
 	}
 }
 
