@@ -70,7 +70,7 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 		*i += 1;
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
-		//printf("%"d64": %s\n", *i, mt->st[*i].s);
+		printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
 		if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 			tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), NULL);
 #ifndef _WIN64
