@@ -19,45 +19,73 @@ int context_compare(const void* arg, const void* obj)
 
 mtlen* split_char_to_mtlen(char *str)
 {
+	puts("1");
 	mtlen *mt = malloc(sizeof(*mt));
+	puts("2");
 	int64_t i, j, k;
+	puts("3");
 	size_t len = strlen(str);
+	puts("4");
 	for (i=0, j=0, k=0; i<len; i++)
 	{
+	puts("5");
 		if ( isspace(str[i]) )
 			continue;
+	puts("6");
 
 		k = strcspn(str+i, ";{} \r\n\t\0");
+	puts("7");
 		int64_t z = i+k;
+	puts("8");
 		if ( str[z] == ';' || str[z] == '{' || str[z] == '}' )
 			j++;
+	puts("9");
 
 		i += k;
+	puts("10");
 		j++;
+	puts("11");
 	}
+	puts("12");
 	mt->st = malloc(sizeof(stlen)*j);
+	puts("13");
 	mt->m = j;
+	puts("14");
 
 	for (i=0, j=0, k=0; i<len; i++)
 	{
+	puts("15");
 		if ( isspace(str[i]) )
 			continue;
+	puts("16");
 
 		k = strcspn(str+i, ";{} \r\n\t\0");
+	puts("17");
 		mt->st[j].s = strndup(str+i, k);
+	puts("18");
 		mt->st[j].l = k;
+	puts("19");
 		int64_t z = i+k;
+	puts("20");
 		if ( str[z] == ';' || str[z] == '{' || str[z] == '}' )
 		{
+	puts("21");
 			j++;
+	puts("22");
 			mt->st[j].s = strndup(str+z, 1);
+	puts("23");
 			mt->st[j].l = 1;
+	puts("24");
 		}
+	puts("25");
 
 		i += k;
+	puts("26");
 		j++;
+	puts("27");
 	}
 
+	puts("28");
 	return mt;
 }
 
@@ -101,6 +129,7 @@ int split_config(char *file)
 #endif
 	puts("mtlen config");
 	mtlen *mt = split_char_to_mtlen(buf);
+	puts("mtlen config end");
 	//int64_t i;
 	//for (i=0;i<mt->m;i++)
 	//{
@@ -108,6 +137,7 @@ int split_config(char *file)
 	//}
 	puts("parse config");
 	parse_config(mt);
+	puts("parse config end");
 
 	fclose(fd);
 
