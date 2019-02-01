@@ -31,6 +31,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth);
+			printf("query %s, host %s, port %s\n", query, hi->host, hi->port);
 			do_tcp_client(hi->host, hi->port, http_proto_handler, query);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "exec"))
