@@ -31,17 +31,23 @@ void get_system_metrics()
 	memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 	GlobalMemoryStatusEx(&memInfo);
 	DWORDLONG totalVirtualMem = memInfo.ullTotalPageFile;
+	printf("totalVirtualMem %lld\n", totalVirtualMem);
 
 	DWORDLONG virtualMemUsed = memInfo.ullTotalPageFile - memInfo.ullAvailPageFile;
+	printf("virtualMemUsed %lld\n", virtualMemUsed);
 
 	PROCESS_MEMORY_COUNTERS_EX pmc;
 	GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc));
 	SIZE_T virtualMemUsedByMe = pmc.PrivateUsage;
+	printf("virtualMemUsedByMe %lld\n", virtualMemUsedByMe);
 
 	DWORDLONG totalPhysMem = memInfo.ullTotalPhys;
+	printf("totalPhysMem %lld\n", totalPhysMem);
 
 	DWORDLONG physMemUsed = memInfo.ullTotalPhys - memInfo.ullAvailPhys;
+	printf("physMemUsed %lld\n", physMemUsed);
 
 	SIZE_T physMemUsedByMe = pmc.WorkingSetSize;
+	printf("physMemUsedByMe %zu\n", physMemUsedByMe);
 }
 #endif
