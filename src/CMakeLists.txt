@@ -46,7 +46,7 @@ IF(WIN32)
 		parsers/winparser.c
 		common/rtime.c
 		platform/windows.c
-		#parsers/prom_format.c
+		parsers/prom_format.c
 		#events/process.c
 		#events/fs_write.c
 	)
