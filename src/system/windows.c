@@ -105,6 +105,62 @@ void PrintMemoryInfo( DWORD processID )
     CloseHandle( hProcess );
 }
 
+void descriptors_info( DWORD processID )
+{
+    HANDLE hProcess;
+    PROCESS_MEMORY_COUNTERS pmc;
+
+    // Print the process identifier.
+
+    printf( "\nProcess ID: %u\n", processID );
+
+    // Print information about the memory usage of the process.
+
+    hProcess = OpenProcess(  PROCESS_QUERY_INFORMATION |
+                                    PROCESS_VM_READ,
+                                    FALSE, processID );
+    if (NULL == hProcess)
+        return;
+
+    GetProcessHandleCount(GetCurrentProcess(), &handles_count);
+    handles_count *= 4;
+
+      DWORD type_char = 0, 
+      type_disk = 0, 
+      type_pipe = 0, 
+      type_remote = 0, 
+      type_unknown = 0,
+      handles_count = 0;
+
+    for (DWORD handle = 0x4; handle < handles_count; handle += 4) {
+        switch (GetFileType((HANDLE)handle)){
+            case FILE_TYPE_CHAR:
+                type_char++;
+                break;
+            case FILE_TYPE_DISK:
+                type_disk++;
+                break;
+            case FILE_TYPE_PIPE: 
+                type_pipe++;
+                break;
+            case FILE_TYPE_REMOTE: 
+                type_remote++;
+                break;
+            case FILE_TYPE_UNKNOWN:
+                if (GetLastError() == NO_ERROR) type_unknown++;
+                break;
+
+        }
+    }
+    printf("char devices %lu\n", type_char);
+    printf("disk devices %lu\n", type_disk);
+    printf("pipe devices %lu\n", type_pipe);
+    printf("remote devices %lu\n", type_remote);
+    printf("unknown devices %lu\n", type_unknown);
+
+    CloseHandle( hProcess );
+}
+
 void getprocessinfo()
 {
  DWORD aProcesses[1024], cbNeeded, cProcesses;
@@ -123,6 +179,7 @@ void getprocessinfo()
     for ( i = 0; i < cProcesses; i++ )
     {
 	get_process_name(aProcesses[i]);
+	descriptors_info(aProcesses[i]);
         PrintMemoryInfo(aProcesses[i]);
     }
 
@@ -430,7 +487,7 @@ void get_system_metrics()
 	SIZE_T physMemUsedByMe = pmc.WorkingSetSize;
 	printf("physMemUsedByMe %zu\n", physMemUsedByMe);
 
-	//getprocessinfo();
+	getprocessinfo();
 	get_network_stats();
 	get_tcp_counters(AF_INET);
 	get_tcp_counters(AF_INET6);
