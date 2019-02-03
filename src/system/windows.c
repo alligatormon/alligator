@@ -104,7 +104,7 @@ void getprocessinfo()
 
     if ( !EnumProcesses( aProcesses, sizeof(aProcesses), &cbNeeded ) )
     {
-        return 1;
+        return;
     }
 
     // Calculate how many process identifiers were returned.
@@ -127,7 +127,7 @@ void getprocessinfo()
 
     }
 
-    return 0;
+    return;
 }
 
 void get_system_metrics()
