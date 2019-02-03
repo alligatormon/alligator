@@ -236,6 +236,38 @@ void get_udp_counters(int family)
         FREE (pUDPStats);
 }
 
+void get_icmp_counters(int family)
+{
+
+    DWORD dwRetVal = 0;
+    PMIB_ICMP_EX pIcmpStats;
+
+    pIcmpStats = (MIB_ICMP *) MALLOC(sizeof (MIB_ICMP));
+    if (pIcmpStats == NULL) {
+        wprintf(L"Error allocating memory\n");
+        return 1;
+    }
+
+    dwRetVal = GetIcmpStatisticsEx(pIcmpStats, family);
+    if (dwRetVal == NO_ERROR) {
+        wprintf(L"Number of incoming ICMP messages: %ld\n",
+                pIcmpStats->stats.icmpInStats.dwMsgs);
+        wprintf(L"Number of incoming ICMP errors received: %ld\n",
+                pIcmpStats->stats.icmpInStats.dwErrors);
+        wprintf(L"Number of outgoing ICMP messages: %ld\n",
+                pIcmpStats->stats.icmpOutStats.dwMsgs);
+        wprintf(L"Number of outgoing ICMP errors sent: %ld\n",
+                pIcmpStats->stats.icmpOutStats.dwErrors);
+    } else {
+        wprintf(L"GetIcmpStatistics failed with error: %ld\n", dwRetVal);
+    }
+
+    if (pIcmpStats)
+        FREE(pIcmpStats);
+
+    return 0;
+}
+
 void get_network_stats()
 {
     PMIB_TCPTABLE2 pTcpTable;
@@ -406,5 +438,7 @@ void get_system_metrics()
 	get_tcp_counters(AF_INET6);
 	get_udp_counters(AF_INET);
 	get_udp_counters(AF_INET6);
+	get_icmp_counters(AF_INET);
+	get_icmp_counters(AF_INET6);
 }
 #endif
