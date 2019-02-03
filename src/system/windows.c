@@ -5,9 +5,9 @@
 #include <iphlpapi.h>
 #include <windows.h>
 #include <psapi.h>
-//#pragma comment(lib, "user32.lib")
-//#pragma comment(lib, "iphlpapi.lib")
-//#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
 
 #define MALLOC(x) HeapAlloc(GetProcessHeap(), 0, (x))
 #define FREE(x) HeapFree(GetProcessHeap(), 0, (x))
