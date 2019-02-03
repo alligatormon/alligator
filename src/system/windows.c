@@ -112,18 +112,25 @@ void getprocessinfo()
     cProcesses = cbNeeded / sizeof(DWORD);
 
     // Print the memory usage for each process
-
     for ( i = 0; i < cProcesses; i++ )
     {
 	get_process_name(aProcesses[i]);
         PrintMemoryInfo(aProcesses[i]);
-	double startTime, endTime;
+    }
 
-	startTime = getCPUTime(aProcesses[i]);
-	Sleep(1000);
-	endTime = getCPUTime(aProcesses[i]);
-
-	fprintf( stderr, "CPU time used = %lf\n", (endTime - startTime) );
+    double startTime[65535];
+    uint32_t n;
+    for ( i = 0; i < cProcesses; i++ )
+    {
+	startTime[i] = getCPUTime(aProcesses[i]);
+    }
+    n = i;
+    Sleep(1000);
+    for ( i = 0; i < n; i++ )
+    {
+	get_process_name(aProcesses[i]);
+	double endTime = getCPUTime(aProcesses[i]);
+	fprintf( stderr, "CPU time used = %lf\n", (endTime - startTime[i]) );
 
     }
 
