@@ -2,9 +2,9 @@
 #include <windows.h>
 #include <stdio.h>
 #include <psapi.h>
-#include <winsock2.h>
+//#include <winsock2.h>
 //#include <ws2tcpip.h>
-#include <iphlpapi.h>
+//#include <iphlpapi.h>
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
