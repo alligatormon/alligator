@@ -245,7 +245,7 @@ void get_icmp_counters(int family)
     pIcmpStats = (MIB_ICMP *) MALLOC(sizeof (MIB_ICMP));
     if (pIcmpStats == NULL) {
         wprintf(L"Error allocating memory\n");
-        return 1;
+        return;
     }
 
     dwRetVal = GetIcmpStatisticsEx(pIcmpStats, family);
@@ -264,8 +264,6 @@ void get_icmp_counters(int family)
 
     if (pIcmpStats)
         FREE(pIcmpStats);
-
-    return 0;
 }
 
 void get_network_stats()
