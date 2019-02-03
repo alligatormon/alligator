@@ -85,20 +85,20 @@ void PrintMemoryInfo( DWORD processID )
 
     if ( GetProcessMemoryInfo( hProcess, &pmc, sizeof(pmc)) )
     {
-        printf( "\tPageFaultCount: 0x%08X\n", pmc.PageFaultCount );
-        printf( "\tPeakWorkingSetSize: 0x%08X\n", 
+        printf( "\tPageFaultCount: %lu\n", pmc.PageFaultCount );
+        printf( "\tPeakWorkingSetSize: %lu\n", 
                   pmc.PeakWorkingSetSize );
-        printf( "\tWorkingSetSize: 0x%08X\n", pmc.WorkingSetSize );
-        printf( "\tQuotaPeakPagedPoolUsage: 0x%08X\n", 
+        printf( "\tWorkingSetSize: %lu\n", pmc.WorkingSetSize );
+        printf( "\tQuotaPeakPagedPoolUsage: %lu\n", 
                   pmc.QuotaPeakPagedPoolUsage );
-        printf( "\tQuotaPagedPoolUsage: 0x%08X\n", 
+        printf( "\tQuotaPagedPoolUsage: %lu\n", 
                   pmc.QuotaPagedPoolUsage );
-        printf( "\tQuotaPeakNonPagedPoolUsage: 0x%08X\n", 
+        printf( "\tQuotaPeakNonPagedPoolUsage: %lu\n", 
                   pmc.QuotaPeakNonPagedPoolUsage );
-        printf( "\tQuotaNonPagedPoolUsage: 0x%08X\n", 
+        printf( "\tQuotaNonPagedPoolUsage: %lu\n", 
                   pmc.QuotaNonPagedPoolUsage );
-        printf( "\tPagefileUsage: 0x%08X\n", pmc.PagefileUsage ); 
-        printf( "\tPeakPagefileUsage: 0x%08X\n", 
+        printf( "\tPagefileUsage: %lu\n", pmc.PagefileUsage ); 
+        printf( "\tPeakPagefileUsage: %lu\n", 
                   pmc.PeakPagefileUsage );
     }
 
@@ -144,7 +144,7 @@ void getprocessinfo()
     return;
 }
 
-void get_network_counters(int family)
+void get_tcp_counters(int family)
 {
     PMIB_TCPSTATS pTCPStats;
     DWORD dwRetVal = 0;
@@ -194,6 +194,46 @@ void get_network_counters(int family)
 
     if (pTCPStats)
         FREE (pTCPStats);
+}
+
+void get_udp_counters(int family)
+{
+    PMIB_UDPSTATS pUDPStats;
+    DWORD dwRetVal = 0;
+
+    pUDPStats = (MIB_UDPSTATS*) MALLOC (sizeof(MIB_UDPSTATS));
+    if (pUDPStats == NULL) {
+        printf("Error allocating memory\n");
+        return 1;
+    }
+
+    if ((dwRetVal = GetUdpStatisticsEx(pUDPStats, family)) == NO_ERROR) {
+      printf("\tReceive datagrams: %ld\n", pUDPStats->dwInDatagrams);
+      printf("\tUDP port errors: %ld\n", pUDPStats->dwNoPorts);
+      printf("\tUDP errors: %ld\n", pUDPStats->dwInErrors);
+      printf("\tTransmit UDP %ld\n", pUDPStats->dwOutDatagrams);
+      printf("\tUDP listens: %ld\n", pUDPStats->dwNumAddrs);
+    }
+    else {
+      printf("GetUdpStatistics failed with error: %ld\n", dwRetVal);
+
+      LPVOID lpMsgBuf;
+      if (FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+        FORMAT_MESSAGE_FROM_SYSTEM | 
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        dwRetVal,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
+        (LPTSTR) &lpMsgBuf,
+        0,
+        NULL )) {
+        printf("\tError: %s", lpMsgBuf);
+      }
+      LocalFree( lpMsgBuf );
+    }
+
+    if (pUDPStats)
+        FREE (pUDPStats);
 }
 
 void get_network_stats()
@@ -362,7 +402,7 @@ void get_system_metrics()
 
 	//getprocessinfo();
 	get_network_stats();
-	get_network_counters(AF_INET);
-	get_network_counters(AF_INET6);
+	get_tcp_counters(AF_INET);
+	get_tcp_counters(AF_INET6);
 }
 #endif
