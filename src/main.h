@@ -34,6 +34,11 @@ typedef struct aconf
 	int64_t unixgram_aggregator_startup;
 	int64_t unixgram_aggregator_repeat;
 
+	// SYSTEM METRICS SCRAPE
+	tommy_hashdyn* system_aggregator;
+	int64_t system_aggregator_startup;
+	int64_t system_aggregator_repeat;
+
 	// PROCESS SPAWNER
 	tommy_hashdyn* process_spawner; // hashtable with commands
 	char *process_script_dir; // dir where store commands into scripts

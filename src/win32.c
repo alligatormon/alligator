@@ -48,6 +48,11 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->aggregator);
 	tommy_hashdyn_init(ac->process_spawner);
 
+	ac->system_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->system_aggregator);
+	ac->system_aggregator_startup = 1000;
+	ac->system_aggregator_repeat = 1000;
+
 	ac->request_cnt = 0;
 	ts_initialize();
 	config_context_initialize();
@@ -68,7 +73,9 @@ int main(int argc, char **argv)
 
 	tcp_client_handler();
 	//process_handler();
-	get_system_metrics();
+	//get_system_metrics();
+	do_system_scrape(get_system_metrics, "systemmetrics");
+	system_scrape_handler();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

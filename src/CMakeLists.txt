@@ -34,6 +34,7 @@ IF(WIN32)
 		events/uv_alloc.c
 		events/httpserver.c
 		events/client.c
+		events/system_scrape.c
 		common/base64.c
 		common/http.c
 		dstructures/metric.c
@@ -78,6 +79,7 @@ ELSE(WIN32)
 		events/general.c
 		events/filetailer.c
 		events/fs_write.c
+		events/system_scrape.c
 		parsers/prom_format.c
 		parsers/multiparser.c
 		parsers/clickhouse.c

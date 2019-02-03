@@ -58,6 +58,11 @@ aconf* configuration()
 	ac->unixgram_aggregator_startup = 1000;
 	ac->unixgram_aggregator_repeat = 1000;
 
+	ac->system_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->system_aggregator);
+	ac->system_aggregator_startup = 1000;
+	ac->system_aggregator_repeat = 1000;
+
 	ac->process_spawner = calloc(1, sizeof(tommy_hashdyn));
 	ac->process_script_dir = "/var/alligator/spawner";
 	ac->process_cnt = 0;
@@ -90,10 +95,12 @@ int main(int argc, char **argv)
 #ifndef __APPLE__
 	icmp_client_handler();
 #endif
+	do_system_scrape(get_system_metrics, "systemmetrics");
+	system_scrape_handler();
 	process_handler();
 	unix_client_handler();
 	unixgram_client_handler();
-	get_system_metrics();
+	//get_system_metrics();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }
