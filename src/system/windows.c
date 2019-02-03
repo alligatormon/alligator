@@ -251,13 +251,13 @@ void get_icmp_counters(int family)
     dwRetVal = GetIcmpStatisticsEx(pIcmpStats, family);
     if (dwRetVal == NO_ERROR) {
         wprintf(L"Number of incoming ICMP messages: %ld\n",
-                pIcmpStats->stats.icmpInStats.dwMsgs);
+                pIcmpStats->icmpInStats.dwMsgs);
         wprintf(L"Number of incoming ICMP errors received: %ld\n",
-                pIcmpStats->stats.icmpInStats.dwErrors);
+                pIcmpStats->icmpInStats.dwErrors);
         wprintf(L"Number of outgoing ICMP messages: %ld\n",
-                pIcmpStats->stats.icmpOutStats.dwMsgs);
+                pIcmpStats->icmpOutStats.dwMsgs);
         wprintf(L"Number of outgoing ICMP errors sent: %ld\n",
-                pIcmpStats->stats.icmpOutStats.dwErrors);
+                pIcmpStats->icmpOutStats.dwErrors);
     } else {
         wprintf(L"GetIcmpStatistics failed with error: %ld\n", dwRetVal);
     }
