@@ -404,5 +404,7 @@ void get_system_metrics()
 	get_network_stats();
 	get_tcp_counters(AF_INET);
 	get_tcp_counters(AF_INET6);
+	get_udp_counters(AF_INET);
+	get_udp_counters(AF_INET6);
 }
 #endif
