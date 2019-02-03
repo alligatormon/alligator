@@ -61,6 +61,7 @@ double getCPUTime( DWORD processID )
                 (double)userSystemTime.wSecond +
                 (double)userSystemTime.wMilliseconds / 1000.0;
     }
+    CloseHandle(hProcess);
     return -1;
 }
 
@@ -307,6 +308,7 @@ void get_system_metrics()
 	SIZE_T physMemUsedByMe = pmc.WorkingSetSize;
 	printf("physMemUsedByMe %zu\n", physMemUsedByMe);
 
-	getprocessinfo();
+	//getprocessinfo();
+	get_network_stats();
 }
 #endif
