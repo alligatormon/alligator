@@ -122,15 +122,16 @@ void descriptors_info( DWORD processID )
     if (NULL == hProcess)
         return;
 
-    GetProcessHandleCount(GetCurrentProcess(), &handles_count);
-    handles_count *= 4;
-
       DWORD type_char = 0, 
       type_disk = 0, 
       type_pipe = 0, 
       type_remote = 0, 
       type_unknown = 0,
       handles_count = 0;
+
+    GetProcessHandleCount(GetCurrentProcess(), &handles_count);
+    handles_count *= 4;
+
 
     for (DWORD handle = 0x4; handle < handles_count; handle += 4) {
         switch (GetFileType((HANDLE)handle)){
