@@ -115,11 +115,12 @@ void getprocessinfo()
 
     for ( i = 0; i < cProcesses; i++ )
     {
-        PrintMemoryInfo( aProcesses[i] );
+	get_process_name(aProcesses[i])
+        PrintMemoryInfo(aProcesses[i]);
 	double startTime, endTime;
 
-	startTime = getCPUTime( );
-	endTime = getCPUTime( );
+	startTime = getCPUTime(aProcesses[i]);
+	endTime = getCPUTime(aProcesses[i]);
 
 	fprintf( stderr, "CPU time used = %lf\n", (endTime - startTime) );
 
