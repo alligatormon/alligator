@@ -144,7 +144,7 @@ void getprocessinfo()
     return;
 }
 
-void get_network_counters()
+void get_network_counters(int family)
 {
     PMIB_TCPSTATS pTCPStats;
     DWORD dwRetVal = 0;
@@ -155,16 +155,28 @@ void get_network_counters()
         return 1;
     }
 
-    if ((dwRetVal = GetTcpStatisticsEx2(pTCPStats)) == NO_ERROR) {
+    if ((dwRetVal = GetTcpStatisticsEx(pTCPStats, family)) == NO_ERROR) {
       printf("\tActive Opens: %ld\n", pTCPStats->dwActiveOpens);
       printf("\tPassive Opens: %ld\n", pTCPStats->dwPassiveOpens);
       printf("\tSegments Recv: %ld\n", pTCPStats->dwInSegs);
       printf("\tSegments Xmit: %ld\n", pTCPStats->dwOutSegs);
-      printf("\tTotal # Conxs: %ld\n", pTCPStats->dwNumConns);
+      printf("\tTotal # Conxs: %ld\n", pTCPStats->dwAttemptFails);
+      printf("\tAttemp failed: %ld\n", pTCPStats->dwAttemptFails);
+      printf("\tcurr estab: %ld\n", pTCPStats->dwCurrEstab);
+      printf("\testab reset: %ld\n", pTCPStats->dwEstabResets);
+      printf("\tIn err: %ld\n", pTCPStats->dwInErrs);
+      printf("\tmax conn: %ld\n", pTCPStats->dwMaxConn);
+      printf("\tNum conn: %ld\n", pTCPStats->dwNumConns);
+      printf("\tout rst: %ld\n", pTCPStats->dwOutRsts);
+      printf("\tretrans seg: %ld\n", pTCPStats->dwRetransSegs);
+       printf("\tRtoAlgorithm: %ld\n", pTCPStats->dwRtoAlgorithm);
+        printf("\RtoMax: %ld\n", pTCPStats->dwRtoMax);
+         printf("\RtoMin: %ld\n", pTCPStats->dwRtoMin);
+          printf("\RtoAlgorithm: %ld\n", pTCPStats->RtoAlgorithm);
     }
     else {
       printf("GetTcpStatistics failed with error: %ld\n", dwRetVal);
-      
+
       LPVOID lpMsgBuf;
       if (FormatMessage( FORMAT_MESSAGE_ALLOCATE_BUFFER | 
         FORMAT_MESSAGE_FROM_SYSTEM | 
@@ -350,6 +362,7 @@ void get_system_metrics()
 
 	//getprocessinfo();
 	get_network_stats();
-	get_network_counters();
+	get_network_counters(AF_INET);
+	get_network_counters(AF_INET6);
 }
 #endif
