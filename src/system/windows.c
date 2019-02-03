@@ -3,6 +3,61 @@
 #include <stdio.h>
 #include <psapi.h>
 #pragma comment(lib, "user32.lib")
+
+
+double get_process_name( DWORD processID )
+{
+    HANDLE hProcess;
+    PROCESS_MEMORY_COUNTERS pmc;
+
+    printf( "\nProcess ID: %u\n", processID );
+
+    hProcess = OpenProcess(  PROCESS_QUERY_INFORMATION |
+                                    PROCESS_VM_READ,
+                                    FALSE, processID );
+    if (NULL == hProcess)
+        return;
+        TCHAR Buffer[MAX_PATH];
+        if (GetModuleFileNameEx(hProcess, 0, Buffer, MAX_PATH))
+        {
+            printf("name: %s\n", Buffer);
+        }
+        else
+        {
+            // You better call GetLastError() here
+        }
+        CloseHandle(hProcess);
+}
+
+double getCPUTime( DWORD processID )
+{
+    HANDLE hProcess;
+    PROCESS_MEMORY_COUNTERS pmc;
+
+    printf( "\nProcess ID: %u\n", processID );
+
+    hProcess = OpenProcess(  PROCESS_QUERY_INFORMATION |
+                                    PROCESS_VM_READ,
+                                    FALSE, processID );
+    if (NULL == hProcess)
+        return;
+    FILETIME createTime;
+    FILETIME exitTime;
+    FILETIME kernelTime;
+    FILETIME userTime;
+    if ( GetProcessTimes( hProcess, &createTime, &exitTime, &kernelTime, &userTime ) != -1 )
+    {
+        SYSTEMTIME userSystemTime;
+        if ( FileTimeToSystemTime( &userTime, &userSystemTime ) != -1 )
+            return (double)userSystemTime.wHour * 3600.0 +
+                (double)userSystemTime.wMinute * 60.0 +
+                (double)userSystemTime.wSecond +
+                (double)userSystemTime.wMilliseconds / 1000.0;
+    }
+    return -1;
+}
+
+
 void PrintMemoryInfo( DWORD processID )
 {
     HANDLE hProcess;
@@ -61,6 +116,13 @@ void getprocessinfo()
     for ( i = 0; i < cProcesses; i++ )
     {
         PrintMemoryInfo( aProcesses[i] );
+	double startTime, endTime;
+
+	startTime = getCPUTime( );
+	endTime = getCPUTime( );
+
+	fprintf( stderr, "CPU time used = %lf\n", (endTime - startTime) );
+
     }
 
     return 0;
