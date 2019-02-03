@@ -120,7 +120,7 @@ void getprocessinfo()
 	double startTime, endTime;
 
 	startTime = getCPUTime(aProcesses[i]);
-	sleep(1);
+	Sleep(1000);
 	endTime = getCPUTime(aProcesses[i]);
 
 	fprintf( stderr, "CPU time used = %lf\n", (endTime - startTime) );
