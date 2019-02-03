@@ -119,12 +119,11 @@ void getprocessinfo()
     }
 
     double startTime[65535];
-    uint32_t n;
     for ( i = 0; i < cProcesses; i++ )
     {
 	startTime[i] = getCPUTime(aProcesses[i]);
     }
-    n = i;
+    unsigned int n = i;
     Sleep(1000);
     for ( i = 0; i < n; i++ )
     {
