@@ -115,7 +115,7 @@ void getprocessinfo()
 
     for ( i = 0; i < cProcesses; i++ )
     {
-	get_process_name(aProcesses[i])
+	get_process_name(aProcesses[i]);
         PrintMemoryInfo(aProcesses[i]);
 	double startTime, endTime;
 
