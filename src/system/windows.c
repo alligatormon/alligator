@@ -183,7 +183,6 @@ void get_network_counters()
     if (pTCPStats)
         FREE (pTCPStats);
 }
-}
 
 void get_network_stats()
 {
