@@ -155,7 +155,7 @@ void get_network_counters()
         return 1;
     }
 
-    if ((dwRetVal = GetTcpStatistics(pTCPStats)) == NO_ERROR) {
+    if ((dwRetVal = GetTcpStatisticsEx2(pTCPStats)) == NO_ERROR) {
       printf("\tActive Opens: %ld\n", pTCPStats->dwActiveOpens);
       printf("\tPassive Opens: %ld\n", pTCPStats->dwPassiveOpens);
       printf("\tSegments Recv: %ld\n", pTCPStats->dwInSegs);
