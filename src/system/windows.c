@@ -5,6 +5,7 @@
 #include <iphlpapi.h>
 #include <windows.h>
 #include <psapi.h>
+#include <tlhelp32.h>
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
