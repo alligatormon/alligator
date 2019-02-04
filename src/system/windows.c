@@ -247,6 +247,12 @@ void getprocessinfo()
     // Print the memory usage for each process
     for ( i = 0; i < cProcesses; i++ )
     {
+	puts("------------------------");
+	puts("------------------------");
+	puts("------------------------");
+	puts("------------------------");
+	puts("------------------------");
+	puts("------------------------");
 	get_process_name(aProcesses[i]);
 	descriptors_info(aProcesses[i]);
         PrintMemoryInfo(aProcesses[i]);
