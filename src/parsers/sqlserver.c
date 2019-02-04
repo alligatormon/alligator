@@ -4,11 +4,11 @@
 #include <sql.h>
 #include <sqlext.h>
 
-void show_error(unsigned int handletype, const SQLHANDLE& handle)
+void show_error(unsigned int handletype, const SQLHANDLE* handle)
 {
 	SQLCHAR sqlstate[1024];
 	SQLCHAR message[1024];
-	if(SQL_SUCCESS == SQLGetDiagRec(handletype, handle, 1, sqlstate, NULL, message, 1024, NULL))
+	if(SQL_SUCCESS == SQLGetDiagRec(handletype, *handle, 1, sqlstate, NULL, message, 1024, NULL))
 	printf("Message: %s, SQLSTATE: %s\n", sqlstate);
 }
 
@@ -51,7 +51,7 @@ void sqlserver_handler()
 			break;
 		if(SQL_SUCCESS!=SQLExecDirect(sqlstatementhandle, (SQLCHAR*)"select * from testtable", SQL_NTS))
 		{
-			show_error(SQL_HANDLE_STMT, sqlstatementhandle);
+			show_error(SQL_HANDLE_STMT, &sqlstatementhandle);
 			break;
 		}
 		else
