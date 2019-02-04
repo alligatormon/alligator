@@ -185,7 +185,6 @@ DWORD EnumerateThreads(DWORD pid)
 
             if (!hSnapThread)
             {
-                FormatErrorMessage("GetLastError -> hSnapThread = CreateToolhelp32Snapshot\n", GetLastError());
                 FREE(pte32);
                 bStarted = 0;
                 return 0;
@@ -204,8 +203,6 @@ DWORD EnumerateThreads(DWORD pid)
                 } 
                 while (Thread32Next(hSnapThread, pte32));
             }
-            else
-                FormatErrorMessage("GetLastError ->Thread32First\n", GetLastError());
         }
     }
 
@@ -222,8 +219,6 @@ DWORD EnumerateThreads(DWORD pid)
         }
         while (Thread32Next(hSnapThread, pte32));
     }
-    else
-        FormatErrorMessage("GetLastError ->Thread32First\n", GetLastError());
 
     CloseHandle(hSnapThread);
     bStarted = 0;
