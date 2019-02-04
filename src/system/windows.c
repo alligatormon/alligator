@@ -178,7 +178,7 @@ DWORD EnumerateThreads(DWORD pid)
         if (!bStarted)
         {
             bStarted++;
-            pte32 = malloc(THREADENTRY32);
+            pte32 = MALLOC(THREADENTRY32);
             pte32->dwSize = sizeof(THREADENTRY32);
 
             hSnapThread = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -186,7 +186,7 @@ DWORD EnumerateThreads(DWORD pid)
             if (!hSnapThread)
             {
                 FormatErrorMessage("GetLastError -> hSnapThread = CreateToolhelp32Snapshot\n", GetLastError());
-                delete pte32;
+                FREE(pte32);
                 bStarted = 0;
                 return 0;
             }
@@ -227,7 +227,7 @@ DWORD EnumerateThreads(DWORD pid)
 
     CloseHandle(hSnapThread);
     bStarted = 0;
-    delete pte32;
+    FREE(pte32);
 
     OutputDebugString("__finished EnumerateThreads\n");
 
