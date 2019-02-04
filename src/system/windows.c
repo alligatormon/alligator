@@ -178,7 +178,7 @@ DWORD EnumerateThreads(DWORD pid)
         if (!bStarted)
         {
             bStarted++;
-            pte32 = new THREADENTRY32;
+            pte32 = malloc(THREADENTRY32);
             pte32->dwSize = sizeof(THREADENTRY32);
 
             hSnapThread = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
