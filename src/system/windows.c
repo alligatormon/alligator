@@ -165,6 +165,7 @@ void descriptors_info( DWORD processID )
 
 DWORD EnumerateThreads(DWORD pid)
 {
+	puts("===============================");
     char szText[MAX_PATH];
 
     static BOOL bStarted;
@@ -557,12 +558,12 @@ void get_system_metrics()
 	printf("physMemUsedByMe %zu\n", physMemUsedByMe);
 
 	getprocessinfo();
-	get_network_stats();
-	get_tcp_counters(AF_INET);
-	get_tcp_counters(AF_INET6);
-	get_udp_counters(AF_INET);
-	get_udp_counters(AF_INET6);
-	//get_icmp_counters(AF_INET);
-	//get_icmp_counters(AF_INET6);
+	//get_network_stats();
+	//get_tcp_counters(AF_INET);
+	//get_tcp_counters(AF_INET6);
+	//get_udp_counters(AF_INET);
+	//get_udp_counters(AF_INET6);
+	//////get_icmp_counters(AF_INET);
+	//////get_icmp_counters(AF_INET6);
 }
 #endif
