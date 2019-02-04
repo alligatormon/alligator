@@ -162,6 +162,77 @@ void descriptors_info( DWORD processID )
     CloseHandle( hProcess );
 }
 
+DWORD EnumerateThreads(DWORD pid)
+{
+    char szText[MAX_PATH];
+
+    static BOOL bStarted;
+    static HANDLE hSnapPro, hSnapThread;
+    static LPPROCESSENTRY32 ppe32;
+    static PTHREADENTRY32 pte32;
+
+
+    if (!bStarted)
+    {
+        if (!bStarted)
+        {
+            bStarted++;
+            pte32 = new THREADENTRY32;
+            pte32->dwSize = sizeof(THREADENTRY32);
+
+            hSnapThread = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+
+            if (!hSnapThread)
+            {
+                FormatErrorMessage("GetLastError -> hSnapThread = CreateToolhelp32Snapshot\n", GetLastError());
+                delete pte32;
+                bStarted = 0;
+                return 0;
+            }
+
+            if (Thread32First(hSnapThread, pte32))
+            {
+                do
+                {
+                    if (pid == pte32->th32OwnerProcessID)
+                    {
+                        wsprintf(szText, "__yes Thread32First pid: 0x%X - tid: 0x%X\n", pid, pte32->th32ThreadID);
+                        OutputDebugString(szText);
+                        return pte32->th32ThreadID;
+                    }
+                } 
+                while (Thread32Next(hSnapThread, pte32));
+            }
+            else
+                FormatErrorMessage("GetLastError ->Thread32First\n", GetLastError());
+        }
+    }
+
+    if (Thread32Next(hSnapThread, pte32))
+    {
+        do
+        {
+            if (pid == pte32->th32OwnerProcessID)
+            {
+                wsprintf(szText, "__yes Thread32First pid: 0x%X - tid: 0x%X\n", pid, pte32->th32ThreadID);
+                OutputDebugString(szText);
+                return pte32->th32ThreadID;
+            }
+        }
+        while (Thread32Next(hSnapThread, pte32));
+    }
+    else
+        FormatErrorMessage("GetLastError ->Thread32First\n", GetLastError());
+
+    CloseHandle(hSnapThread);
+    bStarted = 0;
+    delete pte32;
+
+    OutputDebugString("__finished EnumerateThreads\n");
+
+    return 0;
+}
+
 void getprocessinfo()
 {
  DWORD aProcesses[1024], cbNeeded, cProcesses;
@@ -182,6 +253,7 @@ void getprocessinfo()
 	get_process_name(aProcesses[i]);
 	descriptors_info(aProcesses[i]);
         PrintMemoryInfo(aProcesses[i]);
+        EnumerateThreads(aProcesses[i]);
     }
 
     double startTime[65535];
