@@ -48,6 +48,7 @@ IF(WIN32)
 		common/rtime.c
 		platform/windows.c
 		parsers/prom_format.c
+		parsers/sqlserver.c
 		#events/process.c
 		#events/fs_write.c
 	)
