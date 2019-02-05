@@ -51,12 +51,12 @@ void sqlserver_handler()
 				SQL_NTS, retconstring, 1024, NULL,SQL_DRIVER_NOPROMPT))
 		{
 			case SQL_SUCCESS_WITH_INFO:
-				show_error(SQL_HANDLE_DBC, sqlconnectionhandle);
+				show_error(SQL_HANDLE_DBC, &sqlconnectionhandle);
 	puts("11");
 				break;
 			case SQL_INVALID_HANDLE:
 			case SQL_ERROR:
-				show_error(SQL_HANDLE_DBC, sqlconnectionhandle);
+				show_error(SQL_HANDLE_DBC, &sqlconnectionhandle);
 				retcode = -1;
 	puts("12");
 				break;
