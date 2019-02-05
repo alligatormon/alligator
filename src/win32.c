@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 	//process_handler();
 	//get_system_metrics();
 	do_system_scrape(get_system_metrics, "systemmetrics");
-	//sqlserver_handler();
+	sqlserver_handler();
 	system_scrape_handler();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
