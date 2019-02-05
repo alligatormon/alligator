@@ -563,7 +563,7 @@ void get_system_metrics()
 	SIZE_T physMemUsedByMe = pmc.WorkingSetSize;
 	printf("physMemUsedByMe %zu\n", physMemUsedByMe);
 
-	getprocessinfo();
+	//getprocessinfo();
 	//get_network_stats();
 	//get_tcp_counters(AF_INET);
 	//get_tcp_counters(AF_INET6);
