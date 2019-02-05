@@ -14,7 +14,7 @@ void show_error(unsigned int handletype, const SQLHANDLE handle)
 	if(SQL_SUCCESS == SQLGetDiagRec(handletype, handle, 1, sqlstate, NULL, message, 1024, NULL))
 	{
 	puts("103");
-		printf("Message: %s, SQLSTATE: %s\n", sqlstate);
+		printf("Message: %s, SQLSTATE: %s\n", message, sqlstate);
 	}
 	puts("104");
 }
