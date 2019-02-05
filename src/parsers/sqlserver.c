@@ -4,14 +4,14 @@
 #include <sql.h>
 #include <sqlext.h>
 
-void show_error(unsigned int handletype, const SQLHANDLE* handle)
+void show_error(unsigned int handletype, const SQLHANDLE handle)
 {
 	puts("100");
 	SQLCHAR sqlstate[1024];
 	puts("101");
 	SQLCHAR message[1024];
 	puts("102");
-	if(SQL_SUCCESS == SQLGetDiagRec(handletype, *handle, 1, sqlstate, NULL, message, 1024, NULL))
+	if(SQL_SUCCESS == SQLGetDiagRec(handletype, handle, 1, sqlstate, NULL, message, 1024, NULL))
 	{
 	puts("103");
 		printf("Message: %s, SQLSTATE: %s\n", sqlstate);
@@ -51,12 +51,12 @@ void sqlserver_handler()
 				SQL_NTS, retconstring, 1024, NULL,SQL_DRIVER_NOPROMPT))
 		{
 			case SQL_SUCCESS_WITH_INFO:
-				show_error(SQL_HANDLE_DBC, &sqlconnectionhandle);
+				show_error(SQL_HANDLE_DBC, sqlconnectionhandle);
 	puts("11");
 				break;
 			case SQL_INVALID_HANDLE:
 			case SQL_ERROR:
-				show_error(SQL_HANDLE_DBC, &sqlconnectionhandle);
+				show_error(SQL_HANDLE_DBC, sqlconnectionhandle);
 				retcode = -1;
 	puts("12");
 				break;
@@ -74,7 +74,7 @@ void sqlserver_handler()
 	puts("16");
 		if(SQL_SUCCESS!=SQLExecDirect(sqlstatementhandle, (SQLCHAR*)"select * from testtable", SQL_NTS))
 		{
-			show_error(SQL_HANDLE_STMT, &sqlstatementhandle);
+			show_error(SQL_HANDLE_STMT, sqlstatementhandle);
 			break;
 	puts("17");
 		}
