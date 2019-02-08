@@ -61,7 +61,7 @@ aconf* configuration()
 	ac->system_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->system_aggregator);
 	ac->system_aggregator_startup = 1000;
-	ac->system_aggregator_repeat = 1000;
+	ac->system_aggregator_repeat = 10000;
 
 	ac->process_spawner = calloc(1, sizeof(tommy_hashdyn));
 	ac->process_script_dir = "/var/alligator/spawner";
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	general_loop();
 	if (argc < 2)
-		split_config("alligator.conf");
+		split_config("/etc/alligator.conf");
 	else
 		split_config(argv[1]);
 
