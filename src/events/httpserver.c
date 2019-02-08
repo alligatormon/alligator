@@ -4,6 +4,12 @@
 #include <uv.h>
 #include "events/uv_alloc.h"
 
+typedef struct http_info
+{
+	uv_stream_t *client;
+	char *answ;
+} http_info;
+
 #define CONNECTIONS_COUNT (128)
 
 void socket_write_cb(uv_write_t *req, int status)
@@ -12,13 +18,17 @@ void socket_write_cb(uv_write_t *req, int status)
 		fprintf(stderr, "Write error %s\n", uv_strerror(status));
 	}
 
-	uv_stream_t *client = req->data;
+	http_info *hinfo = req->data;
+	uv_stream_t *client = hinfo->client;
 	uv_close((uv_handle_t *)client, NULL);
+	free(hinfo->answ);
+	free(hinfo);
 	free(req);
 }
 
 void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 {
+	http_info *hinfo = malloc(sizeof(*hinfo));
 	if (nread < 0) {
 		if (nread != UV_EOF)
 			fprintf(stderr, "Read error %s\n", uv_err_name(nread));
@@ -32,7 +42,9 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 
 		uv_write_t *req = (uv_write_t *) malloc(sizeof(uv_write_t));
 		uv_buf_t write_buf = uv_buf_init(answ, strlen(answ));
-		req->data = client;
+		hinfo->answ = answ;
+		hinfo->client = client;
+		req->data = hinfo;
 
 		uv_write(req, client, &write_buf, 1, socket_write_cb);
 	}

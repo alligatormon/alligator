@@ -18,7 +18,7 @@ void metricprint_forearch(void *funcarg, void* arg)
 	}
 	else
 	{
-		if ( !metric->res->d || !metric->key )
+		if ( !metric->key )
 			return;
 		if ( metric->res->en == ALLIGATOR_DATATYPE_DOUBLE )
 			snprintf(buf,NAMELEN,"%s %lf\n", metric->key, metric->res->d);

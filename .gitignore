@@ -7,3 +7,6 @@ src/alligator.conf
 src/CPackConfig.cmake
 src/CPackSourceConfig.cmake
 src/cmake_install.cmake
+src/install_manifest.txt
+src/_CPack_Packages/
+src/alligator-*.rpm
