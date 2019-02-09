@@ -20,3 +20,4 @@ char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint
 void stlentext(stlen *str, char *str2);
 void stlencat(stlen *str, char *str2, size_t len);
 mtlen* split_char_to_mtlen(char *str);
+char *gettextfile(char *path, size_t *filesz);

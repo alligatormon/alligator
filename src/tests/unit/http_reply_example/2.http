@@ -1,0 +1,10 @@
+HTTP/1.0 302 Found
+Date: Fri, 08 Feb 2019 23:26:56 GMT
+Location: https://ya.ru/
+Expires: Fri, 08 Feb 2019 23:26:57 GMT
+Last-Modified: Fri, 08 Feb 2019 23:26:57 GMT
+P3P: policyref="/w3c/p3p.xml", CP="NON DSP ADM DEV PSD IVDo OUR IND STP PHY PRE NAV UNI"
+Set-Cookie: yandexuid=8838172171549668416; Expires=Mon, 05-Feb-2029 23:26:56 GMT; Domain=.ya.ru; Path=/
+X-Content-Type-Options: nosniff
+Content-Length: 0
+

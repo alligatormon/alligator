@@ -1,0 +1,189 @@
+HTTP/1.1 404 Not Found
+Server: nginx
+Date: Sat, 09 Feb 2019 16:28:28 GMT
+Content-Type: text/html; charset=koi8-r
+Connection: close
+
+<HTML>
+<HEAD>
+   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=koi8-r">
+   <TITLE>The OpenNet Project: ресурс отсутствует на сервере.</TITLE>       
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#DDE1C2" LINK="#0000EF" VLINK="#51188E" ALINK="#FF0000">
+<LINK REL="stylesheet" href="/opennet4.css" type="text/css">
+<!--htdig_noindex-->
+<FORM method="get" action="http://www.opennet.ru/search.shtml">
+<aside>
+<div style="width: 100%; text-align: right; font-size: 70%; background: #E9EAD6; margin-bottom:-10px;">
+<!--#include virtual="/cgi-bin/opennet/rb2?login"-->
+</div>
+
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH="100%">
+<TR>
+<TD width=300 VALIGN="BOTTOM" BGCOLOR="#E9EAD6" style="background: #E9EAD6 url('/back.gif') repeat-x bottom left">
+<A HREF="https://www.opennet.ru/"><IMG SRC="/opennet2.gif" HEIGHT=60 WIDTH=249 ALT="The OpenNET Project" BORDER="0"></A><br>
+</TD>
+<TD WIDTH=100 ALIGN=CENTER BGCOLOR="#E9EAD6" style="background: #E9EAD6 url('/back.gif') repeat-x bottom left">
+
+</TD><TD WIDTH=50% ALIGN=CENTER BGCOLOR="#E9EAD6" style="background: #E9EAD6 url('/back.gif') repeat-x bottom left;padding-bottom:10px;">
+<table width="100%" border=0>
+<tr>
+<td width="22%">
+ <A HREF="https://www.opennet.ru/opennews/" class="h"><b><u>НОВОСТИ</u></b></A> (<a href="https://www.opennet.ru/news/opennet.shtml" class="h">+</a>)
+</td><td width="18%%">
+  <A HREF="https://www.opennet.ru/mp/" class="h"><b><u>КОНТЕНТ</u></b></A>
+</td><td width="14%">
+  <A HREF="http://wiki.opennet.ru" class="h"><b><u>WIKI</u></b></A>
+</td><td width="14%">
+   <A HREF="https://www.opennet.ru/man.shtml" class="h"><b><u>MAN'ы</u></b></A>
+</td><td width="16%">
+   <A HREF="https://www.opennet.ru/forum/" class="h"><b><u>ФОРУМ</u></b></A>
+</td><td width="16%">
+<INPUT type=hidden name=exclude value="index|/man.shtml">
+<A HREF="https://www.opennet.ru/search.shtml" class="h" onMouseOver="document.getElementById('form12').style.display='block';"><u>Поиск</u></A>&nbsp;(<A HREF="https://www.opennet.ru/keywords/" class="h">теги</A>)
+<INPUT id="form12" style="display: none;"; type="text" size="10" name="words" value="" title='для поиска в google наберите "g фраза"'>
+</td></tr>
+</table>
+
+</TD><TD align=right WIDTH=20% BGCOLOR="#E9EAD6" style="background: #E9EAD6 url('/back.gif') repeat-x bottom left;padding-bottom:5px;">
+
+<a href="https://www.opennet.ru/opennews/opennews_all_utf.rss"><img src="/img/rss.png" height="16" width="16" alt="RSS" title="RSS" border="0"></a>&nbsp;<a href="https://twitter.com/opennetru"><img src="/twitter.png" height="16" width="16" alt="twitter" title="Twitter" border="0"></a>&nbsp;<a href="https://vk.com/opennet"><img src="/img/vkontakte.gif" height="16" width="16" title="ВКонтакте" border="0"></a>&nbsp;<a href="https://zen.yandex.ru/opennet"><img src="/img/zen.gif" height="16" width="16" title="Yandex Zen" border="0"></a>&nbsp;<a href="https://www.facebook.com/OpenNet.News/"><img src="/img/facebook.gif" height="16" width="16" title="Facebook" border="0"></a>&nbsp;<a href="https://tlg.name/opennet_ru"><img src="/img/telegram2.png" height="16" width="16" title="Telegram" border="0"></a>
+</TABLE>
+</aside>
+
+<style>
+    .hdr_mobile {
+	text-align: center; 
+	display: none;
+	margin: 0px;
+	padding: 0px;
+    }
+</style>
+<div class=hdr_mobile>
+<div style="margin-left: auto; margin-right: auto; width: 100%; height: 70px; border:1px solid #b0b190; min-width: 360px; max-width: 600px; background: #E9EAD6 url('/back.gif') repeat-x bottom left;">
+<div style="float:left; width: 249px; height: 60px; margin-top: 10px;">
+<A HREF="https://www.opennet.ru"><IMG SRC="/opennet2_lite.gif" style="height: 60px; width: 249px; border: 1px;" ALT="The OpenNET Project / Index page"></A>
+</div>
+<div style="float: left; text-align: center; height: 70px; width: 331px; padding: 5px; margin-left: 10px;">
+<br><small>[ <a href="/opennews/">новости</a>&nbsp;/<a href="/opennews/?full_lines=15&amp;lines=15&amp;mid_lines=00">+++</a> | <a href="/forum/">форум</a> | <a href="http://wiki.opennet.ru">wiki</a> | <a href="/keywords/">теги</a>
+| <a href="https://tlg.name/opennet_ru"><img src="/img/telegram2.png" height="16" width="16" title="Telegram" border="0" style="margin-bottom: -4px;"></a>
+]</small>
+</div>
+</div>
+</div>
+<div style="clear: both;"></div>
+
+
+<div style="float: left; width: 279; text-align: left;padding-right: 60px;" id=adv>
+</div>
+<div style="padding-top: 0px;position:absolute;left:50%;margin-left:-235px;width:470px;" id=adv2>
+</div>
+<div style="width: 279;float: right;" id=adv3>
+</div>
+<div style="clear: both;"></div>
+<br>
+</FORM>
+<!--/htdig_noindex-->
+
+<CENTER><H3>
+<FONT COLOR="#FF0000">Запрошенный ресурс 
+"<u><FONT COLOR="#FF0000">/rfvfrvrv</FONT></u>"
+отсутствует на сервере <a href="https://www.opennet.ru"><FONT COLOR="#FF0000">https://www.opennet.ru</FONT></a>.</FONT></H3> 
+</CENTER>
+
+<p><li>Запросы вида "<b>https://opennet.ru/ключ</b>" автоматически перенаправляются на страницы с подборкой статей по данному ключу. Если в ответ на запрос отобразилась данная страница - искомого ключа нет в базе, попробуйте найти нужную информацию (ключ <b>rfvfrvrv</b>) через 
+<b><A HREF="https://www.opennet.ru/search.shtml?words=rfvfrvrv">локальную поисковую систему сайта</A></B> или через <b><A HREF="https://www.opennet.ru/keywords/">базу ключевых слов</A></b>. 
+<p><li>Устаревшие страницы форума (<b>/wwwboard</b>) удалены (1998-2000 годы), на форум можно попасть через <b><a href="https://forum.opennet.ru">forum.opennet.ru</a></b>.
+<p><li>Причина отсутствия страницы вида <b>/openforum/vsluhforumID?/?.html</b> - периодическое удаление пустых (не содержащих ответов) тредов в форуме, как правило такие страницы не содержит полезной информации.
+
+
+<P>Пожалуйста, сообщите отсутствующий URI и источник ссылки на него через нижеприведенную форму:
+<P><A NAME="guest"></A><FORM method="post" action="https://www.opennet.ru/cgi-bin/opennet/linux_guest_miss4.cgi">
+<CENTER><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=2 WIDTH="70%" BGCOLOR="#B0B190" >
+<TR>
+<TD>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH="100%" BGCOLOR="#DDE1C2" >
+<TR>
+<TD COLSPAN="3" BGCOLOR="#C7CBB1">
+<CENTER><FONT COLOR="#000088"><b>Сообщение для администрации</b></FONT></CENTER>
+</TD>
+</TR>
+<script>
+function sf(name){
+    return document.write('<IN'+'PUT type="te'+'xt" size="30" name="'+name+'" value="">');
+}
+</script>
+<TR>
+<TD>Ваше имя:&nbsp;<script>sf('user'+'name');</script>
+</TD>
+
+<TD>Ваш e-mail:&nbsp;<script>sf('em'+'ail');</script></TD>
+
+<TD><INPUT type="submit" value="Submit"></TD>
+</TR>
+
+<TR>
+<TD COLSPAN=3>Отсутствующий URI и источник ссылки на него
+
+<BR><TEXTAREA name="message" rows=10 cols=80>
+
+Сообщаю, что отсутствует страница /rfvfrvrv
+Источник ссылки: 
+</TEXTAREA></TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE></CENTER>
+</FORM>
+</TD>
+
+<b><A HREF="https://www.opennet.ru">Перейти на главную страницу.</A></b>
+<aside>
+<!--htdig_noindex-->
+<noindex>
+<br>
+
+</noindex>
+<!--/htdig_noindex-->
+</aside>
+
+<!-- footer -->
+<!--htdig_noindex-->
+<br>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=1 WIDTH="100%" BGCOLOR="#B0B190">
+<TR><TD>
+<TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0 WIDTH="100%" VALIGN="MIDDLE">
+<TR>
+<TD WIDTH="35%" BGCOLOR="#E9EAD6" ALIGN=LEFT>
+<FONT SIZE="-1">
+&nbsp;&nbsp;<A HREF="/cgi-bin/opennet/bookmark.cgi">Закладки&nbsp;на&nbsp;сайте</A><BR>
+&nbsp;&nbsp;<A HREF="/cgi-bin/opennet/bookmark.cgi?submit=add" target="blank_">Проследить&nbsp;за&nbsp;страницей</A>
+</FONT>
+</TD>
+<TD WIDTH="65%" ALIGN=RIGHT BGCOLOR="#E9EAD6">
+<FONT SIZE="-1">Created&nbsp;1996-2019&nbsp;by&nbsp;<B><A HREF="/contact.shtml" title="email mc@tyumen.ru">Maxim&nbsp;Chirkov</A></B></FONT>&nbsp;&nbsp;<BR>
+<FONT SIZE="-1"><A HREF="https://www.opennet.ru/add.shtml">Добавить</A>,&nbsp;<A HREF="https://www.opennet.ru/donate.shtml" style="color: #C00000;">Поддержать</A>,&nbsp;<A HREF="http://www.opennet.ru/banners2.shtml">Вебмастеру</A>,&nbsp;<A HREF="https://www.opennet.ru/guide.shtml">ГИД</A></FONT>&nbsp;&nbsp;
+</TD>
+</TR>
+</TABLE>
+</TD></TR>
+</TABLE>
+
+
+<div align=right><table><tr><td>
+<a target=_blank href="http://www.ihor.ru"><img src="/img/ihor_but.png" border=0 height=31 width=88 alt="Hosting by Ihor"></a>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+    ga('create', 'UA-123449-1', 'auto');
+    ga('send', 'pageview');
+</script>
+</td></tr></table>
+</div>
+<!--/htdig_noindex-->
+<!-- end of footer -->
+</BODY>
+</HTML>

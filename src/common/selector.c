@@ -117,3 +117,36 @@ void stlentext(stlen *str, char *str2)
 	str->l += len;
 }
 
+char *gettextfile(char *path, size_t *filesz)
+{
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return NULL;
+
+	fseek(fd, 0, SEEK_END);
+	int64_t fdsize = ftell(fd)+1;
+	rewind(fd);
+
+#ifdef _WIN64
+	int32_t psize = 10000;
+#else
+	int32_t psize = 0;
+#endif
+
+	char *buf = malloc(fdsize+psize);
+	size_t rc = fread(buf, 1, fdsize, fd);
+	rc++;
+#ifndef _WIN64
+	if (rc != fdsize)
+	{
+		fprintf(stderr, "I/O err read %s\n", path);
+		return NULL;
+	}
+#endif
+	buf[rc] = 0;
+	if (filesz)
+		*filesz = rc-1;
+	fclose(fd);
+
+	return buf;
+}

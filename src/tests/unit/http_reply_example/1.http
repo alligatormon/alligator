@@ -1,0 +1,16 @@
+HTTP/1.1 301 Moved Permanently
+Server: nginx
+Date: Fri, 08 Feb 2019 23:26:21 GMT
+Content-Type: text/html
+Content-Length: 162
+Connection: keep-alive
+Keep-Alive: timeout=65
+Location: https://r0.ru/
+
+<html>
+<head><title>301 Moved Permanently</title></head>
+<body>
+<center><h1>301 Moved Permanently</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>

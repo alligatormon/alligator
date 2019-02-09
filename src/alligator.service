@@ -1,0 +1,12 @@
+[Unit]
+Description=Alligator
+After=network.target syslog.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sysconfig/alligator
+ExecStart=/usr/bin/alligator $OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
