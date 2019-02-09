@@ -138,7 +138,7 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			hi->proto = APROTO_HTTP_AUTH;
 			//unsigned char *buf = strndup(tmp, l);
 			size_t sz;
-			hi->auth = base64_encode((unsigned char*)tmp, l, &sz);
+			hi->auth = base64_encode(tmp, l, &sz);
 			//free(buf);
 			tmp += l +1;
 			k = strcspn(tmp, ":");

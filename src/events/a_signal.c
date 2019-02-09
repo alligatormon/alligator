@@ -41,7 +41,7 @@ void signal_handler_sigtrap(uv_signal_t *handle, int signum)
 {
 	(void)handle;
 	printf("Signal received: %d\n", signum);
-	uv_signal_stop(handle);
+	exit(0);
 }
 
 void signal_listen()

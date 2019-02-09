@@ -7,6 +7,7 @@
 #include "tests/unit/http_reply.h"
 #include "tests/unit/base64.h"
 #include "tests/unit/selector.h"
+#include "tests/unit/validator.h"
 
 void test_labels_parse()
 {
