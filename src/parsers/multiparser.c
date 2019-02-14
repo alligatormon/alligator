@@ -99,9 +99,12 @@ int plain_parser(char *buf, size_t len)
 
 void alligator_multiparser(char *buf, size_t len, void (*handler)(char*, size_t, char*, int), char *response)
 {
-	printf("parsing '%s'(%zu)\n", buf, len);
+	//printf("parsing '%s'(%zu)\n", buf, len);
 	if ( handler )
+	{
 		handler(buf, len, NULL, 0);
+		return;
+	}
 	int rc = 0;
 	if ( (rc = http_parser(buf, len, response)) ) {}
 	else if ( (rc = plain_parser(buf, len)) ) {}

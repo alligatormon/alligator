@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include "dstructures/metric.h"
 int validate_domainname(char *domainname, size_t len)
 {
 	if ( len < 2 )
@@ -51,4 +52,41 @@ int validate_path(char *path, size_t len)
 		return 0;
 #endif
 	return 1;
+}
+
+int metric_name_validator(char *str, size_t sz)
+{
+	int64_t i;
+	for (i=0; i<sz; i++)
+		if ( isalpha(str[i]) || str[i] == '_' )
+			continue;
+		else if (isdigit(str[i]))
+			continue;
+		else
+			return 0;
+
+	return 1;
+}
+
+int metric_value_validator(char *str, size_t sz)
+{
+	int64_t i;
+	int type = 0;
+	for (i=0; i<sz; i++)
+	{
+		if ( isdigit(str[i]) || str[i] == '.' )
+		{
+			if ( isdigit(str[i]) && type != ALLIGATOR_DATATYPE_INT && type != ALLIGATOR_DATATYPE_DOUBLE)
+				type = ALLIGATOR_DATATYPE_INT;
+			else if (str[i] == '.' && type != ALLIGATOR_DATATYPE_DOUBLE)
+				type = ALLIGATOR_DATATYPE_DOUBLE;
+			else if (str[i] == '.' && type == ALLIGATOR_DATATYPE_DOUBLE)
+				return 0;
+			else if (type == ALLIGATOR_DATATYPE_INT || type == ALLIGATOR_DATATYPE_DOUBLE) {}
+		}
+		else
+			return 0;
+	}
+
+	return type;
 }

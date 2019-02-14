@@ -29,7 +29,7 @@ void signal_handler_sigterm(uv_signal_t *handle, int signum)
 {
 	(void)handle;
 	printf("Signal received: %d\n", signum);
-	uv_signal_stop(handle);
+	exit(0);
 }
 void signal_handler_sigint(uv_signal_t *handle, int signum)
 {

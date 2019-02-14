@@ -5,14 +5,13 @@
 #include <unistd.h>
 #include "main.h"
 #include "dstructures/rbtree.h"
-#define GETMETRIC 1000
 
 alligator_labels* labels_parse(char *lblstr, size_t l)
 {
 	uint64_t i;
 	alligator_labels *lbl = NULL;
 	alligator_labels *lblroot = NULL;
-	char name[GETMETRIC];
+	char name[METRIC_SIZE];
 	for ( i=0; i<l; i++ )
 	{
 		uint64_t cur = i;
@@ -65,7 +64,7 @@ void metric_labels_parse(char *metric, size_t l)
 {
 	printf("metric %s with len %zu\n", metric, l);
 	uint64_t i;
-	char *name = malloc(GETMETRIC);
+	char *name = malloc(METRIC_SIZE);
 	double value = 0;
 	alligator_labels *lbl = NULL;
 	alligator_labels *lblroot = NULL;

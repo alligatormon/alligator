@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common/selector.h"
-#include "file.h"
+#include "common/url.h"
 #include "main.h"
 #include "context.h"
 #include "common/base64.h"
 #include "common/http.h"
+#include "common/url.h"
 #define CONF_MAXLENSIZE 65535
 
 int context_compare(const void* arg, const void* obj)

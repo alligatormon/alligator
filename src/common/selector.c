@@ -6,6 +6,7 @@
 #include "platform/platform.h"
 #include "dstructures/metric.h"
 #include "dstructures/rbtree.h"
+#include "main.h"
 
 size_t get_file_size(char *filename)
 {
@@ -65,42 +66,73 @@ char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, cha
 	return NULL;
 }
 
-void selector_get_plain_metrics(char *m, size_t ms, char *sep, char *msep, char *prefix, size_t prefix_size)
+char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size)
 {
-	//printf("use selector %p (%zu), sep: %s, msep: %s prefix: %s (%zu)\n", m, ms, sep, msep, prefix, prefix_size);
-	char *pmetric = malloc ( 1001 );
-	double pvalue;
-	char *ssep = sep ? sep : "\n\r\0";
-	uint64_t crsr = 0;
-	uint64_t crsre = 0;
-
-	crsr = 0;
-
-	while ( ( crsre += strcspn(m+crsr, ssep)+1 ) <= ms )
+	int64_t i;
+	int64_t j;
+	int64_t n;
+	char *pmetric = malloc(METRIC_SIZE);
+	char *pfield = malloc(METRIC_SIZE);
+	size_t cpy_sz;
+	char *ret = malloc(METRIC_SIZE*maps_size);
+	*ret = 0;
+	int64_t count = 0;
+	for (i=0; i<sz; i++)
 	{
-		char *mssep = msep ? msep : ":";
-		int mval_sym;
-		strlcpy(pmetric, m+crsr, crsre-crsr);
-		mval_sym = strcspn ( pmetric, mssep );
-		pvalue = atof(pmetric+mval_sym+1);
-		pmetric[mval_sym]='\0';
-		
-		//as_add(as, prefix, prefix_size, pvalue, pmetric);
-		//alligator_labels *labels = NULL;
-		//as_labels_push(&labels, "key", 3, "val", 3);
-		//as_ladd(as, prefix, prefix_size, pvalue, pmetric, NULL);
-		//printf ("metric_labels_add(%s, %p, %lld, %d, %d)\n", pmetric, NULL, &pvalue, ALLIGATOR_DATATYPE_INT, 0);
-		int64_t i;
-		for (i=0; i<mval_sym; i++)
-			if ( pmetric[i] == '.' )
-				pmetric[i] = '_';
-		metric_labels_add_auto_prefix(pmetric, prefix, &pvalue, ALLIGATOR_DATATYPE_DOUBLE, 0);
-		//metric_labels_add(pmetric, NULL, &pvalue, ALLIGATOR_DATATYPE_INT, 0);
+		char *cur = strstr(text+i, nsep);
+		if (!cur)
+			break;
 
-		crsr = crsre;
+		n = cur-text-i;
+		size_t n_sz = METRIC_SIZE > n ? n : METRIC_SIZE;
+		strlcpy(pfield, text+i, n_sz);
+		i += n;
+
+		cur = strstr(pfield, sep);
+		if (!cur)
+			continue;
+		n = pfield+n-cur-2;
+
+		cpy_sz = cur - pfield;
+		if (metric_name_validator(pfield, cpy_sz))
+			strlcpy(pmetric, pfield, cpy_sz+1);
+		else
+			continue;
+
+		cur++;
+		int rc = metric_value_validator(cur, n);
+		if      (rc == ALLIGATOR_DATATYPE_INT)
+		{
+			int64_t pvalue = atoi(cur);
+			metric_labels_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
+		}
+		else if (rc == ALLIGATOR_DATATYPE_DOUBLE)
+		{
+			double pvalue = atof(cur);
+			metric_labels_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
+		}
+		else
+		{
+			for (j=0; j<maps_size; j++)
+			{
+				if(!strncmp(pmetric, maps[j], n_sz))
+				{
+					strncat(ret, pfield, n_sz);
+					count++;
+				}
+			}
+			continue;
+		}
 	}
-
+	free(pfield);
 	free(pmetric);
+	if (count)
+		return ret;
+	else
+	{
+		free(ret);
+		return NULL;
+	}
 }
 
 void stlencat(stlen *str, char *str2, size_t len)

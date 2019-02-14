@@ -21,3 +21,4 @@ void stlentext(stlen *str, char *str2);
 void stlencat(stlen *str, char *str2, size_t len);
 mtlen* split_char_to_mtlen(char *str);
 char *gettextfile(char *path, size_t *filesz);
+char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size);

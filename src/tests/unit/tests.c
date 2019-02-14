@@ -3,11 +3,12 @@
 #include "common/selector.h"
 #include "dstructures/rbtree.h"
 #include "parsers/prom_format.h"
-#include "tests/unit/http.h"
-#include "tests/unit/http_reply.h"
-#include "tests/unit/base64.h"
-#include "tests/unit/selector.h"
-#include "tests/unit/validator.h"
+#include "http.h"
+#include "http_reply.h"
+#include "base64.h"
+#include "selector.h"
+#include "validator.h"
+#include "url.h"
 
 void test_labels_parse()
 {

@@ -1,7 +1,15 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
+#include <stdlib.h>
 #include "parsers/http_proto.h"
+
+void http_reply_free(http_reply_data* hrdata)
+{
+	free(hrdata->mesg);
+	free(hrdata->headers);
+	free(hrdata);
+}
 
 http_reply_data* http_reply_parser(char *http, size_t n)
 {
@@ -73,4 +81,5 @@ void http_proto_handler(char *metrics, size_t size, char *instance, int kind) {
 		return;
 
 	printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
+	http_reply_free(hrdata);
 }

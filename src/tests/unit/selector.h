@@ -21,3 +21,12 @@ void test_selector_getline()
 		cut_assert_equal_int(strlen(field), size);
 	}
 }
+
+void test_get_file_size()
+{
+	cut_assert_equal_int(0, get_file_size("tests/unit/selector/filesize0"));
+	cut_assert_equal_int(1, get_file_size("tests/unit/selector/filesize1"));
+	cut_assert_equal_int(12, get_file_size("tests/unit/selector/filesize12"));
+	cut_assert_equal_int(1024, get_file_size("tests/unit/selector/filesize1024"));
+	cut_assert_equal_int(4096, get_file_size("tests/unit/selector/filesize4096"));
+}

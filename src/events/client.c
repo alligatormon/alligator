@@ -21,8 +21,8 @@ void on_close(uv_handle_t* handle)
 {
 	client_info *cinfo = handle->data;
 	(void)cinfo;
-//	//free(cinfo->socket);
-//	//free(cinfo->connect);
+	free(cinfo->socket);
+	free(cinfo->connect);
 //	printf("closed.");
 }
 
@@ -46,7 +46,7 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	metric_labels_add_lbl3("aggregator_duration_time", &connect_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "connect", "url", cinfo->hostname);
 	metric_labels_add_lbl3("aggregator_duration_time", &write_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "write", "url", cinfo->hostname);
 	metric_labels_add_lbl3("aggregator_duration_time", &read_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", cinfo->hostname);
-	fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
+	//fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
 	if (cinfo)
 		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL);
 	else

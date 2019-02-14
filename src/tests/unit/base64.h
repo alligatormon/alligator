@@ -54,6 +54,7 @@ void test_base64_4()
 	size_t encode_length;
 	const char *encode = base64_encode(TEST_BASE64_4, len, &encode_length);
 	cut_assert_equal_string(TEST_EBASE64_4, encode);
+	cut_assert_equal_int(strlen(TEST_EBASE64_4), encode_length);
 }
 
 void test_base64_5()
@@ -62,6 +63,7 @@ void test_base64_5()
 	size_t encode_length;
 	const char *encode = base64_encode(TEST_BASE64_5, len, &encode_length);
 	cut_assert_equal_string(TEST_EBASE64_5, encode);
+	cut_assert_equal_int(strlen(TEST_EBASE64_5), encode_length);
 }
 
 void test_base64_6()
@@ -70,7 +72,7 @@ void test_base64_6()
 	size_t decode_length;
 	char *decode = base64_decode(TEST_EBASE64_6, len, &decode_length);
 	cut_assert_equal_string(TEST_BASE64_6, decode);
-	cut_assert_equal_int(len, decode_length);
+	cut_assert_equal_int(strlen(TEST_BASE64_6), decode_length);
 }
 
 void test_base64_7()
@@ -79,5 +81,5 @@ void test_base64_7()
 	size_t decode_length;
 	char *decode = base64_decode(TEST_EBASE64_7, len, &decode_length);
 	cut_assert_equal_string(TEST_BASE64_7, decode);
-	cut_assert_equal_int(len, decode_length);
+	cut_assert_equal_int(strlen(TEST_BASE64_7), decode_length);
 }

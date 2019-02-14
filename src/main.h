@@ -18,6 +18,7 @@
 #include "config/context.h"
 #define d64 PRId64
 #define u64 PRIu64
+#define METRIC_SIZE 1000
 typedef struct aconf
 {
 	namespace_struct *nsdefault;
