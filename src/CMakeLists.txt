@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.10.1)
+project(alligator VERSION 1.9.20)
 
 set(CMAKE_BUILD_TYPE Debug)
+set(COMMON_TESTS lib${PROJECT_NAME}_tests)
 set(COMMON lib${PROJECT_NAME})
-#set(CLI ${PROJECT_NAME}_cli)
+set(TESTS ${PROJECT_NAME}_tests)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
@@ -59,6 +60,7 @@ ELSE(WIN32)
 	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
 	include_directories(/usr/include)
 	include_directories(/usr/local/include)
+	include_directories(/usr/include/cutter)
 	include_directories(/usr/local/opt/openssl/include/)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
@@ -66,7 +68,7 @@ ELSE(WIN32)
 	link_directories(/usr/local/lib/)
 	link_directories(/usr/local/opt/openssl/lib/)
 
-	add_library(${COMMON} STATIC
+	set(STATIC_FILES
 		events/uv_alloc.c
 		events/a_signal.c
 		events/httpserver.c
@@ -84,7 +86,9 @@ ELSE(WIN32)
 		parsers/prom_format.c
 		parsers/multiparser.c
 		parsers/clickhouse.c
+		#parsers/aerospike.c
 		parsers/redis.c
+		parsers/zookeeper.c
 		parsers/http_proto.c
 		common/selector.c
 		common/https_tls_check.c
@@ -92,6 +96,7 @@ ELSE(WIN32)
 		common/validator.c
 		common/base64.c
 		common/http.c
+		common/url.c
 		dstructures/metric.c
 		dstructures/tommy.c
 		dstructures/rbtree.c
@@ -108,16 +113,33 @@ ELSE(WIN32)
 		dstructures/tommyds/tommyds/tommytree.c
 		dstructures/tommyds/tommyds/tommytrie.c
 		dstructures/tommyds/tommyds/tommyarrayblk.c
+		
 	)
+	add_library(${COMMON} STATIC ${STATIC_FILES})
 	add_executable(${HEAD} main.c)
 ENDIF(WIN32)
 
 
+add_library(${COMMON_TESTS} STATIC
+		common/selector.c
+		parsers/http_proto.c
+		parsers/prom_format.c
+		system/linux.c
+		common/http.c
+		common/base64.c
+		common/selector.c
+		common/validator.c
+		common/url.c
+)
+
+add_library(${TESTS} SHARED tests/unit/tests.c)
+set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter bsd)
+#add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
+#add_test(Test1 "cutter" ".")
 #add_executable(${CLIENT} events/server_handler.c)
 #target_link_libraries(${CLIENT} ${COMMON} uv)
-
-#add_executable(${UDP} events/udp.c)
-#target_link_libraries(${UDP} ${COMMON} uv)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 

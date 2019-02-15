@@ -75,7 +75,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 }
 
 void http_proto_handler(char *metrics, size_t size, char *instance, int kind) {
-	printf("HTTPPROTO: '%s'\n", metrics);
+	//printf("HTTPPROTO: '%s'\n", metrics);
 	http_reply_data *hrdata = http_reply_parser(metrics, size);
 	if (!hrdata)
 		return;

@@ -82,16 +82,18 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		char *cur = strstr(text+i, nsep);
 		if (!cur)
 			break;
+		//cur += nsep_sz - 1;
 
 		n = cur-text-i;
 		size_t n_sz = METRIC_SIZE > n ? n : METRIC_SIZE;
-		strlcpy(pfield, text+i, n_sz);
-		i += n;
+		strlcpy(pfield, text+i, n_sz+1);
+		i += n + nsep_sz - 1;
 
 		cur = strstr(pfield, sep);
 		if (!cur)
 			continue;
-		n = pfield+n-cur-2;
+		//n = pfield+n-cur-2;
+		n = pfield+n_sz-cur-sep_sz;
 
 		cpy_sz = cur - pfield;
 		if (metric_name_validator(pfield, cpy_sz))
@@ -99,7 +101,8 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		else
 			continue;
 
-		cur++;
+		cur += sep_sz;
+		//cur++;
 		int rc = metric_value_validator(cur, n);
 		if      (rc == ALLIGATOR_DATATYPE_INT)
 		{

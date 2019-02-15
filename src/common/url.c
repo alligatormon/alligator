@@ -28,8 +28,11 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			tmp += l +1;
 			k = strcspn(tmp, ":");
 			m = strcspn(tmp, "/");
+			l = strcspn(tmp, "?");
 			if ( k > m )
 				k = m;
+			if ( k > l )
+				k = l;
 		}
 
 		if ( tmp[k-1] == '/' )
@@ -39,6 +42,9 @@ host_aggregator_info *parse_url (char *str, size_t len)
 
 		tmp += k + 1;
 		k = strcspn(tmp, "/");
+		l = strcspn(tmp, "?");
+		if ( k > l )
+			k = l;
 		strlcpy(hi->port, tmp, k+1);
 		if (!strlen(hi->port))
 			strlcpy(hi->port, "80", 3);

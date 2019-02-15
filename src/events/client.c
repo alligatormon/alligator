@@ -82,7 +82,6 @@ void on_connect(uv_connect_t* connection, int status)
 	stream->data = cinfo;
 	cinfo->connect_time_finish = setrtime();
 
-	printf("cinfo->mesg = %s\n", cinfo->mesg);
 	uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
 
 	uv_write_t *request = malloc(sizeof(*request));

@@ -52,13 +52,25 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "clickhouse"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, "?query=select%20*\%20from\%20system.metrics", hi->host, "alligator", hi->auth);
+			char *query = gen_http_query(0, "?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth);
 			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_tcp_client(hi->host, hi->port, redis_handler, "INFO\n");
+		}
+		else if (!strcmp(mt->st[*i-1].s, "aerospike"))
+		{
+			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			//do_tcp_client(hi->host, hi->port, aerospike_handler, "INFO\n");
+		}
+		else if (!strcmp(mt->st[*i-1].s, "zookeeper"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			do_tcp_client(hi->host, hi->port, zookeeper_mntr_handler, "mntr");
+			do_tcp_client(hi->host, hi->port, zookeeper_isro_handler, "isro");
+			do_tcp_client(hi->host, hi->port, zookeeper_wchs_handler, "wchs");
 		}
 #endif
 	}
