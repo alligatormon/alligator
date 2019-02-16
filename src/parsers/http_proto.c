@@ -74,7 +74,8 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	return hrdata;
 }
 
-void http_proto_handler(char *metrics, size_t size, char *instance, int kind) {
+void http_proto_handler(char *metrics, size_t size, char *instance, int kind)
+{
 	//printf("HTTPPROTO: '%s'\n", metrics);
 	http_reply_data *hrdata = http_reply_parser(metrics, size);
 	if (!hrdata)
@@ -82,4 +83,17 @@ void http_proto_handler(char *metrics, size_t size, char *instance, int kind) {
 
 	printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
 	http_reply_free(hrdata);
+}
+
+char* http_proto_proxer(char *metrics, size_t size, char *instance)
+{
+	http_reply_data *hrdata = http_reply_parser(metrics, size);
+	// not http answer
+	if (!hrdata)
+		return metrics;
+
+	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
+	char *body = hrdata->body;
+	http_reply_free(hrdata);
+	return body;
 }

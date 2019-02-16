@@ -54,6 +54,30 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, "?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth);
 			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20metric,value\%20from\%20system.asynchronous_metrics", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20event,value%20from\%20system.events", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_columns_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_dictionary_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_merges_handler, query);
+
+			hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			query = gen_http_query(0, "?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas", hi->host, "alligator", hi->auth);
+			do_tcp_client(hi->host, hi->port, clickhouse_replicas_handler, query);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
