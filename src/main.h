@@ -55,6 +55,8 @@ typedef struct aconf
 
 	// config parser handlers
 	tommy_hashdyn* config_ctx;
+
+	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 } aconf;
 
 void get_system_metrics();

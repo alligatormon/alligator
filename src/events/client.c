@@ -8,7 +8,6 @@
 #include "parsers/multiparser.h"
 #include "events/uv_alloc.h"
 #include "common/rtime.h"
-#define MESG "GET / HTTP/1.0\nHost: yandex.ru\n\n"
 
 //void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 //{
@@ -19,23 +18,31 @@
 
 void on_close(uv_handle_t* handle)
 {
+	extern aconf* ac;
 	client_info *cinfo = handle->data;
+	if (ac->log_level > 2)
+		printf("3: on_close cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	(void)cinfo;
 	free(cinfo->socket);
 	free(cinfo->connect);
-//	printf("closed.");
+	cinfo->lock = 0;
 }
 
 void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 {
 	client_info *cinfo = tcp->data;
-	if(nread < 0 || !buf || !buf->base) {
+	extern aconf* ac;
+	if (ac->log_level > 2)
+		printf("2r: on_read cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+	if(nread < 0 || !buf || !buf->base)
+	{
 		if (cinfo)
 			uv_close((uv_handle_t*)tcp, on_close);
 		else
 			uv_close((uv_handle_t*)tcp, NULL);
 		if (buf && buf->base)
 			free(buf->base);
+
 		return;
 	}
 	cinfo->read_time_finish = setrtime();
@@ -52,7 +59,7 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	else
 		alligator_multiparser(buf->base, buf->len, NULL, NULL);
 	free(buf->base);
-	//uv_close((uv_handle_t*)tcp, on_close);
+	uv_close((uv_handle_t*)tcp, on_close);
 }
 
 void on_write(uv_write_t* req, int status)
@@ -63,7 +70,12 @@ void on_write(uv_write_t* req, int status)
 		//uv_close((uv_handle_t*)req->handle, NULL);
 		return;
 	}
+
+	extern aconf* ac;
+
 	client_info *cinfo = req->data;
+	if (ac->log_level > 2)
+		printf("2w: on_write cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	cinfo->write_time_finish = setrtime();
 	req->handle->data = cinfo;
 	uv_read_start(req->handle, alloc_buffer, on_read);
@@ -77,8 +89,11 @@ void on_connect(uv_connect_t* connection, int status)
 	if ( status < 0 )
 		return;
 
+	extern aconf* ac;
+
 	client_info *cinfo = connection->data;
 	uv_stream_t* stream = connection->handle;
+	connection->handle->data = cinfo;
 	stream->data = cinfo;
 	cinfo->connect_time_finish = setrtime();
 
@@ -87,7 +102,9 @@ void on_connect(uv_connect_t* connection, int status)
 	uv_write_t *request = malloc(sizeof(*request));
 
 	request->data = cinfo;
-	uv_read_start(connection->handle, alloc_buffer, on_read);
+	if (ac->log_level > 2)
+		printf("1: on_connect cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+	uv_read_start(stream, alloc_buffer, on_read);
 	uv_write(request, stream, &buffer, 1, on_write);
 	cinfo->write_time = setrtime();
 }
@@ -97,11 +114,16 @@ void on_connect_handler(void* arg)
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	client_info *cinfo = arg;
+	if (cinfo->lock)
+		return;
+	cinfo->lock = 1;
 	uv_tcp_t *socket = cinfo->socket = malloc(sizeof(*socket));
 	uv_tcp_init(loop, socket);
 	uv_tcp_keepalive(socket, 1, 60);
 
 	uv_connect_t *connect = cinfo->connect = malloc(sizeof(*connect));
+	if (ac->log_level > 2)
+		printf("0: on_connect_handler cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	connect->data = cinfo;
 	uv_tcp_connect(connect, socket, (struct sockaddr *)cinfo->dest, on_connect);
 	cinfo->connect_time = setrtime();
@@ -114,7 +136,7 @@ static void timer_cb(uv_timer_t* handle) {
 	tommy_hashdyn_foreach(ac->aggregator, on_connect_handler);
 }
 
-void icmp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
+void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 {
 	extern aconf* ac;
 	client_info *cinfo = resolver->data;
@@ -123,7 +145,8 @@ void icmp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *r
 		fprintf(stderr, "getaddrinfo callback error\n");
 		return;
 	}
-	else	puts ("resolved");
+	else
+		printf("resolved %s", cinfo->hostname);
 
 	char *addr = calloc(17, sizeof(*addr));
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
@@ -139,13 +162,15 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	client_info *cinfo = calloc(1, sizeof(*cinfo));
+	if (ac->log_level > 2)
+		printf("allocated CINFO with addr %p with hostname '%s' with mesg '%s'\n", cinfo, addr, mesg);
 	cinfo->mesg = mesg;
 	cinfo->parser_handler = handler;
 	cinfo->hostname = addr;
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
 	resolver->data = cinfo;
-	int r = uv_getaddrinfo(loop, resolver, icmp_on_resolved, addr, port, NULL);
+	int r = uv_getaddrinfo(loop, resolver, tcp_on_resolved, addr, port, NULL);
 	if (r)
 	{
 		fprintf(stderr, "%s\n", uv_strerror(r));
@@ -164,5 +189,5 @@ void tcp_client_handler()
 
 	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
 	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, timer_cb, 1000, 5000);
+	uv_timer_start(timer1, timer_cb, 1000, 200);
 }

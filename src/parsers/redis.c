@@ -7,6 +7,10 @@ void redis_handler(char *metrics, size_t size, char *instance, int kind)
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("role");
 	char *res = selector_split_metric(metrics, size, "\r\n", 2, ":", 1, "redis_", 6, maps, 1);
+	free(maps[0]);
+	free(maps);
+	if(!res)
+		return;
 	int64_t nval = 0;
 	int64_t val = 1;
 	if(strstr(res, ":master"))

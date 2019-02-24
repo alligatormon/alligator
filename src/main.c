@@ -75,6 +75,8 @@ aconf* configuration()
 	https_ssl_domains_initialize();
 	config_context_initialize();
 
+	ac->log_level = 0;
+
 	return ac;
 }
 

@@ -12,3 +12,5 @@ void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int 
 void clickhouse_dictionary_handler(char *metrics, size_t size, char *instance, int kind);
 void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int kind);
 void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int kind);
+void beanstalkd_handler(char *metrics, size_t size, char *instance, int kind);
+void memcached_handler(char *metrics, size_t size, char *instance, int kind);

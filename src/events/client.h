@@ -15,6 +15,7 @@ typedef struct client_info
 	r_time write_time_finish;
 	r_time read_time;
 	r_time read_time_finish;
+	int lock;
 
 	tommy_node node;
 } client_info;

@@ -44,6 +44,12 @@ void signal_handler_sigtrap(uv_signal_t *handle, int signum)
 	exit(0);
 }
 
+void signal_handler_sigabrt(uv_signal_t *handle, int signum)
+{
+	(void)handle;
+	printf("Signal received: %d\n", signum);
+}
+
 void signal_listen()
 {
 	uv_signal_t *sig1 = malloc(sizeof(*sig1));
@@ -73,4 +79,8 @@ void signal_listen()
 	uv_signal_t *sig7 = malloc(sizeof(*sig7));
 	uv_signal_init(uv_default_loop(), sig7);
 	uv_signal_start(sig7, signal_handler_sigtrap, SIGTRAP);
+
+	uv_signal_t *sig8 = malloc(sizeof(*sig8));
+	uv_signal_init(uv_default_loop(), sig8);
+	uv_signal_start(sig8, signal_handler_sigabrt, SIGABRT);
 }

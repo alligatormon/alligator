@@ -31,6 +31,7 @@ void zookeeper_mntr_handler(char *metrics, size_t size, char *instance, int kind
 		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "follower");
 		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "standalone");
 	}
+	free(res);
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, char *instance, int kind)
 {

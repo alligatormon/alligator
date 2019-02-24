@@ -4,6 +4,7 @@
 #include "dstructures/metric.h"
 //#include "args_parse.h"
 #define d64	PRId64
+#define CH_NAME_SIZE 255
 void clickhouse_system_handler(char *metrics, size_t size, char *instance, int kind)
 {
 	selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0);
@@ -12,15 +13,17 @@ void clickhouse_system_handler(char *metrics, size_t size, char *instance, int k
 void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int kind)
 {
 	int64_t i = 0;
-	char *database;
-	char *table;
-	char *column;
+	char *database = malloc(CH_NAME_SIZE);
+	char *table = malloc(CH_NAME_SIZE);
+	char *column = malloc(CH_NAME_SIZE);
+	size_t name_size;
 	int64_t cur;
 	int64_t data_compressed_bytes,data_uncompressed_bytes,marks_bytes;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
-		database = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(database, metrics+i, name_size);
 		if (!metric_name_validator(database, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -30,7 +33,8 @@ void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int 
 		i+=cur;
 
 		cur = strcspn(metrics+i, "\t");
-		table = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(table, metrics+i, name_size);
 		if (!metric_name_validator(table, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -40,7 +44,8 @@ void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int 
 		i+=cur;
 
 		cur = strcspn(metrics+i, "\t");
-		column = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(column, metrics+i, name_size);
 		if (!metric_name_validator(column, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -68,21 +73,26 @@ void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int 
 		metric_labels_add_lbl4("Clickhouse_Table_Stats", &data_uncompressed_bytes, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "column", column, "type", "data_uncompressed_bytes");
 		metric_labels_add_lbl4("Clickhouse_Table_Stats", &marks_bytes, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "column", column, "type", "marks_bytes");
 	}
+	free(database);
+	free(column);
+	free(table);
 }
 
 void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int kind)
 {
 	int64_t i = 0;
-	char *database;
-	char *table;
-	char *is_mutation;
+	char *database = malloc(CH_NAME_SIZE);
+	char *table = malloc(CH_NAME_SIZE);
+	char *is_mutation = malloc(CH_NAME_SIZE);
+	size_t name_size;
 	int64_t cur;
 	int64_t num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written;
 	double progress;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
-		database = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(database, metrics+i, name_size);
 		if (!metric_name_validator(database, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -92,7 +102,8 @@ void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int k
 		i+=cur;
 
 		cur = strcspn(metrics+i, "\t");
-		table = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(table, metrics+i, name_size);
 		if (!metric_name_validator(table, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -102,7 +113,8 @@ void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int k
 		i+=cur;
 
 		cur = strcspn(metrics+i, "\t");
-		is_mutation = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(is_mutation, metrics+i, name_size);
 		if (!metric_name_validator(is_mutation, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -160,20 +172,24 @@ void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int k
 		metric_labels_add_lbl4("Clickhouse_Merges_Stats", &bytes_written_uncompressed, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "mutation", is_mutation, "type", "bytes_written_uncompressed");
 		metric_labels_add_lbl4("Clickhouse_Merges_Stats", &rows_written, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "mutation", is_mutation, "type", "rows_written");
 	}
+	free(database);
+	free(table);
+	free(is_mutation);
 }
-
 
 void clickhouse_dictionary_handler(char *metrics, size_t size, char *instance, int kind)
 {
 	int64_t i = 0;
-	char *name;
+	char *name = malloc(CH_NAME_SIZE);
+	size_t name_size;
 	int64_t cur;
 	int64_t bytes_allocated,query_count,element_count;
 	double hit_rate,load_factor;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
-		name = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(name, metrics+i, name_size);
 		if (!metric_name_validator(name, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -215,19 +231,22 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, char *instance, i
 		metric_labels_add_lbl2("Clickhouse_Dictionary_Stats", &hit_rate, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", name, "type", "hit_rate");
 		metric_labels_add_lbl2("Clickhouse_Dictionary_Stats", &load_factor, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", name, "type", "load_factor");
 	}
+	free(name);
 }
 
 void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int kind)
 {
 	int64_t i = 0;
-	char *database;
-	char *table;
+	char *database = malloc(CH_NAME_SIZE);
+	char *table = malloc(CH_NAME_SIZE);
+	size_t name_size;
 	int64_t cur;
 	int64_t leader, readonly, future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
-		database = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(database, metrics+i, name_size);
 		if (!metric_name_validator(database, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -237,7 +256,8 @@ void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int
 		i+=cur;
 
 		cur = strcspn(metrics+i, "\t");
-		table = strndup(metrics+i, cur);
+		name_size = CH_NAME_SIZE > cur+1 ? cur+1 : CH_NAME_SIZE;
+		strlcpy(table, metrics+i, name_size);
 		if (!metric_name_validator(table, cur))
 		{
 			i += strcspn(metrics+i, "\n")+1;
@@ -314,6 +334,8 @@ void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int
 		metric_labels_add_lbl3("Clickhouse_Replicas_Stats", &total_replicas, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "type", "total_replicas");
 		metric_labels_add_lbl3("Clickhouse_Replicas_Stats", &active_replicas, ALLIGATOR_DATATYPE_INT, 0, "database", database, "table", table, "type", "active_replicas");
 	}
+	free(database);
+	free(table);
 }
 
 //void clickhouse_system_handler(char *metrics, size_t size, char *instance, int kind)

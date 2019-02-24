@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.9.21)
+project(alligator VERSION 1.9.23)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -57,7 +57,7 @@ IF(WIN32)
 	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator")
 	target_link_libraries(${HEAD} ${COMMON} uv.lib odbc32.lib)
 ELSE(WIN32)
-	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -O3")
+	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -O3 -std=gnu11")
 	include_directories(/usr/include)
 	include_directories(/usr/local/include)
 	include_directories(/usr/include/cutter)
@@ -88,6 +88,8 @@ ELSE(WIN32)
 		parsers/clickhouse.c
 		#parsers/aerospike.c
 		parsers/redis.c
+		parsers/memcached.c
+		parsers/beanstalkd.c
 		parsers/zookeeper.c
 		parsers/http_proto.c
 		common/selector.c
@@ -104,6 +106,7 @@ ELSE(WIN32)
 		config/file.c
 		config/context.c
 		system/linux.c
+		modules/modules.c
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c
 		dstructures/tommyds/tommyds/tommyhashlin.c
@@ -117,6 +120,12 @@ ELSE(WIN32)
 	)
 	add_library(${COMMON} STATIC ${STATIC_FILES})
 	add_executable(${HEAD} main.c)
+
+	#add_subdirectory(modules/libpquv)
+	#add_library(postgresql_client SHARED modules/postgresql.c)
+	#target_link_libraries(postgresql_client c pquv)
+	#include_directories(./modules/libpquv/src/include/)
+	#link_directories(./modules/libpquv/src/)
 ENDIF(WIN32)
 
 
