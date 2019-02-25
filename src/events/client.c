@@ -146,7 +146,7 @@ void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *re
 		return;
 	}
 	else
-		printf("resolved %s", cinfo->hostname);
+		printf("resolved %s\n", cinfo->hostname);
 
 	char *addr = calloc(17, sizeof(*addr));
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
@@ -189,5 +189,5 @@ void tcp_client_handler()
 
 	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
 	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, timer_cb, 1000, 200);
+	uv_timer_start(timer1, timer_cb, ac->aggregator_startup, ac->aggregator_repeat);
 }

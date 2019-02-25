@@ -9,6 +9,8 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 	if ( *i == 0 )
 		*i += 1;
 
+	extern aconf *ac;
+
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
 		//printf("%"d64": %s\n", *i, mt->st[*i].s);
@@ -106,6 +108,12 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			do_tcp_client(hi->host, hi->port, zookeeper_mntr_handler, "mntr");
 			do_tcp_client(hi->host, hi->port, zookeeper_isro_handler, "isro");
 			do_tcp_client(hi->host, hi->port, zookeeper_wchs_handler, "wchs");
+		}
+		else if (!strcmp(mt->st[*i-1].s, "period"))
+		{
+			int64_t repeat = atoll(mt->st[*i].s);
+			if (repeat > 0)
+				ac->aggregator_repeat = repeat;
 		}
 		else if (!strcmp(mt->st[*i-1].s, "postgresql"))
 		{

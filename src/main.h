@@ -25,6 +25,9 @@ typedef struct aconf
 	tommy_hashdyn *_namespace;
 
 	tommy_hashdyn* aggregator;
+	int64_t aggregator_startup;
+	int64_t aggregator_repeat;
+
 	tommy_hashdyn* uggregator;
 
 	tommy_hashdyn* iggregator;

@@ -65,6 +65,9 @@ void metric_labels_add(char *name, alligator_labels *lbl, void* value, int datat
 		return;
 	}
 
+	if (datatype == ALLIGATOR_DATATYPE_DOUBLE && isnan(*(double*)value))
+		*(double*)value = 0;
+
 	extern aconf* ac;
 
 	// selecting ns

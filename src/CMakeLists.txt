@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.9.23)
+project(alligator VERSION 1.9.24)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -153,13 +153,13 @@ target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter bsd)
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd curl)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

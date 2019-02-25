@@ -37,7 +37,7 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 	} else if (nread > 0) {
 		char *answ = malloc(6553500);
 		alligator_multiparser(buf->base, strlen(buf->base), NULL, answ);
-		printf("answ: %s\n", answ);
+		//printf("answ: %s\n", answ);
 		//data->response = answ; //strdup("HTTP/1.1 200 OK\n\nHello World, work's done\n\n");
 
 		uv_write_t *req = (uv_write_t *) malloc(sizeof(uv_write_t));
