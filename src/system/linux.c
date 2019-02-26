@@ -621,25 +621,42 @@ void get_netstat_statistics()
 	fclose(fp);
 }
 
+int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
+{
+	for (; *cursor<sz; ++(*cursor))
+	{
+		for (; *cursor<sz && buf[*cursor]==sep; ++(*cursor));
+		if (isdigit(buf[*cursor]) || buf[*cursor] == '-')
+		{
+			int64_t ret = atoll(buf+(*cursor));
+			for (; *cursor<sz && isdigit(buf[*cursor]); ++(*cursor));
+			++(*cursor);
+
+			return ret;
+		}
+	}
+	return 0;
+}
+
 void get_network_statistics()
 {
-	long int received_bytes;
-	long int received_packages;
-	long int received_err;
-	long int received_drop;
-	long int received_fifo;
-	long int received_frame;
-	long int received_compressed;
-	long int received_multicast;
+	int64_t received_bytes;
+	int64_t received_packets;
+	int64_t received_err;
+	int64_t received_drop;
+	int64_t received_fifo;
+	int64_t received_frame;
+	int64_t received_compressed;
+	int64_t received_multicast;
 
-	long int transmit_bytes;
-	long int transmit_packages;
-	long int transmit_err;
-	long int transmit_drop;
-	long int transmit_fifo;
-	long int transmit_colls;
-	long int transmit_carrier;
-	long int transmit_compressed;
+	int64_t transmit_bytes;
+	int64_t transmit_packets;
+	int64_t transmit_err;
+	int64_t transmit_drop;
+	int64_t transmit_fifo;
+	int64_t transmit_colls;
+	int64_t transmit_carrier;
+	int64_t transmit_compressed;
 
 	FILE *fp = fopen("/proc/net/dev", "r");
 	char buf[200], ifname[20];
@@ -649,25 +666,61 @@ void get_network_statistics()
 		fgets(buf, 200, fp);
 	}
 
-	for (i=0; fgets(buf, 200, fp); i++) {
+	for (i=0; fgets(buf, 200, fp); i++)
+	{
 		int from = strspn(buf, " ");
-		sscanf(buf+from, "%[^:]: %ld %ld %*ld %*ld %*ld %*ld %*ld %*ld %*ld %*ld %*ld %*ld	 %*ld %*ld %*ld %*ld",
-			   ifname, &received_bytes, &received_packages, &received_err, &received_drop, &received_fifo, &received_frame, &received_compressed, &received_multicast, &transmit_bytes, &transmit_packages, &transmit_err, &transmit_drop, &transmit_fifo, &transmit_colls, &transmit_carrier, &transmit_compressed);
+		int to = strcspn(buf+from, ":");
+
+		strlcpy(ifname, buf+from, to+1);
+		int64_t cursor = 0;
+		size_t sz = strlen(buf+from+to);
+
+		received_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_bytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_bytes");
-		metric_labels_add_lbl2("if_stat", &received_packages, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_packages");
+
+		received_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
+		metric_labels_add_lbl2("if_stat", &received_packets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_packets");
+
+		received_err = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_err, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_err");
+
+		received_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_drop, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_drop");
+
+		received_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_fifo, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_fifo");
+
+		received_frame = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_frame, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_frame");
+
+		received_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_compressed, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_compressed");
+
+		received_multicast = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &received_multicast, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_multicast");
+
+		transmit_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_bytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_bytes");
-		metric_labels_add_lbl2("if_stat", &transmit_packages, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_packages");
+
+		transmit_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
+		metric_labels_add_lbl2("if_stat", &transmit_packets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_packets");
+
+		transmit_err = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_err, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_err");
+
+		transmit_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_drop, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_drop");
+
+		transmit_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_fifo, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_fifo");
+
+		transmit_colls = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_colls, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_colls");
+
+		transmit_carrier = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_carrier, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_carrier");
+
+		transmit_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
 		metric_labels_add_lbl2("if_stat", &transmit_compressed, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_compressed");
 	}
 
