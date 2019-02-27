@@ -151,3 +151,23 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 #endif
 	}
 }
+
+void context_system_parser(mtlen *mt, int64_t *i)
+{
+	if ( *i == 0 )
+		*i += 1;
+
+	extern aconf *ac;
+
+	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
+	{
+		if (!strcmp(mt->st[*i].s, "base"))
+			ac->system_base = 1;
+		else if (!strcmp(mt->st[*i].s, "disk"))
+			ac->system_disk = 1;
+		else if (!strcmp(mt->st[*i].s, "network"))
+			ac->system_network = 1;
+		else if (!strcmp(mt->st[*i].s, "process"))
+			ac->system_process = 1;
+	}
+}

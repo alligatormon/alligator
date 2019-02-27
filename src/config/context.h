@@ -8,3 +8,4 @@ typedef struct config_context
 } config_context;
 void context_aggregate_parser(mtlen *mt, int64_t *i);
 void context_entrypoint_parser(mtlen *mt, int64_t *i);
+void context_system_parser(mtlen *mt, int64_t *i);

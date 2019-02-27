@@ -41,6 +41,20 @@ void config_context_initialize()
 	ctx->key = strdup("entrypoint");
 	ctx->handler = context_entrypoint_parser;
 	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("system");
+	ctx->handler = context_system_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+}
+
+void system_initialize()
+{
+	extern aconf *ac;
+	ac->system_base = 0;
+	ac->system_network = 0;
+	ac->system_disk = 0;
+	ac->system_process = 0;
 }
 
 aconf* configuration()
@@ -76,6 +90,7 @@ aconf* configuration()
 	ts_initialize();
 	https_ssl_domains_initialize();
 	config_context_initialize();
+	system_initialize();
 
 	ac->log_level = 0;
 

@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "main.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 
@@ -784,22 +785,35 @@ void get_loadavg()
 
 void get_system_metrics()
 {
-	get_cpu();
-	get_mem();
-	get_disk();
-	cgroup_mem();
+	extern aconf *ac;
+	if (ac->system_base)
+	{
+		get_cpu();
+		get_mem();
+		get_nofile_stat();
+		get_loadavg();
+		cgroup_mem();
+	}
 
-	get_network_statistics();
-	get_netstat_statistics();
-	get_tcpudp_stat("/proc/net/tcp", "tcp");
-	get_tcpudp_stat("/proc/net/tcp6", "tcp6");
-	get_tcpudp_stat("/proc/net/udp", "udp");
-	get_tcpudp_stat("/proc/net/udp6", "udp6");
-	get_disk_io_stat();
-	get_nofile_stat();
-	get_loadavg();
+	if (ac->system_network)
+	{
+		get_network_statistics();
+		get_netstat_statistics();
+		get_tcpudp_stat("/proc/net/tcp", "tcp");
+		get_tcpudp_stat("/proc/net/tcp6", "tcp6");
+		get_tcpudp_stat("/proc/net/udp", "udp");
+		get_tcpudp_stat("/proc/net/udp6", "udp6");
+	}
+	if (ac->system_disk)
+	{
+		get_disk_io_stat();
+		get_disk();
+	}
 
-	find_pid();
+	if (ac->system_process)
+	{
+		find_pid();
+	}
 }
 
 #endif
