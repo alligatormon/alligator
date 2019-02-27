@@ -245,54 +245,42 @@ void get_process_extra_info(char *file)
 	fclose(fd);
 }
 
+int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
+{
+	for (; *cursor<sz; ++(*cursor))
+	{
+		for (; *cursor<sz && buf[*cursor]==sep; ++(*cursor));
+		if (isdigit(buf[*cursor]) || buf[*cursor] == '-')
+		{
+			int64_t ret = atoll(buf+(*cursor));
+			for (; *cursor<sz && (isdigit(buf[*cursor]) || buf[*cursor] == '-'); ++(*cursor));
+			++(*cursor);
 
-void get_proc_info(char *szFileName, char *exName)
+			return ret;
+		}
+	}
+	return 0;
+}
+
+void get_proc_info(char *szFileName, char *exName, char *pid_number)
 {
 	char szStatStr[LINUXFS_LINE_LENGTH];
-	//char		exName [_POSIX_PATH_MAX];
-	char		state;	/** 1 **/			/** R is running, S is sleeping,
+	//char		state;	
+	/** 1 **/			/** R is running, S is sleeping,
 				D is sleeping in an uninterruptible wait,
 				Z is zombie, T is traced or stopped **/
-	int64_t	_pid;
-	int64_t	ppid;
-	int64_t	pgrp;
-	int64_t	session;
-	int64_t	tty;
-	int64_t	flags;
-	int64_t	minflt;
-	int64_t	cminflt;
-	int64_t	majflt;
-	int64_t	cmajflt;
 	int64_t	utime;
 	int64_t	stime;
 	int64_t	cutime;
 	int64_t	cstime;
-	int64_t	counter;	/** process's next timeslice **/
-	int64_t	priority;
-	int64_t	timeout;	/** The time in jiffies of the next timeout **/
-	int64_t	itrealvalue;	/** The time before the next SIGALRM is sent to the process **/
-	int64_t	starttime;	/** 20 **/	 /** Time the process started after system boot **/
+	int64_t	starttime;
 	int64_t	vsize;
 	int64_t	rss;
-	int64_t	rlim;
-	int64_t	startcode;
-	int64_t	endcode;
-	int64_t	startstack;
-	int64_t	kstkesp;
-	int64_t	kstkeip;
-	int64_t	signal;
-	int64_t	blocked;
-	int64_t	sigignore;
-	int64_t	sigcatch;
-	int64_t	wchan;
-	int64_t	tpgid;
 
 	FILE *fp = fopen(szFileName, "r");
 
 	if ( !fp )
-	{
 		return;
-	}
 
 	if (!fgets(szStatStr, LINUXFS_LINE_LENGTH, fp))
 	{
@@ -300,68 +288,56 @@ void get_proc_info(char *szFileName, char *exName)
 		return;
 	}
 
-	/** pid **/
-	//char *s;
 	char *t;
-	sscanf (szStatStr, "%"d64"", &(_pid));
-	//s = strchr (szStatStr, '(') + 1;
 	t = strchr (szStatStr, ')');
+	size_t sz = strlen(t);
+	int64_t cursor = 0;
 
+	int cnt = 10;
+	while (cnt--)
+		int_get_next(t+4, sz, ' ', &cursor);
+	utime = int_get_next(t+4, sz, ' ', &cursor);
+	stime = int_get_next(t+4, sz, ' ', &cursor);
+	cutime = int_get_next(t+4, sz, ' ', &cursor);
+	cstime = int_get_next(t+4, sz, ' ', &cursor);
 
+	cnt = 4;
+	while (cnt--)
+		int_get_next(t+4, sz, ' ', &cursor);
 
-	sscanf (t + 2, "%c %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64"",
-		/*		 1	2	3	4	5	6	7	8	9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33*/
-		&(state),
-		&(ppid),
-		&(pgrp),
-		&(session),
-		&(tty),
-		&(tpgid),
-		&(flags),
-		&(minflt),
-		&(cminflt),
-		&(majflt),
-		&(cmajflt),
-		&(utime),
-		&(stime),
-		&(cutime),
-		&(cstime),
-		&(counter),
-		&(priority),
-		&(timeout),
-		&(itrealvalue),
-		&(starttime),
-		&(vsize),
-		&(rss),
-		&(rlim),
-		&(startcode),
-		&(endcode),
-		&(startstack),
-		&(kstkesp),
-		&(kstkeip),
-		&(signal),
-		&(blocked),
-		&(sigignore),
-		&(sigcatch),
-		&(wchan));
+	starttime = int_get_next(t+4, sz, ' ', &cursor);
+	vsize = int_get_next(t+4, sz, ' ', &cursor);
+	rss = int_get_next(t+4, sz, ' ', &cursor);
 	fclose (fp);
 
+	//printf("szStatStr %s\n", szStatStr);
+	//printf("starttime %"d64"\n", starttime);
+	//printf("utime %"d64"\n", utime);
+	//printf("stime %"d64"\n", stime);
+	//printf("cutime %"d64"\n", cutime);
+	//printf("cstime %"d64"\n", cstime);
+	//printf("vsize %"d64"\n", vsize);
+	//printf("rss %"d64"\n", rss);
+
 	int64_t uptime = getkvfile("/proc/uptime");
+	//printf("uptime %"d64"\n", uptime);
 	int64_t Hertz = sysconf(_SC_CLK_TCK);
-	if ( !utime || !stime )
-		return;
+	//printf("pid name: %s go\n", pid_number);
 	int64_t stotal_time = stime + cstime;
 	int64_t utotal_time = utime + cutime;
 	int64_t total_time = stotal_time + utotal_time;
 	double seconds = uptime - (starttime / Hertz);
+	//printf("seconds = %"d64" - (%"d64" / %"d64") = %lf\n", uptime, starttime, Hertz, seconds);
 	double sys_cpu_usage = 100 * ((stotal_time / Hertz) / seconds);
+	//printf("cpu usage sys: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", stotal_time, Hertz, seconds, sys_cpu_usage);
 	double user_cpu_usage = 100 * ((utotal_time / Hertz) / seconds);
+	//printf("cpu usage user: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", utotal_time, Hertz, seconds, user_cpu_usage);
 	double total_cpu_usage = 100 * ((total_time / Hertz) / seconds);
-	metric_labels_add_lbl2("process_memory", &rss, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "type", "rss");
-	metric_labels_add_lbl2("process_memory", &vsize, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "type", "vsz");
-	metric_labels_add_lbl2("process_cpu", &sys_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "type", "system");
-	metric_labels_add_lbl2("process_cpu", &user_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "type", "user");
-	metric_labels_add_lbl2("process_cpu", &total_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "type", "total");
+	metric_labels_add_lbl3("process_memory", &rss, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "rss");
+	metric_labels_add_lbl3("process_memory", &vsize, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "vsz");
+	metric_labels_add_lbl3("process_cpu", &sys_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
+	metric_labels_add_lbl3("process_cpu", &user_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "user");
+	metric_labels_add_lbl3("process_cpu", &total_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "total");
 }
 
 int64_t get_fd_info_process(char *fddir)
@@ -437,7 +413,7 @@ void find_pid()
 		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
 
 
-		get_proc_info(dir, procname);
+		get_proc_info(dir, procname, entry->d_name);
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/status", entry->d_name);
 		get_process_extra_info(dir);
@@ -619,23 +595,6 @@ void get_netstat_statistics()
 
 	free(buf);
 	fclose(fp);
-}
-
-int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
-{
-	for (; *cursor<sz; ++(*cursor))
-	{
-		for (; *cursor<sz && buf[*cursor]==sep; ++(*cursor));
-		if (isdigit(buf[*cursor]) || buf[*cursor] == '-')
-		{
-			int64_t ret = atoll(buf+(*cursor));
-			for (; *cursor<sz && isdigit(buf[*cursor]); ++(*cursor));
-			++(*cursor);
-
-			return ret;
-		}
-	}
-	return 0;
 }
 
 void get_network_statistics()
