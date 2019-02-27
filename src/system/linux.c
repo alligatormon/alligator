@@ -273,7 +273,6 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number)
 	int64_t	stime;
 	int64_t	cutime;
 	int64_t	cstime;
-	int64_t	starttime;
 	int64_t	vsize;
 	int64_t	rss;
 
@@ -301,15 +300,28 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number)
 	cutime = int_get_next(t+4, sz, ' ', &cursor);
 	cstime = int_get_next(t+4, sz, ' ', &cursor);
 
-	cnt = 4;
+	cnt = 5;
 	while (cnt--)
 		int_get_next(t+4, sz, ' ', &cursor);
 
-	starttime = int_get_next(t+4, sz, ' ', &cursor);
+	//starttime = int_get_next(t+4, sz, ' ', &cursor);
 	vsize = int_get_next(t+4, sz, ' ', &cursor);
 	rss = int_get_next(t+4, sz, ' ', &cursor);
 	fclose (fp);
 
+	int64_t Hertz = sysconf(_SC_CLK_TCK);
+	int64_t stotal_time = stime + cstime;
+	int64_t utotal_time = utime + cutime;
+	int64_t total_time = stotal_time + utotal_time;
+
+	//double seconds = uptime - (starttime / Hertz);
+	struct stat st;
+	stat(szFileName, &st);
+	double seconds = time(0) - st.st_ctime;
+
+	double sys_cpu_usage = 100 * ((stotal_time / Hertz) / seconds);
+	double user_cpu_usage = 100 * ((utotal_time / Hertz) / seconds);
+	double total_cpu_usage = 100 * ((total_time / Hertz) / seconds);
 	//printf("szStatStr %s\n", szStatStr);
 	//printf("starttime %"d64"\n", starttime);
 	//printf("utime %"d64"\n", utime);
@@ -318,21 +330,13 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number)
 	//printf("cstime %"d64"\n", cstime);
 	//printf("vsize %"d64"\n", vsize);
 	//printf("rss %"d64"\n", rss);
-
-	int64_t uptime = getkvfile("/proc/uptime");
 	//printf("uptime %"d64"\n", uptime);
-	int64_t Hertz = sysconf(_SC_CLK_TCK);
 	//printf("pid name: %s go\n", pid_number);
-	int64_t stotal_time = stime + cstime;
-	int64_t utotal_time = utime + cutime;
-	int64_t total_time = stotal_time + utotal_time;
-	double seconds = uptime - (starttime / Hertz);
-	//printf("seconds = %"d64" - (%"d64" / %"d64") = %lf\n", uptime, starttime, Hertz, seconds);
-	double sys_cpu_usage = 100 * ((stotal_time / Hertz) / seconds);
+	//printf("old seconds = %"d64" - (%"d64" / %"d64") = %lf\n", uptime, starttime, Hertz, seconds);
+	//printf("new seconds = %ld - %ld = %lf\n", time(0), st.st_ctime, seconds);
 	//printf("cpu usage sys: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", stotal_time, Hertz, seconds, sys_cpu_usage);
-	double user_cpu_usage = 100 * ((utotal_time / Hertz) / seconds);
 	//printf("cpu usage user: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", utotal_time, Hertz, seconds, user_cpu_usage);
-	double total_cpu_usage = 100 * ((total_time / Hertz) / seconds);
+
 	metric_labels_add_lbl3("process_memory", &rss, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "rss");
 	metric_labels_add_lbl3("process_memory", &vsize, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "vsz");
 	metric_labels_add_lbl3("process_cpu", &sys_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
