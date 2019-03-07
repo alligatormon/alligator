@@ -17,7 +17,7 @@ alligator is aggregator for system and software metrics
 - beanstalkd
 
 # config description:
-``` 
+```
 #/etc/alligator.conf
 #prometheus entrypoint for metrics
 entrypoint prometheus {
