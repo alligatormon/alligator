@@ -10,3 +10,8 @@ src/cmake_install.cmake
 src/install_manifest.txt
 src/_CPack_Packages/
 src/alligator-*.rpm
+src/liballigator_tests.a
+src/liballigator_tests.so
+src/libliballigator_tests.a
+src/libpostgresql_client.so
+src/a.out
