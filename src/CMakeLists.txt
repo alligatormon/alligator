@@ -92,6 +92,7 @@ ELSE(WIN32)
 		parsers/memcached.c
 		parsers/beanstalkd.c
 		parsers/zookeeper.c
+		parsers/gearmand.c
 		parsers/http_proto.c
 		common/selector.c
 		common/https_tls_check.c

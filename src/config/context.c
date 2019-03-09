@@ -113,6 +113,11 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			do_tcp_client(hi->host, hi->port, zookeeper_isro_handler, "isro");
 			do_tcp_client(hi->host, hi->port, zookeeper_wchs_handler, "wchs");
 		}
+		else if (!strcmp(mt->st[*i-1].s, "gearmand"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			do_tcp_client(hi->host, hi->port, gearmand_handler, "status\n");
+		}
 		else if (!strcmp(mt->st[*i-1].s, "mssql"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
