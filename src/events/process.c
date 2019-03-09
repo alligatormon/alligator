@@ -190,7 +190,7 @@ void process_handler()
 
 	uv_timer_t *timer = calloc(1, sizeof(*timer));
 	uv_timer_init(loop, timer);
-	uv_timer_start(timer, process_spawn_cb, 1000, 1000);
+	uv_timer_start(timer, process_spawn_cb, 2500, 10000);
 }
 
 //int main()
