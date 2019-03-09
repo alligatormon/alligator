@@ -67,9 +67,36 @@ void parse_config(mtlen *mt)
 {
 	extern aconf *ac;
 	int64_t i;
+	int splitflag = 0;
+	char *ttmp;
 	for (i=0;i<mt->m;i++)
 	{
-		//printf("%"d64": %s %zu %p\n", i, mt->st[i].s, tommy_hashdyn_count(ac->config_ctx), ac->config_ctx);
+		printf("%"d64": %s\n", i, mt->st[i].s);
+		if (!strncmp(mt->st[i].s, "exec://", 7))
+		{
+			splitflag = 1;
+			char *tmp = strdup(mt->st[i].s);
+			free(mt->st[i].s);
+			mt->st[i].s = malloc(CONF_MAXLENSIZE);
+			strcat(mt->st[i].s, tmp);
+			ttmp = mt->st[i].s;
+		}
+		else if(splitflag && mt->st[i].s[0] != ';')
+		{
+			strcat(ttmp, " ");
+			strcat(ttmp, mt->st[i].s);
+			free(mt->st[i].s);
+			mt->st[i].l = 0;
+		}
+		else if(splitflag && mt->st[i].s[0] == ';')
+		{
+			splitflag = 0;
+			ttmp = 0;
+		}
+	}
+
+	for (i=0;i<mt->m;i++)
+	{
 		config_context *ctx = tommy_hashdyn_search(ac->config_ctx, context_compare, mt->st[i].s, tommy_strhash_u32(0, mt->st[i].s));
 		if (ctx)
 			ctx->handler(mt, &i);

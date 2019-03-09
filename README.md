@@ -53,6 +53,8 @@ aggregate backends {
 	http  http://example.com;
 	#ICMP checks:
 	icmp icmp://example.com;
+	#BASH exec shell:
+	process exec:///bin/curl http://example.com:1111/metrics;
 }
 ```
 

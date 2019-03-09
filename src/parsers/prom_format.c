@@ -62,7 +62,7 @@ alligator_labels* labels_parse(char *lblstr, size_t l)
 
 void metric_labels_parse(char *metric, size_t l)
 {
-	printf("metric %s with len %zu\n", metric, l);
+	//printf("metric %s with len %zu\n", metric, l);
 	uint64_t i;
 	char *name = malloc(METRIC_SIZE);
 	double value = 0;

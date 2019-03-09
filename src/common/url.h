@@ -6,6 +6,7 @@
 #define APROTO_UNIXGRAM 4
 #define APROTO_TCP 5
 #define APROTO_UDP 6
+#define APROTO_PROCESS 7
 typedef struct host_aggregator_info
 {
 	char port[6];

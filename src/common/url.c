@@ -111,6 +111,21 @@ host_aggregator_info *parse_url (char *str, size_t len)
 		*(hi->port) = '0';
 		*(hi->port+1) = 0;
 	}
+	else if ( !strncmp(str, "exec://", 7) )
+	{
+		tmp = str+7;
+
+		if (len <= 7)
+		{
+			free(hi);
+			return NULL;
+		}
+
+		hi->proto = APROTO_PROCESS;
+		hi->host = strdup(tmp);
+		*(hi->port) = '0';
+		*(hi->port+1) = 0;
+	}
 	else if ( !strncmp(str, "unix://", 7) )
 	{
 		tmp = str+7;

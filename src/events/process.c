@@ -32,12 +32,13 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	}
 	process_info *pinfo = server->data;
 
+	alligator_multiparser(buf->base, buf->len, pinfo->parser_handler, NULL);
+
 	if (buf->base)
 	{
 		//printf("I:'%s'\n", buf->base);
 		free(buf->base);
 	}
-	alligator_multiparser(buf->base, buf->len, pinfo->parser_handler, NULL);
 	// call abort
 	//free(server);
 }
@@ -65,14 +66,22 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 void put_to_loop_cmd(char *cmd, void *parser_handler)
 {
+	if (!cmd)
+	{
+		puts("exec is empty");
+		return;
+	}
 	extern aconf* ac;
 	size_t len = strlen(cmd);
 
 	char *fname = malloc(255);
 	char *template = malloc(1000);
 	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
+	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
+	// TODO /bin/bash only linux, need customize
 	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", cmd);
 	free(cmd);
+	unlink(fname);
 	write_to_file(fname, template, rc);
 	(ac->process_cnt)++;
 
@@ -126,6 +135,7 @@ void put_to_loop_cmd(char *cmd, void *parser_handler)
 	pinfo->key = cmd;
 	//pinfo->channel = channel;
 	//pinfo->child_stdio = child_stdio;
+	pinfo->parser_handler = parser_handler;
 	pinfo->args = args;
 	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
 }

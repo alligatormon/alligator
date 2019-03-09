@@ -88,6 +88,7 @@ ELSE(WIN32)
 		parsers/clickhouse.c
 		#parsers/aerospike.c
 		parsers/redis.c
+		parsers/mssql.c
 		parsers/memcached.c
 		parsers/beanstalkd.c
 		parsers/zookeeper.c

@@ -14,3 +14,4 @@ void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int k
 void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int kind);
 void beanstalkd_handler(char *metrics, size_t size, char *instance, int kind);
 void memcached_handler(char *metrics, size_t size, char *instance, int kind);
+void mssql_handler(char *metrics, size_t size, char *instance, int kind);

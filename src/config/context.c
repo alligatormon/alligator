@@ -13,6 +13,9 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
+		if (!(mt->st[*i].l))
+			continue;
+
 		//printf("%"d64": %s\n", *i, mt->st[*i].s);
 		if (!strcmp(mt->st[*i-1].s, "prometheus"))
 		{
@@ -38,9 +41,10 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			printf("query %s, host %s, port %s\n", query, hi->host, hi->port);
 			do_tcp_client(hi->host, hi->port, http_proto_handler, query);
 		}
-		else if (!strcmp(mt->st[*i-1].s, "exec"))
+		else if (!strcmp(mt->st[*i-1].s, "process"))
 		{
-			put_to_loop_cmd(mt->st[*i].s, NULL);
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			put_to_loop_cmd(hi->host, NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "unix"))
 		{
@@ -109,6 +113,11 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			do_tcp_client(hi->host, hi->port, zookeeper_isro_handler, "isro");
 			do_tcp_client(hi->host, hi->port, zookeeper_wchs_handler, "wchs");
 		}
+		else if (!strcmp(mt->st[*i-1].s, "mssql"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			put_to_loop_cmd(hi->host, mssql_handler);
+		}
 		else if (!strcmp(mt->st[*i-1].s, "period"))
 		{
 			int64_t repeat = atoll(mt->st[*i].s);
@@ -138,7 +147,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 		*i += 1;
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
-		printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
+		if (!(mt->st[*i].l))
+			continue;
+
+		//printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
 		if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 			tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), NULL);
 #ifndef _WIN64
@@ -161,6 +173,9 @@ void context_system_parser(mtlen *mt, int64_t *i)
 
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
+		if (!(mt->st[*i].l))
+			continue;
+
 		if (!strcmp(mt->st[*i].s, "base"))
 			ac->system_base = 1;
 		else if (!strcmp(mt->st[*i].s, "disk"))
