@@ -49,6 +49,8 @@ aggregate backends {
 	memcached tcp://localhost:11211;
 	#BEANSTALKD
 	beanstalkd tcp://localhost:11300;
+	#GEARMAND
+	gearmand tcp://localhost:4730;
 	#HTTP checks:
 	http  http://example.com;
 	#ICMP checks:
