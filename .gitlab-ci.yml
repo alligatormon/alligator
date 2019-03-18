@@ -7,6 +7,7 @@ tests:
   stage: test
   script:
   - yum -y install libuv-devel libuv-static
+  - cd src
   - cmake3 .
   - make
   - mv alligator alligator-test
