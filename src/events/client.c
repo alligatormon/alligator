@@ -97,7 +97,12 @@ void on_connect(uv_connect_t* connection, int status)
 	stream->data = cinfo;
 	cinfo->connect_time_finish = setrtime();
 
-	uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
+	//uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
+	uv_buf_t *buffer = malloc(sizeof(uv_buf_t*));
+	buffer[0].base = strdup("AUTH FgLXyczWyyjd%%gs6t");
+	buffer[0].len = strlen("AUTH FgLXyczWyyjd%%gs6t")+1;
+	buffer[1].base = strdup("INFO");
+	buffer[1].len = strlen("INFO")+1;
 
 	uv_write_t *request = malloc(sizeof(*request));
 
@@ -105,7 +110,7 @@ void on_connect(uv_connect_t* connection, int status)
 	if (ac->log_level > 2)
 		printf("1: on_connect cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	uv_read_start(stream, alloc_buffer, on_read);
-	uv_write(request, stream, &buffer, 1, on_write);
+	uv_write(request, stream, buffer, 2, on_write);
 	cinfo->write_time = setrtime();
 }
 

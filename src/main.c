@@ -62,6 +62,7 @@ aconf* configuration()
 	ac = calloc(1, sizeof(*ac));
 	ac->aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
 

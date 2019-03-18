@@ -57,7 +57,7 @@ IF(WIN32)
 	set_target_properties(${HEAD} PROPERTIES OUTPUT_NAME "alligator")
 	target_link_libraries(${HEAD} ${COMMON} uv.lib odbc32.lib)
 ELSE(WIN32)
-	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -O3 -std=gnu11")
+	set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -O3 -std=gnu11 -pthread")
 	include_directories(/usr/include)
 	include_directories(/usr/local/include)
 	include_directories(/usr/include/cutter)
@@ -83,6 +83,7 @@ ELSE(WIN32)
 		events/filetailer.c
 		events/fs_write.c
 		events/system_scrape.c
+		platform/libbsd.c
 		parsers/prom_format.c
 		parsers/multiparser.c
 		parsers/clickhouse.c
@@ -93,14 +94,16 @@ ELSE(WIN32)
 		parsers/beanstalkd.c
 		parsers/zookeeper.c
 		parsers/gearmand.c
+		parsers/haproxy.c
 		parsers/http_proto.c
 		common/selector.c
-		common/https_tls_check.c
+		#common/https_tls_check.c
 		common/rtime.c
 		common/validator.c
 		common/base64.c
 		common/http.c
 		common/url.c
+		common/aggregator.c
 		dstructures/metric.c
 		dstructures/tommy.c
 		dstructures/rbtree.c
@@ -161,7 +164,8 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv bsd)
+	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z pthread libuv.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
@@ -182,7 +186,10 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
+set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
+set(CPACK_GENERATOR DEB)
 set(CPACK_GENERATOR RPM)
 
 #install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)

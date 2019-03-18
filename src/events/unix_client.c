@@ -68,6 +68,7 @@ void socket_conn(void* arg)
 
 	connect->data = cinfo;
 	uv_pipe_connect(connect, handle, cinfo->key, on_connect); 
+	cinfo->connect_time = setrtime();
 }
 
 static void uggregator_timer_cb(uv_timer_t* handle) {
@@ -85,7 +86,7 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg)
 	client_info *cinfo = malloc(sizeof(*cinfo));
 	cinfo->parser_handler = handler;
 	cinfo->mesg = mesg;
-	cinfo->key = unixsockaddr;
+	cinfo->hostname = cinfo->key = unixsockaddr;
 
 	tommy_hashdyn_insert(ac->uggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
 }

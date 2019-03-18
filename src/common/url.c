@@ -55,10 +55,21 @@ host_aggregator_info *parse_url (char *str, size_t len)
 	else if ( !strncmp(str, "tcp://", 6) )
 	{
 		int64_t k;
+		int64_t t;
 		tmp = str+6;
 		hi->proto = APROTO_TCP;
 
+		t = strcspn(tmp, "@");
 		k = strcspn(tmp, ":");
+		if ((t > k) && (t != len-6))
+		{
+			hi->user = strndup(tmp, k);
+			hi->pass = strndup(tmp+k+1, t-k-1);
+			tmp += t;
+			++tmp;
+			k = strcspn(tmp, ":");
+		}
+		
 		hi->host = strndup(tmp, k);
 
 		tmp += k;

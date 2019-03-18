@@ -12,3 +12,7 @@ tests:
   - cd ../
   - cmake3 .
   - make
+  - mv alligator alligator-test
+  - curl -T alligator-test -uamoshi:$BINTRAY_KEY https://api.bintray.com/content/alligatormon/generic/
+  - make package
+  - curl -T alligator-*.rpm -uamoshi:$BINTRAY_KEY https://api.bintray.com/content/alligatormon/rpm/

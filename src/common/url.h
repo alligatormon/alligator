@@ -7,12 +7,15 @@
 #define APROTO_TCP 5
 #define APROTO_UDP 6
 #define APROTO_PROCESS 7
+#include <stdio.h>
 typedef struct host_aggregator_info
 {
 	char port[6];
 	char *host;
 	char *query;
 	char *auth;
+	char *user;
+	char *pass;
 	int proto;
 } host_aggregator_info;
 

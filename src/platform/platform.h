@@ -1,6 +1,6 @@
 #pragma once
 #ifdef __linux__
-#include <bsd/string.h>
+//#include <bsd/string.h>
 #endif
 #ifdef _WIN32
 #define STDIN_FILENO 0

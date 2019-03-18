@@ -89,7 +89,14 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			do_tcp_client(hi->host, hi->port, redis_handler, "INFO\n");
+			char* query = malloc(1000);
+			if (hi->pass)
+				snprintf(query, 1000, "AUTH %s; INFO\n", hi->pass);
+			else
+				snprintf(query, 1000, "INFO\n");
+			printf("aa %p\n", hi);
+			printf("auth: %s\n", hi->pass);
+			do_tcp_client(hi->host, hi->port, redis_handler, query);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "memcached"))
 		{
@@ -117,6 +124,15 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_tcp_client(hi->host, hi->port, gearmand_handler, "status\n");
+		}
+		else if (!strcmp(mt->st[*i-1].s, "haproxy"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			smart_aggregator_selector(hi, haproxy_info_handler, "show info\n");
+			smart_aggregator_selector(hi, haproxy_pools_handler, "show pools\n");
+			smart_aggregator_selector(hi, haproxy_stat_handler, "show stat\n");
+			smart_aggregator_selector(hi, haproxy_sess_handler, "show sess\n");
+			smart_aggregator_selector(hi, haproxy_table_handler, "show table\n");
 		}
 		else if (!strcmp(mt->st[*i-1].s, "mssql"))
 		{
