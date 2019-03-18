@@ -6,10 +6,7 @@ image: amoshi/cbuiler
 tests:
   stage: test
   script:
-  - yum -y install libuv-devel
-  - cd src/dstructures/
-  - git clone https://github.com/amadvance/tommyds.git
-  - cd ../
+  - yum -y install libuv-devel libuv-static
   - cmake3 .
   - make
   - mv alligator alligator-test
