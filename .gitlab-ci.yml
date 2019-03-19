@@ -24,5 +24,5 @@ tests:
   - make package
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
-  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.31" https://api.bintray.com/content/alligatormon/deb/
+  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.31" -H "X-Bintray-Debian-Distribution:stretch" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" https://api.bintray.com/content/alligatormon/deb/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/1.9.31/publish
