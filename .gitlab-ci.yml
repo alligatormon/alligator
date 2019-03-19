@@ -11,10 +11,12 @@ tests:
   - cmake3 .
   - make
   - mv alligator alligator-test
-  - curl -s -XPOST -d '{"name":"1.9.31", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
+  - >-
+    curl -s -XPOST -d '{"name":"1.9.31", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
   - curl -sT alligator-test -$BINTRAY_USER:$BINTRAY_KEY https://api.bintray.com/content/alligatormon/generic/alligator/1.9.31/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/content/alligatormon/generic/alligator/1.9.31/publish
   - make package
-  - curl -s -XPOST -d '{"name":"1.9.31", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/packages/alligatormon/rpm/
+  - >-
+    curl -s -XPOST -d '{"name":"1.9.31", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/packages/alligatormon/rpm/
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY https://api.bintray.com/content/alligatormon/rpm/alligator/1.9.31/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H Content-Type:application/json -H Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/1.9.31/publish
