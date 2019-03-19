@@ -189,9 +189,6 @@ set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
-set(CPACK_GENERATOR DEB)
-set(CPACK_GENERATOR RPM)
-
 #install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)
 
 install(FILES alligator.service DESTINATION /usr/lib/systemd/system)

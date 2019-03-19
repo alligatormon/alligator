@@ -8,7 +8,7 @@ tests:
   script:
   - yum -y install libuv-devel libuv-static
   - cd src
-  - cmake3 .
+  - cmake3 . -D CPACK_GENERATOR=RPM
   - make
   - mv alligator alligator-test
   - >-
@@ -20,3 +20,9 @@ tests:
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/rpm/
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.31" https://api.bintray.com/content/alligatormon/rpm/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/1.9.31/publish
+  - cmake3 . -D CPACK_GENERATOR=DEB
+  - make package
+  - >-
+    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
+  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.31" https://api.bintray.com/content/alligatormon/deb/
+  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/1.9.31/publish
