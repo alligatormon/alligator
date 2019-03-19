@@ -8,7 +8,7 @@ tests:
   script:
   - yum -y install libuv-devel libuv-static
   - cd src
-  - cmake3 . -D CPACK_GENERATOR=RPM
+  - cmake3 . -DCPACK_GENERATOR=RPM
   - make
   - mv alligator alligator-test
   - >-
