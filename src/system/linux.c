@@ -101,7 +101,7 @@ cpuusage_cgroup* get_cpu_usage_cgroup(size_t num_cpus_cgroup)
 	if (!fgets(temp, LINUXFS_LINE_LENGTH, fd))
 	{
 		fclose(fd);
-		return;
+		return NULL;
 	}
 	for (i=0; fgets(temp, LINUXFS_LINE_LENGTH, fd); i++ )
 	{
