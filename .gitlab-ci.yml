@@ -24,6 +24,7 @@ build_rpm:
 build_deb:
   image: ubuntu
   stage: build
+  allow_failure: true
   script:
   - apt update
   - apt install -y cmake g++ gcc libuv1-dev
