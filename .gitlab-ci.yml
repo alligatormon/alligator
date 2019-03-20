@@ -24,14 +24,13 @@ build_rpm:
 build_deb:
   image: ubuntu
   stage: build
-  allow_failure: true
   script:
   - apt update
   - apt install -y cmake g++ gcc libuv1-dev
   - cat misc/deb-sources >> /etc/apt/sources.list
-  - apt update --allow-unauthenticated
+  - ( apt update --allow-unauthenticated || exit 0 )
   - apt -y --allow-unauthenticated install cutter-keyring
-  - apt-get update
+  - ( apt update || exit 0 )
   - apt -y install cutter-testing-framework
   - cd src
   - cmake3 . -DCPACK_GENERATOR=DEB
