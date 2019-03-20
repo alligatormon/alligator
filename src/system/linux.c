@@ -98,7 +98,11 @@ cpuusage_cgroup* get_cpu_usage_cgroup(size_t num_cpus_cgroup)
 		return NULL;
 
 	cgr = malloc(sizeof(cpuusage_cgroup)*num_cpus_cgroup);
-	fgets(temp, LINUXFS_LINE_LENGTH, fd);
+	if (!fgets(temp, LINUXFS_LINE_LENGTH, fd))
+	{
+		fclose(fd);
+		return;
+	}
 	for (i=0; fgets(temp, LINUXFS_LINE_LENGTH, fd); i++ )
 	{
 		int64_t t1, t2, t3;
@@ -411,7 +415,11 @@ void find_pid()
 		if (!fd)
 			continue;
 		char procname[_POSIX_PATH_MAX];
-		fgets(procname, _POSIX_PATH_MAX, fd);
+		if(!fgets(procname, _POSIX_PATH_MAX, fd))
+		{
+			fclose(fd);
+			continue;
+		}
 		procname[strlen(procname)-1] = '\0';
 		fclose(fd);
 
@@ -525,7 +533,12 @@ void get_tcpudp_stat(char *file, char *name)
 		return;
 
 	char *buf = malloc(500);
-	fgets(buf, 500, fd);
+	if(!fgets(buf, 500, fd))
+	{
+		free(buf);
+		fclose(fd);
+		return;
+	}
 	int64_t udpstat[9];
 
 	int64_t retransmit = 0;
@@ -569,8 +582,16 @@ void get_netstat_statistics()
 	FILE *fp = fopen("/proc/net/netstat", "r");
 	char *buf = malloc(10000);
 	int64_t netstat[118];
-	fgets(buf, 10000, fp);
-	fgets(buf, 10000, fp);
+	if(!fgets(buf, 10000, fp))
+	{
+		fclose(fp);
+		return;
+	}
+	if(!fgets(buf, 10000, fp))
+	{
+		fclose(fp);
+		return;
+	}
 	int64_t i;
 	int64_t j;
 	size_t len = strlen(buf) -1;
@@ -627,7 +648,11 @@ void get_network_statistics()
 
 	int i;
 	for (i = 0; i < 2; i++) {
-		fgets(buf, 200, fp);
+		if(!fgets(buf, 200, fp))
+		{
+			fclose(fp);
+			return;
+		}
 	}
 
 	for (i=0; fgets(buf, 200, fp); i++)
@@ -698,7 +723,11 @@ void get_nofile_stat()
 		return;
 
 	char buf[LINUXFS_LINE_LENGTH];
-	fgets(buf, LINUXFS_LINE_LENGTH, fd);
+	if(!fgets(buf, LINUXFS_LINE_LENGTH, fd))
+	{
+		fclose(fd);
+		return;
+	}
 	int64_t stat[3];
 
 	int64_t file_open = 0;
@@ -773,7 +802,11 @@ void get_loadavg()
 		return;
 
 	char str[LINUXFS_LINE_LENGTH];
-	fgets(str, LINUXFS_LINE_LENGTH, fd);
+	if(!fgets(str, LINUXFS_LINE_LENGTH, fd))
+	{
+		fclose(fd);
+		return;
+	}
 	double load1, load5, load15;
 	sscanf(str, "%lf %lf %lf", &load1, &load5, &load15);
 	metric_labels_add_lbl("load_average", &load1, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load1");
