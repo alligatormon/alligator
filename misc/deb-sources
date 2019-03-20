@@ -1,2 +1,2 @@
-deb http://downloads.sourceforge.net/project/cutter/debian/ jessie main
-deb-src http://downloads.sourceforge.net/project/cutter/debian/ jessie main
+deb [trusted=yes] http://downloads.sourceforge.net/project/cutter/debian/ jessie main
+deb-src [trusted=yes] http://downloads.sourceforge.net/project/cutter/debian/ jessie main
