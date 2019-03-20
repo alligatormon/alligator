@@ -22,9 +22,15 @@ build_rpm:
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/1.9.31/publish
 
 build_deb:
+  image: ubuntu
   stage: build
   script:
-  - yum -y install libuv-devel libuv-static
+  - apt update
+  - apt install -y cmake g++ gcc libuv1-dev
+  - apt update --allow-unauthenticated
+  - apt -y --allow-unauthenticated install cutter-keyring
+  - apt-get update
+  - apt -y install cutter-testing-framework
   - cd src
   - cmake3 . -DCPACK_GENERATOR=DEB
   - make package
