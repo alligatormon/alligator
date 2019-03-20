@@ -149,7 +149,7 @@ add_library(${COMMON_TESTS} STATIC
 add_library(${TESTS} SHARED tests/unit/tests.c)
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter bsd)
+target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 #add_test(Test1 "cutter" ".")
 #add_executable(${CLIENT} events/server_handler.c)
