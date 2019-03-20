@@ -28,7 +28,7 @@ void metricprint_forearch(void *funcarg, void* arg)
 			snprintf(buf,NAMELEN,"%s %s\n", metric->key, metric->res->s);
 		//write(STDOUT_FILENO, buf, strlen(buf));
 		//write(s, buf, strlen(buf));
-		strncat(str->s, buf, strlen(buf));
+		strncat(str->s, buf, MAX_RESPONSE_SIZE);
 	}
 }
 

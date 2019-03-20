@@ -1,3 +1,4 @@
+#define MAX_RESPONSE_SIZE 6553500
 void alligator_multiparser(char *buf, size_t len, void (*handler)(char*, size_t, char*, int), char *response);
 void redis_handler(char *metrics, size_t size, char *instance, int kind);
 void aerospike_handler(char *metrics, size_t size, char *instance, int kind);

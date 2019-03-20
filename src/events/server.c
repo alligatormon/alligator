@@ -94,7 +94,7 @@ static void process_command(uv_work_t *req) {
 	// TODO calculate body answer size by abount metric count
 	if (data && data->buf && data->buf->base)
 	{
-		char *answ = malloc(6553500);
+		char *answ = malloc(MAX_RESPONSE_SIZE);
 		alligator_multiparser(data->buf->base, strlen(data->buf->base), NULL, answ);
 		free(data->buf->base);
 		data->response = answ; //strdup("HTTP/1.1 200 OK\n\nHello World, work's done\n\n");
