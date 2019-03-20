@@ -33,7 +33,7 @@ build_deb:
   - ( apt update || exit 0 )
   - apt -y install cutter-testing-framework
   - cd src
-  - cmake3 . -DCPACK_GENERATOR=DEB
+  - cmake . -DCPACK_GENERATOR=DEB
   - make package
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
