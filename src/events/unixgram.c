@@ -90,7 +90,7 @@ void do_unixgram(void *arg)
 	local->sun_family = AF_UNIX;
 	//strcpy(local->sun_path, client_sock);
 	//free(client_sock);
-	snprintf(local->sun_path, 255, "/tmp/alligator_%"d64".sock", ac->request_cnt);
+	snprintf(local->sun_path, 108, "/tmp/alligator_%"u64".sock", ac->request_cnt);
 	unlink(local->sun_path);
 	unfo->local_len = local_len;
 	unfo->local = local;

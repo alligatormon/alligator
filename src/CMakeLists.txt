@@ -165,7 +165,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	target_link_libraries(${HEAD} ${COMMON} dl z pthread libuv.a)
+	target_link_libraries(${HEAD} ${COMMON} z pthread libuv.a dl)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
