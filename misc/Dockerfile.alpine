@@ -4,7 +4,7 @@ ADD ./ /build/
 RUN  apk add git cmake gcc g++ make libuv-dev glib-dev intltool
 RUN  mkdir depends &&\
   cd depends &&\
-  wget http://sourceforge.net/projects/cutter/files/cutter/1.2.6/cutter-1.2.6.tar.gz &&\
+  wget https://dl.bintray.com/alligatormon/generic/:cutter-1.2.6.tar.gz &&\
   tar xvzf cutter-1.2.6.tar.gz &&\
   cd cutter-1.2.6 &&\
   ./configure --prefix=/usr && ls && make && ls && make install
