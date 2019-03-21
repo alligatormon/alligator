@@ -51,6 +51,9 @@ aggregate backends {
 	beanstalkd tcp://localhost:11300;
 	#GEARMAND
 	gearmand tcp://localhost:4730;
+	#HAPROXY TCP or unix socket stats
+	haproxy tcp://localhost:9999;
+	haproxy unix:///var/run/haproxy;
 	#HTTP checks:
 	http  http://example.com;
 	#ICMP checks:
