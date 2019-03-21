@@ -12,4 +12,4 @@ RUN cd src && cmake . && make && cutter .
 
 FROM alpine
 COPY --from=0 /build/src/alligator /usr/bin/alligator
-ENRYPOINT /usr/bin/alligator
+ENTRYPOINT /usr/bin/alligator
