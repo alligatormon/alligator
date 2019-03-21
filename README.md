@@ -75,12 +75,12 @@ repo_gpgcheck=0
 enabled=1
 ```
 
-# deb
+## deb
 ```
 echo "deb https://dl.bintray.com/alligatormon/deb xenial main" | sudo tee -a /etc/apt/sources.list
 ```
 
-# Binary
+## Binary
 https://dl.bintray.com/alligatormon/generic/
 
 
