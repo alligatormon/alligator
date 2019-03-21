@@ -62,8 +62,9 @@ void socket_conn(void* arg)
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	client_info *cinfo = arg;
-	uv_pipe_t* handle = (uv_pipe_t*)malloc(sizeof(uv_pipe_t)); 
-	uv_connect_t* connect = (uv_connect_t*)malloc(sizeof(uv_connect_t)); 
+	uv_pipe_t *handle = malloc(sizeof(uv_pipe_t));
+	cinfo->socket = (uv_tcp_t*)handle;
+	uv_connect_t *connect = cinfo->connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
 
 	uv_pipe_init(loop, handle, 0); 
 
