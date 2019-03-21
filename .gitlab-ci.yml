@@ -12,10 +12,10 @@ build_rpm:
   - cd src
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make
-  - mv alligator alligator-test
+  - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
-  - curl -sT alligator-test -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
+  - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/generic/alligator/$CI_COMMIT_TAG/publish
   - make package
   - >-
