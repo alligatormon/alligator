@@ -53,7 +53,7 @@ void filetailer_on_read(uv_fs_t *req) {
 		//printf("(%zu) buf %s\n", strlen(fstatus->buffer->base), fstatus->buffer->base);
 		size_t str_len = strlen(fstatus->buffer->base);
 		fstatus->offset += str_len;
-		alligator_multiparser(fstatus->buffer->base, str_len, fstatus->parser_handler, NULL);
+		alligator_multiparser(fstatus->buffer->base, str_len, fstatus->parser_handler, NULL, NULL);
 	}
 	uv_fs_t close_req;
 	uv_fs_close(uv_default_loop(), &close_req, fstatus->open_req->result, NULL);

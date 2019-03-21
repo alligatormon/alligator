@@ -2,8 +2,9 @@
 #include <string.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
+#include "events/client_info.h"
 
-void zookeeper_mntr_handler(char *metrics, size_t size, char *instance, int kind)
+void zookeeper_mntr_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("zk_server_state");
@@ -33,7 +34,7 @@ void zookeeper_mntr_handler(char *metrics, size_t size, char *instance, int kind
 	}
 	free(res);
 }
-void zookeeper_wchs_handler(char *metrics, size_t size, char *instance, int kind)
+void zookeeper_wchs_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char *cur = strstr(metrics, "Total watches:");
 	if (!cur)
@@ -41,7 +42,7 @@ void zookeeper_wchs_handler(char *metrics, size_t size, char *instance, int kind
 	int64_t pvalue = atoi(cur+14);
 	metric_labels_add_auto_prefix("total_watches", "zk_", &pvalue, ALLIGATOR_DATATYPE_INT, 0);
 }
-void zookeeper_isro_handler(char *metrics, size_t size, char *instance, int kind)
+void zookeeper_isro_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t val = 1;
 	int64_t nval = 0;

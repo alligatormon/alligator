@@ -2,9 +2,10 @@
 #include <string.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
+#include "events/client_info.h"
 #define GEARMAND_NAME_SIZE 1000
 
-void gearmand_handler(char *metrics, size_t size, char *instance, int kind)
+void gearmand_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char cdc[GEARMAND_NAME_SIZE];
 	int64_t i;

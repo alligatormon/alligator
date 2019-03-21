@@ -3,7 +3,6 @@
 #include "dstructures/tommy.h"
 #include <uv.h>
 #include "dstructures/metric.h"
-#include "parsers/multiparser.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"
 #include "common/selector.h"
@@ -16,6 +15,7 @@
 #include "events/process.h"
 #include "events/filetailer.h"
 #include "config/context.h"
+#include "parsers/multiparser.h"
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000

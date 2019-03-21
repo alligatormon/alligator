@@ -132,7 +132,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			smart_aggregator_selector(hi, haproxy_pools_handler, "show pools\n");
 			smart_aggregator_selector(hi, haproxy_stat_handler, "show stat\n");
 			smart_aggregator_selector(hi, haproxy_sess_handler, "show sess\n");
-			smart_aggregator_selector(hi, haproxy_table_handler, "show table\n");
+			//smart_aggregator_selector(hi, haproxy_table_handler, "show table\n");
 		}
 		else if (!strcmp(mt->st[*i-1].s, "mssql"))
 		{

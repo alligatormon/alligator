@@ -8,6 +8,7 @@
 #include "parsers/multiparser.h"
 #include "events/uv_alloc.h"
 #include "common/rtime.h"
+#include "common/url.h"
 
 //void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 //{
@@ -55,9 +56,9 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	metric_labels_add_lbl3("aggregator_duration_time", &read_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", cinfo->hostname);
 	//fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
 	if (cinfo)
-		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL);
+		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL, cinfo);
 	else
-		alligator_multiparser(buf->base, buf->len, NULL, NULL);
+		alligator_multiparser(buf->base, buf->len, NULL, NULL, NULL);
 	free(buf->base);
 	uv_close((uv_handle_t*)tcp, on_close);
 }
@@ -167,6 +168,8 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
 	cinfo->mesg = mesg;
 	cinfo->parser_handler = handler;
 	cinfo->hostname = addr;
+	cinfo->proto = APROTO_TCP;
+	cinfo->port = port;
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
 	resolver->data = cinfo;

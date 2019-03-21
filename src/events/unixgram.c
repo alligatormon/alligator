@@ -56,7 +56,7 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	}
 	buf[size]=0;
 	//printf("buf %s\n", buf);
-	alligator_multiparser(buf, size, unfo->parser_handler, NULL);
+	alligator_multiparser(buf, size, unfo->parser_handler, NULL, NULL);
 
 	uv_close((uv_handle_t*)handle, NULL);
 
@@ -172,7 +172,7 @@ void unixgram_serve_cb(uv_poll_t* handle, int status, int events)
 	}
 	buf[size]=0;
 	//printf("buf %s\n", buf);
-	alligator_multiparser(buf, size, unfo->parser_handler, NULL);
+	alligator_multiparser(buf, size, unfo->parser_handler, NULL, NULL);
 }
 
 void unixgram_server_handler(char *addr, void* parser_handler)

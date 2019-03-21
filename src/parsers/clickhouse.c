@@ -2,15 +2,16 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
+#include "events/client_info.h"
 //#include "args_parse.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 255
-void clickhouse_system_handler(char *metrics, size_t size, char *instance, int kind)
+void clickhouse_system_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0);
 }
 
-void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int kind)
+void clickhouse_columns_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -78,7 +79,7 @@ void clickhouse_columns_handler(char *metrics, size_t size, char *instance, int 
 	free(table);
 }
 
-void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int kind)
+void clickhouse_merges_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -177,7 +178,7 @@ void clickhouse_merges_handler(char *metrics, size_t size, char *instance, int k
 	free(is_mutation);
 }
 
-void clickhouse_dictionary_handler(char *metrics, size_t size, char *instance, int kind)
+void clickhouse_dictionary_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t i = 0;
 	char *name = malloc(CH_NAME_SIZE);
@@ -234,7 +235,7 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, char *instance, i
 	free(name);
 }
 
-void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int kind)
+void clickhouse_replicas_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -338,7 +339,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, char *instance, int
 	free(table);
 }
 
-//void clickhouse_system_handler(char *metrics, size_t size, char *instance, int kind)
+//void clickhouse_system_handler(char *metrics, size_t size, client_info *cinfo)
 //{
 //	printf("metric '%s'(%zu)\n", metrics, size);
 //	char field[1000];

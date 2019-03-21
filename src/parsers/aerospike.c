@@ -2,7 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
-void aerospike_handler(char *metrics, size_t size, char *instance, int kind)
+void aerospike_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char *clmetrics = selector_get_field_by_str(metrics, size, "statistics", 2, NULL);
 	if ( clmetrics )

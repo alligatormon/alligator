@@ -32,7 +32,7 @@ void unix_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 
 	uv_write_t *req = (uv_write_t*) malloc(sizeof(uv_write_t));
 	char *answ = malloc(65535);
-	alligator_multiparser(buf->base, buf->len, NULL, answ);
+	alligator_multiparser(buf->base, buf->len, NULL, answ, NULL);
 	req->data = usdata;
 	usdata->answ = answ;
 	usdata->client = client;

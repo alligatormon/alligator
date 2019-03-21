@@ -5,6 +5,7 @@
 #include <sys/un.h>
 #include "main.h"
 #include "client.h"
+#include "common/url.h"
 
 typedef struct { 
 	uv_write_t req; 
@@ -84,8 +85,10 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg)
 		return;
 	extern aconf* ac;
 	client_info *cinfo = malloc(sizeof(*cinfo));
+	cinfo->proto = APROTO_UNIX;
 	cinfo->parser_handler = handler;
 	cinfo->mesg = mesg;
+	cinfo->port = NULL;
 	cinfo->hostname = cinfo->key = unixsockaddr;
 
 	tommy_hashdyn_insert(ac->uggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));

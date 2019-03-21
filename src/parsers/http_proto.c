@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "parsers/http_proto.h"
+#include "events/client_info.h"
 
 void http_reply_free(http_reply_data* hrdata)
 {
@@ -74,7 +75,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	return hrdata;
 }
 
-void http_proto_handler(char *metrics, size_t size, char *instance, int kind)
+void http_proto_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	//printf("HTTPPROTO: '%s'\n", metrics);
 	http_reply_data *hrdata = http_reply_parser(metrics, size);

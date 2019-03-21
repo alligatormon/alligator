@@ -2,14 +2,15 @@
 #include <string.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
+#include "events/client_info.h"
 #define HAPROXY_NAME_SIZE 1000
 
-void haproxy_info_handler(char *metrics, size_t size, char *instance, int kind)
+void haproxy_info_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	selector_split_metric(metrics, size, "\n", 1, ": ", 2, "Haproxy_", 8, NULL, 0);
 }
 
-void haproxy_pools_handler(char *metrics, size_t size, char *instance, int kind)
+void haproxy_pools_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char name[HAPROXY_NAME_SIZE];
 	size_t name_size;
@@ -72,7 +73,7 @@ void haproxy_pools_handler(char *metrics, size_t size, char *instance, int kind)
 	metric_labels_add_auto("haproxy_pool_used_total", &used, ALLIGATOR_DATATYPE_INT, 0);
 }
 
-void haproxy_stat_handler(char *metrics, size_t size, char *instance, int kind)
+void haproxy_stat_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	
 	char name[HAPROXY_NAME_SIZE];
@@ -135,7 +136,7 @@ void haproxy_stat_handler(char *metrics, size_t size, char *instance, int kind)
 	}
 }
 
-void haproxy_sess_handler(char *metrics, size_t size, char *instance, int kind)
+void haproxy_sess_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	int64_t i;
 	int64_t cnt;
@@ -148,14 +149,11 @@ void haproxy_sess_handler(char *metrics, size_t size, char *instance, int kind)
 	metric_labels_add_auto("haproxy_sess_count", &cnt, ALLIGATOR_DATATYPE_INT, 0);
 }
 
-void haproxy_table_handler(char *metrics, size_t size, char *instance, int kind)
+void haproxy_table_select_handler(char *metrics, size_t size, client_info *cinfo)
 {
-	puts(metrics);
-	//int64_t i;
-	//for (i=0; i<size; ++i)
-	//{
-	//	
-	//}
-	//int64_t to = strcspn(metrics, ""
-	//smart_aggregator_selector(hi, haproxy_table_custom_handler, "show table\n");
+}
+
+void haproxy_table_handler(char *metrics, size_t size, client_info *cinfo)
+{
+	//smart_aggregator_selector_plain(cinfo->proto, cinfo->hostname, cinfo->port, haproxy_table_handler, "show table backend-slave\n");
 }

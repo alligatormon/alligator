@@ -2,7 +2,8 @@
 #include <string.h>
 #include "common/selector.h"
 #include "dstructures/metric.h"
-void redis_handler(char *metrics, size_t size, char *instance, int kind)
+#include "events/client_info.h"
+void redis_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("role");
