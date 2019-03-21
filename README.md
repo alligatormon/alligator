@@ -63,8 +63,9 @@ aggregate backends {
 }
 ```
 # Distribution
+## Docker
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
-# YUM
+## yum
 ```
 [alligator-rpm]
 name=alligator-rpm
@@ -74,7 +75,7 @@ repo_gpgcheck=0
 enabled=1
 ```
 
-# DEB
+# deb
 ```
 echo "deb https://dl.bintray.com/alligatormon/deb xenial main" | sudo tee -a /etc/apt/sources.list
 ```
