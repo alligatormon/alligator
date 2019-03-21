@@ -62,5 +62,25 @@ aggregate backends {
 	process exec:///bin/curl http://example.com:1111/metrics;
 }
 ```
+# Distribution
+docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
+# YUM
+```
+[alligator-rpm]
+name=alligator-rpm
+baseurl=https://dl.bintray.com/alligatormon/rpm
+gpgcheck=0
+repo_gpgcheck=0
+enabled=1
+```
+
+# DEB
+```
+echo "deb https://dl.bintray.com/alligatormon/deb xenial main" | sudo tee -a /etc/apt/sources.list
+```
+
+# Binary
+https://dl.bintray.com/alligatormon/generic/
+
 
 TODO: scrape from all services
