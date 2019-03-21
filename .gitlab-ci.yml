@@ -1,7 +1,17 @@
 stages:
+- tests
 - build
 
 image: amoshi/cbuiler
+
+build_test:
+  stage: tests
+  script:
+  - yum -y install libuv-devel libuv-static
+  - cd src
+  - cmake3 .
+  - make
+  - cutter .
 
 build_rpm:
   stage: build
