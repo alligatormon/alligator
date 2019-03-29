@@ -20,6 +20,9 @@ typedef struct client_info
 	r_time read_time_finish;
 	int lock;
 	int proto;
+	int write;
+	uv_buf_t *buffer;
+	size_t buflen;
 
 	tommy_node node;
 } client_info;

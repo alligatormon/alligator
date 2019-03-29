@@ -89,6 +89,30 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg)
 	cinfo->proto = APROTO_UNIX;
 	cinfo->parser_handler = handler;
 	cinfo->mesg = mesg;
+	if (mesg)
+		cinfo->write = 1;
+	else
+		cinfo->write = 0;
+	cinfo->port = NULL;
+	cinfo->hostname = cinfo->key = unixsockaddr;
+
+	tommy_hashdyn_insert(ac->uggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
+}
+
+void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, size_t buflen)
+{
+	if (!unixsockaddr)
+		return;
+	if ( !validate_path(unixsockaddr, strlen(unixsockaddr)) )
+		return;
+	extern aconf* ac;
+	client_info *cinfo = malloc(sizeof(*cinfo));
+	cinfo->proto = APROTO_UNIX;
+	cinfo->parser_handler = handler;
+	cinfo->mesg = NULL;
+	cinfo->write = 2;
+	cinfo->buffer = buffer;
+	cinfo->buflen = buflen;
 	cinfo->port = NULL;
 	cinfo->hostname = cinfo->key = unixsockaddr;
 

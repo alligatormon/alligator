@@ -68,6 +68,8 @@ void on_write(uv_write_t* req, int status)
 	if (status)
 	{
 		fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
+		free(req);
+		//uv_close((uv_handle_t*)req->handle, on_close);
 		//uv_close((uv_handle_t*)req->handle, NULL);
 		return;
 	}
@@ -98,16 +100,25 @@ void on_connect(uv_connect_t* connection, int status)
 	stream->data = cinfo;
 	cinfo->connect_time_finish = setrtime();
 
-	uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
-
-	uv_write_t *request = malloc(sizeof(*request));
-
-	request->data = cinfo;
 	if (ac->log_level > 2)
 		printf("1: on_connect cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	uv_read_start(stream, alloc_buffer, on_read);
-	uv_write(request, stream, &buffer, 1, on_write);
-	cinfo->write_time = setrtime();
+	if (cinfo->write == 1)
+	{
+		uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
+		uv_write_t *request = malloc(sizeof(*request));
+		request->data = cinfo;
+		uv_write(request, stream, &buffer, 1, on_write);
+		cinfo->write_time = setrtime();
+	}
+	else if (cinfo->write == 2)
+	{
+		uv_write_t *request = malloc(sizeof(*request));
+		request->data = cinfo;
+
+		uv_write(request, stream, cinfo->buffer, cinfo->buflen, on_write);
+		cinfo->write_time = setrtime();
+	}
 }
 
 void on_connect_handler(void* arg)
@@ -166,6 +177,39 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
 	if (ac->log_level > 2)
 		printf("allocated CINFO with addr %p with hostname '%s' with mesg '%s'\n", cinfo, addr, mesg);
 	cinfo->mesg = mesg;
+	if (mesg)
+		cinfo->write = 1;
+	else
+		cinfo->write = 0;
+	cinfo->parser_handler = handler;
+	cinfo->hostname = addr;
+	cinfo->proto = APROTO_TCP;
+	cinfo->port = port;
+
+	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
+	resolver->data = cinfo;
+	int r = uv_getaddrinfo(loop, resolver, tcp_on_resolved, addr, port, NULL);
+	if (r)
+	{
+		fprintf(stderr, "%s\n", uv_strerror(r));
+		return;
+	}
+	else
+	{
+		(ac->tcp_client_count)++;
+	}
+}
+
+void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffer, size_t buflen)
+{
+	extern aconf* ac;
+	uv_loop_t *loop = ac->loop;
+	client_info *cinfo = calloc(1, sizeof(*cinfo));
+	if (ac->log_level > 2)
+		printf("allocated CINFO with addr %p with hostname '%s' with buf '%p'\n", cinfo, addr, buffer);
+	cinfo->buffer = buffer;
+	cinfo->buflen = buflen;
+	cinfo->write = 2;
 	cinfo->parser_handler = handler;
 	cinfo->hostname = addr;
 	cinfo->proto = APROTO_TCP;

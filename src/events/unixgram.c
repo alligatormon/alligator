@@ -110,12 +110,16 @@ void do_unixgram(void *arg)
 	if (bind(s, (struct sockaddr *)local, len) == -1)
 	{
 		perror("bind");
+		free(remote);
+		free(local);
 		return;
 	}
 
 	if (sendto(s, unfo->mesg, strlen(unfo->mesg), 0, (struct sockaddr*)remote, remote_len) == -1)
 	{
 		perror("sendto");
+		free(remote);
+		free(local);
 		return;
 	}
 	printf("sent %zu bytes\n", strlen(unfo->mesg));
