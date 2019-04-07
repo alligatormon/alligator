@@ -7,6 +7,8 @@
 #define APROTO_TCP 5
 #define APROTO_UDP 6
 #define APROTO_PROCESS 7
+#define APROTO_FCGI 8
+#define APROTO_FCGI_AUTH 9
 #include <stdio.h>
 typedef struct host_aggregator_info
 {
