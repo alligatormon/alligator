@@ -61,6 +61,7 @@ ELSE(WIN32)
 	include_directories(/usr/include)
 	include_directories(/usr/local/include)
 	include_directories(/usr/include/cutter)
+	include_directories(/usr/local/include/cutter)
 	include_directories(/usr/local/opt/openssl/include/)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
