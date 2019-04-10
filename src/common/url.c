@@ -205,6 +205,23 @@ host_aggregator_info *parse_url (char *str, size_t len)
 		hi->proto = APROTO_UNIX;
 		hi->host = strdup(tmp);
 	}
+	else if ( !strncmp(str, "unixfcgi://", 11) )
+	{
+		tmp = str+11;
+
+		if (len <= 11)
+		{
+			free(hi);
+			return NULL;
+		}
+
+		int64_t k = strcspn(tmp, ":");
+
+		hi->proto = APROTO_UNIXFCGI;
+		hi->host = strndup(tmp, k);
+
+		hi->query = strdup(tmp+k+1);
+	}
 	else if ( !strncmp(str, "unixgram://", 11) )
 	{
 		tmp = str+11;

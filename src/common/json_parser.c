@@ -9,7 +9,9 @@
 #define JSON_PARSER_SUM 1
 #define JSON_PARSER_AVG 2
 #define JSON_PARSER_LABEL 3
+#define JSON_PARSER_PLAINPRINT 4
 #define OBJSIZE 100
+#define MAX_CHARS 100000
 #define JSON_PARSER_SEPARATOR "_"
 
 typedef struct pjson_collector
@@ -68,7 +70,6 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	pjson_collector *collector = arg;
 	if (!collector)
 		return;
-	//pjson_node *node = *((pjson_node*)funcarg);
 	pjson_node *node = funcarg;
 	if (node->action == JSON_PARSER_PRINT)
 		return;
@@ -76,22 +77,11 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	if (node->action == JSON_PARSER_AVG)
 		collector->collector /= node->size;
 
-	printf("collector %d, %s=%lf\n", node->action, collector->key, collector->collector);
-	puts(collector->key);
-	//metric_labels_add_lbl(node->exportname, &collector->collector, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", collector->key);
-	printf("key %s(%zu)\n", collector->key, strlen(collector->key));
 	metric_labels_add_lbl(node->key, &collector->collector, ALLIGATOR_DATATYPE_DOUBLE, 0, "key", collector->label);
-	puts("done");
-	//metric_labels_add_lbl(node->exportname, &collector->collector, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", collector->key);
-
-	//tommy_hashdyn_remove(node->hash, pjson_collector_compare, collector->key, tommy_strhash_u32(0, collector->key));
-	//free(collector->key);
-	//free(collector->label);
-	//free(collector);
 }
 
-void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector);
-void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node);
+void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch);
+void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain);
 void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv);
 
 
@@ -101,7 +91,6 @@ void jsonparser_collector_free_foreach(void *funcarg, void* arg)
 	if (!collector)
 		return;
 
-	//tommy_hashdyn_remove(node->hash, pjson_collector_compare, collector->key, tommy_strhash_u32(0, collector->key));
 	free(collector->key);
 	free(collector->label);
 	free(collector);
@@ -122,24 +111,46 @@ void jsonparser_free_foreach(void* arg)
 	free(obj);
 }
 
-void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector)
+void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch)
 {
 	int jsontype = json_typeof(element);
-	printf("DEBUG2: %s\n", buf);
-	if (node)
-		printf("NGG %p\n", node);
 	jsonparse_kv *cur = kv;
-	//switch (json_typeof(element)) {
 	if (jsontype==JSON_OBJECT)
-		print_json_object(element, buf, hash, kv, node);
+	{
+		int modeplain = 0;
+		if (!modeplain_nosearch)
+		{
+			pjson_node *pjnode = tommy_hashdyn_search(hash, pjson_compare, buf, tommy_strhash_u32(0, buf));
+			if (pjnode && pjnode->action == JSON_PARSER_PLAINPRINT)
+			{
+				if (kv)
+				{
+					cur->n = malloc(sizeof(*kv));
+					cur->n->k = pjnode->by;
+					cur->n->v = NULL;
+					kv->replace = NULL;
+				}
+				else
+				{
+					kv = malloc(sizeof(jsonparse_kv));
+					kv->k = pjnode->by;
+					kv->v = NULL;
+					kv->n = NULL;
+					kv->replace = NULL;
+				}
+				modeplain = 1;
+				print_json_object(element, buf, hash, kv, node, modeplain);
+				free(kv);
+				return;
+			}
+		}
+		print_json_object(element, buf, hash, kv, node, modeplain);
+	}
 	else if (jsontype==JSON_ARRAY)
 		print_json_array(element, buf, hash, kv);
 	else if (jsontype==JSON_STRING && !kv)
 	{
-		puts("SS: STRING1");
-		printf("SF: finding %s, ", buf);
 		pjson_node *pjnode = tommy_hashdyn_search(hash, pjson_compare, buf, tommy_strhash_u32(0, buf));
-		printf("result: %p\n", pjnode);
 		if (pjnode && pjnode->action == JSON_PARSER_LABEL)
 		{
 			int64_t num = 1;
@@ -152,7 +163,6 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	}
 	else if (jsontype==JSON_STRING && kv)
 	{
-		puts("SS: STRING2");
 		double af = atof(json_string_value(element));
 		if ( !af )
 			return;
@@ -172,7 +182,6 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 					lbl->name = strdup(cur->k);
 				lbl->key = strdup(cur->v);
 
-				printf("(%s:%s) ", cur->k, cur->v);
 				if (cur->n)
 				{
 					lbl->next = malloc(sizeof(alligator_labels));
@@ -189,14 +198,13 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	}
 	else if (jsontype == JSON_INTEGER && !kv)
 	{
-		puts("SS: INTEGER1");
 		int64_t num = json_integer_value(element);
 		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_INTEGER && kv)
 	{
-		puts("SS: INTEGER2");
-		if (cur && collector && collector->action == JSON_PARSER_PRINT)
+		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += json_integer_value(element);
+		else
 		{
 			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
 			alligator_labels* lbl = lblroot;
@@ -210,7 +218,6 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 					lbl->name = strdup(cur->k);
 				lbl->key = strdup(cur->v);
 
-				printf("(%s:%s) ", cur->k, cur->v);
 				if (cur->n)
 				{
 					lbl->next = malloc(sizeof(alligator_labels));
@@ -223,20 +230,18 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				}
 			}
 		}
-		else if (collector) collector->collector += json_integer_value(element);
 	}
 	else if (jsontype == JSON_REAL && !kv)
 	{
-		puts("SS: REAL1");
 		double num = json_real_value(element);
 		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_DOUBLE, 0);
 	}
 	else if (jsontype == JSON_REAL && kv)
 	{
-		puts("SS: REAL2");
 		double num = json_real_value(element);
 		//for (; cur; cur = cur->n) printf("(%s:%s) ", cur->k, cur->v);
-		if (cur && collector && collector->action == JSON_PARSER_PRINT)
+		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += num;
+		else
 		{
 			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
 			alligator_labels* lbl = lblroot;
@@ -250,7 +255,6 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 					lbl->name = strdup(cur->k);
 				lbl->key = strdup(cur->v);
 
-				printf("(%s:%s) ", cur->k, cur->v);
 				if (cur->n)
 				{
 					lbl->next = malloc(sizeof(alligator_labels));
@@ -262,19 +266,17 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				}
 			}
 		}
-		else if (collector) collector->collector += num;
 	}
 	else if (jsontype == JSON_TRUE && !kv)
 	{
-		puts("SS: TRUE1");
 		int64_t num = 1;
 		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_TRUE && kv)
 	{
-		puts("SS: TRUE2");
 		//for (; cur; cur = cur->n) printf("(%s:%s) ", cur->k, cur->v);
-		if (cur && collector && collector->action == JSON_PARSER_PRINT)
+		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += 1;
+		else
 		{
 			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
 			alligator_labels* lbl = lblroot;
@@ -288,7 +290,6 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 					lbl->name = strdup(cur->k);
 				lbl->key = strdup(cur->v);
 
-				printf("(%s:%s) ", cur->k, cur->v);
 				if (cur->n)
 				{
 					lbl->next = malloc(sizeof(alligator_labels));
@@ -301,22 +302,19 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				}
 			}
 		}
-		else if (collector) collector->collector += 1;
 	}
 	else if (jsontype == JSON_FALSE && !kv)
 	{
-		puts("SS: FALSE1");
 		int64_t num = 0;
 		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_FALSE && kv)
 	{
-		puts("SS: FALSE2");
-		for (; cur; cur = cur->n) printf("(%s:%s) ", cur->k, cur->v);
+		//for (; cur; cur = cur->n) printf("(%s:%s) ", cur->k, cur->v);
 	}
 }
 
-void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node)
+void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain)
 {
 	const char *key;
 	json_t *value;
@@ -335,22 +333,27 @@ void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonpars
 		//	printf("LL '%s'\n", node->by);
 		//	nby = node->by;
 		//}
-		char skey[OBJSIZE]; //= malloc(100);
-		snprintf(skey, OBJSIZE, "%s%s%s", buf, JSON_PARSER_SEPARATOR, key);
+		char skey[OBJSIZE];
+		int freecur = 0;
+		if (modeplain)
+		{
+			snprintf(skey, OBJSIZE, "%s", buf);
+			jsonparse_kv *cur = kv;
+			for (; cur; cur = cur->n)
+			{
+				cur->v = strdup(key);
+				freecur = 1;
+			}
+		}
+		else
+			snprintf(skey, OBJSIZE, "%s%s%s", buf, JSON_PARSER_SEPARATOR, key);
 		char colkey[OBJSIZE];
 		snprintf(colkey, OBJSIZE, "%s", skey);
 		jsonparse_kv *cur = kv;
 		for (; cur && cur->n; cur = cur->n)
 		{
-			//strcat(colkey, "(");
-			//strcat(colkey, cur->k);
-			//strcat(colkey, ":");
-			//strcat(colkey, cur->v);
-			//strcat(colkey, ")");
 			sprintf(colkey+strlen(colkey), "(%s:%s)", cur->k, cur->v);
 		}
-		//printf("COLKEY %s, key %s\n", colkey, key);
-		//printf("%s + %s\n", buf, key);
 
 		pjson_collector *collector = NULL;
 		if (node && node->hash)
@@ -363,13 +366,12 @@ void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonpars
 				collector->key = strdup(colkey);
 				collector->label = strdup(key);
 				collector->action = node->action;
-				puts("DEBUG3: start");
-				printf("DEBUG3 %p %p %p %s\n", node->hash, collector, &(collector->node), collector->key);
 				tommy_hashdyn_insert(node->hash, &(collector->node), collector, tommy_strhash_u32(0, collector->key));
-				puts("DEBUG3: end");
 			}
 		}
-		print_json_aux(value, skey, hash, kv, NULL, collector);
+		print_json_aux(value, skey, hash, kv, NULL, collector, modeplain);
+		if (freecur)
+			free(cur->v);
 	}
 
 }
@@ -398,17 +400,16 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 		{
 			kv = NULL;
 
-			printf("\nffinding '%s'\n", node->by);
+			//printf("\nffinding '%s'\n", node->by);
 			json_t *objobj = json_object_get(arr_obj, node->by);
 			if (!objobj)
 			{
 				return;
 			}
-			printf("result objobj %p\n", objobj);
+			//printf("result objobj %p\n", objobj);
 			kv = malloc(sizeof(*kv));
 			kv->v = malloc(OBJSIZE);
 			kv->n = NULL;
-			puts(buf);
 			if (json_typeof(objobj) == JSON_INTEGER)
 			{
 				kv->k = node->by;
@@ -431,7 +432,7 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 			else
 				root_kv = kv;
 		}
-		print_json_aux(arr_obj, buf, hash, root_kv, node, NULL);
+		print_json_aux(arr_obj, buf, hash, root_kv, node, NULL, 0);
 		if ( kvflag )
 		{
 			if ( cur )
@@ -451,20 +452,15 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 	switch(node->action)
 	{
 		case JSON_PARSER_SUM:
-			//printf("bypass: sum\n");
 			tommy_hashdyn_foreach_arg(node->hash, jsonparser_collector_foreach, node);
-			//tommy_hashdyn_remove(node->hash, pjson_collector_compare, node->key, tommy_strhash_u32(0, node->key))
 			break;
 		case JSON_PARSER_AVG:
-			//printf("bypass: avg\n");
 			tommy_hashdyn_foreach_arg(node->hash, jsonparser_collector_foreach, node);
 			break;
 		default:
-			printf("bypass: by %s:%s\n", node->by, buf);
 			tommy_hashdyn_foreach_arg(node->hash, jsonparser_collector_foreach, node);
 			break;
 	}
-	//puts("done done");
 }
 
 json_t *load_json(const char *text) {
@@ -481,8 +477,6 @@ json_t *load_json(const char *text) {
 	}
 }
 
-#define MAX_CHARS 100000
-
 void json_parse(char *line, tommy_hashdyn *hash, char *name)
 {
 	json_t *root = load_json(line);
@@ -492,12 +486,11 @@ void json_parse(char *line, tommy_hashdyn *hash, char *name)
 		return;
 	}
 
-	print_json_aux(root, name, hash, NULL, NULL, NULL);
+	print_json_aux(root, name, hash, NULL, NULL, NULL, 0);
 	json_decref(root);
 }
 void json_parser_entry(char *line, int argc, char **argv, char *name)
 {
-	printf("string\n%s\n", line);
 
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
@@ -526,11 +519,9 @@ void json_parser_entry(char *line, int argc, char **argv, char *name)
 			//node->hash = NULL;
 			node->hash = malloc(sizeof(tommy_hashdyn));
 			tommy_hashdyn_init(node->hash);
-			//printf("bypass: JSONPARSERPRINT %s\n", node->key);
 		}
 		else if (!strncmp(argv[i], "sum::", 5) )
 		{
-			//printf("bypass: JSONPARSERSUM\n");
 			node->action = JSON_PARSER_SUM;
 			node->exportname = strndup(argv[i]+5, strcspn(argv[i]+5, JSON_PARSER_SEPARATOR));
 			node->key = strndup(argv[i]+5, strcspn(argv[i]+5, "("));
@@ -541,7 +532,6 @@ void json_parser_entry(char *line, int argc, char **argv, char *name)
 		}
 		else if (!strncmp(argv[i], "avg::", 5) )
 		{
-			//printf("bypass: JSONPARSERAVG\n");
 			node->action = JSON_PARSER_AVG;
 			node->exportname = strndup(argv[i]+5, strcspn(argv[i]+5, JSON_PARSER_SEPARATOR));
 			node->key = strndup(argv[i]+5, strcspn(argv[i]+5, "("));
@@ -558,12 +548,31 @@ void json_parser_entry(char *line, int argc, char **argv, char *name)
 			node->by = argv[i]+7 + strcspn(argv[i]+7, "(") +1;
 			node->by[strcspn(node->by, ")")] = 0;
 			node->hash = malloc(sizeof(tommy_hashdyn));
-			printf("bypass: JSONPARSERLABEL exportname='%s', key='%s', by='%s'\n", node->exportname, node->key, node->by);
+			tommy_hashdyn_init(node->hash);
+		}
+		else if (!strncmp(argv[i], "plainprint::", 12) )
+		{
+			node->action = JSON_PARSER_PLAINPRINT;
+			node->exportname = strndup(argv[i]+12, strcspn(argv[i]+12, JSON_PARSER_SEPARATOR));
+			node->key = strndup(argv[i]+12, strcspn(argv[i]+12, "("));
+			node->by = argv[i]+12 + strcspn(argv[i]+12, "(") +1;
+			size_t by_size = strcspn(node->by, ")");
+			size_t slash_size = strcspn(node->by, "/");
+			if(by_size > slash_size)
+			{
+				size_t replace_size = by_size-slash_size;
+				node->replace = strndup(node->by+slash_size+1, replace_size);
+				node->by[slash_size] = 0;
+				node->replace[replace_size-1] = 0;
+			}
+			else
+				node->by[by_size] = 0;
+			//node->hash = NULL;
+			node->hash = malloc(sizeof(tommy_hashdyn));
 			tommy_hashdyn_init(node->hash);
 		}
 		else
 		{
-			//printf("bypass: %s no action\n", argv[i]);
 			free(node);
 			continue;
 		}

@@ -96,14 +96,26 @@ ELSE(WIN32)
 		parsers/gearmand.c
 		parsers/haproxy.c
 		parsers/http_proto.c
+		parsers/uwsgi.c
+		parsers/php-fpm.c
+		parsers/eventstore.c
+		parsers/flower.c
+		parsers/nats.c
+		parsers/riak.c
+		parsers/rabbitmq.c
+		parsers/opentsdb.c
+		parsers/powerdns.c
+		parsers/elasticsearch.c
 		common/selector.c
 		#common/https_tls_check.c
 		common/rtime.c
 		common/validator.c
 		common/base64.c
 		common/http.c
+		common/fastcgi.c
 		common/url.c
 		common/aggregator.c
+		common/json_parser.c
 		dstructures/metric.c
 		dstructures/tommy.c
 		dstructures/rbtree.c
@@ -165,7 +177,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	target_link_libraries(${HEAD} ${COMMON} z pthread libuv.a dl)
+	target_link_libraries(${HEAD} ${COMMON} z pthread libuv.a dl libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

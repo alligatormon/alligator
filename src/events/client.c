@@ -9,6 +9,8 @@
 #include "events/uv_alloc.h"
 #include "common/rtime.h"
 #include "common/url.h"
+#include "parsers/http_proto.h"
+#include "common/fastcgi.h"
 
 //void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 //{
@@ -29,12 +31,12 @@ void on_close(uv_handle_t* handle)
 	cinfo->lock = 0;
 }
 
-void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
+void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 {
 	client_info *cinfo = tcp->data;
 	extern aconf* ac;
 	if (ac->log_level > 2)
-		printf("2r: on_read cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+		printf("2r: tcp_on_read cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	if(nread < 0 || !buf || !buf->base)
 	{
 		if (cinfo)
@@ -55,15 +57,49 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	metric_labels_add_lbl3("aggregator_duration_time", &write_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "write", "url", cinfo->hostname);
 	metric_labels_add_lbl3("aggregator_duration_time", &read_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", cinfo->hostname);
 	//fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
-	if (cinfo)
-		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL, cinfo);
+
+	if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size == 0)
+	{
+		http_reply_data* hr_data = http_reply_parser(buf->base, nread);
+		cinfo->expect_http_length = hr_data->content_length;
+		cinfo->http_body_size += nread - (hr_data->body - buf->base);
+		cinfo->http_body = malloc(hr_data->content_length+1);
+		strlcpy(cinfo->http_body, hr_data->body, cinfo->http_body_size+1);
+		http_reply_free(hr_data);
+	}
+	else if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size > 0)
+	{
+		strlcpy(cinfo->http_body+cinfo->http_body_size, buf->base, nread+1);
+		cinfo->http_body_size += nread;
+	}
+
+	if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size >= cinfo->expect_http_length)
+	{
+		alligator_multiparser(cinfo->http_body, buf->len, cinfo->parser_handler, NULL, cinfo);
+		uv_close((uv_handle_t*)tcp, on_close);
+		free(cinfo->http_body);
+		cinfo->http_body_size = cinfo->expect_http_length = 0;
+	}
+	else if (cinfo->proto == APROTO_FCGI || cinfo->proto == APROTO_FCGI_AUTH || cinfo->proto == APROTO_UNIXFCGI)
+	{
+		fcgi_reply_data* fcgi_reply = fcgi_reply_parser(buf->base, nread);
+		alligator_multiparser(fcgi_reply->body, nread, cinfo->parser_handler, NULL, cinfo);
+		uv_close((uv_handle_t*)tcp, on_close);
+	}
+	else if (cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH)
+	{
+		uv_read_start(tcp, alloc_buffer, tcp_on_read);
+	}
 	else
-		alligator_multiparser(buf->base, buf->len, NULL, NULL, NULL);
+	{
+		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL, cinfo);
+		uv_close((uv_handle_t*)tcp, on_close);
+	}
+
 	free(buf->base);
-	uv_close((uv_handle_t*)tcp, on_close);
 }
 
-void on_write(uv_write_t* req, int status)
+void tcp_on_write(uv_write_t* req, int status)
 {
 	if (status)
 	{
@@ -78,16 +114,16 @@ void on_write(uv_write_t* req, int status)
 
 	client_info *cinfo = req->data;
 	if (ac->log_level > 2)
-		printf("2w: on_write cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+		printf("2w: tcp_on_write cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	cinfo->write_time_finish = setrtime();
 	req->handle->data = cinfo;
-	uv_read_start(req->handle, alloc_buffer, on_read);
+	uv_read_start(req->handle, alloc_buffer, tcp_on_read);
 	cinfo->read_time = setrtime();
 
 	free(req);
 }
 
-void on_connect(uv_connect_t* connection, int status)
+void tcp_on_connect(uv_connect_t* connection, int status)
 {
 	if ( status < 0 )
 		return;
@@ -101,14 +137,14 @@ void on_connect(uv_connect_t* connection, int status)
 	cinfo->connect_time_finish = setrtime();
 
 	if (ac->log_level > 2)
-		printf("1: on_connect cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
-	uv_read_start(stream, alloc_buffer, on_read);
+		printf("1: tcp_on_connect cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+	uv_read_start(stream, alloc_buffer, tcp_on_read);
 	if (cinfo->write == 1)
 	{
 		uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
 		uv_write_t *request = malloc(sizeof(*request));
 		request->data = cinfo;
-		uv_write(request, stream, &buffer, 1, on_write);
+		uv_write(request, stream, &buffer, 1, tcp_on_write);
 		cinfo->write_time = setrtime();
 	}
 	else if (cinfo->write == 2)
@@ -116,7 +152,7 @@ void on_connect(uv_connect_t* connection, int status)
 		uv_write_t *request = malloc(sizeof(*request));
 		request->data = cinfo;
 
-		uv_write(request, stream, cinfo->buffer, cinfo->buflen, on_write);
+		uv_write(request, stream, cinfo->buffer, cinfo->buflen, tcp_on_write);
 		cinfo->write_time = setrtime();
 	}
 }
@@ -129,6 +165,10 @@ void on_connect_handler(void* arg)
 	if (cinfo->lock)
 		return;
 	cinfo->lock = 1;
+
+	if (cinfo->proto == APROTO_HTTP)
+		cinfo->http_body_size = 0;
+
 	uv_tcp_t *socket = cinfo->socket = malloc(sizeof(*socket));
 	uv_tcp_init(loop, socket);
 	uv_tcp_keepalive(socket, 1, 60);
@@ -137,7 +177,7 @@ void on_connect_handler(void* arg)
 	if (ac->log_level > 2)
 		printf("0: on_connect_handler cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
 	connect->data = cinfo;
-	uv_tcp_connect(connect, socket, (struct sockaddr *)cinfo->dest, on_connect);
+	uv_tcp_connect(connect, socket, (struct sockaddr *)cinfo->dest, tcp_on_connect);
 	cinfo->connect_time = setrtime();
 }
 
@@ -158,7 +198,8 @@ void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *re
 		return;
 	}
 	else
-		printf("resolved %s\n", cinfo->hostname);
+		if (ac->log_level > 2)
+			printf("resolved %s\n", cinfo->hostname);
 
 	char *addr = calloc(17, sizeof(*addr));
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
@@ -169,7 +210,7 @@ void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *re
 	tommy_hashdyn_insert(ac->aggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
 }
 
-void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
+void do_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
@@ -183,7 +224,7 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
 		cinfo->write = 0;
 	cinfo->parser_handler = handler;
 	cinfo->hostname = addr;
-	cinfo->proto = APROTO_TCP;
+	cinfo->proto = proto;
 	cinfo->port = port;
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
@@ -200,7 +241,7 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg)
 	}
 }
 
-void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffer, size_t buflen)
+void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffer, size_t buflen, int proto)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
@@ -212,7 +253,7 @@ void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffe
 	cinfo->write = 2;
 	cinfo->parser_handler = handler;
 	cinfo->hostname = addr;
-	cinfo->proto = APROTO_TCP;
+	cinfo->proto = proto;
 	cinfo->port = port;
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));

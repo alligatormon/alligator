@@ -65,6 +65,13 @@ void metric_labels_add(char *name, alligator_labels *lbl, void* value, int datat
 		return;
 	}
 
+	int64_t i;
+	for(i=0; name[i]; i++)
+	{
+		if(name[i] == ' ' || name[i] == '-' || name[i] == '.')
+			name[i] = '_';
+	}
+
 	if (datatype == ALLIGATOR_DATATYPE_DOUBLE && isnan(*(double*)value))
 		*(double*)value = 0;
 

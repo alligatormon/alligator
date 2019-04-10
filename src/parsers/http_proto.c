@@ -52,20 +52,30 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		cur++;
 
 	char *tmp;
-	tmp = strstr(cur, "\n\n");
-	if (!tmp)
-	{
+	//tmp = strstr(cur, "\n\n");
+	//if (!tmp)
+	//{
 		tmp = strstr(cur, "\r\n\r\n");
 		if (!tmp)
 			return NULL;
 		old_style_newline = 4;
+	//}
+	size_t headers_len = tmp - cur;
+	headers = strndup(cur, headers_len);
+
+	http_reply_data *hrdata = malloc(sizeof(*hrdata));
+	int64_t i;
+	for (i=0; i<headers_len; ++i)
+	{
+		if(!strncasecmp(headers+i, "Content-Length:", 15))
+		{
+			hrdata->content_length = atoll(headers+i+15+1);
+		}
 	}
-	headers = strndup(cur, tmp-cur);
 
 	cur = tmp + old_style_newline;
 	body = cur;
 
-	http_reply_data *hrdata = malloc(sizeof(*hrdata));
 	hrdata->http_version = http_version;
 	hrdata->http_code = http_code;
 	hrdata->mesg = mesg;

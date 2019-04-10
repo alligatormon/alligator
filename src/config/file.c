@@ -71,7 +71,8 @@ void parse_config(mtlen *mt)
 	char *ttmp;
 	for (i=0;i<mt->m;i++)
 	{
-		printf("%"d64": %s\n", i, mt->st[i].s);
+		if (ac->log_level > 2)
+			printf("%"d64": %s\n", i, mt->st[i].s);
 		if (!strncmp(mt->st[i].s, "exec://", 7))
 		{
 			splitflag = 1;

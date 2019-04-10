@@ -9,17 +9,21 @@ void smart_aggregator_selector(host_aggregator_info *hi, void *handler, char *me
 		return;
 
 	if (hi->proto == APROTO_UNIX)
-	{
-		do_unix_client(hi->host, handler, mesg);
-	}
+		do_unix_client(hi->host, handler, mesg, hi->proto);
 	else if (hi->proto == APROTO_TCP)
-	{
-		do_tcp_client(hi->host, hi->port, handler, mesg);
-	}
+		do_tcp_client(hi->host, hi->port, handler, mesg, hi->proto);
+	else if (hi->proto == APROTO_HTTP)
+		do_tcp_client(hi->host, hi->port, handler, mesg, hi->proto);
+	else if (hi->proto == APROTO_HTTP_AUTH)
+		do_tcp_client(hi->host, hi->port, handler, mesg, hi->proto);
+	else if (hi->proto == APROTO_FCGI)
+		do_tcp_client(hi->host, hi->port, handler, mesg, hi->proto);
+	else if (hi->proto == APROTO_FCGI_AUTH)
+		do_tcp_client(hi->host, hi->port, handler, mesg, hi->proto);
+	else if (hi->proto == APROTO_UNIXFCGI)
+		do_unix_client(hi->host, handler, mesg, hi->proto);
 	else if (hi->proto == APROTO_UNIXGRAM)
-	{
 		do_unixgram_client(hi->host, handler, mesg);
-	}
 }
 
 void smart_aggregator_selector_buffer(host_aggregator_info *hi, void *handler, uv_buf_t *buffer, size_t buflen)
@@ -28,13 +32,19 @@ void smart_aggregator_selector_buffer(host_aggregator_info *hi, void *handler, u
 		return;
 
 	if (hi->proto == APROTO_UNIX)
-	{
-		do_unix_client_buffer(hi->host, handler, buffer, buflen);
-	}
+		do_unix_client_buffer(hi->host, handler, buffer, buflen, hi->proto);
 	else if (hi->proto == APROTO_TCP)
-	{
-		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen);
-	}
+		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen, hi->proto);
+	else if (hi->proto == APROTO_HTTP)
+		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen, hi->proto);
+	else if (hi->proto == APROTO_FCGI)
+		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen, hi->proto);
+	else if (hi->proto == APROTO_HTTP_AUTH)
+		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen, hi->proto);
+	else if (hi->proto == APROTO_FCGI_AUTH)
+		do_tcp_client_buffer(hi->host, hi->port, handler, buffer, buflen, hi->proto);
+	else if (hi->proto == APROTO_UNIXFCGI)
+		do_unix_client_buffer(hi->host, handler, buffer, buflen, hi->proto);
 }
 
 void smart_aggregator_selector_plain(int proto, char *hostname, char *port, void *handler, char *mesg)
@@ -44,15 +54,19 @@ void smart_aggregator_selector_plain(int proto, char *hostname, char *port, void
 
 
 	if (proto == APROTO_UNIX)
-	{
 		do_unix_client(hostname, handler, mesg);
-	}
 	else if (proto == APROTO_TCP)
-	{
-		do_tcp_client(hostname, port, handler, mesg);
-	}
+		do_tcp_client(hostname, port, handler, mesg, proto);
+	else if (proto == APROTO_HTTP)
+		do_tcp_client(hostname, port, handler, mesg, proto);
+	else if (proto == APROTO_HTTP_AUTH)
+		do_tcp_client(hostname, port, handler, mesg, proto);
 	else if (proto == APROTO_UNIXGRAM)
-	{
 		do_unixgram_client(hostname, handler, mesg);
-	}
 }
+
+void try_again(client_info *cinfo, char *mesg)
+{
+	
+}
+

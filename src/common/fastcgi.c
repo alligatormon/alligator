@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "main.h"
+#include "fastcgi.h"
 
 uv_buf_t* gen_fcgi_query(char *method_query, char *host, char *useragent, char *auth, size_t *num)
 {
@@ -72,4 +73,13 @@ uv_buf_t* gen_fcgi_query(char *method_query, char *host, char *useragent, char *
 	buffer[4] = uv_buf_init("\1\4\0\1\0\0\0\0", 8);
 
 	return buffer;
+}
+
+fcgi_reply_data* fcgi_reply_parser(char *fcgi, size_t n)
+{
+	fcgi_reply_data *fcgi_reply = malloc(sizeof(*fcgi_reply));
+	fcgi_reply->content_length = (fcgi[5] << 8) + fcgi[6];
+	//printf("%"d64"\n", fcgi_reply->content_length);
+	fcgi_reply->body = strstr(fcgi+8, "\r\n\r\n");
+	return fcgi_reply;
 }

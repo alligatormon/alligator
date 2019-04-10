@@ -6,7 +6,7 @@ typedef struct http_reply_data
 	int http_code;
 	char *mesg;
 	char *headers;
-	int64_t content_size;
+	int64_t content_length;
 	char *body;
 } http_reply_data;
 

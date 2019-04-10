@@ -99,14 +99,16 @@ int plain_parser(char *buf, size_t len)
 
 void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, client_info*), char *response, client_info *cinfo)
 {
-	//printf("parsing '%s'(%zu)\n", buf, len);
+	//printf("parsing '%s'(%zu)\n", buf, slen);
+	if (!buf)
+		return;
 	size_t len = strlen(buf);
 	if ( handler )
 	{
-		char *body = http_proto_proxer(buf, len, NULL);
-		if (buf != body)
-			len = strlen(body);
-		handler(body, len, cinfo);
+		//char *body = http_proto_proxer(buf, len, NULL); // TODO: remove?
+		//if (buf != body)
+		//	len = strlen(body);
+		handler(buf, len, cinfo);
 		return;
 	}
 	int rc = 0;

@@ -21,8 +21,11 @@ typedef struct client_info
 	int lock;
 	int proto;
 	int write;
+	size_t http_body_size;
+	size_t expect_http_length;
 	uv_buf_t *buffer;
 	size_t buflen;
+	char *http_body;
 
 	tommy_node node;
 } client_info;

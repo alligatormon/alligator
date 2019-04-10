@@ -41,6 +41,9 @@ aggregate backends {
 	#REDIS and SENTINEL
 	redis tcp://localhost:6379/;
 	redis tcp://localhost:2/;
+	#REDIS with password
+	redis tcp://:pass@127.0.0.1:6379;
+	redis unix://:pass@/tmp/redis.sock;
 	#CKICKHOUSE (http proto support)
 	clickhouse http://localhost:8123;
 	#ZOOKEEPER
@@ -60,6 +63,29 @@ aggregate backends {
 	icmp icmp://example.com;
 	#BASH exec shell:
 	process exec:///bin/curl http://example.com:1111/metrics;
+	#PHP-FPM TCP socket
+	php-fpm fastcgi://127.0.0.1:9000/stats?json&full;
+	#PHP-FPM UNIX socket
+	php-fpm unixfcgi:///var/run/php5-fpm.sock:/stats?json&full;
+	#uWSGI TCP socket
+	uwsgi tcp://localhost:1717;
+	#uWSGI UNIX socket
+	uwsgi unix:///tmp/uwsgi.sock;
+	#NATS
+	nats http://localhost:8222;
+	#RIAK
+	riak http://localhost:8098;
+	#RABBITMQ
+	rabbitmq http://guest:guest@localhost:15672;
+	#EVENTSTORE
+	eventstore http://10.60.39.42:2113;
+	#FLOWER
+	flower http://localhost:5555;
+	#POWERDNS
+	powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
+	powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
+	#OPENTSDB
+	opentsdb http://localhost:4242/api/stats;
 }
 ```
 # Distribution
