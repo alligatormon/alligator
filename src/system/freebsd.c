@@ -40,8 +40,7 @@
 #define d32 PRId32
 #define u32 PRIu32
 
-#include "rbtree.h"
-#include "metric.h"
+#include "dstructures/metric.h"
 
 void get_swap()
 {
