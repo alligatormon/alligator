@@ -4,7 +4,7 @@ stages:
 
 image: amoshi/cbuiler
 
-build_test:
+cutter_test:
   stage: tests
   script:
   - yum -y install libuv-devel libuv-static
@@ -13,8 +13,8 @@ build_test:
   - make
   - cutter .
 
-Build:
-  stage: build
+build_test:
+  stage: tests
   script:
   - yum -y install libuv-devel libuv-static
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
