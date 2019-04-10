@@ -3,4 +3,4 @@ freebsd_instance:
 
 task:
   install_script: pkg install -y libuv cmake jansson
-  script: cd src && cmake .
+  script: cd src && cmake . && make
