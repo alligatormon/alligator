@@ -29,7 +29,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n");
 		}
 #ifndef _WIN64
-#ifndef __APPLE__
+#ifdef __linux__
 		else if (!strcmp(mt->st[*i-1].s, "icmp"))
 		{
 			do_icmp_client(mt->st[*i].s);

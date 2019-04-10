@@ -1,4 +1,4 @@
-#ifndef __APPLE__
+#ifdef __linux__
 #include <stdio.h> 
 #include <sys/types.h> 
 #include <sys/socket.h> 
