@@ -123,6 +123,7 @@ ELSE(WIN32)
 		config/file.c
 		config/context.c
 		system/linux.c
+		system/freebsd.c
 		modules/modules.c
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c

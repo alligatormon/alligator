@@ -185,3 +185,20 @@ char *gettextfile(char *path, size_t *filesz)
 
 	return buf;
 }
+
+int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
+{
+	for (; *cursor<sz; ++(*cursor))
+	{
+		for (; *cursor<sz && buf[*cursor]==sep; ++(*cursor));
+		if (isdigit(buf[*cursor]) || buf[*cursor] == '-')
+		{
+			int64_t ret = atoll(buf+(*cursor));
+			for (; *cursor<sz && (isdigit(buf[*cursor]) || buf[*cursor] == '-'); ++(*cursor));
+			++(*cursor);
+
+			return ret;
+		}
+	}
+	return 0;
+}

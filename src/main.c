@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 	signal_listen();
 
 	tcp_client_handler();
-#ifndef __APPLE__
+#ifdef __linux__
 	icmp_client_handler();
 #endif
 	do_system_scrape(get_system_metrics, "systemmetrics");
