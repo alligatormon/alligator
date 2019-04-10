@@ -2,5 +2,5 @@ freebsd_instance:
   image: freebsd-11-2-release-amd64
 
 task:
-  install_script: pkg install -y libuv cmake jansson
+  install_script: pkg install -y libuv cmake jansson cutter
   script: cd src && cmake . && make
