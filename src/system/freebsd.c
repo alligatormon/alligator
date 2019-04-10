@@ -273,7 +273,7 @@ double getpcpu(const struct kinfo_proc *k)
 
 void get_proc_info()
 {
-	pid_t pid = 1;
+	//pid_t pid = 1;
 	int cntp = 0, i;
 	struct kinfo_proc *proc = kinfo_getallproc(&cntp);
 	//printf("cntp = %d\n", cntp);
@@ -383,7 +383,7 @@ void get_iface_statistics()
 {
 	struct ifaddrs *ifap, *ifa;
 	//struct sockaddr_in *sa;
-	char *addr;
+	//char *addr;
 
 	getifaddrs (&ifap);
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next)
