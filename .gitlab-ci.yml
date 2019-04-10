@@ -19,7 +19,7 @@ build_test:
   - yum -y install libuv-devel libuv-static
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
-  - cd src/jansson-2.12
+  - cd jansson-2.12
   - ./configure
   - make
   - make install
