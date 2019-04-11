@@ -43,7 +43,7 @@ sources_tarball:
   - cd /tmp
   - tar cfvz alligator-1.9.32.tar.gz alligator-1.9.32/
   - >-
-    curl -s -T alligator-1.9.32.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY https://api.bintray.com/packages/alligatormon/generic/
+    curl -s -T alligator-1.9.32.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.32" https://api.bintray.com/packages/alligatormon/generic/
 
 build_rpm:
   stage: build
