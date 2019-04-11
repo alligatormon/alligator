@@ -8,8 +8,15 @@ cutter_test:
   stage: tests
   script:
   - yum -y install libuv-devel libuv-static
+  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
+  - tar xfvz jansson-2.12.tar.gz
+  - cd jansson-2.12
+  - ./configure
+  - make
+  - make install
+  - cd -
   - cd src
-  - cmake3 .
+  - cmake3 . -DCPACK_GENERATOR=RPM
   - make
   - cutter .
 
