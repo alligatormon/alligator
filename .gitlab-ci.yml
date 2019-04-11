@@ -28,6 +28,16 @@ build_test:
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make
 
+sources_tarball:
+  stage: build
+  script:
+  - mkdir /tmp/alligator-1.9.32
+  - cp -a ./ /tmp/alligator-1.9.32/
+  - cd /tmp
+  - tar xfvz alligator-1.9.32.tar.gz alligator-1.9.32/
+  - >-
+    curl -s -T alligator-1.9.32.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY https://api.bintray.com/packages/alligatormon/generic/
+
 build_rpm:
   stage: build
   only:
