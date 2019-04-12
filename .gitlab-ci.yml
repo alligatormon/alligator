@@ -42,6 +42,7 @@ sources_tarball:
   - cp -a ./ /tmp/alligator-1.9.33/
   - cd /tmp
   - tar cfvz alligator-1.9.33.tar.gz alligator-1.9.33/
+  - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
   - curl -sT alligator-1.9.33.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:1.9.33" https://api.bintray.com/content/alligatormon/generic/sources/
 
