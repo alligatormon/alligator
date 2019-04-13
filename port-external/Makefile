@@ -2,8 +2,7 @@
 PORTNAME=	alligator
 PORTVERSION=	1.9.33
 CATEGORIES=	net-mgmt
-MASTERSITES=https://dl.bintray.com/alligatormon/sources/
-#DISTFILES=	${DISTNAME}${EXTRACT_SUFX}
+MASTER_SITES=https://dl.bintray.com/alligatormon/sources/
 
 MAINTAINER=amoshi.mandrakeuser@gmail.com
 COMMENT="alligator metrics aggregator"
