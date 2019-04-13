@@ -205,10 +205,17 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
 #install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)
 
-install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
-install(FILES alligator
-	PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-	DESTINATION /usr/bin)
+IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+	install(FILES alligator
+		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+		DESTINATION /usr/local/bin)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
+	install(FILES alligator
+		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+		DESTINATION /usr/bin)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 install(DIRECTORY DESTINATION /var/lib/alligator/)
 
