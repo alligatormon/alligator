@@ -15,3 +15,10 @@ src/liballigator_tests.so
 src/libliballigator_tests.a
 src/libpostgresql_client.so
 src/a.out
+CMakeFiles
+CMakeCache.txt
+CPackConfig.cmake
+CPackSourceConfig.cmake
+cmake_install.cmake
+install_manifest.txt
+_CPack_Packages/
