@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# $FreeBSD: ports/net-mgmt/alligator/src/alligator.in
+
+# PROVIDE: alligator
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+
+#Add the following line to /etc/rc.conf to enable alligator:
+# alligator_enable (bool):	Set to "NO" by default.
+#				Set it to "YES" to enable alligator.
+
+. /etc/rc.subr
+
+name="alligator"
+rcvar="alligator_enable"
+
+: ${alligator_enable:="NO"}
+alligator_enable_defval="NO"
+pidfile_defval="/var/run/${name}.pid"
+
+load_rc_config "{$name}"
+
+: ${pidfile:="$pidfile_defval"}
+[ "$pidfile" = "$pidfile_defval" ] || command_args="-r $pidfile"
+
+command="/usr/sbin/daemon"
+command_args="-c -f -P ${pidfile} -r /usr/local/bin/${name} /usr/local/etc/alligator.conf"
+
+run_rc_command "$1"
