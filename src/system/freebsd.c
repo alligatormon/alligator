@@ -435,13 +435,26 @@ void get_iface_statistics()
 
 void get_system_metrics()
 {
-	get_swap();
-	get_disk();
-	get_mem();
-	get_cpu();
-	get_proc_info();
-	get_fd_info();
-	disk_io_stats();
-	get_iface_statistics();
+	extern aconf *ac;
+	if (ac->system_base)
+	{
+		get_swap();
+		get_mem();
+		get_cpu();
+		get_fd_info();
+	}
+	if (ac->system_network)
+	{
+		get_iface_statistics();
+	}
+	if (ac->system_disk)
+	{
+		get_disk();
+		disk_io_stats();
+	}
+	if (ac->system_process)
+	{
+		get_proc_info();
+	}
 }
 #endif
