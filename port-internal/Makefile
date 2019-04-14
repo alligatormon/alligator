@@ -19,7 +19,7 @@ FETCH_DEPENDS= ${MY_DEPENDS}
 #WRKSRC=		${WRKDIR}/${PORTNAME}-${PORTVERSION}/
 WRKSRC=		${WRKDIR}/../../
 
-USES=		cmake:insource #,noninja
+USES=		cmake:insource
 # PARSE PORT VERSION TO USE IT INSIDE CMAKE
 
 USE_RC_SUBR=	alligator
