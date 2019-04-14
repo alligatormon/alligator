@@ -41,6 +41,7 @@
 #define u32 PRIu32
 
 #include "dstructures/metric.h"
+#include "main.h"
 
 void get_swap()
 {
