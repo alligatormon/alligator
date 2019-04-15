@@ -86,7 +86,7 @@ build_deb:
   - apt install -y cmake g++ gcc libuv1-dev
   - cat misc/deb-sources >> /etc/apt/sources.list
   - ( apt update --allow-unauthenticated || exit 0 )
-  - apt -y --allow-unauthenticated install cutter-keyring wget
+  - apt -y --allow-unauthenticated install cutter-keyring wget curl
   - ( apt update || exit 0 )
   - apt -y install cutter-testing-framework
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
