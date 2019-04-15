@@ -109,5 +109,19 @@ echo "deb https://dl.bintray.com/alligatormon/deb xenial main" | sudo tee -a /et
 ## Binary
 https://dl.bintray.com/alligatormon/generic/
 
+## FreeBSD
+port: https://github.com/alligatormon/alligator-port
+port for local build: clone project, cd to port-internal and make
+
+or use pkgng repo file /usr/local/etc/pkg/repos/alligator.conf:
+```
+alligator: {
+  url: "https://dl.bintray.com/alligatormon/freebsd10/" #freebsd 10
+  url: "https://dl.bintray.com/alligatormon/freebsd11/" #freebsd 11
+  mirror_type: "srv",
+  enabled: yes
+}
+```
+
 
 TODO: scrape from all services
