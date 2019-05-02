@@ -125,6 +125,7 @@ ELSE(WIN32)
 		config/context.c
 		system/linux.c
 		system/freebsd.c
+		system/macosx.c
 		modules/modules.c
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -172,7 +173,7 @@ target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv)
+	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat jansson)

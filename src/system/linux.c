@@ -26,21 +26,6 @@ typedef struct cpuusage_cgroup
 	int64_t user;
 } cpuusage_cgroup;
 
-int64_t getkvfile(char *file)
-{
-	char temp[20];
-	FILE *fd = fopen(file, "r");
-	if (!fd)
-		return 0;
-
-	if ( !fgets(temp, 20, fd) )
-		return 0;
-
-	fclose(fd);
-
-	return atoll(temp);
-}
-
 void print_mount(const struct mntent *fs)
 {
 	if ( !strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") )

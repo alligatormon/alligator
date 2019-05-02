@@ -23,3 +23,4 @@ mtlen* split_char_to_mtlen(char *str);
 char *gettextfile(char *path, size_t *filesz);
 char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size);
 char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, char *sep);
+int64_t getkvfile(char *file);

@@ -202,3 +202,19 @@ int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
 	}
 	return 0;
 }
+
+int64_t getkvfile(char *file)
+{
+	char temp[20];
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+		return 0;
+
+	if ( !fgets(temp, 20, fd) )
+		return 0;
+
+	fclose(fd);
+
+	return atoll(temp);
+}
+
