@@ -723,7 +723,7 @@ void get_disk_io_stat()
 	if (!fd)
 		return;
 
-	int64_t stat[14];
+	int64_t stat[15];
 	char buf[LINUXFS_LINE_LENGTH];
 	while ( fgets(buf, LINUXFS_LINE_LENGTH, fd) )
 	{
@@ -731,7 +731,7 @@ void get_disk_io_stat()
 		size_t len = strlen(buf) - 1;
 		buf[len] = '\0';
 		char devname[50];
-		for (i=0, j=0; i<len && j<14; i++, j++)
+		for (i=0, j=0; i<len && j<15; i++, j++)
 		{
 			while (buf[i] && buf[i] == ' ')
 				i++;
@@ -748,18 +748,20 @@ void get_disk_io_stat()
 		snprintf(bldevname, UCHAR_MAX, "/sys/block/%s/queue/hw_sector_size", devname);
 		int64_t sectorsize = getkvfile(bldevname);
 
-		int64_t read_bytes = stat[3] * sectorsize;
-		int64_t read_rate = stat[5];
+		int64_t read_bytes = stat[5] * sectorsize;
 		int64_t read_timing = stat[6];
-		int64_t write_bytes = stat[7] * sectorsize;
-		int64_t write_rate = stat[9];
+		int64_t write_bytes = stat[9] * sectorsize;
 		int64_t write_timing = stat[10];
-		metric_labels_add_lbl2("disk_io", &read_rate, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_read");
-		metric_labels_add_lbl2("disk_io", &write_rate, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_write");
+		int64_t io_w = stat[3];
+		int64_t io_r = stat[7];
+		metric_labels_add_lbl2("disk_io", &io_r, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_read");
+		metric_labels_add_lbl2("disk_io", &io_w, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_write");
 		metric_labels_add_lbl2("disk_io", &read_timing, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "read_timing");
 		metric_labels_add_lbl2("disk_io", &write_timing, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "write_timing");
 		metric_labels_add_lbl2("disk_io", &read_bytes, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "bytes_read");
 		metric_labels_add_lbl2("disk_io", &write_bytes, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "bytes_write");
+		if (j>14)
+			metric_labels_add_lbl2("disk_io", &stat[14], ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_discard");
 	}
 	fclose(fd);
 }

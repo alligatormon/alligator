@@ -156,6 +156,7 @@ add_library(${COMMON_TESTS} STATIC
 		system/linux.c
 		common/http.c
 		common/base64.c
+		platform/libbsd.c
 		common/selector.c
 		common/validator.c
 		common/url.c
