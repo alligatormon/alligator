@@ -3,15 +3,6 @@
 #include "expiretree.h"
 #include "labels.h"
 
-//int64_t cache_hits;
-//int64_t allocates;
-//int64_t freed;
-//int counter = 0;
-//expire_tree *expiretree;
-//metric_tree *tree;
-
-
-
 int is_red ( metric_node *node )
 {
 	return node != NULL && node->color == RED;

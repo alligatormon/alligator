@@ -5,10 +5,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "metric/labels.h"
-//#include "metric/expiretree.h"
 
-//#define u64	PRIu64
-//#define d64	PRId64
 #define	RED	1
 #define	BLACK	0
 #define	RIGHT	1
