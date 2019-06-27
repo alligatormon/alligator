@@ -18,7 +18,7 @@
 #define d64 PRId64
 
 //#include "rbtree.h"
-#include "dstructures/metric.h"
+#include "metric/labels.h"
 
 typedef struct cpuusage_cgroup
 {
@@ -46,9 +46,9 @@ void print_mount(const struct mntent *fs)
 				int64_t total = ((double)buf.f_blocks * buf.f_bsize);
 				int64_t avail = ((double)buf.f_bavail * buf.f_bsize);
 				int64_t used = total - avail;
-				metric_labels_add_lbl2("disk_usage", &total, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "total");
-				metric_labels_add_lbl2("disk_usage", &avail, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "avail");
-				metric_labels_add_lbl2("disk_usage", &used, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_usage", &total, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "total");
+				metric_add_labels2("disk_usage", &avail, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "avail");
+				metric_add_labels2("disk_usage", &used, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "used");
 			}
 
 			close(f_d);
@@ -113,9 +113,9 @@ void get_cpu()
 		effective_cores = num_cpus_cgroup;
 
 
-	metric_labels_add_auto("cores_num", &num_cpus, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("cgroup_cores_num", &num_cpus_cgroup, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("effective_cores_num", &effective_cores, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("cores_num", &num_cpus, DATATYPE_INT, 0);
+	metric_add_auto("cgroup_cores_num", &num_cpus_cgroup, DATATYPE_INT, 0);
+	metric_add_auto("effective_cores_num", &effective_cores, DATATYPE_INT, 0);
 
 	char temp[LINUXFS_LINE_LENGTH];
 	FILE *fd = fopen("/proc/stat", "r");
@@ -135,12 +135,12 @@ void get_cpu()
 			double system = (double)(t3)*100/(t1+t3+t4);
 			double idle = (double)(t4)*100/(t1+t3+t4);
 			double iowait = (double)(t5)*100/(t1+t3+t4);
-			metric_labels_add_lbl("cpu_usage", &usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "usage");
-			metric_labels_add_lbl("cpu_usage", &user, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "user");
-			metric_labels_add_lbl("cpu_usage", &nice, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "nice");
-			metric_labels_add_lbl("cpu_usage", &system, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "system");
-			metric_labels_add_lbl("cpu_usage", &idle, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "idle");
-			metric_labels_add_lbl("cpu_usage", &iowait, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "iowait");
+			metric_add_labels("cpu_usage", &usage, DATATYPE_DOUBLE, 0, "type", "usage");
+			metric_add_labels("cpu_usage", &user, DATATYPE_DOUBLE, 0, "type", "user");
+			metric_add_labels("cpu_usage", &nice, DATATYPE_DOUBLE, 0, "type", "nice");
+			metric_add_labels("cpu_usage", &system, DATATYPE_DOUBLE, 0, "type", "system");
+			metric_add_labels("cpu_usage", &idle, DATATYPE_DOUBLE, 0, "type", "idle");
+			metric_add_labels("cpu_usage", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait");
 		}
 	}
 	fclose(fd);
@@ -160,9 +160,9 @@ void get_cpu()
 	double cgroup_system_usage = (double)(cgroup_system_ticks2 - cgroup_system_ticks1)*cfs_period/1000000000/cfs_quota*100;
 	double cgroup_user_usage = (double)(cgroup_user_ticks2 - cgroup_user_ticks1)*cfs_period/1000000000/cfs_quota*100;
 	double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
-	metric_labels_add_lbl("cpu_cgroup_usage", &cgroup_system_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "system");
-	metric_labels_add_lbl("cpu_cgroup_usage", &cgroup_user_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "user");
-	metric_labels_add_lbl("cpu_cgroup_usage", &cgroup_total_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "total");
+	metric_add_labels("cpu_cgroup_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
+	metric_add_labels("cpu_cgroup_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
+	metric_add_labels("cpu_cgroup_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
 	//cpuusage_cgroup *cgr1 = get_cpu_usage_cgroup(num_cpus_cgroup);
 
 	//sleep(1);
@@ -176,8 +176,8 @@ void get_cpu()
 	//	printf("cgroup cpu%lld: has usage user %lf sys %lf\n", i, cgroup_user_usage, cgroup_system_usage);
 	//	char cpusel[10];
 	//	snprintf(cpusel, 10, "cpu%"d64"\n", i);
-	//	metric_labels_add_auto("cpu_cgroup_usage", &cgroup_system_usage, ALLIGATOR_DATATYPE_DOUBLE, 0);
-	//	metric_labels_add_auto("cpu_cgroup_usage", &cgroup_user_usage, ALLIGATOR_DATATYPE_DOUBLE, 0);
+	//	metric_add_auto("cpu_cgroup_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0);
+	//	metric_add_auto("cpu_cgroup_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0);
 	//	puts("===========");
 	//}
 }
@@ -215,13 +215,13 @@ void get_process_extra_info(char *file)
 		switch ( swtch )
 		{
 			case '1':
-				metric_labels_add_lbl("process_stats", &ival, ALLIGATOR_DATATYPE_INT, 0, "type", "threads" );
+				metric_add_labels("process_stats", &ival, DATATYPE_INT, 0, "type", "threads" );
 				break;
 			case '2':
 				if ( ctxt_switches != 0 )
 				{
 					ctxt_switches += ival;
-					metric_labels_add_lbl("process_stats", &ival, ALLIGATOR_DATATYPE_INT, 0, "type", "ctx_switches" );
+					metric_add_labels("process_stats", &ival, DATATYPE_INT, 0, "type", "ctx_switches" );
 				}
 				else
 				{
@@ -311,11 +311,11 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number)
 	//printf("cpu usage sys: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", stotal_time, Hertz, seconds, sys_cpu_usage);
 	//printf("cpu usage user: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", utotal_time, Hertz, seconds, user_cpu_usage);
 
-	metric_labels_add_lbl3("process_memory", &rss, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "rss");
-	metric_labels_add_lbl3("process_memory", &vsize, ALLIGATOR_DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "vsz");
-	metric_labels_add_lbl3("process_cpu", &sys_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
-	metric_labels_add_lbl3("process_cpu", &user_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "user");
-	metric_labels_add_lbl3("process_cpu", &total_cpu_usage, ALLIGATOR_DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "total");
+	metric_add_labels3("process_memory", &rss, DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "rss");
+	metric_add_labels3("process_memory", &vsize, DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "vsz");
+	metric_add_labels3("process_cpu", &sys_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
+	metric_add_labels3("process_cpu", &user_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "user");
+	metric_add_labels3("process_cpu", &total_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "total");
 }
 
 int64_t get_fd_info_process(char *fddir)
@@ -330,7 +330,7 @@ int64_t get_fd_info_process(char *fddir)
 		return 0;
 	}
 
-	char *dir = malloc(FILENAME_MAX);
+	//char dir[FILENAME_MAX];
 	int64_t i = 0;
 	while((entry = readdir(dp)))
 	{
@@ -339,7 +339,6 @@ int64_t get_fd_info_process(char *fddir)
 		i++;
 	}
 
-	free(dir);
 	closedir(dp);
 	return i;
 }
@@ -356,7 +355,7 @@ void get_process_io_stat(char *file, char *command)
 	while (fgets(buf, LINUXFS_LINE_LENGTH, fd))
 	{
 		sscanf(buf, "%[^:]: %"d64"", buf2, &val);
-		metric_labels_add_lbl2("process_io", &val, ALLIGATOR_DATATYPE_INT, 0, "name", command, "type", buf2 );
+		metric_add_labels2("process_io", &val, DATATYPE_INT, 0, "name", command, "type", buf2 );
 	}
 	fclose(fd);
 }
@@ -373,7 +372,7 @@ void find_pid()
 		return;
 	}
 
-	char *dir = malloc(FILENAME_MAX);
+	char dir[FILENAME_MAX];
 	while((entry = readdir(dp)))
 	{
 		if ( !isdigit(entry->d_name[0]) )
@@ -403,13 +402,12 @@ void find_pid()
 		snprintf(dir, FILENAME_MAX, "/proc/%s/fd", entry->d_name);
 		int64_t filesnum = get_fd_info_process(dir);
 		if (filesnum)
-			metric_labels_add_lbl2("process_stats", &filesnum, ALLIGATOR_DATATYPE_INT, 0, "name", procname, "type", "openfiles" );
+			metric_add_labels2("process_stats", &filesnum, DATATYPE_INT, 0, "name", procname, "type", "openfiles" );
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/io", entry->d_name);
 		get_process_io_stat(dir, procname);
 	}
 
-	free(dir);
 	closedir(dp);
 }
 
@@ -454,10 +452,10 @@ void get_mem()
 			ival = ival * atoll(val);
 				 if ( !strcmp(key, "SwapTotal") ) { totalswap = ival; }
 			else if ( !strcmp(key, "SwapFree") ) { freeswap = ival;  }
-			metric_labels_add_lbl("memory_usage", &ival, ALLIGATOR_DATATYPE_INT, 0, "type", key);
+			metric_add_labels("memory_usage", &ival, DATATYPE_INT, 0, "type", key);
 		}
 		int64_t usageswap = totalswap - freeswap;
-		metric_labels_add_lbl("memory_usage", &usageswap, ALLIGATOR_DATATYPE_INT, 0, "type", "SwapUsage");
+		metric_add_labels("memory_usage", &usageswap, DATATYPE_INT, 0, "type", "SwapUsage");
 	}
 	fclose(fd);
 }
@@ -489,7 +487,7 @@ void cgroup_mem()
 			strlcpy(val, tmp+swap, i-swap+1);
 
 			ival = atoll(val);
-			metric_labels_add_lbl("memory_cgroup_usage", &ival, ALLIGATOR_DATATYPE_INT, 0, "type", key );
+			metric_add_labels("memory_cgroup_usage", &ival, DATATYPE_INT, 0, "type", key );
 		}
 	}
 	fclose(fd);
@@ -501,10 +499,10 @@ void get_tcpudp_stat(char *file, char *name)
 	if (!fd)
 		return;
 
-	char *buf = malloc(500);
-	if(!fgets(buf, 500, fd))
+	size_t file_size = get_file_size(file);
+	char buf[file_size];
+	if(!fgets(buf, file_size, fd))
 	{
-		free(buf);
 		fclose(fd);
 		return;
 	}
@@ -517,7 +515,7 @@ void get_tcpudp_stat(char *file, char *name)
 	int64_t queuetx = 0;
 	int64_t queuerx = 0;
 	int64_t i, j, cnt = 0;
-	while ( fgets(buf, 500, fd) )
+	while ( fgets(buf, file_size, fd) )
 	{
 		size_t len = strlen(buf);
 		for (i=0, j=0; i<len && j<9; i++, j++)
@@ -537,26 +535,26 @@ void get_tcpudp_stat(char *file, char *name)
 		queuetx += temptx;
 		cnt++;
 	}
-	metric_labels_add_lbl2("socket_stat", &retransmit, ALLIGATOR_DATATYPE_INT, 0, "proto", name, "type", "retransmit");
-	metric_labels_add_lbl2("socket_stat", &timeout, ALLIGATOR_DATATYPE_INT, 0, "proto", name, "type", "timeout");
-	metric_labels_add_lbl2("socket_stat", &cnt, ALLIGATOR_DATATYPE_INT, 0, "proto", name, "type", "count");
-	metric_labels_add_lbl2("socket_stat", &queuetx, ALLIGATOR_DATATYPE_INT, 0, "proto", name, "type", "rx_queue");
-	metric_labels_add_lbl2("socket_stat", &queuerx, ALLIGATOR_DATATYPE_INT, 0, "proto", name, "type", "tx_queue");
-	free(buf);
+	metric_add_labels2("socket_stat", &retransmit, DATATYPE_INT, 0, "proto", name, "type", "retransmit");
+	metric_add_labels2("socket_stat", &timeout, DATATYPE_INT, 0, "proto", name, "type", "timeout");
+	metric_add_labels2("socket_stat", &cnt, DATATYPE_INT, 0, "proto", name, "type", "count");
+	metric_add_labels2("socket_stat", &queuetx, DATATYPE_INT, 0, "proto", name, "type", "rx_queue");
+	metric_add_labels2("socket_stat", &queuerx, DATATYPE_INT, 0, "proto", name, "type", "tx_queue");
 	fclose(fd);
 }
 
 void get_netstat_statistics()
 {
 	FILE *fp = fopen("/proc/net/netstat", "r");
-	char *buf = malloc(10000);
+	size_t filesize = get_file_size("/proc/net/netstat");
+	char buf[filesize];
 	int64_t netstat[118];
-	if(!fgets(buf, 10000, fp))
+	if(!fgets(buf, filesize, fp))
 	{
 		fclose(fp);
 		return;
 	}
-	if(!fgets(buf, 10000, fp))
+	if(!fgets(buf, filesize, fp))
 	{
 		fclose(fp);
 		return;
@@ -569,26 +567,25 @@ void get_netstat_statistics()
 	{
 		int64_t val = atoll(buf+i);
 		netstat[j] = val;
-		metric_labels_add_lbl("network_stat", &netstat[0], ALLIGATOR_DATATYPE_INT, 0, "type", "SyncookiesSent");
-		metric_labels_add_lbl("network_stat", &netstat[1], ALLIGATOR_DATATYPE_INT, 0, "type", "SyncookiesRecv");
-		metric_labels_add_lbl("network_stat", &netstat[2], ALLIGATOR_DATATYPE_INT, 0, "type", "SyncookiesFailed");
-		metric_labels_add_lbl("network_stat", &netstat[10], ALLIGATOR_DATATYPE_INT, 0, "type", "TW");
-		metric_labels_add_lbl("network_stat", &netstat[11], ALLIGATOR_DATATYPE_INT, 0, "type", "TWRecycled");
-		metric_labels_add_lbl("network_stat", &netstat[12], ALLIGATOR_DATATYPE_INT, 0, "type", "TWKilled");
-		metric_labels_add_lbl("network_stat", &netstat[16], ALLIGATOR_DATATYPE_INT, 0, "type", "DelayedACKs");
-		metric_labels_add_lbl("network_stat", &netstat[17], ALLIGATOR_DATATYPE_INT, 0, "type", "DelayedACKLocked");
-		metric_labels_add_lbl("network_stat", &netstat[18], ALLIGATOR_DATATYPE_INT, 0, "type", "DelayedACKLost");
-		metric_labels_add_lbl("network_stat", &netstat[19], ALLIGATOR_DATATYPE_INT, 0, "type", "ListenOverflows");
-		metric_labels_add_lbl("network_stat", &netstat[20], ALLIGATOR_DATATYPE_INT, 0, "type", "ListenDrops");
-		metric_labels_add_lbl("network_stat", &netstat[111], ALLIGATOR_DATATYPE_INT, 0, "type", "TCPMemoryPressures");
-		metric_labels_add_lbl("network_stat", &netstat[110], ALLIGATOR_DATATYPE_INT, 0, "type", "TCPAbortFailed");
-		metric_labels_add_lbl("network_stat", &netstat[108], ALLIGATOR_DATATYPE_INT, 0, "type", "TCPAbortOnTimeout");
-		metric_labels_add_lbl("network_stat", &netstat[107], ALLIGATOR_DATATYPE_INT, 0, "type", "TCPAbortOnMemory");
+		metric_add_labels("network_stat", &netstat[0], DATATYPE_INT, 0, "type", "SyncookiesSent");
+		metric_add_labels("network_stat", &netstat[1], DATATYPE_INT, 0, "type", "SyncookiesRecv");
+		metric_add_labels("network_stat", &netstat[2], DATATYPE_INT, 0, "type", "SyncookiesFailed");
+		metric_add_labels("network_stat", &netstat[10], DATATYPE_INT, 0, "type", "TW");
+		metric_add_labels("network_stat", &netstat[11], DATATYPE_INT, 0, "type", "TWRecycled");
+		metric_add_labels("network_stat", &netstat[12], DATATYPE_INT, 0, "type", "TWKilled");
+		metric_add_labels("network_stat", &netstat[16], DATATYPE_INT, 0, "type", "DelayedACKs");
+		metric_add_labels("network_stat", &netstat[17], DATATYPE_INT, 0, "type", "DelayedACKLocked");
+		metric_add_labels("network_stat", &netstat[18], DATATYPE_INT, 0, "type", "DelayedACKLost");
+		metric_add_labels("network_stat", &netstat[19], DATATYPE_INT, 0, "type", "ListenOverflows");
+		metric_add_labels("network_stat", &netstat[20], DATATYPE_INT, 0, "type", "ListenDrops");
+		metric_add_labels("network_stat", &netstat[111], DATATYPE_INT, 0, "type", "TCPMemoryPressures");
+		metric_add_labels("network_stat", &netstat[110], DATATYPE_INT, 0, "type", "TCPAbortFailed");
+		metric_add_labels("network_stat", &netstat[108], DATATYPE_INT, 0, "type", "TCPAbortOnTimeout");
+		metric_add_labels("network_stat", &netstat[107], DATATYPE_INT, 0, "type", "TCPAbortOnMemory");
 
 		i += strcspn(buf+i, " \t");
 	}
 
-	free(buf);
 	fclose(fp);
 }
 
@@ -634,52 +631,52 @@ void get_network_statistics()
 		size_t sz = strlen(buf+from+to);
 
 		received_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_bytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_bytes");
+		metric_add_labels2("if_stat", &received_bytes, DATATYPE_INT, 0, "ifname", ifname, "type", "received_bytes");
 
 		received_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_packets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_packets");
+		metric_add_labels2("if_stat", &received_packets, DATATYPE_INT, 0, "ifname", ifname, "type", "received_packets");
 
 		received_err = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_err, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_err");
+		metric_add_labels2("if_stat", &received_err, DATATYPE_INT, 0, "ifname", ifname, "type", "received_err");
 
 		received_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_drop, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_drop");
+		metric_add_labels2("if_stat", &received_drop, DATATYPE_INT, 0, "ifname", ifname, "type", "received_drop");
 
 		received_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_fifo, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_fifo");
+		metric_add_labels2("if_stat", &received_fifo, DATATYPE_INT, 0, "ifname", ifname, "type", "received_fifo");
 
 		received_frame = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_frame, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_frame");
+		metric_add_labels2("if_stat", &received_frame, DATATYPE_INT, 0, "ifname", ifname, "type", "received_frame");
 
 		received_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_compressed, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_compressed");
+		metric_add_labels2("if_stat", &received_compressed, DATATYPE_INT, 0, "ifname", ifname, "type", "received_compressed");
 
 		received_multicast = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &received_multicast, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "received_multicast");
+		metric_add_labels2("if_stat", &received_multicast, DATATYPE_INT, 0, "ifname", ifname, "type", "received_multicast");
 
 		transmit_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_bytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_bytes");
+		metric_add_labels2("if_stat", &transmit_bytes, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_bytes");
 
 		transmit_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_packets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_packets");
+		metric_add_labels2("if_stat", &transmit_packets, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_packets");
 
 		transmit_err = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_err, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_err");
+		metric_add_labels2("if_stat", &transmit_err, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_err");
 
 		transmit_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_drop, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_drop");
+		metric_add_labels2("if_stat", &transmit_drop, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_drop");
 
 		transmit_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_fifo, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_fifo");
+		metric_add_labels2("if_stat", &transmit_fifo, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_fifo");
 
 		transmit_colls = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_colls, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_colls");
+		metric_add_labels2("if_stat", &transmit_colls, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_colls");
 
 		transmit_carrier = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_carrier, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_carrier");
+		metric_add_labels2("if_stat", &transmit_carrier, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_carrier");
 
 		transmit_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
-		metric_labels_add_lbl2("if_stat", &transmit_compressed, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_compressed");
+		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_compressed");
 	}
 
 	fclose(fp);
@@ -712,8 +709,8 @@ void get_nofile_stat()
 	}
 	file_open = stat[0];
 	kern_file_max = stat[2];
-	metric_labels_add_auto("open_files", &file_open, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("max_files", &kern_file_max, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("open_files", &file_open, DATATYPE_INT, 0);
+	metric_add_auto("max_files", &kern_file_max, DATATYPE_INT, 0);
 	fclose(fd);
 }
 
@@ -754,14 +751,14 @@ void get_disk_io_stat()
 		int64_t write_timing = stat[10];
 		int64_t io_w = stat[3];
 		int64_t io_r = stat[7];
-		metric_labels_add_lbl2("disk_io", &io_r, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_read");
-		metric_labels_add_lbl2("disk_io", &io_w, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_write");
-		metric_labels_add_lbl2("disk_io", &read_timing, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "read_timing");
-		metric_labels_add_lbl2("disk_io", &write_timing, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "write_timing");
-		metric_labels_add_lbl2("disk_io", &read_bytes, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "bytes_read");
-		metric_labels_add_lbl2("disk_io", &write_bytes, ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "bytes_write");
+		metric_add_labels2("disk_io", &io_r, DATATYPE_INT, 0, "dev", devname, "type", "transfers_read");
+		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, 0, "dev", devname, "type", "transfers_write");
+		metric_add_labels2("disk_io", &read_timing, DATATYPE_INT, 0, "dev", devname, "type", "read_timing");
+		metric_add_labels2("disk_io", &write_timing, DATATYPE_INT, 0, "dev", devname, "type", "write_timing");
+		metric_add_labels2("disk_io", &read_bytes, DATATYPE_INT, 0, "dev", devname, "type", "bytes_read");
+		metric_add_labels2("disk_io", &write_bytes, DATATYPE_INT, 0, "dev", devname, "type", "bytes_write");
 		if (j>14)
-			metric_labels_add_lbl2("disk_io", &stat[14], ALLIGATOR_DATATYPE_INT, 0, "dev", devname, "type", "transfers_discard");
+			metric_add_labels2("disk_io", &stat[14], DATATYPE_INT, 0, "dev", devname, "type", "transfers_discard");
 	}
 	fclose(fd);
 }
@@ -780,9 +777,9 @@ void get_loadavg()
 	}
 	double load1, load5, load15;
 	sscanf(str, "%lf %lf %lf", &load1, &load5, &load15);
-	metric_labels_add_lbl("load_average", &load1, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load1");
-	metric_labels_add_lbl("load_average", &load5, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load5");
-	metric_labels_add_lbl("load_average", &load15, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load15");
+	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, 0, "type", "load1");
+	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, 0, "type", "load5");
+	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, 0, "type", "load15");
 
 	fclose(fd);
 }

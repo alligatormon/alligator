@@ -4,9 +4,8 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include "platform/platform.h"
-#include "dstructures/metric.h"
-#include "dstructures/rbtree.h"
 #include "main.h"
+#include "metric/namespace.h"
 
 size_t get_file_size(char *filename)
 {
@@ -74,8 +73,12 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 	char *pmetric = malloc(METRIC_SIZE);
 	char *pfield = malloc(METRIC_SIZE);
 	size_t cpy_sz;
-	char *ret = malloc(METRIC_SIZE*maps_size);
-	*ret = 0;
+	char *ret = 0;
+	if (maps_size)
+	{
+		ret = malloc(METRIC_SIZE*maps_size);
+		*ret = 0;
+	}
 	int64_t count = 0;
 	for (i=0; i<sz; i++)
 	{
@@ -104,15 +107,26 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		cur += sep_sz;
 		//cur++;
 		int rc = metric_value_validator(cur, n);
-		if      (rc == ALLIGATOR_DATATYPE_INT)
+		if      (rc == DATATYPE_INT)
 		{
-			int64_t pvalue = atoi(cur);
-			metric_labels_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
+			int64_t pvalue = atoll(cur);
+
+			int64_t fullsize = prefix_size+cpy_sz+1;
+			char fullmetric[fullsize];
+			strncpy(fullmetric, prefix, prefix_size);
+			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
+			metric_add_auto(fullmetric, &pvalue, rc, 0);
 		}
-		else if (rc == ALLIGATOR_DATATYPE_DOUBLE)
+		else if (rc == DATATYPE_DOUBLE)
 		{
 			double pvalue = atof(cur);
-			metric_labels_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
+
+			int64_t fullsize = prefix_size+cpy_sz+1;
+			char fullmetric[fullsize];
+			strncpy(fullmetric, prefix, prefix_size);
+			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
+			metric_add_auto(fullmetric, &pvalue, rc, 0);
+			//metric_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
 		}
 		else
 		{
@@ -121,6 +135,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 				if(!strncmp(pmetric, maps[j], n_sz))
 				{
 					strncat(ret, pfield, n_sz);
+					strncat(ret, "\n", 1);
 					count++;
 				}
 			}
@@ -133,7 +148,6 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		return ret;
 	else
 	{
-		free(ret);
 		return NULL;
 	}
 }
@@ -211,10 +225,89 @@ int64_t getkvfile(char *file)
 		return 0;
 
 	if ( !fgets(temp, 20, fd) )
+	{
+		fclose(fd);
 		return 0;
+	}
 
 	fclose(fd);
 
 	return atoll(temp);
 }
 
+string* string_init(size_t max)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = max;
+	ret->s = malloc(max);
+	ret->l = 0;
+
+	return ret;
+}
+string* string_init_str(char *str, size_t max)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = max;
+	ret->s = str;
+	ret->l = 0;
+
+	return ret;
+}
+
+void string_cat(string *str, char *strcat, size_t len)
+{
+	size_t str_len = str->l;
+	//printf("1212str_len=%zu\n", str_len);
+	if(str_len+len >= str->m)
+		return;
+
+	size_t copy_size = len < (str->m - str_len) ? len : str_len;
+	//printf("string '%s'\nstr_len=%zu\nstrcat='%s'\ncopy_size=%zu\nlen=%zu\n", str->s, str_len, strcat, copy_size+1, len);
+	memcpy(str->s+str_len, strcat, copy_size);
+	str->l += copy_size;
+}
+
+void string_uint(string *str, uint64_t u)
+{
+	size_t str_len = str->l;
+	if(str_len+20 >= str->m)
+		return;
+
+	char num[20];
+	snprintf(num, 20, "%"u64, u);
+
+	size_t len = strlen(num);
+	size_t copy_size = len < (str->m - str_len) ? len : str_len;
+	strlcpy(str->s+str_len, num, copy_size+1);
+	str->l += copy_size;
+}
+
+void string_int(string *str, int64_t i)
+{
+	size_t str_len = str->l;
+	if(str_len+20 >= str->m)
+		return;
+
+	char num[20];
+	snprintf(num, 20, "%"d64, i);
+
+	size_t len = strlen(num);
+	size_t copy_size = len < (str->m - str_len) ? len : str_len;
+	strlcpy(str->s+str_len, num, copy_size+1);
+	str->l += copy_size;
+}
+
+void string_double(string *str, double d)
+{
+	size_t str_len = str->l;
+	if(str_len+20 >= str->m)
+		return;
+
+	char num[20];
+	snprintf(num, 20, "%lf", d);
+
+	size_t len = strlen(num);
+	size_t copy_size = len < (str->m - str_len) ? len : str_len;
+	strlcpy(str->s+str_len, num, copy_size+1);
+	str->l += copy_size;
+}

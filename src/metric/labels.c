@@ -139,7 +139,9 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 			fprintf(stderr, "unknown error 11\n");
 		}
 
+		labels_t *labels_old = labels;
 		labels = labels->next;
+		free(labels_old);
 	}
 }
 
@@ -162,11 +164,15 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	cur->key_len = strlen(cur->key);
 	cur->next = 0;
 
+	cur->allocatedname = labelscont->allocatedname;
+	cur->allocatedkey = labelscont->allocatedkey;
+
 	// add element to sortplan
 	sort_plan->plan[(sort_plan->size)++] = labelscont->name;
 
 	free(labelscont);
 }
+
 
 void labels_head_free(labels_t *labels)
 {
@@ -174,6 +180,11 @@ void labels_head_free(labels_t *labels)
 	while (labels)
 	{
 		new = labels->next;
+		if(labels->allocatedkey)
+		{
+			printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
+			free(labels->key);
+		}
 		free(labels);
 		labels = new;
 	}
@@ -202,6 +213,8 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	labels->name_len = 8;
 	labels->key = name;
 	labels->key_len = strlen(name);
+	labels->allocatedname = 0;
+	labels->allocatedkey = 0;
 
 	labels->sort_plan = ns->metrictree->sort_plan;
 	sortplan *sort_plan = ns->metrictree->sort_plan;
@@ -221,11 +234,21 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 		{
 			cur->key = labelscont->key;
 			cur->key_len = strlen(cur->key);
+			cur->allocatedname = labelscont->allocatedname;
+			cur->allocatedkey = labelscont->allocatedkey;
+			if (labelscont->allocatedname)
+			{
+				labelscont->allocatedname = 0;
+				free(labelscont->name);
+			}
 			tommy_hashdyn_remove_existing(hash, &(labelscont->node));
+
 			free(labelscont);
 		}
 		else
 		{
+			cur->allocatedname = 0;
+			cur->allocatedkey = 0;
 			cur->key = 0;
 			cur->key_len = 0;
 		}
@@ -240,6 +263,28 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	return labels;
 }
 
+void labels_free_node(void *funcarg, void* arg)
+{
+	labels_container *labelscont = arg;
+	if (!labelscont)
+		return;
+
+	if (labelscont->allocatedkey)
+	{
+		printf("DEBUG1: free key %p (%s)\n", labelscont->key, labelscont->key);
+		free(labelscont->key);
+	}
+
+	free(labelscont);
+}
+
+void labels_hash_free(tommy_hashdyn *hash)
+{
+	tommy_hashdyn_foreach_arg(hash, labels_free_node, NULL);
+	tommy_hashdyn_done(hash);
+	free(hash);
+}
+
 void labels_hash_insert(tommy_hashdyn *hash, char *name, char *key)
 {
 	if (!name)
@@ -252,6 +297,27 @@ void labels_hash_insert(tommy_hashdyn *hash, char *name, char *key)
 		labelscont = malloc(sizeof(*labelscont));
 		labelscont->name = name;
 		labelscont->key = key;
+		labelscont->allocatedname = 0;
+		labelscont->allocatedkey = 0;
+		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
+	}
+}
+
+void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key)
+{
+	if (!name)
+		return;
+
+	uint32_t name_hash = tommy_strhash_u32(0, name);
+	labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, name, name_hash);
+	if (!labelscont)
+	{
+		labelscont = malloc(sizeof(*labelscont));
+		labelscont->name = strdup(name);
+		labelscont->key = strdup(key);
+		printf("DEBUG1: alloc key %p (%s)\n", labelscont->key, labelscont->key);
+		labelscont->allocatedname = 1;
+		labelscont->allocatedkey = 1;
 		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
 	}
 }
@@ -293,6 +359,13 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 			labels_cache->count = 1;
 			tommy_hashdyn_insert(labels_words_hash, &(labels_cache->node), labels_cache, name_hash);
 		}
+
+		if (labels->allocatedname)
+		{
+			printf("freeing %s\n", labels->name);
+			//free(labels->name);
+		}
+
 		labels->name = labels_cache->w;
 
 		if(!labels->key)
@@ -317,6 +390,13 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 			labels_cache->count = 1;
 			tommy_hashdyn_insert(labels_words_hash, &(labels_cache->node), labels_cache, key_hash);
 		}
+
+		if (labels->allocatedkey)
+		{
+			printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
+			free(labels->key);
+		}
+
 		labels->key = labels_cache->w;
 
 		labels = labels->next;
@@ -360,9 +440,6 @@ void metric_add_auto(char *name, void* value, int8_t type, char *namespace)
 		return;
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
-
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
 
 	labels_t *labels_list = labels_initiate(NULL, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);

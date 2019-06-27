@@ -20,6 +20,9 @@ int context_compare(const void* arg, const void* obj)
 
 mtlen* split_char_to_mtlen(char *str)
 {
+	if (!str)
+		return NULL;
+
 	mtlen *mt = malloc(sizeof(*mt));
 	int64_t i, j, k;
 	size_t len = strlen(str);
@@ -30,12 +33,13 @@ mtlen* split_char_to_mtlen(char *str)
 			continue;
 
 		k = strcspn(str+i, ";{} \r\n\t\0");
+		if (k)
+			++j;
 		int64_t z = i+k;
 		if ( str[z] == ';' || str[z] == '{' || str[z] == '}' )
-			j++;
+			++j;
 
 		i += k;
-		j++;
 	}
 	mt->st = malloc(sizeof(stlen)*j);
 	mt->m = j;
@@ -46,18 +50,22 @@ mtlen* split_char_to_mtlen(char *str)
 			continue;
 
 		k = strcspn(str+i, ";{} \r\n\t\0");
-		mt->st[j].s = strndup(str+i, k);
-		mt->st[j].l = k;
+		if (k)
+		{
+			mt->st[j].s = strndup(str+i, k);
+			mt->st[j].l = k;
+			//printf("copy '%s' with len %d\n", mt->st[j].s, mt->st[j].l);
+			++j;
+		}
 		int64_t z = i+k;
 		if ( str[z] == ';' || str[z] == '{' || str[z] == '}' )
 		{
-			j++;
 			mt->st[j].s = strndup(str+z, 1);
 			mt->st[j].l = 1;
+			++j;
 		}
 
 		i += k;
-		j++;
 	}
 
 	return mt;
@@ -72,7 +80,7 @@ void parse_config(mtlen *mt)
 	for (i=0;i<mt->m;i++)
 	{
 		if (ac->log_level > 2)
-			printf("%"d64": %s\n", i, mt->st[i].s);
+			printf("%"d64"/%zu: %s\n", i, mt->m, mt->st[i].s);
 		if (!strncmp(mt->st[i].s, "exec://", 7))
 		{
 			splitflag = 1;
@@ -129,7 +137,7 @@ int split_config(char *file)
 		return 0;
 	}
 #endif
-	buf[rc] = 0;
+	buf[rc-1] = 0;
 	mtlen *mt = split_char_to_mtlen(buf);
 	//int64_t i;
 	//for (i=0;i<mt->m;i++)

@@ -26,16 +26,16 @@ void get_swap()
 		perror( "unable to get swap usage by calling sysctlbyname(\"vm.swapusage\",...)" );
 	}
 
-	metric_labels_add_lbl("swap_usage", &vmusage.xsu_total, ALLIGATOR_DATATYPE_INT, 0, "type", "total");
-	metric_labels_add_lbl("swap_usage", &vmusage.xsu_avail, ALLIGATOR_DATATYPE_INT, 0, "type", "avail");
-	metric_labels_add_lbl("swap_usage", &vmusage.xsu_used, ALLIGATOR_DATATYPE_INT, 0, "type", "used");
+	metric_add_labels("swap_usage", &vmusage.xsu_total, DATATYPE_INT, 0, "type", "total");
+	metric_add_labels("swap_usage", &vmusage.xsu_avail, DATATYPE_INT, 0, "type", "avail");
+	metric_add_labels("swap_usage", &vmusage.xsu_used, DATATYPE_INT, 0, "type", "used");
 }
 void get_disk()
 {
 	struct statfs* mounts;
 	int num_mounts = getmntinfo(&mounts, MNT_WAIT);
 	
-	metric_labels_add_auto("mounts_num", &num_mounts, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, 0);
 	for (int i = 0; i < num_mounts; i++) {
 		uint64_t disksize = 0;
 		struct statfs stats;
@@ -44,10 +44,10 @@ void get_disk()
 			disksize = (uint64_t)stats.f_bsize * stats.f_bfree;
 		}
 		int one = 1;
-		metric_labels_add_lbl("disk_usage", &disksize, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname);
-		metric_labels_add_lbl2("disk_files", &stats.f_files, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
-		metric_labels_add_lbl2("disk_files", &stats.f_ffree, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "freeinodes");
-		metric_labels_add_lbl2("disk_files", &one, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
+		metric_add_labels("disk_usage", &disksize, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname);
+		metric_add_labels2("disk_files", &stats.f_files, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
+		metric_add_labels2("disk_files", &stats.f_ffree, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "freeinodes");
+		metric_add_labels2("disk_files", &one, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
 	}
 
 }
@@ -78,11 +78,11 @@ void get_mem()
 		int64_t active_memory = (int64_t)vm_stats.active_count*(int64_t)page_size;
 		int64_t inactive_memory = (int64_t)vm_stats.inactive_count*(int64_t)page_size;
 		int64_t wire_memory = (int64_t)vm_stats.wire_count*(int64_t)page_size;
-		metric_labels_add_lbl("memory_usage", &free_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "free");
-		metric_labels_add_lbl("memory_usage", &used_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "used");
-		metric_labels_add_lbl("memory_usage", &active_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "active");
-		metric_labels_add_lbl("memory_usage", &inactive_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "inactive");
-		metric_labels_add_lbl("memory_usage", &wire_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "wire");
+		metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, 0, "type", "free");
+		metric_add_labels("memory_usage", &used_memory, DATATYPE_INT, 0, "type", "used");
+		metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, 0, "type", "active");
+		metric_add_labels("memory_usage", &inactive_memory, DATATYPE_INT, 0, "type", "inactive");
+		metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, 0, "type", "wire");
 	}
 }
 
@@ -149,10 +149,10 @@ void get_cpu()
 	double totalUserTime = delta.totalUserTime/(double)onePercent;
 	double totalIdleTime = delta.totalIdleTime/(double)onePercent;
 
-	metric_labels_add_lbl("cpu_usage", &totalSystemTime, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "system");
-	metric_labels_add_lbl("cpu_usage", &totalUserTime, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "user");
-	metric_labels_add_lbl("cpu_usage", &totalIdleTime, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "idle");
-	metric_labels_add_auto("cores_num", &cores_num, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_labels("cpu_usage", &totalSystemTime, DATATYPE_DOUBLE, 0, "type", "system");
+	metric_add_labels("cpu_usage", &totalUserTime, DATATYPE_DOUBLE, 0, "type", "user");
+	metric_add_labels("cpu_usage", &totalIdleTime, DATATYPE_DOUBLE, 0, "type", "idle");
+	metric_add_auto("cores_num", &cores_num, DATATYPE_INT, 0);
 	int i;
 	char *corename;
 	for ( i=0; i<cores_num; i++ )
@@ -168,9 +168,9 @@ void get_cpu()
 		
 		corename = malloc(20);
 		snprintf(corename, 20, "cpu%d", i);
-		metric_labels_add_lbl2("core_usage", &system, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", corename, "type", "system");
-		metric_labels_add_lbl2("core_usage", &user, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", corename, "type", "user");
-		metric_labels_add_lbl2("core_usage", &idle, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", corename, "type", "idle");
+		metric_add_labels2("core_usage", &system, DATATYPE_DOUBLE, 0, "core", corename, "type", "system");
+		metric_add_labels2("core_usage", &user, DATATYPE_DOUBLE, 0, "core", corename, "type", "user");
+		metric_add_labels2("core_usage", &idle, DATATYPE_DOUBLE, 0, "core", corename, "type", "idle");
 	}
 	free(cores1);
 	free(cores2);
@@ -192,19 +192,19 @@ int get_proc_info()
 		proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, sizeof( taskInfo )) ;
 		proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE);
 
-		metric_labels_add_lbl2("process_memory", &taskInfo.pti_virtual_size, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "vsz");
-		metric_labels_add_lbl2("process_memory", &taskInfo.pti_resident_size, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "rss");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_threadnum, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "threads");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_numrunning, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "name");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_numrunning, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "priority");
-		metric_labels_add_lbl2("process_stats", &proc.pbi_status, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "status");
-		metric_labels_add_lbl2("process_stats", &proc.pbi_flags, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "flags");
-		metric_labels_add_lbl2("process_stats", &proc.pbi_nfiles, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "nfiles");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_syscalls_unix, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "unix_syscall");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_syscalls_mach, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "mach_syscall");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_csw, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "context_switches");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_faults, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "faults");
-		metric_labels_add_lbl2("process_stats", &taskInfo.pti_cow_faults, ALLIGATOR_DATATYPE_INT, 0, "name", proc.pbi_name, "type", "cow_faults");
+		metric_add_labels2("process_memory", &taskInfo.pti_virtual_size, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "vsz");
+		metric_add_labels2("process_memory", &taskInfo.pti_resident_size, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "rss");
+		metric_add_labels2("process_stats", &taskInfo.pti_threadnum, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "threads");
+		metric_add_labels2("process_stats", &taskInfo.pti_numrunning, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "name");
+		metric_add_labels2("process_stats", &taskInfo.pti_numrunning, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "priority");
+		metric_add_labels2("process_stats", &proc.pbi_status, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "status");
+		metric_add_labels2("process_stats", &proc.pbi_flags, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "flags");
+		metric_add_labels2("process_stats", &proc.pbi_nfiles, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "nfiles");
+		metric_add_labels2("process_stats", &taskInfo.pti_syscalls_unix, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "unix_syscall");
+		metric_add_labels2("process_stats", &taskInfo.pti_syscalls_mach, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "mach_syscall");
+		metric_add_labels2("process_stats", &taskInfo.pti_csw, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "context_switches");
+		metric_add_labels2("process_stats", &taskInfo.pti_faults, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "faults");
+		metric_add_labels2("process_stats", &taskInfo.pti_cow_faults, DATATYPE_INT, 0, "name", proc.pbi_name, "type", "cow_faults");
 
 	}
 

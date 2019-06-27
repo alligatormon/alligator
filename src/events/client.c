@@ -53,29 +53,51 @@ void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	int64_t write_time = getrtime_i(cinfo->write_time, cinfo->write_time_finish);
 	int64_t read_time = getrtime_i(cinfo->read_time, cinfo->read_time_finish);
 	//printf("CWR %"d64":%"d64":%"d64"\n", connect_time, write_time, read_time);
-	metric_labels_add_lbl3("aggregator_duration_time", &connect_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "connect", "url", cinfo->hostname);
-	metric_labels_add_lbl3("aggregator_duration_time", &write_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "write", "url", cinfo->hostname);
-	metric_labels_add_lbl3("aggregator_duration_time", &read_time, ALLIGATOR_DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", cinfo->hostname);
+	metric_add_labels3("aggregator_duration_time", &connect_time, DATATYPE_INT, 0, "proto", "tcp", "type", "connect", "url", cinfo->hostname);
+	metric_add_labels3("aggregator_duration_time", &write_time, DATATYPE_INT, 0, "proto", "tcp", "type", "write", "url", cinfo->hostname);
+	metric_add_labels3("aggregator_duration_time", &read_time, DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", cinfo->hostname);
 	//fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
 
 	if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size == 0)
 	{
 		http_reply_data* hr_data = http_reply_parser(buf->base, nread);
+		if (!hr_data)
+		{
+			uv_close((uv_handle_t*)tcp, on_close);
+			free(buf->base);
+			return;
+		}
+
+		if (!hr_data->content_length)
+		{
+			alligator_multiparser(hr_data->body, nread, cinfo->parser_handler, NULL, cinfo);
+			uv_close((uv_handle_t*)tcp, on_close);
+			free(buf->base);
+			return;
+		}
+
 		cinfo->expect_http_length = hr_data->content_length;
 		cinfo->http_body_size += nread - (hr_data->body - buf->base);
 		cinfo->http_body = malloc(hr_data->content_length+1);
-		strlcpy(cinfo->http_body, hr_data->body, cinfo->http_body_size+1);
+		if (ac->log_level > 3)
+			printf("allocate %p with content length = %zu\n", cinfo->http_body, hr_data->content_length);
+		size_t msize = (hr_data->content_length > cinfo->http_body_size) ? cinfo->http_body_size : hr_data->content_length;
+		strlcpy(cinfo->http_body, hr_data->body, msize+1);
 		http_reply_free(hr_data);
 	}
 	else if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size > 0)
 	{
-		strlcpy(cinfo->http_body+cinfo->http_body_size, buf->base, nread+1);
+
+		size_t sizecopy = nread+cinfo->http_body_size > cinfo->expect_http_length ? cinfo->expect_http_length-cinfo->http_body_size : nread+1;
+		if (ac->log_level > 3)
+			printf("copy to %p with offset %zu size of %zu with nornalized size %zu\n", cinfo->http_body, cinfo->http_body_size, nread, sizecopy);
+		strlcpy(cinfo->http_body+cinfo->http_body_size, buf->base, sizecopy);
 		cinfo->http_body_size += nread;
 	}
 
 	if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size >= cinfo->expect_http_length)
 	{
-		alligator_multiparser(cinfo->http_body, buf->len, cinfo->parser_handler, NULL, cinfo);
+		alligator_multiparser(cinfo->http_body, cinfo->http_body_size, cinfo->parser_handler, NULL, cinfo);
 		uv_close((uv_handle_t*)tcp, on_close);
 		free(cinfo->http_body);
 		cinfo->http_body_size = cinfo->expect_http_length = 0;
@@ -92,7 +114,7 @@ void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	}
 	else
 	{
-		alligator_multiparser(buf->base, buf->len, cinfo->parser_handler, NULL, cinfo);
+		alligator_multiparser(buf->base, nread, cinfo->parser_handler, NULL, cinfo);
 		uv_close((uv_handle_t*)tcp, on_close);
 	}
 

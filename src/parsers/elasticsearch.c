@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "common/selector.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 #include "events/client_info.h"
 void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 {

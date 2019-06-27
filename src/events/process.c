@@ -32,7 +32,7 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	}
 	process_info *pinfo = server->data;
 
-	alligator_multiparser(buf->base, buf->len, pinfo->parser_handler, NULL, NULL);
+	alligator_multiparser(buf->base, nread, pinfo->parser_handler, NULL, NULL);
 
 	if (buf->base)
 	{

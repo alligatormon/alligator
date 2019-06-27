@@ -95,7 +95,7 @@ static void process_command(uv_work_t *req) {
 	if (data && data->buf && data->buf->base)
 	{
 		char *answ = malloc(MAX_RESPONSE_SIZE);
-		alligator_multiparser(data->buf->base, strlen(data->buf->base), NULL, answ);
+		alligator_multiparser(data->buf->base, data->text_len, NULL, answ);
 		free(data->buf->base);
 		data->response = answ; //strdup("HTTP/1.1 200 OK\n\nHello World, work's done\n\n");
 	}
@@ -105,6 +105,7 @@ static void read_cb(uv_stream_t * stream, ssize_t nread, const uv_buf_t *buf) {
 	client_request_data *data;
 	char *tmp;
 	data = stream->data;
+	printf("3handler is %p\n", data->parser_handler);
 	if (nread == -1 || nread==UV_EOF) {
 		free(buf->base);
 		uv_timer_stop(data->timer);		
@@ -152,6 +153,7 @@ static void connection_cb(uv_stream_t * server, int status) {
 	struct client_request_data *data = server->data;
 	data->start = time(NULL);
 	client->data = data;
+	printf("2handler is %p\n", data->parser_handler);
 	data->client = client;
 	/* initialize the new client */
 	uv_tcp_init(loop, client);
@@ -202,6 +204,7 @@ void tcp_server_handler(char *addr, uint16_t port, void* handler)
 	uv_tcp_bind(server, (struct sockaddr *)soaddr, 0);
 	struct client_request_data *data = calloc(1, sizeof(*data));
 	data->parser_handler = handler;
+	printf("handler is %p\n", handler);
 	server->data = data;
 	int r = uv_listen((uv_stream_t *) server, 128, connection_cb);
 	if (r)

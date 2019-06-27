@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "common/selector.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 #include "events/client_info.h"
 #define UWSGI_METRIC_SIZE 1000
 void uwsgi_handler(char *metrics, size_t size, client_info *cinfo)
@@ -22,19 +22,19 @@ void uwsgi_handler(char *metrics, size_t size, client_info *cinfo)
 	}
 	json_t *listen_queue = json_object_get(root, "listen_queue");
 	tvalue = json_integer_value(listen_queue);
-	metric_labels_add_auto("uwsgi_listen_queue", &tvalue, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_listen_queue", &tvalue, DATATYPE_INT, 0);
 
 	json_t *listen_queue_errors = json_object_get(root, "listen_queue_errors");
 	tvalue = json_integer_value(listen_queue_errors);
-	metric_labels_add_auto("uwsgi_listen_queue_errors", &tvalue, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_listen_queue_errors", &tvalue, DATATYPE_INT, 0);
 
 	json_t *signal_queue = json_object_get(root, "signal_queue");
 	tvalue = json_integer_value(signal_queue);
-	metric_labels_add_auto("uwsgi_signal_queue", &tvalue, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_signal_queue", &tvalue, DATATYPE_INT, 0);
 
 	json_t *load = json_object_get(root, "load");
 	tvalue = json_integer_value(load);
-	metric_labels_add_auto("uwsgi_load", &tvalue, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_load", &tvalue, DATATYPE_INT, 0);
 
 
 	json_t *locks = json_object_get(root, "locks");
@@ -50,7 +50,7 @@ void uwsgi_handler(char *metrics, size_t size, client_info *cinfo)
 		{
 			snprintf(metricname, UWSGI_METRIC_SIZE, "uwsgi_locks_%s", key);
 			tvalue = json_integer_value(value);
-			metric_labels_add_auto(metricname, &tvalue, ALLIGATOR_DATATYPE_INT, 0);
+			metric_add_auto(metricname, &tvalue, DATATYPE_INT, 0);
 		}
 	}
 
@@ -76,7 +76,7 @@ void uwsgi_handler(char *metrics, size_t size, client_info *cinfo)
 			{
 				snprintf(metricname, UWSGI_METRIC_SIZE, "uwsgi_sockets_%s", key);
 				tvalue = json_integer_value(value);
-				metric_labels_add_lbl2(metricname, &tvalue, ALLIGATOR_DATATYPE_INT, 0, "name", (char*)json_string_value(socket_name), "proto", (char*)json_string_value(socket_proto));
+				metric_add_labels2(metricname, &tvalue, DATATYPE_INT, 0, "name", (char*)json_string_value(socket_name), "proto", (char*)json_string_value(socket_proto));
 			}
 		}
 	}
@@ -231,24 +231,24 @@ void uwsgi_handler(char *metrics, size_t size, client_info *cinfo)
 		
 	}
 
-	metric_labels_add_auto("uwsgi_worker_accepting", &worker_accepting_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_requests", &worker_requests_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_delta_requests", &worker_delta_requests_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_running_time", &worker_running_time_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_exceptions", &worker_exceptions_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_harakiri_count", &worker_harakiri_count_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_signals", &worker_signals_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_signal_queue", &worker_signal_queue_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_respawn_count", &worker_respawn_count_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_tx", &worker_tx_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_avg_rt", &worker_avg_rt_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_idle", &worker_idle_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_static_requests", &worker_static_requests_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_routed_requests", &worker_routed_requests_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_offloaded_requests", &worker_offloaded_requests_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_write_errors", &worker_write_errors_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_read_errors", &worker_read_errors_cnt, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("uwsgi_worker_in_request", &worker_in_request_cnt, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_accepting", &worker_accepting_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_requests", &worker_requests_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_delta_requests", &worker_delta_requests_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_running_time", &worker_running_time_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_exceptions", &worker_exceptions_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_harakiri_count", &worker_harakiri_count_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_signals", &worker_signals_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_signal_queue", &worker_signal_queue_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_respawn_count", &worker_respawn_count_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_tx", &worker_tx_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_avg_rt", &worker_avg_rt_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_idle", &worker_idle_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_static_requests", &worker_static_requests_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_routed_requests", &worker_routed_requests_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_offloaded_requests", &worker_offloaded_requests_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_write_errors", &worker_write_errors_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_read_errors", &worker_read_errors_cnt, DATATYPE_INT, 0);
+	metric_add_auto("uwsgi_worker_in_request", &worker_in_request_cnt, DATATYPE_INT, 0);
 
 
 

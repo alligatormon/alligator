@@ -31,8 +31,12 @@ void unix_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 	unix_srv_data *usdata = malloc(sizeof(*usdata));
 
 	uv_write_t *req = (uv_write_t*) malloc(sizeof(uv_write_t));
-	char *answ = malloc(65535);
-	alligator_multiparser(buf->base, buf->len, NULL, answ, NULL);
+
+	string *str = string_init(6553500);
+	alligator_multiparser(buf->base, nread, NULL, str, NULL);
+	char *answ = str->s;
+	size_t answ_len = str->l;
+
 	req->data = usdata;
 	usdata->answ = answ;
 	usdata->client = client;
@@ -41,7 +45,7 @@ void unix_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 
 	uv_buf_t writebuf;// = calloc(1, sizeof(uv_buf_t));
 	writebuf.base = answ;
-	writebuf.len = strlen(answ);
+	writebuf.len = answ_len;
 
 	uv_write(req, client, &writebuf, 1, unix_write);
 }

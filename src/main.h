@@ -2,7 +2,7 @@
 #include "platform/platform.h"
 #include "dstructures/tommy.h"
 #include <uv.h>
-#include "dstructures/metric.h"
+#include "metric/labels.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"
 #include "common/selector.h"
@@ -16,6 +16,7 @@
 #include "events/filetailer.h"
 #include "config/context.h"
 #include "parsers/multiparser.h"
+#include "metric/namespace.h"
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000
@@ -65,6 +66,11 @@ typedef struct aconf
 	int system_process;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
+
+	// metrics
+	uint64_t metric_cache_hits;
+	uint64_t metric_allocates;
+	uint64_t metric_freed;
 } aconf;
 
 void get_system_metrics();

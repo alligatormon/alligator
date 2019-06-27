@@ -1,7 +1,10 @@
 #pragma once
 #include <uv.h>
 #include "common/rtime.h"
+#include "common/pcre_parser.h"
+#include "config/context.h"
 #include "dstructures/tommyds/tommyds/tommy.h"
+
 typedef struct client_info
 {
 	struct sockaddr_in *dest;
@@ -26,6 +29,8 @@ typedef struct client_info
 	uv_buf_t *buffer;
 	size_t buflen;
 	char *http_body;
+	regex_match *rematch;
+	mapping_metric *mm;
 
 	tommy_node node;
 } client_info;

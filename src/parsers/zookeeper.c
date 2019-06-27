@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "common/selector.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 #include "events/client_info.h"
 
 void zookeeper_mntr_handler(char *metrics, size_t size, client_info *cinfo)
@@ -16,21 +16,21 @@ void zookeeper_mntr_handler(char *metrics, size_t size, client_info *cinfo)
 	int64_t val = 1;
 	if(strstr(res, "standalone"))
 	{
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "leader");
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "follower");
-		metric_labels_add_lbl("zk_mode", &val, ALLIGATOR_DATATYPE_INT, 0, "mode", "standalone");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "leader");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "follower");
+		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "standalone");
 	}
 	else if(strstr(res, "follower"))
 	{
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "leader");
-		metric_labels_add_lbl("zk_mode", &val, ALLIGATOR_DATATYPE_INT, 0, "mode", "follower");
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "standalone");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "leader");
+		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "follower");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "standalone");
 	}
 	else if(strstr(res, "leader"))
 	{
-		metric_labels_add_lbl("zk_mode", &val, ALLIGATOR_DATATYPE_INT, 0, "mode", "leader");
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "follower");
-		metric_labels_add_lbl("zk_mode", &nval, ALLIGATOR_DATATYPE_INT, 0, "mode", "standalone");
+		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "leader");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "follower");
+		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "standalone");
 	}
 	free(res);
 }
@@ -40,7 +40,7 @@ void zookeeper_wchs_handler(char *metrics, size_t size, client_info *cinfo)
 	if (!cur)
 		return;
 	int64_t pvalue = atoi(cur+14);
-	metric_labels_add_auto_prefix("total_watches", "zk_", &pvalue, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("zk_total_watches", &pvalue, DATATYPE_INT, 0);
 }
 void zookeeper_isro_handler(char *metrics, size_t size, client_info *cinfo)
 {
@@ -48,12 +48,12 @@ void zookeeper_isro_handler(char *metrics, size_t size, client_info *cinfo)
 	int64_t nval = 0;
 	if (!strncmp(metrics, "ro", 2))
 	{
-		metric_labels_add_lbl("zk_readwrite", &val, ALLIGATOR_DATATYPE_INT, 0, "status", "ro");
-		metric_labels_add_lbl("zk_readwrite", &nval, ALLIGATOR_DATATYPE_INT, 0, "status", "rw");
+		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, 0, "status", "ro");
+		metric_add_labels("zk_readwrite", &nval, DATATYPE_INT, 0, "status", "rw");
 	}
 	else if (!strncmp(metrics, "rw", 2))
 	{
-		metric_labels_add_lbl("zk_readwrite", &nval, ALLIGATOR_DATATYPE_INT, 0, "status", "ro");
-		metric_labels_add_lbl("zk_readwrite", &val, ALLIGATOR_DATATYPE_INT, 0, "status", "rw");
+		metric_add_labels("zk_readwrite", &nval, DATATYPE_INT, 0, "status", "ro");
+		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, 0, "status", "rw");
 	}
 }

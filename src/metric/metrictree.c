@@ -2,6 +2,7 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
+#define EXPIRE_DEFAULT_SECONDS 300
 
 int is_red ( metric_node *node )
 {
@@ -144,7 +145,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	tree->root->color = BLACK;
 
 	r_time time = setrtime();
-	expire_insert(expiretree, time.sec+15, ret);
+	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, ret);
 	return ret;
 }
 
@@ -252,7 +253,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 
 	r_time time = setrtime();
 	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+60, mnode);
+	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, mnode);
 }
 
 void metrictree_show(metric_node *x)

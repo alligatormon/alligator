@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.9.33)
+project(alligator VERSION 1.9.44)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
 set(COMMON lib${PROJECT_NAME})
-set(TESTS ${PROJECT_NAME}_tests)
+#set(TESTS ${PROJECT_NAME}_tests)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
@@ -45,10 +45,11 @@ IF(WIN32)
 		config/file.c
 		system/linux.c
 		config/context.c
+		config/mapping.c
 		parsers/winparser.c
 		common/rtime.c
 		platform/windows.c
-		parsers/prom_format.c
+		#parsers/prom_format.c
 		parsers/sqlserver.c
 		#events/process.c
 		#events/fs_write.c
@@ -85,11 +86,13 @@ ELSE(WIN32)
 		events/fs_write.c
 		events/system_scrape.c
 		platform/libbsd.c
-		parsers/prom_format.c
+		parsers/pushgateway.c
 		parsers/multiparser.c
+		parsers/multicollector.c
 		parsers/clickhouse.c
 		#parsers/aerospike.c
 		parsers/redis.c
+		parsers/sentinel.c
 		parsers/mssql.c
 		parsers/memcached.c
 		parsers/beanstalkd.c
@@ -106,9 +109,11 @@ ELSE(WIN32)
 		parsers/rabbitmq.c
 		parsers/opentsdb.c
 		parsers/powerdns.c
+		parsers/log.c
 		parsers/elasticsearch.c
+		parsers/nginx_upstream_check.c
 		common/selector.c
-		#common/https_tls_check.c
+		common/https_tls_check.c
 		common/rtime.c
 		common/validator.c
 		common/base64.c
@@ -117,16 +122,21 @@ ELSE(WIN32)
 		common/url.c
 		common/aggregator.c
 		common/json_parser.c
-		dstructures/metric.c
-		dstructures/tommy.c
-		dstructures/rbtree.c
+		common/pcre_parser.c
+		#dstructures/metric.c
+		#dstructures/rbtree.c
 		config/aggregate.c
 		config/file.c
 		config/context.c
+		config/mapping.c
 		system/linux.c
 		system/freebsd.c
 		system/macosx.c
 		modules/modules.c
+		metric/expiretree.c
+		metric/labels.c
+		metric/metrictree.c
+		dstructures/tommy.c
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c
 		dstructures/tommyds/tommyds/tommyhashlin.c
@@ -152,7 +162,7 @@ ENDIF(WIN32)
 add_library(${COMMON_TESTS} STATIC
 		common/selector.c
 		parsers/http_proto.c
-		parsers/prom_format.c
+		#parsers/prom_format.c
 		system/linux.c
 		common/http.c
 		common/base64.c
@@ -162,10 +172,10 @@ add_library(${COMMON_TESTS} STATIC
 		common/url.c
 )
 
-add_library(${TESTS} SHARED tests/unit/tests.c)
-set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
+###add_library(${TESTS} SHARED tests/unit/tests.c)
+###set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+###set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+###target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 #add_test(Test1 "cutter" ".")
 #add_executable(${CLIENT} events/server_handler.c)
@@ -181,7 +191,8 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	target_link_libraries(${HEAD} ${COMMON} z pthread libuv.a dl libjansson.a)
+	#target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

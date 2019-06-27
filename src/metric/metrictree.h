@@ -30,6 +30,8 @@ typedef struct labels_t
 	char *key;
 	size_t key_len;
 	sortplan *sort_plan;
+	uint8_t allocatedname;
+	uint8_t allocatedkey;
 
 	struct labels_t *next;
 } labels_t;
@@ -38,6 +40,8 @@ typedef struct labels_container
 {
 	char *name;
 	char *key;
+	uint8_t allocatedname;
+	uint8_t allocatedkey;
 
 	tommy_node node;
 } labels_container;

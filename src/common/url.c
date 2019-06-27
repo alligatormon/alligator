@@ -34,23 +34,41 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			if ( k > l )
 				k = l;
 		}
+		else if (k == l)
+			k = m;
 
 		if ( tmp[k-1] == '/' )
 			hi->host = strndup(tmp, k-1);
 		else
 			hi->host = strndup(tmp, k);
 
-		tmp += k + 1;
+		tmp += k;
 		k = strcspn(tmp, "/");
 		l = strcspn(tmp, "?");
 		if ( k > l )
 			k = l;
-		strlcpy(hi->port, tmp, k+1);
-		if (!strlen(hi->port))
-			strlcpy(hi->port, "80", 3);
 
-		tmp += k;
-		hi->query = strdup(tmp);
+		if (((str + len) - tmp) > 2)
+		{
+			if (strstr(tmp, ":"))
+			{
+				strlcpy(hi->port, tmp+1, k);
+				tmp += k;
+			}
+			else
+				strlcpy(hi->port, "80", 3);
+
+			hi->query = strdup(tmp);
+		}
+		else
+		{
+			strlcpy(hi->port, "80", 3);
+			hi->query = strdup("/");
+		}
+		printf("host %s\n", hi->host);
+		printf("query %s\n", hi->query);
+		printf("port %s\n", hi->port);
+
 	}
 	if ( !strncmp(str, "fastcgi://", 10) )
 	{
@@ -88,8 +106,10 @@ host_aggregator_info *parse_url (char *str, size_t len)
 		l = strcspn(tmp, "?");
 		if ( k > l )
 			k = l;
-		strlcpy(hi->port, tmp, k+1);
-		if (!strlen(hi->port))
+
+		if ((tmp - (str + len)) > 2)
+			strlcpy(hi->port, tmp, k+1);
+		else
 			strlcpy(hi->port, "80", 3);
 
 		tmp += k;

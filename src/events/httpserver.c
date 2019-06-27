@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <uv.h>
 #include "events/uv_alloc.h"
+#include "events/client_info.h"
+#include "common/selector.h"
 
 typedef struct http_info
 {
@@ -10,7 +12,18 @@ typedef struct http_info
 	char *answ;
 } http_info;
 
+//typedef struct tcp_entrypoint_info
+//{
+//	void *parser_handler;
+//	client_info->cinfo;
+//} tcp_entrypoint_info;
+
 #define CONNECTIONS_COUNT (128)
+
+void http_after_connect(uv_handle_t* handle)
+{
+	free(handle);
+}
 
 void socket_write_cb(uv_write_t *req, int status)
 {
@@ -20,7 +33,7 @@ void socket_write_cb(uv_write_t *req, int status)
 
 	http_info *hinfo = req->data;
 	uv_stream_t *client = hinfo->client;
-	uv_close((uv_handle_t *)client, NULL);
+	uv_close((uv_handle_t *)client, http_after_connect);
 	free(hinfo->answ);
 	free(hinfo);
 	free(req);
@@ -33,19 +46,23 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 		if (nread != UV_EOF)
 			fprintf(stderr, "Read error %s\n", uv_err_name(nread));
 
-		uv_close((uv_handle_t*) client, NULL);
+		uv_close((uv_handle_t*) client, http_after_connect);
 	} else if (nread > 0) {
-		char *answ = malloc(6553500);
-		alligator_multiparser(buf->base, strlen(buf->base), NULL, answ);
+		client_info *cinfo = client->data;
+		string *str = string_init(6553500);
+		alligator_multiparser(buf->base, nread, cinfo->parser_handler, str, cinfo);
+		char *answ = str->s;
+		size_t answ_len = str->l;
 		//printf("answ: %s\n", answ);
 		//data->response = answ; //strdup("HTTP/1.1 200 OK\n\nHello World, work's done\n\n");
 
 		uv_write_t *req = (uv_write_t *) malloc(sizeof(uv_write_t));
-		uv_buf_t write_buf = uv_buf_init(answ, strlen(answ));
+		uv_buf_t write_buf = uv_buf_init(answ, answ_len);
 		hinfo->answ = answ;
 		hinfo->client = client;
 		req->data = hinfo;
 
+		free(str);
 		uv_write(req, client, &write_buf, 1, socket_write_cb);
 	}
 
@@ -62,17 +79,22 @@ void accept_connection_cb(uv_stream_t *server, int status)
 
 	uv_tcp_t *client = (uv_tcp_t*) malloc(sizeof(uv_tcp_t));
 	uv_tcp_init(uv_default_loop(), client);
+	client->data = server->data;
 
 	if (uv_accept(server, (uv_stream_t*) client) == 0) {
 		uv_read_start((uv_stream_t *) client, alloc_buffer, socket_read_cb);
 	} else {
-		uv_close((uv_handle_t*) client, NULL);
+		uv_close((uv_handle_t*) client, http_after_connect);
 	}
 }
 
-void tcp_server_handler(char *addr, uint16_t port, void* handler)
+void tcp_server_handler(char *addr, uint16_t port, void* handler, client_info *cinfo)
 {
+	if (!cinfo)
+		cinfo = malloc(sizeof(*cinfo));
+	cinfo->parser_handler = handler;
 	uv_tcp_t *server = calloc(1, sizeof(uv_tcp_t));
+	server->data = cinfo;
 	struct sockaddr_in *saddr = calloc(1, sizeof(*saddr));
 
 	uv_tcp_init(uv_default_loop(), server);

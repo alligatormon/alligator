@@ -3,7 +3,7 @@
 #include <jansson.h>
 #include <string.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 
 #define JSON_PARSER_PRINT 0
 #define JSON_PARSER_SUM 1
@@ -77,7 +77,7 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	if (node->action == JSON_PARSER_AVG)
 		collector->collector /= node->size;
 
-	metric_labels_add_lbl(node->key, &collector->collector, ALLIGATOR_DATATYPE_DOUBLE, 0, "key", collector->label);
+	metric_add_labels(node->key, &collector->collector, DATATYPE_DOUBLE, 0, "key", collector->label);
 }
 
 void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch);
@@ -154,7 +154,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 		if (pjnode && pjnode->action == JSON_PARSER_LABEL)
 		{
 			int64_t num = 1;
-			metric_labels_add_lbl(buf, &num, ALLIGATOR_DATATYPE_INT, 0, pjnode->by, json_string_value(element));
+			metric_add_labels(buf, &num, DATATYPE_INT, 0, pjnode->by, json_string_value(element));
 		}
 
 		double af = atof(json_string_value(element));
@@ -170,27 +170,28 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 
 		if (cur && collector && collector->action == JSON_PARSER_PRINT)
 		{
-			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
-			alligator_labels* lbl = lblroot;
+			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
+			tommy_hashdyn_init(lbl);
+			char *name;
+			char *key;
+
 			for (; cur; cur = cur->n)
 			{
-				lbl->next = NULL;
 				// for replace naming
 				if (cur->replace)
-					lbl->name = strdup(cur->replace);
+					name = cur->replace;
 				else
-					lbl->name = strdup(cur->k);
-				lbl->key = strdup(cur->v);
+					name = cur->k;
+				key = cur->v;
 
 				if (cur->n)
 				{
-					lbl->next = malloc(sizeof(alligator_labels));
-					lbl = lbl->next;
+					labels_hash_insert_nocache(lbl, name, key);
 				}
 				else
 				{
 					int64_t num = json_integer_value(element);
-					metric_labels_add(strdup(buf), lblroot, &num, ALLIGATOR_DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
 				}
 			}
 		}
@@ -199,34 +200,35 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_INTEGER && !kv)
 	{
 		int64_t num = json_integer_value(element);
-		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_INTEGER && kv)
 	{
 		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += json_integer_value(element);
 		else
 		{
-			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
-			alligator_labels* lbl = lblroot;
+			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
+			tommy_hashdyn_init(lbl);
+			char *name;
+			char *key;
+
 			for (; cur; cur = cur->n)
 			{
-				lbl->next = NULL;
 				// for replace naming
 				if (cur->replace)
-					lbl->name = strdup(cur->replace);
+					name = cur->replace;
 				else
-					lbl->name = strdup(cur->k);
-				lbl->key = strdup(cur->v);
+					name = cur->k;
+				key = cur->v;
 
 				if (cur->n)
 				{
-					lbl->next = malloc(sizeof(alligator_labels));
-					lbl = lbl->next;
+					labels_hash_insert_nocache(lbl, name, key);
 				}
 				else
 				{
 					int64_t num = json_integer_value(element);
-					metric_labels_add(strdup(buf), lblroot, &num, ALLIGATOR_DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
 				}
 			}
 		}
@@ -234,7 +236,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_REAL && !kv)
 	{
 		double num = json_real_value(element);
-		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_DOUBLE, 0);
+		metric_add_auto(buf, &num, DATATYPE_DOUBLE, 0);
 	}
 	else if (jsontype == JSON_REAL && kv)
 	{
@@ -243,26 +245,26 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += num;
 		else
 		{
-			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
-			alligator_labels* lbl = lblroot;
+			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
+			tommy_hashdyn_init(lbl);
+			char *name;
+			char *key;
 			for (; cur; cur = cur->n)
 			{
-				lbl->next = NULL;
 				// for replace naming
 				if (cur->replace)
-					lbl->name = strdup(cur->replace);
+					name = cur->replace;
 				else
-					lbl->name = strdup(cur->k);
-				lbl->key = strdup(cur->v);
+					name = cur->k;
+				key = cur->v;
 
 				if (cur->n)
 				{
-					lbl->next = malloc(sizeof(alligator_labels));
-					lbl = lbl->next;
+					labels_hash_insert_nocache(lbl, name, key);
 				}
 				else
 				{
-					metric_labels_add(strdup(buf), lblroot, &num, ALLIGATOR_DATATYPE_DOUBLE, 0);
+					metric_add(buf, lbl, &num, DATATYPE_DOUBLE, 0);
 				}
 			}
 		}
@@ -270,7 +272,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_TRUE && !kv)
 	{
 		int64_t num = 1;
-		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_TRUE && kv)
 	{
@@ -278,27 +280,28 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 		if (collector && collector->action != JSON_PARSER_PRINT) collector->collector += 1;
 		else
 		{
-			alligator_labels* lblroot = malloc(sizeof(alligator_labels));
-			alligator_labels* lbl = lblroot;
+			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
+			tommy_hashdyn_init(lbl);
+			char *name;
+			char *key;
+
 			for (; cur; cur = cur->n)
 			{
-				lbl->next = NULL;
 				// for replace naming
 				if (cur->replace)
-					lbl->name = strdup(cur->replace);
+					name = cur->replace;
 				else
-					lbl->name = strdup(cur->k);
-				lbl->key = strdup(cur->v);
+					name = cur->k;
+				key = cur->v;
 
 				if (cur->n)
 				{
-					lbl->next = malloc(sizeof(alligator_labels));
-					lbl = lbl->next;
+					labels_hash_insert_nocache(lbl, name, key);
 				}
 				else
 				{
 					int64_t num = 1;
-					metric_labels_add(strdup(buf), lblroot, &num, ALLIGATOR_DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
 				}
 			}
 		}
@@ -306,7 +309,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_FALSE && !kv)
 	{
 		int64_t num = 0;
-		metric_labels_add_auto(buf, &num, ALLIGATOR_DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, 0);
 	}
 	else if (jsontype == JSON_FALSE && kv)
 	{
@@ -400,7 +403,7 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 		{
 			kv = NULL;
 
-			//printf("\nffinding '%s'\n", node->by);
+			printf("\nffinding '%s'\n", node->by);
 			json_t *objobj = json_object_get(arr_obj, node->by);
 			if (!objobj)
 			{

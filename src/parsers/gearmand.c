@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "common/selector.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 #include "events/client_info.h"
 #define GEARMAND_NAME_SIZE 1000
 
@@ -29,13 +29,13 @@ void gearmand_handler(char *metrics, size_t size, client_info *cinfo)
 			break;
 
 		ctx_total = int_get_next(metrics+i, size, '\t', &cursor);
-		metric_labels_add_lbl("gearmand_total", &ctx_total, ALLIGATOR_DATATYPE_INT, 0, "function", cdc);
+		metric_add_labels("gearmand_total", &ctx_total, DATATYPE_INT, 0, "function", cdc);
 
 		ctx_running = int_get_next(metrics+i, size, '\t', &cursor);
-		metric_labels_add_lbl("gearmand_running", &ctx_running, ALLIGATOR_DATATYPE_INT, 0, "function", cdc);
+		metric_add_labels("gearmand_running", &ctx_running, DATATYPE_INT, 0, "function", cdc);
 
 		ctx_available_workers = int_get_next(metrics+i, size, '\t', &cursor);
-		metric_labels_add_lbl("gearmand_available_workers", &ctx_available_workers, ALLIGATOR_DATATYPE_INT, 0, "function", cdc);
+		metric_add_labels("gearmand_available_workers", &ctx_available_workers, DATATYPE_INT, 0, "function", cdc);
 
 		total += ctx_total;
 		running += ctx_running;
@@ -44,7 +44,7 @@ void gearmand_handler(char *metrics, size_t size, client_info *cinfo)
 		i += cursor;
 	}
 
-	metric_labels_add_auto("gearmand_server_total", &total, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("gearmand_server_running", &running, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("gearmand_server_available_workers", &available_workers, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("gearmand_server_total", &total, DATATYPE_INT, 0);
+	metric_add_auto("gearmand_server_running", &running, DATATYPE_INT, 0);
+	metric_add_auto("gearmand_server_available_workers", &available_workers, DATATYPE_INT, 0);
 }

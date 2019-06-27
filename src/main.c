@@ -5,17 +5,31 @@ aconf *ac;
 
 void ts_initialize()
 {
+	// initialize multi NS
 	extern aconf *ac;
 	ac->_namespace = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->_namespace);
 
+	// initialize default NS
 	namespace_struct *ns = calloc(1, sizeof(*ns));
 	ns->key = strdup("default");
 	tommy_hashdyn_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 	ac->nsdefault = ns;
 
-	ns->metric = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ns->metric);
+	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
+	expire_tree *expiretree = calloc(1, sizeof(*expiretree));
+	
+	tommy_hashdyn* labels_words_hash = malloc(sizeof(*labels_words_hash));
+	tommy_hashdyn_init(labels_words_hash);
+
+	sortplan *sort_plan = malloc(sizeof(*sort_plan));
+	sort_plan->plan[0] = "__name__";
+	sort_plan->size = 1;
+
+	ns->metrictree = metrictree;
+	ns->expiretree = expiretree;
+	metrictree->labels_words_hash = labels_words_hash;
+	metrictree->sort_plan = sort_plan;
 }
 
 void https_ssl_domains_initialize()
@@ -57,6 +71,14 @@ void system_initialize()
 	ac->system_process = 0;
 }
 
+void system_metric_initialize()
+{
+	extern aconf *ac;
+	ac->metric_cache_hits = 0;
+	ac->metric_allocates = 0;
+	ac->metric_freed = 0;
+}
+
 aconf* configuration()
 {
 	ac = calloc(1, sizeof(*ac));
@@ -92,6 +114,7 @@ aconf* configuration()
 	https_ssl_domains_initialize();
 	config_context_initialize();
 	system_initialize();
+	system_metric_initialize();
 
 	ac->log_level = 0;
 
@@ -120,7 +143,10 @@ int main(int argc, char **argv)
 	process_handler();
 	unix_client_handler();
 	unixgram_client_handler();
-	//get_system_metrics();
+	
+	//char *mc = "metr { scm=\"ec\", fafa=\"lfm\"} 232";
+	//char *mc = "test.dispatcher.FooProcessor.send.success 121 15878248719";
+	//multicollector(mc, strlen(mc), 0);
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

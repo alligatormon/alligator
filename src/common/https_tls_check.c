@@ -10,7 +10,7 @@
 #include <openssl/err.h>
 #include <fcntl.h>
 #include "rtime.h"
-#include "dstructures/metric.h"
+#include "metric/namespace.h"
 #include "dstructures/tommy.h"
 #include "https_tls_check.h"
 #include "main.h"
@@ -150,7 +150,7 @@ void print_certificate(X509* cert, const char *hostname) {
 	int64_t buftime = atoll(buf2);
 	//printf("complete for: %u.\n",now.sec);
 	int64_t expdays = (buftime-now.sec)/86400;
-	metric_labels_add_lbl("https_tls_expiration_days", &expdays, ALLIGATOR_DATATYPE_INT, 0, "hostname", hostname);
+	metric_add_labels("https_tls_expiration_days", &expdays, DATATYPE_INT, 0, "hostname", hostname);
 }
 
 void ShowCerts(SSL* ssl, const char *hostname)

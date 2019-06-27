@@ -40,7 +40,7 @@
 #define d32 PRId32
 #define u32 PRIu32
 
-#include "dstructures/metric.h"
+#include "metric/labels.h"
 #include "main.h"
 
 void get_swap()
@@ -59,9 +59,9 @@ void get_swap()
 	totalswap *= getpagesize() / 1024;
 	usedswap *= getpagesize() / 1024;
 	availswap = totalswap - usedswap;
-	metric_labels_add_lbl("swap_usage", &usedswap, ALLIGATOR_DATATYPE_INT, 0, "type", "usage");
-	metric_labels_add_lbl("swap_usage", &totalswap, ALLIGATOR_DATATYPE_INT, 0, "type", "total");
-	metric_labels_add_lbl("swap_usage", &availswap, ALLIGATOR_DATATYPE_INT, 0, "type", "avail");
+	metric_add_labels("swap_usage", &usedswap, DATATYPE_INT, 0, "type", "usage");
+	metric_add_labels("swap_usage", &totalswap, DATATYPE_INT, 0, "type", "total");
+	metric_add_labels("swap_usage", &availswap, DATATYPE_INT, 0, "type", "avail");
 	kvm_close(kd);
 }
 void get_disk()
@@ -69,7 +69,7 @@ void get_disk()
 	struct statfs* mounts;
 	int64_t num_mounts = getmntinfo(&mounts, MNT_WAIT);
 
-	metric_labels_add_auto("mounts_num", &num_mounts, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, 0);
 	for (int i = 0; i < num_mounts; i++) {
 		int64_t avail = 0;
 		int64_t total = 0;
@@ -82,12 +82,12 @@ void get_disk()
 			used = total - avail;
 		}
 		int one = 1;
-		metric_labels_add_lbl2("disk_usage", &avail, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "avail");
-		metric_labels_add_lbl2("disk_usage", &total, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "total");
-		metric_labels_add_lbl2("disk_usage", &used, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "used");
-		metric_labels_add_lbl2("disk_files", &stats.f_files, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
-		metric_labels_add_lbl2("disk_files", &stats.f_ffree, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "freeinodes");
-		metric_labels_add_lbl2("disk_files", &one, ALLIGATOR_DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
+		metric_add_labels2("disk_usage", &avail, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "avail");
+		metric_add_labels2("disk_usage", &total, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "total");
+		metric_add_labels2("disk_usage", &used, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "used");
+		metric_add_labels2("disk_files", &stats.f_files, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
+		metric_add_labels2("disk_files", &stats.f_ffree, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "type", "freeinodes");
+		metric_add_labels2("disk_files", &one, DATATYPE_INT, 0, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
 	}
 
 }
@@ -168,19 +168,19 @@ void get_mem()
 	int64_t real_memory = vmt.t_rm * (u_int64_t)page_size;
 	int64_t inact_memory = inact_size * (u_int64_t)page_size;
 	int64_t wire_memory = wire_size * (u_int64_t)page_size;
-	metric_labels_add_lbl("memory_usage", &free_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "free");
-	metric_labels_add_lbl("memory_usage", &wire_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "wire");
-	metric_labels_add_lbl("memory_usage", &inact_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "inactive");
-	metric_labels_add_lbl("memory_usage", &real_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "real");
-	metric_labels_add_lbl("memory_usage", &active_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "active");
-	metric_labels_add_lbl("memory_usage", &avail_memory, ALLIGATOR_DATATYPE_INT, 0, "type", "available");
-	metric_labels_add_lbl("load_average", &load1, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load1");
-	metric_labels_add_lbl("load_average", &load5, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load5");
-	metric_labels_add_lbl("load_average", &load15, ALLIGATOR_DATATYPE_DOUBLE, 0, "type", "load15");
-	metric_labels_add_auto("vm_faults", &avail_memory, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("io_faults", &avail_memory, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("cores_num", &num_cpu, ALLIGATOR_DATATYPE_INT, 0);
-	metric_labels_add_auto("effective_cores_num", &num_cpu, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, 0, "type", "free");
+	metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, 0, "type", "wire");
+	metric_add_labels("memory_usage", &inact_memory, DATATYPE_INT, 0, "type", "inactive");
+	metric_add_labels("memory_usage", &real_memory, DATATYPE_INT, 0, "type", "real");
+	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, 0, "type", "active");
+	metric_add_labels("memory_usage", &avail_memory, DATATYPE_INT, 0, "type", "available");
+	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, 0, "type", "load1");
+	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, 0, "type", "load5");
+	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, 0, "type", "load15");
+	metric_add_auto("vm_faults", &avail_memory, DATATYPE_INT, 0);
+	metric_add_auto("io_faults", &avail_memory, DATATYPE_INT, 0);
+	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, 0);
+	metric_add_auto("effective_cores_num", &num_cpu, DATATYPE_INT, 0);
 }
 
 void get_cpu()
@@ -228,12 +228,12 @@ void get_cpu()
 					double nice = cpu2[n]->pc_cp_time[CP_NICE]*100.0/total;
 					double intr = cpu2[n]->pc_cp_time[CP_INTR]*100.0/total;
 					double idle = cpu2[n]->pc_cp_time[CP_IDLE]*100.0/total;
-					metric_labels_add_lbl2("cpu_usage", &total, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "total");
-					metric_labels_add_lbl2("cpu_usage", &user, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "user");
-					metric_labels_add_lbl2("cpu_usage", &system,  ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "system");
-					metric_labels_add_lbl2("cpu_usage", &nice, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "nice");
-					metric_labels_add_lbl2("cpu_usage", &intr, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "intr");
-					metric_labels_add_lbl2("cpu_usage", &idle, ALLIGATOR_DATATYPE_DOUBLE, 0, "core", cpuname, "type", "idle");
+					metric_add_labels2("cpu_usage", &total, DATATYPE_DOUBLE, 0, "core", cpuname, "type", "total");
+					metric_add_labels2("cpu_usage", &user, DATATYPE_DOUBLE, 0, "core", cpuname, "type", "user");
+					metric_add_labels2("cpu_usage", &system,  DATATYPE_DOUBLE, 0, "core", cpuname, "type", "system");
+					metric_add_labels2("cpu_usage", &nice, DATATYPE_DOUBLE, 0, "core", cpuname, "type", "nice");
+					metric_add_labels2("cpu_usage", &intr, DATATYPE_DOUBLE, 0, "core", cpuname, "type", "intr");
+					metric_add_labels2("cpu_usage", &idle, DATATYPE_DOUBLE, 0, "core", cpuname, "type", "idle");
 				}
 			for (n = 0; n < maxcpu; n ++)
 			{
@@ -281,15 +281,15 @@ void get_proc_info()
 	for (i=0; i<cntp; i++ )
 	{
 		int64_t val = getpcpu(&(proc[i]));
-		metric_labels_add_lbl("process_cpu", &val, ALLIGATOR_DATATYPE_INT, 0, "name", proc[i].ki_comm);
+		metric_add_labels("process_cpu", &val, DATATYPE_INT, 0, "name", proc[i].ki_comm);
 		val = proc[i].ki_size;
-		metric_labels_add_lbl2("process_memory", &val, ALLIGATOR_DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "vsz");
+		metric_add_labels2("process_memory", &val, DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "vsz");
 		val = proc[i].ki_rssize;
-		metric_labels_add_lbl2("process_memory", &val, ALLIGATOR_DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "rss");
+		metric_add_labels2("process_memory", &val, DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "rss");
 		val = proc[i].ki_cow;
-		metric_labels_add_lbl2("process_stats", &val, ALLIGATOR_DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "COWfaults");
+		metric_add_labels2("process_stats", &val, DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "COWfaults");
 		val = proc[i].ki_numthreads;
-		metric_labels_add_lbl2("process_stats", &val, ALLIGATOR_DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "threads");
+		metric_add_labels2("process_stats", &val, DATATYPE_INT, 0, "name", proc[i].ki_comm, "type", "threads");
 	}
 	free(proc);
 }
@@ -304,31 +304,31 @@ void get_fd_info()
 	if (rc < 0){
 		perror("sysctlbyname");
 	}
-	metric_labels_add_auto("maxsockets", &val, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("maxsockets", &val, DATATYPE_INT, 0);
 
 	rc = sysctlbyname("kern.ipc.numopensockets", &val, &msz, NULL, 0);
 	if (rc < 0){
 		perror("sysctlbyname");
 	}
-	metric_labels_add_auto("opensockets", &val, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("opensockets", &val, DATATYPE_INT, 0);
 
 	rc = sysctlbyname("kern.maxproc", &val, &msz, NULL, 0);
 	if (rc < 0){
 		perror("sysctlbyname");
 	}
-	metric_labels_add_auto("maxproc", &val, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("maxproc", &val, DATATYPE_INT, 0);
 
 	rc = sysctlbyname("kern.maxfiles", &val, &msz, NULL, 0);
 	if (rc < 0){
 		perror("sysctlbyname");
 	}
-	metric_labels_add_auto("maxfiles", &val, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("maxfiles", &val, DATATYPE_INT, 0);
 
 	rc = sysctlbyname("kern.openfiles", &val, &msz, NULL, 0);
 	if (rc < 0){
 		perror("sysctlbyname");
 	}
-	metric_labels_add_auto("openfiles", &val, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("openfiles", &val, DATATYPE_INT, 0);
 }
 
 void disk_io_stats() {
@@ -366,16 +366,16 @@ void disk_io_stats() {
 				DSM_TOTAL_BLOCKS, &blocks,
 				DSM_NONE);
 
-		metric_labels_add_lbl2("disk_io", &bytes_read, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_read");
-		metric_labels_add_lbl2("disk_io", &bytes_write, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_write");
-		metric_labels_add_lbl2("disk_io", &bytes_free, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_free");
-		metric_labels_add_lbl2("disk_io", &transfers_read, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_read");
-		metric_labels_add_lbl2("disk_io", &transfers_write, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_write");
-		metric_labels_add_lbl2("disk_io", &transfers_free, ALLIGATOR_DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_free");
+		metric_add_labels2("disk_io", &bytes_read, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_read");
+		metric_add_labels2("disk_io", &bytes_write, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_write");
+		metric_add_labels2("disk_io", &bytes_free, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "bytes_free");
+		metric_add_labels2("disk_io", &transfers_read, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_read");
+		metric_add_labels2("disk_io", &transfers_write, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_write");
+		metric_add_labels2("disk_io", &transfers_free, DATATYPE_INT, 0, "dev", current.dinfo->devices[i].device_name, "type", "transfers_free");
 	}
 
 	int64_t disknum = current.dinfo->numdevs;
-	metric_labels_add_auto("disk_num", &disknum, ALLIGATOR_DATATYPE_INT, 0);
+	metric_add_auto("disk_num", &disknum, DATATYPE_INT, 0);
 	free(info);
 }
 
@@ -414,21 +414,21 @@ void get_iface_statistics()
 			int64_t omcasts = ifd->ifi_omcasts;
 			int64_t noproto = ifd->ifi_noproto;
 			int64_t collisions = ifd->ifi_collisions;
-			metric_labels_add_lbl2("if_stat", &ibytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_bytes");
-			metric_labels_add_lbl2("if_stat", &obytes, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_bytes");
-			metric_labels_add_lbl2("if_stat", &ipackets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_packages");
-			metric_labels_add_lbl2("if_stat", &opackets, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_packages");
-			metric_labels_add_lbl2("if_stat", &ierrors, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_err");
-			metric_labels_add_lbl2("if_stat", &oerrors, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_err");
-			metric_labels_add_lbl2("if_stat", &iqdrops, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_drop");
+			metric_add_labels2("if_stat", &ibytes, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_bytes");
+			metric_add_labels2("if_stat", &obytes, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_bytes");
+			metric_add_labels2("if_stat", &ipackets, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_packages");
+			metric_add_labels2("if_stat", &opackets, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_packages");
+			metric_add_labels2("if_stat", &ierrors, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_err");
+			metric_add_labels2("if_stat", &oerrors, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_err");
+			metric_add_labels2("if_stat", &iqdrops, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_drop");
 # if __FreeBSD__ > 10
-			metric_labels_add_lbl2("if_stat", &oqdrops, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_drop");
+			metric_add_labels2("if_stat", &oqdrops, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_drop");
 # endif
-			metric_labels_add_lbl2("if_stat", &imcasts, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_multicast");
-			metric_labels_add_lbl2("if_stat", &omcasts, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_multicast");
-			metric_labels_add_lbl2("if_stat", &collisions, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "collisions");
-			metric_labels_add_lbl2("if_stat", &noproto, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "noproto");
-			metric_labels_add_lbl2("if_stat", &link_state, ALLIGATOR_DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "link_state");
+			metric_add_labels2("if_stat", &imcasts, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "received_multicast");
+			metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "transmit_multicast");
+			metric_add_labels2("if_stat", &collisions, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "collisions");
+			metric_add_labels2("if_stat", &noproto, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "noproto");
+			metric_add_labels2("if_stat", &link_state, DATATYPE_INT, 0, "ifname", ifa->ifa_name, "type", "link_state");
 		}
 	}
 	freeifaddrs(ifap);
