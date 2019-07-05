@@ -126,7 +126,6 @@ aconf* configuration()
 
 int main(int argc, char **argv)
 {
-	printf("DD end\n");
 	ac = configuration();
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	signal(SIGPIPE, SIG_IGN);
