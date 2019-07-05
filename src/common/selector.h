@@ -1,6 +1,8 @@
 #pragma once
 #include <stdio.h>
 #include <inttypes.h>
+#include <pcre.h>
+#include "dstructures/tommy.h"
 
 typedef struct stlen
 {
@@ -19,6 +21,25 @@ typedef struct string {
 	size_t l;
 	size_t m;
 } string;
+
+typedef struct match_string {
+	char *s;
+	tommy_node node;
+} match_string;
+
+typedef struct regex_list {
+	pcre *re_compiled;
+	pcre_extra *pcre_extra;
+	pcre_jit_stack *jstack;
+	struct regex_list *next;
+} regex_list;
+
+typedef struct match_rules
+{
+	tommy_hashdyn *hash;
+	regex_list *head;
+	regex_list *tail;
+} match_rules;
 
 void selector_get_plain_metrics(char *m, size_t ms, char *sep, char *msep, char *prefix, size_t prefix_size);
 size_t get_file_size(char *filename);

@@ -10,7 +10,7 @@ void rabbitmq_overview_handler(char *metrics, size_t size, client_info *cinfo)
 void rabbitmq_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	char **parsestring = malloc(sizeof(void*)*2);
-	parsestring[0] = strdup("print::rabbitmq_nodes(name)");
+	parsestring[0] = strndup("print::rabbitmq_nodes(name)", 17);
 	parsestring[1] = strdup("print::rabbitmq_nodes_cluster_links(name/peer_name)");
 	json_parser_entry(metrics, 2, parsestring, "rabbitmq_nodes");
 	free(parsestring[1]);

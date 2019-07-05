@@ -64,6 +64,7 @@ typedef struct aconf
 	int system_disk;
 	int system_network;
 	int system_process;
+	match_rules *process_match;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 

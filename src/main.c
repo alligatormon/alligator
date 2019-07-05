@@ -69,6 +69,9 @@ void system_initialize()
 	ac->system_network = 0;
 	ac->system_disk = 0;
 	ac->system_process = 0;
+	ac->process_match = calloc(1, sizeof(match_rules));
+	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->process_match->hash);
 }
 
 void system_metric_initialize()
@@ -123,6 +126,7 @@ aconf* configuration()
 
 int main(int argc, char **argv)
 {
+	printf("DD end\n");
 	ac = configuration();
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	signal(SIGPIPE, SIG_IGN);
@@ -147,6 +151,7 @@ int main(int argc, char **argv)
 	//char *mc = "metr { scm=\"ec\", fafa=\"lfm\"} 232";
 	//char *mc = "test.dispatcher.FooProcessor.send.success 121 15878248719";
 	//multicollector(mc, strlen(mc), 0);
+	//cert_check_file("cert.pem");
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

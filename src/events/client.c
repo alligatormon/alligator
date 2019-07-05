@@ -12,23 +12,28 @@
 #include "parsers/http_proto.h"
 #include "common/fastcgi.h"
 
-//void alloc_cb(uv_handle_t* handle, size_t size, uv_buf_t* buf)
-//{
-//	(void)handle;
-//	buf->base = malloc(size);
-//	buf->len = size;
-//}
-
 void on_close(uv_handle_t* handle)
 {
 	extern aconf* ac;
 	client_info *cinfo = handle->data;
 	if (ac->log_level > 2)
 		printf("3: on_close cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
-	(void)cinfo;
+
+	uv_close((uv_handle_t*)cinfo->tt_timer, NULL);
 	free(cinfo->socket);
 	free(cinfo->connect);
+	//free(cinfo->tt_timer);
 	cinfo->lock = 0;
+}
+
+void tcp_timeout_timer(uv_timer_t *timer)
+{
+	extern aconf* ac;
+	client_info *cinfo = timer->data;
+	if (ac->log_level > 1)
+		printf("4: timeout cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
+	cinfo->socket->data = cinfo;
+	uv_close((uv_handle_t*)cinfo->socket, on_close);
 }
 
 void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
@@ -88,10 +93,10 @@ void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	else if ((cinfo->proto == APROTO_HTTP || cinfo->proto == APROTO_HTTP_AUTH) && cinfo->http_body_size > 0)
 	{
 
-		size_t sizecopy = nread+cinfo->http_body_size > cinfo->expect_http_length ? cinfo->expect_http_length-cinfo->http_body_size : nread+1;
+		size_t sizecopy = nread+cinfo->http_body_size > cinfo->expect_http_length ? cinfo->expect_http_length-cinfo->http_body_size : nread;
 		if (ac->log_level > 3)
 			printf("copy to %p with offset %zu size of %zu with nornalized size %zu\n", cinfo->http_body, cinfo->http_body_size, nread, sizecopy);
-		strlcpy(cinfo->http_body+cinfo->http_body_size, buf->base, sizecopy);
+		strlcpy(cinfo->http_body+cinfo->http_body_size, buf->base, sizecopy+1);
 		cinfo->http_body_size += nread;
 	}
 
@@ -195,6 +200,10 @@ void on_connect_handler(void* arg)
 	uv_tcp_init(loop, socket);
 	uv_tcp_keepalive(socket, 1, 60);
 
+	cinfo->tt_timer->data = cinfo;
+	uv_timer_init(loop, cinfo->tt_timer);
+	uv_timer_start(cinfo->tt_timer, tcp_timeout_timer, 5000, 0);
+
 	uv_connect_t *connect = cinfo->connect = malloc(sizeof(*connect));
 	if (ac->log_level > 2)
 		printf("0: on_connect_handler cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
@@ -248,6 +257,7 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto)
 	cinfo->hostname = addr;
 	cinfo->proto = proto;
 	cinfo->port = port;
+	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
 	resolver->data = cinfo;
@@ -277,6 +287,7 @@ void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffe
 	cinfo->hostname = addr;
 	cinfo->proto = proto;
 	cinfo->port = port;
+	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
 	resolver->data = cinfo;

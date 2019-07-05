@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.9.44)
+project(alligator VERSION 1.9.45)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -66,9 +66,10 @@ ELSE(WIN32)
 	include_directories(/usr/local/opt/openssl/include/)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+	link_directories(./openssl-1.0.2s)
 	link_directories(/usr/local/lib64/)
 	link_directories(/usr/local/lib/)
-	link_directories(/usr/local/opt/openssl/lib/)
+	#link_directories(/usr/local/opt/openssl/lib/)
 
 	set(STATIC_FILES
 		events/uv_alloc.c
@@ -112,8 +113,10 @@ ELSE(WIN32)
 		parsers/log.c
 		parsers/elasticsearch.c
 		parsers/nginx_upstream_check.c
+		parsers/monit.c
 		common/selector.c
 		common/https_tls_check.c
+		common/pem_check.c
 		common/rtime.c
 		common/validator.c
 		common/base64.c
@@ -123,6 +126,7 @@ ELSE(WIN32)
 		common/aggregator.c
 		common/json_parser.c
 		common/pcre_parser.c
+		common/xml.c
 		#dstructures/metric.c
 		#dstructures/rbtree.c
 		config/aggregate.c
@@ -191,8 +195,8 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	#target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a)
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
+	target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a)
+	#target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

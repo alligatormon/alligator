@@ -10,6 +10,7 @@ typedef struct client_info
 	struct sockaddr_in *dest;
 	uv_connect_t *connect;
 	uv_tcp_t *socket;
+	uv_timer_t *tt_timer;
 	char *key;
 	void *parser_handler;
 	char *mesg;

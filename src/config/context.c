@@ -372,6 +372,14 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			char *health_query = gen_http_query(0, health_string, hi->host, "alligator", hi->auth, 0);
 			smart_aggregator_selector(hi, elasticsearch_health_handler, health_query);
 		}
+		else if (!strcmp(mt->st[*i-1].s, "monit"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			char string[255];
+			snprintf(string, 255, "%s%s", hi->query, "/_status?format=xml&level=full");
+			char *query = gen_http_query(0, string, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, monit_handler, query);
+		}
 		else if (!strcmp(mt->st[*i-1].s, "mssql"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
@@ -617,7 +625,15 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_disk = 1;
 		else if (!strcmp(mt->st[*i].s, "network"))
 			ac->system_network = 1;
-		else if (!strcmp(mt->st[*i].s, "process"))
+		//else if (!strcmp(mt->st[*i].s, "process"))
+		else if (config_compare_begin(mt, *i, "process", 7))
+		{
 			ac->system_process = 1;
+			++*i;
+			for (; mt->st[*i].s[0] != ';'; ++*i)
+			{
+				match_push(ac->process_match, mt->st[*i].s, mt->st[*i].l);
+			}
+		}
 	}
 }

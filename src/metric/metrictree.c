@@ -208,7 +208,7 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
 			expire_delete(expiretree, q->expire_node->key, q);
 			tree->count--;
 			labels_free(f->labels, tree);
-			free(f->labels);
+			//free(f->labels);
 			f->labels = q->labels;
 			p->steam[p->steam[RIGHT] == q] = q->steam[q->steam[LEFT] == NULL];
 			free ( q );

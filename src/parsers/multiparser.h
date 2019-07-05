@@ -49,3 +49,4 @@ void powerdns_handler(char *metrics, size_t size, client_info *cinfo);
 void opentsdb_handler(char *metrics, size_t size, client_info *cinfo);
 void log_handler(char *metrics, size_t size, client_info *cinfo);
 void nginx_upstream_check_handler(char *metrics, size_t size, client_info *cinfo);
+void monit_handler(char *metrics, size_t size, client_info *cinfo);

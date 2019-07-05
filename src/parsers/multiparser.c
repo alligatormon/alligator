@@ -59,8 +59,8 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 
 	if ( !strncmp(body, "certificate_https_check", strlen("certificate_https_check")) )
 	{
-		//puts("add certificate checking:");
-		//https_ssl_check_push(body +5 +strlen("certificate_https_check"));
+		puts("add certificate checking:");
+		https_ssl_check_push(body +5 +strlen("certificate_https_check"));
 	}
 	else
 	{

@@ -13,6 +13,8 @@ typedef struct {
 } write_req_t; 
 
 void tcp_on_connect(uv_connect_t* connection, int status);
+void tcp_timeout_timer(uv_timer_t *timer);
+void on_close(uv_handle_t* handle);
 
 void socket_conn(void* arg)
 {
@@ -25,8 +27,11 @@ void socket_conn(void* arg)
 	cinfo->socket = (uv_tcp_t*)handle;
 	uv_connect_t *connect = cinfo->connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
 
-	uv_pipe_init(loop, handle, 0); 
+	cinfo->tt_timer->data = cinfo;
+	uv_timer_init(loop, cinfo->tt_timer);
+	uv_timer_start(cinfo->tt_timer, tcp_timeout_timer, 5000, 0);
 
+	uv_pipe_init(loop, handle, 0); 
 	connect->data = cinfo;
 	uv_pipe_connect(connect, handle, cinfo->key, tcp_on_connect);
 	cinfo->connect_time = setrtime();
@@ -47,6 +52,7 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg, int proto)
 	client_info *cinfo = malloc(sizeof(*cinfo));
 	cinfo->proto = proto;
 	cinfo->parser_handler = handler;
+	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 	cinfo->mesg = mesg;
 	if (mesg)
 		cinfo->write = 1;
@@ -68,6 +74,7 @@ void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, 
 	client_info *cinfo = malloc(sizeof(*cinfo));
 	cinfo->proto = proto;
 	cinfo->parser_handler = handler;
+	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 	cinfo->mesg = NULL;
 	cinfo->write = 2;
 	cinfo->buffer = buffer;

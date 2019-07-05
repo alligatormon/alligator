@@ -121,7 +121,10 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 		}
 
 		if (!labels->key)
+		{
+			// unfreeed exit
 			return;
+		}
 		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
 		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
 		if (labels_cache)
@@ -141,6 +144,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 		labels_t *labels_old = labels;
 		labels = labels->next;
+		// freed exit
 		free(labels_old);
 	}
 }
@@ -596,6 +600,40 @@ void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, c
 	labels_hash_insert(hash, name3, key3);
 	labels_hash_insert(hash, name4, key4);
 	labels_hash_insert(hash, name5, key5);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_set(mnode, type, value, expiretree);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree);
+	}
+}
+
+void metric_add_labels6(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (!namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+	labels_hash_insert(hash, name4, key4);
+	labels_hash_insert(hash, name5, key5);
+	labels_hash_insert(hash, name6, key6);
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)

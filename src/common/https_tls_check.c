@@ -227,7 +227,7 @@ void https_ssl_check_push(char *hostname)
 		return;
 	if ( !validate_domainname(hostname, len) )
 		return;
-	//printf("add to ssl check %s\n", hostname);
+	printf("add to ssl check %s\n", hostname);
 	extern aconf *ac;
 	https_ssl_check_node *node = malloc(sizeof(*node));
 	node->domainname = strdup(hostname);

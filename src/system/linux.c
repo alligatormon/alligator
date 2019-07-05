@@ -122,6 +122,7 @@ void get_cpu()
 	if ( !fd )
 		return;
 
+	double hw_usage, hw_user, hw_system;
 	while ( fgets(temp, LINUXFS_LINE_LENGTH, fd) )
 	{
 		if ( !strncmp(temp, "cpu", 3) )
@@ -135,12 +136,27 @@ void get_cpu()
 			double system = (double)(t3)*100/(t1+t3+t4);
 			double idle = (double)(t4)*100/(t1+t3+t4);
 			double iowait = (double)(t5)*100/(t1+t3+t4);
-			metric_add_labels("cpu_usage", &usage, DATATYPE_DOUBLE, 0, "type", "usage");
-			metric_add_labels("cpu_usage", &user, DATATYPE_DOUBLE, 0, "type", "user");
-			metric_add_labels("cpu_usage", &nice, DATATYPE_DOUBLE, 0, "type", "nice");
-			metric_add_labels("cpu_usage", &system, DATATYPE_DOUBLE, 0, "type", "system");
-			metric_add_labels("cpu_usage", &idle, DATATYPE_DOUBLE, 0, "type", "idle");
-			metric_add_labels("cpu_usage", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait");
+			if (!strcmp(cpuname, "cpu"))
+			{
+				hw_usage = usage;
+				hw_user = user;
+				hw_system = system;
+				metric_add_labels("cpu_usage_hw", &usage, DATATYPE_DOUBLE, 0, "type", "total");
+				metric_add_labels("cpu_usage_hw", &user, DATATYPE_DOUBLE, 0, "type", "user");
+				metric_add_labels("cpu_usage_hw", &system, DATATYPE_DOUBLE, 0, "type", "system");
+				metric_add_labels("cpu_usage_hw", &nice, DATATYPE_DOUBLE, 0, "type", "nice");
+				metric_add_labels("cpu_usage_hw", &idle, DATATYPE_DOUBLE, 0, "type", "idle");
+				metric_add_labels("cpu_usage_hw", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait");
+			}
+			else
+			{
+				metric_add_labels2("cpu_usage_core", &usage, DATATYPE_DOUBLE, 0, "type", "total", "cpu", cpuname);
+				metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, 0, "type", "user", "cpu", cpuname);
+				metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, 0, "type", "system", "cpu", cpuname);
+				metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, 0, "type", "nice", "cpu", cpuname);
+				metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, 0, "type", "idle", "cpu", cpuname);
+				metric_add_labels2("cpu_usage_core", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait", "cpu", cpuname);
+			}
 		}
 	}
 	fclose(fd);
@@ -148,8 +164,12 @@ void get_cpu()
 	int64_t cfs_period = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
 	int64_t cfs_quota = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
 	if ( cfs_quota < 0 )
+	{
+		metric_add_labels("cpu_usage", &hw_usage, DATATYPE_DOUBLE, 0, "type", "total");
+		metric_add_labels("cpu_usage", &hw_user, DATATYPE_DOUBLE, 0, "type", "user");
+		metric_add_labels("cpu_usage", &hw_system, DATATYPE_DOUBLE, 0, "type", "system");
 		return;
-
+	}
 
 	int64_t cgroup_system_ticks1 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_sys");
 	int64_t cgroup_user_ticks1 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_user");
@@ -162,7 +182,11 @@ void get_cpu()
 	double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
 	metric_add_labels("cpu_cgroup_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
 	metric_add_labels("cpu_cgroup_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
+	metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
+	metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
+	metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
 	metric_add_labels("cpu_cgroup_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
+
 	//cpuusage_cgroup *cgr1 = get_cpu_usage_cgroup(num_cpus_cgroup);
 
 	//sleep(1);
@@ -388,8 +412,13 @@ void find_pid()
 			fclose(fd);
 			continue;
 		}
-		procname[strlen(procname)-1] = '\0';
+		size_t procname_size = strlen(procname)-1;
+		procname[procname_size] = '\0';
 		fclose(fd);
+
+		extern aconf *ac;
+		if (!match_mapper(ac->process_match, procname, procname_size))
+			continue;
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
 
@@ -429,7 +458,7 @@ void get_mem()
 			for (i=0; tmp[i]!=' '; i++);
 			strlcpy(key, tmp, i);
 
-			if	  ( !strcmp(key, "MemTotal") ) {}
+			if	( !strcmp(key, "MemTotal") ) {}
 			else if ( !strcmp(key, "MemFree") ) {}
 			else if ( !strcmp(key, "Inactive") ) {}
 			else if ( !strcmp(key, "Active") ) {}
@@ -452,10 +481,10 @@ void get_mem()
 			ival = ival * atoll(val);
 				 if ( !strcmp(key, "SwapTotal") ) { totalswap = ival; }
 			else if ( !strcmp(key, "SwapFree") ) { freeswap = ival;  }
-			metric_add_labels("memory_usage", &ival, DATATYPE_INT, 0, "type", key);
+			metric_add_labels("memory_hw_usage", &ival, DATATYPE_INT, 0, "type", key);
 		}
 		int64_t usageswap = totalswap - freeswap;
-		metric_add_labels("memory_usage", &usageswap, DATATYPE_INT, 0, "type", "SwapUsage");
+		metric_add_labels("memory_hw_usage", &usageswap, DATATYPE_INT, 0, "type", "SwapUsage");
 	}
 	fclose(fd);
 }
@@ -467,6 +496,7 @@ void cgroup_mem()
 	{
 		char tmp[LINUXFS_LINE_LENGTH];
 		char key[LINUXFS_LINE_LENGTH];
+		char key_map[LINUXFS_LINE_LENGTH];
 		char val[LINUXFS_LINE_LENGTH];
 		int64_t ival = 1;
 		while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
@@ -476,9 +506,12 @@ void cgroup_mem()
 			for (i=0; tmp[i]!=' '; i++);
 			strlcpy(key, tmp, i+1);
 
-			if	  ( !strcmp(key, "total_cache") ) {}
-			else if ( !strcmp(key, "total_rss") ) {}
-			else if ( !strcmp(key, "hierarchical_memory_limit") ) {}
+			if	(!strcmp(key, "total_cache"))
+				strlcpy(key_map, "cache", 6);
+			else if (!strcmp(key, "total_rss"))
+				strlcpy(key_map, "rss", 4);
+			else if (!strcmp(key, "hierarchical_memory_limit"))
+				strlcpy(key_map, "limit", 6);
 			else	continue;
 
 			for (; tmp[i]==' '; i++);
@@ -487,7 +520,7 @@ void cgroup_mem()
 			strlcpy(val, tmp+swap, i-swap+1);
 
 			ival = atoll(val);
-			metric_add_labels("memory_cgroup_usage", &ival, DATATYPE_INT, 0, "type", key );
+			metric_add_labels("memory_cgroup_usage", &ival, DATATYPE_INT, 0, "type", key_map);
 		}
 	}
 	fclose(fd);
@@ -790,10 +823,10 @@ void get_system_metrics()
 	if (ac->system_base)
 	{
 		get_cpu();
+		cgroup_mem();
 		get_mem();
 		get_nofile_stat();
 		get_loadavg();
-		cgroup_mem();
 	}
 
 	if (ac->system_network)

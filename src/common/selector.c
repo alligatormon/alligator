@@ -1,4 +1,6 @@
 #include <string.h>
+#include <pcre.h>
+#include "dstructures/tommy.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -310,4 +312,78 @@ void string_double(string *str, double d)
 	size_t copy_size = len < (str->m - str_len) ? len : str_len;
 	strlcpy(str->s+str_len, num, copy_size+1);
 	str->l += copy_size;
+}
+
+int match_mapper_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((match_string*)obj)->s;
+        return strcmp(s1, s2);
+}
+
+int8_t match_mapper(match_rules *mrules, char *str, size_t size)
+{
+	match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, tommy_strhash_u32(0, str));
+	if (ms)
+		return 1;
+
+	regex_list *node = mrules->head;
+	while (node)
+	{
+		int str_vector[1];
+		int pcreExecRet = pcre_jit_exec(node->re_compiled, node->pcre_extra, str, size, 0, 0, str_vector, 1, node->jstack);
+
+		if (pcreExecRet < 0)
+			node = node->next;
+		else
+			return 1;
+	}
+
+	return 0;
+}
+
+void match_push(match_rules *mrules, char *str, size_t len)
+{
+	if(*str == '/')
+	{	// chained regex
+		char strnormalized[len-2];
+		strlcpy(strnormalized, str+1, len-1);
+		const char *pcreErrorStr;
+		int pcreErrorOffset;
+		regex_list *node = malloc(sizeof(regex_list));;
+		node->next = NULL;
+		node->jstack = pcre_jit_stack_alloc(1000,10000);
+		node->re_compiled = pcre_compile(strnormalized, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
+		if(!node->re_compiled)
+		{
+			printf("ERROR: Could not compile '%s': %s\n", strnormalized, pcreErrorStr);
+			free(node);
+			return;
+		}
+
+		node->pcre_extra = pcre_study(node->re_compiled, PCRE_STUDY_JIT_COMPILE, &pcreErrorStr);
+		if(pcreErrorStr)
+		{
+			printf("ERROR: Could not study '%s': %s\n", strnormalized, pcreErrorStr);
+			free(node);
+			return;
+		}
+
+		if (mrules->tail && mrules->head)
+		{
+			mrules->tail->next = node;
+			mrules->tail = node;
+		}
+		else
+		{
+			mrules->head = mrules->tail = node;
+		}
+	}
+	else
+	{
+		// hash string
+		match_string *ms = malloc(sizeof(*ms));
+		ms->s = strndup(str, len);
+		tommy_hashdyn_insert(mrules->hash, &(ms->node), ms, tommy_strhash_u32(0, ms->s));
+	}
 }

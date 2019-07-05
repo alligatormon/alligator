@@ -132,6 +132,11 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			++tmp;
 			k = strcspn(tmp, ":");
 		}
+		else
+		{
+			hi->user = 0;
+			hi->pass = 0;
+		}
 		
 		hi->host = strndup(tmp, k);
 

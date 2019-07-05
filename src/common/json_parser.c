@@ -10,7 +10,7 @@
 #define JSON_PARSER_AVG 2
 #define JSON_PARSER_LABEL 3
 #define JSON_PARSER_PLAINPRINT 4
-#define OBJSIZE 100
+#define OBJSIZE 400
 #define MAX_CHARS 100000
 #define JSON_PARSER_SEPARATOR "_"
 
@@ -355,7 +355,8 @@ void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonpars
 		jsonparse_kv *cur = kv;
 		for (; cur && cur->n; cur = cur->n)
 		{
-			sprintf(colkey+strlen(colkey), "(%s:%s)", cur->k, cur->v);
+			size_t colsize = strlen(colkey);
+			snprintf(colkey+colsize, OBJSIZE-colsize, "(%s:%s)", cur->k, cur->v);
 		}
 
 		pjson_collector *collector = NULL;
@@ -403,7 +404,7 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 		{
 			kv = NULL;
 
-			printf("\nffinding '%s'\n", node->by);
+			//printf("\nffinding '%s'\n", node->by);
 			json_t *objobj = json_object_get(arr_obj, node->by);
 			if (!objobj)
 			{
@@ -417,13 +418,13 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 			{
 				kv->k = node->by;
 				kv->replace = node->replace;
-				sprintf(kv->v, "%lld", json_integer_value(objobj));
+				snprintf(kv->v, OBJSIZE, "%lld", json_integer_value(objobj));
 			}
 			else if (json_typeof(objobj) == JSON_STRING)
 			{
 				kv->k = node->by;
 				kv->replace = node->replace;
-				sprintf(kv->v, "%s", json_string_value(objobj));
+				strlcpy(kv->v, json_string_value(objobj), OBJSIZE+1);
 			}
 
 			kvflag = 1;
@@ -518,7 +519,9 @@ void json_parser_entry(char *line, int argc, char **argv, char *name)
 				node->replace[replace_size-1] = 0;
 			}
 			else
+			{
 				node->by[by_size] = 0;
+			}
 			//node->hash = NULL;
 			node->hash = malloc(sizeof(tommy_hashdyn));
 			tommy_hashdyn_init(node->hash);

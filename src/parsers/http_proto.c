@@ -58,17 +58,18 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		cur++;
 
 	char *tmp;
-	//tmp = strstr(cur, "\n\n");
-	//if (!tmp)
-	//{
-		tmp = strstr(cur, "\r\n\r\n");
+	tmp = strstr(cur, "\r\n\r\n");
+	old_style_newline = 4;
+	if (!tmp)
+	{
+		tmp = strstr(cur, "\n\n");
+		old_style_newline = 2;
 		if (!tmp)
 		{
 			printf("3DO NOT HTTP RESPONSE: %s\n", http);
 			return NULL;
 		}
-		old_style_newline = 4;
-	//}
+	}
 	size_t headers_len = tmp - cur;
 	headers = strndup(cur, headers_len);
 
