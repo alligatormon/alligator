@@ -16,6 +16,25 @@ size_t get_file_size(char *filename)
 	return st.st_size;
 }
 
+size_t get_any_file_size(char *filename)
+{
+	FILE *fd = fopen(filename, "r");
+	if (!fd)
+		return 0;
+
+	fseek(fd, 0, SEEK_END);
+	size_t fdsize = ftell(fd)+1;
+	fclose(fd);
+	return fdsize;
+}
+
+uint64_t get_file_atime(char *filename)
+{
+	struct stat st;
+	stat(filename, &st);
+	return st.st_atime;
+}
+
 char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num )
 {
 	uint64_t i, n, cu;

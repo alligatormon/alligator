@@ -10,6 +10,8 @@
 #define APROTO_FCGI 8
 #define APROTO_FCGI_AUTH 9
 #define APROTO_UNIXFCGI 10
+#define APROTO_HTTPS 11
+#define APROTO_HTTPS_AUTH 12
 #include <stdio.h>
 typedef struct host_aggregator_info
 {

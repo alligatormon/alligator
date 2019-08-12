@@ -103,7 +103,7 @@ void http_proto_handler(char *metrics, size_t size, client_info *cinfo)
 	if (!hrdata)
 		return;
 
-	printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
+	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
 	http_reply_free(hrdata);
 }
 

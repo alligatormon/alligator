@@ -41,13 +41,19 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 		rn->steam[LEFT] = NULL;
 		rn->steam[RIGHT] = NULL;
 		rn->type = type;
+		rn->pb = 0;
 
 		if (type == DATATYPE_INT)
 			rn->i = *(int64_t*)value;
 		else if (type == DATATYPE_UINT)
 			rn->u = *(uint64_t*)value;
 		else if (type == DATATYPE_DOUBLE)
-			rn->d = *(double*)value;
+		{
+			if (isnan(*(double*)value) || isinf(*(double*)value))
+				rn->d = 0;
+			else
+				rn->d = *(double*)value;
+		}
 		else if (type == DATATYPE_STRING)
 			rn->s = value;
 		else if (type == DATATYPE_LIST_UINT)
@@ -220,6 +226,25 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
 	}
 }
 
+void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
+{
+	if (type == DATATYPE_INT)
+		mnode->i += *(int64_t*)value;
+	else if (type == DATATYPE_UINT)
+		mnode->u += *(uint64_t*)value;
+	else if (type == DATATYPE_DOUBLE)
+	{
+		if (isnan(*(double*)value) || isinf(*(double*)value))
+			{}
+		else
+			mnode->d += *(double*)value;
+	}
+
+	r_time time = setrtime();
+	expire_delete(expiretree, mnode->expire_node->key, mnode);
+	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, mnode);
+}
+
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
 {
 	if (type == DATATYPE_INT)
@@ -227,7 +252,12 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 	else if (type == DATATYPE_UINT)
 		mnode->u = *(uint64_t*)value;
 	else if (type == DATATYPE_DOUBLE)
-		mnode->d = *(double*)value;
+	{
+		if (isnan(*(double*)value) || isinf(*(double*)value))
+			mnode->d = 0;
+		else
+			mnode->d = *(double*)value;
+	}
 	else if (type == DATATYPE_STRING)
 		mnode->s = value;
 	else if (type == DATATYPE_LIST_UINT)
@@ -432,6 +462,26 @@ void metric_free ( metric_tree *tree )
 {
 	if ( tree && tree->root )
 		metrictree_free(tree->root);
+}
+
+int64_t metric_get_int(void *value, int8_t type)
+{
+	int64_t ret;
+	if (type == DATATYPE_INT)
+		ret = *(int64_t*)value;
+	else if (type == DATATYPE_UINT)
+		ret = *(uint64_t*)value;
+	else if (type == DATATYPE_DOUBLE)
+	{
+		if (isnan(*(double*)value) || isinf(*(double*)value))
+			ret = 0;
+		else
+			ret = *(double*)value;
+	}
+	else
+		ret = 0;
+
+	return ret;
 }
 
 // examples for use

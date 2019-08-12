@@ -5,6 +5,7 @@
 #include "metric/expiretree.h"
 #include "dstructures/tommy.h"
 #include "metric/namespace.h"
+#include "common/mapping.h"
 #include "main.h"
 
 int labels_cmp(labels_t *labels1, labels_t *labels2)
@@ -319,7 +320,6 @@ void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key)
 		labelscont = malloc(sizeof(*labelscont));
 		labelscont->name = strdup(name);
 		labelscont->key = strdup(key);
-		printf("DEBUG1: alloc key %p (%s)\n", labelscont->key, labelscont->key);
 		labelscont->allocatedname = 1;
 		labelscont->allocatedkey = 1;
 		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
@@ -366,7 +366,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 		if (labels->allocatedname)
 		{
-			printf("freeing %s\n", labels->name);
+			//printf("freeing %s\n", labels->name);
 			//free(labels->name);
 		}
 
@@ -431,6 +431,61 @@ void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, cha
 	{
 		metric_insert(tree, labels_list, type, value, expiretree);
 	}
+}
+
+void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (!namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_gset(mnode, type, value, expiretree);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		mnode = metric_insert(tree, labels_list, type, value, expiretree);
+	}
+}
+
+void metric_add_ret(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace, mapping_metric *mm)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (!namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_set(mnode, type, value, expiretree);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		mnode = metric_insert(tree, labels_list, type, value, expiretree);
+	}
+
+	if (mm)
+		mapping_processing(mm, mnode, metric_get_int(value, type));
 }
 
 void metric_add_auto(char *name, void* value, int8_t type, char *namespace)

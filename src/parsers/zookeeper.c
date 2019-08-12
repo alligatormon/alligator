@@ -9,6 +9,8 @@ void zookeeper_mntr_handler(char *metrics, size_t size, client_info *cinfo)
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("zk_server_state");
 	char *res = selector_split_metric(metrics, size, "\n", 1, "\t", 1, "", 0, maps, 1);
+	free(maps[0]);
+	free(maps);
 	if (!res)
 		return;
 

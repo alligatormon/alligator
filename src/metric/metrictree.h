@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "metric/labels.h"
+#include "metric/percentile_heap.h"
 
 #define	RED	1
 #define	BLACK	0
@@ -83,6 +84,7 @@ typedef struct metric_node
 	};
 	int16_t index_element_list;
 	int8_t type;
+	percentile_buffer *pb;
 
 	int8_t en;
 	struct metric_node *steam[2];
@@ -109,7 +111,37 @@ typedef struct metric_tree
 	tommy_hashdyn* labels_words_hash;
 } metric_tree;
 
+typedef struct mapping_label
+{
+	char *name;
+	char *key;
+	struct mapping_label *next;
+} mapping_label;
+
+typedef struct mapping_metric
+{
+	char *metric_name;
+	char *template;
+	size_t template_len;
+	struct mapping_metric *next;
+	uint64_t match;
+	size_t glob_size;
+	char **glob;
+
+	int64_t *percentile;
+	int64_t percentile_size;
+	int64_t *bucket;
+	int64_t bucket_size;
+	int64_t *le;
+	int64_t le_size;
+
+	size_t wildcard;
+	mapping_label *label_head;
+	mapping_label *label_tail;
+} mapping_metric;
+
 
 void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
+void metric_add_ret(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace, mapping_metric *mm);

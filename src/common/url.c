@@ -65,9 +65,70 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			strlcpy(hi->port, "80", 3);
 			hi->query = strdup("/");
 		}
-		printf("host %s\n", hi->host);
-		printf("query %s\n", hi->query);
-		printf("port %s\n", hi->port);
+		//printf("host %s\n", hi->host);
+		//printf("query %s\n", hi->query);
+		//printf("port %s\n", hi->port);
+
+	}
+	if ( !strncmp(str, "https://", 8) )
+	{
+		int64_t k, l, m;
+		tmp = str+8;
+		hi->proto = APROTO_HTTPS;
+
+		k = strcspn(tmp, ":");
+		l = strcspn(tmp, "@");
+		m = strcspn(tmp, "/");
+		if ( k < l && l < m )
+		{
+			hi->proto = APROTO_HTTPS_AUTH;
+			//unsigned char *buf = strndup(tmp, l);
+			size_t sz;
+			hi->auth = base64_encode(tmp, l, &sz);
+			//free(buf);
+			tmp += l +1;
+			k = strcspn(tmp, ":");
+			m = strcspn(tmp, "/");
+			l = strcspn(tmp, "?");
+			if ( k > m )
+				k = m;
+			if ( k > l )
+				k = l;
+		}
+		else if (k == l)
+			k = m;
+
+		if ( tmp[k-1] == '/' )
+			hi->host = strndup(tmp, k-1);
+		else
+			hi->host = strndup(tmp, k);
+
+		tmp += k;
+		k = strcspn(tmp, "/");
+		l = strcspn(tmp, "?");
+		if ( k > l )
+			k = l;
+
+		if (((str + len) - tmp) > 2)
+		{
+			if (strstr(tmp, ":"))
+			{
+				strlcpy(hi->port, tmp+1, k);
+				tmp += k;
+			}
+			else
+				strlcpy(hi->port, "443", 4);
+
+			hi->query = strdup(tmp);
+		}
+		else
+		{
+			strlcpy(hi->port, "443", 4);
+			hi->query = strdup("/");
+		}
+		//printf("host %s\n", hi->host);
+		//printf("query %s\n", hi->query);
+		//printf("port %s\n", hi->port);
 
 	}
 	if ( !strncmp(str, "fastcgi://", 10) )

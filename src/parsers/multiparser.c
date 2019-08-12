@@ -70,7 +70,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 			printf("Query: %s\n", uri);
 		if (ac->log_level > 10)
 			printf("get metrics from body:\n%s\n", body);
-		multicollector(http_data, cinfo);
+		multicollector(http_data, NULL, 0, cinfo);
 	}
 
 	string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
@@ -100,9 +100,9 @@ void do_http_response(char *buf, size_t len, string *response)
 	(void)response;
 	char *tmp;
 	if ( (tmp = strstr(buf, "\n\n")) )
-		multicollector(tmp+2, strlen(tmp)-2, NULL);
+		multicollector(NULL, tmp+2, len - (tmp-buf) - 2, NULL);
 	else if ( (tmp = strstr(buf, "\r\n\r\n")) )
-		multicollector(tmp+4, strlen(tmp)-4, NULL);
+		multicollector(NULL, tmp+4, len - (tmp-buf) - 4, NULL);
 }
 
 int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
@@ -137,10 +137,10 @@ int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
 	return ret;
 }
 
-int plain_parser(char *buf, size_t len)
+int plain_parser(char *buf, size_t len, client_info *cinfo)
 {
 	//selector_get_plain_metrics(buf, len, "\n", " ", "", 0 );
-	multicollector(buf, len, NULL);
+	multicollector(NULL, buf, len, cinfo);
 	return 1;
 }
 
@@ -163,5 +163,5 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	}
 	int rc = 0;
 	if ( (rc = http_parser(buf, len, response, cinfo)) ) {}
-	else if ( (rc = plain_parser(buf, len)) ) {}
+	else if ( (rc = plain_parser(buf, len, cinfo)) ) {}
 }

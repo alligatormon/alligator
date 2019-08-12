@@ -62,10 +62,8 @@ int metric_name_normalizer(char *str, size_t sz)
 			continue;
 		else if (isdigit(str[i]))
 			continue;
-		else if (str[i] == '.')
-			str[i] = '_';
 		else
-			return 0;
+			str[i] = '_';
 
 	return 1;
 }

@@ -11,7 +11,6 @@ int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 	char *cstr = mt->st[i].s;
 	size_t cstr_size = mt->st[i].l;
 
-	//printf("i=%d\n", i);
 	if (size != cstr_size)
 	{
 		//puts("0FALSE");
@@ -32,13 +31,20 @@ int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 	}
 }
 
+size_t config_get_field_size(mtlen *mt, int64_t i)
+{
+	size_t j;
+	for (j=0; !config_compare(mt, i+j, "}", 1) && !config_compare(mt, i+j, "{", 1) && !config_compare(mt, i+j, ";", 1); j++);
+	return j;
+}
+
 int8_t config_compare_begin(mtlen *mt, int64_t i, char *str, size_t size)
 {
 	//printf("compare %s and %s\n", mt->st[i].s, str);
-	if (config_compare(mt, i-1, "{", 1) || config_compare(mt, i-1, "}", 1) || config_compare(mt, i-1, ";", 1))
-	{
+	if ((i > 0) && (config_compare(mt, i-1, "{", 1) || config_compare(mt, i-1, "}", 1) || config_compare(mt, i-1, ";", 1)))
 		return config_compare(mt, i, str, size);
-	}
+	else if (i == 0)
+		return config_compare(mt, i, str, size);
 	return 0;
 }
 
@@ -174,8 +180,39 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		}
 		else if (!strcmp(mt->st[*i-1].s, "aerospike"))
 		{
-			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			//do_tcp_client(hi->host, hi->port, aerospike_handler, "INFO\n");
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			uv_buf_t *buffer;
+
+			buffer = malloc(sizeof(*buffer));
+			*buffer = uv_buf_init("\2\1\0\0\0\0\0\0", 8);
+			smart_aggregator_selector_buffer(hi, aerospike_statistics_handler, buffer, 1);
+
+			//buffer = malloc(sizeof(*buffer));
+			//*buffer = uv_buf_init("\2\1\0\0\0\0\0\vnamespaces\n", 20);
+			//smart_aggregator_selector_buffer(hi, aerospike_get_namespaces_handler, buffer, 1);
+
+			buffer = malloc(sizeof(*buffer));
+			*buffer = uv_buf_init("\2\1\0\0\0\0\0\7status\n", 16);
+			smart_aggregator_selector_buffer(hi, aerospike_status_handler, buffer, 1);
+
+			++*i;
+			while (!config_compare(mt, *i, ";", 1))
+			{
+				buffer = malloc(sizeof(*buffer));
+				char *aeronamespace = malloc(255);
+				aeronamespace[0] = 2;
+				aeronamespace[1] = 1;
+				aeronamespace[2] = 0;
+				aeronamespace[3] = 0;
+				aeronamespace[4] = 0;
+				aeronamespace[5] = 0;
+				aeronamespace[6] = 0;
+				aeronamespace[7] = '\13' + mt->st[*i].l;
+				snprintf(aeronamespace+8, 255-8, "namespace/%s\n", mt->st[*i].s);
+				*buffer = uv_buf_init(aeronamespace, 20 + mt->st[*i].l);
+				smart_aggregator_selector_buffer(hi, aerospike_namespace_handler, buffer, 1);
+				++*i;
+			}
 		}
 		else if (!strcmp(mt->st[*i-1].s, "zookeeper"))
 		{
@@ -353,6 +390,12 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			//do_tcp_client(hi->host, hi->port, nginx_upstream_check_handler, query, hi->proto);
 			smart_aggregator_selector(hi, nginx_upstream_check_handler, query);
 		}
+		else if (config_compare_begin(mt, *i-1, "dummy", 5))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, dummy_handler, query);
+		}
 		else if (!strcmp(mt->st[*i-1].s, "elasticsearch"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
@@ -368,9 +411,14 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			smart_aggregator_selector(hi, elasticsearch_cluster_handler, cluster_query);
 
 			char health_string[255];
-			snprintf(health_string, 255, "%s%s", hi->query, "/_cluster/health");
+			snprintf(health_string, 255, "%s%s", hi->query, "/_cluster/health?level=shards");
 			char *health_query = gen_http_query(0, health_string, hi->host, "alligator", hi->auth, 0);
 			smart_aggregator_selector(hi, elasticsearch_health_handler, health_query);
+
+			char index_string[255];
+			snprintf(index_string, 255, "%s%s", hi->query, "/_stats");
+			char *index_query = gen_http_query(0, index_string, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, elasticsearch_index_handler, index_query);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "monit"))
 		{
@@ -534,7 +582,7 @@ void context_log_handler_parser(mtlen *mt, int64_t *i)
 				}
 				if (metric_name)
 					printf("> metric_name = %s\n", metric_name);
-				printf("> type = %u\n> value = %llu\n", type, value);
+				printf("> type = %u\n> value = %"u64"\n", type, value);
 				if(from)
 					printf("> from = %s\n", from);
 			}
@@ -573,12 +621,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 				cinfo->mm = mm;
 			else
 				push_mapping_metric(cinfo->mm, mm);
-			printf("gg cinfo %p with mm %p\n", cinfo, cinfo->mm);
 		}
 		else if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 		{
 			char *port = strstr(mt->st[*i].s, ":");
-			printf("cc cinfo %p with mm %p\n", cinfo, cinfo->mm);
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
@@ -594,10 +640,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				udp_server_handler(host, atoi(port+1), handler);
+				udp_server_handler(host, atoi(port+1), handler, cinfo);
 			}
 			else
-				udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler);
+				udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, cinfo);
 		}
 		else if (!strncmp(mt->st[*i-1].s, "unixgram", 8))
 			unixgram_server_handler(mt->st[*i].s, handler);
@@ -625,6 +671,8 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_disk = 1;
 		else if (!strcmp(mt->st[*i].s, "network"))
 			ac->system_network = 1;
+		else if (!strcmp(mt->st[*i].s, "vm"))
+			ac->system_vm = 1;
 		//else if (!strcmp(mt->st[*i].s, "process"))
 		else if (config_compare_begin(mt, *i, "process", 7))
 		{
@@ -636,4 +684,10 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			}
 		}
 	}
+}
+
+void context_log_level_parser(mtlen *mt, int64_t *i)
+{
+	extern aconf *ac;
+	ac->log_level = atoll(mt->st[*i+1].s);
 }
