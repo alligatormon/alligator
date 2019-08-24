@@ -1481,12 +1481,12 @@ void interface_stats()
 		snprintf(operfile, 255, "/sys/class/net/%s/operstate", entry->d_name);
 		FILE *fd = fopen(operfile, "r");
 		if (!fd)
-			return;
+			continue;
 		
 		if(!fgets(operstate, 100, fd))
 		{
 			fclose(fd);
-			return;
+			continue;
 		}
 		fclose(fd);
 		operstate[strlen(operstate)-1] = 0;

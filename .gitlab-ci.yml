@@ -23,7 +23,7 @@ cutter_test:
 build_test:
   stage: tests
   script:
-  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib
+  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
@@ -37,6 +37,12 @@ build_test:
   - cd libatasmart
   - ./autogen.sh
   - ./configure --enable-static
+  - make
+  - cd ..
+  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
+  - tar xfvz openssl-1.0.2s.tar.gz
+  - cd openssl-1.0.2s
+  - ./config
   - make
   - cd ..
 
