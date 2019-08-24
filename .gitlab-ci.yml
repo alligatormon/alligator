@@ -35,6 +35,7 @@ build_test:
   - git clone https://github.com/deleisha/evt-tls.git
   - git clone https://github.com/Rupan/libatasmart.git
   - cd libatasmart
+  - ./autogen.sh
   - ./configure --enable-static
   - make
   - cd ..
