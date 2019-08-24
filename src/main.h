@@ -17,17 +17,40 @@
 #include "config/context.h"
 #include "parsers/multiparser.h"
 #include "metric/namespace.h"
+#define d8 PRId8
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000
+
+typedef struct system_cpu_cores_stats
+{
+	uint64_t usage;
+	uint64_t user;
+	uint64_t nice;
+	uint64_t system;
+	uint64_t idle;
+	uint64_t iowait;
+	uint64_t total;
+} system_cpu_cores_stats;
+
+typedef struct system_cpu_stats
+{
+	system_cpu_cores_stats *cores;
+	system_cpu_cores_stats cgroup;
+	system_cpu_cores_stats hw;
+} system_cpu_stats;
+
 typedef struct aconf
 {
 	namespace_struct *nsdefault;
 	tommy_hashdyn *_namespace;
 
 	tommy_hashdyn* aggregator;
+	tommy_hashdyn* tls_aggregator;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
+	int64_t tls_aggregator_startup;
+	int64_t tls_aggregator_repeat;
 
 	tommy_hashdyn* uggregator;
 
@@ -51,6 +74,7 @@ typedef struct aconf
 	uv_loop_t *loop;
 	uint64_t tcp_client_count;
 	uint64_t icmp_client_count;
+	uint64_t tls_tcp_client_count;
 
 	uint64_t request_cnt;
 
@@ -64,6 +88,9 @@ typedef struct aconf
 	int system_disk;
 	int system_network;
 	int system_process;
+	int system_vm;
+	int system_smart;
+	system_cpu_stats *scs;
 	match_rules *process_match;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
@@ -75,3 +102,4 @@ typedef struct aconf
 } aconf;
 
 void get_system_metrics();
+void system_fast_scrape();

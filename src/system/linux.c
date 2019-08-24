@@ -12,24 +12,37 @@
 #include <sys/statvfs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <fcntl.h>
 #include "main.h"
+#include "metric/labels.h"
+#include "common/smart.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
+#define PLATFORM_BAREMETAL 0
+#define PLATFORM_LXC 1
+#define PLATFORM_OPENVZ 2
+#define PLATFORM_NSPAWN 3
+#define PLATFORM_DOCKER 4
+#define LINUX_MEMORY 1
+#define LINUX_CPU 2
 
-//#include "rbtree.h"
-#include "metric/labels.h"
-
-typedef struct cpuusage_cgroup
+typedef struct process_states
 {
-	int64_t sys;
-	int64_t user;
-} cpuusage_cgroup;
+	uint64_t running;
+	uint64_t sleeping;
+	uint64_t uninterruptible;
+	uint64_t zombie;
+	uint64_t stopped;
+} process_states;
 
 void print_mount(const struct mntent *fs)
 {
-	if ( !strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") )
+	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2"))
 	{
+		if (!strncmp(fs->mnt_dir, "/etc", 4) || !strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_dir, "/var/lib/docker", 15))
+			return;
+
 		int f_d = 0;
 		f_d = open(fs->mnt_dir,O_RDONLY);
 		if(-1 == f_d)
@@ -46,9 +59,25 @@ void print_mount(const struct mntent *fs)
 				int64_t total = ((double)buf.f_blocks * buf.f_bsize);
 				int64_t avail = ((double)buf.f_bavail * buf.f_bsize);
 				int64_t used = total - avail;
+				int64_t inodes_total = buf.f_files;
+				int64_t inodes_avail = buf.f_favail;
+				int64_t inodes_used = inodes_total-inodes_avail;
+				double pused = (double)used*100/(double)total;
+				double pfree = 100 - pused;
+
+				double iused = inodes_used*100.0/inodes_total;
+				double ifree = 100.0 - iused;
 				metric_add_labels2("disk_usage", &total, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "total");
-				metric_add_labels2("disk_usage", &avail, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "avail");
+				metric_add_labels2("disk_usage", &avail, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "free");
 				metric_add_labels2("disk_usage", &used, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, 0, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, 0, "mountpoint", fs->mnt_dir, "type", "free");
+
+				metric_add_labels2("disk_inodes", &inodes_avail, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "free");
+				metric_add_labels2("disk_inodes", &inodes_used, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_inodes", &inodes_total, DATATYPE_INT, 0, "mountpoint", fs->mnt_dir, "type", "total");
+				metric_add_labels2("disk_inodes_percent", &iused, DATATYPE_DOUBLE, 0, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_inodes_percent", &ifree, DATATYPE_DOUBLE, 0, "mountpoint", fs->mnt_dir, "type", "free");
 			}
 
 			close(f_d);
@@ -58,6 +87,10 @@ void print_mount(const struct mntent *fs)
 
 void get_disk()
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: disk: get_stat");
+
 	FILE *fp;
 	struct mntent *fs;
 
@@ -73,140 +106,178 @@ void get_disk()
 	endmntent(fp);
 }
 
-cpuusage_cgroup* get_cpu_usage_cgroup(size_t num_cpus_cgroup)
+void get_cpu(int8_t platform)
 {
-	cpuusage_cgroup *cgr;
-	char temp[LINUXFS_LINE_LENGTH];
-	int64_t i;
-	FILE *fd = fopen("/sys/fs/cgroup/cpuacct/cpuacct.usage_all", "r");
-	if ( !fd )
-		return NULL;
-
-	cgr = malloc(sizeof(cpuusage_cgroup)*num_cpus_cgroup);
-	if (!fgets(temp, LINUXFS_LINE_LENGTH, fd))
-	{
-		fclose(fd);
-		return NULL;
-	}
-	for (i=0; fgets(temp, LINUXFS_LINE_LENGTH, fd); i++ )
-	{
-		int64_t t1, t2, t3;
-		sscanf(temp, "%"d64" %"d64" %"d64"", &t1, &t2, &t3);
-		cgr[i].user = t2;
-		cgr[i].sys = t3;
-	}
-	fclose(fd);
-	return cgr;
-}
-
-void get_cpu()
-{
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("fast scrape metrics: base: cpu");
 
 	int64_t effective_cores;
 	int64_t num_cpus = sysconf( _SC_NPROCESSORS_ONLN );
 	int64_t num_cpus_cgroup = (getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")/100000);
+	double dividecpu = 1;
 	if ( num_cpus_cgroup <= 0 )
 		effective_cores = num_cpus;
 	else if ( num_cpus < num_cpus_cgroup )
-		effective_cores = num_cpus;
+	{
+		effective_cores = dividecpu = num_cpus;
+	}
 	else
 		effective_cores = num_cpus_cgroup;
 
+	if (!ac->scs->cores)
+		ac->scs->cores = calloc(1, sizeof(system_cpu_cores_stats)*effective_cores);
 
-	metric_add_auto("cores_num", &num_cpus, DATATYPE_INT, 0);
-	metric_add_auto("cgroup_cores_num", &num_cpus_cgroup, DATATYPE_INT, 0);
-	metric_add_auto("effective_cores_num", &effective_cores, DATATYPE_INT, 0);
+
+	metric_add_auto("cores_num_hw", &num_cpus, DATATYPE_INT, 0);
+	metric_add_auto("cores_num_cgroup", &num_cpus_cgroup, DATATYPE_INT, 0);
+	metric_add_auto("cores_num", &effective_cores, DATATYPE_INT, 0);
 
 	char temp[LINUXFS_LINE_LENGTH];
-	FILE *fd = fopen("/proc/stat", "r");
-	if ( !fd )
-		return;
-
 	double hw_usage, hw_user, hw_system;
-	while ( fgets(temp, LINUXFS_LINE_LENGTH, fd) )
+	uint64_t core_num = 0;
+	system_cpu_cores_stats *sccs;
+
+	if (!platform)
 	{
-		if ( !strncmp(temp, "cpu", 3) )
+		FILE *fd = fopen("/proc/stat", "r");
+		if ( !fd )
+			return;
+
+		while ( fgets(temp, LINUXFS_LINE_LENGTH, fd) )
 		{
-			int64_t t1, t2, t3, t4, t5;
-			char cpuname[5];
-			sscanf(temp, "%s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
-			double usage = (double)(t1 + t3)*100/(t1+t3+t4);
-			double user = (double)(t1)*100/(t1+t3+t4);
-			double nice = (double)(t2)*100/(t1+t3+t4);
-			double system = (double)(t3)*100/(t1+t3+t4);
-			double idle = (double)(t4)*100/(t1+t3+t4);
-			double iowait = (double)(t5)*100/(t1+t3+t4);
-			if (!strcmp(cpuname, "cpu"))
+			if ( !strncmp(temp, "cpu", 3) )
 			{
-				hw_usage = usage;
-				hw_user = user;
-				hw_system = system;
-				metric_add_labels("cpu_usage_hw", &usage, DATATYPE_DOUBLE, 0, "type", "total");
-				metric_add_labels("cpu_usage_hw", &user, DATATYPE_DOUBLE, 0, "type", "user");
-				metric_add_labels("cpu_usage_hw", &system, DATATYPE_DOUBLE, 0, "type", "system");
-				metric_add_labels("cpu_usage_hw", &nice, DATATYPE_DOUBLE, 0, "type", "nice");
-				metric_add_labels("cpu_usage_hw", &idle, DATATYPE_DOUBLE, 0, "type", "idle");
-				metric_add_labels("cpu_usage_hw", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait");
+				int64_t t1, t2, t3, t4, t5;
+				char cpuname[6];
+
+				sscanf(temp, "%s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
+				core_num = atoll(cpuname+3);
+				if (!strcmp(cpuname, "cpu"))
+					sccs = &ac->scs->hw;
+				else
+					sccs = &ac->scs->cores[core_num];
+
+				uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
+				sccs->total += t12345;
+
+				t1 -= sccs->user;
+				sccs->user += t1;
+				t2 -= sccs->nice;
+				sccs->nice += t2;
+				t3 -= sccs->system;
+				sccs->system += t3;
+				t4 -= sccs->idle;
+				sccs->idle += t4;
+				t5 -= sccs->iowait;
+				sccs->iowait += t5;
+
+				double usage = ((t1 + t3)*100.0/t12345)/dividecpu;
+				if (usage<0)
+					usage = 0;
+				double user = ((t1)*100.0/t12345)/dividecpu;
+				if (user<0)
+					user = 0;
+				double nice = ((t2)*100.0/t12345)/dividecpu;
+				if (nice<0)
+					nice = 0;
+				double system = ((t3)*100.0/t12345)/dividecpu;
+				if (system<0)
+					system = 0;
+				double idle = ((t4)*100.0/t12345)/dividecpu;
+				if (idle<0)
+					idle = 0;
+				double iowait = ((t5)*100.0/t12345)/dividecpu;
+				if (iowait<0)
+					iowait = 0;
+
+				if (!strcmp(cpuname, "cpu"))
+				{
+					hw_usage = usage;
+					hw_user = user;
+					hw_system = system;
+					metric_add_labels("cpu_usage", &usage, DATATYPE_DOUBLE, 0, "type", "total");
+					metric_add_labels("cpu_usage", &user, DATATYPE_DOUBLE, 0, "type", "user");
+					metric_add_labels("cpu_usage", &system, DATATYPE_DOUBLE, 0, "type", "system");
+					metric_add_labels("cpu_usage", &nice, DATATYPE_DOUBLE, 0, "type", "nice");
+					metric_add_labels("cpu_usage", &idle, DATATYPE_DOUBLE, 0, "type", "idle");
+					metric_add_labels("cpu_usage", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait");
+				}
+				else
+				{
+					metric_add_labels2("cpu_usage_core", &usage, DATATYPE_DOUBLE, 0, "type", "total", "cpu", cpuname);
+					metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, 0, "type", "user", "cpu", cpuname);
+					metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, 0, "type", "system", "cpu", cpuname);
+					metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, 0, "type", "nice", "cpu", cpuname);
+					metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, 0, "type", "idle", "cpu", cpuname);
+					metric_add_labels2("cpu_usage_core", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait", "cpu", cpuname);
+				}
 			}
-			else
+			else if ( !strncmp(temp, "processes", 9) )
 			{
-				metric_add_labels2("cpu_usage_core", &usage, DATATYPE_DOUBLE, 0, "type", "total", "cpu", cpuname);
-				metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, 0, "type", "user", "cpu", cpuname);
-				metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, 0, "type", "system", "cpu", cpuname);
-				metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, 0, "type", "nice", "cpu", cpuname);
-				metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, 0, "type", "idle", "cpu", cpuname);
-				metric_add_labels2("cpu_usage_core", &iowait, DATATYPE_DOUBLE, 0, "type", "iowait", "cpu", cpuname);
+				int64_t spacenum = strcspn(temp, " ");
+				spacenum += strcspn(temp+spacenum, " ");
+				uint64_t ival = atoll(temp+spacenum);
+				metric_add_auto("forks", &ival, DATATYPE_UINT, 0);
+			}
+			else if ( !strncmp(temp, "ctxt", 4) )
+			{
+				int64_t spacenum = strcspn(temp, " ");
+				spacenum += strcspn(temp+spacenum, " ");
+				uint64_t ival = atoll(temp+spacenum);
+				metric_add_auto("context_switches", &ival, DATATYPE_UINT, 0);
+			}
+			else if ( !strncmp(temp, "intr", 4) )
+			{
+				int64_t spacenum = strcspn(temp, " ");
+				spacenum += strcspn(temp+spacenum, " ");
+				uint64_t ival = atoll(temp+spacenum);
+				metric_add_auto("interrupts", &ival, DATATYPE_UINT, 0);
+			}
+			else if ( !strncmp(temp, "softirq", 7) )
+			{
+				int64_t spacenum = strcspn(temp, " ");
+				spacenum += strcspn(temp+spacenum, " ");
+				uint64_t ival = atoll(temp+spacenum);
+				metric_add_auto("softirq", &ival, DATATYPE_UINT, 0);
 			}
 		}
+		fclose(fd);
 	}
-	fclose(fd);
-
-	int64_t cfs_period = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
-	int64_t cfs_quota = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
-	if ( cfs_quota < 0 )
+	else
 	{
-		metric_add_labels("cpu_usage", &hw_usage, DATATYPE_DOUBLE, 0, "type", "total");
-		metric_add_labels("cpu_usage", &hw_user, DATATYPE_DOUBLE, 0, "type", "user");
-		metric_add_labels("cpu_usage", &hw_system, DATATYPE_DOUBLE, 0, "type", "system");
-		return;
+		sccs = &ac->scs->cgroup;
+		int64_t cfs_period = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+		int64_t cfs_quota = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+		if ( cfs_quota < 0 )
+		{
+			metric_add_labels("cpu_usage", &hw_usage, DATATYPE_DOUBLE, 0, "type", "total");
+			metric_add_labels("cpu_usage", &hw_user, DATATYPE_DOUBLE, 0, "type", "user");
+			metric_add_labels("cpu_usage", &hw_system, DATATYPE_DOUBLE, 0, "type", "system");
+			return;
+		}
+
+		int64_t cgroup_system_ticks = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_sys");
+		int64_t cgroup_user_ticks = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_user");
+
+		cgroup_system_ticks -= sccs->system;
+		sccs->system += cgroup_system_ticks;
+		cgroup_user_ticks -= sccs->user;
+		sccs->user += cgroup_user_ticks;
+
+		double cgroup_system_usage = (double)(cgroup_system_ticks)*cfs_period/1000000000/cfs_quota*100.0;
+		double cgroup_user_usage = (double)(cgroup_user_ticks)*cfs_period/1000000000/cfs_quota*100.0;
+		double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
+		metric_add_labels("cpu_usage_cgroup", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
+		metric_add_labels("cpu_usage_cgroup", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
+		metric_add_labels("cpu_usage_cgroup", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
+		metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
+		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
+		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
 	}
-
-	int64_t cgroup_system_ticks1 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_sys");
-	int64_t cgroup_user_ticks1 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_user");
-	sleep(1);
-	int64_t cgroup_system_ticks2 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_sys");
-	int64_t cgroup_user_ticks2 = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_user");
-
-	double cgroup_system_usage = (double)(cgroup_system_ticks2 - cgroup_system_ticks1)*cfs_period/1000000000/cfs_quota*100;
-	double cgroup_user_usage = (double)(cgroup_user_ticks2 - cgroup_user_ticks1)*cfs_period/1000000000/cfs_quota*100;
-	double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
-	metric_add_labels("cpu_cgroup_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
-	metric_add_labels("cpu_cgroup_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
-	metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
-	metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "type", "system");
-	metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "type", "user");
-	metric_add_labels("cpu_cgroup_usage", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "type", "total");
-
-	//cpuusage_cgroup *cgr1 = get_cpu_usage_cgroup(num_cpus_cgroup);
-
-	//sleep(1);
-	//cpuusage_cgroup *cgr2;
-	//get_cpu_usage_cgroup(&cgr2, num_cpus_cgroup);
-	//for ( i=0; i<num_cpus_cgroup; i++)
-	//{
-	//	double cgroup_system_usage = (double)(cgr2[i].sys - cgr1[i].sys)*cfs_period/1000000000/cfs_quota*100;
-	//	printf("system (%"d64"-%"d64")*%"d64"/1000000000/%"d64"*100\n", cgr2[i].user, cgr1[i].user, cfs_period, cfs_quota );
-	//	double cgroup_user_usage = (double)(cgr2[i].user - cgr1[i].user)*cfs_period/1000000000/cfs_quota*100;
-	//	printf("cgroup cpu%lld: has usage user %lf sys %lf\n", i, cgroup_user_usage, cgroup_system_usage);
-	//	char cpusel[10];
-	//	snprintf(cpusel, 10, "cpu%"d64"\n", i);
-	//	metric_add_auto("cpu_cgroup_usage", &cgroup_system_usage, DATATYPE_DOUBLE, 0);
-	//	metric_add_auto("cpu_cgroup_usage", &cgroup_user_usage, DATATYPE_DOUBLE, 0);
-	//	puts("===========");
-	//}
 }
 
-void get_process_extra_info(char *file)
+void get_process_extra_info(char *file, char *name, char *pid)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
@@ -216,63 +287,78 @@ void get_process_extra_info(char *file)
 	char val[LINUXFS_LINE_LENGTH];
 	int64_t ival = 1;
 	int64_t ctxt_switches = 0;
+
+	r_time time = setrtime();
+	uint64_t uptime = time.sec - get_file_atime(file);
+	metric_add_labels2("process_uptime", &uptime, DATATYPE_UINT, 0, "name", name, "pid", pid);
+
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		tmp[strlen(tmp)-1] = 0;
-		int i;
-		for (i=0; tmp[i] && tmp[i]!=' '; i++);
+		size_t tmp_len = strlen(tmp)-1;
+		tmp[tmp_len] = 0;
+		int64_t i = strcspn(tmp, " \t");
 		strlcpy(key, tmp, i+1);
 
-		int swtch = 0;
-
-		if	  ( !strcmp(key, "Threads") ) { swtch = 1; }
-		else if ( !strcmp(key, "voluntary_ctxt_switches") ) { swtch = 2; }
-		else if ( !strcmp(key, "nonvoluntary_ctxt_switches") ) { swtch = 2; }
-		else	continue;
-
-		for (; tmp[i]==' '; i++);
-		int swap = i;
-		for (; tmp[i] && tmp[i]!=' '; i++);
+		int swap = strspn(tmp+i, " \t")+i;
+		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
 		strlcpy(val, tmp+swap, i-swap+1);
 
 		ival = atoll(val);
-		switch ( swtch )
+
+		if ( strstr(tmp+swap, "kB") )
+			ival *= 1024;
+
+		if  ( !strncmp(key, "Threads", 7) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "threads", "name", name, "pid", pid);
+		else if ( (!strncmp(key, "voluntary_ctxt_switches", 23))||(!strncmp(key, "nonvoluntary_ctxt_switches", 26)) )
 		{
-			case '1':
-				metric_add_labels("process_stats", &ival, DATATYPE_INT, 0, "type", "threads" );
-				break;
-			case '2':
-				if ( ctxt_switches != 0 )
-				{
-					ctxt_switches += ival;
-					metric_add_labels("process_stats", &ival, DATATYPE_INT, 0, "type", "ctx_switches" );
-				}
-				else
-				{
-					ctxt_switches += ival;
-				}
-				break;
-			default: break;
+			if ( ctxt_switches != 0 )
+			{
+				ctxt_switches += ival;
+				metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "ctx_switches", "name", name, "pid", pid);
+			}
+			else
+			{
+				ctxt_switches += ival;
+			}
 		}
+		else if ( !strncmp(key, "VmSwap", 6) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "swap_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmLib", 5) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "lib_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmExe", 5) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "executable_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmStk", 5) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "stack_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmData", 6) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "data_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmLck", 5) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "lock_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "RssAnon", 7) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "anon_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "RssFile", 7) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "file_bytes", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmRSS", 5) )
+			metric_add_labels3("process_memory", &ival, DATATYPE_INT, 0, "type", "rss", "name", name, "pid", pid);
+		else if ( !strncmp(key, "VmSize", 6) )
+			metric_add_labels3("process_memory", &ival, DATATYPE_INT, 0, "type", "vsz", "name", name, "pid", pid);
+		else if ( !strncmp(key, "RssShmem", 8) )
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, 0, "type", "shmem_bytes", "name", name, "pid", pid);
+		else	continue;
 	}
 
 	fclose(fd);
 }
 
 
-void get_proc_info(char *szFileName, char *exName, char *pid_number)
+void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t lightweight, process_states *states)
 {
 	char szStatStr[LINUXFS_LINE_LENGTH];
-	//char		state;	
-	/** 1 **/			/** R is running, S is sleeping,
-				D is sleeping in an uninterruptible wait,
-				Z is zombie, T is traced or stopped **/
-	int64_t	utime;
-	int64_t	stime;
-	int64_t	cutime;
-	int64_t	cstime;
-	int64_t	vsize;
-	int64_t	rss;
+	char		state;
+	//int64_t	utime;
+	//int64_t	stime;
+	//int64_t	cutime;
+	//int64_t	cstime;
 
 	FILE *fp = fopen(szFileName, "r");
 
@@ -292,54 +378,55 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number)
 
 	int cnt = 10;
 	while (cnt--)
+	{
+		if (cnt == 8)
+		{
+			state = t[cursor];
+			if (state == 'R')
+				++states->running;
+			else if (state == 'S')
+				++states->sleeping;
+			else if (state == 'D')
+				++states->uninterruptible;
+			else if (state == 'Z')
+				++states->zombie;
+			else if (state == 'T')
+				++states->stopped;
+
+			if (lightweight)
+			{
+				fclose (fp);
+				return;
+			}
+		}
 		int_get_next(t+4, sz, ' ', &cursor);
-	utime = int_get_next(t+4, sz, ' ', &cursor);
-	stime = int_get_next(t+4, sz, ' ', &cursor);
-	cutime = int_get_next(t+4, sz, ' ', &cursor);
-	cstime = int_get_next(t+4, sz, ' ', &cursor);
+	}
+	//utime = int_get_next(t+4, sz, ' ', &cursor);
+	//stime = int_get_next(t+4, sz, ' ', &cursor);
+	//cutime = int_get_next(t+4, sz, ' ', &cursor);
+	//cstime = int_get_next(t+4, sz, ' ', &cursor);
 
 	cnt = 5;
 	while (cnt--)
 		int_get_next(t+4, sz, ' ', &cursor);
 
-	//starttime = int_get_next(t+4, sz, ' ', &cursor);
-	vsize = int_get_next(t+4, sz, ' ', &cursor);
-	rss = int_get_next(t+4, sz, ' ', &cursor);
 	fclose (fp);
 
-	int64_t Hertz = sysconf(_SC_CLK_TCK);
-	int64_t stotal_time = stime + cstime;
-	int64_t utotal_time = utime + cutime;
-	int64_t total_time = stotal_time + utotal_time;
+	//int64_t Hertz = sysconf(_SC_CLK_TCK);
+	//int64_t stotal_time = stime + cstime;
+	//int64_t utotal_time = utime + cutime;
+	//int64_t total_time = stotal_time + utotal_time;
 
-	//double seconds = uptime - (starttime / Hertz);
 	struct stat st;
 	stat(szFileName, &st);
-	double seconds = time(0) - st.st_ctime;
 
-	double sys_cpu_usage = 100 * ((stotal_time / Hertz) / seconds);
-	double user_cpu_usage = 100 * ((utotal_time / Hertz) / seconds);
-	double total_cpu_usage = 100 * ((total_time / Hertz) / seconds);
-	//printf("szStatStr %s\n", szStatStr);
-	//printf("starttime %"d64"\n", starttime);
-	//printf("utime %"d64"\n", utime);
-	//printf("stime %"d64"\n", stime);
-	//printf("cutime %"d64"\n", cutime);
-	//printf("cstime %"d64"\n", cstime);
-	//printf("vsize %"d64"\n", vsize);
-	//printf("rss %"d64"\n", rss);
-	//printf("uptime %"d64"\n", uptime);
-	//printf("pid name: %s go\n", pid_number);
-	//printf("old seconds = %"d64" - (%"d64" / %"d64") = %lf\n", uptime, starttime, Hertz, seconds);
-	//printf("new seconds = %ld - %ld = %lf\n", time(0), st.st_ctime, seconds);
-	//printf("cpu usage sys: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", stotal_time, Hertz, seconds, sys_cpu_usage);
-	//printf("cpu usage user: 100 * ((%"d64" / %"d64") / %lf) = %lf\n", utotal_time, Hertz, seconds, user_cpu_usage);
+	//double sys_cpu_usage = 100 * (stotal_time / Hertz);
+	//double user_cpu_usage = 100 * (utotal_time / Hertz);
+	//double total_cpu_usage = 100 * (total_time / Hertz);
 
-	metric_add_labels3("process_memory", &rss, DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "rss");
-	metric_add_labels3("process_memory", &vsize, DATATYPE_INT, 0, "name", exName, "pid", pid_number, "type", "vsz");
-	metric_add_labels3("process_cpu", &sys_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
-	metric_add_labels3("process_cpu", &user_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "user");
-	metric_add_labels3("process_cpu", &total_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "total");
+	//metric_add_labels3("process_cpu", &sys_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "system");
+	//metric_add_labels3("process_cpu", &user_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "user");
+	//metric_add_labels3("process_cpu", &total_cpu_usage, DATATYPE_DOUBLE, 0, "name", exName, "pid", pid_number, "type", "total");
 }
 
 int64_t get_fd_info_process(char *fddir)
@@ -367,7 +454,7 @@ int64_t get_fd_info_process(char *fddir)
 	return i;
 }
 
-void get_process_io_stat(char *file, char *command)
+void get_process_io_stat(char *file, char *command, char *pid)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
@@ -379,13 +466,17 @@ void get_process_io_stat(char *file, char *command)
 	while (fgets(buf, LINUXFS_LINE_LENGTH, fd))
 	{
 		sscanf(buf, "%[^:]: %"d64"", buf2, &val);
-		metric_add_labels2("process_io", &val, DATATYPE_INT, 0, "name", command, "type", buf2 );
+		metric_add_labels3("process_io", &val, DATATYPE_INT, 0, "name", command, "type", buf2, "pid", pid);
 	}
 	fclose(fd);
 }
 
-void find_pid()
+void find_pid(int8_t lightweight)
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: processes");
+
 	struct dirent *entry;
 	DIR *dp;
 
@@ -395,6 +486,8 @@ void find_pid()
 		//perror("opendir");
 		return;
 	}
+
+	process_states *states = calloc(1, sizeof(*states));
 
 	char dir[FILENAME_MAX];
 	while((entry = readdir(dp)))
@@ -406,6 +499,7 @@ void find_pid()
 		FILE *fd = fopen(dir, "r");
 		if (!fd)
 			continue;
+
 		char procname[_POSIX_PATH_MAX];
 		if(!fgets(procname, _POSIX_PATH_MAX, fd))
 		{
@@ -416,76 +510,299 @@ void find_pid()
 		procname[procname_size] = '\0';
 		fclose(fd);
 
+		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
+		get_proc_info(dir, procname, entry->d_name, lightweight, states);
+		if (lightweight)
+			continue;
+
 		extern aconf *ac;
 		if (!match_mapper(ac->process_match, procname, procname_size))
 			continue;
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
-
-
-		get_proc_info(dir, procname, entry->d_name);
-
 		snprintf(dir, FILENAME_MAX, "/proc/%s/status", entry->d_name);
-		get_process_extra_info(dir);
+		get_process_extra_info(dir, procname, entry->d_name);
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/fd", entry->d_name);
 		int64_t filesnum = get_fd_info_process(dir);
 		if (filesnum)
-			metric_add_labels2("process_stats", &filesnum, DATATYPE_INT, 0, "name", procname, "type", "openfiles" );
+			metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, 0, "name", procname, "type", "open_files", "pid", entry->d_name);
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/io", entry->d_name);
-		get_process_io_stat(dir, procname);
+		get_process_io_stat(dir, procname, entry->d_name);
 	}
+
+	metric_add_labels("process_states", &states->running, DATATYPE_UINT, 0, "state", "running");
+	metric_add_labels("process_states", &states->sleeping, DATATYPE_UINT, 0, "state", "sleeping");
+	metric_add_labels("process_states", &states->uninterruptible, DATATYPE_UINT, 0, "state", "uninterruptible");
+	metric_add_labels("process_states", &states->zombie, DATATYPE_UINT, 0, "state", "zombie");
+	metric_add_labels("process_states", &states->stopped, DATATYPE_UINT, 0, "state", "stopped");
+	free(states);
 
 	closedir(dp);
 }
 
-void get_mem()
+void get_mem(int8_t platform)
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: base: mem");
+
 	FILE *fd = fopen("/proc/meminfo", "r");
-	if (fd)
+	if (!fd)
+		return;
+
+	char tmp[LINUXFS_LINE_LENGTH];
+	char key[LINUXFS_LINE_LENGTH];
+	char key_map[LINUXFS_LINE_LENGTH];
+	char val[LINUXFS_LINE_LENGTH];
+	int64_t ival = 1;
+	int64_t totalswap = 1;
+	int64_t freeswap = 1;
+	int64_t memtotal = 0;
+	//int64_t memfree = 0;
+	int64_t memavailable = 0;
+	int64_t inactive_anon = 0;
+	int64_t active_anon = 0;
+	int64_t inactive_file = 0;
+	int64_t active_file = 0;
+	int64_t inactive = 0;
+	int64_t active = 0;
+	int64_t cache = 0;
+	int64_t mapped = 0;
+	int64_t unevictable = 0;
+	int64_t dirty = 0;
+	int64_t pgpgin = 0;
+	int64_t pgpgout = 0;
+	int64_t pgmajfault = 0;
+	int64_t pgfault = 0;
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		char tmp[LINUXFS_LINE_LENGTH];
-		char key[LINUXFS_LINE_LENGTH];
-		char val[LINUXFS_LINE_LENGTH];
-		int64_t ival = 1;
-		int64_t totalswap = 1;
-		int64_t freeswap = 1;
-		while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
-		{
-			tmp[strlen(tmp)-1] = 0;
-			int i;
-			for (i=0; tmp[i]!=' '; i++);
-			strlcpy(key, tmp, i);
+		tmp[strlen(tmp)-1] = 0;
+		int i;
+		for (i=0; tmp[i]!=' '; i++);
+		strlcpy(key, tmp, i);
 
-			if	( !strcmp(key, "MemTotal") ) {}
-			else if ( !strcmp(key, "MemFree") ) {}
-			else if ( !strcmp(key, "Inactive") ) {}
-			else if ( !strcmp(key, "Active") ) {}
-			else if ( !strcmp(key, "SwapTotal") ) {}
-			else if ( !strcmp(key, "SwapFree") ) {}
-			else if ( !strcmp(key, "Buffers") ) {}
-			else if ( !strcmp(key, "Cached") ) {}
-			else if ( !strcmp(key, "Mapped") ) {}
-			else if ( !strcmp(key, "Shmem") ) {}
-			else	continue;
+		for (; tmp[i]==' '; i++);
+		int swap = i;
+		for (; tmp[i]!=' '; i++);
+		strlcpy(val, tmp+swap, i-swap+1);
 
-			for (; tmp[i]==' '; i++);
-			int swap = i;
-			for (; tmp[i]!=' '; i++);
-			strlcpy(val, tmp+swap, i-swap+1);
+		if ( strstr(tmp+swap, "kB") )
+			ival = 1024;
 
-			if ( strstr(tmp+swap, "kB") )
-				ival = 1024;
+		ival = ival * atoll(val);
 
-			ival = ival * atoll(val);
-				 if ( !strcmp(key, "SwapTotal") ) { totalswap = ival; }
-			else if ( !strcmp(key, "SwapFree") ) { freeswap = ival;  }
-			metric_add_labels("memory_hw_usage", &ival, DATATYPE_INT, 0, "type", key);
+		if	( !strcmp(key, "MemTotal") ) {
+			strlcpy(key_map, "total", 6);
+			memtotal = ival;
 		}
-		int64_t usageswap = totalswap - freeswap;
-		metric_add_labels("memory_hw_usage", &usageswap, DATATYPE_INT, 0, "type", "SwapUsage");
+		//else if ( !strcmp(key, "MemFree") ) {
+		//	strlcpy(key_map, "free", 5);
+		//	memfree = ival;
+		//}
+		else if ( !strcmp(key, "MemAvailable") ) {
+			strlcpy(key_map, "available", 9);
+			memavailable = ival;
+		}
+		else if ( !strcmp(key, "Inactive") ) {
+			strlcpy(key_map, "inactive", 9);
+			inactive = ival;
+		}
+		else if ( !strcmp(key, "Active") ) {
+			strlcpy(key_map, "active", 7);
+			active = ival;
+		}
+		else if ( !strcmp(key, "Inactive(anon)") ) {
+			strlcpy(key_map, "inactive_anon", 14);
+			inactive_anon = ival;
+		}
+		else if ( !strcmp(key, "Active(anon)") ) {
+			strlcpy(key_map, "active_anon", 12);
+			active_anon = ival;
+		}
+		else if ( !strcmp(key, "Inactive(file)") ) {
+			strlcpy(key_map, "inactive_anon", 14);
+			inactive_file = ival;
+		}
+		else if ( !strcmp(key, "Active(file)") ) {
+			strlcpy(key_map, "active_anon", 12);
+			active_file = ival;
+		}
+		else if ( !strcmp(key, "SwapTotal") ) {
+			strlcpy(key_map, "swap_total", 11);
+			totalswap = ival;
+		}
+		else if ( !strcmp(key, "SwapFree") ) {
+			strlcpy(key_map, "swap_free", 10);
+			freeswap = ival;
+		}
+		else if ( !strcmp(key, "Buffers") ) {
+			strlcpy(key_map, "buffers", 8);
+		}
+		else if ( !strcmp(key, "Cached") ) {
+			strlcpy(key_map, "cache", 6);
+			cache = ival;
+		}
+		else if ( !strcmp(key, "Mapped") ) {
+			strlcpy(key_map, "mapped", 7);
+			mapped = ival;
+		}
+		else if ( !strcmp(key, "Unevictable") ) {
+			strlcpy(key_map, "unevictable", 12);
+			unevictable = ival;
+		}
+		else	continue;
+
+		metric_add_labels("memory_usage_hw", &ival, DATATYPE_INT, 0, "type", key_map);
 	}
+	int64_t usageswap = totalswap - freeswap;
+	int64_t usagemem = memtotal - memavailable;
+	metric_add_labels("memory_usage_hw", &usageswap, DATATYPE_INT, 0, "type", "swap_usage");
+	metric_add_labels("memory_usage_hw", &usagemem, DATATYPE_INT, 0, "type", "usage");
+	
+	fclose(fd);
+
+	fd = fopen("/proc/vmstat", "r");
+	if (!fd)
+		return;
+
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		tmp[strlen(tmp)-1] = 0;
+		int i;
+		for (i=0; tmp[i]!=' '; i++);
+		strlcpy(key, tmp, i+1);
+
+		for (; tmp[i]==' '; i++);
+		int swap = i;
+		for (; tmp[i] && tmp[i]!=' '; i++);
+		strlcpy(val, tmp+swap, i-swap+1);
+
+		ival = atoll(val);
+		if (!strcmp(key, "pgpgin"))
+			pgpgin = ival;
+		else if (!strcmp(key, "pgpgout"))
+			pgpgout = ival;
+		else if (!strcmp(key, "pgmajfault"))
+			pgmajfault = ival;
+		else if (!strcmp(key, "pgfault"))
+			pgfault = ival;
+		else if (!strcmp(key, "oom_kill"))
+			metric_add_auto("oom_kill", &ival, DATATYPE_INT, 0);
+		else if (!platform && !strcmp(key, "pswpin"))
+			metric_add_labels("memory_stat", &ival, DATATYPE_INT, 0, "type", "pswpin");
+		else if (!platform && !strcmp(key, "pswpout"))
+			metric_add_labels("memory_stat", &ival, DATATYPE_INT, 0, "type", "pswpout");
+		else if (!platform && !strncmp(key, "numa_", 5))
+			metric_add_labels("numa_stat", &ival, DATATYPE_INT, 0, "type", key+5);
+	}
+	fclose(fd);
+
+	// scrape cgroup
+	fd = fopen("/sys/fs/cgroup/memory/memory.stat", "r");
+	if (!fd)
+		return;
+
+	ival = 1;
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		tmp[strlen(tmp)-1] = 0;
+		int i;
+		for (i=0; tmp[i]!=' '; i++);
+		strlcpy(key, tmp, i+1);
+
+		for (; tmp[i]==' '; i++);
+		int swap = i;
+		for (; tmp[i] && tmp[i]!=' '; i++);
+		strlcpy(val, tmp+swap, i-swap+1);
+
+		ival = atoll(val);
+		int8_t cgroup = platform;
+
+		if	(!strcmp(key, "total_cache")) {
+			strlcpy(key_map, "cache", 6);
+			cache = cgroup ? ival : cache;
+			metric_add_labels("memory_usage", &cache, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_rss")) {
+			strlcpy(key_map, "usage", 6);
+			usagemem = cgroup ? ival : usagemem;
+			double percentused = (double)usagemem*100/(double)memtotal;
+			double percentfree = 100 - percentused;
+			metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, 0, "type", key_map);
+			metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, 0, "type", "used");
+			metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, 0, "type", "free");
+		}
+		else if (!strcmp(key, "total_mapped_file")) {
+			strlcpy(key_map, "mapped", 7);
+			mapped = cgroup ? ival : mapped;
+			metric_add_labels("memory_usage", &mapped, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_dirty")) {
+			strlcpy(key_map, "dirty", 6);
+			dirty = cgroup ? ival : dirty;
+			metric_add_labels("memory_usage", &dirty, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_unevictable")) {
+			strlcpy(key_map, "unevictable", 12);
+			unevictable = cgroup ? ival : unevictable;
+			metric_add_labels("memory_usage", &unevictable, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_active_anon")) {
+			strlcpy(key_map, "active_anon", 12);
+			active_anon = cgroup ? ival : active_anon;
+			metric_add_labels("memory_usage", &active_anon, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_inactive_anon")) {
+			strlcpy(key_map, "inactive_anon", 14);
+			inactive_anon = cgroup ? ival : inactive_anon;
+			metric_add_labels("memory_usage", &inactive_anon, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_active_file")) {
+			strlcpy(key_map, "active_file", 12);
+			active_file = cgroup ? ival : active_file;
+			metric_add_labels("memory_usage", &active_file, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_inactive_file")) {
+			strlcpy(key_map, "inactive_file", 14);
+			inactive_file = cgroup ? ival : inactive_file;
+			metric_add_labels("memory_usage", &inactive_file, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_pgpgin")) {
+			strlcpy(key_map, "pgpgin", 7);
+			pgpgin = cgroup ? ival : pgpgin;
+			metric_add_labels("memory_stat", &pgpgin, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_pgpgout")) {
+			strlcpy(key_map, "pgpgout", 8);
+			pgpgout = cgroup ? ival : pgpgout;
+			metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_pgfault")) {
+			strlcpy(key_map, "pgfault", 8);
+			pgfault = cgroup ? ival : pgfault;
+			metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "total_pgmajfault")) {
+			strlcpy(key_map, "pgmajfault", 11);
+			pgmajfault = cgroup ? ival : pgmajfault;
+			metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, 0, "type", key_map);
+		}
+		else if (!strcmp(key, "hierarchical_memory_limit")) {
+			strlcpy(key_map, "total", 6);
+			memtotal = memtotal > ival ? ival : memtotal;
+			metric_add_labels("memory_usage", &memtotal, DATATYPE_INT, 0, "type", key_map);
+		}
+		else	continue;
+
+		metric_add_labels("memory_usage_cgroup", &ival, DATATYPE_INT, 0, "type", key_map);
+	}
+
+	inactive = inactive_file+inactive_anon;
+	active = active_file+active_anon;
+	metric_add_labels("memory_usage", &active, DATATYPE_INT, 0, "type", "active");
+	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, 0, "type", "inactive");
+	
 	fclose(fd);
 }
 
@@ -524,106 +841,211 @@ void cgroup_mem()
 		}
 	}
 	fclose(fd);
+
+	int64_t mval;
+	mval = getkvfile("/sys/fs/cgroup/memory/memory.memsw.failcnt");
+	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, 0, "type", "memsw");
+
+	mval = getkvfile("/sys/fs/cgroup/memory/memory.failcnt");
+	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, 0, "type", "mem");
+
+	mval = getkvfile("/sys/fs/cgroup/memory/memory.kmem.failcnt");
+	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, 0, "type", "kmem");
+
+	mval = getkvfile("/sys/fs/cgroup/memory/memory.kmem.tcp.failcnt");
+	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, 0, "type", "kmem_tcp");
 }
 
-void get_tcpudp_stat(char *file, char *name)
+#define TCPUDP_NET_LENREAD 10000000
+void get_net_tcpudp(char *file, char *name)
 {
+	extern aconf *ac;
+	r_time ts_start = setrtime();
+	if (ac->log_level > 2)
+		printf("system scrape metrics: network: get_net_tcpudp '%s'\n", name);
+
 	FILE *fd = fopen(file, "r");
 	if (!fd)
 		return;
 
-	size_t file_size = get_file_size(file);
-	char buf[file_size];
-	if(!fgets(buf, file_size, fd))
-	{
-		fclose(fd);
-		return;
-	}
-	int64_t udpstat[9];
+	char *buf = malloc(TCPUDP_NET_LENREAD);
 
-	int64_t retransmit = 0;
-	int64_t timeout = 0;
-	int64_t temptx = 0;
-	int64_t temprx = 0;
-	int64_t queuetx = 0;
-	int64_t queuerx = 0;
-	int64_t i, j, cnt = 0;
-	while ( fgets(buf, file_size, fd) )
+	uint8_t state;
+	//uint32_t bucket;//, srcp, destp;
+	char srcp[6];
+	char destp[6];
+	uint64_t src, dest, srcport, destport;
+
+	uint64_t established = 0;
+	uint64_t syn_sent = 0;
+	uint64_t syn_recv = 0;
+	uint64_t fin_wait1 = 0;
+	uint64_t fin_wait2 = 0;
+	uint64_t time_wait = 0;
+	uint64_t close_v = 0;
+	uint64_t close_wait = 0;
+	uint64_t last_ack = 0;
+	uint64_t listen = 0;
+	uint64_t closing = 0;
+	char *start, *end;
+
+	size_t rc;
+	char *bufend;
+	while((rc=fread(buf, 1, TCPUDP_NET_LENREAD, fd)))
 	{
-		size_t len = strlen(buf);
-		for (i=0, j=0; i<len && j<9; i++, j++)
+		bufend = buf+rc;
+		start = buf;
+		while(start < bufend)
 		{
-			int64_t val = atoll(buf+i);
-			udpstat[j] = val;
-			if ( j == 4 )
-			{
-				sscanf(buf+i, "%"PRId64":%"PRId64"", &temptx, &temprx);
-			}
+			end = strstr(start, "\n");
+			if (!end)
+				break;
+			*end = 0;
 
-			i += strcspn(buf+i, " \t");
+			char str1[INET_ADDRSTRLEN];
+			char str2[INET_ADDRSTRLEN];
+
+			char *pEnd = start;
+			pEnd += strspn(pEnd, "\t :");
+			strtoul(pEnd, &pEnd, 10);
+			pEnd += strspn(pEnd, "\t :");
+			src = strtoul(pEnd, &pEnd, 16);
+			pEnd += strspn(pEnd, "\t :");
+			srcport = strtoul(pEnd, &pEnd, 16);
+			pEnd += strspn(pEnd, "\t :");
+			dest = strtoul(pEnd, &pEnd, 16);
+			pEnd += strspn(pEnd, "\t :");
+			destport = strtoul(pEnd, &pEnd, 16);
+			pEnd += strspn(pEnd, "\t :");
+			state = strtoul(pEnd, &pEnd, 16);
+
+			snprintf(srcp, 6, "%lu", srcport);
+			snprintf(destp, 6, "%lu", destport);
+
+			inet_ntop(AF_INET, &src, str1, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET, &dest, str2, INET_ADDRSTRLEN);
+			if (state == 10)
+			{
+				uint64_t val = 1;
+				metric_add_labels6("socket_stat", &val, DATATYPE_UINT, 0, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
+				++listen;
+			}
+			else if (state == 6)
+				++time_wait;
+			else if (state == 1)
+				++established;
+			else if (state == 2)
+				++syn_sent;
+			else if (state == 3)
+				++syn_recv;
+			else if (state == 4)
+				++fin_wait1;
+			else if (state == 5)
+				++fin_wait2;
+			else if (state == 7)
+				++close_v;
+			else if (state == 8)
+				++close_wait;
+			else if (state == 9)
+				++last_ack;
+			else if (state == 11)
+				++closing;
+
+			start = end+1;
 		}
-		retransmit += udpstat[6];
-		timeout += udpstat[8];
-		queuerx += temprx;
-		queuetx += temptx;
-		cnt++;
 	}
-	metric_add_labels2("socket_stat", &retransmit, DATATYPE_INT, 0, "proto", name, "type", "retransmit");
-	metric_add_labels2("socket_stat", &timeout, DATATYPE_INT, 0, "proto", name, "type", "timeout");
-	metric_add_labels2("socket_stat", &cnt, DATATYPE_INT, 0, "proto", name, "type", "count");
-	metric_add_labels2("socket_stat", &queuetx, DATATYPE_INT, 0, "proto", name, "type", "rx_queue");
-	metric_add_labels2("socket_stat", &queuerx, DATATYPE_INT, 0, "proto", name, "type", "tx_queue");
 	fclose(fd);
+	if (established>0)
+		metric_add_labels2("socket_counters", &established, DATATYPE_UINT, 0, "state", "ESTABLISHED", "proto", name);
+	if (syn_sent>0)
+		metric_add_labels2("socket_counters", &syn_sent, DATATYPE_UINT, 0, "state", "SYN_SENT", "proto", name);
+	if (syn_recv>0)
+		metric_add_labels2("socket_counters", &syn_recv, DATATYPE_UINT, 0, "state", "SYN_RECV", "proto", name);
+	if (fin_wait1>0)
+		metric_add_labels2("socket_counters", &fin_wait1, DATATYPE_UINT, 0, "state", "FIN_WAIT1", "proto", name);
+	if (fin_wait2>0)
+		metric_add_labels2("socket_counters", &fin_wait2, DATATYPE_UINT, 0, "state", "FIN_WAIT2", "proto", name);
+	if (time_wait>0)
+		metric_add_labels2("socket_counters", &time_wait, DATATYPE_UINT, 0, "state", "TIME_WAIT", "proto", name);
+	if (close_v>0)
+		metric_add_labels2("socket_counters", &close_v, DATATYPE_UINT, 0, "state", "CLOSE", "proto", name);
+	if (close_wait>0)
+		metric_add_labels2("socket_counters", &close_wait, DATATYPE_UINT, 0, "state", "CLOSE_WAIT", "proto", name);
+	if (last_ack>0)
+		metric_add_labels2("socket_counters", &last_ack, DATATYPE_UINT, 0, "state", "LAST_ACK", "proto", name);
+	if (listen>0)
+		metric_add_labels2("socket_counters", &listen, DATATYPE_UINT, 0, "state", "LISTEN", "proto", name);
+	if (closing>0)
+		metric_add_labels2("socket_counters", &closing, DATATYPE_UINT, 0, "state", "CLOSING", "proto", name);
+	free(buf);
+
+	r_time ts_end = setrtime();
+	int64_t scrape_time = getrtime_i(ts_start, ts_end);
+	if (ac->log_level > 2)
+		printf("system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
 }
 
-void get_netstat_statistics()
+void get_netstat_statistics(char *ns_file)
 {
-	FILE *fp = fopen("/proc/net/netstat", "r");
-	size_t filesize = get_file_size("/proc/net/netstat");
-	char buf[filesize];
-	int64_t netstat[118];
-	if(!fgets(buf, filesize, fp))
-	{
-		fclose(fp);
-		return;
-	}
-	if(!fgets(buf, filesize, fp))
-	{
-		fclose(fp);
-		return;
-	}
-	int64_t i;
-	int64_t j;
-	size_t len = strlen(buf) -1;
-	buf[len] = '\0';
-	for (i=0, j=0; i<len && j<118; i++, j++)
-	{
-		int64_t val = atoll(buf+i);
-		netstat[j] = val;
-		metric_add_labels("network_stat", &netstat[0], DATATYPE_INT, 0, "type", "SyncookiesSent");
-		metric_add_labels("network_stat", &netstat[1], DATATYPE_INT, 0, "type", "SyncookiesRecv");
-		metric_add_labels("network_stat", &netstat[2], DATATYPE_INT, 0, "type", "SyncookiesFailed");
-		metric_add_labels("network_stat", &netstat[10], DATATYPE_INT, 0, "type", "TW");
-		metric_add_labels("network_stat", &netstat[11], DATATYPE_INT, 0, "type", "TWRecycled");
-		metric_add_labels("network_stat", &netstat[12], DATATYPE_INT, 0, "type", "TWKilled");
-		metric_add_labels("network_stat", &netstat[16], DATATYPE_INT, 0, "type", "DelayedACKs");
-		metric_add_labels("network_stat", &netstat[17], DATATYPE_INT, 0, "type", "DelayedACKLocked");
-		metric_add_labels("network_stat", &netstat[18], DATATYPE_INT, 0, "type", "DelayedACKLost");
-		metric_add_labels("network_stat", &netstat[19], DATATYPE_INT, 0, "type", "ListenOverflows");
-		metric_add_labels("network_stat", &netstat[20], DATATYPE_INT, 0, "type", "ListenDrops");
-		metric_add_labels("network_stat", &netstat[111], DATATYPE_INT, 0, "type", "TCPMemoryPressures");
-		metric_add_labels("network_stat", &netstat[110], DATATYPE_INT, 0, "type", "TCPAbortFailed");
-		metric_add_labels("network_stat", &netstat[108], DATATYPE_INT, 0, "type", "TCPAbortOnTimeout");
-		metric_add_labels("network_stat", &netstat[107], DATATYPE_INT, 0, "type", "TCPAbortOnMemory");
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		printf("system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
 
-		i += strcspn(buf+i, " \t");
-	}
+	FILE *fp = fopen(ns_file, "r");
+	size_t filesize = 10000;
+	char bufheader[filesize];
+	char bufbody[filesize];
+	uint64_t header_index, body_index, header_update;
+	int64_t buf_val;
+	char buf[255], proto[255];
 
+	while (1)
+	{
+		if (!fgets(bufheader, filesize, fp))
+		{
+			fclose(fp);
+			return;
+		}
+		if (!fgets(bufbody, filesize, fp))
+		{
+			fclose(fp);
+			return;
+		}
+
+		size_t header_size = strlen(bufheader);
+		size_t body_size = strlen(bufbody);
+
+		header_update = strcspn(bufheader, " \t");
+		strlcpy(proto, bufheader, header_update);
+		header_update += strspn(bufheader+header_update, " \t");
+		header_index = header_update;
+
+		body_index = strcspn(bufbody, " \t");
+
+		for (; header_index<header_size && body_index<body_size; )
+		{
+			header_update = strcspn(bufheader+header_index, " \t\n");
+			strlcpy(buf, bufheader+header_index, header_update+1);
+			header_update += strspn(bufheader+header_index+header_update, " \t\n");
+			header_index += header_update;
+
+			body_index += strcspn(bufbody+body_index, " \t");
+			buf_val = atoll(bufbody+body_index);
+			body_index += strspn(bufbody+body_index, " \t");
+
+			//printf("%s:%s: %lld\n", proto, buf, buf_val);
+			metric_add_labels2("network_stat", &buf_val, DATATYPE_INT, 0, "proto", proto, "stat", buf);
+		}
+	}
 	fclose(fp);
 }
 
 void get_network_statistics()
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: network: network_statistics");
+
 	int64_t received_bytes;
 	int64_t received_packets;
 	int64_t received_err;
@@ -659,56 +1081,59 @@ void get_network_statistics()
 		int from = strspn(buf, " ");
 		int to = strcspn(buf+from, ":");
 
+		if (!strncmp(buf+from, "veth", 4))
+			continue;
 		strlcpy(ifname, buf+from, to+1);
-		int64_t cursor = 0;
-		size_t sz = strlen(buf+from+to);
 
-		received_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
+		char *pEnd;
+		pEnd = buf+from+to + strcspn(buf+from+to, "\t ");
+		pEnd += strspn(pEnd, "\t ");
+		received_bytes = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_bytes, DATATYPE_INT, 0, "ifname", ifname, "type", "received_bytes");
 
-		received_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_packets = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_packets, DATATYPE_INT, 0, "ifname", ifname, "type", "received_packets");
 
-		received_err = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_err = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_err, DATATYPE_INT, 0, "ifname", ifname, "type", "received_err");
 
-		received_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_drop = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_drop, DATATYPE_INT, 0, "ifname", ifname, "type", "received_drop");
 
-		received_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_fifo = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_fifo, DATATYPE_INT, 0, "ifname", ifname, "type", "received_fifo");
 
-		received_frame = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_frame = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_frame, DATATYPE_INT, 0, "ifname", ifname, "type", "received_frame");
 
-		received_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_compressed = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_compressed, DATATYPE_INT, 0, "ifname", ifname, "type", "received_compressed");
 
-		received_multicast = int_get_next(buf+from+to, sz, ' ', &cursor);
+		received_multicast = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &received_multicast, DATATYPE_INT, 0, "ifname", ifname, "type", "received_multicast");
 
-		transmit_bytes = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_bytes = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_bytes, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_bytes");
 
-		transmit_packets = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_packets = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_packets, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_packets");
 
-		transmit_err = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_err = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_err, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_err");
 
-		transmit_drop = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_drop = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_drop, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_drop");
 
-		transmit_fifo = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_fifo = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_fifo, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_fifo");
 
-		transmit_colls = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_colls = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_colls, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_colls");
 
-		transmit_carrier = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_carrier = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_carrier, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_carrier");
 
-		transmit_compressed = int_get_next(buf+from+to, sz, ' ', &cursor);
+		transmit_compressed = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, 0, "ifname", ifname, "type", "transmit_compressed");
 	}
 
@@ -717,6 +1142,10 @@ void get_network_statistics()
 
 void get_nofile_stat()
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: base: nofile_stat");
+
 	FILE *fd = fopen("/proc/sys/fs/file-nr", "r");
 	if (!fd)
 		return;
@@ -740,15 +1169,25 @@ void get_nofile_stat()
 
 		i += strcspn(buf+i, " \t");
 	}
-	file_open = stat[0];
-	kern_file_max = stat[2];
-	metric_add_auto("open_files", &file_open, DATATYPE_INT, 0);
-	metric_add_auto("max_files", &kern_file_max, DATATYPE_INT, 0);
+	if (j>0)
+	{
+		file_open = stat[0];
+		metric_add_auto("open_files", &file_open, DATATYPE_INT, 0);
+	}
+	if (j>2)
+	{
+		kern_file_max = stat[2];
+		metric_add_auto("max_files", &kern_file_max, DATATYPE_INT, 0);
+	}
 	fclose(fd);
 }
 
 void get_disk_io_stat()
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: disk: io_stat");
+
 	FILE *fd = fopen("/proc/diskstats", "r");
 	if (!fd)
 		return;
@@ -774,6 +1213,9 @@ void get_disk_io_stat()
 			}
 			i += strcspn(buf+i, " \t");
 		}
+		if (j<10)
+			continue;
+
 		char bldevname[UCHAR_MAX];
 		snprintf(bldevname, UCHAR_MAX, "/sys/block/%s/queue/hw_sector_size", devname);
 		int64_t sectorsize = getkvfile(bldevname);
@@ -784,12 +1226,14 @@ void get_disk_io_stat()
 		int64_t write_timing = stat[10];
 		int64_t io_w = stat[3];
 		int64_t io_r = stat[7];
+		int64_t disk_busy = stat[12]/1000;
 		metric_add_labels2("disk_io", &io_r, DATATYPE_INT, 0, "dev", devname, "type", "transfers_read");
 		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, 0, "dev", devname, "type", "transfers_write");
 		metric_add_labels2("disk_io", &read_timing, DATATYPE_INT, 0, "dev", devname, "type", "read_timing");
 		metric_add_labels2("disk_io", &write_timing, DATATYPE_INT, 0, "dev", devname, "type", "write_timing");
 		metric_add_labels2("disk_io", &read_bytes, DATATYPE_INT, 0, "dev", devname, "type", "bytes_read");
 		metric_add_labels2("disk_io", &write_bytes, DATATYPE_INT, 0, "dev", devname, "type", "bytes_write");
+		metric_add_labels("disk_busy", &disk_busy, DATATYPE_INT, 0, "dev", devname);
 		if (j>14)
 			metric_add_labels2("disk_io", &stat[14], DATATYPE_INT, 0, "dev", devname, "type", "transfers_discard");
 	}
@@ -798,6 +1242,10 @@ void get_disk_io_stat()
 
 void get_loadavg()
 {
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: base: loadavg");
+
 	FILE *fd = fopen("/proc/loadavg", "r");
 	if (!fd)
 		return;
@@ -817,36 +1265,735 @@ void get_loadavg()
 	fclose(fd);
 }
 
+void get_uptime()
+{
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: base: uptime");
+	r_time time1 = setrtime();
+
+	time_t t = time(NULL);
+	struct tm lt = {0};
+	localtime_r(&t, &lt);
+	time1.sec += lt.tm_gmtoff;
+
+	uint64_t uptime = time1.sec - get_file_atime("/proc/1");
+	metric_add_auto("uptime", &uptime, DATATYPE_UINT, 0);
+}
+
+void get_mdadm()
+{
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: disk: mdadm");
+
+	FILE *fd;
+	fd = fopen("/proc/mdstat", "r");
+	if (!fd)
+		return;
+
+	char str1[LINUXFS_LINE_LENGTH];
+	char str2[LINUXFS_LINE_LENGTH];
+	char *tmp;
+	if(!fgets(str1, LINUXFS_LINE_LENGTH, fd))
+	{
+		fclose(fd);
+		return;
+	}
+
+	while(1)
+	{
+		*str1 = 0;
+		while ( !(tmp = strstr(str1, " : ")) )
+		{
+			if(!fgets(str1, LINUXFS_LINE_LENGTH, fd))
+			{
+				fclose(fd);
+				return;
+			}
+		}
+		if(!fgets(str2, LINUXFS_LINE_LENGTH, fd))
+		{
+			fclose(fd);
+			return;
+		}
+
+		char name[LINUXFS_LINE_LENGTH];
+		char status[LINUXFS_LINE_LENGTH];
+		char level[LINUXFS_LINE_LENGTH];
+		char dev[LINUXFS_LINE_LENGTH];
+		int64_t vl = 1;
+		int64_t nvl = 0;
+		uint64_t pt;
+		strlcpy(name, str1, tmp-str1+1);
+
+		tmp += 3;
+		pt = strcspn(tmp, " ");
+		strlcpy(status, tmp, pt+1);
+		tmp += pt;
+		tmp += strspn(tmp, " ");
+
+		pt = strcspn(tmp, " ");
+		strlcpy(level, tmp, pt+1);
+		tmp += pt;
+		tmp += strspn(tmp, " ");
+		//printf("name is '%s', status is '%s', level is '%s'\n", name, status, level);
+
+		while (*tmp)
+		{
+			pt = strcspn(tmp, " [\n");
+			strlcpy(dev, tmp, pt+1);
+			tmp += pt;
+			tmp += strspn(tmp, " [1234567890]\n");
+			//printf("dev '%s'\n", dev);
+			metric_add_labels2("raid_part", &vl, DATATYPE_INT, 0, "array", name, "dev", dev);
+		}
+
+		pt = strcspn(str2, " ");
+		int64_t size = atoll(str2+pt);
+		tmp = str2+pt;
+
+		pt = strcspn(tmp, "[")+1;
+		int64_t arr_sz = atoll(tmp+pt);
+		tmp = str2+pt;
+
+		pt = strcspn(tmp, "/")+1;
+		int64_t arr_cur = atoll(tmp+pt);
+
+		//printf("size %lld, sz %lld, cur %lld\n", size, arr_sz, arr_cur);
+		metric_add_labels3("raid_configuration", &vl, DATATYPE_INT, 0, "array", name, "status", status, "level", level);
+		metric_add_labels("raid_size_bytes", &size, DATATYPE_INT, 0, "array", name);
+		metric_add_labels2("raid_devices", &arr_cur, DATATYPE_INT, 0, "array", name, "type", "current");
+		metric_add_labels2("raid_devices", &arr_sz, DATATYPE_INT, 0, "array", name, "type", "full");
+
+		if (arr_cur != arr_sz)
+			metric_add_labels("raid_status", &nvl, DATATYPE_INT, 0, "array", name);
+		else
+			metric_add_labels("raid_status", &vl, DATATYPE_INT, 0, "array", name);
+	}
+}
+
+int8_t get_platform(int8_t mode)
+{
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		printf("system scrape metrics: base: platform %d\n", mode);
+
+	int64_t vl = 1;
+	FILE *env = fopen("/proc/1/cgroup", "r");
+	if (!env)
+		return 0;
+
+	char env_str[LINUXFS_LINE_LENGTH];
+	while(fgets(env_str, LINUXFS_LINE_LENGTH, env))
+	{
+		if (strstr(env_str, "nspawn"))
+		{
+			if (mode)
+				metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "nspawn");
+			fclose(env);
+			return PLATFORM_NSPAWN;
+		}
+		else if (strstr(env_str, "docker"))
+		{
+			if (mode)
+				metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "docker");
+			fclose(env);
+			return PLATFORM_DOCKER;
+		}
+	}
+	fclose(env);
+
+	uint8_t mbopenvz = 0;
+	env = fopen("/proc/1/environ", "r");
+	if (!env)
+		return 0;
+	if (!fgets(env_str, LINUXFS_LINE_LENGTH, env))
+	{
+		fclose(env);
+		return 0;
+	}
+	if (strstr(env_str, "container=lxc"))
+	{
+		fclose(env);
+		if (mode)
+			metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "lxc");
+		return PLATFORM_LXC;
+	}
+	fclose(env);
+
+	env = fopen("/proc/user_beancounters", "r");
+	if (env)
+	{
+		mbopenvz = 1;
+	}
+
+	env = fopen("/proc/vz/version", "r");
+	if (!env)
+	{
+		if (mbopenvz)
+		{
+			if (mode)
+				metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "openvz");
+			return PLATFORM_OPENVZ;
+		}
+		else
+		{
+			if (mode)
+				metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "bare-metal");
+			return 0;
+		}
+	}
+	else
+	{
+		if (mode)
+			metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "bare-metal");
+			return PLATFORM_BAREMETAL;
+	}
+	fclose(env);
+	return 0;
+}
+
+void interface_stats()
+{
+	extern aconf *ac;
+	if (ac->log_level > 2)
+		puts("system scrape metrics: network: interface_stats");
+
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir("/sys/class/net");
+	if (!dp)
+	{
+		//perror("opendir");
+		return;
+	}
+
+	while((entry = readdir(dp)))
+	{
+		if ( entry->d_name[0] == '.' )
+			continue;
+
+		char operfile[255];
+		char ifacestatistics[255];
+		char operstate[100];
+		snprintf(operfile, 255, "/sys/class/net/%s/operstate", entry->d_name);
+		FILE *fd = fopen(operfile, "r");
+		if (!fd)
+			return;
+		
+		if(!fgets(operstate, 100, fd))
+		{
+			fclose(fd);
+			return;
+		}
+		fclose(fd);
+		operstate[strlen(operstate)-1] = 0;
+
+		int64_t vl = 1;
+
+		metric_add_labels2("link_status", &vl, DATATYPE_INT, 0, "ifname", entry->d_name, "state", operstate);
+
+		struct dirent *entry_statistics;
+		DIR *dp_statistics;
+		snprintf(ifacestatistics, 255, "/sys/class/net/%s/statistics/", entry->d_name);
+		dp_statistics = opendir(ifacestatistics);
+		if (!dp)
+		{
+			//perror("opendir");
+			return;
+		}
+
+		while((entry_statistics = readdir(dp_statistics)))
+		{
+			if ( entry_statistics->d_name[0] == '.' )
+				continue;
+
+			char statisticsfile[255];
+			snprintf(statisticsfile, 255, "%s%s", ifacestatistics, entry_statistics->d_name);
+
+			int64_t stat = getkvfile(statisticsfile);
+
+			metric_add_labels2("interface_stats", &stat, DATATYPE_INT, 0, "ifname", entry->d_name, "type", entry_statistics->d_name);
+		}
+		closedir(dp_statistics);
+	}
+	closedir(dp);
+}
+
+void cgroup_vm(char *dir, char *template, uint8_t stat)
+{
+	struct dirent *entry;
+	DIR *dp;
+	char cntpath[1000];
+	char memory_stat[1000];
+	char buf[255];
+	char mname[255];
+	char cntname[255];
+	int64_t mval;
+	uint64_t cur1;
+
+	dp = opendir(dir);
+	if (!dp)
+	{
+		return;
+	}
+
+	while((entry = readdir(dp)))
+	{
+		if (entry->d_name[0] == '.' || entry->d_type!=DT_DIR)
+			continue;
+
+		if (!strcmp(entry->d_name, "user.slice") || !strcmp(entry->d_name, "system.slice"))
+			continue;
+
+		snprintf(cntpath, 1000, template, entry->d_name);
+
+		struct dirent *cntentry;
+		DIR *cntdp;
+
+		cntdp = opendir(cntpath);
+		if (!cntdp)
+		{
+			return;
+		}
+
+		while((cntentry = readdir(cntdp)))
+		{
+			if (cntentry->d_name[0] == '.' || cntentry->d_type!=DT_DIR)
+				continue;
+
+			if(!strncmp(cntentry->d_name, "systemd-nspawn@", 15))
+				strlcpy(cntname, cntentry->d_name+15, strlen(cntentry->d_name+15)-7);
+			else
+				strlcpy(cntname, cntentry->d_name, strlen(cntentry->d_name)+1);
+
+			if (stat == LINUX_MEMORY)
+			{
+				snprintf(memory_stat, 1000, "%s%s/memory.stat", cntpath, cntentry->d_name);
+
+				FILE *fd = fopen(memory_stat, "r");
+				if (!fd)
+				{
+					closedir(dp);
+					closedir(cntdp);
+					return;
+				}
+
+				while(fgets(buf, 1000, fd))
+				{
+					if (strncmp(buf, "total_", 6))
+						continue;
+
+					cur1 = strcspn(buf+6, " \t");
+					strlcpy(mname, buf+6, cur1+1);
+					cur1 += strspn(buf+6+cur1, " \t");
+					mval = atoll(buf+6+cur1);
+					metric_add_labels2("memory_vm", &mval, DATATYPE_INT, 0, "vm", cntname, "type", mname);
+				}
+
+				snprintf(memory_stat, 1000, "%s%s/memory.memsw.failcnt", cntpath, cntentry->d_name);
+				mval = getkvfile(memory_stat);
+				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, 0, "vm", cntname, "type", "memsw");
+
+				snprintf(memory_stat, 1000, "%s%s/memory.failcnt", cntpath, cntentry->d_name);
+				mval = getkvfile(memory_stat);
+				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, 0, "vm", cntname, "type", "mem");
+
+				snprintf(memory_stat, 1000, "%s%s/memory.kmem.failcnt", cntpath, cntentry->d_name);
+				mval = getkvfile(memory_stat);
+				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, 0, "vm", cntname, "type", "kmem");
+
+				snprintf(memory_stat, 1000, "%s%s/memory.kmem.tcp.failcnt", cntpath, cntentry->d_name);
+				mval = getkvfile(memory_stat);
+				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, 0, "vm", cntname, "type", "kmem_tcp");
+			}
+			else if (stat == LINUX_CPU)
+			{
+				snprintf(memory_stat, 1000, "%s%s/cpu.cfs_period_us", cntpath, cntentry->d_name);
+				int64_t cfs_period = getkvfile(memory_stat);
+				snprintf(memory_stat, 1000, "%s%s/cpu.cfs_quota_us", cntpath, cntentry->d_name);
+				int64_t cfs_quota = getkvfile(memory_stat);
+				if ( cfs_quota < 0 )
+					cfs_quota = 1;
+
+
+				snprintf(memory_stat, 1000, "%s%s/cpuacct.usage_sys", cntpath, cntentry->d_name);
+				int64_t cgroup_system_ticks = getkvfile(memory_stat);
+				double cgroup_system_usage = cgroup_system_ticks*cfs_period/1000000000/cfs_quota*100.0;
+
+				snprintf(memory_stat, 1000, "%s%s/cpuacct.usage_user", cntpath, cntentry->d_name);
+				int64_t cgroup_user_ticks = getkvfile(memory_stat);
+				double cgroup_user_usage = cgroup_user_ticks*cfs_period/1000000000/cfs_quota*100.0;
+
+				double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
+				metric_add_labels2("cpu_usage_vm", &cgroup_system_usage, DATATYPE_DOUBLE, 0, "vm", cntname, "type", "system");
+				metric_add_labels2("cpu_usage_vm", &cgroup_user_usage, DATATYPE_DOUBLE, 0, "vm", cntname, "type", "user");
+				metric_add_labels2("cpu_usage_vm", &cgroup_total_usage, DATATYPE_DOUBLE, 0, "vm", cntname, "type", "total");
+			}
+		}
+		closedir(cntdp);
+	}
+
+	closedir(dp);
+}
+
+void get_memory_errors()
+{
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir("/sys/devices/system/edac/mc/mc0/");
+	if (!dp)
+		return;
+
+	while((entry = readdir(dp)))
+	{
+		if ( entry->d_name[0] == '.' )
+			continue;
+		if (strncmp(entry->d_name, "csrow", 5))
+			continue;
+
+		struct dirent *rowentry;
+		DIR *rowdp;
+
+		char rowname[255];
+		char chname[255];
+		snprintf(rowname, 255, "/sys/devices/system/edac/mc/mc0/%s/", entry->d_name);
+		rowdp = opendir(rowname);
+		if (!rowdp)
+			continue;
+
+		while((rowentry = readdir(rowdp)))
+		{
+			if ( rowentry->d_name[0] == '.' )
+				continue;
+
+			if (strstr(rowentry->d_name, "_ce_count"))
+			{
+				snprintf(chname, 255, "%s/%s", rowname, rowentry->d_name);
+				int cur = strcspn(rowentry->d_name+2, "_");
+				char channel[100];
+				strlcpy(channel, rowentry->d_name+2, cur+1);
+				int64_t correrrors = getkvfile(chname);
+				metric_add_labels3("memory_errors", &correrrors, DATATYPE_INT, 0, "type", "correctable", "row", entry->d_name+5, "channel", channel);
+			}
+		}
+		closedir(rowdp);
+
+		snprintf(chname, 255, "%s/ue_count", rowname);
+		int64_t uncorrerrors = getkvfile(chname);
+		metric_add_labels2("memory_errors", &uncorrerrors, DATATYPE_INT, 0, "type", "uncorrectable", "row", entry->d_name+5);
+	}
+	closedir(dp);
+}
+
+void get_thermal()
+{
+	char fname[255];
+	char monname[255];
+	char devname[255];
+	char *tmp;
+	char name[255];
+	int64_t temp;
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir("/sys/class/hwmon/");
+	if (!dp)
+		return;
+
+	while((entry = readdir(dp)))
+	{
+		if ( entry->d_name[0] == '.' )
+			continue;
+	
+		struct dirent *monentry;
+		DIR *mondp;
+
+		snprintf(monname, 255, "/sys/class/hwmon/%s/", entry->d_name);
+		mondp = opendir(monname);
+		if (!mondp)
+			continue;
+
+		// get device name
+		snprintf(fname, 255, "%s/name", monname);
+		FILE *fd = fopen(fname, "r");
+		if(!fd)
+		{
+			closedir(mondp);
+			continue;
+		}
+		if(!fgets(name, 255, fd))
+		{
+			closedir(mondp);
+			fclose(fd);
+			continue;
+		}
+		name[strlen(name)-1] = 0;
+		fclose(fd);
+
+
+		while((monentry = readdir(mondp)))
+		{
+			if ( monentry->d_name[0] == '.' )
+				continue;
+
+			if ((tmp = strstr(monentry->d_name, "_label")))
+			{
+				// get component name
+				snprintf(fname, 255, "%s/%s", monname, monentry->d_name);
+				FILE *fd = fopen(fname, "r");
+				if(!fd)
+					continue;
+				if(!fgets(devname, 255, fd))
+				{
+					fclose(fd);
+					continue;
+				}
+				devname[strlen(devname)-1] = 0;
+				fclose(fd);
+
+				strlcpy(fname+strlen(monname)+(tmp-monentry->d_name)+1, "_input", 7);
+				temp = getkvfile(fname);
+				
+				metric_add_labels3("core_temp", &temp, DATATYPE_INT, 0, "name", name, "component", devname, "hwmon", entry->d_name);
+			}
+		}
+
+		closedir(mondp);
+	}
+
+	closedir(dp);
+}
+
+void get_smart_info()
+{
+	FILE *fd = fopen("/proc/partitions", "r");
+	if (!fd)
+		return;
+
+	char buf[1000];
+	char dev[255];
+	strlcpy(dev, "/dev/", 6);
+	uint64_t cur;
+	fgets(buf, 1000, fd);
+	fgets(buf, 1000, fd);
+	while (fgets(buf, 1000, fd))
+	{
+		cur = strcspn(buf, " ");
+		cur += strspn(buf+cur, " ");
+		cur += strcspn(buf+cur, " ");
+		cur += strspn(buf+cur, " ");
+		cur += strcspn(buf+cur, " ");
+		cur += strspn(buf+cur, " ");
+		cur += strcspn(buf+cur, " ");
+		cur += strspn(buf+cur, " ");
+		size_t len = strlen(buf+cur);
+		if (isdigit(buf[cur+len-2]))
+			continue;
+
+		strlcpy(dev+5, buf+cur, len);
+		get_ata_smart_info(dev);
+	}
+	fclose(fd);
+}
+
+void get_buddyinfo()
+{
+	FILE *fd = fopen("/proc/buddyinfo", "r");
+	if (!fd)
+		return;
+
+	char buf[1000];
+	char zone[255];
+	char node[255];
+	char index[19];
+	size_t diff;
+	uint64_t count;
+
+	while (fgets(buf, 1000, fd))
+	{
+		size_t len = strlen(buf)-1;
+		buf[len] = 0;
+
+		char *cur = buf + 5;
+		char *tmp;
+		size_t node_size = strcspn(cur, " \t");
+		strlcpy(node, cur, node_size+1);
+
+		tmp = strstr(cur, "zone");
+		if (!tmp)
+			continue;
+
+		cur = tmp + 4;
+		cur += strspn(cur, " \t");
+		size_t zone_size = strcspn(cur, " \t");
+		strlcpy(zone, cur, zone_size+1);
+
+		cur += zone_size;
+
+		uint64_t i;
+		for (i = 0; cur-buf != len && i < 50; ++i)
+		{
+			count = strtoull(cur, &cur, 10);
+			snprintf(index, 19, "%"u64, i);
+			//printf("%s %s %s %llu\n", node, zone, index, count);
+			metric_add_labels3("buddyinfo_count", &count, DATATYPE_UINT, 0, "node", node, "zone", zone, "size", index);
+
+			diff = strspn(cur, " \t");
+			cur += diff;
+		}
+	}
+
+	fclose(fd);
+}
+
+void get_kernel_version(int8_t platform)
+{
+	FILE *fd = fopen("/proc/version", "r");
+	if (!fd)
+		return;
+
+	char buf[1000];
+	char *cur;
+	size_t version_size;
+	char version[255];
+
+	if (!fgets(buf, 1000, fd))
+	{
+		fclose(fd);
+		return;
+	}
+
+	cur = strstr(buf, "version");
+	if (!cur)
+	{
+		fclose(fd);
+		return;
+	}
+	cur += strcspn(cur+7, " \t") + 7;
+	cur += strspn(cur, " \t");
+	version_size = strcspn(cur, " \t");
+	strlcpy(version, cur, version_size+1);
+	int64_t vl = 1;
+	if (platform == PLATFORM_BAREMETAL)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, 0, "version", version, "platform", "bare-metal");
+	else if (platform == PLATFORM_LXC)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, 0, "version", version, "platform", "lxc");
+	else if (platform == PLATFORM_DOCKER)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, 0, "version", version, "platform", "docker");
+	else if (platform == PLATFORM_OPENVZ)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, 0, "version", version, "platform", "openvz");
+
+	fclose(fd);
+}
+
+void get_alligator_info()
+{
+	char genpath[255];
+	char val[255];
+	int64_t ival;
+	snprintf(genpath, 255, "/proc/%"d64"/status", (int64_t)getpid());
+	FILE *fd = fopen(genpath, "r");
+	if (!fd)
+		return;
+
+	char tmp[LINUXFS_LINE_LENGTH];
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		size_t tmp_len = strlen(tmp)-1;
+		tmp[tmp_len] = 0;
+		int64_t i = strcspn(tmp, " \t");
+
+		int swap = strspn(tmp+i, " \t")+i;
+		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
+		strlcpy(val, tmp+swap, i-swap+1);
+
+		ival = atoll(val);
+
+		if ( strstr(tmp+swap, "kB") )
+			ival *= 1024;
+
+		if ( !strncmp(tmp, "VmRSS", 5) )
+			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, 0, "type", "rss");
+		if ( !strncmp(tmp, "VmSize", 6) )
+			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, 0, "type", "vsz");
+	}
+	fclose(fd);
+}
+
 void get_system_metrics()
 {
 	extern aconf *ac;
+	int8_t platform = -1;
 	if (ac->system_base)
 	{
-		get_cpu();
-		cgroup_mem();
-		get_mem();
+		get_uptime();
+		platform = get_platform(1);
+		get_mem(platform);
 		get_nofile_stat();
 		get_loadavg();
+		get_kernel_version(platform);
+		get_alligator_info();
+		if (!platform)
+		{
+			get_memory_errors();
+			get_thermal();
+			get_buddyinfo();
+		}
 	}
 
 	if (ac->system_network)
 	{
 		get_network_statistics();
-		get_netstat_statistics();
-		get_tcpudp_stat("/proc/net/tcp", "tcp");
-		get_tcpudp_stat("/proc/net/tcp6", "tcp6");
-		get_tcpudp_stat("/proc/net/udp", "udp");
-		get_tcpudp_stat("/proc/net/udp6", "udp6");
+		get_netstat_statistics("/proc/net/netstat");
+		get_netstat_statistics("/proc/net/snmp");
+		interface_stats();
+		get_net_tcpudp("/proc/net/tcp", "tcp");
+		get_net_tcpudp("/proc/net/tcp6", "tcp6");
+		get_net_tcpudp("/proc/net/udp", "udp");
+		get_net_tcpudp("/proc/net/udp6", "udp6");
 	}
 	if (ac->system_disk)
 	{
 		get_disk_io_stat();
 		get_disk();
+		if (platform == -1)
+			platform = get_platform(0);
+		if (!platform)
+			get_mdadm();
 	}
 
 	if (ac->system_process)
 	{
-		find_pid();
+		find_pid(0);
+	}
+	else if (ac->system_base)
+		find_pid(1);
+
+	if (ac->system_vm)
+	{
+		cgroup_vm("/sys/fs/cgroup/memory/", "/sys/fs/cgroup/memory/%s/", LINUX_MEMORY);
+		cgroup_vm("/sys/fs/cgroup/cpuacct/", "/sys/fs/cgroup/cpuacct/%s/", LINUX_CPU);
+	}
+
+	if (ac->system_smart)
+	{
+		if (platform == -1)
+			platform = get_platform(0);
+		if (!platform)
+			get_smart_info();
+	}
+}
+
+void system_fast_scrape()
+{
+	extern aconf *ac;
+	if (ac->system_base)
+	{
+		get_cpu(get_platform(0));
 	}
 }
 

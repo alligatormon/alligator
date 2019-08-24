@@ -1,9 +1,12 @@
 #pragma once
 #include <uv.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
 #include "config/context.h"
 #include "dstructures/tommyds/tommyds/tommy.h"
+#include "evt_tls.h"
 
 typedef struct client_info
 {
@@ -32,6 +35,15 @@ typedef struct client_info
 	char *http_body;
 	regex_match *rematch;
 	mapping_metric *mm;
+
+	char *tls_certificate;
+	char *tls_key;
+	evt_ctx_t *ctx;
+
+	uint64_t conn_counter;
+	uint64_t read_counter;
+
+	void *data; // for parser-data
 
 	tommy_node node;
 } client_info;

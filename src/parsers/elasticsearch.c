@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/client_info.h"
+#include "parsers/elasticsearch.h"
 void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 {
 	json_error_t error;
@@ -14,6 +15,9 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	const char* cluster_name = json_string_value(cluster_name_json);
+	elastic_settings *es_data = cinfo->data;
+	if (!es_data->cluster_name)
+		es_data->cluster_name = strdup(cluster_name);
 
 	// get _nodes
 	int64_t _nodes_attr;
@@ -193,6 +197,9 @@ void elasticsearch_health_handler(char *metrics, size_t size, client_info *cinfo
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	const char* cluster_name = json_string_value(cluster_name_json);
+	elastic_settings *es_data = cinfo->data;
+	if (!es_data->cluster_name)
+		es_data->cluster_name = strdup(cluster_name);
 
 	// get cluster status
 	json_t *cluster_status_json = json_object_get(root, "status");
@@ -298,8 +305,12 @@ void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo)
 	// get cluster name
 	//json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	//const char* cluster_name = json_string_value(cluster_name_json);
-	const char* cluster_name = "cluster";
-	printf("cluster_name is %s\n", cluster_name);
+	//
+	elastic_settings *es_data = cinfo->data;
+	if (!es_data->cluster_name)
+		return;
+
+	char* cluster_name = es_data->cluster_name;
 
 	// get _nodes
 	int64_t _nodes_attr;
@@ -451,5 +462,83 @@ void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo)
 		}
 	}
 
+	json_decref(root);
+}
+
+void elasticsearch_settings_handler(char *metrics, size_t size, client_info *cinfo)
+{
+	elastic_settings *es_data = cinfo->data;
+	if (!es_data->cluster_name)
+		return;
+
+	char* cluster_name = es_data->cluster_name;
+
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+
+	char string2[255];
+	char string3[255];
+	char string4[255];
+	strlcpy(string2, "elasticsearch_settings_", 24);
+	strlcpy(string3, "elasticsearch_settings_", 24);
+	strlcpy(string4, "elasticsearch_settings_", 24);
+	size_t stringlen2;
+	size_t stringlen3;
+	size_t stringlen4;
+
+	json_t *value;
+	char *key;
+	json_object_foreach(root, key, value)
+	{
+		json_t *nodes = json_object_get(value, "settings");
+
+		json_t *node_value;
+		const char *node_key;
+		json_object_foreach(nodes, node_key, node_value)
+		{
+			stringlen2 = strlen(node_key);
+			strlcpy(string2+23, node_key, stringlen2+1);
+			strlcpy(string3+23, node_key, stringlen2+1);
+			strlcpy(string4+23, node_key, stringlen2+1);
+			//printf("\t\t%s:%s\n", node_key, string2);
+
+			json_t *node_value2;
+			const char *node_key2;
+			json_object_foreach(node_value, node_key2, node_value2)
+			{
+				stringlen3 = strlen(node_key2);
+				string3[stringlen2+23] = '_';
+				string4[stringlen2+23] = '_';
+				strlcpy(string3+stringlen2+1+23, node_key2, stringlen3+1);
+				strlcpy(string4+stringlen2+1+23, node_key2, stringlen3+1);
+
+				//printf("\t\t%s:%s\n", node_key2, string3);
+				json_t *node_value3;
+				const char *node_key3;
+				json_object_foreach(node_value2, node_key3, node_value3)
+				{
+					stringlen4 = strlen(node_key3);
+					string4[stringlen2+stringlen3+24] = '_';
+					strlcpy(string4+stringlen2+stringlen3+1+24, node_key3, stringlen4+1);
+
+					//json_t *val_json = json_object_get(node_value3, "cluster_name");
+					const char* val = json_string_value(node_value3);
+					if (val)
+					{
+						int64_t vl;
+						//printf("\t\t\t%s:%s:%s\n", node_key3, string4, val);
+						if (!strncmp(val, "true", 4))
+							vl = 1;
+						else if (!strncmp(val, "false", 5))
+							vl = 0;
+
+						metric_add_labels2(string4, &vl, DATATYPE_INT, 0, "cluster", cluster_name, "index", key, "key");
+					}
+				}
+			}
+		}
+	}
 	json_decref(root);
 }

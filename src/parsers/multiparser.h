@@ -45,6 +45,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 void elasticsearch_cluster_handler(char *metrics, size_t size, client_info *cinfo);
 void elasticsearch_health_handler(char *metrics, size_t size, client_info *cinfo);
 void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo);
+void elasticsearch_settings_handler(char *metrics, size_t size, client_info *cinfo);
 void eventstore_stats_handler(char *metrics, size_t size, client_info *cinfo);
 void eventstore_projections_handler(char *metrics, size_t size, client_info *cinfo);
 void eventstore_info_handler(char *metrics, size_t size, client_info *cinfo);
@@ -55,3 +56,4 @@ void log_handler(char *metrics, size_t size, client_info *cinfo);
 void nginx_upstream_check_handler(char *metrics, size_t size, client_info *cinfo);
 void monit_handler(char *metrics, size_t size, client_info *cinfo);
 void dummy_handler(char *metrics, size_t size, client_info *cinfo);
+void rsyslog_impstats_handler(char *metrics, size_t size, client_info *cinfo);

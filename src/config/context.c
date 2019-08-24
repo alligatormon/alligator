@@ -4,6 +4,8 @@
 #include "common/http.h"
 #include "common/fastcgi.h"
 #include "modules/modules.h"
+#include "parsers/multiparser.h"
+#include "parsers/elasticsearch.h"
 
 int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 {
@@ -82,12 +84,12 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		if (!strcmp(mt->st[*i-1].s, "prometheus"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n");
+			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "plain"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n");
+			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", NULL);
 		}
 #ifndef _WIN64
 #ifdef __linux__
@@ -100,7 +102,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, http_proto_handler, query);
+			smart_aggregator_selector(hi, http_proto_handler, query, NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "process"))
 		{
@@ -121,31 +123,31 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, "/?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL);
 
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20metric,value\%20from\%20system.asynchronous_metrics", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL);
                         
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20event,value%20from\%20system.events", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL);
                         
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_columns_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_columns_handler, query, hi->proto, NULL);
                         
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_dictionary_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_dictionary_handler, query, hi->proto, NULL);
                         
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_merges_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_merges_handler, query, hi->proto, NULL);
                         
 			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			query = gen_http_query(0, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_replicas_handler, query, hi->proto);
+			do_tcp_client(hi->host, hi->port, clickhouse_replicas_handler, query, hi->proto, NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
@@ -156,7 +158,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			else
 				snprintf(query, 1000, "INFO ALL\n");
 			//do_tcp_client(hi->host, hi->port, redis_handler, query);
-			smart_aggregator_selector(hi, redis_handler, query);
+			smart_aggregator_selector(hi, redis_handler, query, NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "sentinel"))
 		{
@@ -171,6 +173,29 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "memcached"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			if (hi->proto == APROTO_TLS)
+			{
+				uint8_t n = 1;
+				char *ptr;
+				ptr = mt->st[*i].s;
+				for (n=1; strncmp(ptr, ";", 1); ++n)
+				{
+					ptr = config_get_arg(mt, *i, n, NULL);
+					if (!strncmp(ptr, "tls_certificate", 15))
+					{
+						char *ptrval = ptr + strcspn(ptr+15, "=") + 15;
+						ptrval += strspn(ptrval, "= ");
+						printf("certificate '%s'\n", ptrval);
+					}
+					else if (!strncmp(ptr, "tls_key", 7))
+					{
+						char *ptrval = ptr + strcspn(ptr+7, "=") + 7;
+						ptrval += strspn(ptrval, "= ");
+						printf("key '%s'\n", ptrval);
+					}
+				}
+				*i += n;
+			}
 			smart_aggregator_selector(hi, memcached_handler, "stats\n");
 		}
 		else if (!strcmp(mt->st[*i-1].s, "beanstalkd"))
@@ -398,27 +423,34 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		}
 		else if (!strcmp(mt->st[*i-1].s, "elasticsearch"))
 		{
+			elastic_settings *data = calloc(1, sizeof(*data));
+
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
 			char nodes_string[255];
 			snprintf(nodes_string, 255, "%s%s", hi->query, "/_nodes/stats");
 			char *nodes_query = gen_http_query(0, nodes_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_nodes_handler, nodes_query);
+			smart_aggregator_selector(hi, elasticsearch_nodes_handler, nodes_query, data);
 
 			char cluster_string[255];
 			snprintf(cluster_string, 255, "%s%s", hi->query, "/_cluster/stats");
 			char *cluster_query = gen_http_query(0, cluster_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_cluster_handler, cluster_query);
+			smart_aggregator_selector(hi, elasticsearch_cluster_handler, cluster_query, data);
 
 			char health_string[255];
 			snprintf(health_string, 255, "%s%s", hi->query, "/_cluster/health?level=shards");
 			char *health_query = gen_http_query(0, health_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_health_handler, health_query);
+			smart_aggregator_selector(hi, elasticsearch_health_handler, health_query, data);
 
 			char index_string[255];
 			snprintf(index_string, 255, "%s%s", hi->query, "/_stats");
 			char *index_query = gen_http_query(0, index_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_index_handler, index_query);
+			smart_aggregator_selector(hi, elasticsearch_index_handler, index_query, data);
+
+			char settings_string[255];
+			snprintf(settings_string, 255, "%s%s", hi->query, "/_settings");
+			char *settings_query = gen_http_query(0, settings_string, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, elasticsearch_settings_handler, settings_query, data);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "monit"))
 		{
@@ -426,7 +458,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			char string[255];
 			snprintf(string, 255, "%s%s", hi->query, "/_status?format=xml&level=full");
 			char *query = gen_http_query(0, string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, monit_handler, query);
+			smart_aggregator_selector(hi, monit_handler, query, NULL);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "mssql"))
 		{
@@ -613,6 +645,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			handler = &log_handler;
 			//context_log_handler_parser(mt, i);
 		}
+		else if(!strncmp(mt->st[*i-1].s, "handler", 7) && !strncmp(mt->st[*i].s, "rsyslog-impstats", 16))
+		{
+			handler = &rsyslog_impstats_handler;
+		}
 		else if(config_compare_begin(mt, *i, "mapping", 7))
 		{
 			++*i;
@@ -636,6 +672,7 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 #ifndef _WIN64
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
 		{
+			printf("udp %p\n", handler);
 			char *port = strstr(mt->st[*i].s, ":");
 			if (port)
 			{
@@ -673,6 +710,8 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_network = 1;
 		else if (!strcmp(mt->st[*i].s, "vm"))
 			ac->system_vm = 1;
+		else if (!strcmp(mt->st[*i].s, "smart"))
+			ac->system_smart = 1;
 		//else if (!strcmp(mt->st[*i].s, "process"))
 		else if (config_compare_begin(mt, *i, "process", 7))
 		{

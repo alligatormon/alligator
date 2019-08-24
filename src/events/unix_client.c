@@ -42,7 +42,7 @@ static void uggregator_timer_cb(uv_timer_t* handle) {
 	tommy_hashdyn_foreach(ac->uggregator, socket_conn);
 }
 
-void do_unix_client(char *unixsockaddr, void *handler, char *mesg, int proto)
+void do_unix_client(char *unixsockaddr, void *handler, char *mesg, int proto, void *data)
 {
 	if (!unixsockaddr)
 		return;
@@ -51,6 +51,7 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg, int proto)
 	extern aconf* ac;
 	client_info *cinfo = malloc(sizeof(*cinfo));
 	cinfo->proto = proto;
+	cinfo->data = data;
 	cinfo->parser_handler = handler;
 	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 	cinfo->mesg = mesg;
@@ -64,7 +65,7 @@ void do_unix_client(char *unixsockaddr, void *handler, char *mesg, int proto)
 	tommy_hashdyn_insert(ac->uggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
 }
 
-void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, size_t buflen, int proto)
+void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, size_t buflen, int proto, void *data)
 {
 	if (!unixsockaddr)
 		return;
@@ -73,6 +74,7 @@ void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, 
 	extern aconf* ac;
 	client_info *cinfo = malloc(sizeof(*cinfo));
 	cinfo->proto = proto;
+	cinfo->data = data;
 	cinfo->parser_handler = handler;
 	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
 	cinfo->mesg = NULL;

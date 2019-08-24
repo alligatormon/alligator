@@ -78,6 +78,7 @@ void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 			alligator_multiparser(hr_data->body, nread, cinfo->parser_handler, NULL, cinfo);
 			uv_close((uv_handle_t*)tcp, on_close);
 			free(buf->base);
+			http_reply_free(hr_data);
 			return;
 		}
 
@@ -168,7 +169,7 @@ void tcp_on_connect(uv_connect_t* connection, int status)
 	uv_read_start(stream, alloc_buffer, tcp_on_read);
 	if (cinfo->write == 1)
 	{
-		uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg)+1);
+		uv_buf_t buffer = uv_buf_init(cinfo->mesg, strlen(cinfo->mesg));
 		uv_write_t *request = malloc(sizeof(*request));
 		request->data = cinfo;
 		uv_write(request, stream, &buffer, 1, tcp_on_write);
@@ -224,7 +225,8 @@ void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *re
 	extern aconf* ac;
 	client_info *cinfo = resolver->data;
 
-	if (status == -1 || !res) {
+	if (status == -1 || !res)
+	{
 		fprintf(stderr, "getaddrinfo callback error\n");
 		return;
 	}
@@ -241,11 +243,13 @@ void tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *re
 	tommy_hashdyn_insert(ac->aggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
 }
 
-void do_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto)
+void do_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto, void *data)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	client_info *cinfo = calloc(1, sizeof(*cinfo));
+	cinfo->data = data;
+
 	if (ac->log_level > 2)
 		printf("allocated CINFO with addr %p with hostname '%s' with mesg '%s'\n", cinfo, addr, mesg);
 	cinfo->mesg = mesg;
@@ -273,11 +277,13 @@ void do_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto)
 	}
 }
 
-void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffer, size_t buflen, int proto)
+void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffer, size_t buflen, int proto, void *data)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	client_info *cinfo = calloc(1, sizeof(*cinfo));
+	cinfo->data = data;
+
 	if (ac->log_level > 2)
 		printf("allocated CINFO with addr %p with hostname '%s' with buf '%p'\n", cinfo, addr, buffer);
 	cinfo->buffer = buffer;

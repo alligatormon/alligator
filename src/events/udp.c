@@ -3,14 +3,6 @@
 #include <string.h>
 #include "main.h"
 
-typedef struct udp_server_info
-{
-	void *parser_handler;
-	uint64_t conn_counter;
-	uint64_t read_counter;
-	char *key;
-} udp_server_info;
-
 void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
 	if (nread < 0)
 	{
@@ -19,14 +11,14 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		free(buf->base);
 		return;
 	}
-	udp_server_info *udpinfo = req->data;
-	(udpinfo->conn_counter)++;
-	(udpinfo->read_counter)++;
+	client_info *cinfo = req->data;
+	(cinfo->conn_counter)++;
+	(cinfo->read_counter)++;
 
-	metric_add_labels("udp_entrypoint_connect", &udpinfo->conn_counter, DATATYPE_UINT, 0, "entrypoint", udpinfo->key);
-	metric_add_labels("udp_entrypoint_read", &udpinfo->read_counter, DATATYPE_UINT, 0, "entrypoint", udpinfo->key);
+	metric_add_labels("udp_entrypoint_connect", &cinfo->conn_counter, DATATYPE_UINT, 0, "entrypoint", cinfo->key);
+	metric_add_labels("udp_entrypoint_read", &cinfo->read_counter, DATATYPE_UINT, 0, "entrypoint", cinfo->key);
 
-	alligator_multiparser(buf->base, nread, udpinfo->parser_handler, NULL, NULL);
+	alligator_multiparser(buf->base, nread, cinfo->parser_handler, NULL, cinfo);
 	free(buf->base);
 }
 
@@ -39,14 +31,17 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	free(req);
 }
 
-void udp_server_handler(char *addr, uint16_t port, void* parser_handler)
+void udp_server_handler(char *addr, uint16_t port, void* parser_handler, client_info *cinfo)
 {
-	udp_server_info *udpinfo = malloc(sizeof(*udpinfo));
-	udpinfo->parser_handler = parser_handler;
-	udpinfo->conn_counter = 0;
-	udpinfo->read_counter = 0;
-	udpinfo->key = malloc(255);
-	snprintf(udpinfo->key, 255, "%s:%"PRIu16, addr, port);
+	if (!cinfo)
+		cinfo = malloc(sizeof(*cinfo));
+	cinfo->parser_handler = parser_handler;
+
+	cinfo->parser_handler = parser_handler;
+	cinfo->conn_counter = 0;
+	cinfo->read_counter = 0;
+	cinfo->key = malloc(255);
+	snprintf(cinfo->key, 255, "%s:%"PRIu16, addr, port);
 
 	uv_loop_t *loop = uv_default_loop();
 	uv_udp_t *recv_socket = calloc(1, sizeof(*recv_socket));
@@ -54,7 +49,7 @@ void udp_server_handler(char *addr, uint16_t port, void* parser_handler)
 	struct sockaddr_in *recv_addr = calloc(1, sizeof(*recv_addr));
 	uv_ip4_addr(addr, port, recv_addr);
 	uv_udp_bind(recv_socket, (const struct sockaddr *)recv_addr, 0);
-	recv_socket->data = udpinfo;
+	recv_socket->data = cinfo;
 	uv_udp_recv_start(recv_socket, alloc_buffer, udp_on_read);
 }
 

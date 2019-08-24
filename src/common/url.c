@@ -126,6 +126,7 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			strlcpy(hi->port, "443", 4);
 			hi->query = strdup("/");
 		}
+		//printf("proto %d\n", hi->proto);
 		//printf("host %s\n", hi->host);
 		//printf("query %s\n", hi->query);
 		//printf("port %s\n", hi->port);
@@ -198,7 +199,45 @@ host_aggregator_info *parse_url (char *str, size_t len)
 			hi->user = 0;
 			hi->pass = 0;
 		}
-		
+
+		hi->host = strndup(tmp, k);
+
+		tmp += k;
+		if (*tmp == ':')
+			tmp++;
+		else
+		{
+			free(hi->host);
+			free(hi);
+			return NULL;
+		}
+
+		k = strcspn(tmp, "\0");
+		strlcpy(hi->port, tmp, k+1);
+	}
+	else if ( !strncmp(str, "tls://", 6) )
+	{
+		int64_t k;
+		int64_t t;
+		tmp = str+6;
+		hi->proto = APROTO_TLS;
+
+		t = strcspn(tmp, "@");
+		k = strcspn(tmp, ":");
+		if ((t > k) && (t != len-6))
+		{
+			hi->user = strndup(tmp, k);
+			hi->pass = strndup(tmp+k+1, t-k-1);
+			tmp += t;
+			++tmp;
+			k = strcspn(tmp, ":");
+		}
+		else
+		{
+			hi->user = 0;
+			hi->pass = 0;
+		}
+
 		hi->host = strndup(tmp, k);
 
 		tmp += k;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.9.45)
+project(alligator VERSION 1.9.114)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -30,6 +30,7 @@ IF(WIN32)
 		dstructures/tommyds/tommyds/tommytree.c
 		dstructures/tommyds/tommyds/tommytrie.c
 		dstructures/tommyds/tommyds/tommyarrayblk.c
+		evt-tls/src/evt_tls.c
 		system/windows.c
 		common/selector.c
 		events/uv_alloc.c
@@ -48,6 +49,7 @@ IF(WIN32)
 		config/mapping.c
 		parsers/winparser.c
 		common/rtime.c
+		common/mapping.c
 		platform/windows.c
 		#parsers/prom_format.c
 		parsers/sqlserver.c
@@ -64,18 +66,24 @@ ELSE(WIN32)
 	include_directories(/usr/include/cutter)
 	include_directories(/usr/local/include/cutter)
 	include_directories(/usr/local/opt/openssl/include/)
+	include_directories(evt-tls/api)
+	include_directories(evt-tls)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
+	include_directories(./libatasmart)
 
 	link_directories(./openssl-1.0.2s)
+	link_directories(./libatasmart/.libs/)
 	link_directories(/usr/local/lib64/)
 	link_directories(/usr/local/lib/)
 	#link_directories(/usr/local/opt/openssl/lib/)
 
 	set(STATIC_FILES
+		events/uv_tls.c
 		events/uv_alloc.c
 		events/a_signal.c
 		events/httpserver.c
 		events/client.c
+		events/sclient.c
 		events/process.c
 		events/unix_client.c
 		events/unix_server.c
@@ -87,11 +95,12 @@ ELSE(WIN32)
 		events/fs_write.c
 		events/system_scrape.c
 		platform/libbsd.c
+		parsers/dummy.c
 		parsers/pushgateway.c
 		parsers/multiparser.c
 		parsers/multicollector.c
 		parsers/clickhouse.c
-		#parsers/aerospike.c
+		parsers/aerospike.c
 		parsers/redis.c
 		parsers/sentinel.c
 		parsers/mssql.c
@@ -114,6 +123,7 @@ ELSE(WIN32)
 		parsers/elasticsearch.c
 		parsers/nginx_upstream_check.c
 		parsers/monit.c
+		parsers/rsyslog_impstats.c
 		common/selector.c
 		common/https_tls_check.c
 		common/pem_check.c
@@ -127,8 +137,8 @@ ELSE(WIN32)
 		common/json_parser.c
 		common/pcre_parser.c
 		common/xml.c
-		#dstructures/metric.c
-		#dstructures/rbtree.c
+		common/mapping.c
+		common/smart.c
 		config/aggregate.c
 		config/file.c
 		config/context.c
@@ -140,6 +150,7 @@ ELSE(WIN32)
 		metric/expiretree.c
 		metric/labels.c
 		metric/metrictree.c
+		metric/percentile_heap.c
 		dstructures/tommy.c
 		dstructures/tommyds/tommyds/tommyarray.c
 		dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -150,6 +161,7 @@ ELSE(WIN32)
 		dstructures/tommyds/tommyds/tommytree.c
 		dstructures/tommyds/tommyds/tommytrie.c
 		dstructures/tommyds/tommyds/tommyarrayblk.c
+		evt-tls/src/evt_tls.c
 		
 	)
 	add_library(${COMMON} STATIC ${STATIC_FILES})
@@ -195,7 +207,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a)
+	target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a -ludev)
 	#target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 

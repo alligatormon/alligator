@@ -12,6 +12,7 @@
 #define APROTO_UNIXFCGI 10
 #define APROTO_HTTPS 11
 #define APROTO_HTTPS_AUTH 12
+#define APROTO_TLS 13
 #include <stdio.h>
 typedef struct host_aggregator_info
 {
@@ -21,7 +22,7 @@ typedef struct host_aggregator_info
 	char *auth;
 	char *user;
 	char *pass;
-	int proto;
+	int8_t proto;
 } host_aggregator_info;
 
 host_aggregator_info *parse_url (char *str, size_t len);

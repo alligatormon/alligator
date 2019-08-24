@@ -11,5 +11,5 @@ void put_aggregate_config(mtlen *mt)
 		printf("%"d64": '%s'(%zu)\n", i, mt->st[i].s, mt->st[i].l);
 	}
 	host_aggregator_info *hi = parse_url(mt->st[i].s, mt->st[i].l);
-	do_tcp_client(hi->host, hi->port, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", APROTO_HTTP);
+	do_tcp_client(hi->host, hi->port, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", APROTO_HTTP, NULL);
 }

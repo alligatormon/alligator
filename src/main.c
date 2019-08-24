@@ -60,6 +60,11 @@ void config_context_initialize()
 	ctx->key = strdup("system");
 	ctx->handler = context_system_parser;
 	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("log_level");
+	ctx->handler = context_log_level_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
 }
 
 void system_initialize()
@@ -69,8 +74,11 @@ void system_initialize()
 	ac->system_network = 0;
 	ac->system_disk = 0;
 	ac->system_process = 0;
+	ac->system_vm = 0;
+	ac->system_smart = 0;
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
+	ac->scs = calloc(1, sizeof(system_cpu_stats));
 	tommy_hashdyn_init(ac->process_match->hash);
 }
 
@@ -82,6 +90,12 @@ void system_metric_initialize()
 	ac->metric_freed = 0;
 }
 
+void tls_initialize()
+{
+	SSL_library_init();
+	SSL_load_error_strings();
+}
+
 aconf* configuration()
 {
 	ac = calloc(1, sizeof(*ac));
@@ -90,6 +104,12 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
+
+	ac->tls_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->uggregator);
+	ac->tls_aggregator_startup = 1500;
+	ac->tls_aggregator_repeat = 10000;
 
 	ac->iggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->iggregator_startup = 1000;
@@ -109,6 +129,7 @@ aconf* configuration()
 	ac->process_script_dir = "/var/alligator/spawner";
 	ac->process_cnt = 0;
 	tommy_hashdyn_init(ac->aggregator);
+	tommy_hashdyn_init(ac->tls_aggregator);
 	tommy_hashdyn_init(ac->iggregator);
 	tommy_hashdyn_init(ac->process_spawner);
 
@@ -118,6 +139,7 @@ aconf* configuration()
 	config_context_initialize();
 	system_initialize();
 	system_metric_initialize();
+	tls_initialize();
 
 	ac->log_level = 0;
 
@@ -138,6 +160,7 @@ int main(int argc, char **argv)
 	signal_listen();
 
 	tcp_client_handler();
+	tls_tcp_client_handler();
 #ifdef __linux__
 	icmp_client_handler();
 #endif
@@ -146,10 +169,7 @@ int main(int argc, char **argv)
 	process_handler();
 	unix_client_handler();
 	unixgram_client_handler();
-	
-	//char *mc = "metr { scm=\"ec\", fafa=\"lfm\"} 232";
-	//char *mc = "test.dispatcher.FooProcessor.send.success 121 15878248719";
-	//multicollector(mc, strlen(mc), 0);
+
 	//cert_check_file("cert.pem");
 
 	return uv_run(loop, UV_RUN_DEFAULT);
