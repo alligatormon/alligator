@@ -23,7 +23,7 @@ cutter_test:
 build_test:
   stage: tests
   script:
-  - yum -y install libuv-devel libuv-static
+  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
