@@ -32,6 +32,7 @@ build_test:
   - make install
   - cd -
   - cd src
+  - git clone https://github.com/deleisha/evt-tls.git
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make
 

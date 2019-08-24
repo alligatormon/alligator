@@ -1499,10 +1499,10 @@ void interface_stats()
 		DIR *dp_statistics;
 		snprintf(ifacestatistics, 255, "/sys/class/net/%s/statistics/", entry->d_name);
 		dp_statistics = opendir(ifacestatistics);
-		if (!dp)
+		if (!dp_statistics)
 		{
 			//perror("opendir");
-			return;
+			continue;
 		}
 
 		while((entry_statistics = readdir(dp_statistics)))
