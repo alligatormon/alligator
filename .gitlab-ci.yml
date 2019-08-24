@@ -33,6 +33,12 @@ build_test:
   - cd -
   - cd src
   - git clone https://github.com/deleisha/evt-tls.git
+  - git clone https://github.com/Rupan/libatasmart.git
+  - cd libatasmart
+  - ./configure --enable-static
+  - make
+  - cd ..
+
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make
 
