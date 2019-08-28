@@ -130,7 +130,8 @@ ruleset(name="rs_impstats" queue.type="LinkedList" queue.filename="qimp" queue.s
 }
 ```
 
-## Monitoring nginx upstream check module https://github.com/yaoweibin/nginx_upstream_check_module
+## Monitoring nginx upstream check module
+https://github.com/yaoweibin/nginx_upstream_check_module
 ```
 aggregate backends {
 	nginx_upstream_check http://localhost/uc_status;
