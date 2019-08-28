@@ -40,7 +40,8 @@ system {
 aggregate backends {
 	#REDIS and SENTINEL
 	redis tcp://localhost:6379/;
-	redis tcp://localhost:2/;
+	sentinel tcp://localhost:2/;
+	sentinel tcp://:password@localhost:2/;
 	#REDIS with password
 	redis tcp://:pass@127.0.0.1:6379;
 	redis unix://:pass@/tmp/redis.sock;
@@ -79,7 +80,7 @@ aggregate backends {
 	#RABBITMQ
 	rabbitmq http://guest:guest@localhost:15672;
 	#EVENTSTORE
-	eventstore http://10.60.39.42:2113;
+	eventstore http://localhost:2113;
 	#FLOWER
 	flower http://localhost:5555;
 	#POWERDNS
@@ -90,9 +91,11 @@ aggregate backends {
 	#ELASTICSEARCH
 	elasticsearch http://localhost:9200;
 	#AEROSPIKE
-	aerospike tcp://127.0.0.1:3000 namespace1 namespace2;
+	aerospike tcp://localhost:3000 namespace1 namespace2;
 	#MONIT
 	monit http://admin:admin@localhost:2812;
+	#FLOWER celery
+	flower http://localhost:5555;
 }
 ```
 
@@ -143,6 +146,35 @@ nginx.conf:
 	location /uc_status {
 		check_status;
 	}
+```
+
+# StatsD mapping:
+```
+entrypoint {
+        udp 127.0.0.1:8125;
+        tcp 8125;
+        mapping {
+                template test1.*.test2.*;
+                name "$1"_"$2";
+                label label_name_"$1" "$2"_key;
+                buckets 100 200 300;
+                match glob;
+        }
+        mapping {
+                template test2.*.test3.*;
+                name "$1"_"$2";
+                label label_name_"$1" "$2"_key;
+                le 100 200 300;
+                match glob;
+        }
+        mapping {
+                template test3.*.test4.*;
+                name "$1"_"$2";
+                label label_name_"$1" "$2"_key;
+                quantiles 0.999 0.95 0.9;
+                match glob;
+        }
+}
 ```
 
 

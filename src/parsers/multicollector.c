@@ -234,7 +234,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 
 					// template exec
 					mapping_template(label_name, ml->name, METRIC_NAME_SIZE, metric_split);
-					printf("from template '%s' rendered: '%s'\n", ml->name, label_name);
+					//printf("from template '%s' rendered: '%s'\n", ml->name, label_name);
 					mapping_template(label_key, ml->key, METRIC_NAME_SIZE, metric_split);
 
 					// insert

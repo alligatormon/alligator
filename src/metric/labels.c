@@ -187,7 +187,7 @@ void labels_head_free(labels_t *labels)
 		new = labels->next;
 		if(labels->allocatedkey)
 		{
-			printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
+			//printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
 			free(labels->key);
 		}
 		free(labels);
@@ -276,7 +276,7 @@ void labels_free_node(void *funcarg, void* arg)
 
 	if (labelscont->allocatedkey)
 	{
-		printf("DEBUG1: free key %p (%s)\n", labelscont->key, labelscont->key);
+		//printf("DEBUG1: free key %p (%s)\n", labelscont->key, labelscont->key);
 		free(labelscont->key);
 	}
 
@@ -397,7 +397,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 		if (labels->allocatedkey)
 		{
-			printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
+			//printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
 			free(labels->key);
 		}
 

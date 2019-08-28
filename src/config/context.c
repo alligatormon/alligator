@@ -699,7 +699,6 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 #ifndef _WIN64
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
 		{
-			printf("udp %p\n", handler);
 			char *port = strstr(mt->st[*i].s, ":");
 			if (port)
 			{
