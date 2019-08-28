@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 	unix_client_handler();
 	unixgram_client_handler();
 
-	//cert_check_file("cert.pem");
+	//cert_check_file("../trash/t2/evt-tls/sample/libuv-tls/server-cert.pem");
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

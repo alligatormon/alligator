@@ -68,6 +68,54 @@ char *config_get_arg(mtlen *mt, int64_t i, int64_t num, size_t *out_size)
 	}
 }
 
+context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, void *handler, char *mesg, void *data)
+{
+	extern aconf* ac;
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	if (ac->log_level > 2)
+		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->hostname, carg->mesg);
+
+	carg->hostname = hi->host;
+	carg->proto = hi->proto;
+	carg->port = hi->port;
+	carg->parser_handler = handler;
+	carg->mesg = mesg;
+	carg->data = data;
+	carg->tt_timer = malloc(sizeof(uv_timer_t));
+
+	if (mesg)
+		carg->write = 1;
+	else
+		carg->write = 0;
+
+	if (hi->proto == APROTO_TLS)
+	{
+		uint8_t n = 1;
+		char *ptr;
+		ptr = mt->st[*i].s;
+		for (n=1; strncmp(ptr, ";", 1); ++n)
+		{
+			ptr = config_get_arg(mt, *i, n, NULL);
+			if (!strncmp(ptr, "tls_certificate", 15))
+			{
+				char *ptrval = ptr + strcspn(ptr+15, "=") + 15;
+				ptrval += strspn(ptrval, "= ");
+				carg->tls_certificate = strdup(ptrval);
+			}
+			else if (!strncmp(ptr, "tls_key", 7))
+			{
+				char *ptrval = ptr + strcspn(ptr+7, "=") + 7;
+				ptrval += strspn(ptrval, "= ");
+				carg->tls_key = strdup(ptrval);
+			}
+		}
+		*i += n;
+	}
+
+	return carg;
+}
+
 void context_aggregate_parser(mtlen *mt, int64_t *i)
 {
 	if ( *i == 0 )
@@ -173,30 +221,9 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "memcached"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			if (hi->proto == APROTO_TLS)
-			{
-				uint8_t n = 1;
-				char *ptr;
-				ptr = mt->st[*i].s;
-				for (n=1; strncmp(ptr, ";", 1); ++n)
-				{
-					ptr = config_get_arg(mt, *i, n, NULL);
-					if (!strncmp(ptr, "tls_certificate", 15))
-					{
-						char *ptrval = ptr + strcspn(ptr+15, "=") + 15;
-						ptrval += strspn(ptrval, "= ");
-						printf("certificate '%s'\n", ptrval);
-					}
-					else if (!strncmp(ptr, "tls_key", 7))
-					{
-						char *ptrval = ptr + strcspn(ptr+7, "=") + 7;
-						ptrval += strspn(ptrval, "= ");
-						printf("key '%s'\n", ptrval);
-					}
-				}
-				*i += n;
-			}
-			smart_aggregator_selector(hi, memcached_handler, "stats\n");
+			context_arg *carg = context_arg_fill(mt, i, hi, memcached_handler, "stats\n", NULL);
+			//smart_aggregator_selector(hi, memcached_handler, "stats\n");
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "beanstalkd"))
 		{

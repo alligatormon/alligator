@@ -6,7 +6,7 @@
 #include "base64.h"
 host_aggregator_info *parse_url (char *str, size_t len)
 {
-	host_aggregator_info *hi = malloc(sizeof(*hi));
+	host_aggregator_info *hi = calloc(1, sizeof(*hi));
 	hi->auth = 0;
 	char *tmp;
 	if ( !strncmp(str, "http://", 7) )

@@ -309,6 +309,25 @@ void do_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* buffe
 	}
 }
 
+void do_tcp_client_carg(context_arg *carg)
+{
+	extern aconf* ac;
+	uv_loop_t *loop = ac->loop;
+
+	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
+	resolver->data = carg;
+	int r = uv_getaddrinfo(loop, resolver, tcp_on_resolved, carg->hostname, carg->port, NULL);
+	if (r)
+	{
+		fprintf(stderr, "%s\n", uv_strerror(r));
+		return;
+	}
+	else
+	{
+		(ac->tcp_client_count)++;
+	}
+}
+
 void tcp_client_handler()
 {
 	extern aconf* ac;

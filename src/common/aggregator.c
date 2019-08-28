@@ -3,6 +3,33 @@
 #include "events/context_arg.h"
 #include "events/client.h"
 #include "main.h"
+void smart_aggregator(context_arg *carg)
+{
+
+	if (carg->proto == APROTO_UNIX)
+		do_unix_client_carg(carg);
+	else if (carg->proto == APROTO_TCP)
+		do_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_HTTP)
+		do_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_HTTP_AUTH)
+		do_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_TLS)
+		do_tls_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_HTTPS)
+		do_tls_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_HTTPS_AUTH)
+		do_tls_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_FCGI)
+		do_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_FCGI_AUTH)
+		do_tcp_client_carg(carg);
+	else if (carg->proto == APROTO_UNIXFCGI)
+		do_unix_client_carg(carg);
+	//else if (carg->proto == APROTO_UNIXGRAM)
+	//	do_unixgram_client_carg(carg);
+}
+
 void smart_aggregator_selector(host_aggregator_info *hi, void *handler, char *mesg, void *data)
 {
 

@@ -87,6 +87,20 @@ void do_unix_client_buffer(char *unixsockaddr, void *handler, uv_buf_t *buffer, 
 	tommy_hashdyn_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }
 
+void do_unix_client_carg(context_arg *carg)
+{
+	extern aconf* ac;
+
+	carg->key = carg->hostname;
+
+	if (!carg->hostname)
+		return;
+	if (!validate_path(carg->hostname, strlen(carg->hostname)))
+		return;
+
+	tommy_hashdyn_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+}
+
 void unix_client_handler()
 {
 	extern aconf* ac;
