@@ -50,6 +50,7 @@ aggregate backends {
 	zookeeper http://localhost
 	#MEMCACHED
 	memcached tcp://localhost:11211;
+	memcached tls://127.0.0.1:11211 tls_certificate=/etc/memcached/server-cert.pem tls_key=/etc/memcached/server-key.pem;
 	#BEANSTALKD
 	beanstalkd tcp://localhost:11300;
 	#GEARMAND
@@ -86,8 +87,65 @@ aggregate backends {
 	powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
 	#OPENTSDB
 	opentsdb http://localhost:4242/api/stats;
+	#ELASTICSEARCH
+	elasticsearch http://localhost:9200;
+	#AEROSPIKE
+	aerospike tcp://127.0.0.1:3000 namespace1 namespace2;
+	#MONIT
+	monit http://admin:admin@localhost:2812;
 }
 ```
+
+# Monitoring rsyslog impstats:
+```
+entrypoint {
+	handler rsyslog-impstats;
+	udp 127.0.0.1:1111;
+}
+```
+
+rsyslog.conf:
+```
+module(
+	load="impstats"
+	interval="10"
+	resetCounters="off"
+	log.file="off
+	log.syslog="on"
+	ruleset="rs_impstats"
+)
+
+template(name="impformat" type="list") {
+        property(outname="message" name="msg")
+}
+
+ruleset(name="rs_impstats" queue.type="LinkedList" queue.filename="qimp" queue.size="5000" queue.saveonshutdown="off") {
+        *.* action (
+                type="omfwd"
+                target="127.0.0.1"
+                port="1111"
+                protocol="udp"
+                Template="impformat"
+        )
+}
+```
+
+# Monitoring nginx upstream check module https://github.com/yaoweibin/nginx_upstream_check_module
+```
+aggregate backends {
+	nginx_upstream_check http://localhost/uc_status;
+}
+```
+
+nginx.conf:
+```
+	location /uc_status {
+		check_status;
+	}
+```
+
+
+
 # Distribution
 ## Docker
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
