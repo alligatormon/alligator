@@ -185,7 +185,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 	return ret;
 }
 
-void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, client_info *cinfo)
+void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
 {
 	extern aconf *ac;
 	if (ac->log_level > 9)
@@ -202,8 +202,8 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, client
 	mapping_metric *mm = NULL;
 	strlcpy(metric_name, template_name, metric_len+1);
 
-	if (cinfo)
-		mm = cinfo->mm;
+	if (carg)
+		mm = carg->mm;
 
 	for (; mm; mm = mm->next)
 	{
@@ -360,7 +360,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, client
 	metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, 0, mm);
 }
 
-void multicollector(http_reply_data* http_data, char *str, size_t size, client_info *cinfo)
+void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
 {
 	char tmp[65535];
 	int64_t cnt = 0;
@@ -382,6 +382,6 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, client_i
 		tommy_hashdyn *lbl = NULL;
 		if (http_data)
 			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size);
-		multicollector_field_get(tmp, tmp_len, lbl, cinfo);
+		multicollector_field_get(tmp, tmp_len, lbl, carg);
 	}
 }

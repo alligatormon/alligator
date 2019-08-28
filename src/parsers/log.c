@@ -2,10 +2,10 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 
-void log_handler(char *metrics, size_t size, client_info *cinfo)
+void log_handler(char *metrics, size_t size, context_arg *carg)
 {
 	printf("log_handler:\n%s\n", metrics);
-	pcre_match_multi(cinfo->rematch, 2, metrics);
+	pcre_match_multi(carg->rematch, 2, metrics);
 }

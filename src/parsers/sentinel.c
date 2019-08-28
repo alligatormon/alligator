@@ -2,11 +2,11 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 
 #define SENTINEL_SIZE 1000
 
-void sentinel_handler(char *metrics, size_t size, client_info *cinfo)
+void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("master0");

@@ -3,9 +3,9 @@
 #include <jansson.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "parsers/elasticsearch.h"
-void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
+void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
@@ -15,7 +15,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	const char* cluster_name = json_string_value(cluster_name_json);
-	elastic_settings *es_data = cinfo->data;
+	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		es_data->cluster_name = strdup(cluster_name);
 
@@ -177,12 +177,12 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 	json_decref(root);
 }
 
-void elasticsearch_cluster_handler(char *metrics, size_t size, client_info *cinfo)
+void elasticsearch_cluster_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "elasticsearch_cluster");
 }
 
-void elasticsearch_health_handler(char *metrics, size_t size, client_info *cinfo)
+void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
@@ -197,7 +197,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, client_info *cinfo
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	const char* cluster_name = json_string_value(cluster_name_json);
-	elastic_settings *es_data = cinfo->data;
+	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		es_data->cluster_name = strdup(cluster_name);
 
@@ -295,7 +295,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, client_info *cinfo
 	json_decref(root);
 }
 
-void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo)
+void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
@@ -306,7 +306,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo)
 	//json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	//const char* cluster_name = json_string_value(cluster_name_json);
 	//
-	elastic_settings *es_data = cinfo->data;
+	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		return;
 
@@ -465,9 +465,9 @@ void elasticsearch_index_handler(char *metrics, size_t size, client_info *cinfo)
 	json_decref(root);
 }
 
-void elasticsearch_settings_handler(char *metrics, size_t size, client_info *cinfo)
+void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *carg)
 {
-	elastic_settings *es_data = cinfo->data;
+	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		return;
 

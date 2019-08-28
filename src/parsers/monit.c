@@ -2,12 +2,12 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 
 #define MONIT_NAME_SIZE 10000
 #define MONIT_SLIM_SIZE 1000
 
-void monit_handler(char *metrics, size_t size, client_info *cinfo)
+void monit_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *tmp2;
 	char *tmp = strstr(metrics, "</version>");

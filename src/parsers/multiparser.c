@@ -51,7 +51,7 @@
 //	string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
 //}
 
-void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, client_info *cinfo)
+void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	char *body = http_data->body;
 	char *uri = http_data->uri;
@@ -70,7 +70,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 			printf("Query: %s\n", uri);
 		if (ac->log_level > 10)
 			printf("get metrics from body:\n%s\n", body);
-		multicollector(http_data, NULL, 0, cinfo);
+		multicollector(http_data, NULL, 0, carg);
 	}
 
 	string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
@@ -89,9 +89,9 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	}
 }
 
-void do_http_put(char *buf, size_t len, string *response, http_reply_data* http_data, client_info *cinfo)
+void do_http_put(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
-	do_http_post(buf, len, response, http_data, cinfo);
+	do_http_post(buf, len, response, http_data, carg);
 	//string_cat(response, "HTTP/1.1 400 Bad Query\n\n", strlen("HTTP/1.1 400 Bad Query\n\n")+1);
 }
 
@@ -105,7 +105,7 @@ void do_http_response(char *buf, size_t len, string *response)
 		multicollector(NULL, tmp+4, len - (tmp-buf) - 4, NULL);
 }
 
-int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
+int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 {
 	int ret = 1;
 
@@ -116,7 +116,7 @@ int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
 	if (http_data->method == HTTP_METHOD_POST)
 	{
 		if (http_data->body)
-			do_http_post(buf, len, response, http_data, cinfo);
+			do_http_post(buf, len, response, http_data, carg);
 	}
 	else if (http_data->method == HTTP_METHOD_RESPONSE)
 	{
@@ -129,7 +129,7 @@ int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
 	else if (http_data->method == HTTP_METHOD_PUT)
 	{
 		if (http_data->body)
-	 		do_http_put(buf, len, response, http_data, cinfo);
+	 		do_http_put(buf, len, response, http_data, carg);
 	}
 	else	ret = 0;
 
@@ -137,14 +137,14 @@ int http_parser(char *buf, size_t len, string *response, client_info *cinfo)
 	return ret;
 }
 
-int plain_parser(char *buf, size_t len, client_info *cinfo)
+int plain_parser(char *buf, size_t len, context_arg *carg)
 {
 	//selector_get_plain_metrics(buf, len, "\n", " ", "", 0 );
-	multicollector(NULL, buf, len, cinfo);
+	multicollector(NULL, buf, len, carg);
 	return 1;
 }
 
-void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, client_info*), string *response, client_info *cinfo)
+void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, context_arg*), string *response, context_arg *carg)
 {
 	//printf("handler (%p) parsing '%s'(%zu)\n", handler, buf, slen);
 	if (!buf)
@@ -158,10 +158,10 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		//char *body = http_proto_proxer(buf, len, NULL); // TODO: remove?
 		//if (buf != body)
 		//	len = strlen(body);
-		handler(buf, len, cinfo);
+		handler(buf, len, carg);
 		return;
 	}
 	int rc = 0;
-	if ( (rc = http_parser(buf, len, response, cinfo)) ) {}
-	else if ( (rc = plain_parser(buf, len, cinfo)) ) {}
+	if ( (rc = http_parser(buf, len, response, carg)) ) {}
+	else if ( (rc = plain_parser(buf, len, carg)) ) {}
 }

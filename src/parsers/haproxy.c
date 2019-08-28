@@ -2,15 +2,15 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #define HAPROXY_NAME_SIZE 1000
 
-void haproxy_info_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
 {
 	selector_split_metric(metrics, size, "\n", 1, ": ", 2, "Haproxy_", 8, NULL, 0);
 }
 
-void haproxy_pools_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char name[HAPROXY_NAME_SIZE];
 	size_t name_size;
@@ -73,7 +73,7 @@ void haproxy_pools_handler(char *metrics, size_t size, client_info *cinfo)
 	metric_add_auto("haproxy_pool_used_total", &used, DATATYPE_INT, 0);
 }
 
-void haproxy_stat_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 {
 	
 	char name[HAPROXY_NAME_SIZE];
@@ -136,7 +136,7 @@ void haproxy_stat_handler(char *metrics, size_t size, client_info *cinfo)
 	}
 }
 
-void haproxy_sess_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i;
 	int64_t cnt;
@@ -149,11 +149,11 @@ void haproxy_sess_handler(char *metrics, size_t size, client_info *cinfo)
 	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, 0);
 }
 
-void haproxy_table_select_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_table_select_handler(char *metrics, size_t size, context_arg *carg)
 {
 }
 
-void haproxy_table_handler(char *metrics, size_t size, client_info *cinfo)
+void haproxy_table_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//smart_aggregator_selector_plain(cinfo->proto, cinfo->hostname, cinfo->port, haproxy_table_handler, "show table backend-slave\n");
+	//smart_aggregator_selector_plain(carg->proto, carg->hostname, carg->port, haproxy_table_handler, "show table backend-slave\n");
 }

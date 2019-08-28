@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <uv.h>
 #include "events/uv_alloc.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "common/selector.h"
 
 typedef struct http_info
@@ -15,7 +15,7 @@ typedef struct http_info
 //typedef struct tcp_entrypoint_info
 //{
 //	void *parser_handler;
-//	client_info->cinfo;
+//	context_arg->carg;
 //} tcp_entrypoint_info;
 
 #define CONNECTIONS_COUNT (128)
@@ -48,9 +48,9 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 
 		uv_close((uv_handle_t*) client, http_after_connect);
 	} else if (nread > 0) {
-		client_info *cinfo = client->data;
+		context_arg *carg = client->data;
 		string *str = string_init(6553500);
-		alligator_multiparser(buf->base, nread, cinfo->parser_handler, str, cinfo);
+		alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
 		char *answ = str->s;
 		size_t answ_len = str->l;
 		//printf("answ: %s\n", answ);
@@ -88,13 +88,13 @@ void accept_connection_cb(uv_stream_t *server, int status)
 	}
 }
 
-void tcp_server_handler(char *addr, uint16_t port, void* handler, client_info *cinfo)
+void tcp_server_handler(char *addr, uint16_t port, void* handler, context_arg *carg)
 {
-	if (!cinfo)
-		cinfo = malloc(sizeof(*cinfo));
-	cinfo->parser_handler = handler;
+	if (!carg)
+		carg = malloc(sizeof(*carg));
+	carg->parser_handler = handler;
 	uv_tcp_t *server = calloc(1, sizeof(uv_tcp_t));
-	server->data = cinfo;
+	server->data = carg;
 	struct sockaddr_in *saddr = calloc(1, sizeof(*saddr));
 
 	uv_tcp_init(uv_default_loop(), server);

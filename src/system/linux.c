@@ -1475,6 +1475,9 @@ void interface_stats()
 		if ( entry->d_name[0] == '.' )
 			continue;
 
+		if (!strncmp(entry->d_name, "veth", 4))
+			continue;
+
 		char operfile[255];
 		char ifacestatistics[255];
 		char operstate[100];

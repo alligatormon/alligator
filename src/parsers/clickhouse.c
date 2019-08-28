@@ -2,16 +2,16 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 //#include "args_parse.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 255
-void clickhouse_system_handler(char *metrics, size_t size, client_info *cinfo)
+void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
 	selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0);
 }
 
-void clickhouse_columns_handler(char *metrics, size_t size, client_info *cinfo)
+void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -79,7 +79,7 @@ void clickhouse_columns_handler(char *metrics, size_t size, client_info *cinfo)
 	free(table);
 }
 
-void clickhouse_merges_handler(char *metrics, size_t size, client_info *cinfo)
+void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -178,7 +178,7 @@ void clickhouse_merges_handler(char *metrics, size_t size, client_info *cinfo)
 	free(is_mutation);
 }
 
-void clickhouse_dictionary_handler(char *metrics, size_t size, client_info *cinfo)
+void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i = 0;
 	char *name = malloc(CH_NAME_SIZE);
@@ -235,7 +235,7 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, client_info *cinf
 	free(name);
 }
 
-void clickhouse_replicas_handler(char *metrics, size_t size, client_info *cinfo)
+void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);

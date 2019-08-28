@@ -2,9 +2,9 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 
-void aerospike_statistics_handler(char *metrics, size_t size, client_info *cinfo)
+void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *clmetrics = selector_get_field_by_str(metrics, size, "statistics", 2, NULL);
 	if ( clmetrics )
@@ -14,11 +14,11 @@ void aerospike_statistics_handler(char *metrics, size_t size, client_info *cinfo
 	}
 }
 
-void aerospike_get_namespaces_handler(char *metrics, size_t size, client_info *cinfo)
+void aerospike_get_namespaces_handler(char *metrics, size_t size, context_arg *carg)
 {
 }
 
-void aerospike_namespace_handler(char *metrics, size_t size, client_info *cinfo)
+void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *tmp = strstr(metrics+8, "namespace/");
 	if (!tmp)
@@ -117,7 +117,7 @@ void aerospike_namespace_handler(char *metrics, size_t size, client_info *cinfo)
 	}
 }
 
-void aerospike_status_handler(char *metrics, size_t size, client_info *cinfo)
+void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *tmp = metrics+8;
 	tmp += strcspn(tmp, "\t");

@@ -628,12 +628,12 @@ void context_log_handler_parser(mtlen *mt, int64_t *i)
 
 void context_entrypoint_parser(mtlen *mt, int64_t *i)
 {
-	void (*handler)(char*, size_t, client_info*) = 0;
+	void (*handler)(char*, size_t, context_arg*) = 0;
 
 	if ( *i == 0 )
 		*i += 1;
 
-	client_info *cinfo = calloc(1, sizeof(*cinfo));
+	context_arg *carg = calloc(1, sizeof(*carg));
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
 		if (!(mt->st[*i].l))
@@ -653,10 +653,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 		{
 			++*i;
 			mapping_metric *mm = context_mapping_parser(mt, i);
-			if (!cinfo->mm)
-				cinfo->mm = mm;
+			if (!carg->mm)
+				carg->mm = mm;
 			else
-				push_mapping_metric(cinfo->mm, mm);
+				push_mapping_metric(carg->mm, mm);
 		}
 		else if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 		{
@@ -664,10 +664,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				tcp_server_handler(host, atoi(port+1), handler, cinfo);
+				tcp_server_handler(host, atoi(port+1), handler, carg);
 			}
 			else
-				tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, cinfo);
+				tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, carg);
 		}
 #ifndef _WIN64
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
@@ -677,10 +677,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				udp_server_handler(host, atoi(port+1), handler, cinfo);
+				udp_server_handler(host, atoi(port+1), handler, carg);
 			}
 			else
-				udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, cinfo);
+				udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, carg);
 		}
 		else if (!strncmp(mt->st[*i-1].s, "unixgram", 8))
 			unixgram_server_handler(mt->st[*i].s, handler);

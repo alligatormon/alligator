@@ -2,12 +2,12 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
-void rabbitmq_overview_handler(char *metrics, size_t size, client_info *cinfo)
+#include "events/context_arg.h"
+void rabbitmq_overview_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "rabbitmq");
 }
-void rabbitmq_nodes_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*2);
 	parsestring[0] = strndup("print::rabbitmq_nodes(name)", 17);
@@ -17,7 +17,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, client_info *cinfo)
 	free(parsestring[0]);
 	free(parsestring);
 }
-void rabbitmq_connections_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("sum::rabbitmq_connections(name)");
@@ -25,7 +25,7 @@ void rabbitmq_connections_handler(char *metrics, size_t size, client_info *cinfo
 	free(parsestring[0]);
 	free(parsestring);
 }
-void rabbitmq_channels_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_channels_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("sum::rabbitmq_channels(name)");
@@ -33,7 +33,7 @@ void rabbitmq_channels_handler(char *metrics, size_t size, client_info *cinfo)
 	free(parsestring[0]);
 	free(parsestring);
 }
-void rabbitmq_exchanges_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("sum::rabbitmq_exchanges(name)");
@@ -41,7 +41,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, client_info *cinfo)
 	free(parsestring[0]);
 	free(parsestring);
 }
-void rabbitmq_queues_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("print::rabbitmq_queues(name)");
@@ -49,7 +49,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, client_info *cinfo)
 	free(parsestring[0]);
 	free(parsestring);
 }
-void rabbitmq_vhosts_handler(char *metrics, size_t size, client_info *cinfo)
+void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("print::rabbitmq_vhosts(name)");

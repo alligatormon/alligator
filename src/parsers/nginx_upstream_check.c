@@ -2,11 +2,11 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "main.h"
 #define NGINX_UPSTREAM_CHECK_SIZE 1000
 
-void nginx_upstream_check_handler(char *metrics, size_t size, client_info *cinfo)
+void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 {
 	extern aconf *ac;
 	int64_t cur;

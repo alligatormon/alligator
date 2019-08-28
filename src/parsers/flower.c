@@ -2,9 +2,9 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #define FLOWER_LABEL_SIZE 1000
-void flower_handler(char *metrics, size_t size, client_info *cinfo)
+void flower_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *cur = metrics;
 	size_t n;

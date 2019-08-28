@@ -2,8 +2,8 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
-void php_fpm_handler(char *metrics, size_t size, client_info *cinfo)
+#include "events/context_arg.h"
+void php_fpm_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **parsestring = malloc(sizeof(void*)*1);
 	parsestring[0] = strdup("print::php_fpm_processes(pid)");

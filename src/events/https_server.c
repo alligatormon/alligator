@@ -4,7 +4,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <uv.h>
-#include "events/client_info.h"
+#include "events/context_arg.h"
 
 typedef struct tls_uv_connection_state tls_uv_connection_state_t;
 
@@ -53,8 +53,8 @@ void maybe_flush_ssl(tls_uv_connection_state_t* state) {
 }
 
 void handle_read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
-	client_info *cinfo = client->data;
-	tls_uv_connection_state_t* state = cinfo->https_state;
+	context_arg *carg = client->data;
+	tls_uv_connection_state_t* state = carg->https_state;
 	
 	BIO_write(state->read, buf->base, nread);
 	while (1)
@@ -83,8 +83,8 @@ void handle_read(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 }
 
 void complete_write(uv_write_t* r, int status) {
-	client_info *cinfo = r->data;
-	tls_uv_connection_state_t* state = cinfo->https_state;
+	context_arg *carg = r->data;
+	tls_uv_connection_state_t* state = carg->https_state;
 	//free(r->write_buffer.base);
 	free(r);
 
@@ -211,8 +211,8 @@ void on_new_connection(uv_stream_t *server, int status) {
 	if (status < 0) {
 		return;
 	}
-	client_info *cinfo = server->data;
-	tls_uv_server_state_t* server_state = cinfo->https_server_state;
+	context_arg *carg = server->data;
+	tls_uv_server_state_t* server_state = carg->https_server_state;
 
 	uv_tcp_t *client = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
 	uv_tcp_init(server_state->loop, client);
@@ -235,8 +235,8 @@ void on_new_connection(uv_stream_t *server, int status) {
 	SSL_set_bio(state->ssl, state->read, state->write);
 
 	//client->data = state;
-	cinfo->https_state = state;
-	client->data = cinfo;
+	carg->https_state = state;
+	client->data = carg;
 
 	if (connection_write(state, "OK\r\n", 4) == 0) {
 		abort_connection_on_error(state);
@@ -246,11 +246,11 @@ void on_new_connection(uv_stream_t *server, int status) {
 	uv_read_start((uv_stream_t*)client, alloc_buffer, handle_read);
 }
 
-void https_server_handler(char *addr, uint16_t port, void* handler, client_info *cinfo, char *cert, char *key)
+void https_server_handler(char *addr, uint16_t port, void* handler, context_arg *carg, char *cert, char *key)
 {
-	if (!cinfo)
-		cinfo = malloc(sizeof(*cinfo));
-	cinfo->parser_handler = handler;
+	if (!carg)
+		carg = malloc(sizeof(*carg));
+	carg->parser_handler = handler;
 	uv_tcp_t *server = calloc(1, sizeof(uv_tcp_t));
 
 	SSL_load_error_strings();
@@ -270,8 +270,8 @@ void https_server_handler(char *addr, uint16_t port, void* handler, client_info 
 	https_state->loop = loop;
 	
 	uv_tcp_init(loop, server);
-	cinfo->https_server_state = https_state;
-	server->data = cinfo;
+	carg->https_server_state = https_state;
+	server->data = carg;
 
 	struct sockaddr_in *saddr = calloc(1, sizeof(*saddr));
 	uv_ip4_addr(addr, port, saddr);

@@ -1,5 +1,5 @@
 #include <unistd.h>
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "evt_tls.h"
 #include "uv_tls.h"
 #include <uv.h>
@@ -12,11 +12,11 @@
 void tls_tcp_timeout_timer(uv_timer_t *timer)
 {
 	extern aconf* ac;
-	client_info *cinfo = timer->data;
+	context_arg *carg = timer->data;
 	if (ac->log_level > 1)
-		printf("4: timeout cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
-	cinfo->socket->data = cinfo;
-	uv_close((uv_handle_t*)cinfo->socket, NULL);
+		printf("4: timeout carg with addr %p(%p:%p) with key %s, hostname %s\n", carg, carg->socket, carg->connect, carg->key, carg->hostname);
+	carg->socket->data = carg;
+	uv_close((uv_handle_t*)carg->socket, NULL);
 }
 
 void tls_tcp_echo_read(uv_tls_t *strm, ssize_t nrd, const uv_buf_t *bfr)
@@ -44,9 +44,9 @@ void on_tls_handshake(uv_tls_t *tls, int status)
 {
 	puts("on_hs");
 	uv_buf_t dcrypted;
-	client_info *cinfo = tls->data;
+	context_arg *carg = tls->data;
 	//dcrypted.base = "GET / HTTP/1.1\r\nHost: ya.ru\r\n\r\n";
-	dcrypted.base = cinfo->mesg;
+	dcrypted.base = carg->mesg;
 	dcrypted.len = strlen(dcrypted.base);
 
 	if ( 0 == status ) // TLS connection not failed
@@ -66,8 +66,8 @@ void tls_tcp_on_connect(uv_connect_t *req, int status)
 		return;
 	}
 
-	client_info *cinfo = req->data;
-	evt_ctx_t *ctx = cinfo->ctx;
+	context_arg *carg = req->data;
+	evt_ctx_t *ctx = carg->ctx;
 	uv_tcp_t *tcp = (uv_tcp_t*)req->handle;
 
 	//free on uv_tls_close
@@ -78,7 +78,7 @@ void tls_tcp_on_connect(uv_connect_t *req, int status)
 		return;
 	}
 	puts("done:");
-	sclient->data = cinfo;
+	sclient->data = carg;
 	puts("uv_tls_connect:");
 	uv_tls_connect(sclient, on_tls_handshake);
 	puts("done:");
@@ -88,10 +88,10 @@ void tls_tcp_on_connect(uv_connect_t *req, int status)
 
 void tcp_tls_on_connect_handler(void* arg)
 {
-	client_info *cinfo = arg;
-	if (cinfo->lock)
+	context_arg *carg = arg;
+	if (carg->lock)
 		return;
-	cinfo->lock = 1;
+	carg->lock = 1;
 
 	uv_loop_t *loop = uv_default_loop();
 	//free on uv_close_cb via uv_tls_close call
@@ -99,20 +99,20 @@ void tcp_tls_on_connect_handler(void* arg)
 	uv_tcp_init(loop, client);
  
 	evt_ctx_t *ctx = calloc(1, sizeof(*ctx));
-	if (cinfo->tls_certificate)
-		evt_ctx_init_ex(ctx, cinfo->tls_certificate, cinfo->tls_key);
+	if (carg->tls_certificate)
+		evt_ctx_init_ex(ctx, carg->tls_certificate, carg->tls_key);
 	evt_ctx_init(ctx);
 	evt_ctx_set_nio(ctx, NULL, uv_tls_writer);
 
 	//struct sockaddr_in *conn_addr = calloc(1, sizeof(*conn_addr));
 	//uv_ip4_addr("87.250.250.242", 443, conn_addr);
-	//uv_ip4_addr(cinfo->hostname, atoll(cinfo->port), conn_addr);
+	//uv_ip4_addr(carg->hostname, atoll(carg->port), conn_addr);
 
 	uv_connect_t *req = malloc(sizeof(*req));
-	req->data = cinfo;
-	cinfo->ctx = ctx;
+	req->data = carg;
+	carg->ctx = ctx;
 	//uv_tcp_connect(req, client,(struct sockaddr*)conn_addr, tls_tcp_on_connect);
-	uv_tcp_connect(req, client, (struct sockaddr *)cinfo->dest, tls_tcp_on_connect);
+	uv_tcp_connect(req, client, (struct sockaddr *)carg->dest, tls_tcp_on_connect);
 
 	uv_run(loop, UV_RUN_DEFAULT);
 	evt_ctx_free(ctx);
@@ -123,28 +123,28 @@ void tcp_tls_on_connect_handler(void* arg)
 //{
 //	extern aconf* ac;
 //	uv_loop_t *loop = ac->loop;
-//	client_info *cinfo = arg;
-//	if (cinfo->lock)
+//	context_arg *carg = arg;
+//	if (carg->lock)
 //		return;
-//	cinfo->lock = 1;
+//	carg->lock = 1;
 //
-//	if (cinfo->proto == APROTO_HTTP)
-//		cinfo->http_body_size = 0;
+//	if (carg->proto == APROTO_HTTP)
+//		carg->http_body_size = 0;
 //
-//	uv_tcp_t *socket = cinfo->socket = malloc(sizeof(*socket));
+//	uv_tcp_t *socket = carg->socket = malloc(sizeof(*socket));
 //	uv_tcp_init(loop, socket);
 //	uv_tcp_keepalive(socket, 1, 60);
 //
-//	cinfo->tt_timer->data = cinfo;
-//	uv_timer_init(loop, cinfo->tt_timer);
-//	uv_timer_start(cinfo->tt_timer, tls_tcp_timeout_timer, 5000, 0);
+//	carg->tt_timer->data = carg;
+//	uv_timer_init(loop, carg->tt_timer);
+//	uv_timer_start(carg->tt_timer, tls_tcp_timeout_timer, 5000, 0);
 //
-//	uv_connect_t *connect = cinfo->connect = malloc(sizeof(*connect));
+//	uv_connect_t *connect = carg->connect = malloc(sizeof(*connect));
 //	if (ac->log_level > 2)
-//		printf("0: on_connect_handler cinfo with addr %p(%p:%p) with key %s, hostname %s\n", cinfo, cinfo->socket, cinfo->connect, cinfo->key, cinfo->hostname);
-//	connect->data = cinfo;
-//	uv_tcp_connect(connect, socket, (struct sockaddr *)cinfo->dest, tls_tcp_on_connect);
-//	cinfo->connect_time = setrtime();
+//		printf("0: on_connect_handler carg with addr %p(%p:%p) with key %s, hostname %s\n", carg, carg->socket, carg->connect, carg->key, carg->hostname);
+//	connect->data = carg;
+//	uv_tcp_connect(connect, socket, (struct sockaddr *)carg->dest, tls_tcp_on_connect);
+//	carg->connect_time = setrtime();
 //}
 
 
@@ -157,7 +157,7 @@ static void tls_timer_cb(uv_timer_t* handle) {
 void tls_tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 {
 	extern aconf* ac;
-	client_info *cinfo = resolver->data;
+	context_arg *carg = resolver->data;
 
 	if (status == -1 || !res)
 	{
@@ -166,42 +166,42 @@ void tls_tcp_on_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo
 	}
 	else
 		if (ac->log_level > 2)
-			printf("resolved %s\n", cinfo->hostname);
+			printf("resolved %s\n", carg->hostname);
 
 	char addr[17];
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
-	cinfo->dest = (struct sockaddr_in*)res->ai_addr;
-	cinfo->key = malloc(64);
-	snprintf(cinfo->key, 64, "%s:%u:%d", addr, cinfo->dest->sin_port, cinfo->dest->sin_family);
+	carg->dest = (struct sockaddr_in*)res->ai_addr;
+	carg->key = malloc(64);
+	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
 
-	tommy_hashdyn_insert(ac->tls_aggregator, &(cinfo->node), cinfo, tommy_strhash_u32(0, cinfo->key));
+	tommy_hashdyn_insert(ac->tls_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }
 
 void do_tls_tcp_client(char *addr, char *port, void *handler, char *mesg, int proto, void *data, char *cert, char *key)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
-	client_info *cinfo = calloc(1, sizeof(*cinfo));
-	cinfo->data = data;
+	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->data = data;
 
-	cinfo->tls_certificate = cert;
-	cinfo->tls_key = key;
+	carg->tls_certificate = cert;
+	carg->tls_key = key;
 
 	if (ac->log_level > 2)
-		printf("allocated CINFO with addr %p with hostname '%s' with mesg '%s'\n", cinfo, addr, mesg);
-	cinfo->mesg = mesg;
+		printf("allocated CINFO with addr %p with hostname '%s' with mesg '%s'\n", carg, addr, mesg);
+	carg->mesg = mesg;
 	if (mesg)
-		cinfo->write = 1;
+		carg->write = 1;
 	else
-		cinfo->write = 0;
-	cinfo->parser_handler = handler;
-	cinfo->hostname = addr;
-	cinfo->proto = proto;
-	cinfo->port = port;
-	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
+		carg->write = 0;
+	carg->parser_handler = handler;
+	carg->hostname = addr;
+	carg->proto = proto;
+	carg->port = port;
+	carg->tt_timer = malloc(sizeof(uv_timer_t));
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
-	resolver->data = cinfo;
+	resolver->data = carg;
 	int r = uv_getaddrinfo(loop, resolver, tls_tcp_on_resolved, addr, port, NULL);
 	if (r)
 	{
@@ -218,22 +218,22 @@ void do_tls_tcp_client_buffer(char *addr, char *port, void *handler, uv_buf_t* b
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
-	client_info *cinfo = calloc(1, sizeof(*cinfo));
-	cinfo->data = data;
+	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->data = data;
 
 	if (ac->log_level > 2)
-		printf("allocated CINFO with addr %p with hostname '%s' with buf '%p'\n", cinfo, addr, buffer);
-	cinfo->buffer = buffer;
-	cinfo->buflen = buflen;
-	cinfo->write = 2;
-	cinfo->parser_handler = handler;
-	cinfo->hostname = addr;
-	cinfo->proto = proto;
-	cinfo->port = port;
-	cinfo->tt_timer = malloc(sizeof(uv_timer_t));
+		printf("allocated CINFO with addr %p with hostname '%s' with buf '%p'\n", carg, addr, buffer);
+	carg->buffer = buffer;
+	carg->buflen = buflen;
+	carg->write = 2;
+	carg->parser_handler = handler;
+	carg->hostname = addr;
+	carg->proto = proto;
+	carg->port = port;
+	carg->tt_timer = malloc(sizeof(uv_timer_t));
 
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
-	resolver->data = cinfo;
+	resolver->data = carg;
 	int r = uv_getaddrinfo(loop, resolver, tls_tcp_on_resolved, addr, port, NULL);
 	if (r)
 	{

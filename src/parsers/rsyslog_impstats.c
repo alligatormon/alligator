@@ -2,10 +2,10 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "main.h"
 
-void rsyslog_impstats_handler(char *metrics, size_t size, client_info *cinfo)
+void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 {
 	extern aconf *ac;
 	if (ac->log_level > 3)

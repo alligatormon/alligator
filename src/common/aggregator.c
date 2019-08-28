@@ -1,6 +1,6 @@
 #include <uv.h>
 #include "common/url.h"
-#include "events/client_info.h"
+#include "events/context_arg.h"
 #include "events/client.h"
 #include "main.h"
 void smart_aggregator_selector(host_aggregator_info *hi, void *handler, char *mesg, void *data)
@@ -75,7 +75,7 @@ void smart_aggregator_selector_plain(int proto, char *hostname, char *port, void
 		do_unixgram_client(hostname, handler, mesg);
 }
 
-void try_again(client_info *cinfo, char *mesg)
+void try_again(context_arg *carg, char *mesg)
 {
 	
 }
