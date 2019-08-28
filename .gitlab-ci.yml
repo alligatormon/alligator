@@ -68,7 +68,7 @@ build_rpm:
   only:
   - tags
   script:
-  - yum -y install libuv-devel libuv-static
+  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
@@ -77,6 +77,20 @@ build_rpm:
   - make install
   - cd -
   - cd src
+  - git clone https://github.com/deleisha/evt-tls.git
+  - git clone https://github.com/Rupan/libatasmart.git
+  - cd libatasmart
+  - ./autogen.sh
+  - ./configure --enable-static
+  - make
+  - cd ..
+  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
+  - tar xfvz openssl-1.0.2s.tar.gz
+  - cd openssl-1.0.2s
+  - ./config
+  - make
+  - cd ..
+
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
@@ -96,13 +110,7 @@ build_deb:
   - tags
   stage: build
   script:
-  - apt update
-  - apt install -y cmake g++ gcc libuv1-dev
-  - cat misc/deb-sources >> /etc/apt/sources.list
-  - ( apt update --allow-unauthenticated || exit 0 )
-  - apt -y --allow-unauthenticated install cutter-keyring wget curl
-  - ( apt update || exit 0 )
-  - apt -y install cutter-testing-framework
+  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
   - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
@@ -111,6 +119,20 @@ build_deb:
   - make install
   - cd -
   - cd src
+  - git clone https://github.com/deleisha/evt-tls.git
+  - git clone https://github.com/Rupan/libatasmart.git
+  - cd libatasmart
+  - ./autogen.sh
+  - ./configure --enable-static
+  - make
+  - cd ..
+  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
+  - tar xfvz openssl-1.0.2s.tar.gz
+  - cd openssl-1.0.2s
+  - ./config
+  - make
+  - cd ..
+
   - cmake . -DCPACK_GENERATOR=DEB
   - make package
   - >-
