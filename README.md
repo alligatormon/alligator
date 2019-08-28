@@ -31,6 +31,8 @@ system {
 	disk; #disk usage and I/O
 	network; #network interface start
 	process; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
+	smart; #smart disk stats
+	vm; # scrape openvz, lxc and nspawn metrics
 }
 
 #aggregator context (scrape from services)
