@@ -12,8 +12,8 @@ cutter_test:
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
   - ./configure
-  - make
-  - make install
+  - make -j 
+  - make -j install
   - cd -
   - cd src
   - git clone https://github.com/deleisha/evt-tls.git
@@ -21,17 +21,19 @@ cutter_test:
   - cd libatasmart
   - ./autogen.sh
   - ./configure --enable-static
-  - make
+  - make -j
+  - make -j install
   - cd ..
   - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
   - tar xfvz openssl-1.0.2s.tar.gz
   - cd openssl-1.0.2s
   - ./config
-  - make
+  - make -j
+  - make -j install
   - cd ..
 
   - cmake3 . -DCPACK_GENERATOR=RPM
-  - make
+  - make -j
   - cutter .
 
 build_test:
@@ -42,8 +44,8 @@ build_test:
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
   - ./configure
-  - make
-  - make install
+  - make -j
+  - make -j install
   - cd -
   - cd src
   - git clone https://github.com/deleisha/evt-tls.git
@@ -51,17 +53,19 @@ build_test:
   - cd libatasmart
   - ./autogen.sh
   - ./configure --enable-static
-  - make
+  - make -j
+  - make -j install
   - cd ..
   - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
   - tar xfvz openssl-1.0.2s.tar.gz
   - cd openssl-1.0.2s
   - ./config
-  - make
+  - make -j
+  - make -j install
   - cd ..
 
   - cmake3 . -DCPACK_GENERATOR=RPM
-  - make
+  - make -j
 
 sources_tarball:
   stage: build
@@ -87,8 +91,8 @@ build_rpm:
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
   - ./configure
-  - make
-  - make install
+  - make -j
+  - make -j install
   - cd -
   - cd src
   - git clone https://github.com/deleisha/evt-tls.git
@@ -96,23 +100,25 @@ build_rpm:
   - cd libatasmart
   - ./autogen.sh
   - ./configure --enable-static
-  - make
+  - make -j
+  - make -j install
   - cd ..
   - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
   - tar xfvz openssl-1.0.2s.tar.gz
   - cd openssl-1.0.2s
   - ./config
-  - make
+  - make -j
+  - make -j install
   - cd ..
 
   - cmake3 . -DCPACK_GENERATOR=RPM
-  - make
+  - make -j
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
   - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/generic/alligator/$CI_COMMIT_TAG/publish
-  - make package
+  - make -j package
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/rpm/
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/rpm/
@@ -129,8 +135,8 @@ build_deb:
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
   - ./configure
-  - make
-  - make install
+  - make -j
+  - make -j install
   - cd -
   - cd src
   - git clone https://github.com/deleisha/evt-tls.git
@@ -138,17 +144,19 @@ build_deb:
   - cd libatasmart
   - ./autogen.sh
   - ./configure --enable-static
-  - make
+  - make -j
+  - make -j install
   - cd ..
   - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
   - tar xfvz openssl-1.0.2s.tar.gz
   - cd openssl-1.0.2s
   - ./config
-  - make
+  - make -j
+  - make -j install
   - cd ..
 
   - cmake . -DCPACK_GENERATOR=DEB
-  - make package
+  - make -j package
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
   - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:wheezy" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/deb/alligator/"

@@ -1448,7 +1448,7 @@ int8_t get_platform(int8_t mode)
 	{
 		if (mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, 0, "platform", "bare-metal");
-			return PLATFORM_BAREMETAL;
+		return PLATFORM_BAREMETAL;
 	}
 	fclose(env);
 	return 0;
@@ -1531,7 +1531,7 @@ void cgroup_vm(char *dir, char *template, uint8_t stat)
 	DIR *dp;
 	char cntpath[1000];
 	char memory_stat[1000];
-	char buf[255];
+	char buf[1000];
 	char mname[255];
 	char cntname[255];
 	int64_t mval;

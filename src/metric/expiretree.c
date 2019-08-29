@@ -67,7 +67,7 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 		expire_node head = {0};
 		expire_node *g, *t;
 		expire_node *p, *q;
-		int dir = 0, last;
+		int dir = 0, last = 0;
 
 		t = &head;
 		g = p = NULL;

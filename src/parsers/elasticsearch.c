@@ -489,7 +489,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	size_t stringlen4;
 
 	json_t *value;
-	char *key;
+	const char *key;
 	json_object_foreach(root, key, value)
 	{
 		json_t *nodes = json_object_get(value, "settings");
