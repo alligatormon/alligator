@@ -138,6 +138,7 @@ build_deb:
   - ( apt update || exit 0 )
   - apt -y install cutter-testing-framework
 
+  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
   - tar xfvz jansson-2.12.tar.gz
   - cd jansson-2.12
   - ./configure
