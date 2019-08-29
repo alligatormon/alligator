@@ -131,7 +131,7 @@ build_deb:
   stage: build
   script:
   - apt update
-  - apt install -y cmake g++ gcc libuv1-dev libudev-dev
+  - apt install -y cmake g++ gcc libuv1-dev libudev-dev git
   - cat misc/deb-sources >> /etc/apt/sources.list
   - ( apt update --allow-unauthenticated || exit 0 )
   - apt -y --allow-unauthenticated install cutter-keyring wget curl
