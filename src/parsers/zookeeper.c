@@ -14,26 +14,13 @@ void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 	if (!res)
 		return;
 
-	int64_t nval = 0;
 	int64_t val = 1;
 	if(strstr(res, "standalone"))
-	{
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "leader");
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "follower");
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "standalone");
-	}
 	else if(strstr(res, "follower"))
-	{
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "leader");
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "follower");
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "standalone");
-	}
 	else if(strstr(res, "leader"))
-	{
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, 0, "mode", "leader");
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "follower");
-		metric_add_labels("zk_mode", &nval, DATATYPE_INT, 0, "mode", "standalone");
-	}
 	free(res);
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
@@ -47,15 +34,12 @@ void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t val = 1;
-	int64_t nval = 0;
 	if (!strncmp(metrics, "ro", 2))
 	{
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, 0, "status", "ro");
-		metric_add_labels("zk_readwrite", &nval, DATATYPE_INT, 0, "status", "rw");
 	}
 	else if (!strncmp(metrics, "rw", 2))
 	{
-		metric_add_labels("zk_readwrite", &nval, DATATYPE_INT, 0, "status", "ro");
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, 0, "status", "rw");
 	}
 }
