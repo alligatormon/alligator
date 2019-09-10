@@ -63,7 +63,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			status = 1;
 		else
 			status = 0;
-		metric_add_labels("flower_tasks_active", &status, DATATYPE_INT, 0, "worker",  label);
+		metric_add_labels("flower_worker_status", &status, DATATYPE_INT, 0, "worker",  label);
 
 		cur = strstr(cur, "<td>");
 		if (!cur)

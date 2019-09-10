@@ -33,10 +33,7 @@ tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size
 
 		prev_get = index_get;
 		for (; uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
-		printf("copy from %s with size %zu\n", uri+prev_get, index_get-prev_get);
 		strlcpy(key, uri+prev_get, index_get-prev_get+1);
-
-		printf("insert '%s' with key '%s'\n", mname, key);
 
 		labels_hash_insert_nocache(lbl, mname, key);
 

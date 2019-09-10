@@ -134,7 +134,6 @@ void get_cpu(int8_t platform)
 	metric_add_auto("cores_num", &effective_cores, DATATYPE_INT, 0);
 
 	char temp[LINUXFS_LINE_LENGTH];
-	double hw_usage, hw_user, hw_system;
 	uint64_t core_num = 0;
 	system_cpu_cores_stats *sccs;
 
@@ -193,9 +192,6 @@ void get_cpu(int8_t platform)
 
 				if (!strcmp(cpuname, "cpu"))
 				{
-					hw_usage = usage;
-					hw_user = user;
-					hw_system = system;
 					metric_add_labels("cpu_usage", &usage, DATATYPE_DOUBLE, 0, "type", "total");
 					metric_add_labels("cpu_usage", &user, DATATYPE_DOUBLE, 0, "type", "user");
 					metric_add_labels("cpu_usage", &system, DATATYPE_DOUBLE, 0, "type", "system");
@@ -251,10 +247,7 @@ void get_cpu(int8_t platform)
 		int64_t cfs_quota = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
 		if ( cfs_quota < 0 )
 		{
-			metric_add_labels("cpu_usage", &hw_usage, DATATYPE_DOUBLE, 0, "type", "total");
-			metric_add_labels("cpu_usage", &hw_user, DATATYPE_DOUBLE, 0, "type", "user");
-			metric_add_labels("cpu_usage", &hw_system, DATATYPE_DOUBLE, 0, "type", "system");
-			return;
+			cfs_quota = dividecpu*cfs_period;
 		}
 
 		int64_t cgroup_system_ticks = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage_sys");
