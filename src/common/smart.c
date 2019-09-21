@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -261,3 +262,4 @@ void get_ata_smart_info(char *device)
        	if (d)
 		sk_disk_free(d);
 }
+#endif

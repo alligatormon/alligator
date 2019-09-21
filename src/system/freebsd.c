@@ -458,4 +458,8 @@ void get_system_metrics()
 		get_proc_info();
 	}
 }
+
+void system_fast_scrape()
+{
+}
 #endif

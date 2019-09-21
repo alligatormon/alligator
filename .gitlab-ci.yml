@@ -72,7 +72,7 @@ sources_tarball:
   #only:
   #- tags
   script:
-  - export CI_COMMIT_TAG=1.10.2
+  - export CI_COMMIT_TAG=1.10.3
   - mkdir /tmp/alligator-$CI_COMMIT_TAG
   - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
 
