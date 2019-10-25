@@ -1,6 +1,6 @@
 #include "main.h"
 
-void calc_buckets(mapping_metric *mm, metric_node *mnode, int64_t ival)
+void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, int64_t ival)
 {
 	int64_t bucket_size = mm->bucket_size;
 	char bucketkey[30];
@@ -28,13 +28,13 @@ void calc_buckets(mapping_metric *mm, metric_node *mnode, int64_t ival)
 			snprintf(bucketkey, 30, "%"d64"", mm->bucket[i]);
 			labels_hash_insert(hash, "bucket", bucketkey);
 			int64_t val = 1;
-			metric_update(metric_name, hash, &val, DATATYPE_INT, 0);
+			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
 		}
 		else if (ival > mm->bucket[i] && i+1 == bucket_size)
 		{
 			labels_hash_insert(hash, "bucket", "+Inf");
 			int64_t val = 1;
-			metric_update(metric_name, hash, &val, DATATYPE_INT, 0);
+			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
 		}
 		else
 		{
@@ -46,7 +46,7 @@ void calc_buckets(mapping_metric *mm, metric_node *mnode, int64_t ival)
 	}
 }
 
-void calc_buckets_cumulative(mapping_metric *mm, metric_node *mnode, int64_t ival)
+void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node *mnode, int64_t ival)
 {
 	int64_t le_size = mm->le_size;
 	char lekey[30];
@@ -74,13 +74,13 @@ void calc_buckets_cumulative(mapping_metric *mm, metric_node *mnode, int64_t iva
 			snprintf(lekey, 30, "%"d64"", mm->le[i]);
 			labels_hash_insert(hash, "le", lekey);
 			int64_t val = 1;
-			metric_update(metric_name, hash, &val, DATATYPE_INT, 0);
+			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
 		}
 		else if (ival > mm->le[i] && i+1 == le_size && !inf)
 		{
 			labels_hash_insert(hash, "le", "+Inf");
 			int64_t val = 1;
-			metric_update(metric_name, hash, &val, DATATYPE_INT, 0);
+			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
 			inf = 1;
 		}
 		else
@@ -91,19 +91,26 @@ void calc_buckets_cumulative(mapping_metric *mm, metric_node *mnode, int64_t iva
 	}
 }
 
-void mapping_processing(mapping_metric *mm, metric_node *mnode, int64_t ival)
+void mapping_processing(context_arg *carg, metric_node *mnode, int64_t ival)
 {
+	if (!carg)
+		return;
+	if (!carg->mm)
+		return;
+
+	mapping_metric *mm = carg->mm;
+
 	if (mm->percentile)
 	{
 		if (!mnode->pb)
 			mnode->pb = init_percentile_buffer(mm->percentile, mm->percentile_size);
 
 		heap_insert(mnode->pb, ival);
-		calc_percentiles(mnode->pb, mnode);
+		calc_percentiles(carg, mnode->pb, mnode);
 	}
 	else if (mm->le)
-		calc_buckets_cumulative(mm, mnode, ival);
+		calc_buckets_cumulative(carg, mm, mnode, ival);
 	else if (mm->bucket)
-		calc_buckets(mm, mnode, ival);
+		calc_buckets(carg, mm, mnode, ival);
 }
 

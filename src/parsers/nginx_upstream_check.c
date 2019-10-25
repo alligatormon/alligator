@@ -143,8 +143,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		uint64_t nval = 0;
 		if (!strncmp(status, "up", 2))
 		{
-			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "status", "up", "type", type);
-			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "status", "down", "type", type);
+			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "up", "type", type);
+			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "down", "type", type);
 			//printf("compare %s <> %s\n", upstream_counter, upstream);
 			if (!strcmp(upstream_counter, upstream))
 			{
@@ -155,10 +155,10 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 				double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
 				double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
 
-				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
 
 				upstream_counter_live = 1;
 				upstream_counter_dead = 0;
@@ -167,8 +167,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (!strncmp(status, "down", 4))
 		{
-			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "status", "up", "type", type);
-			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "status", "down", "type", type);
+			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "up", "type", type);
+			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "down", "type", type);
 			//printf("compare %s <> %s\n", upstream_counter, upstream);
 			if (!strcmp(upstream_counter, upstream))
 			{
@@ -179,25 +179,25 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 				double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
 				double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
 
-				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
-				metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+				metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
 
 				upstream_counter_live = 0;
 				upstream_counter_dead = 1;
 				strlcpy(upstream_counter, upstream, upstream_len+1);
 			}
 		}
-		metric_add_labels3("nginx_upstream_check_rise_count", &rise, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "type", type);
-		metric_add_labels3("nginx_upstream_check_fall_count", &fall, DATATYPE_UINT, 0, "upstream", upstream, "server", server, "type", type);
+		metric_add_labels3("nginx_upstream_check_rise_count", &rise, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
+		metric_add_labels3("nginx_upstream_check_fall_count", &fall, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
 	}
 
 	double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
 	double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
 
-	metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, 0, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, 0, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, 0, "upstream", upstream_counter);
+	metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
+	metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
+	metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+	metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
 }

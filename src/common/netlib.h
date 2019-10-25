@@ -6,7 +6,7 @@
 #define IPACCESS_DENY 0
 #define IPACCESS_ALLOW 1
 
-typedef unsigned __int128 uint128_t;
+__extension__ typedef unsigned __int128 uint128_t;
 //typedef uint64_t uint128_t;
 
 typedef struct network_range_node

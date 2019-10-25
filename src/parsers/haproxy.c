@@ -7,7 +7,7 @@
 
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
 {
-	selector_split_metric(metrics, size, "\n", 1, ": ", 2, "Haproxy_", 8, NULL, 0);
+	selector_split_metric(metrics, size, "\n", 1, ": ", 2, "Haproxy_", 8, NULL, 0, carg);
 }
 
 void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
@@ -44,16 +44,16 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 		sz = size - sz_tmp;
 
 		allocated = int_get_next(tmp, sz, ' ', &cursor);
-		metric_add_labels("haproxy_pool_allocated", &allocated, DATATYPE_INT, 0, "pool", name);
+		metric_add_labels("haproxy_pool_allocated", &allocated, DATATYPE_INT, carg, "pool", name);
 
 		bytes = int_get_next(tmp, sz, ' ', &cursor);
-		metric_add_labels("haproxy_pool_bytes", &bytes, DATATYPE_INT, 0, "pool", name);
+		metric_add_labels("haproxy_pool_bytes", &bytes, DATATYPE_INT, carg, "pool", name);
 
 		used = int_get_next(tmp, sz, ' ', &cursor);
-		metric_add_labels("haproxy_pool_used", &used, DATATYPE_INT, 0, "pool", name);
+		metric_add_labels("haproxy_pool_used", &used, DATATYPE_INT, carg, "pool", name);
 
 		users = int_get_next(tmp, sz, ' ', &cursor);
-		metric_add_labels("haproxy_pool_users", &users, DATATYPE_INT, 0, "pool", name);
+		metric_add_labels("haproxy_pool_users", &users, DATATYPE_INT, carg, "pool", name);
 
 		tmp += cursor;
 		to = strcspn(tmp, "\n");
@@ -64,13 +64,13 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 	sz = size - (total-tmp);
 	
 	allocated = int_get_next(total, sz, ' ', &cursor);
-	metric_add_auto("haproxy_pool_allocated_total", &allocated, DATATYPE_INT, 0);
+	metric_add_auto("haproxy_pool_allocated_total", &allocated, DATATYPE_INT, carg);
 
 	bytes = int_get_next(total, sz, ' ', &cursor);
-	metric_add_auto("haproxy_pool_bytes_total", &bytes, DATATYPE_INT, 0);
+	metric_add_auto("haproxy_pool_bytes_total", &bytes, DATATYPE_INT, carg);
 
 	used = int_get_next(total, sz, ' ', &cursor);
-	metric_add_auto("haproxy_pool_used_total", &used, DATATYPE_INT, 0);
+	metric_add_auto("haproxy_pool_used_total", &used, DATATYPE_INT, carg);
 }
 
 void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
@@ -114,19 +114,19 @@ void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 					char status[100];
 					strlcpy(status, metrics+i, 100 > (to + 1) ? (to + 1) : 100);
 					tmpval = 1;
-					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, 0, "name", name, "svname", svname, "status", status);
+					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, carg, "name", name, "svname", svname, "status", status);
 				}
 				else if (!strncmp(metrics_labels[j], "check_status", 12))
 				{
 					char status[100];
 					strlcpy(status, metrics+i, 100 > (to + 1) ? (to + 1) : 100);
 					tmpval = 1;
-					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, 0, "name", name, "svname", svname, "check_status", status);
+					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, carg, "name", name, "svname", svname, "check_status", status);
 				}
 				else
 				{
 					tmpval = atoll(metrics+i);
-					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, 0, "name", name, "svname", svname, "type", metrics_labels[j]);
+					metric_add_labels3("haproxy_stat", &tmpval, DATATYPE_INT, carg, "name", name, "svname", svname, "type", metrics_labels[j]);
 				}
 			}
 			++i;
@@ -146,7 +146,7 @@ void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 		to = strcspn(metrics+i, "\n");
 		i += to;
 	}
-	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, 0);
+	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, carg);
 }
 
 void haproxy_table_select_handler(char *metrics, size_t size, context_arg *carg)

@@ -6,9 +6,9 @@ void general_loop_cb(uv_timer_t* handle)
 
 	//check_https_cert("google.com");
 
-	metric_add_auto("alligator_metric_cache_hit", &ac->metric_cache_hits, DATATYPE_UINT, 0);
-	metric_add_auto("alligator_metric_allocates", &ac->metric_allocates, DATATYPE_UINT, 0);
-	metric_add_auto("alligator_metric_free", &ac->metric_freed, DATATYPE_UINT, 0);
+	metric_add_auto("alligator_metric_cache_hit", &ac->metric_cache_hits, DATATYPE_UINT, NULL);
+	metric_add_auto("alligator_metric_allocates", &ac->metric_allocates, DATATYPE_UINT, NULL);
+	metric_add_auto("alligator_metric_free", &ac->metric_freed, DATATYPE_UINT, NULL);
 }
 
 void expire_loop(uv_timer_t* handle)

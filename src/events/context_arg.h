@@ -4,9 +4,10 @@
 #include <openssl/err.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
-#include "config/context.h"
+#include "metric/metrictree.h"
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "evt_tls.h"
+#include "common/netlib.h"
 
 typedef struct context_arg
 {
@@ -14,6 +15,7 @@ typedef struct context_arg
 	uv_connect_t *connect;
 	uv_tcp_t *socket;
 	uv_timer_t *tt_timer;
+	uv_handle_t * server;
 	char *key;
 	void *parser_handler;
 	char *mesg;
@@ -39,9 +41,21 @@ typedef struct context_arg
 	char *tls_certificate;
 	char *tls_key;
 	evt_ctx_t *ctx;
+	char *namespace;
+	char *auth_basic;
+	char *auth_bearer;
+	network_range *net_acl;
+
+	// for process spawn
+	uv_process_options_t *options;
+	uv_pipe_t *channel;
+	uv_stdio_container_t *child_stdio;
+	char** args;
 
 	uint64_t conn_counter;
 	uint64_t read_counter;
+
+	tommy_hashdyn *labels;
 
 	void *data; // for parser-data
 

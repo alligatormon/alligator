@@ -55,7 +55,7 @@ void cert_check_file(char *cert_filestr)
 	vrfy_ctx = X509_STORE_CTX_new();
 
 	ret = BIO_read_filename(certbio, cert_filestr);
-	if (! (cert = PEM_read_bio_X509(certbio, NULL, 0, NULL)))
+	if (! (cert = PEM_read_bio_X509(certbio, NULL, NULL, NULL)))
 	{
 		BIO_printf(outbio, "Error loading cert into memory\n");
 		return;
@@ -65,7 +65,7 @@ void cert_check_file(char *cert_filestr)
 
 	int64_t expdays = cert_get_expdays(cert);
 	printf("ed = %"d64"\n", expdays);
-	metric_add_labels("cert_expiration_days", &expdays, DATATYPE_INT, 0, "file", cert_filestr);
+	metric_add_labels("cert_expiration_days", &expdays, DATATYPE_INT, NULL, "file", cert_filestr);
 
 
 	X509_STORE_CTX_init(vrfy_ctx, store, cert, NULL);

@@ -20,11 +20,12 @@ void on_open(uv_fs_t *req)
 {
 	puts("open");
 	file_status *fstatus = req->data;
+	printf("offset %d\n", fstatus->offset);
 	if (req->result != -1) {
 		uv_fs_read(uv_default_loop(), fstatus->read_req, req->result, fstatus->buffer, 1, fstatus->offset, filetailer_on_read);
 	}
 	else {
-		fprintf(stderr, "Error opening file!");
+		fprintf(stderr, "Error opening file!\n");
 	}
 }
 
@@ -32,7 +33,7 @@ void filetailer_on_write(uv_fs_t *req)
 {
 	uv_fs_req_cleanup(req);
 	if (req->result < 0) {
-		fprintf(stderr, "Write error!");
+		fprintf(stderr, "Write error!\n");
 	}
 	else {
 		//uv_fs_read(uv_default_loop(), read_req, open_req.result, buffer, 1, -1, filetailer_on_read);
@@ -44,7 +45,7 @@ void filetailer_on_read(uv_fs_t *req) {
 	uv_fs_req_cleanup(req);
 
 	if (req->result < 0) {
-		fprintf(stderr, "Read error!");
+		fprintf(stderr, "Read error!\n");
 	}
 	else if (req->result == 0) {
 	}
@@ -86,6 +87,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 {
 	file_status *fstatus = handle->data;
 	fstatus->filename = filename;
+	printf("changing showing file '%s'\n", fstatus->filename);
 	fprintf(stderr, "Change detected in %s: \n", filename);
 	if (events == UV_RENAME)
 		fprintf(stderr, "renamed");
@@ -97,8 +99,24 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 	}
 }
 
+void stat_cb(uv_fs_t *req) {
+	//file_status *fstatus = req->data;
+	printf("dcdc\n");
+	//printf("%p\n", req->statfs);
+	uv_stat_t st = req->statbuf;
+	if (S_ISDIR(st.st_mode))
+		puts("DIR!");
+	else if (S_ISREG(st.st_mode))
+		puts("FILE!");
+	uv_fs_req_cleanup(req);
+}
+
 void filetailer_handler(char *file, void *parser_handler)
 {
+	printf("showing file '%s'\n", file);
+	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+	uv_fs_stat(uv_default_loop(), req_stat, file, stat_cb);
+
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 

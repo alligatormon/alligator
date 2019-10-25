@@ -4,6 +4,7 @@
 #include <string.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "metric/namespace.h"
+#include "events/context_arg.h"
 
 #define JSON_PARSER_PRINT 0
 #define JSON_PARSER_SUM 1
@@ -31,6 +32,7 @@ typedef struct pjson_node
 	char *replace;
 	int action;
 	size_t size;
+	context_arg *carg;
 	tommy_hashdyn *hash;
 	tommy_node node;
 } pjson_node;
@@ -77,7 +79,7 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	if (node->action == JSON_PARSER_AVG)
 		collector->collector /= node->size;
 
-	metric_add_labels(node->key, &collector->collector, DATATYPE_DOUBLE, 0, "key", collector->label);
+	metric_add_labels(node->key, &collector->collector, DATATYPE_DOUBLE, node ? node->carg : NULL, "key", collector->label);
 }
 
 void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch);
@@ -154,7 +156,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 		if (pjnode && pjnode->action == JSON_PARSER_LABEL)
 		{
 			int64_t num = 1;
-			metric_add_labels(buf, &num, DATATYPE_INT, 0, pjnode->by, json_string_value(element));
+			metric_add_labels(buf, &num, DATATYPE_INT, node ? node->carg : NULL, pjnode->by, (char*)json_string_value(element));
 		}
 
 		double af = atof(json_string_value(element));
@@ -191,7 +193,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				else
 				{
 					int64_t num = json_integer_value(element);
-					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
 		}
@@ -200,7 +202,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_INTEGER && !kv)
 	{
 		int64_t num = json_integer_value(element);
-		metric_add_auto(buf, &num, DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_INTEGER && kv)
 	{
@@ -228,7 +230,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				else
 				{
 					int64_t num = json_integer_value(element);
-					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
 		}
@@ -236,7 +238,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_REAL && !kv)
 	{
 		double num = json_real_value(element);
-		metric_add_auto(buf, &num, DATATYPE_DOUBLE, 0);
+		metric_add_auto(buf, &num, DATATYPE_DOUBLE, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_REAL && kv)
 	{
@@ -264,7 +266,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				}
 				else
 				{
-					metric_add(buf, lbl, &num, DATATYPE_DOUBLE, 0);
+					metric_add(buf, lbl, &num, DATATYPE_DOUBLE, node ? node->carg : NULL);
 				}
 			}
 		}
@@ -272,7 +274,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_TRUE && !kv)
 	{
 		int64_t num = 1;
-		metric_add_auto(buf, &num, DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_TRUE && kv)
 	{
@@ -301,7 +303,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 				else
 				{
 					int64_t num = 1;
-					metric_add(buf, lbl, &num, DATATYPE_INT, 0);
+					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
 		}
@@ -309,7 +311,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_FALSE && !kv)
 	{
 		int64_t num = 0;
-		metric_add_auto(buf, &num, DATATYPE_INT, 0);
+		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_FALSE && kv)
 	{
@@ -493,7 +495,7 @@ void json_parse(char *line, tommy_hashdyn *hash, char *name)
 	print_json_aux(root, name, hash, NULL, NULL, NULL, 0);
 	json_decref(root);
 }
-void json_parser_entry(char *line, int argc, char **argv, char *name)
+void json_parser_entry(char *line, int argc, char **argv, char *name, context_arg *carg)
 {
 
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
@@ -502,6 +504,7 @@ void json_parser_entry(char *line, int argc, char **argv, char *name)
 	for (i=0; i<argc; i++)
 	{
 		pjson_node *node = malloc(sizeof(*node));
+		node->carg = carg;
 		node->replace = NULL;
 		if (!strncmp(argv[i], "print::", 7) )
 		{

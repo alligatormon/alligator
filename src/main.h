@@ -17,7 +17,9 @@
 #include "config/context.h"
 #include "parsers/multiparser.h"
 #include "metric/namespace.h"
+#include "common/rpm.h"
 #define d8 PRId8
+#define u16 PRIu16
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000
@@ -78,6 +80,9 @@ typedef struct aconf
 
 	uint64_t request_cnt;
 
+	// servers hash tables
+	tommy_hashdyn* tcp_server_handler;
+
 	// HTTPS TLS CHECK OBJECTS
 	tommy_hashdyn *https_ssl_domains;
 
@@ -90,6 +95,9 @@ typedef struct aconf
 	int system_process;
 	int system_vm;
 	int system_smart;
+	int system_packages;
+	rpm_library *rpmlib;
+	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
 
@@ -103,3 +111,4 @@ typedef struct aconf
 
 void get_system_metrics();
 void system_fast_scrape();
+void system_slow_scrape();

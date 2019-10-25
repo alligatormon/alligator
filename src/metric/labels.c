@@ -124,7 +124,13 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 		if (!labels->key)
 		{
 			// unfreeed exit
-			return;
+			//return;
+			labels_t *labels_old = labels;
+			labels = labels->next;
+			// freed exit
+			free(labels_old);
+
+			continue;
 		}
 		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
 		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
@@ -193,6 +199,19 @@ void labels_head_free(labels_t *labels)
 		free(labels);
 		labels = new;
 	}
+}
+
+void labels_merge_for(void *funcarg, void* arg)
+{
+	tommy_hashdyn *dst = funcarg;
+	labels_container *labelscont = arg;
+
+	labels_hash_insert_nocache(dst, labelscont->name, labelscont->key);
+}
+
+void labels_merge(tommy_hashdyn *dst, tommy_hashdyn *src)
+{
+	tommy_hashdyn_foreach_arg(src, labels_merge_for, dst);
 }
 
 labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, namespace_struct *arg_ns)
@@ -407,41 +426,51 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 	}
 }
 
-void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace)
+//void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type)
+//{
+//	extern aconf *ac;
+//	namespace_struct *ns;
+//
+//	if (!namespace)
+//		ns = ac->nsdefault;
+//	else // add support namespaces
+//		return;
+//
+//	metric_tree *tree = ns->metrictree;
+//	expire_tree *expiretree = ns->expiretree;
+//
+//	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+//	metric_node* mnode = metric_find(tree, labels_list);
+//	if (mnode)
+//	{
+//		metric_set(mnode, type, value, expiretree);
+//		labels_head_free(labels_list);
+//	}
+//	else
+//	{
+//		metric_insert(tree, labels_list, type, value, expiretree);
+//	}
+//}
+
+void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
 
-	metric_tree *tree = ns->metrictree;
-	expire_tree *expiretree = ns->expiretree;
 
-	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
-	metric_node* mnode = metric_find(tree, labels_list);
-	if (mnode)
+	if (!labels)
 	{
-		metric_set(mnode, type, value, expiretree);
-		labels_head_free(labels_list);
+		labels = malloc(sizeof(*labels));
+		tommy_hashdyn_init(labels);
 	}
-	else
-	{
-		metric_insert(tree, labels_list, type, value, expiretree);
-	}
-}
 
-void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace)
-{
-	extern aconf *ac;
-	namespace_struct *ns;
-
-	if (!namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
+	if (carg && carg->labels)
+		labels_merge(labels, carg->labels);
 
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
@@ -459,15 +488,24 @@ void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, 
 	}
 }
 
-void metric_add_ret(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace, mapping_metric *mm)
+void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
+	if (!labels)
+	{
+		labels = malloc(sizeof(*labels));
+		tommy_hashdyn_init(labels);
+	}
+
+	if (carg && carg->labels)
+		labels_merge(labels, carg->labels);
 
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
@@ -484,23 +522,30 @@ void metric_add_ret(char *name, tommy_hashdyn *labels, void* value, int8_t type,
 		mnode = metric_insert(tree, labels_list, type, value, expiretree);
 	}
 
-	if (mm)
-		mapping_processing(mm, mnode, metric_get_int(value, type));
+	if (carg && carg->mm)
+		mapping_processing(carg, mnode, metric_get_int(value, type));
 }
 
-void metric_add_auto(char *name, void* value, int8_t type, char *namespace)
+void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
-	labels_t *labels_list = labels_initiate(NULL, name, 0, 0);
+
+	tommy_hashdyn *labels = malloc(sizeof(*labels));
+	tommy_hashdyn_init(labels);
+	if (carg && carg->labels)
+		labels_merge(labels, carg->labels);
+
+	labels_t *labels_list = labels_initiate(labels, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -513,15 +558,16 @@ void metric_add_auto(char *name, void* value, int8_t type, char *namespace)
 	}
 }
 
-void metric_add_labels(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1)
+void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -529,6 +575,10 @@ void metric_add_labels(char *name, void* value, int8_t type, char *namespace, ch
 	tommy_hashdyn_init(hash);
 
 	labels_hash_insert(hash, name1, key1);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
@@ -542,15 +592,16 @@ void metric_add_labels(char *name, void* value, int8_t type, char *namespace, ch
 	}
 }
 
-void metric_add_labels2(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2)
+void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -559,6 +610,10 @@ void metric_add_labels2(char *name, void* value, int8_t type, char *namespace, c
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
@@ -572,15 +627,16 @@ void metric_add_labels2(char *name, void* value, int8_t type, char *namespace, c
 	}
 }
 
-void metric_add_labels3(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
+void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -590,6 +646,10 @@ void metric_add_labels3(char *name, void* value, int8_t type, char *namespace, c
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
@@ -603,15 +663,16 @@ void metric_add_labels3(char *name, void* value, int8_t type, char *namespace, c
 	}
 }
 
-void metric_add_labels4(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4)
+void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -622,6 +683,10 @@ void metric_add_labels4(char *name, void* value, int8_t type, char *namespace, c
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
 	labels_hash_insert(hash, name4, key4);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
@@ -635,15 +700,16 @@ void metric_add_labels4(char *name, void* value, int8_t type, char *namespace, c
 	}
 }
 
-void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5)
+void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -655,6 +721,10 @@ void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, c
 	labels_hash_insert(hash, name3, key3);
 	labels_hash_insert(hash, name4, key4);
 	labels_hash_insert(hash, name5, key5);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
@@ -668,15 +738,16 @@ void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, c
 	}
 }
 
-void metric_add_labels6(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6)
+void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
 
-	if (!namespace)
+	if (!carg || !carg->namespace)
 		ns = ac->nsdefault;
 	else // add support namespaces
 		return;
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
@@ -689,6 +760,10 @@ void metric_add_labels6(char *name, void* value, int8_t type, char *namespace, c
 	labels_hash_insert(hash, name4, key4);
 	labels_hash_insert(hash, name5, key5);
 	labels_hash_insert(hash, name6, key6);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)

@@ -10,7 +10,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("master0");
-	char *res = selector_split_metric(metrics, size, "\r\n", 2, ":", 1, "sentinel_", 9, maps, 1);
+	char *res = selector_split_metric(metrics, size, "\r\n", 2, ":", 1, "sentinel_", 9, maps, 1, carg);
 	free(maps[0]);
 	free(maps);
 	if(!res)
@@ -40,13 +40,13 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 
 	if(strstr(tmp, "status=ok"))
 	{
-		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, 0, "status", "ok");
-		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, 0, "status", "fail");
+		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, carg, "status", "ok");
+		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, carg, "status", "fail");
 	}
 	else
 	{
-		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, 0, "status", "ok");
-		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, 0, "status", "fail");
+		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, carg, "status", "ok");
+		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, carg, "status", "fail");
 	}
 
 	tmp2 = strstr(tmp, "address=");
@@ -80,8 +80,8 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	tmp = tmp2;
 	sentinels = atoll(tmp+10);
 
-	metric_add_labels2("sentinel_slaves", &slaves, DATATYPE_UINT, 0, "name", name, "address", address);
-	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, 0, "name", name, "address", address);
+	metric_add_labels2("sentinel_slaves", &slaves, DATATYPE_UINT, carg, "name", name, "address", address);
+	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, carg, "name", name, "address", address);
 
 	free(res);
 }

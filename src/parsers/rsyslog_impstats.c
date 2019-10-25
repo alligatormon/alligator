@@ -90,8 +90,8 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 			printf("key: %s, name: %s\n", key, name);
 		int64_t vl = atoll(name);
 		if (*action)
-			metric_add_labels4("rsyslog_stats", &vl, DATATYPE_INT, 0, "module", module, "origin", origin, "action", action, "key", key);
+			metric_add_labels4("rsyslog_stats", &vl, DATATYPE_INT, carg, "module", module, "origin", origin, "action", action, "key", key);
 		else
-			metric_add_labels3("rsyslog_stats", &vl, DATATYPE_INT, 0, "module", module, "origin", origin, "key", key);
+			metric_add_labels3("rsyslog_stats", &vl, DATATYPE_INT, carg, "module", module, "origin", origin, "key", key);
 	}
 }

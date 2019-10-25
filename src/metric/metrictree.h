@@ -141,7 +141,6 @@ typedef struct mapping_metric
 } mapping_metric;
 
 
-void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
+//void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
-void metric_add_ret(char *name, tommy_hashdyn *labels, void* value, int8_t type, char *namespace, mapping_metric *mm);

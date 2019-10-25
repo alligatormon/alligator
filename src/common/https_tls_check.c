@@ -150,7 +150,7 @@ void print_certificate(X509* cert, const char *hostname) {
 	int64_t buftime = atoll(buf2);
 	//printf("complete for: %u.\n",now.sec);
 	int64_t expdays = (buftime-now.sec)/86400;
-	metric_add_labels("https_tls_expiration_days", &expdays, DATATYPE_INT, 0, "hostname", hostname);
+	metric_add_labels("https_tls_expiration_days", &expdays, DATATYPE_INT, NULL, "hostname", (char*)hostname);
 }
 
 void ShowCerts(SSL* ssl, const char *hostname)

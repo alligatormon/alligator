@@ -357,7 +357,8 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	
 	// replacing dot symbols and other from metric
 	metric_name_normalizer(metric_name, metric_len);
-	metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, 0, mm);
+	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
+	metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 }
 
 void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
@@ -382,6 +383,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		tommy_hashdyn *lbl = NULL;
 		if (http_data)
 			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size);
+
 		multicollector_field_get(tmp, tmp_len, lbl, carg);
 	}
 }

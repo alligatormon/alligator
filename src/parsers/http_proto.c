@@ -1,9 +1,11 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
 #include "parsers/http_proto.h"
 #include "events/context_arg.h"
+#include "main.h"
 
 void http_reply_free(http_reply_data* hrdata)
 {
@@ -92,6 +94,8 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	hrdata->mesg = mesg;
 	hrdata->headers = headers;
 	hrdata->body = body;
+	hrdata->auth_bearer = 0;
+	hrdata->auth_basic = 0;
 
 	return hrdata;
 }
@@ -120,6 +124,34 @@ char* http_proto_proxer(char *metrics, size_t size, char *instance)
 	return body;
 }
 
+void http_get_auth_data(http_reply_data *hr_data)
+{
+	hr_data->auth_bearer = 0;
+	hr_data->auth_basic = 0;
+	char *ptr = strcasestr(hr_data->headers, "Authorization");
+	if (ptr)
+	{
+		ptr += strcspn(ptr, ": \t");
+		ptr += strspn(ptr, ": \t");
+		if (!strncasecmp(ptr, "Basic", 5))
+		{
+			ptr += strcspn(ptr, " \t");
+			ptr += strspn(ptr, " \t");
+			uint8_t size = strcspn(ptr, "\r\n");
+			hr_data->auth_basic = strndup(ptr, size);
+			//printf("http auth basic '%s'\n", hr_data->auth_basic);
+		}
+		else if (!strncasecmp(ptr, "Bearer", 6))
+		{
+			ptr += strcspn(ptr, " \t");
+			ptr += strspn(ptr, " \t");
+			uint8_t size = strcspn(ptr, "\r\n");
+			hr_data->auth_bearer = strndup(ptr, size);
+			//printf("http auth bearer '%s'\n", hr_data->auth_bearer);
+		}
+	}
+}
+
 http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 {
 	uint64_t i;
@@ -146,6 +178,11 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	{
 		skip = 3;
 		method = HTTP_METHOD_PUT;
+	}
+	else if ( !strncmp(buf, "DELETE", 6) )
+	{
+		skip = 6;
+		method = HTTP_METHOD_DELETE;
 	}
 	else	return 0;
 
@@ -180,13 +217,37 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	i+= skip;
 	ret->body = strstr(buf+i, "\r\n\r\n");
 	ret->body_size = 0;
+	ret->headers = strndup(buf + i, buf + i - ret->body);
+
 	if (ret->body)
 	{
 		ret->body += 4;
 		ret->body_size = size - (ret->body - buf);
 	}
 
+	http_get_auth_data(ret);
+
 	return ret;
+}
+
+uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
+{
+	extern aconf *ac;
+	if (ac->log_level > 3)
+		printf("http auth: basic:%d bearer %d\n", carg->auth_basic ? 1:0, carg->auth_bearer ? 1:0);
+
+	if (!carg->auth_basic && !carg->auth_bearer)
+		return 1;
+
+	if (carg->auth_basic && http_data->auth_basic)
+		if (!strcmp(carg->auth_basic, http_data->auth_basic))
+			return 1;
+
+	if (carg->auth_bearer && http_data->auth_bearer)
+		if (!strcmp(carg->auth_bearer, http_data->auth_bearer))
+			return 1;
+
+	return 0;
 }
 
 void http_reply_data_free(http_reply_data* http)
@@ -197,5 +258,10 @@ void http_reply_data_free(http_reply_data* http)
 		free(http->mesg);
 	if (http->headers)
 		free(http->headers);
+	if (http->auth_bearer)
+		free(http->auth_bearer);
+	if (http->auth_basic)
+		free(http->auth_basic);
+
 	free(http);
 }

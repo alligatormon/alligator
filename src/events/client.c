@@ -58,9 +58,9 @@ void tcp_on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t *buf)
 	int64_t write_time = getrtime_i(carg->write_time, carg->write_time_finish);
 	int64_t read_time = getrtime_i(carg->read_time, carg->read_time_finish);
 	//printf("CWR %"d64":%"d64":%"d64"\n", connect_time, write_time, read_time);
-	metric_add_labels3("aggregator_duration_time", &connect_time, DATATYPE_INT, 0, "proto", "tcp", "type", "connect", "url", carg->hostname);
-	metric_add_labels3("aggregator_duration_time", &write_time, DATATYPE_INT, 0, "proto", "tcp", "type", "write", "url", carg->hostname);
-	metric_add_labels3("aggregator_duration_time", &read_time, DATATYPE_INT, 0, "proto", "tcp", "type", "read", "url", carg->hostname);
+	metric_add_labels3("aggregator_duration_time", &connect_time, DATATYPE_INT, carg, "proto", "tcp", "type", "connect", "url", carg->hostname);
+	metric_add_labels3("aggregator_duration_time", &write_time, DATATYPE_INT, carg, "proto", "tcp", "type", "write", "url", carg->hostname);
+	metric_add_labels3("aggregator_duration_time", &read_time, DATATYPE_INT, carg, "proto", "tcp", "type", "read", "url", carg->hostname);
 	//fprintf(stderr, "read: %s (%zu)\n", buf->base, strlen(buf->base));
 
 	if ((carg->proto == APROTO_HTTP || carg->proto == APROTO_HTTP_AUTH) && carg->http_body_size == 0)

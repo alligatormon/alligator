@@ -5,87 +5,58 @@
 #include "parsers/http_proto.h"
 #include "common/selector.h"
 
-//void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data)
-//{
-//	char *body = http_data->body;
-//	char *uri = http_data->uri
-//	if ( !( body = strstr(buf, "\n\n") ) )
-//	{
-//		if ( ( body = strstr(buf, "\r\n\r\n") ) )
-//			//printf("body is %s\n", body+4);
-//			if ( body && strlen(body) > 4 )
-//			{
-//				if ( !strncmp(body+4, "certificate_https_check", strlen("certificate_https_check")) )
-//				{
-//					//puts("add certificate checking:");
-//					//https_ssl_check_push(body +5 +strlen("certificate_https_check"));
-//				}
-//				else
-//				{
-//					//puts("add metric parser");
-//					//selector_get_plain_metrics(body+4, strlen(body+4), "\n", " ", "push_", 5 );
-//					printf("\n====0====\npotential get: %s\n", uri);
-//					printf("\nget metrics from\n%s\n", body+4);
-//					prom_getmetrics_n(body+4, strlen(body+4), uri);
-//				}
-//			}
-//	}
-//	else
-//	{
-//		//printf("body is %s\n", body+2);
-//		if ( !strncmp(body+2, "certificate_https_check", strlen("certificate_https_check")) )
-//		{
-//			//puts("add certificate checking");
-//			//https_ssl_check_push(body +3 +strlen("certificate_https_check"));
-//		}
-//		else
-//		{
-//			//puts("add metric parser");
-//			//selector_get_plain_metrics(body+2, strlen(body+2), "\n", " ", "push_", 5 );
-//			printf("\n====1====\npotential get: %s\n", parseget);
-//			printf("\nget metrics from\n%s\n", body+2);
-//			prom_getmetrics_n(body+2, strlen(body+2), parseget);
-//		}
-//	}
-//	free(parseget);
-//	string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
-//}
-
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	char *body = http_data->body;
 	char *uri = http_data->uri;
 	extern aconf *ac;
 
-	if ( !strncmp(body, "certificate_https_check", strlen("certificate_https_check")) )
+	if (!strncmp(http_data->uri, "/api", 4))
 	{
-		puts("add certificate checking:");
-		https_ssl_check_push(body +5 +strlen("certificate_https_check"));
+		api_router(response, http_data);
 	}
 	else
 	{
-		//puts("add metric parser");
-		//selector_get_plain_metrics(body+4, strlen(body+4), "\n", " ", "push_", 5 );
 		if (ac->log_level > 2)
 			printf("Query: %s\n", uri);
 		if (ac->log_level > 10)
 			printf("get metrics from body:\n%s\n", body);
 		multicollector(http_data, NULL, 0, carg);
+		string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
 	}
+}
 
-	string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
+void do_http_delete(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
+{
+	extern aconf *ac;
+
+	if (!strncmp(http_data->uri, "/api", 4))
+		api_router(response, http_data);
+	else
+		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
 }
 
 void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_data)
 {
-	//if (strstr(buf, "/api"))
-	if (!strcmp(http_data->uri, "/api"))
+	if (!strncmp(http_data->uri, "/api", 4))
 	{
+		api_router(response, http_data);
 	}
 	else
 	{
-		string_cat(response, "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
-		metric_str_build(0, response);
+		//metric_str_build(0, response);
+		string *body = string_init(response->m);
+		metric_str_build(0, body);
+
+		char *content_length = malloc(255);
+		snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
+
+		string_cat(response, "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n", strlen("HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"));
+		string_cat(response, content_length, strlen(content_length));
+		string_cat(response, body->s, body->l);
+
+		free(content_length);
+		string_free(body);
 	}
 }
 
@@ -107,11 +78,20 @@ void do_http_response(char *buf, size_t len, string *response)
 
 int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 {
+	if (!response)
+		return 0;
+
 	int ret = 1;
 
 	http_reply_data* http_data = http_proto_get_request_data(buf, len);
 	if(!http_data)
 		return 0;
+
+	if (!http_check_auth(carg, http_data))
+	{
+		string_cat(response, "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
+		return 1;
+	}
 
 	if (http_data->method == HTTP_METHOD_POST)
 	{
@@ -131,6 +111,11 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		if (http_data->body)
 	 		do_http_put(buf, len, response, http_data, carg);
 	}
+	else if (http_data->method == HTTP_METHOD_DELETE)
+	{
+		if (http_data->body)
+	 		do_http_delete(buf, len, response, http_data, carg);
+	}
 	else	ret = 0;
 
 	http_reply_data_free(http_data);
@@ -139,7 +124,6 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 
 int plain_parser(char *buf, size_t len, context_arg *carg)
 {
-	//selector_get_plain_metrics(buf, len, "\n", " ", "", 0 );
 	multicollector(NULL, buf, len, carg);
 	return 1;
 }
@@ -149,9 +133,8 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	//printf("handler (%p) parsing '%s'(%zu)\n", handler, buf, slen);
 	if (!buf)
 		return;
-	//size_t len = strlen(buf);
+
 	size_t len = slen;
-	//printf("len = %zu, slen = %zu\n", len, slen);
 	
 	if ( handler )
 	{

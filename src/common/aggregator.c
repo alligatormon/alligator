@@ -26,6 +26,8 @@ void smart_aggregator(context_arg *carg)
 		do_tcp_client_carg(carg);
 	else if (carg->proto == APROTO_UNIXFCGI)
 		do_unix_client_carg(carg);
+	//else if (carg->proto == APROTO_PROCESS)
+	//	put_to_loop_cmd_carg(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
 }
@@ -56,6 +58,8 @@ void smart_aggregator_selector(host_aggregator_info *hi, void *handler, char *me
 		do_unix_client(hi->host, handler, mesg, hi->proto, data);
 	else if (hi->proto == APROTO_UNIXGRAM)
 		do_unixgram_client(hi->host, handler, mesg, data);
+	else if (hi->proto == APROTO_PROCESS)
+		put_to_loop_cmd(hi->host, varnish_handler);
 }
 
 void smart_aggregator_selector_buffer(host_aggregator_info *hi, void *handler, uv_buf_t *buffer, size_t buflen, void *data)

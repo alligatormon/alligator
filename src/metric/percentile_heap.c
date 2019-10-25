@@ -77,7 +77,7 @@ void heapSort(int64_t *arr, int64_t n)
 	} 
 } 
 
-void calc_percentiles(percentile_buffer *pb, metric_node *mnode)
+void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mnode)
 {
 	int64_t i;
 	int64_t *arr = pb->arr;
@@ -115,14 +115,14 @@ void calc_percentiles(percentile_buffer *pb, metric_node *mnode)
 		{
 			//printf("p1.0[%"d64"]   %"d64"\n", pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			labels_hash_insert(hash, "quantile", "1.0");
-			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, 0);
+			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, carg);
 		}
 		else
 		{
 			//printf("p0.%"d64"[%"d64"]   %"d64"\n", pb->percentile[i], pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			snprintf(quantilekey, 30, "0.%"d64"", pb->percentile[i]);
 			labels_hash_insert(hash, "quantile", quantilekey);
-			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, 0);
+			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, carg);
 		}
 	}
 }

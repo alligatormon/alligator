@@ -76,6 +76,7 @@ void system_initialize()
 	ac->system_process = 0;
 	ac->system_vm = 0;
 	ac->system_smart = 0;
+	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
 	ac->scs = calloc(1, sizeof(system_cpu_stats));
@@ -88,6 +89,13 @@ void system_metric_initialize()
 	ac->metric_cache_hits = 0;
 	ac->metric_allocates = 0;
 	ac->metric_freed = 0;
+}
+
+void tcp_server_initialize()
+{
+	extern aconf *ac;
+	ac->tcp_server_handler = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->tcp_server_handler);
 }
 
 void tls_initialize()
@@ -140,6 +148,7 @@ aconf* configuration()
 	system_initialize();
 	system_metric_initialize();
 	tls_initialize();
+	tcp_server_initialize();
 
 	ac->log_level = 0;
 
@@ -158,6 +167,8 @@ int main(int argc, char **argv)
 		split_config(argv[1]);
 
 	signal_listen();
+
+	//filetailer_handler("/var/log/", dummy_handler);
 
 	tcp_client_handler();
 	tls_tcp_client_handler();

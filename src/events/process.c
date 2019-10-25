@@ -12,31 +12,35 @@
 #define CDM2 "curl -I https://r0.ru"
 #define CDM3 "curl -I https://mail.ru"
 
-typedef struct process_info
-{
-	char *key;
-	uv_process_options_t *options;
-	uv_pipe_t *channel;
-	uv_stdio_container_t *child_stdio;
-	void *parser_handler;
-	char** args;
-
-	tommy_node node;
-} process_info;
+//typedef struct context_arg
+//{
+//	char *key;
+//	uv_process_options_t *options;
+//	uv_pipe_t *channel;
+//	uv_stdio_container_t *child_stdio;
+//	void *parser_handler;
+//	char** args;
+//
+//	tommy_node node;
+//} context_arg;
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
-	if (nread == -1) {
+	puts("do");
+	if (nread == -1)
+	{
 		fprintf(stderr, "error echo_read");
 		return;
 	}
-	process_info *pinfo = server->data;
+	context_arg *carg = server->data;
 
-	alligator_multiparser(buf->base, nread, pinfo->parser_handler, NULL, NULL);
+	if (!carg->http_body)
+		carg->http_body = malloc(6553500);
+	size_t strsize = strlcpy(carg->http_body+carg->http_body_size, buf->base, nread);
+	carg->http_body_size += strsize;
 
 	if (buf->base)
 	{
-		//printf("I:'%s'\n", buf->base);
 		free(buf->base);
 	}
 	// call abort
@@ -45,7 +49,14 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 
 static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 {
-	//fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
+	fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
+	context_arg *carg = req->data;
+	alligator_multiparser(carg->http_body, carg->http_body_size, carg->parser_handler, NULL, carg);
+	free(carg->http_body);
+
+	carg->http_body_size = 0;
+	carg->http_body = NULL;
+
 	uv_close((uv_handle_t*)req, NULL);
 	free(req);
 }
@@ -71,6 +82,7 @@ void put_to_loop_cmd(char *cmd, void *parser_handler)
 		puts("exec is empty");
 		return;
 	}
+
 	extern aconf* ac;
 	size_t len = strlen(cmd);
 
@@ -130,7 +142,7 @@ void put_to_loop_cmd(char *cmd, void *parser_handler)
 	//options->stdio_count = 3;
 	//printf (":%d:\n", options->stdio_count);
 
-	process_info *pinfo = calloc(1, sizeof(*pinfo));
+	context_arg *pinfo = calloc(1, sizeof(*pinfo));
 	//pinfo->options = options;
 	pinfo->key = cmd;
 	//pinfo->channel = channel;
@@ -144,10 +156,11 @@ void on_process_spawn(void* arg)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
-	process_info *pinfo = arg;
+	context_arg *pinfo = arg;
 
 	int r;
 	uv_process_t *child_req = malloc(sizeof(uv_process_t));
+	child_req->data = pinfo;
 
 	uv_pipe_t *channel = malloc(sizeof(uv_pipe_t));
 	channel->data = pinfo;

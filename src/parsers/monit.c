@@ -113,7 +113,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 
 				double mval = atof(responsetime_value);
-				metric_add_labels6("monit_service_responsetime", &mval, DATATYPE_DOUBLE, 0, "name", value, hostname_name, hostname_value, portnumber_name, portnumber_value, rawrequest_name, request, protocol_name, protocol_value, type_name, type_value);
+				metric_add_labels6("monit_service_responsetime", &mval, DATATYPE_DOUBLE, carg, "name", value, hostname_name, hostname_value, portnumber_name, portnumber_value, rawrequest_name, request, protocol_name, protocol_value, type_name, type_value);
 
 				continue;
 			}
@@ -134,7 +134,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 
 				uint64_t mval = atof(started_value);
-				metric_add_labels("monit_program_start", &mval, DATATYPE_UINT, 0, "name", value);
+				metric_add_labels("monit_program_start", &mval, DATATYPE_UINT, carg, "name", value);
 			}
 			else if (node_name_size == 10 && !strncmp(node_name, "timestamps", 10))
 			{
@@ -169,9 +169,9 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 				modify = atoll(timestamps_value);
 
-				metric_add_labels("monit_timestamps_access", &access, DATATYPE_UINT, 0, "name", value);
-				metric_add_labels("monit_timestamps_change", &change, DATATYPE_UINT, 0, "name", value);
-				metric_add_labels("monit_timestamps_modify", &modify, DATATYPE_UINT, 0, "name", value);
+				metric_add_labels("monit_timestamps_access", &access, DATATYPE_UINT, carg, "name", value);
+				metric_add_labels("monit_timestamps_change", &change, DATATYPE_UINT, carg, "name", value);
+				metric_add_labels("monit_timestamps_modify", &modify, DATATYPE_UINT, carg, "name", value);
 			}
 
 			strlcpy(mname+6, node_name, node_name_size+1);
@@ -180,17 +180,17 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 			if (rc == DATATYPE_INT)
 			{
 				int64_t mval = atoll(node_value);
-				metric_add_labels(mname, &mval, rc, 0, name, value);
+				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 			else if (rc == DATATYPE_UINT)
 			{
 				uint64_t mval = atoll(node_value);
-				metric_add_labels(mname, &mval, rc, 0, name, value);
+				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 			else if (rc == DATATYPE_DOUBLE)
 			{
 				double mval = atof(node_value);
-				metric_add_labels(mname, &mval, rc, 0, name, value);
+				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 
 			tmp += end;

@@ -5,7 +5,7 @@ project(alligator VERSION 1.10.3)
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
 set(COMMON lib${PROJECT_NAME})
-#set(TESTS ${PROJECT_NAME}_tests)
+set(TESTS ${PROJECT_NAME}_tests)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
@@ -53,7 +53,6 @@ set(STATIC_FILES
 	parsers/aerospike.c
 	parsers/redis.c
 	parsers/sentinel.c
-	parsers/mssql.c
 	parsers/memcached.c
 	parsers/beanstalkd.c
 	parsers/zookeeper.c
@@ -74,6 +73,11 @@ set(STATIC_FILES
 	parsers/nginx_upstream_check.c
 	parsers/monit.c
 	parsers/rsyslog_impstats.c
+	parsers/gdnsd.c
+	parsers/syslog-ng.c
+	parsers/consul.c
+	parsers/nifi.c
+	parsers/varnish.c
 	common/selector.c
 	common/https_tls_check.c
 	common/pem_check.c
@@ -89,6 +93,10 @@ set(STATIC_FILES
 	common/xml.c
 	common/mapping.c
 	common/smart.c
+	common/netlib.c
+	common/rpm.c
+	api/api_router.c
+	api/api_v1.c
 	config/aggregate.c
 	config/file.c
 	config/context.c
@@ -127,7 +135,6 @@ add_executable(${HEAD} main.c)
 add_library(${COMMON_TESTS} STATIC
 		common/selector.c
 		parsers/http_proto.c
-		#parsers/prom_format.c
 		system/linux.c
 		common/http.c
 		common/base64.c
@@ -135,16 +142,15 @@ add_library(${COMMON_TESTS} STATIC
 		common/selector.c
 		common/validator.c
 		common/url.c
+		common/netlib.c
 )
 
-###add_library(${TESTS} SHARED tests/unit/tests.c)
-###set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-###set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-###target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
-#add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
-#add_test(Test1 "cutter" ".")
-#add_executable(${CLIENT} events/server_handler.c)
-#target_link_libraries(${CLIENT} ${COMMON} uv)
+add_library(${TESTS} SHARED tests/unit/tests.c)
+set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
+add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
+add_test(Test1 "cutter" ".")
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 

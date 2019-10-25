@@ -86,7 +86,7 @@ char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, cha
 	return NULL;
 }
 
-char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size)
+char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size, context_arg *carg)
 {
 	int64_t i;
 	int64_t j;
@@ -136,7 +136,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 			char fullmetric[fullsize];
 			strncpy(fullmetric, prefix, prefix_size);
 			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
-			metric_add_auto(fullmetric, &pvalue, rc, 0);
+			metric_add_auto(fullmetric, &pvalue, rc, carg);
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
@@ -146,8 +146,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 			char fullmetric[fullsize];
 			strncpy(fullmetric, prefix, prefix_size);
 			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
-			metric_add_auto(fullmetric, &pvalue, rc, 0);
-			//metric_add_auto_prefix(pmetric, prefix, &pvalue, rc, 0);
+			metric_add_auto(fullmetric, &pvalue, rc, carg);
 		}
 		else
 		{
@@ -265,6 +264,13 @@ string* string_init(size_t max)
 
 	return ret;
 }
+
+void string_free(string *str)
+{
+	free(str->s);
+	free(str);
+}
+
 string* string_init_str(char *str, size_t max)
 {
 	string *ret = malloc(sizeof(*ret));

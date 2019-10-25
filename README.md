@@ -98,6 +98,10 @@ aggregate backends {
 	monit http://admin:admin@localhost:2812;
 	#FLOWER celery
 	flower http://localhost:5555;
+	#GDNSD
+	gdnsd unix:///usr/local/var/run/gdnsd/control.sock
+	#SYSLOG-NG
+	syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl
 }
 ```
 

@@ -36,7 +36,7 @@ void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t tvalue = atoll(json_string_value(jsonvalue));
 
 		strlcpy(metricname+9, tname, POWERDNS_METRIC_SIZE-10);
-		metric_add_auto(metricname, &tvalue, DATATYPE_INT, 0);
+		metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 	}
 	json_decref(root);
 }

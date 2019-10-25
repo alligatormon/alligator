@@ -8,7 +8,7 @@ void aerospike_get_namespaces_handler(char *metrics, size_t size, context_arg *c
 void aerospike_status_handler(char *metrics, size_t size, context_arg *carg);
 void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg);
 void http_proto_handler(char *metrics, size_t size, context_arg *carg);
-char* http_proto_proxer(char *metrics, size_t size, context_arg *carg);
+//char* http_proto_proxer(char *metrics, size_t size, context_arg *carg);
 void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg);
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg);
 void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg);
@@ -20,7 +20,6 @@ void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg);
 void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg);
 void beanstalkd_handler(char *metrics, size_t size, context_arg *carg);
 void memcached_handler(char *metrics, size_t size, context_arg *carg);
-void mssql_handler(char *metrics, size_t size, context_arg *carg);
 void gearmand_handler(char *metrics, size_t size, context_arg *carg);
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg);
 void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg);
@@ -57,3 +56,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 void monit_handler(char *metrics, size_t size, context_arg *carg);
 void dummy_handler(char *metrics, size_t size, context_arg *carg);
 void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg);
+void gdnsd_handler(char *metrics, size_t size, context_arg *carg);
+void syslog_ng_handler(char *metrics, size_t size, context_arg *carg);
+void consul_handler(char *metrics, size_t size, context_arg *carg);
+void nifi_handler(char *metrics, size_t size, context_arg *carg);
+void varnish_handler(char *metrics, size_t size, context_arg *carg);

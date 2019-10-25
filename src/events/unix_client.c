@@ -108,5 +108,5 @@ void unix_client_handler()
 
 	uv_timer_t *uggregator_timer = calloc(1, sizeof(*uggregator_timer));
 	uv_timer_init(loop, uggregator_timer);
-	uv_timer_start(uggregator_timer, uggregator_timer_cb, 1000, 1000);
+	uv_timer_start(uggregator_timer, uggregator_timer_cb, 1000, 10000);
 }

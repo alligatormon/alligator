@@ -6,6 +6,9 @@
 #include "modules/modules.h"
 #include "parsers/multiparser.h"
 #include "parsers/elasticsearch.h"
+#include "common/netlib.h"
+#include "common/base64.h"
+#include "common/rpm.h"
 
 int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 {
@@ -89,8 +92,8 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	else
 		carg->write = 0;
 
-	if (hi->proto == APROTO_TLS)
-	{
+	//if (hi->proto == APROTO_TLS)
+	//{
 		uint8_t n = 1;
 		char *ptr;
 		ptr = mt->st[*i].s;
@@ -109,9 +112,31 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 				ptrval += strspn(ptrval, "= ");
 				carg->tls_key = strdup(ptrval);
 			}
+			if (!strncmp(ptr, "add_label", 9))
+			{
+				char *name;
+				char *key;
+				char *ptrval1 = ptr + strcspn(ptr+9, "=") + 9;
+				ptrval1 += strspn(ptrval1, "= ");
+
+				char *ptrval2 = ptrval1 + strcspn(ptrval1, ": ");
+				name = strndup(ptrval1, ptrval2-ptrval1);
+
+				ptrval2 += strspn(ptrval2, ": ");
+				key = ptrval2;
+
+				if (!carg->labels)
+				{
+					carg->labels = malloc(sizeof(tommy_hashdyn));
+					tommy_hashdyn_init(carg->labels);
+				}
+
+				labels_hash_insert_nocache(carg->labels, name, key);
+				free(name);
+			}
 		}
 		*i += n;
-	}
+	//}
 
 	return carg;
 }
@@ -487,10 +512,51 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			char *query = gen_http_query(0, string, hi->host, "alligator", hi->auth, 0);
 			smart_aggregator_selector(hi, monit_handler, query, NULL);
 		}
-		else if (!strcmp(mt->st[*i-1].s, "mssql"))
+		else if (!strcmp(mt->st[*i-1].s, "gdnsd"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			put_to_loop_cmd(hi->host, mssql_handler);
+			uv_buf_t *buffer;
+
+			buffer = malloc(sizeof(*buffer));
+			*buffer = uv_buf_init("S\0\0\0\0\0\0\0", 8);
+			smart_aggregator_selector_buffer(hi, gdnsd_handler, buffer, 1);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "syslog-ng"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			smart_aggregator_selector(hi, syslog_ng_handler, "STATS\n", NULL);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "consul"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+
+			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, consul_handler, query, NULL);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "nifi"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+
+			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
+			smart_aggregator_selector(hi, nifi_handler, query, NULL);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "varnish"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+
+			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
+			//smart_aggregator_selector(hi, varnish_handler, query, NULL);
+			//put_to_loop_cmd(hi->host, varnish_handler);
+			smart_aggregator_selector(hi, varnish_handler, NULL, NULL);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "prometheus_metrics"))
+		{
+			//smart_aggregator_selector(hi, NULL, query, NULL);
+
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, NULL, query, NULL);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "period"))
 		{
@@ -501,15 +567,15 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "postgresql"))
 		{
 			//void* (*func)() = module_load("libpostgresql_client.so", "do_postgresql_client");
-			init_func func = module_load("/app/src/libpostgresql_client.so", "do_postgresql_client");
-			if (!func)
-			{
-				printf("postgresql cannot be scrape\n");
-				continue;
-			}
+			//init_func func = module_load("/app/src/libpostgresql_client.so", "do_postgresql_client");
+			//if (!func)
+			//{
+			//	printf("postgresql cannot be scrape\n");
+			//	continue;
+			//}
 
-			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			func(hi->host);
+			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			//func(hi->host);
 		}
 #endif
 	}
@@ -685,6 +751,43 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			else
 				push_mapping_metric(carg->mm, mm);
 		}
+		else if (config_compare_begin(mt, *i, "allow", 5))
+		{
+			if (!carg->net_acl)
+				carg->net_acl = calloc(1, sizeof(*carg->net_acl));
+
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			if (ptr)
+				network_range_push(carg->net_acl, strdup(ptr), IPACCESS_ALLOW);
+		}
+		else if (config_compare_begin(mt, *i, "deny", 4))
+		{
+			if (!carg->net_acl)
+				carg->net_acl = calloc(1, sizeof(*carg->net_acl));
+
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			if (ptr)
+				network_range_push(carg->net_acl, strdup(ptr), IPACCESS_DENY);
+		}
+		else if (config_compare_begin(mt, *i, "httpauth", 8))
+		{
+			if (!carg->net_acl)
+				carg->net_acl = calloc(1, sizeof(*carg->net_acl));
+
+			char *ptr;
+			ptr = config_get_arg(mt, *i, 1, NULL);
+			if (!strncmp(ptr, "basic", 5))
+			{
+				ptr = config_get_arg(mt, *i, 2, NULL);
+				size_t sz;
+				carg->auth_basic = base64_encode(ptr, strlen(ptr), &sz);
+			}
+			else if (!strncmp(ptr, "bearer", 6))
+			{
+				ptr = config_get_arg(mt, *i, 2, NULL);
+				carg->auth_bearer = strdup(ptr);
+			}
+		}
 		else if (!strncmp(mt->st[*i-1].s, "tcp", 3))
 		{
 			char *port = strstr(mt->st[*i].s, ":");
@@ -694,9 +797,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 				tcp_server_handler(host, atoi(port+1), handler, carg);
 			}
 			else
+			{
 				tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, carg);
+			}
 		}
-#ifndef _WIN64
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
 		{
 			char *port = strstr(mt->st[*i].s, ":");
@@ -712,7 +816,6 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			unixgram_server_handler(mt->st[*i].s, handler);
 		else if (!strncmp(mt->st[*i-1].s, "unix", 4))
 			unix_server_handler(mt->st[*i].s, handler);
-#endif
 	}
 }
 
@@ -736,6 +839,12 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_network = 1;
 		else if (!strcmp(mt->st[*i].s, "vm"))
 			ac->system_vm = 1;
+		else if (!strcmp(mt->st[*i].s, "packages"))
+		{
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			ac->system_packages = 1;
+			ac->rpmlib = rpm_library_init(ptr);
+		}
 		else if (!strcmp(mt->st[*i].s, "smart"))
 			ac->system_smart = 1;
 		//else if (!strcmp(mt->st[*i].s, "process"))
@@ -747,6 +856,30 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			{
 				match_push(ac->process_match, mt->st[*i].s, mt->st[*i].l);
 			}
+			--*i;
+		}
+		else if (!strncmp(mt->st[*i].s, "add_label", 9))
+		{
+			char *name;
+			char *key;
+			char *ptr = mt->st[*i].s;
+			char *ptrval1 = ptr + strcspn(ptr+9, "=") + 9;
+			ptrval1 += strspn(ptrval1, "= ");
+
+			char *ptrval2 = ptrval1 + strcspn(ptrval1, ": ");
+			name = strndup(ptrval1, ptrval2-ptrval1);
+
+			ptrval2 += strspn(ptrval2, ": ");
+			key = ptrval2;
+
+			if (!ac->system_carg->labels)
+			{
+				ac->system_carg->labels = malloc(sizeof(tommy_hashdyn));
+				tommy_hashdyn_init(ac->system_carg->labels);
+			}
+
+			labels_hash_insert_nocache(ac->system_carg->labels, name, key);
+			free(name);
 		}
 	}
 }

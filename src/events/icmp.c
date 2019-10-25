@@ -153,8 +153,8 @@ void send_ping(int ping_sockfd, struct sockaddr_in *ping_addr, icmp_info *iinfo)
 	int64_t loss = msg_count - msg_received_count;
 	//printf("\n%d packets sent, %d packets received, %f percent packet loss. Total time: %lf ms.\n\n",  msg_count, msg_received_count, (loss/msg_count) * 100.0, total_msec);  
 	//fprintf(stderr, "DONE %s->%s\n", iinfo->address, iinfo->key);
-	metric_add_labels2("aggregator_connect_time", &total_msec, DATATYPE_DOUBLE, 0, "type", "icmp", "host", iinfo->address);
-	metric_add_labels2("aggregator_packet_loss", &loss, DATATYPE_INT, 0, "type", "icmp", "host", iinfo->address);
+	metric_add_labels2("aggregator_connect_time", &total_msec, DATATYPE_DOUBLE, NULL, "type", "icmp", "host", iinfo->address);
+	metric_add_labels2("aggregator_packet_loss", &loss, DATATYPE_INT, NULL, "type", "icmp", "host", iinfo->address);
 	close(ping_sockfd);
 } 
   

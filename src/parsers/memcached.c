@@ -7,7 +7,6 @@
 
 void memcached_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//selector_split_metric(metrics, size, "\r\nSTAT ", 7, " ", 1, "memcached_", 10, NULL, 0);
 	char *cur = metrics;
 	char name[MC_NAME_SIZE+10];
 	strcpy(name, "memcached_");
@@ -36,17 +35,17 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 		if (rc == DATATYPE_INT)
 		{
 			int64_t mval = strtoll(cur, &cur, 10);
-			metric_add_auto(name, &mval, rc, 0);
+			metric_add_auto(name, &mval, rc, carg);
 		}
 		else if (rc == DATATYPE_UINT)
 		{
 			uint64_t mval = strtoll(cur, &cur, 10);
-			metric_add_auto(name, &mval, rc, 0);
+			metric_add_auto(name, &mval, rc, carg);
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
 			double mval = strtoll(cur, &cur, 10);
-			metric_add_auto(name, &mval, rc, 0);
+			metric_add_auto(name, &mval, rc, carg);
 		}
 	}
 }

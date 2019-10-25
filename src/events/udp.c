@@ -3,7 +3,8 @@
 #include <string.h>
 #include "main.h"
 
-void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags) {
+void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
+{
 	if (nread < 0)
 	{
 		fprintf(stderr, "Read error %s\n", uv_err_name(nread));
@@ -15,8 +16,9 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	(carg->conn_counter)++;
 	(carg->read_counter)++;
 
-	metric_add_labels("udp_entrypoint_connect", &carg->conn_counter, DATATYPE_UINT, 0, "entrypoint", carg->key);
-	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, 0, "entrypoint", carg->key);
+
+	metric_add_labels("udp_entrypoint_connect", &carg->conn_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
+	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
 	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
 	free(buf->base);

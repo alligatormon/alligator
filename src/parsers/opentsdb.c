@@ -42,13 +42,13 @@ void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
 			//snprintf(metricname, latency - tname + 9, "opentsdb_%s", tname);
 			strlcpy(metricname+9, tname, latency - tname);
 			char *latencyname = latency+8;
-			metric_add_labels(metricname, &tvalue, DATATYPE_INT, 0, "latency", latencyname);
+			metric_add_labels(metricname, &tvalue, DATATYPE_INT, carg, "latency", latencyname);
 		}
 		else
 		{
 			size_t tname_size = strlen(tname);
 			strlcpy(metricname+9, tname, tname_size + 1);
-			metric_add_auto(metricname, &tvalue, DATATYPE_INT, 0);
+			metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 		}
 	}
 	json_decref(root);

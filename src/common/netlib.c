@@ -176,7 +176,12 @@ void cidr_to_network_range(network_range_node *nr, char *cidr)
 
 uint8_t ip_check_access(network_range *nr, char *ip)
 {
+	if (!nr)
+		return 1;
 	uint64_t i = nr->cur;
+	if (!i)
+		return 1;
+
 	uint128_t ipaddr = ip_to_integer(ip, ip_get_version(ip), NULL);
 
 	while (i--)
@@ -195,11 +200,12 @@ void network_range_push(network_range *nr, char *cidr, uint8_t action)
 		cidr_to_network_range(&nr->nr_node[0], "0.0.0.0/0");
 		nr->nr_node[0].action = !action;
 		nr->cur = 1;
+		nr->max = 8;
 	}
 
-	if (nr->cur  == nr->max)
+	if (nr->cur == nr->max)
 	{
-		network_range_node *ptr = realloc(nr->nr_node, (nr->max*2));
+		network_range_node *ptr = realloc(nr->nr_node, (nr->max*2)*sizeof(network_range_node));
 		if (!ptr)
 			return;
 		nr->nr_node = ptr;
@@ -216,6 +222,7 @@ void network_range_delete(network_range *nr, char *cidr)
 	uint64_t i = nr->cur;
 
 	network_range_node* nr_match = malloc(8*sizeof(network_range_node));
+	nr->max = 8;
 	cidr_to_network_range(nr_match, cidr);
 
 	while (i--)
