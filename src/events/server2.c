@@ -11,20 +11,13 @@
 #include "events/debug.h"
 #include "events/uv_alloc.h"
 
-#define RESPONSE \
-	"HTTP/1.1 200 OK\r\n" \
-	"Content-Type: text/plain\r\n" \
-	"Content-Length: 12\r\n" \
-	"Connection: keep-alive\r\n" \
-	"\r\n" \
-	"Hello World\n" 
-
 void tcp_client_closed(uv_handle_t* handle)
 {
 	context_arg *carg = handle->data;
 	carg->is_closing = 0;
 	if (carg->tls)
 		mbedtls_ssl_free(&carg->tls_ctx);
+	free(carg);
 }
 
 void tcp_client_close(context_arg* carg)
@@ -69,6 +62,13 @@ void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, unsign
 	carg->is_async_writing = 0;
 	if (mbedtls_ssl_write(&carg->tls_ctx, (const unsigned char *)buffer, buffer_len) == MBEDTLS_ERR_SSL_WANT_WRITE)
 		carg->is_writing = 1;
+	free(buffer);
+}
+
+void tcp_server_writed(uv_write_t* req, int status) 
+{
+	context_arg *carg = req->data;
+	free(carg->response_buffer.base);
 }
 
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
@@ -79,16 +79,18 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		string *str = string_init(6553500);
 		alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
-		uv_buf_t *response = malloc(sizeof(*response));
-		*response = uv_buf_init(str->s, str->l);
 		if (uv_is_writable((uv_stream_t*)&carg->client))
 		{
 			if(!carg->tls)
-				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&response, 1, NULL);
+			{
+				carg->response_buffer = uv_buf_init(str->s, str->l);
+				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_writed);
+			}
 			else
-				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, response->base, response->len);
+				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
-		puts(buf->base);
+		//puts(buf->base);
+		free(str);
 	}
 	else if (nread == 0)
 		return;
@@ -311,7 +313,10 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	if (status != 0)
 		return;
 
-	context_arg* carg = stream->data;
+	context_arg* srv_carg = stream->data;
+
+	context_arg *carg = malloc(sizeof(*carg));
+	memcpy(carg, srv_carg, sizeof(context_arg));
 
 	uv_tcp_init(carg->loop, &carg->client);
 
@@ -341,46 +346,45 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls)
 {
 	struct sockaddr_in addr;
-	context_arg* carg = calloc(1, sizeof(context_arg));
-	carg->loop = loop;
-	carg->tls = tls;
-	carg->write_req.data = carg;
+	context_arg* srv_carg = calloc(1, sizeof(context_arg));
+	srv_carg->loop = loop;
+	srv_carg->tls = tls;
 
-	carg->server.data = carg;
+	srv_carg->server.data = srv_carg;
 
-	if (carg->tls)
-		if (!tls_server_init(carg->loop, carg))
+	if (srv_carg->tls)
+		if (!tls_server_init(srv_carg->loop, srv_carg))
 		{
-			free(carg);
+			free(srv_carg);
 			return NULL;
 		}
 
 	if(uv_ip4_addr(ip, port, &addr))
 	{
-		free(carg);
+		free(srv_carg);
 		return NULL;
 	}
 
-	uv_tcp_init(carg->loop, &carg->server);
-	if(uv_tcp_bind(&carg->server, (const struct sockaddr*)&addr, 0))
+	uv_tcp_init(srv_carg->loop, &srv_carg->server);
+	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
 	{
-		free(carg);
+		free(srv_carg);
 		return NULL;
 	}
 
-	if (uv_tcp_nodelay(&carg->server, 1))
+	if (uv_tcp_nodelay(&srv_carg->server, 1))
 	{
-		free(carg);
+		free(srv_carg);
 		return NULL;
 	}
 
-	if (uv_listen((uv_stream_t*)&carg->server, 1024, tcp_server_connected))
+	if (uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected))
 	{
-		free(carg);
+		free(srv_carg);
 		return NULL;
 	}
 
-	return carg;
+	return srv_carg;
 }
 
 //int main()

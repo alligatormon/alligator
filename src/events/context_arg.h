@@ -1,4 +1,7 @@
 #pragma once
+#define PORT_SIZE 6
+#define URL_SIZE 1024
+#define EVENT_BUFFER 65536
 #include <uv.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
@@ -17,16 +20,16 @@
 typedef struct context_arg
 {
 	struct sockaddr_in *dest;
-	uv_connect_t *connect;
+	//uv_connect_t *connect;
 	uv_tcp_t *socket;
 	uv_timer_t *tt_timer;
-	uv_handle_t * server;
+	//uv_handle_t * server;
 	char *key;
 	void *parser_handler;
 	char *mesg;
 	size_t mesg_len;
 	char *hostname;
-	char *port;
+	//char *port;
 	r_time connect_time;
 	r_time connect_time_finish;
 	r_time write_time;
@@ -54,9 +57,6 @@ typedef struct context_arg
 	uint8_t expect_count;
 	uint8_t read_count;
 
-	char *tls_certificate;
-	char *tls_key;
-	//evt_ctx_t *ctx;
 	char *namespace;
 	char *auth_basic;
 	char *auth_bearer;
@@ -68,11 +68,6 @@ typedef struct context_arg
 	uv_stdio_container_t *child_stdio;
 	char** args;
 
-	int8_t status; // mbedtls
-	int8_t deleted; // mbedtls
-	int8_t tls; //mbedtls
-	uvhttp_ssl_client* tls_ctx;
-
 	char *uvbuf;
 
 	uint64_t conn_counter;
@@ -81,6 +76,43 @@ typedef struct context_arg
 	tommy_hashdyn *labels;
 
 	void *data; // for parser-data
+
+	uv_tcp_t server;
+	uv_tcp_t client;
+	uv_loop_t* loop;
+	uv_connect_t connect;
+	uv_write_t write_req;
+
+	char is_async_writing;
+	char is_writing;
+	char is_write_error;
+	char is_closing;
+	uint8_t tls;
+	mbedtls_ssl_context tls_ctx;
+	mbedtls_pk_context tls_key;
+	mbedtls_x509_crt tls_cert;
+	mbedtls_x509_crt tls_cacert;
+	mbedtls_entropy_context tls_entropy;
+	mbedtls_ctr_drbg_context tls_ctr_drbg;
+	mbedtls_ssl_config tls_conf;
+	char *tls_ca_file;
+	char *tls_cert_file;
+	char *tls_key_file;
+
+	uv_buf_t write_buffer;
+	uv_buf_t user_read_buf;
+	char ssl_read_buffer[EVENT_BUFFER];
+	char net_buffer_in[EVENT_BUFFER]; // preallocated buffer for uv alloc
+	unsigned int ssl_read_buffer_len;
+	unsigned int ssl_read_buffer_offset;
+	unsigned int ssl_write_offset;
+	unsigned int ssl_write_buffer_len;
+	char* ssl_write_buffer;
+	uv_buf_t request_buffer;
+	uv_buf_t response_buffer;
+
+	char host[URL_SIZE];
+	char port[PORT_SIZE];
 
 	tommy_node node;
 } context_arg;
