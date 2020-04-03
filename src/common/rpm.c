@@ -123,8 +123,13 @@ void get_rpm_info(rpm_library *rpmlib)
 	unsigned type, count;
 	Header h;
 	rpmdbMatchIterator mi;
-	
-	rpmlib->rpmReadConfigFiles(NULL, NULL);
+
+	if (!ac->rpm_readconf)
+	{
+		rpmlib->rpmReadConfigFiles(NULL, NULL);
+		ac->rpm_readconf = 1;
+	}
+
 	db = rpmlib->rpmtsCreate();
 	mi = rpmlib->rpmtsInitIterator(db, RPMDBI_PACKAGES, NULL, 0);
 	while ((h = rpmlib->rpmdbNextIterator(mi)) != NULL)

@@ -21,6 +21,8 @@ typedef struct http_info
 
 #define CONNECTIONS_COUNT (128)
 
+void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf);
+
 void http_after_connect(uv_handle_t* handle)
 {
 	free(handle);
@@ -34,7 +36,12 @@ void socket_write_cb(uv_write_t *req, int status)
 
 	http_info *hinfo = req->data;
 	uv_stream_t *client = hinfo->client;
-	uv_close((uv_handle_t *)client, http_after_connect);
+	if (!strncmp(hinfo->answ, "HTTP", 4))
+	{
+		uv_close((uv_handle_t *)client, http_after_connect);
+	}
+
+	uv_read_start((uv_stream_t *) client, alloc_buffer, socket_read_cb);
 	free(hinfo->answ);
 	free(hinfo);
 	free(req);
@@ -80,7 +87,7 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 		return;
 	}
 
-	http_info *hinfo = malloc(sizeof(*hinfo));
+	http_info *hinfo = calloc(1, sizeof(*hinfo));
 	if (nread < 0)
 	{
 		if (nread != UV_EOF)
@@ -92,6 +99,8 @@ void socket_read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf)
 	{
 		string *str = string_init(6553500);
 		alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
+		//puts("=======================================");
+		//printf("multiparser:\n-----\n'%s'\n------\n'%s'\n", buf->base, str->s);
 		char *answ = str->s;
 		size_t answ_len = str->l;
 		//printf("answ: %s\n", answ);
@@ -139,7 +148,6 @@ void accept_connection_cb(uv_stream_t *server, int status)
 	}
 	else
 	{
-		puts("close");
 		uv_close((uv_handle_t*) client, http_after_connect);
 	}
 }
@@ -190,8 +198,6 @@ int8_t tcp_server_handler_free(char *addr, uint16_t port)
 	context_arg *carg = tommy_hashdyn_search(ac->tcp_server_handler, tcp_server_compare, serverkey, tommy_strhash_u32(0, serverkey));
 	if (!carg)
 		return 0;
-
-	printf("delete carg %p\n", carg);
 
 	uv_close((uv_handle_t *)carg->server, NULL);
 	tommy_hashdyn_remove_existing(ac->tcp_server_handler, &(carg->node));

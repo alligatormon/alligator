@@ -2,7 +2,7 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
-#define EXPIRE_DEFAULT_SECONDS 300
+//#define EXPIRE_DEFAULT_SECONDS 300
 
 int is_red ( metric_node *node )
 {
@@ -87,6 +87,7 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 
 metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree)
 {
+	extern aconf *ac;
 	metric_node *ret = NULL;
 	if ( tree->root == NULL )
 	{
@@ -151,7 +152,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	tree->root->color = BLACK;
 
 	r_time time = setrtime();
-	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, ret);
+	expire_insert(expiretree, time.sec+ac->ttl, ret);
 	return ret;
 }
 
@@ -228,6 +229,7 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
 
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
 {
+	extern aconf *ac;
 	if (type == DATATYPE_INT)
 		mnode->i += *(int64_t*)value;
 	else if (type == DATATYPE_UINT)
@@ -242,11 +244,12 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 
 	r_time time = setrtime();
 	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, mnode);
+	expire_insert(expiretree, time.sec+ac->ttl, mnode);
 }
 
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
 {
+	extern aconf *ac;
 	if (type == DATATYPE_INT)
 		mnode->i = *(int64_t*)value;
 	else if (type == DATATYPE_UINT)
@@ -283,7 +286,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 
 	r_time time = setrtime();
 	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+EXPIRE_DEFAULT_SECONDS, mnode);
+	expire_insert(expiretree, time.sec+ac->ttl, mnode);
 }
 
 void metrictree_show(metric_node *x)

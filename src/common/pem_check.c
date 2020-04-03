@@ -35,9 +35,9 @@ void cert_check_file(char *cert_filestr)
 {
 	BIO	*certbio = NULL;
 	BIO	*outbio = NULL;
-	X509	*error_cert = NULL;
+	//X509	*error_cert = NULL;
+	//X509_NAME	*certsubject = NULL;
 	X509	*cert = NULL;
-	X509_NAME	*certsubject = NULL;
 	X509_STORE	*store = NULL;
 	X509_STORE_CTX	*vrfy_ctx = NULL;
 	int ret;
@@ -55,13 +55,12 @@ void cert_check_file(char *cert_filestr)
 	vrfy_ctx = X509_STORE_CTX_new();
 
 	ret = BIO_read_filename(certbio, cert_filestr);
+
 	if (! (cert = PEM_read_bio_X509(certbio, NULL, NULL, NULL)))
 	{
 		BIO_printf(outbio, "Error loading cert into memory\n");
 		return;
 	}
-
-
 
 	int64_t expdays = cert_get_expdays(cert);
 	printf("ed = %"d64"\n", expdays);
@@ -76,14 +75,15 @@ void cert_check_file(char *cert_filestr)
 	if(ret == 0 || ret == 1)
 		BIO_printf(outbio, "Verification result text: %s\n", X509_verify_cert_error_string(vrfy_ctx->error));
 
-	if(ret == 0) {
-		error_cert = X509_STORE_CTX_get_current_cert(vrfy_ctx);
-		certsubject = X509_NAME_new();
-		certsubject = X509_get_subject_name(error_cert);
-		BIO_printf(outbio, "Verification failed cert:\n");
-		X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
-		BIO_printf(outbio, "\n");
-	}
+	//if(ret == 0) {
+	//	error_cert = X509_STORE_CTX_get_current_cert(vrfy_ctx);
+	//	certsubject = X509_NAME_new();
+	//	certsubject = X509_get_subject_name(error_cert);
+	//	BIO_printf(outbio, "Verification failed cert:\n");
+	//	X509_NAME_print_ex(outbio, certsubject, 0, XN_FLAG_MULTILINE);
+	//	X509_NAME_free(certsubject);
+	//	BIO_printf(outbio, "\n");
+	//}
 
 	X509_STORE_CTX_free(vrfy_ctx);
 	X509_STORE_free(store);

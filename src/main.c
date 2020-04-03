@@ -1,7 +1,9 @@
 #include "main.h"
+#include "modules/postgresql.h"
 #include <unistd.h>
 #include <string.h>
 aconf *ac;
+pq_library *pqlib;
 
 void ts_initialize()
 {
@@ -65,6 +67,26 @@ void config_context_initialize()
 	ctx->key = strdup("log_level");
 	ctx->handler = context_log_level_parser;
 	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("ttl");
+	ctx->handler = context_ttl_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("persistence");
+	ctx->handler = context_persistence_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("modules");
+	ctx->handler = context_modules_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("configuration");
+	ctx->handler = context_configuration_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
 }
 
 void system_initialize()
@@ -77,9 +99,9 @@ void system_initialize()
 	ac->system_vm = 0;
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+	ac->scs = calloc(1, sizeof(system_cpu_stats));
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
-	ac->scs = calloc(1, sizeof(system_cpu_stats));
 	tommy_hashdyn_init(ac->process_match->hash);
 }
 
@@ -98,11 +120,11 @@ void tcp_server_initialize()
 	tommy_hashdyn_init(ac->tcp_server_handler);
 }
 
-void tls_initialize()
-{
-	SSL_library_init();
-	SSL_load_error_strings();
-}
+//void tls_initialize()
+//{
+//	SSL_library_init();
+//	SSL_load_error_strings();
+//}
 
 aconf* configuration()
 {
@@ -147,12 +169,20 @@ aconf* configuration()
 	config_context_initialize();
 	system_initialize();
 	system_metric_initialize();
-	tls_initialize();
+	//tls_initialize();
 	tcp_server_initialize();
 
 	ac->log_level = 0;
+	ac->ttl = 300;
+	ac->persistence_period = 10000;
 
 	return ac;
+}
+
+void restore_settings()
+{
+	if (ac->persistence_dir)
+		metric_restore();
 }
 
 int main(int argc, char **argv)
@@ -166,12 +196,14 @@ int main(int argc, char **argv)
 	else
 		split_config(argv[1]);
 
+	restore_settings();
+
 	signal_listen();
 
 	//filetailer_handler("/var/log/", dummy_handler);
 
 	tcp_client_handler();
-	tls_tcp_client_handler();
+	//tls_tcp_client_handler();
 #ifdef __linux__
 	icmp_client_handler();
 #endif
@@ -181,7 +213,7 @@ int main(int argc, char **argv)
 	unix_client_handler();
 	unixgram_client_handler();
 
-	//cert_check_file("../trash/t2/evt-tls/sample/libuv-tls/server-cert.pem");
+	//uvhttp_client_request();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

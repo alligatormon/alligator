@@ -37,6 +37,14 @@ typedef struct process_states
 	uint64_t stopped;
 } process_states;
 
+typedef struct process_fdescriptors
+{
+	uint32_t fd;
+	char *procname;
+
+	tommy_node node;
+} process_fdescriptors;
+
 void print_mount(const struct mntent *fs)
 {
 	extern aconf *ac;
@@ -348,17 +356,31 @@ void get_process_extra_info(char *file, char *name, char *pid)
 
 		if  ( !strncmp(key, "Threads", 7) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
-		else if ( (!strncmp(key, "voluntary_ctxt_switches", 23))||(!strncmp(key, "nonvoluntary_ctxt_switches", 26)) )
+		else if (!strncmp(key, "voluntary_ctxt_switches", 23))
 		{
 			if ( ctxt_switches != 0 )
 			{
 				ctxt_switches += ival;
-				metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "ctx_switches", "name", name, "pid", pid);
+				metric_add_labels3("process_stats", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "ctx_switches", "name", name, "pid", pid);
 			}
 			else
 			{
 				ctxt_switches += ival;
 			}
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "voluntary_ctx_switches", "name", name, "pid", pid);
+		}
+		else if (!strncmp(key, "nonvoluntary_ctxt_switches", 26))
+		{
+			if ( ctxt_switches != 0 )
+			{
+				ctxt_switches += ival;
+				metric_add_labels3("process_stats", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "ctx_switches", "name", name, "pid", pid);
+			}
+			else
+			{
+				ctxt_switches += ival;
+			}
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "nonvoluntary_ctx_switches", "name", name, "pid", pid);
 		}
 		else if ( !strncmp(key, "VmSwap", 6) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "swap_bytes", "name", name, "pid", pid);
@@ -389,14 +411,15 @@ void get_process_extra_info(char *file, char *name, char *pid)
 }
 
 
-void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t lightweight, process_states *states)
+void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t lightweight, process_states *states, int8_t match)
 {
+	extern aconf *ac;
 	char szStatStr[LINUXFS_LINE_LENGTH];
 	char		state;
-	//int64_t	utime;
-	//int64_t	stime;
-	//int64_t	cutime;
-	//int64_t	cstime;
+	int64_t	utime;
+	int64_t	stime;
+	int64_t	cutime;
+	int64_t	cstime;
 
 	FILE *fp = fopen(szFileName, "r");
 
@@ -421,28 +444,61 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 		{
 			state = t[cursor];
 			if (state == 'R')
+			{
+				int64_t val = 1;
+				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 				++states->running;
+			}
 			else if (state == 'S')
+			{
+				int64_t val = 1;
+				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 				++states->sleeping;
+			}
 			else if (state == 'D')
+			{
+				int64_t val = 1;
+				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
 				++states->uninterruptible;
+			}
 			else if (state == 'Z')
+			{
+				int64_t val = 1;
+				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
 				++states->zombie;
+			}
 			else if (state == 'T')
+			{
+				int64_t val = 1;
+				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->stopped;
+			}
 
-			if (lightweight)
+			if (lightweight || !match)
 			{
 				fclose (fp);
 				return;
 			}
+			int_get_next(t+4, sz, ' ', &cursor);
 		}
-		int_get_next(t+4, sz, ' ', &cursor);
+		else if (cnt == 3)
+		{
+			int64_t val = int_get_next(t+4, sz, ' ', &cursor);
+			metric_add_labels3("process_page_faults", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "minor");
+		}
+		else if (cnt == 1)
+		{
+			int64_t val = int_get_next(t+4, sz, ' ', &cursor);
+			metric_add_labels3("process_page_faults", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "major");
+		}
+		else
+			int_get_next(t+4, sz, ' ', &cursor);
+			//printf("%d, cnt: %d\n", int_get_next(t+4, sz, ' ', &cursor), cnt);
 	}
-	//utime = int_get_next(t+4, sz, ' ', &cursor);
-	//stime = int_get_next(t+4, sz, ' ', &cursor);
-	//cutime = int_get_next(t+4, sz, ' ', &cursor);
-	//cstime = int_get_next(t+4, sz, ' ', &cursor);
+	utime = int_get_next(t+4, sz, ' ', &cursor);
+	stime = int_get_next(t+4, sz, ' ', &cursor);
+	cutime = int_get_next(t+4, sz, ' ', &cursor);
+	cstime = int_get_next(t+4, sz, ' ', &cursor);
 
 	cnt = 5;
 	while (cnt--)
@@ -451,12 +507,12 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	fclose (fp);
 
 	//int64_t Hertz = sysconf(_SC_CLK_TCK);
-	//int64_t stotal_time = stime + cstime;
-	//int64_t utotal_time = utime + cutime;
-	//int64_t total_time = stotal_time + utotal_time;
+	int64_t stotal_time = stime + cstime;
+	int64_t utotal_time = utime + cutime;
+	int64_t total_time = stotal_time + utotal_time;
 
-	struct stat st;
-	stat(szFileName, &st);
+	//struct stat st;
+	//stat(szFileName, &st);
 
 	//double sys_cpu_usage = 100 * (stotal_time / Hertz);
 	//double user_cpu_usage = 100 * (utotal_time / Hertz);
@@ -465,10 +521,92 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	//metric_add_labels3("process_cpu", &sys_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "system");
 	//metric_add_labels3("process_cpu", &user_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "user");
 	//metric_add_labels3("process_cpu", &total_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "total");
+	metric_add_labels3("process_cpu", &stotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "system");
+	metric_add_labels3("process_cpu", &utotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "user");
+	metric_add_labels3("process_cpu", &total_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "total");
 }
 
-int64_t get_fd_info_process(char *fddir)
+int process_fdescriptors_compare(const void* arg, const void* obj)
 {
+	uint32_t s1 = *(uint32_t*)arg;
+	uint32_t s2 = ((process_fdescriptors*)obj)->fd;
+	return s1 != s2;
+}
+
+void process_fdescriptors_free(void *funcarg, void* arg)
+{
+	process_fdescriptors *fdescriptors = arg;
+	//printf("DEB: free %p: %llu\n", fdescriptors, fdescriptors->fd);
+	if (!fdescriptors)
+		return;
+
+	if (fdescriptors->procname)
+	{
+		// SF
+		//printf("DEB: procname %p/%s\n", fdescriptors, fdescriptors->procname);
+		free(fdescriptors->procname);
+		fdescriptors->procname = NULL;
+	}
+
+	//tommy_hashdyn_remove_existing(funcarg, &(fdescriptors->node));
+	free(fdescriptors);
+}
+
+void get_proc_socket_number(char *path, char *procname)
+{
+	extern aconf *ac;
+	char buf[255];
+	ssize_t len = readlink(path, buf, 254);
+	if (len < 0)
+	{
+		if (ac->log_level > 1)
+			perror("readlink: ");
+		return;
+	}
+
+	buf[len] = 0;
+	char *cur = buf;
+	if (*cur != 's')
+		return;
+	for (; !isdigit(*cur); ++cur);
+	uint32_t fdesc = strtoull(cur, NULL, 10);
+	//printf("%s/%s: %"PRIu32"\n", buf, cur, fdesc);
+
+	tommy_hashdyn *hash = ac->fdesc;
+	if (!hash)
+	{
+		hash = ac->fdesc = malloc(sizeof(*hash));
+		tommy_hashdyn_init(hash);
+	}
+
+	uint32_t fdesc_hash = tommy_inthash_u32(fdesc);
+	process_fdescriptors *fdescriptors = tommy_hashdyn_search(hash, process_fdescriptors_compare, &fdesc, fdesc_hash);
+	if (!fdescriptors)
+	{
+		fdescriptors = malloc(sizeof(*fdescriptors));
+		fdescriptors->fd = fdesc;
+		fdescriptors->procname = strdup(procname);
+		//printf("DEB: alloc %p: %llu with name %s\n", fdescriptors, fdescriptors->fd, fdescriptors->procname);
+		tommy_hashdyn_insert(hash, &(fdescriptors->node), fdescriptors, fdesc_hash);
+	}
+	else
+	{
+		if (strcmp(fdescriptors->procname, procname))
+		{
+			//printf("DEB: realloc %p: %llu from name %s to %s\n", fdescriptors, fdescriptors->fd, fdescriptors->procname, procname);
+			free(fdescriptors->procname);
+			fdescriptors->procname = strdup(procname);
+		}
+	}
+}
+
+int64_t get_fd_info_process(char *fddir, char *procname)
+{
+	extern aconf *ac;
+	char buf[255];
+	size_t buf_size = strlcpy(buf, fddir, 255);
+	char *bufcur = buf+buf_size;
+
 	struct dirent *entry;
 	DIR *dp;
 
@@ -485,6 +623,13 @@ int64_t get_fd_info_process(char *fddir)
 	{
 		if ( entry->d_name[0] == '.' )
 			continue;
+
+		if (ac->system_network)
+		{
+			strcpy(bufcur, entry->d_name);
+			get_proc_socket_number(buf, procname);
+		}
+
 		i++;
 	}
 
@@ -527,6 +672,7 @@ void find_pid(int8_t lightweight)
 	}
 
 	process_states *states = calloc(1, sizeof(*states));
+	int64_t allfilesnum = 0;
 
 	char dir[FILENAME_MAX];
 	while((entry = readdir(dp)))
@@ -534,6 +680,7 @@ void find_pid(int8_t lightweight)
 		if ( !isdigit(entry->d_name[0]) )
 			continue;
 
+		// get comm name
 		snprintf(dir, FILENAME_MAX, "/proc/%s/comm", entry->d_name);
 		FILE *fd = fopen(dir, "r");
 		if (!fd)
@@ -549,22 +696,48 @@ void find_pid(int8_t lightweight)
 		procname[procname_size] = '\0';
 		fclose(fd);
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
-		get_proc_info(dir, procname, entry->d_name, lightweight, states);
-		if (lightweight)
+		// get cmdline
+		snprintf(dir, FILENAME_MAX, "/proc/%s/cmdline", entry->d_name);
+		fd = fopen(dir, "r");
+		if (!fd)
 			continue;
 
+		char cmdline[_POSIX_PATH_MAX];
+		int64_t rc;
+		if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
+		{
+			fclose(fd);
+			continue;
+		}
+		for(int64_t iter = 0; iter < rc-1; iter++)
+			if (!cmdline[iter])
+				cmdline[iter] = ' ';
+		size_t cmdline_size = strlen(cmdline);
+		fclose(fd);
+
 		extern aconf *ac;
-		if (!match_mapper(ac->process_match, procname, procname_size))
+		int8_t match = 1;
+		if (!match_mapper(ac->process_match, procname, procname_size, procname))
+			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
+				match = 0;
+
+		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
+		get_proc_info(dir, procname, entry->d_name, lightweight, states, match);
+
+		snprintf(dir, FILENAME_MAX, "/proc/%s/fd/", entry->d_name);
+		int64_t filesnum = get_fd_info_process(dir, procname);
+		if (match && filesnum && !lightweight)
+			metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", entry->d_name);
+		allfilesnum += filesnum;
+
+		if (!match)
+			continue;
+
+		if (lightweight)
 			continue;
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/status", entry->d_name);
 		get_process_extra_info(dir, procname, entry->d_name);
-
-		snprintf(dir, FILENAME_MAX, "/proc/%s/fd", entry->d_name);
-		int64_t filesnum = get_fd_info_process(dir);
-		if (filesnum)
-			metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", entry->d_name);
 
 		snprintf(dir, FILENAME_MAX, "/proc/%s/io", entry->d_name);
 		get_process_io_stat(dir, procname, entry->d_name);
@@ -575,6 +748,7 @@ void find_pid(int8_t lightweight)
 	metric_add_labels("process_states", &states->uninterruptible, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
 	metric_add_labels("process_states", &states->zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("process_states", &states->stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
+	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
 	free(states);
 
 	closedir(dp);
@@ -616,14 +790,15 @@ void get_mem(int8_t platform)
 	int64_t pgfault = 0;
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		tmp[strlen(tmp)-1] = 0;
+		size_t strlen_tmp = strlen(tmp) - 1;
+		tmp[strlen_tmp] = 0;
 		int i;
 		for (i=0; tmp[i]!=' '; i++);
 		strlcpy(key, tmp, i);
 
-		for (; tmp[i]==' '; i++);
+		for (; i < strlen_tmp && tmp[i]==' '; i++);
 		int swap = i;
-		for (; tmp[i]!=' '; i++);
+		for (; i < strlen_tmp && tmp[i]!=' '; i++);
 		strlcpy(val, tmp+swap, i-swap+1);
 
 		if ( strstr(tmp+swap, "kB") )
@@ -959,6 +1134,20 @@ void get_net_tcpudp(char *file, char *name)
 			pEnd += strspn(pEnd, "\t :");
 			state = strtoul(pEnd, &pEnd, 16);
 
+			pEnd += strcspn(pEnd, " \t");
+			pEnd += strspn(pEnd, " \t");
+			pEnd += strcspn(pEnd, " \t");
+			pEnd += strspn(pEnd, " \t");
+			pEnd += strcspn(pEnd, " \t");
+			pEnd += strspn(pEnd, " \t");
+			pEnd += strcspn(pEnd, " \t");
+			pEnd += strspn(pEnd, " \t");
+			pEnd += strcspn(pEnd, " \t");
+			pEnd += strspn(pEnd, " \t");
+			pEnd += strcspn(pEnd, " \t");
+
+			uint32_t fdesc = strtoull(pEnd, &pEnd, 10);
+
 			snprintf(srcp, 6, "%lu", srcport);
 			snprintf(destp, 6, "%lu", destport);
 
@@ -967,7 +1156,15 @@ void get_net_tcpudp(char *file, char *name)
 			if (state == 10)
 			{
 				uint64_t val = 1;
-				metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
+
+				process_fdescriptors *fdescriptors = NULL;
+				if (ac->fdesc)
+					fdescriptors = tommy_hashdyn_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
+
+				if (fdescriptors)
+					metric_add_labels7("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
+				else
+					metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
 				++listen;
 			}
 			else if (state == 6)
@@ -1980,6 +2177,53 @@ void get_packages_info()
 		get_rpm_info(ac->rpmlib);
 }
 
+void clear_counts_for(void* arg)
+{
+	match_string* ms = arg;
+
+	ms->count = 0;
+}
+
+void clear_counts_process()
+{
+	extern aconf *ac;
+	if (!ac->process_match)
+		return;
+	tommy_hashdyn *hash = ac->process_match->hash;
+	tommy_hashdyn_foreach(hash, clear_counts_for);
+
+	regex_list *node = ac->process_match->head;
+	while (node)
+	{
+		node->count = 0;
+		node = node->next;
+	}
+}
+
+void fill_counts_for(void* arg)
+{
+	extern aconf *ac;
+	match_string* ms = arg;
+
+	metric_add_labels("process_match", &ms->count, DATATYPE_UINT, ac->system_carg, "name", ms->s);
+}
+
+void fill_counts_process()
+{
+	extern aconf *ac;
+	if (!ac->process_match)
+		return;
+	tommy_hashdyn *hash = ac->process_match->hash;
+	tommy_hashdyn_foreach(hash, fill_counts_for);
+
+	regex_list *node = ac->process_match->head;
+	while (node)
+	{
+		metric_add_labels("process_match", &node->count, DATATYPE_UINT, ac->system_carg, "name", node->name);
+		node = node->next;
+	}
+}
+
 void get_system_metrics()
 {
 	extern aconf *ac;
@@ -2000,6 +2244,16 @@ void get_system_metrics()
 			get_buddyinfo();
 		}
 	}
+
+	// find_pid before system_network!
+	if (ac->system_process)
+	{
+		clear_counts_process();
+		find_pid(0);
+		fill_counts_process();
+	}
+	else if (ac->system_base)
+		find_pid(1);
 
 	if (ac->system_network)
 	{
@@ -2022,13 +2276,6 @@ void get_system_metrics()
 			get_mdadm();
 	}
 
-	if (ac->system_process)
-	{
-		find_pid(0);
-	}
-	else if (ac->system_base)
-		find_pid(1);
-
 	if (ac->system_vm)
 	{
 		cgroup_vm("/sys/fs/cgroup/memory/", "/sys/fs/cgroup/memory/%s/", LINUX_MEMORY);
@@ -2041,6 +2288,20 @@ void get_system_metrics()
 			platform = get_platform(0);
 		if (!platform)
 			get_smart_info();
+	}
+
+	if (ac->fdesc)
+	{
+		tommy_hashdyn_foreach_arg(ac->fdesc, process_fdescriptors_free, ac->fdesc);
+		tommy_hashdyn_done(ac->fdesc);
+		tommy_hashdyn_init(ac->fdesc);
+	}
+	if (ac->system_firewall)
+	{
+		get_iptables_info("filter", ac->system_carg);
+		get_iptables_info("nat", ac->system_carg);
+		get_iptables6_info("filter", ac->system_carg);
+		get_iptables6_info("nat", ac->system_carg);
 	}
 }
 

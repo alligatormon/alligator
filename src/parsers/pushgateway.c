@@ -21,24 +21,24 @@ tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size
 
 	for (index_get = metrics_str - uri + 9; index_get < uri_size;)
 	{
-		for (; uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
+		for (; index_get < uri_size && uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
 		prev_get = index_get;
-		for (; uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
+		for (; index_get < uri_size && uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
 		strlcpy(mname, uri+prev_get, index_get-prev_get+1);
 
 		prev_get = index_get;
-		for (; uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
-		if (uri[index_get+1] == 0)
+		for (; index_get < uri_size && uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
+		if (index_get < uri_size && uri[index_get+1] == 0)
 			break;
 
 		prev_get = index_get;
-		for (; uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
+		for (; index_get < uri_size && uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
 		strlcpy(key, uri+prev_get, index_get-prev_get+1);
 
 		labels_hash_insert_nocache(lbl, mname, key);
 
 		++index_get;
-		if (uri[index_get]==0)
+		if (index_get >= uri_size || uri[index_get]==0)
 			break;
 	}
 

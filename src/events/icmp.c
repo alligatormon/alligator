@@ -54,7 +54,7 @@ unsigned short checksum(void *b, int len)
 	return result; 
 } 
   
-void send_ping(int ping_sockfd, struct sockaddr_in *ping_addr, icmp_info *iinfo)
+void icmp_send_ping(int ping_sockfd, struct sockaddr_in *ping_addr, icmp_info *iinfo)
 { 
 	int ttl_val=64, msg_count=0, i, flag=1, msg_received_count=0; 
 	socklen_t addr_len;
@@ -179,7 +179,7 @@ void do_icmp(void *arg)
 		return; 
 	} 
   
-	send_ping(sockfd, &addr_con, iinfo); 
+	icmp_send_ping(sockfd, &addr_con, iinfo); 
 } 
 
 void on_run_icmp(void* arg)

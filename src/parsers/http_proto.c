@@ -16,6 +16,7 @@ void http_reply_free(http_reply_data* hrdata)
 
 http_reply_data* http_reply_parser(char *http, size_t n)
 {
+	puts(http);
 	int http_version;
 	int http_code;
 	int old_style_newline = 2;
@@ -77,12 +78,19 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 
 	http_reply_data *hrdata = malloc(sizeof(*hrdata));
 	hrdata->content_length = 0;
+	hrdata->chunked_size = 0;
+	hrdata->chunked_expect = 0;
 	int64_t i;
 	for (i=0; i<headers_len; ++i)
 	{
 		if(!strncasecmp(headers+i, "Content-Length:", 15))
 		{
 			hrdata->content_length = atoll(headers+i+15+1);
+		}
+		else if(!strncasecmp(headers+i, "Transfer-Encoding:", 18))
+		{	
+			if (strstr(headers+i+18, "chunked"))
+				hrdata->chunked_expect = 1;
 		}
 	}
 
@@ -93,10 +101,24 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	hrdata->http_code = http_code;
 	hrdata->mesg = mesg;
 	hrdata->headers = headers;
-	hrdata->body = body;
 	hrdata->auth_bearer = 0;
 	hrdata->auth_basic = 0;
 
+	if (hrdata->chunked_expect)
+	{
+		hrdata->chunked_size = strtoll(body, &body, 16);
+		//printf("trying get 16 bit: %lld:\n%s\n", hrdata->chunked_size, body);
+		hrdata->body = body+(old_style_newline/2);
+		hrdata->chunked_size -= n - (hrdata->body - http);
+		hrdata->chunked_expect = 1;
+
+		if (hrdata->chunked_size < 0)
+			hrdata->body[n - (hrdata->body - http) + (hrdata->chunked_size)] = 0;
+	}
+	else
+		hrdata->body = body;
+
+	//printf("SAVED body is %s\n", hrdata->body);
 	return hrdata;
 }
 
@@ -224,6 +246,11 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 		ret->body += 4;
 		ret->body_size = size - (ret->body - buf);
 	}
+
+	//else if(!strncasecmp(headers+i, "X-Expire-Time", 13))
+	//{	
+	//	hrdata->expire = strtoll(headers+i+13+1, NULL, 10);
+	//}
 
 	http_get_auth_data(ret);
 

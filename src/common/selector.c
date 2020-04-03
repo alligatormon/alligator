@@ -260,9 +260,16 @@ string* string_init(size_t max)
 	string *ret = malloc(sizeof(*ret));
 	ret->m = max;
 	ret->s = malloc(max);
+	*ret->s = 0;
 	ret->l = 0;
 
 	return ret;
+}
+
+void string_null(string *str)
+{
+	*str->s = 0;
+	str->l = 0;
 }
 
 void string_free(string *str)
@@ -276,6 +283,7 @@ string* string_init_str(char *str, size_t max)
 	string *ret = malloc(sizeof(*ret));
 	ret->m = max;
 	ret->s = str;
+	*ret->s = 0;
 	ret->l = 0;
 
 	return ret;
@@ -292,6 +300,7 @@ void string_cat(string *str, char *strcat, size_t len)
 	//printf("string '%s'\nstr_len=%zu\nstrcat='%s'\ncopy_size=%zu\nlen=%zu\n", str->s, str_len, strcat, copy_size+1, len);
 	memcpy(str->s+str_len, strcat, copy_size);
 	str->l += copy_size;
+	str->s[str->l] = 0;
 }
 
 void string_uint(string *str, uint64_t u)
@@ -346,11 +355,25 @@ int match_mapper_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-int8_t match_mapper(match_rules *mrules, char *str, size_t size)
+int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 {
+	extern aconf *ac;
+
+	int64_t n = tommy_hashdyn_count(mrules->hash);
+	if ((!n) && (!mrules->head))
+	{
+		int64_t val = 1;
+		metric_add_labels("process_match", &val, DATATYPE_INT, ac->system_carg, "name", name);
+		return 1;
+	}
+
 	match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, tommy_strhash_u32(0, str));
 	if (ms)
+	{
+		++ms->count;
+		//metric_add_labels("process_match", &ms->count, DATATYPE_UINT, ac->system_carg, "name", name);
 		return 1;
+	}
 
 	regex_list *node = mrules->head;
 	while (node)
@@ -361,7 +384,11 @@ int8_t match_mapper(match_rules *mrules, char *str, size_t size)
 		if (pcreExecRet < 0)
 			node = node->next;
 		else
+		{
+			++node->count;
+			//metric_add_labels("process_match", &node->count, DATATYPE_UINT, ac->system_carg, "name", name);
 			return 1;
+		}
 	}
 
 	return 0;
@@ -377,6 +404,8 @@ void match_push(match_rules *mrules, char *str, size_t len)
 		int pcreErrorOffset;
 		regex_list *node = malloc(sizeof(regex_list));;
 		node->next = NULL;
+		node->name = strdup(strnormalized);
+		metric_name_normalizer(node->name, strlen(node->name));
 		node->jstack = pcre_jit_stack_alloc(1000,10000);
 		node->re_compiled = pcre_compile(strnormalized, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
 		if(!node->re_compiled)

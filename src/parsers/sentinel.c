@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/selector.h"
+#include "common/selector_split_metric.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 

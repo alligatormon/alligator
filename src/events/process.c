@@ -94,7 +94,9 @@ void put_to_loop_cmd(char *cmd, void *parser_handler)
 	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", cmd);
 	free(cmd);
 	unlink(fname);
-	write_to_file(fname, template, rc);
+
+	mkdirp(ac->process_script_dir);
+	write_to_file(fname, template, rc, NULL, NULL);
 	(ac->process_cnt)++;
 
 	int64_t i, y, start, n = 1;

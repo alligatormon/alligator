@@ -7,47 +7,47 @@
 void signal_handler_sigusr1(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
+	printf("Signal received: %d SIGUSR1\n", signum);
 }
 void signal_handler_sigusr2(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
+	printf("Signal received: %d SIGUSR2\n", signum);
 }
 void signal_handler_sighup(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
+	printf("Signal received: %d SIGHUB\n", signum);
 }
 void signal_handler_sigquit(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
+	printf("Signal received: %d SIGQUIT\n", signum);
 	uv_signal_stop(handle);
 }
 void signal_handler_sigterm(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
-	exit(0);
+	printf("Signal received: %d SIGTERM\n", signum);
+	metric_dump(1);
 }
 void signal_handler_sigint(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
-	exit(0);
+	printf("Signal received: %d SIGINT\n", signum);
+	metric_dump(1);
 }
 void signal_handler_sigtrap(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
-	exit(0);
+	printf("Signal received: %d SIGTRAP\n", signum);
+	metric_dump(1);
 }
 
 void signal_handler_sigabrt(uv_signal_t *handle, int signum)
 {
 	(void)handle;
-	printf("Signal received: %d\n", signum);
+	printf("Signal received: %d SIGABRT\n", signum);
 }
 
 void signal_listen()

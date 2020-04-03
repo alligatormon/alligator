@@ -96,12 +96,20 @@ typedef struct aconf
 	int system_vm;
 	int system_smart;
 	int system_packages;
+	int system_firewall;
 	rpm_library *rpmlib;
+	int8_t rpm_readconf;
 	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
+	tommy_hashdyn* fdesc;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
+	int64_t ttl; // TTL for metrics
+
+	// persistence settings
+	char* persistence_dir;
+	uint64_t persistence_period;
 
 	// metrics
 	uint64_t metric_cache_hits;

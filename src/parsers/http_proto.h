@@ -14,6 +14,8 @@ typedef struct http_reply_data
 	char *uri;
 	size_t uri_size;
 	int64_t content_length;
+	int64_t chunked_size;
+	int8_t chunked_expect;
 	char *body;
 	size_t body_size;
 	uint8_t method;

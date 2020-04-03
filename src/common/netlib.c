@@ -30,7 +30,7 @@ uint8_t ip_get_version(char *ip)
 
 char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
 {
-	char *ip = malloc(40);
+	char *ip = calloc(1, 40);
 	char *cur = ip;
 	if (ip_version == 4)
 	{

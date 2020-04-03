@@ -71,8 +71,30 @@ int metric_name_normalizer(char *str, size_t sz)
 int metric_name_validator(char *str, size_t sz)
 {
 	int64_t i;
-	for (i=0; i<sz; i++)
+	if (isalpha(str[0]) || str[0] == '_' || str[0] == ':') {}
+	else
+		return 0;
+
+	for (i=1; i<sz; i++)
 		if (isalpha(str[i]) || str[i] == '_')
+			continue;
+		else if (isdigit(str[i]))
+			continue;
+		else
+			return 0;
+
+	return 1;
+}
+
+int metric_name_validator_promstatsd(char *str, size_t sz)
+{
+	int64_t i;
+	if (isalpha(str[0]) || str[0] == '_' || str[0] == ':') {}
+	else
+		return 0;
+
+	for (i=1; i<sz; i++)
+		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == ',' || str[i] == ':')
 			continue;
 		else if (isdigit(str[i]))
 			continue;

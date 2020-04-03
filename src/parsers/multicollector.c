@@ -5,10 +5,20 @@
 #include "parsers/pushgateway.h"
 #include "parsers/http_proto.h"
 #define METRIC_NAME_SIZE 255
+#define MAX_LABEL_COUNT 10
 
 int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
-	uint64_t syms = strcspn(str+*cur, "\t\r:={} ");
+	uint64_t syms = strcspn(str+*cur, "\t\r:={},# ");
+	strlcpy(s2, str+*cur, syms + 1);
+	*cur = *cur + syms;
+
+	return syms;
+}
+
+int multicollector_get_value(uint64_t *cur, const char *str, const size_t size, char *s2)
+{
+	uint64_t syms = strcspn(str+*cur, "\t\r{},# ");
 	strlcpy(s2, str+*cur, syms + 1);
 	*cur = *cur + syms;
 
@@ -185,6 +195,47 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 	return ret;
 }
 
+void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lbl)
+{
+	if ((str[*i] == '#') || (str[*i] == ','))
+		++*i;
+
+	char label_name[METRIC_NAME_SIZE];
+	char label_key[METRIC_NAME_SIZE];
+
+	int n=MAX_LABEL_COUNT;
+	while ((str[*i] != ':') && (str[*i] != '\0') && n--)
+	{
+		printf("str[*i] != '%c'\n", str[*i]);
+		if ((str[*i] == '#') || (str[*i] == ','))
+			++*i;
+
+		printf("1str+i '%s'\n", str+*i);
+		multicollector_get_name(i, str, size, label_name);
+		printf("2str+i '%s'\n", str+*i);
+		multicollector_skip_spaces(i, str, size);
+
+		++*i;
+
+		printf("3str+i '%s'\n", str+*i);
+		multicollector_get_value(i, str, size, label_key);
+		printf("4str+i '%s'\n", str+*i);
+		multicollector_skip_spaces(i, str, size);
+		printf("5str+i '%s'\n", str+*i);
+
+		printf("label name: %s\n", label_name);
+		printf("label key: %s\n", label_key);
+
+		if (!*lbl)
+		{
+			*lbl = malloc(sizeof(tommy_hashdyn));
+			tommy_hashdyn_init(*lbl);
+		}
+
+		labels_hash_insert_nocache(*lbl, label_name, label_key);
+	}
+}
+
 void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
 {
 	extern aconf *ac;
@@ -193,14 +244,19 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	double value = 0;
 	uint64_t i = 0;
 	int rc;
+	int8_t increment = 0;
 	char template_name[METRIC_NAME_SIZE];
 	char metric_name[METRIC_NAME_SIZE];
 	multicollector_skip_spaces(&i, str, size);
 	size_t metric_len = multicollector_get_name(&i, str, size, template_name);
+	//printf("multicpllector from '%s' to '%s'\n", str, template_name);
 
 	// pass mapping
 	mapping_metric *mm = NULL;
 	strlcpy(metric_name, template_name, metric_len+1);
+	//printf("copy metric name %s from '%s' with size %zu\n", metric_name, template_name, metric_len);
+	if (!metric_name_validator_promstatsd(metric_name, metric_len))
+		return;
 
 	if (carg)
 		mm = carg->mm;
@@ -309,7 +365,9 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 				fprintf(stdout, "> label_name = %s\n", label_name);
 				fprintf(stdout, "> label_key = %s\n", label_key);
 			}
-			labels_hash_insert_nocache(lbl, label_name, label_key);
+
+			if (metric_name_validator(label_name, strlen(label_name)))
+				labels_hash_insert_nocache(lbl, label_name, label_key);
 			// go to next label or end '}'
 			multicollector_skip_spaces(&i, str, size);
 			if (str[i] == ',')
@@ -333,19 +391,34 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			printf("> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
-	else if (str[i] == ':')
+	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
+		puts("STATSD!!!");
+		parse_statsd_labels(str, &i, size, &lbl);
 		// statsd
 		++i;
 		//printf("3i=%"u64"\n", i);
 		if ((str[i] == '+') || (str[i] == '-'))
-			printf("metric increment\n");
+		{
+			increment = 1;
+			value = 1;
+		}
 		else
 		{
 			if (ac->log_level > 9)
 				printf("> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			value = atof(str+i);
+			if (strstr(str+i, "|c"))
+			{
+				increment = 1;
+				if (ac->log_level > 3)
+					printf("> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+			}
 		}
+
+		i += strcspn(str+i, "#");
+		printf("> last parse: %s)\n", str+i);
+		parse_statsd_labels(str, &i, size, &lbl);
 	}
 	else if (isdigit(str[i]))
 	{
@@ -354,11 +427,17 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			printf("> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
+	else
+		return;
 	
 	// replacing dot symbols and other from metric
 	metric_name_normalizer(metric_name, metric_len);
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
-	metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+
+	if (increment)
+		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+	else
+		metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 }
 
 void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)

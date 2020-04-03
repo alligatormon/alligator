@@ -141,7 +141,21 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		//char *body = http_proto_proxer(buf, len, NULL); // TODO: remove?
 		//if (buf != body)
 		//	len = strlen(body);
-		handler(buf, len, carg);
+		char *proxybuf;
+		uint64_t proxylen;
+		if (carg->full_body)
+		{
+			puts("HTTP BODY");
+			proxybuf = carg->http_body;
+			proxylen = carg->http_body - carg->full_body->s;
+		}
+		else
+		{
+			puts("TCP BODY");
+			proxybuf = buf;
+			proxylen = len;
+		}
+		handler(proxybuf, proxylen, carg);
 		return;
 	}
 	int rc = 0;

@@ -61,3 +61,5 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg);
 void consul_handler(char *metrics, size_t size, context_arg *carg);
 void nifi_handler(char *metrics, size_t size, context_arg *carg);
 void varnish_handler(char *metrics, size_t size, context_arg *carg);
+void json_handler(char *metrics, size_t size, context_arg *carg);
+void hadoop_handler(char *metrics, size_t size, context_arg *carg);

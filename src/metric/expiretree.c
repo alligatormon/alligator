@@ -136,10 +136,11 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 		q = &head;
 		g = p = NULL;
 		q->steam[RIGHT] = tree->root;
+		int last = dir;
  
 		while ( q->steam[dir] != NULL )
 		{
-			int last = dir;
+			last = dir;
  
 			g = p, p = q;
 			q = q->steam[dir];
@@ -201,8 +202,8 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			f->key = q->key;
 			f->metric = q->metric;
 			f->metric->expire_node = f;
-			p->steam[p->steam[RIGHT] == q] =
-				q->steam[q->steam[LEFT] == NULL];
+			p->steam[p->steam[RIGHT] == q] = q->steam[q->steam[LEFT] == NULL];
+			//p->steam[last] = NULL;
 			free ( q );
 			excode = 1;
 		}
@@ -373,6 +374,9 @@ void expire_purge(uint64_t key, char *namespace)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
+
+	if (ac->log_level > 2)
+		printf("run expire purge\n");
 
 	if (!namespace)
 		ns = ac->nsdefault;

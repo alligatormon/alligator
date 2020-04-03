@@ -102,6 +102,8 @@ aggregate backends {
 	gdnsd unix:///usr/local/var/run/gdnsd/control.sock
 	#SYSLOG-NG
 	syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl
+	# hadoop
+	hadoop http://localhost:50075/jmx;
 }
 ```
 

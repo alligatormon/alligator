@@ -11,9 +11,7 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root;
 	json_error_t error;
 
-	metrics[strlen(metrics)-6] = 0;
-	char *parsestring = strstr(metrics, "{");
-	root = json_loads(parsestring, 0, &error);
+	root = json_loads(metrics, 0, &error);
 
 	if (!root)
 	{

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
+##add_subdirectory(external/mbedtls)
 
-project(alligator VERSION 1.10.3)
+project(alligator VERSION 1.10.60)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -17,23 +18,34 @@ include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/cutter)
 include_directories(/usr/local/include/cutter)
-include_directories(/usr/local/opt/openssl/include/)
-include_directories(/usr/local/ssl/include/)
-include_directories(evt-tls/api)
-include_directories(evt-tls)
+#include_directories(/usr/local/opt/openssl/include/)
+#include_directories(/usr/local/ssl/include/)
+#include_directories(evt-tls/api)
+#include_directories(evt-tls)
+include_directories(external/libpquv/src/include/)
+include_directories(external/libuv-mbedtls/include/)
+include_directories(external/iptables/include/)
+include_directories(/usr/include/zookeeper/)
+##include_directories(external/mbedtls/include/)
+##include_directories(external/mbedtls/crypto/include/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-link_directories(/usr/local/ssl/lib/)
+#link_directories(/usr/local/ssl/lib/)
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
+link_directories(external/mbedtls/library/)
+link_directories(external/mbedtls/crypto/library/)
+link_directories(external/iptables/libiptc/.libs/)
 
 set(STATIC_FILES
-	events/uv_tls.c
+	#events/uv_tls.c
 	events/uv_alloc.c
 	events/a_signal.c
 	events/httpserver.c
-	events/client.c
-	events/sclient.c
+	#events/client.c
+	#events/sclient.c
+	events/sclient3.c
+	events/client3.c
 	events/process.c
 	events/unix_client.c
 	events/unix_server.c
@@ -43,6 +55,7 @@ set(STATIC_FILES
 	events/general.c
 	events/filetailer.c
 	events/fs_write.c
+	events/fs_read.c
 	events/system_scrape.c
 	platform/libbsd.c
 	parsers/dummy.c
@@ -78,9 +91,12 @@ set(STATIC_FILES
 	parsers/consul.c
 	parsers/nifi.c
 	parsers/varnish.c
+	parsers/json.c
+	parsers/postgresql.c
+	parsers/hadoop.c
 	common/selector.c
-	common/https_tls_check.c
-	common/pem_check.c
+	#common/https_tls_check.c
+	common/pem_check2.c
 	common/rtime.c
 	common/validator.c
 	common/base64.c
@@ -95,20 +111,25 @@ set(STATIC_FILES
 	common/smart.c
 	common/netlib.c
 	common/rpm.c
+	common/mkdirp.c
 	api/api_router.c
 	api/api_v1.c
-	config/aggregate.c
+	common/iptc.c
+	#config/aggregate.c
 	config/file.c
 	config/context.c
 	config/mapping.c
+	dynconf/sd.c
 	system/linux.c
 	system/freebsd.c
 	system/macosx.c
 	modules/modules.c
+	modules/postgresql.c
 	metric/expiretree.c
 	metric/labels.c
 	metric/metrictree.c
 	metric/percentile_heap.c
+	metric/metric_dump.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -119,7 +140,9 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytree.c
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
-	evt-tls/src/evt_tls.c
+	#evt-tls/src/evt_tls.c
+	external/libpquv/src/pquv.c
+	external/libpquv/src/util.c
 	
 )
 add_library(${COMMON} STATIC ${STATIC_FILES})
@@ -161,8 +184,8 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat jansson pcre)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	#target_link_libraries(${HEAD} ${COMMON} ssl crypto dl z pthread libuv.a)
-	target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a -ludev)
+	#target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedcrypto.a libmbedx509.a -ludev)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a)
 	#target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 

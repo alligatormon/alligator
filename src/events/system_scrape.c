@@ -42,5 +42,5 @@ void system_scrape_handler()
 
 	uv_timer_t *timer3 = calloc(1, sizeof(*timer3));
 	uv_timer_init(loop, timer3);
-	uv_timer_start(timer3, system_slow_scrape, 10000, 300000);
+	uv_timer_start(timer3, system_slow_scrape, 10000, 250000);
 }

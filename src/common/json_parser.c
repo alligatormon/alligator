@@ -82,9 +82,9 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	metric_add_labels(node->key, &collector->collector, DATATYPE_DOUBLE, node ? node->carg : NULL, "key", collector->label);
 }
 
-void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch);
-void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain);
-void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv);
+void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch, context_arg *carg);
+void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain, context_arg *carg);
+void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, context_arg *carg);
 
 
 void jsonparser_collector_free_foreach(void *funcarg, void* arg)
@@ -113,7 +113,7 @@ void jsonparser_free_foreach(void* arg)
 	free(obj);
 }
 
-void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch)
+void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, pjson_collector *collector, int modeplain_nosearch, context_arg *carg)
 {
 	int jsontype = json_typeof(element);
 	jsonparse_kv *cur = kv;
@@ -141,15 +141,15 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 					kv->replace = NULL;
 				}
 				modeplain = 1;
-				print_json_object(element, buf, hash, kv, node, modeplain);
+				print_json_object(element, buf, hash, kv, node, modeplain, carg);
 				free(kv);
 				return;
 			}
 		}
-		print_json_object(element, buf, hash, kv, node, modeplain);
+		print_json_object(element, buf, hash, kv, node, modeplain, carg);
 	}
 	else if (jsontype==JSON_ARRAY)
-		print_json_array(element, buf, hash, kv);
+		print_json_array(element, buf, hash, kv, carg);
 	else if (jsontype==JSON_STRING && !kv)
 	{
 		pjson_node *pjnode = tommy_hashdyn_search(hash, pjson_compare, buf, tommy_strhash_u32(0, buf));
@@ -202,7 +202,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	else if (jsontype == JSON_INTEGER && !kv)
 	{
 		int64_t num = json_integer_value(element);
-		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
+		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : carg);
 	}
 	else if (jsontype == JSON_INTEGER && kv)
 	{
@@ -319,7 +319,7 @@ void print_json_aux(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_k
 	}
 }
 
-void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain)
+void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *kv, pjson_node *node, int modeplain, context_arg *carg)
 {
 	const char *key;
 	json_t *value;
@@ -375,14 +375,14 @@ void print_json_object(json_t *element, char *buf, tommy_hashdyn *hash, jsonpars
 				tommy_hashdyn_insert(node->hash, &(collector->node), collector, tommy_strhash_u32(0, collector->key));
 			}
 		}
-		print_json_aux(value, skey, hash, kv, NULL, collector, modeplain);
+		print_json_aux(value, skey, hash, kv, NULL, collector, modeplain, carg);
 		if (freecur)
 			free(cur->v);
 	}
 
 }
 
-void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *root_kv)
+void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse_kv *root_kv, context_arg *carg)
 {
 	size_t i;
 	size_t size = json_array_size(element);
@@ -438,7 +438,7 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 			else
 				root_kv = kv;
 		}
-		print_json_aux(arr_obj, buf, hash, root_kv, node, NULL, 0);
+		print_json_aux(arr_obj, buf, hash, root_kv, node, NULL, 0, carg);
 		if ( kvflag )
 		{
 			if ( cur )
@@ -469,6 +469,26 @@ void print_json_array(json_t *element, char *buf, tommy_hashdyn *hash, jsonparse
 	}
 }
 
+uint8_t json_check(const char *text)
+{
+	json_t *root;
+	json_error_t error;
+
+	root = json_loads(text, 0, &error);
+	//printf("JSONPARSER: %p\n%s\n", root, text);
+
+	if (root)
+	{
+		json_decref(root);
+		return 1;
+	}
+	else
+	{
+		json_decref(root);
+		return 0;
+	}
+}
+
 json_t *load_json(const char *text) {
 	json_t *root;
 	json_error_t error;
@@ -483,21 +503,24 @@ json_t *load_json(const char *text) {
 	}
 }
 
-void json_parse(char *line, tommy_hashdyn *hash, char *name)
+void json_parse(char *line, tommy_hashdyn *hash, char *name, context_arg *carg)
 {
 	json_t *root = load_json(line);
 	if (!root)
 	{
 		printf("cannot parse json string:\n%s\n", line);
+		FILE *fd = fopen("1", "w");
+		fwrite(line, strlen(line), 1, fd);
+		fclose(fd);
 		return;
 	}
 
-	print_json_aux(root, name, hash, NULL, NULL, NULL, 0);
+	print_json_aux(root, name, hash, NULL, NULL, NULL, 0, carg);
 	json_decref(root);
 }
 void json_parser_entry(char *line, int argc, char **argv, char *name, context_arg *carg)
 {
-
+	printf("json_parser_entry: carg: %p\n", carg);
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
 	int i;
@@ -589,7 +612,7 @@ void json_parser_entry(char *line, int argc, char **argv, char *name, context_ar
 	}
 	//fclose(fd);
 
-	json_parse(line, hash, name);
+	json_parse(line, hash, name, carg);
 	tommy_hashdyn_foreach(hash, jsonparser_free_foreach);
 	tommy_hashdyn_done(hash);
 	free(hash);

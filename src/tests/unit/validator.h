@@ -135,6 +135,7 @@ void test_validate_domainname_11()
 #define TEST_METRIC_NAME_34 "abcdefghijklmnopqrstuv'wxyz"
 #define TEST_METRIC_NAME_35 "abcdefghijklmnopqrstuv\"wxyz"
 #define TEST_METRIC_NAME_36 "abcdefghijklmnopqrstuvwxyz_1234567890"
+#define TEST_METRIC_NAME_37 "0"
 void test_metric_name_validator_1()
 {
 	int rc = metric_name_validator(TEST_METRIC_NAME_1, strlen(TEST_METRIC_NAME_1));
