@@ -87,6 +87,7 @@ typedef struct context_arg
 	char is_writing;
 	char is_write_error;
 	char is_closing;
+	uint8_t is_http_query;
 	uint8_t tls;
 	mbedtls_ssl_context tls_ctx;
 	mbedtls_pk_context tls_key;

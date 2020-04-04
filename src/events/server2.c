@@ -62,13 +62,25 @@ void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, unsign
 	carg->is_async_writing = 0;
 	if (mbedtls_ssl_write(&carg->tls_ctx, (const unsigned char *)buffer, buffer_len) == MBEDTLS_ERR_SSL_WANT_WRITE)
 		carg->is_writing = 1;
-	free(buffer);
 }
 
 void tcp_server_writed(uv_write_t* req, int status) 
 {
 	context_arg *carg = req->data;
-	free(carg->response_buffer.base);
+	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
+	{
+		uv_shutdown_t* req = malloc(sizeof(uv_shutdown_t));
+		req->data = carg;
+		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+	}
+
+	if (carg->response_buffer.base)
+	{
+		free(carg->response_buffer.base);
+		carg->response_buffer = uv_buf_init(NULL, 0);
+	}
+
+	free(req);
 }
 
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
@@ -79,13 +91,12 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		string *str = string_init(6553500);
 		alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
+		carg->write_req.data = carg;
+		carg->response_buffer = uv_buf_init(str->s, str->l);
 		if (uv_is_writable((uv_stream_t*)&carg->client))
 		{
 			if(!carg->tls)
-			{
-				carg->response_buffer = uv_buf_init(str->s, str->l);
 				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_writed);
-			}
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
@@ -216,7 +227,7 @@ void tls_server_writed(uv_write_t* req, int status)
 	}
 	free(carg->write_buffer.base);
 	carg->write_buffer.base = 0;
-	free(req);
+	tcp_server_writed(req, status);
 }
 
 int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
@@ -343,10 +354,18 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	}
 }
 
-context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls)
+context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
 {
 	struct sockaddr_in addr;
-	context_arg* srv_carg = calloc(1, sizeof(context_arg));
+
+	context_arg* srv_carg;
+	if (import_carg)
+		srv_carg = import_carg;
+	else
+		srv_carg = calloc(1, sizeof(context_arg));
+
+	printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);
+
 	srv_carg->loop = loop;
 	srv_carg->tls = tls;
 
