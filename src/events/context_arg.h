@@ -82,6 +82,7 @@ typedef struct context_arg
 	uv_loop_t* loop;
 	uv_connect_t connect;
 	uv_write_t write_req;
+	uv_shutdown_t shutdown_req;
 
 	char is_async_writing;
 	char is_writing;

@@ -44,7 +44,6 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
 	tcp_client_close(carg);
-	free(req);
 }
 
 void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, unsigned int buffer_len)
@@ -69,9 +68,8 @@ void tcp_server_writed(uv_write_t* req, int status)
 	context_arg *carg = req->data;
 	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
 	{
-		uv_shutdown_t* req = malloc(sizeof(uv_shutdown_t));
-		req->data = carg;
-		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		carg->shutdown_req.data = carg;
+		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
 	}
 
 	if (carg->response_buffer.base)
@@ -105,9 +103,8 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		return;
 	else if(nread == UV_EOF)
 	{
-		uv_shutdown_t* req = malloc(sizeof(uv_shutdown_t));
-		req->data = carg;
-		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		carg->shutdown_req.data = carg;
+		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
 	{
