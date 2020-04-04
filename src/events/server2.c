@@ -79,8 +79,6 @@ void tcp_server_writed(uv_write_t* req, int status)
 		free(carg->response_buffer.base);
 		carg->response_buffer = uv_buf_init(NULL, 0);
 	}
-
-	free(req);
 }
 
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
@@ -204,8 +202,8 @@ void tls_server_writed(uv_write_t* req, int status)
 	if (carg->is_closing)
 	{
 		mbedtls_ssl_close_notify(&carg->tls_ctx);
-		if (uv_is_closing((uv_handle_t*)carg) == 0)
-			uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+		//if (uv_is_closing((uv_handle_t*)carg) == 0)
+			//uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
 	}
 	else if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
 	{
@@ -233,7 +231,6 @@ void tls_server_writed(uv_write_t* req, int status)
 int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 {
 	context_arg* carg = (context_arg*)ctx;
-	uv_write_t* write_req = 0;
 	carg->write_buffer.base = 0;
 	carg->write_buffer.len = 0;
 	if (carg->is_write_error)
@@ -244,9 +241,8 @@ int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 		carg->write_buffer.base = malloc(len);
 		memcpy(carg->write_buffer.base, buf, len);
 		carg->write_buffer.len = len;
-		write_req = malloc(sizeof(uv_write_t));
-		write_req->data = carg;
-		int ret = uv_write(write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, tls_server_writed);
+		carg->write_req.data = carg;
+		int ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, tls_server_writed);
 		if (!ret)
 		{
 			len = MBEDTLS_ERR_SSL_WANT_WRITE;
@@ -257,8 +253,6 @@ int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 			len = -1;
 			carg->is_write_error = 1;
 			carg->is_writing = 0;
-			if (write_req)
-				free(write_req);
 
 			if (carg->write_buffer.base)
 			{
