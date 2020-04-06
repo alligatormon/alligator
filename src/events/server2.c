@@ -300,8 +300,6 @@ int8_t tls_server_init(uv_loop_t* loop, context_arg* carg)
 
 	mbedtls_ssl_conf_rng(&carg->tls_conf, mbedtls_ctr_drbg_random, &carg->tls_ctr_drbg);
 
-	mbedtls_ssl_set_mtu(&carg->tls_ctx, 65535);
-
 	mbedtls_ssl_conf_dbg(&carg->tls_conf, tls_debug, stdout);
 	mbedtls_debug_set_threshold(0);
 

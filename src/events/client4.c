@@ -4,6 +4,7 @@
 #include "events/uv_alloc.h"
 #include "events/debug.h"
 #include "main.h"
+#include "parsers/http_proto.h"
 #define URL "news.rambler.ru"
 #define PORT "443"
 #define MESG "GET / HTTP/1.1\r\nHost: news.rambler.ru\r\nConnection: Close\r\n\r\n"
@@ -28,6 +29,7 @@ void tcp_client_closed(uv_handle_t *handle)
 		mbedtls_ssl_free(&carg->tls_ctx);
 	}
 	carg->lock = 0;
+	string_null(carg->full_body);
 }
 
 void tcp_client_close(uv_handle_t *handle)
@@ -80,13 +82,41 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (buf && buf->base)
 		{
 			char *tmp = strndup(buf->base, nread);
-			//printf("buffer:\n'%s'(%zu)\n", tmp, nread);
-			//alligator_multiparser(carg->full_body->s, nread, carg->parser_handler, NULL, carg);
-			//uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
-			//
-			//int8_t rc = tcp_check_full(carg, carg->http_body, nread);
-			//if (rc)
-			alligator_multiparser(tmp, nread, carg->parser_handler, NULL, carg);
+
+			printf("length %d\n", carg->full_body->l);
+			if (!carg->full_body->l)
+			{
+				string_cat(carg->full_body, buf->base, nread);
+
+				http_reply_data* hr_data = http_reply_parser(carg->full_body->s, carg->full_body->l);
+				carg->http_body = hr_data->body;
+				carg->chunked_size = hr_data->chunked_size;
+				carg->chunked_expect = hr_data->chunked_expect;
+				free(hr_data);
+
+				printf("fullbody1: '%s'\n", carg->http_body);
+
+				//char del[100];
+				//snprintf(del, 100, "/%c.%lld", *buf->base, nread);
+				//FILE *fd = fopen(del, "w");
+				//printf("0 SAVED: %s\n", del);
+				////fwrite(buf->base, nread, 1, fd);
+				//fwrite(carg->http_body, strlen(carg->http_body), 1, fd);
+				//fclose(fd);
+			}
+			else if (carg->chunked_size) // maybe chunked_expect?
+			{
+				printf("chunkedsize: %d\n", carg->chunked_expect);
+				printf("chunkedsize1: %s\n", buf->base);
+				chunk_calc(carg, buf->base, nread);
+			}
+			else
+				string_cat(carg->full_body, buf->base, nread);
+
+			int8_t rc = tcp_check_full(carg, carg->http_body, nread);
+			if (rc)
+				alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
 			free(tmp);
 		}
 	}
