@@ -11,7 +11,7 @@
 #include "events/debug.h"
 #include "events/uv_alloc.h"
 
-void tcp_client_closed(uv_handle_t* handle)
+void tcp_server_closed_client(uv_handle_t* handle)
 {
 	context_arg *carg = handle->data;
 	carg->is_closing = 0;
@@ -20,8 +20,9 @@ void tcp_client_closed(uv_handle_t* handle)
 	free(carg);
 }
 
-void tcp_client_close(context_arg* carg)
+void tcp_server_close_client(context_arg* carg)
 {
+	puts("tcp_server_close_client");
 	if (uv_is_closing((uv_handle_t*)&carg->client) == 0)
 	{
 		if (carg->tls)
@@ -32,21 +33,22 @@ void tcp_client_close(context_arg* carg)
 			if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
 			{
 				if (uv_is_closing((uv_handle_t*)&carg->client) == 0)
-					uv_close((uv_handle_t *)&carg->client, tcp_client_closed);
+					uv_close((uv_handle_t *)&carg->client, tcp_server_closed_client);
 			}
 		}
 		else
-			uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+			uv_close((uv_handle_t*)&carg->client, tcp_server_closed_client);
 	}
 }
 
-void tcp_client_shutdown(uv_shutdown_t* req, int status)
+void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 {
+	puts("shutdown");
 	context_arg* carg = (context_arg*)req->data;
-	tcp_client_close(carg);
+	tcp_server_close_client(carg);
 }
 
-void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, unsigned int buffer_len)
+void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, size_t buffer_len)
 {
 	context_arg* carg = handle->data;
 	if (carg->is_writing || carg->is_closing)
@@ -59,6 +61,7 @@ void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, unsign
 	carg->ssl_read_buffer_offset = 0;
 	carg->ssl_write_offset = 0;
 	carg->is_async_writing = 0;
+	printf("sent %zu\n", buffer_len);
 	if (mbedtls_ssl_write(&carg->tls_ctx, (const unsigned char *)buffer, buffer_len) == MBEDTLS_ERR_SSL_WANT_WRITE)
 		carg->is_writing = 1;
 }
@@ -68,8 +71,9 @@ void tcp_server_writed(uv_write_t* req, int status)
 	context_arg *carg = req->data;
 	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
 	{
+		puts("tcp_server_writed shutdown");
 		carg->shutdown_req.data = carg;
-		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
 	}
 
 	if (carg->response_buffer.base)
@@ -103,12 +107,13 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		return;
 	else if(nread == UV_EOF)
 	{
+		puts("tcp_server_readed shutdown");
 		carg->shutdown_req.data = carg;
-		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
 	{
-		tcp_client_close(carg);
+		tcp_server_close_client(carg);
 	}
 }
 
@@ -125,7 +130,7 @@ void tls_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		mbedtls_ssl_close_notify(&carg->tls_ctx);
 		if (uv_is_closing((uv_handle_t*)carg) == 0)
-			uv_close((uv_handle_t*)stream, tcp_client_closed);
+			uv_close((uv_handle_t*)stream, tcp_server_closed_client);
 	}
 	else if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
 	{
@@ -200,7 +205,7 @@ void tls_server_writed(uv_write_t* req, int status)
 	{
 		mbedtls_ssl_close_notify(&carg->tls_ctx);
 		//if (uv_is_closing((uv_handle_t*)carg) == 0)
-			//uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+			//uv_close((uv_handle_t*)&carg->client, tcp_server_closed_client);
 	}
 	else if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
 	{
@@ -222,7 +227,7 @@ void tls_server_writed(uv_write_t* req, int status)
 	}
 	free(carg->write_buffer.base);
 	carg->write_buffer.base = 0;
-	tcp_server_writed(req, status);
+	//tcp_server_writed(req, status);
 }
 
 int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
@@ -232,6 +237,7 @@ int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 	carg->write_buffer.len = 0;
 	if (carg->is_write_error)
 		return -1;
+	printf("ssl sent %zu/%zu/%d/%d/%d\n", len, mbedtls_ssl_get_max_frag_len(&carg->tls_ctx), mbedtls_ssl_get_max_out_record_payload(&carg->tls_ctx), MBEDTLS_SSL_OUT_CONTENT_LEN, mbedtls_ssl_get_max_out_record_payload(&carg->tls_ctx));
 
 	if (carg->is_async_writing == 0)
 	{
@@ -294,6 +300,8 @@ int8_t tls_server_init(uv_loop_t* loop, context_arg* carg)
 
 	mbedtls_ssl_conf_rng(&carg->tls_conf, mbedtls_ctr_drbg_random, &carg->tls_ctr_drbg);
 
+	mbedtls_ssl_set_mtu(&carg->tls_ctx, 65535);
+
 	mbedtls_ssl_conf_dbg(&carg->tls_conf, tls_debug, stdout);
 	mbedtls_debug_set_threshold(0);
 
@@ -328,20 +336,20 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 		tls_server_init_client(carg->loop, carg);
 
 	if (uv_tcp_nodelay(&carg->client, 1))
-		tcp_client_close(carg);
+		tcp_server_close_client(carg);
 
 	if (uv_accept(stream, (uv_stream_t*)&carg->client))
-		tcp_client_close(carg);
+		tcp_server_close_client(carg);
 
 	if (carg->tls)
 	{
 		if (uv_read_start((uv_stream_t*)&carg->client, tls_server_alloc, tls_server_readed))
-			tcp_client_close(carg);
+			tcp_server_close_client(carg);
 	}
 	else
 	{
 		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_readed))
-			tcp_client_close(carg);
+			tcp_server_close_client(carg);
 	}
 }
 

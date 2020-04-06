@@ -3,6 +3,7 @@
 #include "mbedtls/debug.h"
 #include "events/uv_alloc.h"
 #include "events/debug.h"
+#include "main.h"
 #define URL "news.rambler.ru"
 #define PORT "443"
 #define MESG "GET / HTTP/1.1\r\nHost: news.rambler.ru\r\nConnection: Close\r\n\r\n"
@@ -14,7 +15,7 @@ void tcp_connected(uv_connect_t* req, int status);
 
 void tcp_client_closed(uv_handle_t *handle)
 {
-	//puts("closed");
+	puts("closed");
 	context_arg* carg = handle->data;
 	if (carg->tls)
 	{
@@ -26,29 +27,38 @@ void tcp_client_closed(uv_handle_t *handle)
 		mbedtls_entropy_free(&carg->tls_entropy);
 		mbedtls_ssl_free(&carg->tls_ctx);
 	}
+	carg->lock = 0;
 }
 
 void tcp_client_close(uv_handle_t *handle)
 {
-	//puts("close");
+	puts("close");
 	context_arg* carg = handle->data;
+
+	const mbedtls_x509_crt* peercert = mbedtls_ssl_get_peer_cert(&carg->tls_ctx);
+	parse_cert_info(peercert, carg->host);
+	//char dn_subject[1000];
+	//int dn_subject_size = mbedtls_x509_dn_gets(dn_subject, 1000, &peercert->subject);
+	//printf("%s (%d)\n", dn_subject, dn_subject_size);
+
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
+		puts("not is closing");
 		if (carg->tls)
 		{
-			if (carg->is_closing)
-				return;
-			
-			carg->is_closing = 1;
 			if (!carg->is_writing)
 			{
 				int ret = mbedtls_ssl_close_notify(&carg->tls_ctx);
 				if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
 					uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
 			}
+			else
+				uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
 		}
 		else
+		{
 			uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+		}
 	}
 }
 
@@ -70,7 +80,13 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (buf && buf->base)
 		{
 			char *tmp = strndup(buf->base, nread);
-			printf("buffer:\n'%s'(%zu)\n", tmp, nread);
+			//printf("buffer:\n'%s'(%zu)\n", tmp, nread);
+			//alligator_multiparser(carg->full_body->s, nread, carg->parser_handler, NULL, carg);
+			//uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+			//
+			//int8_t rc = tcp_check_full(carg, carg->http_body, nread);
+			//if (rc)
+			alligator_multiparser(tmp, nread, carg->parser_handler, NULL, carg);
 			free(tmp);
 		}
 	}
@@ -270,30 +286,6 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	}
 	else
 	{
-		//FILE *fd = fopen(carg->tls_ca_file, "r");
-		//char *certbuf = malloc(100000);
-		//int rc = fread(certbuf, 100000, 1, fd);
-		//printf("===========\n'%s'\n============\n'%s'\n============\n%d/%d\n", certbuf, mbedtls_test_cas_pem, strlen(certbuf)+1, mbedtls_test_cas_pem_len);
-		//printf("test: ideal:%d len:%d nowork: len:%d, rc:%d\n", mbedtls_test_cas_pem_len, strlen(mbedtls_test_cas_pem)+1, strlen(certbuf)+1, rc);
-		//printf("'%s' (%zu)\n", certbuf, strlen(certbuf)+1);
-		//if(mbedtls_x509_crt_parse(&carg->tls_cacert, (const unsigned char *) certbuf, strlen(certbuf)+1))
-		//	return ret;
-		//fclose(fd);
-		//puts("==============================================");
-
-		//fd = fopen(carg->tls_cert_file, "r");
-		//rc = fread(certbuf, 100000, 1, fd);
-		//if(mbedtls_x509_crt_parse(&carg->tls_cert, (const unsigned char *) certbuf, rc-1))
-		//	return ret;
-		//fclose(fd);
-
-
-		//fd = fopen(carg->tls_key_file, "r");
-		//rc = fread(certbuf, 100000, 1, fd);
-		//if(mbedtls_pk_parse_key(&carg->tls_key, (const unsigned char *) certbuf, rc-1, NULL, 0))
-		//	return ret;
-		//fclose(fd);
-		//free(certbuf);
 		mbedtls_x509_crt_parse_file(&carg->tls_cacert, carg->tls_ca_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cert, carg->tls_cert_file);
 		mbedtls_pk_parse_keyfile(&carg->tls_key, carg->tls_key_file, NULL);
@@ -310,7 +302,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
  
 	if((ret = mbedtls_ssl_setup(&carg->tls_ctx, &carg->tls_conf)) != 0)
 	        return ret;
-	if((ret = mbedtls_ssl_set_hostname(&carg->tls_ctx, "Alligator")) != 0)
+	if((ret = mbedtls_ssl_set_hostname(&carg->tls_ctx, carg->host)) != 0)
 	        return ret;
 
 	mbedtls_ssl_set_bio(&carg->tls_ctx, carg, tls_client_mbed_send, tls_client_mbed_recv, NULL);
@@ -324,14 +316,17 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 
 void tls_connected(uv_connect_t* req, int status)
 {
+	extern aconf* ac;
 	int ret = 0;
 	context_arg* carg = (context_arg*)req->data;
+	if (ac->log_level > 1)
+		printf("1: tls client connected %p(%p:%p) with key %s, hostname %s\n", carg, &carg->connect, &carg->client, carg->key, carg->host);
+
 	if (status < 0)
 	{
 		tcp_connected(&carg->connect,  -1);
 		return;
 	}
-	puts("read star");
 	ret = uv_read_start((uv_stream_t*)&carg->client, tls_client_alloc, tls_client_readed);
 	if (ret != 0)
 	{
@@ -349,20 +344,20 @@ void tls_connected(uv_connect_t* req, int status)
 
 void tcp_connected(uv_connect_t* req, int status)
 {
-	//puts("tcp_connected");
+	extern aconf* ac;
 	context_arg* carg = (context_arg*)req->data;
+	if (ac->log_level > 1)
+		printf("1: tcp client connected %p(%p:%p) with key %s, hostname %s\n", carg, &carg->client, &carg->connect, carg->key, carg->host);
+
 	if (status < 0)
 		return;
-	puts("1");
 
 	if (!carg->tls)
 		uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_client_readed);
 
 	memset(&carg->write_req, 0, sizeof(carg->write_req));
-	//uv_buf_t req_buf;
 
 	carg->write_req.data = carg;
-	//req_buf = uv_buf_init(carg->request_buffer.base, carg->request_buffer.len);
 
 	puts("2");
 	if(carg->tls)
@@ -374,7 +369,6 @@ void tcp_connected(uv_connect_t* req, int status)
 		carg->ssl_read_buffer_offset = 0;
 		carg->ssl_write_offset = 0;
 		carg->is_async_writing = 0;
-		printf("write start: '%s'\n", carg->request_buffer.base);
 		if (mbedtls_ssl_write(&carg->tls_ctx, (const unsigned char *)carg->request_buffer.base, carg->request_buffer.len) == MBEDTLS_ERR_SSL_WANT_WRITE)
 			carg->is_writing = 1;
 	}
@@ -382,8 +376,54 @@ void tcp_connected(uv_connect_t* req, int status)
 		uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
 }
 
+void tcp_timeout_timer(uv_timer_t *timer)
+{
+	extern aconf* ac;
+	context_arg *carg = timer->data;
+	if (ac->log_level > 1)
+		printf("4: timeout carg with addr %p(%p:%p) with key %s, hostname %s\n", carg, &carg->client, &carg->connect, carg->key, carg->host);
+	tcp_client_close((uv_handle_t *)&carg->client);
+}
+
+void tcp_client_connect(void *arg)
+{
+	extern aconf* ac;
+
+	context_arg *carg = arg;
+	if (ac->log_level > 1)
+		printf("0: tcp client connect %p(%p:%p) with key %s, hostname %s, lock: %d\n", carg, &carg->client, &carg->connect, carg->key, carg->host, carg->lock);
+
+	if (carg->lock)
+		return;
+	carg->lock = 1;
+
+	carg->tt_timer->data = carg;
+	uv_timer_init(carg->loop, carg->tt_timer);
+	uv_timer_start(carg->tt_timer, tcp_timeout_timer, 5000, 0);
+	memset(&carg->connect, 0, sizeof(carg->connect));
+	carg->connect.data = carg;
+
+	memset(&carg->client, 0, sizeof(carg->client));
+	carg->client.data = carg;
+	uv_tcp_init(carg->loop, &carg->client);
+	if (carg->tls)
+		tls_client_init(carg->loop, carg);
+
+	if (carg->tls)
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tls_connected);
+	else
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tcp_connected);
+}
+
+static void tcp_client_crawl(uv_timer_t* handle) {
+	(void)handle;
+	extern aconf* ac;
+	tommy_hashdyn_foreach(ac->aggregator, tcp_client_connect);
+}
+
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
+	extern aconf *ac;
 	context_arg* carg = (context_arg*)req->data;
 
 	char addr[17] = {'\0'};
@@ -396,11 +436,11 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 
 	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
 
-	carg->connect.data = carg;
-	if (carg->tls)
-		uv_tcp_connect(&carg->connect, &carg->client, res->ai_addr, tls_connected);
-	else
-		uv_tcp_connect(&carg->connect, &carg->client, res->ai_addr, tcp_connected);
+	carg->dest = (struct sockaddr_in*)res->ai_addr;
+	carg->key = malloc(64);
+	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
+
+	tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	uv_freeaddrinfo(res);
 	free(req);
@@ -423,15 +463,12 @@ void aggregator_resolve_host(context_arg* carg)
 
 }
 
-void tcp_client(context_arg* carg)
+void tcp_client(void *arg)
 {
-	if (!carg)
+	if (!arg)
 		return;
 
-	carg->client.data = carg;
-	uv_tcp_init(carg->loop, &carg->client);
-	if (carg->tls)
-		tls_client_init(carg->loop, carg);
+	context_arg *carg = arg;
 
 	aggregator_resolve_host(carg);
 }
@@ -531,3 +568,13 @@ void fill_nginx(context_arg *carg)
 //	//fill_nginx(carg);
 //	uv_run(loop, UV_RUN_DEFAULT);
 //}
+
+void tcp_client_handler()
+{
+	extern aconf* ac;
+	uv_loop_t *loop = ac->loop;
+
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(loop, timer1);
+	uv_timer_start(timer1, tcp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
+}

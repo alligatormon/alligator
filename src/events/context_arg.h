@@ -36,7 +36,7 @@ typedef struct context_arg
 	r_time write_time_finish;
 	r_time read_time;
 	r_time read_time_finish;
-	int lock;
+	uint8_t lock;
 	int proto;
 	int write;
 	size_t http_body_size;
