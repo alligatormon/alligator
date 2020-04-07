@@ -206,25 +206,25 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 	int n=MAX_LABEL_COUNT;
 	while ((str[*i] != ':') && (str[*i] != '\0') && n--)
 	{
-		printf("str[*i] != '%c'\n", str[*i]);
+		//printf("str[*i] != '%c'\n", str[*i]);
 		if ((str[*i] == '#') || (str[*i] == ','))
 			++*i;
 
-		printf("1str+i '%s'\n", str+*i);
+		//printf("1str+i '%s'\n", str+*i);
 		multicollector_get_name(i, str, size, label_name);
-		printf("2str+i '%s'\n", str+*i);
+		//printf("2str+i '%s'\n", str+*i);
 		multicollector_skip_spaces(i, str, size);
 
 		++*i;
 
-		printf("3str+i '%s'\n", str+*i);
+		//printf("3str+i '%s'\n", str+*i);
 		multicollector_get_value(i, str, size, label_key);
-		printf("4str+i '%s'\n", str+*i);
+		//printf("4str+i '%s'\n", str+*i);
 		multicollector_skip_spaces(i, str, size);
-		printf("5str+i '%s'\n", str+*i);
+		//printf("5str+i '%s'\n", str+*i);
 
-		printf("label name: %s\n", label_name);
-		printf("label key: %s\n", label_key);
+		//printf("label name: %s\n", label_name);
+		//printf("label key: %s\n", label_key);
 
 		if (!*lbl)
 		{
@@ -368,6 +368,13 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 
 			if (metric_name_validator(label_name, strlen(label_name)))
 				labels_hash_insert_nocache(lbl, label_name, label_key);
+			else
+			{
+				labels_hash_free(lbl);
+				if (ac->log_level > 2)
+					fprintf(stdout, "metric '%s' has invalid label format: %s\n", str, label_name);
+				return;
+			}
 			// go to next label or end '}'
 			multicollector_skip_spaces(&i, str, size);
 			if (str[i] == ',')
@@ -393,7 +400,6 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
-		puts("STATSD!!!");
 		parse_statsd_labels(str, &i, size, &lbl);
 		// statsd
 		++i;
@@ -417,7 +423,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		}
 
 		i += strcspn(str+i, "#");
-		printf("> last parse: %s)\n", str+i);
+		//printf("> last parse: %s)\n", str+i);
 		parse_statsd_labels(str, &i, size, &lbl);
 	}
 	else if (isdigit(str[i]))
