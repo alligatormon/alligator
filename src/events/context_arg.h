@@ -115,6 +115,8 @@ typedef struct context_arg
 
 	char host[URL_SIZE];
 	char port[PORT_SIZE];
+	uint64_t timeout;
+	uint64_t count;
 
 	tommy_node node;
 } context_arg;

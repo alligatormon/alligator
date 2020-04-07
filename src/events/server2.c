@@ -10,6 +10,7 @@
 #include "mbedtls/debug.h"
 #include "events/debug.h"
 #include "events/uv_alloc.h"
+#include "main.h"
 
 void tcp_server_closed_client(uv_handle_t* handle)
 {
@@ -353,6 +354,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
 {
+	extern aconf *ac;
 	struct sockaddr_in addr;
 
 	context_arg* srv_carg;
@@ -361,7 +363,8 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	else
 		srv_carg = calloc(1, sizeof(context_arg));
 
-	printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);
+	if (ac->log_level > 1)
+		printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);
 
 	srv_carg->loop = loop;
 	srv_carg->tls = tls;

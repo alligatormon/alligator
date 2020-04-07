@@ -20,7 +20,7 @@ void on_open(uv_fs_t *req)
 {
 	puts("open");
 	file_status *fstatus = req->data;
-	printf("offset %d\n", fstatus->offset);
+	printf("offset %"d64"\n", fstatus->offset);
 	if (req->result != -1) {
 		uv_fs_read(uv_default_loop(), fstatus->read_req, req->result, fstatus->buffer, 1, fstatus->offset, filetailer_on_read);
 	}

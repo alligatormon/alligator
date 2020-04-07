@@ -11,13 +11,16 @@
 #define MESG2 "UBCT1 stats_noreset\n"
 #define MESG3 "stats\n"
 #define MESG4 "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
+extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);
 
 void tcp_client_closed(uv_handle_t *handle)
 {
-	puts("closed");
 	context_arg* carg = handle->data;
+	if (ac->log_level > 1)
+		printf("%"u64": tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+
 	if (carg->tls)
 	{
 		mbedtls_x509_crt_free(&carg->tls_cacert);
@@ -34,18 +37,16 @@ void tcp_client_closed(uv_handle_t *handle)
 
 void tcp_client_close(uv_handle_t *handle)
 {
-	puts("close");
 	context_arg* carg = handle->data;
+	if (ac->log_level > 1)
+		printf("%"u64": tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	const mbedtls_x509_crt* peercert = mbedtls_ssl_get_peer_cert(&carg->tls_ctx);
 	parse_cert_info(peercert, carg->host);
-	//char dn_subject[1000];
-	//int dn_subject_size = mbedtls_x509_dn_gets(dn_subject, 1000, &peercert->subject);
-	//printf("%s (%d)\n", dn_subject, dn_subject_size);
+	//mbedtls_x509_crt_free(peercert);
 
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
-		puts("not is closing");
 		if (carg->tls)
 		{
 			if (!carg->is_writing)
@@ -66,8 +67,10 @@ void tcp_client_close(uv_handle_t *handle)
 
 void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
-	puts("shutdown");
 	context_arg* carg = req->data;
+	if (ac->log_level > 1)
+		printf("%"u64": tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+
 	tcp_client_close((uv_handle_t *)&carg->client);
 	free(req);
 }
@@ -76,6 +79,8 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
 	//printf("tcp_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
+	if (ac->log_level > 1)
+		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 
 	if (nread > 0)
 	{
@@ -83,7 +88,6 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		{
 			char *tmp = strndup(buf->base, nread);
 
-			printf("length %d\n", carg->full_body->l);
 			if (!carg->full_body->l)
 			{
 				string_cat(carg->full_body, buf->base, nread);
@@ -94,20 +98,9 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				carg->chunked_expect = hr_data->chunked_expect;
 				free(hr_data);
 
-				printf("fullbody1: '%s'\n", carg->http_body);
-
-				//char del[100];
-				//snprintf(del, 100, "/%c.%lld", *buf->base, nread);
-				//FILE *fd = fopen(del, "w");
-				//printf("0 SAVED: %s\n", del);
-				////fwrite(buf->base, nread, 1, fd);
-				//fwrite(carg->http_body, strlen(carg->http_body), 1, fd);
-				//fclose(fd);
 			}
 			else if (carg->chunked_size) // maybe chunked_expect?
 			{
-				printf("chunkedsize: %d\n", carg->chunked_expect);
-				printf("chunkedsize1: %s\n", buf->base);
 				chunk_calc(carg, buf->base, nread);
 			}
 			else
@@ -141,6 +134,9 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	//printf("========= tls_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 	context_arg* carg = stream->data;
+	if (ac->log_level > 1)
+		printf("%"u64": tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+
 	if (nread <= 0)
 	{
 		tcp_client_readed(stream, nread, 0);
@@ -256,7 +252,6 @@ void tls_client_writed(uv_write_t* req, int status)
 
 int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 {
-	//puts("tls_client_mbed_send");
 	context_arg* carg = (context_arg*)ctx;
 	uv_write_t* write_req = 0;
 	int ret = 0;
@@ -306,7 +301,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	mbedtls_entropy_init(&carg->tls_entropy);
 	mbedtls_pk_init(&carg->tls_key);
  
-	if((ret = mbedtls_ctr_drbg_seed(&carg->tls_ctr_drbg, mbedtls_entropy_func, &carg->tls_entropy, (const unsigned char *) "UVHTTP", sizeof("UVHTTP") -1)) != 0)
+	if((ret = mbedtls_ctr_drbg_seed(&carg->tls_ctr_drbg, mbedtls_entropy_func, &carg->tls_entropy, (const unsigned char *) "Alligator", sizeof("Alligator") -1)) != 0)
 		return ret;
  
 	if (!carg->tls_ca_file)
@@ -346,11 +341,10 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 
 void tls_connected(uv_connect_t* req, int status)
 {
-	extern aconf* ac;
 	int ret = 0;
 	context_arg* carg = (context_arg*)req->data;
 	if (ac->log_level > 1)
-		printf("1: tls client connected %p(%p:%p) with key %s, hostname %s\n", carg, &carg->connect, &carg->client, carg->key, carg->host);
+		printf("%"u64": tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 
 	if (status < 0)
 	{
@@ -374,10 +368,9 @@ void tls_connected(uv_connect_t* req, int status)
 
 void tcp_connected(uv_connect_t* req, int status)
 {
-	extern aconf* ac;
 	context_arg* carg = (context_arg*)req->data;
 	if (ac->log_level > 1)
-		printf("1: tcp client connected %p(%p:%p) with key %s, hostname %s\n", carg, &carg->client, &carg->connect, carg->key, carg->host);
+		printf("%"u64": tcp client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 
 	if (status < 0)
 		return;
@@ -389,7 +382,6 @@ void tcp_connected(uv_connect_t* req, int status)
 
 	carg->write_req.data = carg;
 
-	puts("2");
 	if(carg->tls)
 	{
 		carg->is_write_error = 0;
@@ -408,20 +400,18 @@ void tcp_connected(uv_connect_t* req, int status)
 
 void tcp_timeout_timer(uv_timer_t *timer)
 {
-	extern aconf* ac;
 	context_arg *carg = timer->data;
 	if (ac->log_level > 1)
-		printf("4: timeout carg with addr %p(%p:%p) with key %s, hostname %s\n", carg, &carg->client, &carg->connect, carg->key, carg->host);
+		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	tcp_client_close((uv_handle_t *)&carg->client);
 }
 
 void tcp_client_connect(void *arg)
 {
-	extern aconf* ac;
-
 	context_arg *carg = arg;
+	carg->count = 0;
 	if (ac->log_level > 1)
-		printf("0: tcp client connect %p(%p:%p) with key %s, hostname %s, lock: %d\n", carg, &carg->client, &carg->connect, carg->key, carg->host, carg->lock);
+		printf("%"u64": tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;
@@ -429,7 +419,7 @@ void tcp_client_connect(void *arg)
 
 	carg->tt_timer->data = carg;
 	uv_timer_init(carg->loop, carg->tt_timer);
-	uv_timer_start(carg->tt_timer, tcp_timeout_timer, 5000, 0);
+	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
 	memset(&carg->connect, 0, sizeof(carg->connect));
 	carg->connect.data = carg;
 
@@ -447,13 +437,11 @@ void tcp_client_connect(void *arg)
 
 static void tcp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
-	extern aconf* ac;
 	tommy_hashdyn_foreach(ac->aggregator, tcp_client_connect);
 }
 
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
-	extern aconf *ac;
 	context_arg* carg = (context_arg*)req->data;
 
 	char addr[17] = {'\0'};
@@ -601,7 +589,6 @@ void fill_nginx(context_arg *carg)
 
 void tcp_client_handler()
 {
-	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
 	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
