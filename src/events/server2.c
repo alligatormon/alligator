@@ -361,6 +361,14 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	if (uv_accept(stream, (uv_stream_t*)&carg->client))
 		tcp_server_close_client(carg);
 
+	if (!check_ip_port((uv_tcp_t*)&carg->client, carg))
+	{
+		if (ac->log_level > 3)
+			printf("no access!\n");
+		tcp_server_close_client(carg);
+		return;
+	}
+
 	if (carg->tls)
 	{
 		if (uv_read_start((uv_stream_t*)&carg->client, tls_server_alloc, tls_server_readed))
@@ -394,32 +402,29 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	if (srv_carg->tls)
 		if (!tls_server_init(srv_carg->loop, srv_carg))
 		{
-			free(srv_carg);
 			return NULL;
 		}
 
 	if(uv_ip4_addr(ip, port, &addr))
 	{
-		free(srv_carg);
 		return NULL;
 	}
 
 	uv_tcp_init(srv_carg->loop, &srv_carg->server);
 	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
 	{
-		free(srv_carg);
 		return NULL;
 	}
 
 	if (uv_tcp_nodelay(&srv_carg->server, 1))
 	{
-		free(srv_carg);
 		return NULL;
 	}
 
-	if (uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected))
+	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
+	if (ret)
 	{
-		free(srv_carg);
+		fprintf(stderr, "Listen error %s\n", uv_strerror(ret));
 		return NULL;
 	}
 

@@ -88,6 +88,9 @@ void print_mount(const struct mntent *fs)
 				metric_add_labels2("disk_inodes", &inodes_total, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "total");
 				metric_add_labels2("disk_inodes_percent", &iused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "used");
 				metric_add_labels2("disk_inodes_percent", &ifree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "free");
+
+				int64_t one = 1;
+				metric_add_labels2("disk_filesystem", &one, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "fs", fs->mnt_type);
 			}
 
 			close(f_d);

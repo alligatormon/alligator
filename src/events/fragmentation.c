@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "context_arg.h"
+#include "main.h"
+extern aconf *ac;
+
 void chunk_calc(context_arg* carg, char *buf, size_t nread)
 {
 	//puts("CHUNK CALC");
@@ -50,30 +53,40 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
 {
 	//printf("check buf for '%s'\n", buf);
 	// check body size
-	//puts("check for content size");
-	//printf("CHECK CHUNK HTTP VALIDATOR: %d && !%d", carg->chunked_expect, carg->chunked_size);
+	if (ac->log_level > 2)
+		printf("check body full: length (%"u64"/%zu), chunk (%"u64"/%zu), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l, carg->expect_body_length, carg->chunked_size, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
+
 	if (carg->expect_body_length && carg->expect_body_length <= carg->full_body->l)
 	{
-		//puts("content size match 1");
+		if (ac->log_level > 2)
+			puts("check body full: length match");
 		return 1;
 	}
 
 	// check chunk http validator
 	else if (carg->chunked_expect && !carg->chunked_size)
 	{
-		//puts("chunked size 1");
+		if (ac->log_level > 2)
+			puts("check body full: chunk match");
 		return 1;
 	}
 
 	// check expect function validator
 	else if (carg->expect_function)
-		return carg->expect_function(buf);
-
-	else if (carg->expect_count <= carg->read_count)
 	{
-		//puts("expect count 1");
+		if (ac->log_level > 2)
+			puts("check body full: function match");
+		return carg->expect_function(buf);
+	}
+
+	else if (carg->expect_count && (carg->expect_count <= carg->read_count))
+	{
+		if (ac->log_level > 2)
+			puts("check body full: max retry match");
 		return 1;
 	}
 
+	if (ac->log_level > 2)
+		puts("check body full: no match, read more");
 	return 0;
 }

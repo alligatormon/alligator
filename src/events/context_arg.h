@@ -8,7 +8,6 @@
 #include "metric/metrictree.h"
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "common/netlib.h"
-#include "events/sclient3.h"
 
 #include "mbedtls/config.h"
 #include "mbedtls/platform.h"
@@ -52,7 +51,7 @@ typedef struct context_arg
 	//int8_t expect_json;
 	uint64_t expect_body_length;
 	int64_t chunked_size;
-	int8_t chunked_expect;
+	int64_t chunked_expect;
 	int8_t (*expect_function)(char *);
 	uint8_t expect_count;
 	uint8_t read_count;

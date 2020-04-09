@@ -96,6 +96,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				carg->http_body = hr_data->body;
 				carg->chunked_size = hr_data->chunked_size;
 				carg->chunked_expect = hr_data->chunked_expect;
+				carg->expect_body_length = hr_data->content_length;
 				free(hr_data);
 
 			}
@@ -443,6 +444,8 @@ static void tcp_client_crawl(uv_timer_t* handle) {
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
 	context_arg* carg = (context_arg*)req->data;
+	if (ac->log_level > 1)
+		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 
 	char addr[17] = {'\0'};
 	if (status < 0)
@@ -460,12 +463,14 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 
 	tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
-	uv_freeaddrinfo(res);
+	//uv_freeaddrinfo(res);
 	free(req);
 }
 
 void aggregator_resolve_host(context_arg* carg)
 {
+	if (ac->log_level > 1)
+		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	struct addrinfo hints;
 	uv_getaddrinfo_t* addr_info = 0;
 	addr_info = malloc(sizeof(uv_getaddrinfo_t));

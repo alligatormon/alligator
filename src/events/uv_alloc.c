@@ -14,7 +14,7 @@ void alloc_buffer(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 	if (carg && carg->uvbuf)
 	{
 		buf->base = carg->uvbuf;
-		bzero(buf->base, 0);
+		bzero(buf->base, size);
 	}
 	else
 		buf->base = calloc(1, size);
