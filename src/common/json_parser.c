@@ -520,7 +520,6 @@ void json_parse(char *line, tommy_hashdyn *hash, char *name, context_arg *carg)
 }
 void json_parser_entry(char *line, int argc, char **argv, char *name, context_arg *carg)
 {
-	printf("json_parser_entry: carg: %p\n", carg);
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
 	int i;
@@ -616,4 +615,16 @@ void json_parser_entry(char *line, int argc, char **argv, char *name, context_ar
 	tommy_hashdyn_foreach(hash, jsonparser_free_foreach);
 	tommy_hashdyn_done(hash);
 	free(hash);
+}
+
+int8_t json_validator(char *data)
+{
+	json_error_t error;
+	json_t *root = json_loads(data, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return 0;
+	}
+	return 1;
 }

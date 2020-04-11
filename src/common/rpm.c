@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -148,3 +149,4 @@ void get_rpm_info(rpm_library *rpmlib)
 	rpmlib->rpmdbFreeIterator(mi);
 	rpmlib->rpmtsFree(db);
 }
+#endif

@@ -74,7 +74,7 @@ char *config_get_arg(mtlen *mt, int64_t i, int64_t num, size_t *out_size)
 	}
 }
 
-context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, void *handler, char *mesg, void *data, void *expect_function)
+context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, void *handler, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop)
 {
 	extern aconf* ac;
 
@@ -82,16 +82,25 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	if (ac->log_level > 2)
 		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->hostname, carg->mesg);
 
-	carg->hostname = hi->host;
+	if (!mesg_len)
+		mesg_len = strlen(mesg);
+
+	carg->hostname = hi->host; // old scheme
+	strlcpy(carg->host, hi->host, 1024); // new scheme
+	strlcpy(carg->port, hi->port, 6);
+	carg->timeout = 5000;
 	carg->proto = hi->proto;
-	carg->port = hi->port;
+	carg->transport = hi->transport;
+	carg->tls = hi->tls;
+	carg->loop = loop;
 	carg->parser_handler = handler;
-	carg->mesg = mesg;
-	carg->mesg_len = strlen(mesg);
+	carg->mesg = mesg; // old scheme
+	carg->mesg_len = mesg_len; // old scheme
+	carg->request_buffer = uv_buf_init(mesg, mesg_len); // new scheme
 	carg->buffer = malloc(sizeof(uv_buf_t));
 	//*(carg->buffer) = uv_buf_init(carg->mesg, carg->mesg_len);
-	carg->buffer->base = carg->mesg;
-	carg->buffer->len = carg->mesg_len;
+	carg->buffer->base = carg->mesg; // old scheme
+	carg->buffer->len = carg->mesg_len; // old scheme
 	carg->buflen = 1;
 	carg->expect_function = expect_function;
 	carg->data = data;
@@ -118,17 +127,30 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 			ptr = config_get_arg(mt, *i, n, NULL);
 			if (!ptr)
 				continue;
+
 			if (!strncmp(ptr, "tls_certificate", 15))
 			{
 				char *ptrval = ptr + strcspn(ptr+15, "=") + 15;
 				ptrval += strspn(ptrval, "= ");
-				carg->tls_certificate = strdup(ptrval);
+				carg->tls_cert_file = strdup(ptrval);
 			}
 			else if (!strncmp(ptr, "tls_key", 7))
 			{
 				char *ptrval = ptr + strcspn(ptr+7, "=") + 7;
 				ptrval += strspn(ptrval, "= ");
-				carg->tls_key = strdup(ptrval);
+				carg->tls_key_file = strdup(ptrval);
+			}
+			else if (!strncmp(ptr, "tls_ca", 6))
+			{
+				char *ptrval = ptr + strcspn(ptr+6, "=") + 6;
+				ptrval += strspn(ptrval, "= ");
+				carg->tls_ca_file = strdup(ptrval);
+			}
+			else if (!strncmp(ptr, "timeout", 7))
+			{
+				char *ptrval = ptr + strcspn(ptr+7, "=") + 7;
+				ptrval += strspn(ptrval, "= ");
+				carg->timeout = strtoull(ptrval, NULL, 10);
 			}
 			if (!strncmp(ptr, "add_label", 9))
 			{
@@ -172,35 +194,19 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			continue;
 
 		//printf("%"d64": %s\n", *i, mt->st[*i].s);
-		if (!strcmp(mt->st[*i-1].s, "prometheus"))
+		if (!strcmp(mt->st[*i-1].s, "http"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", NULL);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, http_proto_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
-		else if (!strcmp(mt->st[*i-1].s, "plain"))
-		{
-			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, NULL, "GET /metrics HTTP/1.1\nHost: test\n\n", NULL);
-		}
-#ifndef _WIN64
 #ifdef __linux__
 		else if (!strcmp(mt->st[*i-1].s, "icmp"))
 		{
 			do_icmp_client(mt->st[*i].s);
 		}
 #endif
-		else if (!strcmp(mt->st[*i-1].s, "http"))
-		{
-			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			//smart_aggregator_selector(hi, http_proto_handler, query, NULL);
-
-			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, http_proto_handler, query, NULL, NULL);
-			printf("hi->proto %d\n", hi->proto);
-			smart_aggregator(carg);
-		}
 		else if (!strcmp(mt->st[*i-1].s, "process"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
@@ -208,8 +214,8 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		}
 		else if (!strcmp(mt->st[*i-1].s, "unix"))
 		{
-			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			do_unix_client(hi->host, NULL, "", APROTO_UNIX);
+			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			//do_unix_client(hi->host, NULL, "", APROTO_UNIX);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "unixgram"))
 		{
@@ -219,32 +225,35 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "clickhouse"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, "/?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL, 0);
+			int64_t g = *i;
 
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20metric,value\%20from\%20system.asynchronous_metrics", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL, 0);
+			char *query = gen_http_query(0, hi->query, "/?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			query = gen_http_query(0, hi->query, "/?query=select%20metric,value\%20from\%20system.asynchronous_metrics", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
                         
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20event,value%20from\%20system.events", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_system_handler, query, hi->proto, NULL, 0);
+			query = gen_http_query(0, hi->query, "/?query=select%20event,value%20from\%20system.events", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
                         
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_columns_handler, query, hi->proto, NULL, 0);
+			query = gen_http_query(0, hi->query, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_columns_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
                         
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_dictionary_handler, query, hi->proto, NULL, 0);
+			query = gen_http_query(0, hi->query, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_dictionary_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
                         
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_merges_handler, query, hi->proto, NULL, 0);
+			query = gen_http_query(0, hi->query, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_merges_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
                         
-			//hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			query = gen_http_query(0, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas", hi->host, "alligator", hi->auth, 1);
-			do_tcp_client(hi->host, hi->port, clickhouse_replicas_handler, query, hi->proto, NULL, 0);
+			query = gen_http_query(0, hi->query, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_replicas_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
@@ -254,8 +263,9 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 				snprintf(query, 1000, "AUTH %s\r\nINFO ALL\r\n", hi->pass);
 			else
 				snprintf(query, 1000, "INFO ALL\n");
-			//do_tcp_client(hi->host, hi->port, redis_handler, query);
-			smart_aggregator_selector(hi, redis_handler, query, NULL);
+
+			context_arg *carg = context_arg_fill(mt, i, hi, redis_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "sentinel"))
 		{
@@ -265,41 +275,45 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 				snprintf(query, 1000, "AUTH %s\r\nINFO\r\n", hi->pass);
 			else
 				snprintf(query, 1000, "INFO\n");
-			smart_aggregator_selector(hi, sentinel_handler, query);
+
+			context_arg *carg = context_arg_fill(mt, i, hi, sentinel_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "memcached"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, memcached_handler, "stats\n", NULL, NULL);
-			//smart_aggregator_selector(hi, memcached_handler, "stats\n");
+			context_arg *carg = context_arg_fill(mt, i, hi, memcached_handler, "stats\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "beanstalkd"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, beanstalkd_handler, "stats\r\n");
+			context_arg *carg = context_arg_fill(mt, i, hi, beanstalkd_handler, "stats\r\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "aerospike"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			uv_buf_t *buffer;
+			int64_t g = *i;
 
-			buffer = malloc(sizeof(*buffer));
-			*buffer = uv_buf_init("\2\1\0\0\0\0\0\0", 8);
-			smart_aggregator_selector_buffer(hi, aerospike_statistics_handler, buffer, 1);
+			context_arg *carg = context_arg_fill(mt, &g, hi, aerospike_statistics_handler, "\2\1\0\0\0\0\0\0", 8, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
 			//buffer = malloc(sizeof(*buffer));
 			//*buffer = uv_buf_init("\2\1\0\0\0\0\0\vnamespaces\n", 20);
 			//smart_aggregator_selector_buffer(hi, aerospike_get_namespaces_handler, buffer, 1);
 
-			buffer = malloc(sizeof(*buffer));
-			*buffer = uv_buf_init("\2\1\0\0\0\0\0\7status\n", 16);
-			smart_aggregator_selector_buffer(hi, aerospike_status_handler, buffer, 1);
+			//buffer = malloc(sizeof(*buffer));
+			//*buffer = uv_buf_init("\2\1\0\0\0\0\0\7status\n", 16);
+			//smart_aggregator_selector_buffer(hi, aerospike_status_handler, buffer, 1);
+
+			carg = context_arg_fill(mt, &g, hi, aerospike_status_handler, "\2\1\0\0\0\0\0\7status\n", 16, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
 			++*i;
 			while (!config_compare(mt, *i, ";", 1))
 			{
-				buffer = malloc(sizeof(*buffer));
+				//buffer = malloc(sizeof(*buffer));
 				char *aeronamespace = malloc(255);
 				aeronamespace[0] = 2;
 				aeronamespace[1] = 1;
@@ -310,64 +324,72 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 				aeronamespace[6] = 0;
 				aeronamespace[7] = '\13' + mt->st[*i].l;
 				snprintf(aeronamespace+8, 255-8, "namespace/%s\n", mt->st[*i].s);
-				*buffer = uv_buf_init(aeronamespace, 20 + mt->st[*i].l);
-				smart_aggregator_selector_buffer(hi, aerospike_namespace_handler, buffer, 1);
+				//*buffer = uv_buf_init(aeronamespace, 20 + mt->st[*i].l);
+				//smart_aggregator_selector_buffer(hi, aerospike_namespace_handler, buffer, 1);
+				carg = context_arg_fill(mt, &g, hi, aerospike_namespace_handler, aeronamespace, 20 + mt->st[*i].l, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
 				++*i;
 			}
 		}
 		else if (!strcmp(mt->st[*i-1].s, "zookeeper"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, zookeeper_mntr_handler, "mntr");
-			smart_aggregator_selector(hi, zookeeper_isro_handler, "isro");
-			smart_aggregator_selector(hi, zookeeper_wchs_handler, "wchs");
+			int64_t g = *i;
+
+			context_arg *carg = context_arg_fill(mt, &g, hi, zookeeper_mntr_handler, "mntr", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			carg = context_arg_fill(mt, &g, hi, zookeeper_isro_handler, "isro", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			carg = context_arg_fill(mt, &g, hi, zookeeper_wchs_handler, "wchs", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "gearmand"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, gearmand_handler, "status\n");
+			context_arg *carg = context_arg_fill(mt, i, hi, gearmand_handler, "status\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "uwsgi"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, uwsgi_handler, NULL);
+			context_arg *carg = context_arg_fill(mt, i, hi, uwsgi_handler, NULL, 0, NULL, json_validator, ac->loop);
+			smart_aggregator(carg);
 		}
-		else if (!strcmp(mt->st[*i-1].s, "php-fpm"))
-		{
-			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			size_t buf_len = 5;
+		//else if (!strcmp(mt->st[*i-1].s, "php-fpm"))
+		//{
+		//	host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+		//	size_t buf_len = 5;
 
-			uv_buf_t *buffer = gen_fcgi_query(hi->query, hi->host, "alligator", NULL, &buf_len);
+		//	uv_buf_t *buffer = gen_fcgi_query(hi->query, hi->host, "alligator", NULL, &buf_len);
 
-			smart_aggregator_selector_buffer(hi, php_fpm_handler, buffer, buf_len);
-		}
+		//	smart_aggregator_selector_buffer(hi, php_fpm_handler, buffer, buf_len);
+		//}
 		else if (!strcmp(mt->st[*i-1].s, "eventstore"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			int64_t g = *i;
 
-			char stats_string[255];
-			snprintf(stats_string, 255, "%s%s", hi->query, "/stats");
-			char *stats_query = gen_http_query(0, stats_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, eventstore_stats_handler, stats_query);
+			char *stats_query = gen_http_query(0, hi->query, "/stats", hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, &g, hi, eventstore_stats_handler, stats_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char projections_string[255];
-			snprintf(projections_string, 255, "%s%s", hi->query, "/projections/any");
-			char *projections_query = gen_http_query(0, projections_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, eventstore_projections_handler, projections_query);
+			char *projections_query = gen_http_query(0, hi->query, "/projections/any", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, eventstore_projections_handler, projections_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char info_string[255];
-			snprintf(info_string, 255, "%s%s", hi->query, "/info");
-			char *info_query = gen_http_query(0, info_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, eventstore_info_handler, info_query);
+			char *info_query = gen_http_query(0, hi->query, "/info", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, eventstore_info_handler, info_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "flower"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
-			char workers_string[255];
-			snprintf(workers_string, 255, "%s%s", hi->query, "/");
-			char *workers_query = gen_http_query(0, workers_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, flower_handler, workers_query);
+			char *workers_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, flower_handler, workers_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "powerdns"))
 		{
@@ -386,14 +408,16 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			}
 			snprintf(query, 255, "GET /api/v1/servers/localhost/statistics HTTP/1.1\r\nHost: localhost:8081\r\nUser-Agent: alligator\r\n%s\r\n\r\n", header);
 			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, powerdns_handler, query);
+			context_arg *carg = context_arg_fill(mt, i, hi, powerdns_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "opentsdb"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, opentsdb_handler, query);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, opentsdb_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "kamailio"))
 		{
@@ -403,205 +427,207 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "haproxy"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, haproxy_info_handler, "show info\n");
-			smart_aggregator_selector(hi, haproxy_pools_handler, "show pools\n");
-			smart_aggregator_selector(hi, haproxy_stat_handler, "show stat\n");
-			smart_aggregator_selector(hi, haproxy_sess_handler, "show sess\n");
+			int64_t g = *i;
+
+			context_arg *carg = context_arg_fill(mt, &g, hi, haproxy_info_handler, "show info\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			carg = context_arg_fill(mt, &g, hi, haproxy_pools_handler, "show pools\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			carg = context_arg_fill(mt, &g, hi, haproxy_stat_handler, "show stat\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
+			carg = context_arg_fill(mt, &g, hi, haproxy_sess_handler, "show sess\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+
 			//smart_aggregator_selector(hi, haproxy_table_handler, "show table\n");
+			carg = context_arg_fill(mt, &g, hi, haproxy_table_handler, "show table\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "nats"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			int64_t g = *i;
 
-			char connz_string[255];
-			snprintf(connz_string, 255, "%s%s", hi->query, "/connz");
-			char *connz_query = gen_http_query(0, connz_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, nats_connz_handler, connz_query);
+			char *connz_query = gen_http_query(0, hi->query, "/connz", hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, &g, hi, nats_connz_handler, connz_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char subsz_string[255];
-			snprintf(subsz_string, 255, "%s%s", hi->query, "/subsz");
-			char *subsz_query = gen_http_query(0, subsz_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, nats_subsz_handler, subsz_query);
+			char *subsz_query = gen_http_query(0, hi->query, "/subsz", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, nats_subsz_handler, subsz_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char varz_string[255];
-			snprintf(varz_string, 255, "%s%s", hi->query, "/varz");
-			char *varz_query = gen_http_query(0, varz_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, nats_varz_handler, varz_query);
+			char *varz_query = gen_http_query(0, hi->query, "/varz", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, nats_varz_handler, varz_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char routez_string[255];
-			snprintf(routez_string, 255, "%s%s", hi->query, "/routez");
-			char *routez_query = gen_http_query(0, routez_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, nats_routez_handler, routez_query);
+			char *routez_query = gen_http_query(0, hi->query, "/routez", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, nats_routez_handler, routez_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "riak"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char url_string[255];
-			snprintf(url_string, 255, "%s%s", hi->query, "/stats");
-			char *http_query = gen_http_query(0, url_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, riak_handler, http_query);
+
+			char *http_query = gen_http_query(0, hi->query, "/stats", hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, riak_handler, http_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "rabbitmq"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			int64_t g = *i;
 
-			char overview_string[255];
-			snprintf(overview_string, 255, "%s%s", hi->query, "/api/overview");
-			char *overview_query = gen_http_query(0, overview_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, rabbitmq_overview_handler, overview_query);
+			char *overview_query = gen_http_query(0, hi->query, "/api/overview", hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, &g, hi, rabbitmq_overview_handler, overview_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char nodes_string[255];
-			snprintf(nodes_string, 255, "%s%s", hi->query, "/api/nodes");
-			char *nodes_query = gen_http_query(0, nodes_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, rabbitmq_nodes_handler, nodes_query);
+			char *nodes_query = gen_http_query(0, hi->query, "/api/nodes", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_nodes_handler, nodes_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char exchanges_string[255];
-			snprintf(exchanges_string, 255, "%s%s", hi->query, "/api/exchanges");
-			char *exchanges_query = gen_http_query(0, exchanges_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, rabbitmq_exchanges_handler, exchanges_query);
+			char *exchanges_query = gen_http_query(0, hi->query, "/api/exchanges", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_exchanges_handler, exchanges_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
 			// !!!dynamic!!!
-			//char connections_string[255];
-			//snprintf(connections_string, 255, "%s%s", hi->query, "/api/connections");
-			//char *connections_query = gen_http_query(0, connections_string, hi->host, "alligator", hi->auth, 1);
-			//smart_aggregator_selector(hi, rabbitmq_connections_handler, connections_query);
+			char *connections_query = gen_http_query(0, hi->query, "/api/connections", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_connections_handler, connections_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
 			// !!!dynamic!!!
-			//char channels_string[255];
-			//snprintf(channels_string, 255, "%s%s", hi->query, "/api/channels");
-			//char *channels_query = gen_http_query(0, channels_string, hi->host, "alligator", hi->auth, 1);
-			//smart_aggregator_selector(hi, rabbitmq_channels_handler, channels_query);
+			char *channels_query = gen_http_query(0, hi->query, "/api/channels", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_channels_handler, channels_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char queues_string[255];
-			snprintf(queues_string, 255, "%s%s", hi->query, "/api/queues");
-			char *queues_query = gen_http_query(0, queues_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, rabbitmq_queues_handler, queues_query);
+			char *queues_query = gen_http_query(0, hi->query, "/api/queues", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_queues_handler, queues_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char vhosts_string[255];
-			snprintf(vhosts_string, 255, "%s%s", hi->query, "/api/vhosts");
-			char *vhosts_query = gen_http_query(0, vhosts_string, hi->host, "alligator", hi->auth, 1);
-			smart_aggregator_selector(hi, rabbitmq_vhosts_handler, vhosts_query);
+			char *vhosts_query = gen_http_query(0, hi->query, "/api/vhosts", hi->host, "alligator", hi->auth, 1);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_vhosts_handler, vhosts_query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "nginx_upstream_check"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char string[255];
-			snprintf(string, 255, "%s%s", hi->query, "?format=csv");
-			char *query = gen_http_query(0, string, hi->host, "alligator", hi->auth, 0);
-			//do_tcp_client(hi->host, hi->port, nginx_upstream_check_handler, query, hi->proto);
-			smart_aggregator_selector(hi, nginx_upstream_check_handler, query);
+			char *query = gen_http_query(0, hi->query, "?format=csv", hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, nginx_upstream_check_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (config_compare_begin(mt, *i-1, "dummy", 5))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, dummy_handler, query);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, dummy_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "elasticsearch"))
 		{
 			elastic_settings *data = calloc(1, sizeof(*data));
-
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			context_arg *carg;
 
-			char nodes_string[255];
-			snprintf(nodes_string, 255, "%s%s", hi->query, "/_nodes/stats");
-			char *nodes_query = gen_http_query(0, nodes_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_nodes_handler, nodes_query, data);
+			int64_t g = *i;
+			char *nodes_query = gen_http_query(0, hi->query, "/_nodes/stats", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_nodes_handler, nodes_query, 0, data, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char cluster_string[255];
-			snprintf(cluster_string, 255, "%s%s", hi->query, "/_cluster/stats");
-			char *cluster_query = gen_http_query(0, cluster_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_cluster_handler, cluster_query, data);
+			g = *i;
+			char *cluster_query = gen_http_query(0, hi->query, "/_cluster/stats", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_cluster_handler, cluster_query, 0, data, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char health_string[255];
-			snprintf(health_string, 255, "%s%s", hi->query, "/_cluster/health?level=shards");
-			char *health_query = gen_http_query(0, health_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_health_handler, health_query, data);
+			g = *i;
+			char *health_query = gen_http_query(0, hi->query, "/_cluster/health?level=shards", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_health_handler, health_query, 0, data, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char index_string[255];
-			snprintf(index_string, 255, "%s%s", hi->query, "/_stats");
-			char *index_query = gen_http_query(0, index_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_index_handler, index_query, data);
+			g = *i;
+			char *index_query = gen_http_query(0, hi->query, "/_stats", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_index_handler, index_query, 0, data, NULL, ac->loop);
+			smart_aggregator(carg);
 
-			char settings_string[255];
-			snprintf(settings_string, 255, "%s%s", hi->query, "/_settings");
-			char *settings_query = gen_http_query(0, settings_string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, elasticsearch_settings_handler, settings_query, data);
+			g = *i;
+			char *settings_query = gen_http_query(0, hi->query, "/_settings", hi->host, "alligator", hi->auth, 0);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_settings_handler, settings_query, 0, data, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "monit"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char string[255];
-			snprintf(string, 255, "%s%s", hi->query, "/_status?format=xml&level=full");
-			char *query = gen_http_query(0, string, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, monit_handler, query, NULL);
+			char *query = gen_http_query(0, hi->query, "/_status?format=xml&level=full", hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, monit_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "gdnsd"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			uv_buf_t *buffer;
+			//uv_buf_t *buffer;
 
-			buffer = malloc(sizeof(*buffer));
-			*buffer = uv_buf_init("S\0\0\0\0\0\0\0", 8);
-			smart_aggregator_selector_buffer(hi, gdnsd_handler, buffer, 1);
+			//buffer = malloc(sizeof(*buffer));
+			//*buffer = uv_buf_init("S\0\0\0\0\0\0\0", 8);
+			//smart_aggregator_selector_buffer(hi, gdnsd_handler, buffer, 1);
+
+			context_arg *carg = context_arg_fill(mt, i, hi, gdnsd_handler, "S\0\0\0\0\0\0\0", 8, NULL, gdnsd_validator, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "syslog-ng"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			smart_aggregator_selector(hi, syslog_ng_handler, "STATS\n", NULL);
+			context_arg *carg = context_arg_fill(mt, i, hi, syslog_ng_handler, "STATS\n", 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "consul"))
 		{
-			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-
-			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			//smart_aggregator_selector(hi, consul_handler, query, NULL);
-
-			puts("consul");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, consul_handler, query, NULL, NULL);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, consul_handler, query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "nifi"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			smart_aggregator_selector(hi, nifi_handler, query, NULL);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, nifi_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "varnish"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
-			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 0);
-			//smart_aggregator_selector(hi, varnish_handler, query, NULL);
-			//put_to_loop_cmd(hi->host, varnish_handler);
-			smart_aggregator_selector(hi, varnish_handler, NULL, NULL);
+			context_arg *carg = context_arg_fill(mt, i, hi, varnish_handler, NULL, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "prometheus_metrics"))
 		{
-			//smart_aggregator_selector(hi, NULL, query, NULL);
-
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, NULL, query, NULL, NULL);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, NULL, query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "jsonparse"))
 		{
 			puts("jsonparse");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, json_handler, query, NULL, json_check);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, json_handler, query, 0, NULL, json_check, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "hadoop"))
 		{
 			puts("hadoop");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, hadoop_handler, query, NULL, json_check);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, hadoop_handler, query, 0, NULL, json_check, ac->loop);
+			smart_aggregator(carg);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "unbound"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			context_arg *carg = context_arg_fill(mt, i, hi, unbound_handler, "UBCT1 stats_noreset\n", 0, NULL, unbound_validator, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "tls_fs"))
@@ -622,9 +648,8 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			//host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			//func(hi->host);
-			do_pg_client();
+			//do_pg_client();
 		}
-#endif
 	}
 }
 
@@ -768,16 +793,18 @@ void context_log_handler_parser(mtlen *mt, int64_t *i)
 
 void context_entrypoint_parser(mtlen *mt, int64_t *i)
 {
+	extern aconf *ac;
 	void (*handler)(char*, size_t, context_arg*) = 0;
 
 	if ( *i == 0 )
 		*i += 1;
 
-	context_arg *carg = calloc(1, sizeof(*carg));
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
 		if (!(mt->st[*i].l))
 			continue;
+
+		context_arg *carg = calloc(1, sizeof(*carg));
 
 		//printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
 		if(!strncmp(mt->st[*i-1].s, "handler", 7) && !strncmp(mt->st[*i].s, "log", 3))
@@ -835,17 +862,20 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 				carg->auth_bearer = strdup(ptr);
 			}
 		}
-		else if (!strncmp(mt->st[*i-1].s, "tcp", 3))
+		else if (!strncmp(mt->st[*i-1].s, "tcp", 3) || !strncmp(mt->st[*i-1].s, "tls", 3))
 		{
+			uint8_t tls = !strncmp(mt->st[*i-1].s, "tls", 3) ? 1 : 0;
 			char *port = strstr(mt->st[*i].s, ":");
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				tcp_server_handler(host, atoi(port+1), handler, carg);
+				carg->parser_handler = handler;
+				tcp_server_init(ac->loop, host, atoi(port+1), tls, carg);
 			}
 			else
 			{
-				tcp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, carg);
+				carg->parser_handler = handler;
+				tcp_server_init(ac->loop, "0.0.0.0", atoi(mt->st[*i].s), tls, carg);
 			}
 		}
 		else if (!strncmp(mt->st[*i-1].s, "udp", 3))
@@ -890,9 +920,11 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_firewall = 1;
 		else if (!strcmp(mt->st[*i].s, "packages"))
 		{
-			char *ptr = config_get_arg(mt, *i, 1, NULL);
 			ac->system_packages = 1;
+#ifdef __linux__
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
 			ac->rpmlib = rpm_library_init(ptr);
+#endif
 		}
 		else if (!strcmp(mt->st[*i].s, "smart"))
 			ac->system_smart = 1;
@@ -972,7 +1004,6 @@ void context_modules_parser(mtlen *mt, int64_t *i)
 	if ( *i == 0 )
 		*i += 1;
 
-	extern pq_library *pqlib;
 	extern aconf *ac;
 
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
@@ -980,14 +1011,17 @@ void context_modules_parser(mtlen *mt, int64_t *i)
 		if (!(mt->st[*i].l))
 			continue;
 
-		if (config_compare_begin(mt, *i, "postgresql", 10))
-		{
-			char *module = mt->st[(*i)++].s;
-			char *path = mt->st[*i].s;
-			pqlib = pg_init(path);
-			if (ac->log_level > 1)
-				printf("postgresql module %s with path %s\n", module, path);
-		}
+#ifdef __linux__
+//		if (config_compare_begin(mt, *i, "postgresql", 10))
+//		{
+//			extern pq_library *pqlib;
+//			char *module = mt->st[(*i)++].s;
+//			char *path = mt->st[*i].s;
+//			pqlib = pg_init(path);
+//			if (ac->log_level > 1)
+//				printf("postgresql module %s with path %s\n", module, path);
+//		}
+#endif
 		if (config_compare_begin(mt, *i, "mysql", 5))
 		{
 			char *module = mt->st[(*i)++].s;
@@ -1055,18 +1089,18 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 			{
 				char *replacedquery = malloc(255);
 				snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, qparam->dyn_conf);
-				char *query = gen_http_query(0, replacedquery, hi->host, "alligator", hi->auth, 1);
+				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, NULL, NULL);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 			if (qparam->sdiscovery)
 			{
 				char *replacedquery = malloc(255);
 				snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, qparam->sdiscovery);
-				char *query = gen_http_query(0, replacedquery, hi->host, "alligator", hi->auth, 1);
+				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, NULL, NULL);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 
@@ -1082,18 +1116,18 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 			{
 				char *replacedquery = malloc(255);
 				snprintf(replacedquery, 255, "%sv1%s?recurse", hi->query, qparam->dyn_conf);
-				char *query = gen_http_query(0, replacedquery, hi->host, "alligator", hi->auth, 1);
+				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_configuration, query, NULL, NULL);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_configuration, query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 			if (qparam->sdiscovery)
 			{
 				char *replacedquery = malloc(255);
 				snprintf(replacedquery, 255, "%sv1%s?recurse", hi->query, qparam->sdiscovery);
-				char *query = gen_http_query(0, replacedquery, hi->host, "alligator", hi->auth, 1);
+				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_discovery, query, NULL, NULL);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_discovery, query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 

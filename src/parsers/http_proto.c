@@ -16,7 +16,6 @@ void http_reply_free(http_reply_data* hrdata)
 
 http_reply_data* http_reply_parser(char *http, size_t n)
 {
-	puts(http);
 	int http_version;
 	int http_code;
 	int old_style_newline = 2;
@@ -33,7 +32,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		http_version = 20;
 	else
 	{
-		printf("1DO NOT HTTP RESPONSE: %s\n", http);
+		//printf("1DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -44,7 +43,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	http_code = atoi(cur);
 	if (!http_code || http_code > 504)
 	{
-		printf("2DO NOT HTTP RESPONSE: %s\n", http);
+		//printf("2DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -69,7 +68,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		old_style_newline = 2;
 		if (!tmp)
 		{
-			printf("3DO NOT HTTP RESPONSE: %s\n", http);
+			//printf("3DO NOT HTTP RESPONSE: %s\n", http);
 			return NULL;
 		}
 	}
@@ -118,18 +117,27 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	else
 		hrdata->body = body;
 
+	hrdata->headers_size = hrdata->body - http;
+	hrdata->body_size = n - hrdata->headers_size;
 	//printf("SAVED body is %s\n", hrdata->body);
 	return hrdata;
 }
 
 void http_proto_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//printf("HTTPPROTO: '%s'\n", metrics);
 	http_reply_data *hrdata = http_reply_parser(metrics, size);
 	if (!hrdata)
 		return;
 
-	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
+	uint64_t count = 1;
+	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%p'\nbody='%p', content-length: %d, chunked: %d, headers size: %zu, body size: %zu\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body, hrdata->content_length, hrdata->chunked_expect, hrdata->headers_size, hrdata->body_size);
+
+	char code[4];
+	snprintf(code, 4, "%d", hrdata->http_code);
+
+	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "destination", carg->host, "port", carg->port);
+	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
+	metric_add_labels2("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
 	http_reply_free(hrdata);
 }
 
@@ -262,6 +270,9 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 	extern aconf *ac;
 	if (ac->log_level > 3)
 		printf("http auth: basic:%d bearer %d\n", carg->auth_basic ? 1:0, carg->auth_bearer ? 1:0);
+
+	if (!carg)
+		return 1;
 
 	if (!carg->auth_basic && !carg->auth_bearer)
 		return 1;

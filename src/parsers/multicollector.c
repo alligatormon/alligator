@@ -6,6 +6,7 @@
 #include "parsers/http_proto.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
+extern aconf *ac;
 
 int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
@@ -223,8 +224,11 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 		multicollector_skip_spaces(i, str, size);
 		//printf("5str+i '%s'\n", str+*i);
 
-		//printf("label name: %s\n", label_name);
-		//printf("label key: %s\n", label_key);
+		if (ac->log_level > 3)
+		{
+			printf("label name: %s\n", label_name);
+			printf("label key: %s\n", label_key);
+		}
 
 		if (!*lbl)
 		{
@@ -232,14 +236,14 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 			tommy_hashdyn_init(*lbl);
 		}
 
-		labels_hash_insert_nocache(*lbl, label_name, label_key);
+		if (metric_name_validator_promstatsd(label_name, strlen(label_name)))
+			labels_hash_insert_nocache(*lbl, label_name, label_key);
 	}
 }
 
 void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
 {
-	extern aconf *ac;
-	if (ac->log_level > 9)
+	if (ac->log_level > 3)
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
 	double value = 0;
 	uint64_t i = 0;
@@ -307,11 +311,12 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		}
 	}
 
-	if (ac->log_level > 9)
+	if (ac->log_level > 3)
 		fprintf(stdout, "> metric name = %s\n", metric_name);
 	if (i == size)
 	{
-		printf("%s: increment\n", metric_name);
+		if (ac->log_level > 3)
+			printf("%s: increment\n", metric_name);
 		//metric_increment();
 		return;
 	}
@@ -354,13 +359,13 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			if (rc == 0)
 			{
 				labels_hash_free(lbl);
-				if (ac->log_level > 2)
+				if (ac->log_level > 3)
 					fprintf(stdout, "metric '%s' has invalid label format\n", str);
 
 				return;
 			}
 
-			if (ac->log_level > 9)
+			if (ac->log_level > 3)
 			{
 				fprintf(stdout, "> label_name = %s\n", label_name);
 				fprintf(stdout, "> label_key = %s\n", label_key);
@@ -371,7 +376,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			else
 			{
 				labels_hash_free(lbl);
-				if (ac->log_level > 2)
+				if (ac->log_level > 3)
 					fprintf(stdout, "metric '%s' has invalid label format: %s\n", str, label_name);
 				return;
 			}
@@ -394,7 +399,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		i += strcspn(str+i, " \t");
 		i += strspn(str+i, " \t");
 
-		if (ac->log_level > 9)
+		if (ac->log_level > 3)
 			printf("> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
@@ -411,7 +416,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		}
 		else
 		{
-			if (ac->log_level > 9)
+			if (ac->log_level > 3)
 				printf("> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			value = atof(str+i);
 			if (strstr(str+i, "|c"))
@@ -429,7 +434,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	else if (isdigit(str[i]))
 	{
 		// prometheus without labels
-		if (ac->log_level > 9)
+		if (ac->log_level > 3)
 			printf("> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}

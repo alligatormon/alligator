@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <uv.h>
 #include <pquv.h>
 #include <stdlib.h>
@@ -53,3 +54,4 @@ void do_pg_client()
 	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	pquv_free(pquv);
 }
+#endif

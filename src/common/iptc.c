@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <getopt.h>
 #include <sys/errno.h>
 #include <stdio.h>
@@ -378,3 +379,4 @@ void get_iptables6_info(const char *tablename, context_arg *system_carg)
 	}
 	ip6tc_free(h);
 }
+#endif

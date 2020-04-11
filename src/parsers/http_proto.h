@@ -18,6 +18,7 @@ typedef struct http_reply_data
 	int8_t chunked_expect;
 	char *body;
 	size_t body_size;
+	size_t headers_size;
 	uint8_t method;
 
 	char *auth_basic;

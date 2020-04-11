@@ -1,4 +1,5 @@
 #pragma once
+#ifdef __linux__
  
 #include <rpm/rpmlib.h>
 #include <rpm/rpmds.h>
@@ -32,3 +33,4 @@ typedef struct rpm_library
 
 rpm_library* rpm_library_init(const char *librpm);
 void get_rpm_info(rpm_library *rpmlib);
+#endif

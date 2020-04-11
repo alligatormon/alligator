@@ -23,7 +23,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 	char metricname[VARNISH_METRIC_SIZE];
 	strlcpy(metricname, "varnish_", 9);
 
-	char *key1;
+	const char *key1;
 	json_t *value_json1;
 	json_object_foreach(root, key1, value_json1)
 	{
@@ -31,7 +31,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 		if (json_typeof(value_json1) == JSON_OBJECT)
 		{
 			size_t offset = 0;
-			char *tmp = key1;
+			char *tmp = (char*)key1;
 			while ((tmp = strstr(key1+offset, ".")))
 				offset = tmp - key1 + 1;
 
@@ -44,7 +44,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 				tommy_hashdyn *lbl = malloc(sizeof(*lbl));
 				tommy_hashdyn_init(lbl);
 
-				char *key2;
+				const char *key2;
 				json_t *value_json2;
 				json_object_foreach(value_json1, key2, value_json2)
 				{
@@ -55,7 +55,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 						if (value_json2_str)
 						{
 							printf("\t\tinsert label %s\n", value_json2_str);
-							labels_hash_insert_nocache(lbl, key2, value_json2_str);
+							labels_hash_insert_nocache(lbl, (char*)key2, value_json2_str);
 						}
 					}
 				}

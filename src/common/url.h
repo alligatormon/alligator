@@ -24,6 +24,7 @@ typedef struct host_aggregator_info
 	char *pass;
 	int8_t proto;
 	int8_t transport;
+	int8_t tls;
 } host_aggregator_info;
 
 host_aggregator_info *parse_url (char *str, size_t len);

@@ -45,21 +45,30 @@ void tcp_client_close(uv_handle_t *handle)
 	parse_cert_info(peercert, carg->host);
 	//mbedtls_x509_crt_free(peercert);
 
-	if (!uv_is_closing((uv_handle_t*)&carg->client))
+	if (!uv_is_closing((uv_handle_t*)&carg->client) && !carg->is_closing)
 	{
 		if (carg->tls)
 		{
+			//printf("is writing: %d, is closing: %d\n", carg->is_writing, carg->is_closing);
 			if (!carg->is_writing)
 			{
+				puts("mbedtls_ssl_close_notify");
 				int ret = mbedtls_ssl_close_notify(&carg->tls_ctx);
 				if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
+				{
+					carg->is_closing = 1;
 					uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+				}
 			}
 			else
+			{
+				carg->is_closing = 1;
 				uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
+			}
 		}
 		else
 		{
+			carg->is_closing = 1;
 			uv_close((uv_handle_t*)&carg->client, tcp_client_closed);
 		}
 	}
@@ -80,25 +89,27 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	context_arg* carg = (context_arg*)stream->data;
 	//printf("tcp_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 	if (ac->log_level > 1)
-		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 
 	if (nread > 0)
 	{
 		if (buf && buf->base)
 		{
-			char *tmp = strndup(buf->base, nread);
+			//puts(buf->base+10);
 
 			if (!carg->full_body->l)
 			{
 				string_cat(carg->full_body, buf->base, nread);
 
 				http_reply_data* hr_data = http_reply_parser(carg->full_body->s, carg->full_body->l);
-				carg->http_body = hr_data->body;
-				carg->chunked_size = hr_data->chunked_size;
-				carg->chunked_expect = hr_data->chunked_expect;
-				carg->expect_body_length = hr_data->content_length;
-				free(hr_data);
-
+				if (hr_data)
+				{
+					carg->http_body = hr_data->body;
+					carg->chunked_size = hr_data->chunked_size;
+					carg->chunked_expect = hr_data->chunked_expect;
+					carg->expect_body_length = hr_data->content_length;
+					free(hr_data);
+				}
 			}
 			else if (carg->chunked_size) // maybe chunked_expect?
 			{
@@ -107,11 +118,10 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			else
 				string_cat(carg->full_body, buf->base, nread);
 
-			int8_t rc = tcp_check_full(carg, carg->http_body, nread);
+			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l);
+			//printf("tcp_check_full: %d: %s\n", rc, carg->full_body->s);
 			if (rc)
 				alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
-
-			free(tmp);
 		}
 	}
 
@@ -120,6 +130,9 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	else if(nread == UV_EOF)
 	{
+		if (carg->full_body && !carg->parsed)
+			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
 		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 		req->data = carg;
 		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
@@ -298,6 +311,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	mbedtls_ssl_init(&carg->tls_ctx);
 	mbedtls_ssl_config_init(&carg->tls_conf);
 	mbedtls_x509_crt_init(&carg->tls_cacert);
+	mbedtls_x509_crt_init(&carg->tls_cert);
 	mbedtls_ctr_drbg_init(&carg->tls_ctr_drbg);
 	mbedtls_entropy_init(&carg->tls_entropy);
 	mbedtls_pk_init(&carg->tls_key);
@@ -312,6 +326,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	}
 	else
 	{
+		//printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cacert, carg->tls_ca_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cert, carg->tls_cert_file);
 		mbedtls_pk_parse_keyfile(&carg->tls_key, carg->tls_key_file, NULL);
@@ -417,6 +432,8 @@ void tcp_client_connect(void *arg)
 	if (carg->lock)
 		return;
 	carg->lock = 1;
+	carg->parsed = 0;
+	carg->is_closing = 0;
 
 	carg->tt_timer->data = carg;
 	uv_timer_init(carg->loop, carg->tt_timer);

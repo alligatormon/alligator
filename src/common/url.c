@@ -5,12 +5,13 @@
 #include "url.h"
 #include "base64.h"
 #include "main.h"
-void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t size, int8_t proto, int8_t transport)
+void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t size, int8_t proto, int8_t transport, uint8_t tls)
 {
 	if (!strncmp(*tmp, match, size))
 	{
 		hi->proto = proto;
 		hi->transport = transport;
+		hi->tls = tls;
 		*tmp += size;
 	}
 }
@@ -117,7 +118,7 @@ void url_get_port(host_aggregator_info *hi, char **tmp)
 
 void url_get_query(host_aggregator_info *hi, char *tmp)
 {
-	printf("url_get_query: tmp %s, hi->proto %d\n", tmp, hi->proto);
+	//printf("url_get_query: tmp %s, hi->proto %d\n", tmp, hi->proto);
 	if (!tmp || !*tmp)
 	{
 		if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
@@ -176,12 +177,10 @@ void url_dump(host_aggregator_info *hi)
 			puts("proto: fastcgi");
 		if (hi->proto == APROTO_HTTP)
 			puts("proto: http");
-		if (hi->proto == APROTO_HTTPS)
-			puts("proto: https");
 
 
-		if (hi->port)
-			printf("port: %s\n", hi->port);
+		printf("port: %s\n", hi->port);
+
 		if (hi->host)
 			printf("address: %s\n", hi->host);
 		if (hi->host_header)
@@ -202,25 +201,25 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	host_aggregator_info *hi = calloc(1, sizeof(*hi));
 	hi->auth = 0;
 	char *tmp = str;
-	url_set_proto(hi, &tmp, "http://unix:/", 12, APROTO_HTTP, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "https://unix:/", 13, APROTO_HTTPS, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "fastcgi://unix:/", 15, APROTO_FCGI, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "tcp://unix:/", 11, APROTO_TCP, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "tls://unix:/", 11, APROTO_TLS, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "udp://unix:/", 11, APROTO_UDP, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "dtls://unix:/", 12, APROTO_DTLS, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "unix://", 7, APROTO_TCP, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "unixgram://", 7, APROTO_UDP, APROTO_UNIX);
-	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP);
-	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS);
-	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP);
-	url_set_proto(hi, &tmp, "tcp://", 6, APROTO_TCP, APROTO_TCP);
-	url_set_proto(hi, &tmp, "tls://", 6, APROTO_TLS, APROTO_TCP);
-	url_set_proto(hi, &tmp, "udp://", 6, APROTO_UDP, APROTO_UDP);
-	url_set_proto(hi, &tmp, "dtls://", 7, APROTO_DTLS, APROTO_UDP);
-	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP);
-	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS);
-	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE);
+	url_set_proto(hi, &tmp, "http://unix:/", 12, APROTO_HTTP, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "https://unix:/", 13, APROTO_HTTPS, APROTO_UNIX, 1);
+	url_set_proto(hi, &tmp, "fastcgi://unix:/", 15, APROTO_FCGI, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "tcp://unix:/", 11, APROTO_TCP, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "tls://unix:/", 11, APROTO_TLS, APROTO_UNIX, 1);
+	url_set_proto(hi, &tmp, "udp://unix:/", 11, APROTO_UDP, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "dtls://unix:/", 12, APROTO_DTLS, APROTO_UNIX, 1);
+	url_set_proto(hi, &tmp, "unix://", 7, APROTO_TCP, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "unixgram://", 7, APROTO_UDP, APROTO_UNIX, 0);
+	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP, 0);
+	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS, 1);
+	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP, 0);
+	url_set_proto(hi, &tmp, "tcp://", 6, APROTO_TCP, APROTO_TCP, 0);
+	url_set_proto(hi, &tmp, "tls://", 6, APROTO_TLS, APROTO_TCP, 1);
+	url_set_proto(hi, &tmp, "udp://", 6, APROTO_UDP, APROTO_UDP, 0);
+	url_set_proto(hi, &tmp, "dtls://", 7, APROTO_DTLS, APROTO_UDP, 1);
+	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP, 0);
+	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS, 0);
+	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, 0);
 
 	url_set_default_port(hi);
 
@@ -239,7 +238,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 
 	url_get_query(hi, tmp);
 
-	url_dump(hi);
+	//url_dump(hi);
 	return hi;
 }
 

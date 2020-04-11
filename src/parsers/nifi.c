@@ -34,7 +34,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 
 
-	char *key1;
+	const char *key1;
 	json_t *value_json1;
 	json_object_foreach(aggregate_snapshot, key1, value_json1)
 	{
@@ -54,7 +54,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
 			metricname2[size1++] = '_';
-			char *key2;
+			const char *key2;
 			json_t *value_json2;
 
 			json_object_foreach(value_json1, key2, value_json2)
@@ -90,7 +90,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
 			metricname2[size1++] = '_';
 
-			char *key2;
+			const char *key2;
 			json_t *value_json2;
 
 			for (i = 0; i < arr_sz; i++)

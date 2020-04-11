@@ -61,13 +61,13 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 				tommy_hashdyn *lbl = malloc(sizeof(*lbl));
 				tommy_hashdyn_init(lbl);
 
-				char *key;
+				const char *key;
 				json_t *value_json;
 				json_object_foreach(labels, key, value_json)
 				{
 					char *value = (char*)json_string_value(value_json);
 					if (value)
-						labels_hash_insert_nocache(lbl, key, value);
+						labels_hash_insert_nocache(lbl, (char*)key, value);
 				}
 
 				metric_add(metricname, lbl, &tvalue, DATATYPE_INT, carg);

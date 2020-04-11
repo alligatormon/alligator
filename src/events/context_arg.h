@@ -36,7 +36,8 @@ typedef struct context_arg
 	r_time read_time;
 	r_time read_time_finish;
 	uint8_t lock;
-	int proto;
+	uint8_t proto;
+	uint8_t transport;
 	int write;
 	size_t http_body_size;
 	//size_t expect_http_length;
@@ -116,6 +117,8 @@ typedef struct context_arg
 	char port[PORT_SIZE];
 	uint64_t timeout;
 	uint64_t count;
+
+	uint8_t parsed;
 
 	tommy_node node;
 } context_arg;

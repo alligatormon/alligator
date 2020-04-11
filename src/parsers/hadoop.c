@@ -34,7 +34,7 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 
 		json_t *jobj;
-		char *val;
+		const char *val;
 		modelerType = 0;
 		json_t *j_modelerType = json_object_get(arr_obj, "modelerType");
 		if (j_modelerType)
