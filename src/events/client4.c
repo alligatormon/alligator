@@ -25,6 +25,7 @@ void tcp_client_closed(uv_handle_t *handle)
 	{
 		mbedtls_x509_crt_free(&carg->tls_cacert);
 		mbedtls_x509_crt_free(&carg->tls_cert);
+		mbedtls_pk_free(&carg->tls_key);
 		mbedtls_ssl_free(&carg->tls_ctx);
 		mbedtls_ssl_config_free(&carg->tls_conf);
 		mbedtls_ctr_drbg_free(&carg->tls_ctr_drbg);

@@ -142,11 +142,11 @@ void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert)
 		printf("cert: %s, %"d64" exp\n", cert, expdays);
 		printf("cert: %s, version: %d\n", cert, cert_ctx->version);
 	}
-	//tommy_hashdyn *notafter_lbl = labels_dup(lbl);
-	//tommy_hashdyn *expiredays_lbl = labels_dup(lbl);
-	//metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
-	//metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
-	//metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
+	tommy_hashdyn *notafter_lbl = labels_dup(lbl);
+	tommy_hashdyn *expiredays_lbl = labels_dup(lbl);
+	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
+	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
+	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
 }
 
 void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename)
