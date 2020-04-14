@@ -9,6 +9,7 @@
 uint64_t get_timestamp_from_mbedtls(mbedtls_x509_time mbed_tm)
 {
 	struct tm gmtime_time;
+	memset(&gmtime_time, 0, sizeof(gmtime_time));
 	gmtime_time.tm_year = mbed_tm.year - 1900;
 	gmtime_time.tm_mon = mbed_tm.mon - 1;
 	gmtime_time.tm_mday = mbed_tm.day;
@@ -137,14 +138,15 @@ void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert)
 	{
 		printf("cert: %s, certsubject: %s\n", cert, dn_subject);
 		printf("cert: %s, complete for: %u.\n", cert, now.sec);
+		printf("cert: %s, valid from: %"d64".\n", cert, valid_from);
 		printf("cert: %s, %"d64" exp\n", cert, expdays);
 		printf("cert: %s, version: %d\n", cert, cert_ctx->version);
 	}
-	tommy_hashdyn *notafter_lbl = labels_dup(lbl);
-	tommy_hashdyn *expiredays_lbl = labels_dup(lbl);
-	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
-	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
-	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
+	//tommy_hashdyn *notafter_lbl = labels_dup(lbl);
+	//tommy_hashdyn *expiredays_lbl = labels_dup(lbl);
+	//metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
+	//metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
+	//metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
 }
 
 void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename)

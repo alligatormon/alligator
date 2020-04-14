@@ -76,7 +76,7 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
 	{
 		if (ac->log_level > 2)
 			puts("check body full: function match");
-		return carg->expect_function(buf);
+		return carg->expect_function(buf, nread);
 	}
 
 	else if (carg->expect_count && (carg->expect_count <= carg->read_count))

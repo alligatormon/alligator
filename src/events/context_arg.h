@@ -53,7 +53,7 @@ typedef struct context_arg
 	uint64_t expect_body_length;
 	int64_t chunked_size;
 	int64_t chunked_expect;
-	int8_t (*expect_function)(char *);
+	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
 

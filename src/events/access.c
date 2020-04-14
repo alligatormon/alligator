@@ -8,7 +8,7 @@ extern aconf *ac;
 uint8_t check_ip_port(uv_tcp_t *client, context_arg *carg)
 {
 	struct sockaddr_storage caddr = {0};
-	int caddr_len;
+	int caddr_len = sizeof(caddr);;
 	uv_tcp_getpeername(client, (struct sockaddr*)&caddr, &caddr_len);
 	char addr[17];
 
@@ -23,4 +23,19 @@ uint8_t check_ip_port(uv_tcp_t *client, context_arg *carg)
 		printf("client host %s\n", addr);
 	}
 	return ip_check_access(carg->net_acl, addr);
+}
+
+uint8_t check_udp_ip_port(const struct sockaddr *caddr, context_arg *carg)
+{
+	char sender[17] = { 0 };
+	const struct sockaddr_in *in_caddr = (struct sockaddr_in*)&caddr;
+
+	uv_ip4_name(in_caddr, sender, 16);
+
+	if (ac->log_level > 3)
+	{
+		printf("client port %d\n", ntohs(in_caddr->sin_port));
+		printf("client host %s\n", sender);
+	}
+	return ip_check_access(carg->net_acl, sender);
 }

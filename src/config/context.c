@@ -88,7 +88,8 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	carg->hostname = hi->host; // old scheme
 	strlcpy(carg->host, hi->host, 1024); // new scheme
 	strlcpy(carg->port, hi->port, 6);
-	carg->timeout = 5000;
+	if (carg->timeout < 1)
+		carg->timeout = 5000;
 	carg->proto = hi->proto;
 	carg->transport = hi->transport;
 	carg->tls = hi->tls;

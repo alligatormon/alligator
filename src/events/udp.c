@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "main.h"
+extern aconf *ac;
 
 void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
@@ -12,9 +13,16 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		free(buf->base);
 		return;
 	}
+
 	context_arg *carg = req->data;
 	(carg->conn_counter)++;
 	(carg->read_counter)++;
+
+	if (!check_udp_ip_port(addr, carg))
+	{
+		if (ac->log_level > 3)
+			printf("no access!\n");
+	}
 
 
 	metric_add_labels("udp_entrypoint_connect", &carg->conn_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
