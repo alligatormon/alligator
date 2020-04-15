@@ -82,7 +82,7 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	if (ac->log_level > 2)
 		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->hostname, carg->mesg);
 
-	if (!mesg_len)
+	if (!mesg_len && mesg)
 		mesg_len = strlen(mesg);
 
 	carg->hostname = hi->host; // old scheme

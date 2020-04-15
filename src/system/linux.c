@@ -213,6 +213,11 @@ void get_cpu(int8_t platform)
 					metric_add_labels("cpu_usage", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 					metric_add_labels("cpu_usage", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 					metric_add_labels("cpu_usage", &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
+					metric_add_labels("cpu_usage_time", &t12345, DATATYPE_UINT, ac->system_carg, "type", "total");
+					metric_add_labels("cpu_usage_time", &t1, DATATYPE_INT, ac->system_carg, "type", "user");
+					metric_add_labels("cpu_usage_time", &t2, DATATYPE_INT, ac->system_carg, "type", "nice");
+					metric_add_labels("cpu_usage_time", &t3, DATATYPE_INT, ac->system_carg, "type", "system");
+					metric_add_labels("cpu_usage_time", &t5, DATATYPE_INT, ac->system_carg, "type", "iowait");
 				}
 				else
 				{
@@ -315,6 +320,8 @@ void get_cpu(int8_t platform)
 		else if (!cgroup_total_usage)
 			cgroup_total_usage = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage")*cfs_period/1000000000/cfs_quota*100.0;
 
+		uint64_t sccs_total = sccs->system + sccs->user;
+
 		//printf("CPU: usage %lf, user %lf, system %lf\n", cgroup_total_usage, cgroup_user_usage, cgroup_system_usage);
 		metric_add_labels("cpu_usage_cgroup", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_cgroup", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
@@ -322,6 +329,11 @@ void get_cpu(int8_t platform)
 		metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
 		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_usage_time", &sccs->system, DATATYPE_UINT, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage_time", &sccs_total, DATATYPE_UINT, ac->system_carg, "type", "total");
+		metric_add_labels("cpu_usage_time", &sccs->user, DATATYPE_UINT, ac->system_carg, "type", "user");
 	}
 }
 
@@ -514,16 +526,6 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	int64_t utotal_time = utime + cutime;
 	int64_t total_time = stotal_time + utotal_time;
 
-	//struct stat st;
-	//stat(szFileName, &st);
-
-	//double sys_cpu_usage = 100 * (stotal_time / Hertz);
-	//double user_cpu_usage = 100 * (utotal_time / Hertz);
-	//double total_cpu_usage = 100 * (total_time / Hertz);
-
-	//metric_add_labels3("process_cpu", &sys_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "system");
-	//metric_add_labels3("process_cpu", &user_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "user");
-	//metric_add_labels3("process_cpu", &total_cpu_usage, DATATYPE_DOUBLE, "name", exName, "pid", pid_number, "type", "total");
 	metric_add_labels3("process_cpu", &stotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "system");
 	metric_add_labels3("process_cpu", &utotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "user");
 	metric_add_labels3("process_cpu", &total_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "total");
@@ -912,6 +914,12 @@ void get_mem(int8_t platform)
 			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpout");
 		else if (!platform && !strncmp(key, "numa_", 5))
 			metric_add_labels("numa_stat", &ival, DATATYPE_INT, ac->system_carg, "type", key+5);
+		else if (!platform && !strncmp(key, "pgscan_", 7))
+			metric_add_labels("pgscan", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
+		else if (!platform && !strncmp(key, "pgsteal_", 8))
+			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+8);
+		else if (!platform && !strncmp(key, "kswapd_", 7))
+			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
 	}
 	fclose(fd);
 

@@ -5,6 +5,8 @@
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "main.h"
+extern aconf* ac;
 
 #define JSON_PARSER_PRINT 0
 #define JSON_PARSER_SUM 1
@@ -623,8 +625,11 @@ int8_t json_validator(char *data, size_t size)
 	json_t *root = json_loads(data, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		if (ac->log_level > 2)
+			printf("json validator: json error on line %d: %s\n", error.line, error.text);
 		return 0;
 	}
+	else if (ac->log_level > 2)
+		puts("json validator OK");
 	return 1;
 }
