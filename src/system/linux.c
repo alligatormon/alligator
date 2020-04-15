@@ -27,6 +27,7 @@
 #define PLATFORM_DOCKER 4
 #define LINUX_MEMORY 1
 #define LINUX_CPU 2
+extern aconf *ac;
 
 typedef struct process_states
 {
@@ -47,7 +48,6 @@ typedef struct process_fdescriptors
 
 void print_mount(const struct mntent *fs)
 {
-	extern aconf *ac;
 	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2"))
 	{
 		if (!strncmp(fs->mnt_dir, "/etc", 4) || !strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_dir, "/var/lib/docker", 15))
@@ -100,7 +100,6 @@ void print_mount(const struct mntent *fs)
 
 void get_disk()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: disk: get_stat");
 
@@ -121,7 +120,6 @@ void get_disk()
 
 void get_cpu(int8_t platform)
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("fast scrape metrics: base: cpu");
 
@@ -339,7 +337,6 @@ void get_cpu(int8_t platform)
 
 void get_process_extra_info(char *file, char *name, char *pid)
 {
-	extern aconf *ac;
 	FILE *fd = fopen(file, "r");
 	if (!fd)
 		return;
@@ -428,7 +425,6 @@ void get_process_extra_info(char *file, char *name, char *pid)
 
 void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t lightweight, process_states *states, int8_t match)
 {
-	extern aconf *ac;
 	char szStatStr[LINUXFS_LINE_LENGTH];
 	char		state;
 	int64_t	utime;
@@ -559,7 +555,6 @@ void process_fdescriptors_free(void *funcarg, void* arg)
 
 void get_proc_socket_number(char *path, char *procname)
 {
-	extern aconf *ac;
 	char buf[255];
 	ssize_t len = readlink(path, buf, 254);
 	if (len < 0)
@@ -607,7 +602,6 @@ void get_proc_socket_number(char *path, char *procname)
 
 int64_t get_fd_info_process(char *fddir, char *procname)
 {
-	extern aconf *ac;
 	char buf[255];
 	size_t buf_size = strlcpy(buf, fddir, 255);
 	char *bufcur = buf+buf_size;
@@ -644,7 +638,6 @@ int64_t get_fd_info_process(char *fddir, char *procname)
 
 void get_process_io_stat(char *file, char *command, char *pid)
 {
-	extern aconf *ac;
 	FILE *fd = fopen(file, "r");
 	if (!fd)
 		return;
@@ -662,7 +655,6 @@ void get_process_io_stat(char *file, char *command, char *pid)
 
 void find_pid(int8_t lightweight)
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: processes");
 
@@ -680,10 +672,13 @@ void find_pid(int8_t lightweight)
 	int64_t allfilesnum = 0;
 
 	char dir[FILENAME_MAX];
+	uint64_t tasks = 0;
 	while((entry = readdir(dp)))
 	{
 		if ( !isdigit(entry->d_name[0]) )
 			continue;
+
+		++tasks;
 
 		// get comm name
 		snprintf(dir, FILENAME_MAX, "/proc/%s/comm", entry->d_name);
@@ -710,17 +705,13 @@ void find_pid(int8_t lightweight)
 		char cmdline[_POSIX_PATH_MAX];
 		int64_t rc;
 		if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
-		{
-			fclose(fd);
-			continue;
-		}
+			cmdline[0] = 0;
 		for(int64_t iter = 0; iter < rc-1; iter++)
 			if (!cmdline[iter])
 				cmdline[iter] = ' ';
 		size_t cmdline_size = strlen(cmdline);
 		fclose(fd);
 
-		extern aconf *ac;
 		int8_t match = 1;
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
@@ -754,6 +745,7 @@ void find_pid(int8_t lightweight)
 	metric_add_labels("process_states", &states->zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("process_states", &states->stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 	free(states);
 
 	closedir(dp);
@@ -761,7 +753,6 @@ void find_pid(int8_t lightweight)
 
 void get_mem(int8_t platform)
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: mem");
 
@@ -1033,7 +1024,6 @@ void get_mem(int8_t platform)
 
 void cgroup_mem()
 {
-	extern aconf *ac;
 	FILE *fd = fopen("/sys/fs/cgroup/memory/memory.stat", "r");
 	if (fd)
 	{
@@ -1085,7 +1075,6 @@ void cgroup_mem()
 #define TCPUDP_NET_LENREAD 10000000
 void get_net_tcpudp(char *file, char *name)
 {
-	extern aconf *ac;
 	r_time ts_start = setrtime();
 	if (ac->log_level > 2)
 		printf("system scrape metrics: network: get_net_tcpudp '%s'\n", name);
@@ -1235,7 +1224,6 @@ void get_net_tcpudp(char *file, char *name)
 
 void get_netstat_statistics(char *ns_file)
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		printf("system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
 
@@ -1290,7 +1278,6 @@ void get_netstat_statistics(char *ns_file)
 
 void get_network_statistics()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: network: network_statistics");
 
@@ -1390,7 +1377,6 @@ void get_network_statistics()
 
 void get_nofile_stat()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: nofile_stat");
 
@@ -1432,7 +1418,6 @@ void get_nofile_stat()
 
 void get_disk_io_stat()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: disk: io_stat");
 
@@ -1490,7 +1475,6 @@ void get_disk_io_stat()
 
 void get_loadavg()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: loadavg");
 
@@ -1515,7 +1499,6 @@ void get_loadavg()
 
 void get_uptime()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: uptime");
 	r_time time1 = setrtime();
@@ -1531,7 +1514,6 @@ void get_uptime()
 
 void get_mdadm()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: disk: mdadm");
 
@@ -1623,7 +1605,6 @@ void get_mdadm()
 
 int8_t get_platform(int8_t mode)
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		printf("system scrape metrics: base: platform %d\n", mode);
 
@@ -1704,7 +1685,6 @@ int8_t get_platform(int8_t mode)
 
 void interface_stats()
 {
-	extern aconf *ac;
 	if (ac->log_level > 2)
 		puts("system scrape metrics: network: interface_stats");
 
@@ -1775,7 +1755,6 @@ void interface_stats()
 
 void cgroup_vm(char *dir, char *template, uint8_t stat)
 {
-	extern aconf *ac;
 	struct dirent *entry;
 	DIR *dp;
 	char cntpath[1000];
@@ -1893,7 +1872,6 @@ void cgroup_vm(char *dir, char *template, uint8_t stat)
 
 void get_memory_errors()
 {
-	extern aconf *ac;
 	struct dirent *entry;
 	DIR *dp;
 
@@ -1944,7 +1922,6 @@ void get_memory_errors()
 
 void get_thermal()
 {
-	extern aconf *ac;
 	char fname[255];
 	char monname[255];
 	char devname[255];
@@ -2056,7 +2033,6 @@ void get_smart_info()
 
 void get_buddyinfo()
 {
-	extern aconf *ac;
 	FILE *fd = fopen("/proc/buddyinfo", "r");
 	if (!fd)
 		return;
@@ -2107,7 +2083,6 @@ void get_buddyinfo()
 
 void get_kernel_version(int8_t platform)
 {
-	extern aconf *ac;
 	FILE *fd = fopen("/proc/version", "r");
 	if (!fd)
 		return;
@@ -2148,7 +2123,6 @@ void get_kernel_version(int8_t platform)
 
 void get_alligator_info()
 {
-	extern aconf *ac;
 	char genpath[255];
 	char val[255];
 	int64_t ival;
@@ -2183,7 +2157,6 @@ void get_alligator_info()
 
 void get_packages_info()
 {
-	extern aconf *ac;
 	if (ac->rpmlib)
 		get_rpm_info(ac->rpmlib);
 }
@@ -2197,7 +2170,6 @@ void clear_counts_for(void* arg)
 
 void clear_counts_process()
 {
-	extern aconf *ac;
 	if (!ac->process_match)
 		return;
 	tommy_hashdyn *hash = ac->process_match->hash;
@@ -2213,7 +2185,6 @@ void clear_counts_process()
 
 void fill_counts_for(void* arg)
 {
-	extern aconf *ac;
 	match_string* ms = arg;
 
 	metric_add_labels("process_match", &ms->count, DATATYPE_UINT, ac->system_carg, "name", ms->s);
@@ -2221,7 +2192,6 @@ void fill_counts_for(void* arg)
 
 void fill_counts_process()
 {
-	extern aconf *ac;
 	if (!ac->process_match)
 		return;
 	tommy_hashdyn *hash = ac->process_match->hash;
@@ -2237,7 +2207,6 @@ void fill_counts_process()
 
 void get_system_metrics()
 {
-	extern aconf *ac;
 	int8_t platform = -1;
 	if (ac->system_base)
 	{
@@ -2318,7 +2287,6 @@ void get_system_metrics()
 
 void system_fast_scrape()
 {
-	extern aconf *ac;
 	if (ac->system_base)
 	{
 		get_cpu(get_platform(0));
@@ -2327,7 +2295,6 @@ void system_fast_scrape()
 
 void system_slow_scrape()
 {
-	extern aconf *ac;
 	if (ac->system_packages)
 	{
 		get_packages_info();
