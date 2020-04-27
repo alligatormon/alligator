@@ -348,6 +348,7 @@ void get_process_extra_info(char *file, char *name, char *pid)
 
 	r_time time = setrtime();
 	uint64_t uptime = time.sec - get_file_atime(file);
+
 	metric_add_labels2("process_uptime", &uptime, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
@@ -453,7 +454,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	{
 		if (cnt == 8)
 		{
-			state = t[cursor];
+			state = t[2];
 			if (state == 'R')
 			{
 				int64_t val = 1;
@@ -653,10 +654,47 @@ void get_process_io_stat(char *file, char *command, char *pid)
 	fclose(fd);
 }
 
+void schedstat_process_info(char *pid, char *name)
+{
+	char fpath[1000];
+	char buf[1000];
+	char *tmp;
+	snprintf(fpath, 1000, "/proc/%s/schedstat", pid);
+
+	FILE *sched_fd = fopen(fpath, "r");
+	if (!sched_fd)
+		return;
+
+	if (!fgets(buf, 1000, sched_fd))
+	{
+		perror("fgets:");
+		fclose(sched_fd);
+		return;
+	}
+	fclose(sched_fd);
+
+	tmp = buf;
+	uint64_t run_time = strtoull(tmp, &tmp, 10);
+
+	tmp += strcspn(tmp, " \t");
+	tmp += strspn(tmp, " \t");
+	uint64_t runqueue_time = strtoull(tmp, &tmp, 10);
+
+	tmp += strcspn(tmp, " \t");
+	tmp += strspn(tmp, " \t");
+	uint64_t run_periods = strtoull(tmp, &tmp, 10);
+
+	metric_add_labels2("process_schedstat_run_time", &run_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_runqueue_time", &runqueue_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_run_periods", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+}
+
 void find_pid(int8_t lightweight)
 {
 	if (ac->log_level > 2)
 		puts("system scrape metrics: processes");
+
+	uint64_t rc;
 
 	struct dirent *entry;
 	DIR *dp;
@@ -673,12 +711,14 @@ void find_pid(int8_t lightweight)
 
 	char dir[FILENAME_MAX];
 	uint64_t tasks = 0;
+	uint64_t processes = 0;
 	while((entry = readdir(dp)))
 	{
 		if ( !isdigit(entry->d_name[0]) )
 			continue;
 
 		++tasks;
+		++processes;
 
 		// get comm name
 		snprintf(dir, FILENAME_MAX, "/proc/%s/comm", entry->d_name);
@@ -703,13 +743,19 @@ void find_pid(int8_t lightweight)
 			continue;
 
 		char cmdline[_POSIX_PATH_MAX];
-		int64_t rc;
 		if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
 			cmdline[0] = 0;
-		for(int64_t iter = 0; iter < rc-1; iter++)
-			if (!cmdline[iter])
-				cmdline[iter] = ' ';
-		size_t cmdline_size = strlen(cmdline);
+
+		size_t cmdline_size;
+		if (rc)
+		{
+			for(int64_t iter = 0; iter < rc-1; iter++)
+				if (!cmdline[iter])
+					cmdline[iter] = ' ';
+			cmdline_size = strlen(cmdline);
+		}
+		else
+			cmdline_size = 0;
 		fclose(fd);
 
 		int8_t match = 1;
@@ -732,6 +778,8 @@ void find_pid(int8_t lightweight)
 		if (lightweight)
 			continue;
 
+		schedstat_process_info(entry->d_name, procname);
+
 		snprintf(dir, FILENAME_MAX, "/proc/%s/status", entry->d_name);
 		get_process_extra_info(dir, procname, entry->d_name);
 
@@ -746,6 +794,12 @@ void find_pid(int8_t lightweight)
 	metric_add_labels("process_states", &states->stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("processes_total", &processes, DATATYPE_UINT, ac->system_carg);
+	int64_t threads_max = getkvfile("/proc/sys/kernel/threads-max");
+	metric_add_auto("tasks_max", &threads_max, DATATYPE_INT, ac->system_carg);
+
+	double threads_usage = tasks * 100.0 / threads_max;
+	metric_add_auto("tasks_usage", &threads_usage, DATATYPE_DOUBLE, ac->system_carg);
 	free(states);
 
 	closedir(dp);
@@ -1022,42 +1076,8 @@ void get_mem(int8_t platform)
 	fclose(fd);
 }
 
-void cgroup_mem()
+void throttle_stat()
 {
-	FILE *fd = fopen("/sys/fs/cgroup/memory/memory.stat", "r");
-	if (fd)
-	{
-		char tmp[LINUXFS_LINE_LENGTH];
-		char key[LINUXFS_LINE_LENGTH];
-		char key_map[LINUXFS_LINE_LENGTH];
-		char val[LINUXFS_LINE_LENGTH];
-		int64_t ival = 1;
-		while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
-		{
-			tmp[strlen(tmp)-1] = 0;
-			int i;
-			for (i=0; tmp[i]!=' '; i++);
-			strlcpy(key, tmp, i+1);
-
-			if	(!strcmp(key, "total_cache"))
-				strlcpy(key_map, "cache", 6);
-			else if (!strcmp(key, "total_rss"))
-				strlcpy(key_map, "rss", 4);
-			else if (!strcmp(key, "hierarchical_memory_limit"))
-				strlcpy(key_map, "limit", 6);
-			else	continue;
-
-			for (; tmp[i]==' '; i++);
-			int swap = i;
-			for (; tmp[i] && tmp[i]!=' '; i++);
-			strlcpy(val, tmp+swap, i-swap+1);
-
-			ival = atoll(val);
-			metric_add_labels("memory_cgroup_usage", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
-		}
-	}
-	fclose(fd);
-
 	int64_t mval;
 	mval = getkvfile("/sys/fs/cgroup/memory/memory.memsw.failcnt");
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "memsw");
@@ -1070,6 +1090,39 @@ void cgroup_mem()
 
 	mval = getkvfile("/sys/fs/cgroup/memory/memory.kmem.tcp.failcnt");
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "kmem_tcp");
+
+	char *tmp;
+	char buf[1000];
+	FILE *fd = fopen("/sys/fs/cgroup/cpu,cpuacct/cpu.stat", "r");
+	if (!fd)
+	{
+		fd = fopen("/sys/fs/cgroup/cpu/cpu.stat", "r");
+		if (!fd)
+			return;
+	}
+
+	while (fgets(buf, 1000, fd))
+	{
+		tmp = buf;
+		tmp += strcspn(tmp, " \t");
+		tmp += strspn(tmp, " \t");
+		if (!strncmp(buf, "nr_periods", 10))
+		{
+			uint64_t val = strtoull(tmp, NULL, 10);
+			metric_add_auto("cpu_cgroup_periods_total", &val, DATATYPE_UINT, ac->system_carg);
+		}
+		else if (!strncmp(buf, "nr_throttled", 12))
+		{
+			uint64_t val = strtoull(tmp, NULL, 10);
+			metric_add_auto("cpu_cgroup_throttled_periods_total", &val, DATATYPE_UINT, ac->system_carg);
+		}
+		else if (!strncmp(buf, "throttled_time", 14))
+		{
+			double val = strtof(tmp, NULL) / 1000000000.0;
+			metric_add_auto("cpu_cgroup_throttled_seconds_total", &val, DATATYPE_DOUBLE, ac->system_carg);
+		}
+	}
+	fclose(fd);
 }
 
 #define TCPUDP_NET_LENREAD 10000000
@@ -1102,7 +1155,11 @@ void get_net_tcpudp(char *file, char *name)
 	uint64_t last_ack = 0;
 	uint64_t listen = 0;
 	uint64_t closing = 0;
+	uint64_t send_queue = 0;
+	uint64_t recv_queue = 0;
 	char *start, *end;
+
+	int64_t somaxconn = getkvfile("/proc/sys/net/core/somaxconn");
 
 	size_t rc;
 	char *bufend;
@@ -1134,8 +1191,11 @@ void get_net_tcpudp(char *file, char *name)
 			pEnd += strspn(pEnd, "\t :");
 			state = strtoul(pEnd, &pEnd, 16);
 
-			pEnd += strcspn(pEnd, " \t");
-			pEnd += strspn(pEnd, " \t");
+			pEnd += strspn(pEnd, "\t :");
+			send_queue = strtoul(pEnd, &pEnd, 16);
+			pEnd += strspn(pEnd, "\t :");
+			recv_queue = strtoul(pEnd, &pEnd, 16);
+
 			pEnd += strcspn(pEnd, " \t");
 			pEnd += strspn(pEnd, " \t");
 			pEnd += strcspn(pEnd, " \t");
@@ -1161,10 +1221,22 @@ void get_net_tcpudp(char *file, char *name)
 				if (ac->fdesc)
 					fdescriptors = tommy_hashdyn_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
 
+				// case when send_queue is unknown or larger than somaxconn
+				if ((send_queue < 1) || (send_queue > somaxconn))
+					send_queue = somaxconn;
+
 				if (fdescriptors)
+				{
 					metric_add_labels7("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
+					metric_add_labels7("socket_stat_receive_queue_length", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
+					metric_add_labels7("socket_stat_receive_queue_limit", &send_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
+				}
 				else
+				{
 					metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
+					metric_add_labels6("socket_stat_receive_queue_length", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
+					metric_add_labels6("socket_stat_receive_queue_limit", &send_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
+				}
 				++listen;
 			}
 			else if (state == 6)
@@ -1299,6 +1371,7 @@ void get_network_statistics()
 	int64_t transmit_carrier;
 	int64_t transmit_compressed;
 
+	char ifdir[1000];
 	FILE *fp = fopen("/proc/net/dev", "r");
 	char buf[200], ifname[20];
 
@@ -1370,6 +1443,15 @@ void get_network_statistics()
 
 		transmit_compressed = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_compressed");
+
+		snprintf(ifdir, 1000, "/sys/class/net/%s/speed", ifname);
+		int64_t interface_speed_bits = getkvfile(ifdir);
+		metric_add_labels2("if_stat", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "speed");
+
+		//double iface_util_transmit = (transmit_bytes*100.0)/(interface_speed_bits/8.0);
+		//double iface_util_received = (received_bytes*100.0)/(interface_speed_bits/8.0);
+		//metric_add_labels2("if_utilization", &iface_util_transmit, DATATYPE_DOUBLE, ac->system_carg, "ifname", ifname, "type", "transmit");
+		//metric_add_labels2("if_utilization", &iface_util_received, DATATYPE_DOUBLE, ac->system_carg, "ifname", ifname, "type", "received");
 	}
 
 	fclose(fp);
@@ -1454,18 +1536,17 @@ void get_disk_io_stat()
 		int64_t sectorsize = getkvfile(bldevname);
 
 		int64_t read_bytes = stat[5] * sectorsize;
-		int64_t read_timing = stat[6];
 		int64_t write_bytes = stat[9] * sectorsize;
-		int64_t write_timing = stat[10];
 		int64_t io_w = stat[3];
 		int64_t io_r = stat[7];
 		int64_t disk_busy = stat[12]/1000;
 		metric_add_labels2("disk_io", &io_r, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_read");
 		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_write");
-		metric_add_labels2("disk_io", &read_timing, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "read_timing");
-		metric_add_labels2("disk_io", &write_timing, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "write_timing");
 		metric_add_labels2("disk_io", &read_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_read");
 		metric_add_labels2("disk_io", &write_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_write");
+		metric_add_labels2("disk_io_await", &stat[10], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "write");
+		metric_add_labels2("disk_io_await", &stat[6], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "read");
+		metric_add_labels2("disk_io_await", &stat[13], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "queue");
 		metric_add_labels("disk_busy", &disk_busy, DATATYPE_INT, ac->system_carg, "dev", devname);
 		if (j>14)
 			metric_add_labels2("disk_io", &stat[14], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_discard");
@@ -1870,12 +1951,12 @@ void cgroup_vm(char *dir, char *template, uint8_t stat)
 	closedir(dp);
 }
 
-void get_memory_errors()
+void get_memory_errors(char *edac)
 {
 	struct dirent *entry;
 	DIR *dp;
 
-	dp = opendir("/sys/devices/system/edac/mc/mc0/");
+	dp = opendir(edac);
 	if (!dp)
 		return;
 
@@ -1891,7 +1972,7 @@ void get_memory_errors()
 
 		char rowname[255];
 		char chname[255];
-		snprintf(rowname, 255, "/sys/devices/system/edac/mc/mc0/%s/", entry->d_name);
+		snprintf(rowname, 255, "%s%s/", edac, entry->d_name);
 		rowdp = opendir(rowname);
 		if (!rowdp)
 			continue;
@@ -2219,10 +2300,13 @@ void get_system_metrics()
 		get_alligator_info();
 		if (!platform)
 		{
-			get_memory_errors();
+			get_memory_errors("/sys/devices/system/edac/mc/mc0/");
+			get_memory_errors("/sys/devices/system/edac/mc/mc1/");
 			get_thermal();
 			get_buddyinfo();
 		}
+		else
+			throttle_stat();
 	}
 
 	// find_pid before system_network!
