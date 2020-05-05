@@ -51,18 +51,23 @@ pushgateway_send()
 	curl -sk -d "$1" $SCHEME://$HOST:$PORT/metrics$2
 }
 
+# Test posting statsd metric via |g
 statsd_send 'test_metric.engine_array_list_object:9|g|#id:34'
 curl_test 'test_metric_engine_array_list_object {id="34"} 9.000000'
 
+# Test counting statsd metric via |c
 statsd_send 'test_metric.engine_array_list_object:11|c|#id:34'
 curl_test 'test_metric_engine_array_list_object {id="34"} 20.000000'
 
+# Metric with incomplete content should not be published
 pushgateway_send 'ndpoint="/api/efcwefcerwv/rvegr/vvrt/vtrvle", method="POST"} 116.000000' ''
 curl_no_test 'ndpoint'
 
+# Test statsd dogstatsd labels format
 statsd_send 'project.api.response_code:1|c|#status_code:200,endpoint:/api/healthcheck,method:GET'
 curl_test 'project_api_response_code {status_code="200", endpoint="/api/healthcheck", method="GET"} 1.000000'
 
+# Label should be starts with ASCII letters or _ or :, not numeric https://prometheus.io/docs/concepts/data_model/
 statsd_send 'select100.api.response_code:1|c|#status_code:200,endpoint:/api/report/v1.0/api_geo?geo_ids=1,method:GET,2=3'
 curl_no_test 'select100_api_response_code {2="3", status_code="200", endpoint="/api/report/v1.0/api_geo?geo_ids=1", method="GET"} 1.000000'
 
@@ -87,9 +92,11 @@ curl_no_test 'project_hapi_response_time {code="200"} 3.000000'
 pushgateway_send 'fvorvno_efvinrf_efivni_199 {theme_id="1028", name="Elektrotehnicheskaja", strojmaterialov="eskaja", promyshlennost'\''="Proizvodstvo"} 101.000000' ''
 curl_no_test 'fvorvno_efvinrf_efivni_199'
 
+# Testing UDP statsd transport with mapping labels and metric name.
 statsd_udp_send "test3.tata.test4.papa:$RANDOM|ms"
-curl_test 'test3_test4'
+curl_test 'test3_test4 {label_name_test3="test4_key"}'
 
+# Send multiple queries for calculating quantiles. Calculation has complex solutions, because of this tests only prefix of answer numeric on unstable quantiles (0.9, 0.99).
 DATAS="13414 11737 9794 2743 10785 8717 9035 21296 17588 15529 7138 14999 25624 15637 25784 17479 12492 24182 32526 32531 5400 2690 9071 8916 21445 12141"
 for DATA in $DATAS
 do

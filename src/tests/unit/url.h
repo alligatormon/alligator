@@ -2,7 +2,7 @@
 
 void test_parse_url()
 {
-	int test_url_size = 25;
+	int test_url_size = 26;
 	char **test_url = calloc(test_url_size, sizeof(void*));
 	char **test_url_host = calloc(test_url_size, sizeof(void*));
 	uint8_t *test_url_proto = calloc(test_url_size, sizeof(void*));
@@ -10,6 +10,8 @@ void test_parse_url()
 	char **test_url_port = calloc(test_url_size, sizeof(void*));
 	char **test_url_query = calloc(test_url_size, sizeof(void*));
 	char **test_url_auth = calloc(test_url_size, sizeof(void*));
+	char **test_url_user = calloc(test_url_size, sizeof(void*));
+	char **test_url_pass = calloc(test_url_size, sizeof(void*));
 	char **test_url_host_header = calloc(test_url_size, sizeof(void*));
 	test_url[0] = "https://crfvcgtivn:fcrtvtv@example.com/?query=a:{a-1}&pretty";
 	test_url_host[0] = "example.com";
@@ -200,6 +202,16 @@ void test_parse_url()
 	test_url_proto[24] = APROTO_TCP;
 	test_url_transport[24] = APROTO_UNIX;
 
+	test_url[25] = "http://unix:/var/run/prog.sock:linux:ubuntu@example.com/static//assets?a=1";
+	test_url_host[25] = "/var/run/prog.sock";
+	test_url_host_header[25] = "example.com";
+	test_url_proto[25] = APROTO_HTTP;
+	test_url_transport[25] = APROTO_UNIX;
+	test_url_query[25] = "/static//assets?a=1";
+	test_url_user[25] = "linux";
+	test_url_pass[25] = "ubuntu";
+
+
 	for (uint64_t i = 0; i<test_url_size; i++)
 	{
 		host_aggregator_info *hi = parse_url (test_url[i], strlen(test_url[i]));
@@ -220,6 +232,10 @@ void test_parse_url()
 			cut_assert_equal_string(test_url_query[i], hi->query);
 		if (test_url_auth[i])
 			cut_assert_equal_string(test_url_auth[i], hi->auth);
+		if (test_url_user[i])
+			cut_assert_equal_string(test_url_user[i], hi->user);
+		if (test_url_pass[i])
+			cut_assert_equal_string(test_url_pass[i], hi->pass);
 
 		url_free(hi);
 	}
