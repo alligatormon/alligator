@@ -97,7 +97,6 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template
 	if (!globs)
 		return NULL;
 
-	printf("globs %zu and template size %zu\n", globs, template_split_size);
 	if (template_split && template_split_size < globs)
 		return NULL;
 
@@ -127,12 +126,12 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template
 	if (d)
 		*out_len = d;
 	else
-		*out_len = k+1;
+		*out_len = k;
 
 	return ret;
 }
 
-char** mapping_match(mapping_metric *mm, char *str, size_t size)
+char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_size)
 {
 	char **split = 0;
 	if (mm->match == MAPPING_MATCH_GLOB)
@@ -162,6 +161,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size)
 				return 0;
 			}
 		}
+		*split_size = str_splits;
 	}
 	else if (mm->match == MAPPING_MATCH_PCRE)
 	{
@@ -308,11 +308,9 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	for (; mm; mm = mm->next)
 	{
 		uint64_t input_name_size = strcspn(str, ": \t\n");
+		size_t metric_split_size = 0;
 		char *matchres = strndup(str, input_name_size);
-		//char **metric_split = mapping_match(mm, metric_name, metric_len);
-		char **metric_split = mapping_match(mm, matchres, input_name_size);
-		//printf("Match??? %p %s\n", metric_split, mm->metric_name);
-		//printf("Match??? %s %s\n", matchres, mm->template);
+		char **metric_split = mapping_match(mm, matchres, input_name_size, &metric_split_size);
 		if (metric_split)
 		{
 			if (mm->metric_name)
@@ -346,10 +344,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 					ml = ml->next;
 				}
 			}
-			int64_t ms_i;
-			for (ms_i = 0; metric_split[ms_i]; ms_i++)
-				free(metric_split[ms_i]);
-			free(metric_split);
+			free_mapping_split_free(metric_split, metric_split_size);
 			break;
 		}
 	}

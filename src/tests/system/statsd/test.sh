@@ -63,7 +63,7 @@ curl_no_test 'ndpoint'
 statsd_send 'project.api.response_code:1|c|#status_code:200,endpoint:/api/healthcheck,method:GET'
 curl_test 'project_api_response_code {status_code="200", endpoint="/api/healthcheck", method="GET"} 1.000000'
 
-statsd_send 'select100.api.response_code:1|c|#status_code:200,endpoint:/api/report/v1.0/ch_geo?geo_ids=1,method:GET,2=3'
+statsd_send 'select100.api.response_code:1|c|#status_code:200,endpoint:/api/report/v1.0/api_geo?geo_ids=1,method:GET,2=3'
 curl_no_test 'select100_api_response_code {2="3", status_code="200", endpoint="/api/report/v1.0/api_geo?geo_ids=1", method="GET"} 1.000000'
 
 statsd_send 'project.api.response_time:655.000000|ms|#endpoint:/api/sql?response_format=JSON,method:POST'
@@ -85,8 +85,16 @@ pushgateway_send 'project_hapi_response_time{code="200", 2="3"} 3' ''
 curl_no_test 'project_hapi_response_time {code="200"} 3.000000'
 
 pushgateway_send 'fvorvno_efvinrf_efivni_199 {theme_id="1028", name="Elektrotehnicheskaja", strojmaterialov="eskaja", promyshlennost'\''="Proizvodstvo"} 101.000000' ''
-curl_no_test 'alogMainThemes_cnt_projects_in_themes_subtheme_of_1017'
+curl_no_test 'fvorvno_efvinrf_efivni_199'
 
 statsd_udp_send "test3.tata.test4.papa:$RANDOM|ms"
-curl_test 'test3_test4 {label_name_test3="test4_key"}'
-curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.9"}'
+curl_test 'test3_test4'
+
+DATAS="13414 11737 9794 2743 10785 8717 9035 21296 17588 15529 7138 14999 25624 15637 25784 17479 12492 24182 32526 32531 5400 2690 9071 8916 21445 12141"
+for DATA in $DATAS
+do
+	statsd_udp_send "test3.tata.test4.papa:$DATA|ms"
+done
+curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.75"} 2743'
+curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.9"} 15'
+curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.99"} 32'
