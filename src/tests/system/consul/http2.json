@@ -1,0 +1,10 @@
+{
+  "ID": "http2",
+  "Name": "https",
+  "Address": "10.0.0.3",
+  "Port": 443,
+  "Meta": {
+    "alligator_url": "tcp://10.0.0.3:6379",
+    "alligator_handler": "redis"
+    }
+}

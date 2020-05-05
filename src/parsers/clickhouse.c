@@ -8,7 +8,7 @@
 #define CH_NAME_SIZE 255
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
-	selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0, carg);
+	//selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0, carg);
 }
 
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
@@ -284,53 +284,53 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		leader = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		readonly = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		future_parts = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		parts_to_check = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		queue_size = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		inserts_in_queue = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		merges_in_queue = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		log_max_index = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		log_pointer = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		total_replicas = atoll(metrics+i);
 		cur++;
 		i+=cur;

@@ -78,7 +78,8 @@ typedef struct context_arg
 	void *data; // for parser-data
 
 	uv_tcp_t server;
-	uv_tcp_t client;
+	uv_tcp_t client; // move only with pclient
+	uv_pipe_t pclient; // move only with client!
 	uv_loop_t* loop;
 	uv_connect_t connect;
 	uv_write_t write_req;

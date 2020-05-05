@@ -1,4 +1,5 @@
 #pragma once
+#ifdef __linux__
 #include <uv.h>
 #include <pquv.h>
 #include <stdlib.h>
@@ -72,3 +73,4 @@ typedef struct pq_library {
 } pq_library;
 
 pq_library* pg_init(char *pqlib_path);
+#endif

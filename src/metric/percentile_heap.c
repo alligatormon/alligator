@@ -101,6 +101,8 @@ void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mno
 
 		labels_t *labels = mnode->labels;
 		char metric_name[255];
+		//printf("labels: %p\n", labels);
+		//printf("labels->key: %p\n", labels->key);
 		snprintf(metric_name, 255, "%s_quantile", labels->key);
 		labels = labels->next;
 		for (; labels; labels = labels->next)

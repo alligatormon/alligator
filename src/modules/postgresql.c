@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include "modules/modules.h"
 #include "modules/postgresql.h"
 
@@ -173,3 +174,4 @@ pq_library* pg_init(char *pqlib_path)
 
 	return pqlib;
 }
+#endif

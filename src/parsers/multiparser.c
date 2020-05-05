@@ -130,7 +130,9 @@ int plain_parser(char *buf, size_t len, context_arg *carg)
 
 void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, context_arg*), string *response, context_arg *carg)
 {
+	//puts("========================================================================");
 	//printf("handler (%p) parsing '%s'(%zu)\n", handler, buf, slen);
+	//puts("========================================================================");
 	if (!buf)
 		return;
 
@@ -146,15 +148,18 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		if (carg->http_body)
 		{
 			proxybuf = carg->http_body;
-			proxylen = carg->http_body - carg->full_body->s;
+			//printf("http %llu - (%llu - %llu))\n", carg->full_body->l, carg->http_body, carg->full_body->s);
+			proxylen = (carg->full_body->l - (carg->http_body - carg->full_body->s)) + 1;
+			if (proxylen > carg->full_body->l)
+				proxylen = 0;
 		}
 		else
 		{
 			proxybuf = buf;
 			proxylen = len;
 		}
+		//printf(">>>>>>>>>>>>>>>\n%zu\n'%s'\n<<<<<<<<<<<<<<<<<<\n", proxylen, proxybuf);
 		handler(proxybuf, proxylen, carg);
-		//handler(buf, slen, carg);
 		return;
 	}
 	int rc = 0;

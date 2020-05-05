@@ -94,6 +94,8 @@ void tcp_server_writed(uv_write_t* req, int status)
 
 	if (carg->response_buffer.base)
 	{
+		if (ac->log_level > 1)
+			printf("%"u64": tcp server writed call free %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 		free(carg->response_buffer.base);
 		carg->response_buffer = uv_buf_init(NULL, 0);
 	}
@@ -105,21 +107,29 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server readed %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, EOF: %d, ECONNRESET: %d, ECONNABORTED: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, (nread == UV_EOF), (nread == UV_ECONNRESET), (nread == UV_ECONNABORTED));
 
-	if (nread > 0)
+	if ((nread) > 0 && (nread < 65536))
 	{
 		string *str = string_init(6553500);
-		alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
+		char *pastr = carg->full_body->l ? carg->full_body->s : buf->base;
+		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
+		//alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
+		alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
 		carg->write_req.data = carg;
 		carg->response_buffer = uv_buf_init(str->s, str->l);
 		if (uv_is_writable((uv_stream_t*)&carg->client))
 		{
-			if(!carg->tls)
+			if(!carg->tls && uv_is_writable((uv_stream_t *)&carg->client))
 				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_writed);
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
 		//puts(buf->base);
 		free(str);
+		string_free(carg->full_body);
+	}
+	if ((nread) > 0 && (nread >= 65536))
+	{
+		string_cat(carg->full_body, buf->base, nread);
 	}
 	else if (nread == 0)
 		return;
@@ -351,6 +361,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	uv_tcp_init(carg->loop, &carg->client);
 
 	carg->client.data = carg;
+	carg->full_body = string_init(1048576);
 
 	if (carg->tls)
 		tls_server_init_client(carg->loop, carg);

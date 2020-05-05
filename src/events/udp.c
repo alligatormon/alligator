@@ -47,6 +47,9 @@ void udp_server_handler(char *addr, uint16_t port, void* parser_handler, context
 		carg = malloc(sizeof(*carg));
 	carg->parser_handler = parser_handler;
 
+	if (ac->log_level > 1)
+		printf("init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", NULL, 0, carg, addr, port);
+
 	carg->parser_handler = parser_handler;
 	carg->conn_counter = 0;
 	carg->read_counter = 0;

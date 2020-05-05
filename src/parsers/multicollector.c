@@ -79,32 +79,55 @@ void free_mapping_split_free(char **split, size_t len)
 	free(split);
 }
 
-char** mapping_str_split(char *str, size_t len, size_t *out_len)
+char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template_split, size_t template_split_size)
 {
 	uint64_t k;
+	uint64_t d = 0;
 	size_t globs = 1;
 	uint64_t offset = 0;
 	size_t glob_size;
+	*out_len = 0;
 
 	for (k=0; k<len; ++k)
 	{
 		if (str[k] == '.')
 			++globs;
 	}
-	*out_len = globs;
 
 	if (!globs)
 		return NULL;
+
+	printf("globs %zu and template size %zu\n", globs, template_split_size);
+	if (template_split && template_split_size < globs)
+		return NULL;
+
 
 	char **ret = malloc((globs+1)*sizeof(void*));
 
 	for (k=0; k<globs; ++k)
 	{
 		glob_size = strcspn(str+offset, ".");
-		ret[k] = strndup(str+offset, glob_size);
+		char *tmpret = strndup(str+offset, glob_size);
+		
+		//ret[k] = strndup(str+offset, glob_size);
+		if (template_split)
+		{
+			if (template_split[k][0] != '*')
+			{
+				ret[d++] = tmpret;
+			}
+		}
+		else
+		{
+			ret[k] = tmpret;
+		}
 		offset += glob_size+1;
 	}
 	ret[k] = NULL;
+	if (d)
+		*out_len = d;
+	else
+		*out_len = k+1;
 
 	return ret;
 }
@@ -112,20 +135,25 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len)
 char** mapping_match(mapping_metric *mm, char *str, size_t size)
 {
 	char **split = 0;
-	//printf("mm->match = %"u64"\n", mm->match);
 	if (mm->match == MAPPING_MATCH_GLOB)
 	{
 		uint8_t i;
 		size_t str_splits;
 
-		split = mapping_str_split(str, size, &str_splits);
-		if (str_splits != mm->glob_size)
-		{
-			free_mapping_split_free(split, str_splits);
+		char **template_split = mapping_str_split(mm->template, size, &str_splits, NULL, 0);
+		split = mapping_str_split(str, size, &str_splits, template_split, str_splits);
+		if (!split)
 			return 0;
-		}
+		//printf("%d <> %d\n", str_splits, mm->glob_size);
+		//if (str_splits != mm->glob_size)
+		//{
+		//	free_mapping_split_free(split, str_splits);
+		//	puts("return 1");
+		//	return 0;
+		//}
 
-		for (i=0; i<mm->glob_size; ++i)
+		//for (i=0; i<mm->glob_size; ++i)
+		for (i=0; i<str_splits; ++i)
 		{
 			int8_t selector = aglob(split[i], mm->glob[i]);
 			if (!selector)
@@ -138,6 +166,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size)
 	else if (mm->match == MAPPING_MATCH_PCRE)
 	{
 	}
+
 	return split;
 }
 
@@ -154,42 +183,53 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 	*dst = 0;
 	while (cur)
 	{
-		updatecur = strstr(cur, "\"$");
+		updatecur = strstr(cur, "$");
 		if (updatecur)
 			cur = updatecur;
 		else
 			cur += strlen(cur);
-		//printf("<<<<< find \"$ '%s' (%p)\n", cur, cur);
+		if (ac->log_level > 4)
+			printf("<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
 
 		size_t copysize = cur - oldcur;
-		//printf("<<<< copy %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
+		if (ac->log_level > 4)
+			printf("<<<< copy non template %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
 		strncpy(dst+csym, oldcur, copysize);
 		csym += copysize;
 
-		//puts("<<<check updatecur");
 		if (!updatecur)
 			break;
 
-		cur += 2;
+		cur += 1;
 		index = strtoll(cur, &cur, 10);
-		//printf("<<<check index from '%s': %"u64"\n", cur, index);
+		if (ac->log_level > 4)
+			printf("<<<get index of template '%s': %"u64"\n", cur, index);
 		if (index < 1)
 			break;
-		index--;
-		++cur;
-		//printf("<<<checked index from '%s': %"u64"\n", cur, index);
+		
+		index--; // index decrement because take from null
 
-		//printf("<<<<<1 dst %s\n", dst);
+		if (ac->log_level > 4)
+			printf("<<<templating element '%s': with [%"u64"] element\n", cur, index);
+
+		if (ac->log_level > 4)
+			printf("<<<<<1 dst %s\n", dst);
+
 		oldcur = cur;
-		//printf("<<<<< metric_split %s\n", metric_split[index]);
+		if (ac->log_level > 4)
+			printf("<<<<< metric_split %s\n", metric_split[index]);
 
+		if (!metric_split[index])
+			break;
 		copysize = strlen(metric_split[index]);
 		strncpy(dst+csym, metric_split[index], copysize);
-		//printf("<<<< copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
+		if (ac->log_level > 4)
+			printf("<<<< 2copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
+
 		csym += copysize;
-		//printf("<<<<<%"u64" dst %s\n", index, dst);
+		if (ac->log_level > 4)
+			printf("<<<<<%"u64" dst %s\n", index, dst);
 	}
-	//printf("null pointer to %"u64"\n", csym);
 	dst[csym] = 0;
 	
 
@@ -267,11 +307,14 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 
 	for (; mm; mm = mm->next)
 	{
-		char **metric_split = mapping_match(mm, metric_name, metric_len);
+		uint64_t input_name_size = strcspn(str, ": \t\n");
+		char *matchres = strndup(str, input_name_size);
+		//char **metric_split = mapping_match(mm, metric_name, metric_len);
+		char **metric_split = mapping_match(mm, matchres, input_name_size);
 		//printf("Match??? %p %s\n", metric_split, mm->metric_name);
+		//printf("Match??? %s %s\n", matchres, mm->template);
 		if (metric_split)
 		{
-			//puts("match!!!");
 			if (mm->metric_name)
 			{
 				metric_len = mapping_template(metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split);

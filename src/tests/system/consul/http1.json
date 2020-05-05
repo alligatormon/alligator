@@ -1,0 +1,10 @@
+{
+  "ID": "http1",
+  "Name": "http",
+  "Address": "172.17.0.3",
+  "Port": 80,
+  "Meta": {
+    "alligator_url": "tcp://172.17.0.3:1717",
+    "alligator_handler": "uwsgi"
+  }
+}

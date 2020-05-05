@@ -132,7 +132,15 @@ void get_rpm_info(rpm_library *rpmlib)
 	}
 
 	db = rpmlib->rpmtsCreate();
+
+	int64_t failedval = 0;
+
 	mi = rpmlib->rpmtsInitIterator(db, RPMDBI_PACKAGES, NULL, 0);
+	if (!mi)
+		failedval = 1;
+
+	metric_add_auto("rpmdb_load_failed", &failedval, DATATYPE_INT, ac->system_carg);
+
 	while ((h = rpmlib->rpmdbNextIterator(mi)) != NULL)
 	{
 		ctime = 0;

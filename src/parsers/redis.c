@@ -296,3 +296,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 }
+
+int8_t redis_validator(char *data, size_t size)
+{
+	char *ret = strstr(data, "Keyspace");
+	if (ret)
+		return 1;
+	else
+		return 0;
+}

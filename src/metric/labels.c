@@ -75,6 +75,69 @@ int labels_cmp(labels_t *labels1, labels_t *labels2)
 	return 0;
 }
 
+int labels_match(labels_t *labels1, labels_t *labels2)
+{
+	extern aconf *ac;
+	sortplan *sort_plan = ac->nsdefault->metrictree->sort_plan;
+
+	int64_t i;
+	size_t plan_size = sort_plan->size;
+	for (i=0; i<plan_size && labels1 && labels2; i++)
+	{
+		//printf("1check %s <> %s\n", sort_plan->plan[i], labels1->name);
+		if (strcmp(sort_plan->plan[i], labels1->name))
+			return -1;
+		//printf("2check %s <> %s\n", sort_plan->plan[i], labels2->name);
+		if (strcmp(sort_plan->plan[i], labels2->name))
+			return 1;
+
+		char *str1 = labels1->key;
+		char *str2 = labels2->key;
+
+		if (!str1 && !str2)
+		{
+			// equal
+			labels1 = labels1->next;
+			labels2 = labels2->next;
+			continue;
+		}
+		if (!str1)
+		{
+			return -1;
+		}
+		if (!str2)
+		{
+			labels1 = labels1->next;
+			labels2 = labels2->next;
+			continue;
+			//return 0;
+		}
+		//printf("labels1->key '%s'\n", str1);
+		//printf("labels2->key '%s'\n", str2);
+
+		size_t str1_len = labels1->key_len;
+		size_t str2_len = labels2->key_len;
+
+		size_t size = str1_len > str2_len ? str2_len : str1_len;
+		int ret = strncmp(str1, str2, size);
+		if (!ret)
+			if (str1_len == str2_len)
+			{
+				// equal
+				labels1 = labels1->next;
+				labels2 = labels2->next;
+				continue;
+			}
+			else if (str1_len > str2_len)
+				return 1;
+			else
+				return -1;
+		else
+			return ret;
+	}
+	return 0;
+}
+
 void labels_print(labels_t *labels, int l)
 {
 	labels_t *cur = labels;
@@ -87,6 +150,51 @@ void labels_print(labels_t *labels, int l)
 		printf("%s:%s (%zu/%zu), go to: %p\n", cur->name, cur->key, cur->name_len, cur->key_len, cur->next);
 		cur = cur->next;
 	}
+}
+
+void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x)
+{
+	if (!labels)
+		return;
+
+	labels_t *cur = labels;
+
+	string_cat(str, cur->key, strlen(cur->key));
+	string_cat(str, "{", 1);
+	cur = cur->next;
+
+	while (cur)
+	{
+		//uint64_t i;
+		//for ( i=0; i<l; i++)
+		//	printf("\t");
+		//printf("%s:%s (%zu/%zu), go to: %p\n", cur->name, cur->key, cur->name_len, cur->key_len, cur->next);
+		if(cur->key)
+		{
+			string_cat(str, cur->name, strlen(cur->name));
+			string_cat(str, "=\"", 2);
+			string_cat(str, cur->key, strlen(cur->key));
+
+			if (cur->next)
+				string_cat(str, "\", ", 3);
+			else
+				string_cat(str, "\"} ", 3);
+		}
+
+		cur = cur->next;
+	}
+
+	int8_t type = x->type;
+	if (type == DATATYPE_INT)
+		string_int(str, x->i);
+	else if (type == DATATYPE_UINT)
+		string_uint(str, x->u);
+	else if (type == DATATYPE_DOUBLE)
+		string_double(str, x->d);
+	else if (type == DATATYPE_STRING)
+		string_cat(str, x->s, strlen(x->s));
+
+	string_cat(str, "\n", 1);
 }
 
 int labels_hash_compare(const void* arg, const void* obj)
@@ -180,17 +288,21 @@ void labels_new_plan_node(void *funcarg, void* arg)
 		cur = cur->next;
 	cur->next = malloc(sizeof(labels_t));
 	cur = cur->next;
-	cur->name = labelscont->name;
+	cur->name = strdup(labelscont->name);
+	//cur->name = labelscont->name;
 	cur->name_len = strlen(cur->name);
-	cur->key = labelscont->key;
+	cur->key = strdup(labelscont->key);
+	//cur->key = labelscont->key;
 	cur->key_len = strlen(cur->key);
 	cur->next = 0;
 
-	cur->allocatedname = labelscont->allocatedname;
-	cur->allocatedkey = labelscont->allocatedkey;
+	cur->allocatedname = 1;
+	cur->allocatedkey = 1;
+	//cur->allocatedname = labelscont->allocatedname;
+	//cur->allocatedkey = labelscont->allocatedkey;
 
 	// add element to sortplan
-	sort_plan->plan[(sort_plan->size)++] = labelscont->name;
+	sort_plan->plan[(sort_plan->size)++] = cur->name;
 
 	free(labelscont);
 }
@@ -259,7 +371,7 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	uint64_t i;
 	for (i=1; i<sort_plan->size; i++)
 	{
-		cur->next = malloc(sizeof(labels_t));
+		cur->next = calloc(1, sizeof(labels_t));
 		cur = cur->next;
 		cur->sort_plan = sort_plan;
 		cur->name = sort_plan->plan[i];
@@ -517,6 +629,83 @@ void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, 
 	}
 }
 
+void metric_update_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_gset(mnode, type, value, expiretree);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree);
+	}
+}
+
+void metric_update_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_gset(mnode, type, value, expiretree);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree);
+	}
+}
+
 void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
 {
 	extern aconf *ac;
@@ -554,8 +743,10 @@ void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, con
 		mnode = metric_insert(tree, labels_list, type, value, expiretree);
 	}
 
-	if (carg && carg->mm)
+	if (carg && carg->mm && !strstr(name, "_quantile") && !strstr(name, "_le") && !strstr(name, "_bucket"))
+	{
 		mapping_processing(carg, mnode, metric_get_int(value, type));
+	}
 }
 
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
@@ -873,3 +1064,26 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 		metric_insert(tree, labels_list, type, value, expiretree);
 	}
 }
+
+void metric_query (char *namespace, string *str, char *name, char *name1, char *key1)
+{
+	extern aconf *ac;
+	namespace_struct *ns;
+
+	if (!namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+	metric_tree *tree = ns->metrictree;
+
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+
+	labels_hash_insert(hash, name1, key1);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+
+	if ( tree && tree->root )
+		metrictree_get(tree->root, labels_list, str);
+}
+

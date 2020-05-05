@@ -1,0 +1,14 @@
+{
+  "datacenter": "default",
+  "data_dir": "/opt/consul/server",
+  "server": true,
+  "bind_addr": "172.17.0.2",
+  "ports":
+  {
+    "dns": -1,
+    "https": -1,
+    "grpc": -1,
+    "serf_wan": -1,
+    "http": 18500
+  }
+}

@@ -2,6 +2,7 @@
 #include "events/context_arg.h"
 void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, context_arg*), string *response, context_arg *carg);
 void redis_handler(char *metrics, size_t size, context_arg *carg);
+int8_t redis_validator(char *data, size_t size);
 void sentinel_handler(char *metrics, size_t size, context_arg *carg);
 void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg);
 void aerospike_get_namespaces_handler(char *metrics, size_t size, context_arg *carg);

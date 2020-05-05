@@ -1,4 +1,5 @@
 #include "main.h"
+#include "common/selector.h"
 
 void general_loop_cb(uv_timer_t* handle)
 {
@@ -31,6 +32,14 @@ void dump_loop()
 	metric_dump(-1);
 }
 
+void internal_query_loop()
+{
+	string *body = string_init(10000000);
+	metric_query(0, body, "process_state", "name", "cc1");
+	puts(body->s);
+	string_free(body);
+}
+
 void general_loop()
 {
 	extern aconf* ac;
@@ -47,4 +56,8 @@ void general_loop()
 	uv_timer_t *dump_timer = calloc(1, sizeof(*dump_timer));
 	uv_timer_init(loop, dump_timer);
 	uv_timer_start(dump_timer, dump_loop, 11000, ac->persistence_period);
+
+	//uv_timer_t *internal_query = calloc(1, sizeof(*internal_query));
+	//uv_timer_init(loop, internal_query);
+	//uv_timer_start(internal_query, internal_query_loop, 3000, 1000);
 }

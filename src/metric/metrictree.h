@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "metric/labels.h"
 #include "metric/percentile_heap.h"
+#include "common/selector.h"
 
 #define	RED	1
 #define	BLACK	0
@@ -144,3 +145,5 @@ typedef struct mapping_metric
 //void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
+void metrictree_get(metric_node *x, labels_t* labels, string *str);
+void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x);

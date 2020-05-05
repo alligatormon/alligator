@@ -95,7 +95,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 	char *pfield = malloc(METRIC_SIZE);
 	size_t cpy_sz;
 	char *ret = 0;
-	if (maps_size)
+	if (maps && maps_size)
 	{
 		ret = malloc(METRIC_SIZE*maps_size);
 		*ret = 0;
@@ -262,6 +262,7 @@ string* string_init(size_t max)
 	ret->s = malloc(max);
 	*ret->s = 0;
 	ret->l = 0;
+	//printf("alloc: %p\n", ret->s);
 
 	return ret;
 }
@@ -274,6 +275,7 @@ void string_null(string *str)
 
 void string_free(string *str)
 {
+	//printf("free: %p\n", str->s);
 	free(str->s);
 	free(str);
 }

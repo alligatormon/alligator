@@ -1,0 +1,104 @@
+{
+  "ID": "redis1",
+  "Name": "redis",
+  "Address": "127.0.0.1",
+  "Port": 8000,
+  "Meta": {
+    "alligator":
+    {
+      "log_level": 10,
+      "aggregate":
+      [
+        { "handler": "uwsgi",
+          "url": "tcp://127.0.0.1:1717",
+          "labels":
+          {
+            "service": "app",
+            "app": "web"
+          }
+        },
+        { "handler": "redis",
+          "url": "tcp://127.0.0.1:6379",
+          "labels":
+          {
+            "service": "redis",
+            "redis": "web"
+          }
+        }
+      ],
+      "entrypoint":
+      [
+        { "listen":
+          [
+            { "proto": "udp",
+              "port": 1111
+            }
+          ],
+          "handler": "rsyslog-impstats"
+        },
+        { "listen":
+          [
+            { "proto": "tcp",
+              "port": 1111
+            }
+          ]
+        },
+        { "listen":
+          [
+            { "proto": "udp",
+              "address": "127.0.0.1",
+              "port": 8125
+            },
+            { "proto": "tcp",
+              "port": 8125
+            }
+          ],
+          "mapping":
+          [  { "template": "test1.*.test2.*",
+               "name": "\"$1\"_\"$2\"",
+               "label":
+               [  { "key": "label_name_\"$1\"",
+                    "value": "\"$2\"_key"
+                  }
+               ],
+               "buckets":
+               [  100,
+                  200,
+                  300
+               ],
+               "match": "glob"
+             },
+             { "template": "test2.*.test3.*",
+               "name": "\"$1\"_\"$2\"",
+               "label":
+               [  { "key": "label_name_\"$1\"",
+                    "value": "\"$2\"_key"
+                  }
+               ],
+               "le":
+               [  100,
+                  200,
+                  300
+               ],
+               "match": "glob"
+             },
+             { "template": "test3.*.test4.*",
+               "name": "\"$1\"_\"$2\"",
+               "label":
+               [  { "key": "label_name_\"$1\"",
+                    "value": "\"$2\"_key"
+                  }
+               ],
+               "quantiles":
+               [  0.999,
+                  0.95,
+                  0.9
+               ],
+               "match": "glob"
+             }
+          ]
+        }
+      ]
+    }
+  }
+}

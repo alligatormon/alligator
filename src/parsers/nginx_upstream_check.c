@@ -27,6 +27,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 
 	while(i<size)
 	{
+		//printf("DEBUG: %lld < %zu\n", i, size);
 		//++i;
 		cur = strcspn(metrics+i, ",");
 		cur++;
@@ -108,7 +109,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 
 		if (!metric_label_validator(type, type_len))
 		{
-			puts("validate type is ERR");
+			if (ac->log_level > 3)
+				puts("validate type is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
@@ -116,7 +118,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 			puts("validate type is OK");
 		if (!metric_label_validator(status, status_len))
 		{
-			puts("validate status is ERR");
+			if (ac->log_level > 3)
+				puts("validate status is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
@@ -132,7 +135,8 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 			puts("validate server is OK");
 		if (!metric_label_validator(upstream, upstream_len))
 		{
-			puts("validate upstream is ERR");
+			if (ac->log_level > 3)
+				puts("validate upstream is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}

@@ -18,6 +18,7 @@ mapping_metric* context_mapping_parser(mtlen *mt, int64_t *i)
 
 	for (; *i<mt->m && !config_compare(mt, *i, "}", 1); ++*i)
 	{
+		//printf("i: %lld, 1:'%s', 2:'%s', 3:'%s'\n", *i, mt->st[*i].s, mt->st[*i+1].s, mt->st[*i+2].s);
 		if (config_compare_begin(mt, *i, "name", 4))
 		{
 			ptr = config_get_arg(mt, *i, 1, NULL);

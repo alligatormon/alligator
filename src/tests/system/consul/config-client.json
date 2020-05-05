@@ -1,0 +1,21 @@
+{
+  "node_name": "etg4b93873h4dj",
+  "datacenter": "default",
+  "data_dir": "/opt/consul/client",
+  "server": false,
+  "bind_addr": "127.0.0.1",
+  "disable_host_node_id": true,
+  "ports":
+  {
+    "dns": -1,
+    "https": -1,
+    "grpc": -1,
+    "serf_wan": -1,
+    "http": 8500,
+    "serf_lan": 8301
+  },
+  "start_join":
+  [
+    "172.17.0.2"
+  ]
+}

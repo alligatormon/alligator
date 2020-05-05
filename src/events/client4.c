@@ -96,8 +96,6 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		if (buf && buf->base)
 		{
-			//puts(buf->base+10);
-
 			if (!carg->full_body->l)
 			{
 				string_cat(carg->full_body, buf->base, nread);
@@ -117,12 +115,16 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				chunk_calc(carg, buf->base, nread);
 			}
 			else
+			{
 				string_cat(carg->full_body, buf->base, nread);
+			}
 
 			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l);
-			//printf("tcp_check_full: %d: %s\n", rc, carg->full_body->s);
+			//printf("tcp_check_full: %d: %p\n", rc, carg->full_body->s);
 			if (rc)
+			{
 				alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+			}
 		}
 	}
 
@@ -131,7 +133,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	else if(nread == UV_EOF)
 	{
-		if (carg->full_body && !carg->parsed)
+		if (carg->full_body->l && !carg->parsed)
 			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
 		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
@@ -420,6 +422,8 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	context_arg *carg = timer->data;
 	if (ac->log_level > 1)
 		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	if (!carg->parsed && carg->full_body->l)
+		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	tcp_client_close((uv_handle_t *)&carg->client);
 }
 
@@ -454,9 +458,42 @@ void tcp_client_connect(void *arg)
 		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tcp_connected);
 }
 
+void unix_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	carg->count = 0;
+	if (ac->log_level > 1)
+		printf("%"u64": unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+
+	carg->lock = 1;
+	carg->parsed = 0;
+	carg->is_closing = 0;
+
+	carg->tt_timer->data = carg;
+	uv_timer_init(carg->loop, carg->tt_timer);
+	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+	memset(&carg->connect, 0, sizeof(carg->connect));
+	carg->connect.data = carg;
+
+	memset(&carg->client, 0, sizeof(carg->client));
+	carg->client.data = carg;
+
+	uv_pipe_init(carg->loop, (uv_pipe_t*)&carg->client, 0); 
+	carg->connect.data = carg;
+	carg->client.data = carg;
+	if (carg->tls)
+		tls_client_init(carg->loop, carg);
+
+	if (carg->tls)
+		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tls_connected);
+	else
+		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tcp_connected);
+}
+
 static void tcp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
 	tommy_hashdyn_foreach(ac->aggregator, tcp_client_connect);
+	tommy_hashdyn_foreach(ac->uggregator, unix_client_connect);
 }
 
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
@@ -519,82 +556,69 @@ void unix_tcp_client(context_arg* carg)
 	if (!carg)
 		return;
 
-	//extern aconf* ac;
-	//uv_loop_t *loop = ac->loop;
-	//context_arg *carg = arg;
-	//uv_pipe_t *handle = malloc(sizeof(uv_pipe_t));
-	//carg->socket = (uv_tcp_t*)handle;
-	//uv_connect_t *connect = carg->connect = (uv_connect_t*)malloc(sizeof(uv_connect_t));
+	carg->key = malloc(255);
+	snprintf(carg->key, 255, "%s", carg->host);
 
-	uv_pipe_init(carg->loop, (uv_pipe_t*)&carg->client, 0); 
-	carg->connect.data = carg;
-	carg->client.data = carg;
-	if (carg->tls)
-		tls_client_init(carg->loop, carg);
-
-	if (carg->tls)
-		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tls_connected);
-	else
-		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tcp_connected);
+	tommy_hashdyn_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }
 
-void fill_unixunbound(context_arg *carg)
-{
-	carg->tls = 1;
-	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
-	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
-	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
-	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
-	memcpy(carg->host, "/var/run/unbound.sock",  strlen("/var/run/unbound.sock"));
-
-	unix_tcp_client(carg);
-}
-
-void fill_tcpunbound(context_arg *carg)
-{
-	carg->tls = 1;
-	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
-	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
-	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
-	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
-	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-	memcpy(carg->port, "8953", strlen("8953"));
-
-	tcp_client(carg);
-}
-
-void fill_tcpmemcached(context_arg *carg)
-{
-	carg->tls = 1;
-	carg->request_buffer = uv_buf_init(MESG3, sizeof(MESG3));
-	carg->tls_ca_file = strdup("/app/certs/ca.key");
-	carg->tls_cert_file = strdup("/app/certs/client2.crt");
-	carg->tls_key_file = strdup("/app/certs/client2.key");
-	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-	memcpy(carg->port, "11211", strlen("11211"));
-	tcp_client(carg);
-}
-
-void fill_news(context_arg *carg)
-{
-	carg->tls = 1;
-	carg->request_buffer = uv_buf_init(MESG, sizeof(MESG));
-	memcpy(carg->host, URL,  strlen(URL));
-	memcpy(carg->port, PORT, strlen(PORT));
-	tcp_client(carg);
-}
-
-void fill_nginx(context_arg *carg)
-{
-	carg->tls = 1;
-	carg->request_buffer = uv_buf_init(MESG4, sizeof(MESG4)-1);
-	carg->tls_ca_file = strdup("/app/certs/ca.key");
-	carg->tls_cert_file = strdup("/app/certs/client2.crt");
-	carg->tls_key_file = strdup("/app/certs/client2.key");
-	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-	memcpy(carg->port, "443", strlen("443"));
-	tcp_client(carg);
-}
+//void fill_unixunbound(context_arg *carg)
+//{
+//	carg->tls = 1;
+//	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
+//	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
+//	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
+//	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
+//	memcpy(carg->host, "/var/run/unbound.sock",  strlen("/var/run/unbound.sock"));
+//
+//	unix_tcp_client(carg);
+//}
+//
+//void fill_tcpunbound(context_arg *carg)
+//{
+//	carg->tls = 1;
+//	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
+//	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
+//	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
+//	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
+//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
+//	memcpy(carg->port, "8953", strlen("8953"));
+//
+//	tcp_client(carg);
+//}
+//
+//void fill_tcpmemcached(context_arg *carg)
+//{
+//	carg->tls = 1;
+//	carg->request_buffer = uv_buf_init(MESG3, sizeof(MESG3));
+//	carg->tls_ca_file = strdup("/app/certs/ca.key");
+//	carg->tls_cert_file = strdup("/app/certs/client2.crt");
+//	carg->tls_key_file = strdup("/app/certs/client2.key");
+//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
+//	memcpy(carg->port, "11211", strlen("11211"));
+//	tcp_client(carg);
+//}
+//
+//void fill_news(context_arg *carg)
+//{
+//	carg->tls = 1;
+//	carg->request_buffer = uv_buf_init(MESG, sizeof(MESG));
+//	memcpy(carg->host, URL,  strlen(URL));
+//	memcpy(carg->port, PORT, strlen(PORT));
+//	tcp_client(carg);
+//}
+//
+//void fill_nginx(context_arg *carg)
+//{
+//	carg->tls = 1;
+//	carg->request_buffer = uv_buf_init(MESG4, sizeof(MESG4)-1);
+//	carg->tls_ca_file = strdup("/app/certs/ca.key");
+//	carg->tls_cert_file = strdup("/app/certs/client2.crt");
+//	carg->tls_key_file = strdup("/app/certs/client2.key");
+//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
+//	memcpy(carg->port, "443", strlen("443"));
+//	tcp_client(carg);
+//}
 
 //int main()
 //{

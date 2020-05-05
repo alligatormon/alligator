@@ -190,7 +190,10 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
+	{
 		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
 
 	json_t *value, *value2, *value3, *value4;
 	const char *key, *key2, *key3, *key4;
@@ -306,7 +309,10 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
+	{
 		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
 
 	// get cluster name
 	//json_t *cluster_name_json = json_object_get(root, "cluster_name");
@@ -482,7 +488,10 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
+	{
 		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
 
 	char string2[255];
 	char string3[255];
