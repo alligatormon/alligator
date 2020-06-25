@@ -104,6 +104,12 @@ aggregate backends {
 	syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl
 	# hadoop
 	hadoop http://localhost:50075/jmx;
+	#UNBOUND over unix socket
+	unbound tls://unix:/var/run/unbound.sock tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
+	#UNBOUND over tls socket
+	unbound tls://localhost:8953 tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
+	#JMX
+	jmx service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
 }
 ```
 
@@ -185,6 +191,19 @@ entrypoint {
 }
 ```
 
+# Call external methods in different languages (now support only java)
+```
+modules {
+	jvm /usr/lib64/libjvm.so;
+}
+lang {
+	lang java;
+	classpath dfvfvr;
+	classname alligatorJmx;
+	method getJmx;
+	arg service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
+}
+```
 
 
 # Distribution
