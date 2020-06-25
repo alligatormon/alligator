@@ -34,10 +34,21 @@ void dump_loop()
 
 void internal_query_loop()
 {
-	string *body = string_init(10000000);
-	metric_query(0, body, "process_state", "name", "cc1");
-	puts(body->s);
-	string_free(body);
+	//puts("internal loop");
+	//string *body = string_init(10000000);
+
+	//tommy_hashdyn *hash = malloc(sizeof(*hash));
+	//tommy_hashdyn_init(hash);
+
+	//labels_hash_insert(hash, "pid", "1");
+	//labels_hash_insert(hash, "name", "tail");
+	//labels_hash_insert(hash, "type", "stack_bytes");
+
+	//metric_query(0, body, "process_stats", hash, "> 0");
+	//puts(body->s);
+	//string_free(body);
+	query_processing();
+
 }
 
 void general_loop()
@@ -57,7 +68,7 @@ void general_loop()
 	uv_timer_init(loop, dump_timer);
 	uv_timer_start(dump_timer, dump_loop, 11000, ac->persistence_period);
 
-	//uv_timer_t *internal_query = calloc(1, sizeof(*internal_query));
-	//uv_timer_init(loop, internal_query);
-	//uv_timer_start(internal_query, internal_query_loop, 3000, 1000);
+	uv_timer_t *internal_query = calloc(1, sizeof(*internal_query));
+	uv_timer_init(loop, internal_query);
+	uv_timer_start(internal_query, internal_query_loop, 3000, 10000);
 }

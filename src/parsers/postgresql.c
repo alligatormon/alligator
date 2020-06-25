@@ -10,7 +10,7 @@ static void pg_wait_cb(void* opaque, PGresult* r)
 {
 	puts("=========================================");
 	puts(opaque);
-	printf("tupes: %lld\nfield: %lld\nresult: %lld\n", pqlib->PQntuples(r), pqlib->PQnfields(r), pqlib->PQresultStatus(r));
+	printf("tupes: %d\nfield: %d\nresult: %d\n", pqlib->PQntuples(r), pqlib->PQnfields(r), pqlib->PQresultStatus(r));
 	int i;
 	int j;
 	for (i=0; i<pqlib->PQntuples(r); i++)

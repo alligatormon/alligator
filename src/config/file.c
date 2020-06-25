@@ -82,7 +82,7 @@ mtlen* split_char_to_mtlen(char *str)
 			qts = config_is_quotas(str+i, k+1, quotas);
 			//printf("qts is %d\n", qts);
 			if (qts == 1)
-				strncat(quotas, str+i+1, k+1);
+				strncat(quotas, str+i+1, k);
 			else if (qts == 2)
 				strncat(quotas, str+i, k+1);
 			else if (qts == 3)
@@ -91,6 +91,7 @@ mtlen* split_char_to_mtlen(char *str)
 				mt->st[j].s = strdup(quotas);
 				mt->st[j].l = strlen(quotas);
 				*quotas = 0;
+				qts = 0;
 				//printf("%d: quotas copy '%s' with len %d\n", j, mt->st[j].s, mt->st[j].l);
 				++j;
 			}
@@ -107,6 +108,7 @@ mtlen* split_char_to_mtlen(char *str)
 		{
 			mt->st[j].s = strndup(str+z, 1);
 			mt->st[j].l = 1;
+			//printf("%d: copy '%s' with len 1\n", j, mt->st[j].s);
 			++j;
 		}
 

@@ -36,3 +36,10 @@ init_func module_load(const char *so_name, const char *func, uv_lib_t **lib)
 		printf("func addr %p\n", init_plugin);
 	return init_plugin;
 }
+
+int module_compare(const void* arg, const void* obj)
+{
+	char *s1 = (char*)arg;
+	char *s2 = ((module_t*)obj)->key;
+	return strcmp(s1, s2);
+}

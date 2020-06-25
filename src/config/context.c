@@ -12,6 +12,7 @@
 #include "common/rpm.h"
 #include "common/json_parser.h"
 #include "dynconf/sd.h"
+#include "lang/lang.h"
 
 int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 {
@@ -21,7 +22,7 @@ int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 
 	if (size != cstr_size)
 	{
-		//puts("0FALSE");
+		//printf("0FALSE: size mismatch: %zu <> %zu\n", size, cstr_size);
 		return 0;
 	}
 
@@ -48,7 +49,7 @@ size_t config_get_field_size(mtlen *mt, int64_t i)
 
 int8_t config_compare_begin(mtlen *mt, int64_t i, char *str, size_t size)
 {
-	//printf("compare %s and %s\n", mt->st[i].s, str);
+	//printf("compare %s and %s (and %s <> { or } or ;)\n", mt->st[i].s, str, mt->st[i-1].s);
 	if ((i > 0) && (config_compare(mt, i-1, "{", 1) || config_compare(mt, i-1, "}", 1) || config_compare(mt, i-1, ";", 1)))
 		return config_compare(mt, i, str, size);
 	else if (i == 0)
@@ -677,6 +678,18 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			//func(hi->host);
 			//do_pg_client();
 		}
+		else if (!strcmp(mt->st[*i-1].s, "jmx"))
+		{
+			lang_options *lo = calloc(1, sizeof(*lo));
+			lo->lang = "java";
+			lo->classpath = "-Djava.class.path=/var/lib/alligator/";
+			lo->classname = "alligatorJmx";
+			lo->method = "getJmx";
+			lo->arg = strdup(mt->st[*i].s); //service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			lo->carg = context_arg_fill(mt, i, hi, NULL, NULL, 0, NULL, NULL, ac->loop);
+			lang_push(lo);
+		}
 	}
 }
 
@@ -1036,10 +1049,84 @@ void context_persistence_parser(mtlen *mt, int64_t *i)
 	}
 }
 
-void context_modules_parser(mtlen *mt, int64_t *i)
+void context_query_parser(mtlen *mt, int64_t *i)
 {
+	extern aconf *ac;
+
 	if ( *i == 0 )
 		*i += 1;
+
+	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
+	{
+		if (!(mt->st[*i].l))
+			continue;
+
+		if (config_compare_begin(mt, *i, "expr", 4))
+		{
+			printf("expr is %s\n", mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "action", 6))
+		{
+			printf("action is %s\n", mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "make", 4))
+		{
+			printf("make is %s\n", mt->st[*i+1].s);
+		}
+	}
+}
+
+void context_lang_parser(mtlen *mt, int64_t *i)
+{
+	extern aconf *ac;
+
+	if ( *i == 0 )
+		*i += 1;
+
+	lang_options *lo = calloc(1, sizeof(*lo));
+	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
+	{
+		if (!(mt->st[*i].l))
+			continue;
+
+		if (config_compare_begin(mt, *i, "lang", 4))
+		{
+			printf("lang is %s\n", mt->st[*i+1].s);
+			lo->lang = strdup(mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "classpath", 9))
+		{
+			printf("classpath is %s\n", mt->st[*i+1].s);
+			lo->classpath = strdup(mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "classname", 9))
+		{
+			printf("classname is %s\n", mt->st[*i+1].s);
+			lo->classname = strdup(mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "method", 6))
+		{
+			printf("method is %s\n", mt->st[*i+1].s);
+			lo->method = strdup(mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "arg", 3))
+		{
+			printf("arg is %s\n", mt->st[*i+1].s);
+			lo->arg = strdup(mt->st[*i+1].s);
+		}
+	}
+	lang_push(lo);
+}
+
+void context_modules_parser(mtlen *mt, int64_t *i)
+{
+	*i += 1;
 
 	extern aconf *ac;
 
@@ -1048,25 +1135,16 @@ void context_modules_parser(mtlen *mt, int64_t *i)
 		if (!(mt->st[*i].l))
 			continue;
 
-#ifdef __linux__
-//		if (config_compare_begin(mt, *i, "postgresql", 10))
-//		{
-//			extern pq_library *pqlib;
-//			char *module = mt->st[(*i)++].s;
-//			char *path = mt->st[*i].s;
-//			pqlib = pg_init(path);
-//			if (ac->log_level > 1)
-//				printf("postgresql module %s with path %s\n", module, path);
-//		}
-#endif
-		if (config_compare_begin(mt, *i, "mysql", 5))
-		{
-			char *module = mt->st[(*i)++].s;
-			char *path = mt->st[*i].s;
-			//mylib = my_init(path);
-			if (ac->log_level > 1)
-				printf("mysql module %s with path %s\n", module, path);
-		}
+		if (!strncmp(mt->st[*i].s, "{", 1))
+			continue;
+
+		if (!strncmp(mt->st[*i].s, ";", 1))
+			continue;
+
+		module_t *module = calloc(1, sizeof(*module));
+		module->key = strdup(mt->st[(*i)++].s);
+		module->path = strdup(mt->st[*i].s);
+		tommy_hashdyn_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 	}
 }
 

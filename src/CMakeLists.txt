@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
-##add_subdirectory(external/mbedtls)
 
-project(alligator VERSION 1.10.60)
+project(alligator VERSION 1.10.91)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -12,25 +11,23 @@ set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
 
 
-#set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-format-truncation -Wno-error=unused-result -O3 -std=gnu11 -pthread")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -O3 -std=gnu11 -pthread")
 include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/cutter)
 include_directories(/usr/local/include/cutter)
-#include_directories(/usr/local/opt/openssl/include/)
-#include_directories(/usr/local/ssl/include/)
-#include_directories(evt-tls/api)
-#include_directories(evt-tls)
+IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+include_directories(external/mbedtls/include/)
+link_directories(external/mbedtls/library/)
+ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+
 include_directories(external/libpquv/src/include/)
-include_directories(external/libuv-mbedtls/include/)
 include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
-##include_directories(external/mbedtls/include/)
-##include_directories(external/mbedtls/crypto/include/)
+include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/)
+include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/linux/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-#link_directories(/usr/local/ssl/lib/)
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
 link_directories(external/mbedtls/library/)
@@ -38,16 +35,12 @@ link_directories(external/mbedtls/crypto/library/)
 link_directories(external/iptables/libiptc/.libs/)
 
 set(STATIC_FILES
-	#events/uv_tls.c
 	events/uv_alloc.c
 	events/a_signal.c
-	events/httpserver.c
-	#events/client.c
-	#events/sclient.c
-	events/sclient3.c
-	events/client3.c
+	events/debug.c
+	events/server2.c
+	events/client4.c
 	events/process.c
-	events/unix_client.c
 	events/unix_server.c
 	events/unixgram.c
 	events/udp.c
@@ -57,6 +50,8 @@ set(STATIC_FILES
 	events/fs_write.c
 	events/fs_read.c
 	events/system_scrape.c
+	events/fragmentation.c
+	events/access.c
 	platform/libbsd.c
 	parsers/dummy.c
 	parsers/pushgateway.c
@@ -94,6 +89,7 @@ set(STATIC_FILES
 	parsers/json.c
 	parsers/postgresql.c
 	parsers/hadoop.c
+	parsers/unbound.c
 	common/selector.c
 	#common/https_tls_check.c
 	common/pem_check2.c
@@ -112,6 +108,7 @@ set(STATIC_FILES
 	common/netlib.c
 	common/rpm.c
 	common/mkdirp.c
+	common/query.c
 	api/api_router.c
 	api/api_v1.c
 	common/iptc.c
@@ -120,6 +117,8 @@ set(STATIC_FILES
 	config/context.c
 	config/mapping.c
 	dynconf/sd.c
+	lang/lang.c
+	lang/java.c
 	system/linux.c
 	system/freebsd.c
 	system/macosx.c
@@ -140,20 +139,10 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytree.c
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
-	#evt-tls/src/evt_tls.c
-	external/libpquv/src/pquv.c
-	external/libpquv/src/util.c
 	
 )
 add_library(${COMMON} STATIC ${STATIC_FILES})
 add_executable(${HEAD} main.c)
-
-#add_subdirectory(modules/libpquv)
-#add_library(postgresql_client SHARED modules/postgresql.c)
-#target_link_libraries(postgresql_client c pquv)
-#include_directories(./modules/libpquv/src/include/)
-#link_directories(./modules/libpquv/src/)
-
 
 add_library(${COMMON_TESTS} STATIC
 		common/selector.c
@@ -172,45 +161,30 @@ add_library(${TESTS} SHARED tests/unit/tests.c)
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
-add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
+#add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_test(Test1 "cutter" ".")
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv jansson)
+	target_link_libraries(${HEAD} ${COMMON} uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} ssl crypto uv m kvm util devstat jansson pcre)
+	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	#target_link_libraries(${HEAD} ${COMMON} libssl.a libcrypto.a dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedcrypto.a libmbedx509.a -ludev)
 	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a)
-	#target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
 #target_link_libraries(${JP} ${COMMON} jansson)
-
-#add_library(aggregator3_lib thpool/thpool.c)
-#target_link_libraries(aggregator3_lib pthread)
-#add_executable(${AGGREGATOR3} aggregator3.c)
-#target_link_libraries(${AGGREGATOR3} uv aggregator3_lib)
-
-#set_target_properties(${COMMON} ${PLUGIN} PROPERTIES
-#  PREFIX ""
-#  CXX_STANDARD 14
-#  CXX_STANDARD_REQUIRED ON
-#  COMPILE_OPTIONS -fPIC -Wall -Wextra
-#  )
 
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
-
-#install(TARGETS ${PLUGIN} DESTINATION /usr/lib64/uwsgi)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES alligator

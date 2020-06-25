@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 aconf *ac;
-pq_library *pqlib;
+//pq_library *pqlib;
 
 void ts_initialize()
 {
@@ -76,6 +76,16 @@ void config_context_initialize()
 	ctx = calloc(1, sizeof(*ctx));
 	ctx->key = strdup("persistence");
 	ctx->handler = context_persistence_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("query");
+	ctx->handler = context_query_parser;
+	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
+
+	ctx = calloc(1, sizeof(*ctx));
+	ctx->key = strdup("lang");
+	ctx->handler = context_lang_parser;
 	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
 
 	ctx = calloc(1, sizeof(*ctx));
@@ -158,10 +168,19 @@ aconf* configuration()
 	ac->process_spawner = calloc(1, sizeof(tommy_hashdyn));
 	ac->process_script_dir = "/var/alligator/spawner";
 	ac->process_cnt = 0;
+
+	ac->lang_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->lang_aggregator_startup = 4000;
+	ac->lang_aggregator_repeat = 10000;
+
+	ac->modules = calloc(1, sizeof(tommy_hashdyn));
+
 	tommy_hashdyn_init(ac->aggregator);
 	tommy_hashdyn_init(ac->tls_aggregator);
 	tommy_hashdyn_init(ac->iggregator);
 	tommy_hashdyn_init(ac->process_spawner);
+	tommy_hashdyn_init(ac->lang_aggregator);
+	tommy_hashdyn_init(ac->modules);
 
 	ac->request_cnt = 0;
 	ts_initialize();
@@ -187,12 +206,14 @@ void restore_settings()
 
 int main(int argc, char **argv)
 {
+
 	ac = configuration();
+
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	signal(SIGPIPE, SIG_IGN);
 	general_loop();
 	if (argc < 2)
-		split_config("/etc/alligator.conf");
+		split_config(DEFAULT_CONF_DIR);
 	else
 		split_config(argv[1]);
 
@@ -203,17 +224,18 @@ int main(int argc, char **argv)
 	//filetailer_handler("/var/log/", dummy_handler);
 
 	tcp_client_handler();
-	//tls_tcp_client_handler();
 #ifdef __linux__
 	icmp_client_handler();
 #endif
 	do_system_scrape(get_system_metrics, "systemmetrics");
 	system_scrape_handler();
 	process_handler();
-	unix_client_handler();
+	//unix_client_handler();
 	unixgram_client_handler();
+	lang_handler();
 
-	//uvhttp_client_request();
+	//context_arg* carg = calloc(1, sizeof(*carg));
+	//carg->loop = loop;
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

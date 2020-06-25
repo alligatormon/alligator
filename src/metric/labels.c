@@ -1065,7 +1065,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	}
 }
 
-void metric_query (char *namespace, string *str, char *name, char *name1, char *key1)
+void metric_query (char *namespace, string *str, char *name, tommy_hashdyn *hash, char *query)
 {
 	extern aconf *ac;
 	namespace_struct *ns;
@@ -1076,10 +1076,10 @@ void metric_query (char *namespace, string *str, char *name, char *name1, char *
 		return;
 	metric_tree *tree = ns->metrictree;
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	//tommy_hashdyn *hash = malloc(sizeof(*hash));
+	//tommy_hashdyn_init(hash);
 
-	labels_hash_insert(hash, name1, key1);
+	//labels_hash_insert(hash, name1, key1);
 
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
 

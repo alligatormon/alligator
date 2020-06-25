@@ -25,6 +25,8 @@ void context_system_parser(mtlen *mt, int64_t *i);
 void context_log_level_parser(mtlen *mt, int64_t *i);
 void context_ttl_parser(mtlen *mt, int64_t *i);
 void context_persistence_parser(mtlen *mt, int64_t *i);
+void context_query_parser(mtlen *mt, int64_t *i);
+void context_lang_parser(mtlen *mt, int64_t *i);
 void context_modules_parser(mtlen *mt, int64_t *i);
 void context_configuration_parser(mtlen *mt, int64_t *i);
 char *config_get_arg(mtlen *mt, int64_t i, int64_t num, size_t *out_size);

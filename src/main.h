@@ -2,6 +2,7 @@
 #include "platform/platform.h"
 #include "dstructures/tommy.h"
 #include <uv.h>
+#include <jni.h>
 #include "metric/labels.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"
@@ -23,6 +24,12 @@
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000
+#ifdef __FreeBSD__
+#define DEFAULT_CONF_DIR "/usr/local/etc/alligator.conf"
+#else
+#define DEFAULT_CONF_DIR "/etc/alligator.conf"
+#endif
+
 
 typedef struct system_cpu_cores_stats
 {
@@ -73,6 +80,15 @@ typedef struct aconf
 	tommy_hashdyn* process_spawner; // hashtable with commands
 	char *process_script_dir; // dir where store commands into scripts
 	int64_t process_cnt; // count process pushed to hashtable
+
+	// LANG SPAWNER
+	tommy_hashdyn* lang_aggregator;
+	int64_t lang_aggregator_startup;
+	int64_t lang_aggregator_repeat;
+
+	// modules paths
+	tommy_hashdyn* modules;
+
 	uv_loop_t *loop;
 	uint64_t tcp_client_count;
 	uint64_t icmp_client_count;
@@ -97,12 +113,18 @@ typedef struct aconf
 	int system_smart;
 	int system_packages;
 	int system_firewall;
+#ifdef __linux__
 	rpm_library *rpmlib;
+#endif
 	int8_t rpm_readconf;
 	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	tommy_hashdyn* fdesc;
+
+	uv_lib_t* libjvm_handle;
+	jint (*create_jvm)(JavaVM**, void**, void*);
+	JNIEnv *env;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int64_t ttl; // TTL for metrics

@@ -58,11 +58,9 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		if (!cur)
 			return;
 		cur += 4;
-		int status;
+		int64_t status = 0;
 		if(!strncmp(cur, "True", 4))
 			status = 1;
-		else
-			status = 0;
 		metric_add_labels("flower_worker_status", &status, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
