@@ -168,10 +168,10 @@ void on_process_spawn(void* arg)
 	channel->data = pinfo;
 	uv_pipe_init(loop, channel, 1);
 	uv_stdio_container_t *child_stdio = malloc(3*sizeof(uv_stdio_container_t));
-	child_stdio[STDIN_FILENO].flags = UV_IGNORE;
-	child_stdio[STDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-	child_stdio[STDOUT_FILENO].data.stream = (uv_stream_t*)channel;
-	child_stdio[STDERR_FILENO].flags = UV_IGNORE;
+	child_stdio[ASTDIN_FILENO].flags = UV_IGNORE;
+	child_stdio[ASTDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
+	child_stdio[ASTDOUT_FILENO].data.stream = (uv_stream_t*)channel;
+	child_stdio[ASTDERR_FILENO].flags = UV_IGNORE;
 
 	uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
 	options->exit_cb = _on_exit;

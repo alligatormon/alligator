@@ -1,5 +1,4 @@
 #include "main.h"
-#include "modules/postgresql.h"
 #include <unistd.h>
 #include <string.h>
 aconf *ac;
@@ -109,6 +108,7 @@ void system_initialize()
 	ac->system_vm = 0;
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+	ac->system_carg->ttl = 300;
 	ac->scs = calloc(1, sizeof(system_cpu_stats));
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
@@ -206,7 +206,6 @@ void restore_settings()
 
 int main(int argc, char **argv)
 {
-
 	ac = configuration();
 
 	uv_loop_t *loop = ac->loop = uv_default_loop();

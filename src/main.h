@@ -19,6 +19,8 @@
 #include "parsers/multiparser.h"
 #include "metric/namespace.h"
 #include "common/rpm.h"
+#include "parsers/mongodb.h"
+#include "parsers/postgresql.h"
 #define d8 PRId8
 #define u16 PRIu16
 #define d64 PRId64
@@ -30,6 +32,9 @@
 #define DEFAULT_CONF_DIR "/etc/alligator.conf"
 #endif
 
+#define	ASTDIN_FILENO	0
+#define	ASTDOUT_FILENO	1
+#define	ASTDERR_FILENO	2
 
 typedef struct system_cpu_cores_stats
 {
@@ -126,8 +131,11 @@ typedef struct aconf
 	jint (*create_jvm)(JavaVM**, void**, void*);
 	JNIEnv *env;
 
+	libmongo *libmongo;
+	pq_library *pqlib;
+
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
-	int64_t ttl; // TTL for metrics
+	int64_t ttl; // global TTL for metrics
 
 	// persistence settings
 	char* persistence_dir;

@@ -1,57 +1,211 @@
-#ifdef __linux__
-#include <uv.h>
-#include <pquv.h>
-#include <stdlib.h>
-#include "modules/modules.h"
-#include "modules/postgresql.h"
-extern pq_library *pqlib;
+#include <libpq-fe.h>
+#include "parsers/postgresql.h"
+#include "main.h"
+extern aconf* ac;
 
-static void pg_wait_cb(void* opaque, PGresult* r)
+void postgres_get_result(PGresult *res)
 {
-	puts("=========================================");
-	puts(opaque);
-	printf("tupes: %d\nfield: %d\nresult: %d\n", pqlib->PQntuples(r), pqlib->PQnfields(r), pqlib->PQresultStatus(r));
-	int i;
-	int j;
-	for (i=0; i<pqlib->PQntuples(r); i++)
+	int i, j;
+
+	int64_t rows = ac->pqlib->PQntuples(res);
+	for (i = 0; i < rows; i++)
 	{
-		for (j=0; j<pqlib->PQnfields(r); j++)
+		char	   *iptr;
+		int64_t cols = ac->pqlib->PQnfields(res);
+		for (j = 0; j < cols; j++)
 		{
-			int type = pqlib->PQftype(r,j);
-			if ((type == 17) || (type == 19) || (type == 25))
-				printf("'%s:%d:%s' ", pqlib->PQfname(r, j), pqlib->PQftype(r,j), pqlib->PQgetvalue(r, i, j));
-			else
-				printf("'%s:%d:%d' ", pqlib->PQfname(r, j), pqlib->PQftype(r,j), ntohl(*((uint32_t *)pqlib->PQgetvalue(r, i, j))));
+			int64_t iptr_size = ac->pqlib->PQgetlength(res, i, j);
+			iptr = ac->pqlib->PQgetvalue(res, i, j);
+			char *col_name = ac->pqlib->PQfname(res, j);
+			printf("%s='%s'(%zu) ", col_name, iptr, iptr_size);
 		}
-		puts("");
+		printf("\n");
 	}
-	pqlib->PQclear(r);
-	puts("=========================================");
 }
 
-void pgsql_query(pquv_t *pquv, char *query)
+PGconn* postgres_connect(char *conninfo)
 {
-	pquv_query(pquv, query, pg_wait_cb, query);
-}
-
-void do_pg_client()
-{
-    	char *conninfo = "postgresql://uvuser:uvpass@127.0.0.1:5432/uvtest?connect_timeout=10";
-	pquv_t *pquv = pquv_init(conninfo, uv_default_loop());
-
-	int i=1;
-	while(i--)
+	PGconn *conn = ac->pqlib->PQconnectdb(conninfo);
+	if (ac->pqlib->PQstatus(conn) != CONNECTION_OK)
 	{
-		//pgsql_query(pquv, "SELECT * FROM pg_stat_activity");
-		//pgsql_query(pquv, "SELECT EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())) as lag");
-		//pgsql_query(pquv, "SELECT pg_postmaster_start_time as start_time_seconds from pg_postmaster_start_time()");
-		//pgsql_query(pquv, "SELECT schemaname, relname, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum, last_analyze, last_autoanalyze, vacuum_count, autovacuum_count, analyze_count, autoanalyze_count FROM pg_stat_user_tables");
-		//pgsql_query(pquv, "SELECT schemaname, relname, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit, toast_blks_read, toast_blks_hit, tidx_blks_read, tidx_blks_hit FROM pg_statio_user_tables");
-		//pgsql_query(pquv, "SELECT pg_database.datname, pg_database_size(pg_database.datname) as size FROM pg_database");
-		//pgsql_query(pquv, "SELECT current_database() as datname, schemaname, relname, heap_blks_read, heap_blks_hit FROM pg_statio_user_tables");
+		fprintf(stderr, "Connection to database failed: %s", ac->pqlib->PQerrorMessage(conn));
+		ac->pqlib->PQfinish(conn);
+		return NULL;
 	}
 
-	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-	pquv_free(pquv);
+	return conn;
 }
-#endif
+
+void posgres_exec(PGconn *conn, char *query)
+{
+	if (!conn)
+		return;
+
+	PGresult *res = ac->pqlib->PQexecParams(conn, query, 0, NULL, NULL, NULL, NULL, 0);
+	if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
+	{
+		printf("query: '%s' failed: %s", query, ac->pqlib->PQerrorMessage(conn));
+		ac->pqlib->PQclear(res);
+	}
+
+	postgres_get_result(res);
+	ac->pqlib->PQclear(res);
+}
+
+void postgresql_free(pq_library* pglib)
+{
+	if (!pglib) return;
+
+	if (pglib && pglib->PQclear) free(pglib->PQclear);
+	if (pglib && pglib->PQconnectdb) free(pglib->PQconnectdb);
+	if (pglib && pglib->PQerrorMessage) free(pglib->PQerrorMessage);
+	if (pglib && pglib->PQexecParams) free(pglib->PQexecParams);
+	if (pglib && pglib->PQfinish) free(pglib->PQfinish);
+	if (pglib && pglib->PQfname) free(pglib->PQfname);
+	if (pglib && pglib->PQgetlength) free(pglib->PQgetlength);
+	if (pglib && pglib->PQgetvalue) free(pglib->PQgetvalue);
+	if (pglib && pglib->PQnfields) free(pglib->PQnfields);
+	if (pglib && pglib->PQntuples) free(pglib->PQntuples);
+	if (pglib && pglib->PQresultStatus) free(pglib->PQresultStatus);
+	if (pglib && pglib->PQstatus) free(pglib->PQstatus);
+
+	free(pglib);
+}
+
+pq_library* postgresql_init()
+{
+	module_t *libpq = tommy_hashdyn_search(ac->modules, module_compare, "postgresql", tommy_strhash_u32(0, "postgresql"));
+	if (!libpq)
+	{
+		printf("No defined postgresql library in configuration\n");
+		return NULL;
+	}
+
+
+	pq_library* pglib = calloc(1, sizeof(*pglib));
+
+	pglib->PQclear = module_load(libpq->path, "PQclear", &pglib->PQclear_lib);
+	if (!pglib->PQclear)
+	{
+		printf("Cannot get PQclear from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQconnectdb = (void*)module_load(libpq->path, "PQconnectdb", &pglib->PQconnectdb_lib);
+	if (!pglib->PQconnectdb)
+	{
+		printf("Cannot get PQconnectdb from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQerrorMessage = (void*)module_load(libpq->path, "PQerrorMessage", &pglib->PQerrorMessage_lib);
+	if (!pglib->PQerrorMessage)
+	{
+		printf("Cannot get PQerrorMessage from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQexecParams = (void*)module_load(libpq->path, "PQexecParams", &pglib->PQexecParams_lib);
+	if (!pglib->PQexecParams)
+	{
+		printf("Cannot get PQexecParams from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQfinish = (void*)module_load(libpq->path, "PQfinish", &pglib->PQfinish_lib);
+	if (!pglib->PQfinish)
+	{
+		printf("Cannot get PQfinish from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQfname = (void*)module_load(libpq->path, "PQfname", &pglib->PQfname_lib);
+	if (!pglib->PQfname)
+	{
+		printf("Cannot get PQfname from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQgetlength = (void*)module_load(libpq->path, "PQgetlength", &pglib->PQgetlength_lib);
+	if (!pglib->PQgetlength)
+	{
+		printf("Cannot get PQgetlength from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQgetvalue = (void*)module_load(libpq->path, "PQgetvalue", &pglib->PQgetvalue_lib);
+	if (!pglib->PQgetvalue)
+	{
+		printf("Cannot get PQgetvalue from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQnfields = (void*)module_load(libpq->path, "PQnfields", &pglib->PQnfields_lib);
+	if (!pglib->PQnfields)
+	{
+		printf("Cannot get PQnfields from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQntuples = (void*)module_load(libpq->path, "PQntuples", &pglib->PQntuples_lib);
+	if (!pglib->PQntuples)
+	{
+		printf("Cannot get PQntuples from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQresultStatus = (void*)module_load(libpq->path, "PQresultStatus", &pglib->PQresultStatus_lib);
+	if (!pglib->PQresultStatus)
+	{
+		printf("Cannot get PQresultStatus from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	pglib->PQstatus = (void*)module_load(libpq->path, "PQstatus", &pglib->PQstatus_lib);
+	if (!pglib->PQstatus)
+	{
+		printf("Cannot get PQstatus from libpq\n");
+		postgresql_free(pglib);
+		return NULL;
+	}
+
+	return pglib;
+}
+
+void postgres_run(char *conninfo, char *query, char *query2, char *query3, char *query4)
+{
+	if (!ac->pqlib)
+	{
+		pq_library* pqlib = postgresql_init();
+		if (pqlib)
+			ac->pqlib = pqlib;
+		else
+		{
+			puts("Cannot initialize postgresql library");
+			return;
+		}
+	}
+
+	PGconn *conn = postgres_connect(conninfo);
+	posgres_exec(conn, query);
+	posgres_exec(conn, query2);
+	posgres_exec(conn, query3);
+	posgres_exec(conn, query4);
+	ac->pqlib->PQfinish(conn);
+}
+
+//int main()
+//{
+//	postgres_run("postgresql://postgres@localhost", "SELECT * FROM pg_stat_activity", "SELECT * FROM pg_stat_all_tables", "SELECT * FROM pg_stat_replication", "SELECT count(datname) FROM pg_database;");
+//}

@@ -223,6 +223,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	ret->mesg = 0;
 	ret->headers = 0;
 	ret->content_length = 0;
+	ret->expire = -1;
 
 	for (i=skip; i<size && buf[i]==' '; i++); // skip spaces after GET
 
@@ -247,7 +248,8 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	i+= skip;
 	ret->body = strstr(buf+i, "\r\n\r\n");
 	ret->body_size = 0;
-	ret->headers = strndup(buf + i, buf + i - ret->body);
+	ret->headers_size = ret->body - (buf + i);
+	ret->headers = strndup(buf + i, ret->headers_size);
 
 	if (ret->body)
 	{
@@ -255,10 +257,14 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 		ret->body_size = size - (ret->body - buf);
 	}
 
-	//else if(!strncasecmp(headers+i, "X-Expire-Time", 13))
-	//{	
-	//	hrdata->expire = strtoll(headers+i+13+1, NULL, 10);
-	//}
+	for (i=0; i<ret->headers_size; i++)
+	{
+		if(!strncasecmp(ret->headers+i, "X-Expire-Time", 13))
+		{
+			ret->expire = strtoll(ret->headers+i+13+1, NULL, 10);
+		}
+		i += strcspn(ret->headers+i, "\n");
+	}
 
 	http_get_auth_data(ret);
 

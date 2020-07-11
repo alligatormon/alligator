@@ -53,6 +53,7 @@ void udp_server_handler(char *addr, uint16_t port, void* parser_handler, context
 	carg->parser_handler = parser_handler;
 	carg->conn_counter = 0;
 	carg->read_counter = 0;
+	carg->curr_ttl = carg->ttl;
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s:%"PRIu16, addr, port);
 

@@ -1,4 +1,6 @@
 #pragma once
+#include <stdio.h>
+#include <inttypes.h>
 #define HTTP_METHOD_RESPONSE 0
 #define HTTP_METHOD_GET 1
 #define HTTP_METHOD_POST 2
@@ -15,6 +17,7 @@ typedef struct http_reply_data
 	size_t uri_size;
 	int64_t content_length;
 	int64_t chunked_size;
+	int64_t expire;
 	int8_t chunked_expect;
 	char *body;
 	size_t body_size;

@@ -42,6 +42,10 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		api_router(response, http_data);
 	}
+	else if (!strncmp(http_data->uri, "/stats", 6))
+	{
+		stat_router(response, http_data);
+	}
 	else
 	{
 		//metric_str_build(0, response);
@@ -66,14 +70,14 @@ void do_http_put(char *buf, size_t len, string *response, http_reply_data* http_
 	//string_cat(response, "HTTP/1.1 400 Bad Query\n\n", strlen("HTTP/1.1 400 Bad Query\n\n")+1);
 }
 
-void do_http_response(char *buf, size_t len, string *response)
+void do_http_response(char *buf, size_t len, string *response, context_arg *carg, http_reply_data* http_data)
 {
 	(void)response;
 	char *tmp;
 	if ( (tmp = strstr(buf, "\n\n")) )
-		multicollector(NULL, tmp+2, len - (tmp-buf) - 2, NULL);
+		multicollector(http_data, tmp+2, len - (tmp-buf) - 2, carg);
 	else if ( (tmp = strstr(buf, "\r\n\r\n")) )
-		multicollector(NULL, tmp+4, len - (tmp-buf) - 4, NULL);
+		multicollector(http_data, tmp+4, len - (tmp-buf) - 4, carg);
 }
 
 int http_parser(char *buf, size_t len, string *response, context_arg *carg)
@@ -100,7 +104,7 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	}
 	else if (http_data->method == HTTP_METHOD_RESPONSE)
 	{
-		do_http_response(buf, len, response);
+		do_http_response(buf, len, response, carg, http_data);
 	}
 	else if (http_data->method == HTTP_METHOD_GET)
 	{

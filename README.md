@@ -7,7 +7,8 @@ alligator is aggregator for system and software metrics
 - support prometheus
 - support scrape processes metrics
 - support GNU/Linux (TODO support FreeBSD and Microsoft Windows)
-- pushgateway protocol (TODO statsd and graphite support)
+- pushgateway protocol (with TTL expire when set in config, or HTTP header X-Expire-Time in seconds)
+- statsd protocol
 - multiservice scrape
 
 # Services support
@@ -19,8 +20,12 @@ alligator is aggregator for system and software metrics
 # config description:
 ```
 #/etc/alligator.conf
-#prometheus entrypoint for metrics
+log_level 0..10;
+ttl 0; # global ttl for metrics in sec, default 300
+
+#prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
 entrypoint prometheus {
+	ttl 1212;
 	tcp 1111;
 	handler prometheus;
 }

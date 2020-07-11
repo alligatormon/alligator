@@ -85,9 +85,8 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 }
 
 
-metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree)
+metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
-	extern aconf *ac;
 	metric_node *ret = NULL;
 	if ( tree->root == NULL )
 	{
@@ -152,7 +151,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	tree->root->color = BLACK;
 
 	r_time time = setrtime();
-	expire_insert(expiretree, time.sec+ac->ttl, ret);
+	expire_insert(expiretree, time.sec+ttl, ret);
 	return ret;
 }
 
@@ -227,9 +226,8 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
 	}
 }
 
-void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
+void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
-	extern aconf *ac;
 	if (type == DATATYPE_INT)
 		mnode->i += *(int64_t*)value;
 	else if (type == DATATYPE_UINT)
@@ -244,12 +242,11 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 
 	r_time time = setrtime();
 	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+ac->ttl, mnode);
+	expire_insert(expiretree, time.sec+ttl, mnode);
 }
 
-void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree)
+void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
-	extern aconf *ac;
 	if (type == DATATYPE_INT)
 		mnode->i = *(int64_t*)value;
 	else if (type == DATATYPE_UINT)
@@ -286,7 +283,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 
 	r_time time = setrtime();
 	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+ac->ttl, mnode);
+	expire_insert(expiretree, time.sec+ttl, mnode);
 }
 
 void metrictree_show(metric_node *x)
@@ -306,25 +303,25 @@ void metric_show ( metric_tree *tree )
 }
 
 
-void metric_build (char *namespace);
-uint64_t metrictree_build(metric_node *x, uint64_t l)
+void metric_build (char *namespace, string *s);
+uint64_t metrictree_build(metric_node *x, uint64_t l, string *s)
 {
 	l++;
 
 	if ( x->steam[LEFT] )
-		l = metrictree_build(x->steam[LEFT], l++);
+		l = metrictree_build(x->steam[LEFT], l++, s);
 
-	labels_print(x->labels, l);
-	puts("");
+	//labels_print(x->labels, l);
+	labels_cat(x->labels, l, s, x->expire_node->key, x->color);
 
 	if ( x->steam[RIGHT] )
-		l = metrictree_build(x->steam[RIGHT], l++);
+		l = metrictree_build(x->steam[RIGHT], l++, s);
 	l--;
 
 	return l;
 }
 
-void metric_build (char *namespace)
+void metric_build (char *namespace, string *s)
 {
 	extern aconf *ac;
 	metric_tree *tree = ac->nsdefault->metrictree;
@@ -335,7 +332,7 @@ void metric_build (char *namespace)
 
 	if ( tree && tree->root )
 	{
-		metrictree_build(tree->root, 0);
+		metrictree_build(tree->root, -1, s);
 	}
 }
 

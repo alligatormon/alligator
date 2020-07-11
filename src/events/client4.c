@@ -439,6 +439,7 @@ void tcp_client_connect(void *arg)
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->is_closing = 0;
+	carg->curr_ttl = carg->ttl;
 
 	carg->tt_timer->data = carg;
 	uv_timer_init(carg->loop, carg->tt_timer);
@@ -468,6 +469,7 @@ void unix_client_connect(void *arg)
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->is_closing = 0;
+	carg->curr_ttl = carg->ttl;
 
 	carg->tt_timer->data = carg;
 	uv_timer_init(carg->loop, carg->tt_timer);

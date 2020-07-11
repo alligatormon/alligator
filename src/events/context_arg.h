@@ -121,5 +121,8 @@ typedef struct context_arg
 
 	uint8_t parsed;
 
+	int64_t ttl; // TTL for this context metrics
+	int64_t curr_ttl;
+
 	tommy_node node;
 } context_arg;

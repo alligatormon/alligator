@@ -3,8 +3,7 @@
 
 void metric_dump_free(char *data)
 {
-	printf("string free %p\n", data);
-	//string_free(data);
+	string_free(data);
 }
 
 void metric_dump(int exit_sig)
@@ -16,7 +15,6 @@ void metric_dump(int exit_sig)
 		return;
 
 	string *body = string_init(100000);
-	printf("string init %p\n", body);
 	metric_str_build(0, body);
 	char dirtowrite[255];
 	snprintf(dirtowrite, 255, "%s/metric_dump", ac->persistence_dir);

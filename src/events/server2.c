@@ -23,6 +23,7 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	if (carg->tls)
 		mbedtls_ssl_free(&carg->tls_ctx);
 
+	string_free(carg->full_body);
 	free(carg);
 }
 
@@ -123,9 +124,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
-		//puts(buf->base);
 		free(str);
-		string_free(carg->full_body);
 	}
 	if ((nread) > 0 && (nread >= 65536))
 	{
@@ -362,6 +361,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	carg->client.data = carg;
 	carg->full_body = string_init(1048576);
+	carg->curr_ttl = carg->ttl;
 
 	if (carg->tls)
 		tls_server_init_client(carg->loop, carg);

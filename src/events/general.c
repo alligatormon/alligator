@@ -47,8 +47,19 @@ void internal_query_loop()
 	//metric_query(0, body, "process_stats", hash, "> 0");
 	//puts(body->s);
 	//string_free(body);
+
 	query_processing();
 
+	mongodb_parser();
+
+	postgres_run("postgresql://postgres@localhost", "SELECT * FROM pg_stat_activity", "SELECT * FROM pg_stat_all_tables", "SELECT * FROM pg_stat_replication", "SELECT count(datname) FROM pg_database;");
+
+	mysql_run();
+}
+
+void internal_query_loop2()
+{
+	mysql_init();
 }
 
 void general_loop()
@@ -68,7 +79,11 @@ void general_loop()
 	uv_timer_init(loop, dump_timer);
 	uv_timer_start(dump_timer, dump_loop, 11000, ac->persistence_period);
 
-	uv_timer_t *internal_query = calloc(1, sizeof(*internal_query));
-	uv_timer_init(loop, internal_query);
-	uv_timer_start(internal_query, internal_query_loop, 3000, 10000);
+	//uv_timer_t *internal_query = calloc(1, sizeof(*internal_query));
+	//uv_timer_init(loop, internal_query);
+	//uv_timer_start(internal_query, internal_query_loop, 3000, 10000);
+
+	//uv_timer_t *internal_query2 = calloc(1, sizeof(*internal_query2));
+	//uv_timer_init(loop, internal_query2);
+	//uv_timer_start(internal_query2, internal_query_loop2, 100000, 1000);
 }

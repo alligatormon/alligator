@@ -1,0 +1,7 @@
+#!/usr/bin/mongo
+db.products.insertMany([
+   { item: "journal", qty: 25, tags: ["blank", "red"], size: { h: 14, w: 21, uom: "cm" } },
+   { item: "card", qty: 85, tags: ["gray"], size: { h: 27.9, w: 35.5, uom: "cm" } },
+   { item: "envelope", qty: 25, tags: ["gel", "blue"], size: { h: 19, w: 22.85, uom: "cm" } },
+   { item: "stamps", qty: 125, tags: ["yellow"], size: { h: 1, w: 2.85, uom: "m" } }
+])

@@ -4,7 +4,6 @@
 #include "common/http.h"
 #include "common/fastcgi.h"
 #include "modules/modules.h"
-#include "modules/postgresql.h"
 #include "parsers/multiparser.h"
 #include "parsers/elasticsearch.h"
 #include "common/netlib.h"
@@ -80,6 +79,7 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	extern aconf* ac;
 
 	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->ttl = -1;
 	if (ac->log_level > 2)
 		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->hostname, carg->mesg);
 
@@ -690,6 +690,21 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			lo->carg = context_arg_fill(mt, i, hi, NULL, NULL, 0, NULL, NULL, ac->loop);
 			lang_push(lo);
 		}
+		else if (!strcmp(mt->st[*i-1].s, "solr"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+		}
+		else if (!strcmp(mt->st[*i-1].s, "mysql"))
+		{
+			puts("mysql");
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			//char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
+			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, "P\0\0\1\205\242\17\0\0\0\0\1!\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0root\0\24\346\204\270\2751\17\260\213\352\221\365\370:\303\330zSG\355\307mysql_native_password\0", 84, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+		}
 	}
 }
 
@@ -846,7 +861,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			continue;
 
 		if (!carg)
+		{
 			carg = calloc(1, sizeof(*carg));
+			carg->ttl = -1;
+		}
 
 		//printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
 		if(!strncmp(mt->st[*i-1].s, "handler", 7) && !strncmp(mt->st[*i].s, "log", 3))
@@ -903,6 +921,12 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 				ptr = config_get_arg(mt, *i, 2, NULL);
 				carg->auth_bearer = strdup(ptr);
 			}
+		}
+		else if (config_compare_begin(mt, *i, "ttl", 3))
+		{
+			char *ptr;
+			ptr = config_get_arg(mt, *i, 1, NULL);
+			carg->ttl = strtoll(ptr, NULL, 10);
 		}
 		else if (!strncmp(mt->st[*i-1].s, "tcp", 3) || !strncmp(mt->st[*i-1].s, "tls", 3))
 		{

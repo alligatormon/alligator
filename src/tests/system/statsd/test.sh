@@ -106,6 +106,6 @@ curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.75"} 
 curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.9"} 15'
 curl_test 'test3_test4_quantile {label_name_test3="test4_key", quantile="0.99"} 32'
 
-statsd_udp_send "requests:1|c|#servername:help.example.ru,zone:help,code:200"
-curl_test 'requests"
+#statsd_udp_send "requests:1|c|#servername:help.example.ru,zone:help,code:200"
+#curl_test 'requests"
 

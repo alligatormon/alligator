@@ -76,6 +76,7 @@ void free_mapping_split_free(char **split, size_t len)
 {
 	uint64_t k;
 	for (k=0; k<len; free(split[k++]));
+	//for (k=0; k<len; printf("free %p (%"d64"/%zu)\n", split[k], k, len), free(split[k++])); #TODO: fix mapping statsd
 	free(split);
 }
 
@@ -512,6 +513,8 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (http_data)
 			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size);
 
+		if (carg && http_data)
+			carg->curr_ttl = http_data->expire;
 		multicollector_field_get(tmp, tmp_len, lbl, carg);
 	}
 }
