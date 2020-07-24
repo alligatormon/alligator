@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.10.91)
+project(alligator VERSION 1.10.92)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -16,16 +16,22 @@ include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/cutter)
 include_directories(/usr/local/include/cutter)
+include_directories(/usr/local/include/libbson-1.0)
+include_directories(/usr/local/include/libmongoc-1.0)
+include_directories(/usr/include/mysql)
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 include_directories(external/mbedtls/include/)
 link_directories(external/mbedtls/library/)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 
-include_directories(external/libpquv/src/include/)
+include_directories(external/myc/examples/uvmyc/include)
+include_directories(external/myc/include)
 include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/)
 include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/linux/)
+include_directories(/usr/lib/jvm/java-14-openjdk-14.0.1.7-2.rolling.el7.x86_64/include/)
+include_directories(/usr/lib/jvm/java-14-openjdk-14.0.1.7-2.rolling.el7.x86_64/include/linux/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(/usr/local/lib64/)
@@ -33,6 +39,7 @@ link_directories(/usr/local/lib/)
 link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
 link_directories(external/iptables/libiptc/.libs/)
+link_directories(external/myc/lib)
 
 set(STATIC_FILES
 	events/uv_alloc.c
@@ -90,6 +97,9 @@ set(STATIC_FILES
 	parsers/postgresql.c
 	parsers/hadoop.c
 	parsers/unbound.c
+	parsers/solr.c
+	parsers/mongodb.c
+	parsers/mysql.c
 	common/selector.c
 	#common/https_tls_check.c
 	common/pem_check2.c
@@ -109,6 +119,7 @@ set(STATIC_FILES
 	common/rpm.c
 	common/mkdirp.c
 	common/query.c
+	common/stat.c
 	api/api_router.c
 	api/api_v1.c
 	common/iptc.c
@@ -123,7 +134,6 @@ set(STATIC_FILES
 	system/freebsd.c
 	system/macosx.c
 	modules/modules.c
-	modules/postgresql.c
 	metric/expiretree.c
 	metric/labels.c
 	metric/metrictree.c
@@ -139,7 +149,6 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytree.c
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
-	
 )
 add_library(${COMMON} STATIC ${STATIC_FILES})
 add_executable(${HEAD} main.c)
@@ -171,10 +180,10 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libmyc.a libuvmyc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libmyc.a libuvmyc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

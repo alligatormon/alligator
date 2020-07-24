@@ -360,7 +360,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	uv_tcp_init(carg->loop, &carg->client);
 
 	carg->client.data = carg;
-	carg->full_body = string_init(1048576);
+	carg->full_body = string_init(6553500);
 	carg->curr_ttl = carg->ttl;
 
 	if (carg->tls)
