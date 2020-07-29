@@ -30,6 +30,14 @@ entrypoint prometheus {
 	handler prometheus;
 }
 
+#configuration with reject metric label http_response_code="404":
+entrypoint prometheus {
+	reject http_response_code 404;
+	ttl 1212;
+	tcp 1111;
+	handler prometheus;
+}
+
 #system metrics aggregation
 system {
 	base; #cpu, memory, load avg, openfiles
