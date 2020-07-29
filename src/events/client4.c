@@ -20,6 +20,11 @@ void tcp_client_closed(uv_handle_t *handle)
 	context_arg* carg = handle->data;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	(carg->close_counter)++;
+	carg->close_time_finish = setrtime();
+
+	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	if (carg->tls)
 	{
@@ -46,6 +51,7 @@ void tcp_client_close(uv_handle_t *handle)
 	parse_cert_info(peercert, carg->host);
 	//mbedtls_x509_crt_free(peercert);
 
+	carg->close_time = setrtime();
 	if (!uv_is_closing((uv_handle_t*)&carg->client) && !carg->is_closing)
 	{
 		if (carg->tls)
@@ -80,6 +86,8 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 	context_arg* carg = req->data;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	(carg->shutdown_counter)++;
+	carg->shutdown_time_finish = setrtime();
 
 	tcp_client_close((uv_handle_t *)&carg->client);
 	free(req);
@@ -91,9 +99,12 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	//printf("tcp_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	(carg->read_counter)++;
+	carg->read_time_finish = setrtime();
 
 	if (nread > 0)
 	{
+		carg->read_bytes_counter += nread;
 		if (buf && buf->base)
 		{
 			if (!carg->full_body->l)
@@ -107,6 +118,9 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
 					carg->expect_body_length = hr_data->content_length;
+					uint64_t http_code = hr_data->http_code;
+					metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+					metric_add_labels5("alligator_aggregator_http_header_size", &hr_data->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 					free(hr_data);
 				}
 			}
@@ -138,6 +152,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 		req->data = carg;
+		carg->shutdown_time = setrtime();
 		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
@@ -153,12 +168,16 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	context_arg* carg = stream->data;
 	if (ac->log_level > 1)
 		printf("%"u64": tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	(carg->tls_read_counter)++;
+	carg->tls_read_time_finish = setrtime();
 
 	if (nread <= 0)
 	{
 		tcp_client_readed(stream, nread, 0);
 		return;
 	}
+
+	carg->tls_read_bytes_counter += nread;
 
 	if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
 	{
@@ -226,6 +245,8 @@ void tls_client_writed(uv_write_t* req, int status)
 {
 	int ret = 0;
 	context_arg* carg = (context_arg*)req->data;
+	(carg->tls_write_counter)++;
+	carg->tls_write_time_finish = setrtime();
 	if(status != 0) {
 		return;
 	}
@@ -283,6 +304,8 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 		carg->write_buffer.len = len;
 		write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
 		write_req->data = carg;
+		carg->tls_write_bytes_counter += len;
+		carg->tls_write_time = setrtime();
 		ret = uv_write(write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, tls_client_writed);
 		if (ret != 0)
 		{
@@ -309,6 +332,7 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 
 int tls_client_init(uv_loop_t* loop, context_arg *carg)
 {
+	(carg->tls_init_counter)++;
 	int ret = 0;
 
 	mbedtls_ssl_init(&carg->tls_ctx);
@@ -364,12 +388,14 @@ void tls_connected(uv_connect_t* req, int status)
 	context_arg* carg = (context_arg*)req->data;
 	if (ac->log_level > 1)
 		printf("%"u64": tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carg->connect_time_finish = setrtime();
 
 	if (status < 0)
 	{
 		tcp_connected(&carg->connect,  -1);
 		return;
 	}
+	carg->tls_read_time = setrtime();
 	ret = uv_read_start((uv_stream_t*)&carg->client, tls_client_alloc, tls_client_readed);
 	if (ret != 0)
 	{
@@ -390,12 +416,24 @@ void tcp_connected(uv_connect_t* req, int status)
 	context_arg* carg = (context_arg*)req->data;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	(carg->conn_counter)++;
 
+	uint64_t ok = 1;
 	if (status < 0)
+	{
+		ok = 0;
+		metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		return;
+	}
 
+	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+
+	carg->read_time = setrtime();
 	if (!carg->tls)
+	{
+		carg->connect_time_finish = setrtime();
 		uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_client_readed);
+	}
 
 	memset(&carg->write_req, 0, sizeof(carg->write_req));
 
@@ -403,6 +441,7 @@ void tcp_connected(uv_connect_t* req, int status)
 
 	if(carg->tls)
 	{
+		carg->tls_connect_time_finish = setrtime();
 		carg->is_write_error = 0;
 		carg->ssl_write_buffer_len = carg->request_buffer.len;
 		carg->ssl_write_buffer = carg->request_buffer.base;
@@ -414,7 +453,11 @@ void tcp_connected(uv_connect_t* req, int status)
 			carg->is_writing = 1;
 	}
 	else
+	{
 		uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
+		carg->write_bytes_counter += carg->request_buffer.len;
+		(carg->write_counter)++;
+	}
 }
 
 void tcp_timeout_timer(uv_timer_t *timer)
@@ -422,6 +465,8 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	context_arg *carg = timer->data;
 	if (ac->log_level > 1)
 		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	(carg->timeout_counter)++;
+
 	if (!carg->parsed && carg->full_body->l)
 		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	tcp_client_close((uv_handle_t *)&carg->client);
@@ -453,8 +498,12 @@ void tcp_client_connect(void *arg)
 	if (carg->tls)
 		tls_client_init(carg->loop, carg);
 
+	carg->connect_time = setrtime();
 	if (carg->tls)
+	{
+		carg->tls_connect_time = setrtime();
 		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tls_connected);
+	}
 	else
 		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tcp_connected);
 }
@@ -486,8 +535,12 @@ void unix_client_connect(void *arg)
 	if (carg->tls)
 		tls_client_init(carg->loop, carg);
 
+	carg->connect_time = setrtime();
 	if (carg->tls)
+	{
+		carg->tls_connect_time = setrtime();
 		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tls_connected);
+	}
 	else
 		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tcp_connected);
 }
@@ -516,7 +569,7 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 
 	carg->dest = (struct sockaddr_in*)res->ai_addr;
 	carg->key = malloc(64);
-	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
+	snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
 
 	tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 

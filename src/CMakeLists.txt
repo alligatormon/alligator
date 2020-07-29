@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.10.92)
+project(alligator VERSION 1.10.96)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -56,6 +56,7 @@ set(STATIC_FILES
 	events/system_scrape.c
 	events/fragmentation.c
 	events/access.c
+	events/metrics.c
 	platform/libbsd.c
 	parsers/dummy.c
 	parsers/pushgateway.c
@@ -96,7 +97,7 @@ set(STATIC_FILES
 	parsers/unbound.c
 	parsers/solr.c
 	parsers/mongodb.c
-	parsers/mysql.c
+	#parsers/mysql.c
 	common/selector.c
 	#common/https_tls_check.c
 	common/pem_check2.c
@@ -117,6 +118,7 @@ set(STATIC_FILES
 	common/mkdirp.c
 	common/query.c
 	common/stat.c
+	common/reject.c
 	api/api_router.c
 	api/api_v1.c
 	common/iptc.c
@@ -177,10 +179,10 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

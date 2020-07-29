@@ -143,7 +143,10 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	size_t len = slen;
 
 	if (carg)
+	{
 		carg->parsed = 1;
+		carg->exec_time = setrtime();
+	}
 	
 	if ( handler )
 	{
@@ -164,9 +167,16 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		}
 		//printf(">>>>>>>>>>>>>>>\n%zu\n'%s'\n<<<<<<<<<<<<<<<<<<\n", proxylen, proxybuf);
 		handler(proxybuf, proxylen, carg);
+
+		if (carg)
+			carg->exec_time_finish = setrtime();
+
 		return;
 	}
 	int rc = 0;
 	if ( (rc = http_parser(buf, len, response, carg)) ) {}
 	else if ( (rc = plain_parser(buf, len, carg)) ) {}
+
+	if (carg)
+		carg->exec_time_finish = setrtime();
 }

@@ -305,3 +305,60 @@ int8_t redis_validator(char *data, size_t size)
 	else
 		return 0;
 }
+
+void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
+{
+	puts(metrics);
+	char *tmp;
+	tmp = strstr(metrics, "cluster_state");
+	if (!tmp)
+		return;
+
+	uint64_t ok = 1;
+	uint64_t fail = 0;
+	uint64_t msize;
+	uint64_t fsize;
+	int64_t mval;
+
+	char mname[REDIS_NAME_SIZE];
+	if (!strncmp(tmp, "cluster_state:ok", 16))
+		metric_add_auto("redis_cluster_state", &ok, DATATYPE_UINT, carg);
+	else
+		metric_add_auto("redis_cluster_state", &fail, DATATYPE_UINT, carg);
+
+	uint64_t i = 100;
+	strlcpy(mname, "redis_", 7);
+	while ((tmp - metrics < size-4) && (i--))
+	{
+		printf("%zu <= %zu\n", tmp - metrics, size-4);
+		tmp += strcspn(tmp, "\r\n");
+		tmp += strspn(tmp, "\r\n");
+		msize = strcspn(tmp, ":");
+		fsize = msize+1 > REDIS_NAME_SIZE-6 ? REDIS_NAME_SIZE-6 : msize+1;
+		strlcpy(mname+6, tmp, fsize);
+
+		tmp += msize;
+		tmp += strspn(tmp, ": ");
+		mval = strtoll(tmp, &tmp, 10);
+
+		metric_add_auto(mname, &mval, DATATYPE_INT, carg);
+		printf("%s(%u),%s: %d\n", mname, fsize, mname, mval);
+	}
+}
+
+int8_t redis_cluster_validator(char *data, size_t size)
+{
+	if (strncmp(data, "+OK", 3))
+		return 0;
+
+	uint64_t body_size;
+	char *tmp;
+	uint64_t expect_size = strtoull(data+6, &tmp, 10);
+
+	tmp += strspn(tmp, "\r\n");
+
+	body_size = size - (tmp - data);
+	//printf("expect: %u, body: %u\n", expect_size, body_size);
+	
+	return body_size >= expect_size;
+}

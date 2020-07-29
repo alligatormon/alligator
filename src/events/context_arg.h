@@ -24,17 +24,12 @@ typedef struct context_arg
 	uv_timer_t *tt_timer;
 	//uv_handle_t * server;
 	char *key;
+	char *parser_name;
 	void *parser_handler;
 	char *mesg;
 	size_t mesg_len;
 	char *hostname;
 	//char *port;
-	r_time connect_time;
-	r_time connect_time_finish;
-	r_time write_time;
-	r_time write_time_finish;
-	r_time read_time;
-	r_time read_time_finish;
 	uint8_t lock;
 	uint8_t proto;
 	uint8_t transport;
@@ -70,10 +65,50 @@ typedef struct context_arg
 
 	char *uvbuf;
 
+	tommy_hashdyn *labels;
+
+	// counters
 	uint64_t conn_counter;
 	uint64_t read_counter;
+	uint64_t write_counter;
+	uint64_t timeout_counter;
+	uint64_t tls_read_counter;
+	uint64_t tls_write_counter;
+	uint64_t tls_init_counter;
+	uint64_t shutdown_counter;
+	uint64_t close_counter;
+	uint64_t write_bytes_counter;
+	uint64_t tls_write_bytes_counter;
+	uint64_t read_bytes_counter;
+	uint64_t tls_read_bytes_counter;
+	uint64_t tls_connect_time_counter;
+	uint64_t tls_read_time_counter;
+	uint64_t tls_write_time_counter;
+	uint64_t connect_time_counter;
+	uint64_t read_time_counter;
+	uint64_t write_time_counter;
+	uint64_t shutdown_time_counter;
+	uint64_t close_time_counter;
+	uint64_t exec_time_counter;
 
-	tommy_hashdyn *labels;
+	r_time connect_time;
+	r_time connect_time_finish;
+	r_time write_time;
+	r_time write_time_finish;
+	r_time read_time;
+	r_time read_time_finish;
+	r_time exec_time;
+	r_time exec_time_finish;
+	r_time tls_connect_time;
+	r_time tls_connect_time_finish;
+	r_time tls_write_time;
+	r_time tls_write_time_finish;
+	r_time tls_read_time;
+	r_time tls_read_time_finish;
+	r_time shutdown_time;
+	r_time shutdown_time_finish;
+	r_time close_time;
+	r_time close_time_finish;
 
 	void *data; // for parser-data
 
@@ -119,10 +154,13 @@ typedef struct context_arg
 	uint64_t timeout;
 	uint64_t count;
 
-	uint8_t parsed;
+	uint64_t parsed;
 
 	int64_t ttl; // TTL for this context metrics
 	int64_t curr_ttl;
+
+	tommy_hashdyn* reject;
+	void *srv_carg;
 
 	tommy_node node;
 } context_arg;

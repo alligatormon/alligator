@@ -1,4 +1,4 @@
-#include "uvmyc.h"
+//#include "uvmyc.h"
 
 #include <stdlib.h>
 #include <stdio.h>

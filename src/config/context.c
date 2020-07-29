@@ -12,6 +12,7 @@
 #include "common/json_parser.h"
 #include "dynconf/sd.h"
 #include "lang/lang.h"
+#include "common/reject.h"
 
 int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 {
@@ -74,7 +75,7 @@ char *config_get_arg(mtlen *mt, int64_t i, int64_t num, size_t *out_size)
 	}
 }
 
-context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, void *handler, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop)
+context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop)
 {
 	extern aconf* ac;
 
@@ -96,6 +97,7 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	carg->tls = hi->tls;
 	carg->loop = loop;
 	carg->parser_handler = handler;
+	carg->parser_name = parser_name;
 	carg->mesg = mesg; // old scheme
 	carg->mesg_len = mesg_len; // old scheme
 	carg->request_buffer = uv_buf_init(mesg, mesg_len); // new scheme
@@ -197,7 +199,13 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, http_proto_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, http_proto_handler, "http", query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+		}
+		if (!strcmp(mt->st[*i-1].s, "tcp"))
+		{
+			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			context_arg *carg = context_arg_fill(mt, i, hi, NULL, "tcp", hi->query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 #ifdef __linux__
@@ -227,51 +235,64 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			int64_t g = *i;
 
 			char *query = gen_http_query(0, hi->query, "/?query=select%20metric,value\%20from\%20system.metrics", hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, "clickhouse_system", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20metric,value\%20from\%20system.asynchronous_metrics", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, "clickhouse_system", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
                         
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20event,value%20from\%20system.events", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_system_handler, "clickhouse_system", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
                         
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_columns_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_columns_handler, "clickhouse_columns", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
                         
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_dictionary_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_dictionary_handler, "clickhouse_dictionary", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
                         
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_merges_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_merges_handler, "clickhouse_merges", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
                         
 			g = *i;
 			query = gen_http_query(0, hi->query, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, clickhouse_replicas_handler, query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, clickhouse_replicas_handler, "clickhouse_replicas", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
 		else if (!strcmp(mt->st[*i-1].s, "redis"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
+			int64_t g = *i;
+
 			char* query = malloc(1000);
 			if (hi->pass)
 				snprintf(query, 1000, "AUTH %s\r\nINFO ALL\r\n", hi->pass);
 			else
 				snprintf(query, 1000, "INFO ALL\n");
 
-			context_arg *carg = context_arg_fill(mt, i, hi, redis_handler, query, 0, NULL, redis_validator, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, redis_handler, "redis", query, 0, NULL, redis_validator, ac->loop);
 			smart_aggregator(carg);
+
+			g = *i;
+			char* cluster_query = malloc(1000);
+			if (hi->pass)
+				snprintf(cluster_query, 1000, "AUTH %s\r\nCLUSTER INFO\r\n", hi->pass);
+			else
+				snprintf(cluster_query, 1000, "CLUSTER INFO\n");
+
+			carg = context_arg_fill(mt, i, hi, redis_cluster_handler, "redis_cluster", cluster_query, 0, NULL, redis_cluster_validator, ac->loop);
+			smart_aggregator(carg);
+			*i = g;
 		}
 		else if (!strcmp(mt->st[*i-1].s, "sentinel"))
 		{
@@ -282,19 +303,19 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			else
 				snprintf(query, 1000, "INFO\n");
 
-			context_arg *carg = context_arg_fill(mt, i, hi, sentinel_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, sentinel_handler, "sentinel", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "memcached"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, memcached_handler, "stats\n", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, memcached_handler, "memcached", "stats\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "beanstalkd"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, beanstalkd_handler, "stats\r\n", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, beanstalkd_handler, "beanstalkd", "stats\r\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "aerospike"))
@@ -302,7 +323,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			int64_t g = *i;
 
-			context_arg *carg = context_arg_fill(mt, &g, hi, aerospike_statistics_handler, "\2\1\0\0\0\0\0\0", 8, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, aerospike_statistics_handler, "aerospike_statistics", "\2\1\0\0\0\0\0\0", 8, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			//buffer = malloc(sizeof(*buffer));
@@ -314,7 +335,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			//smart_aggregator_selector_buffer(hi, aerospike_status_handler, buffer, 1);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, aerospike_status_handler, "\2\1\0\0\0\0\0\7status\n", 16, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, aerospike_status_handler, "aerospike_status", "\2\1\0\0\0\0\0\7status\n", 16, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			++*i;
@@ -332,7 +353,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 				aeronamespace[7] = '\13' + mt->st[*i].l;
 				snprintf(aeronamespace+8, 255-8, "namespace/%s\n", mt->st[*i].s);
 				g = *i;
-				carg = context_arg_fill(mt, &g, hi, aerospike_namespace_handler, aeronamespace, 20 + mt->st[*i].l, NULL, NULL, ac->loop);
+				carg = context_arg_fill(mt, &g, hi, aerospike_namespace_handler, "aerospike_namespace", aeronamespace, 20 + mt->st[*i].l, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 				++*i;
 			}
@@ -343,27 +364,27 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			int64_t g = *i;
 
-			context_arg *carg = context_arg_fill(mt, &g, hi, zookeeper_mntr_handler, "mntr", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, zookeeper_mntr_handler, "zookeeper_mntr", "mntr", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, zookeeper_isro_handler, "isro", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, zookeeper_isro_handler, "zookeeper_isro", "isro", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, zookeeper_wchs_handler, "wchs", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, zookeeper_wchs_handler, "zookeeper_wchs", "wchs", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "gearmand"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, gearmand_handler, "status\n", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, gearmand_handler, "gearmand", "status\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "uwsgi"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, uwsgi_handler, NULL, 0, NULL, json_validator, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, uwsgi_handler, "uwsgi", NULL, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 		}
 		//else if (!strcmp(mt->st[*i-1].s, "php-fpm"))
@@ -381,17 +402,17 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			int64_t g = *i;
 
 			char *stats_query = gen_http_query(0, hi->query, "/stats", hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, &g, hi, eventstore_stats_handler, stats_query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, eventstore_stats_handler, "eventstore_stats", stats_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *projections_query = gen_http_query(0, hi->query, "/projections/any", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, eventstore_projections_handler, projections_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, eventstore_projections_handler, "eventstore_projections", projections_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *info_query = gen_http_query(0, hi->query, "/info", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, eventstore_info_handler, info_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, eventstore_info_handler, "eventstore_info", info_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
@@ -400,7 +421,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
 			char *workers_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, flower_handler, workers_query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, flower_handler, "flower", workers_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "powerdns"))
@@ -420,7 +441,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			}
 			snprintf(query, 255, "GET /api/v1/servers/localhost/statistics HTTP/1.1\r\nHost: localhost:8081\r\nUser-Agent: alligator\r\n%s\r\n\r\n", header);
 			//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, powerdns_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, powerdns_handler, "powerdns", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "opentsdb"))
@@ -428,7 +449,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, opentsdb_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, opentsdb_handler, "opentsdb", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "kamailio"))
@@ -441,23 +462,23 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			int64_t g = *i;
 
-			context_arg *carg = context_arg_fill(mt, &g, hi, haproxy_info_handler, "show info\n", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, haproxy_info_handler, "haproxy_info", "show info\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_pools_handler, "show pools\n", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, haproxy_pools_handler, "haproxy_pools", "show pools\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_stat_handler, "show stat\n", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, haproxy_stat_handler, "haproxy_stat", "show stat\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_sess_handler, "show sess\n", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, haproxy_sess_handler, "haproxy_sess", "show sess\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_table_handler, "show table\n", 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, haproxy_table_handler, "haproxy_table", "show table\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
@@ -467,22 +488,22 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			int64_t g = *i;
 
 			char *connz_query = gen_http_query(0, hi->query, "/connz", hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, &g, hi, nats_connz_handler, connz_query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, nats_connz_handler, "nats_connz", connz_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *subsz_query = gen_http_query(0, hi->query, "/subsz", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, nats_subsz_handler, subsz_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, nats_subsz_handler, "nats_subsz", subsz_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *varz_query = gen_http_query(0, hi->query, "/varz", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, nats_varz_handler, varz_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, nats_varz_handler, "nats_varz", varz_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *routez_query = gen_http_query(0, hi->query, "/routez", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, nats_routez_handler, routez_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, nats_routez_handler, "nats_routez", routez_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
@@ -491,7 +512,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
 			char *http_query = gen_http_query(0, hi->query, "/stats", hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, riak_handler, http_query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, riak_handler, "riak", http_query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "rabbitmq"))
@@ -500,39 +521,33 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			int64_t g = *i;
 
 			char *overview_query = gen_http_query(0, hi->query, "/api/overview", hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, &g, hi, rabbitmq_overview_handler, overview_query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, &g, hi, rabbitmq_overview_handler, "rabbitmq_overview", overview_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *nodes_query = gen_http_query(0, hi->query, "/api/nodes", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_nodes_handler, nodes_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_nodes_handler, "rabbitmq_nodes", nodes_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *exchanges_query = gen_http_query(0, hi->query, "/api/exchanges", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_exchanges_handler, exchanges_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_exchanges_handler, "rabbitmq_exchanges", exchanges_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			// !!!dynamic!!!
 			char *connections_query = gen_http_query(0, hi->query, "/api/connections", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_connections_handler, connections_query, 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
-
-			g = *i;
-			// !!!dynamic!!!
-			char *channels_query = gen_http_query(0, hi->query, "/api/channels", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_channels_handler, channels_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_connections_handler, "rabbitmq_connections", connections_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *queues_query = gen_http_query(0, hi->query, "/api/queues", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_queues_handler, queues_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_queues_handler, "rabbitmq_queues", queues_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *vhosts_query = gen_http_query(0, hi->query, "/api/vhosts", hi->host, "alligator", hi->auth, 1);
-			carg = context_arg_fill(mt, &g, hi, rabbitmq_vhosts_handler, vhosts_query, 0, NULL, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, rabbitmq_vhosts_handler, "rabbitmq_vhosts", vhosts_query, 0, NULL, json_validator, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
@@ -540,14 +555,14 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, "?format=csv", hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, nginx_upstream_check_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, nginx_upstream_check_handler, "nginx_upstream_check", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (config_compare_begin(mt, *i-1, "dummy", 5))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, dummy_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, dummy_handler, "dummy", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "elasticsearch"))
@@ -558,27 +573,27 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 
 			int64_t g = *i;
 			char *nodes_query = gen_http_query(0, hi->query, "/_nodes/stats", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, elasticsearch_nodes_handler, nodes_query, 0, data, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_nodes_handler, "elasticsearch_nodes", nodes_query, 0, data, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *cluster_query = gen_http_query(0, hi->query, "/_cluster/stats", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, elasticsearch_cluster_handler, cluster_query, 0, data, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_cluster_handler, "elasticsearch_cluster", cluster_query, 0, data, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *health_query = gen_http_query(0, hi->query, "/_cluster/health?level=shards", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, elasticsearch_health_handler, health_query, 0, data, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_health_handler, "elasticsearch_health", health_query, 0, data, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *index_query = gen_http_query(0, hi->query, "/_stats", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, elasticsearch_index_handler, index_query, 0, data, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_index_handler, "elasticsearch_index", index_query, 0, data, NULL, ac->loop);
 			smart_aggregator(carg);
 
 			g = *i;
 			char *settings_query = gen_http_query(0, hi->query, "/_settings", hi->host, "alligator", hi->auth, 0);
-			carg = context_arg_fill(mt, &g, hi, elasticsearch_settings_handler, settings_query, 0, data, NULL, ac->loop);
+			carg = context_arg_fill(mt, &g, hi, elasticsearch_settings_handler, "elasticsearch_settings", settings_query, 0, data, NULL, ac->loop);
 			smart_aggregator(carg);
 			*i = g;
 		}
@@ -586,7 +601,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, "/_status?format=xml&level=full", hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, monit_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, monit_handler, "monit", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "gdnsd"))
@@ -598,20 +613,20 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			//*buffer = uv_buf_init("S\0\0\0\0\0\0\0", 8);
 			//smart_aggregator_selector_buffer(hi, gdnsd_handler, buffer, 1);
 
-			context_arg *carg = context_arg_fill(mt, i, hi, gdnsd_handler, "S\0\0\0\0\0\0\0", 8, NULL, gdnsd_validator, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, gdnsd_handler, "gdnsd", "S\0\0\0\0\0\0\0", 8, NULL, gdnsd_validator, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "syslog-ng"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, syslog_ng_handler, "STATS\n", 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, syslog_ng_handler, "syslogng", "STATS\n", 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "consul"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, consul_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, consul_handler, "consul", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "nifi"))
@@ -619,21 +634,21 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, nifi_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, nifi_handler, "nifi", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "varnish"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 
-			context_arg *carg = context_arg_fill(mt, i, hi, varnish_handler, NULL, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, varnish_handler, "varnish", NULL, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "prometheus_metrics"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, NULL, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, NULL, "prometheus_metrics", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "jsonparse"))
@@ -641,7 +656,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			puts("jsonparse");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, json_handler, query, 0, NULL, json_check, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, json_handler, "jsonparse", query, 0, NULL, json_check, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "hadoop"))
@@ -649,13 +664,13 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			puts("hadoop");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, hadoop_handler, query, 0, NULL, json_check, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, hadoop_handler, "hadoop", query, 0, NULL, json_check, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "unbound"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			context_arg *carg = context_arg_fill(mt, i, hi, unbound_handler, "UBCT1 stats_noreset\n", 0, NULL, unbound_validator, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, unbound_handler, "unbound", "UBCT1 stats_noreset\n", 0, NULL, unbound_validator, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "tls_fs"))
@@ -687,14 +702,14 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			lo->method = "getJmx";
 			lo->arg = strdup(mt->st[*i].s); //service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			lo->carg = context_arg_fill(mt, i, hi, NULL, NULL, 0, NULL, NULL, ac->loop);
+			lo->carg = context_arg_fill(mt, i, hi, NULL, "jmx", NULL, 0, NULL, NULL, ac->loop);
 			lang_push(lo);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "solr"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, query, 0, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, "solr", query, 0, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "mysql"))
@@ -702,7 +717,7 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 			puts("mysql");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			//char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
-			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, "P\0\0\1\205\242\17\0\0\0\0\1!\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0root\0\24\346\204\270\2751\17\260\213\352\221\365\370:\303\330zSG\355\307mysql_native_password\0", 84, NULL, NULL, ac->loop);
+			context_arg *carg = context_arg_fill(mt, i, hi, solr_handler, "mysql", "P\0\0\1\205\242\17\0\0\0\0\1!\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0root\0\24\346\204\270\2751\17\260\213\352\221\365\370:\303\330zSG\355\307mysql_native_password\0", 84, NULL, NULL, ac->loop);
 			smart_aggregator(carg);
 		}
 	}
@@ -927,6 +942,24 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			char *ptr;
 			ptr = config_get_arg(mt, *i, 1, NULL);
 			carg->ttl = strtoll(ptr, NULL, 10);
+		}
+		else if (config_compare_begin(mt, *i, "reject", 6))
+		{
+			if (!carg->reject)
+			{
+				carg->reject = calloc(1, sizeof(*carg->reject));
+				tommy_hashdyn_init(carg->reject);
+			}
+
+			char *ptr1, *ptr2;
+			ptr1 = config_get_arg(mt, *i, 1, NULL);
+			ptr2 = config_get_arg(mt, *i, 2, NULL);
+
+			if (strncmp(ptr2, ";", 1))
+				reject_insert(carg->reject, strdup(ptr1), strdup(ptr2));
+			else
+				reject_insert(carg->reject, strdup(ptr1), NULL);
+
 		}
 		else if (!strncmp(mt->st[*i-1].s, "tcp", 3) || !strncmp(mt->st[*i-1].s, "tls", 3))
 		{
@@ -1230,7 +1263,7 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 				snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, qparam->dyn_conf);
 				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, 0, NULL, NULL, ac->loop);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, "etcd", query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 			if (qparam->sdiscovery)
@@ -1239,7 +1272,7 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 				snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, qparam->sdiscovery);
 				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, query, 0, NULL, NULL, ac->loop);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_etcd_configuration, "etcd", query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 
@@ -1257,7 +1290,7 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 				snprintf(replacedquery, 255, "%sv1%s?recurse", hi->query, qparam->dyn_conf);
 				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_configuration, query, 0, NULL, NULL, ac->loop);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_configuration, "consul", query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 			if (qparam->sdiscovery)
@@ -1266,7 +1299,7 @@ void context_configuration_parser(mtlen *mt, int64_t *i)
 				snprintf(replacedquery, 255, "%sv1%s?recurse", hi->query, qparam->sdiscovery);
 				char *query = gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1);
 				int64_t g = *i;
-				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_discovery, query, 0, NULL, NULL, ac->loop);
+				context_arg *carg = context_arg_fill(mt, &g, hi, sd_consul_discovery, "consul", query, 0, NULL, NULL, ac->loop);
 				smart_aggregator(carg);
 			}
 

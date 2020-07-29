@@ -25,4 +25,3 @@ void try_again(context_arg *carg, char *mesg)
 {
 	
 }
-

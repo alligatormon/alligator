@@ -4,6 +4,7 @@
 #include "main.h"
 #include "parsers/pushgateway.h"
 #include "parsers/http_proto.h"
+#include "common/reject.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
 extern aconf *ac;
@@ -237,7 +238,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 	return ret;
 }
 
-void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lbl)
+void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
@@ -275,6 +276,12 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 		{
 			*lbl = malloc(sizeof(tommy_hashdyn));
 			tommy_hashdyn_init(*lbl);
+		}
+
+		if (carg && reject_metric(carg->reject, label_name, label_key))
+		{
+			labels_hash_free(lbl);
+			return;
 		}
 
 		if (metric_name_validator_promstatsd(label_name, strlen(label_name)))
@@ -411,7 +418,15 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			}
 
 			if (metric_name_validator(label_name, strlen(label_name)))
+			{
+				if (carg && reject_metric(carg->reject, label_name, label_key))
+				{
+					labels_hash_free(lbl);
+					return;
+				}
+
 				labels_hash_insert_nocache(lbl, label_name, label_key);
+			}
 			else
 			{
 				labels_hash_free(lbl);
@@ -444,7 +459,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
-		parse_statsd_labels(str, &i, size, &lbl);
+		parse_statsd_labels(str, &i, size, &lbl, carg);
 		// statsd
 		++i;
 		//printf("3i=%"u64"\n", i);
@@ -468,7 +483,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 
 		i += strcspn(str+i, "#");
 		//printf("> last parse: %s)\n", str+i);
-		parse_statsd_labels(str, &i, size, &lbl);
+		parse_statsd_labels(str, &i, size, &lbl, carg);
 	}
 	else if (isdigit(str[i]))
 	{
@@ -511,7 +526,10 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 		tommy_hashdyn *lbl = NULL;
 		if (http_data)
-			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size);
+			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size, carg);
+
+		if (lbl && (uint64_t)lbl == 1)
+			continue;
 
 		if (carg && http_data)
 			carg->curr_ttl = http_data->expire;

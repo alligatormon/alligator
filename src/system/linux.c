@@ -1289,7 +1289,7 @@ void get_net_tcpudp(char *file, char *name)
 	free(buf);
 
 	r_time ts_end = setrtime();
-	int64_t scrape_time = getrtime_i(ts_start, ts_end);
+	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
 	if (ac->log_level > 2)
 		printf("system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
 }

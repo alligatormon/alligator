@@ -16,8 +16,25 @@ extern aconf *ac;
 void tcp_server_closed_client(uv_handle_t* handle)
 {
 	context_arg *carg = handle->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server closed client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	(srv_carg->close_counter)++;
+	carg->close_time_finish = setrtime();
+
+	aggregator_events_metric_add(srv_carg, carg, NULL, "tcp", "entrypoint", srv_carg->key);
+	//metric_add_labels2("entrypoint_connect", &srv_carg->conn_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_read", &srv_carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_write", &srv_carg->write_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_tls_write", &srv_carg->tls_write_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_tls_read", &srv_carg->tls_read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_tls_init", &srv_carg->tls_init_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_close", &srv_carg->close_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_shutdown", &srv_carg->shutdown_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_write_bytes", &srv_carg->write_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_read_bytes", &srv_carg->read_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_tls_write_bytes", &srv_carg->tls_write_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
+	//metric_add_labels2("entrypoint_tls_read_bytes", &srv_carg->tls_read_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
 
 	carg->is_closing = 0;
 	if (carg->tls)
@@ -34,6 +51,7 @@ void tcp_server_close_client(context_arg* carg)
 
 	if (uv_is_closing((uv_handle_t*)&carg->client) == 0)
 	{
+		carg->close_time = setrtime();
 		if (carg->tls)
 		{
 			carg->is_closing = 1;
@@ -53,8 +71,11 @@ void tcp_server_close_client(context_arg* carg)
 void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server shutdowned client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	(srv_carg->shutdown_counter)++;
+	carg->shutdown_time_finish = setrtime();
 
 	tcp_server_close_client(carg);
 }
@@ -62,8 +83,10 @@ void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, size_t buffer_len)
 {
 	context_arg* carg = handle->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server write client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, is_writing: %d, is_closing: %d, buffer len: %zu\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->is_writing, carg->is_closing, buffer_len);
+	(srv_carg->tls_write_counter)++;
 
 	if (carg->is_writing || carg->is_closing)
 		return;
@@ -82,14 +105,18 @@ void tls_server_write(uv_write_t* req, uv_stream_t* handle, char* buffer, size_t
 void tcp_server_writed(uv_write_t* req, int status) 
 {
 	context_arg *carg = req->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server writed %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	(srv_carg->write_counter)++;
+	carg->write_time_finish = setrtime();
 
 	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
 	{
 		if (ac->log_level > 1)
 			printf("%"u64": tcp server call shutdown http client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 		carg->shutdown_req.data = carg;
+		carg->shutdown_time = setrtime();
 		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
 	}
 
@@ -105,11 +132,15 @@ void tcp_server_writed(uv_write_t* req, int status)
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server readed %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, EOF: %d, ECONNRESET: %d, ECONNABORTED: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, (nread == UV_EOF), (nread == UV_ECONNRESET), (nread == UV_ECONNABORTED));
+	(srv_carg->read_counter)++;
+	carg->read_time_finish = setrtime();
 
 	if ((nread) > 0 && (nread < 65536))
 	{
+		srv_carg->read_bytes_counter += nread;
 		string *str = string_init(6553500);
 		char *pastr = carg->full_body->l ? carg->full_body->s : buf->base;
 		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
@@ -120,7 +151,11 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (uv_is_writable((uv_stream_t*)&carg->client))
 		{
 			if(!carg->tls && uv_is_writable((uv_stream_t *)&carg->client))
+			{
+				srv_carg->write_bytes_counter += str->l;
+				carg->write_time = setrtime();
 				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_writed);
+			}
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
@@ -128,6 +163,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	}
 	if ((nread) > 0 && (nread >= 65536))
 	{
+		srv_carg->read_bytes_counter += nread;
 		string_cat(carg->full_body, buf->base, nread);
 	}
 	else if (nread == 0)
@@ -135,6 +171,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	else if (nread == UV_EOF)
 	{
 		carg->shutdown_req.data = carg;
+		carg->shutdown_time = setrtime();
 		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
@@ -146,8 +183,11 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 void tls_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = stream->data;
+	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
 		printf("%"u64": tls server readed %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, is_closing: %d, handshake over: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, carg->is_closing, (carg->tls_ctx.state == MBEDTLS_SSL_HANDSHAKE_OVER));
+	(srv_carg->tls_read_counter)++;
+	carg->tls_read_time_finish = setrtime();
 
 	if (nread <= 0)
 	{
@@ -164,6 +204,7 @@ void tls_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	else if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
 	{
 		int ret = 0;
+		srv_carg->tls_read_bytes_counter += nread;
 		carg->ssl_read_buffer_len = nread;
 		carg->ssl_read_buffer_offset = 0;
 		while ((ret = mbedtls_ssl_handshake_step(&carg->tls_ctx)) == 0)
@@ -180,6 +221,7 @@ void tls_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	}
 	else {
 		int read_len = 0;
+		srv_carg->tls_read_bytes_counter += nread;
 		carg->ssl_read_buffer_len = nread;
 		carg->ssl_read_buffer_offset = 0;
 
@@ -212,6 +254,8 @@ void tls_server_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 int tls_server_mbed_recv(void *ctx, unsigned char *buf, size_t len)
 {
 	context_arg* carg= (context_arg*)ctx;
+	context_arg *srv_carg = carg->srv_carg;
+	(srv_carg->tls_read_counter)++;
 	int need_copy = (carg->ssl_read_buffer_len - carg->ssl_read_buffer_offset) > len ? len : (carg->ssl_read_buffer_len - carg->ssl_read_buffer_offset);
 	if (need_copy == 0)
 		return MBEDTLS_ERR_SSL_WANT_READ;
@@ -224,6 +268,9 @@ int tls_server_mbed_recv(void *ctx, unsigned char *buf, size_t len)
 void tls_server_writed(uv_write_t* req, int status)
 {
 	context_arg* carg = req->data;
+	context_arg *srv_carg = carg->srv_carg;
+	(srv_carg->tls_write_counter)++;
+	carg->tls_write_time_finish = setrtime();
 	int ret;
 	if (carg->is_write_error)
 	{
@@ -262,6 +309,7 @@ void tls_server_writed(uv_write_t* req, int status)
 int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 {
 	context_arg* carg = (context_arg*)ctx;
+	context_arg *srv_carg = carg->srv_carg;
 	carg->write_buffer.base = 0;
 	carg->write_buffer.len = 0;
 	if (carg->is_write_error)
@@ -274,6 +322,8 @@ int tls_server_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 		memcpy(carg->write_buffer.base, buf, len);
 		carg->write_buffer.len = len;
 		carg->write_req.data = carg;
+		srv_carg->tls_write_bytes_counter += len;
+		carg->tls_write_time = setrtime();
 		int ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, tls_server_writed);
 		if (!ret)
 		{
@@ -337,6 +387,8 @@ int8_t tls_server_init(uv_loop_t* loop, context_arg* carg)
 
 void tls_server_init_client(uv_loop_t* loop, context_arg* carg)
 {
+	context_arg *srv_carg = carg->srv_carg;
+	(srv_carg->tls_init_counter)++;
 	mbedtls_ssl_init(&carg->tls_ctx);
 
 	if (mbedtls_ssl_setup(&carg->tls_ctx, &carg->tls_conf))
@@ -356,9 +408,11 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	memcpy(carg, srv_carg, sizeof(context_arg));
 	if (ac->log_level > 1)
 		printf("%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	(srv_carg->conn_counter)++;
 
 	uv_tcp_init(carg->loop, &carg->client);
 
+	carg->srv_carg = srv_carg;
 	carg->client.data = carg;
 	carg->full_body = string_init(6553500);
 	carg->curr_ttl = carg->ttl;
@@ -380,8 +434,10 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 		return;
 	}
 
+	carg->read_time = setrtime();
 	if (carg->tls)
 	{
+		carg->tls_read_time = setrtime();
 		if (uv_read_start((uv_stream_t*)&carg->client, tls_server_alloc, tls_server_readed))
 			tcp_server_close_client(carg);
 	}
@@ -401,6 +457,9 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		srv_carg = import_carg;
 	else
 		srv_carg = calloc(1, sizeof(context_arg));
+
+	srv_carg->key = malloc(255);
+	snprintf(srv_carg->key, 255, "%s:%u", ip, port);
 
 	if (ac->log_level > 1)
 		printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);

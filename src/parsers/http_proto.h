@@ -10,7 +10,7 @@
 typedef struct http_reply_data
 {
 	int http_version;
-	int http_code;
+	uint16_t http_code;
 	char *mesg;
 	char *headers;
 	char *uri;

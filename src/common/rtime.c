@@ -37,8 +37,23 @@ void getrtime(r_time t1, r_time t2)
 	printf("complete for: %u.%09d sec\n",t2.sec-t1.sec,t2.nsec-t1.nsec);
 }
 
-int64_t getrtime_i(r_time t1, r_time t2)
+uint64_t getrtime_ns(r_time t1, r_time t2)
 {
-	int64_t ret = (t2.sec-t1.sec)*1000000000 + ((t2.nsec-t1.nsec));
+	uint64_t ret = (t2.sec-t1.sec)*1000000000 + ((t2.nsec-t1.nsec));
+	return ret;
+}
+
+uint64_t getrtime_mcs(r_time t1, r_time t2, int debug)
+{
+	uint64_t ret = ((t2.sec-t1.sec)*1000000 + ((t2.nsec-t1.nsec)/1000));
+	if (debug)
+		printf("complete for: %u.%09d sec (%d - %d sec, %d - %d nsec), ret: %llu\n",t2.sec-t1.sec,t2.nsec-t1.nsec, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
+	return ret;
+}
+
+uint64_t getrtime_ms(r_time t1, r_time t2)
+{
+	uint64_t ret = ((t2.sec-t1.sec)*1000 + ((t2.nsec-t1.nsec)/1000000));
+	//printf("complete for: %u.%09d sec, ret: %llu\n",t2.sec-t1.sec,t2.nsec-t1.nsec, ret);
 	return ret;
 }
