@@ -1,6 +1,7 @@
 #include "main.h"
 #include <unistd.h>
 #include <string.h>
+#include "alligator_version.h"
 aconf *ac;
 //pq_library *pqlib;
 
@@ -109,10 +110,19 @@ void system_initialize()
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->system_carg->ttl = 300;
+	ac->system_carg->curr_ttl = -1;
 	ac->scs = calloc(1, sizeof(system_cpu_stats));
+	ac->system_sysfs = strdup("/sys/");
+	ac->system_procfs = strdup("/proc/");
+	ac->system_rundir = strdup("/run/");
+
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->process_match->hash);
+
+	ac->packages_match = calloc(1, sizeof(match_rules));
+	ac->packages_match->hash = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->packages_match->hash);
 }
 
 void system_metric_initialize()
@@ -182,6 +192,9 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->lang_aggregator);
 	tommy_hashdyn_init(ac->modules);
 
+	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
+	tommy_hashdyn_init(ac->entrypoints);
+
 	ac->request_cnt = 0;
 	ts_initialize();
 	https_ssl_domains_initialize();
@@ -204,6 +217,35 @@ void restore_settings()
 		metric_restore();
 }
 
+void print_help()
+{
+	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\nUsage: alligator [-h] [/path/to/config].\nDefault config path \"%s\"\nOptions:\n\t-h, --help\tHelp message\n", ALLIGATOR_VERSION, DEFAULT_CONF_DIR);
+}
+
+void parse_args(int argc, char **argv)
+{
+	if (argc < 2)
+		return;
+
+	uint64_t i;
+	for (i = 1; i < argc; i++)
+	{
+		if (!strncmp(argv[i], "-h", 2))
+		{
+			print_help();
+			exit(0);
+		}
+		else if (!strncmp(argv[i], "--help", 6))
+		{
+			print_help();
+			exit(0);
+		}
+		else
+			split_config(argv[1]);
+	}
+}
+
+
 int main(int argc, char **argv)
 {
 	ac = configuration();
@@ -214,7 +256,7 @@ int main(int argc, char **argv)
 	if (argc < 2)
 		split_config(DEFAULT_CONF_DIR);
 	else
-		split_config(argv[1]);
+		parse_args(argc, argv);
 
 	restore_settings();
 

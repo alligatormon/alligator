@@ -125,7 +125,9 @@ void get_cpu(int8_t platform)
 
 	int64_t effective_cores;
 	int64_t num_cpus = sysconf( _SC_NPROCESSORS_ONLN );
-	int64_t num_cpus_cgroup = (getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")/100000);
+	char syspath[255];
+	snprintf(syspath, 255, "%s/fs/cgroup/cpu/cpu.cfs_quota_us", ac->system_sysfs);
+	int64_t num_cpus_cgroup = (getkvfile(syspath)/100000);
 	double dividecpu = 1;
 	if ( num_cpus_cgroup <= 0 )
 		effective_cores = dividecpu = num_cpus;
@@ -150,7 +152,9 @@ void get_cpu(int8_t platform)
 
 	if (!platform)
 	{
-		FILE *fd = fopen("/proc/stat", "r");
+		char procstat[255];
+		snprintf(procstat, 255, "%s/stat", ac->system_procfs);
+		FILE *fd = fopen(procstat, "r");
 		if ( !fd )
 			return;
 
@@ -262,14 +266,19 @@ void get_cpu(int8_t platform)
 	else
 	{
 		sccs = &ac->scs->cgroup;
-		int64_t cfs_period = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
-		int64_t cfs_quota = getkvfile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+
+		snprintf(syspath, 255, "%s/fs/cgroup/cpu/cpu.cfs_period_us", ac->system_sysfs);
+		int64_t cfs_period = getkvfile(syspath);
+
+		snprintf(syspath, 255, "%s/fs/cgroup/cpu/cpu.cfs_quota_us", ac->system_sysfs);
+		int64_t cfs_quota = getkvfile(syspath);
 		if ( cfs_quota < 0 )
 		{
 			cfs_quota = cfs_period*dividecpu;
 		}
 
-		FILE *fd = fopen("/sys/fs/cgroup/cpuacct/cpuacct.stat", "r");
+		snprintf(syspath, 255, "%s/fs/cgroup/cpuacct/cpuacct.stat", ac->system_sysfs);
+		FILE *fd = fopen(syspath, "r");
 		if (!fd)
 			return;
 
@@ -316,7 +325,10 @@ void get_cpu(int8_t platform)
 		if (!cgroup_system_usage && !cgroup_user_usage)
 			cgroup_total_usage = 0;
 		else if (!cgroup_total_usage)
-			cgroup_total_usage = getkvfile("/sys/fs/cgroup/cpuacct/cpuacct.usage")*cfs_period/1000000000/cfs_quota*100.0;
+		{
+			snprintf(syspath, 255, "%s/fs/cgroup/cpuacct/cpuacct.usage", ac->system_sysfs);
+			cgroup_total_usage = getkvfile(syspath)*cfs_period/1000000000/cfs_quota*100.0;
+		}
 
 		uint64_t sccs_total = sccs->system + sccs->user;
 
@@ -659,7 +671,7 @@ void schedstat_process_info(char *pid, char *name)
 	char fpath[1000];
 	char buf[1000];
 	char *tmp;
-	snprintf(fpath, 1000, "/proc/%s/schedstat", pid);
+	snprintf(fpath, 1000, "%s/%s/schedstat", ac->system_procfs, pid);
 
 	FILE *sched_fd = fopen(fpath, "r");
 	if (!sched_fd)
@@ -699,7 +711,7 @@ void find_pid(int8_t lightweight)
 	struct dirent *entry;
 	DIR *dp;
 
-	dp = opendir("/proc");
+	dp = opendir(ac->system_procfs);
 	if (!dp)
 	{
 		//perror("opendir");
@@ -721,7 +733,7 @@ void find_pid(int8_t lightweight)
 		++processes;
 
 		// get comm name
-		snprintf(dir, FILENAME_MAX, "/proc/%s/comm", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/comm", ac->system_procfs, entry->d_name);
 		FILE *fd = fopen(dir, "r");
 		if (!fd)
 			continue;
@@ -737,7 +749,7 @@ void find_pid(int8_t lightweight)
 		fclose(fd);
 
 		// get cmdline
-		snprintf(dir, FILENAME_MAX, "/proc/%s/cmdline", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/cmdline", ac->system_procfs, entry->d_name);
 		fd = fopen(dir, "r");
 		if (!fd)
 			continue;
@@ -763,10 +775,10 @@ void find_pid(int8_t lightweight)
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
 				match = 0;
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/stat", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, entry->d_name);
 		get_proc_info(dir, procname, entry->d_name, lightweight, states, match);
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/fd/", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/fd/", ac->system_procfs, entry->d_name);
 		int64_t filesnum = get_fd_info_process(dir, procname);
 		if (match && filesnum && !lightweight)
 			metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", entry->d_name);
@@ -780,10 +792,10 @@ void find_pid(int8_t lightweight)
 
 		schedstat_process_info(entry->d_name, procname);
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/status", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, entry->d_name);
 		get_process_extra_info(dir, procname, entry->d_name);
 
-		snprintf(dir, FILENAME_MAX, "/proc/%s/io", entry->d_name);
+		snprintf(dir, FILENAME_MAX, "%s/%s/io", ac->system_procfs, entry->d_name);
 		get_process_io_stat(dir, procname, entry->d_name);
 	}
 
@@ -795,7 +807,10 @@ void find_pid(int8_t lightweight)
 	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("processes_total", &processes, DATATYPE_UINT, ac->system_carg);
-	int64_t threads_max = getkvfile("/proc/sys/kernel/threads-max");
+
+	char threadmax[255];
+	snprintf(threadmax, 255, "%s/sys/kernel/threads-max", ac->system_procfs);
+	int64_t threads_max = getkvfile(threadmax);
 	metric_add_auto("tasks_max", &threads_max, DATATYPE_INT, ac->system_carg);
 
 	double threads_usage = tasks * 100.0 / threads_max;
@@ -810,7 +825,10 @@ void get_mem(int8_t platform)
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: mem");
 
-	FILE *fd = fopen("/proc/meminfo", "r");
+	char pathbuf[255];
+	snprintf(pathbuf, 255, "%s/meminfo", ac->system_procfs);
+
+	FILE *fd = fopen(pathbuf, "r");
 	if (!fd)
 		return;
 
@@ -926,7 +944,8 @@ void get_mem(int8_t platform)
 	
 	fclose(fd);
 
-	fd = fopen("/proc/vmstat", "r");
+	snprintf(pathbuf, 255, "%s/vmstat", ac->system_procfs);
+	fd = fopen(pathbuf, "r");
 	if (!fd)
 		return;
 
@@ -969,7 +988,8 @@ void get_mem(int8_t platform)
 	fclose(fd);
 
 	// scrape cgroup
-	fd = fopen("/sys/fs/cgroup/memory/memory.stat", "r");
+	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.stat", ac->system_sysfs);
+	fd = fopen(pathbuf, "r");
 	if (!fd)
 		return;
 
@@ -1079,24 +1099,33 @@ void get_mem(int8_t platform)
 void throttle_stat()
 {
 	int64_t mval;
-	mval = getkvfile("/sys/fs/cgroup/memory/memory.memsw.failcnt");
+	char throttle_path[255];
+
+	snprintf(throttle_path, 255, "%s/fs/cgroup/memory/memory.memsw.failcnt", ac->system_sysfs);
+	mval = getkvfile(throttle_path);
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "memsw");
 
-	mval = getkvfile("/sys/fs/cgroup/memory/memory.failcnt");
+	snprintf(throttle_path, 255, "%s/fs/cgroup/memory/memory.failcnt", ac->system_sysfs);
+	mval = getkvfile(throttle_path);
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "mem");
 
-	mval = getkvfile("/sys/fs/cgroup/memory/memory.kmem.failcnt");
+	snprintf(throttle_path, 255, "%s/fs/cgroup/memory/memory.kmem.failcnt", ac->system_sysfs);
+	mval = getkvfile(throttle_path);
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "kmem");
 
-	mval = getkvfile("/sys/fs/cgroup/memory/memory.kmem.tcp.failcnt");
+	snprintf(throttle_path, 255, "%s/fs/cgroup/memory/memory.kmem.tcp.failcnt", ac->system_sysfs);
+	mval = getkvfile(throttle_path);
 	metric_add_labels("memory_cgroup_fails", &mval, DATATYPE_INT, ac->system_carg, "type", "kmem_tcp");
 
 	char *tmp;
 	char buf[1000];
-	FILE *fd = fopen("/sys/fs/cgroup/cpu,cpuacct/cpu.stat", "r");
+	
+	snprintf(throttle_path, 255, "%s/fs/cgroup/cpu,cpuacct/cpu.stat", ac->system_sysfs);
+	FILE *fd = fopen(throttle_path, "r");
 	if (!fd)
 	{
-		fd = fopen("/sys/fs/cgroup/cpu/cpu.stat", "r");
+		snprintf(throttle_path, 255, "%s/fs/cgroup/cpu/cpu.stat", ac->system_sysfs);
+		fd = fopen(throttle_path, "r");
 		if (!fd)
 			return;
 	}
@@ -1159,7 +1188,9 @@ void get_net_tcpudp(char *file, char *name)
 	uint64_t recv_queue = 0;
 	char *start, *end;
 
-	int64_t somaxconn = getkvfile("/proc/sys/net/core/somaxconn");
+	char procsomaxconn[255];
+	snprintf(procsomaxconn, 255, "%s/sys/net/core/somaxconn", ac->system_procfs);
+	int64_t somaxconn = getkvfile(procsomaxconn);
 
 	size_t rc;
 	char *bufend;
@@ -1372,7 +1403,9 @@ void get_network_statistics()
 	int64_t transmit_compressed;
 
 	char ifdir[1000];
-	FILE *fp = fopen("/proc/net/dev", "r");
+	char procnetdev[255];
+	snprintf(procnetdev, 255, "%s/net/dev", ac->system_procfs);
+	FILE *fp = fopen(procnetdev, "r");
 	char buf[200], ifname[20];
 
 	int i;
@@ -1444,7 +1477,7 @@ void get_network_statistics()
 		transmit_compressed = strtoll(pEnd, &pEnd, 10);
 		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_compressed");
 
-		snprintf(ifdir, 1000, "/sys/class/net/%s/speed", ifname);
+		snprintf(ifdir, 1000, "%s/class/net/%s/speed", ac->system_sysfs, ifname);
 		int64_t interface_speed_bits = getkvfile(ifdir);
 		metric_add_labels2("if_stat", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "speed");
 
@@ -1462,7 +1495,9 @@ void get_nofile_stat()
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: nofile_stat");
 
-	FILE *fd = fopen("/proc/sys/fs/file-nr", "r");
+	char filenr[255];
+	snprintf(filenr, 255, "%s/sys/fs/file-nr", ac->system_procfs);
+	FILE *fd = fopen(filenr, "r");
 	if (!fd)
 		return;
 
@@ -1503,7 +1538,9 @@ void get_disk_io_stat()
 	if (ac->log_level > 2)
 		puts("system scrape metrics: disk: io_stat");
 
-	FILE *fd = fopen("/proc/diskstats", "r");
+	char diskstats[255];
+	snprintf(diskstats, 255, "%s/diskstats", ac->system_procfs);
+	FILE *fd = fopen(diskstats, "r");
 	if (!fd)
 		return;
 
@@ -1532,7 +1569,7 @@ void get_disk_io_stat()
 			continue;
 
 		char bldevname[UCHAR_MAX];
-		snprintf(bldevname, UCHAR_MAX, "/sys/block/%s/queue/hw_sector_size", devname);
+		snprintf(bldevname, UCHAR_MAX, "%s/block/%s/queue/hw_sector_size", ac->system_sysfs, devname);
 		int64_t sectorsize = getkvfile(bldevname);
 
 		int64_t read_bytes = stat[5] * sectorsize;
@@ -1559,7 +1596,9 @@ void get_loadavg()
 	if (ac->log_level > 2)
 		puts("system scrape metrics: base: loadavg");
 
-	FILE *fd = fopen("/proc/loadavg", "r");
+	char loadavg[255];
+	snprintf(loadavg, 255, "%s/loadavg", ac->system_procfs);
+	FILE *fd = fopen(loadavg, "r");
 	if (!fd)
 		return;
 
@@ -1589,7 +1628,9 @@ void get_uptime()
 	localtime_r(&t, &lt);
 	time1.sec += lt.tm_gmtoff;
 
-	uint64_t uptime = time1.sec - get_file_atime("/proc/1");
+	char firstproc[255];
+	snprintf(firstproc, 255, "%s/1", ac->system_procfs);
+	uint64_t uptime = time1.sec - get_file_atime(firstproc);
 	metric_add_auto("uptime", &uptime, DATATYPE_UINT, ac->system_carg);
 }
 
@@ -1598,8 +1639,10 @@ void get_mdadm()
 	if (ac->log_level > 2)
 		puts("system scrape metrics: disk: mdadm");
 
+	char mdstat[255];
+	snprintf(mdstat, 255, "%s/mdstat", ac->system_procfs);
 	FILE *fd;
-	fd = fopen("/proc/mdstat", "r");
+	fd = fopen(mdstat, "r");
 	if (!fd)
 		return;
 
@@ -1690,7 +1733,10 @@ int8_t get_platform(int8_t mode)
 		printf("system scrape metrics: base: platform %d\n", mode);
 
 	int64_t vl = 1;
-	FILE *env = fopen("/proc/1/cgroup", "r");
+
+	char procpath[255];
+	snprintf(procpath, 255, "%s/1/cgroup", ac->system_procfs);
+	FILE *env = fopen(procpath, "r");
 	if (!env)
 		return 0;
 
@@ -1715,7 +1761,8 @@ int8_t get_platform(int8_t mode)
 	fclose(env);
 
 	uint8_t mbopenvz = 0;
-	env = fopen("/proc/1/environ", "r");
+	snprintf(procpath, 255, "%s/1/environ", ac->system_procfs);
+	env = fopen(procpath, "r");
 	if (!env)
 		return 0;
 	if (!fgets(env_str, LINUXFS_LINE_LENGTH, env))
@@ -1732,13 +1779,15 @@ int8_t get_platform(int8_t mode)
 	}
 	fclose(env);
 
-	env = fopen("/proc/user_beancounters", "r");
+	snprintf(procpath, 255, "%s/user_beancounters", ac->system_procfs);
+	env = fopen(procpath, "r");
 	if (env)
 	{
 		mbopenvz = 1;
 	}
 
-	env = fopen("/proc/vz/version", "r");
+	snprintf(procpath, 255, "%s/vz/version", ac->system_procfs);
+	env = fopen(procpath, "r");
 	if (!env)
 	{
 		if (mbopenvz)
@@ -1772,7 +1821,9 @@ void interface_stats()
 	struct dirent *entry;
 	DIR *dp;
 
-	dp = opendir("/sys/class/net");
+	char classpath[255];
+	snprintf(classpath, 255, "%s/class/net", ac->system_sysfs);
+	dp = opendir(classpath);
 	if (!dp)
 	{
 		//perror("opendir");
@@ -1790,7 +1841,7 @@ void interface_stats()
 		char operfile[255];
 		char ifacestatistics[255];
 		char operstate[100];
-		snprintf(operfile, 255, "/sys/class/net/%s/operstate", entry->d_name);
+		snprintf(operfile, 255, "%s/class/net/%s/operstate", ac->system_sysfs, entry->d_name);
 		FILE *fd = fopen(operfile, "r");
 		if (!fd)
 			continue;
@@ -1809,7 +1860,7 @@ void interface_stats()
 
 		struct dirent *entry_statistics;
 		DIR *dp_statistics;
-		snprintf(ifacestatistics, 255, "/sys/class/net/%s/statistics/", entry->d_name);
+		snprintf(ifacestatistics, 255, "%s/class/net/%s/statistics/", ac->system_sysfs, entry->d_name);
 		dp_statistics = opendir(ifacestatistics);
 		if (!dp_statistics)
 		{
@@ -1834,7 +1885,7 @@ void interface_stats()
 	closedir(dp);
 }
 
-void cgroup_vm(char *dir, char *template, uint8_t stat)
+void cgroup_vm(char *dir_template, char *template, uint8_t stat, char *sysfs)
 {
 	struct dirent *entry;
 	DIR *dp;
@@ -1846,6 +1897,8 @@ void cgroup_vm(char *dir, char *template, uint8_t stat)
 	int64_t mval;
 	uint64_t cur1;
 
+	char dir[255];
+	snprintf(dir, 255, dir_template, sysfs);
 	dp = opendir(dir);
 	if (!dp)
 	{
@@ -1860,7 +1913,7 @@ void cgroup_vm(char *dir, char *template, uint8_t stat)
 		if (!strcmp(entry->d_name, "user.slice") || !strcmp(entry->d_name, "system.slice"))
 			continue;
 
-		snprintf(cntpath, 1000, template, entry->d_name);
+		snprintf(cntpath, 1000, template, sysfs, entry->d_name);
 
 		struct dirent *cntentry;
 		DIR *cntdp;
@@ -2012,7 +2065,9 @@ void get_thermal()
 	struct dirent *entry;
 	DIR *dp;
 
-	dp = opendir("/sys/class/hwmon/");
+	char hwmonpath[255];
+	snprintf(hwmonpath, 255, "%s/class/hwmon/", ac->system_sysfs);
+	dp = opendir(hwmonpath);
 	if (!dp)
 		return;
 
@@ -2024,7 +2079,7 @@ void get_thermal()
 		struct dirent *monentry;
 		DIR *mondp;
 
-		snprintf(monname, 255, "/sys/class/hwmon/%s/", entry->d_name);
+		snprintf(monname, 255, "%s/class/hwmon/%s/", ac->system_sysfs, entry->d_name);
 		mondp = opendir(monname);
 		if (!mondp)
 			continue;
@@ -2082,7 +2137,9 @@ void get_thermal()
 
 void get_smart_info()
 {
-	FILE *fd = fopen("/proc/partitions", "r");
+	char partitions[255];
+	snprintf(partitions, 255, "%s/partitions", ac->system_procfs);
+	FILE *fd = fopen(partitions, "r");
 	if (!fd)
 		return;
 
@@ -2114,7 +2171,9 @@ void get_smart_info()
 
 void get_buddyinfo()
 {
-	FILE *fd = fopen("/proc/buddyinfo", "r");
+	char buddyinfo[255];
+	snprintf(buddyinfo, 255, "%s/buddyinfo", ac->system_procfs);
+	FILE *fd = fopen(buddyinfo, "r");
 	if (!fd)
 		return;
 
@@ -2164,7 +2223,9 @@ void get_buddyinfo()
 
 void get_kernel_version(int8_t platform)
 {
-	FILE *fd = fopen("/proc/version", "r");
+	char procversion[255];
+	snprintf(procversion, 255, "%s/version", ac->system_procfs);
+	FILE *fd = fopen(procversion, "r");
 	if (!fd)
 		return;
 
@@ -2207,7 +2268,7 @@ void get_alligator_info()
 	char genpath[255];
 	char val[255];
 	int64_t ival;
-	snprintf(genpath, 255, "/proc/%"d64"/status", (int64_t)getpid());
+	snprintf(genpath, 255, "%s/%"d64"/status", ac->system_procfs, (int64_t)getpid());
 	FILE *fd = fopen(genpath, "r");
 	if (!fd)
 		return;
@@ -2240,6 +2301,8 @@ void get_packages_info()
 {
 	if (ac->rpmlib)
 		get_rpm_info(ac->rpmlib);
+
+	dpkg_crawl("/var/lib/dpkg/available");
 }
 
 void clear_counts_for(void* arg)
@@ -2288,6 +2351,8 @@ void fill_counts_process()
 
 void get_system_metrics()
 {
+	cadvisor_metrics();
+
 	int8_t platform = -1;
 	if (ac->system_base)
 	{
@@ -2300,8 +2365,13 @@ void get_system_metrics()
 		get_alligator_info();
 		if (!platform)
 		{
-			get_memory_errors("/sys/devices/system/edac/mc/mc0/");
-			get_memory_errors("/sys/devices/system/edac/mc/mc1/");
+			char edacdir[255];
+
+			snprintf(edacdir, 255, "%s/devices/system/edac/mc/mc0/", ac->system_sysfs);
+			get_memory_errors(edacdir);
+
+			snprintf(edacdir, 255, "%s/devices/system/edac/mc/mc1/", ac->system_sysfs);
+			get_memory_errors(edacdir);
 			get_thermal();
 			get_buddyinfo();
 		}
@@ -2322,13 +2392,27 @@ void get_system_metrics()
 	if (ac->system_network)
 	{
 		get_network_statistics();
-		get_netstat_statistics("/proc/net/netstat");
-		get_netstat_statistics("/proc/net/snmp");
+		char dirname[255];
+
+		snprintf(dirname, 255, "%s/net/netstat", ac->system_procfs);
+		get_netstat_statistics(dirname);
+
+		snprintf(dirname, 255, "%s/net/snmp", ac->system_procfs);
+		get_netstat_statistics(dirname);
+
+		snprintf(dirname, 255, "%s/net/tcp", ac->system_procfs);
+		get_net_tcpudp(dirname, "tcp");
+
+		snprintf(dirname, 255, "%s/net/tcp6", ac->system_procfs);
+		get_net_tcpudp(dirname, "tcp6");
+
+		snprintf(dirname, 255, "%s/net/udp", ac->system_procfs);
+		get_net_tcpudp(dirname, "udp");
+
+		snprintf(dirname, 255, "%s/net/udp6", ac->system_procfs);
+		get_net_tcpudp(dirname, "udp6");
+
 		interface_stats();
-		get_net_tcpudp("/proc/net/tcp", "tcp");
-		get_net_tcpudp("/proc/net/tcp6", "tcp6");
-		get_net_tcpudp("/proc/net/udp", "udp");
-		get_net_tcpudp("/proc/net/udp6", "udp6");
 	}
 	if (ac->system_disk)
 	{
@@ -2342,16 +2426,8 @@ void get_system_metrics()
 
 	if (ac->system_vm)
 	{
-		cgroup_vm("/sys/fs/cgroup/memory/", "/sys/fs/cgroup/memory/%s/", LINUX_MEMORY);
-		cgroup_vm("/sys/fs/cgroup/cpuacct/", "/sys/fs/cgroup/cpuacct/%s/", LINUX_CPU);
-	}
-
-	if (ac->system_smart)
-	{
-		if (platform == -1)
-			platform = get_platform(0);
-		if (!platform)
-			get_smart_info();
+		cgroup_vm("%s/fs/cgroup/memory/", "%s/fs/cgroup/memory/%s/", LINUX_MEMORY, ac->system_sysfs);
+		cgroup_vm("%s/fs/cgroup/cpuacct/", "%s/fs/cgroup/cpuacct/%s/", LINUX_CPU, ac->system_sysfs);
 	}
 
 	if (ac->fdesc)
@@ -2379,10 +2455,20 @@ void system_fast_scrape()
 
 void system_slow_scrape()
 {
+	int8_t platform = -1;
 	if (ac->system_packages)
 	{
 		get_packages_info();
 	}
+
+	if (ac->system_smart)
+	{
+		if (platform == -1)
+			platform = get_platform(0);
+		if (!platform)
+			get_smart_info();
+	}
+
 }
 
 #endif

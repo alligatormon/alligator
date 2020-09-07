@@ -126,6 +126,8 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 	}
+
+	json_decref(root);
 }
 void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -193,6 +195,8 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 			//printf("rabbitmq_exchanges_publish{out}: %"d64"\n", publish_out);
 		}
 	}
+
+	json_decref(root);
 }
 void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -330,6 +334,8 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 	}
+
+	json_decref(root);
 }
 
 void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
@@ -557,6 +563,8 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		metric_add_labels2("rabbitmq_queues_slave_nodes_size", &slave_nodes_size, DATATYPE_UINT, carg, "name", queues_name, "vhost", queues_vhost);
 	}
+
+	json_decref(root);
 }
 void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -672,4 +680,6 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 	}
+
+	json_decref(root);
 }

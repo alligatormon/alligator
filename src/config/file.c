@@ -80,7 +80,7 @@ mtlen* split_char_to_mtlen(char *str)
 		if (k)
 		{
 			qts = config_is_quotas(str+i, k+1, quotas);
-			//printf("qts is %d\n", qts);
+			printf("qts is %d\n", qts);
 			if (qts == 1)
 				strncat(quotas, str+i+1, k);
 			else if (qts == 2)
@@ -92,14 +92,14 @@ mtlen* split_char_to_mtlen(char *str)
 				mt->st[j].l = strlen(quotas);
 				*quotas = 0;
 				qts = 0;
-				//printf("%d: quotas copy '%s' with len %d\n", j, mt->st[j].s, mt->st[j].l);
+				printf("%d: quotas copy '%s' with len %d\n", j, mt->st[j].s, mt->st[j].l);
 				++j;
 			}
 			else
 			{
 				mt->st[j].s = strndup(str+i, k);
 				mt->st[j].l = k;
-				//printf("%d: copy '%s' with len %d\n", j, mt->st[j].s, mt->st[j].l);
+				printf("%d: copy '%s' with len %d\n", j, mt->st[j].s, mt->st[j].l);
 				++j;
 			}
 		}
@@ -108,7 +108,7 @@ mtlen* split_char_to_mtlen(char *str)
 		{
 			mt->st[j].s = strndup(str+z, 1);
 			mt->st[j].l = 1;
-			//printf("%d: copy '%s' with len 1\n", j, mt->st[j].s);
+			printf("%d: copy '%s' with len 1\n", j, mt->st[j].s);
 			++j;
 		}
 
@@ -164,7 +164,11 @@ int split_config(char *file)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
+	{
+		fprintf(stderr, "Open config file failed: %s", file);
+		perror(": ");
 		return 0;
+	}
 
 	fseek(fd, 0, SEEK_END);
 	int64_t fdsize = ftell(fd);

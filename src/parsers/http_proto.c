@@ -106,13 +106,16 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	if (hrdata->chunked_expect)
 	{
 		hrdata->chunked_size = strtoll(body, &body, 16);
-		//printf("trying get 16 bit: %lld:\n%s\n", hrdata->chunked_size, body);
+		//printf("trying get 16 bit: %"d64":\n%s\n", hrdata->chunked_size, body);
 		hrdata->body = body+(old_style_newline/2);
 		hrdata->chunked_size -= n - (hrdata->body - http);
 		hrdata->chunked_expect = 1;
 
 		if (hrdata->chunked_size < 0)
+		{
 			hrdata->body[n - (hrdata->body - http) + (hrdata->chunked_size)] = 0;
+			hrdata->chunked_expect = 0;
+		}
 	}
 	else
 		hrdata->body = body;

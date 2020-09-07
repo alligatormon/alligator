@@ -97,6 +97,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
 	//printf("tcp_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
+
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	(carg->read_counter)++;
@@ -117,6 +118,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					carg->http_body = hr_data->body;
 					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
+					//printf("chunked_size %u, expect %d\n", carg->chunked_size, carg->chunked_expect);
 					carg->expect_body_length = hr_data->content_length;
 					uint64_t http_code = hr_data->http_code;
 					metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);

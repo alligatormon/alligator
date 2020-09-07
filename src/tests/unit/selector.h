@@ -30,3 +30,11 @@ void test_get_file_size()
 	cut_assert_equal_int(1024, get_file_size("tests/unit/selector/filesize1024"));
 	cut_assert_equal_int(4096, get_file_size("tests/unit/selector/filesize4096"));
 }
+
+void test_string()
+{
+	string *str = string_init(12);
+	string_cat(str, "123456789101112", 15);
+	uint newsize = str->m > 12;
+	cut_assert_equal_int(1, newsize);
+}

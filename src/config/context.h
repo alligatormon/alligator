@@ -3,8 +3,6 @@
 #include "metric/percentile_heap.h"
 #include "common/selector.h"
 #include "common/mapping.h"
-#define MAPPING_MATCH_GLOB 0
-#define MAPPING_MATCH_PCRE 1
 
 typedef struct config_context
 {

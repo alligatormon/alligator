@@ -9,7 +9,7 @@ void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg)
 	char *clmetrics = selector_get_field_by_str(metrics, size, "statistics", 2, NULL);
 	if ( clmetrics )
 	{
-		selector_split_metric(clmetrics, strlen(clmetrics), ";", 1, "=", 1, "aerospike_", 10, NULL, 0, carg);
+		plain_parse(clmetrics, strlen(clmetrics), "=", ";", "aerospike_", 10, carg);
 		free(clmetrics);
 	}
 }

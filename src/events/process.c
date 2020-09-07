@@ -57,6 +57,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	carg->http_body_size = 0;
 	carg->http_body = NULL;
+	carg->lock = 0;
 
 	uv_close((uv_handle_t*)req, NULL);
 	free(req);
@@ -160,6 +161,9 @@ void on_process_spawn(void* arg)
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	context_arg *pinfo = arg;
+	if (pinfo->lock)
+		return;
+	pinfo->lock = 1;
 
 	int r;
 	uv_process_t *child_req = malloc(sizeof(uv_process_t));
@@ -207,7 +211,7 @@ void process_handler()
 
 	uv_timer_t *timer = calloc(1, sizeof(*timer));
 	uv_timer_init(loop, timer);
-	uv_timer_start(timer, process_spawn_cb, 2500, 10000);
+	uv_timer_start(timer, process_spawn_cb, 2500, ac->aggregator_repeat);
 }
 
 //int main()

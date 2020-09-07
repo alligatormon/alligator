@@ -10,6 +10,7 @@
 #include "mbedtls/debug.h"
 #include "events/debug.h"
 #include "events/uv_alloc.h"
+#include "common/entrypoint.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -40,6 +41,7 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	if (carg->tls)
 		mbedtls_ssl_free(&carg->tls_ctx);
 
+	carg->buffer_request_size = carg->full_body->m;
 	string_free(carg->full_body);
 	free(carg);
 }
@@ -131,6 +133,10 @@ void tcp_server_writed(uv_write_t* req, int status)
 
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
+	//if (buf && buf->base)
+	//{
+	//	printf("tcp server readed: %d / %zd and:\n%s\n", UV_EOF, nread, buf->base);
+	//}
 	context_arg* carg = (context_arg*)stream->data;
 	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
@@ -141,9 +147,14 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	if ((nread) > 0 && (nread < 65536))
 	{
 		srv_carg->read_bytes_counter += nread;
-		string *str = string_init(6553500);
+		string *str = string_init(carg->buffer_response_size);
+
+		if (buf && buf->base)
+			string_cat(carg->full_body, buf->base, nread);
+
 		char *pastr = carg->full_body->l ? carg->full_body->s : buf->base;
 		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
+
 		//alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
 		alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
 		carg->write_req.data = carg;
@@ -159,6 +170,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
+		carg->buffer_response_size = str->m;
 		free(str);
 	}
 	if ((nread) > 0 && (nread >= 65536))
@@ -414,7 +426,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	carg->srv_carg = srv_carg;
 	carg->client.data = carg;
-	carg->full_body = string_init(6553500);
+	carg->full_body = string_init(carg->buffer_request_size);
 	carg->curr_ttl = carg->ttl;
 
 	if (carg->tls)
@@ -459,7 +471,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		srv_carg = calloc(1, sizeof(context_arg));
 
 	srv_carg->key = malloc(255);
-	snprintf(srv_carg->key, 255, "%s:%u", ip, port);
+	snprintf(srv_carg->key, 255, "tcp:%s:%u", ip, port);
 
 	if (ac->log_level > 1)
 		printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);
@@ -498,7 +510,20 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		return NULL;
 	}
 
+	tommy_hashdyn_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
 	return srv_carg;
+}
+
+void tcp_server_stop(const char* ip, int port)
+{
+	char key[255];
+	snprintf(key, 255, "tcp:%s:%u", ip, port);
+	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	if (carg)
+	{
+		uv_close((uv_handle_t*)&carg->server, NULL);
+		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+	}
 }
 
 //int main()

@@ -41,10 +41,9 @@ size_t get_rec_dir (char *str, size_t len, uint64_t num, int *fin)
 char * get_dir (char *str, uint64_t num, int *fin)
 {
 	size_t len = strlen(str);
-	char *dir = malloc(len);
+	char *dir = malloc(len+1);
 	size_t rc = get_rec_dir(str, len, num, fin);
-	strncpy(dir,str,rc);
-	dir[rc]='\0';
+	strlcpy(dir,str,rc+1);
 	return dir;
 }
 

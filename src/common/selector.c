@@ -9,6 +9,8 @@
 #include "main.h"
 #include "metric/namespace.h"
 
+#define PLAIN_METRIC_SIZE 1000
+
 size_t get_file_size(char *filename)
 {
 	struct stat st;
@@ -267,6 +269,18 @@ string* string_init(size_t max)
 	return ret;
 }
 
+void string_new_size(string *str, size_t len)
+{
+	uint64_t newsize = str->m*2+len;
+	char *newstr_char = malloc(newsize);
+	memcpy(newstr_char, str->s, str->l+1);
+	char *oldstr_char = str->s;
+	str->s = newstr_char;
+	str->m = newsize;
+
+	free(oldstr_char);
+}
+
 void string_null(string *str)
 {
 	*str->s = 0;
@@ -296,7 +310,7 @@ void string_cat(string *str, char *strcat, size_t len)
 	size_t str_len = str->l;
 	//printf("1212str_len=%zu\n", str_len);
 	if(str_len+len >= str->m)
-		return;
+		string_new_size(str, len);
 
 	size_t copy_size = len < (str->m - str_len) ? len : str_len;
 	//printf("string '%s'\nstr_len=%zu\nstrcat='%s'\ncopy_size=%zu\nlen=%zu\n", str->s, str_len, strcat, copy_size+1, len);
@@ -309,7 +323,7 @@ void string_uint(string *str, uint64_t u)
 {
 	size_t str_len = str->l;
 	if(str_len+20 >= str->m)
-		return;
+		string_new_size(str, 20);
 
 	char num[20];
 	snprintf(num, 20, "%"u64, u);
@@ -324,7 +338,7 @@ void string_int(string *str, int64_t i)
 {
 	size_t str_len = str->l;
 	if(str_len+20 >= str->m)
-		return;
+		string_new_size(str, 20);
 
 	char num[20];
 	snprintf(num, 20, "%"d64, i);
@@ -339,7 +353,7 @@ void string_double(string *str, double d)
 {
 	size_t str_len = str->l;
 	if(str_len+20 >= str->m)
-		return;
+		string_new_size(str, 20);
 
 	char num[20];
 	snprintf(num, 20, "%lf", d);
@@ -359,13 +373,9 @@ int match_mapper_compare(const void* arg, const void* obj)
 
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 {
-	extern aconf *ac;
-
 	int64_t n = tommy_hashdyn_count(mrules->hash);
 	if ((!n) && (!mrules->head))
 	{
-		int64_t val = 1;
-		metric_add_labels("process_match", &val, DATATYPE_INT, ac->system_carg, "name", name);
 		return 1;
 	}
 
@@ -373,7 +383,6 @@ int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 	if (ms)
 	{
 		++ms->count;
-		//metric_add_labels("process_match", &ms->count, DATATYPE_UINT, ac->system_carg, "name", name);
 		return 1;
 	}
 
@@ -388,7 +397,6 @@ int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 		else
 		{
 			++node->count;
-			//metric_add_labels("process_match", &node->count, DATATYPE_UINT, ac->system_carg, "name", name);
 			return 1;
 		}
 	}
@@ -441,5 +449,83 @@ void match_push(match_rules *mrules, char *str, size_t len)
 		match_string *ms = malloc(sizeof(*ms));
 		ms->s = strndup(str, len);
 		tommy_hashdyn_insert(mrules->hash, &(ms->node), ms, tommy_strhash_u32(0, ms->s));
+	}
+}
+
+void match_del(match_rules *mrules, char *str, size_t len)
+{
+	if(*str == '/')
+	{	// chained regex
+	}
+	else
+	{
+		// hash string
+		uint32_t str_hash = tommy_strhash_u32(0, str);
+		match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, str_hash);
+		tommy_hashdyn_remove_existing(mrules->hash, &(ms->node));
+
+		free(ms->s);
+		free(ms);
+	}
+}
+
+void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)
+{
+	if (!text)
+		return;
+
+	char *tmp = text;
+	uint64_t next;
+	char metric_name[PLAIN_METRIC_SIZE];
+	uint64_t copysize;
+
+	strlcpy(metric_name, prefix, psize+1);
+
+	uint64_t i = 1000;
+	char *prev = NULL;
+	for (; (tmp-text) < size && i--; tmp += next)
+	{
+		if (prev == tmp)
+			break;
+
+		tmp += strspn(tmp, nlsep);
+		next = strcspn(tmp, sep);
+
+		copysize = next+1+psize > PLAIN_METRIC_SIZE ? PLAIN_METRIC_SIZE : next;
+		if (metric_name_validator(tmp, copysize))
+			strlcpy(metric_name+psize, tmp, copysize+1);
+		else
+		{
+			//strlcpy(metric_name+psize, tmp, copysize+1);
+			//printf("metric name %s\n", metric_name);
+
+			prev = tmp;
+			next = strcspn(tmp, nlsep);
+			continue;
+		}
+
+		tmp += next;
+		tmp += strspn(tmp, sep);
+
+		next = strcspn(tmp, nlsep);
+		copysize = next > PLAIN_METRIC_SIZE ? PLAIN_METRIC_SIZE : next;
+
+		int rc = metric_value_validator(tmp, copysize);
+		if (rc == DATATYPE_INT)
+		{
+			int64_t val = strtoll(tmp, NULL, 10);
+			metric_add_auto(metric_name, &val, rc, carg);
+		}
+		else if (rc == DATATYPE_UINT)
+		{
+			uint64_t val = strtoull(tmp, NULL, 10);
+			metric_add_auto(metric_name, &val, rc, carg);
+		}
+		else if (rc == DATATYPE_DOUBLE)
+		{
+			double val = strtod(tmp, NULL);
+			metric_add_auto(metric_name, &val, rc, carg);
+		}
+		prev = tmp;
 	}
 }

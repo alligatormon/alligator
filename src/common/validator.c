@@ -81,7 +81,9 @@ int metric_name_validator(char *str, size_t sz)
 		else if (isdigit(str[i]))
 			continue;
 		else
+		{
 			return 0;
+		}
 
 	return 1;
 }
@@ -120,13 +122,21 @@ int metric_label_validator(char *str, size_t sz)
 
 int metric_value_validator(char *str, size_t sz)
 {
-	int64_t i;
+	int64_t i = 0;
 	int type = 0;
-	for (i=0; i<sz; i++)
+	if (str[i] == '-')
+	{
+		++i;
+		type = DATATYPE_UINT;
+	}
+
+	for (; i<sz; i++)
 	{
 		if ( isdigit(str[i]) || str[i] == '.' )
 		{
-			if ( isdigit(str[i]) && type != DATATYPE_INT && type != DATATYPE_DOUBLE)
+			if ( isdigit(str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
+				type = DATATYPE_INT;
+			else if ( isdigit(str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
 				type = DATATYPE_INT;
 			else if (str[i] == '.' && type != DATATYPE_DOUBLE)
 				type = DATATYPE_DOUBLE;

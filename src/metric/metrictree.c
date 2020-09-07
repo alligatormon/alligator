@@ -247,6 +247,7 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
+	mnode->type = type;
 	if (type == DATATYPE_INT)
 		mnode->i = *(int64_t*)value;
 	else if (type == DATATYPE_UINT)

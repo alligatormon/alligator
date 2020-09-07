@@ -8,7 +8,7 @@
 #define CH_NAME_SIZE 255
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//selector_split_metric(metrics, size, "\n", 1, "\t", 1, "Clickhouse_", 11, 0, 0, carg);
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, carg);
 }
 
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)

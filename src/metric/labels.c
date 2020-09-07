@@ -453,10 +453,24 @@ inline int64_t get_ttl(context_arg *carg)
 		return ac->ttl;
 
 	if (carg->curr_ttl > -1)
+	{
+		if (carg->curr_ttl == 0)
+		{
+			return INT_MAX;
+		}
+
 		return carg->curr_ttl;
+	}
 
 	if (carg && carg->ttl > -1)
+	{
+		if (carg->ttl == 0)
+		{
+			return INT_MAX;
+		}
+
 		return carg->ttl;
+	}
 
 	return ac->ttl;
 }
@@ -734,6 +748,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 
 void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
 {
+	//r_time start = setrtime();
 	namespace_struct *ns;
 
 	if (numbercheck(name))
@@ -773,6 +788,8 @@ void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, con
 	{
 		mapping_processing(carg, mnode, metric_get_int(value, type));
 	}
+	//r_time end = setrtime();
+	//getrtime(start, end);
 }
 
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
@@ -790,7 +807,6 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
-
 
 	tommy_hashdyn *labels = malloc(sizeof(*labels));
 	tommy_hashdyn_init(labels);

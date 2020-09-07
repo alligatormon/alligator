@@ -14,7 +14,7 @@ void metric_dump(int exit_sig)
 	else if (!ac->persistence_dir)
 		return;
 
-	string *body = string_init(100000);
+	string *body = string_init(10000000);
 	metric_str_build(0, body);
 	char dirtowrite[255];
 	snprintf(dirtowrite, 255, "%s/metric_dump", ac->persistence_dir);

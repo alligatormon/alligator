@@ -5,6 +5,7 @@
 #include "modules/modules.h"
 #include "main.h"
 #include "common/rpm.h"
+extern aconf *ac;
 
 void rpm_library_free(rpm_library *rpmlib)
 {
@@ -56,8 +57,20 @@ void rpm_library_free(rpm_library *rpmlib)
 	free(rpmlib);
 }
 
-rpm_library* rpm_library_init(const char *librpm)
+rpm_library* rpm_library_init()
 {
+	module_t *module_rpm = tommy_hashdyn_search(ac->modules, module_compare, "rpm", tommy_strhash_u32(0, "rpm"));
+	if (!module_rpm)
+	{
+		if (ac->log_level > 0)
+			printf("no module with key rpm\n");
+		return NULL;
+	}
+	char *librpm = module_rpm->path;
+
+	if (ac->log_level > 0)
+		printf("initialize RPM from library: %s\n", module_rpm->path);
+
 	rpm_library *rpmlib = calloc(1, sizeof(*rpmlib));
 
 	rpmlib->rpmReadConfigFiles = module_load(librpm, "rpmReadConfigFiles", &rpmlib->rpmReadConfigFiles_lib);
@@ -119,7 +132,7 @@ void get_rpm_info(rpm_library *rpmlib)
 	char *name, *version, *release;
 	rpmts db;
 
-	unsigned pkgs = 0;
+	uint64_t pkgs = 0;
 	int64_t *ctime;
 	unsigned type, count;
 	Header h;
@@ -151,9 +164,15 @@ void get_rpm_info(rpm_library *rpmlib)
 		//printf("rpm name %s\n", name);
 		//printf("rpm version %s\n", version);
 		//printf("rpm release %s\n", release);
-		metric_add_labels3("package_installed", ctime, DATATYPE_INT, ac->system_carg, "name", name, "release", release, "version", version);
+		int8_t match = 1;
+		if (!match_mapper(ac->packages_match, name, strlen(name), name))
+			match = 0;
+
+		if (match)
+			metric_add_labels3("package_installed", ctime, DATATYPE_INT, ac->system_carg, "name", name, "release", release, "version", version);
 		++pkgs;
 	}
+	metric_add_auto("package_total", &pkgs, DATATYPE_UINT, ac->system_carg);
 	rpmlib->rpmdbFreeIterator(mi);
 	rpmlib->rpmtsFree(db);
 }

@@ -194,6 +194,9 @@ uint8_t ip_check_access(network_range *nr, char *ip)
 
 void network_range_push(network_range *nr, char *cidr, uint8_t action)
 {
+	if (!nr)
+		return;
+
 	if (!nr->nr_node)
 	{
 		nr->nr_node = malloc(8*sizeof(network_range_node));

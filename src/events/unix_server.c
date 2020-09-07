@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <uv.h>
+#include "common/entrypoint.h"
 #include <main.h>
+extern aconf* ac;
 
 typedef struct unix_srv_data
 {
@@ -52,7 +54,6 @@ void unix_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 
 void unix_connect(uv_stream_t *server, int status) {
 	int r;
-	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 	if (status) {
 		fprintf(stderr, "connection error: [%s: %s]\n", uv_err_name((status)), uv_strerror((status)));
@@ -72,14 +73,14 @@ void unix_connect(uv_stream_t *server, int status) {
 	}
 }
 
-void unix_server_handler(char *file, void* handler)
+void unix_server_init(uv_loop_t *loop, const char* file, context_arg *carg)
 {
 	int r;
 
-	extern aconf* ac;
-	uv_loop_t *loop = ac->loop;
+	carg->key = malloc(255);
+	snprintf(carg->key, 255, "unix:%s", file);
 
-	uv_pipe_t *server = calloc(1, sizeof(*server));
+	uv_pipe_t *server = carg->pipe = calloc(1, sizeof(*server));
 	uv_pipe_init(loop, server, 0);
 
 	unlink(file);
@@ -91,4 +92,18 @@ void unix_server_handler(char *file, void* handler)
 	if (r)
 		printf("unix %s listen %s %s\n", file, uv_err_name(r), uv_strerror(r));
 
+	tommy_hashdyn_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+}
+
+void unix_server_stop(const char* file)
+{
+	char key[255];
+	snprintf(key, 255, "unix:%s", file);
+	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	if (carg)
+	{
+		uv_close((uv_handle_t*)carg->pipe, NULL);
+		unlink(file);
+		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+	}
 }

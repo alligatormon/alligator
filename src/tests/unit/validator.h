@@ -330,6 +330,8 @@ void test_metric_name_validator_36()
 #define TEST_VALIDATOR_VALUE_10 "131&23124"
 #define TEST_VALIDATOR_VALUE_11 "31891324934"
 #define TEST_VALIDATOR_VALUE_12 "31891324934t"
+#define TEST_VALIDATOR_VALUE_13 "-1891324934"
+#define TEST_VALIDATOR_VALUE_14 "-189.1324934"
 void test_metric_value_validator_1()
 {
 	int rc = metric_value_validator(TEST_VALIDATOR_VALUE_1, strlen(TEST_VALIDATOR_VALUE_1));
@@ -390,4 +392,16 @@ void test_metric_value_validator_12()
 {
 	int rc = metric_value_validator(TEST_VALIDATOR_VALUE_12, strlen(TEST_VALIDATOR_VALUE_12));
 	cut_assert_equal_int(0, rc);
+}
+
+void test_metric_value_validator_13()
+{
+	int rc = metric_value_validator(TEST_VALIDATOR_VALUE_13, strlen(TEST_VALIDATOR_VALUE_13));
+	cut_assert_equal_int(3, rc);
+}
+
+void test_metric_value_validator_14()
+{
+	int rc = metric_value_validator(TEST_VALIDATOR_VALUE_14, strlen(TEST_VALIDATOR_VALUE_14));
+	cut_assert_equal_int(1, rc);
 }

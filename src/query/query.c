@@ -1,4 +1,4 @@
-#include "common/query.h"
+#include "query/query.h"
 #include "stdlib.h"
 
 void query_processing()
@@ -6,7 +6,7 @@ void query_processing()
 	
 }
 
-query_node* query_push(query_list *ql, char *query, char *make, char *action)
+query_node* query_push(query_list *ql, char *datasource, char *expr, char *make, char *action, char *field)
 {
 	query_node *qn;
 
@@ -21,9 +21,11 @@ query_node* query_push(query_list *ql, char *query, char *make, char *action)
 		ql->tail = qn;
 	}
 
-	qn->query = query;
+	qn->expr = expr;
 	qn->make = make;
 	qn->action = action;
+	qn->field = field;
+	qn->datasource = datasource;
 
 	return qn;
 }

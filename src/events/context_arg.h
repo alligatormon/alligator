@@ -52,6 +52,9 @@ typedef struct context_arg
 	uint8_t expect_count;
 	uint8_t read_count;
 
+	uint64_t buffer_request_size;
+	uint64_t buffer_response_size;
+
 	char *namespace;
 	char *auth_basic;
 	char *auth_bearer;
@@ -119,6 +122,9 @@ typedef struct context_arg
 	uv_connect_t connect;
 	uv_write_t write_req;
 	uv_shutdown_t shutdown_req;
+	uv_udp_t *udp_server;
+	uv_poll_t *poll;
+	uv_pipe_t *pipe;
 
 	char is_async_writing;
 	char is_writing;
@@ -162,5 +168,15 @@ typedef struct context_arg
 	tommy_hashdyn* reject;
 	void *srv_carg;
 
+	// unixgram info
+	struct sockaddr_un *local;
+	socklen_t local_len;
+	struct sockaddr_un *remote;
+	socklen_t remote_len;
+	int fd;
+
 	tommy_node node;
+	tommy_node context_node;
 } context_arg;
+
+context_arg *carg_copy(context_arg *src);

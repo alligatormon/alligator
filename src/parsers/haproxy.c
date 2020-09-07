@@ -7,7 +7,7 @@
 
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
 {
-	selector_split_metric(metrics, size, "\n", 1, ": ", 2, "Haproxy_", 8, NULL, 0, carg);
+	plain_parse(metrics, size, ": ", "\n", "Haproxy_", 8, carg);
 }
 
 void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
@@ -27,6 +27,9 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 	char *tmp = metrics + to;
 
 	char* total = strstr(metrics, "\nTotal");
+	if (!total)
+		return;
+
 	for(i=0; i<size && tmp < total; ++i)
 	{
 		cursor = 0;
@@ -75,7 +78,6 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 
 void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 {
-	
 	char name[HAPROXY_NAME_SIZE];
 	size_t name_size;
 
@@ -138,22 +140,22 @@ void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 
 void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 {
+	//puts(metrics);
 	int64_t i;
 	int64_t cnt;
 	int64_t to;
+	//char *tmp = metrics;
+	//char proto[HAPROXY_NAME_SIZE];
+	//char fe[HAPROXY_NAME_SIZE];
+	//char be[HAPROXY_NAME_SIZE];
+	//char srv[HAPROXY_NAME_SIZE];
+	//char age[HAPROXY_NAME_SIZE];
+	//char calls[HAPROXY_NAME_SIZE];
 	for(i=0, cnt=-1; i<size; ++i, ++cnt)
 	{
+		//0x55dce59cd3e0: proto=tcpv4 src=127.0.0.1:46776 fe=main be=app srv=app4 ts=08 age=36s calls=8 rq[f=c800000h,i=0,an=2000h,rx=23s,wx=,ax=] rp[f=000000h,i=0,an=00h,rx=,wx=,ax=] s0=[7,8h,fd=1,ex=] s1=[5,108h,fd=2,ex=3s] exp=3s
 		to = strcspn(metrics+i, "\n");
 		i += to;
 	}
 	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, carg);
-}
-
-void haproxy_table_select_handler(char *metrics, size_t size, context_arg *carg)
-{
-}
-
-void haproxy_table_handler(char *metrics, size_t size, context_arg *carg)
-{
-	//smart_aggregator_selector_plain(carg->proto, carg->hostname, carg->port, haproxy_table_handler, "show table backend-slave\n");
 }

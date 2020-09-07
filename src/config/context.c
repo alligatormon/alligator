@@ -13,6 +13,7 @@
 #include "dynconf/sd.h"
 #include "lang/lang.h"
 #include "common/reject.h"
+#include "cadvisor/run.h"
 
 int8_t config_compare(mtlen *mt, int64_t i, char *str, size_t size)
 {
@@ -110,6 +111,9 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	carg->data = data;
 	carg->tt_timer = malloc(sizeof(uv_timer_t));
 	carg->write = 2;
+	carg->curr_ttl = -1;
+	carg->buffer_request_size = 6553500;
+	carg->buffer_response_size = 6553500;
 	carg->full_body = string_init(6553500);
 	if (hi->proto == APROTO_HTTPS || hi->proto == APROTO_TLS)
 		carg->tls = 1;
@@ -182,6 +186,7 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	return carg;
 }
 
+#define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 void context_aggregate_parser(mtlen *mt, int64_t *i)
 {
 	if ( *i == 0 )
@@ -228,6 +233,13 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_unixgram_client(hi->host, NULL, "");
+		}
+		else if (!strcmp(mt->st[*i-1].s, "docker"))
+		{
+			host_aggregator_info *hi = parse_url(DOCKERSOCK, strlen(DOCKERSOCK));
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_fill(mt, i, hi, docker_labels, "http", query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "clickhouse"))
 		{
@@ -460,27 +472,33 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		else if (!strcmp(mt->st[*i-1].s, "haproxy"))
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
-			int64_t g = *i;
+			if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
+			{
+				char *query = gen_http_query(0, hi->query, ";csv", hi->host, "alligator", hi->auth, 1);
+				context_arg *carg = context_arg_fill(mt, i, hi, haproxy_stat_handler, "haproxy_stat", query, 0, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
+			}
+			else
+			{
+				int64_t g = *i;
 
-			context_arg *carg = context_arg_fill(mt, &g, hi, haproxy_info_handler, "haproxy_info", "show info\n", 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
+				context_arg *carg = context_arg_fill(mt, &g, hi, haproxy_info_handler, "haproxy_info", "show info\n", 0, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
 
-			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_pools_handler, "haproxy_pools", "show pools\n", 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
+				g = *i;
+				carg = context_arg_fill(mt, &g, hi, haproxy_pools_handler, "haproxy_pools", "show pools\n", 0, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
 
-			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_stat_handler, "haproxy_stat", "show stat\n", 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
+				g = *i;
+				carg = context_arg_fill(mt, &g, hi, haproxy_stat_handler, "haproxy_stat", "show stat\n", 0, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
 
-			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_sess_handler, "haproxy_sess", "show sess\n", 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
+				g = *i;
+				carg = context_arg_fill(mt, &g, hi, haproxy_sess_handler, "haproxy_sess", "show sess\n", 0, NULL, NULL, ac->loop);
+				smart_aggregator(carg);
 
-			g = *i;
-			carg = context_arg_fill(mt, &g, hi, haproxy_table_handler, "haproxy_table", "show table\n", 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
-			*i = g;
+				*i = g;
+			}
 		}
 		else if (!strcmp(mt->st[*i-1].s, "nats"))
 		{
@@ -879,17 +897,22 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 		{
 			carg = calloc(1, sizeof(*carg));
 			carg->ttl = -1;
+			carg->curr_ttl = -1;
+			carg->buffer_request_size = 6553500;
+			carg->buffer_response_size = 6553500;
 		}
 
 		//printf("entrypoint %"d64": %s\n", *i, mt->st[*i].s);
 		if(!strncmp(mt->st[*i-1].s, "handler", 7) && !strncmp(mt->st[*i].s, "log", 3))
 		{
 			handler = &log_handler;
+			carg->parser_handler = handler;
 			//context_log_handler_parser(mt, i);
 		}
 		else if(!strncmp(mt->st[*i-1].s, "handler", 7) && !strncmp(mt->st[*i].s, "rsyslog-impstats", 16))
 		{
 			handler = &rsyslog_impstats_handler;
+			carg->parser_handler = handler;
 		}
 		else if(config_compare_begin(mt, *i, "mapping", 7))
 		{
@@ -968,12 +991,10 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				carg->parser_handler = handler;
 				tcp_server_init(ac->loop, host, atoi(port+1), tls, carg);
 			}
 			else
 			{
-				carg->parser_handler = handler;
 				tcp_server_init(ac->loop, "0.0.0.0", atoi(mt->st[*i].s), tls, carg);
 			}
 			carg = NULL;
@@ -984,20 +1005,20 @@ void context_entrypoint_parser(mtlen *mt, int64_t *i)
 			if (port)
 			{
 				char *host = strndup(mt->st[*i].s, port - mt->st[*i].s);
-				udp_server_handler(host, atoi(port+1), handler, carg);
+				udp_server_init(ac->loop, host, atoi(port+1), 0, carg);
 			}
 			else
-				udp_server_handler("0.0.0.0", atoi(mt->st[*i].s), handler, carg);
+				udp_server_init(ac->loop, "0.0.0.0", atoi(mt->st[*i].s), 0, carg);
 			carg = NULL;
 		}
 		else if (!strncmp(mt->st[*i-1].s, "unixgram", 8))
 		{
-			unixgram_server_handler(mt->st[*i].s, handler);
+			unixgram_server_init(ac->loop, mt->st[*i].s, carg);
 			carg = NULL;
 		}
 		else if (!strncmp(mt->st[*i-1].s, "unix", 4))
 		{
-			unix_server_handler(mt->st[*i].s, handler);
+			unix_server_init(ac->loop, mt->st[*i].s, carg);
 			carg = NULL;
 		}
 	}
@@ -1025,6 +1046,33 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_vm = 1;
 		else if (!strcmp(mt->st[*i].s, "firewall"))
 			ac->system_firewall = 1;
+		else if (!strcmp(mt->st[*i].s, "procfs"))
+		{
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			if (ptr)
+			{
+				free(ac->system_procfs);
+				ac->system_procfs = strdup(ptr);
+			}
+		}
+		else if (!strcmp(mt->st[*i].s, "sysfs"))
+		{
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			if (ptr)
+			{
+				free(ac->system_sysfs);
+				ac->system_sysfs = strdup(ptr);
+			}
+		}
+		else if (!strcmp(mt->st[*i].s, "rundir"))
+		{
+			char *ptr = config_get_arg(mt, *i, 1, NULL);
+			if (ptr)
+			{
+				free(ac->system_rundir);
+				ac->system_rundir = strdup(ptr);
+			}
+		}
 		else if (!strcmp(mt->st[*i].s, "packages"))
 		{
 			ac->system_packages = 1;
@@ -1113,26 +1161,48 @@ void context_query_parser(mtlen *mt, int64_t *i)
 	if ( *i == 0 )
 		*i += 1;
 
+	char *expr = 0;
+	char *make = 0;
+	char *action = 0;
+	char *field = 0;
+	char *datasource = 0;
+
 	for (; *i<mt->m && strncmp(mt->st[*i].s, "}", 1); *i+=1)
 	{
 		if (!(mt->st[*i].l))
 			continue;
 
+		printf("== '%s'\n", mt->st[*i].s);
 		if (config_compare_begin(mt, *i, "expr", 4))
 		{
-			printf("expr is %s\n", mt->st[*i+1].s);
+			printf("expr is %s %s\n", mt->st[*i].s, mt->st[*i+1].s);
+			expr = strdup(mt->st[*i+1].s);
 		}
 
 		if (config_compare_begin(mt, *i, "action", 6))
 		{
 			printf("action is %s\n", mt->st[*i+1].s);
+			action = strdup(mt->st[*i+1].s);
 		}
 
 		if (config_compare_begin(mt, *i, "make", 4))
 		{
 			printf("make is %s\n", mt->st[*i+1].s);
+			make = strdup(mt->st[*i+1].s);
+		}
+
+		if (config_compare_begin(mt, *i, "datasource", 10))
+		{
+			printf("ds is %s\n", mt->st[*i+1].s);
+			datasource = strdup(mt->st[*i+1].s);
+		}
+		if (config_compare_begin(mt, *i, "field", 5))
+		{
+			printf("field is %s\n", mt->st[*i+1].s);
+			field = strdup(mt->st[*i+1].s);
 		}
 	}
+	query_push(NULL, datasource, expr, make, action, field);
 }
 
 void context_lang_parser(mtlen *mt, int64_t *i)

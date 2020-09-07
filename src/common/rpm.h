@@ -31,6 +31,6 @@ typedef struct rpm_library
 
 } rpm_library;
 
-rpm_library* rpm_library_init(const char *librpm);
+rpm_library* rpm_library_init();
 void get_rpm_info(rpm_library *rpmlib);
 #endif

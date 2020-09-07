@@ -5,6 +5,7 @@
 #include "parsers/pushgateway.h"
 #include "parsers/http_proto.h"
 #include "common/reject.h"
+#include "config/mapping.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
 extern aconf *ac;
@@ -404,11 +405,11 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			//printf("trying for rc = 0: %d\n", rc);
 			if (rc == 0)
 			{
-				labels_hash_free(lbl);
-				if (ac->log_level > 3)
-					fprintf(stdout, "metric '%s' has invalid label format\n", str);
+			//	labels_hash_free(lbl);
+			//	if (ac->log_level > 3)
+			//		fprintf(stdout, "metric '%s' has invalid label format\n", str);
 
-				return;
+			//	return;
 			}
 
 			if (ac->log_level > 3)
@@ -494,7 +495,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	}
 	else
 		return;
-	
+
 	// replacing dot symbols and other from metric
 	metric_name_normalizer(metric_name, metric_len);
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);

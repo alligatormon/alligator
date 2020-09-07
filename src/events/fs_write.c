@@ -16,7 +16,7 @@ typedef struct fs_write_info
 	//char *write_data;
 } fs_write_info;
  
-void exit_cb(uv_fs_t* req) {
+void fs_write_exit(uv_fs_t* req) {
 	fs_write_info *fs_info = req->data;
 	free(fs_info->buffer.base);
 	uv_fs_req_cleanup(fs_info->write_req);
@@ -40,7 +40,7 @@ void write_cb(uv_fs_t* req) {
 	if (result < 0) {
 		printf("Error at writing file: %s\n", uv_strerror(result));
 	}
-	uv_fs_close(loop, fs_info->close_req, (uv_file)req->file, exit_cb);
+	uv_fs_close(loop, fs_info->close_req, (uv_file)req->file, fs_write_exit);
 }
  
 void open_cb(uv_fs_t* req) {
@@ -56,7 +56,7 @@ void open_cb(uv_fs_t* req) {
 	uv_fs_write(loop, fs_info->write_req, result, &fs_info->buffer, 1, 0, write_cb);
 }
 
-void write_to_file(char *filename, char *str, size_t len, void *callback, void *data)
+void write_to_file(char *filename, char *str, uint64_t len, void *callback, void *data)
 {
 	//char *filename = "textfile.txt";
 	//char *data = strdup("fevrc");

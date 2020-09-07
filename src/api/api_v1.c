@@ -1,6 +1,7 @@
 #include <jansson.h>
 #include "main.h"
 #include "parsers/http_proto.h"
+#include "config/mapping.h"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
 {
@@ -47,102 +48,351 @@ void http_api_v1(string *response, http_reply_data* http_data)
 		json_t *value;
 		json_object_foreach(root, key, value)
 		{
-			printf("key %s\n", key);
 			if (!strcmp(key, "log_level"))
 			{
 				ac->log_level = json_integer_value(value);
 			}
+			if (!strcmp(key, "ttl"))
+			{
+				ac->ttl = json_integer_value(value);
+			}
 			if (!strcmp(key, "entrypoint"))
 			{
-				void (*handler)(char*, size_t, context_arg*) = 0;
-
-				json_t *proto_json = json_object_get(value, "proto");
-				if (!proto_json)
-					return;
-				const char* proto = json_string_value(proto_json);
-
-				json_t *address_json = json_object_get(value, "address");
-				if (!address_json)
-					return;
-				const char* address = json_string_value(address_json);
-
-				int64_t port = 0;
-				printf("port %"d64", address %p, handler %p\n", port, address, handler);
-				json_t *port_json = json_object_get(value, "port");
-				if (port_json)
-					port = json_integer_value(port_json);
-
-				json_t *handler_parser_json = json_object_get(value, "handler");
-				if (handler_parser_json)
-				{
-					const char* handler_parser = json_string_value(handler_parser_json);
-					if (!strcmp(handler_parser, "rsyslog-impstats"))
-						handler = &rsyslog_impstats_handler;
-				}
+				//if (http_data->method == HTTP_METHOD_DELETE)
+				//{
+				//	char *port = strstr(tcp_string, ":");
+				//	if (port)
+				//	{
+				//		char *host = strndup(tcp_string, port - tcp_string);
+				//	tls_server_delete(ac->loop, host, port, proto);
+				//	continue;
+				//}
 
 				context_arg *carg = calloc(1, sizeof(*carg));
+				carg->buffer_request_size = 6553500;
+				carg->buffer_response_size = 6553500;
+				carg->net_acl = calloc(1, sizeof(*carg->net_acl));
 
-				if (!strcmp(proto, "tcp") || !strcmp(proto, "tls"))
+				json_t *carg_ttl = json_object_get(value, "ttl");
+				carg->ttl = json_integer_value(carg_ttl);
+
+				json_t *carg_handler = json_object_get(value, "handler");
+				char *str_handler = (char*)json_string_value(carg_handler);
+				if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
+					carg->parser_handler =  &rsyslog_impstats_handler;
+				else if (str_handler && !strcmp(str_handler, "log"))
+					carg->parser_handler =  &log_handler;
+				
+				json_t *allow = json_object_get(value, "allow");
+				if (allow)
 				{
-					uint8_t tls = !strcmp(proto, "tls") ? 1 : 0;
-					if (http_data->method == HTTP_METHOD_PUT || http_data->method == HTTP_METHOD_POST)
+					uint64_t allow_size = json_array_size(allow);
+					for (uint64_t i = 0; i < allow_size; i++)
 					{
-						int ret = 0;
-						if (tcp_server_init(ac->loop, address, port, tls, carg))
-							ret = 1;
-						code = http_error_handler_v1(ret, "Created", "Cannot bind", proto, address, port, status, respbody);
+						json_t *allow_obj = json_array_get(allow, i);
+						char *allow_str = (char*)json_string_value(allow_obj);
+						
+						if (http_data->method == HTTP_METHOD_DELETE)
+							network_range_delete(carg->net_acl, allow_str);
+						else
+							network_range_push(carg->net_acl, allow_str, IPACCESS_ALLOW);
 					}
-					if (http_data->method == HTTP_METHOD_DELETE)
+				}
+				json_t *deny = json_object_get(value, "deny");
+				if (deny)
+				{
+					uint64_t deny_size = json_array_size(deny);
+					for (uint64_t i = 0; i < deny_size; i++)
 					{
-						//int8_t ret = tcp_server_handler_free(address, port);
-						//code = http_error_handler_v1(ret, "Deleted", "Not Found", proto, address, port, status, respbody);
+						json_t *deny_obj = json_array_get(deny, i);
+						char *deny_str = (char*)json_string_value(deny_obj);
+						
+						if (http_data->method == HTTP_METHOD_DELETE)
+							network_range_delete(carg->net_acl, deny_str);
+						else
+							network_range_push(carg->net_acl, deny_str, IPACCESS_DENY);
 					}
 				}
 
-				//else if (!strcmp(proto, "udp"))
-				//	udp_server_handler(strdup(address), port, handler, carg);
+				json_t *reject = json_object_get(value, "reject");
+				if (reject)
+				{
+					if (!carg->reject)
+					{
+						carg->reject = calloc(1, sizeof(*carg->reject));
+						tommy_hashdyn_init(carg->reject);
+					}
 
-				//else if (!strcmp(proto, "unixgram"))
-				//	unixgram_server_handler(strdup(address), handler);
+					uint64_t reject_size = json_array_size(reject);
+					for (uint64_t i = 0; i < reject_size; i++)
+					{
+						json_t *reject_obj = json_array_get(reject, i);
 
-				//else if (!strcmp(proto, "unix"))
-				//	unix_server_handler(strdup(address), handler);
+						const char *reject_key;
+						json_t *reject_value;
+						json_object_foreach(reject_obj, reject_key, reject_value)
+						{
+							if (http_data->method == HTTP_METHOD_DELETE)
+								reject_delete(carg->reject, strdup(reject_key));
+							else
+							{
+								char *reject_value_str = (char*)json_string_value(reject_value);
+								char *reject_value_normalized = reject_value_str ? strdup(reject_value_str) : NULL;
+								reject_insert(carg->reject, strdup(reject_key), reject_value_normalized);
+							}
+						}
+					}
+				}
+				json_t *mapping = json_object_get(value, "mapping");
+				if (mapping)
+				{
+					uint64_t mapping_size = json_array_size(mapping);
+					for (uint64_t i = 0; i < mapping_size; i++)
+					{
+						json_t *mapping_obj = json_array_get(mapping, i);
+						mapping_metric *mm = json_mapping_parser(mapping_obj);
+
+						if (!carg->mm)
+							carg->mm = mm;
+						else
+							push_mapping_metric(carg->mm, mm);
+					}
+				}
+
+				json_t *tcp_json = json_object_get(value, "tcp");
+				uint64_t tcp_size = json_array_size(tcp_json);
+				for (uint64_t i = 0; i < tcp_size; i++)
+				{
+					json_t *tcp_object = json_array_get(tcp_json, i);
+					char *tcp_string = (char*)json_string_value(tcp_object);
+					char *port = strstr(tcp_string, ":");
+
+					// delete
+					if (http_data->method == HTTP_METHOD_DELETE)
+					{
+						if (port)
+						{
+							char *host = strndup(tcp_string, port - tcp_string);
+							tcp_server_stop(host, strtoll(port+1, NULL, 10));
+							free(host);
+						}
+						else
+							tcp_server_stop("0.0.0.0", strtoll(tcp_string, NULL, 10));
+
+						continue;
+					}
+
+					// create
+					context_arg *passcarg = carg_copy(carg);
+					if (port)
+					{
+						char *host = strndup(tcp_string, port - tcp_string);
+						tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+					}
+					else
+						tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
+				}
+
+				json_t *tls_json = json_object_get(value, "tls");
+				uint64_t tls_size = json_array_size(tls_json);
+				for (uint64_t i = 0; i < tls_size; i++)
+				{
+					json_t *tls_object = json_array_get(tls_json, i);
+					char *tls_string = (char*)json_string_value(tls_object);
+
+					char *port = strstr(tls_string, ":");
+
+					// delete
+					if (http_data->method == HTTP_METHOD_DELETE)
+					{
+						if (port)
+						{
+							char *host = strndup(tls_string, port - tls_string);
+							tcp_server_stop(host, strtoll(port+1, NULL, 10));
+							free(host);
+						}
+						else
+							tcp_server_stop("0.0.0.0", strtoll(tls_string, NULL, 10));
+
+						continue;
+					}
+
+					// create
+					context_arg *passcarg = carg_copy(carg);
+					if (port)
+					{
+						char *host = strndup(tls_string, port - tls_string);
+						tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
+					}
+					else
+						tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
+				}
+
+				json_t *udp_json = json_object_get(value, "udp");
+				uint64_t udp_size = json_array_size(udp_json);
+				for (uint64_t i = 0; i < udp_size; i++)
+				{
+					json_t *udp_object = json_array_get(udp_json, i);
+					char *udp_string = (char*)json_string_value(udp_object);
+					char *port = strstr(udp_string, ":");
+
+					// delete
+					if (http_data->method == HTTP_METHOD_DELETE)
+					{
+						if (port)
+						{
+							char *host = strndup(udp_string, port - udp_string);
+							udp_server_stop(host, strtoll(port+1, NULL, 10));
+							free(host);
+						}
+						else
+							udp_server_stop("0.0.0.0", strtoll(udp_string, NULL, 10));
+
+						continue;
+					}
+
+					// create
+					context_arg *passcarg = carg_copy(carg);
+					if (port)
+					{
+						char *host = strndup(udp_string, port - udp_string);
+						udp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+					}
+					else
+						udp_server_init(ac->loop, "0.0.0.0", strtoll(udp_string, NULL, 10), 0, passcarg);
+				}
+
+				json_t *unix_json = json_object_get(value, "unix");
+				uint64_t unix_size = json_array_size(unix_json);
+				for (uint64_t i = 0; i < unix_size; i++)
+				{
+					json_t *unix_object = json_array_get(unix_json, i);
+					char *unix_string = (char*)json_string_value(unix_object);
+					if (http_data->method == HTTP_METHOD_DELETE)
+					{
+						unix_server_stop(unix_string);
+					}
+					else
+					{
+						context_arg *passcarg = carg_copy(carg);
+						unix_server_init(ac->loop, strdup(unix_string), passcarg);
+					}
+				}
+
+				json_t *unixgram_json = json_object_get(value, "unixgram");
+				uint64_t unixgram_size = json_array_size(unixgram_json);
+				for (uint64_t i = 0; i < unixgram_size; i++)
+				{
+					json_t *unixgram_object = json_array_get(unixgram_json, i);
+					char *unixgram_string = (char*)json_string_value(unixgram_object);
+					if (http_data->method == HTTP_METHOD_DELETE)
+					{
+						unixgram_server_stop(unixgram_string);
+					}
+					else
+					{
+						context_arg *passcarg = carg_copy(carg);
+						unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
+					}
+				}
+				carg_free(carg);
+				int8_t ret = 1;
+				code = http_error_handler_v1(ret, "Created", "Cannot bind", "", "", 0, status, respbody);
 			}
 			if (!strcmp(key, "system"))
 			{
-				puts("SYSTEM!!!");
 				int type = json_typeof(value);
-				printf("type is %d\n", type);
-
-				uint64_t system_index;
-				size_t system_size = json_array_size(value);
-				for (system_index = 0; system_index < system_size; system_index++)
+				if (type != JSON_OBJECT)
 				{
-					json_t *system_obj = json_array_get(value, system_index);
-					char *system_key = (char*)json_string_value(system_obj);
-					printf("key: %s\n", system_key);
-					uint8_t enkey;
-					if (http_data->method == HTTP_METHOD_PUT || http_data->method == HTTP_METHOD_POST)
-						enkey = 1;
-					else if (http_data->method == HTTP_METHOD_DELETE)
-						enkey = 0;
-					else
-						continue;
+					code = 400;
+					snprintf(status, 100, "Bad Request");
+					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}");
+					fprintf(stderr, "%s", respbody);
+				}
+				else
+				{
+					const char *system_key;
+					json_t *sys_value;
+					json_object_foreach(value, system_key, sys_value)
+					{
+						printf("key: %s\n", system_key);
+						uint8_t enkey = 1;
+						if (http_data->method == HTTP_METHOD_DELETE)
+							enkey = 0;
+						
+						if (!strcmp(system_key, "base"))
+							ac->system_base = enkey;
+						else if (!strcmp(system_key, "disk"))
+							ac->system_disk = enkey;
+						else if (!strcmp(system_key, "network"))
+							ac->system_network = enkey;
+						else if (!strcmp(system_key, "vm"))
+							ac->system_vm = enkey;
+						else if (!strcmp(system_key, "smart"))
+							ac->system_smart = enkey;
+						else if (!strcmp(system_key, "firewall"))
+							ac->system_firewall = enkey;
+						else if (!strcmp(system_key, "cadvisor"))
+						{
+							ac->system_cadvisor = enkey;
+						}
+						else if (!strcmp(system_key, "packages"))
+						{
+							if (!ac->rpmlib)
+								ac->rpmlib = rpm_library_init();
 
-					if (!strcmp(system_key, "base"))
-						ac->system_base = enkey;
-					else if (!strcmp(system_key, "disk"))
-						ac->system_disk = enkey;
-					else if (!strcmp(system_key, "network"))
-						ac->system_network = enkey;
-					else if (!strcmp(system_key, "process"))
-						ac->system_process = enkey;
-					else if (!strcmp(system_key, "vm"))
-						ac->system_vm = enkey;
-					else if (!strcmp(system_key, "smart"))
-						ac->system_smart = enkey;
-					else if (!strcmp(system_key, "packages"))
-						ac->system_packages = enkey;
+							ac->system_packages = enkey;
+							uint64_t packages_size = json_array_size(sys_value);
+
+							// disable scrape if packages not selected
+							if (enkey || (!enkey && !packages_size))
+								ac->system_packages = enkey;
+
+							// enable or disable selected packageses
+							for (uint64_t i = 0; i < packages_size; i++)
+							{
+								json_t *packages_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(packages_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(packages_obj);
+									uint64_t obj_len = json_string_length(packages_obj);
+									if (enkey)
+										match_push(ac->packages_match, obj_str, obj_len);
+									else
+										match_del(ac->packages_match, obj_str, obj_len);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "process"))
+						{
+							uint64_t process_size = json_array_size(sys_value);
+
+							// disable scrape if processes not selected
+							if (enkey || (!enkey && !process_size))
+								ac->system_process = enkey;
+
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < process_size; i++)
+							{
+								json_t *process_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(process_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(process_obj);
+									uint64_t obj_len = json_string_length(process_obj);
+									if (enkey)
+										match_push(ac->process_match, obj_str, obj_len);
+									else
+										match_del(ac->process_match, obj_str, obj_len);
+								}
+							}
+						}
+					}
+					code = 202;
+					snprintf(status, 100, "Accepted");
+					snprintf(respbody, 1000, "{\"success\": \"accepted\"}");
+					fprintf(stderr, "%s", respbody);
 				}
 			}
 		}

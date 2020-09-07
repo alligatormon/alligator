@@ -1,4 +1,5 @@
 #pragma once
+#define TCPUDP_NET_LENREAD 10000000
 #include "platform/platform.h"
 #include "dstructures/tommy.h"
 #include <uv.h>
@@ -118,6 +119,11 @@ typedef struct aconf
 	int system_smart;
 	int system_packages;
 	int system_firewall;
+	int system_cadvisor;
+	char *system_procfs;
+	char *system_sysfs;
+	char *system_rundir;
+	char *cadvisor_tcpudpbuf;
 #ifdef __linux__
 	rpm_library *rpmlib;
 #endif
@@ -125,7 +131,10 @@ typedef struct aconf
 	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
+	match_rules *packages_match;
 	tommy_hashdyn* fdesc;
+
+	tommy_hashdyn* entrypoints;
 
 	uv_lib_t* libjvm_handle;
 	jint (*create_jvm)(JavaVM**, void**, void*);

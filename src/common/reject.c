@@ -47,8 +47,17 @@ void reject_insert(tommy_hashdyn *reject_hash, char *label_name, char *label_val
 	}
 }
 
+void reject_delete(tommy_hashdyn *reject_hash, char *label_name)
+{
+	uint32_t name_hash = tommy_strhash_u32(0, label_name);
+	tommy_hashdyn_remove(reject_hash, reject_hash_compare, label_name, name_hash);
+}
+
 int reject_metric(tommy_hashdyn *reject_hash, char *label_name, char *label_value)
 {
+	if (!reject_hash)
+		return 0;
+
 	uint32_t name_hash = tommy_strhash_u32(0, label_name);
 	reject_t *reject = tommy_hashdyn_search(reject_hash, reject_hash_compare, label_name, name_hash);
 	//printf("name %s: %p\n", label_name, reject);

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(alligator VERSION 1.10.96)
+set(VERSION 1.10.108)
+project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -57,6 +58,7 @@ set(STATIC_FILES
 	events/fragmentation.c
 	events/access.c
 	events/metrics.c
+	events/context_arg.c
 	platform/libbsd.c
 	parsers/dummy.c
 	parsers/pushgateway.c
@@ -115,13 +117,16 @@ set(STATIC_FILES
 	common/smart.c
 	common/netlib.c
 	common/rpm.c
+	common/deb.c
 	common/mkdirp.c
-	common/query.c
+	common/yaml.c
+	query/query.c
 	common/stat.c
 	common/reject.c
 	api/api_router.c
 	api/api_v1.c
 	common/iptc.c
+	common/entrypoint.c
 	#config/aggregate.c
 	config/file.c
 	config/context.c
@@ -138,6 +143,9 @@ set(STATIC_FILES
 	metric/metrictree.c
 	metric/percentile_heap.c
 	metric/metric_dump.c
+	cadvisor/run.c
+	cadvisor/ns.c
+	cadvisor/metrics.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -170,6 +178,7 @@ set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
+add_custom_command(TARGET ${COMMON} PRE_BUILD COMMAND sed -i -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_version.h)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_test(Test1 "cutter" ".")
 
@@ -182,7 +191,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

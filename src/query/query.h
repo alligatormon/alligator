@@ -1,8 +1,10 @@
 typedef struct query_node
 {
-	char *query;
+	char *expr;
 	char *make;
 	char *action;
+	char *field;
+	char *datasource;
 
 	struct query_node *next;
 } query_node;
