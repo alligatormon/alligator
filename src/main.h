@@ -22,6 +22,7 @@
 #include "common/rpm.h"
 #include "parsers/mongodb.h"
 #include "parsers/postgresql.h"
+#include "common/aggregator.h"
 #define d8 PRId8
 #define u16 PRIu16
 #define d64 PRId64
@@ -29,8 +30,10 @@
 #define METRIC_SIZE 1000
 #ifdef __FreeBSD__
 #define DEFAULT_CONF_DIR "/usr/local/etc/alligator.conf"
+#define DEFAULT_CONF_PATH "/usr/local/etc/alligator"
 #else
 #define DEFAULT_CONF_DIR "/etc/alligator.conf"
+#define DEFAULT_CONF_PATH "/etc/alligator"
 #endif
 
 #define	ASTDIN_FILENO	0
@@ -110,6 +113,7 @@ typedef struct aconf
 
 	// config parser handlers
 	tommy_hashdyn* config_ctx;
+	tommy_hashdyn* aggregate_ctx;
 
 	int system_base;
 	int system_disk;
@@ -155,6 +159,8 @@ typedef struct aconf
 	uint64_t metric_allocates;
 	uint64_t metric_freed;
 } aconf;
+
+extern aconf *ac;
 
 void get_system_metrics();
 void system_fast_scrape();

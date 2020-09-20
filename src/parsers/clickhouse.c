@@ -3,7 +3,9 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-//#include "args_parse.h"
+#include "common/aggregator.h"
+#include "common/http.h"
+#include "main.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 255
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
@@ -354,4 +356,63 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	free(database);
 	free(table);
+}
+
+string *clickhouse_gen_url(host_aggregator_info *hi, char *addition)
+{
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+string* clickhouse_system_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.metrics"); }
+string* clickhouse_system_asynchronous_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.asynchronous_metrics"); }
+string* clickhouse_system_events_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20event,value%20from\%20system.events"); }
+string* clickhouse_columns_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27"); }
+string* clickhouse_dictionary_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries"); }
+string* clickhouse_merges_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges"); }
+string* clickhouse_replicas_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas"); }
+
+void clickhouse_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("clickhouse");
+	actx->handlers = 7;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = clickhouse_system_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = clickhouse_system_mesg;
+	strlcpy(actx->handler[0].key,"clickhouse_system", 255);
+
+	actx->handler[1].name = clickhouse_system_handler;
+	actx->handler[1].validator = NULL;
+	actx->handler[1].mesg_func = clickhouse_system_asynchronous_mesg;
+	strlcpy(actx->handler[1].key,"clickhouse_system_asynchronous", 255);
+
+	actx->handler[2].name = clickhouse_system_handler;
+	actx->handler[2].validator = NULL;
+	actx->handler[2].mesg_func = clickhouse_system_events_mesg;
+	strlcpy(actx->handler[2].key,"clickhouse_system_events", 255);
+
+	actx->handler[3].name = clickhouse_columns_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = clickhouse_columns_mesg;
+	strlcpy(actx->handler[3].key,"clickhouse_columns", 255);
+
+	actx->handler[4].name = clickhouse_dictionary_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = clickhouse_dictionary_mesg;
+	strlcpy(actx->handler[4].key,"clickhouse_dictionary", 255);
+
+	actx->handler[5].name = clickhouse_merges_handler;
+	actx->handler[5].validator = NULL;
+	actx->handler[5].mesg_func = clickhouse_merges_mesg;
+	strlcpy(actx->handler[5].key,"clickhouse_merges", 255);
+
+	actx->handler[6].name = clickhouse_replicas_handler;
+	actx->handler[6].validator = NULL;
+	actx->handler[6].mesg_func = clickhouse_replicas_mesg;
+	strlcpy(actx->handler[6].key,"clickhouse_replicas", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

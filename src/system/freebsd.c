@@ -743,6 +743,10 @@ void get_system_metrics()
 	{
 		get_jail_stat();
 	}
+	if (ac->system_cadvisor)
+	{
+		get_jail_stat();
+	}
 }
 
 void system_fast_scrape()

@@ -57,3 +57,6 @@ int64_t getkvfile(char *file);
 string* string_init_str(char *str, size_t max);
 string* string_init(size_t max);
 void string_null(string *str);
+string* string_init_alloc(char *str, size_t max);
+string* string_init_add(char *str, size_t len, size_t max);
+string* get_file_content(char *file);

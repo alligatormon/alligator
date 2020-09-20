@@ -3,6 +3,7 @@
 #define URL_SIZE 1024
 #define EVENT_BUFFER 65536
 #include <uv.h>
+#include <jansson.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
 #include "metric/metrictree.h"
@@ -15,6 +16,7 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/ssl.h"
 #include "common/selector.h"
+#include "common/url.h"
 
 typedef struct context_arg
 {
@@ -180,3 +182,4 @@ typedef struct context_arg
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop);

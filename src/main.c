@@ -199,6 +199,7 @@ aconf* configuration()
 	ts_initialize();
 	https_ssl_domains_initialize();
 	config_context_initialize();
+	aggregate_ctx_init();
 	system_initialize();
 	system_metric_initialize();
 	//tls_initialize();
@@ -241,7 +242,10 @@ void parse_args(int argc, char **argv)
 			exit(0);
 		}
 		else
+		{
 			split_config(argv[1]);
+			parse_configs(argv[1]);
+		}
 	}
 }
 
@@ -254,7 +258,10 @@ int main(int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	general_loop();
 	if (argc < 2)
+	{
 		split_config(DEFAULT_CONF_DIR);
+		parse_configs(DEFAULT_CONF_PATH);
+	}
 	else
 		parse_args(argc, argv);
 

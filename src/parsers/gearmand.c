@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "main.h"
 #define GEARMAND_NAME_SIZE 1000
 
 void gearmand_handler(char *metrics, size_t size, context_arg *carg)
@@ -28,6 +30,7 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 		if ((to == 1) || (*cdc == '.' && to == 2))
 			break;
 
+
 		ctx_total = int_get_next(metrics+i, size, '\t', &cursor);
 		metric_add_labels("gearmand_total", &ctx_total, DATATYPE_INT, carg, "function", cdc);
 
@@ -47,4 +50,34 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_auto("gearmand_server_total", &total, DATATYPE_INT, carg);
 	metric_add_auto("gearmand_server_running", &running, DATATYPE_INT, carg);
 	metric_add_auto("gearmand_server_available_workers", &available_workers, DATATYPE_INT, carg);
+}
+
+int8_t gearmand_validator(char *data, size_t size)
+{
+	char *ret = strstr(data, "\n.\n");
+	if (ret)
+		return 1;
+	else
+		return 0;
+}
+
+string* gearmand_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(strdup("status\r\n"), 0, 0);
+}
+
+void gearmand_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("gearmand");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = gearmand_handler;
+	actx->handler[0].validator = gearmand_validator;
+	actx->handler[0].mesg_func = gearmand_mesg;
+	strlcpy(actx->handler[0].key,"gearmand", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

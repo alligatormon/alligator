@@ -5,6 +5,9 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/json_parser.h"
+#include "common/http.h"
+#include "main.h"
 #define HADOOP_METRIC_SIZE 1000
 void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -63,4 +66,25 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 
 	}
 	json_decref(root);
+}
+
+string* hadoop_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void hadoop_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("hadoop");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = hadoop_handler;
+	actx->handler[0].validator = json_validator;
+	actx->handler[0].mesg_func = hadoop_mesg;
+	strlcpy(actx->handler[0].key,"hadoop", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

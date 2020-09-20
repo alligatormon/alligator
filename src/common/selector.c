@@ -305,6 +305,26 @@ string* string_init_str(char *str, size_t max)
 	return ret;
 }
 
+string* string_init_add(char *str, size_t len, size_t max)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = max;
+	ret->s = str;
+	ret->l = len;
+
+	return ret;
+}
+
+
+string* string_init_add_auto(char *str)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = ret->l = strlen(str);
+	ret->s = str;
+
+	return ret;
+}
+
 void string_cat(string *str, char *strcat, size_t len)
 {
 	size_t str_len = str->l;
@@ -317,6 +337,24 @@ void string_cat(string *str, char *strcat, size_t len)
 	memcpy(str->s+str_len, strcat, copy_size);
 	str->l += copy_size;
 	str->s[str->l] = 0;
+}
+
+void string_string_cat(string *str, string *src)
+{
+	size_t str_len = str->l;
+	size_t src_len = src->l;
+	if(str_len+src_len >= str->m)
+		string_new_size(str, src_len);
+
+	memcpy(str->s+str_len, src->s, src_len);
+	str->l += src_len;
+	str->s[str->l] = 0;
+}
+
+void string_merge(string *str, string *src)
+{
+	string_string_cat(str, src);
+	string_free(src);
 }
 
 void string_uint(string *str, uint64_t u)
@@ -362,6 +400,17 @@ void string_double(string *str, double d)
 	size_t copy_size = len < (str->m - str_len) ? len : str_len;
 	strlcpy(str->s+str_len, num, copy_size+1);
 	str->l += copy_size;
+}
+
+string* string_init_alloc(char *str, size_t max)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = max;
+	ret->s = malloc(max);
+	memcpy(ret->s, str, max);
+	ret->l = max;
+
+	return ret;
 }
 
 int match_mapper_compare(const void* arg, const void* obj)
@@ -492,17 +541,18 @@ void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix
 		next = strcspn(tmp, sep);
 
 		copysize = next+1+psize > PLAIN_METRIC_SIZE ? PLAIN_METRIC_SIZE : next;
-		if (metric_name_validator(tmp, copysize))
+		metric_name_normalizer(tmp, copysize);
+		//if (metric_name_validator(tmp, copysize))
 			strlcpy(metric_name+psize, tmp, copysize+1);
-		else
-		{
-			//strlcpy(metric_name+psize, tmp, copysize+1);
-			//printf("metric name %s\n", metric_name);
+		//else
+		//{
+		//	//strlcpy(metric_name+psize, tmp, copysize+1);
+		//	//printf("metric name %s\n", metric_name);
 
-			prev = tmp;
-			next = strcspn(tmp, nlsep);
-			continue;
-		}
+		//	prev = tmp;
+		//	next = strcspn(tmp, nlsep);
+		//	continue;
+		//}
 
 		tmp += next;
 		tmp += strspn(tmp, sep);
@@ -528,4 +578,25 @@ void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix
 		}
 		prev = tmp;
 	}
+}
+
+string* get_file_content(char *file)
+{
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+	{
+		fprintf(stderr, "Open config file failed: %s", file);
+		perror(": ");
+		return 0;
+	}
+
+	fseek(fd, 0, SEEK_END);
+	int64_t fdsize = ftell(fd);
+	rewind(fd);
+
+	char *buf = malloc(fdsize);
+	size_t rc = fread(buf, 1, fdsize, fd);
+
+	string *str = string_init_add(buf, rc, fdsize);
+	return str;
 }

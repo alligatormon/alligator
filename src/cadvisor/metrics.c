@@ -906,11 +906,21 @@ void cgroup_get_quotas(char *prefix, char *cntid, char *name, char *image, char 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpuacct/%s/%s/cpu.cfs_period_us", prefix, cntid);
 	ival = get_int_file(fpath);
 	add_cadvisor_metric_int("container_spec_cpu_period", ival, cntid, name, image, cad_id, NULL, NULL);
+	uint64_t periods = ival;
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpuacct/%s/%s/cpu.cfs_quota_us", prefix, cntid);
 	ival = get_int_file(fpath);
 	if (ival < 0)
-		ival = 0;
+	{
+		snprintf(fpath, 1000, "%s/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us", ac->system_sysfs);
+		ival = get_int_file(fpath);
+		if (ival < 0)
+		{
+			ival = sysconf( _SC_NPROCESSORS_ONLN ) * periods;
+			if (ival < 0)
+				ival = 0;
+		}
+	}
 	add_cadvisor_metric_int("container_spec_cpu_quota", ival, cntid, name, image, cad_id, NULL, NULL);
 }
 
@@ -953,9 +963,22 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 	struct dirent *ethd_entry;
 
 	snprintf(pidsdir, 1000, "%s/fs/cgroup/pids/%s/cgroup.procs", sysfs, cad_id);
+	//FILE *fd = fopen(pidsdir, "r");
+	//if (!fd)
+	//{
+	//	snprintf(pidsdir, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/cgroup.procs", sysfs, cad_id);
+	//	fd = fopen(pidsdir, "r");
+	//	if (!fd)
+	//		return;
+	//}
+	//fclose(fd);
 
 	if (!mount_ns_by_cgroup_procs(pidsdir, name))
-		return;
+	{
+		snprintf(pidsdir, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/cgroup.procs", sysfs, cad_id);
+		if (!mount_ns_by_cgroup_procs(pidsdir, name))
+			return;
+	}
 
 	ethd = opendir("/var/lib/alligator/nsmount/class/net/");
 	if (ethd)

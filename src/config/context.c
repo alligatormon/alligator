@@ -186,7 +186,6 @@ context_arg* context_arg_fill(mtlen *mt, int64_t *i, host_aggregator_info *hi, v
 	return carg;
 }
 
-#define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 void context_aggregate_parser(mtlen *mt, int64_t *i)
 {
 	if ( *i == 0 )
@@ -233,13 +232,6 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		{
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			do_unixgram_client(hi->host, NULL, "");
-		}
-		else if (!strcmp(mt->st[*i-1].s, "docker"))
-		{
-			host_aggregator_info *hi = parse_url(DOCKERSOCK, strlen(DOCKERSOCK));
-			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
-			context_arg *carg = context_arg_fill(mt, i, hi, docker_labels, "http", query, 0, NULL, NULL, ac->loop);
-			smart_aggregator(carg);
 		}
 		else if (!strcmp(mt->st[*i-1].s, "clickhouse"))
 		{
@@ -1044,6 +1036,13 @@ void context_system_parser(mtlen *mt, int64_t *i)
 			ac->system_network = 1;
 		else if (!strcmp(mt->st[*i].s, "vm"))
 			ac->system_vm = 1;
+		else if (!strcmp(mt->st[*i].s, "cadvisor"))
+		{
+			host_aggregator_info *hi = parse_url("http://unix:/var/run/docker.sock:/containers/json", strlen("http://unix:/var/run/docker.sock:/containers/json"));
+			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+			context_arg *carg = context_arg_json_fill(NULL, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, ac->loop);
+			smart_aggregator(carg);
+		}
 		else if (!strcmp(mt->st[*i].s, "firewall"))
 			ac->system_firewall = 1;
 		else if (!strcmp(mt->st[*i].s, "procfs"))

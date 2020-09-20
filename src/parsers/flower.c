@@ -3,13 +3,14 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
+#include "main.h"
 #define FLOWER_LABEL_SIZE 1000
 void flower_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *cur = metrics;
 	size_t n;
 	char label[FLOWER_LABEL_SIZE];
-	puts(cur);
 
 	cur = strstr(cur, "Active:")+8;
 	int64_t total_active = atoll(cur);
@@ -98,4 +99,25 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t task_retried = atoll(cur);
 			metric_add_labels("flower_tasks_retried", &task_retried, DATATYPE_INT, carg, "worker",  label);
 	}
+}
+
+string* flower_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void flower_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("flower");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = flower_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = flower_mesg;
+	strlcpy(actx->handler[0].key,"flower", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -15,4 +15,5 @@ typedef struct lang_options {
 } lang_options;
 
 void lang_push(lang_options *lo);
+void lang_delete(char *key);
 char* java_run(char *optionString, char* className, char *method, char *arg);

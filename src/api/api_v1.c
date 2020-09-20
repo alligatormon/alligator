@@ -2,6 +2,12 @@
 #include "main.h"
 #include "parsers/http_proto.h"
 #include "config/mapping.h"
+#include "common/url.h"
+#include "common/http.h"
+#include "cadvisor/run.h"
+#include "events/context_arg.h"
+#include "lang/lang.h"
+#define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
 {
@@ -21,11 +27,11 @@ uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, con
 	return code;
 }
 
-void http_api_v1(string *response, http_reply_data* http_data)
+void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 {
 	extern aconf *ac;
-	char *body = http_data->body;
-	puts(body);
+	char *body = http_data ? http_data->body : configbody;
+	uint8_t method = http_data ? http_data->method : HTTP_METHOD_PUT;
 	uint16_t code = 200;
 	char temp_resp[1000];
 	char respbody[1000];
@@ -56,9 +62,120 @@ void http_api_v1(string *response, http_reply_data* http_data)
 			{
 				ac->ttl = json_integer_value(value);
 			}
+			if (!strcmp(key, "modules"))
+			{
+				uint64_t modules_size = json_array_size(value);
+				for (uint64_t i = 0; i < modules_size; i++)
+				{
+					json_t *modules = json_array_get(value, i);
+					json_t *jkey = json_object_get(modules, "key");
+					if (!jkey)
+						continue;
+					char *key = (char*)json_string_value(jkey);
+
+					json_t *jpath = json_object_get(modules, "path");
+					if (!jpath)
+						continue;
+					char *path = (char*)json_string_value(jpath);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						module_t *module = tommy_hashdyn_search(ac->modules, module_compare, key, tommy_strhash_u32(0, key));
+						free(module->key);
+						free(module->path);
+						tommy_hashdyn_remove_existing(ac->modules, &(module->node));
+
+						free(module);
+						continue;
+					}
+
+					module_t *module = calloc(1, sizeof(*module));
+					module->key = strdup(key);
+					module->path = strdup(path);
+
+					tommy_hashdyn_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
+				}
+			}
+			if (!strcmp(key, "persistence"))
+			{
+				if (method == HTTP_METHOD_DELETE)
+				{
+					if (ac->persistence_dir)
+					{
+						free(ac->persistence_dir);
+						ac->persistence_dir = NULL;
+					}
+					continue;
+				}
+
+				json_t *directory = json_object_get(value, "directory");
+				if (directory)
+					ac->persistence_dir = strdup(json_string_value(directory));
+				else
+					ac->persistence_dir = strdup("/var/lib/alligator");
+
+				mkdirp(ac->persistence_dir);
+
+				json_t *period = json_object_get(value, "period");
+				if (period)
+					ac->ttl = json_integer_value(period)*1000;
+				else
+					ac->ttl = 15000;
+					
+			}
+			if (!strcmp(key, "lang"))
+			{
+				uint64_t lang_size = json_array_size(value);
+				for (uint64_t i = 0; i < lang_size; i++)
+				{
+					json_t *lang = json_array_get(value, i);
+
+					json_t *lang_key = json_object_get(lang, "key");
+					if (!lang_key)
+						continue;
+					char *key = (char*)json_string_value(lang_key);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						lang_delete(key);
+					}
+
+					json_t *lang_name = json_object_get(lang, "lang");
+					if (!lang_name)
+						continue;
+					char *slang_name = (char*)json_string_value(lang_name);
+
+					json_t *lang_classpath = json_object_get(lang, "classpath");
+					char *slang_classpath = (char*)json_string_value(lang_classpath);
+
+					json_t *lang_classname = json_object_get(lang, "classname");
+					char *slang_classname = (char*)json_string_value(lang_classname);
+
+					json_t *lang_method = json_object_get(lang, "method");
+					char *slang_method = (char*)json_string_value(lang_method);
+
+					json_t *lang_arg = json_object_get(lang, "arg");
+					char *slang_arg = (char*)json_string_value(lang_arg);
+
+					lang_options *lo = calloc(1, sizeof(*lo));
+					lo->lang = strdup(slang_name);
+					lo->key = strdup(key);
+
+					if (slang_classpath)
+						lo->classpath = strdup(slang_classpath);
+					if (slang_classname)
+						lo->classname = strdup(slang_classname);
+					if (slang_method)
+						lo->method = strdup(slang_method);
+					if (slang_arg)
+						lo->arg = strdup(slang_arg);
+
+					lang_push(lo);
+				}
+			}
 			if (!strcmp(key, "entrypoint"))
 			{
-				//if (http_data->method == HTTP_METHOD_DELETE)
+				//if (method == HTTP_METHOD_DELETE)
 				//{
 				//	char *port = strstr(tcp_string, ":");
 				//	if (port)
@@ -92,7 +209,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 						json_t *allow_obj = json_array_get(allow, i);
 						char *allow_str = (char*)json_string_value(allow_obj);
 						
-						if (http_data->method == HTTP_METHOD_DELETE)
+						if (method == HTTP_METHOD_DELETE)
 							network_range_delete(carg->net_acl, allow_str);
 						else
 							network_range_push(carg->net_acl, allow_str, IPACCESS_ALLOW);
@@ -107,7 +224,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 						json_t *deny_obj = json_array_get(deny, i);
 						char *deny_str = (char*)json_string_value(deny_obj);
 						
-						if (http_data->method == HTTP_METHOD_DELETE)
+						if (method == HTTP_METHOD_DELETE)
 							network_range_delete(carg->net_acl, deny_str);
 						else
 							network_range_push(carg->net_acl, deny_str, IPACCESS_DENY);
@@ -132,7 +249,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 						json_t *reject_value;
 						json_object_foreach(reject_obj, reject_key, reject_value)
 						{
-							if (http_data->method == HTTP_METHOD_DELETE)
+							if (method == HTTP_METHOD_DELETE)
 								reject_delete(carg->reject, strdup(reject_key));
 							else
 							{
@@ -168,7 +285,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 					char *port = strstr(tcp_string, ":");
 
 					// delete
-					if (http_data->method == HTTP_METHOD_DELETE)
+					if (method == HTTP_METHOD_DELETE)
 					{
 						if (port)
 						{
@@ -203,7 +320,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 					char *port = strstr(tls_string, ":");
 
 					// delete
-					if (http_data->method == HTTP_METHOD_DELETE)
+					if (method == HTTP_METHOD_DELETE)
 					{
 						if (port)
 						{
@@ -237,7 +354,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 					char *port = strstr(udp_string, ":");
 
 					// delete
-					if (http_data->method == HTTP_METHOD_DELETE)
+					if (method == HTTP_METHOD_DELETE)
 					{
 						if (port)
 						{
@@ -268,7 +385,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 				{
 					json_t *unix_object = json_array_get(unix_json, i);
 					char *unix_string = (char*)json_string_value(unix_object);
-					if (http_data->method == HTTP_METHOD_DELETE)
+					if (method == HTTP_METHOD_DELETE)
 					{
 						unix_server_stop(unix_string);
 					}
@@ -285,7 +402,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 				{
 					json_t *unixgram_object = json_array_get(unixgram_json, i);
 					char *unixgram_string = (char*)json_string_value(unixgram_object);
-					if (http_data->method == HTTP_METHOD_DELETE)
+					if (method == HTTP_METHOD_DELETE)
 					{
 						unixgram_server_stop(unixgram_string);
 					}
@@ -317,7 +434,7 @@ void http_api_v1(string *response, http_reply_data* http_data)
 					{
 						printf("key: %s\n", system_key);
 						uint8_t enkey = 1;
-						if (http_data->method == HTTP_METHOD_DELETE)
+						if (method == HTTP_METHOD_DELETE)
 							enkey = 0;
 						
 						if (!strcmp(system_key, "base"))
@@ -335,6 +452,13 @@ void http_api_v1(string *response, http_reply_data* http_data)
 						else if (!strcmp(system_key, "cadvisor"))
 						{
 							ac->system_cadvisor = enkey;
+							json_t *cvalue = json_object_get(sys_value, "docker");
+							char *dockersock = cvalue ? (char*)json_string_value(cvalue) : DOCKERSOCK;
+
+							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
+							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, ac->loop);
+							smart_aggregator(carg);
 						}
 						else if (!strcmp(system_key, "packages"))
 						{
@@ -395,11 +519,94 @@ void http_api_v1(string *response, http_reply_data* http_data)
 					fprintf(stderr, "%s", respbody);
 				}
 			}
+			if (!strcmp(key, "aggregate"))
+			{
+				uint64_t aggregate_size = json_array_size(value);
+				for (uint64_t i = 0; i < aggregate_size; i++)
+				{
+					json_t *aggregate = json_array_get(value, i);
+
+					json_t *jhandler = json_object_get(aggregate, "handler");
+					if (!jhandler)
+						continue;
+
+					char *handler = (char*)json_string_value(jhandler);
+
+					json_t *jurl = json_object_get(aggregate, "url");
+					if (!jurl)
+						continue;
+
+					char *url = (char*)json_string_value(jurl);
+
+					host_aggregator_info *hi = parse_url(url, strlen(url));
+					//char *query;
+					//if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
+					//	query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+					//else
+					//	query = hi->query;
+
+					aggregate_context *actx = tommy_hashdyn_search(ac->aggregate_ctx, actx_compare, handler, tommy_strhash_u32(0, handler));
+					if (!actx)
+						continue;
+
+					for (uint64_t j = 0; j < actx->handlers; j++)
+					{
+						string *query = actx->handler[j].mesg_func(hi, NULL);
+						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, ac->loop);
+						smart_aggregator(carg);
+					}
+				}
+			}
+
+
+
+			if (!strcmp(key, "configuration"))
+			{
+				uint64_t configuration_size = json_array_size(value);
+				for (uint64_t i = 0; i < configuration_size; i++)
+				{
+					json_t *configuration = json_array_get(value, i);
+
+					json_t *jhandler = json_object_get(configuration, "handler");
+					if (!jhandler)
+						continue;
+
+					char *handler = (char*)json_string_value(jhandler);
+					size_t handler_len = json_string_length(jhandler)+3;
+					char *shandler = malloc(handler_len);
+					snprintf(shandler, handler_len, "%s-sd", handler);
+
+					json_t *jurl = json_object_get(configuration, "url");
+					if (!jurl)
+						continue;
+
+					char *url = (char*)json_string_value(jurl);
+
+					host_aggregator_info *hi = parse_url(url, strlen(url));
+
+					aggregate_context *actx = tommy_hashdyn_search(ac->aggregate_ctx, actx_compare, shandler, tommy_strhash_u32(0, shandler));
+					if (!actx)
+						continue;
+
+					for (uint64_t j = 0; j < actx->handlers; j++)
+					{
+						string *query = actx->handler[j].mesg_func(hi, NULL);
+						context_arg *carg = context_arg_json_fill(configuration, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, ac->loop);
+						smart_aggregator(carg);
+					}
+				}
+
+
+
+			}
 		}
 
 		json_decref(root);
 	}
 
-	snprintf(temp_resp, 1000, "HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n", code, status, respbody);
-	string_cat(response, temp_resp, strlen(temp_resp));
+	if (response)
+	{
+		snprintf(temp_resp, 1000, "HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n", code, status, respbody);
+		string_cat(response, temp_resp, strlen(temp_resp));
+	}
 }

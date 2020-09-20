@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.108)
+set(VERSION 1.10.115)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -27,10 +27,8 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 
 include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
-include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/)
-include_directories(/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.252.b09-2.el7_8.x86_64/include/linux/)
-include_directories(/usr/lib/jvm/java-14-openjdk-14.0.1.7-2.rolling.el7.x86_64/include/)
-include_directories(/usr/lib/jvm/java-14-openjdk-14.0.1.7-2.rolling.el7.x86_64/include/linux/)
+include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/)
+include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/linux)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(/usr/local/lib64/)
@@ -131,6 +129,8 @@ set(STATIC_FILES
 	config/file.c
 	config/context.c
 	config/mapping.c
+	config/parser.c
+	config/plain.c
 	dynconf/sd.c
 	lang/lang.c
 	lang/java.c

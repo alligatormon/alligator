@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "main.h"
 
 #define REDIS_NAME_SIZE 100
 
@@ -308,7 +310,6 @@ int8_t redis_validator(char *data, size_t size)
 
 void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
 	char *tmp;
 	tmp = strstr(metrics, "cluster_state");
 	if (!tmp)
@@ -330,19 +331,20 @@ void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 	strlcpy(mname, "redis_", 7);
 	while ((tmp - metrics < size-4) && (i--))
 	{
-		printf("%zu <= %zu\n", tmp - metrics, size-4);
+		//printf("%zu <= %zu\n", tmp - metrics, size-4);
 		tmp += strcspn(tmp, "\r\n");
 		tmp += strspn(tmp, "\r\n");
 		msize = strcspn(tmp, ":");
 		fsize = msize+1 > REDIS_NAME_SIZE-6 ? REDIS_NAME_SIZE-6 : msize+1;
 		strlcpy(mname+6, tmp, fsize);
+		metric_name_normalizer(mname, 5+fsize);
 
 		tmp += msize;
 		tmp += strspn(tmp, ": ");
 		mval = strtoll(tmp, &tmp, 10);
 
 		metric_add_auto(mname, &mval, DATATYPE_INT, carg);
-		printf("%s(%u),%s: %d\n", mname, fsize, mname, mval);
+		//printf("%s(%u),%s: %d\n", mname, fsize, mname, mval);
 	}
 }
 
@@ -361,4 +363,45 @@ int8_t redis_cluster_validator(char *data, size_t size)
 	//printf("expect: %u, body: %u\n", expect_size, body_size);
 	
 	return body_size >= expect_size;
+}
+
+string* redis_parser_mesg(host_aggregator_info *hi, void *arg)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nINFO ALL\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "INFO ALL\n");
+
+	return string_init_str(query, 0);
+}
+
+string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nCLUSTER INFO\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "CLUSTER INFO\n");
+
+	return string_init_str(query, 0);
+}
+
+void redis_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("redis");
+	actx->handlers = 2;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler[0].name = redis_handler;
+	actx->handler[0].validator = redis_validator;
+	actx->handler[0].mesg_func = redis_parser_mesg;
+	strlcpy(actx->handler[0].key,"redis", 255);
+	actx->handler[1].name = redis_cluster_handler;
+	actx->handler[1].validator = redis_cluster_validator;
+	actx->handler[1].mesg_func = redis_parser_cluster_mesg;
+	strlcpy(actx->handler[1].key,"redis_cluster", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

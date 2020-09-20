@@ -1,5 +1,6 @@
 #include <libfyaml.h>
 #include <stdlib.h>
+#include "common/yaml.h"
 
 char *yaml_file_to_json_str(char *path)
 {

@@ -5,6 +5,10 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "parsers/elasticsearch.h"
+#include "common/aggregator.h"
+#include "common/http.h"
+#include "main.h"
+
 void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
@@ -556,4 +560,53 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 		}
 	}
 	json_decref(root);
+}
+
+string *elastic_gen_url(host_aggregator_info *hi, char *addition)
+{
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0), 0, 0);
+}
+
+string* elasticsearch_nodes_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_nodes/stats"); }
+string* elasticsearch_cluster_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_cluster/stats"); }
+string* elasticsearch_health_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_cluster/health?level=shards"); }
+string* elasticsearch_index_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_stats"); }
+string* elasticsearch_settings_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_settings"); }
+
+void elasticsearch_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	elastic_settings *data = calloc(1, sizeof(*data));
+
+	actx->key = strdup("elasticsearch");
+	actx->handlers = 5;
+	actx->data = data;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = elasticsearch_nodes_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = elasticsearch_nodes_mesg;
+	strlcpy(actx->handler[0].key,"elasticsearch_nodes", 255);
+
+	actx->handler[1].name = elasticsearch_cluster_handler;
+	actx->handler[1].validator = NULL;
+	actx->handler[1].mesg_func = elasticsearch_cluster_mesg;
+	strlcpy(actx->handler[1].key,"elasticsearch_cluster", 255);
+
+	actx->handler[2].name = elasticsearch_health_handler;
+	actx->handler[2].validator = NULL;
+	actx->handler[2].mesg_func = elasticsearch_health_mesg;
+	strlcpy(actx->handler[2].key,"elasticsearch_health", 255);
+
+	actx->handler[3].name = elasticsearch_index_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = elasticsearch_index_mesg;
+	strlcpy(actx->handler[3].key,"elasticsearch_index", 255);
+
+	actx->handler[4].name = elasticsearch_settings_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = elasticsearch_settings_mesg;
+	strlcpy(actx->handler[4].key,"elasticsearch_settings", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -5,6 +5,9 @@
 #include <jansson.h>
 #include "main.h"
 #include "common/base64.h"
+#include "common/selector.h"
+#include "common/json_parser.h"
+#include "common/http.h"
 //#include "common/url.h"
 //#include "common/http.h"
 //#include "common/json_parser.h"
@@ -345,4 +348,28 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 	}
 
 	json_decref(root);
+}
+
+string* sd_etcd_mesg(host_aggregator_info *hi, void *arg)
+{
+	char *replacedquery = malloc(255);
+	char *path = (char*)arg;
+	snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, path);
+	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void sd_etcd_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("etcd-sd");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = sd_etcd_configuration;
+	actx->handler[0].validator = json_validator;
+	actx->handler[0].mesg_func = sd_etcd_mesg;
+	strlcpy(actx->handler[0].key,"etcd-discovery", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
