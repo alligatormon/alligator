@@ -43,6 +43,7 @@ void config_parse_entry(char *filepath)
 	}
 
 	json = config_plain_to_json(context);
+	printf("config_plain_to_json return:\n'%s'\n", json);
 	config_json(json);
 }
 

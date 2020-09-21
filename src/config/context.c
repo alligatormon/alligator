@@ -663,7 +663,6 @@ void context_aggregate_parser(mtlen *mt, int64_t *i)
 		}
 		else if (!strcmp(mt->st[*i-1].s, "jsonparse"))
 		{
-			puts("jsonparse");
 			host_aggregator_info *hi = parse_url(mt->st[*i].s, mt->st[*i].l);
 			char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1);
 			context_arg *carg = context_arg_fill(mt, i, hi, json_handler, "jsonparse", query, 0, NULL, json_check, ac->loop);

@@ -109,7 +109,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				}
 
 				json_t *directory = json_object_get(value, "directory");
-				if (directory)
+				if (directory && (json_typeof(directory) == JSON_STRING))
 					ac->persistence_dir = strdup(json_string_value(directory));
 				else
 					ac->persistence_dir = strdup("/var/lib/alligator");
