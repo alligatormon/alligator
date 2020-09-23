@@ -109,11 +109,16 @@ typedef struct aconf
 	tommy_hashdyn* tcp_server_handler;
 
 	// HTTPS TLS CHECK OBJECTS
-	tommy_hashdyn *https_ssl_domains;
+	//tommy_hashdyn *https_ssl_domains;
 
 	// config parser handlers
 	tommy_hashdyn* config_ctx;
 	tommy_hashdyn* aggregate_ctx;
+
+	// local fs x509 cert scraper
+	tommy_hashdyn* fs_x509;
+	int64_t tls_fs_startup;
+	int64_t tls_fs_repeat;
 
 	int system_base;
 	int system_disk;

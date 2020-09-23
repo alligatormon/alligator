@@ -150,120 +150,137 @@ void get_cpu(int8_t platform)
 	uint64_t core_num = 0;
 	system_cpu_cores_stats *sccs;
 
+	char cpu_usage_name[30];
+	char cpu_usage_core_name[30];
+	char cpu_usage_time_name[30];
+
 	if (!platform)
 	{
-		char procstat[255];
-		snprintf(procstat, 255, "%s/stat", ac->system_procfs);
-		FILE *fd = fopen(procstat, "r");
-		if ( !fd )
-			return;
-
-		while ( fgets(temp, LINUXFS_LINE_LENGTH, fd) )
-		{
-			if ( !strncmp(temp, "cpu", 3) )
-			{
-				dividecpu = 1;
-				int64_t t1, t2, t3, t4, t5;
-				char cpuname[6];
-
-				sscanf(temp, "%s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
-				core_num = atoll(cpuname+3);
-				if (!strcmp(cpuname, "cpu"))
-					sccs = &ac->scs->hw;
-				else
-					sccs = &ac->scs->cores[core_num];
-
-				uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
-				sccs->total += t12345;
-
-				t1 -= sccs->user;
-				sccs->user += t1;
-				t2 -= sccs->nice;
-				sccs->nice += t2;
-				t3 -= sccs->system;
-				sccs->system += t3;
-				t4 -= sccs->idle;
-				sccs->idle += t4;
-				t5 -= sccs->iowait;
-				sccs->iowait += t5;
-
-				double usage = ((t1 + t3)*100.0/t12345)/dividecpu;
-				if (usage<0)
-					usage = 0;
-				double user = ((t1)*100.0/t12345)/dividecpu;
-				if (user<0)
-					user = 0;
-				double nice = ((t2)*100.0/t12345)/dividecpu;
-				if (nice<0)
-					nice = 0;
-				double system = ((t3)*100.0/t12345)/dividecpu;
-				if (system<0)
-					system = 0;
-				double idle = ((t4)*100.0/t12345)/dividecpu;
-				if (idle<0)
-					idle = 0;
-				double iowait = ((t5)*100.0/t12345)/dividecpu;
-				if (iowait<0)
-					iowait = 0;
-
-				if (!strcmp(cpuname, "cpu"))
-				{
-					//printf("CPU: usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", usage, user, system, nice, idle, iowait);
-					metric_add_labels("cpu_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
-					metric_add_labels("cpu_usage", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-					metric_add_labels("cpu_usage", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-					metric_add_labels("cpu_usage", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
-					metric_add_labels("cpu_usage", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
-					metric_add_labels("cpu_usage", &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
-					metric_add_labels("cpu_usage_time", &t12345, DATATYPE_UINT, ac->system_carg, "type", "total");
-					metric_add_labels("cpu_usage_time", &t1, DATATYPE_INT, ac->system_carg, "type", "user");
-					metric_add_labels("cpu_usage_time", &t2, DATATYPE_INT, ac->system_carg, "type", "nice");
-					metric_add_labels("cpu_usage_time", &t3, DATATYPE_INT, ac->system_carg, "type", "system");
-					metric_add_labels("cpu_usage_time", &t5, DATATYPE_INT, ac->system_carg, "type", "iowait");
-				}
-				else
-				{
-					//printf("core: '%s' usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", cpuname, usage, user, system, nice, idle, iowait);
-					metric_add_labels2("cpu_usage_core", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total", "cpu", cpuname);
-					metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", cpuname);
-					metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", cpuname);
-					metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", cpuname);
-					metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", cpuname);
-					metric_add_labels2("cpu_usage_core", &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait", "cpu", cpuname);
-				}
-			}
-			else if ( !strncmp(temp, "processes", 9) )
-			{
-				int64_t spacenum = strcspn(temp, " ");
-				spacenum += strcspn(temp+spacenum, " ");
-				uint64_t ival = atoll(temp+spacenum);
-				metric_add_auto("forks", &ival, DATATYPE_UINT, ac->system_carg);
-			}
-			else if ( !strncmp(temp, "ctxt", 4) )
-			{
-				int64_t spacenum = strcspn(temp, " ");
-				spacenum += strcspn(temp+spacenum, " ");
-				uint64_t ival = atoll(temp+spacenum);
-				metric_add_auto("context_switches", &ival, DATATYPE_UINT, ac->system_carg);
-			}
-			else if ( !strncmp(temp, "intr", 4) )
-			{
-				int64_t spacenum = strcspn(temp, " ");
-				spacenum += strcspn(temp+spacenum, " ");
-				uint64_t ival = atoll(temp+spacenum);
-				metric_add_auto("interrupts", &ival, DATATYPE_UINT, ac->system_carg);
-			}
-			else if ( !strncmp(temp, "softirq", 7) )
-			{
-				int64_t spacenum = strcspn(temp, " ");
-				spacenum += strcspn(temp+spacenum, " ");
-				uint64_t ival = atoll(temp+spacenum);
-				metric_add_auto("softirq", &ival, DATATYPE_UINT, ac->system_carg);
-			}
-		}
-		fclose(fd);
+		strlcpy(cpu_usage_name, "cpu_usage", 10);
+		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
+		strlcpy(cpu_usage_time_name, "cpu_usage_time", 15);
 	}
 	else
+	{
+		strlcpy(cpu_usage_name, "cpu_usage_hw", 10);
+		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 15);
+		strlcpy(cpu_usage_time_name, "cpu_usage_hw_time", 15);
+	}
+
+	// hw stats
+	char procstat[255];
+	snprintf(procstat, 255, "%s/stat", ac->system_procfs);
+	FILE *fd = fopen(procstat, "r");
+	if ( !fd )
+		return;
+
+	while ( fgets(temp, LINUXFS_LINE_LENGTH, fd) )
+	{
+		if ( !strncmp(temp, "cpu", 3) )
+		{
+			dividecpu = 1;
+			int64_t t1, t2, t3, t4, t5;
+			char cpuname[6];
+
+			sscanf(temp, "%s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
+			core_num = atoll(cpuname+3);
+			if (!strcmp(cpuname, "cpu"))
+				sccs = &ac->scs->hw;
+			else
+				sccs = &ac->scs->cores[core_num];
+
+			uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
+			sccs->total += t12345;
+
+			t1 -= sccs->user;
+			sccs->user += t1;
+			t2 -= sccs->nice;
+			sccs->nice += t2;
+			t3 -= sccs->system;
+			sccs->system += t3;
+			t4 -= sccs->idle;
+			sccs->idle += t4;
+			t5 -= sccs->iowait;
+			sccs->iowait += t5;
+
+			double usage = ((t1 + t3)*100.0/t12345)/dividecpu;
+			if (usage<0)
+				usage = 0;
+			double user = ((t1)*100.0/t12345)/dividecpu;
+			if (user<0)
+				user = 0;
+			double nice = ((t2)*100.0/t12345)/dividecpu;
+			if (nice<0)
+				nice = 0;
+			double system = ((t3)*100.0/t12345)/dividecpu;
+			if (system<0)
+				system = 0;
+			double idle = ((t4)*100.0/t12345)/dividecpu;
+			if (idle<0)
+				idle = 0;
+			double iowait = ((t5)*100.0/t12345)/dividecpu;
+			if (iowait<0)
+				iowait = 0;
+
+			if (!strcmp(cpuname, "cpu"))
+			{
+				//printf("CPU: usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", usage, user, system, nice, idle, iowait);
+				metric_add_labels(cpu_usage_name, &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
+				metric_add_labels(cpu_usage_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+				metric_add_labels(cpu_usage_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+				metric_add_labels(cpu_usage_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+				metric_add_labels(cpu_usage_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+				metric_add_labels(cpu_usage_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
+				metric_add_labels(cpu_usage_time_name, &t12345, DATATYPE_UINT, ac->system_carg, "type", "total");
+				metric_add_labels(cpu_usage_time_name, &t1, DATATYPE_INT, ac->system_carg, "type", "user");
+				metric_add_labels(cpu_usage_time_name, &t2, DATATYPE_INT, ac->system_carg, "type", "nice");
+				metric_add_labels(cpu_usage_time_name, &t3, DATATYPE_INT, ac->system_carg, "type", "system");
+				metric_add_labels(cpu_usage_time_name, &t5, DATATYPE_INT, ac->system_carg, "type", "iowait");
+			}
+			else
+			{
+				//printf("core: '%s' usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", cpuname, usage, user, system, nice, idle, iowait);
+				metric_add_labels2(cpu_usage_core_name, &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait", "cpu", cpuname);
+			}
+		}
+		else if ( !strncmp(temp, "processes", 9) )
+		{
+			int64_t spacenum = strcspn(temp, " ");
+			spacenum += strcspn(temp+spacenum, " ");
+			uint64_t ival = atoll(temp+spacenum);
+			metric_add_auto("forks", &ival, DATATYPE_UINT, ac->system_carg);
+		}
+		else if ( !strncmp(temp, "ctxt", 4) )
+		{
+			int64_t spacenum = strcspn(temp, " ");
+			spacenum += strcspn(temp+spacenum, " ");
+			uint64_t ival = atoll(temp+spacenum);
+			metric_add_auto("context_switches", &ival, DATATYPE_UINT, ac->system_carg);
+		}
+		else if ( !strncmp(temp, "intr", 4) )
+		{
+			int64_t spacenum = strcspn(temp, " ");
+			spacenum += strcspn(temp+spacenum, " ");
+			uint64_t ival = atoll(temp+spacenum);
+			metric_add_auto("interrupts", &ival, DATATYPE_UINT, ac->system_carg);
+		}
+		else if ( !strncmp(temp, "softirq", 7) )
+		{
+			int64_t spacenum = strcspn(temp, " ");
+			spacenum += strcspn(temp+spacenum, " ");
+			uint64_t ival = atoll(temp+spacenum);
+			metric_add_auto("softirq", &ival, DATATYPE_UINT, ac->system_carg);
+		}
+	}
+	fclose(fd);
+
+	// cgroup stats
+	if (platform)
 	{
 		sccs = &ac->scs->cgroup;
 

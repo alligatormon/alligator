@@ -96,6 +96,36 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					tommy_hashdyn_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 				}
 			}
+			if (!strcmp(key, "x509"))
+			{
+				uint64_t x509_size = json_array_size(value);
+				for (uint64_t i = 0; i < x509_size; i++)
+				{
+					json_t *x509 = json_array_get(value, i);
+					json_t *jname = json_object_get(x509, "name");
+					if (!jname)
+						continue;
+					char *name = (char*)json_string_value(jname);
+
+					json_t *jpath = json_object_get(x509, "path");
+					if (!jpath)
+						continue;
+					char *path = (char*)json_string_value(jpath);
+
+					json_t *jmatch = json_object_get(x509, "match");
+					if (!jmatch)
+						continue;
+					char *match = (char*)json_string_value(jmatch);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						tls_fs_del(name);
+						continue;
+					}
+
+					tls_fs_push(name, path, match);
+				}
+			}
 			if (!strcmp(key, "persistence"))
 			{
 				if (method == HTTP_METHOD_DELETE)

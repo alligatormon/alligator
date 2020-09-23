@@ -27,6 +27,8 @@ ttl 0; # global ttl for metrics in sec, default 300
 entrypoint prometheus {
 	ttl 1212;
 	tcp 1111;
+	unixgram /var/lib/alligator.unixgram;
+	unix /var/lib/alligator.unix;
 	handler prometheus;
 }
 
@@ -43,8 +45,10 @@ system {
 	base; #cpu, memory, load avg, openfiles
 	disk; #disk usage and I/O
 	network; #network interface start
-	process; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
+	process [nginx] [bash] [/[bash]*/]; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
 	smart; #smart disk stats
+	firewall; # iptables scrape
+	packages [nginx] [alligator]; # scrape packages info with timestamp installed
 	vm; # scrape openvz, lxc and nspawn metrics
 }
 

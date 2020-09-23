@@ -6,6 +6,22 @@
 #include "mbedtls/x509_crt.h"
 #include "common/rtime.h"
 #include "main.h"
+
+typedef struct x509_fs_t {
+	char *name;
+	char *path;
+	char *match;
+
+	tommy_node node;
+} x509_fs_t;
+
+int x509_fs_compare(const void* arg, const void* obj)
+{
+	char *s1 = (char*)arg;
+	char *s2 = ((x509_fs_t*)obj)->name;
+	return strcmp(s1, s2);
+}
+
 uint64_t get_timestamp_from_mbedtls(mbedtls_x509_time mbed_tm)
 {
 	struct tm gmtime_time;
@@ -170,13 +186,14 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	free(data);
 }
 
-void fs_cert_check(char *fname, char *match)
+void fs_cert_check(char *name, char *fname, char *match)
 {
-	read_from_file(fname, 0, pem_check_cert, NULL);
+	if (strstr(fname, match))
+		read_from_file(fname, 0, pem_check_cert, NULL);
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
-int get_file_count_read(char *path, char *match)
+int tls_fs_dir_read(char *name, char *path, char *match)
 {
 	uv_fs_t readdir_req;
 
@@ -205,13 +222,13 @@ int get_file_count_read(char *path, char *match)
 			if (dirents[i].type == UV_DIRENT_DIR)
 			{
 				strcpy(filebase, dirents[i].name);
-				acc += get_file_count_read(fullname, match);
+				acc += tls_fs_dir_read(name, fullname, match);
 			}
 			else if (dirents[i].type == UV_DIRENT_FILE)
 			{
 				//printf("\t%s/%s\n", path, dirents[i].name);
 				acc += 1;
-				fs_cert_check(path, match);
+				fs_cert_check(name, filebase, match);
 			}
 		}
 	}
@@ -220,8 +237,49 @@ int get_file_count_read(char *path, char *match)
 	return acc;
 }
 
-void tls_fs_recurse(char *dir, char *match)
+void tls_fs_recurse(void *arg)
 {
-	//printf("dir: %s, match: %s\n", dir, match);
-	get_file_count_read(dir, match);
+	if (!arg)
+		return;
+
+	x509_fs_t *tls_fs = arg;
+
+	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match);
+}
+
+static void tls_fs_crawl(uv_timer_t* handle) {
+	(void)handle;
+	tommy_hashdyn_foreach(ac->fs_x509, tls_fs_recurse);
+}
+
+void tls_fs_handler()
+{
+	uv_loop_t *loop = ac->loop;
+
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(loop, timer1);
+	uv_timer_start(timer1, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
+}
+
+void tls_fs_push(char *name, char *path, char *match)
+{
+	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
+	tls_fs->name = strdup(name);
+	tls_fs->path = strdup(path);
+	tls_fs->match = strdup(match);
+	tommy_hashdyn_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
+}
+
+void tls_fs_del(char *name)
+{
+	x509_fs_t *tls_fs = tommy_hashdyn_search(ac->fs_x509, x509_fs_compare, name, tommy_strhash_u32(0, name));
+	if (tls_fs)
+	{
+		tommy_hashdyn_remove_existing(ac->fs_x509, &(tls_fs->node));
+
+		free(tls_fs->name);
+		free(tls_fs->path);
+		free(tls_fs->match);
+		free(tls_fs);
+	}
 }

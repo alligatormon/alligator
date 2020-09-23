@@ -34,13 +34,6 @@ void ts_initialize()
 	metrictree->sort_plan = sort_plan;
 }
 
-void https_ssl_domains_initialize()
-{
-	extern aconf *ac;
-	ac->https_ssl_domains = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->https_ssl_domains);
-}
-
 void config_context_initialize()
 {
 	extern aconf *ac;
@@ -183,6 +176,10 @@ aconf* configuration()
 	ac->lang_aggregator_startup = 4000;
 	ac->lang_aggregator_repeat = 10000;
 
+	ac->fs_x509 = calloc(1, sizeof(tommy_hashdyn));
+	ac->tls_fs_startup = 4500;
+	ac->tls_fs_repeat = 60000;
+
 	ac->modules = calloc(1, sizeof(tommy_hashdyn));
 
 	tommy_hashdyn_init(ac->aggregator);
@@ -190,6 +187,7 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->iggregator);
 	tommy_hashdyn_init(ac->process_spawner);
 	tommy_hashdyn_init(ac->lang_aggregator);
+	tommy_hashdyn_init(ac->fs_x509);
 	tommy_hashdyn_init(ac->modules);
 
 	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
@@ -197,7 +195,6 @@ aconf* configuration()
 
 	ac->request_cnt = 0;
 	ts_initialize();
-	https_ssl_domains_initialize();
 	config_context_initialize();
 	aggregate_ctx_init();
 	system_initialize();
@@ -243,7 +240,7 @@ void parse_args(int argc, char **argv)
 		}
 		else
 		{
-			split_config(argv[1]);
+			//split_config(argv[1]);
 			parse_configs(argv[1]);
 		}
 	}
@@ -259,7 +256,7 @@ int main(int argc, char **argv)
 	general_loop();
 	if (argc < 2)
 	{
-		split_config(DEFAULT_CONF_DIR);
+		//split_config(DEFAULT_CONF_DIR);
 		parse_configs(DEFAULT_CONF_PATH);
 	}
 	else

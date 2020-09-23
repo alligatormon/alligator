@@ -309,12 +309,17 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 			printf("context: '%s'\n", wstokens[i].token->s);
 			json_t *context_json = NULL;
-			if (!strcmp(wstokens[i].token->s, "aggregate"))
-				context_json = json_array();
-			else
-				context_json = json_object();
+			context_json = json_object_get(root, wstokens[i].token->s);
+			if (!context_json)
+			{
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509"))
+					context_json = json_array();
+				else
+					context_json = json_object();
+				json_object_set_new(root, wstokens[i].token->s, context_json);
+			}
 
-			json_object_set_new(root, wstokens[i].token->s, context_json);
+
 			json_t *operator_json = NULL;
 			for (; i < token_count; i++)
 			{
@@ -361,6 +366,33 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						!strcmp(wstokens[i].token->s, "unix")))
 					{
 						operator_json = json_array();
+						json_array_object_insert(context_json, operator_name, operator_json);
+					}
+					else if (!strcmp(context_name, "x509"))
+					{
+						operator_json = json_object();
+						char arg_name[255];
+						char operator_name[255];
+
+						for (; i < token_count; i++)
+						{
+							json_t *arg_value = NULL;
+							if (wstokens[i].operator)
+							{
+								strlcpy(operator_name, wstokens[i].token->s, 255);
+							}
+							else if (wstokens[i].argument)
+							{
+								strlcpy(arg_name, wstokens[i].token->s, 255);
+								arg_value = json_string(strdup(wstokens[i].token->s));
+								json_array_object_insert(operator_json, operator_name, arg_value);
+							}
+
+							if (wstokens[i].end)
+							{
+								break;
+							}
+						}
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
 					else if (!strcmp(context_name, "aggregate"))
@@ -413,7 +445,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 				else if (wstokens[i].argument)
 				{
-					printf("\t\toperator_name(%p): '%s', arg: '%s', %p\n", operator_json, operator_name, wstokens[i].token->s, operator_json);
 					if (!operator_json || !operator_name)
 						continue;
 
@@ -435,6 +466,5 @@ char* config_plain_to_json(string *context)
 {
 	uint64_t token_count = plain_count_get(context);
 	config_parser_stat *wstokens = string_tokenizer(context, &token_count);
-	printf("tokens %p: %"d64"\n", wstokens, token_count);
 	return build_json_from_tokens(wstokens, token_count);
 }
