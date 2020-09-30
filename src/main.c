@@ -217,7 +217,7 @@ void restore_settings()
 
 void print_help()
 {
-	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\nUsage: alligator [-h] [/path/to/config].\nDefault config path \"%s\"\nOptions:\n\t-h, --help\tHelp message\n", ALLIGATOR_VERSION, DEFAULT_CONF_DIR);
+	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\nUsage: alligator [-h] [/path/to/config].\nDefault config path \"%s\"\nOptions:\n\t-h, --help\tHelp message\n\t-l <num>\tLog level\n\t-v, --version\tVersion message\n", ALLIGATOR_VERSION, DEFAULT_CONF_DIR);
 }
 
 void print_version()

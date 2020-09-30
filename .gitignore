@@ -10,6 +10,8 @@ src/cmake_install.cmake
 src/install_manifest.txt
 src/_CPack_Packages/
 src/alligator-*.rpm
+src/alligator-*.deb
+src/alligator_version.h
 src/liballigator_tests.a
 src/liballigator_tests.so
 src/libliballigator_tests.a
