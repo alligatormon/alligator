@@ -22,8 +22,8 @@ void carg_free(context_arg *carg)
 	if (carg->key)
 		free(carg->key);
 
-	if (carg->hostname)
-		free(carg->hostname);
+	if (carg->host)
+		free(carg->host);
 
 
 	if (carg->parser_name)
@@ -38,15 +38,33 @@ void carg_free(context_arg *carg)
 	free(carg);
 }
 
+void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len)
+{
+	if (!mesg_len && mesg)
+		mesg_len = strlen(mesg);
+
+	carg->buffer = malloc(sizeof(uv_buf_t));
+	carg->mesg = mesg; // old scheme
+	carg->mesg_len = mesg_len; // old scheme
+	carg->request_buffer = uv_buf_init(mesg, mesg_len); // new scheme
+	carg->buffer->base = carg->mesg; // old scheme
+	carg->buffer->len = carg->mesg_len; // old scheme
+
+	if (mesg)
+		carg->write = 1;
+	else
+		carg->write = 0;
+
+}
+
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
 	if (ac->log_level > 2)
-		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->hostname, carg->mesg);
+		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
-	if (!mesg_len && mesg)
-		mesg_len = strlen(mesg);
+	aconf_mesg_set(carg, mesg, mesg_len);
 
 	carg->hostname = hi->host; // old scheme
 	strlcpy(carg->host, hi->host, 1024); // new scheme
@@ -59,13 +77,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->loop = loop;
 	carg->parser_handler = handler;
 	carg->parser_name = parser_name;
-	carg->mesg = mesg; // old scheme
-	carg->mesg_len = mesg_len; // old scheme
-	carg->request_buffer = uv_buf_init(mesg, mesg_len); // new scheme
-	carg->buffer = malloc(sizeof(uv_buf_t));
 	//*(carg->buffer) = uv_buf_init(carg->mesg, carg->mesg_len);
-	carg->buffer->base = carg->mesg; // old scheme
-	carg->buffer->len = carg->mesg_len; // old scheme
 	carg->buflen = 1;
 	carg->expect_function = expect_function;
 	carg->data = data;
@@ -79,11 +91,6 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->tls = 1;
 	else
 		carg->tls = 0;
-
-	if (mesg)
-		carg->write = 1;
-	else
-		carg->write = 0;
 
 	json_t *json_cert = json_object_get(root, "tls_certificate");
 	char *str_cert = (char*)json_string_value(json_cert);
@@ -105,26 +112,27 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_timeout)
 		carg->timeout = int_timeout;
 
-	json_t *json_add_label = json_object_get(root, "add_label");
-	uint64_t add_label_size = json_array_size(json_add_label);
-	for (uint64_t i = 0; i < add_label_size; i++)
+	json_t *json_log_level = json_object_get(root, "log_level");
+	if (json_log_level)
 	{
-		json_t *add_label_obj = json_array_get(json_add_label, i);
+		carg->log_level = json_integer_value(json_log_level);
+	}
 
-		char *name;
-		json_t *jkey;
-		json_object_foreach(add_label_obj, name, jkey)
+	json_t *json_add_label = json_object_get(root, "add_label");
+
+	char *name;
+	json_t *jkey;
+	json_object_foreach(json_add_label, name, jkey)
+	{
+		char *key = (char*)json_string_value(jkey);
+
+		if (!carg->labels)
 		{
-			char *key = (char*)json_string_value(jkey);
-
-			if (!carg->labels)
-			{
-				carg->labels = malloc(sizeof(tommy_hashdyn));
-				tommy_hashdyn_init(carg->labels);
-			}
-
-			labels_hash_insert_nocache(carg->labels, name, key);
+			carg->labels = malloc(sizeof(tommy_hashdyn));
+			tommy_hashdyn_init(carg->labels);
 		}
+
+		labels_hash_insert_nocache(carg->labels, name, key);
 	}
 
 	return carg;

@@ -169,7 +169,7 @@ aconf* configuration()
 	ac->system_aggregator_repeat = 10000;
 
 	ac->process_spawner = calloc(1, sizeof(tommy_hashdyn));
-	ac->process_script_dir = "/var/alligator/spawner";
+	ac->process_script_dir = "/var/lib/alligator/spawner";
 	ac->process_cnt = 0;
 
 	ac->lang_aggregator = calloc(1, sizeof(tommy_hashdyn));
@@ -220,6 +220,11 @@ void print_help()
 	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\nUsage: alligator [-h] [/path/to/config].\nDefault config path \"%s\"\nOptions:\n\t-h, --help\tHelp message\n", ALLIGATOR_VERSION, DEFAULT_CONF_DIR);
 }
 
+void print_version()
+{
+	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\n", ALLIGATOR_VERSION);
+}
+
 void parse_args(int argc, char **argv)
 {
 	if (argc < 2)
@@ -233,9 +238,25 @@ void parse_args(int argc, char **argv)
 			print_help();
 			exit(0);
 		}
+		if (!strncmp(argv[i], "-v", 2))
+		{
+			print_version();
+			exit(0);
+		}
+		if (!strncmp(argv[i], "-l", 2))
+		{
+			++i;
+			ac->log_level = strtoll(argv[i], NULL, 10);
+			parse_configs(argv[1]);
+		}
 		else if (!strncmp(argv[i], "--help", 6))
 		{
 			print_help();
+			exit(0);
+		}
+		if (!strncmp(argv[i], "--version", 9))
+		{
+			print_version();
 			exit(0);
 		}
 		else

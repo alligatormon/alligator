@@ -39,6 +39,12 @@ void tcp_client_closed(uv_handle_t *handle)
 	}
 	carg->lock = 0;
 	string_null(carg->full_body);
+	if (carg->free_after)
+	{
+		free(carg->buffer->base);
+		free(carg->buffer);
+		free(carg);
+	}
 }
 
 void tcp_client_close(uv_handle_t *handle)
@@ -355,7 +361,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	}
 	else
 	{
-		//printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
+		printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cacert, carg->tls_ca_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cert, carg->tls_cert_file);
 		mbedtls_pk_parse_keyfile(&carg->tls_key, carg->tls_key_file, NULL);

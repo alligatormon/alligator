@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "common/yaml.h"
 #include "config/plain.h"
+#include "main.h"
 
 void config_json(char *json)
 {
@@ -43,7 +44,8 @@ void config_parse_entry(char *filepath)
 	}
 
 	json = config_plain_to_json(context);
-	printf("config_plain_to_json return:\n'%s'\n", json);
+	if (ac->log_level > 0)
+		printf("config_plain_to_json return:\n'%s'\n", json);
 	config_json(json);
 }
 

@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
+#include "main.h"
 
 #define MONIT_NAME_SIZE 10000
 #define MONIT_SLIM_SIZE 1000
@@ -196,4 +198,25 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 			tmp += end;
 		}
 	}
+}
+
+string* monit_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, "/_status?format=xml&level=full", hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void monit_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("monit");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = monit_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = monit_mesg;
+	strlcpy(actx->handler[0].key,"monit", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

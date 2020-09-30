@@ -133,6 +133,11 @@ typedef struct aconf
 	char *system_sysfs;
 	char *system_rundir;
 	char *cadvisor_tcpudpbuf;
+	uint64_t system_cpuavg_period;
+	double system_cpuavg_sum;
+	uint64_t system_cpuavg_ptr;
+	int system_cpuavg;
+	double *system_avg_metrics;
 #ifdef __linux__
 	rpm_library *rpmlib;
 #endif

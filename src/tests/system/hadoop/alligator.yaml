@@ -1,0 +1,1 @@
+{"entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"hadoop", "url": "http://localhost:50075/jmx"}]}

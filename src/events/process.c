@@ -21,11 +21,12 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	}
 	context_arg *carg = server->data;
 	(carg->read_counter)++;
+	//printf("buf->base(%zu, %zu, %zu)\n%s\n", carg->http_body_size, strlen(buf->base), nread, buf->base);
 
 	if (!carg->http_body)
 		carg->http_body = malloc(6553500);
-	size_t strsize = strlcpy(carg->http_body+carg->http_body_size, buf->base, nread);
-	carg->http_body_size += strsize;
+	size_t strcopy = strlcpy(carg->http_body+carg->http_body_size, buf->base, nread+1);
+	carg->http_body_size += strcopy;
 
 	if (buf->base)
 	{
@@ -60,6 +61,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	carg->lock = 0;
 
 	uv_close((uv_handle_t*)req, NULL);
+	uv_close((uv_handle_t*)carg->channel, NULL);
 	free(req);
 }
 
@@ -156,22 +158,75 @@ void put_to_loop_cmd(char *cmd, void *parser_handler)
 	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
 }
 
+void process_client(context_arg *carg)
+{
+	if (!carg)
+	{
+		puts("exec is empty");
+		return;
+	}
+
+	size_t len = strlen(carg->host);
+
+	char *fname = malloc(255);
+	char *template = malloc(1000);
+	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
+	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
+	// TODO /bin/bash only linux, need customize
+	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", carg->host);
+	unlink(fname);
+
+	mkdirp(ac->process_script_dir);
+	write_to_file(fname, template, rc, NULL, NULL);
+	(ac->process_cnt)++;
+
+	int64_t i, y, start, n = 1;
+	char *tmp = fname;
+	for (i=0; i<len; i++)
+	{
+		if ( isspace(tmp[i]) )
+		{
+			for (; isspace(tmp[i]); i++);
+			n++;
+		}
+	}
+	char** args = calloc(n+1, sizeof(char*));
+
+	for (i=0, y=0, start=0; y<n; i++)
+	{
+		if ( isspace(tmp[i]) )
+		{
+			int64_t end = i;
+			for (; isspace(tmp[i]); i++);
+			args[y] = strndup(tmp+start, end-start);
+
+			start = i;
+			y++;
+		}
+	}
+	args[n] = NULL;
+
+	carg->key = carg->host;
+	carg->args = args;
+	tommy_hashdyn_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+}
+
 void on_process_spawn(void* arg)
 {
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
-	context_arg *pinfo = arg;
-	if (pinfo->lock)
+	context_arg *carg = arg;
+	if (carg->lock)
 		return;
-	pinfo->lock = 1;
+	carg->lock = 1;
 
 	int r;
 	uv_process_t *child_req = malloc(sizeof(uv_process_t));
-	child_req->data = pinfo;
-	pinfo->read_time = setrtime();
+	child_req->data = carg;
+	carg->read_time = setrtime();
 
-	uv_pipe_t *channel = malloc(sizeof(uv_pipe_t));
-	channel->data = pinfo;
+	uv_pipe_t *channel = carg->channel = malloc(sizeof(uv_pipe_t));
+	channel->data = carg;
 	uv_pipe_init(loop, channel, 1);
 	uv_stdio_container_t *child_stdio = malloc(3*sizeof(uv_stdio_container_t));
 	child_stdio[ASTDIN_FILENO].flags = UV_IGNORE;
@@ -181,8 +236,8 @@ void on_process_spawn(void* arg)
 
 	uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
 	options->exit_cb = _on_exit;
-	options->file = pinfo->args[0];
-	options->args = pinfo->args;
+	options->file = carg->args[0];
+	options->args = carg->args;
 	options->stdio = child_stdio;
 	options->stdio_count = 3;
 

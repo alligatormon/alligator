@@ -118,6 +118,22 @@ void get_disk()
 	endmntent(fp);
 }
 
+void cpu_avg_push(double now)
+{
+	if (now > 100)
+		return;
+
+	double old = ac->system_avg_metrics[ac->system_cpuavg_ptr];
+	ac->system_avg_metrics[ac->system_cpuavg_ptr] = now;
+	ac->system_cpuavg_sum = (ac->system_cpuavg_sum - old) + now;
+	if (ac->log_level > 2)
+		printf("set ac->system_avg_metrics[%"u64"]=%lf, sum: %lf\n", ac->system_cpuavg_ptr, ac->system_avg_metrics[ac->system_cpuavg_ptr], ac->system_cpuavg_sum);
+
+	++ac->system_cpuavg_ptr;
+	if (ac->system_cpuavg_ptr >= ac->system_cpuavg_period)
+		ac->system_cpuavg_ptr = 0;
+}
+
 void get_cpu(int8_t platform)
 {
 	if (ac->log_level > 2)
@@ -361,6 +377,11 @@ void get_cpu(int8_t platform)
 		metric_add_labels("cpu_usage_time", &sccs->system, DATATYPE_UINT, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_time", &sccs_total, DATATYPE_UINT, ac->system_carg, "type", "total");
 		metric_add_labels("cpu_usage_time", &sccs->user, DATATYPE_UINT, ac->system_carg, "type", "user");
+
+		if (ac->system_cpuavg)
+		{
+			cpu_avg_push(cgroup_total_usage);
+		}
 	}
 }
 
@@ -2366,6 +2387,29 @@ void fill_counts_process()
 	}
 }
 
+void get_conntrack_info()
+{
+	char path[255];
+
+	snprintf(path, 255, "%s/sys/net/netfilter/nf_conntrack_max", ac->system_procfs);
+	int64_t conntrack_max = getkvfile(path);
+
+	snprintf(path, 255, "%s/sys/net/netfilter/nf_conntrack_count", ac->system_procfs);
+	int64_t conntrack_count = getkvfile(path);
+
+	double conntrack_usage = conntrack_count*100.0/conntrack_max;
+
+	metric_add_auto("conntrack_max", &conntrack_max, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("conntrack_count", &conntrack_count, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("conntrack_usage", &conntrack_usage, DATATYPE_DOUBLE, ac->system_carg);
+}
+
+void get_cpu_avg()
+{
+	double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
+	metric_add_auto("cpu_avg", &result, DATATYPE_DOUBLE, ac->system_carg);
+}
+
 void get_system_metrics()
 {
 	cadvisor_metrics();
@@ -2380,6 +2424,7 @@ void get_system_metrics()
 		get_loadavg();
 		get_kernel_version(platform);
 		get_alligator_info();
+		get_conntrack_info();
 		if (!platform)
 		{
 			char edacdir[255];
@@ -2460,6 +2505,8 @@ void get_system_metrics()
 		get_iptables6_info("filter", ac->system_carg);
 		get_iptables6_info("nat", ac->system_carg);
 	}
+	if (ac->system_cpuavg)
+		get_cpu_avg();
 }
 
 void system_fast_scrape()

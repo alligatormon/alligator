@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
+#include "main.h"
 #define HAPROXY_NAME_SIZE 1000
 
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
@@ -144,13 +146,6 @@ void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 	int64_t i;
 	int64_t cnt;
 	int64_t to;
-	//char *tmp = metrics;
-	//char proto[HAPROXY_NAME_SIZE];
-	//char fe[HAPROXY_NAME_SIZE];
-	//char be[HAPROXY_NAME_SIZE];
-	//char srv[HAPROXY_NAME_SIZE];
-	//char age[HAPROXY_NAME_SIZE];
-	//char calls[HAPROXY_NAME_SIZE];
 	for(i=0, cnt=-1; i<size; ++i, ++cnt)
 	{
 		//0x55dce59cd3e0: proto=tcpv4 src=127.0.0.1:46776 fe=main be=app srv=app4 ts=08 age=36s calls=8 rq[f=c800000h,i=0,an=2000h,rx=23s,wx=,ax=] rp[f=000000h,i=0,an=00h,rx=,wx=,ax=] s0=[7,8h,fd=1,ex=] s1=[5,108h,fd=2,ex=3s] exp=3s
@@ -158,4 +153,77 @@ void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 		i += to;
 	}
 	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, carg);
+}
+
+int8_t haproxy_validator(char *data, size_t size)
+{
+	char *ret = strstr(data, "\n\n");
+	if (ret)
+		return 1;
+	else
+		return 0;
+}
+
+
+string* haproxy_stat_mesg(host_aggregator_info *hi, void *arg)
+{
+	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
+		return string_init_add(gen_http_query(0, hi->query, ";csv", hi->host, "alligator", hi->auth, 1), 0, 0);
+	else
+		return string_init_add("show stat\n", 0, 0);
+}
+
+string* haproxy_info_mesg(host_aggregator_info *hi, void *arg)
+{
+	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
+		return string_init_add("show info\n", 0, 0);
+	else
+		return (void*)-1;
+}
+
+string* haproxy_pools_mesg(host_aggregator_info *hi, void *arg)
+{
+	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
+		return string_init_add("show pools\n", 0, 0);
+	else
+		return (void*)-1;
+}
+
+string* haproxy_sess_mesg(host_aggregator_info *hi, void *arg)
+{
+	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
+		return string_init_add("show sess\n", 0, 0);
+	else
+		return (void*)-1;
+}
+
+void haproxy_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("haproxy");
+	actx->handlers = 4;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = haproxy_stat_handler;
+	actx->handler[0].validator = haproxy_validator;
+	actx->handler[0].mesg_func = haproxy_stat_mesg;
+	strlcpy(actx->handler[0].key,"haproxy_stat", 255);
+
+	actx->handler[1].name = haproxy_info_handler;
+	actx->handler[1].validator = haproxy_validator;
+	actx->handler[1].mesg_func = haproxy_info_mesg;
+	strlcpy(actx->handler[1].key,"haproxy_info", 255);
+
+	actx->handler[2].name = haproxy_pools_handler;
+	actx->handler[2].validator = haproxy_validator;
+	actx->handler[2].mesg_func = haproxy_pools_mesg;
+	strlcpy(actx->handler[2].key,"haproxy_pools", 255);
+
+	actx->handler[3].name = haproxy_sess_handler;
+	actx->handler[3].validator = haproxy_validator;
+	actx->handler[3].mesg_func = haproxy_sess_mesg;
+	strlcpy(actx->handler[3].key,"haproxy_sess", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

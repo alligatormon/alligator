@@ -18,15 +18,24 @@ void smart_aggregator(context_arg *carg)
 	//	tcp_client(carg);
 	//else if (carg->transport == APROTO_ICMP)
 	//	unix_tcp_client(carg);
-	//else if (carg->transport == APROTO_PROCESS)
-	//	put_to_loop_cmd_carg(carg);
+	else if (carg->transport == APROTO_PROCESS)
+		process_client(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
 }
 
-void try_again(context_arg *carg, char *mesg)
+void try_again(context_arg *carg, char *mesg, size_t mesg_len)
 {
-	
+	context_arg *new = calloc(1, sizeof(*new));
+	memcpy(new, carg, sizeof(*new));
+	new->free_after = 1;
+
+	aconf_mesg_set(new, mesg, mesg_len);
+
+	if (carg->transport == APROTO_UNIX)
+		unix_client_connect(new);
+	if (carg->transport == APROTO_UNIX)
+		tcp_client_connect(new);
 }
 
 int actx_compare(const void* arg, const void* obj)
@@ -51,4 +60,20 @@ void aggregate_ctx_init()
 	gdnsd_parser_push();
 	hadoop_parser_push();
 	sd_etcd_parser_push();
+	nginx_upstream_check_parser_push();
+	json_parser_push();
+	consul_parser_push();
+	prometheus_metrics_parser_push();
+	sentinel_parser_push();
+	opentsdb_parser_push();
+	varnish_parser_push();
+	rabbitmq_parser_push();
+	uwsgi_parser_push();
+	haproxy_parser_push();
+	memcached_parser_push();
+	aerospike_parser_push();
+	monit_parser_push();
+	unbound_parser_push();
+	syslog_ng_parser_push();
+	zookeeper_parser_push();
 }

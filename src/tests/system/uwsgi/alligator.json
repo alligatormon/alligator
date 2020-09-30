@@ -1,0 +1,4 @@
+{"entrypoint":{"tcp": ["1111"]}, "aggregate": [
+	{"handler":"uwsgi", "url": "http://localhost:1717", "add_label": {"url":"http://localhost:1717"}},
+	{"handler":"uwsgi", "url": "tcp://localhost:1718", "add_label": {"url":"tcp://localhost:1718"}}
+]}

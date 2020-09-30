@@ -1,0 +1,1 @@
+{"log_level": 0, "entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"aerospike", "url": "tcp://127.0.0.1:3000"}]}

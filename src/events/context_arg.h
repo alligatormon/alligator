@@ -53,6 +53,7 @@ typedef struct context_arg
 	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
+	uint8_t free_after;
 
 	uint64_t buffer_request_size;
 	uint64_t buffer_response_size;
@@ -176,6 +177,8 @@ typedef struct context_arg
 	struct sockaddr_un *remote;
 	socklen_t remote_len;
 	int fd;
+
+	int log_level;
 
 	tommy_node node;
 	tommy_node context_node;

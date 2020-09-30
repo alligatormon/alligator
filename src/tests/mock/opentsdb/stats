@@ -1,0 +1,856 @@
+[
+    {
+        "metric": "tsd.connectionmgr.connections",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "open"
+        },
+        "timestamp": 1538726708,
+        "value": "1"
+    },
+    {
+        "metric": "tsd.connectionmgr.connections",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "rejected"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.connectionmgr.connections",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "total"
+        },
+        "timestamp": 1538726708,
+        "value": "4"
+    },
+    {
+        "metric": "tsd.connectionmgr.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "closed"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.connectionmgr.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "reset"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.connectionmgr.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "timeout"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.connectionmgr.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "unknown"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.received",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "telnet"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.received",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "http"
+        },
+        "timestamp": 1538726708,
+        "value": "4"
+    },
+    {
+        "metric": "tsd.rpc.received",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "http_plugin"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_50pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "all"
+        },
+        "timestamp": 1538726708,
+        "value": "12"
+    },
+    {
+        "metric": "tsd.http.latency_75pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "all"
+        },
+        "timestamp": 1538726708,
+        "value": "612"
+    },
+    {
+        "metric": "tsd.http.latency_90pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "all"
+        },
+        "timestamp": 1538726708,
+        "value": "612"
+    },
+    {
+        "metric": "tsd.http.latency_95pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "all"
+        },
+        "timestamp": 1538726708,
+        "value": "612"
+    },
+    {
+        "metric": "tsd.http.latency_50pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "graph"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_75pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "graph"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_90pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "graph"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_95pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "graph"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_50pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "gnuplot"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_75pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "gnuplot"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_90pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "gnuplot"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.latency_95pct",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "gnuplot"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.graph.requests",
+        "tags": {
+            "cache": "disk",
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.graph.requests",
+        "tags": {
+            "cache": "miss",
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.received",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "hbase_errors"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "invalid_values"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "illegal_arguments"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "unknown_metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.rpc.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "socket_writes_blocked"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.query.invalid_requests",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.query.exceptions",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.http.query.success",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-hit",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-miss",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-size",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.random-collisions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.rejected-assignments",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-used",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-available",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "metrics"
+        },
+        "timestamp": 1538726708,
+        "value": "16777215"
+    },
+    {
+        "metric": "tsd.uid.cache-hit",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-miss",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-size",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.random-collisions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.rejected-assignments",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-used",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-available",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagk"
+        },
+        "timestamp": 1538726708,
+        "value": "16777215"
+    },
+    {
+        "metric": "tsd.uid.cache-hit",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-miss",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.cache-size",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.random-collisions",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.rejected-assignments",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-used",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.ids-available",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "tagv"
+        },
+        "timestamp": 1538726708,
+        "value": "16777215"
+    },
+    {
+        "metric": "tsd.uid.filter.rejected",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "raw"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.uid.filter.rejected",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "kind": "aggregate"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.jvm.ramfree",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "130298920"
+    },
+    {
+        "metric": "tsd.jvm.ramused",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "168296448"
+    },
+    {
+        "metric": "tsd.hbase.latency_50pct",
+        "tags": {
+            "class": "IncomingDataPoints",
+            "host": "1fdd8b7ff34a",
+            "method": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_75pct",
+        "tags": {
+            "class": "IncomingDataPoints",
+            "host": "1fdd8b7ff34a",
+            "method": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_90pct",
+        "tags": {
+            "class": "IncomingDataPoints",
+            "host": "1fdd8b7ff34a",
+            "method": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_95pct",
+        "tags": {
+            "class": "IncomingDataPoints",
+            "host": "1fdd8b7ff34a",
+            "method": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.datapoints.added",
+        "tags": {
+            "class": "TSDB",
+            "host": "1fdd8b7ff34a",
+            "type": "all"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_50pct",
+        "tags": {
+            "class": "TsdbQuery",
+            "host": "1fdd8b7ff34a",
+            "method": "scan"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_75pct",
+        "tags": {
+            "class": "TsdbQuery",
+            "host": "1fdd8b7ff34a",
+            "method": "scan"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_90pct",
+        "tags": {
+            "class": "TsdbQuery",
+            "host": "1fdd8b7ff34a",
+            "method": "scan"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.latency_95pct",
+        "tags": {
+            "class": "TsdbQuery",
+            "host": "1fdd8b7ff34a",
+            "method": "scan"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.root_lookups",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.meta_lookups",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "uncontended"
+        },
+        "timestamp": 1538726708,
+        "value": "2"
+    },
+    {
+        "metric": "tsd.hbase.meta_lookups",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "contended"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "increment"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "delete"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "get"
+        },
+        "timestamp": 1538726708,
+        "value": "4"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "append"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "rowLock"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "openScanner"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "scan"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.rpcs.batched",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.flushes",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.connections.created",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "1"
+    },
+    {
+        "metric": "tsd.hbase.connections.idle_closed",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.nsre",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.nsre.rpcs_delayed",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.hbase.region_clients.open",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "1"
+    },
+    {
+        "metric": "tsd.hbase.region_clients.idle_closed",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.count",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.duplicates",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "identical"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.duplicates",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "type": "variant"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.queue.size",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "rpc": "read"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "rpc": "put"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.errors",
+        "tags": {
+            "host": "1fdd8b7ff34a",
+            "rpc": "delete"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.writes",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    },
+    {
+        "metric": "tsd.compaction.deletes",
+        "tags": {
+            "host": "1fdd8b7ff34a"
+        },
+        "timestamp": 1538726708,
+        "value": "0"
+    }
+]

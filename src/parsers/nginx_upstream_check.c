@@ -1,14 +1,13 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
 #include "main.h"
 #define NGINX_UPSTREAM_CHECK_SIZE 1000
 
 void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 {
-	extern aconf *ac;
 	int64_t cur;
 	int64_t i = 0;
 	size_t name_size;
@@ -27,8 +26,19 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 
 	while(i<size)
 	{
-		//printf("DEBUG: %lld < %zu\n", i, size);
+		if (carg->log_level > 2)
+		{
+			char str[255];
+			strlcpy(str, metrics+i+2, strcspn(metrics+i+2, "\n")+1);
+			printf("nginx processing string: %"d64" < %zu: '%s'\n", i, size, str);
+		}
 		//++i;
+		if (!isdigit(metrics[i]))
+		{
+			if (carg->log_level > 2)
+				printf("nginx scrape metrics: field 'id' not a number into stats:\n'%s'\n", metrics+i);
+			break;
+		}
 		cur = strcspn(metrics+i, ",");
 		cur++;
 		i+=cur;
@@ -39,7 +49,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		size_t upstream_len = name_size-1;
 		if (!*upstream)
 		{
-			if (ac->log_level > 2)
+			if (carg->log_level > 2)
 				printf("nginx scrape metrics: empty field 'upstream' into stats:\n'%s'\n", metrics+i);
 			break;
 		}
@@ -59,7 +69,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		size_t server_len = name_size-1;
 		if (!*server)
 		{
-			if (ac->log_level > 2)
+			if (carg->log_level > 2)
 				printf("nginx scrape metrics: empty field 'server' into stats:\n'%s'\n", metrics+i);
 			break;
 		}
@@ -73,11 +83,25 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
+		// processing "rise"
+		if (!isdigit(metrics[i]))
+		{
+			if (carg->log_level > 2)
+				printf("nginx scrape metrics: field 'rise' not a number into stats:\n'%s'\n", metrics+i);
+			break;
+		}
 		cur = strcspn(metrics+i, ",");
 		rise = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
+		// processing "fall"
+		if (!isdigit(metrics[i]))
+		{
+			if (carg->log_level > 2)
+				printf("nginx scrape metrics: field 'fall' not a number into stats:\n'%s'\n", metrics+i);
+			break;
+		}
 		cur = strcspn(metrics+i, ",");
 		fall = atoll(metrics+i);
 		cur++;
@@ -90,7 +114,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 		{
 			printf("server is '%s'\n", server);
 			printf("upstream is '%s'\n", upstream);
@@ -99,31 +123,31 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		if (!*server)
 			continue;
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate server is not null");
 
 		if (!*upstream)
 			continue;
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate upstream is not null");
 
 		if (!metric_label_validator(type, type_len))
 		{
-			if (ac->log_level > 3)
+			if (carg->log_level > 3)
 				puts("validate type is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate type is OK");
 		if (!metric_label_validator(status, status_len))
 		{
-			if (ac->log_level > 3)
+			if (carg->log_level > 3)
 				puts("validate status is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate status is OK");
 		if (!metric_label_validator(server, server_len))
 		{
@@ -131,16 +155,16 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate server is OK");
 		if (!metric_label_validator(upstream, upstream_len))
 		{
-			if (ac->log_level > 3)
+			if (carg->log_level > 3)
 				puts("validate upstream is ERR");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (ac->log_level > 3)
+		if (carg->log_level > 3)
 			puts("validate upstream is OK");
 
 		uint64_t val = 1;
@@ -149,7 +173,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "up", "type", type);
 			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "down", "type", type);
-			//printf("compare %s <> %s\n", upstream_counter, upstream);
+			//printf("up compare %s <> %s\n", upstream_counter, upstream);
 			if (!strcmp(upstream_counter, upstream))
 			{
 				++upstream_counter_live;
@@ -173,7 +197,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			metric_add_labels4("nginx_upstream_check_status", &nval, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "up", "type", type);
 			metric_add_labels4("nginx_upstream_check_status", &val, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "status", "down", "type", type);
-			//printf("compare %s <> %s\n", upstream_counter, upstream);
+			//printf("down compare %s <> %s\n", upstream_counter, upstream);
 			if (!strcmp(upstream_counter, upstream))
 			{
 				++upstream_counter_dead;
@@ -197,11 +221,32 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels3("nginx_upstream_check_fall_count", &fall, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
 	}
 
-	double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
-	double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
+	//double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
+	//double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
 
-	metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_live_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
-	metric_add_labels("nginx_upstream_upstream_dead_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+	//metric_add_auto("nginx_upstream_upstream_live_total", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
+	//metric_add_auto("nginx_upstream_upstream_dead_total", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
+	//metric_add_auto("nginx_upstream_upstream_live_total_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+	//metric_add_auto("nginx_upstream_upstream_dead_total_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+}
+
+string* nginx_upstream_check_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, "?format=csv", hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void nginx_upstream_check_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("nginx_upstream_check");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = nginx_upstream_check_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = nginx_upstream_check_mesg;
+	strlcpy(actx->handler[0].key,"nginx_upstream_check", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

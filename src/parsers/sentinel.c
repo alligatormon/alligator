@@ -3,6 +3,8 @@
 #include "common/selector_split_metric.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "main.h"
 
 #define SENTINEL_SIZE 1000
 
@@ -84,4 +86,29 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, carg, "name", name, "address", address);
 
 	free(res);
+}
+
+string* sentinel_parser_mesg(host_aggregator_info *hi, void *arg)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nINFO\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "INFO\n");
+
+	return string_init_str(query, 0);
+}
+
+void sentinel_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("sentinel");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler[0].name = sentinel_handler;
+	actx->handler[0].validator = redis_cluster_validator;
+	actx->handler[0].mesg_func = sentinel_parser_mesg;
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

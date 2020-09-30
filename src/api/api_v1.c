@@ -442,7 +442,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
 					}
 				}
-				carg_free(carg);
+				//carg_free(carg);
 				int8_t ret = 1;
 				code = http_error_handler_v1(ret, "Created", "Cannot bind", "", "", 0, status, respbody);
 			}
@@ -462,7 +462,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					json_t *sys_value;
 					json_object_foreach(value, system_key, sys_value)
 					{
-						printf("key: %s\n", system_key);
 						uint8_t enkey = 1;
 						if (method == HTTP_METHOD_DELETE)
 							enkey = 0;
@@ -489,6 +488,21 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, ac->loop);
 							smart_aggregator(carg);
+						}
+						else if (!strcmp(system_key, "cpuavg"))
+						{
+							ac->system_cpuavg = enkey;
+							ac->system_cpuavg_period = 5*60;
+							json_t *cvalue = json_object_get(sys_value, "period");
+							if (cvalue)
+							{
+								ac->system_cpuavg_period = (json_integer_value(cvalue)*60);
+							}
+
+							if (ac->system_avg_metrics)
+								free(ac->system_avg_metrics);
+
+							ac->system_avg_metrics = calloc(1, sizeof(float)*ac->system_cpuavg_period);
 						}
 						else if (!strcmp(system_key, "packages"))
 						{
@@ -581,8 +595,21 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
-						string *query = actx->handler[j].mesg_func(hi, NULL);
-						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, ac->loop);
+						string *query = NULL;
+						char *writemesg = NULL;
+						uint64_t writelen = 0;
+						if (actx->handler[j].mesg_func)
+						{
+							// check for NULL (non-write aggregates)
+							query = actx->handler[j].mesg_func(hi, actx);
+							if (query && query != (string*)-1)
+							{
+								writemesg = query->s;
+								writelen = query->l;
+							}
+						}
+
+						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, ac->loop);
 						smart_aggregator(carg);
 					}
 				}
@@ -620,7 +647,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
-						string *query = actx->handler[j].mesg_func(hi, NULL);
+						printf("mesg %p\n", actx->handler[j].mesg_func);
+						string *query = actx->handler[j].mesg_func(hi, actx);
 						context_arg *carg = context_arg_json_fill(configuration, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, ac->loop);
 						smart_aggregator(carg);
 					}

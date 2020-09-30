@@ -110,7 +110,7 @@ int metric_label_validator(char *str, size_t sz)
 {
 	int64_t i;
 	for (i=0; i<sz; i++)
-		if ( isalpha(str[i]) || str[i] == '_' || str[i] == ':' || str[i] == '.')
+		if ( isalpha(str[i]) || str[i] == '_' || str[i] == ':' || str[i] == '.' || str[i] == '-')
 			continue;
 		else if (isdigit(str[i]))
 			continue;

@@ -1,0 +1,1 @@
+{"log_level": 0, "entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"gdnsd", "url": "tcp://unix:/usr/local/var/run/gdnsd/control.sock"}]}

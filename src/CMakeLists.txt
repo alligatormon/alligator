@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.115)
+set(VERSION 1.10.116)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -178,7 +178,7 @@ set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
-add_custom_command(TARGET ${COMMON} PRE_BUILD COMMAND sed -i -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_version.h)
+add_custom_command(TARGET ${COMMON} PRE_BUILD COMMAND sed -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_template.h > alligator_version.h)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_test(Test1 "cutter" ".")
 

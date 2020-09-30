@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "main.h"
 #define MC_NAME_SIZE 255
 
 void memcached_handler(char *metrics, size_t size, context_arg *carg)
@@ -48,4 +49,25 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 			metric_add_auto(name, &mval, rc, carg);
 		}
 	}
+}
+
+string* memcached_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(strdup("stats\n"), 0, 0);
+}
+
+void memcached_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("memcached");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = memcached_handler;
+	//actx->handler[0].validator = memcached_validator;
+	actx->handler[0].mesg_func = memcached_mesg;
+	strlcpy(actx->handler[0].key,"memcached", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

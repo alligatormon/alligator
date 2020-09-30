@@ -1,0 +1,1 @@
+{"entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"varnish", "url": "exec:///usr/bin/varnishstat -j"}]}

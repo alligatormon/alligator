@@ -447,7 +447,7 @@ void labels_hash_free(tommy_hashdyn *hash)
 	free(hash);
 }
 
-inline int64_t get_ttl(context_arg *carg)
+int64_t get_ttl(context_arg *carg)
 {
 	if (!carg)
 		return ac->ttl;

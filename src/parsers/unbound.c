@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
 #include "main.h"
 #define UNBOUND_NAME_SIZE 1024
 
@@ -154,4 +155,25 @@ int8_t unbound_validator(char *data, size_t size)
 		return 1;
 	else
 		return 0;
+}
+
+string* unbound_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("UBCT1 stats_noreset\n", 0);
+}
+
+void unbound_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("unbound");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = unbound_handler;
+	actx->handler[0].validator = unbound_validator;
+	actx->handler[0].mesg_func = unbound_mesg;
+	strlcpy(actx->handler[0].key,"unbound", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -1,0 +1,76 @@
+memcached_accepting_conns 1
+memcached_auth_cmds 0
+memcached_auth_errors 0
+memcached_bytes 0
+memcached_bytes_read
+memcached_bytes_written
+memcached_cas_badval 0
+memcached_cas_hits 0
+memcached_cas_misses 0
+memcached_cmd_flush 0
+memcached_cmd_get 0
+memcached_cmd_set 0
+memcached_cmd_touch 0
+memcached_conn_yields 0
+memcached_connection_structures 3
+memcached_crawler_items_checked 0
+memcached_crawler_reclaimed 0
+memcached_curr_connections
+memcached_curr_items 0
+memcached_decr_hits 0
+memcached_decr_misses 0
+memcached_delete_hits 0
+memcached_delete_misses 0
+memcached_direct_reclaims 0
+memcached_evicted_active 0
+memcached_evicted_unfetched 0
+memcached_evictions 0
+memcached_expired_unfetched 0
+memcached_get_expired 0
+memcached_get_flushed 0
+memcached_get_hits 0
+memcached_get_misses 0
+memcached_hash_bytes 524288
+memcached_hash_is_expanding 0
+memcached_hash_power_level 16
+memcached_incr_hits 0
+memcached_incr_misses 0
+memcached_limit_maxbytes 67108864
+memcached_listen_disabled_num 0
+memcached_log_watcher_sent 0
+memcached_log_watcher_skipped 0
+memcached_log_worker_dropped 0
+memcached_log_worker_written 0
+memcached_lru_bumps_dropped 0
+memcached_lru_crawler_running 0
+memcached_lru_crawler_starts
+memcached_lru_maintainer_juggles
+memcached_lrutail_reflocked 0
+memcached_malloc_fails 0
+memcached_max_connections 1024
+memcached_moves_to_cold 0
+memcached_moves_to_warm 0
+memcached_moves_within_lru 0
+memcached_pointer_size 64
+memcached_reclaimed 0
+memcached_rejected_connections 0
+memcached_reserved_fds 20
+memcached_rusage_system 0.000000
+memcached_rusage_user 0.000000
+memcached_slab_global_page_pool 0
+memcached_slab_reassign_busy_deletes 0
+memcached_slab_reassign_busy_items 0
+memcached_slab_reassign_chunk_rescues 0
+memcached_slab_reassign_evictions_nomem 0
+memcached_slab_reassign_inline_reclaim 0
+memcached_slab_reassign_rescues 0
+memcached_slab_reassign_running 0
+memcached_slabs_moved 0
+memcached_threads 4
+memcached_time
+memcached_time_in_listen_disabled_us 0
+memcached_total_connections 6
+memcached_total_items 0
+memcached_touch_hits 0
+memcached_touch_misses 0
+memcached_uptime

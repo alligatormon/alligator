@@ -7,7 +7,7 @@ rabbitmq-server >/dev/null &
 
 rabbitmq-plugins enable rabbitmq_management >/dev/null
 
-sleep 5
+sleep 15
 
 TEXT=`curl -s localhost:1111`
 echo $TEXT | grep -c rabbitmq_vhosts >/dev/null && echo "rabbitmq vhosts metrics ok" || echo "rabbitmq vhosts metrics not found!"

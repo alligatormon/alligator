@@ -259,6 +259,7 @@ int64_t getkvfile(char *file)
 
 string* string_init(size_t max)
 {
+	++max;
 	string *ret = malloc(sizeof(*ret));
 	ret->m = max;
 	ret->s = malloc(max);
@@ -594,8 +595,9 @@ string* get_file_content(char *file)
 	int64_t fdsize = ftell(fd);
 	rewind(fd);
 
-	char *buf = malloc(fdsize);
+	char *buf = malloc(fdsize+1);
 	size_t rc = fread(buf, 1, fdsize, fd);
+	buf[rc] = 0;
 
 	string *str = string_init_add(buf, rc, fdsize);
 	return str;

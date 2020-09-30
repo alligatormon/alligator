@@ -1,0 +1,5 @@
+flower_tasks_total_active
+flower_tasks_total_failed
+flower_tasks_total_processed
+flower_tasks_total_retried
+flower_tasks_total_successed

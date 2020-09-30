@@ -1,0 +1,1 @@
+{"log_level": 0, "entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"memcached", "url": "tls://localhost:11211", "tls_ca": "/app/src/tests/certs/ca.key", "tls_certificate": "/app/src/tests/certs/client.crt", "tls_key": "/app/src/tests/certs/client.key"}]}

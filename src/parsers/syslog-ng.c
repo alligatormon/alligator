@@ -60,3 +60,23 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 			metric_add_labels5("syslogng_stats", &value, DATATYPE_UINT, carg, "source_name", source_name, "source_id", source_id, "source_instance", source_instance, "state", state, "type", type);
 	}
 }
+
+string* syslog_ng_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("STATS\n", 0);
+}
+
+void syslog_ng_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("syslog-ng");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = syslog_ng_handler;
+	actx->handler[0].mesg_func = syslog_ng_mesg;
+	strlcpy(actx->handler[0].key,"syslog-ng", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}

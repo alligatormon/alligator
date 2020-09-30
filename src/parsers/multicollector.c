@@ -6,9 +6,11 @@
 #include "parsers/http_proto.h"
 #include "common/reject.h"
 #include "config/mapping.h"
+#include "common/http.h"
+#include "common/aggregator.h"
+#include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
-extern aconf *ac;
 
 int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
@@ -536,4 +538,25 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 			carg->curr_ttl = http_data->expire;
 		multicollector_field_get(tmp, tmp_len, lbl, carg);
 	}
+}
+
+string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void prometheus_metrics_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("prometheus_metrics");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = prometheus_metrics_mesg;
+	strlcpy(actx->handler[0].key,"prometheus_metrics", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

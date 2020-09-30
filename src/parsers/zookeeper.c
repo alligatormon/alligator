@@ -3,6 +3,8 @@
 #include "common/selector_split_metric.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "main.h"
 
 void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -42,4 +44,45 @@ void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "rw");
 	}
+}
+
+string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("mntr", 4);
+}
+
+string* zookeeper_isro_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("isro", 4);
+}
+
+string* zookeeper_wchs_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("wchs", 4);
+}
+
+void zookeeper_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("zookeeper");
+	actx->handlers = 3;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = zookeeper_mntr_handler;
+	//actx->handler[0].validator = zookeeper_validator;
+	actx->handler[0].mesg_func = zookeeper_mntr_mesg;
+	strlcpy(actx->handler[0].key,"zookeeper_mntr", 255);
+
+	actx->handler[1].name = zookeeper_isro_handler;
+	//actx->handler[1].validator = zookeeper_validator;
+	actx->handler[1].mesg_func = zookeeper_isro_mesg;
+	strlcpy(actx->handler[1].key,"zookeeper_isro", 255);
+
+	actx->handler[2].name = zookeeper_wchs_handler;
+	//actx->handler[2].validator = zookeeper_validator;
+	actx->handler[2].mesg_func = zookeeper_wchs_mesg;
+	strlcpy(actx->handler[2].key,"zookeeper_wchs", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

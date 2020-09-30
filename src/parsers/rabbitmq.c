@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
 #include "main.h"
 #define RABBITMQ_LEN 1000
 
@@ -683,3 +684,57 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 
 	json_decref(root);
 }
+
+string *rabbitmq_gen_url(host_aggregator_info *hi, char *addition)
+{
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+string* rabbitmq_overview_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/overview"); }
+string* rabbitmq_nodes_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/nodes"); }
+string* rabbitmq_exchanges_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/exchanges"); }
+string* rabbitmq_connections_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/connections"); }
+string* rabbitmq_queues_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/queues"); }
+string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/vhosts"); }
+
+void rabbitmq_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("rabbitmq");
+	actx->handlers = 6;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = rabbitmq_overview_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = rabbitmq_overview_mesg;
+	strlcpy(actx->handler[0].key,"rabbitmq_overview", 255);
+
+	actx->handler[1].name = rabbitmq_nodes_handler;
+	actx->handler[1].validator = NULL;
+	actx->handler[1].mesg_func = rabbitmq_nodes_mesg;
+	strlcpy(actx->handler[1].key,"rabbitmq_nodes", 255);
+
+	actx->handler[2].name = rabbitmq_exchanges_handler;
+	actx->handler[2].validator = NULL;
+	actx->handler[2].mesg_func = rabbitmq_exchanges_mesg;
+	strlcpy(actx->handler[2].key,"rabbitmq_exchanges", 255);
+
+	actx->handler[3].name = rabbitmq_connections_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = rabbitmq_connections_mesg;
+	strlcpy(actx->handler[3].key,"rabbitmq_connections", 255);
+
+	actx->handler[4].name = rabbitmq_queues_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = rabbitmq_queues_mesg;
+	strlcpy(actx->handler[4].key,"rabbitmq_queues", 255);
+
+	actx->handler[5].name = rabbitmq_vhosts_handler;
+	actx->handler[5].validator = NULL;
+	actx->handler[5].mesg_func = rabbitmq_vhosts_mesg;
+	strlcpy(actx->handler[5].key,"rabbitmq_vhosts", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+

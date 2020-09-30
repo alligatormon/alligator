@@ -1,0 +1,45 @@
+opentsdb_tsd.compaction.count 0
+opentsdb_tsd.compaction.deletes 0
+opentsdb_tsd.compaction.duplicates 0
+opentsdb_tsd.compaction.errors 0
+opentsdb_tsd.compaction.queue.size 0
+opentsdb_tsd.compaction.writes 0
+opentsdb_tsd.connectionmgr.connections 4
+opentsdb_tsd.connectionmgr.exceptions 0
+opentsdb_tsd.datapoints.added 0
+opentsdb_tsd.hbase {latency="50pct"} 0
+opentsdb_tsd.hbase {latency="75pct"} 0
+opentsdb_tsd.hbase {latency="90pct"} 0
+opentsdb_tsd.hbase {latency="95pct"} 0
+opentsdb_tsd.hbase.connections.created 1
+opentsdb_tsd.hbase.connections.idle_closed 0
+opentsdb_tsd.hbase.flushes 0
+opentsdb_tsd.hbase.meta_lookups 0
+opentsdb_tsd.hbase.nsre 0
+opentsdb_tsd.hbase.nsre.rpcs_delayed 0
+opentsdb_tsd.hbase.region_clients.idle_closed 0
+opentsdb_tsd.hbase.region_clients.open 1
+opentsdb_tsd.hbase.root_lookups 0
+opentsdb_tsd.hbase.rpcs 0
+opentsdb_tsd.hbase.rpcs.batched 0
+opentsdb_tsd.http {latency="50pct"} 0
+opentsdb_tsd.http {latency="75pct"} 0
+opentsdb_tsd.http {latency="90pct"} 0
+opentsdb_tsd.http {latency="95pct"} 0
+opentsdb_tsd.http.graph.requests 0
+opentsdb_tsd.http.query.exceptions 0
+opentsdb_tsd.http.query.invalid_requests 0
+opentsdb_tsd.http.query.success 0
+opentsdb_tsd.jvm.ramfree 130298920
+opentsdb_tsd.jvm.ramused 168296448
+opentsdb_tsd.rpc.errors 0
+opentsdb_tsd.rpc.exceptions 0
+opentsdb_tsd.rpc.received 0
+opentsdb_tsd.uid.cache-hit 0
+opentsdb_tsd.uid.cache-miss 0
+opentsdb_tsd.uid.cache-size 0
+opentsdb_tsd.uid.filter.rejected 0
+opentsdb_tsd.uid.ids-available 16777215
+opentsdb_tsd.uid.ids-used 0
+opentsdb_tsd.uid.random-collisions 0
+opentsdb_tsd.uid.rejected-assignments 0
