@@ -178,9 +178,9 @@ void get_cpu(int8_t platform)
 	}
 	else
 	{
-		strlcpy(cpu_usage_name, "cpu_usage_hw", 10);
-		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 15);
-		strlcpy(cpu_usage_time_name, "cpu_usage_hw_time", 15);
+		strlcpy(cpu_usage_name, "cpu_usage_hw", 13);
+		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 18);
+		strlcpy(cpu_usage_time_name, "cpu_usage_hw_time", 18);
 	}
 
 	// hw stats
@@ -252,6 +252,10 @@ void get_cpu(int8_t platform)
 				metric_add_labels(cpu_usage_time_name, &t2, DATATYPE_INT, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_time_name, &t3, DATATYPE_INT, ac->system_carg, "type", "system");
 				metric_add_labels(cpu_usage_time_name, &t5, DATATYPE_INT, ac->system_carg, "type", "iowait");
+				if (!platform && ac->system_cpuavg)
+				{
+					cpu_avg_push(usage);
+				}
 			}
 			else
 			{

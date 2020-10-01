@@ -373,7 +373,7 @@ string* redis_parser_mesg(host_aggregator_info *hi, void *arg)
 	else
 		snprintf(query, 1000, "INFO ALL\n");
 
-	return string_init_str(query, 0);
+	return string_init_add(query, 0, 0);
 }
 
 string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg)
@@ -384,7 +384,7 @@ string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg)
 	else
 		snprintf(query, 1000, "CLUSTER INFO\n");
 
-	return string_init_str(query, 0);
+	return string_init_add(query, 0, 0);
 }
 
 void redis_parser_push()

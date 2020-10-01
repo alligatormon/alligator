@@ -64,23 +64,13 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 			}
 			if (!strcmp(key, "modules"))
 			{
-				uint64_t modules_size = json_array_size(value);
-				for (uint64_t i = 0; i < modules_size; i++)
+				json_t *module_path;
+				char *module_key;
+				json_object_foreach(value, module_key, module_path)
 				{
-					json_t *modules = json_array_get(value, i);
-					json_t *jkey = json_object_get(modules, "key");
-					if (!jkey)
-						continue;
-					char *key = (char*)json_string_value(jkey);
-
-					json_t *jpath = json_object_get(modules, "path");
-					if (!jpath)
-						continue;
-					char *path = (char*)json_string_value(jpath);
-
 					if (method == HTTP_METHOD_DELETE)
 					{
-						module_t *module = tommy_hashdyn_search(ac->modules, module_compare, key, tommy_strhash_u32(0, key));
+						module_t *module = tommy_hashdyn_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
 						free(module->key);
 						free(module->path);
 						tommy_hashdyn_remove_existing(ac->modules, &(module->node));
@@ -89,8 +79,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					}
 
+					char *path = (char*)json_string_value(module_path);
+
 					module_t *module = calloc(1, sizeof(*module));
-					module->key = strdup(key);
+					module->key = strdup(module_key);
 					module->path = strdup(path);
 
 					tommy_hashdyn_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
@@ -214,237 +206,242 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				//	tls_server_delete(ac->loop, host, port, proto);
 				//	continue;
 				//}
-
-				context_arg *carg = calloc(1, sizeof(*carg));
-				carg->buffer_request_size = 6553500;
-				carg->buffer_response_size = 6553500;
-				carg->net_acl = calloc(1, sizeof(*carg->net_acl));
-
-				json_t *carg_ttl = json_object_get(value, "ttl");
-				carg->ttl = json_integer_value(carg_ttl);
-
-				json_t *carg_handler = json_object_get(value, "handler");
-				char *str_handler = (char*)json_string_value(carg_handler);
-				if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
-					carg->parser_handler =  &rsyslog_impstats_handler;
-				else if (str_handler && !strcmp(str_handler, "log"))
-					carg->parser_handler =  &log_handler;
-				
-				json_t *allow = json_object_get(value, "allow");
-				if (allow)
+				uint64_t entrypoint_size = json_array_size(value);
+				for (uint64_t i = 0; i < entrypoint_size; i++)
 				{
-					uint64_t allow_size = json_array_size(allow);
-					for (uint64_t i = 0; i < allow_size; i++)
-					{
-						json_t *allow_obj = json_array_get(allow, i);
-						char *allow_str = (char*)json_string_value(allow_obj);
-						
-						if (method == HTTP_METHOD_DELETE)
-							network_range_delete(carg->net_acl, allow_str);
-						else
-							network_range_push(carg->net_acl, allow_str, IPACCESS_ALLOW);
-					}
-				}
-				json_t *deny = json_object_get(value, "deny");
-				if (deny)
-				{
-					uint64_t deny_size = json_array_size(deny);
-					for (uint64_t i = 0; i < deny_size; i++)
-					{
-						json_t *deny_obj = json_array_get(deny, i);
-						char *deny_str = (char*)json_string_value(deny_obj);
-						
-						if (method == HTTP_METHOD_DELETE)
-							network_range_delete(carg->net_acl, deny_str);
-						else
-							network_range_push(carg->net_acl, deny_str, IPACCESS_DENY);
-					}
-				}
+					json_t *entrypoint = json_array_get(value, i);
 
-				json_t *reject = json_object_get(value, "reject");
-				if (reject)
-				{
-					if (!carg->reject)
-					{
-						carg->reject = calloc(1, sizeof(*carg->reject));
-						tommy_hashdyn_init(carg->reject);
-					}
+					context_arg *carg = calloc(1, sizeof(*carg));
+					carg->buffer_request_size = 6553500;
+					carg->buffer_response_size = 6553500;
+					carg->net_acl = calloc(1, sizeof(*carg->net_acl));
 
-					uint64_t reject_size = json_array_size(reject);
-					for (uint64_t i = 0; i < reject_size; i++)
-					{
-						json_t *reject_obj = json_array_get(reject, i);
+					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
+					carg->ttl = json_integer_value(carg_ttl);
 
-						const char *reject_key;
-						json_t *reject_value;
-						json_object_foreach(reject_obj, reject_key, reject_value)
+					json_t *carg_handler = json_object_get(entrypoint, "handler");
+					char *str_handler = (char*)json_string_value(carg_handler);
+					if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
+						carg->parser_handler =  &rsyslog_impstats_handler;
+					else if (str_handler && !strcmp(str_handler, "log"))
+						carg->parser_handler =  &log_handler;
+
+					json_t *allow = json_object_get(entrypoint, "allow");
+					if (allow)
+					{
+						uint64_t allow_size = json_array_size(allow);
+						for (uint64_t i = 0; i < allow_size; i++)
 						{
+							json_t *allow_obj = json_array_get(allow, i);
+							char *allow_str = (char*)json_string_value(allow_obj);
+
 							if (method == HTTP_METHOD_DELETE)
-								reject_delete(carg->reject, strdup(reject_key));
+								network_range_delete(carg->net_acl, allow_str);
 							else
+								network_range_push(carg->net_acl, allow_str, IPACCESS_ALLOW);
+						}
+					}
+					json_t *deny = json_object_get(entrypoint, "deny");
+					if (deny)
+					{
+						uint64_t deny_size = json_array_size(deny);
+						for (uint64_t i = 0; i < deny_size; i++)
+						{
+							json_t *deny_obj = json_array_get(deny, i);
+							char *deny_str = (char*)json_string_value(deny_obj);
+
+							if (method == HTTP_METHOD_DELETE)
+								network_range_delete(carg->net_acl, deny_str);
+							else
+								network_range_push(carg->net_acl, deny_str, IPACCESS_DENY);
+						}
+					}
+
+					json_t *reject = json_object_get(entrypoint, "reject");
+					if (reject)
+					{
+						if (!carg->reject)
+						{
+							carg->reject = calloc(1, sizeof(*carg->reject));
+							tommy_hashdyn_init(carg->reject);
+						}
+
+						uint64_t reject_size = json_array_size(reject);
+						for (uint64_t i = 0; i < reject_size; i++)
+						{
+							json_t *reject_obj = json_array_get(reject, i);
+
+							const char *reject_key;
+							json_t *reject_value;
+							json_object_foreach(reject_obj, reject_key, reject_value)
 							{
-								char *reject_value_str = (char*)json_string_value(reject_value);
-								char *reject_value_normalized = reject_value_str ? strdup(reject_value_str) : NULL;
-								reject_insert(carg->reject, strdup(reject_key), reject_value_normalized);
+								if (method == HTTP_METHOD_DELETE)
+									reject_delete(carg->reject, strdup(reject_key));
+								else
+								{
+									char *reject_value_str = (char*)json_string_value(reject_value);
+									char *reject_value_normalized = reject_value_str ? strdup(reject_value_str) : NULL;
+									reject_insert(carg->reject, strdup(reject_key), reject_value_normalized);
+								}
 							}
 						}
 					}
-				}
-				json_t *mapping = json_object_get(value, "mapping");
-				if (mapping)
-				{
-					uint64_t mapping_size = json_array_size(mapping);
-					for (uint64_t i = 0; i < mapping_size; i++)
+					json_t *mapping = json_object_get(entrypoint, "mapping");
+					if (mapping)
 					{
-						json_t *mapping_obj = json_array_get(mapping, i);
-						mapping_metric *mm = json_mapping_parser(mapping_obj);
+						uint64_t mapping_size = json_array_size(mapping);
+						for (uint64_t i = 0; i < mapping_size; i++)
+						{
+							json_t *mapping_obj = json_array_get(mapping, i);
+							mapping_metric *mm = json_mapping_parser(mapping_obj);
 
-						if (!carg->mm)
-							carg->mm = mm;
-						else
-							push_mapping_metric(carg->mm, mm);
+							if (!carg->mm)
+								carg->mm = mm;
+							else
+								push_mapping_metric(carg->mm, mm);
+						}
 					}
-				}
 
-				json_t *tcp_json = json_object_get(value, "tcp");
-				uint64_t tcp_size = json_array_size(tcp_json);
-				for (uint64_t i = 0; i < tcp_size; i++)
-				{
-					json_t *tcp_object = json_array_get(tcp_json, i);
-					char *tcp_string = (char*)json_string_value(tcp_object);
-					char *port = strstr(tcp_string, ":");
-
-					// delete
-					if (method == HTTP_METHOD_DELETE)
+					json_t *tcp_json = json_object_get(entrypoint, "tcp");
+					uint64_t tcp_size = json_array_size(tcp_json);
+					for (uint64_t i = 0; i < tcp_size; i++)
 					{
+						json_t *tcp_object = json_array_get(tcp_json, i);
+						char *tcp_string = (char*)json_string_value(tcp_object);
+						char *port = strstr(tcp_string, ":");
+
+						// delete
+						if (method == HTTP_METHOD_DELETE)
+						{
+							if (port)
+							{
+								char *host = strndup(tcp_string, port - tcp_string);
+								tcp_server_stop(host, strtoll(port+1, NULL, 10));
+								free(host);
+							}
+							else
+								tcp_server_stop("0.0.0.0", strtoll(tcp_string, NULL, 10));
+
+							continue;
+						}
+
+						// create
+						context_arg *passcarg = carg_copy(carg);
 						if (port)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
-							tcp_server_stop(host, strtoll(port+1, NULL, 10));
-							free(host);
+							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
 						}
 						else
-							tcp_server_stop("0.0.0.0", strtoll(tcp_string, NULL, 10));
-
-						continue;
+							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
 					}
 
-					// create
-					context_arg *passcarg = carg_copy(carg);
-					if (port)
+					json_t *tls_json = json_object_get(entrypoint, "tls");
+					uint64_t tls_size = json_array_size(tls_json);
+					for (uint64_t i = 0; i < tls_size; i++)
 					{
-						char *host = strndup(tcp_string, port - tcp_string);
-						tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-					}
-					else
-						tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-				}
+						json_t *tls_object = json_array_get(tls_json, i);
+						char *tls_string = (char*)json_string_value(tls_object);
 
-				json_t *tls_json = json_object_get(value, "tls");
-				uint64_t tls_size = json_array_size(tls_json);
-				for (uint64_t i = 0; i < tls_size; i++)
-				{
-					json_t *tls_object = json_array_get(tls_json, i);
-					char *tls_string = (char*)json_string_value(tls_object);
+						char *port = strstr(tls_string, ":");
 
-					char *port = strstr(tls_string, ":");
+						// delete
+						if (method == HTTP_METHOD_DELETE)
+						{
+							if (port)
+							{
+								char *host = strndup(tls_string, port - tls_string);
+								tcp_server_stop(host, strtoll(port+1, NULL, 10));
+								free(host);
+							}
+							else
+								tcp_server_stop("0.0.0.0", strtoll(tls_string, NULL, 10));
 
-					// delete
-					if (method == HTTP_METHOD_DELETE)
-					{
+							continue;
+						}
+
+						// create
+						context_arg *passcarg = carg_copy(carg);
 						if (port)
 						{
 							char *host = strndup(tls_string, port - tls_string);
-							tcp_server_stop(host, strtoll(port+1, NULL, 10));
-							free(host);
+							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
 						}
 						else
-							tcp_server_stop("0.0.0.0", strtoll(tls_string, NULL, 10));
-
-						continue;
+							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
 					}
 
-					// create
-					context_arg *passcarg = carg_copy(carg);
-					if (port)
+					json_t *udp_json = json_object_get(entrypoint, "udp");
+					uint64_t udp_size = json_array_size(udp_json);
+					for (uint64_t i = 0; i < udp_size; i++)
 					{
-						char *host = strndup(tls_string, port - tls_string);
-						tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
-					}
-					else
-						tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
-				}
+						json_t *udp_object = json_array_get(udp_json, i);
+						char *udp_string = (char*)json_string_value(udp_object);
+						char *port = strstr(udp_string, ":");
 
-				json_t *udp_json = json_object_get(value, "udp");
-				uint64_t udp_size = json_array_size(udp_json);
-				for (uint64_t i = 0; i < udp_size; i++)
-				{
-					json_t *udp_object = json_array_get(udp_json, i);
-					char *udp_string = (char*)json_string_value(udp_object);
-					char *port = strstr(udp_string, ":");
+						// delete
+						if (method == HTTP_METHOD_DELETE)
+						{
+							if (port)
+							{
+								char *host = strndup(udp_string, port - udp_string);
+								udp_server_stop(host, strtoll(port+1, NULL, 10));
+								free(host);
+							}
+							else
+								udp_server_stop("0.0.0.0", strtoll(udp_string, NULL, 10));
 
-					// delete
-					if (method == HTTP_METHOD_DELETE)
-					{
+							continue;
+						}
+
+						// create
+						context_arg *passcarg = carg_copy(carg);
 						if (port)
 						{
 							char *host = strndup(udp_string, port - udp_string);
-							udp_server_stop(host, strtoll(port+1, NULL, 10));
-							free(host);
+							udp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
 						}
 						else
-							udp_server_stop("0.0.0.0", strtoll(udp_string, NULL, 10));
-
-						continue;
+							udp_server_init(ac->loop, "0.0.0.0", strtoll(udp_string, NULL, 10), 0, passcarg);
 					}
 
-					// create
-					context_arg *passcarg = carg_copy(carg);
-					if (port)
+					json_t *unix_json = json_object_get(entrypoint, "unix");
+					uint64_t unix_size = json_array_size(unix_json);
+					for (uint64_t i = 0; i < unix_size; i++)
 					{
-						char *host = strndup(udp_string, port - udp_string);
-						udp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+						json_t *unix_object = json_array_get(unix_json, i);
+						char *unix_string = (char*)json_string_value(unix_object);
+						if (method == HTTP_METHOD_DELETE)
+						{
+							unix_server_stop(unix_string);
+						}
+						else
+						{
+							context_arg *passcarg = carg_copy(carg);
+							unix_server_init(ac->loop, strdup(unix_string), passcarg);
+						}
 					}
-					else
-						udp_server_init(ac->loop, "0.0.0.0", strtoll(udp_string, NULL, 10), 0, passcarg);
+
+					json_t *unixgram_json = json_object_get(entrypoint, "unixgram");
+					uint64_t unixgram_size = json_array_size(unixgram_json);
+					for (uint64_t i = 0; i < unixgram_size; i++)
+					{
+						json_t *unixgram_object = json_array_get(unixgram_json, i);
+						char *unixgram_string = (char*)json_string_value(unixgram_object);
+						if (method == HTTP_METHOD_DELETE)
+						{
+							unixgram_server_stop(unixgram_string);
+						}
+						else
+						{
+							context_arg *passcarg = carg_copy(carg);
+							unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
+						}
+					}
+					//carg_free(carg);
+					int8_t ret = 1;
+					code = http_error_handler_v1(ret, "Created", "Cannot bind", "", "", 0, status, respbody);
 				}
-
-				json_t *unix_json = json_object_get(value, "unix");
-				uint64_t unix_size = json_array_size(unix_json);
-				for (uint64_t i = 0; i < unix_size; i++)
-				{
-					json_t *unix_object = json_array_get(unix_json, i);
-					char *unix_string = (char*)json_string_value(unix_object);
-					if (method == HTTP_METHOD_DELETE)
-					{
-						unix_server_stop(unix_string);
-					}
-					else
-					{
-						context_arg *passcarg = carg_copy(carg);
-						unix_server_init(ac->loop, strdup(unix_string), passcarg);
-					}
-				}
-
-				json_t *unixgram_json = json_object_get(value, "unixgram");
-				uint64_t unixgram_size = json_array_size(unixgram_json);
-				for (uint64_t i = 0; i < unixgram_size; i++)
-				{
-					json_t *unixgram_object = json_array_get(unixgram_json, i);
-					char *unixgram_string = (char*)json_string_value(unixgram_object);
-					if (method == HTTP_METHOD_DELETE)
-					{
-						unixgram_server_stop(unixgram_string);
-					}
-					else
-					{
-						context_arg *passcarg = carg_copy(carg);
-						unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
-					}
-				}
-				//carg_free(carg);
-				int8_t ret = 1;
-				code = http_error_handler_v1(ret, "Created", "Cannot bind", "", "", 0, status, respbody);
 			}
 			if (!strcmp(key, "system"))
 			{
@@ -502,7 +499,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							if (ac->system_avg_metrics)
 								free(ac->system_avg_metrics);
 
-							ac->system_avg_metrics = calloc(1, sizeof(float)*ac->system_cpuavg_period);
+							ac->system_avg_metrics = calloc(1, sizeof(double)*ac->system_cpuavg_period);
 						}
 						else if (!strcmp(system_key, "packages"))
 						{

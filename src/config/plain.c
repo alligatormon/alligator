@@ -339,6 +339,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 		{
 			char *context_name = wstokens[i].token->s;
 			char *operator_name = NULL;
+			json_t *allow_entrypoint = NULL;
+			json_t *deny_entrypoint = NULL;
+			json_t *tcp_entrypoint = NULL;
+			json_t *udp_entrypoint = NULL;
+			json_t *tls_entrypoint = NULL;
+			json_t *unix_entrypoint = NULL;
+			json_t *unixgram_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -347,15 +354,20 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint"))
 					context_json = json_array();
 				else
 					context_json = json_object();
 				json_object_set_new(root, wstokens[i].token->s, context_json);
 			}
 
-
 			json_t *operator_json = NULL;
+			if (!strcmp(context_name, "entrypoint"))
+			{
+				operator_json = json_object();
+				json_array_object_insert(context_json, operator_name, operator_json);
+			}
+
 			for (; i < token_count; i++)
 			{
 				if (wstokens[i].operator)
@@ -369,7 +381,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
-					else if (!strcmp(context_name, "modules") || !strcmp(context_name, "persistence"))
+					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules"))
 					{
 						++i;
 						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
@@ -414,17 +426,61 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
-					else if (!strcmp(context_name, "entrypoint") && (
-						!strcmp(wstokens[i].token->s, "tcp") ||
-						!strcmp(wstokens[i].token->s, "udp") ||
-						!strcmp(wstokens[i].token->s, "unixgram") ||
-						!strcmp(wstokens[i].token->s, "tls") ||
-						!strcmp(wstokens[i].token->s, "allow") ||
-						!strcmp(wstokens[i].token->s, "deny") ||
-						!strcmp(wstokens[i].token->s, "unix")))
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{
-						operator_json = json_array();
-						json_array_object_insert(context_json, operator_name, operator_json);
+						if (!allow_entrypoint)
+						{
+							allow_entrypoint = json_array();
+							json_array_object_insert(operator_json, "allow", allow_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
+					{
+						if (!deny_entrypoint)
+						{
+							deny_entrypoint = json_array();
+							json_array_object_insert(operator_json, "deny", deny_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
+					{
+						if (!tcp_entrypoint)
+						{
+							tcp_entrypoint = json_array();
+							json_array_object_insert(operator_json, "tcp", tcp_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "udp"))
+					{
+						if (!udp_entrypoint)
+						{
+							udp_entrypoint = json_array();
+							json_array_object_insert(operator_json, "udp", udp_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tls"))
+					{
+						if (!tls_entrypoint)
+						{
+							tls_entrypoint = json_array();
+							json_array_object_insert(operator_json, "tls", tls_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unix"))
+					{
+						if (!unix_entrypoint)
+						{
+							unix_entrypoint = json_array();
+							json_array_object_insert(operator_json, "unix", unix_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unixgram"))
+					{
+						if (!unixgram_entrypoint)
+						{
+							unixgram_entrypoint = json_array();
+							json_array_object_insert(operator_json, "unixgram", unixgram_entrypoint);
+						}
 					}
 					else if (!strcmp(context_name, "x509"))
 					{
@@ -514,8 +570,49 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					if (!operator_json || !operator_name)
 						continue;
 
-					json_t *arg_json = json_string(strdup(wstokens[i].token->s));
-					json_array_object_insert(operator_json, operator_name, arg_json);
+					if (ac->log_level > 0)
+						printf("\t\tcontext_name: %s, operator: '%s', argument: '%s'\n", context_name, operator_name, wstokens[i].token->s);
+
+					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(allow_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(deny_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(tcp_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "udp"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(udp_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tls"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(tls_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unix"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(unix_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unixgram"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(unixgram_entrypoint, operator_name, arg_json);
+					}
+					else
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(operator_json, operator_name, arg_json);
+					}
 				}
 				if (wstokens[i].end)
 				{
