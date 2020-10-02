@@ -138,6 +138,7 @@ typedef struct aconf
 	uint64_t system_cpuavg_ptr;
 	int system_cpuavg;
 	double *system_avg_metrics;
+	r_time last_time_cpu;
 #ifdef __linux__
 	rpm_library *rpmlib;
 #endif

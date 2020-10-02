@@ -138,6 +138,7 @@ void get_cpu(int8_t platform)
 {
 	if (ac->log_level > 2)
 		puts("fast scrape metrics: base: cpu");
+	r_time ts_start = setrtime();
 
 	int64_t effective_cores;
 	int64_t num_cpus = sysconf( _SC_NPROCESSORS_ONLN );
@@ -175,6 +176,7 @@ void get_cpu(int8_t platform)
 		strlcpy(cpu_usage_name, "cpu_usage", 10);
 		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
 		strlcpy(cpu_usage_time_name, "cpu_usage_time", 15);
+		dividecpu = 1;
 	}
 	else
 	{
@@ -194,7 +196,6 @@ void get_cpu(int8_t platform)
 	{
 		if ( !strncmp(temp, "cpu", 3) )
 		{
-			dividecpu = 1;
 			int64_t t1, t2, t3, t4, t5;
 			char cpuname[6];
 
@@ -369,7 +370,7 @@ void get_cpu(int8_t platform)
 
 		uint64_t sccs_total = sccs->system + sccs->user;
 
-		//printf("CPU: usage %lf, user %lf, system %lf\n", cgroup_total_usage, cgroup_user_usage, cgroup_system_usage);
+		//printf("cgroup CPU: usage %lf, user %lf, system %lf\n", cgroup_total_usage, cgroup_user_usage, cgroup_system_usage);
 		metric_add_labels("cpu_usage_cgroup", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_cgroup", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage_cgroup", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
@@ -387,6 +388,14 @@ void get_cpu(int8_t platform)
 			cpu_avg_push(cgroup_total_usage);
 		}
 	}
+	r_time ts_end = setrtime();
+	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
+	double diff_time = getrtime_ns(ac->last_time_cpu, ts_start)/1000000000.0;
+	if (ac->log_level > 2)
+		printf("system scrape metrics: base: get_cpu time execute '%"d64", diff '%"d64"'\n", scrape_time, diff_time);
+
+	ac->last_time_cpu = ts_start;
+	metric_add_auto("cpu_usage_calc_delta_time", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
 }
 
 void get_process_extra_info(char *file, char *name, char *pid)
