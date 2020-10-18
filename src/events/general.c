@@ -34,25 +34,11 @@ void dump_loop()
 
 void internal_query_loop()
 {
-	//puts("internal loop");
-	//string *body = string_init(10000000);
+	//query_processing();
 
-	//tommy_hashdyn *hash = malloc(sizeof(*hash));
-	//tommy_hashdyn_init(hash);
+	//mongodb_parser();
 
-	//labels_hash_insert(hash, "pid", "1");
-	//labels_hash_insert(hash, "name", "tail");
-	//labels_hash_insert(hash, "type", "stack_bytes");
-
-	//metric_query(0, body, "process_stats", hash, "> 0");
-	//puts(body->s);
-	//string_free(body);
-
-	query_processing();
-
-	mongodb_parser();
-
-	postgres_run("postgresql://postgres@localhost", "SELECT * FROM pg_stat_activity", "SELECT * FROM pg_stat_all_tables", "SELECT * FROM pg_stat_replication", "SELECT count(datname) FROM pg_database;");
+	//postgres_run("postgresql://postgres@localhost", "SELECT * FROM pg_stat_activity", "SELECT * FROM pg_stat_all_tables", "SELECT * FROM pg_stat_replication", "SELECT count(datname) FROM pg_database;");
 
 	//mysql_run();
 }

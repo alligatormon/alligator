@@ -16,6 +16,8 @@ src/liballigator_tests.a
 src/liballigator_tests.so
 src/libliballigator_tests.a
 src/libpostgresql_client.so
+src/bootstrap-deb.sh
+src/bootstrap.sh
 src/a.out
 src/external/
 src/libSHARED.a

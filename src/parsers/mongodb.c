@@ -132,6 +132,9 @@ void mongolib_free(libmongo *lm)
 	if (lm && lm->mongoc_client_new) free(lm->mongoc_client_new);
 	if (lm && lm->mongoc_client_destroy) free(lm->mongoc_client_destroy);
 	if (lm && lm->mongoc_cleanup) free(lm->mongoc_cleanup);
+	if (lm && lm->mongoc_client_set_appname) free(lm->mongoc_client_set_appname);
+	if (lm && lm->mongoc_uri_new_with_error) free(lm->mongoc_uri_new_with_error);
+	if (lm && lm->mongoc_client_new_from_uri) free(lm->mongoc_client_new_from_uri);
 	if (lm) free(lm);
 }
 
@@ -267,12 +270,39 @@ libmongo *mongodb_init()
 		return NULL;
 	}
 
+	*(void**)(&lm->mongoc_client_set_appname) = module_load(lmongo->path, "mongoc_client_set_appname", &lm->lib_mongoc_client_set_appname);
+	if (!lm->mongoc_client_set_appname)
+	{
+		printf("Cannot get mongoc_client_set_appname from mongolib\n");
+		mongolib_free(lm);
+		return NULL;
+	}
+
+	*(void**)(&lm->mongoc_uri_new_with_error) = module_load(lmongo->path, "mongoc_uri_new_with_error", &lm->lib_mongoc_uri_new_with_error);
+	if (!lm->mongoc_uri_new_with_error)
+	{
+		printf("Cannot get mongoc_uri_new_with_error from mongolib\n");
+		mongolib_free(lm);
+		return NULL;
+	}
+
+	*(void**)(&lm->mongoc_client_new_from_uri) = module_load(lmongo->path, "mongoc_client_new_from_uri", &lm->lib_mongoc_client_new_from_uri);
+	if (!lm->mongoc_client_new_from_uri)
+	{
+		printf("Cannot get mongoc_client_new_from_uri from mongolib\n");
+		mongolib_free(lm);
+		return NULL;
+	}
+
 	return lm;
 }
 
-void mongodb_parser()
+void mongodb_run(void* arg)
 {
 	mongoc_client_t *client;
+	bson_error_t error;
+
+	context_arg *carg = arg;
 
 	if (!ac->libmongo)
 	{
@@ -288,18 +318,75 @@ void mongodb_parser()
 
 	ac->libmongo->mongoc_init ();
 
-	client = ac->libmongo->mongoc_client_new ("mongodb://localhost:27017/?appname=executing-example");
-	puts("===============================");
-	mongo_get_databases(client);
-	puts("===============================");
+	mongoc_uri_t *uri = ac->libmongo->mongoc_uri_new_with_error (carg->url, &error);
+	if (!uri) {
+		fprintf (stderr, "failed to parse URI: %s\n" "error message:	   %s\n", carg->url, error.message);
+		return;
+	}
 
-	mongo_cmd_run(NULL, client, "admin", "serverStatus", "");
+	client = ac->libmongo->mongoc_client_new_from_uri (uri);
+	if (!client) {
+		return;
+	}
+
+	//client = ac->libmongo->mongoc_client_new ("mongodb://localhost:27017/?appname=executing-example");
+	ac->libmongo->mongoc_client_set_appname (client, "connect-example");
+	//client = ac->libmongo->mongoc_client_new (carg->url);
+	mongo_get_databases(client);
+
+	//mongo_cmd_run(NULL, client, "admin", "serverStatus", "");
 	//mongo_cmd_run(collection, "dbStats", "");
-	mongo_cmd_run(NULL, client, "admin", "replSetGetStatus", "");
+	//mongo_cmd_run(NULL, client, "admin", "replSetGetStatus", "");
+	mongo_cmd_run(NULL, client, "admin", "db.serverStatus({ serverStatus: 1, repl: 1, metrics: 1, locks: 1, mirroredReads: 1, latchAnalysis: 1 })", "");
 
 	ac->libmongo->mongoc_client_destroy (client);
 	ac->libmongo->mongoc_cleanup ();
 
 	return;
+}
+
+static void mongodb_timer(void *arg) {
+	extern aconf* ac;
+	usleep(ac->aggregator_startup * 1000);
+	while ( 1 )
+	{
+		tommy_hashdyn_foreach(ac->mongodb_aggregator, mongodb_run);
+		usleep(ac->aggregator_repeat * 1000);
+	}
+}
+
+void mongodb_client_handler()
+{
+	extern aconf* ac;
+
+	uv_thread_t th;
+	uv_thread_create(&th, mongodb_timer, NULL);
+}
+
+void mongodb_client(context_arg* carg)
+{
+	if (!carg)
+		return;
+
+	carg->key = malloc(255);
+	snprintf(carg->key, 255, "%s", carg->host);
+
+	tommy_hashdyn_insert(ac->mongodb_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+}
+
+void mongodb_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("mongodb");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key,"mongodb", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

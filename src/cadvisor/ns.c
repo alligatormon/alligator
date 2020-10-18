@@ -19,7 +19,6 @@ int net_ns_mount(int fd, char *name)
 	if (rc < 0)
 		return rc;
 
-	mkdirp("/var/lib/alligator/nsmount/");
 	mount(name, "/var/lib/alligator/nsmount/", "sysfs", 0, NULL);
 
 	return 1;
@@ -28,7 +27,6 @@ int net_ns_mount(int fd, char *name)
 
 int mount_ns_by_cgroup_procs(char *dirpath, char *name)
 {
-	mkdirp("/var/lib/alligator/nsmount");
 	FILE *fd;
 	char buf[1000];
 	fd = fopen(dirpath, "r");

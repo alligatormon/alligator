@@ -61,10 +61,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		snprintf(aeronamespace+8, 255-8, "namespace/%s\n", namespace_name);
 		uint64_t writelen = 20 + elem_size-1;
 
-		aerospike_data *ad = actx->data;
-		context_arg *carg = context_arg_json_fill(NULL, ad->hi, aerospike_namespace_handler, "aerospike_namespace", aeronamespace, writelen, ad->actx, NULL, ac->loop);
-		smart_aggregator(carg);
-		try_again(carg, aeronamespace, writelen);
+		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace");
 
 		elem_size += strspn(tmp, ";");
 		tmp += elem_size;
@@ -181,6 +178,12 @@ void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_labels("aerospike_status", &vl, DATATYPE_UINT, carg, "status", tmp);
 }
 
+int8_t aerospike_validator(char *data, size_t size)
+{
+	return 1;
+}
+
+
 string* aerospike_statistics_mesg(host_aggregator_info *hi, void *arg)
 {
 	return string_init_alloc("\2\1\0\0\0\0\0\0", 8);
@@ -223,14 +226,17 @@ void aerospike_parser_push()
 	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = aerospike_namespace_list_handler;
+	actx->handler[0].validator = aerospike_validator;
 	actx->handler[0].mesg_func = aerospike_namespace_list_mesg;
 	strlcpy(actx->handler[0].key,"aerospike_namespace_list", 255);
 
 	actx->handler[1].name = aerospike_statistics_handler;
+	actx->handler[1].validator = aerospike_validator;
 	actx->handler[1].mesg_func = aerospike_statistics_mesg;
 	strlcpy(actx->handler[1].key,"aerospike_statistics", 255);
 
 	actx->handler[2].name = aerospike_status_handler;
+	actx->handler[2].validator = aerospike_validator;
 	actx->handler[2].mesg_func = aerospike_status_mesg;
 	strlcpy(actx->handler[2].key,"aerospike_status", 255);
 

@@ -1,3 +1,4 @@
+#include "dstructures/tommy.h"
 typedef struct query_node
 {
 	char *expr;
@@ -6,11 +7,5 @@ typedef struct query_node
 	char *field;
 	char *datasource;
 
-	struct query_node *next;
+	tommy_node node;
 } query_node;
-
-typedef struct query_list
-{
-	query_node *head;
-	query_node *tail;
-} query_list;

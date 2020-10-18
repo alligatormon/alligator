@@ -405,10 +405,13 @@ void string_double(string *str, double d)
 
 string* string_init_alloc(char *str, size_t max)
 {
+	if (!max)
+		max = strlen(str);
 	string *ret = malloc(sizeof(*ret));
 	ret->m = max;
-	ret->s = malloc(max);
+	ret->s = malloc(max+1);
 	memcpy(ret->s, str, max);
+	ret->s[max] = 0;
 	ret->l = max;
 
 	return ret;

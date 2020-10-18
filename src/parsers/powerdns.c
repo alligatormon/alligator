@@ -5,6 +5,9 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/aggregator.h"
+#include "common/http.h"
+#include "main.h"
 #define POWERDNS_METRIC_SIZE 1000
 void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -39,4 +42,25 @@ void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 	}
 	json_decref(root);
+}
+
+string* powerdns_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, "/api/v1/servers/localhost/statistics", hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void powerdns_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("powerdns");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = powerdns_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = powerdns_mesg;
+	strlcpy(actx->handler[0].key,"powerdns", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -14,6 +14,8 @@ void config_json(char *json)
 void config_parse_entry(char *filepath)
 {
 	string* context = get_file_content(filepath);
+	if (!context)
+		return;
 
 	json_error_t error;
 	json_t *root = json_loads(context->s, 0, &error);
@@ -25,7 +27,8 @@ void config_parse_entry(char *filepath)
 		return;
 	}
 	else {
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		if (strstr(filepath, ".json"))
+			printf("is not a json %d: %s\n", error.line, error.text);
 	}
 
 	char *json = yaml_file_to_json_str(filepath);
@@ -40,7 +43,7 @@ void config_parse_entry(char *filepath)
 	}
 	else
 	{
-		printf("File %s is not a json or yaml\n", filepath);
+		printf("File %s is not a json or yaml, use plain config parser\n", filepath);
 	}
 
 	json = config_plain_to_json(context);
@@ -94,9 +97,8 @@ void parse_configs(char *dirpath)
 	if (rc)
 	{
 		printf("1 Skip directory: %s: %d\n", dirpath, rc);
-	}
-
-	if (S_ISDIR(path_stat.st_mode))
+	} 
+	else if (S_ISDIR(path_stat.st_mode))
 	{
 		struct dirent *entry;
 

@@ -352,7 +352,7 @@ void lxc_labels()
 			if (rd_entry->d_name[0] == '.')
 				continue;
 
-			snprintf(lxccgroup, 1000, "%s/%s", lxcdir, rd_entry->d_name);
+			snprintf(lxccgroup, 999, "%s/%s", lxcdir, rd_entry->d_name);
 
 			struct stat path_stat;
 			stat(lxccgroup, &path_stat);

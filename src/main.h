@@ -16,12 +16,12 @@
 #include "events/client.h"
 #include "events/process.h"
 #include "events/filetailer.h"
-#include "config/context.h"
 #include "parsers/multiparser.h"
 #include "metric/namespace.h"
-#include "common/rpm.h"
+//#include "common/rpm.h"
 #include "parsers/mongodb.h"
 #include "parsers/postgresql.h"
+#include "parsers/mysql.h"
 #include "common/aggregator.h"
 #define d8 PRId8
 #define u16 PRIu16
@@ -64,6 +64,9 @@ typedef struct aconf
 	tommy_hashdyn *_namespace;
 
 	tommy_hashdyn* aggregator;
+	tommy_hashdyn* pg_aggregator;
+	tommy_hashdyn* mongodb_aggregator;
+	tommy_hashdyn* my_aggregator;
 	tommy_hashdyn* tls_aggregator;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
@@ -71,6 +74,7 @@ typedef struct aconf
 	int64_t tls_aggregator_repeat;
 
 	tommy_hashdyn* uggregator;
+	tommy_hashdyn* udpaggregator;
 
 	tommy_hashdyn* iggregator;
 	int64_t iggregator_startup;
@@ -120,6 +124,11 @@ typedef struct aconf
 	int64_t tls_fs_startup;
 	int64_t tls_fs_repeat;
 
+	// local query processing
+	tommy_hashdyn* query;
+	int64_t query_startup;
+	int64_t query_repeat;
+
 	int system_base;
 	int system_disk;
 	int system_network;
@@ -140,13 +149,15 @@ typedef struct aconf
 	double *system_avg_metrics;
 	r_time last_time_cpu;
 #ifdef __linux__
-	rpm_library *rpmlib;
+	//rpm_library *rpmlib;
+	void *rpmlib;
 #endif
 	int8_t rpm_readconf;
 	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	match_rules *packages_match;
+	match_rules *sockets_match;
 	tommy_hashdyn* fdesc;
 
 	tommy_hashdyn* entrypoints;
@@ -157,6 +168,7 @@ typedef struct aconf
 
 	libmongo *libmongo;
 	pq_library *pqlib;
+	my_library *mylib;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int64_t ttl; // global TTL for metrics

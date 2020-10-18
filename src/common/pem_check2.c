@@ -174,7 +174,10 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	int ret = mbedtls_x509_crt_parse(&cert, (const unsigned char *)pem_cert, cert_size+1);
 	if (ret)
 	{
-		//printf("error parse certificate: '%s' with size %zu\n", pem_cert, strlen(pem_cert)+1);
+		if (ac->log_level > 2)
+			printf("error parse certificate %s\n", filename);
+		if (ac->log_level > 10)
+			printf("error parse certificate %s: '%s' with size %zu\n", filename, pem_cert, strlen(pem_cert)+1);
 		free(data);
 		return;
 	}
@@ -188,8 +191,11 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 
 void fs_cert_check(char *name, char *fname, char *match)
 {
+	//printf("match %s <> %s\n", fname, match);
 	if (strstr(fname, match))
 		read_from_file(fname, 0, pem_check_cert, NULL);
+	else
+		free(fname);
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
@@ -198,6 +204,7 @@ int tls_fs_dir_read(char *name, char *path, char *match)
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
+	//printf("tls open dir: %s\n", path);
 
 	uv_dirent_t dirents[1024];
 	uv_dir_t* rdir = readdir_req.ptr;
@@ -226,9 +233,12 @@ int tls_fs_dir_read(char *name, char *path, char *match)
 			}
 			else if (dirents[i].type == UV_DIRENT_FILE)
 			{
-				//printf("\t%s/%s\n", path, dirents[i].name);
+				//printf("\tpath '%s', dirents[i].name '%s'\n", path, dirents[i].name);
 				acc += 1;
-				fs_cert_check(name, filebase, match);
+				char *filename = malloc(1024);
+				snprintf(filename, 1023, "%s/%s", path, dirents[i].name);
+				//printf("fs_cert_check(%s, %s, %s)\n", name, filename, match);
+				fs_cert_check(name, filename, match);
 			}
 		}
 	}
@@ -244,6 +254,7 @@ void tls_fs_recurse(void *arg)
 
 	x509_fs_t *tls_fs = arg;
 
+	//printf("tls_fs_dir_read(%s, %s, %s)\n", tls_fs->name, tls_fs->path, tls_fs->match);
 	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match);
 }
 

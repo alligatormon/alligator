@@ -12,6 +12,9 @@
 #define APROTO_TLS 13
 #define APROTO_DTLS 14
 #define APROTO_ICMP 15
+#define APROTO_PG 16
+#define APROTO_MY 17
+#define APROTO_MONGODB 18
 #include <stdio.h>
 typedef struct host_aggregator_info
 {
@@ -22,6 +25,7 @@ typedef struct host_aggregator_info
 	char *auth;
 	char *user;
 	char *pass;
+	char *url;
 	int8_t proto;
 	int8_t transport;
 	int8_t tls;

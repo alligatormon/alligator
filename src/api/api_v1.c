@@ -65,7 +65,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 			if (!strcmp(key, "modules"))
 			{
 				json_t *module_path;
-				char *module_key;
+				const char *module_key;
 				json_object_foreach(value, module_key, module_path)
 				{
 					if (method == HTTP_METHOD_DELETE)
@@ -116,6 +116,46 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					}
 
 					tls_fs_push(name, path, match);
+				}
+			}
+			if (!strcmp(key, "query"))
+			{
+				uint64_t x509_size = json_array_size(value);
+				for (uint64_t i = 0; i < x509_size; i++)
+				{
+					json_t *x509 = json_array_get(value, i);
+					json_t *jmake = json_object_get(x509, "make");
+					if (!jmake)
+						continue;
+					char *make = (char*)json_string_value(jmake);
+
+					json_t *jexpr = json_object_get(x509, "expr");
+					if (!jexpr)
+						continue;
+					char *expr = (char*)json_string_value(jexpr);
+
+					json_t *jaction = json_object_get(x509, "action");
+					if (!jaction)
+						continue;
+					char *action = (char*)json_string_value(jaction);
+
+					json_t *jdatasource = json_object_get(x509, "datasource");
+					if (!jdatasource)
+						continue;
+					char *datasource = (char*)json_string_value(jdatasource);
+
+					json_t *jfield = json_object_get(x509, "field");
+					if (!jfield)
+						continue;
+					char *field = (char*)json_string_value(jfield);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						query_del(make);
+						continue;
+					}
+
+					query_push(datasource, expr, make, action, field);
 				}
 			}
 			if (!strcmp(key, "persistence"))
@@ -450,7 +490,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				{
 					code = 400;
 					snprintf(status, 100, "Bad Request");
-					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}");
+					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}\n");
 					fprintf(stderr, "%s", respbody);
 				}
 				else
@@ -480,10 +520,11 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							ac->system_cadvisor = enkey;
 							json_t *cvalue = json_object_get(sys_value, "docker");
 							char *dockersock = cvalue ? (char*)json_string_value(cvalue) : DOCKERSOCK;
+							mkdirp("/var/lib/alligator/nsmount");
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
-							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, ac->loop);
+							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop);
 							smart_aggregator(carg);
 						}
 						else if (!strcmp(system_key, "cpuavg"))
@@ -504,7 +545,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						else if (!strcmp(system_key, "packages"))
 						{
 							if (!ac->rpmlib)
-								ac->rpmlib = rpm_library_init();
+								rpm_library_init();
 
 							ac->system_packages = enkey;
 							uint64_t packages_size = json_array_size(sys_value);
@@ -553,10 +594,30 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 								}
 							}
 						}
+						//else if (!strcmp(system_key, "tcp"))
+						//{
+						//	uint64_t sockets_size = json_array_size(sys_value);
+
+						//	// enable or disable selected sockets
+						//	for (uint64_t i = 0; i < sockets_size; i++)
+						//	{
+						//		json_t *sockets_obj = json_array_get(sys_value, i);
+						//		int obj_type = json_typeof(sockets_obj);
+						//		if (obj_type == JSON_STRING)
+						//		{
+						//			char *obj_str = (char*)json_string_value(sockets_obj);
+						//			uint64_t obj_len = json_string_length(sockets_obj);
+						//			if (enkey)
+						//				match_push(ac->sockets_match, obj_str, obj_len);
+						//			else
+						//				match_del(ac->sockets_match, obj_str, obj_len);
+						//		}
+						//	}
+						//}
 					}
 					code = 202;
 					snprintf(status, 100, "Accepted");
-					snprintf(respbody, 1000, "{\"success\": \"accepted\"}");
+					snprintf(respbody, 1000, "{\"success\": \"accepted\"}\n");
 					fprintf(stderr, "%s", respbody);
 				}
 			}
@@ -606,7 +667,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							}
 						}
 
-						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, ac->loop);
+						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
 						smart_aggregator(carg);
 					}
 				}
@@ -644,9 +705,9 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
-						printf("mesg %p\n", actx->handler[j].mesg_func);
+						//printf("mesg %p\n", actx->handler[j].mesg_func);
 						string *query = actx->handler[j].mesg_func(hi, actx);
-						context_arg *carg = context_arg_json_fill(configuration, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, ac->loop);
+						context_arg *carg = context_arg_json_fill(configuration, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
 						smart_aggregator(carg);
 					}
 				}

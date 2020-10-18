@@ -1,0 +1,10 @@
+{
+  "isAlive": true,
+  "age": 27,
+  "address": {
+    "state": "NY",
+    "id": 132
+  },
+  "children": 12,
+  "spouse": null
+}

@@ -227,7 +227,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 		if (!metric_split[index])
 			break;
 		copysize = strlen(metric_split[index]);
-		strncpy(dst+csym, metric_split[index], copysize);
+		strlcpy(dst+csym, metric_split[index], copysize+1);
 		if (ac->log_level > 4)
 			printf("<<<< 2copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
 

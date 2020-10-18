@@ -41,7 +41,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 		char *node_name = (char*)json_string_value(node_name_json);
 		//printf("node_name: %s\n", node_name);
 
-		char *key;
+		const char *key;
 		json_t *value;
 		json_object_foreach(node_obj, key, value)
 		{
@@ -79,7 +79,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *metrics_gc_queue_length_json = json_object_get(node_obj, "metrics_gc_queue_length");
 		if (metrics_gc_queue_length_json)
 		{
-			char *key_gc;
+			const char *key_gc;
 			json_t *value_gc;
 			json_object_foreach(metrics_gc_queue_length_json, key_gc, value_gc)
 			{
@@ -161,7 +161,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *exc_vhost_json = json_object_get(exc_obj, "vhost");
 		char *exc_vhost = (char*)json_string_value(exc_vhost_json);
 
-		char *key;
+		const char *key;
 		json_t *value;
 		json_object_foreach(exc_obj, key, value)
 		{
@@ -269,7 +269,7 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		metric_add_labels7("rabbitmq_connections_state", &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 
-		char *key;
+		const char *key;
 		json_t *value;
 		json_object_foreach(connections_obj, key, value)
 		{
@@ -303,7 +303,7 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *garbage_collection_json = json_object_get(connections_obj, "garbage_collection");
 		if (garbage_collection_json)
 		{
-			char *gc_key;
+			const char *gc_key;
 			json_t *gc_value;
 			json_object_foreach(garbage_collection_json, gc_key, gc_value)
 			{
@@ -387,7 +387,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		metric_add_labels2("rabbitmq_queues_state", &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 
-		char *key;
+		const char *key;
 		json_t *value;
 		json_object_foreach(queues_obj, key, value)
 		{
@@ -423,7 +423,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *message_stats_json = json_object_get(queues_obj, "message_stats");
 		if (message_stats_json)
 		{
-			char *ms_key;
+			const char *ms_key;
 			json_t *ms_value;
 			json_object_foreach(message_stats_json, ms_key, ms_value)
 			{
@@ -458,7 +458,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *backing_queue_status_json = json_object_get(queues_obj, "backing_queue_status");
 		if (backing_queue_status_json)
 		{
-			char *ms_key;
+			const char *ms_key;
 			json_t *ms_value;
 			json_object_foreach(backing_queue_status_json, ms_key, ms_value)
 			{
@@ -493,7 +493,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *garbage_collection_json = json_object_get(queues_obj, "garbage_collection");
 		if (garbage_collection_json)
 		{
-			char *ms_key;
+			const char *ms_key;
 			json_t *ms_value;
 			json_object_foreach(garbage_collection_json, ms_key, ms_value)
 			{
@@ -590,7 +590,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 	for (i=0; i<vhosts_size; i++)
 	{
 		json_t *vhosts_obj = json_array_get(root, i);
-		char *key;
+		const char *key;
 		json_t *value;
 
 		json_t *vhosts_name_json = json_object_get(vhosts_obj, "name");
@@ -611,7 +611,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 				else
 					ival = 0;
 
-				metric_add_labels2("rabbitmq_vhosts_cluster_state", &ival, DATATYPE_INT, carg, "name", vhosts_name, "node", key);
+				metric_add_labels2("rabbitmq_vhosts_cluster_state", &ival, DATATYPE_INT, carg, "name", vhosts_name, "node", (char*)key);
 			}
 			++j;
 		}
@@ -649,7 +649,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *message_stats_json = json_object_get(vhosts_obj, "message_stats");
 		if (message_stats_json)
 		{
-			char *ms_key;
+			const char *ms_key;
 			json_t *ms_value;
 			json_object_foreach(message_stats_json, ms_key, ms_value)
 			{

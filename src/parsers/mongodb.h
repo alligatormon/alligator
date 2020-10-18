@@ -47,4 +47,13 @@ typedef struct libmongo
 
 	uv_lib_t* lib_mongoc_cleanup;
 	void (*mongoc_cleanup) ();
+
+	uv_lib_t* lib_mongoc_client_set_appname;
+	bool (*mongoc_client_set_appname) (mongoc_client_t *client, const char *appname);
+
+	uv_lib_t* lib_mongoc_uri_new_with_error;
+	mongoc_uri_t* (*mongoc_uri_new_with_error) (const char *uri_string, bson_error_t *error);
+
+	uv_lib_t* lib_mongoc_client_new_from_uri;
+	mongoc_client_t* (*mongoc_client_new_from_uri) (const mongoc_uri_t *uri);
 } libmongo;

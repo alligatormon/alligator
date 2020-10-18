@@ -47,7 +47,7 @@ uint64_t getrtime_mcs(r_time t1, r_time t2, int debug)
 {
 	uint64_t ret = ((t2.sec-t1.sec)*1000000 + ((t2.nsec-t1.nsec)/1000));
 	if (debug)
-		printf("complete for: %u.%09d sec (%d - %d sec, %d - %d nsec), ret: %llu\n",t2.sec-t1.sec,t2.nsec-t1.nsec, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
+		printf("complete for: %u.%09d sec (%d - %d sec, %d - %d nsec), ret: %"u64"\n",t2.sec-t1.sec,t2.nsec-t1.nsec, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
 	return ret;
 }
 

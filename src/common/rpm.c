@@ -57,14 +57,14 @@ void rpm_library_free(rpm_library *rpmlib)
 	free(rpmlib);
 }
 
-rpm_library* rpm_library_init()
+void rpm_library_init()
 {
 	module_t *module_rpm = tommy_hashdyn_search(ac->modules, module_compare, "rpm", tommy_strhash_u32(0, "rpm"));
 	if (!module_rpm)
 	{
 		if (ac->log_level > 0)
 			printf("no module with key rpm\n");
-		return NULL;
+		return;
 	}
 	char *librpm = module_rpm->path;
 
@@ -77,57 +77,59 @@ rpm_library* rpm_library_init()
 	if (!rpmlib->rpmReadConfigFiles)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->rpmtsCreate = (void*)module_load(librpm, "rpmtsCreate", &rpmlib->rpmtsCreate_lib);
 	if (!rpmlib->rpmtsCreate)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->rpmdbNextIterator = (void*)module_load(librpm, "rpmdbNextIterator", &rpmlib->rpmdbNextIterator_lib);
 	if (!rpmlib->rpmdbNextIterator)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->rpmtsInitIterator = (void*)module_load(librpm, "rpmtsInitIterator", &rpmlib->rpmtsInitIterator_lib);
 	if (!rpmlib->rpmtsInitIterator)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->headerGetEntry = module_load(librpm, "headerGetEntry", &rpmlib->headerGetEntry_lib);
 	if (!rpmlib->headerGetEntry)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->rpmtsFree = module_load(librpm, "rpmtsFree", &rpmlib->rpmtsFree_lib);
 	if (!rpmlib->rpmtsFree)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
 	rpmlib->rpmdbFreeIterator = module_load(librpm, "rpmdbFreeIterator", &rpmlib->rpmdbFreeIterator_lib);
 	if (!rpmlib->rpmdbFreeIterator)
 	{
 		rpm_library_free(rpmlib);
-		return NULL;
+		return;
 	}
 
-	return rpmlib;
+	ac->rpmlib = rpmlib;
 }
 
-void get_rpm_info(rpm_library *rpmlib)
+void get_rpm_info()
 {
 	extern aconf *ac;
+
+	rpm_library *rpmlib = ac->rpmlib;
 
 	char *name, *version, *release;
 	rpmts db;

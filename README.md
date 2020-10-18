@@ -49,7 +49,7 @@ system {
 	smart; #smart disk stats
 	firewall; # iptables scrape
 	packages [nginx] [alligator]; # scrape packages info with timestamp installed
-	vm; # scrape openvz, lxc and nspawn metrics
+	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json]; # for scrape cadvisor metrics
 }
 
 #aggregator context (scrape from services)
@@ -127,6 +127,10 @@ aggregate backends {
 	unbound tls://localhost:8953 tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
 	#JMX
 	jmx service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
+	# IPMI metrics
+	ipmi exec:///usr/bin/ipmitool;
+	# TFTP
+	tftp udp://localhost:69/ping;
 }
 ```
 
@@ -212,6 +216,10 @@ entrypoint {
 ```
 modules {
 	jvm /usr/lib64/libjvm.so;
+	postgresql /lib64/libpq.so.5;
+	mysql /usr/lib64/mysql/libmysqlclient.so;
+	mongodb /usr/local/lib64/libmongoc-1.0.so;
+	rpm /usr/lib64/librpm.so.3;
 }
 lang {
 	lang java;

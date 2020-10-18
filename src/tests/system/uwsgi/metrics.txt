@@ -1,5 +1,68 @@
-flower_tasks_total_active
-flower_tasks_total_failed
-flower_tasks_total_processed
-flower_tasks_total_retried
-flower_tasks_total_successed
+uwsgi_listen_queue {url="http://localhost:1717"}
+uwsgi_listen_queue {url="tcp://localhost:1718"}
+uwsgi_listen_queue_errors {url="http://localhost:1717"}
+uwsgi_listen_queue_errors {url="tcp://localhost:1718"}
+uwsgi_load {url="http://localhost:1717"}
+uwsgi_load {url="tcp://localhost:1718"}
+uwsgi_locks_cron {url="http://localhost:1717"}
+uwsgi_locks_cron {url="tcp://localhost:1718"}
+uwsgi_locks_filemon {url="http://localhost:1717"}
+uwsgi_locks_filemon {url="tcp://localhost:1718"}
+uwsgi_locks_rbtimer {url="http://localhost:1717"}
+uwsgi_locks_rbtimer {url="tcp://localhost:1718"}
+uwsgi_locks_rpc {url="http://localhost:1717"}
+uwsgi_locks_rpc {url="tcp://localhost:1718"}
+uwsgi_locks_signal {url="http://localhost:1717"}
+uwsgi_locks_signal {url="tcp://localhost:1718"}
+uwsgi_locks_snmp {url="http://localhost:1717"}
+uwsgi_locks_snmp {url="tcp://localhost:1718"}
+uwsgi_locks_timer {url="http://localhost:1717"}
+uwsgi_locks_timer {url="tcp://localhost:1718"}
+uwsgi_locks_user {url="http://localhost:1717"}
+uwsgi_locks_user {url="tcp://localhost:1718"}
+uwsgi_signal_queue {url="http://localhost:1717"}
+uwsgi_signal_queue {url="tcp://localhost:1718"}
+uwsgi_sockets_can_offload {proto="http", url="http://localhost:1717", name=":9090"}
+uwsgi_sockets_can_offload {proto="http", url="tcp://localhost:1718", name=":9091"}
+uwsgi_sockets_max_queue {proto="http", url="http://localhost:1717", name=":9090"}
+uwsgi_sockets_max_queue {proto="http", url="tcp://localhost:1718", name=":9091"}
+uwsgi_sockets_queue {proto="http", url="http://localhost:1717", name=":9090"}
+uwsgi_sockets_queue {proto="http", url="tcp://localhost:1718", name=":9091"}
+uwsgi_sockets_shared {proto="http", url="http://localhost:1717", name=":9090"}
+uwsgi_sockets_shared {proto="http", url="tcp://localhost:1718", name=":9091"}
+uwsgi_worker_accepting {url="http://localhost:1717"}
+uwsgi_worker_accepting {url="tcp://localhost:1718"}
+uwsgi_worker_avg_rt {url="http://localhost:1717"}
+uwsgi_worker_avg_rt {url="tcp://localhost:1718"}
+uwsgi_worker_delta_requests {url="http://localhost:1717"}
+uwsgi_worker_delta_requests {url="tcp://localhost:1718"}
+uwsgi_worker_exceptions {url="http://localhost:1717"}
+uwsgi_worker_exceptions {url="tcp://localhost:1718"}
+uwsgi_worker_harakiri_count {url="http://localhost:1717"}
+uwsgi_worker_harakiri_count {url="tcp://localhost:1718"}
+uwsgi_worker_idle {url="http://localhost:1717"}
+uwsgi_worker_idle {url="tcp://localhost:1718"}
+uwsgi_worker_in_request {url="http://localhost:1717"}
+uwsgi_worker_in_request {url="tcp://localhost:1718"}
+uwsgi_worker_offloaded_requests {url="http://localhost:1717"}
+uwsgi_worker_offloaded_requests {url="tcp://localhost:1718"}
+uwsgi_worker_read_errors {url="http://localhost:1717"}
+uwsgi_worker_read_errors {url="tcp://localhost:1718"}
+uwsgi_worker_requests {url="http://localhost:1717"}
+uwsgi_worker_requests {url="tcp://localhost:1718"}
+uwsgi_worker_respawn_count {url="http://localhost:1717"}
+uwsgi_worker_respawn_count {url="tcp://localhost:1718"}
+uwsgi_worker_routed_requests {url="http://localhost:1717"}
+uwsgi_worker_routed_requests {url="tcp://localhost:1718"}
+uwsgi_worker_running_time {url="http://localhost:1717"}
+uwsgi_worker_running_time {url="tcp://localhost:1718"}
+uwsgi_worker_signal_queue {url="http://localhost:1717"}
+uwsgi_worker_signal_queue {url="tcp://localhost:1718"}
+uwsgi_worker_signals {url="http://localhost:1717"}
+uwsgi_worker_signals {url="tcp://localhost:1718"}
+uwsgi_worker_static_requests {url="http://localhost:1717"}
+uwsgi_worker_static_requests {url="tcp://localhost:1718"}
+uwsgi_worker_tx {url="http://localhost:1717"}
+uwsgi_worker_tx {url="tcp://localhost:1718"}
+uwsgi_worker_write_errors {url="http://localhost:1717"}
+uwsgi_worker_write_errors {url="tcp://localhost:1718"}

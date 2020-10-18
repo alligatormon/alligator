@@ -41,8 +41,11 @@ void tcp_client_closed(uv_handle_t *handle)
 	string_null(carg->full_body);
 	if (carg->free_after)
 	{
+		free(carg->key);
+		string_free(carg->full_body);
 		free(carg->buffer->base);
 		free(carg->buffer);
+		free(carg->tt_timer);
 		free(carg);
 	}
 }
@@ -121,7 +124,8 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				http_reply_data* hr_data = http_reply_parser(carg->full_body->s, carg->full_body->l);
 				if (hr_data)
 				{
-					carg->http_body = hr_data->body;
+					carg->is_http_query = 1;
+					//carg->http_body = hr_data->body;
 					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
 					//printf("chunked_size %u, expect %d\n", carg->chunked_size, carg->chunked_expect);
@@ -423,7 +427,7 @@ void tcp_connected(uv_connect_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
 	if (ac->log_level > 1)
-		printf("%"u64": tcp client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+		printf("%"u64": tcp client connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	(carg->conn_counter)++;
 
 	uint64_t ok = 1;

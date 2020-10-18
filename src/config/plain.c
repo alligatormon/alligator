@@ -354,7 +354,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -376,7 +376,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
-					if (!strcmp(wstokens[i].token->s, "packages"))
+					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "tcp") || !strcmp(wstokens[i].token->s, "udp") || !strcmp(wstokens[i].token->s, "unix_socket")))
 					{
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
@@ -386,11 +386,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						++i;
 						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
 						json_array_object_insert(context_json, operator_name, arg_json);
-					}
-					else if (!strcmp(wstokens[i].token->s, "process"))
-					{
-						operator_json = json_array();
-						json_array_object_insert(context_json, operator_name, operator_json);
 					}
 					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg"))
 					{
@@ -482,7 +477,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "unixgram", unixgram_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query"))
 					{
 						operator_json = json_object();
 						char arg_name[255];

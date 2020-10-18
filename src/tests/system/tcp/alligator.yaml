@@ -1,0 +1,10 @@
+entrypoint:
+- tcp:
+  - "1111"
+aggregate:
+- handler: tcp
+  url: tcp://yandex.ru:80
+- handler: tcp
+  url: tcp://ya.ru:443
+- handler: tcp
+  url: tcp://google.com:80

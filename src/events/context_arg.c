@@ -57,7 +57,7 @@ void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len)
 
 }
 
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop)
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
@@ -66,6 +66,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	aconf_mesg_set(carg, mesg, mesg_len);
 
+	carg->headers_pass = headers_pass;
+	carg->url = hi->url;
 	carg->hostname = hi->host; // old scheme
 	strlcpy(carg->host, hi->host, 1024); // new scheme
 	strlcpy(carg->port, hi->port, 6);
@@ -120,7 +122,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	json_t *json_add_label = json_object_get(root, "add_label");
 
-	char *name;
+	const char *name;
 	json_t *jkey;
 	json_object_foreach(json_add_label, name, jkey)
 	{
@@ -132,7 +134,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			tommy_hashdyn_init(carg->labels);
 		}
 
-		labels_hash_insert_nocache(carg->labels, name, key);
+		labels_hash_insert_nocache(carg->labels, (char*)name, key);
 	}
 
 	return carg;

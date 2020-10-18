@@ -14,28 +14,45 @@ void smart_aggregator(context_arg *carg)
 		tcp_client(carg);
 	else if (carg->transport == APROTO_TLS)
 		tcp_client(carg);
-	//else if (carg->transport == APROTO_UDP)
-	//	tcp_client(carg);
+	else if (carg->transport == APROTO_UDP)
+		udp_client(carg);
 	//else if (carg->transport == APROTO_ICMP)
 	//	unix_tcp_client(carg);
 	else if (carg->transport == APROTO_PROCESS)
 		process_client(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
+	else if (carg->transport == APROTO_PG)
+		postgresql_client(carg);
+	else if (carg->transport == APROTO_MY)
+		mysql_client(carg);
+	else if (carg->transport == APROTO_MONGODB)
+		mongodb_client(carg);
 }
 
-void try_again(context_arg *carg, char *mesg, size_t mesg_len)
+void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name)
 {
 	context_arg *new = calloc(1, sizeof(*new));
 	memcpy(new, carg, sizeof(*new));
 	new->free_after = 1;
+	new->lock = 0;
+	new->parser_handler = handler;
+	new->parser_name = parser_name;
+	new->key = malloc(64);
+	new->buffer_request_size = 6553500;
+	new->buffer_response_size = 6553500;
+	new->full_body = string_init(6553500);
+	new->tt_timer = malloc(sizeof(uv_timer_t));
+	snprintf(new->key, 64, "%s(tcp://%s:%u)", parser_name, carg->host, htons(carg->dest->sin_port));
 
 	aconf_mesg_set(new, mesg, mesg_len);
 
 	if (carg->transport == APROTO_UNIX)
 		unix_client_connect(new);
-	if (carg->transport == APROTO_UNIX)
+	if (carg->transport == APROTO_TCP)
 		tcp_client_connect(new);
+	else if (carg->transport == APROTO_UDP)
+		udp_client_connect(new);
 }
 
 int actx_compare(const void* arg, const void* obj)
@@ -76,4 +93,12 @@ void aggregate_ctx_init()
 	unbound_parser_push();
 	syslog_ng_parser_push();
 	zookeeper_parser_push();
+	ntpd_parser_push();
+	ipmi_parser_push();
+	pg_parser_push();
+	mysql_parser_push();
+	mongodb_parser_push();
+	http_parser_push();
+	tcp_parser_push();
+	tftp_parser_push();
 }

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "parsers/http_proto.h"
+#include "common/http.h"
 #include "events/context_arg.h"
 #include "main.h"
 
@@ -32,7 +33,8 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		http_version = 20;
 	else
 	{
-		//printf("1DO NOT HTTP RESPONSE: %s\n", http);
+		if (ac->log_level > 3)
+			printf("1DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -43,7 +45,8 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	http_code = atoi(cur);
 	if (!http_code || http_code > 504)
 	{
-		//printf("2DO NOT HTTP RESPONSE: %s\n", http);
+		if (ac->log_level > 3)
+			printf("2DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -68,8 +71,9 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 		old_style_newline = 2;
 		if (!tmp)
 		{
-			//printf("3DO NOT HTTP RESPONSE: %s\n", http);
-			return NULL;
+			//printf("3DO NOT HTTP RESPONSE: '%s'\nCUR\n'%s'\n", http, cur);
+			//return NULL;
+			tmp = http + n - 4;
 		}
 	}
 	size_t headers_len = tmp - cur;
@@ -135,8 +139,8 @@ void http_proto_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t count = 1;
 	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%p'\nbody='%p', content-length: %d, chunked: %d, headers size: %zu, body size: %zu\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body, hrdata->content_length, hrdata->chunked_expect, hrdata->headers_size, hrdata->body_size);
 
-	char code[4];
-	snprintf(code, 4, "%d", hrdata->http_code);
+	char code[5];
+	snprintf(code, 5, "%"PRId16"", hrdata->http_code);
 
 	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "destination", carg->host, "port", carg->port);
 	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
@@ -311,4 +315,27 @@ void http_reply_data_free(http_reply_data* http)
 		free(http->auth_basic);
 
 	free(http);
+}
+
+
+string* http_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+}
+
+void http_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("http");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = http_proto_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = http_mesg;
+	actx->handler[0].headers_pass = 1;
+	strlcpy(actx->handler[0].key,"http", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

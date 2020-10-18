@@ -8,7 +8,7 @@
 static char* print_name(char *s, size_t len, uint8_t id, const char *k) {
 
 	if (k)
-		strncpy(s, k, len);
+		strlcpy(s, k, len+1);
 	else
 		snprintf(s, len, "%u", id);
 

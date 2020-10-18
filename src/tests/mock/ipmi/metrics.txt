@@ -1,0 +1,208 @@
+ipmi_sensor_lower_critical {name="+12V", measure="Volts"} 10.653000
+ipmi_sensor_lower_critical {name="+3.3V", measure="Volts"} 2.904000
+ipmi_sensor_lower_critical {name="+3.3VSB", measure="Volts"} 2.904000
+ipmi_sensor_lower_critical {name="+5V", measure="Volts"} 4.448000
+ipmi_sensor_lower_critical {name="+5VSB", measure="Volts"} 4.448000
+ipmi_sensor_lower_critical {name="-12V", measure="Volts"} -13.356000
+ipmi_sensor_lower_critical {name="CPU1 Vcore", measure="Volts"} 0.664000
+ipmi_sensor_lower_critical {name="CPU2 Vcore", measure="Volts"} 0.664000
+ipmi_sensor_lower_critical {name="Fan1", measure="RPM"} 540.000000
+ipmi_sensor_lower_critical {name="Fan2", measure="RPM"} 540.000000
+ipmi_sensor_lower_critical {name="Fan3", measure="RPM"} 540.000000
+ipmi_sensor_lower_critical {name="Fan4", measure="RPM"} 540.000000
+ipmi_sensor_lower_critical {name="P1-DIMM1A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P1-DIMM1B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P1-DIMM2A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P1-DIMM2B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P1-DIMM3A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P1-DIMM3B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM1A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM1B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM2A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM2B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM3A Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="P2-DIMM3B Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="System Temp", measure="degrees C"} -7.000000
+ipmi_sensor_lower_critical {name="VBAT", measure="Volts"} 2.688000
+ipmi_sensor_lower_non_critical {name="+12V", measure="Volts"} 10.706000
+ipmi_sensor_lower_non_critical {name="+3.3V", measure="Volts"} 2.928000
+ipmi_sensor_lower_non_critical {name="+3.3VSB", measure="Volts"} 2.928000
+ipmi_sensor_lower_non_critical {name="+5V", measure="Volts"} 4.480000
+ipmi_sensor_lower_non_critical {name="+5VSB", measure="Volts"} 4.480000
+ipmi_sensor_lower_non_critical {name="-12V", measure="Volts"} -13.162000
+ipmi_sensor_lower_non_critical {name="CPU1 Vcore", measure="Volts"} 0.672000
+ipmi_sensor_lower_non_critical {name="CPU2 Vcore", measure="Volts"} 0.672000
+ipmi_sensor_lower_non_critical {name="Fan1", measure="RPM"} 675.000000
+ipmi_sensor_lower_non_critical {name="Fan2", measure="RPM"} 675.000000
+ipmi_sensor_lower_non_critical {name="Fan3", measure="RPM"} 675.000000
+ipmi_sensor_lower_non_critical {name="Fan4", measure="RPM"} 675.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM1A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM1B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM2A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM2B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM3A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P1-DIMM3B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM1A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM1B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM2A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM2B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM3A Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="P2-DIMM3B Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="System Temp", measure="degrees C"} -5.000000
+ipmi_sensor_lower_non_critical {name="VBAT", measure="Volts"} 2.712000
+ipmi_sensor_lower_non_recoverable {name="+12V", measure="Volts"} 10.600000
+ipmi_sensor_lower_non_recoverable {name="+3.3V", measure="Volts"} 2.880000
+ipmi_sensor_lower_non_recoverable {name="+3.3VSB", measure="Volts"} 2.880000
+ipmi_sensor_lower_non_recoverable {name="+5V", measure="Volts"} 4.416000
+ipmi_sensor_lower_non_recoverable {name="+5VSB", measure="Volts"} 4.416000
+ipmi_sensor_lower_non_recoverable {name="-12V", measure="Volts"} -13.550000
+ipmi_sensor_lower_non_recoverable {name="CPU1 Vcore", measure="Volts"} 0.656000
+ipmi_sensor_lower_non_recoverable {name="CPU2 Vcore", measure="Volts"} 0.656000
+ipmi_sensor_lower_non_recoverable {name="Fan1", measure="RPM"} 405.000000
+ipmi_sensor_lower_non_recoverable {name="Fan2", measure="RPM"} 405.000000
+ipmi_sensor_lower_non_recoverable {name="Fan3", measure="RPM"} 405.000000
+ipmi_sensor_lower_non_recoverable {name="Fan4", measure="RPM"} 405.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM1A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM1B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM2A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM2B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM3A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P1-DIMM3B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM1A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM1B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM2A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM2B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM3A Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="P2-DIMM3B Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="System Temp", measure="degrees C"} -9.000000
+ipmi_sensor_lower_non_recoverable {name="VBAT", measure="Volts"} 2.664000
+ipmi_sensor_non_recoverable {name="+12V", measure="Volts"} 13.250000
+ipmi_sensor_non_recoverable {name="+3.3V", measure="Volts"} 3.648000
+ipmi_sensor_non_recoverable {name="+3.3VSB", measure="Volts"} 3.648000
+ipmi_sensor_non_recoverable {name="+5V", measure="Volts"} 5.536000
+ipmi_sensor_non_recoverable {name="+5VSB", measure="Volts"} 5.536000
+ipmi_sensor_non_recoverable {name="-12V", measure="Volts"} -10.834000
+ipmi_sensor_non_recoverable {name="CPU1 Vcore", measure="Volts"} 1.456000
+ipmi_sensor_non_recoverable {name="CPU2 Vcore", measure="Volts"} 1.456000
+ipmi_sensor_non_recoverable {name="Fan1", measure="RPM"} 34155.000000
+ipmi_sensor_non_recoverable {name="Fan2", measure="RPM"} 34155.000000
+ipmi_sensor_non_recoverable {name="Fan3", measure="RPM"} 34155.000000
+ipmi_sensor_non_recoverable {name="Fan4", measure="RPM"} 34155.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM1A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM1B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM2A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM2B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM3A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P1-DIMM3B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM1A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM1B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM2A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM2B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM3A Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="P2-DIMM3B Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="System Temp", measure="degrees C"} 75.000000
+ipmi_sensor_non_recoverable {name="VBAT", measure="Volts"} 3.648000
+ipmi_sensor_stat {name="+12V", measure="Volts"} 11.872000
+ipmi_sensor_stat {name="+3.3V", measure="Volts"} 3.264000
+ipmi_sensor_stat {name="+3.3VSB", measure="Volts"} 3.264000
+ipmi_sensor_stat {name="+5V", measure="Volts"} 5.312000
+ipmi_sensor_stat {name="+5VSB", measure="Volts"} 5.248000
+ipmi_sensor_stat {name="-12V", measure="Volts"} -11.804000
+ipmi_sensor_stat {name="CPU1 Vcore", measure="Volts"} 0.944000
+ipmi_sensor_stat {name="CPU2 Vcore", measure="Volts"} 0.944000
+ipmi_sensor_stat {name="Fan1", measure="RPM"} 8370.000000
+ipmi_sensor_stat {name="Fan2", measure="RPM"} 8370.000000
+ipmi_sensor_stat {name="Fan3", measure="RPM"} 7560.000000
+ipmi_sensor_stat {name="Fan4", measure="RPM"} 8370.000000
+ipmi_sensor_stat {name="P1-DIMM1A Temp", measure="degrees C"} 30.000000
+ipmi_sensor_stat {name="P1-DIMM1B Temp", measure="degrees C"} 30.000000
+ipmi_sensor_stat {name="P1-DIMM2A Temp", measure="degrees C"} 31.000000
+ipmi_sensor_stat {name="P1-DIMM2B Temp", measure="degrees C"} 31.000000
+ipmi_sensor_stat {name="P1-DIMM3A Temp", measure="degrees C"} 32.000000
+ipmi_sensor_stat {name="P1-DIMM3B Temp", measure="degrees C"} 33.000000
+ipmi_sensor_stat {name="P2-DIMM1A Temp", measure="degrees C"} 28.000000
+ipmi_sensor_stat {name="P2-DIMM1B Temp", measure="degrees C"} 28.000000
+ipmi_sensor_stat {name="P2-DIMM2A Temp", measure="degrees C"} 28.000000
+ipmi_sensor_stat {name="P2-DIMM2B Temp", measure="degrees C"} 28.000000
+ipmi_sensor_stat {name="P2-DIMM3A Temp", measure="degrees C"} 29.000000
+ipmi_sensor_stat {name="P2-DIMM3B Temp", measure="degrees C"} 28.000000
+ipmi_sensor_stat {name="System Temp", measure="degrees C"} 27.000000
+ipmi_sensor_stat {name="VBAT", measure="Volts"} 3.192000
+ipmi_sensor_status {name="+12V", measure="Volts"} 1
+ipmi_sensor_status {name="+3.3V", measure="Volts"} 1
+ipmi_sensor_status {name="+3.3VSB", measure="Volts"} 1
+ipmi_sensor_status {name="+5V", measure="Volts"} 1
+ipmi_sensor_status {name="+5VSB", measure="Volts"} 1
+ipmi_sensor_status {name="-12V", measure="Volts"} 1
+ipmi_sensor_status {name="CPU1 Vcore", measure="Volts"} 1
+ipmi_sensor_status {name="CPU2 Vcore", measure="Volts"} 1
+ipmi_sensor_status {name="Fan1", measure="RPM"} 1
+ipmi_sensor_status {name="Fan2", measure="RPM"} 1
+ipmi_sensor_status {name="Fan3", measure="RPM"} 1
+ipmi_sensor_status {name="Fan4", measure="RPM"} 1
+ipmi_sensor_status {name="P1-DIMM1A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P1-DIMM1B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P1-DIMM2A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P1-DIMM2B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P1-DIMM3A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P1-DIMM3B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM1A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM1B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM2A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM2B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM3A Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="P2-DIMM3B Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="System Temp", measure="degrees C"} 1
+ipmi_sensor_status {name="VBAT", measure="Volts"} 1
+ipmi_sensor_upper_critical {name="+12V", measure="Volts"} 13.303000
+ipmi_sensor_upper_critical {name="+3.3V", measure="Volts"} 3.672000
+ipmi_sensor_upper_critical {name="+3.3VSB", measure="Volts"} 3.672000
+ipmi_sensor_upper_critical {name="+5V", measure="Volts"} 5.568000
+ipmi_sensor_upper_critical {name="+5VSB", measure="Volts"} 5.568000
+ipmi_sensor_upper_critical {name="-12V", measure="Volts"} -10.640000
+ipmi_sensor_upper_critical {name="CPU1 Vcore", measure="Volts"} 1.464000
+ipmi_sensor_upper_critical {name="CPU2 Vcore", measure="Volts"} 1.464000
+ipmi_sensor_upper_critical {name="Fan1", measure="RPM"} 34290.000000
+ipmi_sensor_upper_critical {name="Fan2", measure="RPM"} 34290.000000
+ipmi_sensor_upper_critical {name="Fan3", measure="RPM"} 34290.000000
+ipmi_sensor_upper_critical {name="Fan4", measure="RPM"} 34290.000000
+ipmi_sensor_upper_critical {name="P1-DIMM1A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P1-DIMM1B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P1-DIMM2A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P1-DIMM2B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P1-DIMM3A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P1-DIMM3B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM1A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM1B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM2A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM2B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM3A Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="P2-DIMM3B Temp", measure="degrees C"} 80.000000
+ipmi_sensor_upper_critical {name="System Temp", measure="degrees C"} 77.000000
+ipmi_sensor_upper_critical {name="VBAT", measure="Volts"} 3.672000
+ipmi_sensor_upper_non_critical {name="+12V", measure="Volts"} 13.356000
+ipmi_sensor_upper_non_critical {name="+3.3V", measure="Volts"} 3.696000
+ipmi_sensor_upper_non_critical {name="+3.3VSB", measure="Volts"} 3.696000
+ipmi_sensor_upper_non_critical {name="+5V", measure="Volts"} 5.600000
+ipmi_sensor_upper_non_critical {name="+5VSB", measure="Volts"} 5.600000
+ipmi_sensor_upper_non_critical {name="-12V", measure="Volts"} -10.446000
+ipmi_sensor_upper_non_critical {name="CPU1 Vcore", measure="Volts"} 1.472000
+ipmi_sensor_upper_non_critical {name="CPU2 Vcore", measure="Volts"} 1.472000
+ipmi_sensor_upper_non_critical {name="Fan1", measure="RPM"} 34425.000000
+ipmi_sensor_upper_non_critical {name="Fan2", measure="RPM"} 34425.000000
+ipmi_sensor_upper_non_critical {name="Fan3", measure="RPM"} 34425.000000
+ipmi_sensor_upper_non_critical {name="Fan4", measure="RPM"} 34425.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM1A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM1B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM2A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM2B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM3A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P1-DIMM3B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM1A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM1B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM2A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM2B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM3A Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="P2-DIMM3B Temp", measure="degrees C"} 85.000000
+ipmi_sensor_upper_non_critical {name="System Temp", measure="degrees C"} 79.000000
+ipmi_sensor_upper_non_critical {name="VBAT", measure="Volts"} 3.696000

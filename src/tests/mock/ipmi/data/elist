@@ -1,0 +1,1076 @@
+5e73 | 05/16/2020 | 02:45:00 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.88 < Threshold 2.90 Volts
+5e74 | 05/16/2020 | 02:45:00 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.88 < Threshold 2.88 Volts
+5e75 | 05/16/2020 | 02:45:03 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.10 < Threshold 2.88 Volts
+5e76 | 05/16/2020 | 02:45:03 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.10 < Threshold 2.90 Volts
+5e77 | 05/16/2020 | 02:45:03 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.10 < Threshold 2.93 Volts
+5e78 | 05/16/2020 | 02:50:07 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e79 | 05/16/2020 | 02:50:10 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5e7a | 05/16/2020 | 02:54:50 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e7b | 05/16/2020 | 02:54:53 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5e7c | 05/16/2020 | 02:57:10 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e7d | 05/16/2020 | 02:57:13 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.10 < Threshold 2.93 Volts
+5e7e | 05/16/2020 | 03:04:22 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.88 < Threshold 2.93 Volts
+5e7f | 05/16/2020 | 03:04:23 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.88 < Threshold 2.90 Volts
+5e80 | 05/16/2020 | 03:04:23 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.88 < Threshold 2.88 Volts
+5e81 | 05/16/2020 | 03:04:25 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5e82 | 05/16/2020 | 03:04:26 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5e83 | 05/16/2020 | 03:04:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5e84 | 05/16/2020 | 03:04:34 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e85 | 05/16/2020 | 03:04:37 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5e86 | 05/16/2020 | 03:05:29 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e87 | 05/16/2020 | 03:05:32 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5e88 | 05/16/2020 | 03:06:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e89 | 05/16/2020 | 03:06:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5e8a | 05/16/2020 | 03:14:39 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e8b | 05/16/2020 | 03:14:45 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5e8c | 05/16/2020 | 03:15:13 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.71 < Threshold 2.93 Volts
+5e8d | 05/16/2020 | 03:15:13 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.71 < Threshold 2.90 Volts
+5e8e | 05/16/2020 | 03:15:13 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.71 < Threshold 2.88 Volts
+5e8f | 05/16/2020 | 03:15:19 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5e90 | 05/16/2020 | 03:15:19 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5e91 | 05/16/2020 | 03:15:19 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5e92 | 05/16/2020 | 03:18:28 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e93 | 05/16/2020 | 03:18:31 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5e94 | 05/16/2020 | 03:24:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e95 | 05/16/2020 | 03:25:03 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5e96 | 05/16/2020 | 03:29:12 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e97 | 05/16/2020 | 03:29:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5e98 | 05/16/2020 | 03:35:05 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+5e99 | 05/16/2020 | 03:35:06 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+5e9a | 05/16/2020 | 03:35:06 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+5e9b | 05/16/2020 | 03:35:15 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+5e9c | 05/16/2020 | 03:35:15 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+5e9d | 05/16/2020 | 03:35:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5e9e | 05/16/2020 | 03:39:09 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5e9f | 05/16/2020 | 03:39:12 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ea0 | 05/16/2020 | 03:40:52 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ea1 | 05/16/2020 | 03:40:55 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ea2 | 05/16/2020 | 03:45:53 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+5ea3 | 05/16/2020 | 03:45:53 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+5ea4 | 05/16/2020 | 03:45:54 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+5ea5 | 05/16/2020 | 03:45:56 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.07 < Threshold 2.88 Volts
+5ea6 | 05/16/2020 | 03:45:56 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.07 < Threshold 2.90 Volts
+5ea7 | 05/16/2020 | 03:45:57 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5ea8 | 05/16/2020 | 03:48:10 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ea9 | 05/16/2020 | 03:48:13 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5eaa | 05/16/2020 | 03:52:44 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eab | 05/16/2020 | 03:52:47 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5eac | 05/16/2020 | 03:55:00 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.81 < Threshold 2.93 Volts
+5ead | 05/16/2020 | 03:55:01 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.81 < Threshold 2.90 Volts
+5eae | 05/16/2020 | 03:55:01 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.81 < Threshold 2.88 Volts
+5eaf | 05/16/2020 | 03:55:06 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5eb0 | 05/16/2020 | 03:55:07 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5eb1 | 05/16/2020 | 03:55:07 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5eb2 | 05/16/2020 | 03:56:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eb3 | 05/16/2020 | 03:57:03 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5eb4 | 05/16/2020 | 03:57:09 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eb5 | 05/16/2020 | 03:57:12 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5eb6 | 05/16/2020 | 04:03:04 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eb7 | 05/16/2020 | 04:03:07 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5eb8 | 05/16/2020 | 04:03:47 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eb9 | 05/16/2020 | 04:03:50 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5eba | 05/16/2020 | 04:05:43 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ebb | 05/16/2020 | 04:05:49 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5ebc | 05/16/2020 | 04:06:28 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ebd | 05/16/2020 | 04:06:34 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ebe | 05/16/2020 | 04:07:17 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ebf | 05/16/2020 | 04:07:20 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5ec0 | 05/16/2020 | 04:07:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ec1 | 05/16/2020 | 04:07:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5ec2 | 05/16/2020 | 04:07:44 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ec3 | 05/16/2020 | 04:07:47 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5ec4 | 05/16/2020 | 04:08:17 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ec5 | 05/16/2020 | 04:08:20 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ec6 | 05/16/2020 | 04:09:28 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ec7 | 05/16/2020 | 04:09:31 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5ec8 | 05/16/2020 | 04:15:29 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.78 < Threshold 2.93 Volts
+5ec9 | 05/16/2020 | 04:15:30 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.78 < Threshold 2.90 Volts
+5eca | 05/16/2020 | 04:15:30 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.78 < Threshold 2.88 Volts
+5ecb | 05/16/2020 | 04:15:33 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.07 < Threshold 2.88 Volts
+5ecc | 05/16/2020 | 04:15:33 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.07 < Threshold 2.90 Volts
+5ecd | 05/16/2020 | 04:15:33 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5ece | 05/16/2020 | 04:21:01 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.86 < Threshold 2.93 Volts
+5ecf | 05/16/2020 | 04:21:01 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.86 < Threshold 2.90 Volts
+5ed0 | 05/16/2020 | 04:21:01 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+5ed1 | 05/16/2020 | 04:21:04 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5ed2 | 05/16/2020 | 04:21:04 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5ed3 | 05/16/2020 | 04:21:04 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ed4 | 05/16/2020 | 04:21:26 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ed5 | 05/16/2020 | 04:21:29 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5ed6 | 05/16/2020 | 04:21:35 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ed7 | 05/16/2020 | 04:21:38 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5ed8 | 05/16/2020 | 04:25:31 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.69 < Threshold 2.93 Volts
+5ed9 | 05/16/2020 | 04:25:32 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.69 < Threshold 2.90 Volts
+5eda | 05/16/2020 | 04:25:32 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.69 < Threshold 2.88 Volts
+5edb | 05/16/2020 | 04:25:34 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5edc | 05/16/2020 | 04:25:35 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5edd | 05/16/2020 | 04:25:35 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5ede | 05/16/2020 | 04:28:25 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5edf | 05/16/2020 | 04:28:28 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ee0 | 05/16/2020 | 04:30:36 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ee1 | 05/16/2020 | 04:30:39 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ee2 | 05/16/2020 | 04:33:20 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ee3 | 05/16/2020 | 04:33:23 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5ee4 | 05/16/2020 | 04:37:39 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ee5 | 05/16/2020 | 04:37:45 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ee6 | 05/16/2020 | 04:40:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5ee7 | 05/16/2020 | 04:40:24 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5ee8 | 05/16/2020 | 04:40:24 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5ee9 | 05/16/2020 | 04:40:26 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5eea | 05/16/2020 | 04:40:27 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5eeb | 05/16/2020 | 04:40:29 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5eec | 05/16/2020 | 04:40:35 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eed | 05/16/2020 | 04:40:41 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5eee | 05/16/2020 | 04:43:29 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eef | 05/16/2020 | 04:43:32 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ef0 | 05/16/2020 | 04:43:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ef1 | 05/16/2020 | 04:44:02 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ef2 | 05/16/2020 | 04:46:10 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5ef3 | 05/16/2020 | 04:46:10 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5ef4 | 05/16/2020 | 04:46:10 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5ef5 | 05/16/2020 | 04:46:13 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+5ef6 | 05/16/2020 | 04:46:16 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5ef7 | 05/16/2020 | 04:46:16 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ef8 | 05/16/2020 | 04:47:54 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ef9 | 05/16/2020 | 04:47:57 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5efa | 05/16/2020 | 04:50:16 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5efb | 05/16/2020 | 04:50:19 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5efc | 05/16/2020 | 04:50:53 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5efd | 05/16/2020 | 04:50:56 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5efe | 05/16/2020 | 04:54:32 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5eff | 05/16/2020 | 04:54:41 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f00 | 05/16/2020 | 04:55:14 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5f01 | 05/16/2020 | 04:55:14 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5f02 | 05/16/2020 | 04:55:15 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5f03 | 05/16/2020 | 04:55:17 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f04 | 05/16/2020 | 04:55:17 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f05 | 05/16/2020 | 04:55:18 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f06 | 05/16/2020 | 04:57:47 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.71 < Threshold 2.93 Volts
+5f07 | 05/16/2020 | 04:57:47 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.71 < Threshold 2.90 Volts
+5f08 | 05/16/2020 | 04:57:47 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.71 < Threshold 2.88 Volts
+5f09 | 05/16/2020 | 04:57:50 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5f0a | 05/16/2020 | 04:57:50 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5f0b | 05/16/2020 | 04:57:50 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f0c | 05/16/2020 | 05:00:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5f0d | 05/16/2020 | 05:00:41 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5f0e | 05/16/2020 | 05:00:41 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5f0f | 05/16/2020 | 05:00:49 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5f10 | 05/16/2020 | 05:00:50 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5f11 | 05/16/2020 | 05:00:52 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f12 | 05/16/2020 | 05:02:45 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f13 | 05/16/2020 | 05:02:48 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5f14 | 05/16/2020 | 05:03:18 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.88 < Threshold 2.93 Volts
+5f15 | 05/16/2020 | 05:03:18 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.88 < Threshold 2.90 Volts
+5f16 | 05/16/2020 | 05:03:19 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.88 < Threshold 2.88 Volts
+5f17 | 05/16/2020 | 05:03:21 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+5f18 | 05/16/2020 | 05:03:24 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5f19 | 05/16/2020 | 05:03:24 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f1a | 05/16/2020 | 05:03:30 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.76 < Threshold 2.93 Volts
+5f1b | 05/16/2020 | 05:03:30 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.76 < Threshold 2.90 Volts
+5f1c | 05/16/2020 | 05:03:31 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.76 < Threshold 2.88 Volts
+5f1d | 05/16/2020 | 05:03:33 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f1e | 05/16/2020 | 05:03:33 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f1f | 05/16/2020 | 05:03:34 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f20 | 05/16/2020 | 05:04:12 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f21 | 05/16/2020 | 05:04:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5f22 | 05/16/2020 | 05:05:50 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.69 < Threshold 2.93 Volts
+5f23 | 05/16/2020 | 05:05:51 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.69 < Threshold 2.90 Volts
+5f24 | 05/16/2020 | 05:05:51 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.69 < Threshold 2.88 Volts
+5f25 | 05/16/2020 | 05:05:53 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5f26 | 05/16/2020 | 05:05:54 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5f27 | 05/16/2020 | 05:05:56 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f28 | 05/16/2020 | 05:06:12 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f29 | 05/16/2020 | 05:06:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5f2a | 05/16/2020 | 05:06:42 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.76 < Threshold 2.93 Volts
+5f2b | 05/16/2020 | 05:06:42 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.76 < Threshold 2.90 Volts
+5f2c | 05/16/2020 | 05:06:43 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.76 < Threshold 2.88 Volts
+5f2d | 05/16/2020 | 05:06:45 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+5f2e | 05/16/2020 | 05:06:45 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+5f2f | 05/16/2020 | 05:06:46 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5f30 | 05/16/2020 | 05:09:05 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f31 | 05/16/2020 | 05:09:08 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f32 | 05/16/2020 | 05:09:33 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f33 | 05/16/2020 | 05:09:36 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f34 | 05/16/2020 | 05:10:57 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.69 < Threshold 2.93 Volts
+5f35 | 05/16/2020 | 05:10:58 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.69 < Threshold 2.90 Volts
+5f36 | 05/16/2020 | 05:10:58 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.69 < Threshold 2.88 Volts
+5f37 | 05/16/2020 | 05:11:03 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5f38 | 05/16/2020 | 05:11:04 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5f39 | 05/16/2020 | 05:11:07 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f3a | 05/16/2020 | 05:15:19 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+5f3b | 05/16/2020 | 05:15:19 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+5f3c | 05/16/2020 | 05:15:20 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+5f3d | 05/16/2020 | 05:15:25 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5f3e | 05/16/2020 | 05:15:25 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5f3f | 05/16/2020 | 05:15:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f40 | 05/16/2020 | 05:15:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f41 | 05/16/2020 | 05:15:43 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f42 | 05/16/2020 | 05:20:38 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.83 < Threshold 2.93 Volts
+5f43 | 05/16/2020 | 05:20:38 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.83 < Threshold 2.90 Volts
+5f44 | 05/16/2020 | 05:20:39 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.83 < Threshold 2.88 Volts
+5f45 | 05/16/2020 | 05:20:41 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5f46 | 05/16/2020 | 05:20:42 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5f47 | 05/16/2020 | 05:20:42 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f48 | 05/16/2020 | 05:20:50 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+5f49 | 05/16/2020 | 05:20:51 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+5f4a | 05/16/2020 | 05:20:51 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+5f4b | 05/16/2020 | 05:20:53 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f4c | 05/16/2020 | 05:20:54 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f4d | 05/16/2020 | 05:20:54 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f4e | 05/16/2020 | 05:24:36 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f4f | 05/16/2020 | 05:24:39 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+5f50 | 05/16/2020 | 05:29:09 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f51 | 05/16/2020 | 05:29:12 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f52 | 05/16/2020 | 05:31:08 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.71 < Threshold 2.93 Volts
+5f53 | 05/16/2020 | 05:31:09 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.71 < Threshold 2.90 Volts
+5f54 | 05/16/2020 | 05:31:09 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.71 < Threshold 2.88 Volts
+5f55 | 05/16/2020 | 05:31:14 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.29 < Threshold 2.88 Volts
+5f56 | 05/16/2020 | 05:31:15 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5f57 | 05/16/2020 | 05:31:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f58 | 05/16/2020 | 05:31:18 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f59 | 05/16/2020 | 05:31:21 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f5a | 05/16/2020 | 05:39:27 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f5b | 05/16/2020 | 05:39:30 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f5c | 05/16/2020 | 05:40:37 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.62 < Threshold 2.93 Volts
+5f5d | 05/16/2020 | 05:40:37 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.62 < Threshold 2.90 Volts
+5f5e | 05/16/2020 | 05:40:38 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.62 < Threshold 2.88 Volts
+5f5f | 05/16/2020 | 05:40:43 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f60 | 05/16/2020 | 05:40:43 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f61 | 05/16/2020 | 05:40:44 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f62 | 05/16/2020 | 05:48:44 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.69 < Threshold 2.93 Volts
+5f63 | 05/16/2020 | 05:48:44 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.69 < Threshold 2.90 Volts
+5f64 | 05/16/2020 | 05:48:45 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.69 < Threshold 2.88 Volts
+5f65 | 05/16/2020 | 05:48:47 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+5f66 | 05/16/2020 | 05:48:47 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+5f67 | 05/16/2020 | 05:48:48 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f68 | 05/16/2020 | 05:50:12 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f69 | 05/16/2020 | 05:50:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f6a | 05/16/2020 | 05:56:57 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f6b | 05/16/2020 | 05:57:03 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f6c | 05/16/2020 | 05:58:46 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f6d | 05/16/2020 | 05:58:49 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5f6e | 05/16/2020 | 06:00:48 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f6f | 05/16/2020 | 06:00:51 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f70 | 05/16/2020 | 06:02:46 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5f71 | 05/16/2020 | 06:02:47 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5f72 | 05/16/2020 | 06:02:47 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5f73 | 05/16/2020 | 06:02:55 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f74 | 05/16/2020 | 06:02:56 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f75 | 05/16/2020 | 06:02:56 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f76 | 05/16/2020 | 06:03:14 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.76 < Threshold 2.93 Volts
+5f77 | 05/16/2020 | 06:03:14 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.76 < Threshold 2.90 Volts
+5f78 | 05/16/2020 | 06:03:14 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.76 < Threshold 2.88 Volts
+5f79 | 05/16/2020 | 06:03:17 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f7a | 05/16/2020 | 06:03:17 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f7b | 05/16/2020 | 06:03:17 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f7c | 05/16/2020 | 06:03:53 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.83 < Threshold 2.93 Volts
+5f7d | 05/16/2020 | 06:03:53 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.83 < Threshold 2.90 Volts
+5f7e | 05/16/2020 | 06:03:54 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.83 < Threshold 2.88 Volts
+5f7f | 05/16/2020 | 06:03:56 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5f80 | 05/16/2020 | 06:03:56 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5f81 | 05/16/2020 | 06:03:57 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f82 | 05/16/2020 | 06:04:41 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.78 < Threshold 2.93 Volts
+5f83 | 05/16/2020 | 06:04:42 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.78 < Threshold 2.90 Volts
+5f84 | 05/16/2020 | 06:04:42 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.78 < Threshold 2.88 Volts
+5f85 | 05/16/2020 | 06:04:47 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.29 < Threshold 2.88 Volts
+5f86 | 05/16/2020 | 06:04:48 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5f87 | 05/16/2020 | 06:04:48 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f88 | 05/16/2020 | 06:05:01 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5f89 | 05/16/2020 | 06:05:04 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f8a | 05/16/2020 | 06:05:22 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5f8b | 05/16/2020 | 06:05:22 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5f8c | 05/16/2020 | 06:05:22 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5f8d | 05/16/2020 | 06:06:25 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5f8e | 05/16/2020 | 06:06:26 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5f8f | 05/16/2020 | 06:06:31 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5f90 | 05/16/2020 | 06:21:32 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5f91 | 05/16/2020 | 06:21:32 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5f92 | 05/16/2020 | 06:21:32 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5f93 | 05/16/2020 | 06:29:10 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.29 < Threshold 2.88 Volts
+5f94 | 05/16/2020 | 06:29:10 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5f95 | 05/16/2020 | 06:29:10 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f96 | 05/16/2020 | 06:29:16 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.64 < Threshold 2.93 Volts
+5f97 | 05/16/2020 | 06:29:16 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.64 < Threshold 2.90 Volts
+5f98 | 05/16/2020 | 06:29:16 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.64 < Threshold 2.88 Volts
+5f99 | 05/16/2020 | 06:35:40 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+5f9a | 05/16/2020 | 06:35:43 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5f9b | 05/16/2020 | 06:35:44 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5f9c | 05/16/2020 | 06:39:43 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.62 < Threshold 2.93 Volts
+5f9d | 05/16/2020 | 06:39:43 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.62 < Threshold 2.90 Volts
+5f9e | 05/16/2020 | 06:39:43 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.62 < Threshold 2.88 Volts
+5f9f | 05/16/2020 | 06:40:34 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.29 < Threshold 2.88 Volts
+5fa0 | 05/16/2020 | 06:40:35 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5fa1 | 05/16/2020 | 06:40:35 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fa2 | 05/16/2020 | 06:40:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+5fa3 | 05/16/2020 | 06:40:41 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+5fa4 | 05/16/2020 | 06:40:41 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+5fa5 | 05/16/2020 | 06:46:36 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5fa6 | 05/16/2020 | 06:46:36 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5fa7 | 05/16/2020 | 06:46:39 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fa8 | 05/16/2020 | 06:49:03 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.81 < Threshold 2.93 Volts
+5fa9 | 05/16/2020 | 06:49:03 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.81 < Threshold 2.90 Volts
+5faa | 05/16/2020 | 06:49:03 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.81 < Threshold 2.88 Volts
+5fab | 05/16/2020 | 06:49:43 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+5fac | 05/16/2020 | 06:49:43 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+5fad | 05/16/2020 | 06:49:44 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fae | 05/16/2020 | 06:51:18 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.76 < Threshold 2.93 Volts
+5faf | 05/16/2020 | 06:51:19 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.76 < Threshold 2.90 Volts
+5fb0 | 05/16/2020 | 06:51:19 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.76 < Threshold 2.88 Volts
+5fb1 | 05/16/2020 | 06:51:58 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.07 < Threshold 2.88 Volts
+5fb2 | 05/16/2020 | 06:51:58 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.07 < Threshold 2.90 Volts
+5fb3 | 05/16/2020 | 06:51:58 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+5fb4 | 05/16/2020 | 06:53:01 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fb5 | 05/16/2020 | 06:53:04 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fb6 | 05/16/2020 | 06:53:16 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fb7 | 05/16/2020 | 06:53:19 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fb8 | 05/16/2020 | 06:55:25 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fb9 | 05/16/2020 | 06:55:34 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5fba | 05/16/2020 | 06:55:49 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fbb | 05/16/2020 | 06:55:55 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fbc | 05/16/2020 | 06:57:41 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fbd | 05/16/2020 | 06:57:44 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fbe | 05/16/2020 | 06:57:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.86 < Threshold 2.93 Volts
+5fbf | 05/16/2020 | 06:58:00 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.86 < Threshold 2.90 Volts
+5fc0 | 05/16/2020 | 06:58:00 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+5fc1 | 05/16/2020 | 06:58:02 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+5fc2 | 05/16/2020 | 06:58:08 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5fc3 | 05/16/2020 | 06:58:17 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fc4 | 05/16/2020 | 06:58:48 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fc5 | 05/16/2020 | 06:58:51 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fc6 | 05/16/2020 | 06:59:15 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.86 < Threshold 2.93 Volts
+5fc7 | 05/16/2020 | 06:59:15 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.86 < Threshold 2.90 Volts
+5fc8 | 05/16/2020 | 06:59:16 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+5fc9 | 05/16/2020 | 06:59:25 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5fca | 05/16/2020 | 06:59:25 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5fcb | 05/16/2020 | 06:59:28 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fcc | 05/16/2020 | 06:59:31 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fcd | 05/16/2020 | 06:59:34 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fce | 05/16/2020 | 06:59:43 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fcf | 05/16/2020 | 06:59:49 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fd0 | 05/16/2020 | 07:00:02 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.90 < Threshold 2.93 Volts
+5fd1 | 05/16/2020 | 07:00:02 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.90 < Threshold 2.90 Volts
+5fd2 | 05/16/2020 | 07:00:07 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5fd3 | 05/16/2020 | 07:00:08 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fd4 | 05/16/2020 | 07:00:29 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.90 < Threshold 2.93 Volts
+5fd5 | 05/16/2020 | 07:00:29 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.90 < Threshold 2.90 Volts
+5fd6 | 05/16/2020 | 07:00:38 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+5fd7 | 05/16/2020 | 07:00:38 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fd8 | 05/16/2020 | 07:00:50 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fd9 | 05/16/2020 | 07:00:53 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fda | 05/16/2020 | 07:00:56 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fdb | 05/16/2020 | 07:00:59 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fdc | 05/16/2020 | 07:01:05 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.90 < Threshold 2.93 Volts
+5fdd | 05/16/2020 | 07:01:05 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.90 < Threshold 2.90 Volts
+5fde | 05/16/2020 | 07:01:14 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5fdf | 05/16/2020 | 07:01:17 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fe0 | 05/16/2020 | 07:01:20 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fe1 | 05/16/2020 | 07:01:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fe2 | 05/16/2020 | 07:01:32 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.78 < Threshold 2.93 Volts
+5fe3 | 05/16/2020 | 07:01:33 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.78 < Threshold 2.90 Volts
+5fe4 | 05/16/2020 | 07:01:33 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.78 < Threshold 2.88 Volts
+5fe5 | 05/16/2020 | 07:01:44 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5fe6 | 05/16/2020 | 07:01:45 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5fe7 | 05/16/2020 | 07:01:51 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5fe8 | 05/16/2020 | 07:11:55 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fe9 | 05/16/2020 | 07:12:02 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5fea | 05/16/2020 | 07:13:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5feb | 05/16/2020 | 07:13:46 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fec | 05/16/2020 | 07:13:58 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fed | 05/16/2020 | 07:14:07 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5fee | 05/16/2020 | 07:14:19 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5fef | 05/16/2020 | 07:14:28 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ff0 | 05/16/2020 | 07:14:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ff1 | 05/16/2020 | 07:14:58 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+5ff2 | 05/16/2020 | 07:15:13 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ff3 | 05/16/2020 | 07:15:17 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+5ff4 | 05/16/2020 | 07:15:32 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+5ff5 | 05/16/2020 | 07:15:35 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5ff6 | 05/16/2020 | 07:15:50 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.90 < Threshold 2.93 Volts
+5ff7 | 05/16/2020 | 07:15:50 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.90 < Threshold 2.90 Volts
+5ff8 | 05/16/2020 | 07:15:53 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+5ff9 | 05/16/2020 | 07:15:56 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.98 < Threshold 2.88 Volts
+5ffa | 05/16/2020 | 07:15:56 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+5ffb | 05/16/2020 | 07:15:59 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+5ffc | 05/16/2020 | 07:16:11 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.86 < Threshold 2.93 Volts
+5ffd | 05/16/2020 | 07:16:11 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.86 < Threshold 2.90 Volts
+5ffe | 05/16/2020 | 07:16:12 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+5fff | 05/16/2020 | 07:16:14 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+6000 | 05/16/2020 | 07:16:17 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 2.98 < Threshold 2.90 Volts
+6001 | 05/16/2020 | 07:16:23 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6002 | 05/16/2020 | 07:16:29 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6003 | 05/16/2020 | 07:16:33 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+6004 | 05/16/2020 | 07:16:39 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6005 | 05/16/2020 | 07:16:42 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6006 | 05/16/2020 | 07:17:01 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6007 | 05/16/2020 | 07:17:16 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6008 | 05/16/2020 | 07:17:40 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6009 | 05/16/2020 | 07:17:43 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+600a | 05/16/2020 | 07:17:49 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+600b | 05/16/2020 | 07:18:01 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+600c | 05/16/2020 | 07:18:10 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+600d | 05/16/2020 | 07:18:13 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+600e | 05/16/2020 | 07:18:16 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+600f | 05/16/2020 | 07:18:41 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6010 | 05/16/2020 | 07:19:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.81 < Threshold 2.93 Volts
+6011 | 05/16/2020 | 07:19:23 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.81 < Threshold 2.90 Volts
+6012 | 05/16/2020 | 07:19:24 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.81 < Threshold 2.88 Volts
+6013 | 05/16/2020 | 07:19:26 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+6014 | 05/16/2020 | 07:19:26 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+6015 | 05/16/2020 | 07:19:27 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6016 | 05/16/2020 | 07:21:13 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.81 < Threshold 2.93 Volts
+6017 | 05/16/2020 | 07:21:13 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.81 < Threshold 2.90 Volts
+6018 | 05/16/2020 | 07:21:14 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.81 < Threshold 2.88 Volts
+6019 | 05/16/2020 | 07:21:22 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+601a | 05/16/2020 | 07:21:22 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+601b | 05/16/2020 | 07:21:23 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+601c | 05/16/2020 | 07:21:46 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+601d | 05/16/2020 | 07:21:52 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+601e | 05/16/2020 | 07:25:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+601f | 05/16/2020 | 07:26:02 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6020 | 05/16/2020 | 07:26:08 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+6021 | 05/16/2020 | 07:26:08 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+6022 | 05/16/2020 | 07:26:09 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+6023 | 05/16/2020 | 07:26:20 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+6024 | 05/16/2020 | 07:26:20 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+6025 | 05/16/2020 | 07:26:21 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6026 | 05/16/2020 | 07:27:09 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6027 | 05/16/2020 | 07:27:12 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6028 | 05/16/2020 | 07:27:15 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6029 | 05/16/2020 | 07:27:18 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+602a | 05/16/2020 | 07:30:48 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+602b | 05/16/2020 | 07:30:51 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+602c | 05/16/2020 | 07:31:51 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.81 < Threshold 2.93 Volts
+602d | 05/16/2020 | 07:31:52 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.81 < Threshold 2.90 Volts
+602e | 05/16/2020 | 07:31:52 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.81 < Threshold 2.88 Volts
+602f | 05/16/2020 | 07:31:57 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3 < Threshold 2.88 Volts
+6030 | 05/16/2020 | 07:31:58 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3 < Threshold 2.90 Volts
+6031 | 05/16/2020 | 07:31:58 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3 < Threshold 2.93 Volts
+6032 | 05/16/2020 | 07:33:16 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6033 | 05/16/2020 | 07:33:19 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6034 | 05/16/2020 | 07:35:58 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.83 < Threshold 2.93 Volts
+6035 | 05/16/2020 | 07:35:58 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.83 < Threshold 2.90 Volts
+6036 | 05/16/2020 | 07:35:58 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.83 < Threshold 2.88 Volts
+6037 | 05/16/2020 | 07:36:01 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.02 < Threshold 2.88 Volts
+6038 | 05/16/2020 | 07:36:01 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.02 < Threshold 2.90 Volts
+6039 | 05/16/2020 | 07:36:01 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+603a | 05/16/2020 | 07:37:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+603b | 05/16/2020 | 07:37:26 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+603c | 05/16/2020 | 07:37:59 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+603d | 05/16/2020 | 07:38:02 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.07 < Threshold 2.93 Volts
+603e | 05/16/2020 | 07:40:28 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+603f | 05/16/2020 | 07:40:32 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6040 | 05/16/2020 | 07:45:02 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6041 | 05/16/2020 | 07:45:05 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.02 < Threshold 2.93 Volts
+6042 | 05/16/2020 | 07:45:48 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.66 < Threshold 2.93 Volts
+6043 | 05/16/2020 | 07:45:48 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.66 < Threshold 2.90 Volts
+6044 | 05/16/2020 | 07:45:48 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.66 < Threshold 2.88 Volts
+6045 | 05/16/2020 | 07:46:00 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.29 < Threshold 2.88 Volts
+6046 | 05/16/2020 | 07:46:00 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.29 < Threshold 2.90 Volts
+6047 | 05/16/2020 | 07:46:00 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+6048 | 05/16/2020 | 07:46:18 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.74 < Threshold 2.93 Volts
+6049 | 05/16/2020 | 07:46:18 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.74 < Threshold 2.90 Volts
+604a | 05/16/2020 | 07:46:19 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.74 < Threshold 2.88 Volts
+604b | 05/16/2020 | 08:59:27 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 2.95 < Threshold 2.88 Volts
+604c | 05/16/2020 | 09:00:12 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.12 < Threshold 2.90 Volts
+604d | 05/16/2020 | 09:00:13 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.12 < Threshold 2.93 Volts
+604e | 05/16/2020 | 09:06:12 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+604f | 05/16/2020 | 09:06:15 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.10 < Threshold 2.93 Volts
+6050 | 05/16/2020 | 09:22:43 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6051 | 05/16/2020 | 09:22:46 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6052 | 05/16/2020 | 09:27:23 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.88 < Threshold 2.93 Volts
+6053 | 05/16/2020 | 09:27:23 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.88 < Threshold 2.90 Volts
+6054 | 05/16/2020 | 09:27:23 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.88 < Threshold 2.88 Volts
+6055 | 05/16/2020 | 09:27:30 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+6056 | 05/16/2020 | 09:27:30 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+6057 | 05/16/2020 | 09:27:30 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6058 | 05/16/2020 | 09:27:54 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.93 < Threshold 2.93 Volts
+6059 | 05/16/2020 | 09:27:57 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.29 < Threshold 2.93 Volts
+605a | 05/16/2020 | 09:28:03 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.86 < Threshold 2.93 Volts
+605b | 05/16/2020 | 09:28:03 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.86 < Threshold 2.90 Volts
+605c | 05/16/2020 | 09:28:04 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.86 < Threshold 2.88 Volts
+605d | 05/16/2020 | 09:28:09 | Voltage +3.3V | Lower Non-recoverable going low  | Deasserted | Reading 3.05 < Threshold 2.88 Volts
+605e | 05/16/2020 | 09:28:09 | Voltage +3.3V | Lower Critical going low  | Deasserted | Reading 3.05 < Threshold 2.90 Volts
+605f | 05/16/2020 | 09:28:10 | Voltage +3.3V | Lower Non-critical going low  | Deasserted | Reading 3.05 < Threshold 2.93 Volts
+6060 | 05/16/2020 | 09:30:52 | Voltage +3.3V | Lower Non-critical going low  | Asserted | Reading 2.69 < Threshold 2.93 Volts
+6061 | 05/16/2020 | 09:30:52 | Voltage +3.3V | Lower Critical going low  | Asserted | Reading 2.69 < Threshold 2.90 Volts
+6062 | 05/16/2020 | 09:30:52 | Voltage +3.3V | Lower Non-recoverable going low  | Asserted | Reading 2.69 < Threshold 2.88 Volts
+6063 | 09/14/2020 | 13:02:18 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6064 | 09/14/2020 | 13:40:20 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6065 | 09/14/2020 | 14:04:20 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6066 | 09/14/2020 | 15:03:07 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6067 | 09/14/2020 | 16:01:41 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6068 | 09/14/2020 | 16:04:15 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6069 | 09/14/2020 | 17:03:09 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606a | 09/14/2020 | 18:01:42 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606b | 09/14/2020 | 19:01:40 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606c | 09/14/2020 | 19:06:50 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606d | 09/14/2020 | 20:04:20 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606e | 09/14/2020 | 21:03:44 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+606f | 09/14/2020 | 21:59:13 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6070 | 09/14/2020 | 22:04:14 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6071 | 09/14/2020 | 23:01:41 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+6072 | 09/14/2020 | 23:13:07 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+764f | 10/07/2020 | 23:24:54 | Processor #0x02 | Throttled () | Asserted
+7650 | 10/07/2020 | 23:25:05 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7651 | 10/07/2020 | 23:25:13 | Processor #0x02 | Throttled () | Deasserted
+7652 | 10/07/2020 | 23:25:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7653 | 10/07/2020 | 23:26:38 | Processor #0x02 | Throttled () | Asserted
+7654 | 10/07/2020 | 23:26:50 | Processor #0x02 | Throttled () | Deasserted
+7655 | 10/07/2020 | 23:27:13 | Processor #0x02 | Throttled () | Asserted
+7656 | 10/07/2020 | 23:27:22 | Processor #0x02 | Throttled () | Deasserted
+7657 | 10/07/2020 | 23:27:53 | Processor #0x02 | Throttled () | Asserted
+7658 | 10/07/2020 | 23:27:56 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7659 | 10/07/2020 | 23:28:13 | Processor #0x02 | Throttled () | Deasserted
+765a | 10/07/2020 | 23:28:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+765b | 10/07/2020 | 23:29:14 | Processor #0x02 | Throttled () | Asserted
+765c | 10/07/2020 | 23:29:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+765d | 10/07/2020 | 23:30:45 | Processor #0x02 | Throttled () | Deasserted
+765e | 10/07/2020 | 23:30:45 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+765f | 10/07/2020 | 23:31:04 | Processor #0x02 | Throttled () | Asserted
+7660 | 10/07/2020 | 23:31:10 | Processor #0x02 | Throttled () | Deasserted
+7661 | 10/07/2020 | 23:31:28 | Processor #0x02 | Throttled () | Asserted
+7662 | 10/07/2020 | 23:31:30 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7663 | 10/07/2020 | 23:32:25 | Processor #0x02 | Throttled () | Deasserted
+7664 | 10/07/2020 | 23:32:25 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7665 | 10/07/2020 | 23:33:07 | Processor #0x02 | Throttled () | Asserted
+7666 | 10/07/2020 | 23:33:09 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7667 | 10/07/2020 | 23:33:16 | Processor #0x02 | Throttled () | Deasserted
+7668 | 10/07/2020 | 23:33:16 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7669 | 10/07/2020 | 23:33:25 | Processor #0x02 | Throttled () | Asserted
+766a | 10/07/2020 | 23:33:27 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+766b | 10/07/2020 | 23:33:48 | Processor #0x02 | Throttled () | Deasserted
+766c | 10/07/2020 | 23:33:48 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+766d | 10/07/2020 | 23:34:09 | Processor #0x02 | Throttled () | Asserted
+766e | 10/07/2020 | 23:34:13 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+766f | 10/07/2020 | 23:35:30 | Processor #0x02 | Throttled () | Deasserted
+7670 | 10/07/2020 | 23:35:30 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7671 | 10/07/2020 | 23:36:22 | Processor #0x02 | Throttled () | Asserted
+7672 | 10/07/2020 | 23:36:23 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7673 | 10/07/2020 | 23:38:07 | Processor #0x02 | Throttled () | Deasserted
+7674 | 10/07/2020 | 23:38:07 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7675 | 10/07/2020 | 23:38:12 | Processor #0x02 | Throttled () | Asserted
+7676 | 10/07/2020 | 23:38:14 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7677 | 10/07/2020 | 23:38:52 | Processor #0x02 | Throttled () | Deasserted
+7678 | 10/07/2020 | 23:38:52 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7679 | 10/07/2020 | 23:39:08 | Processor #0x02 | Throttled () | Asserted
+767a | 10/07/2020 | 23:39:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+767b | 10/07/2020 | 23:39:39 | Processor #0x02 | Throttled () | Deasserted
+767c | 10/07/2020 | 23:39:39 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+767d | 10/07/2020 | 23:40:14 | Processor #0x02 | Throttled () | Asserted
+767e | 10/07/2020 | 23:40:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+767f | 10/07/2020 | 23:40:27 | Processor #0x02 | Throttled () | Deasserted
+7680 | 10/07/2020 | 23:40:27 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7681 | 10/07/2020 | 23:40:39 | Processor #0x02 | Throttled () | Asserted
+7682 | 10/07/2020 | 23:40:55 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7683 | 10/07/2020 | 23:41:13 | Processor #0x02 | Throttled () | Deasserted
+7684 | 10/07/2020 | 23:41:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7685 | 10/07/2020 | 23:41:23 | Processor #0x02 | Throttled () | Asserted
+7686 | 10/07/2020 | 23:41:38 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7687 | 10/07/2020 | 23:42:48 | Processor #0x02 | Throttled () | Deasserted
+7688 | 10/07/2020 | 23:42:48 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7689 | 10/07/2020 | 23:42:59 | Processor #0x02 | Throttled () | Asserted
+768a | 10/07/2020 | 23:43:01 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+768b | 10/07/2020 | 23:43:30 | Processor #0x02 | Throttled () | Deasserted
+768c | 10/07/2020 | 23:43:30 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+768d | 10/07/2020 | 23:52:23 | Processor #0x02 | Throttled () | Asserted
+768e | 10/07/2020 | 23:52:24 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+768f | 10/07/2020 | 23:53:00 | Processor #0x02 | Throttled () | Deasserted
+7690 | 10/07/2020 | 23:53:00 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7691 | 10/07/2020 | 23:58:38 | Processor #0x02 | Throttled () | Asserted
+7692 | 10/07/2020 | 23:58:40 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7693 | 10/07/2020 | 23:58:56 | Processor #0x02 | Throttled () | Deasserted
+7694 | 10/07/2020 | 23:58:56 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7695 | 10/07/2020 | 23:59:38 | Processor #0x02 | Throttled () | Asserted
+7696 | 10/07/2020 | 23:59:41 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7697 | 10/07/2020 | 23:59:47 | Processor #0x02 | Throttled () | Deasserted
+7698 | 10/07/2020 | 23:59:47 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7699 | 10/08/2020 | 00:00:12 | Processor #0x02 | Throttled () | Asserted
+769a | 10/08/2020 | 00:00:15 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+769b | 10/08/2020 | 00:00:35 | Processor #0x02 | Throttled () | Deasserted
+769c | 10/08/2020 | 00:00:35 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+769d | 10/08/2020 | 00:01:37 | Processor #0x02 | Throttled () | Asserted
+769e | 10/08/2020 | 00:01:39 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+769f | 10/08/2020 | 00:01:50 | Processor #0x02 | Throttled () | Deasserted
+76a0 | 10/08/2020 | 00:01:50 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76a1 | 10/08/2020 | 00:14:23 | Processor #0x02 | Throttled () | Asserted
+76a2 | 10/08/2020 | 00:14:26 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76a3 | 10/08/2020 | 00:14:32 | Processor #0x02 | Throttled () | Deasserted
+76a4 | 10/08/2020 | 00:14:32 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+76a5 | 10/08/2020 | 00:15:34 | Processor #0x02 | Throttled () | Asserted
+76a6 | 10/08/2020 | 00:15:36 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76a7 | 10/08/2020 | 00:15:48 | Processor #0x02 | Throttled () | Deasserted
+76a8 | 10/08/2020 | 00:15:48 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76a9 | 10/08/2020 | 00:15:59 | Processor #0x02 | Throttled () | Asserted
+76aa | 10/08/2020 | 00:16:01 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76ab | 10/08/2020 | 00:16:35 | Processor #0x02 | Throttled () | Deasserted
+76ac | 10/08/2020 | 00:16:35 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76ad | 10/08/2020 | 00:16:52 | Processor #0x02 | Throttled () | Asserted
+76ae | 10/08/2020 | 00:16:54 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76af | 10/08/2020 | 00:17:10 | Processor #0x02 | Throttled () | Deasserted
+76b0 | 10/08/2020 | 00:17:10 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76b1 | 10/08/2020 | 00:17:14 | Processor #0x02 | Throttled () | Asserted
+76b2 | 10/08/2020 | 00:17:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76b3 | 10/08/2020 | 00:18:45 | Processor #0x02 | Throttled () | Deasserted
+76b4 | 10/08/2020 | 00:18:45 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76b5 | 10/08/2020 | 00:19:34 | Processor #0x02 | Throttled () | Asserted
+76b6 | 10/08/2020 | 00:19:36 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76b7 | 10/08/2020 | 00:19:42 | Processor #0x02 | Throttled () | Deasserted
+76b8 | 10/08/2020 | 00:19:42 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76b9 | 10/08/2020 | 00:19:58 | Processor #0x02 | Throttled () | Asserted
+76ba | 10/08/2020 | 00:20:00 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76bb | 10/08/2020 | 00:20:32 | Processor #0x02 | Throttled () | Deasserted
+76bc | 10/08/2020 | 00:20:32 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76bd | 10/08/2020 | 00:21:36 | Processor #0x02 | Throttled () | Asserted
+76be | 10/08/2020 | 00:21:50 | Processor #0x02 | Throttled () | Deasserted
+76bf | 10/08/2020 | 10:02:12 | Processor #0x02 | Throttled () | Asserted
+76c0 | 10/08/2020 | 10:02:35 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76c1 | 10/08/2020 | 10:03:01 | Processor #0x02 | Throttled () | Deasserted
+76c2 | 10/08/2020 | 10:03:01 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+76c3 | 10/08/2020 | 10:03:50 | Processor #0x02 | Throttled () | Asserted
+76c4 | 10/08/2020 | 10:03:52 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76c5 | 10/08/2020 | 10:04:55 | Processor #0x02 | Throttled () | Deasserted
+76c6 | 10/08/2020 | 10:04:55 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76c7 | 10/08/2020 | 10:08:00 | Processor #0x02 | Throttled () | Asserted
+76c8 | 10/08/2020 | 10:08:03 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76c9 | 10/08/2020 | 10:08:11 | Processor #0x02 | Throttled () | Deasserted
+76ca | 10/08/2020 | 10:08:11 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76cb | 10/08/2020 | 10:08:36 | Processor #0x02 | Throttled () | Asserted
+76cc | 10/08/2020 | 10:08:39 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76cd | 10/08/2020 | 10:10:01 | Processor #0x02 | Throttled () | Deasserted
+76ce | 10/08/2020 | 10:10:01 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+76cf | 10/08/2020 | 10:13:04 | Processor #0x02 | Throttled () | Asserted
+76d0 | 10/08/2020 | 10:13:07 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76d1 | 10/08/2020 | 10:13:28 | Processor #0x02 | Throttled () | Deasserted
+76d2 | 10/08/2020 | 10:13:28 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76d3 | 10/08/2020 | 10:16:27 | Processor #0x02 | Throttled () | Asserted
+76d4 | 10/08/2020 | 10:16:30 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76d5 | 10/08/2020 | 10:16:36 | Processor #0x02 | Throttled () | Deasserted
+76d6 | 10/08/2020 | 10:16:36 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76d7 | 10/08/2020 | 10:17:02 | Processor #0x02 | Throttled () | Asserted
+76d8 | 10/08/2020 | 10:17:05 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76d9 | 10/08/2020 | 10:17:14 | Processor #0x02 | Throttled () | Deasserted
+76da | 10/08/2020 | 10:17:14 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76db | 10/08/2020 | 10:18:53 | Processor #0x02 | Throttled () | Asserted
+76dc | 10/08/2020 | 10:18:55 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76dd | 10/08/2020 | 10:19:29 | Processor #0x02 | Throttled () | Deasserted
+76de | 10/08/2020 | 10:19:29 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76df | 10/08/2020 | 10:20:10 | Processor #0x02 | Throttled () | Asserted
+76e0 | 10/08/2020 | 10:20:11 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76e1 | 10/08/2020 | 10:20:17 | Processor #0x02 | Throttled () | Deasserted
+76e2 | 10/08/2020 | 10:20:17 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76e3 | 10/08/2020 | 10:22:00 | Processor #0x02 | Throttled () | Asserted
+76e4 | 10/08/2020 | 10:22:01 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76e5 | 10/08/2020 | 10:23:47 | Processor #0x02 | Throttled () | Deasserted
+76e6 | 10/08/2020 | 10:23:47 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76e7 | 10/08/2020 | 10:35:42 | Processor #0x02 | Throttled () | Asserted
+76e8 | 10/08/2020 | 10:35:55 | Processor #0x02 | Throttled () | Deasserted
+76e9 | 10/08/2020 | 10:38:09 | Processor #0x02 | Throttled () | Asserted
+76ea | 10/08/2020 | 10:38:12 | Processor #0x02 | Throttled () | Deasserted
+76eb | 10/08/2020 | 10:38:50 | Processor #0x02 | Throttled () | Asserted
+76ec | 10/08/2020 | 10:38:52 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76ed | 10/08/2020 | 10:39:24 | Processor #0x02 | Throttled () | Deasserted
+76ee | 10/08/2020 | 10:39:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+76ef | 10/08/2020 | 10:39:43 | Processor #0x02 | Throttled () | Asserted
+76f0 | 10/08/2020 | 10:39:46 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76f1 | 10/08/2020 | 10:40:10 | Processor #0x02 | Throttled () | Deasserted
+76f2 | 10/08/2020 | 10:40:10 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76f3 | 10/08/2020 | 10:40:30 | Processor #0x02 | Throttled () | Asserted
+76f4 | 10/08/2020 | 10:40:35 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76f5 | 10/08/2020 | 10:41:14 | Processor #0x02 | Throttled () | Deasserted
+76f6 | 10/08/2020 | 10:41:14 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76f7 | 10/08/2020 | 10:41:22 | Processor #0x02 | Throttled () | Asserted
+76f8 | 10/08/2020 | 10:41:28 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76f9 | 10/08/2020 | 10:42:39 | Processor #0x02 | Throttled () | Deasserted
+76fa | 10/08/2020 | 10:42:39 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76fb | 10/08/2020 | 10:42:46 | Processor #0x02 | Throttled () | Asserted
+76fc | 10/08/2020 | 10:42:49 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+76fd | 10/08/2020 | 10:43:34 | Processor #0x02 | Throttled () | Deasserted
+76fe | 10/08/2020 | 10:43:34 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+76ff | 10/08/2020 | 10:47:25 | Processor #0x02 | Throttled () | Asserted
+7700 | 10/08/2020 | 10:47:38 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7701 | 10/08/2020 | 10:47:47 | Processor #0x02 | Throttled () | Deasserted
+7702 | 10/08/2020 | 10:47:47 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7703 | 10/08/2020 | 10:48:12 | Processor #0x02 | Throttled () | Asserted
+7704 | 10/08/2020 | 10:48:14 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7705 | 10/08/2020 | 10:48:32 | Processor #0x02 | Throttled () | Deasserted
+7706 | 10/08/2020 | 10:48:32 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7707 | 10/08/2020 | 11:00:39 | Processor #0x02 | Throttled () | Asserted
+7708 | 10/08/2020 | 11:00:41 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7709 | 10/08/2020 | 11:01:12 | Processor #0x02 | Throttled () | Deasserted
+770a | 10/08/2020 | 11:01:12 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+770b | 10/08/2020 | 11:01:21 | Processor #0x02 | Throttled () | Asserted
+770c | 10/08/2020 | 11:01:23 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+770d | 10/08/2020 | 11:01:33 | Processor #0x02 | Throttled () | Deasserted
+770e | 10/08/2020 | 11:01:33 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+770f | 10/08/2020 | 11:02:23 | Processor #0x02 | Throttled () | Asserted
+7710 | 10/08/2020 | 11:02:25 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7711 | 10/08/2020 | 11:03:15 | Processor #0x02 | Throttled () | Deasserted
+7712 | 10/08/2020 | 11:03:15 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7713 | 10/08/2020 | 11:03:30 | Processor #0x02 | Throttled () | Asserted
+7714 | 10/08/2020 | 11:03:33 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7715 | 10/08/2020 | 11:05:06 | Processor #0x02 | Throttled () | Deasserted
+7716 | 10/08/2020 | 11:05:06 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7717 | 10/08/2020 | 11:05:22 | Processor #0x02 | Throttled () | Asserted
+7718 | 10/08/2020 | 11:05:24 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7719 | 10/08/2020 | 11:05:52 | Processor #0x02 | Throttled () | Deasserted
+771a | 10/08/2020 | 11:05:52 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+771b | 10/08/2020 | 11:07:11 | Processor #0x02 | Throttled () | Asserted
+771c | 10/08/2020 | 11:07:30 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+771d | 10/08/2020 | 11:08:10 | Processor #0x02 | Throttled () | Deasserted
+771e | 10/08/2020 | 11:08:10 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+771f | 10/08/2020 | 11:08:24 | Processor #0x02 | Throttled () | Asserted
+7720 | 10/08/2020 | 11:08:25 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7721 | 10/08/2020 | 11:09:23 | Processor #0x02 | Throttled () | Deasserted
+7722 | 10/08/2020 | 11:09:23 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7723 | 10/08/2020 | 11:09:47 | Processor #0x02 | Throttled () | Asserted
+7724 | 10/08/2020 | 11:09:48 | Processor #0x02 | Throttled () | Deasserted
+7725 | 10/08/2020 | 11:10:18 | Processor #0x02 | Throttled () | Asserted
+7726 | 10/08/2020 | 11:10:24 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7727 | 10/08/2020 | 11:10:44 | Processor #0x02 | Throttled () | Deasserted
+7728 | 10/08/2020 | 11:10:44 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7729 | 10/08/2020 | 11:11:00 | Processor #0x02 | Throttled () | Asserted
+772a | 10/08/2020 | 11:11:09 | Processor #0x02 | Throttled () | Deasserted
+772b | 10/08/2020 | 11:11:45 | Processor #0x02 | Throttled () | Asserted
+772c | 10/08/2020 | 11:11:53 | Processor #0x02 | Throttled () | Deasserted
+772d | 10/08/2020 | 11:12:57 | Processor #0x02 | Throttled () | Asserted
+772e | 10/08/2020 | 11:13:10 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+772f | 10/08/2020 | 11:13:55 | Processor #0x02 | Throttled () | Deasserted
+7730 | 10/08/2020 | 11:13:55 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7731 | 10/08/2020 | 11:14:57 | Processor #0x02 | Throttled () | Asserted
+7732 | 10/08/2020 | 11:14:59 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7733 | 10/08/2020 | 11:16:08 | Processor #0x02 | Throttled () | Deasserted
+7734 | 10/08/2020 | 11:16:08 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7735 | 10/08/2020 | 11:18:13 | Processor #0x02 | Throttled () | Asserted
+7736 | 10/08/2020 | 11:18:16 | Processor #0x02 | Throttled () | Deasserted
+7737 | 10/08/2020 | 11:18:47 | Processor #0x02 | Throttled () | Asserted
+7738 | 10/08/2020 | 11:18:49 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7739 | 10/08/2020 | 11:19:11 | Processor #0x02 | Throttled () | Deasserted
+773a | 10/08/2020 | 11:19:11 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+773b | 10/08/2020 | 11:20:38 | Processor #0x02 | Throttled () | Asserted
+773c | 10/08/2020 | 11:20:41 | Processor #0x02 | Throttled () | Deasserted
+773d | 10/08/2020 | 11:21:54 | Processor #0x02 | Throttled () | Asserted
+773e | 10/08/2020 | 11:21:56 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+773f | 10/08/2020 | 11:22:16 | Processor #0x02 | Throttled () | Deasserted
+7740 | 10/08/2020 | 11:22:16 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7741 | 10/08/2020 | 11:22:56 | Processor #0x02 | Throttled () | Asserted
+7742 | 10/08/2020 | 11:23:02 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7743 | 10/08/2020 | 11:23:13 | Processor #0x02 | Throttled () | Deasserted
+7744 | 10/08/2020 | 11:23:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7745 | 10/08/2020 | 11:28:17 | Processor #0x02 | Throttled () | Asserted
+7746 | 10/08/2020 | 11:28:33 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7747 | 10/08/2020 | 11:30:03 | Processor #0x02 | Throttled () | Deasserted
+7748 | 10/08/2020 | 11:30:03 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7749 | 10/08/2020 | 11:30:40 | Processor #0x02 | Throttled () | Asserted
+774a | 10/08/2020 | 11:30:43 | Processor #0x02 | Throttled () | Deasserted
+774b | 10/08/2020 | 11:31:09 | Processor #0x02 | Throttled () | Asserted
+774c | 10/08/2020 | 11:31:13 | Processor #0x02 | Throttled () | Deasserted
+774d | 10/08/2020 | 11:32:54 | Processor #0x02 | Throttled () | Asserted
+774e | 10/08/2020 | 11:32:56 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+774f | 10/08/2020 | 11:35:23 | Processor #0x02 | Throttled () | Deasserted
+7750 | 10/08/2020 | 11:35:23 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7751 | 10/08/2020 | 11:35:56 | Processor #0x02 | Throttled () | Asserted
+7752 | 10/08/2020 | 11:35:57 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7753 | 10/08/2020 | 11:36:28 | Processor #0x02 | Throttled () | Deasserted
+7754 | 10/08/2020 | 11:36:28 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7755 | 10/08/2020 | 11:36:58 | Processor #0x02 | Throttled () | Asserted
+7756 | 10/08/2020 | 11:36:59 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7757 | 10/08/2020 | 11:41:32 | Processor #0x02 | Throttled () | Deasserted
+7758 | 10/08/2020 | 11:41:32 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7759 | 10/08/2020 | 11:42:38 | Processor #0x02 | Throttled () | Asserted
+775a | 10/08/2020 | 11:42:41 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+775b | 10/08/2020 | 11:42:56 | Processor #0x02 | Throttled () | Deasserted
+775c | 10/08/2020 | 11:42:56 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+775d | 10/08/2020 | 11:44:36 | Processor #0x02 | Throttled () | Asserted
+775e | 10/08/2020 | 11:44:42 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+775f | 10/08/2020 | 11:45:26 | Processor #0x02 | Throttled () | Deasserted
+7760 | 10/08/2020 | 11:45:26 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7761 | 10/08/2020 | 11:45:40 | Processor #0x02 | Throttled () | Asserted
+7762 | 10/08/2020 | 11:45:58 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7763 | 10/08/2020 | 11:46:24 | Processor #0x02 | Throttled () | Deasserted
+7764 | 10/08/2020 | 11:46:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7765 | 10/08/2020 | 11:47:04 | Processor #0x02 | Throttled () | Asserted
+7766 | 10/08/2020 | 11:47:07 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7767 | 10/08/2020 | 11:47:51 | Processor #0x02 | Throttled () | Deasserted
+7768 | 10/08/2020 | 11:47:51 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7769 | 10/08/2020 | 11:49:17 | Processor #0x02 | Throttled () | Asserted
+776a | 10/08/2020 | 11:49:19 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+776b | 10/08/2020 | 11:52:55 | Processor #0x02 | Throttled () | Deasserted
+776c | 10/08/2020 | 11:52:55 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+776d | 10/08/2020 | 11:53:17 | Processor #0x02 | Throttled () | Asserted
+776e | 10/08/2020 | 11:53:24 | Processor #0x02 | Throttled () | Deasserted
+776f | 10/08/2020 | 11:53:48 | Processor #0x02 | Throttled () | Asserted
+7770 | 10/08/2020 | 11:53:49 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7771 | 10/08/2020 | 11:59:05 | Processor #0x02 | Throttled () | Deasserted
+7772 | 10/08/2020 | 11:59:05 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7773 | 10/08/2020 | 11:59:27 | Processor #0x02 | Throttled () | Asserted
+7774 | 10/08/2020 | 11:59:29 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7775 | 10/08/2020 | 12:02:14 | Processor #0x02 | Throttled () | Deasserted
+7776 | 10/08/2020 | 12:02:14 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7777 | 10/08/2020 | 12:02:20 | Processor #0x02 | Throttled () | Asserted
+7778 | 10/08/2020 | 12:02:22 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7779 | 10/08/2020 | 12:03:19 | Processor #0x02 | Throttled () | Deasserted
+777a | 10/08/2020 | 12:03:19 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+777b | 10/08/2020 | 12:03:46 | Processor #0x02 | Throttled () | Asserted
+777c | 10/08/2020 | 12:03:47 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+777d | 10/08/2020 | 12:04:24 | Processor #0x02 | Throttled () | Deasserted
+777e | 10/08/2020 | 12:04:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+777f | 10/08/2020 | 12:05:59 | Processor #0x02 | Throttled () | Asserted
+7780 | 10/08/2020 | 12:06:26 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7781 | 10/08/2020 | 12:08:35 | Processor #0x02 | Throttled () | Deasserted
+7782 | 10/08/2020 | 12:08:35 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7783 | 10/08/2020 | 12:09:19 | Processor #0x02 | Throttled () | Asserted
+7784 | 10/08/2020 | 12:09:44 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7785 | 10/08/2020 | 12:10:36 | Processor #0x02 | Throttled () | Deasserted
+7786 | 10/08/2020 | 12:10:36 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7787 | 10/08/2020 | 12:10:56 | Processor #0x02 | Throttled () | Asserted
+7788 | 10/08/2020 | 12:11:25 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7789 | 10/08/2020 | 12:11:51 | Processor #0x02 | Throttled () | Deasserted
+778a | 10/08/2020 | 12:11:51 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+778b | 10/08/2020 | 12:14:54 | Processor #0x02 | Throttled () | Asserted
+778c | 10/08/2020 | 12:15:01 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+778d | 10/08/2020 | 12:16:00 | Processor #0x02 | Throttled () | Deasserted
+778e | 10/08/2020 | 12:16:00 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+778f | 10/08/2020 | 12:16:17 | Processor #0x02 | Throttled () | Asserted
+7790 | 10/08/2020 | 12:16:32 | Processor #0x02 | Throttled () | Deasserted
+7791 | 10/08/2020 | 12:17:12 | Processor #0x02 | Throttled () | Asserted
+7792 | 10/08/2020 | 12:17:14 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7793 | 10/08/2020 | 12:17:58 | Processor #0x02 | Throttled () | Deasserted
+7794 | 10/08/2020 | 12:17:58 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7795 | 10/08/2020 | 12:18:12 | Processor #0x02 | Throttled () | Asserted
+7796 | 10/08/2020 | 12:18:19 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7797 | 10/08/2020 | 12:18:29 | Processor #0x02 | Throttled () | Deasserted
+7798 | 10/08/2020 | 12:18:29 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7799 | 10/08/2020 | 12:19:19 | Processor #0x02 | Throttled () | Asserted
+779a | 10/08/2020 | 12:19:21 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+779b | 10/08/2020 | 12:19:43 | Processor #0x02 | Throttled () | Deasserted
+779c | 10/08/2020 | 12:19:43 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+779d | 10/08/2020 | 12:21:19 | Processor #0x02 | Throttled () | Asserted
+779e | 10/08/2020 | 12:21:21 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+779f | 10/08/2020 | 12:22:19 | Processor #0x02 | Throttled () | Deasserted
+77a0 | 10/08/2020 | 12:22:19 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77a1 | 10/08/2020 | 12:22:52 | Processor #0x02 | Throttled () | Asserted
+77a2 | 10/08/2020 | 12:22:54 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77a3 | 10/08/2020 | 12:23:30 | Processor #0x02 | Throttled () | Deasserted
+77a4 | 10/08/2020 | 12:23:30 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77a5 | 10/08/2020 | 12:23:34 | Processor #0x02 | Throttled () | Asserted
+77a6 | 10/08/2020 | 12:23:36 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77a7 | 10/08/2020 | 12:24:20 | Processor #0x02 | Throttled () | Deasserted
+77a8 | 10/08/2020 | 12:24:20 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77a9 | 10/08/2020 | 12:24:31 | Processor #0x02 | Throttled () | Asserted
+77aa | 10/08/2020 | 12:24:47 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77ab | 10/08/2020 | 12:29:18 | Processor #0x02 | Throttled () | Deasserted
+77ac | 10/08/2020 | 12:29:18 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77ad | 10/08/2020 | 12:29:31 | Processor #0x02 | Throttled () | Asserted
+77ae | 10/08/2020 | 12:29:34 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77af | 10/08/2020 | 12:32:13 | Processor #0x02 | Throttled () | Deasserted
+77b0 | 10/08/2020 | 12:32:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77b1 | 10/08/2020 | 12:32:51 | Processor #0x02 | Throttled () | Asserted
+77b2 | 10/08/2020 | 12:32:54 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77b3 | 10/08/2020 | 12:33:56 | Processor #0x02 | Throttled () | Deasserted
+77b4 | 10/08/2020 | 12:33:56 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77b5 | 10/08/2020 | 12:37:10 | Processor #0x02 | Throttled () | Asserted
+77b6 | 10/08/2020 | 12:37:13 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77b7 | 10/08/2020 | 12:37:25 | Processor #0x02 | Throttled () | Deasserted
+77b8 | 10/08/2020 | 12:37:25 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77b9 | 10/08/2020 | 12:38:18 | Processor #0x02 | Throttled () | Asserted
+77ba | 10/08/2020 | 12:38:23 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77bb | 10/08/2020 | 12:39:05 | Processor #0x02 | Throttled () | Deasserted
+77bc | 10/08/2020 | 12:39:05 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+77bd | 10/08/2020 | 12:40:07 | Processor #0x02 | Throttled () | Asserted
+77be | 10/08/2020 | 12:40:09 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77bf | 10/08/2020 | 12:40:27 | Processor #0x02 | Throttled () | Deasserted
+77c0 | 10/08/2020 | 12:40:27 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77c1 | 10/08/2020 | 12:40:38 | Processor #0x02 | Throttled () | Asserted
+77c2 | 10/08/2020 | 12:40:48 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77c3 | 10/08/2020 | 12:43:15 | Processor #0x02 | Throttled () | Deasserted
+77c4 | 10/08/2020 | 12:43:15 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77c5 | 10/08/2020 | 12:43:21 | Processor #0x02 | Throttled () | Asserted
+77c6 | 10/08/2020 | 12:43:24 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77c7 | 10/08/2020 | 12:45:58 | Processor #0x02 | Throttled () | Deasserted
+77c8 | 10/08/2020 | 12:45:58 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+77c9 | 10/08/2020 | 12:46:14 | Processor #0x02 | Throttled () | Asserted
+77ca | 10/08/2020 | 12:46:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77cb | 10/08/2020 | 12:47:53 | Processor #0x02 | Throttled () | Deasserted
+77cc | 10/08/2020 | 12:47:53 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77cd | 10/08/2020 | 12:48:16 | Processor #0x02 | Throttled () | Asserted
+77ce | 10/08/2020 | 12:48:18 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77cf | 10/08/2020 | 12:49:40 | Processor #0x02 | Throttled () | Deasserted
+77d0 | 10/08/2020 | 12:49:40 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77d1 | 10/08/2020 | 12:49:57 | Processor #0x02 | Throttled () | Asserted
+77d2 | 10/08/2020 | 12:49:59 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77d3 | 10/08/2020 | 12:52:42 | Processor #0x02 | Throttled () | Deasserted
+77d4 | 10/08/2020 | 12:52:42 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77d5 | 10/08/2020 | 12:52:47 | Processor #0x02 | Throttled () | Asserted
+77d6 | 10/08/2020 | 12:52:49 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77d7 | 10/08/2020 | 12:53:24 | Processor #0x02 | Throttled () | Deasserted
+77d8 | 10/08/2020 | 12:53:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77d9 | 10/08/2020 | 12:54:09 | Processor #0x02 | Throttled () | Asserted
+77da | 10/08/2020 | 12:54:11 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77db | 10/08/2020 | 12:56:27 | Processor #0x02 | Throttled () | Deasserted
+77dc | 10/08/2020 | 12:56:28 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77dd | 10/08/2020 | 12:56:51 | Processor #0x02 | Throttled () | Asserted
+77de | 10/08/2020 | 12:56:55 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77df | 10/08/2020 | 12:58:08 | Processor #0x02 | Throttled () | Deasserted
+77e0 | 10/08/2020 | 12:58:08 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77e1 | 10/08/2020 | 12:58:23 | Processor #0x02 | Throttled () | Asserted
+77e2 | 10/08/2020 | 12:58:25 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77e3 | 10/08/2020 | 12:59:17 | Processor #0x02 | Throttled () | Deasserted
+77e4 | 10/08/2020 | 12:59:17 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77e5 | 10/08/2020 | 12:59:40 | Processor #0x02 | Throttled () | Asserted
+77e6 | 10/08/2020 | 12:59:45 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77e7 | 10/08/2020 | 13:02:30 | Processor #0x02 | Throttled () | Deasserted
+77e8 | 10/08/2020 | 13:02:30 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+77e9 | 10/08/2020 | 13:03:14 | Processor #0x02 | Throttled () | Asserted
+77ea | 10/08/2020 | 13:03:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77eb | 10/08/2020 | 13:03:33 | Processor #0x02 | Throttled () | Deasserted
+77ec | 10/08/2020 | 13:03:33 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77ed | 10/08/2020 | 13:05:24 | Processor #0x02 | Throttled () | Asserted
+77ee | 10/08/2020 | 13:05:26 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77ef | 10/08/2020 | 13:08:31 | Processor #0x02 | Throttled () | Deasserted
+77f0 | 10/08/2020 | 13:08:31 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77f1 | 10/08/2020 | 13:12:52 | Processor #0x02 | Throttled () | Asserted
+77f2 | 10/08/2020 | 13:12:59 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77f3 | 10/08/2020 | 13:13:04 | Processor #0x02 | Throttled () | Deasserted
+77f4 | 10/08/2020 | 13:13:04 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77f5 | 10/08/2020 | 13:13:50 | Processor #0x02 | Throttled () | Asserted
+77f6 | 10/08/2020 | 13:13:53 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77f7 | 10/08/2020 | 13:14:48 | Processor #0x02 | Throttled () | Deasserted
+77f8 | 10/08/2020 | 13:14:48 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+77f9 | 10/08/2020 | 13:14:58 | Processor #0x02 | Throttled () | Asserted
+77fa | 10/08/2020 | 13:15:00 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77fb | 10/08/2020 | 13:16:43 | Processor #0x02 | Throttled () | Deasserted
+77fc | 10/08/2020 | 13:16:43 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+77fd | 10/08/2020 | 13:17:04 | Processor #0x02 | Throttled () | Asserted
+77fe | 10/08/2020 | 13:17:05 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+77ff | 10/08/2020 | 13:17:17 | Processor #0x02 | Throttled () | Deasserted
+7800 | 10/08/2020 | 13:17:18 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7801 | 10/08/2020 | 13:17:55 | Processor #0x02 | Throttled () | Asserted
+7802 | 10/08/2020 | 13:17:58 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7803 | 10/08/2020 | 13:22:02 | Processor #0x02 | Throttled () | Deasserted
+7804 | 10/08/2020 | 13:22:02 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7805 | 10/08/2020 | 13:25:24 | Processor #0x02 | Throttled () | Asserted
+7806 | 10/08/2020 | 13:25:26 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7807 | 10/08/2020 | 13:26:13 | Processor #0x02 | Throttled () | Deasserted
+7808 | 10/08/2020 | 13:26:13 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7809 | 10/08/2020 | 13:30:30 | Processor #0x02 | Throttled () | Asserted
+780a | 10/08/2020 | 13:30:32 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+780b | 10/08/2020 | 13:30:54 | Processor #0x02 | Throttled () | Deasserted
+780c | 10/08/2020 | 13:30:55 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+780d | 10/08/2020 | 13:33:44 | Processor #0x02 | Throttled () | Asserted
+780e | 10/08/2020 | 13:33:46 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+780f | 10/08/2020 | 13:34:11 | Processor #0x02 | Throttled () | Deasserted
+7810 | 10/08/2020 | 13:34:11 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7811 | 10/08/2020 | 13:35:17 | Processor #0x02 | Throttled () | Asserted
+7812 | 10/08/2020 | 13:35:24 | Processor #0x02 | Throttled () | Deasserted
+7813 | 10/08/2020 | 13:35:39 | Processor #0x02 | Throttled () | Asserted
+7814 | 10/08/2020 | 13:35:41 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7815 | 10/08/2020 | 13:36:04 | Processor #0x02 | Throttled () | Deasserted
+7816 | 10/08/2020 | 13:36:04 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7817 | 10/08/2020 | 13:36:13 | Processor #0x02 | Throttled () | Asserted
+7818 | 10/08/2020 | 13:36:16 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7819 | 10/08/2020 | 13:36:24 | Processor #0x02 | Throttled () | Deasserted
+781a | 10/08/2020 | 13:36:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+781b | 10/08/2020 | 13:37:06 | Processor #0x02 | Throttled () | Asserted
+781c | 10/08/2020 | 13:37:08 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+781d | 10/08/2020 | 13:37:14 | Processor #0x02 | Throttled () | Deasserted
+781e | 10/08/2020 | 13:37:14 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+781f | 10/08/2020 | 13:38:22 | Processor #0x02 | Throttled () | Asserted
+7820 | 10/08/2020 | 13:38:24 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7821 | 10/08/2020 | 13:38:31 | Processor #0x02 | Throttled () | Deasserted
+7822 | 10/08/2020 | 13:38:31 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 86 > Threshold 90 degrees C
+7823 | 10/08/2020 | 13:41:30 | Processor #0x02 | Throttled () | Asserted
+7824 | 10/08/2020 | 13:41:48 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7825 | 10/08/2020 | 13:43:51 | Processor #0x02 | Throttled () | Deasserted
+7826 | 10/08/2020 | 13:43:51 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7827 | 10/08/2020 | 13:44:55 | Processor #0x02 | Throttled () | Asserted
+7828 | 10/08/2020 | 13:45:11 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7829 | 10/08/2020 | 13:45:15 | Processor #0x02 | Throttled () | Deasserted
+782a | 10/08/2020 | 13:45:15 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+782b | 10/08/2020 | 13:45:23 | Processor #0x02 | Throttled () | Asserted
+782c | 10/08/2020 | 13:45:28 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+782d | 10/08/2020 | 13:45:43 | Processor #0x02 | Throttled () | Deasserted
+782e | 10/08/2020 | 13:45:43 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+782f | 10/08/2020 | 13:50:10 | Processor #0x02 | Throttled () | Asserted
+7830 | 10/08/2020 | 13:50:14 | Processor #0x02 | Throttled () | Deasserted
+7831 | 10/08/2020 | 14:24:28 | Processor #0x02 | Throttled () | Asserted
+7832 | 10/08/2020 | 14:24:34 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7833 | 10/08/2020 | 14:24:45 | Processor #0x02 | Throttled () | Deasserted
+7834 | 10/08/2020 | 14:24:45 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7835 | 10/08/2020 | 14:24:55 | Processor #0x02 | Throttled () | Asserted
+7836 | 10/08/2020 | 14:24:56 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7837 | 10/08/2020 | 14:25:03 | Processor #0x02 | Throttled () | Deasserted
+7838 | 10/08/2020 | 14:25:03 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7839 | 10/08/2020 | 14:25:41 | Processor #0x02 | Throttled () | Asserted
+783a | 10/08/2020 | 14:25:45 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+783b | 10/08/2020 | 14:26:11 | Processor #0x02 | Throttled () | Deasserted
+783c | 10/08/2020 | 14:26:11 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+783d | 10/08/2020 | 14:29:54 | Processor #0x02 | Throttled () | Asserted
+783e | 10/08/2020 | 14:30:11 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+783f | 10/08/2020 | 14:30:34 | Processor #0x02 | Throttled () | Deasserted
+7840 | 10/08/2020 | 14:30:34 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7841 | 10/08/2020 | 14:40:09 | Processor #0x02 | Throttled () | Asserted
+7842 | 10/08/2020 | 14:40:15 | Processor #0x02 | Throttled () | Deasserted
+7843 | 10/08/2020 | 15:19:42 | Processor #0x02 | Throttled () | Asserted
+7844 | 10/08/2020 | 15:19:43 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7845 | 10/08/2020 | 15:19:53 | Processor #0x02 | Throttled () | Deasserted
+7846 | 10/08/2020 | 15:19:53 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+7847 | 10/08/2020 | 15:20:09 | Processor #0x02 | Throttled () | Asserted
+7848 | 10/08/2020 | 15:20:20 | Temperature CPU2 Temp | Upper Critical going high | Asserted | Reading 90 > Threshold 90 degrees C
+7849 | 10/08/2020 | 15:20:24 | Processor #0x02 | Throttled () | Deasserted
+784a | 10/08/2020 | 15:20:24 | Temperature CPU2 Temp | Upper Critical going high | Deasserted | Reading 87 > Threshold 90 degrees C
+784b | 10/08/2020 | 15:21:18 | Processor #0x02 | Throttled () | Asserted
+784c | 10/08/2020 | 15:21:33 | Processor #0x02 | Throttled () | Deasserted
+784d | 10/08/2020 | 15:30:41 | Processor #0x02 | Throttled () | Asserted
+784e | 10/08/2020 | 15:30:55 | Processor #0x02 | Throttled () | Deasserted
+7851 | 01/29/2020 | 16:33:49 | Unknown #0xff |  | Asserted
+7852 | 01/29/2020 | 16:34:11 | Physical Security Chassis Intru | General Chassis intrusion () | Asserted
+7853 | 01/29/2020 | 08:55:39 | Physical Security Chassis Intru | General Chassis intrusion () | Asserted
+7854 | 02/11/2020 | 07:58:59 | Unknown #0xff |  | Asserted
+7855 | 02/11/2020 | 07:59:22 | Physical Security Chassis Intru | General Chassis intrusion () | Asserted
+7856 | 02/21/2020 | 10:10:54 | Unknown #0xff |  | Asserted
+7857 | 03/06/2020 | 13:19:10 | Unknown #0xff |  | Asserted
+7858 | 03/11/2020 | 14:24:45 | OS Boot | Installation started () | Asserted
+7859 | 03/11/2020 | 14:34:48 | OS Boot | Installation completed () | Asserted
+7851 | 04/04/2018 | 14:10:58 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7852 | 09/28/2018 | 09:04:24 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7853 | 12/06/2019 | 09:39:53 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 01/01/2007 | 00:00:09 | Memory | Uncorrectable ECC (@DIMM2A(CPU2)) | Asserted
+7852 | 04/05/2018 | 09:15:34 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7853 | 12/05/2019 | 10:21:38 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 04/05/2018 | 08:14:38 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7852 | 12/06/2019 | 15:09:53 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 12/06/2019 | 15:21:28 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7852 | 12/06/2019 | 18:02:53 | Memory | Uncorrectable ECC (@DIMM3B(CPU1)) | Asserted
+7853 | 12/06/2019 | 18:17:32 | Memory | Uncorrectable ECC (@DIMM3A(CPU1)) | Asserted
+7854 | 12/06/2019 | 18:25:36 | Memory | Uncorrectable ECC (@DIMM3B(CPU1)) | Asserted
+7855 | 12/06/2019 | 18:31:09 | Memory | Uncorrectable ECC (@DIMM3A(CPU1)) | Asserted
+7856 | 12/10/2019 | 08:45:13 | Memory | Uncorrectable ECC (@DIMM1B(CPU1)) | Asserted
+7851 | 02/13/2019 | 14:08:57 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 10/30/2018 | 12:02:16 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 11/01/2018 | 14:33:54 | Memory | Uncorrectable ECC (@DIMM2A(CPU1)) | Asserted
+7852 | 11/01/2018 | 14:38:46 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7851 | 02/27/2019 | 13:22:38 | Memory | Correctable ECC (@DIMM3B(CPU2)) | Asserted
+7852 | 02/27/2019 | 13:22:41 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+7853 | 02/27/2019 | 13:24:19 | Memory | Uncorrectable ECC (@DIMM1B(CPU2)) | Asserted
+7854 | 02/28/2019 | 12:27:02 | Memory | Correctable ECC (@DIMM3B(CPU2)) | Asserted
+7855 | 02/28/2019 | 12:27:26 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+7856 | 02/28/2019 | 12:27:26 | Memory | Correctable ECC (@DIMM3B(CPU2)) | Asserted
+7857 | 02/28/2019 | 12:27:40 | Memory | Correctable ECC (@DIMM3B(CPU2)) | Asserted
+7858 | 02/28/2019 | 12:28:16 | Memory | Correctable ECC (@DIMM3B(CPU2)) | Asserted
+7859 | 02/28/2019 | 12:28:16 | Memory | Correctable ECC (@DIMM1B(CPU2)) | Asserted
+785a | 02/28/2019 | 12:29:54 | Memory | Uncorrectable ECC (@DIMM1B(CPU2)) | Asserted
+785b | 08/10/2020 | 18:14:03 | Memory | Uncorrectable ECC (@DIMM2A(CPU2)) | Asserted
+7851 | 05/31/2019 | 12:14:12 | Memory | Uncorrectable ECC (@DIMM3A(CPU1)) | Asserted
+7852 | 05/31/2019 | 12:26:04 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7853 | 01/01/2007 | 00:00:30 | Physical Security Intrusion | General Chassis intrusion () | Asserted
+7854 | 04/09/2020 | 08:18:25 | Memory | Uncorrectable ECC (@DIMM1A(CPU2)) | Asserted
+7851 | 05/23/2019 | 11:40:44 | Memory | Uncorrectable ECC (@DIMM1B(CPU1)) | Asserted
+7852 | 05/29/2019 | 17:27:32 | Memory | Uncorrectable ECC (@DIMM2B(CPU1)) | Asserted
+7853 | 06/05/2019 | 11:08:18 | Memory | Uncorrectable ECC (@DIMM1A(CPU1)) | Asserted
+7854 | 06/27/2019 | 13:46:22 | Memory | Uncorrectable ECC (@DIMM2B(CPU1)) | Asserted
+7855 | 07/06/2019 | 10:04:39 | Memory | Uncorrectable ECC (@DIMM3A(CPU1)) | Asserted
+7856 | 07/31/2019 | 11:15:56 | Memory | Uncorrectable ECC (@DIMM2B(CPU1)) | Asserted
+7851 | 05/29/2019 | 17:25:54 | Memory | Uncorrectable ECC (@DIMM2A(CPU1)) | Asserted
+7852 | 06/10/2019 | 16:15:22 | Memory | Uncorrectable ECC (@DIMM2A(CPU1)) | Asserted
+7853 | 07/16/2019 | 10:53:59 | Memory | Uncorrectable ECC (@DIMM3B(CPU2)) | Asserted
+7854 | 10/30/2019 | 07:33:53 | Memory | Uncorrectable ECC (@DIMM3B(CPU2)) | Asserted

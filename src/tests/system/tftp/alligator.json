@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp":["1111"]}], "aggregate": [{"handler": "tftp", "url": "udp://localhost:69/ping"}, {"handler": "tftp", "url": "udp://localhost:69/ping2"}],   "system": { "process": [ "xinetd" ] }}

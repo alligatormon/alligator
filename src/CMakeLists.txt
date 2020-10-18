@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.124)
+set(VERSION 1.10.134)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -10,15 +10,26 @@ set(TESTS ${PROJECT_NAME}_tests)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
+file(STRINGS /etc/os-release distro REGEX "^ID_LIKE=")
+string(REGEX REPLACE "ID_LIKE=\"(.*)\"" "\\1" distro "${distro}")
+file(STRINGS /etc/os-release disversion REGEX "^VERSION_ID=")
+string(REGEX REPLACE "VERSION_ID=\"(.*)\"" "\\1" disversion "${disversion}")
+message("found ${distro}.${disversion}")
 
-
+IF(${distro} MATCHES "rhel")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -O3 -std=gnu11 -pthread")
+ELSE(${distro} MATCHES "rhel")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -O3 -std=gnu11 -pthread -Wno-format-truncation -Wno-unused-result -Wno-error=format-overflow")
+ENDIF(${distro} MATCHES "rhel")
 include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/cutter)
 include_directories(/usr/local/include/cutter)
 include_directories(/usr/local/include/libbson-1.0)
+include_directories(/usr/include/libbson-1.0/)
 include_directories(/usr/local/include/libmongoc-1.0)
+include_directories(/usr/include/libmongoc-1.0/)
+include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 include_directories(external/mbedtls/include/)
@@ -29,13 +40,20 @@ include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/)
 include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/linux)
+include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/)
+include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
 link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
+IF(${distro} MATCHES "rhel")
 link_directories(external/iptables/libiptc/.libs/)
+ELSE(${distro} MATCHES "rhel")
+link_directories(external/iptables-ubuntu/libiptc/.libs/)
+ENDIF(${distro} MATCHES "rhel")
+link_directories(/usr/lib/x86_64-linux-gnu/)
 
 set(STATIC_FILES
 	events/uv_alloc.c
@@ -97,9 +115,11 @@ set(STATIC_FILES
 	parsers/unbound.c
 	parsers/solr.c
 	parsers/mongodb.c
-	#parsers/mysql.c
+	parsers/ntpd.c
+	parsers/ipmi.c
+	parsers/mysql2.c
+	parsers/tftp.c
 	common/selector.c
-	#common/https_tls_check.c
 	common/pem_check2.c
 	common/rtime.c
 	common/validator.c
@@ -114,7 +134,6 @@ set(STATIC_FILES
 	common/mapping.c
 	common/smart.c
 	common/netlib.c
-	common/rpm.c
 	common/deb.c
 	common/mkdirp.c
 	common/yaml.c
@@ -125,16 +144,14 @@ set(STATIC_FILES
 	api/api_v1.c
 	common/iptc.c
 	common/entrypoint.c
-	#config/aggregate.c
-	config/file.c
-	config/context.c
-	config/mapping.c
 	config/parser.c
 	config/plain.c
+	config/mapping.c
 	dynconf/sd.c
 	lang/lang.c
 	lang/java.c
 	system/linux.c
+	system/common.c
 	system/freebsd.c
 	system/macosx.c
 	modules/modules.c
@@ -157,7 +174,12 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
 )
-add_library(${COMMON} STATIC ${STATIC_FILES})
+IF(${distro} MATCHES "rhel")
+set(RPM_FILES common/rpm.c)
+ELSE(${distro} MATCHES "rhel")
+set(RPM_FILES common/rpm-common.c)
+ENDIF(${distro} MATCHES "rhel")
+add_library(${COMMON} STATIC ${STATIC_FILES} ${RPM_FILES})
 add_executable(${HEAD} main.c)
 
 add_library(${COMMON_TESTS} STATIC
@@ -173,14 +195,16 @@ add_library(${COMMON_TESTS} STATIC
 		common/netlib.c
 )
 
-add_library(${TESTS} SHARED tests/unit/tests.c)
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
+IF(${distro} MATCHES "rhel")
+add_library(${TESTS} SHARED tests/unit/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
+add_test(Test1 "cutter" ".")
+ENDIF(${distro} MATCHES "rhel")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 add_custom_command(TARGET ${COMMON} PRE_BUILD COMMAND sed -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_template.h > alligator_version.h)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
-add_test(Test1 "cutter" ".")
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
@@ -191,7 +215,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev /usr/lib64/libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
+	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

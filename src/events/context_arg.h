@@ -36,11 +36,11 @@ typedef struct context_arg
 	uint8_t proto;
 	uint8_t transport;
 	int write;
-	size_t http_body_size;
+	//size_t http_body_size;
 	//size_t expect_http_length;
 	uv_buf_t *buffer;
 	size_t buflen;
-	char *http_body;
+	//char *http_body;
 	regex_match *rematch;
 	mapping_metric *mm;
 
@@ -127,7 +127,10 @@ typedef struct context_arg
 	uv_shutdown_t shutdown_req;
 	uv_udp_t *udp_server;
 	uv_poll_t *poll;
+	uv_poll_t poll2;
 	uv_pipe_t *pipe;
+	uv_udp_t udp_client;
+	uv_udp_send_t udp_send;
 
 	char is_async_writing;
 	char is_writing;
@@ -167,6 +170,9 @@ typedef struct context_arg
 
 	int64_t ttl; // TTL for this context metrics
 	int64_t curr_ttl;
+	uint8_t headers_pass;
+
+	char *url;
 
 	tommy_hashdyn* reject;
 	void *srv_carg;
@@ -185,4 +191,4 @@ typedef struct context_arg
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uv_loop_t *loop);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop);

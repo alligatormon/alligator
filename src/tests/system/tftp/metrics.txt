@@ -1,0 +1,3 @@
+tftp_file_exists {name="ping"} 1
+tftp_file_exists {name="ping2"} 0
+process_match {name="xinetd"}

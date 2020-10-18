@@ -199,6 +199,7 @@ void url_dump(host_aggregator_info *hi)
 host_aggregator_info *parse_url(char *str, size_t len)
 {
 	host_aggregator_info *hi = calloc(1, sizeof(*hi));
+	hi->url = strdup(str);
 	hi->auth = 0;
 	char *tmp = str;
 	url_set_proto(hi, &tmp, "http://unix:/", 12, APROTO_HTTP, APROTO_UNIX, 0);
@@ -220,6 +221,9 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP, 0);
 	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS, 0);
 	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, 0);
+	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, 0);
+	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, 0);
+	url_set_proto(hi, &tmp, "mongodb://", 10, APROTO_MONGODB, APROTO_MONGODB, 0);
 
 	url_set_default_port(hi);
 
@@ -258,6 +262,8 @@ void url_free(host_aggregator_info *hi)
 		free(hi->user);
 	if (hi->pass)
 		free(hi->pass);
+	if (hi->url)
+		free(hi->url);
 
 	free(hi);
 }

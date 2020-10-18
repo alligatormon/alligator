@@ -7,10 +7,6 @@
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "main.h"
 #include "events/uv_alloc.h"
-//#define CDM "curl -I https://ya.ru"
-#define CDM1 "curl -I https://ya.ru"
-#define CDM2 "curl -I https://r0.ru"
-#define CDM3 "curl -I https://mail.ru"
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
@@ -19,14 +15,14 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 		fprintf(stderr, "error echo_read");
 		return;
 	}
+
+	if (nread < 0)
+		return;
+
 	context_arg *carg = server->data;
 	(carg->read_counter)++;
-	//printf("buf->base(%zu, %zu, %zu)\n%s\n", carg->http_body_size, strlen(buf->base), nread, buf->base);
 
-	if (!carg->http_body)
-		carg->http_body = malloc(6553500);
-	size_t strcopy = strlcpy(carg->http_body+carg->http_body_size, buf->base, nread+1);
-	carg->http_body_size += strcopy;
+	string_cat(carg->full_body, buf->base, nread);
 
 	if (buf->base)
 	{
@@ -36,13 +32,18 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	//free(server);
 }
 
+void cmd_close(uv_handle_t *handle)
+{
+	free(handle);
+}
+
 static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 {
 	context_arg *carg = req->data;
 
 	fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
-	alligator_multiparser(carg->http_body, carg->http_body_size, carg->parser_handler, NULL, carg);
-	free(carg->http_body);
+	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+	string_null(carg->full_body);
 
 	carg->read_time_finish = setrtime();
 	int64_t tsignal = term_signal;
@@ -56,13 +57,10 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	metric_add_labels3("alligator_read_time", &read_time, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
 	metric_add_labels3("alligator_read_total_time", &carg->read_time_counter, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
 
-	carg->http_body_size = 0;
-	carg->http_body = NULL;
 	carg->lock = 0;
 
 	uv_close((uv_handle_t*)req, NULL);
-	uv_close((uv_handle_t*)carg->channel, NULL);
-	free(req);
+	uv_close((uv_handle_t*)carg->channel, cmd_close);
 }
 
 //void timeout_process(uv_work_t* req)
@@ -79,84 +77,84 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 //	//uv_queue_work(uv_default_loop(), work_req, timeout_process, on_after_work);
 //}
 
-void put_to_loop_cmd(char *cmd, void *parser_handler)
-{
-	if (!cmd)
-	{
-		puts("exec is empty");
-		return;
-	}
-
-	extern aconf* ac;
-	size_t len = strlen(cmd);
-
-	char *fname = malloc(255);
-	char *template = malloc(1000);
-	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
-	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
-	// TODO /bin/bash only linux, need customize
-	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", cmd);
-	//free(cmd);
-	unlink(fname);
-
-	mkdirp(ac->process_script_dir);
-	write_to_file(fname, template, rc, NULL, NULL);
-	(ac->process_cnt)++;
-
-	int64_t i, y, start, n = 1;
-	char *tmp = fname;
-	for (i=0; i<len; i++)
-	{
-		if ( isspace(tmp[i]) )
-		{
-			for (; isspace(tmp[i]); i++);
-			n++;
-		}
-	}
-	char** args = calloc(n+1, sizeof(char*));
-
-	for (i=0, y=0, start=0; y<n; i++)
-	{
-		if ( isspace(tmp[i]) )
-		{
-			int64_t end = i;
-			for (; isspace(tmp[i]); i++);
-			args[y] = strndup(tmp+start, end-start);
-
-			start = i;
-			y++;
-		}
-	}
-	args[n] = NULL;
-
-
-
-
-	//uv_pipe_t *channel = calloc(1, sizeof(uv_pipe_t));
-	//uv_pipe_init(loop, channel, 1);
-	//uv_stdio_container_t *child_stdio = calloc(3, sizeof(uv_stdio_container_t)); // {stdin, stdout, stderr}
-	//child_stdio[STDIN_FILENO].flags = UV_IGNORE;
-	//child_stdio[STDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-	//child_stdio[STDOUT_FILENO].data.stream = (uv_stream_t*)channel;
-	//child_stdio[STDERR_FILENO].flags = UV_IGNORE;
-
-	//uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
-	//options->exit_cb = _on_exit;
-	//options->file = args[0];
-	//options->args = args;
-	//options->stdio = child_stdio;
-	//options->stdio_count = 3;
-	//printf (":%d:\n", options->stdio_count);
-
-	context_arg *pinfo = calloc(1, sizeof(*pinfo));
-	//pinfo->options = options;
-	pinfo->key = cmd;
-	//pinfo->channel = channel;
-	//pinfo->child_stdio = child_stdio;
-	pinfo->parser_handler = parser_handler;
-	pinfo->args = args;
-	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
-}
+//void put_to_loop_cmd(char *cmd, void *parser_handler)
+//{
+//	if (!cmd)
+//	{
+//		puts("exec is empty");
+//		return;
+//	}
+//
+//	extern aconf* ac;
+//	size_t len = strlen(cmd);
+//
+//	char *fname = malloc(255);
+//	char *template = malloc(1000);
+//	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
+//	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
+//	// TODO /bin/bash only linux, need customize
+//	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", cmd);
+//	//free(cmd);
+//	unlink(fname);
+//
+//	mkdirp(ac->process_script_dir);
+//	write_to_file(fname, template, rc, NULL, NULL);
+//	(ac->process_cnt)++;
+//
+//	int64_t i, y, start, n = 1;
+//	char *tmp = fname;
+//	for (i=0; i<len; i++)
+//	{
+//		if ( isspace(tmp[i]) )
+//		{
+//			for (; isspace(tmp[i]); i++);
+//			n++;
+//		}
+//	}
+//	char** args = calloc(n+1, sizeof(char*));
+//
+//	for (i=0, y=0, start=0; y<n; i++)
+//	{
+//		if ( isspace(tmp[i]) )
+//		{
+//			int64_t end = i;
+//			for (; isspace(tmp[i]); i++);
+//			args[y] = strndup(tmp+start, end-start);
+//
+//			start = i;
+//			y++;
+//		}
+//	}
+//	args[n] = NULL;
+//
+//
+//
+//
+//	//uv_pipe_t *channel = calloc(1, sizeof(uv_pipe_t));
+//	//uv_pipe_init(loop, channel, 1);
+//	//uv_stdio_container_t *child_stdio = calloc(3, sizeof(uv_stdio_container_t)); // {stdin, stdout, stderr}
+//	//child_stdio[STDIN_FILENO].flags = UV_IGNORE;
+//	//child_stdio[STDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
+//	//child_stdio[STDOUT_FILENO].data.stream = (uv_stream_t*)channel;
+//	//child_stdio[STDERR_FILENO].flags = UV_IGNORE;
+//
+//	//uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
+//	//options->exit_cb = _on_exit;
+//	//options->file = args[0];
+//	//options->args = args;
+//	//options->stdio = child_stdio;
+//	//options->stdio_count = 3;
+//	//printf (":%d:\n", options->stdio_count);
+//
+//	context_arg *pinfo = calloc(1, sizeof(*pinfo));
+//	//pinfo->options = options;
+//	pinfo->key = cmd;
+//	//pinfo->channel = channel;
+//	//pinfo->child_stdio = child_stdio;
+//	pinfo->parser_handler = parser_handler;
+//	pinfo->args = args;
+//	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
+//}
 
 void process_client(context_arg *carg)
 {
@@ -166,15 +164,20 @@ void process_client(context_arg *carg)
 		return;
 	}
 
-	size_t len = strlen(carg->host);
 
 	char *fname = malloc(255);
 	char *template = malloc(1000);
 	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
 	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
 	// TODO /bin/bash only linux, need customize
-	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", carg->host);
+	int rc;
+	if (carg->mesg)
+		rc = snprintf(template, 999, "#!/bin/bash\n%s %s\n", carg->host, carg->mesg);
+	else
+		rc = snprintf(template, 999, "#!/bin/bash\n%s\n", carg->host);
 	unlink(fname);
+
+	//printf("template: %s, args: %s\n", template, carg->mesg);
 
 	mkdirp(ac->process_script_dir);
 	write_to_file(fname, template, rc, NULL, NULL);
@@ -182,6 +185,7 @@ void process_client(context_arg *carg)
 
 	int64_t i, y, start, n = 1;
 	char *tmp = fname;
+	size_t len = strlen(tmp);
 	for (i=0; i<len; i++)
 	{
 		if ( isspace(tmp[i]) )

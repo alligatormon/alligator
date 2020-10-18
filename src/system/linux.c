@@ -17,7 +17,7 @@
 #include "main.h"
 #include "metric/labels.h"
 #include "common/smart.h"
-#include "common/rpm.h"
+//#include "common/rpm.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define PLATFORM_BAREMETAL 0
@@ -156,7 +156,7 @@ void get_cpu(int8_t platform)
 		effective_cores = dividecpu = num_cpus_cgroup;
 
 	if (!ac->scs->cores)
-		ac->scs->cores = calloc(1, sizeof(system_cpu_cores_stats)*effective_cores);
+		ac->scs->cores = calloc(1, sizeof(system_cpu_cores_stats)*num_cpus);
 
 
 	metric_add_auto("cores_num_hw", &num_cpus, DATATYPE_INT, ac->system_carg);
@@ -392,7 +392,7 @@ void get_cpu(int8_t platform)
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
 	double diff_time = getrtime_ns(ac->last_time_cpu, ts_start)/1000000000.0;
 	if (ac->log_level > 2)
-		printf("system scrape metrics: base: get_cpu time execute '%"d64", diff '%"d64"'\n", scrape_time, diff_time);
+		printf("system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
 
 	ac->last_time_cpu = ts_start;
 	metric_add_auto("cpu_usage_calc_delta_time", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
@@ -2351,7 +2351,7 @@ void get_alligator_info()
 void get_packages_info()
 {
 	if (ac->rpmlib)
-		get_rpm_info(ac->rpmlib);
+		get_rpm_info();
 
 	dpkg_crawl("/var/lib/dpkg/available");
 }
@@ -2423,6 +2423,38 @@ void get_cpu_avg()
 	metric_add_auto("cpu_avg", &result, DATATYPE_DOUBLE, ac->system_carg);
 }
 
+void baseboard_info()
+{
+	uint64_t val = 1;
+	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor");
+	metric_add_labels("baseboard_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", board_vendor->s);
+	string_free(board_vendor);
+
+	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name");
+	metric_add_labels("baseboard_product_name", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
+	string_free(product_name);
+
+	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag");
+	metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
+	string_free(asset_tag);
+
+	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version");
+	metric_add_labels("baseboard_version", &val, DATATYPE_UINT, ac->system_carg, "version", board_version->s);
+	string_free(board_version);
+
+	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial");
+	metric_add_labels("baseboard_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", board_serial->s);
+	string_free(board_serial);
+
+	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor");
+	metric_add_labels("bios_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", bios_vendor->s);
+	string_free(bios_vendor);
+
+	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version");
+	metric_add_labels("bios_version", &val, DATATYPE_UINT, ac->system_carg, "version", bios_version->s);
+	string_free(bios_version);
+}
+
 void get_system_metrics()
 {
 	cadvisor_metrics();
@@ -2438,6 +2470,8 @@ void get_system_metrics()
 		get_kernel_version(platform);
 		get_alligator_info();
 		get_conntrack_info();
+		ipaddr_info();
+		hw_cpu_info();
 		if (!platform)
 		{
 			char edacdir[255];
@@ -2449,6 +2483,7 @@ void get_system_metrics()
 			get_memory_errors(edacdir);
 			get_thermal();
 			get_buddyinfo();
+			baseboard_info();
 		}
 		else
 			throttle_stat();

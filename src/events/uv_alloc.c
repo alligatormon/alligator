@@ -17,7 +17,9 @@ void alloc_buffer(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 		bzero(buf->base, size);
 	}
 	else
+	{
 		buf->base = calloc(1, size);
+	}
 	buf->len = size;
 }
 

@@ -1,0 +1,15 @@
+#!/bin/sh
+#echo "\"$*\""
+if [ "$*" == "chassis status" ]
+then
+	cat /app/src/tests/mock/ipmi/data/status
+elif [ "$*" == "sel info" ]
+then
+	cat /app/src/tests/mock/ipmi/data/info
+elif [ "$*" == "sel elist" ]
+then
+	cat /app/src/tests/mock/ipmi/data/elist
+elif [ "$1" == "sensor" ]
+then
+	cat /app/src/tests/mock/ipmi/data/sensor
+fi

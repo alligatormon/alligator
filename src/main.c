@@ -34,64 +34,6 @@ void ts_initialize()
 	metrictree->sort_plan = sort_plan;
 }
 
-void config_context_initialize()
-{
-	extern aconf *ac;
-	ac->config_ctx = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->config_ctx);
-	config_context *ctx;
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("aggregate");
-	ctx->handler = context_aggregate_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("entrypoint");
-	ctx->handler = context_entrypoint_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("system");
-	ctx->handler = context_system_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("log_level");
-	ctx->handler = context_log_level_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("ttl");
-	ctx->handler = context_ttl_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("persistence");
-	ctx->handler = context_persistence_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("query");
-	ctx->handler = context_query_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("lang");
-	ctx->handler = context_lang_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("modules");
-	ctx->handler = context_modules_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-
-	ctx = calloc(1, sizeof(*ctx));
-	ctx->key = strdup("configuration");
-	ctx->handler = context_configuration_parser;
-	tommy_hashdyn_insert(ac->config_ctx, &(ctx->node), ctx, tommy_strhash_u32(0, ctx->key));
-}
-
 void system_initialize()
 {
 	extern aconf *ac;
@@ -116,6 +58,10 @@ void system_initialize()
 	ac->packages_match = calloc(1, sizeof(match_rules));
 	ac->packages_match->hash = malloc(sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->packages_match->hash);
+
+	ac->sockets_match = calloc(1, sizeof(match_rules));
+	ac->sockets_match->hash = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->sockets_match->hash);
 }
 
 void system_metric_initialize()
@@ -143,14 +89,19 @@ aconf* configuration()
 {
 	ac = calloc(1, sizeof(*ac));
 	ac->aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->pg_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->mongodb_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->my_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
 
 	ac->tls_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->uggregator);
+	//ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
+	//tommy_hashdyn_init(ac->uggregator);
+	ac->udpaggregator = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->udpaggregator);
 	ac->tls_aggregator_startup = 1500;
 	ac->tls_aggregator_repeat = 10000;
 
@@ -180,14 +131,22 @@ aconf* configuration()
 	ac->tls_fs_startup = 4500;
 	ac->tls_fs_repeat = 60000;
 
+	ac->query = calloc(1, sizeof(tommy_hashdyn));
+	ac->query_startup = 5000;
+	ac->query_repeat = 10000;
+
 	ac->modules = calloc(1, sizeof(tommy_hashdyn));
 
 	tommy_hashdyn_init(ac->aggregator);
+	tommy_hashdyn_init(ac->pg_aggregator);
+	tommy_hashdyn_init(ac->mongodb_aggregator);
+	tommy_hashdyn_init(ac->my_aggregator);
 	tommy_hashdyn_init(ac->tls_aggregator);
 	tommy_hashdyn_init(ac->iggregator);
 	tommy_hashdyn_init(ac->process_spawner);
 	tommy_hashdyn_init(ac->lang_aggregator);
 	tommy_hashdyn_init(ac->fs_x509);
+	tommy_hashdyn_init(ac->query);
 	tommy_hashdyn_init(ac->modules);
 
 	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
@@ -195,7 +154,6 @@ aconf* configuration()
 
 	ac->request_cnt = 0;
 	ts_initialize();
-	config_context_initialize();
 	aggregate_ctx_init();
 	system_initialize();
 	system_metric_initialize();
@@ -290,6 +248,7 @@ int main(int argc, char **argv)
 	//filetailer_handler("/var/log/", dummy_handler);
 
 	tcp_client_handler();
+	udp_client_handler();
 #ifdef __linux__
 	icmp_client_handler();
 #endif
@@ -299,6 +258,13 @@ int main(int argc, char **argv)
 	//unix_client_handler();
 	unixgram_client_handler();
 	lang_handler();
+	tls_fs_handler();
+	query_handler();
+	postgresql_client_handler();
+	mongodb_client_handler();
+	mysql_client_handler();
+	//udp_send("\0\1sendfile.txt\0netascii\0", 24);
+	//udp_send("\0\1sendfile.txt\0octet\0", 21);
 
 	//context_arg* carg = calloc(1, sizeof(*carg));
 	//carg->loop = loop;

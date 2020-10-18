@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/https_tls_check.h"
 #include "main.h"
 #include "parsers/http_proto.h"
 #include "common/selector.h"
@@ -152,13 +151,10 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	{
 		char *proxybuf;
 		uint64_t proxylen;
-		if (carg->http_body)
+		if (!carg->headers_pass && carg->is_http_query)
 		{
-			proxybuf = carg->http_body;
-			//printf("http %llu - (%llu - %llu))\n", carg->full_body->l, carg->http_body, carg->full_body->s);
-			proxylen = (carg->full_body->l - (carg->http_body - carg->full_body->s)) + 1;
-			if (proxylen > carg->full_body->l)
-				proxylen = 0;
+			proxybuf = strstr(buf, "\r\n\r\n");
+			proxylen = len - (proxybuf - buf);
 		}
 		else
 		{
@@ -166,7 +162,8 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 			proxylen = len;
 		}
 		//printf(">>>>>>>>>>>>>>>\n%zu\n'%s'\n<<<<<<<<<<<<<<<<<<\n", proxylen, proxybuf);
-		handler(proxybuf, proxylen, carg);
+		if (proxybuf)
+			handler(proxybuf, proxylen, carg);
 
 		if (carg)
 			carg->exec_time_finish = setrtime();
@@ -179,4 +176,28 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 
 	if (carg)
 		carg->exec_time_finish = setrtime();
+}
+
+string* tcp_mesg(host_aggregator_info *hi, void *arg)
+{
+	if (hi->query)
+		return string_init_add(strdup(hi->query), 0, 0);
+	else
+		return NULL;
+}
+
+void tcp_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("tcp");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = tcp_mesg;
+	strlcpy(actx->handler[0].key,"tcp", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

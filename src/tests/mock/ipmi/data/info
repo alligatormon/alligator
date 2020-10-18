@@ -1,0 +1,14 @@
+SEL Information
+Version          : 1.5 (v1.5, v2 compliant)
+Entries          : 2
+Free Space       : 9180 bytes
+Percent Used     : 0%
+Last Add Time    : 10/08/2020 04:25:58
+Last Del Time    : Not Available
+Overflow         : false
+Supported Cmds   : 'Reserve' 'Get Alloc Info'
+# of Alloc Units : 512
+Alloc Unit Size  : 18
+# Free Units     : 510
+Largest Free Blk : 510
+Max Record Size  : 18
