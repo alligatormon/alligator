@@ -87,7 +87,8 @@ void dpkg_list(char *str, size_t len)
 
 void dpkg_callback(char *buf, size_t len, void *data)
 {
-	dpkg_list(buf, len);
+	if (buf && len > 1)
+		dpkg_list(buf, len);
 }
 
 void dpkg_crawl(char *path)

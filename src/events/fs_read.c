@@ -28,14 +28,18 @@ void fs_read_close(uv_fs_t* req)
 
 void fs_read_on_read(uv_fs_t *req)
 {
-	extern aconf *ac;
-
 	fs_read_info *frinfo  = req->data;
 	uv_fs_req_cleanup(req);
-	free(req);
 
-	if ((req->result < 0) && (ac->log_level > 2))
-		fprintf(stderr, "Read error: %s\n", frinfo->filename);
+	if ((req->result < 0))
+	{
+		frinfo->callback = 0;
+		fs_read_close(req);
+		free(req);
+		if (ac->log_level > 2)
+			fprintf(stderr, "Read error: %s\n", frinfo->filename);
+		return;
+	}
 	else if (req->result == 0) {
 	}
 	else {
@@ -45,11 +49,10 @@ void fs_read_on_read(uv_fs_t *req)
 	uv_fs_t *close_req = malloc(sizeof(*close_req));
 	close_req->data = frinfo;
 	uv_fs_close(uv_default_loop(), close_req, frinfo->open_fd->result, fs_read_close);
+	free(req);
 }
 void fs_read_on_open(uv_fs_t *req)
 {
-	extern aconf *ac;
-
 	fs_read_info *frinfo  = req->data;
 	uv_fs_t *read_req = malloc(sizeof(*read_req));
 	read_req->data = frinfo;

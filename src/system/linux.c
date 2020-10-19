@@ -2427,38 +2427,57 @@ void baseboard_info()
 {
 	uint64_t val = 1;
 	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor");
-	metric_add_labels("baseboard_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", board_vendor->s);
-	string_free(board_vendor);
+	if (board_vendor)
+	{
+		metric_add_labels("baseboard_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", board_vendor->s);
+		string_free(board_vendor);
+	}
 
 	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name");
-	metric_add_labels("baseboard_product_name", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
-	string_free(product_name);
+	if (product_name)
+	{
+		metric_add_labels("baseboard_product_name", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
+		string_free(product_name);
+	}
 
 	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag");
-	metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
-	string_free(asset_tag);
+	if (asset_tag)
+	{
+		metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
+		string_free(asset_tag);
+	}
 
 	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version");
-	metric_add_labels("baseboard_version", &val, DATATYPE_UINT, ac->system_carg, "version", board_version->s);
-	string_free(board_version);
+	if (board_version)
+	{
+		metric_add_labels("baseboard_version", &val, DATATYPE_UINT, ac->system_carg, "version", board_version->s);
+		string_free(board_version);
+	}
 
 	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial");
-	metric_add_labels("baseboard_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", board_serial->s);
-	string_free(board_serial);
+	if (board_serial)
+	{
+		metric_add_labels("baseboard_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", board_serial->s);
+		string_free(board_serial);
+	}
 
 	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor");
-	metric_add_labels("bios_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", bios_vendor->s);
-	string_free(bios_vendor);
+	if (bios_vendor)
+	{
+		metric_add_labels("bios_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", bios_vendor->s);
+		string_free(bios_vendor);
+	}
 
 	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version");
-	metric_add_labels("bios_version", &val, DATATYPE_UINT, ac->system_carg, "version", bios_version->s);
-	string_free(bios_version);
+	if (bios_version)
+	{
+		metric_add_labels("bios_version", &val, DATATYPE_UINT, ac->system_carg, "version", bios_version->s);
+		string_free(bios_version);
+	}
 }
 
 void get_system_metrics()
 {
-	cadvisor_metrics();
-
 	int8_t platform = -1;
 	if (ac->system_base)
 	{
@@ -2472,6 +2491,7 @@ void get_system_metrics()
 		get_conntrack_info();
 		ipaddr_info();
 		hw_cpu_info();
+		get_utsname();
 		if (!platform)
 		{
 			char edacdir[255];
@@ -2555,6 +2575,10 @@ void get_system_metrics()
 	}
 	if (ac->system_cpuavg)
 		get_cpu_avg();
+
+	if (ac->system_cadvisor)
+		cadvisor_metrics();
+
 }
 
 void system_fast_scrape()

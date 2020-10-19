@@ -78,7 +78,7 @@ void plain_get_word(char *str, config_parser_stat *ret)
 			printf("quotas2 parser: %"u64" < %"u64" || %"u64" < %"u64"\n", sq2, sm, sq2, st);
 		}
 
-		if ((sq1 < sm) && (sq1 < sm))
+		if ((sq1 < sm) && (sq1 < st))
 		{
 			if (ac->log_level > 3)
 				printf("quotas1 parser1 selected\n");
@@ -624,5 +624,7 @@ char* config_plain_to_json(string *context)
 {
 	uint64_t token_count = plain_count_get(context);
 	config_parser_stat *wstokens = string_tokenizer(context, &token_count);
-	return build_json_from_tokens(wstokens, token_count);
+	char *ret = build_json_from_tokens(wstokens, token_count);
+	free(wstokens);
+	return ret;
 }

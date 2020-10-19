@@ -6,6 +6,7 @@ extern aconf* ac;
 
 void mongo_cmd_run(mongoc_collection_t *collection, mongoc_client_t *client, char *db_name, char *cmd, char *arg)
 {
+	printf("mongo_cmd_run(collection %p, client %p, db_name %s, cmd %s, arg %s\n", collection, client, db_name, cmd, arg);
 	bson_t *command;
 	bson_error_t error;
 	bson_t reply;
@@ -20,7 +21,7 @@ void mongo_cmd_run(mongoc_collection_t *collection, mongoc_client_t *client, cha
 		//printf ("======= run %s (%s): =========\n%s\n", cmd, db_name, str);
 		bson_free (str);
 	} else {
-		fprintf (stderr, "Failed to run command: %s\n", error.message);
+		fprintf (stderr, "Failed to run command: %s, error: %s\n", cmd, error.message);
 	}
 
 	bson_destroy (command);
@@ -76,12 +77,12 @@ void mongo_get_collections(mongoc_database_t *database, char *db, mongoc_client_
 
 		if (!strcmp(collection_name, "products"))
 		{
-			mongo_find(client, collection, "{\"item\" : \"stamps\"}", NULL);
+			mongo_find(client, collection, "{\"ping\" : 1}", NULL);
 			//mongo_find(client, collection, "{\"item\" : \"stamps\"}", "{ \"item\": 1 }");
 		}
 
 		mongo_cmd_run(collection, NULL, "", "collStats", (char*)bson_iter_utf8 (&iter, NULL));
-
+		mongo_cmd_run(collection, NULL, "", "dataSize", (char*)bson_iter_utf8 (&iter, NULL));
 		ac->libmongo->mongoc_collection_destroy (collection);
 	}
 
@@ -105,9 +106,17 @@ void mongo_get_databases(mongoc_client_t *client)
 			puts("============== database =================");
 			printf ("= %s\n", strv[i]);
 			mongoc_database_t *database = ac->libmongo->mongoc_client_get_database (client, strv[i]);
+	
+			mongo_cmd_run(NULL, client, strv[i], "connPoolStats", "");
+			mongo_cmd_run(NULL, client, strv[i], "dbStats", "");
+			mongo_cmd_run(NULL, client, strv[i], "features", "");
+			mongo_cmd_run(NULL, client, strv[i], "serverStatus", "");
+
 
 			mongo_get_collections(database, strv[i], client);
-		 }
+		}
+		mongo_cmd_run(NULL, client, "admin", "buildInfo", "");
+		mongo_cmd_run(NULL, client, "admin", "top", "");
 
 		bson_strfreev (strv);
 	} else {
@@ -330,14 +339,9 @@ void mongodb_run(void* arg)
 	}
 
 	//client = ac->libmongo->mongoc_client_new ("mongodb://localhost:27017/?appname=executing-example");
-	ac->libmongo->mongoc_client_set_appname (client, "connect-example");
+	//ac->libmongo->mongoc_client_set_appname (client, "connect-example");
 	//client = ac->libmongo->mongoc_client_new (carg->url);
 	mongo_get_databases(client);
-
-	//mongo_cmd_run(NULL, client, "admin", "serverStatus", "");
-	//mongo_cmd_run(collection, "dbStats", "");
-	//mongo_cmd_run(NULL, client, "admin", "replSetGetStatus", "");
-	mongo_cmd_run(NULL, client, "admin", "db.serverStatus({ serverStatus: 1, repl: 1, metrics: 1, locks: 1, mirroredReads: 1, latchAnalysis: 1 })", "");
 
 	ac->libmongo->mongoc_client_destroy (client);
 	ac->libmongo->mongoc_cleanup ();

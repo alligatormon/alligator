@@ -603,5 +603,8 @@ string* get_file_content(char *file)
 	buf[rc] = 0;
 
 	string *str = string_init_add(buf, rc, fdsize);
+
+	fclose(fd);
+
 	return str;
 }

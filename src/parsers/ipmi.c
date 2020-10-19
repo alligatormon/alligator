@@ -471,6 +471,69 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 	}
 }
 
+void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
+{
+	uint8_t newind;
+	uint64_t val = 1;
+	char name[IPMI_METRIC_SIZE];
+	char state[IPMI_METRIC_SIZE];
+
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+
+	for (uint64_t i = 0; i < size; i++)
+	{
+		// name
+		newind = strcspn(metrics+i, ":\n\r");
+		if ((metrics[i] == '\n') || (metrics[i] == '\r') || (metrics[i] == '\0'))
+		{
+			i += strcspn(metrics+i, "\n");
+			continue;
+		}
+
+		strlcpy(name, metrics+i, newind+1);
+		ipmi_set_null_sep(name, newind);
+		i += newind;
+		i += strspn(metrics+i, " :\t");
+
+		if (carg->log_level > 1)
+			printf("name is '%s'\n", name);
+
+		// state
+		newind = strcspn(metrics+i, "\n\r");
+		if ((metrics[i] == '\n') || (metrics[i] == '\r') || (metrics[i] == '\0'))
+		{
+			i += strcspn(metrics+i, "\n");
+			continue;
+		}
+
+		strlcpy(state, metrics+i, newind+1);
+		ipmi_set_null_sep(state, newind);
+		if (carg->log_level > 1)
+			printf("\tstate is '%s'\n", state);
+
+		if (!strcmp(name, "IP Address Source"))
+			labels_hash_insert_nocache(hash, "source", state);
+		else if (!strcmp(name, "IP Address"))
+			labels_hash_insert_nocache(hash, "ip", state);
+		else if (!strcmp(name, "Subnet Mask"))
+			labels_hash_insert_nocache(hash, "mask", state);
+		else if (!strcmp(name, "MAC Address"))
+			labels_hash_insert_nocache(hash, "mac", state);
+		else if (!strcmp(name, "Default Gateway IP"))
+			labels_hash_insert_nocache(hash, "default_gateway_ip", state);
+		else if (!strcmp(name, "Default Gateway MAC"))
+			labels_hash_insert_nocache(hash, "default_gateway_mac", state);
+		else if (!strcmp(name, "Backup Gateway IP"))
+			labels_hash_insert_nocache(hash, "backup_gateway_ip", state);
+		else if (!strcmp(name, "Backup Gateway MAC"))
+			labels_hash_insert_nocache(hash, "backup_gateway_mac", state);
+
+		i += strcspn(metrics+i, "\n");
+	}
+	metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
+}
+
 string* ipmi_sensor_mesg(host_aggregator_info *hi, void *arg)
 {
 	return string_init_alloc("sensor list", 0);
@@ -491,14 +554,19 @@ string* ipmi_sel_elist_mesg(host_aggregator_info *hi, void *arg)
 	return string_init_alloc("sel elist", 0);
 }
 
+string* ipmi_lan_print_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_alloc("lan print", 0);
+}
+
 void ipmi_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("ipmi");
 	actx->data = calloc(1, sizeof(ipmi_data));
-	actx->handlers = 4;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handlers = 5;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = ipmi_sensor_handler;
 	actx->handler[0].validator = NULL;
@@ -519,6 +587,11 @@ void ipmi_parser_push()
 	actx->handler[3].validator = NULL;
 	actx->handler[3].mesg_func = ipmi_sel_info_mesg;
 	strlcpy(actx->handler[3].key,"ipmi_sel_info", 255);
+
+	actx->handler[4].name = ipmi_lan_print_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = ipmi_lan_print_mesg;
+	strlcpy(actx->handler[4].key,"ipmi_lan_print", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

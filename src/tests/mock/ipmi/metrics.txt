@@ -206,3 +206,4 @@ ipmi_sensor_upper_non_critical {name="P2-DIMM3A Temp", measure="degrees C"} 85.0
 ipmi_sensor_upper_non_critical {name="P2-DIMM3B Temp", measure="degrees C"} 85.000000
 ipmi_sensor_upper_non_critical {name="System Temp", measure="degrees C"} 79.000000
 ipmi_sensor_upper_non_critical {name="VBAT", measure="Volts"} 3.696000
+IPMI_Lan {mac="cc:xx:ab:4b:74:1b", default_gateway_mac="cc:xx:ab:4b:74:11", mask="255.255.255.0", ip="10.1.6.2", default_gateway_ip="10.1.6.1", backup_gateway_ip="0.0.0.0", source="Static Address", backup_gateway_mac="00:00:00:00:00:00"} 1

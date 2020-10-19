@@ -101,4 +101,5 @@ void aggregate_ctx_init()
 	http_parser_push();
 	tcp_parser_push();
 	tftp_parser_push();
+	blackbox_parser_push();
 }

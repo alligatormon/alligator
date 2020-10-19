@@ -20,11 +20,8 @@ void expire_loop(uv_timer_t* handle)
 {
 	extern aconf* ac;
 
-	if (ac->ttl != 0)
-	{
-		r_time time = setrtime();
-		expire_purge(time.sec, 0);
-	}
+	r_time time = setrtime();
+	expire_purge(time.sec, 0);
 }
 
 void dump_loop()

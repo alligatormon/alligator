@@ -201,3 +201,27 @@ void tcp_parser_push()
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
+
+string* blackbox_mesg(host_aggregator_info *hi, void *arg)
+{
+	if (hi->query)
+		return string_init_alloc(hi->query, 0);
+	else
+		return NULL;
+}
+
+void blackbox_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("blackbox");
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = blackbox_mesg;
+	strlcpy(actx->handler[0].key,"blackbox", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}

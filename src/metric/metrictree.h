@@ -141,6 +141,13 @@ typedef struct mapping_metric
 	mapping_label *label_tail;
 } mapping_metric;
 
+typedef struct query_struct {
+	char *key;
+	double val;
+	uint64_t count;
+	tommy_node node;
+} query_struct;
+
 
 //void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);

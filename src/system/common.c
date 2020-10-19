@@ -53,10 +53,18 @@ void hw_cpu_info()
 	while (i--)
 	{
 		char socket_num[3];
-		char speed[20];
 		snprintf(socket_num, 2, "%d", i);
-		snprintf(speed, 19, "%d", cinfo->speed);
-		metric_add_labels3("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", cinfo[i].model, "socket", socket_num, "speed", speed);
+		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", cinfo[i].model, "socket", socket_num);
 	}
 	uv_free_cpu_info(cinfo, count);
 }
+
+void get_utsname()
+{
+	uv_utsname_t buf;
+	uv_os_uname(&buf);
+	uint64_t val = 1;
+	//printf("sysname: %s, relese: %s, version: %s, machine: %s\n", buf.sysname, buf.release, buf.version, buf.machine);
+	metric_add_labels("machine_arch", &val, DATATYPE_UINT, ac->system_carg, "arch", buf.machine);
+}
+

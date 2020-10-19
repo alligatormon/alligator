@@ -12,4 +12,7 @@ then
 elif [ "$1" == "sensor" ]
 then
 	cat /app/src/tests/mock/ipmi/data/sensor
+elif [ "$*" == "lan print" ]
+then
+	cat /app/src/tests/mock/ipmi/data/lan
 fi

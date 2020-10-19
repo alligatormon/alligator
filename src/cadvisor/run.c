@@ -130,6 +130,7 @@ void podman_parse(FILE *fd, size_t fd_size)
 	if (!root)
 	{
 		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		free(buf);
 		return;
 	}
 

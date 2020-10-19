@@ -41,7 +41,9 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 {
 	context_arg *carg = req->data;
 
-	fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
+	if (carg->log_level > 2)
+		fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
+
 	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	string_null(carg->full_body);
 

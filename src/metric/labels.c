@@ -9,6 +9,38 @@
 #include "main.h"
 extern aconf *ac;
 
+int64_t get_ttl(context_arg *carg)
+{
+	if (!carg)
+		return ac->ttl;
+
+	if (carg->curr_ttl > -1)
+	{
+		if (carg->curr_ttl == 0)
+		{
+			return ac->ttl;
+		}
+
+		return carg->curr_ttl;
+	}
+	if (carg->curr_ttl < 0)
+		return INT_MAX;
+
+	if (carg && carg->ttl > -1)
+	{
+		if (carg->ttl == 0)
+		{
+			return ac->ttl;
+		}
+
+		return carg->ttl;
+	}
+	if (carg->ttl < 0)
+		return INT_MAX;
+
+	return ac->ttl;
+}
+
 uint8_t numbercheck(char *str)
 {
 	for (uint64_t j = 0; str[j]; j++)
@@ -212,6 +244,39 @@ void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x)
 	string_cat(str, "\n", 1);
 }
 
+int query_struct_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((query_struct*)obj)->key;
+        return strcmp(s1, s2);
+}
+
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, char *new_name, tommy_hashdyn *res_hash)
+{
+	if (!labels_list)
+		return;
+
+	char *key = "groupkey1";
+	uint32_t key_hash = tommy_strhash_u32(0, key);
+	query_struct *qs = tommy_hashdyn_search(res_hash, query_struct_compare, key, key_hash);
+	if (!qs)
+	{
+		qs = malloc(sizeof(*qs));
+		qs->val = 0;
+		qs->count = 0;
+		qs->key = key;
+		tommy_hashdyn_insert(res_hash, &(qs->node), qs, key_hash);
+	}
+	++qs->count;
+	int8_t type = x->type;
+	if (type == DATATYPE_INT)
+		qs->val += x->i;
+	else if (type == DATATYPE_UINT)
+		qs->val += x->u;
+	else if (type == DATATYPE_DOUBLE)
+		qs->val += x->d;
+}
+
 int labels_hash_compare(const void* arg, const void* obj)
 {
         char *s1 = (char*)arg;
@@ -351,7 +416,7 @@ void labels_merge(tommy_hashdyn *dst, tommy_hashdyn *src)
 	tommy_hashdyn_foreach_arg(src, labels_merge_for, dst);
 }
 
-labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, namespace_struct *arg_ns)
+labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
 {
 	namespace_struct *ns;
 
@@ -401,7 +466,8 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 				labelscont->allocatedname = 0;
 				free(labelscont->name);
 			}
-			tommy_hashdyn_remove_existing(hash, &(labelscont->node));
+			if (!no_del)
+				tommy_hashdyn_remove_existing(hash, &(labelscont->node));
 
 			free(labelscont);
 		}
@@ -416,9 +482,12 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	}
 
 	cur->next = 0;
-	tommy_hashdyn_foreach_arg(hash, labels_new_plan_node, cur);
-	tommy_hashdyn_done(hash);
-	free(hash);
+	if (!no_del)
+	{
+		tommy_hashdyn_foreach_arg(hash, labels_new_plan_node, cur);
+		tommy_hashdyn_done(hash);
+		free(hash);
+	}
 
 	return labels;
 }
@@ -445,34 +514,6 @@ void labels_hash_free(tommy_hashdyn *hash)
 	tommy_hashdyn_foreach_arg(hash, labels_free_node, NULL);
 	tommy_hashdyn_done(hash);
 	free(hash);
-}
-
-int64_t get_ttl(context_arg *carg)
-{
-	if (!carg)
-		return ac->ttl;
-
-	if (carg->curr_ttl > -1)
-	{
-		if (carg->curr_ttl == 0)
-		{
-			return INT_MAX;
-		}
-
-		return carg->curr_ttl;
-	}
-
-	if (carg && carg->ttl > -1)
-	{
-		if (carg->ttl == 0)
-		{
-			return INT_MAX;
-		}
-
-		return carg->ttl;
-	}
-
-	return ac->ttl;
 }
 
 void labels_hash_insert(tommy_hashdyn *hash, char *name, char *key)
@@ -602,7 +643,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 //	metric_tree *tree = ns->metrictree;
 //	expire_tree *expiretree = ns->expiretree;
 //
-//	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+//	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
 //	metric_node* mnode = metric_find(tree, labels_list);
 //	if (mnode)
 //	{
@@ -656,7 +697,7 @@ void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, 
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -694,7 +735,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -733,7 +774,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -772,7 +813,7 @@ void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, con
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	labels_t *labels_list = labels_initiate(labels, name, NULL, ns);
+	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -814,7 +855,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
 
-	labels_t *labels_list = labels_initiate(labels, name, 0, 0);
+	labels_t *labels_list = labels_initiate(labels, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -851,7 +892,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -889,7 +930,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -928,7 +969,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -968,7 +1009,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1009,7 +1050,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1051,7 +1092,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1094,7 +1135,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1122,8 +1163,46 @@ void metric_query (char *namespace, string *str, char *name, tommy_hashdyn *hash
 
 	//labels_hash_insert(hash, name1, key1);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0);
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 
 	if ( tree && tree->root )
 		metrictree_get(tree->root, labels_list, str);
+}
+
+void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *query, char *new_name)
+{
+	namespace_struct *ns;
+
+	if (!namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+
+	if ( tree && tree->root)
+	{
+		tommy_hashdyn *res_hash = malloc(sizeof(*res_hash));
+		tommy_hashdyn_init(res_hash);
+		metrictree_gen(tree->root, labels_list, new_name, res_hash);
+		labels_list->key = new_name;
+		labels_list->key_len = strlen(new_name);
+
+		int64_t ttl = get_ttl(NULL);
+
+		uint64_t value = tommy_hashdyn_count(res_hash);
+		metric_node* mnode = metric_find(tree, labels_list);
+		if (mnode)
+		{
+			metric_set(mnode, DATATYPE_UINT, &value, expiretree, ttl);
+			labels_head_free(labels_list);
+		}
+		else
+		{
+			mnode = metric_insert(tree, labels_list, DATATYPE_UINT, &value, expiretree, ttl);
+		}
+		tommy_hash_forfree(res_hash, free);
+	}
 }

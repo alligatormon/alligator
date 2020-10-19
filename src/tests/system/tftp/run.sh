@@ -3,6 +3,7 @@
 . /app/src/tests/system/common.sh
 DIR="tftp"
 
+xinetd -f $APPDIR/tests/system/tftp/xinetd/xinetd.conf
 $APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
