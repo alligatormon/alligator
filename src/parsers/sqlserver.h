@@ -1,1 +1,0 @@
-void sqlserver_handler();

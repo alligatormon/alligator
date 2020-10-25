@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
+#include <query/query.h>
 #include <main.h>
 
 void postgresql_free(pq_library* pglib)
@@ -326,82 +327,110 @@ int postgres_init_module()
 	return 1;
 }
 
-void postgresql_write(PGresult* r)
+void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
 {
-	printf("status %d/%d\n", ac->pqlib->PQresultStatus(r), PGRES_TUPLES_OK);
-	printf("tuples %d, field %d\n", ac->pqlib->PQntuples(r), ac->pqlib->PQnfields(r));
+	if (carg->log_level > 1)
+	{
+		printf("pg status %d/%d\n", ac->pqlib->PQresultStatus(r), PGRES_TUPLES_OK);
+		printf("pg tuples %d, field %d\n", ac->pqlib->PQntuples(r), ac->pqlib->PQnfields(r));
+	}
 
 	uint64_t i;
 	uint64_t j;
 
 	for (i=0; i<ac->pqlib->PQntuples(r); ++i)
 	{
+		tommy_hashdyn *hash = malloc(sizeof(*hash));
+		tommy_hashdyn_init(hash);
+		uint64_t val = 0;
 		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
 		{
-			if (ac->pqlib->PQftype(r, j) == 20)
-			{
+			char *colname = ac->pqlib->PQfname(r, j);
+			//if (ac->pqlib->PQftype(r, j) == 20)
+			//{
+			//	char *res = ac->pqlib->PQgetvalue(r, i, j);
+			//	if (!strcmp(qn->field, colname))
+			//		printf("\tvalue '%s'\n", res);
+			//	else
+			//		printf("\t'%s': '%s'\n", colname, res);
+			//}
+			//else
+			//{
 				char *res = ac->pqlib->PQgetvalue(r, i, j);
-				uint64_t dec = res[7] + res[6]*256 + res[5]*65536 + res[4]*16777216 + res[3]*4294967296 + res[2]*1099511627776 + res[1]*281474976710656 + res[0]*72057594037927936;
-				printf("[%"PRIu64"][%"PRIu64"]: {%d} %"PRIu64"\n", i, j, ac->pqlib->PQftype(r, j), dec);
-			}
-			else
-				printf("[%"PRIu64"][%"PRIu64"]: {%d} %s\n", i, j,ac->pqlib->PQftype(r, j), ac->pqlib->PQgetvalue(r, i, j));
+				if (!strcmp(qn->field, colname))
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", res);
+					val = strtoull(res, NULL, 10);
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+			//}
 		}
+		metric_add(qn->make, hash, &val, DATATYPE_UINT, ac->system_carg);
 	}
 
 	ac->pqlib->PQclear(r);
 }
 
-PGresult* postgresql_query(PGconn *conn, char *query)
+void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg)
 {
 	PGresult *res = ac->pqlib->PQexec(conn, query);
 	if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
-		fprintf(stderr, "%s command failed: %s", query, ac->pqlib->PQerrorMessage(conn));
+		if (carg->log_level > 1)
+			fprintf(stderr, "%s command failed: %s", query, ac->pqlib->PQerrorMessage(conn));
 	}
 	else
-		postgresql_write(res);
+		postgresql_write(res, qn, carg);
+}
 
-	return res;
+void postgresql_queries_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = (context_arg*)funcarg;
+	PGconn *conn = carg->data;
+	query_node *qn = arg;
+	if (carg->log_level > 1)
+	{
+		puts("+-+-+-+-+-+-+-+");
+		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	}
+	//PGconn *conn = (PGconn*)funcarg;
+	postgresql_query(conn, qn->expr, qn, carg);
 }
 
 void postgresql_run(void* arg)
 {
-
 	if (!postgres_init_module())
 		return;
 
-    PGconn     *conn;
-    PGresult   *res;
+	PGconn	 *conn;
+	//PGresult   *res;
 
-    context_arg *carg = arg;
+	context_arg *carg = arg;
+	conn = ac->pqlib->PQconnectdb(carg->url);
+	if (ac->pqlib->PQstatus(conn) != CONNECTION_OK)
+	{
+		if (carg->log_level > 0)
+			fprintf(stderr, "Connection to database failed: %s", ac->pqlib->PQerrorMessage(conn));
+		ac->pqlib->PQfinish(conn);
+		return;
+	}
 
-    conn = ac->pqlib->PQconnectdb(carg->url);
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		carg->data = conn;
+		tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+	}
 
-    if (ac->pqlib->PQstatus(conn) != CONNECTION_OK)
-    {
-        fprintf(stderr, "Connection to database failed: %s",
-                ac->pqlib->PQerrorMessage(conn));
-        ac->pqlib->PQfinish(conn);
-        return;
-    }
-
-    res = ac->pqlib->PQexec(conn, "SELECT pg_database.datname, pg_database_size(pg_database.datname) as size FROM pg_database");
-    if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
-    {
-        fprintf(stderr, "BEGIN command failed: %s", ac->pqlib->PQerrorMessage(conn));
-        ac->pqlib->PQclear(res);
-        ac->pqlib->PQfinish(conn);
-        return;
-    }
-    postgresql_write(res);
-    ac->pqlib->PQclear(res);
-
-	res = postgresql_query(conn, "SELECT count(datname), datname FROM pg_stat_activity GROUP BY datname;");
-	ac->pqlib->PQclear(res);
-
-    /* close the connection to the database and cleanup */
-    ac->pqlib->PQfinish(conn);
+	ac->pqlib->PQfinish(conn);
 
 }
 

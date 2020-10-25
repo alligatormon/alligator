@@ -4,9 +4,182 @@
 #include "modules/modules.h"
 extern aconf* ac;
 
-void mongo_cmd_run(mongoc_collection_t *collection, mongoc_client_t *client, char *db_name, char *cmd, char *arg)
+void mongo_add_metric(context_arg *carg, char *key1, char *key2, char *key3, char *key, char *name, char *ns, void* val, int8_t type)
 {
-	printf("mongo_cmd_run(collection %p, client %p, db_name %s, cmd %s, arg %s\n", collection, client, db_name, cmd, arg);
+	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	tommy_hashdyn_init(hash);
+	if (ns)
+		labels_hash_insert_nocache(hash, "namespace", ns);
+	if (key1)
+		labels_hash_insert_nocache(hash, "name", key1);
+	if (key2)
+		labels_hash_insert_nocache(hash, "key", key2);
+	if (key3)
+		labels_hash_insert_nocache(hash, "desc", key3);
+
+	metric_add(name, hash, val, type, carg);
+}
+
+int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, char *key3, char *key, char *name, char *ns, int in)
+{
+	int type = json_typeof(value);
+	if (carg->log_level > 2)
+		printf("%d===== name: %s, key: %s, key1: %s, key2:%s, key3: %s, type %d\n", in, name, key, key1, key2, key3, type);
+	
+	if (type == JSON_REAL)
+	{
+		double dl = json_real_value(value);
+		if (carg->log_level > 2)
+			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", ns, name, key, key1, key2, key3, dl);
+
+		mongo_add_metric(carg, key1, key2, key3, key, name, ns, &dl, DATATYPE_DOUBLE);
+	}
+	else if (type == JSON_INTEGER)
+	{
+		int64_t vl = json_integer_value(value);
+		if (carg->log_level > 2)
+			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+
+		mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
+	}
+	else if (type == JSON_STRING)
+	{
+		char *svl = (char*)json_string_value(value);
+		if (strcmp(key, "$numberInt"))
+		{
+			uint64_t vl = strtoll(svl, NULL, 10);
+			if (carg->log_level > 2)
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+
+			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
+		}
+		else if (strcmp(key, "$numberDouble"))
+		{
+			double dl = strtod(svl, NULL);
+			if (carg->log_level > 2)
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", ns, name, key, key1, key2, key3, dl);
+
+			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &dl, DATATYPE_DOUBLE);
+		}
+	}
+
+	return type;
+}
+
+void mongo_Stats(context_arg *carg, char *metrics, char *prefix, char *ns_override)
+{
+	if (carg->log_level > 2)
+	{
+		puts("===========================");
+		puts(metrics);
+		puts("===========================");
+	}
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		if (carg->log_level > 1)
+			fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	char *ns = ns_override;
+	if (!ns_override)
+	{
+		json_t *ns_json = json_object_get(root, "ns");
+		ns = (char*)json_string_value(ns_json);
+	}
+
+	const char *key;
+	json_t *value1;
+	char string[255];
+	char string2[255];
+	char string3[255];
+	char string4[255];
+	size_t string_len;
+	size_t string_len2;
+	size_t string_len3;
+	snprintf(string,  254, "MongoDB_%s", prefix);
+	snprintf(string2, 254, "MongoDB_%s", prefix);
+	snprintf(string3, 254, "MongoDB_%s", prefix);
+	snprintf(string4, 254, "MongoDB_%s", prefix);
+	size_t fsize = strlen(string);
+	json_object_foreach(root, key, value1)
+	{
+		string_len = strlen(key);
+		if (key[string_len-1] == '_')
+			--string_len;
+		string[fsize] = '_';
+		string2[fsize] = '_';
+		string3[fsize] = '_';
+		string4[fsize] = '_';
+		strlcpy(string+1+fsize, key, string_len+1);
+		strlcpy(string2+1+fsize, key, string_len+1);
+		strlcpy(string3+1+fsize, key, string_len+1);
+		strlcpy(string4+1+fsize, key, string_len+1);
+		int type = json_typeof(value1);
+
+		if (type == JSON_OBJECT)
+		{
+			const char *key2;
+			json_t *value2;
+			json_object_foreach(value1, key2, value2)
+			{
+				string_len2 = strlen(key2);
+				string2[fsize+string_len] = '_';
+				string3[fsize+string_len] = '_';
+				string4[fsize+string_len] = '_';
+				strlcpy(string2+1+fsize+string_len, key2, string_len2+1);
+				strlcpy(string3+1+fsize+string_len, key2, string_len2+1);
+				strlcpy(string4+1+fsize+string_len, key2, string_len2+1);
+				int type2 = mongo_get_value(carg, value2, (char*)key, NULL, NULL, (char*)key2, string, ns, 1);
+
+				if (type2 == JSON_OBJECT)
+				{
+					const char *key3;
+					json_t *value3;
+					json_object_foreach(value2, key3, value3)
+					{
+						string3[fsize+string_len+string_len2] = '_';
+						string4[fsize+string_len+string_len2] = '_';
+						string_len3 = strlen(key3);
+						strlcpy(string3+1+fsize+string_len+string_len2, key3, string_len3+1);
+						strlcpy(string4+1+fsize+string_len+string_len2, key3, string_len3+1);
+
+						int type3 = mongo_get_value(carg, value3, (char*)key2, NULL, NULL, (char*)key3, string, ns, 2);
+						if (type3 == JSON_OBJECT)
+						{
+							const char *key4;
+							json_t *value4;
+							json_object_foreach(value3, key4, value4)
+							{
+								int type4 = mongo_get_value(carg, value4, (char*)key2, (char*)key3, NULL, (char*)key4, string, ns, 3);
+								if (type4 == JSON_OBJECT)
+								{
+									const char *key5;
+									json_t *value5;
+									json_object_foreach(value4, key5, value5)
+									{
+										mongo_get_value(carg, value5, (char*)key2, (char*)key3, (char*)key4, (char*)key5, string, ns, 4);
+									}
+								}
+
+
+
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	json_decref(root);
+}
+
+void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_client_t *client, char *db_name, char *cmd, char *arg, void (*callback)(context_arg *carg, char *str, char *prefix, char *ns_override), char *prefix, char *ns_override)
+{
+	if (carg->log_level > 1) 
+		printf("mongo_cmd_run(carg %p, collection %p, client %p, db_name %s, cmd %s, arg %s\n", carg, collection, client, db_name, cmd, arg);
 	bson_t *command;
 	bson_error_t error;
 	bson_t reply;
@@ -14,14 +187,25 @@ void mongo_cmd_run(mongoc_collection_t *collection, mongoc_client_t *client, cha
 	command = BCON_NEW (cmd, BCON_UTF8 (arg));
 	if ((collection) && ac->libmongo->mongoc_collection_command_simple ( collection, command, NULL, &reply, &error)) {
 		str = bson_as_canonical_extended_json (&reply, NULL);
-		//printf ("======= run %s: =========\n%s\n", cmd, str);
+		if (carg->log_level > 2) 
+			printf ("======= run %s: =========\n%s\n", cmd, str);
+
+		if (callback)
+			callback(carg, str, prefix, ns_override);
+
 		bson_free (str);
 	} else if ((!collection) && ac->libmongo->mongoc_client_command_simple(client, db_name, command, NULL, &reply, &error)) {
 		str = bson_as_canonical_extended_json (&reply, NULL);
-		//printf ("======= run %s (%s): =========\n%s\n", cmd, db_name, str);
+		if (carg->log_level > 2) 
+			printf ("======= run %s (%s): =========\n%s\n", cmd, db_name, str);
+
+		if (callback)
+			callback(carg, str, prefix, ns_override);
+
 		bson_free (str);
 	} else {
-		fprintf (stderr, "Failed to run command: %s, error: %s\n", cmd, error.message);
+		if (carg->log_level > 1)
+			fprintf (stderr, "Failed to run command: %s, error: %s\n", cmd, error.message);
 	}
 
 	bson_destroy (command);
@@ -55,7 +239,7 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 }
 
 
-void mongo_get_collections(mongoc_database_t *database, char *db, mongoc_client_t *client)
+void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char *db, mongoc_client_t *client)
 {
 	bson_t opts = BSON_INITIALIZER;
 	bson_t name_filter;
@@ -73,7 +257,8 @@ void mongo_get_collections(mongoc_database_t *database, char *db, mongoc_client_
 		bson_iter_init_find (&iter, doc, "name");
 		char *collection_name = (char*)bson_iter_utf8 (&iter, NULL);
 		mongoc_collection_t *collection = ac->libmongo->mongoc_client_get_collection (client, db, bson_iter_utf8 (&iter, NULL));
-		printf ("============ found collection: %s\n", bson_iter_utf8 (&iter, NULL));
+		if (carg->log_level > 1)
+			printf ("============ found collection: %s\n", bson_iter_utf8 (&iter, NULL));
 
 		if (!strcmp(collection_name, "products"))
 		{
@@ -81,8 +266,8 @@ void mongo_get_collections(mongoc_database_t *database, char *db, mongoc_client_
 			//mongo_find(client, collection, "{\"item\" : \"stamps\"}", "{ \"item\": 1 }");
 		}
 
-		mongo_cmd_run(collection, NULL, "", "collStats", (char*)bson_iter_utf8 (&iter, NULL));
-		mongo_cmd_run(collection, NULL, "", "dataSize", (char*)bson_iter_utf8 (&iter, NULL));
+		mongo_cmd_run(carg, collection, NULL, "", "collStats", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "Collection", NULL);
+		mongo_cmd_run(carg, collection, NULL, "", "dataSize", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "DataSize", collection_name);
 		ac->libmongo->mongoc_collection_destroy (collection);
 	}
 
@@ -94,7 +279,7 @@ void mongo_get_collections(mongoc_database_t *database, char *db, mongoc_client_
 	bson_destroy (&opts);
 }
 
-void mongo_get_databases(mongoc_client_t *client)
+void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 {
 	bson_error_t error;
 	char **strv;
@@ -103,20 +288,24 @@ void mongo_get_databases(mongoc_client_t *client)
 	if ((strv = ac->libmongo->mongoc_client_get_database_names_with_opts (client, NULL, &error))) {
 		for (i = 0; strv[i]; i++)
 		{
-			puts("============== database =================");
-			printf ("= %s\n", strv[i]);
+			if (carg->log_level > 1)
+			{
+				puts("============== database =================");
+				printf ("= %s\n", strv[i]);
+			}
 			mongoc_database_t *database = ac->libmongo->mongoc_client_get_database (client, strv[i]);
 	
-			mongo_cmd_run(NULL, client, strv[i], "connPoolStats", "");
-			mongo_cmd_run(NULL, client, strv[i], "dbStats", "");
-			mongo_cmd_run(NULL, client, strv[i], "features", "");
-			mongo_cmd_run(NULL, client, strv[i], "serverStatus", "");
+			mongo_cmd_run(carg, NULL, client, strv[i], "connPoolStats", "", mongo_Stats, "ConnectionPoolStatus", strv[i]);
+			mongo_cmd_run(carg, NULL, client, strv[i], "dbStats", "", mongo_Stats, "DBStats", strv[i]);
+			mongo_cmd_run(carg, NULL, client, strv[i], "features", "", mongo_Stats, "Features", strv[i]);
+			mongo_cmd_run(carg, NULL, client, strv[i], "serverStatus", "", mongo_Stats, "ServerStatus", strv[i]);
 
-
-			mongo_get_collections(database, strv[i], client);
+			mongo_get_collections(carg, database, strv[i], client);
 		}
-		mongo_cmd_run(NULL, client, "admin", "buildInfo", "");
-		mongo_cmd_run(NULL, client, "admin", "top", "");
+		mongo_cmd_run(carg, NULL, client, "admin", "buildInfo", "", mongo_Stats, "Build", "admin");
+		mongo_cmd_run(carg, NULL, client, "admin", "top", "", mongo_Stats, "Top", "admin");
+		mongo_cmd_run(carg, NULL, client, "admin", "isMaster", "", mongo_Stats, "Master", "admin");
+		mongo_cmd_run(carg, NULL, client, "admin", "replSetGetStatus", "", mongo_Stats, "ReplicationStatus", "admin");
 
 		bson_strfreev (strv);
 	} else {
@@ -341,7 +530,7 @@ void mongodb_run(void* arg)
 	//client = ac->libmongo->mongoc_client_new ("mongodb://localhost:27017/?appname=executing-example");
 	//ac->libmongo->mongoc_client_set_appname (client, "connect-example");
 	//client = ac->libmongo->mongoc_client_new (carg->url);
-	mongo_get_databases(client);
+	mongo_get_databases(client, carg);
 
 	ac->libmongo->mongoc_client_destroy (client);
 	ac->libmongo->mongoc_cleanup ();

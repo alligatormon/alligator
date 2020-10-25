@@ -35,7 +35,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 		if (json_typeof(value_json1) == JSON_OBJECT)
 		{
 			size_t offset = 0;
-			char *tmp = (char*)key1;
+			char *tmp;
 			while ((tmp = strstr(key1+offset, ".")))
 				offset = tmp - key1 + 1;
 

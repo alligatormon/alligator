@@ -135,8 +135,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					char *expr = (char*)json_string_value(jexpr);
 
 					json_t *jaction = json_object_get(x509, "action");
-					if (!jaction)
-						continue;
 					char *action = (char*)json_string_value(jaction);
 
 					json_t *jdatasource = json_object_get(x509, "datasource");
@@ -145,13 +143,11 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					char *datasource = (char*)json_string_value(jdatasource);
 
 					json_t *jfield = json_object_get(x509, "field");
-					if (!jfield)
-						continue;
 					char *field = (char*)json_string_value(jfield);
 
 					if (method == HTTP_METHOD_DELETE)
 					{
-						query_del(make);
+						query_del(datasource, make);
 						continue;
 					}
 

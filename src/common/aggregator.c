@@ -22,6 +22,8 @@ void smart_aggregator(context_arg *carg)
 		process_client(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
+	else if (carg->transport == APROTO_FILE)
+		filetailer_handler("/var/log/", NULL);
 	else if (carg->transport == APROTO_PG)
 		postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)

@@ -36,7 +36,7 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 
 	size_t sz = size_query + size_useragent + size_auth + 1000; 
 
-	char *buf = malloc(sz);
+	char *buf = malloc(sz+1);
 	char method[5];
 	switch (http_type)
 	{

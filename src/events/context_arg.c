@@ -94,6 +94,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	else
 		carg->tls = 0;
 
+	json_t *json_name = json_object_get(root, "name");
+	char *str_name = (char*)json_string_value(json_name);
+	if (str_name)
+		carg->name = strdup(str_name);
+
 	json_t *json_cert = json_object_get(root, "tls_certificate");
 	char *str_cert = (char*)json_string_value(json_cert);
 	if (str_cert)

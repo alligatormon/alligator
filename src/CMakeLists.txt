@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.140)
+set(VERSION 1.10.146)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -117,7 +117,7 @@ set(STATIC_FILES
 	parsers/mongodb.c
 	parsers/ntpd.c
 	parsers/ipmi.c
-	parsers/mysql2.c
+	parsers/mysql.c
 	parsers/tftp.c
 	common/selector.c
 	common/pem_check2.c

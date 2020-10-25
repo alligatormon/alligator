@@ -632,7 +632,8 @@ void get_proc_socket_number(char *path, char *procname)
 	char *cur = buf;
 	if (*cur != 's')
 		return;
-	for (; !isdigit(*cur); ++cur);
+	uint64_t i;
+	for (i = 0; i < len && !isdigit(*cur); ++cur, i++);
 	uint32_t fdesc = strtoull(cur, NULL, 10);
 	//printf("%s/%s: %"PRIu32"\n", buf, cur, fdesc);
 
@@ -2443,7 +2444,7 @@ void baseboard_info()
 	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag");
 	if (asset_tag)
 	{
-		metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
+		metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", asset_tag->s);
 		string_free(asset_tag);
 	}
 

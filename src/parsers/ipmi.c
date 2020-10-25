@@ -440,7 +440,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 		i += strspn(metrics+i, " :\t");
 
 		// state
-		newind = strcspn(metrics+i, ":\n\r");
+		strcspn(metrics+i, ":\n\r");
 		if ((metrics[i] == '\n') || (metrics[i] == '\r') || (metrics[i] == '\0'))
 		{
 			i += strcspn(metrics+i, "\n");

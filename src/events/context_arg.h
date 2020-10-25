@@ -20,6 +20,7 @@
 
 typedef struct context_arg
 {
+	char *name;
 	struct sockaddr_in *dest;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
@@ -131,6 +132,12 @@ typedef struct context_arg
 	uv_pipe_t *pipe;
 	uv_udp_t udp_client;
 	uv_udp_send_t udp_send;
+	uv_fs_t *open;
+	uv_fs_t *read;
+	const char *filename;
+	char *path;
+	uint64_t offset;
+	char pathname[1024];
 
 	char is_async_writing;
 	char is_writing;

@@ -36,7 +36,8 @@ void url_get_auth_data(host_aggregator_info *hi, char **tmp)
 
 	size_t sz;
 	hi->user = strndup(*tmp, (delim-*tmp));
-	hi->pass = strndup(delim+1, end-delim-1);
+	if (delim)
+		hi->pass = strndup(delim+1, end-delim-1);
 	hi->auth = base64_encode(*tmp, end-*tmp, &sz);
 
 	*tmp = end+1;

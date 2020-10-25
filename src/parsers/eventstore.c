@@ -10,7 +10,7 @@
 
 void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(void*)*1);
+	char **parsestring = malloc(sizeof(char*)*1);
 	parsestring[0] = strdup("plainprint::eventstore_es_queue(name)");
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);
@@ -19,7 +19,7 @@ void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 
 void eventstore_projections_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(void*)*1);
+	char **parsestring = malloc(sizeof(char*)*1);
 	parsestring[0] = strdup("print::eventstore_projections(name)");
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);
@@ -28,7 +28,7 @@ void eventstore_projections_handler(char *metrics, size_t size, context_arg *car
 
 void eventstore_info_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(void*)*1);
+	char **parsestring = malloc(sizeof(char*)*1);
 	parsestring[0] = strdup("label::eventstore_state(state)");
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);

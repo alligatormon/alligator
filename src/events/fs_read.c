@@ -35,7 +35,6 @@ void fs_read_on_read(uv_fs_t *req)
 	{
 		frinfo->callback = 0;
 		fs_read_close(req);
-		free(req);
 		if (ac->log_level > 2)
 			fprintf(stderr, "Read error: %s\n", frinfo->filename);
 		return;

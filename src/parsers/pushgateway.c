@@ -26,7 +26,7 @@ tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size
 		for (; index_get < uri_size && uri[index_get]!='/' && uri[index_get]!=0; ++index_get);
 		strlcpy(mname, uri+prev_get, index_get-prev_get+1);
 
-		prev_get = index_get;
+		//prev_get = index_get;
 		for (; index_get < uri_size && uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
 		if (index_get < uri_size && uri[index_get+1] == 0)
 			break;

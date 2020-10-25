@@ -387,7 +387,12 @@ void expire_purge(uint64_t key, char *namespace)
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
+	r_time start = setrtime();
 	while (expire_node_purge(expiretree->root, key, tree, expiretree));
 
 	expire_select_delete(expiretree, key);
+
+	r_time end = setrtime();
+	uint64_t expire_time = getrtime_mcs(start, end, 0);
+	metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
 }

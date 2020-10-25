@@ -151,7 +151,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	{
 		char *proxybuf;
 		uint64_t proxylen;
-		if (!carg->headers_pass && carg->is_http_query)
+		if (carg && !carg->headers_pass && carg->is_http_query)
 		{
 			proxybuf = strstr(buf, "\r\n\r\n");
 			proxylen = len - (proxybuf - buf);
