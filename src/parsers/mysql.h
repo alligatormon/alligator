@@ -36,6 +36,9 @@ typedef struct my_library {
 	uv_lib_t *mysql_fetch_row_lib;
 	MYSQL_ROW (*mysql_fetch_row)(MYSQL_RES *result);
 
+	uv_lib_t *mysql_fetch_field_direct_lib;
+	MYSQL_FIELD* (*mysql_fetch_field_direct)(MYSQL_RES *result, unsigned int fieldnr);
+
 	uv_lib_t *mysql_free_result_lib;
 	void (*mysql_free_result)(MYSQL_RES *result);
 } my_library;

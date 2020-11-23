@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.146)
+set(VERSION 1.10.155)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -119,6 +119,7 @@ set(STATIC_FILES
 	parsers/ipmi.c
 	parsers/mysql.c
 	parsers/tftp.c
+	parsers/squid.c
 	common/selector.c
 	common/pem_check2.c
 	common/rtime.c
@@ -138,6 +139,7 @@ set(STATIC_FILES
 	common/mkdirp.c
 	common/yaml.c
 	query/query.c
+	query/promql.c
 	common/stat.c
 	common/reject.c
 	api/api_router.c
@@ -183,16 +185,32 @@ add_library(${COMMON} STATIC ${STATIC_FILES} ${RPM_FILES})
 add_executable(${HEAD} main.c)
 
 add_library(${COMMON_TESTS} STATIC
-		common/selector.c
-		parsers/http_proto.c
-		system/linux.c
-		common/http.c
-		common/base64.c
-		platform/libbsd.c
-		common/selector.c
-		common/validator.c
-		common/url.c
-		common/netlib.c
+	common/selector.c
+	parsers/http_proto.c
+	system/linux.c
+	common/http.c
+	common/base64.c
+	platform/libbsd.c
+	common/selector.c
+	common/validator.c
+	common/url.c
+	common/netlib.c
+	query/promql.c
+	dstructures/tommy.c
+	dstructures/tommyds/tommyds/tommyarray.c
+	dstructures/tommyds/tommyds/tommyhashdyn.c
+	dstructures/tommyds/tommyds/tommyhashlin.c
+	dstructures/tommyds/tommyds/tommylist.c
+	dstructures/tommyds/tommyds/tommyhash.c
+	dstructures/tommyds/tommyds/tommyarray.c
+	dstructures/tommyds/tommyds/tommytree.c
+	dstructures/tommyds/tommyds/tommytrie.c
+	dstructures/tommyds/tommyds/tommyarrayblk.c
+	metric/expiretree.c
+	metric/labels.c
+	metric/metrictree.c
+	metric/percentile_heap.c
+	metric/metric_dump.c
 )
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)

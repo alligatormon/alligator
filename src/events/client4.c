@@ -109,6 +109,12 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	//puts("");
+	//puts("");
+	//puts("");
+	//puts("");
+	//printf("==================BASE===================\n'%s'\n======\n", buf->base);
+	
 	(carg->read_counter)++;
 	carg->read_time_finish = setrtime();
 
@@ -119,11 +125,12 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		{
 			if (!carg->full_body->l)
 			{
-				string_cat(carg->full_body, buf->base, nread);
-
-				http_reply_data* hr_data = http_reply_parser(carg->full_body->s, carg->full_body->l);
+				http_reply_data* hr_data = http_reply_parser(buf->base, nread);
 				if (hr_data)
 				{
+					string_string_cat(carg->full_body, hr_data->clear_http);
+					string_free(hr_data->clear_http);
+
 					carg->is_http_query = 1;
 					//carg->http_body = hr_data->body;
 					carg->chunked_size = hr_data->chunked_size;
@@ -133,10 +140,18 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					uint64_t http_code = hr_data->http_code;
 					metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 					metric_add_labels5("alligator_aggregator_http_header_size", &hr_data->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-					free(hr_data);
+
+					if (carg->chunked_expect)
+						chunk_calc(carg, hr_data->body, hr_data->body_size);
+
+					http_reply_free(hr_data);
+				}
+				else
+				{
+					string_cat(carg->full_body, buf->base, nread);
 				}
 			}
-			else if (carg->chunked_size) // maybe chunked_expect?
+			else if (carg->chunked_expect) // maybe chunked_expect?
 			{
 				chunk_calc(carg, buf->base, nread);
 			}

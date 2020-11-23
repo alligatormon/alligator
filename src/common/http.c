@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "main.h"
-char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf)
+char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf, char *httpver)
 {
 	//printf("%d, %s, %s, %s, %s, %s, %d\n", http_type, method_query, append_query, host, useragent, auth, clrf);
 	size_t method_query_size = 0;
@@ -43,15 +43,17 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 		default: strlcpy(method, "GET", 4);
 	}
 
+	char *version_http = httpver ? httpver : "1.1";
+
 	if (clrf)
 	{
-		if (auth)	snprintf(buf, sz, "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\nAuthorization: Basic %s\r\n\r\n", method, query, host, useragent, auth);
-		else		snprintf(buf, sz, "%s %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: %s\r\n\r\n", method, query, host, useragent);
+		if (auth)	snprintf(buf, sz, "%s %s HTTP/%s\r\nHost: %s\r\nUser-Agent: %s\r\nAuthorization: Basic %s\r\n\r\n", method, query, version_http, host, useragent, auth);
+		else		snprintf(buf, sz, "%s %s HTTP/%s\r\nHost: %s\r\nUser-Agent: %s\r\n\r\n", method, query, version_http, host, useragent);
 	}
 	else
 	{
-		if (auth)	snprintf(buf, sz, "%s %s HTTP/1.1\nHost: %s\nUser-Agent: %s\nAuthorization: Basic %s\n\n", method, query, host, useragent, auth);
-		else		snprintf(buf, sz, "%s %s HTTP/1.1\nHost: %s\nUser-Agent: %s\n\n", method, query, host, useragent);
+		if (auth)	snprintf(buf, sz, "%s %s HTTP/%s\nHost: %s\nUser-Agent: %s\nAuthorization: Basic %s\n\n", method, query, version_http, host, useragent, auth);
+		else		snprintf(buf, sz, "%s %s HTTP/%s\nHost: %s\nUser-Agent: %s\n\n", method, query, version_http, host, useragent);
 	}
 
 	return buf;

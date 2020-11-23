@@ -104,4 +104,5 @@ void aggregate_ctx_init()
 	tcp_parser_push();
 	tftp_parser_push();
 	blackbox_parser_push();
+	squid_parser_push();
 }

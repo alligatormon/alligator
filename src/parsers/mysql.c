@@ -1,4 +1,5 @@
 #include "parsers/mysql.h"
+#include "query/query.h"
 #include "main.h"
 
 my_library* mysql_module_init()
@@ -77,6 +78,14 @@ my_library* mysql_module_init()
 		return NULL;
 	}
 
+	mylib->mysql_fetch_field_direct = (void*)module_load(libmy->path, "mysql_fetch_field_direct", &mylib->mysql_fetch_field_direct_lib);
+	if (!mylib->mysql_fetch_field_direct)
+	{
+		printf("Cannot get mysql_fetch_field_direct from libmy\n");
+		//mysql_module_free(mylib);
+		return NULL;
+	}
+
 	mylib->mysql_free_result = module_load(libmy->path, "mysql_free_result", &mylib->mysql_free_result_lib);
 	if (!mylib->mysql_free_result)
 	{
@@ -120,15 +129,38 @@ void mysql_print_result(MYSQL *con)
 	{
 		for (unsigned int i = 0; i < num_fields; i++)
 		{
-			printf("%s ", row[i] ? row[i] : "NULL");
+			MYSQL_FIELD *field = ac->mylib->mysql_fetch_field_direct(result, i);
+			printf("%s:%s ", field->name, row[i] ? row[i] : "NULL");
 		}
 		puts("");
 	}
 	ac->mylib->mysql_free_result(result);
 }
 
+void mysql_queries_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = (context_arg*)funcarg;
+	MYSQL *con = carg->data;
+	query_node *qn = arg;
+	if (carg->log_level > 1)
+	{
+		puts("+-+-+-+-+-+-+-+");
+		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	}
+
+	if (ac->mylib->mysql_query(con, qn->expr)) 
+	{
+		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		ac->mylib->mysql_close(con);
+		return;
+	}
+
+	mysql_print_result(con);
+}
+
 void mysql_run(void* arg)
 {
+	puts("mysql_run");
 	if (!mysql_load_module())
 		return;
 
@@ -140,8 +172,10 @@ void mysql_run(void* arg)
 		return;
 	}
 	
+	context_arg *carg = arg;
+	printf("url: %s\n", carg->url);
 	//if (ac->mylib->mysql_real_connect(con, "localhost", "root", "root_pswd", NULL, 0, NULL, 0) == NULL) 
-	if (ac->mylib->mysql_real_connect(con, "127.0.0.1", "test", "test", NULL, 3306, NULL, 0) == NULL) 
+	if (ac->mylib->mysql_real_connect(con, carg->host, carg->user, carg->password, NULL, strtoull(carg->port, NULL, 10), NULL, 0) == NULL) 
 	{
 		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
 		ac->mylib->mysql_close(con);
@@ -157,29 +191,55 @@ void mysql_run(void* arg)
 
 	mysql_print_result(con);
 
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		if (qds)
+		{
+			carg->data = con;
+			tommy_hashdyn_foreach_arg(qds->hash, mysql_queries_foreach, carg);
+		}
+	}
+
 	ac->mylib->mysql_close(con);
 }
 
-static void mysql_timer(void *arg) {
+void mysql_timer(void *arg) {
 	extern aconf* ac;
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
 	{
+		puts("tommy_hashdyn_foreach");
 		tommy_hashdyn_foreach(ac->my_aggregator, mysql_run);
 		usleep(ac->aggregator_repeat * 1000);
 	}
 }
 
+void mysql_timer_without_thread(uv_timer_t* handle) {
+	(void)handle;
+	tommy_hashdyn_foreach(ac->my_aggregator, mysql_run);
+}
+
+void mysql_without_thread()
+{
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(ac->loop, timer1);
+	uv_timer_start(timer1, mysql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+}
+
 void mysql_client_handler()
 {
-	extern aconf* ac;
-
-	uv_thread_t th;
-	uv_thread_create(&th, mysql_timer, NULL);
+	// uncomment for thread
+	//uv_thread_t th;
+	//uv_thread_create(&th, mysql_timer, NULL);
+	mysql_without_thread();
 }
 
 void mysql_client(context_arg* carg)
 {
+	puts("mysql");
 	if (!carg)
 		return;
 

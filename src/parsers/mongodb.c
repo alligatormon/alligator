@@ -61,6 +61,14 @@ int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, ch
 
 			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &dl, DATATYPE_DOUBLE);
 		}
+		else if (strcmp(key, "$clusterTime"))
+		{
+			uint64_t vl = strtoll(svl, NULL, 10);
+			if (carg->log_level > 2)
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+
+			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
+		}
 	}
 
 	return type;
@@ -223,7 +231,21 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 	if (json_opts)
 		opts = bson_new_from_json ((const uint8_t *)json_opts, -1, &error);
 
-	mongoc_cursor_t *cursor = ac->libmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
+	//mongoc_cursor_t *cursor = ac->libmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
+	mongoc_cursor_t *cursor;
+	if (ac->libmongo->mongoc_collection_find_with_opts)
+	{
+		cursor = ac->libmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
+	}
+	else if (ac->libmongo->mongoc_collection_find)
+	{
+		cursor = ac->libmongo->mongoc_collection_find (collection, 0, 0, 0, 0, query, opts, NULL);
+	}
+	else
+	{
+		printf("mongodb error: mongoc_collection_find_with_opts or mongoc_collection_find_with_opts not loaded from mongo-c-driver module.\n");
+		return;
+	}
 
 	const bson_t *doc;
 	char *str;
@@ -248,11 +270,24 @@ void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char 
 	bson_error_t error;
 
 	BSON_APPEND_DOCUMENT_BEGIN (&opts, "filter", &name_filter);
-	/* find collections with names like "abbbbc" */
 	BSON_APPEND_REGEX (&name_filter, "name", "", NULL);
 	bson_append_document_end (&opts, &name_filter);
 
-	mongoc_cursor_t *cursor = ac->libmongo->mongoc_database_find_collections_with_opts (database, &opts);
+	mongoc_cursor_t *cursor = NULL;
+	if (ac->libmongo->mongoc_database_find_collections_with_opts)
+	{
+		cursor = ac->libmongo->mongoc_database_find_collections_with_opts (database, &opts);
+	}
+	else if (ac->libmongo->mongoc_database_find_collections)
+	{
+		cursor = ac->libmongo->mongoc_database_find_collections (database, &opts, NULL);
+	}
+	else
+	{
+		if (carg->log_level > 0)
+			printf("mongodb error: not loaded mongoc_database_find_collections_with_opts or mongoc_database_find_collections from mongo-c-driver.\n");
+		return;
+	}
 	while (ac->libmongo->mongoc_cursor_next (cursor, &doc)) {
 		bson_iter_init_find (&iter, doc, "name");
 		char *collection_name = (char*)bson_iter_utf8 (&iter, NULL);
@@ -285,7 +320,18 @@ void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 	char **strv;
 	unsigned i;
 
-	if ((strv = ac->libmongo->mongoc_client_get_database_names_with_opts (client, NULL, &error))) {
+	if (ac->libmongo->mongoc_client_get_database_names_with_opts)
+		strv = ac->libmongo->mongoc_client_get_database_names_with_opts (client, NULL, &error);
+	else if (ac->libmongo->mongoc_client_get_database_names)
+		strv = ac->libmongo->mongoc_client_get_database_names(client, &error);
+	else
+	{
+		if (carg->log_level > 0)
+			printf("mongoc_client_get_database_names_with_opts or mongoc_client_get_database_names not loaded from mongo-c-library\n");
+		return;
+	}
+	if (strv)
+	{
 		for (i = 0; strv[i]; i++)
 		{
 			if (carg->log_level > 1)
@@ -301,6 +347,7 @@ void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 			mongo_cmd_run(carg, NULL, client, strv[i], "serverStatus", "", mongo_Stats, "ServerStatus", strv[i]);
 
 			mongo_get_collections(carg, database, strv[i], client);
+			ac->libmongo->mongoc_database_destroy(database);
 		}
 		mongo_cmd_run(carg, NULL, client, "admin", "buildInfo", "", mongo_Stats, "Build", "admin");
 		mongo_cmd_run(carg, NULL, client, "admin", "top", "", mongo_Stats, "Top", "admin");
@@ -318,21 +365,22 @@ void mongolib_free(libmongo *lm)
 	if (lm && lm->mongoc_init) free(lm->mongoc_init);
 	if (lm && lm->mongoc_client_command_simple) free(lm->mongoc_client_command_simple);
 	if (lm && lm->mongoc_collection_find_with_opts) free(lm->mongoc_collection_find_with_opts);
+	if (lm && lm->mongoc_collection_find) free(lm->mongoc_collection_find);
 	if (lm && lm->mongoc_cursor_next) free(lm->mongoc_cursor_next);
 	if (lm && lm->mongoc_cursor_destroy) free(lm->mongoc_cursor_destroy);
 	if (lm && lm->mongoc_database_find_collections_with_opts) free(lm->mongoc_database_find_collections_with_opts);
+	if (lm && lm->mongoc_database_find_collections) free(lm->mongoc_database_find_collections);
 	if (lm && lm->mongoc_collection_destroy) free(lm->mongoc_collection_destroy);
 	if (lm && lm->mongoc_client_get_collection) free(lm->mongoc_client_get_collection);
 	if (lm && lm->mongoc_cursor_error) free(lm->mongoc_cursor_error);
 	if (lm && lm->mongoc_client_get_database_names_with_opts) free(lm->mongoc_client_get_database_names_with_opts);
+	if (lm && lm->mongoc_client_get_database_names) free(lm->mongoc_client_get_database_names);
 	if (lm && lm->mongoc_client_get_database) free(lm->mongoc_client_get_database);
+	if (lm && lm->mongoc_database_destroy) free(lm->mongoc_database_destroy);
 	if (lm && lm->mongoc_init) free(lm->mongoc_init);
 	if (lm && lm->mongoc_client_new) free(lm->mongoc_client_new);
 	if (lm && lm->mongoc_client_destroy) free(lm->mongoc_client_destroy);
 	if (lm && lm->mongoc_cleanup) free(lm->mongoc_cleanup);
-	if (lm && lm->mongoc_client_set_appname) free(lm->mongoc_client_set_appname);
-	if (lm && lm->mongoc_uri_new_with_error) free(lm->mongoc_uri_new_with_error);
-	if (lm && lm->mongoc_client_new_from_uri) free(lm->mongoc_client_new_from_uri);
 	if (lm) free(lm);
 }
 
@@ -375,9 +423,13 @@ libmongo *mongodb_init()
 	*(void**)(&lm->mongoc_collection_find_with_opts) = module_load(lmongo->path, "mongoc_collection_find_with_opts", &lm->lib_mongoc_collection_find_with_opts);
 	if (!lm->mongoc_collection_find_with_opts)
 	{
-		printf("Cannot get mongoc_collection_find_with_opts from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
+		printf("Cannot get mongoc_collection_find_with_opts, use mongoc_collection_find instead of\n");
+	}
+
+	*(void**)(&lm->mongoc_collection_find) = module_load(lmongo->path, "mongoc_collection_find", &lm->lib_mongoc_collection_find);
+	if (!lm->mongoc_collection_find)
+	{
+		printf("Cannot get mongoc_collection_find from mongolib\n");
 	}
 
 	*(void**)(&lm->mongoc_cursor_next) = module_load(lmongo->path, "mongoc_cursor_next", &lm->lib_mongoc_cursor_next);
@@ -400,8 +452,12 @@ libmongo *mongodb_init()
 	if (!lm->mongoc_database_find_collections_with_opts)
 	{
 		printf("Cannot get mongoc_database_find_collections_with_opts from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
+	}
+
+	*(void**)(&lm->mongoc_database_find_collections) = module_load(lmongo->path, "mongoc_database_find_collections", &lm->lib_mongoc_database_find_collections);
+	if (!lm->mongoc_database_find_collections)
+	{
+		printf("Cannot get mongoc_database_find_collections_with_opts from mongolib, use mongoc_database_find_collections instead of\n");
 	}
 
 	*(void**)(&lm->mongoc_collection_destroy) = module_load(lmongo->path, "mongoc_collection_destroy", &lm->lib_mongoc_collection_destroy);
@@ -431,15 +487,27 @@ libmongo *mongodb_init()
 	*(void**)(&lm->mongoc_client_get_database_names_with_opts) = module_load(lmongo->path, "mongoc_client_get_database_names_with_opts", &lm->lib_mongoc_client_get_database_names_with_opts);
 	if (!lm->mongoc_client_get_database_names_with_opts)
 	{
-		printf("Cannot get mongoc_client_get_database_names_with_opts from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
+		printf("Cannot get mongoc_client_get_database_names_with_opts from mongolib, use mongoc_client_get_database_names instead of\n");
+	}
+
+	*(void**)(&lm->mongoc_client_get_database_names) = module_load(lmongo->path, "mongoc_client_get_database_names", &lm->lib_mongoc_client_get_database_names);
+	if (!lm->mongoc_client_get_database_names)
+	{
+		printf("Cannot get mongoc_client_get_database_names from mongolib\n");
 	}
 
 	*(void**)(&lm->mongoc_client_get_database) = module_load(lmongo->path, "mongoc_client_get_database", &lm->lib_mongoc_client_get_database);
 	if (!lm->mongoc_client_get_database)
 	{
 		printf("Cannot get mongoc_client_get_database from mongolib\n");
+		mongolib_free(lm);
+		return NULL;
+	}
+
+	*(void**)(&lm->mongoc_database_destroy) = module_load(lmongo->path, "mongoc_database_destroy", &lm->lib_mongoc_database_destroy);
+	if (!lm->mongoc_client_get_database)
+	{
+		printf("Cannot get mongoc_database_destroy from mongolib\n");
 		mongolib_free(lm);
 		return NULL;
 	}
@@ -468,37 +536,13 @@ libmongo *mongodb_init()
 		return NULL;
 	}
 
-	*(void**)(&lm->mongoc_client_set_appname) = module_load(lmongo->path, "mongoc_client_set_appname", &lm->lib_mongoc_client_set_appname);
-	if (!lm->mongoc_client_set_appname)
-	{
-		printf("Cannot get mongoc_client_set_appname from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
-	}
-
-	*(void**)(&lm->mongoc_uri_new_with_error) = module_load(lmongo->path, "mongoc_uri_new_with_error", &lm->lib_mongoc_uri_new_with_error);
-	if (!lm->mongoc_uri_new_with_error)
-	{
-		printf("Cannot get mongoc_uri_new_with_error from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
-	}
-
-	*(void**)(&lm->mongoc_client_new_from_uri) = module_load(lmongo->path, "mongoc_client_new_from_uri", &lm->lib_mongoc_client_new_from_uri);
-	if (!lm->mongoc_client_new_from_uri)
-	{
-		printf("Cannot get mongoc_client_new_from_uri from mongolib\n");
-		mongolib_free(lm);
-		return NULL;
-	}
-
 	return lm;
 }
 
 void mongodb_run(void* arg)
 {
 	mongoc_client_t *client;
-	bson_error_t error;
+	//bson_error_t error;
 
 	context_arg *carg = arg;
 
@@ -516,20 +560,7 @@ void mongodb_run(void* arg)
 
 	ac->libmongo->mongoc_init ();
 
-	mongoc_uri_t *uri = ac->libmongo->mongoc_uri_new_with_error (carg->url, &error);
-	if (!uri) {
-		fprintf (stderr, "failed to parse URI: %s\n" "error message:	   %s\n", carg->url, error.message);
-		return;
-	}
-
-	client = ac->libmongo->mongoc_client_new_from_uri (uri);
-	if (!client) {
-		return;
-	}
-
-	//client = ac->libmongo->mongoc_client_new ("mongodb://localhost:27017/?appname=executing-example");
-	//ac->libmongo->mongoc_client_set_appname (client, "connect-example");
-	//client = ac->libmongo->mongoc_client_new (carg->url);
+	client = ac->libmongo->mongoc_client_new (carg->url);
 	mongo_get_databases(client, carg);
 
 	ac->libmongo->mongoc_client_destroy (client);
@@ -538,7 +569,7 @@ void mongodb_run(void* arg)
 	return;
 }
 
-static void mongodb_timer(void *arg) {
+void mongodb_timer(void *arg) {
 	extern aconf* ac;
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
@@ -548,12 +579,28 @@ static void mongodb_timer(void *arg) {
 	}
 }
 
+void mongodb_timer_without_thread(uv_timer_t* handle) {
+	(void)handle;
+	tommy_hashdyn_foreach(ac->mongodb_aggregator, mongodb_run);
+}
+
+void mongodb_without_thread()
+{
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(ac->loop, timer1);
+	uv_timer_start(timer1, mongodb_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+}
+
 void mongodb_client_handler()
 {
 	extern aconf* ac;
 
-	uv_thread_t th;
-	uv_thread_create(&th, mongodb_timer, NULL);
+	// for enable thread uncomment
+	//uv_thread_t th;
+	//uv_thread_create(&th, mongodb_timer, NULL);
+
+	// uncomment for enable single threaded
+	mongodb_without_thread();
 }
 
 void mongodb_client(context_arg* carg)

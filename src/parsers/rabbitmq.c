@@ -687,7 +687,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 
 string *rabbitmq_gen_url(host_aggregator_info *hi, char *addition)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
 string* rabbitmq_overview_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/overview"); }

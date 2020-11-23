@@ -396,6 +396,9 @@ void get_cpu(int8_t platform)
 
 	ac->last_time_cpu = ts_start;
 	metric_add_auto("cpu_usage_calc_delta_time", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
+
+	uint64_t sec = ts_end.sec;
+	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
 void get_process_extra_info(char *file, char *name, char *pid)
@@ -511,6 +514,8 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	t = strchr (szStatStr, ')');
 	size_t sz = strlen(t);
 	int64_t cursor = 0;
+	int64_t val = 1;
+	int64_t unval = 0;
 
 	int cnt = 10;
 	while (cnt--)
@@ -520,31 +525,46 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			state = t[2];
 			if (state == 'R')
 			{
-				int64_t val = 1;
 				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->running;
 			}
 			else if (state == 'S')
 			{
-				int64_t val = 1;
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->sleeping;
 			}
 			else if (state == 'D')
 			{
-				int64_t val = 1;
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->uninterruptible;
 			}
 			else if (state == 'Z')
 			{
-				int64_t val = 1;
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
 				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->zombie;
 			}
 			else if (state == 'T')
 			{
-				int64_t val = 1;
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
 				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
 				++states->stopped;
 			}
@@ -2477,6 +2497,100 @@ void baseboard_info()
 	}
 }
 
+void get_activate_status_services(char *service_name)
+{
+	char svcdir[1000];
+	char pathsystemd[1000];
+	snprintf(svcdir, 999, "%s/systemd/system/", ac->system_etcdir);
+
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir(svcdir);
+	if (!dp)
+	{
+		return;
+	}
+
+	uint64_t enabled = 0;
+	while((entry = readdir(dp)))
+	{
+		if (entry->d_name[0] == '.')
+			continue;
+		if (!strstr(entry->d_name, ".target.wants"))
+			continue;
+
+		snprintf(pathsystemd, 999, "%s/%s/%s", svcdir, entry->d_name, service_name);
+		FILE *fd = fopen(pathsystemd, "r");
+		if (fd)
+		{
+			enabled = 1;
+			fclose(fd);
+			break;
+		}
+	}
+	closedir(dp);
+	metric_add_labels("service_enabled", &enabled, DATATYPE_UINT, ac->system_carg, "service", service_name);
+}
+
+void get_service_tasks_status(char *servicename, char *fname, char *type)
+{
+	char systemdpath[1000];
+	snprintf(systemdpath, 999, "%s/fs/cgroup/systemd/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+	uint64_t cnt;
+
+	FILE *fd = fopen(systemdpath, "r");
+	if (!fd)
+		return;
+
+	char buf[100];
+	for (cnt = 1; fgets(buf, 100, fd); ++cnt);
+	fclose(fd);
+
+	metric_add_labels2("service_tasks_count", &cnt, DATATYPE_UINT, ac->system_carg, "service", servicename, "type", type);
+}
+
+void get_services()
+{
+	char svcdir[1000];
+	char pathsystemd[1000];
+	snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
+
+	struct dirent *entry;
+	DIR *dp;
+	uint64_t val;
+
+	dp = opendir(svcdir);
+	if (!dp)
+	{
+		return;
+	}
+
+	while((entry = readdir(dp)))
+	{
+		if ( entry->d_name[0] == '.' )
+			continue;
+
+		snprintf(pathsystemd, 999, "%s/fs/cgroup/systemd/system.slice/%s", ac->system_sysfs, entry->d_name);
+		FILE *fd = fopen(pathsystemd, "r");
+		if (!fd)
+		{
+			val = 0;
+		}
+		else
+		{
+			val = 1;
+			fclose(fd);
+		}
+		metric_add_labels("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", entry->d_name);
+
+		get_activate_status_services(entry->d_name);
+		get_service_tasks_status(entry->d_name, "cgroup.procs", "processes");
+		get_service_tasks_status(entry->d_name, "tasks", "threads");
+	}
+	closedir(dp);
+}
+
 void get_system_metrics()
 {
 	int8_t platform = -1;
@@ -2579,6 +2693,9 @@ void get_system_metrics()
 
 	if (ac->system_cadvisor)
 		cadvisor_metrics();
+
+	if (ac->system_services)
+		get_services();
 
 }
 

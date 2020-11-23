@@ -270,8 +270,26 @@ string* string_init(size_t max)
 	return ret;
 }
 
+string* string_new()
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = 0;
+	ret->s = NULL;
+	ret->l = 0;
+
+	return ret;
+}
+
 void string_new_size(string *str, size_t len)
 {
+	if (!str->m)
+	{
+		str->m = len + 1;
+		str->s = malloc(str->m);
+		str->l = 0;
+		*str->s = 0;
+		return;
+	}
 	uint64_t newsize = str->m*2+len;
 	char *newstr_char = malloc(newsize);
 	memcpy(newstr_char, str->s, str->l+1);
@@ -284,14 +302,16 @@ void string_new_size(string *str, size_t len)
 
 void string_null(string *str)
 {
-	*str->s = 0;
+	if (str->s)
+		*str->s = 0;
 	str->l = 0;
 }
 
 void string_free(string *str)
 {
 	//printf("free: %p\n", str->s);
-	free(str->s);
+	if (str->s)
+		free(str->s);
 	free(str);
 }
 
@@ -334,6 +354,7 @@ void string_cat(string *str, char *strcat, size_t len)
 		string_new_size(str, len);
 
 	size_t copy_size = len < (str->m - str_len) ? len : str_len;
+	//printf("+++++ string cat (%zu) +++++++\n%s\n", len, strcat);
 	//printf("string '%s'\nstr_len=%zu\nstrcat='%s'\ncopy_size=%zu\nlen=%zu\n", str->s, str_len, strcat, copy_size+1, len);
 	memcpy(str->s+str_len, strcat, copy_size);
 	str->l += copy_size;
@@ -415,6 +436,30 @@ string* string_init_alloc(char *str, size_t max)
 	ret->l = max;
 
 	return ret;
+}
+
+void string_cut(string *str, uint64_t offset, size_t len)
+{
+	//printf("================%"u64":%zu:%zu================\n", offset, len, str->l);
+	//printf("'%s'\n", str->s + offset);
+	//puts("--------------------------------");
+	if (!str)
+		return;
+
+	//if (offset == str->l)
+	//	return;
+
+	if (!len)
+		return;
+
+	if (!str->l)
+		return;
+
+	memcpy(str->s + offset, str->s + offset + len, str->l - len - offset);
+	str->l -= len;
+	str->s[str->l] = 0;
+	printf("'%s'\n", str->s + offset);
+	puts("================================");
 }
 
 int match_mapper_compare(const void* arg, const void* obj)

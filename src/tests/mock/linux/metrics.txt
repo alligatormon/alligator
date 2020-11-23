@@ -1,0 +1,18 @@
+service_enabled {service="alligator.service"} 1
+service_enabled {service="ipset.service"} 1
+service_enabled {service="iptables.service"} 1
+service_enabled {service="lvm2-lvmetad.socket"} 0
+service_enabled {service="lvm2-monitor.service"} 1
+service_enabled {service="mdmonitor.service"} 1
+service_running {service="alligator.service"} 1
+service_running {service="ipset.service"} 0
+service_running {service="iptables.service"} 1
+service_running {service="lvm2-lvmetad.socket"} 0
+service_running {service="lvm2-monitor.service"} 1
+service_running {service="mdmonitor.service"} 0
+service_tasks_count {service="alligator.service", type="processes"} 1
+service_tasks_count {service="alligator.service", type="threads"} 31
+service_tasks_count {service="iptables.service", type="processes"} 3
+service_tasks_count {service="iptables.service", type="threads"} 12
+service_tasks_count {service="lvm2-monitor.service", type="processes"} 10
+service_tasks_count {service="lvm2-monitor.service", type="threads"} 10

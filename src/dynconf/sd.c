@@ -340,7 +340,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 				printf("url: %s\n", url);
 
 				//host_aggregator_info *hi = parse_url(url, strlen(url));
-				//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1);
+				//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1, NULL);
 				//context_arg *carg = context_arg_fill(NULL, 0, hi, json_handler, query, NULL, json_check);
 				//smart_aggregator(carg);
 			}
@@ -355,7 +355,7 @@ string* sd_etcd_mesg(host_aggregator_info *hi, void *arg)
 	char *replacedquery = malloc(255);
 	char *path = (char*)arg;
 	snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, path);
-	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
 void sd_etcd_parser_push()

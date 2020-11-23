@@ -20,7 +20,7 @@ void json_handler(char *metrics, size_t size, context_arg *carg)
 
 string* json_mesg(host_aggregator_info *hi, void *arg)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
 void json_parser_push()

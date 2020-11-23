@@ -19,8 +19,8 @@ uint8_t check_ip_port(uv_tcp_t *client, context_arg *carg)
 	uv_inet_ntop(AF_INET, (void *)&in_caddr->sin_addr, addr, sizeof(addr));
 	if (ac->log_level > 3)
 	{
-		printf("client port %d\n", ntohs(in_caddr->sin_port));
-		printf("client host %s\n", addr);
+		printf("tcp client port %d\n", ntohs(in_caddr->sin_port));
+		printf("tcp client host %s\n", addr);
 	}
 	return ip_check_access(carg->net_acl, addr);
 }
@@ -28,14 +28,11 @@ uint8_t check_ip_port(uv_tcp_t *client, context_arg *carg)
 uint8_t check_udp_ip_port(const struct sockaddr *caddr, context_arg *carg)
 {
 	char sender[17] = { 0 };
-	const struct sockaddr_in *in_caddr = (struct sockaddr_in*)&caddr;
-
-	uv_ip4_name(in_caddr, sender, 16);
+	uv_ip4_name((const struct sockaddr_in*) caddr, sender, 16);
 
 	if (ac->log_level > 3)
 	{
-		printf("client port %d\n", ntohs(in_caddr->sin_port));
-		printf("client host %s\n", sender);
+		printf("udp client host %s\n", sender);
 	}
 	return ip_check_access(carg->net_acl, sender);
 }

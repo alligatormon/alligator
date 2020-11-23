@@ -50,6 +50,8 @@ void system_initialize()
 	ac->system_sysfs = strdup("/sys/");
 	ac->system_procfs = strdup("/proc/");
 	ac->system_rundir = strdup("/run/");
+	ac->system_usrdir = strdup("/usr/");
+	ac->system_etcdir = strdup("/etc/");
 
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));

@@ -1,0 +1,6 @@
+entrypoint:
+- tcp:
+  - "1111"
+aggregate:
+- handler: blackbox
+  url: file:///var/log/messages

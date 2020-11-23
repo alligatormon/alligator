@@ -142,8 +142,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					char *datasource = (char*)json_string_value(jdatasource);
 
+					json_t *jns = json_object_get(x509, "ns");
+					char *ns = (char*)json_string_value(jns);
+
 					json_t *jfield = json_object_get(x509, "field");
-					char *field = (char*)json_string_value(jfield);
 
 					if (method == HTTP_METHOD_DELETE)
 					{
@@ -151,7 +153,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					}
 
-					query_push(datasource, expr, make, action, field);
+					query_push(datasource, expr, make, action, ns, jfield);
 				}
 			}
 			if (!strcmp(key, "persistence"))
@@ -511,6 +513,53 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "firewall"))
 							ac->system_firewall = enkey;
+						else if (!strcmp(system_key, "services"))
+							ac->system_services = enkey;
+						else if (!strcmp(system_key, "sysfs"))
+						{
+							char *sysfs = (char*)json_string_value(sys_value);
+							if (sysfs)
+							{
+								free(ac->system_sysfs);
+								ac->system_sysfs = strdup(sysfs);
+							}
+						}
+						else if (!strcmp(system_key, "procfs"))
+						{
+							char *procfs = (char*)json_string_value(sys_value);
+							if (procfs)
+							{
+								free(ac->system_procfs);
+								ac->system_procfs = strdup(procfs);
+							}
+						}
+						else if (!strcmp(system_key, "rundir"))
+						{
+							char *rundir = (char*)json_string_value(sys_value);
+							if (rundir)
+							{
+								free(ac->system_rundir);
+								ac->system_rundir = strdup(rundir);
+							}
+						}
+						else if (!strcmp(system_key, "usrdir"))
+						{
+							char *usrdir = (char*)json_string_value(sys_value);
+							if (usrdir)
+							{
+								free(ac->system_usrdir);
+								ac->system_usrdir = strdup(usrdir);
+							}
+						}
+						else if (!strcmp(system_key, "etcdir"))
+						{
+							char *etcdir = (char*)json_string_value(sys_value);
+							if (etcdir)
+							{
+								free(ac->system_etcdir);
+								ac->system_etcdir = strdup(etcdir);
+							}
+						}
 						else if (!strcmp(system_key, "cadvisor"))
 						{
 							ac->system_cadvisor = enkey;
@@ -519,7 +568,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							mkdirp("/var/lib/alligator/nsmount");
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
-							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL);
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop);
 							smart_aggregator(carg);
 						}
@@ -639,7 +688,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					host_aggregator_info *hi = parse_url(url, strlen(url));
 					//char *query;
 					//if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
-					//	query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0);
+					//	query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL);
 					//else
 					//	query = hi->query;
 

@@ -144,6 +144,9 @@ typedef struct mapping_metric
 typedef struct query_struct {
 	char *key;
 	double val;
+	double min;
+	double max;
+	tommy_hashdyn *lbl;
 	uint64_t count;
 	tommy_node node;
 } query_struct;

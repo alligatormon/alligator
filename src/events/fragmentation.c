@@ -4,47 +4,61 @@
 #include "main.h"
 extern aconf *ac;
 
-void chunk_calc(context_arg* carg, char *buf, size_t nread)
+void chunk_calc(context_arg* carg, char *buf, ssize_t nread)
 {
-	//puts("CHUNK CALC");
-	if (carg->chunked_size > nread)
+	char *tmp = buf;
+	ssize_t tsize = nread;
+	uint64_t offset = 0;
+	//printf("CHUNK CALC %"d64", %d\n", carg->chunked_size, carg->chunked_expect);
+	if (carg->chunked_size < 0)
 	{
-		//printf("MATCH: 1: %lld > %lld\n", carg->chunked_size, nread);
-		string_cat(carg->full_body, buf, nread);
-		carg->chunked_size -= nread;
+		//puts("case -1");
+		carg->chunked_done = 1;
+		return;
+	}
+	if (!carg->chunked_expect)
+		return;
+	if (!buf)
+		return;
 
-			//char del[100];
-			//snprintf(del, 100, "/%c.%lld", *buf, nread);
-			//FILE *fd = fopen(del, "w");
-			//printf("1 SAVED: %s\n", del);
-			//fwrite(buf, nread, 1, fd);
-			//fclose(fd);
+	if (!carg->chunked_size)
+	{
+		//puts("case 0");
+		offset = strspn(tmp, "\r\n");
+		tsize = nread - offset;
+		tmp += offset;
+
+		carg->chunked_size = strtoll(tmp, NULL, 16);
+
+		offset = strcspn(tmp, "\r\n");
+		offset += strspn(tmp+offset, "\r\n");
+		tsize = nread - (tmp - buf) - offset;
+		tmp += offset;
+	}
+
+	if (tsize < carg->chunked_size)
+	{
+		//puts("case 1");
+		string_cat(carg->full_body, tmp, tsize);
+		carg->chunked_size -= tsize;
 	}
 	else
 	{
-		char *tmp;
-		uint64_t n = 0;
-		uint64_t m = 0;
-		while (carg->chunked_size && n<nread)
+		//puts("case 2");
+		size_t n;
+		for (n = 0; n < tsize; n++)
 		{
-			m = strcspn(buf+n, "\r\n");
-			//printf("MATCH2 buf+%lld/%lld\n: %s", n, nread, buf+n);
-			string_cat(carg->full_body, buf+n, m);
-
-			//char del[100];
-			//snprintf(del, 100, "/%c.%lld", *buf+n, nread);
-			//FILE *fd = fopen(del, "w");
-			//printf("2 SAVED: %s\n", del);
-			//fwrite(buf+n, m, 1, fd);
-			//fclose(fd);
-
-			n += m;
-
-			carg->chunked_size = strtoll(buf+n, &tmp, 16);
-			//printf("chunked_size %lld\n", carg->chunked_size);
-			n = tmp - buf;
-			n += strcspn(buf+n, "\r\n");
-			n++;
+			//puts("loop case 3");
+			string_cat(carg->full_body, tmp+n, carg->chunked_size);
+			n += carg->chunked_size;
+			n += strspn(tmp, "\r\n");
+			
+			carg->chunked_size = strtoll(tmp, NULL, 16);
+			if (!carg->chunked_size)
+			{
+				//puts("loop end 3");
+				carg->chunked_done = 1;
+			}
 		}
 	}
 }
@@ -64,7 +78,7 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
 	}
 
 	// check chunk http validator
-	else if (carg->chunked_expect && !carg->chunked_size)
+	else if (carg->chunked_expect && carg->chunked_done)
 	{
 		if (ac->log_level > 2)
 			puts("check body full: chunk match");

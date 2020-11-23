@@ -138,9 +138,12 @@ typedef struct aconf
 	int system_packages;
 	int system_firewall;
 	int system_cadvisor;
+	int system_services;
 	char *system_procfs;
 	char *system_sysfs;
 	char *system_rundir;
+	char *system_usrdir;
+	char *system_etcdir;
 	char *cadvisor_tcpudpbuf;
 	uint64_t system_cpuavg_period;
 	double system_cpuavg_sum;

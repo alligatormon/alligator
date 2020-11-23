@@ -8,6 +8,8 @@
 #include <query/query.h>
 #include <main.h>
 
+void postgresql_run(void* arg);
+
 void postgresql_free(pq_library* pglib)
 {
 	if (!pglib) return;
@@ -342,26 +344,27 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
 	{
 		tommy_hashdyn *hash = malloc(sizeof(*hash));
 		tommy_hashdyn_init(hash);
-		uint64_t val = 0;
+
+		if (carg->ns)
+			labels_hash_insert_nocache(hash, "dbname", carg->ns);
+
 		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
 		{
 			char *colname = ac->pqlib->PQfname(r, j);
-			//if (ac->pqlib->PQftype(r, j) == 20)
-			//{
-			//	char *res = ac->pqlib->PQgetvalue(r, i, j);
-			//	if (!strcmp(qn->field, colname))
-			//		printf("\tvalue '%s'\n", res);
-			//	else
-			//		printf("\t'%s': '%s'\n", colname, res);
-			//}
-			//else
-			//{
+			if (ac->pqlib->PQftype(r, j) == 16) // BOOLOID
+			{
 				char *res = ac->pqlib->PQgetvalue(r, i, j);
-				if (!strcmp(qn->field, colname))
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
 				{
 					if (carg->log_level > 2)
 						printf("\tvalue '%s'\n", res);
-					val = strtoull(res, NULL, 10);
+					if (!strncmp(res, "t", 0))
+						qf->i = 1;
+					else
+						qf->i = 0;
+
+					qf->type = DATATYPE_INT;
 				}
 				else
 				{
@@ -369,12 +372,51 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
 						printf("\tfield '%s': '%s'\n", colname, res);
 					labels_hash_insert_nocache(hash, colname, res);
 				}
-			//}
-		}
-		metric_add(qn->make, hash, &val, DATATYPE_UINT, ac->system_carg);
-	}
+			}
+			else if (ac->pqlib->PQftype(r, j) == 700 || ac->pqlib->PQftype(r, j) == 701) // FLOAT4OID FLOAT8OID
+			{
+				char *res = ac->pqlib->PQgetvalue(r, i, j);
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", res);
+					qf->d = strtod(res, NULL);
 
-	ac->pqlib->PQclear(r);
+					qf->type = DATATYPE_DOUBLE;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+			}
+			else
+			{
+				char *res = ac->pqlib->PQgetvalue(r, i, j);
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", res);
+					qf->i = strtoll(res, NULL, 10);
+					qf->type = DATATYPE_INT;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+			}
+		}
+		qn->labels = hash;
+		qn->carg = carg;
+		query_set_values(qn);
+		labels_hash_free(hash);
+		//metric_add(qn->make, hash, &, DATATYPE_UINT, ac->system_carg);
+	}
 }
 
 void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg)
@@ -387,6 +429,79 @@ void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *ca
 	}
 	else
 		postgresql_write(res, qn, carg);
+
+	if (res)
+		ac->pqlib->PQclear(res);
+}
+
+void postgresql_get_databases(PGconn *conn, context_arg *carg)
+{
+	PGresult *res = ac->pqlib->PQexec(conn, "SELECT datname FROM pg_catalog.pg_database");
+	context_arg *db_carg = malloc(sizeof(*db_carg));
+	size_t url_len = strlen(carg->url) + 1024;
+	char *url = malloc(url_len);
+	size_t name_len = strlen(carg->name) + 1024;
+	char *name = malloc(name_len);
+	char *ns = malloc(1024);
+
+	memcpy(db_carg, carg, sizeof(*db_carg));
+	db_carg->url = url;
+	db_carg->name = name;
+	db_carg->ns = ns;
+	db_carg->data_lock = 1;
+
+	int wildcard = 0;
+	snprintf(name, name_len - 1, "%s/*", carg->name);
+	if (query_get(name))
+		wildcard = 1;
+
+	if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
+	{
+		if (carg->log_level > 1)
+			fprintf(stderr, "command get databases failed: %s", ac->pqlib->PQerrorMessage(conn));
+	}
+	else
+	{
+		uint64_t i;
+		uint64_t j;
+
+		for (i=0; i<ac->pqlib->PQntuples(res); ++i)
+		{
+
+			for (j=0; j<ac->pqlib->PQnfields(res); ++j)
+			{
+				char *resp = ac->pqlib->PQgetvalue(res, i, j);
+				snprintf(db_carg->url, url_len - 1, "%s/%s", carg->url, resp);
+				strlcpy(db_carg->ns, resp, 1024);
+
+				snprintf(db_carg->name, name_len - 1, "%s/*", carg->name);
+				if (wildcard)
+				{
+					if (carg->log_level > 1)
+						printf("run wildcard queries\n");
+					postgresql_run(db_carg);
+				}
+
+				snprintf(db_carg->name, name_len - 1, "%s/%s", carg->name, resp);
+				if (query_get(db_carg->name))
+				{
+					if (carg->log_level > 1)
+						printf("exec queries database '%s'\n", resp);
+
+					postgresql_run(db_carg);
+				}
+			}
+		}
+	}
+
+	if (res)
+		ac->pqlib->PQclear(res);
+
+
+	free(db_carg);
+	free(ns);
+	free(url);
+	free(name);
 }
 
 void postgresql_queries_foreach(void *funcarg, void* arg)
@@ -399,8 +514,29 @@ void postgresql_queries_foreach(void *funcarg, void* arg)
 		puts("+-+-+-+-+-+-+-+");
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
-	//PGconn *conn = (PGconn*)funcarg;
 	postgresql_query(conn, qn->expr, qn, carg);
+}
+
+void postgresql_set_params(PGconn *conn, context_arg *carg)
+{
+	int socket_fd = ac->pqlib->PQsocket(conn);
+	if (socket_fd < 0) {
+		if (carg->log_level > 0)
+			printf("Invalid socket descriptor: %d\n", socket_fd);
+
+		return;
+	}
+
+	int sec = carg->timeout / 1000;
+	int msec = carg->timeout % 1000;
+	struct timeval timeout = { sec, msec };
+
+	int setopt_result_1 = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+	int setopt_result_2 = setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
+
+	if (setopt_result_1 < 0 || setopt_result_2 < 0)
+		if (carg->log_level > 0)
+			printf("failed to set timeout\n");
 }
 
 void postgresql_run(void* arg)
@@ -409,7 +545,6 @@ void postgresql_run(void* arg)
 		return;
 
 	PGconn	 *conn;
-	//PGresult   *res;
 
 	context_arg *carg = arg;
 	conn = ac->pqlib->PQconnectdb(carg->url);
@@ -421,20 +556,27 @@ void postgresql_run(void* arg)
 		return;
 	}
 
+	postgresql_set_params(conn, carg);
+
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
 		if (carg->log_level > 1)
 			printf("found queries for datasource: %s: %p\n", carg->name, qds);
-		carg->data = conn;
-		tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+		if (qds)
+		{
+			carg->data = conn;
+			tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+		}
 	}
 
-	ac->pqlib->PQfinish(conn);
+	if (!carg->data_lock)
+		postgresql_get_databases(conn, carg);
 
+	ac->pqlib->PQfinish(conn);
 }
 
-static void postgresql_timer(void *arg) {
+void postgresql_timer(void *arg) {
 	extern aconf* ac;
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
@@ -444,12 +586,26 @@ static void postgresql_timer(void *arg) {
 	}
 }
 
+void postgresql_timer_without_thread(uv_timer_t* handle) {
+	(void)handle;
+	tommy_hashdyn_foreach(ac->pg_aggregator, postgresql_run);
+}
+
+void postgresql_without_thread()
+{
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(ac->loop, timer1);
+	uv_timer_start(timer1, postgresql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+}
+
 void postgresql_client_handler()
 {
-	extern aconf* ac;
+	// uncomment for thread
+	//extern aconf* ac;
 
-	uv_thread_t th;
-	uv_thread_create(&th, postgresql_timer, NULL);
+	//uv_thread_t th;
+	//uv_thread_create(&th, postgresql_timer, NULL);
+	postgresql_without_thread();
 }
 
 void postgresql_client(context_arg* carg)

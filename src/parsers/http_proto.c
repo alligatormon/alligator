@@ -15,8 +15,9 @@ void http_reply_free(http_reply_data* hrdata)
 	free(hrdata);
 }
 
-http_reply_data* http_reply_parser(char *http, size_t n)
+http_reply_data* http_reply_parser(char *http, ssize_t n)
 {
+	//printf("============== parse body(%zd) ==============\n'%s'\n", n, http);
 	int http_version;
 	int http_code;
 	int old_style_newline = 2;
@@ -99,6 +100,7 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 
 	cur = tmp + old_style_newline;
 	body = cur;
+	hrdata->headers_size = body - http;
 
 	hrdata->http_version = http_version;
 	hrdata->http_code = http_code;
@@ -107,26 +109,62 @@ http_reply_data* http_reply_parser(char *http, size_t n)
 	hrdata->auth_bearer = 0;
 	hrdata->auth_basic = 0;
 
+	hrdata->clear_http = string_init(n);
+	//printf("headers size: %zu\n", hrdata->headers_size);
+	string_cat(hrdata->clear_http, http, hrdata->headers_size);
+	//printf("clear headers:\n'%s'\n", hrdata->clear_http->s);
+	//puts("===================================================");
+	uint64_t offset = 0;
 	if (hrdata->chunked_expect)
 	{
-		hrdata->chunked_size = strtoll(body, &body, 16);
-		//printf("trying get 16 bit: %"d64":\n%s\n", hrdata->chunked_size, body);
-		hrdata->body = body+(old_style_newline/2);
-		hrdata->chunked_size -= n - (hrdata->body - http);
-		hrdata->chunked_expect = 1;
+		//puts("=====================chunked======================");
+		char *tmp2;
+		hrdata->chunked_size = strtoll(body, &tmp2, 16);
+		offset = tmp2 - body;
+		body = tmp2;
+		hrdata->body = body;
+		//printf("trying get 16 bit: (%ld/%zd) %"d64":\n%s\n", body - http, n, hrdata->chunked_size, body);
+		//if (body - http == n)
+		//{
+		//	hrdata->chunked_expect = 1;
+		//	hrdata->chunked_size = 0;
+		//}
+		//else if (hrdata->chunked_size)
+		//{
+		//	hrdata->body = body+(old_style_newline/2);
+		//	hrdata->chunked_size -= n - (hrdata->body - http);
+		//	hrdata->chunked_expect = 1;
 
-		if (hrdata->chunked_size < 0)
-		{
-			hrdata->body[n - (hrdata->body - http) + (hrdata->chunked_size)] = 0;
-			hrdata->chunked_expect = 0;
-		}
+		//	if (hrdata->chunked_size < 0)
+		//	{
+		//		hrdata->body[n - (hrdata->body - http) + (hrdata->chunked_size)] = 0;
+		//		hrdata->chunked_expect = 0;
+		//	}
+
+		//}
+		//else
+		//{
+		//	hrdata->body = NULL;
+		//	hrdata->chunked_expect = 0;
+		//}
 	}
 	else
 		hrdata->body = body;
 
-	hrdata->headers_size = hrdata->body - http;
-	hrdata->body_size = n - hrdata->headers_size;
-	//printf("SAVED body is %s\n", hrdata->body);
+	hrdata->body_size = n - hrdata->headers_size - offset;
+	size_t hrdata_body_size = strlen(hrdata->body);
+	if (hrdata->chunked_expect)
+	{
+		// need for loop as in calc chunk
+		string_cat(hrdata->clear_http, hrdata->body, hrdata->chunked_size);
+		hrdata->chunked_size -= hrdata_body_size;
+	}
+	else
+		string_cat(hrdata->clear_http, hrdata->body, hrdata_body_size);
+	//puts("+++++++++++++++++++++++++++++++++++++++++++++++++++");
+	//printf("SAVED (chunked expect %d) body is\n'%s'\n", hrdata->chunked_expect, hrdata->body);
+	//puts("===================================================");
+	//puts("");
 	return hrdata;
 }
 
@@ -320,7 +358,7 @@ void http_reply_data_free(http_reply_data* http)
 
 string* http_mesg(host_aggregator_info *hi, void *arg)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
 void http_parser_push()

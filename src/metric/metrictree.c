@@ -437,19 +437,21 @@ void metrictree_get(metric_node *x, labels_t* labels, string *str)
 	}
 }
 
-void metrictree_gen_scan(metric_node *x, labels_t* labels, char *new_name, tommy_hashdyn *hash)
+void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash)
 {
 	if (!x)
 		return;
 
 	if (!labels_match(x->labels, labels))
-		labels_gen_metric(x->labels, 0, x, new_name, hash);
+	{
+		labels_gen_metric(x->labels, 0, x, groupkey, hash);
+	}
 
-	metrictree_gen_scan(x->steam[LEFT], labels, new_name, hash);
-	metrictree_gen_scan(x->steam[RIGHT], labels, new_name, hash);
+	metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash);
+	metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash);
 }
 
-void metrictree_gen(metric_node *x, labels_t* labels, char *new_name, tommy_hashdyn *hash)
+void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash)
 {
 	while (x)
 	{
@@ -460,7 +462,7 @@ void metrictree_gen(metric_node *x, labels_t* labels, char *new_name, tommy_hash
 			x = x->steam[RIGHT];
 		else
 		{
-			metrictree_gen_scan(x, labels, new_name, hash);
+			metrictree_gen_scan(x, labels, groupkey, hash);
 			break;
 		}
 	}

@@ -12,6 +12,9 @@ typedef struct libmongo
 	uv_lib_t* lib_mongoc_collection_find_with_opts;
 	mongoc_cursor_t* (*mongoc_collection_find_with_opts) (mongoc_collection_t *collection, const bson_t *filter, const bson_t *opts, const mongoc_read_prefs_t *read_prefs);
 
+	uv_lib_t* lib_mongoc_collection_find;
+	mongoc_cursor_t* (*mongoc_collection_find) (mongoc_collection_t *collection, mongoc_query_flags_t flags, uint32_t skip, uint32_t limit, uint32_t batch_size, const bson_t *query, const bson_t *fields, const mongoc_read_prefs_t *read_prefs);
+
 	uv_lib_t* lib_mongoc_cursor_next;
 	bool (*mongoc_cursor_next) (mongoc_cursor_t *cursor, const bson_t **bson);
 
@@ -20,6 +23,9 @@ typedef struct libmongo
 
 	uv_lib_t* lib_mongoc_database_find_collections_with_opts;
 	mongoc_cursor_t* (*mongoc_database_find_collections_with_opts) (mongoc_database_t *database, const bson_t *opts);
+
+	uv_lib_t* lib_mongoc_database_find_collections;
+	mongoc_cursor_t* (*mongoc_database_find_collections) (mongoc_database_t *database, const bson_t *filter, bson_error_t *error);
 
 	uv_lib_t* lib_mongoc_collection_destroy;
 	void (*mongoc_collection_destroy) (mongoc_collection_t *collection);
@@ -33,8 +39,14 @@ typedef struct libmongo
 	uv_lib_t* lib_mongoc_client_get_database_names_with_opts;
 	char ** (*mongoc_client_get_database_names_with_opts) (mongoc_client_t *client, const bson_t *opts, bson_error_t *error);
 
+	uv_lib_t* lib_mongoc_client_get_database_names;
+	char ** (*mongoc_client_get_database_names) (mongoc_client_t *client, bson_error_t *error);
+
 	uv_lib_t* lib_mongoc_client_get_database;
 	mongoc_database_t* (*mongoc_client_get_database) (mongoc_client_t *client, const char *name);
+
+	uv_lib_t* lib_mongoc_database_destroy;
+	void (*mongoc_database_destroy)(mongoc_database_t *database);
 
 	uv_lib_t* lib_mongoc_init;
 	void (*mongoc_init) ();
@@ -48,12 +60,9 @@ typedef struct libmongo
 	uv_lib_t* lib_mongoc_cleanup;
 	void (*mongoc_cleanup) ();
 
-	uv_lib_t* lib_mongoc_client_set_appname;
-	bool (*mongoc_client_set_appname) (mongoc_client_t *client, const char *appname);
+	//uv_lib_t* lib_mongoc_uri_new_with_error;
+	//mongoc_uri_t* (*mongoc_uri_new_with_error) (const char *uri_string, bson_error_t *error);
 
-	uv_lib_t* lib_mongoc_uri_new_with_error;
-	mongoc_uri_t* (*mongoc_uri_new_with_error) (const char *uri_string, bson_error_t *error);
-
-	uv_lib_t* lib_mongoc_client_new_from_uri;
-	mongoc_client_t* (*mongoc_client_new_from_uri) (const mongoc_uri_t *uri);
+	//uv_lib_t* lib_mongoc_client_new_from_uri;
+	//mongoc_client_t* (*mongoc_client_new_from_uri) (const mongoc_uri_t *uri);
 } libmongo;

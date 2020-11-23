@@ -1,6 +1,7 @@
 #pragma once
 #include <stdio.h>
 #include <inttypes.h>
+#include "common/selector.h"
 #define HTTP_METHOD_RESPONSE 0
 #define HTTP_METHOD_GET 1
 #define HTTP_METHOD_POST 2
@@ -23,12 +24,13 @@ typedef struct http_reply_data
 	size_t body_size;
 	size_t headers_size;
 	uint8_t method;
+	string *clear_http;
 
 	char *auth_basic;
 	char *auth_bearer;
 } http_reply_data;
 
-http_reply_data* http_reply_parser(char *http, size_t n);
+http_reply_data* http_reply_parser(char *http, ssize_t n);
 http_reply_data* http_proto_get_request_data(char *buf, size_t size);
 void http_reply_data_free(http_reply_data* http);
 char* http_proto_proxer(char *metrics, size_t size, char *instance);

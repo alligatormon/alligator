@@ -202,7 +202,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 
 string* monit_mesg(host_aggregator_info *hi, void *arg)
 {
-	return string_init_add(gen_http_query(0, hi->query, "/_status?format=xml&level=full", hi->host, "alligator", hi->auth, 1), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, "/_status?format=xml&level=full", hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
 void monit_parser_push()

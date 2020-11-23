@@ -68,6 +68,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	carg->headers_pass = headers_pass;
 	carg->url = hi->url;
+	if (hi->user)
+		strlcpy(carg->user, hi->user, 1024);
+	if (hi->pass)
+		strlcpy(carg->password, hi->pass, 1024);
 	carg->hostname = hi->host; // old scheme
 	strlcpy(carg->host, hi->host, 1024); // new scheme
 	strlcpy(carg->port, hi->port, 6);

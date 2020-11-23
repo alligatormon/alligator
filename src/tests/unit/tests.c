@@ -11,3 +11,4 @@ aconf *ac;
 #include "url.h"
 //#include "http_reply.h"
 #include "netlib.h"
+#include "query.h"

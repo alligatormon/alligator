@@ -6,6 +6,7 @@
 #include "dstructures/tommy.h"
 #include "metric/namespace.h"
 #include "common/mapping.h"
+#include "query/promql.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -251,30 +252,134 @@ int query_struct_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, char *new_name, tommy_hashdyn *res_hash)
+string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
+{
+	if (!groupkey || !groupkey->l)
+	{
+		return string_init_alloc("", 0);
+	}
+
+	string *label = string_init(255);
+	uint64_t j = 0;
+	char tmp[255];
+	//printf("groupkey '%s'\n",  groupkey->s);
+	for (uint64_t i = 0; i < groupkey->l; i++)
+	{
+		j = strcspn(groupkey->s + i, ",");
+		strlcpy(tmp, groupkey->s + i, j+1);
+
+		labels_t *cur_labels = labels_list;
+		while (cur_labels)
+		{
+			if (!strcmp(cur_labels->name, tmp))
+			{
+				string_cat(label, cur_labels->key, cur_labels->key_len);
+				string_cat(label, ", ", 2);
+			}
+			cur_labels = cur_labels->next;
+		}
+	}
+
+	return label;
+}
+
+tommy_hashdyn *labels_to_hash(labels_t *labels_list, string *groupkey)
+{
+	tommy_hashdyn *lbl = NULL;
+	if (!groupkey || !groupkey->l)
+	{
+		return lbl;
+	}
+
+	uint64_t j = 0;
+	char tmp[255];
+	//printf("groupkey '%s'\n",  groupkey->s);
+	for (uint64_t i = 0; i < groupkey->l; i++)
+	{
+		j = strcspn(groupkey->s + i, ",");
+		strlcpy(tmp, groupkey->s + i, j+1);
+
+		labels_t *cur_labels = labels_list;
+		while (cur_labels)
+		{
+			if (!strcmp(cur_labels->name, tmp))
+			{
+				if (!lbl)
+				{
+					lbl = malloc(sizeof(tommy_hashdyn));
+					tommy_hashdyn_init(lbl);
+				}
+
+				labels_hash_insert_nocache(lbl, cur_labels->name, cur_labels->key);
+			}
+			cur_labels = cur_labels->next;
+		}
+	}
+
+	return lbl;
+}
+
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, tommy_hashdyn *res_hash)
 {
 	if (!labels_list)
 		return;
 
-	char *key = "groupkey1";
-	uint32_t key_hash = tommy_strhash_u32(0, key);
-	query_struct *qs = tommy_hashdyn_search(res_hash, query_struct_compare, key, key_hash);
+	string *key = labels_to_groupkey(labels_list, groupkey);
+	uint32_t key_hash = tommy_strhash_u32(0, key->s);
+	query_struct *qs = tommy_hashdyn_search(res_hash, query_struct_compare, key->s, key_hash);
 	if (!qs)
 	{
 		qs = malloc(sizeof(*qs));
 		qs->val = 0;
-		qs->count = 0;
-		qs->key = key;
+		qs->lbl = labels_to_hash(labels_list, groupkey);
+		qs->count = 1;
+		qs->key = key->s;
 		tommy_hashdyn_insert(res_hash, &(qs->node), qs, key_hash);
+
+		int8_t type = x->type;
+		if (type == DATATYPE_INT)
+			qs->val += x->i;
+		else if (type == DATATYPE_UINT)
+			qs->val += x->u;
+		else if (type == DATATYPE_DOUBLE)
+			qs->val += x->d;
+
+		qs->min = qs->val;
+		qs->max = qs->val;
 	}
-	++qs->count;
-	int8_t type = x->type;
-	if (type == DATATYPE_INT)
-		qs->val += x->i;
-	else if (type == DATATYPE_UINT)
-		qs->val += x->u;
-	else if (type == DATATYPE_DOUBLE)
-		qs->val += x->d;
+	else
+	{
+		free(key->s);
+
+		++qs->count;
+		int8_t type = x->type;
+		if (type == DATATYPE_INT)
+		{
+			qs->val += x->i;
+			if (qs->min > x->i)
+				qs->min = x->i;
+			if (qs->max < x->i)
+				qs->max = x->i;
+		}
+		else if (type == DATATYPE_UINT)
+		{
+			qs->val += x->u;
+			if (qs->min > x->u)
+				qs->min = x->u;
+			if (qs->max < x->u)
+				qs->max = x->u;
+		}
+		else if (type == DATATYPE_DOUBLE)
+		{
+			qs->val += x->d;
+			if (qs->min > x->d)
+				qs->min = x->d;
+			if (qs->max < x->d)
+				qs->max = x->d;
+		}
+	}
+
+	free(key);
 }
 
 int labels_hash_compare(const void* arg, const void* obj)
@@ -1169,7 +1274,80 @@ void metric_query (char *namespace, string *str, char *name, tommy_hashdyn *hash
 		metrictree_get(tree->root, labels_list, str);
 }
 
-void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *query, char *new_name)
+void metric_gen_foreach_avg(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	char *name = funcarg;
+	if (ac->log_level > 2)
+		printf("qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
+
+	double avg = qs->val / qs->count;
+	metric_add(name, qs->lbl, &avg, DATATYPE_DOUBLE, ac->system_carg);
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_free_res(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_min(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	char *name = funcarg;
+	if (ac->log_level > 2)
+		printf("qs->key %s, min: %lf\n", qs->key, qs->min);
+
+	metric_add(name, qs->lbl, &qs->min, DATATYPE_DOUBLE, ac->system_carg);
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_max(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	char *name = funcarg;
+	if (ac->log_level > 2)
+		printf("qs->key %s, max: %lf\n", qs->key, qs->max);
+
+	metric_add(name, qs->lbl, &qs->max, DATATYPE_DOUBLE, ac->system_carg);
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_sum(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	char *name = funcarg;
+	if (ac->log_level > 2)
+		printf("qs->key %s, val: %lf\n", qs->key, qs->val);
+
+	metric_add(name, qs->lbl, &qs->val, DATATYPE_DOUBLE, ac->system_carg);
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_count(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+	char *name = funcarg;
+	if (ac->log_level > 2)
+		printf("qs->key %s, count: %"u64"\n", qs->key, qs->count);
+
+	metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *query, char *new_name, int func, string *groupkey)
 {
 	namespace_struct *ns;
 
@@ -1186,23 +1364,81 @@ void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *q
 	{
 		tommy_hashdyn *res_hash = malloc(sizeof(*res_hash));
 		tommy_hashdyn_init(res_hash);
-		metrictree_gen(tree->root, labels_list, new_name, res_hash);
+		metrictree_gen(tree->root, labels_list, groupkey, res_hash);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
 
 		int64_t ttl = get_ttl(NULL);
 
-		uint64_t value = tommy_hashdyn_count(res_hash);
+		uint64_t value = 0;
+		double dvalue = 0;
+		int type = DATATYPE_UINT;
+		uint64_t res_count = tommy_hashdyn_count(res_hash);
+		if (res_count && (func == QUERY_FUNC_PRESENT))
+		{
+			value = res_count > 0 ? 1 : 0;
+		}
+		else if (res_count && (func == QUERY_FUNC_ABSENT))
+		{
+			value = res_count > 0 ? 0 : 1;
+		}
+		else if (res_count && (func == QUERY_FUNC_COUNT))
+		{
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_count, new_name);
+			tommy_hashdyn_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			return;
+		}
+		else if (res_count && (func == QUERY_FUNC_SUM))
+		{
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_sum, new_name);
+			tommy_hashdyn_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			return;
+		}
+		else if (res_count && (func == QUERY_FUNC_MIN))
+		{
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_min, new_name);
+			tommy_hashdyn_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			return;
+		}
+		else if (res_count && (func == QUERY_FUNC_MAX))
+		{
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
+			tommy_hashdyn_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			return;
+		}
+		else if (res_count && (func == QUERY_FUNC_AVG))
+		{
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_avg, new_name);
+			tommy_hashdyn_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			return;
+		}
+
 		metric_node* mnode = metric_find(tree, labels_list);
 		if (mnode)
 		{
-			metric_set(mnode, DATATYPE_UINT, &value, expiretree, ttl);
+			if (type == DATATYPE_UINT)
+				metric_set(mnode, type, &value, expiretree, ttl);
+			else if (type == DATATYPE_DOUBLE)
+				metric_set(mnode, type, &dvalue, expiretree, ttl);
 			labels_head_free(labels_list);
 		}
 		else
 		{
-			mnode = metric_insert(tree, labels_list, DATATYPE_UINT, &value, expiretree, ttl);
+			if (type == DATATYPE_UINT)
+				mnode = metric_insert(tree, labels_list, type, &value, expiretree, ttl);
+			else if (type == DATATYPE_DOUBLE)
+				mnode = metric_insert(tree, labels_list, type, &dvalue, expiretree, ttl);
 		}
-		tommy_hash_forfree(res_hash, free);
+		tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
 	}
 }

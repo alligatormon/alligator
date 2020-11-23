@@ -381,7 +381,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
-					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules"))
+					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
 					{
 						++i;
 						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
@@ -489,6 +489,24 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							if (wstokens[i].operator)
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
+
+								if (!strcmp(operator_name, "field"))
+								{
+									json_t *arg_json = json_array();
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *str_json = json_string(strdup(wstokens[i].token->s));
+											json_array_object_insert(arg_json, "field", str_json);
+										}
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+									json_array_object_insert(operator_json, operator_name, arg_json);
+								}
 							}
 							else if (wstokens[i].argument)
 							{

@@ -33,7 +33,8 @@ typedef struct context_arg
 	size_t mesg_len;
 	char *hostname;
 	//char *port;
-	uint8_t lock;
+	uint8_t lock; // lock for aggregator scrape
+	uint8_t data_lock; // lock for parser scrape
 	uint8_t proto;
 	uint8_t transport;
 	int write;
@@ -51,6 +52,7 @@ typedef struct context_arg
 	uint64_t expect_body_length;
 	int64_t chunked_size;
 	int64_t chunked_expect;
+	uint8_t chunked_done;
 	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
@@ -118,6 +120,7 @@ typedef struct context_arg
 	r_time close_time_finish;
 
 	void *data; // for parser-data
+	char *ns; // for parsers ns
 
 	uv_tcp_t server;
 	uv_tcp_t client; // move only with pclient
@@ -170,6 +173,8 @@ typedef struct context_arg
 
 	char host[URL_SIZE];
 	char port[PORT_SIZE];
+	char user[URL_SIZE];
+	char password[URL_SIZE];
 	uint64_t timeout;
 	uint64_t count;
 
