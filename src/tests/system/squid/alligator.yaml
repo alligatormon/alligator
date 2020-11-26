@@ -1,0 +1,8 @@
+log_level: 0
+entrypoint:
+- tcp:
+  - '1111'
+aggregate:
+- handler: squid
+  url: http://localhost:3128
+  log_level: 0
