@@ -1,0 +1,33 @@
+pgpool_cache_cache_hit_ratio 0
+pgpool_cache_fragment_cache_entries_size 0
+pgpool_cache_free_cache_entries_size 0
+pgpool_cache_num_cache_entries 0
+pgpool_cache_num_cache_hits 0
+pgpool_cache_num_hash_entries 0
+pgpool_cache_num_selects 0
+pgpool_cache_used_cache_entries_size 0
+pgpool_cache_used_hash_entries 0
+pgpool_node_hostname 0
+pgpool_node_lb_weight 1
+pgpool_node_node_id 0
+pgpool_node_port 5432
+pgpool_node_role 0
+pgpool_node_status 2
+pgpool_pool_backend_id 0
+pgpool_pool_create_time 0
+pgpool_pool_database 0
+pgpool_pool_majorversion 0
+pgpool_pool_minorversion 0
+pgpool_pool_pool_backendpid 0
+pgpool_pool_pool_connected 0
+pgpool_pool_pool_counter 0
+pgpool_pool_pool_id
+pgpool_pool_pool_pid
+pgpool_pool_start_time
+pgpool_pool_username 0
+pgpool_process_create_time
+pgpool_process_database 0
+pgpool_process_pool_counter 1
+pgpool_process_pool_pid
+pgpool_process_start_time
+pgpool_process_username 0

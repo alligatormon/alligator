@@ -1,0 +1,12 @@
+patroni_cluster_unlocked 0
+patroni_replication_sync_priority {state="streaming", client_addr="172.18.0.2", sync_state="async", usename="replicator", application_name="patroni3"} 0
+patroni_replication_sync_priority {state="streaming", client_addr="172.18.0.8", sync_state="async", usename="replicator", application_name="patroni1"} 0
+patroni_role {role="master"} 1
+patroni_settings_loop_wait 10
+patroni_settings_maximum_lag_on_failover 1048576
+patroni_settings_postgresql_parameters_max_connections 100
+patroni_settings_postgresql_use_pg_rewind 1
+patroni_settings_retry_timeout 10
+patroni_settings_ttl 30
+patroni_state {state="running"} 1
+patroni_xlog_location 67109184

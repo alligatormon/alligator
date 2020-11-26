@@ -98,6 +98,10 @@ void aggregate_ctx_init()
 	ntpd_parser_push();
 	ipmi_parser_push();
 	pg_parser_push();
+	pgbouncer_parser_push();
+	odyssey_parser_push();
+	pgpool_parser_push();
+	patroni_parser_push();
 	mysql_parser_push();
 	mongodb_parser_push();
 	http_parser_push();

@@ -8,6 +8,16 @@
 #include <query/query.h>
 #include <main.h>
 
+#define PG_TYPE_PG 0
+#define PG_TYPE_PGBOUNCER 1
+#define PG_TYPE_ODYSSEY 2
+#define PG_TYPE_PGPOOL 3
+
+typedef struct pg_data {
+	PGconn *conn;
+	int type;
+} pg_data;
+
 void postgresql_run(void* arg);
 
 void postgresql_free(pq_library* pglib)
@@ -419,7 +429,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
 	}
 }
 
-void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg)
+void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg, void callback(PGresult*, query_node*, context_arg*))
 {
 	PGresult *res = ac->pqlib->PQexec(conn, query);
 	if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -428,7 +438,7 @@ void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *ca
 			fprintf(stderr, "%s command failed: %s", query, ac->pqlib->PQerrorMessage(conn));
 	}
 	else
-		postgresql_write(res, qn, carg);
+		callback(res, qn, carg);
 
 	if (res)
 		ac->pqlib->PQclear(res);
@@ -507,14 +517,15 @@ void postgresql_get_databases(PGconn *conn, context_arg *carg)
 void postgresql_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
-	PGconn *conn = carg->data;
+	pg_data *data = carg->data;
+	PGconn *conn = data->conn;
 	query_node *qn = arg;
 	if (carg->log_level > 1)
 	{
 		puts("+-+-+-+-+-+-+-+");
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
-	postgresql_query(conn, qn->expr, qn, carg);
+	postgresql_query(conn, qn->expr, qn, carg, postgresql_write);
 }
 
 void postgresql_set_params(PGconn *conn, context_arg *carg)
@@ -539,6 +550,215 @@ void postgresql_set_params(PGconn *conn, context_arg *carg)
 			printf("failed to set timeout\n");
 }
 
+void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
+{
+	char pooler_name[20];
+
+	pg_data *data = carg->data;
+	if (data->type == PG_TYPE_PGBOUNCER)
+		strlcpy(pooler_name, "pgbouncer", 20);
+	else if (data->type == PG_TYPE_ODYSSEY)
+		strlcpy(pooler_name, "odyssey", 20);
+	else if (data->type == PG_TYPE_PGPOOL)
+		strlcpy(pooler_name, "pgpool", 20);
+
+	char *prefix = (char*)arg;
+	if (carg->log_level > 1)
+	{
+		printf("pg status %d/%d\n", ac->pqlib->PQresultStatus(r), PGRES_TUPLES_OK);
+		printf("pg tuples %d, field %d\n", ac->pqlib->PQntuples(r), ac->pqlib->PQnfields(r));
+	}
+
+	uint64_t i;
+	uint64_t j;
+
+	for (i=0; i<ac->pqlib->PQntuples(r); ++i)
+	{
+		char metric_name[255];
+		char dbname[255];
+		char user[255];
+		char name[255];
+		char pool_mode[255];
+		char host[255];
+		char port[255];
+		char state[255];
+		char type[255];
+		char addr[255];
+		char local_addr[255];
+		char local_port[255];
+		char tls[255];
+		char force_user[255];
+		*metric_name = 0;
+		*dbname = 0;
+		*user = 0;
+		*name = 0;
+		*pool_mode = 0;
+		*host = 0;
+		*port = 0;
+		*state = 0;
+		*type = 0;
+		*addr = 0;
+		*local_addr = 0;
+		*local_port = 0;
+		*tls = 0;
+		*force_user = 0;
+		int64_t wait = 0;
+
+		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
+		{
+			char *colname = ac->pqlib->PQfname(r, j);
+			if (ac->pqlib->PQftype(r, j) == 700 || ac->pqlib->PQftype(r, j) == 701) // FLOAT4OID FLOAT8OID
+			{
+				char *res = ac->pqlib->PQgetvalue(r, i, j);
+				double val = strtod(res, NULL);
+
+				if (prefix)
+					snprintf(metric_name, 254, "%s_%s_%s", pooler_name, prefix, colname);
+				else
+					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
+
+				tommy_hashdyn *hash = malloc(sizeof(*hash));
+				tommy_hashdyn_init(hash);
+				if (*dbname)
+					labels_hash_insert_nocache(hash, "database", dbname);
+				if (*user)
+					labels_hash_insert_nocache(hash, "user", user);
+				if (*name)
+					labels_hash_insert_nocache(hash, "name", name);
+				if (*pool_mode)
+					labels_hash_insert_nocache(hash, "pool_mode", pool_mode);
+				if (*host)
+					labels_hash_insert_nocache(hash, "host", host);
+				if (*port)
+					labels_hash_insert_nocache(hash, "port", port);
+				if (*state)
+					labels_hash_insert_nocache(hash, "state", state);
+				if (*type)
+					labels_hash_insert_nocache(hash, "type", type);
+				if (*addr)
+					labels_hash_insert_nocache(hash, "addr", addr);
+				if (*local_addr)
+					labels_hash_insert_nocache(hash, "local_addr", local_addr);
+				if (*local_addr)
+					labels_hash_insert_nocache(hash, "local_port", local_port);
+				if (*tls)
+					labels_hash_insert_nocache(hash, "tls", tls);
+				if (*force_user)
+					labels_hash_insert_nocache(hash, "force_user", force_user);
+
+				metric_add(metric_name, hash, &val, DATATYPE_DOUBLE, ac->system_carg);
+			}
+			if (ac->pqlib->PQftype(r, j) == 25) // string
+			{
+				char *res = ac->pqlib->PQgetvalue(r, i, j);
+				if (!strcmp(colname, "database"))
+					strlcpy(dbname, res, 255);
+				else if (!strcmp(colname, "user"))
+					strlcpy(user, res, 255);
+				else if (!strcmp(colname, "name"))
+					strlcpy(name, res, 255);
+				else if (!strcmp(colname, "list"))
+					strlcpy(name, res, 255);
+				else if (!strcmp(colname, "host"))
+					strlcpy(host, res, 255);
+				else if (!strcmp(colname, "pool_mode"))
+					strlcpy(pool_mode, res, 255);
+				else if (!strcmp(colname, "port"))
+					strlcpy(port, res, 255);
+				else if (!strcmp(colname, "state"))
+					strlcpy(state, res, 255);
+				else if (!strcmp(colname, "type"))
+					strlcpy(type, res, 255);
+				else if (!strcmp(colname, "addr"))
+					strlcpy(addr, res, 255);
+				else if (!strcmp(colname, "local_addr"))
+					strlcpy(local_addr, res, 255);
+				else if (!strcmp(colname, "local_port"))
+					strlcpy(local_port, res, 255);
+				else if (!strcmp(colname, "tls"))
+					strlcpy(tls, res, 255);
+				else if (!strcmp(colname, "force_user"))
+					strlcpy(force_user, res, 255);
+			}
+			else
+			{
+				char *res = ac->pqlib->PQgetvalue(r, i, j);
+				int64_t val = strtoll(res, NULL, 10);
+
+				if (prefix)
+					snprintf(metric_name, 254, "%s_%s_%s", pooler_name, prefix, colname);
+				else
+					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
+
+				tommy_hashdyn *hash = malloc(sizeof(*hash));
+				tommy_hashdyn_init(hash);
+				if (*dbname)
+					labels_hash_insert_nocache(hash, "database", dbname);
+				if (*user)
+					labels_hash_insert_nocache(hash, "user", user);
+				if (*name)
+					labels_hash_insert_nocache(hash, "name", name);
+				if (*pool_mode)
+					labels_hash_insert_nocache(hash, "pool_mode", pool_mode);
+				if (*host)
+					labels_hash_insert_nocache(hash, "host", host);
+				if (*port)
+					labels_hash_insert_nocache(hash, "port", port);
+				if (*state)
+					labels_hash_insert_nocache(hash, "state", state);
+				if (*type)
+					labels_hash_insert_nocache(hash, "type", type);
+				if (*addr)
+					labels_hash_insert_nocache(hash, "addr", addr);
+				if (*local_addr)
+					labels_hash_insert_nocache(hash, "local_addr", local_addr);
+				if (*local_addr)
+					labels_hash_insert_nocache(hash, "local_port", local_port);
+				if (*tls)
+					labels_hash_insert_nocache(hash, "tls", tls);
+				if (*force_user)
+					labels_hash_insert_nocache(hash, "force_user", force_user);
+
+				if (!strcmp(colname, "wait") || !strcmp(colname, "maxwait"))
+				{
+					wait = val * 1000000;
+				}
+				else if (!strcmp(colname, "wait_us") || !strcmp(colname, "maxwait_us"))
+				{
+					wait += val;
+					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
+					wait = 0;
+				}
+				else
+					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
+			}
+		}
+	}
+}
+
+void pgbouncer_queries(context_arg *carg)
+{
+	pg_data *data = carg->data;
+	PGconn *conn = data->conn;
+	postgresql_query(conn, "SHOW STATS", NULL, carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW POOLS", (query_node *)"pool", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW CLIENTS", (query_node *)"client", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW SERVERS", (query_node *)"server", carg, pgbouncer_callback);
+}
+
+void pgpool_queries(context_arg *carg)
+{
+	pg_data *data = carg->data;
+	PGconn *conn = data->conn;
+	postgresql_query(conn, "SHOW POOL_NODES", (query_node *)"node", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW POOL_PROCESSES", (query_node *)"process", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW POOL_POOLS", (query_node *)"pool", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW POOL_CACHE", (query_node *)"cache", carg, pgbouncer_callback);
+}
+
 void postgresql_run(void* arg)
 {
 	if (!postgres_init_module())
@@ -557,21 +777,38 @@ void postgresql_run(void* arg)
 	}
 
 	postgresql_set_params(conn, carg);
+	pg_data *data = carg->data;
+	data->conn = conn;
 
-	if (carg->name)
+	if (data->type == PG_TYPE_PG)
 	{
-		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
-		if (qds)
+		if (carg->name)
 		{
-			carg->data = conn;
-			tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+			query_ds *qds = query_get(carg->name);
+			if (carg->log_level > 1)
+				printf("found queries for datasource: %s: %p\n", carg->name, qds);
+			if (qds)
+			{
+				tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+			}
 		}
+
+		if (!carg->data_lock)
+			postgresql_get_databases(conn, carg);
 	}
 
-	if (!carg->data_lock)
-		postgresql_get_databases(conn, carg);
+	if (data->type == PG_TYPE_PGBOUNCER)
+	{
+		pgbouncer_queries(carg);
+	}
+	else if (data->type == PG_TYPE_ODYSSEY)
+	{
+		pgbouncer_queries(carg);
+	}
+	else if (data->type == PG_TYPE_PGPOOL)
+	{
+		pgpool_queries(carg);
+	}
 
 	ac->pqlib->PQfinish(conn);
 }
@@ -622,15 +859,74 @@ void postgresql_client(context_arg* carg)
 void pg_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
+	pg_data *data = calloc(1, sizeof(*data));
 
 	actx->key = strdup("postgresql");
 	actx->handlers = 1;
 	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->data = data;
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"postgresql", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void pgbouncer_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	pg_data *data = calloc(1, sizeof(*data));
+	data->type = PG_TYPE_PGBOUNCER;
+
+	actx->key = strdup("pgbouncer");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->data = data;
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key,"pgbouncer", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void odyssey_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	pg_data *data = calloc(1, sizeof(*data));
+	data->type = PG_TYPE_ODYSSEY;
+
+	actx->key = strdup("odyssey");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->data = data;
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key,"odyssey", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void pgpool_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	pg_data *data = calloc(1, sizeof(*data));
+	data->type = PG_TYPE_PGPOOL;
+
+	actx->key = strdup("pgpool");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->data = data;
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key,"pgpool", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp":["1111"]}], "modules": { "postgresql": "/usr/lib64/libpq.so" }, "aggregate": [{"handler": "pgbouncer", "url": "postgresql://pgbouncer:test@localhost:6432/pgbouncer"}]}

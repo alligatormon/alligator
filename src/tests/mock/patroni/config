@@ -1,0 +1,1 @@
+{"postgresql": {"parameters": {"max_connections": 100}, "use_pg_rewind": true, "pg_hba": ["local all all trust", "host replication all all md5", "host all all all md5"]}, "ttl": 30, "retry_timeout": 10, "maximum_lag_on_failover": 1048576, "loop_wait": 10}

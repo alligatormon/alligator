@@ -1,0 +1,72 @@
+odyssey_avg_query_count {database="console"} 0
+odyssey_avg_query_count {database="postgres"} 0
+odyssey_avg_query_time {database="console"} 0
+odyssey_avg_query_time {database="postgres"} 0
+odyssey_avg_recv {database="console"} 0
+odyssey_avg_recv {database="postgres"} 0
+odyssey_avg_sent {database="console"} 0
+odyssey_avg_sent {database="postgres"} 0
+odyssey_avg_wait_time {database="console"} 0
+odyssey_avg_wait_time {database="postgres"} 0
+odyssey_avg_xact_count {database="console"} 0
+odyssey_avg_xact_count {database="postgres"} 0
+odyssey_avg_xact_time {database="console"} 0
+odyssey_avg_xact_time {database="postgres"} 0
+odyssey_current_connections {database="console", name="console", pool_mode="session"} 1
+odyssey_current_connections {database="default", name="postgres", host="localhost", pool_mode="session"} 0
+odyssey_disabled {database="console", name="console", pool_mode="session"} 0
+odyssey_disabled {database="default", name="postgres", host="localhost", pool_mode="session"} 0
+odyssey_lists_items {name="databases"} 0
+odyssey_lists_items {name="dns_names"} 0
+odyssey_lists_items {name="dns_pending"} 0
+odyssey_lists_items {name="dns_queries"} 0
+odyssey_lists_items {name="dns_zones"} 0
+odyssey_lists_items {name="free_clients"} 0
+odyssey_lists_items {name="free_servers"} 1
+odyssey_lists_items {name="login_clients"} 0
+odyssey_lists_items {name="pools"} 2
+odyssey_lists_items {name="used_clients"} 1
+odyssey_lists_items {name="used_servers"} 0
+odyssey_lists_items {name="users"} 0
+odyssey_max_connections {database="console", name="console", pool_mode="session"} 0
+odyssey_max_connections {database="default", name="postgres", host="localhost", pool_mode="session"} 0
+odyssey_paused {database="console", name="console", pool_mode="session"} 0
+odyssey_paused {database="default", name="postgres", host="localhost", pool_mode="session"} 0
+odyssey_pool_cl_active {database="console", user="root"} 0
+odyssey_pool_cl_active {database="postgres", user="postgres"} 0
+odyssey_pool_cl_waiting {database="console", user="root"} 1
+odyssey_pool_cl_waiting {database="postgres", user="postgres"} 0
+odyssey_pool_maxwait {database="console", user="root"} 0
+odyssey_pool_maxwait {database="postgres", user="postgres"} 0
+odyssey_pool_maxwait_us {database="console", user="root"} 0
+odyssey_pool_maxwait_us {database="postgres", user="postgres"} 0
+odyssey_pool_size {database="console", name="console"} 0
+odyssey_pool_size {database="default", name="postgres", host="localhost"} 0
+odyssey_pool_sv_active {database="console", user="root"} 0
+odyssey_pool_sv_active {database="postgres", user="postgres"} 0
+odyssey_pool_sv_idle {database="console", user="root"} 0
+odyssey_pool_sv_idle {database="postgres", user="postgres"} 1
+odyssey_pool_sv_login {database="console", user="root"} 0
+odyssey_pool_sv_login {database="postgres", user="postgres"} 0
+odyssey_pool_sv_tested {database="console", user="root"} 0
+odyssey_pool_sv_tested {database="postgres", user="postgres"} 0
+odyssey_pool_sv_used {database="console", user="root"} 0
+odyssey_pool_sv_used {database="postgres", user="postgres"} 0
+odyssey_port {name="console"} 0
+odyssey_port {name="postgres", host="localhost"} 5432
+odyssey_reserve_pool {database="console", name="console"} 0
+odyssey_reserve_pool {database="default", name="postgres", host="localhost"} 0
+odyssey_total_query_count {database="console"} 0
+odyssey_total_query_count {database="postgres"}
+odyssey_total_query_time {database="console"} 0
+odyssey_total_query_time {database="postgres"}
+odyssey_total_received {database="console"} 0
+odyssey_total_received {database="postgres"}
+odyssey_total_sent {database="console"} 0
+odyssey_total_sent {database="postgres"}
+odyssey_total_wait_time {database="console"} 0
+odyssey_total_wait_time {database="postgres"} 0
+odyssey_total_xact_count {database="console"} 0
+odyssey_total_xact_count {database="postgres"} 6
+odyssey_total_xact_time {database="console"} 0
+odyssey_total_xact_time {database="postgres"}
