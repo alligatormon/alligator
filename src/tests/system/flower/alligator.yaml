@@ -1,1 +1,1 @@
-{"entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"flower", "url": "http://localhost:5555"}]}
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"flower", "url": "http://localhost:5555"}]}

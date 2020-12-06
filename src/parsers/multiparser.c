@@ -133,9 +133,12 @@ int plain_parser(char *buf, size_t len, context_arg *carg)
 
 void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, context_arg*), string *response, context_arg *carg)
 {
-	//puts("========================================================================");
-	//printf("handler (%p) parsing '%s'(%zu)\n", handler, buf, slen);
-	//puts("========================================================================");
+	if (carg && carg->log_level > 99)
+	{
+		puts("========================================================================");
+		printf("handler (%p) parsing (%zu):\n'%s'\n", handler, slen, buf);
+		puts("========================================================================");
+	}
 	if (!buf)
 		return;
 
@@ -153,7 +156,11 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		uint64_t proxylen;
 		if (carg && !carg->headers_pass && carg->is_http_query)
 		{
-			proxybuf = strstr(buf, "\r\n\r\n");
+			proxybuf = strstr(buf + carg->headers_size, "\r\n\r\n");
+			if (!proxybuf)
+				proxybuf = buf + carg->headers_size;
+
+			proxybuf += strspn(proxybuf, "\r\n");
 			proxylen = len - (proxybuf - buf);
 		}
 		else
@@ -222,6 +229,22 @@ void blackbox_parser_push()
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = blackbox_mesg;
 	strlcpy(actx->handler[0].key,"blackbox", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void process_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("process");
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key, "process", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

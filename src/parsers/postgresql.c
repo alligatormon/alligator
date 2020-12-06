@@ -587,7 +587,6 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 		char local_addr[255];
 		char local_port[255];
 		char tls[255];
-		char force_user[255];
 		*metric_name = 0;
 		*dbname = 0;
 		*user = 0;
@@ -601,7 +600,6 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 		*local_addr = 0;
 		*local_port = 0;
 		*tls = 0;
-		*force_user = 0;
 		int64_t wait = 0;
 
 		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
@@ -643,8 +641,6 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 					labels_hash_insert_nocache(hash, "local_port", local_port);
 				if (*tls)
 					labels_hash_insert_nocache(hash, "tls", tls);
-				if (*force_user)
-					labels_hash_insert_nocache(hash, "force_user", force_user);
 
 				metric_add(metric_name, hash, &val, DATATYPE_DOUBLE, ac->system_carg);
 			}
@@ -678,7 +674,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 				else if (!strcmp(colname, "tls"))
 					strlcpy(tls, res, 255);
 				else if (!strcmp(colname, "force_user"))
-					strlcpy(force_user, res, 255);
+					strlcpy(user, res, 255);
 			}
 			else
 			{
@@ -690,34 +686,6 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 				else
 					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
 
-				tommy_hashdyn *hash = malloc(sizeof(*hash));
-				tommy_hashdyn_init(hash);
-				if (*dbname)
-					labels_hash_insert_nocache(hash, "database", dbname);
-				if (*user)
-					labels_hash_insert_nocache(hash, "user", user);
-				if (*name)
-					labels_hash_insert_nocache(hash, "name", name);
-				if (*pool_mode)
-					labels_hash_insert_nocache(hash, "pool_mode", pool_mode);
-				if (*host)
-					labels_hash_insert_nocache(hash, "host", host);
-				if (*port)
-					labels_hash_insert_nocache(hash, "port", port);
-				if (*state)
-					labels_hash_insert_nocache(hash, "state", state);
-				if (*type)
-					labels_hash_insert_nocache(hash, "type", type);
-				if (*addr)
-					labels_hash_insert_nocache(hash, "addr", addr);
-				if (*local_addr)
-					labels_hash_insert_nocache(hash, "local_addr", local_addr);
-				if (*local_addr)
-					labels_hash_insert_nocache(hash, "local_port", local_port);
-				if (*tls)
-					labels_hash_insert_nocache(hash, "tls", tls);
-				if (*force_user)
-					labels_hash_insert_nocache(hash, "force_user", force_user);
 
 				if (!strcmp(colname, "wait") || !strcmp(colname, "maxwait"))
 				{
@@ -725,12 +693,68 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 				}
 				else if (!strcmp(colname, "wait_us") || !strcmp(colname, "maxwait_us"))
 				{
+					tommy_hashdyn *hash = malloc(sizeof(*hash));
+					tommy_hashdyn_init(hash);
+					if (*dbname)
+						labels_hash_insert_nocache(hash, "database", dbname);
+					if (*user)
+						labels_hash_insert_nocache(hash, "user", user);
+					if (*name)
+						labels_hash_insert_nocache(hash, "name", name);
+					if (*pool_mode)
+						labels_hash_insert_nocache(hash, "pool_mode", pool_mode);
+					if (*host)
+						labels_hash_insert_nocache(hash, "host", host);
+					if (*port)
+						labels_hash_insert_nocache(hash, "port", port);
+					if (*state)
+						labels_hash_insert_nocache(hash, "state", state);
+					if (*type)
+						labels_hash_insert_nocache(hash, "type", type);
+					if (*addr)
+						labels_hash_insert_nocache(hash, "addr", addr);
+					if (*local_addr)
+						labels_hash_insert_nocache(hash, "local_addr", local_addr);
+					if (*local_addr)
+						labels_hash_insert_nocache(hash, "local_port", local_port);
+					if (*tls)
+						labels_hash_insert_nocache(hash, "tls", tls);
+
 					wait += val;
 					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
 					wait = 0;
 				}
 				else
+				{
+					tommy_hashdyn *hash = malloc(sizeof(*hash));
+					tommy_hashdyn_init(hash);
+					if (*dbname)
+						labels_hash_insert_nocache(hash, "database", dbname);
+					if (*user)
+						labels_hash_insert_nocache(hash, "user", user);
+					if (*name)
+						labels_hash_insert_nocache(hash, "name", name);
+					if (*pool_mode)
+						labels_hash_insert_nocache(hash, "pool_mode", pool_mode);
+					if (*host)
+						labels_hash_insert_nocache(hash, "host", host);
+					if (*port)
+						labels_hash_insert_nocache(hash, "port", port);
+					if (*state)
+						labels_hash_insert_nocache(hash, "state", state);
+					if (*type)
+						labels_hash_insert_nocache(hash, "type", type);
+					if (*addr)
+						labels_hash_insert_nocache(hash, "addr", addr);
+					if (*local_addr)
+						labels_hash_insert_nocache(hash, "local_addr", local_addr);
+					if (*local_addr)
+						labels_hash_insert_nocache(hash, "local_port", local_port);
+					if (*tls)
+						labels_hash_insert_nocache(hash, "tls", tls);
+
 					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
+				}
 			}
 		}
 	}

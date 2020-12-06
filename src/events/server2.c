@@ -170,6 +170,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			else
 				tls_server_write(&carg->write_req, (uv_stream_t*)&carg->client, str->s, str->l);
 		}
+		string_null(carg->full_body);
 		carg->buffer_response_size = str->m;
 		free(str);
 	}
@@ -506,7 +507,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
 	if (ret)
 	{
-		fprintf(stderr, "Listen error %s\n", uv_strerror(ret));
+		fprintf(stderr, "Listen '%s:%d' error %s\n", ip, port, uv_strerror(ret));
 		return NULL;
 	}
 
@@ -524,6 +525,7 @@ void tcp_server_stop(const char* ip, int port)
 		uv_close((uv_handle_t*)&carg->server, NULL);
 		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
+	carg_free(carg);
 }
 
 //int main()

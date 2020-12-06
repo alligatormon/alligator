@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/http.h"
+#include "main.h"
 void nats_varz_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "nats_varz", carg);
@@ -29,4 +31,45 @@ void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "nats_routez", carg);
 	free(parsestring[0]);
 	free(parsestring);
+}
+
+string *nats_gen_url(host_aggregator_info *hi, char *addition)
+{
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL), 0, 0);
+}
+
+string* nats_varz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/varz"); }
+string* nats_connz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/connz"); }
+string* nats_routez_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/routez"); }
+string* nats_subsz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/subsz"); }
+
+void nats_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("nats");
+	actx->handlers = 4;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = nats_varz_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = nats_varz_mesg;
+	strlcpy(actx->handler[0].key,"nats_varz", 255);
+
+	actx->handler[1].name = nats_connz_handler;
+	actx->handler[1].validator = NULL;
+	actx->handler[1].mesg_func = nats_connz_mesg;
+	strlcpy(actx->handler[1].key,"nats_connz", 255);
+
+	actx->handler[2].name = nats_routez_handler;
+	actx->handler[2].validator = NULL;
+	actx->handler[2].mesg_func = nats_routez_mesg;
+	strlcpy(actx->handler[2].key,"nats_routez", 255);
+
+	actx->handler[3].name = nats_subsz_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = nats_subsz_mesg;
+	strlcpy(actx->handler[3].key,"nats_subsz", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

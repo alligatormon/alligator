@@ -1,0 +1,6 @@
+entrypoint:
+- tcp:
+  - '1111'
+aggregate:
+- handler: syslog-ng
+  url: unix:///var/lib/syslog-ng/syslog-ng.ctl

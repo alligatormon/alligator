@@ -1,0 +1,54 @@
+Name:	postmaster
+Umask:	0077
+State:	R (running)
+Tgid:	14124
+Ngid:	0
+Pid:	14124
+PPid:	1
+TracerPid:	0
+Uid:	26	26	26	26
+Gid:	26	26	26	26
+FDSize:	1024
+Groups:	26
+NStgid:	14124
+NSpid:	14124
+NSpgid:	14124
+NSsid:	14124
+VmPeak:	32362268 kB
+VmSize:	32362244 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	  683824 kB
+VmRSS:	  683144 kB
+RssAnon:	    1448 kB
+RssFile:	   10064 kB
+RssShmem:	  671632 kB
+VmData:	    1428 kB
+VmStk:	     132 kB
+VmExe:	    7384 kB
+VmLib:	   38308 kB
+VmPTE:	    1604 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+Threads:	1
+SigQ:	0/193022
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	fffffffe3ff9fa07
+SigIgn:	0000000001303000
+SigCgt:	0000000180014a07
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	0000003cfd6cffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Speculation_Store_Bypass:	thread force mitigated
+Cpus_allowed:	00ffff
+Cpus_allowed_list:	0-15
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000003
+Mems_allowed_list:	0-1
+voluntary_ctxt_switches:	44330257
+nonvoluntary_ctxt_switches:	1022547

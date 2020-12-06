@@ -1,0 +1,16 @@
+syslogng_stats {type="processed", source_name="center", state="a", source_instance="queued"} 1
+syslogng_stats {type="processed", source_name="center", state="a", source_instance="received"} 1
+syslogng_stats {type="processed", source_id="d_auth", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_boot", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_cron", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_kern", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_mail", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_mesg", source_name="destination", state="a"} 1
+syslogng_stats {type="processed", source_id="d_mlal", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="d_spol", source_name="destination", state="a"} 0
+syslogng_stats {type="processed", source_id="msg_clones", source_name="global", state="a"} 0
+syslogng_stats {type="processed", source_id="payload_reallocs", source_name="global", state="a"} 0
+syslogng_stats {type="processed", source_id="s_sys", source_name="source", state="a"} 1
+syslogng_stats {type="processed", source_id="s_sys#0", source_name="src.internal", state="a"} 1
+syslogng_stats {type="processed", source_id="sdata_updates", source_name="global", state="a"} 0
+syslogng_stats {type="stamp", source_id="s_sys#0", source_name="src.internal", state="a"}

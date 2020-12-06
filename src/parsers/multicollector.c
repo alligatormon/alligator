@@ -52,6 +52,8 @@ int multicollector_skip_spaces(uint64_t *cur, const char *str, const size_t size
 	return syms;
 }
 
+extern uint64_t fgets_counter;
+
 int char_fgets(char *str, char *buf, int64_t *cnt, size_t len)
 {
 	if (*cnt >= len)
@@ -296,7 +298,7 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 	}
 }
 
-void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
+uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
 {
 	if (ac->log_level > 3)
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
@@ -315,7 +317,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 	strlcpy(metric_name, template_name, metric_len+1);
 	//printf("copy metric name %s from '%s' with size %zu\n", metric_name, template_name, metric_len);
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
-		return;
+		return 0;
 
 	if (carg)
 		mm = carg->mm;
@@ -371,7 +373,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		if (ac->log_level > 3)
 			printf("%s: increment\n", metric_name);
 		//metric_increment();
-		return;
+		return 0;
 	}
 
 	multicollector_skip_spaces(&i, str, size);
@@ -397,7 +399,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			if (str[i] != '=')
 			{
 				labels_hash_free(lbl);
-				return;
+				return 0;
 			}
 			else
 			{
@@ -415,7 +417,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			//	if (ac->log_level > 3)
 			//		fprintf(stdout, "metric '%s' has invalid label format\n", str);
 
-			//	return;
+			//	return 0;
 			}
 
 			if (ac->log_level > 3)
@@ -429,7 +431,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 				if (carg && reject_metric(carg->reject, label_name, label_key))
 				{
 					labels_hash_free(lbl);
-					return;
+					return 0;
 				}
 
 				labels_hash_insert_nocache(lbl, label_name, label_key);
@@ -439,7 +441,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 				labels_hash_free(lbl);
 				if (ac->log_level > 3)
 					fprintf(stdout, "metric '%s' has invalid label format: %s\n", str, label_name);
-				return;
+				return 0;
 			}
 			// go to next label or end '}'
 			multicollector_skip_spaces(&i, str, size);
@@ -453,7 +455,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 			else
 			{
 				labels_hash_free(lbl);
-				return;
+				return 0;
 			}
 		}
 
@@ -500,7 +502,7 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		value = atof(str+i);
 	}
 	else
-		return;
+		return 0;
 
 	// replacing dot symbols and other from metric
 	metric_name_normalizer(metric_name, metric_len);
@@ -510,6 +512,8 @@ void multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, contex
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	else
 		metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+
+	return 1;
 }
 
 void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
@@ -523,8 +527,11 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		size = http_data->body_size;
 	}
 
+	uint64_t fgets_counter = 0;
 	while ( (tmp_len = char_fgets(str, tmp, &cnt, size)) )
 	{
+		++fgets_counter;
+
 		if (tmp[0] == '#')
 			continue;
 
@@ -540,8 +547,18 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 		if (carg && http_data)
 			carg->curr_ttl = http_data->expire;
-		multicollector_field_get(tmp, tmp_len, lbl, carg);
+
+		if (!carg->parser_status && fgets_counter == 1)
+		{
+			if (ac->log_level > 2)
+				puts("skip first incomplete string for statsd/graphite proto, loose by network");
+			continue;
+		}
+
+		carg->parser_status = multicollector_field_get(tmp, tmp_len, lbl, carg);
 	}
+	if (ac->log_level > 0)
+		printf("parsed metrics multicollector: %"u64", full size read: %zu\n", fgets_counter, size);
 }
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg)

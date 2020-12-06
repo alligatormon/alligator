@@ -376,7 +376,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
-					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "tcp") || !strcmp(wstokens[i].token->s, "udp") || !strcmp(wstokens[i].token->s, "unix_socket")))
+					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup")))
 					{
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);

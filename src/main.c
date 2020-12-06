@@ -45,13 +45,14 @@ void system_initialize()
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->system_carg->ttl = 300;
-	ac->system_carg->curr_ttl = -1;
+	ac->system_carg->curr_ttl = 0;
 	ac->scs = calloc(1, sizeof(system_cpu_stats));
 	ac->system_sysfs = strdup("/sys/");
 	ac->system_procfs = strdup("/proc/");
 	ac->system_rundir = strdup("/run/");
 	ac->system_usrdir = strdup("/usr/");
 	ac->system_etcdir = strdup("/etc/");
+	ac->system_pidfile = calloc(1, sizeof(*ac->system_pidfile));
 
 	ac->process_match = calloc(1, sizeof(match_rules));
 	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
@@ -61,9 +62,11 @@ void system_initialize()
 	ac->packages_match->hash = malloc(sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->packages_match->hash);
 
-	ac->sockets_match = calloc(1, sizeof(match_rules));
-	ac->sockets_match->hash = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->sockets_match->hash);
+	ac->system_userprocess = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->system_userprocess);
+
+	ac->system_groupprocess = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->system_groupprocess);
 }
 
 void system_metric_initialize()

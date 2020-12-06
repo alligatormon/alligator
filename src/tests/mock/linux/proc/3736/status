@@ -1,0 +1,54 @@
+Name:	pgbouncer
+Umask:	0022
+State:	S (sleeping)
+Tgid:	3374
+Ngid:	18017
+Pid:	3374
+PPid:	1
+TracerPid:	0
+Uid:	499	499	499	499
+Gid:	992	992	992	992
+FDSize:	512
+Groups:	992
+NStgid:	3374
+NSpid:	3374
+NSpgid:	3374
+NSsid:	3374
+VmPeak:	  191828 kB
+VmSize:	  130116 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    8176 kB
+VmRSS:	    6604 kB
+RssAnon:	    3124 kB
+RssFile:	    3480 kB
+RssShmem:	       0 kB
+VmData:	   11416 kB
+VmStk:	     132 kB
+VmExe:	     380 kB
+VmLib:	    7476 kB
+VmPTE:	     156 kB
+VmSwap:	       0 kB
+HugetlbPages:	       0 kB
+CoreDumping:	0
+Threads:	2
+SigQ:	0/193022
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	0000000000001000
+SigIgn:	0000000000001000
+SigCgt:	0000000180006a03
+CapInh:	0000000000000000
+CapPrm:	0000000000000000
+CapEff:	0000000000000000
+CapBnd:	0000003cfd6cffff
+CapAmb:	0000000000000000
+NoNewPrivs:	0
+Seccomp:	2
+Speculation_Store_Bypass:	thread force mitigated
+Cpus_allowed:	00ffff
+Cpus_allowed_list:	0-15
+Mems_allowed:	00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000003
+Mems_allowed_list:	0-1
+voluntary_ctxt_switches:	574981928
+nonvoluntary_ctxt_switches:	862363

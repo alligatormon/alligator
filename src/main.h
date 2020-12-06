@@ -58,6 +58,25 @@ typedef struct system_cpu_stats
 	system_cpu_cores_stats hw;
 } system_cpu_stats;
 
+typedef struct pidfile_node {
+	char *pidfile;
+	int type;
+	struct pidfile_node *next;
+} pidfile_node;
+
+typedef struct pidfile_list {
+	pidfile_node *head;
+	pidfile_node *tail;
+} pidfile_list;
+
+
+typedef struct userprocess_node {
+	uid_t uid;
+	char *name;
+
+	tommy_node node;
+} userprocess_node;
+
 typedef struct aconf
 {
 	namespace_struct *nsdefault;
@@ -145,12 +164,15 @@ typedef struct aconf
 	char *system_usrdir;
 	char *system_etcdir;
 	char *cadvisor_tcpudpbuf;
+	tommy_hashdyn* system_userprocess;
+	tommy_hashdyn* system_groupprocess;
 	uint64_t system_cpuavg_period;
 	double system_cpuavg_sum;
 	uint64_t system_cpuavg_ptr;
 	int system_cpuavg;
 	double *system_avg_metrics;
 	r_time last_time_cpu;
+	pidfile_list *system_pidfile;
 #ifdef __linux__
 	//rpm_library *rpmlib;
 	void *rpmlib;
@@ -160,7 +182,6 @@ typedef struct aconf
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	match_rules *packages_match;
-	match_rules *sockets_match;
 	tommy_hashdyn* fdesc;
 
 	tommy_hashdyn* entrypoints;

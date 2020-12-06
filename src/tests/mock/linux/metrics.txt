@@ -1,3 +1,205 @@
+open_files_process 0
+process_cpu {type="system", name="beam.smp", pid="1342"} 20275
+process_cpu {type="system", name="clickhouse-serv", pid="2134"} 20275
+process_cpu {type="system", name="pgbouncer", pid="3736"} 4559860
+process_cpu {type="system", name="postmaster", pid="2562"} 45197014
+process_cpu {type="system", name="tail", pid="1"} 63
+process_cpu {type="total", name="beam.smp", pid="1342"} 32961
+process_cpu {type="total", name="clickhouse-serv", pid="2134"} 32961
+process_cpu {type="total", name="pgbouncer", pid="3736"} 5547439
+process_cpu {type="total", name="postmaster", pid="2562"} 271927562
+process_cpu {type="total", name="tail", pid="1"} 98
+process_cpu {type="user", name="beam.smp", pid="1342"} 12686
+process_cpu {type="user", name="clickhouse-serv", pid="2134"} 12686
+process_cpu {type="user", name="pgbouncer", pid="3736"} 987579
+process_cpu {type="user", name="postmaster", pid="2562"} 226730548
+process_cpu {type="user", name="tail", pid="1"} 35
+process_io {type="cancelled_write_bytes", name="beam.smp", pid="1342"} 24576
+process_io {type="cancelled_write_bytes", name="clickhouse-serv", pid="2134"} 24576
+process_io {type="cancelled_write_bytes", name="pgbouncer", pid="3736"} 0
+process_io {type="cancelled_write_bytes", name="postmaster", pid="2562"} 30514479104
+process_io {type="cancelled_write_bytes", name="tail", pid="1"} 0
+process_io {type="rchar", name="beam.smp", pid="1342"} 187898678
+process_io {type="rchar", name="clickhouse-serv", pid="2134"} 187898678
+process_io {type="rchar", name="pgbouncer", pid="3736"} 1467300
+process_io {type="rchar", name="postmaster", pid="2562"} 6950666943826
+process_io {type="rchar", name="tail", pid="1"} 613091
+process_io {type="read_bytes", name="beam.smp", pid="1342"} 80453632
+process_io {type="read_bytes", name="clickhouse-serv", pid="2134"} 80453632
+process_io {type="read_bytes", name="pgbouncer", pid="3736"} 643072
+process_io {type="read_bytes", name="postmaster", pid="2562"} 700280832
+process_io {type="read_bytes", name="tail", pid="1"} 2551808
+process_io {type="syscr", name="beam.smp", pid="1342"} 1174744
+process_io {type="syscr", name="clickhouse-serv", pid="2134"} 1174744
+process_io {type="syscr", name="pgbouncer", pid="3736"} 36127
+process_io {type="syscr", name="postmaster", pid="2562"} 1947553340
+process_io {type="syscr", name="tail", pid="1"} 69719
+process_io {type="syscw", name="beam.smp", pid="1342"} 804585
+process_io {type="syscw", name="clickhouse-serv", pid="2134"} 804585
+process_io {type="syscw", name="pgbouncer", pid="3736"} 125428433
+process_io {type="syscw", name="postmaster", pid="2562"} 279951689
+process_io {type="syscw", name="tail", pid="1"} 4
+process_io {type="wchar", name="beam.smp", pid="1342"} 99562280
+process_io {type="wchar", name="clickhouse-serv", pid="2134"} 99562280
+process_io {type="wchar", name="pgbouncer", pid="3736"} 20520932587
+process_io {type="wchar", name="postmaster", pid="2562"} 1948094911578
+process_io {type="wchar", name="tail", pid="1"} 45
+process_io {type="write_bytes", name="beam.smp", pid="1342"} 255012864
+process_io {type="write_bytes", name="clickhouse-serv", pid="2134"} 255012864
+process_io {type="write_bytes", name="pgbouncer", pid="3736"} 10301915136
+process_io {type="write_bytes", name="postmaster", pid="2562"} 1945808175104
+process_io {type="write_bytes", name="tail", pid="1"} 0
+process_match {name="beam.smp"} 1
+process_match {name="tests/mock/linux/svc.pid"} 1
+process_match {name="tests/mock/linux/sys///cpu//cgroup.procs"} 2
+process_memory {type="rss", name="beam.smp", pid="1342"} 28360704
+process_memory {type="rss", name="clickhouse-serv", pid="2134"} 28360704
+process_memory {type="rss", name="pgbouncer", pid="3736"} 6762496
+process_memory {type="rss", name="postmaster", pid="2562"} 699539456
+process_memory {type="rss", name="tail", pid="1"} 593920
+process_memory {type="vsz", name="beam.smp", pid="1342"} 3832295424
+process_memory {type="vsz", name="clickhouse-serv", pid="2134"} 3832295424
+process_memory {type="vsz", name="pgbouncer", pid="3736"} 133238784
+process_memory {type="vsz", name="postmaster", pid="2562"} 33138937856
+process_memory {type="vsz", name="tail", pid="1"} 4513792
+process_page_faults {type="major", name="beam.smp", pid="1342"} 1536
+process_page_faults {type="major", name="clickhouse-serv", pid="2134"} 1536
+process_page_faults {type="major", name="pgbouncer", pid="3736"} 32
+process_page_faults {type="major", name="postmaster", pid="2562"} 12
+process_page_faults {type="major", name="tail", pid="1"} 15
+process_page_faults {type="minor", name="beam.smp", pid="1342"} 36632
+process_page_faults {type="minor", name="clickhouse-serv", pid="2134"} 36632
+process_page_faults {type="minor", name="pgbouncer", pid="3736"} 8387790
+process_page_faults {type="minor", name="postmaster", pid="2562"} 402826605
+process_page_faults {type="minor", name="tail", pid="1"} 722
+process_rlimit {type="lock_bytes", name="beam.smp", pid="1342"} 67108864
+process_rlimit {type="lock_bytes", name="tail", pid="1"} 67108864
+process_rlimit {type="open_files", name="beam.smp", pid="1342"} 102400
+process_rlimit {type="open_files", name="tail", pid="1"} 102400
+process_rlimit {type="stack_bytes", name="beam.smp", pid="1342"} 622592
+process_rlimit {type="stack_bytes", name="tail", pid="1"} 8589934592
+process_rlimit_usage {type="lock_bytes", name="beam.smp", pid="1342"} 0.000000
+process_rlimit_usage {type="lock_bytes", name="tail", pid="1"} 0.000000
+process_rlimit_usage {type="open_files", name="beam.smp", pid="1342"} 0.000000
+process_rlimit_usage {type="open_files", name="tail", pid="1"} 0.000000
+process_rlimit_usage {type="stack_bytes", name="beam.smp", pid="1342"} 0.217105
+process_rlimit_usage {type="stack_bytes", name="tail", pid="1"} 0.000016
+process_schedstat_run_periods {name="beam.smp", pid="1342"} 413
+process_schedstat_run_periods {name="clickhouse-serv", pid="2134"} 413
+process_schedstat_run_periods {name="pgbouncer", pid="3736"} 575992889
+process_schedstat_run_periods {name="postmaster", pid="2562"} 45350556
+process_schedstat_run_periods {name="tail", pid="1"} 35003
+process_schedstat_run_time {name="beam.smp", pid="1342"} 43822399
+process_schedstat_run_time {name="clickhouse-serv", pid="2134"} 43822399
+process_schedstat_run_time {name="pgbouncer", pid="3736"} 55480292454456
+process_schedstat_run_time {name="postmaster", pid="2562"} 20174793485973
+process_schedstat_run_time {name="tail", pid="1"} 986192629
+process_schedstat_runqueue_time {name="beam.smp", pid="1342"} 2498682
+process_schedstat_runqueue_time {name="clickhouse-serv", pid="2134"} 2498682
+process_schedstat_runqueue_time {name="pgbouncer", pid="3736"} 2100228298135
+process_schedstat_runqueue_time {name="postmaster", pid="2562"} 668376578552
+process_schedstat_runqueue_time {name="tail", pid="1"} 124877974
+process_state {type="running", name="beam.smp", pid="1342"} 0
+process_state {type="running", name="clickhouse-serv", pid="2134"} 0
+process_state {type="running", name="pgbouncer", pid="3736"} 0
+process_state {type="running", name="postmaster", pid="2562"} 0
+process_state {type="running", name="tail", pid="1"} 0
+process_state {type="sleeping", name="beam.smp", pid="1342"} 1
+process_state {type="sleeping", name="clickhouse-serv", pid="2134"} 1
+process_state {type="sleeping", name="pgbouncer", pid="3736"} 1
+process_state {type="sleeping", name="postmaster", pid="2562"} 1
+process_state {type="sleeping", name="tail", pid="1"} 1
+process_state {type="stopped", name="beam.smp", pid="1342"} 0
+process_state {type="stopped", name="clickhouse-serv", pid="2134"} 0
+process_state {type="stopped", name="pgbouncer", pid="3736"} 0
+process_state {type="stopped", name="postmaster", pid="2562"} 0
+process_state {type="stopped", name="tail", pid="1"} 0
+process_state {type="uninterruptible", name="beam.smp", pid="1342"} 0
+process_state {type="uninterruptible", name="clickhouse-serv", pid="2134"} 0
+process_state {type="uninterruptible", name="pgbouncer", pid="3736"} 0
+process_state {type="uninterruptible", name="postmaster", pid="2562"} 0
+process_state {type="uninterruptible", name="tail", pid="1"} 0
+process_state {type="zombie", name="beam.smp", pid="1342"} 0
+process_state {type="zombie", name="clickhouse-serv", pid="2134"} 0
+process_state {type="zombie", name="pgbouncer", pid="3736"} 0
+process_state {type="zombie", name="postmaster", pid="2562"} 0
+process_state {type="zombie", name="tail", pid="1"} 0
+process_states {state="running"} 0
+process_states {state="sleeping"} 5
+process_states {state="stopped"} 0
+process_states {state="uninterruptible"} 0
+process_states {state="zombie"} 0
+process_stats {type="anon_bytes", name="beam.smp", pid="1342"} 22941696
+process_stats {type="anon_bytes", name="clickhouse-serv", pid="2134"} 22941696
+process_stats {type="anon_bytes", name="pgbouncer", pid="3736"} 3198976
+process_stats {type="anon_bytes", name="postmaster", pid="2562"} 1482752
+process_stats {type="anon_bytes", name="tail", pid="1"} 12288
+process_stats {type="ctx_switches", name="beam.smp", pid="1342"} 413
+process_stats {type="ctx_switches", name="clickhouse-serv", pid="2134"} 413
+process_stats {type="ctx_switches", name="pgbouncer", pid="3736"} 575844291
+process_stats {type="ctx_switches", name="postmaster", pid="2562"} 45352804
+process_stats {type="ctx_switches", name="tail", pid="1"} 35003
+process_stats {type="data_bytes", name="beam.smp", pid="1342"} 107954176
+process_stats {type="data_bytes", name="clickhouse-serv", pid="2134"} 107954176
+process_stats {type="data_bytes", name="pgbouncer", pid="3736"} 11689984
+process_stats {type="data_bytes", name="postmaster", pid="2562"} 1462272
+process_stats {type="data_bytes", name="tail", pid="1"} 192512
+process_stats {type="executable_bytes", name="beam.smp", pid="1342"} 3260416
+process_stats {type="executable_bytes", name="clickhouse-serv", pid="2134"} 3260416
+process_stats {type="executable_bytes", name="pgbouncer", pid="3736"} 389120
+process_stats {type="executable_bytes", name="postmaster", pid="2562"} 7561216
+process_stats {type="executable_bytes", name="tail", pid="1"} 61440
+process_stats {type="file_bytes", name="beam.smp", pid="1342"} 5419008
+process_stats {type="file_bytes", name="clickhouse-serv", pid="2134"} 5419008
+process_stats {type="file_bytes", name="pgbouncer", pid="3736"} 3563520
+process_stats {type="file_bytes", name="postmaster", pid="2562"} 10305536
+process_stats {type="file_bytes", name="tail", pid="1"} 581632
+process_stats {type="lib_bytes", name="beam.smp", pid="1342"} 6533120
+process_stats {type="lib_bytes", name="clickhouse-serv", pid="2134"} 6533120
+process_stats {type="lib_bytes", name="pgbouncer", pid="3736"} 7655424
+process_stats {type="lib_bytes", name="postmaster", pid="2562"} 39227392
+process_stats {type="lib_bytes", name="tail", pid="1"} 1990656
+process_stats {type="lock_bytes", name="beam.smp", pid="1342"} 0
+process_stats {type="lock_bytes", name="clickhouse-serv", pid="2134"} 0
+process_stats {type="lock_bytes", name="pgbouncer", pid="3736"} 0
+process_stats {type="lock_bytes", name="postmaster", pid="2562"} 0
+process_stats {type="lock_bytes", name="tail", pid="1"} 0
+process_stats {type="nonvoluntary_ctx_switches", name="beam.smp", pid="1342"} 333
+process_stats {type="nonvoluntary_ctx_switches", name="clickhouse-serv", pid="2134"} 333
+process_stats {type="nonvoluntary_ctx_switches", name="pgbouncer", pid="3736"} 862363
+process_stats {type="nonvoluntary_ctx_switches", name="postmaster", pid="2562"} 1022547
+process_stats {type="nonvoluntary_ctx_switches", name="tail", pid="1"} 119
+process_stats {type="shmem_bytes", name="beam.smp", pid="1342"} 0
+process_stats {type="shmem_bytes", name="clickhouse-serv", pid="2134"} 0
+process_stats {type="shmem_bytes", name="pgbouncer", pid="3736"} 0
+process_stats {type="shmem_bytes", name="postmaster", pid="2562"} 687751168
+process_stats {type="shmem_bytes", name="tail", pid="1"} 0
+process_stats {type="stack_bytes", name="beam.smp", pid="1342"} 135168
+process_stats {type="stack_bytes", name="clickhouse-serv", pid="2134"} 135168
+process_stats {type="stack_bytes", name="pgbouncer", pid="3736"} 135168
+process_stats {type="stack_bytes", name="postmaster", pid="2562"} 135168
+process_stats {type="stack_bytes", name="tail", pid="1"} 135168
+process_stats {type="swap_bytes", name="beam.smp", pid="1342"} 22294528
+process_stats {type="swap_bytes", name="clickhouse-serv", pid="2134"} 22294528
+process_stats {type="swap_bytes", name="pgbouncer", pid="3736"} 0
+process_stats {type="swap_bytes", name="postmaster", pid="2562"} 0
+process_stats {type="swap_bytes", name="tail", pid="1"} 61440
+process_stats {type="threads", name="beam.smp", pid="1342"} 42
+process_stats {type="threads", name="clickhouse-serv", pid="2134"} 42
+process_stats {type="threads", name="pgbouncer", pid="3736"} 2
+process_stats {type="threads", name="postmaster", pid="2562"} 1
+process_stats {type="threads", name="tail", pid="1"} 1
+process_stats {type="voluntary_ctx_switches", name="beam.smp", pid="1342"} 80
+process_stats {type="voluntary_ctx_switches", name="clickhouse-serv", pid="2134"} 80
+process_stats {type="voluntary_ctx_switches", name="pgbouncer", pid="3736"} 574981928
+process_stats {type="voluntary_ctx_switches", name="postmaster", pid="2562"} 44330257
+process_stats {type="voluntary_ctx_switches", name="tail", pid="1"} 34884
+process_uptime {name="beam.smp", pid="1342"} 2377675
+process_uptime {name="clickhouse-serv", pid="2134"} 86248
+process_uptime {name="pgbouncer", pid="3736"} 5482
+process_uptime {name="postmaster", pid="2562"} 5546
+process_uptime {name="tail", pid="1"} 2377675
+processes_total 5
 service_enabled {service="alligator.service"} 1
 service_enabled {service="ipset.service"} 1
 service_enabled {service="iptables.service"} 1
@@ -10,9 +212,12 @@ service_running {service="iptables.service"} 1
 service_running {service="lvm2-lvmetad.socket"} 0
 service_running {service="lvm2-monitor.service"} 1
 service_running {service="mdmonitor.service"} 0
-service_tasks_count {service="alligator.service", type="processes"} 1
-service_tasks_count {service="alligator.service", type="threads"} 31
-service_tasks_count {service="iptables.service", type="processes"} 3
-service_tasks_count {service="iptables.service", type="threads"} 12
-service_tasks_count {service="lvm2-monitor.service", type="processes"} 10
-service_tasks_count {service="lvm2-monitor.service", type="threads"} 10
+service_tasks_count {type="processes", service="alligator.service"} 2
+service_tasks_count {type="processes", service="iptables.service"} 4
+service_tasks_count {type="processes", service="lvm2-monitor.service"} 11
+service_tasks_count {type="threads", service="alligator.service"} 32
+service_tasks_count {type="threads", service="iptables.service"} 13
+service_tasks_count {type="threads", service="lvm2-monitor.service"} 11
+tasks_max 15638
+tasks_total 5
+tasks_usage 0.031973

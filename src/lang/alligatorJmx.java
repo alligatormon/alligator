@@ -38,13 +38,14 @@ import javax.management.ReflectionException;
 public class alligatorJmx
 {
 	public static int intMethod(int n) {
-		System.out.println("gello wiorld");
+		System.out.println("hello world");
 		return n*n;
 	}
 
 	public static boolean booleanMethod(boolean bool) {
 		 return !bool;
 	}
+
 	public String getJmx(String arg) throws Exception {
 	//public String getJmx() throws Exception {
 		System.out.println("arg is " + arg);

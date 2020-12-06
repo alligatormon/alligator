@@ -174,11 +174,6 @@ void squid_info_handler(char *metrics, size_t size, context_arg *carg)
 	cur = squid_info_counter_parser(carg, "memPoolFree calls", "squid_memory_pool_free_calls", cur, DATATYPE_UINT);
 	cur = squid_info_counter_parser(carg, "Number of file desc currently in use", "squid_file_descriptors_used", cur, DATATYPE_UINT);
 }
-//void squid_utilization_handler(char *metrics, size_t size, context_arg *carg)
-//{
-//	puts("squid_utilization_handler");
-//	puts(metrics);
-//}
 
 void squid_active_requests_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -186,17 +181,86 @@ void squid_active_requests_handler(char *metrics, size_t size, context_arg *carg
 	//puts(metrics);
 }
 
+void squid_pconn_handler(char *metrics, size_t size, context_arg *carg)
+{
+	//puts("squid_pconn_handler");
+	//puts(metrics);
+}
+
+void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
+{
+	char *tmp = metrics;
+
+	// skip string
+	tmp += strcspn(tmp, "\n");
+	tmp += strspn(tmp, "\n");
+	
+	// skip string
+	tmp += strcspn(tmp, "\n");
+	tmp += strspn(tmp, "\n");
+	
+	// skip string
+	tmp += strcspn(tmp, "\n");
+	tmp += strspn(tmp, "\n");
+
+	uint64_t i;
+	uint64_t j;
+	uint64_t k;
+	size_t sz = size - (tmp - metrics);
+	size_t str_sz;
+	size_t obj_sz;
+	char obj[255];
+	char pool[255];
+
+	char *objname[] = { "object_size_bytes", "kilobytes_per_chunk", "objects_per_chunk", "", "chunk_used", "chunk_free", "chunk_part", "fragmentation_percent", "", "memory_allocated_kb", "memory_in_use_high_kb", "memory_in_use_high_hrs", "memory_in_use_total_percent", "memory_in_use_number", "memory_in_use_kb", "memory_idle_high_kb", "memory_idle_high_hrs", "memory_idle_allocate_percent", "allocations_saved_number", "allocations_saved_kb", "allocations_saved_high_kb", "rate_number", "rate_number_count_percent", "rate_number_vol_percent", "rate_number_per_second" };
+
+	for (i = 0; i < sz;)
+	{
+		str_sz = strcspn(tmp+i, "\n");
+		obj_sz = strcspn(tmp+i, "\t");
+		strlcpy(pool, tmp+i, obj_sz+1);
+		printf("pool '%s'\n", pool);
+		obj_sz += strspn(tmp+i+obj_sz, "\t");
+
+		if (!strncmp(pool, "Cumulative allocated volume", 27))
+			break;
+
+		for (k = 0, j = obj_sz; j < str_sz; j++, k++)
+		{
+			obj_sz = strcspn(tmp+i+j, "\t\n");
+			strlcpy(obj, tmp+i+j, obj_sz+1);
+			printf("\tpool '%s', object: '%s'[%zu]:'%s'\n", pool, objname[k], k, obj);
+			j += obj_sz;
+			j += strspn(tmp+i+j, "\t\n");
+		}
+
+		i += str_sz;
+		++i;
+		i += strspn(tmp+i, "\n");
+	}
+
+	tmp += i;
+	puts(tmp);
+}
+
 string *squid_counters_mesg(host_aggregator_info *hi, void *arg) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/counters", NULL, hi->host, "alligator", hi->auth, 1, "1.1"), 0, 0);
+	return string_init_add(gen_http_query(0, "cache_object://localhost/counters", NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
 }
+
 string *squid_info_mesg(host_aggregator_info *hi, void *arg) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/info", NULL, hi->host, "alligator", hi->auth, 1, "1.1"), 0, 0);
+	return string_init_add(gen_http_query(0, "cache_object://localhost/info", NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
 }
-string *squid_utilization_mesg(host_aggregator_info *hi, void *arg) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/utilization", NULL, hi->host, "alligator", hi->auth, 1, "1.1"), 0, 0);
-}
+
 string *squid_active_requests_mesg(host_aggregator_info *hi, void *arg) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/active_requests", NULL, hi->host, "alligator", hi->auth, 1, "1.1"), 0, 0);
+	return string_init_add(gen_http_query(0, "cache_object://localhost/active_requests", NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
+}
+
+string *squid_pconn_mesg(host_aggregator_info *hi, void *arg) {
+	return string_init_add(gen_http_query(0, "cache_object://localhost/pconn", NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
+}
+
+string *squid_mem_mesg(host_aggregator_info *hi, void *arg) {
+	return string_init_add(gen_http_query(0, "cache_object://localhost/mem", NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
 }
 
 void squid_parser_push()
@@ -204,7 +268,7 @@ void squid_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("squid");
-	actx->handlers = 3;
+	actx->handlers = 5;
 	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = squid_counters_handler;
@@ -221,6 +285,16 @@ void squid_parser_push()
 	actx->handler[2].validator = NULL;
 	actx->handler[2].mesg_func = squid_active_requests_mesg;
 	strlcpy(actx->handler[2].key,"squid_active_requests", 255);
+
+	actx->handler[3].name = squid_pconn_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = squid_pconn_mesg;
+	strlcpy(actx->handler[3].key,"squid_pconn", 255);
+
+	actx->handler[4].name = squid_mem_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = squid_mem_mesg;
+	strlcpy(actx->handler[4].key,"squid_mem", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

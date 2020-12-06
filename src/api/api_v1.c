@@ -45,7 +45,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 		code = 400;
 		snprintf(status, 100, "Bad Request");
 		snprintf(respbody, 1000, "json error on line %d: %s\n", error.line, error.text);
-		fprintf(stderr, "%s", respbody);
+		if (ac->log_level > 0)
+			fprintf(stderr, "%s", respbody);
 	}
 
 	if (root)
@@ -109,13 +110,27 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					char *match = (char*)json_string_value(jmatch);
 
+					json_t *jpassword = json_object_get(x509, "password");
+					if (!jpassword)
+						continue;
+					char *password = (char*)json_string_value(jpassword);
+
+					json_t *jtype = json_object_get(x509, "type");
+					char *type = (char*)json_string_value(jtype);
+
 					if (method == HTTP_METHOD_DELETE)
 					{
-						tls_fs_del(name);
+						if (!strcmp(type, "jks"))
+							jks_del(name);
+						else
+							tls_fs_del(name);
 						continue;
 					}
 
-					tls_fs_push(name, path, match);
+					if (!strcmp(type, "jks"))
+						jks_push(name, path, match, password);
+					else
+						tls_fs_push(name, path, match);
 				}
 			}
 			if (!strcmp(key, "query"))
@@ -489,7 +504,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					code = 400;
 					snprintf(status, 100, "Bad Request");
 					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}\n");
-					fprintf(stderr, "%s", respbody);
+					if (ac->log_level > 0)
+						fprintf(stderr, "%s", respbody);
 				}
 				else
 				{
@@ -639,31 +655,90 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 								}
 							}
 						}
-						//else if (!strcmp(system_key, "tcp"))
-						//{
-						//	uint64_t sockets_size = json_array_size(sys_value);
+						else if (!strcmp(system_key, "pidfile"))
+						{
+							uint64_t pidfile_size = json_array_size(sys_value);
 
-						//	// enable or disable selected sockets
-						//	for (uint64_t i = 0; i < sockets_size; i++)
-						//	{
-						//		json_t *sockets_obj = json_array_get(sys_value, i);
-						//		int obj_type = json_typeof(sockets_obj);
-						//		if (obj_type == JSON_STRING)
-						//		{
-						//			char *obj_str = (char*)json_string_value(sockets_obj);
-						//			uint64_t obj_len = json_string_length(sockets_obj);
-						//			if (enkey)
-						//				match_push(ac->sockets_match, obj_str, obj_len);
-						//			else
-						//				match_del(ac->sockets_match, obj_str, obj_len);
-						//		}
-						//	}
-						//}
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < pidfile_size; i++)
+							{
+								json_t *pidfile_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(pidfile_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(pidfile_obj);
+									//uint64_t obj_len = json_string_length(pidfile_obj);
+									if (enkey)
+										pidfile_push(obj_str, 0);
+									else
+										pidfile_del(obj_str, 0);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "cgroup"))
+						{
+							uint64_t pidfile_size = json_array_size(sys_value);
+
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < pidfile_size; i++)
+							{
+								json_t *pidfile_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(pidfile_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(pidfile_obj);
+									//uint64_t obj_len = json_string_length(pidfile_obj);
+									if (enkey)
+										pidfile_push(obj_str, 1);
+									else
+										pidfile_del(obj_str, 1);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "userprocess"))
+						{
+							uint64_t userprocess_size = json_array_size(sys_value);
+
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < userprocess_size; i++)
+							{
+								json_t *userprocess_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(userprocess_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(userprocess_obj);
+									if (enkey)
+										userprocess_push(ac->system_userprocess, obj_str);
+									else
+										userprocess_del(ac->system_userprocess, obj_str);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "groupprocess"))
+						{
+							uint64_t groupprocess_size = json_array_size(sys_value);
+
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < groupprocess_size; i++)
+							{
+								json_t *groupprocess_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(groupprocess_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(groupprocess_obj);
+									if (enkey)
+										userprocess_push(ac->system_groupprocess, obj_str);
+									else
+										userprocess_del(ac->system_groupprocess, obj_str);
+								}
+							}
+						}
 					}
 					code = 202;
 					snprintf(status, 100, "Accepted");
 					snprintf(respbody, 1000, "{\"success\": \"accepted\"}\n");
-					fprintf(stderr, "%s", respbody);
+					if (ac->log_level > 0)
+						fprintf(stderr, "%s", respbody);
 				}
 			}
 			if (!strcmp(key, "aggregate"))

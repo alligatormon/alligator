@@ -109,17 +109,19 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
-	//puts("");
-	//puts("");
-	//puts("");
-	//puts("");
-	//printf("==================BASE===================\n'%s'\n======\n", buf->base);
 	
 	(carg->read_counter)++;
 	carg->read_time_finish = setrtime();
 
 	if (nread > 0)
 	{
+		if (buf && buf->base)
+			buf->base[nread] = 0;
+		if (carg && carg->log_level > 99)
+		{
+			puts("");
+			printf("==================BASE===================\n'%s'\n======\n", buf->base);
+		}
 		carg->read_bytes_counter += nread;
 		if (buf && buf->base)
 		{
@@ -128,6 +130,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				http_reply_data* hr_data = http_reply_parser(buf->base, nread);
 				if (hr_data)
 				{
+					//printf("INIT nread %zd, clear http size %"d64", full body size %"d64"\n", nread, hr_data->clear_http->l, carg->full_body->l);
 					string_string_cat(carg->full_body, hr_data->clear_http);
 					string_free(hr_data->clear_http);
 
@@ -135,6 +138,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					//carg->http_body = hr_data->body;
 					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
+					carg->headers_size = hr_data->headers_size;
 					//printf("chunked_size %u, expect %d\n", carg->chunked_size, carg->chunked_expect);
 					carg->expect_body_length = hr_data->content_length;
 					uint64_t http_code = hr_data->http_code;
@@ -148,6 +152,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				}
 				else
 				{
+					//printf("string_cat 3: %zd\n", nread);
 					string_cat(carg->full_body, buf->base, nread);
 				}
 			}

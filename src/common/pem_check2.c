@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "mbedtls/x509_crt.h"
 #include "common/rtime.h"
+#include "lang/lang.h"
 #include "main.h"
 
 typedef struct x509_fs_t {
@@ -293,4 +294,27 @@ void tls_fs_del(char *name)
 		free(tls_fs->match);
 		free(tls_fs);
 	}
+}
+
+void jks_push(char *name, char *path, char *match, char *password)
+{
+	lang_options *lo = calloc(1, sizeof(*lo));
+	lo->lang = "java";
+	lo->key = strdup(name);
+	lo->classpath = "-Djava.class.path=/var/lib/alligator/";
+	lo->classname = "alligatorJks";
+	lo->method = "walkJks";
+	size_t len = strlen(name) + strlen(path) + strlen(password);
+	char *passtr = malloc (len + 1);
+	snprintf(passtr, len, "%s %s %s", name, path, password);
+	lo->arg = passtr; // "/etc/ssl .jks SECRET"
+	//lo->carg = context_arg_fill(mt, i, hi, NULL, "jks", NULL, 0, NULL, NULL, ac->loop);
+	//lo->carg = context_arg_json_fill(NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0, ac->loop);
+	lo->carg = calloc(1, sizeof(*lo->carg));
+	lang_push(lo);
+}
+
+void jks_del(char *name)
+{
+	lang_delete(name);
 }

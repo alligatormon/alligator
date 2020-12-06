@@ -9,7 +9,7 @@ void chunk_calc(context_arg* carg, char *buf, ssize_t nread)
 	char *tmp = buf;
 	ssize_t tsize = nread;
 	uint64_t offset = 0;
-	//printf("CHUNK CALC %"d64", %d\n", carg->chunked_size, carg->chunked_expect);
+	//printf("CHUNK CALC %"d64", %"d64"\n", carg->chunked_size, carg->chunked_expect);
 	if (carg->chunked_size < 0)
 	{
 		//puts("case -1");
@@ -38,7 +38,7 @@ void chunk_calc(context_arg* carg, char *buf, ssize_t nread)
 
 	if (tsize < carg->chunked_size)
 	{
-		//puts("case 1");
+		//printf("case 1: cat %"d64"\n", tsize);
 		string_cat(carg->full_body, tmp, tsize);
 		carg->chunked_size -= tsize;
 	}
@@ -48,16 +48,18 @@ void chunk_calc(context_arg* carg, char *buf, ssize_t nread)
 		size_t n;
 		for (n = 0; n < tsize; n++)
 		{
-			//puts("loop case 3");
+			//printf("loop case 3: read %"d64"\n", carg->chunked_size);
 			string_cat(carg->full_body, tmp+n, carg->chunked_size);
 			n += carg->chunked_size;
 			n += strspn(tmp, "\r\n");
 			
+			//printf("strtoll '%s'\n", tmp);
 			carg->chunked_size = strtoll(tmp, NULL, 16);
 			if (!carg->chunked_size)
 			{
 				//puts("loop end 3");
 				carg->chunked_done = 1;
+				break;
 			}
 		}
 	}
@@ -68,9 +70,9 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
 	//printf("check buf for '%s'\n", buf);
 	// check body size
 	if (ac->log_level > 2)
-		printf("check body full: length (%"u64"/%zu), chunk (%"u64"/%zu), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l, carg->expect_body_length, carg->chunked_size, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
+		printf("check body full: length (%"u64"/%zu), chunk (%"d64"/%"d64"), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l - carg->headers_size, carg->expect_body_length, carg->chunked_size, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
 
-	if (carg->expect_body_length && carg->expect_body_length <= carg->full_body->l)
+	if (carg->expect_body_length && carg->expect_body_length <= carg->full_body->l - carg->headers_size)
 	{
 		if (ac->log_level > 2)
 			puts("check body full: length match");

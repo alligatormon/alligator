@@ -25,6 +25,9 @@ void carg_free(context_arg *carg)
 	if (carg->host)
 		free(carg->host);
 
+	if (carg->net_acl)
+		free(carg->net_acl);
+
 
 	if (carg->parser_name)
 		free(carg->parser_name);

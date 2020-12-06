@@ -43,7 +43,8 @@ void config_parse_entry(char *filepath)
 	}
 	else
 	{
-		printf("File %s is not a json or yaml, use plain config parser\n", filepath);
+		if (ac->log_level > 0)
+			printf("File %s is not a json or yaml, use plain config parser\n", filepath);
 	}
 
 	json = config_plain_to_json(context);
@@ -61,42 +62,49 @@ void parse_configs(char *dirpath)
 	FILE *fd = fopen(gendir, "r");
 	if (!fd)
 	{
-		printf("Skip open %s\n", gendir);
+		if (ac->log_level > 0)
+			printf("Skip open %s\n", gendir);
 
 		snprintf(gendir, 1000, "%s.yaml", dirpath);
 		fd = fopen(gendir, "r");
 		if (!fd)
 		{
-			printf("Skip open %s\n", gendir);
+			if (ac->log_level > 0)
+				printf("Skip open %s\n", gendir);
 
 			snprintf(gendir, 1000, "%s.conf", dirpath);
 			fd = fopen(gendir, "r");
 			if (!fd)
 			{
-				printf("Skip open %s\n", gendir);
+				if (ac->log_level > 0)
+					printf("Skip open %s\n", gendir);
 			}
 			else
 			{
-				printf("Use config %s\n", gendir);
+				if (ac->log_level > 0)
+					printf("Use config %s\n", gendir);
 				config_parse_entry(gendir);
 			}
 		}
 		else
 		{
-			printf("Use config %s\n", gendir);
+			if (ac->log_level > 0)
+				printf("Use config %s\n", gendir);
 			config_parse_entry(gendir);
 		}
 	}
 	else
 	{
-		printf("Use config %s\n", gendir);
+		if (ac->log_level > 0)
+			printf("Use config %s\n", gendir);
 		config_parse_entry(gendir);
 	}
 
 	int rc = stat(dirpath, &path_stat);
 	if (rc)
 	{
-		printf("1 Skip directory: %s: %d\n", dirpath, rc);
+		if (ac->log_level > 0)
+			printf("1 Skip directory: %s: %d\n", dirpath, rc);
 	} 
 	else if (S_ISDIR(path_stat.st_mode))
 	{
@@ -105,7 +113,8 @@ void parse_configs(char *dirpath)
 		DIR *dp = opendir(dirpath);
 		if (!dp)
 		{	
-			printf("2 Skip directory: %s\n", dirpath);
+			if (ac->log_level > 0)
+				printf("2 Skip directory: %s\n", dirpath);
 		}
 		else
 		{
@@ -116,7 +125,8 @@ void parse_configs(char *dirpath)
 
 				char filepath[1000];
 				snprintf(filepath, 1000, "%s/%s", dirpath, entry->d_name);
-				printf("Use config %s\n", filepath);
+				if (ac->log_level > 0)
+					printf("Use config %s\n", filepath);
 				config_parse_entry(filepath);
 
 			}
@@ -126,7 +136,8 @@ void parse_configs(char *dirpath)
 	}
 	else if (S_ISREG(path_stat.st_mode))
 	{
-		printf("Use config %s\n", dirpath);
+		if (ac->log_level > 0)
+			printf("Use config %s\n", dirpath);
 		config_parse_entry(dirpath);
 	}
 }

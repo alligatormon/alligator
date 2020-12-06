@@ -111,10 +111,10 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 		name[i] = str[i];
 	}
 	name[i] = 0;
-	printf("name is %s, %d\n", name, *func);
+	//printf("name is %s, %d\n", name, *func);
 
 	int check_open = strcspn(str+cur, "{");
-	printf("{ sym: %d(%s) '%c'\n", check_open, str+cur, str[cur+check_open]);
+	//printf("{ sym: %d(%s) '%c'\n", check_open, str+cur, str[cur+check_open]);
 	if (str[cur+check_open] == '{')
 	{
 		cur += strspn(str+cur, "{ \t");
@@ -122,7 +122,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 		int size_to_end = strcspn(str+cur, "}");
 		for (; cur <= size_to_end;)
 		{
-			printf("parsing (%d/%d) '%s'\n", cur, size_to_end, str+cur);
+			//printf("parsing (%d/%d) '%s'\n", cur, size_to_end, str+cur);
 			new = strcspn(str+cur, " \t=\"");
 			if (new)
 			{
@@ -137,7 +137,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 					strlcpy(value, str+cur, new+1);
 					cur += new;
 
-					printf("key: %s, value: %s\n", key, value);
+					//printf("key: %s, value: %s\n", key, value);
 					labels_hash_insert_nocache(lbl, key, value);
 				}
 			}
@@ -168,7 +168,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 				if (*str == ')')
 					break;
 
-				printf("\t(%d/%d) cur position: '%s'\n", j, i, str);
+				//printf("\t(%d/%d) cur position: '%s'\n", j, i, str);
 				k = strcspn(str, ",)");
 				string_cat(groupkey, str, k);
 				string_cat(groupkey, ",", 1);
@@ -176,7 +176,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 				j += k;
 			}
 			groupkey->s[groupkey->l - 1] = 0;
-			printf("group_key '%s'\n", groupkey->s);
+			//printf("group_key '%s'\n", groupkey->s);
 
 			str += strspn(str, " \t\r\n()");
 		}

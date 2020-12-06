@@ -261,7 +261,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	char *table = malloc(CH_NAME_SIZE);
 	size_t name_size;
 	int64_t cur;
-	int64_t leader, readonly, future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas;
+	int64_t leader, readonly, future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,absolute_delay,part_mutations_in_queue,active_replicas;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
@@ -337,6 +337,16 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
+		cur = strcspn(metrics+i, "\t");
+		absolute_delay = atoll(metrics+i);
+		cur++;
+		i+=cur;
+
+		cur = strcspn(metrics+i, "\t");
+		part_mutations_in_queue = atoll(metrics+i);
+		cur++;
+		i+=cur;
+
 		cur = strcspn(metrics+i, "\n");
 		active_replicas = atoll(metrics+i);
 		cur++;
@@ -352,6 +362,8 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels3("Clickhouse_Replicas_Stats", &log_max_index, DATATYPE_INT, carg, "database", database, "table", table, "type", "log_max_index");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &log_pointer, DATATYPE_INT, carg, "database", database, "table", table, "type", "log_pointer");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "total_replicas");
+		metric_add_labels3("Clickhouse_Replicas_Stats", &absolute_delay, DATATYPE_INT, carg, "database", database, "table", table, "type", "absolute_delay");
+		metric_add_labels3("Clickhouse_Replicas_Stats", &part_mutations_in_queue, DATATYPE_INT, carg, "database", database, "table", table, "type", "part_mutations_in_queue");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &active_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "active_replicas");
 	}
 	free(database);
@@ -369,7 +381,7 @@ string* clickhouse_system_events_mesg(host_aggregator_info *hi, void *arg) { ret
 string* clickhouse_columns_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,table,name,data_compressed_bytes,data_uncompressed_bytes,marks_bytes%20from\%20system.columns%20where%20database!=%27system%27"); }
 string* clickhouse_dictionary_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries"); }
 string* clickhouse_merges_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges"); }
-string* clickhouse_replicas_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,active_replicas%20from\%20system.replicas"); }
+string* clickhouse_replicas_mesg(host_aggregator_info *hi, void *arg) { return clickhouse_gen_url(hi, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,absolute_delay,active_replicas%20from\%20system.replicas"); }
 
 void clickhouse_parser_push()
 {

@@ -1,0 +1,1 @@
+/usr/bin/clickhouse-server--pid-file=/var/run/clickhouse-server/clickhouse-server.pid--config-file=/etc/clickhouse-server/config.xml

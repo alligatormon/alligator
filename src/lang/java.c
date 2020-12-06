@@ -64,6 +64,7 @@ char* java_run(char *optionString, char* className, char *method, char *arg)
 
 	//mid = (*ac->env)->GetMethodID(ac->env, cls, method, "()Ljava/lang/String;");
 	mid = (*ac->env)->GetMethodID(ac->env, cls, method, "(Ljava/lang/String;)Ljava/lang/String;");
+	// LalligatorJks;.walkJks(Ljava/lang/String;)Ljava/lang/String
 	jobject classifierObj = (*ac->env)->NewObject(ac->env, cls, mid);
 
 	char *ptr = NULL;
@@ -75,7 +76,6 @@ char* java_run(char *optionString, char* className, char *method, char *arg)
 		ptr = (char*)(*ac->env)->GetStringUTFChars(ac->env, rv, 0);
 		printf("Result of '%s': '%s'\n", method, ptr);
 		(*ac->env)->DeleteLocalRef(ac->env, rv);
-		//free((char*)ptr);
 	}
 	(*ac->env)->DeleteLocalRef(ac->env, classifierObj);
 

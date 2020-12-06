@@ -121,6 +121,7 @@ typedef struct context_arg
 
 	void *data; // for parser-data
 	char *ns; // for parsers ns
+	uint8_t parser_status;
 
 	uv_tcp_t server;
 	uv_tcp_t client; // move only with pclient
@@ -183,6 +184,7 @@ typedef struct context_arg
 	int64_t ttl; // TTL for this context metrics
 	int64_t curr_ttl;
 	uint8_t headers_pass;
+	uint64_t headers_size;
 
 	char *url;
 

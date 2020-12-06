@@ -109,4 +109,7 @@ void aggregate_ctx_init()
 	tftp_parser_push();
 	blackbox_parser_push();
 	squid_parser_push();
+	process_parser_push();
+	riak_parser_push();
+	nats_parser_push();
 }

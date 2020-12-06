@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.157)
+set(VERSION 1.10.163)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -147,6 +147,7 @@ set(STATIC_FILES
 	api/api_v1.c
 	common/iptc.c
 	common/entrypoint.c
+	common/pw.c
 	config/parser.c
 	config/plain.c
 	config/mapping.c
@@ -196,6 +197,7 @@ add_library(${COMMON_TESTS} STATIC
 	common/validator.c
 	common/url.c
 	common/netlib.c
+	common/pw.c
 	query/promql.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
@@ -224,6 +226,7 @@ ENDIF(${distro} MATCHES "rhel")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 add_custom_command(TARGET ${COMMON} PRE_BUILD COMMAND sed -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_template.h > alligator_version.h)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
@@ -247,12 +250,16 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
 	install(FILES alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/local/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
+	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
 	install(FILES alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/bin)

@@ -17,6 +17,7 @@
 #include "main.h"
 #include "metric/labels.h"
 #include "common/smart.h"
+#include <utmp.h>
 //#include "common/rpm.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
@@ -45,6 +46,15 @@ typedef struct process_fdescriptors
 
 	tommy_node node;
 } process_fdescriptors;
+
+typedef struct ulimit_pid_stat {
+	uint64_t datasize;
+	uint64_t stacksize;
+	uint64_t rsssize;
+	uint64_t openfiles;
+	uint64_t lockedsize;
+	uint64_t addressspace;
+} ulimit_pid_stat;
 
 void print_mount(const struct mntent *fs)
 {
@@ -401,7 +411,67 @@ void get_cpu(int8_t platform)
 	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
-void get_process_extra_info(char *file, char *name, char *pid)
+ulimit_pid_stat* get_pid_ulimit_stat(char *path)
+{
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return NULL;
+
+	char ulimit[1024];
+	ulimit_pid_stat *ups = calloc(1, sizeof(*ups));
+	while (fgets(ulimit, 1024, fd))
+	{
+		if (!strncmp(ulimit, "Max data size", 13))
+		{
+			char *tmp = ulimit+13 + strspn(ulimit+13, " \t\r\n");
+			if (*tmp != 'u')
+				ups->datasize = strtoull(tmp, NULL, 10) * 1024;
+		}
+		else if (!strncmp(ulimit, "Max stack size", 14))
+		{
+			char *tmp = ulimit+14 + strspn(ulimit+14, " \t\r\n");
+			if (*tmp != 'u')
+				ups->stacksize = strtoull(tmp, NULL, 10) * 1024;
+		}
+		else if (!strncmp(ulimit, "Max resident set", 16))
+		{
+			char *tmp = ulimit+16 + strspn(ulimit+16, " \t\r\n");
+			if (*tmp != 'u')
+				ups->rsssize = strtoull(tmp, NULL, 10) * 1024;
+		}
+		else if (!strncmp(ulimit, "Max open files", 14))
+		{
+			char *tmp = ulimit+14 + strspn(ulimit+14, " \t\r\n");
+			if (*tmp != 'u')
+				ups->openfiles = strtoull(tmp, NULL, 10);
+		}
+		else if (!strncmp(ulimit, "Max locked memory", 17))
+		{
+			char *tmp = ulimit+17 + strspn(ulimit+17, " \t\r\n");
+			if (*tmp != 'u')
+				ups->lockedsize = strtoull(tmp, NULL, 10) * 1024;
+		}
+		else if (!strncmp(ulimit, "Max address space", 17))
+		{
+			char *tmp = ulimit+17 + strspn(ulimit+17, " \t\r\n");
+			if (*tmp != 'u')
+				ups->addressspace = strtoull(tmp, NULL, 10) * 1024;
+		}
+	}
+	if (ac->log_level > 2)
+	{
+		printf("rlimit: %s: datasize = %"PRIu64"\n", path, ups->datasize);
+		printf("rlimit: %s: stacksize = %"PRIu64"\n", path, ups->stacksize);
+		printf("rlimit: %s: rsssize = %"PRIu64"\n", path, ups->rsssize);
+		printf("rlimit: %s: openfiles = %"PRIu64"\n", path, ups->openfiles);
+		printf("rlimit: %s: lockedsize = %"PRIu64"\n", path, ups->lockedsize);
+		printf("rlimit: %s: addressspace = %"PRIu64"\n", path, ups->addressspace);
+	}
+	fclose(fd);
+	return ups;
+}
+
+void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
@@ -468,19 +538,59 @@ void get_process_extra_info(char *file, char *name, char *pid)
 		else if ( !strncmp(key, "VmExe", 5) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "executable_bytes", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmStk", 5) )
+		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "stack_bytes", "name", name, "pid", pid);
+			if (ups && ups->stacksize)
+			{
+				metric_add_labels3("process_rlimit", &ups->stacksize, DATATYPE_UINT, ac->system_carg, "type", "stack_bytes", "name", name, "pid", pid);
+				double usage = ival * 1.0 / ups->stacksize;
+				metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "stack_bytes", "name", name, "pid", pid);
+			}
+		}
 		else if ( !strncmp(key, "VmData", 6) )
+		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "data_bytes", "name", name, "pid", pid);
+			if (ups && ups->datasize)
+			{
+				metric_add_labels3("process_rlimit", &ups->datasize, DATATYPE_UINT, ac->system_carg, "type", "data_bytes", "name", name, "pid", pid);
+				double usage = ival * 1.0 / ups->datasize;
+				metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "data_bytes", "name", name, "pid", pid);
+			}
+		}
 		else if ( !strncmp(key, "VmLck", 5) )
+		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "lock_bytes", "name", name, "pid", pid);
+			if (ups && ups->lockedsize)
+			{
+				metric_add_labels3("process_rlimit", &ups->lockedsize, DATATYPE_UINT, ac->system_carg, "type", "lock_bytes", "name", name, "pid", pid);
+				double usage = ival * 1.0 / ups->lockedsize;
+				metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "lock_bytes", "name", name, "pid", pid);
+			}
+		}
 		else if ( !strncmp(key, "RssAnon", 7) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "anon_bytes", "name", name, "pid", pid);
 		else if ( !strncmp(key, "RssFile", 7) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "file_bytes", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmRSS", 5) )
+		{
 			metric_add_labels3("process_memory", &ival, DATATYPE_INT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
+			if (ups && ups->rsssize)
+			{
+				metric_add_labels3("process_rlimit", &ups->rsssize, DATATYPE_UINT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
+				double usage = ival * 1.0 / ups->rsssize;
+				metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "rss", "name", name, "pid", pid);
+			}
+		}
 		else if ( !strncmp(key, "VmSize", 6) )
+		{
 			metric_add_labels3("process_memory", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz", "name", name, "pid", pid);
+			if (ups && ups->addressspace)
+			{
+				metric_add_labels3("process_rlimit", &ups->addressspace, DATATYPE_UINT, ac->system_carg, "type", "vsz", "name", name, "pid", pid);
+				double usage = ival * 1.0 / ups->addressspace;
+				metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "vsz", "name", name, "pid", pid);
+			}
+		}
 		else if ( !strncmp(key, "RssShmem", 8) )
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "shmem_bytes", "name", name, "pid", pid);
 		else	continue;
@@ -615,6 +725,13 @@ int process_fdescriptors_compare(const void* arg, const void* obj)
 {
 	uint32_t s1 = *(uint32_t*)arg;
 	uint32_t s2 = ((process_fdescriptors*)obj)->fd;
+	return s1 != s2;
+}
+
+int userprocess_compare(const void* arg, const void* obj)
+{
+	uint32_t s1 = *(uint32_t*)arg;
+	uint32_t s2 = ((userprocess_node*)obj)->uid;
 	return s1 != s2;
 }
 
@@ -773,12 +890,261 @@ void schedstat_process_info(char *pid, char *name)
 	metric_add_labels2("process_schedstat_run_periods", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 }
 
+int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match)
+{
+	char dir[FILENAME_MAX];
+	uint64_t rc;
+
+	// get comm name
+	snprintf(dir, FILENAME_MAX, "%s/%s/comm", ac->system_procfs, pid);
+	FILE *fd = fopen(dir, "r");
+	if (!fd)
+		return 0;
+
+	char procname[_POSIX_PATH_MAX];
+	if(!fgets(procname, _POSIX_PATH_MAX, fd))
+	{
+		fclose(fd);
+		return 0;
+	}
+	size_t procname_size = strlen(procname)-1;
+	procname[procname_size] = '\0';
+	fclose(fd);
+
+	// get cmdline
+	snprintf(dir, FILENAME_MAX, "%s/%s/cmdline", ac->system_procfs, pid);
+	fd = fopen(dir, "r");
+	if (!fd)
+		return 0;
+
+	char cmdline[_POSIX_PATH_MAX];
+	if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
+		cmdline[0] = 0;
+
+	size_t cmdline_size;
+	if (rc)
+	{
+		for(int64_t iter = 0; iter < rc-1; iter++)
+			if (!cmdline[iter])
+				cmdline[iter] = ' ';
+		cmdline_size = strlen(cmdline);
+	}
+	else
+		cmdline_size = 0;
+	fclose(fd);
+
+	int8_t match = 1;
+	if (need_match)
+		if (!match_mapper(ac->process_match, procname, procname_size, procname))
+			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
+				match = 0;
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, pid);
+	get_proc_info(dir, procname, pid, lightweight, states, match);
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/fd/", ac->system_procfs, pid);
+	int64_t filesnum = get_fd_info_process(dir, procname);
+	if (match && filesnum && !lightweight)
+		metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", pid);
+	*allfilesnum += filesnum;
+
+	if (!match)
+		return 1;
+
+	if (lightweight)
+		return 1;
+
+	schedstat_process_info(pid, procname);
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/limits", ac->system_procfs, pid);
+	ulimit_pid_stat* ups = get_pid_ulimit_stat(dir);
+	if (ups && ups->openfiles)
+	{
+		metric_add_labels3("process_rlimit", &ups->openfiles, DATATYPE_UINT, ac->system_carg, "type", "open_files", "name", procname, "pid", pid);
+		double usage = filesnum * 1.0 / ups->openfiles;
+		metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "open_files", "name", procname, "pid", pid);
+		
+	}
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
+	get_process_extra_info(dir, procname, pid, ups);
+	if (ups)
+		free(ups);
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/io", ac->system_procfs, pid);
+	get_process_io_stat(dir, procname, pid);
+
+	return 1;
+}
+
+void pidfile_push(char *file, int type)
+{
+	if (!ac->system_pidfile)
+		return;
+
+	pidfile_node *node = NULL;
+	if (!ac->system_pidfile->head)
+		node = ac->system_pidfile->head = ac->system_pidfile->tail = calloc(1, sizeof(*ac->system_pidfile->head));
+	else
+		node = ac->system_pidfile->tail->next = calloc(1, sizeof(pidfile_node));
+
+	if (!node)
+		return;
+
+	node->pidfile = strdup(file);
+	node->type = type;
+	ac->system_pidfile->tail = node;
+}
+
+void pidfile_del(char *file, int type)
+{
+	if (!ac->system_pidfile)
+		return;
+
+	pidfile_node *prev = NULL;
+	pidfile_node *node = ac->system_pidfile->head;
+	if (!node)
+		return;
+
+	while (node)
+	{
+		if (!strcmp(node->pidfile, file))
+		{
+			free(node->pidfile);
+			if (prev)
+				prev->next = node->next;
+			if (ac->system_pidfile->head == node)
+				ac->system_pidfile->head = node->next;
+			if (ac->system_pidfile->tail == node)
+				ac->system_pidfile->tail = NULL;
+
+			free(node);
+		}
+
+		prev = node;
+		node = node->next;
+	}
+}
+
+void simple_pidfile_scrape(char *find_pid)
+{
+	if (ac->log_level > 1)
+		printf("PIDfile check %s\n", find_pid);
+
+	string* pid = get_file_content(find_pid);
+	if (!pid)
+		return;
+
+	int64_t allfilesnum = 0;
+	process_states *states = calloc(1, sizeof(*states));
+
+	char pid_strict[6];
+	size_t pid_size = strspn(pid->s, "0123456789") + 1;
+	size_t copy_size = pid_size > 6 ? 6 : pid_size;
+	strlcpy(pid_strict, pid->s, copy_size);
+	
+	if (ac->log_level > 1)
+		printf("check PID '%s'\n", pid_strict);
+
+	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0);
+	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", find_pid);
+	string_free(pid);
+	free(states);
+	
+}
+
+void cgroup_procs_scrape(char *cgroup_path)
+{
+	if (ac->log_level > 1)
+		printf("Cgroup procs file check %s\n", cgroup_path);
+
+	FILE *fd = fopen(cgroup_path, "r");
+	if (!fd)
+		return;
+
+	char pid[10];
+	int64_t rc = 0;
+	int64_t allfilesnum = 0;
+	process_states *states = calloc(1, sizeof(*states));
+
+	while (fgets(pid, 10, fd))
+	{
+		char pid_strict[6];
+		size_t pid_size = strspn(pid, "0123456789") + 1;
+		size_t copy_size = pid_size > 6 ? 6 : pid_size;
+		strlcpy(pid_strict, pid, copy_size);
+
+		if (ac->log_level > 1)
+			 printf("check PID '%s' from '%s'\n", pid_strict, cgroup_path);
+
+		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0);
+	}
+	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", cgroup_path);
+	free(states);
+	fclose(fd);
+}
+
+// 0 is classic pidfile
+// 1 is cgroup.procs file with many pids
+void get_pidfile_stats()
+{
+	if (!ac->system_pidfile)
+		return;
+
+	pidfile_node *node = ac->system_pidfile->head;
+	while (node)
+	{
+		if (node->type == 0)
+			simple_pidfile_scrape(node->pidfile);
+		else if (node->type == 1)
+		{
+			char cgrouppath[1024];
+			snprintf(cgrouppath, 1023, "%s/%s/cgroup.procs", ac->system_sysfs, node->pidfile);
+			cgroup_procs_scrape(cgrouppath);
+		}
+
+		node = node->next;
+	}
+}
+
+void userprocess_push(tommy_hashdyn *userprocess, char *user)
+{
+	if (!userprocess)
+		return;
+
+	uid_t uid = get_uid_by_username(user);
+	userprocess_node *upn = tommy_hashdyn_search(userprocess, userprocess_compare, &uid, uid);
+	if (upn)
+		return;
+
+	upn = calloc(1, sizeof(*upn));
+	upn->uid = uid;
+	upn->name = strdup(user);
+
+	tommy_hashdyn_insert(userprocess, &(upn->node), upn, upn->uid);
+}
+
+void userprocess_del(tommy_hashdyn* userprocess, char *user)
+{
+	if (!userprocess)
+		return;
+
+	uid_t uid = get_uid_by_username(user);
+	userprocess_node *upn = tommy_hashdyn_search(userprocess, userprocess_compare, &uid, uid);
+	if (!upn)
+		return;
+
+	tommy_hashdyn_remove_existing(userprocess, &(upn->node));
+
+	free(upn->name);
+	free(upn);
+}
+
 void find_pid(int8_t lightweight)
 {
 	if (ac->log_level > 2)
 		puts("system scrape metrics: processes");
 
-	uint64_t rc;
 
 	struct dirent *entry;
 	DIR *dp;
@@ -793,7 +1159,6 @@ void find_pid(int8_t lightweight)
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
 
-	char dir[FILENAME_MAX];
 	uint64_t tasks = 0;
 	uint64_t processes = 0;
 	while((entry = readdir(dp)))
@@ -804,71 +1169,7 @@ void find_pid(int8_t lightweight)
 		++tasks;
 		++processes;
 
-		// get comm name
-		snprintf(dir, FILENAME_MAX, "%s/%s/comm", ac->system_procfs, entry->d_name);
-		FILE *fd = fopen(dir, "r");
-		if (!fd)
-			continue;
-
-		char procname[_POSIX_PATH_MAX];
-		if(!fgets(procname, _POSIX_PATH_MAX, fd))
-		{
-			fclose(fd);
-			continue;
-		}
-		size_t procname_size = strlen(procname)-1;
-		procname[procname_size] = '\0';
-		fclose(fd);
-
-		// get cmdline
-		snprintf(dir, FILENAME_MAX, "%s/%s/cmdline", ac->system_procfs, entry->d_name);
-		fd = fopen(dir, "r");
-		if (!fd)
-			continue;
-
-		char cmdline[_POSIX_PATH_MAX];
-		if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
-			cmdline[0] = 0;
-
-		size_t cmdline_size;
-		if (rc)
-		{
-			for(int64_t iter = 0; iter < rc-1; iter++)
-				if (!cmdline[iter])
-					cmdline[iter] = ' ';
-			cmdline_size = strlen(cmdline);
-		}
-		else
-			cmdline_size = 0;
-		fclose(fd);
-
-		int8_t match = 1;
-		if (!match_mapper(ac->process_match, procname, procname_size, procname))
-			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
-				match = 0;
-
-		snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, entry->d_name);
-		get_proc_info(dir, procname, entry->d_name, lightweight, states, match);
-
-		snprintf(dir, FILENAME_MAX, "%s/%s/fd/", ac->system_procfs, entry->d_name);
-		int64_t filesnum = get_fd_info_process(dir, procname);
-		if (match && filesnum && !lightweight)
-			metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", entry->d_name);
-		allfilesnum += filesnum;
-
-		if (!match)
-			continue;
-
-		if (lightweight)
-			continue;
-
-		schedstat_process_info(entry->d_name, procname);
-
-		snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, entry->d_name);
-		get_process_extra_info(dir, procname, entry->d_name);
-
-		snprintf(dir, FILENAME_MAX, "%s/%s/io", ac->system_procfs, entry->d_name);
-		get_process_io_stat(dir, procname, entry->d_name);
+		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1);
 	}
 
 	metric_add_labels("process_states", &states->running, DATATYPE_UINT, ac->system_carg, "state", "running");
@@ -909,6 +1210,7 @@ void get_mem(int8_t platform)
 	char key_map[LINUXFS_LINE_LENGTH];
 	char val[LINUXFS_LINE_LENGTH];
 	int64_t ival = 1;
+	int64_t oom_kill = 0;
 	int64_t totalswap = 1;
 	int64_t freeswap = 1;
 	int64_t memtotal = 0;
@@ -1043,7 +1345,7 @@ void get_mem(int8_t platform)
 		else if (!strcmp(key, "pgfault"))
 			pgfault = ival;
 		else if (!strcmp(key, "oom_kill"))
-			metric_add_auto("oom_kill", &ival, DATATYPE_INT, ac->system_carg);
+			oom_kill = ival;
 		else if (!platform && !strcmp(key, "pswpin"))
 			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpin");
 		else if (!platform && !strcmp(key, "pswpout"))
@@ -1159,12 +1461,28 @@ void get_mem(int8_t platform)
 
 		metric_add_labels("memory_usage_cgroup", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
 	}
+	fclose(fd);
 
 	inactive = inactive_file+inactive_anon;
 	active = active_file+active_anon;
 	metric_add_labels("memory_usage", &active, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
-	
+
+	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.oom_control", ac->system_sysfs);
+	fd = fopen(pathbuf, "r");
+	if (!fd)
+		return;
+
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		if (!strncmp(tmp, "oom_kill", 8))
+		{
+			char *tmp2 = tmp+8 + strspn(tmp + 8, " \t\r\n");
+			oom_kill = strtoll(tmp2, NULL, 10);
+		}
+	}
+	metric_add_auto("oom_kill", &oom_kill, DATATYPE_INT, ac->system_carg);
+
 	fclose(fd);
 }
 
@@ -2450,6 +2768,7 @@ void baseboard_info()
 	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor");
 	if (board_vendor)
 	{
+		board_vendor->s[strcspn(board_vendor->s, "\n\r")] = 0;
 		metric_add_labels("baseboard_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", board_vendor->s);
 		string_free(board_vendor);
 	}
@@ -2457,6 +2776,7 @@ void baseboard_info()
 	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name");
 	if (product_name)
 	{
+		product_name->s[strcspn(product_name->s, "\n\r")] = 0;
 		metric_add_labels("baseboard_product_name", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
 		string_free(product_name);
 	}
@@ -2464,6 +2784,7 @@ void baseboard_info()
 	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag");
 	if (asset_tag)
 	{
+		asset_tag->s[strcspn(asset_tag->s, "\n\r")] = 0;
 		metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", asset_tag->s);
 		string_free(asset_tag);
 	}
@@ -2471,6 +2792,7 @@ void baseboard_info()
 	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version");
 	if (board_version)
 	{
+		board_version->s[strcspn(board_version->s, "\n\r")] = 0;
 		metric_add_labels("baseboard_version", &val, DATATYPE_UINT, ac->system_carg, "version", board_version->s);
 		string_free(board_version);
 	}
@@ -2478,6 +2800,7 @@ void baseboard_info()
 	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial");
 	if (board_serial)
 	{
+		board_serial->s[strcspn(board_serial->s, "\n\r")] = 0;
 		metric_add_labels("baseboard_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", board_serial->s);
 		string_free(board_serial);
 	}
@@ -2485,6 +2808,7 @@ void baseboard_info()
 	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor");
 	if (bios_vendor)
 	{
+		bios_vendor->s[strcspn(bios_vendor->s, "\n\r")] = 0;
 		metric_add_labels("bios_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", bios_vendor->s);
 		string_free(bios_vendor);
 	}
@@ -2492,9 +2816,39 @@ void baseboard_info()
 	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version");
 	if (bios_version)
 	{
+		bios_version->s[strcspn(bios_version->s, "\n\r")] = 0;
 		metric_add_labels("bios_version", &val, DATATYPE_UINT, ac->system_carg, "version", bios_version->s);
 		string_free(bios_version);
 	}
+
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir("/sys/class/block/");
+	if (!dp)
+		return;
+
+	uint64_t disks_num = 0;
+	while((entry = readdir(dp)))
+	{
+		if (entry->d_name[0] == '.')
+			continue;
+		if (strpbrk(entry->d_name, "0123456789"))
+			continue;
+
+		char blockpath[255];
+		snprintf(blockpath, 254, "/sys/class/block/%s/device/model", entry->d_name);
+		string *disk_model = get_file_content(blockpath);
+		if (disk_model)
+		{
+			++disks_num;
+			disk_model->s[strcspn(disk_model->s, "\n\r")] = 0;
+			metric_add_labels2("disk_model", &val, DATATYPE_UINT, ac->system_carg, "model", disk_model->s, "disk", entry->d_name);
+			string_free(disk_model);
+		}
+	}
+	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
+	closedir(dp);
 }
 
 void get_activate_status_services(char *service_name)
@@ -2591,6 +2945,105 @@ void get_services()
 	closedir(dp);
 }
 
+
+void stat_userprocess_cb(uv_fs_t *req) {
+	uv_stat_t st = req->statbuf;
+
+	userprocess_node *uupn = tommy_hashdyn_search(ac->system_userprocess, userprocess_compare, &st.st_uid, st.st_uid);
+	userprocess_node *gupn = tommy_hashdyn_search(ac->system_groupprocess, userprocess_compare, &st.st_gid, st.st_gid);
+	char *pid = req->data;
+
+	if (ac->log_level > 2)
+		printf("%s: st_uid is %"u64", st_gid is %"u64": %p/%p\n", pid, st.st_uid, st.st_gid, uupn, gupn);
+
+	process_states *states = calloc(1, sizeof(*states));
+	int64_t allfilesnum = 0;
+	if (uupn || gupn)
+		get_pid_info(pid, &allfilesnum, 0, states, 0);
+
+	free(pid);
+	free(states);
+
+	uv_fs_req_cleanup(req);
+	free(req);
+}
+
+void get_userprocess_stats()
+{
+	if (!ac->system_userprocess && !ac->system_groupprocess)
+		return;
+
+	if (!tommy_hashdyn_count(ac->system_userprocess) && !tommy_hashdyn_count(ac->system_groupprocess))
+		return;
+
+	DIR *dp;
+	struct dirent *entry;
+
+	dp = opendir(ac->system_procfs);
+	if (!dp)
+	{
+		return;
+	}
+
+	char dir[FILENAME_MAX];
+	while((entry = readdir(dp)))
+	{
+		if (!isdigit(entry->d_name[0]))
+			continue;
+
+		snprintf(dir, FILENAME_MAX-1, "%s/%s", ac->system_procfs, entry->d_name);
+		uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+		req_stat->data = strdup(entry->d_name);
+		uv_fs_stat(uv_default_loop(), req_stat, dir, stat_userprocess_cb);
+	}
+	closedir(dp);
+}
+
+void utmp_parse(struct utmp *log) {
+	if (log && log->ut_type == USER_PROCESS)
+	{
+		//printf("{ ut_type: %i, ut_pid: %i, ut_line: %s, ut_user: %s, ut_host:   %s, ut_exit: { e_termination: %i, e_exit: %i }, ut_session: %i, timeval: { tv_sec: %i, tv_usec: %i }, ut_addr_v6: %i }\n\n", log->ut_type, log->ut_pid, log->ut_line, log->ut_user, log->ut_host, log->ut_exit.e_termination, log->ut_exit.e_exit, log->ut_session, log->ut_tv.tv_sec, log->ut_tv.tv_usec, log->ut_addr_v6);
+		int64_t time = log->ut_tv.tv_sec;
+		if (!strncmp(log->ut_line, "tty", 3))
+		{
+			//printf("user: %s, host %s, logged %u, line %s, type=\"terminal\"\n", log->ut_user, log->ut_host, log->ut_tv.tv_sec, log->ut_line);
+			metric_add_labels4("utmp_logged_in_timestamp", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "terminal", "terminal", log->ut_line);
+		}
+		if (!strncmp(log->ut_line, "pts", 3))
+		{
+			//printf("user: %s, host %s, logged %u, line %s, type=\"pseudo-terminal\"\n", log->ut_user, log->ut_host, log->ut_tv.tv_sec, log->ut_line);
+			metric_add_labels4("utmp_logged_in_timestamp", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "pseudo-terminal", "terminal", log->ut_line);
+		}
+	}
+}
+
+void get_utmp_info()
+{
+	//int logsize = 10;
+	FILE *file;
+	//struct utmp log[logsize];
+	struct utmp log;
+	int i = 0;
+
+	uint64_t btmp_size = get_file_size("/var/log/btmp");
+	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
+
+	file = fopen("/var/run/utmp", "rb");
+
+	if (!file) {
+		return;
+	}
+
+	//fread(&log, sizeof(struct utmp), logsize, file);
+	size_t rc = 1;
+	for(i = 0; rc; i++) {
+		rc = fread(&log, sizeof(struct utmp), 1, file);
+		utmp_parse(&log);
+	}
+
+	fclose(file);
+}
+
 void get_system_metrics()
 {
 	int8_t platform = -1;
@@ -2607,6 +3060,7 @@ void get_system_metrics()
 		ipaddr_info();
 		hw_cpu_info();
 		get_utsname();
+		get_utmp_info();
 		if (!platform)
 		{
 			char edacdir[255];
@@ -2697,6 +3151,8 @@ void get_system_metrics()
 	if (ac->system_services)
 		get_services();
 
+	get_pidfile_stats();
+	get_userprocess_stats();
 }
 
 void system_fast_scrape()

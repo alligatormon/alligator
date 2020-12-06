@@ -110,8 +110,10 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	hrdata->auth_basic = 0;
 
 	hrdata->clear_http = string_init(n);
+	//printf("init %zd, inited %zu\n", n, hrdata->clear_http->l);
 	//printf("headers size: %zu\n", hrdata->headers_size);
 	string_cat(hrdata->clear_http, http, hrdata->headers_size);
+	//printf("cated %zu\n", hrdata->clear_http->l);
 	//printf("clear headers:\n'%s'\n", hrdata->clear_http->s);
 	//puts("===================================================");
 	uint64_t offset = 0;
@@ -120,47 +122,33 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		//puts("=====================chunked======================");
 		char *tmp2;
 		hrdata->chunked_size = strtoll(body, &tmp2, 16);
+		tmp2 += strspn(tmp2, "\r\n");
+		//printf("chunked %p -> %p:\n'%s'\n", body, tmp2, body);
 		offset = tmp2 - body;
 		body = tmp2;
 		hrdata->body = body;
-		//printf("trying get 16 bit: (%ld/%zd) %"d64":\n%s\n", body - http, n, hrdata->chunked_size, body);
-		//if (body - http == n)
-		//{
-		//	hrdata->chunked_expect = 1;
-		//	hrdata->chunked_size = 0;
-		//}
-		//else if (hrdata->chunked_size)
-		//{
-		//	hrdata->body = body+(old_style_newline/2);
-		//	hrdata->chunked_size -= n - (hrdata->body - http);
-		//	hrdata->chunked_expect = 1;
-
-		//	if (hrdata->chunked_size < 0)
-		//	{
-		//		hrdata->body[n - (hrdata->body - http) + (hrdata->chunked_size)] = 0;
-		//		hrdata->chunked_expect = 0;
-		//	}
-
-		//}
-		//else
-		//{
-		//	hrdata->body = NULL;
-		//	hrdata->chunked_expect = 0;
-		//}
 	}
 	else
 		hrdata->body = body;
 
 	hrdata->body_size = n - hrdata->headers_size - offset;
-	size_t hrdata_body_size = strlen(hrdata->body);
+	//size_t hrdata_body_size = strlen(hrdata->body);
+	size_t hrdata_body_size = n - (hrdata->body - http);
+
 	if (hrdata->chunked_expect)
 	{
 		// need for loop as in calc chunk
+		//printf("1string_cat clear htt %"d64"\n", hrdata->chunked_size);
 		string_cat(hrdata->clear_http, hrdata->body, hrdata->chunked_size);
+		//printf("hrdata->chunked_size %"d64" -= %"d64"\n", hrdata->chunked_size, hrdata_body_size);
 		hrdata->chunked_size -= hrdata_body_size;
 	}
 	else
+	{
+		//printf("2string_cat clear htt %"d64"\n", hrdata->chunked_size);
 		string_cat(hrdata->clear_http, hrdata->body, hrdata_body_size);
+	}
+	//printf("cated2 %zu, body_size %zu\n", hrdata->clear_http->l, hrdata_body_size);
 	//puts("+++++++++++++++++++++++++++++++++++++++++++++++++++");
 	//printf("SAVED (chunked expect %d) body is\n'%s'\n", hrdata->chunked_expect, hrdata->body);
 	//puts("===================================================");

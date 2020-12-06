@@ -57,6 +57,7 @@ static void lang_cb(void *arg)
 	usleep(ac->lang_aggregator_startup*1000);
 	while ( 1 )
 	{
+
 		tommy_hashdyn_foreach(ac->lang_aggregator, lang_crawl);
 		//java_run("-Djava.class.path=/var/lib/alligator/", "alligatorJmx", "getJmx");
 		usleep(ac->lang_aggregator_repeat*1000);
