@@ -5,12 +5,13 @@
 #include "url.h"
 #include "base64.h"
 #include "main.h"
-void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t size, int8_t proto, int8_t transport, uint8_t tls)
+void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t size, int8_t proto, int8_t transport, char *transport_string, uint8_t tls)
 {
 	if (!strncmp(*tmp, match, size))
 	{
 		hi->proto = proto;
 		hi->transport = transport;
+		hi->transport_string = transport_string;
 		hi->tls = tls;
 		*tmp += size;
 	}
@@ -203,28 +204,28 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	hi->url = strdup(str);
 	hi->auth = 0;
 	char *tmp = str;
-	url_set_proto(hi, &tmp, "http://unix:/", 12, APROTO_HTTP, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "https://unix:/", 13, APROTO_HTTPS, APROTO_UNIX, 1);
-	url_set_proto(hi, &tmp, "fastcgi://unix:/", 15, APROTO_FCGI, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "tcp://unix:/", 11, APROTO_TCP, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "tls://unix:/", 11, APROTO_TLS, APROTO_UNIX, 1);
-	url_set_proto(hi, &tmp, "udp://unix:/", 11, APROTO_UDP, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "dtls://unix:/", 12, APROTO_DTLS, APROTO_UNIX, 1);
-	url_set_proto(hi, &tmp, "unix://", 7, APROTO_TCP, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "unixgram://", 7, APROTO_UDP, APROTO_UNIX, 0);
-	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP, 0);
-	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS, 1);
-	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP, 0);
-	url_set_proto(hi, &tmp, "tcp://", 6, APROTO_TCP, APROTO_TCP, 0);
-	url_set_proto(hi, &tmp, "tls://", 6, APROTO_TLS, APROTO_TCP, 1);
-	url_set_proto(hi, &tmp, "udp://", 6, APROTO_UDP, APROTO_UDP, 0);
-	url_set_proto(hi, &tmp, "dtls://", 7, APROTO_DTLS, APROTO_UDP, 1);
-	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP, 0);
-	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS, 0);
-	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, 0);
-	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, 0);
-	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, 0);
-	url_set_proto(hi, &tmp, "mongodb://", 10, APROTO_MONGODB, APROTO_MONGODB, 0);
+	url_set_proto(hi, &tmp, "http://unix:/", 12, APROTO_HTTP, APROTO_UNIX, "unix", 0);
+	url_set_proto(hi, &tmp, "https://unix:/", 13, APROTO_HTTPS, APROTO_UNIX, "unix", 1);
+	url_set_proto(hi, &tmp, "fastcgi://unix:/", 15, APROTO_FCGI, APROTO_UNIX, "unix", 0);
+	url_set_proto(hi, &tmp, "tcp://unix:/", 11, APROTO_TCP, APROTO_UNIX, "unix", 0);
+	url_set_proto(hi, &tmp, "tls://unix:/", 11, APROTO_TLS, APROTO_UNIX, "unix", 1);
+	url_set_proto(hi, &tmp, "udp://unix:/", 11, APROTO_UDP, APROTO_UNIX, "unix", 0);
+	url_set_proto(hi, &tmp, "dtls://unix:/", 12, APROTO_DTLS, APROTO_UNIX, "unix", 1);
+	url_set_proto(hi, &tmp, "unix://", 7, APROTO_TCP, APROTO_UNIX, "unix", 0);
+	url_set_proto(hi, &tmp, "unixgram://", 7, APROTO_UDP, APROTO_UNIX, "unixgram", 0);
+	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP, "tcp", 0);
+	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS, "tcp", 1);
+	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP, "tcp", 0);
+	url_set_proto(hi, &tmp, "tcp://", 6, APROTO_TCP, APROTO_TCP, "tcp", 0);
+	url_set_proto(hi, &tmp, "tls://", 6, APROTO_TLS, APROTO_TCP, "tcp", 1);
+	url_set_proto(hi, &tmp, "udp://", 6, APROTO_UDP, APROTO_UDP, "udp", 0);
+	url_set_proto(hi, &tmp, "dtls://", 7, APROTO_DTLS, APROTO_UDP, "udp", 1);
+	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP, "icmp", 0);
+	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS, "exec", 0);
+	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, "file", 0);
+	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, "postgresql", 0);
+	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, "mysql", 0);
+	url_set_proto(hi, &tmp, "mongodb://", 10, APROTO_MONGODB, APROTO_MONGODB, "mongodb", 0);
 
 	url_set_default_port(hi);
 

@@ -2,7 +2,7 @@
 #include "common/selector.h"
 tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char *name, int *func, string *groupkey)
 {
-	printf("==== parse %s\n", query);
+	//printf("==== parse %s\n", query);
 	if (!size)
 		return lbl;
 

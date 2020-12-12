@@ -603,15 +603,16 @@ void mongodb_client_handler()
 	mongodb_without_thread();
 }
 
-void mongodb_client(context_arg* carg)
+char* mongodb_client(context_arg* carg)
 {
 	if (!carg)
-		return;
+		return NULL;
 
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
 	tommy_hashdyn_insert(ac->mongodb_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	return "mongodb";
 }
 
 void mongodb_parser_push()

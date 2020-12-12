@@ -616,6 +616,9 @@ void labels_free_node(void *funcarg, void* arg)
 
 void labels_hash_free(tommy_hashdyn *hash)
 {
+	if (!hash)
+		return;
+
 	tommy_hashdyn_foreach_arg(hash, labels_free_node, NULL);
 	tommy_hashdyn_done(hash);
 	free(hash);

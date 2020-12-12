@@ -1,6 +1,7 @@
 #pragma once
 #include <bson.h>
 #include <mongoc.h>
+char* mongodb_client(context_arg* carg);
 typedef struct libmongo
 {
 	uv_lib_t* lib_mongoc_client_command_simple;

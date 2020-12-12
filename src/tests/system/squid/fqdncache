@@ -1,0 +1,239 @@
+by kid1 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 409
+FQDNcache Entries Cached: 409
+FQDNcache Requests: 1357356
+FQDNcache Hits: 214209
+FQDNcache Negative Hits: 926595
+FQDNcache Misses: 216552
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid1
+
+by kid2 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 142
+FQDNcache Entries Cached: 142
+FQDNcache Requests: 1106861
+FQDNcache Hits: 174771
+FQDNcache Negative Hits: 883520
+FQDNcache Misses: 48570
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid2
+
+by kid3 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 411
+FQDNcache Entries Cached: 411
+FQDNcache Requests: 1141625
+FQDNcache Hits: 188850
+FQDNcache Negative Hits: 750677
+FQDNcache Misses: 202098
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid3
+
+by kid4 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 475
+FQDNcache Entries Cached: 475
+FQDNcache Requests: 3025554
+FQDNcache Hits: 503376
+FQDNcache Negative Hits: 2250294
+FQDNcache Misses: 271884
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid4
+
+by kid5 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 435
+FQDNcache Entries Cached: 435
+FQDNcache Requests: 2045918
+FQDNcache Hits: 318258
+FQDNcache Negative Hits: 1482158
+FQDNcache Misses: 245502
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid5
+
+by kid6 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 362
+FQDNcache Entries Cached: 362
+FQDNcache Requests: 758671
+FQDNcache Hits: 114812
+FQDNcache Negative Hits: 467439
+FQDNcache Misses: 176420
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid6
+
+by kid7 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 165
+FQDNcache Entries Cached: 165
+FQDNcache Requests: 2142126
+FQDNcache Hits: 362560
+FQDNcache Negative Hits: 1620090
+FQDNcache Misses: 159476
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid7
+
+by kid8 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 425
+FQDNcache Entries Cached: 425
+FQDNcache Requests: 1466081
+FQDNcache Hits: 232389
+FQDNcache Negative Hits: 1011158
+FQDNcache Misses: 222534
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid8
+
+by kid9 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 383
+FQDNcache Entries Cached: 383
+FQDNcache Requests: 865116
+FQDNcache Hits: 133529
+FQDNcache Negative Hits: 546011
+FQDNcache Misses: 185576
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid9
+
+by kid10 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 110
+FQDNcache Entries Cached: 110
+FQDNcache Requests: 446904
+FQDNcache Hits: 61661
+FQDNcache Negative Hits: 366217
+FQDNcache Misses: 19026
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid10
+
+by kid11 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 169
+FQDNcache Entries Cached: 169
+FQDNcache Requests: 2713115
+FQDNcache Hits: 457652
+FQDNcache Negative Hits: 2084847
+FQDNcache Misses: 170616
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid11
+
+by kid12 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 384
+FQDNcache Entries Cached: 384
+FQDNcache Requests: 1079841
+FQDNcache Hits: 170856
+FQDNcache Negative Hits: 708711
+FQDNcache Misses: 200274
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid12
+
+by kid13 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 463
+FQDNcache Entries Cached: 463
+FQDNcache Requests: 2634698
+FQDNcache Hits: 435407
+FQDNcache Negative Hits: 1937081
+FQDNcache Misses: 262210
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid13
+
+by kid14 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 446
+FQDNcache Entries Cached: 446
+FQDNcache Requests: 2207014
+FQDNcache Hits: 371364
+FQDNcache Negative Hits: 1587232
+FQDNcache Misses: 248418
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid14
+
+by kid15 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 129
+FQDNcache Entries Cached: 129
+FQDNcache Requests: 876741
+FQDNcache Hits: 140531
+FQDNcache Negative Hits: 689256
+FQDNcache Misses: 46954
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid15
+
+by kid16 {
+FQDN Cache Statistics:
+FQDNcache Entries In Use: 124
+FQDNcache Entries Cached: 124
+FQDNcache Requests: 724178
+FQDNcache Hits: 119926
+FQDNcache Negative Hits: 545816
+FQDNcache Misses: 58436
+FQDN Cache Contents:
+
+Address                                       Flg TTL Cnt Hostnames
+127.0.0.1                                       H -001   4 localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1                                             H -001   4 localhost localhost.localdomain localhost6 localhost6.localdomain6
+} by kid16

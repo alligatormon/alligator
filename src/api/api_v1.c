@@ -272,6 +272,13 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
 					carg->ttl = json_integer_value(carg_ttl);
 
+					json_t *carg_api = json_object_get(entrypoint, "api");
+					char *api = (char*)json_string_value(carg_api);
+					if (api && !strcmp(api, "on"))
+						carg->api_enable = 1;
+					else
+						carg->api_enable = 0;
+
 					json_t *carg_handler = json_object_get(entrypoint, "handler");
 					char *str_handler = (char*)json_string_value(carg_handler);
 					if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
@@ -529,8 +536,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "firewall"))
 							ac->system_firewall = enkey;
-						else if (!strcmp(system_key, "services"))
-							ac->system_services = enkey;
+						//else if (!strcmp(system_key, "services"))
+						//	ac->system_services = enkey;
 						else if (!strcmp(system_key, "sysfs"))
 						{
 							char *sysfs = (char*)json_string_value(sys_value);
@@ -628,6 +635,34 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 										match_push(ac->packages_match, obj_str, obj_len);
 									else
 										match_del(ac->packages_match, obj_str, obj_len);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "services"))
+						{
+							if (!ac->rpmlib)
+								rpm_library_init();
+
+							ac->system_services = enkey;
+							uint64_t services_size = json_array_size(sys_value);
+
+							// disable scrape if services not selected
+							if (enkey || (!enkey && !services_size))
+								ac->system_services = enkey;
+
+							// enable or disable selected serviceses
+							for (uint64_t i = 0; i < services_size; i++)
+							{
+								json_t *services_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(services_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(services_obj);
+									uint64_t obj_len = json_string_length(services_obj);
+									if (enkey)
+										match_push(ac->services_match, obj_str, obj_len);
+									else
+										match_del(ac->services_match, obj_str, obj_len);
 								}
 							}
 						}
@@ -743,6 +778,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 			}
 			if (!strcmp(key, "aggregate"))
 			{
+				uint8_t enkey = 1;
+				if (method == HTTP_METHOD_DELETE)
+					enkey = 0;
+
 				uint64_t aggregate_size = json_array_size(value);
 				for (uint64_t i = 0; i < aggregate_size; i++)
 				{
@@ -788,7 +827,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						}
 
 						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
-						smart_aggregator(carg);
+						if (enkey)
+							smart_aggregator(carg);
+						else
+							smart_aggregator_del(carg);
 					}
 				}
 			}

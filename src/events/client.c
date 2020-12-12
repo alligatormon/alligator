@@ -25,6 +25,7 @@ void tcp_client_closed(uv_handle_t *handle)
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	uv_timer_stop(&carg->tt_timer);
 
 	if (carg->tls)
 	{
@@ -39,14 +40,12 @@ void tcp_client_closed(uv_handle_t *handle)
 	}
 	carg->lock = 0;
 	string_null(carg->full_body);
-	if (carg->free_after)
+
+	if (carg->context_ttl)
 	{
-		free(carg->key);
-		string_free(carg->full_body);
-		free(carg->buffer->base);
-		free(carg->buffer);
-		free(carg->tt_timer);
-		free(carg);
+		r_time time = setrtime();
+		if (time.sec >= carg->context_ttl)
+			carg_free(carg);
 	}
 }
 
@@ -132,10 +131,8 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				{
 					//printf("INIT nread %zd, clear http size %"d64", full body size %"d64"\n", nread, hr_data->clear_http->l, carg->full_body->l);
 					string_string_cat(carg->full_body, hr_data->clear_http);
-					string_free(hr_data->clear_http);
 
 					carg->is_http_query = 1;
-					//carg->http_body = hr_data->body;
 					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
 					carg->headers_size = hr_data->headers_size;
@@ -513,14 +510,15 @@ void tcp_client_connect(void *arg)
 
 	if (carg->lock)
 		return;
+
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer->data = carg;
-	uv_timer_init(carg->loop, carg->tt_timer);
-	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+	carg->tt_timer.data = carg;
+	uv_timer_init(carg->loop, &carg->tt_timer);
+	uv_timer_start(&carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
 	memset(&carg->connect, 0, sizeof(carg->connect));
 	carg->connect.data = carg;
 
@@ -552,9 +550,9 @@ void unix_client_connect(void *arg)
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer->data = carg;
-	uv_timer_init(carg->loop, carg->tt_timer);
-	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+	carg->tt_timer.data = carg;
+	uv_timer_init(carg->loop, &carg->tt_timer);
+	uv_timer_start(&carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
 	memset(&carg->connect, 0, sizeof(carg->connect));
 	carg->connect.data = carg;
 
@@ -628,25 +626,77 @@ void aggregator_resolve_host(context_arg* carg)
 
 }
 
-void tcp_client(void *arg)
+char* tcp_client(void *arg)
 {
 	if (!arg)
-		return;
+		return NULL;
 
 	context_arg *carg = arg;
 
 	aggregator_resolve_host(carg);
+	return "tcp";
 }
 
-void unix_tcp_client(context_arg* carg)
+char* unix_tcp_client(context_arg* carg)
 {
 	if (!carg)
-		return;
+		return NULL;
 
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
 	tommy_hashdyn_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	return "unix";
+}
+
+void tcp_client_del(char *key)
+{
+	if (!key)
+		return;
+
+	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	if (carg)
+	{
+		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
+		
+		if (carg->lock)
+		{
+			r_time time = setrtime();
+			carg->context_ttl = time.sec;
+			tcp_client_close((uv_handle_t *)&carg->client);
+		}
+		else
+		{
+			carg->lock = 1;
+			tommy_hashdyn_remove_existing(ac->aggregator, &(carg->node));
+			carg_free(carg);
+		}
+	}
+}
+
+void unix_tcp_client_del(char* key)
+{
+	if (!key)
+		return;
+
+	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	if (carg)
+	{
+		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
+		
+		if (carg->lock)
+		{
+			r_time time = setrtime();
+			carg->context_ttl = time.sec;
+			tcp_client_close((uv_handle_t *)&carg->client);
+		}
+		else
+		{
+			carg->lock = 1;
+			tommy_hashdyn_remove_existing(ac->aggregator, &(carg->node));
+			carg_free(carg);
+		}
+	}
 }
 
 //void fill_unixunbound(context_arg *carg)

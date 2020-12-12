@@ -62,6 +62,10 @@ void system_initialize()
 	ac->packages_match->hash = malloc(sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->packages_match->hash);
 
+	ac->services_match = calloc(1, sizeof(match_rules));
+	ac->services_match->hash = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(ac->services_match->hash);
+
 	ac->system_userprocess = malloc(sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->system_userprocess);
 
@@ -156,6 +160,9 @@ aconf* configuration()
 
 	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
 	tommy_hashdyn_init(ac->entrypoints);
+
+	ac->aggregators = malloc(sizeof(*ac->aggregators));
+	tommy_hashdyn_init(ac->aggregators);
 
 	ac->request_cnt = 0;
 	ts_initialize();

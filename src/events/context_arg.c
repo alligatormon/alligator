@@ -13,8 +13,9 @@ context_arg *carg_copy(context_arg *src)
 
 void carg_free(context_arg *carg)
 {
-	if (carg->dest)
-		free(carg->dest);
+	//printf("FREE %p:%p -> %s\n", carg, carg->mesg, carg->key);
+	//if (carg->dest)
+	//	free(carg->dest);
 
 	if (carg->mesg)
 		free(carg->mesg);
@@ -22,21 +23,25 @@ void carg_free(context_arg *carg)
 	if (carg->key)
 		free(carg->key);
 
-	if (carg->host)
-		free(carg->host);
-
 	if (carg->net_acl)
 		free(carg->net_acl);
 
+	if (carg->buffer)
+		free(carg->buffer);
 
-	if (carg->parser_name)
-		free(carg->parser_name);
+	////if (carg->parser_name)
+	////	free(carg->parser_name);
 
 	if (carg->remote)
         	free(carg->remote);
 
 	if (carg->local)
         	free(carg->local);
+
+	//if (carg->tt_timer)
+	//	free(carg->tt_timer);
+
+	string_free(carg->full_body);
 
 	free(carg);
 }
@@ -83,6 +88,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->proto = hi->proto;
 	carg->transport = hi->transport;
 	carg->tls = hi->tls;
+	carg->transport_string = hi->transport_string;
 	carg->loop = loop;
 	carg->parser_handler = handler;
 	carg->parser_name = parser_name;
@@ -90,7 +96,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->buflen = 1;
 	carg->expect_function = expect_function;
 	carg->data = data;
-	carg->tt_timer = malloc(sizeof(uv_timer_t));
+	//carg->tt_timer = malloc(sizeof(uv_timer_t));
 	carg->write = 2;
 	carg->curr_ttl = -1;
 	carg->buffer_request_size = 6553500;

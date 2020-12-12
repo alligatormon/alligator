@@ -158,18 +158,18 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 //	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
 //}
 
-void process_client(context_arg *carg)
+char* process_client(context_arg *carg)
 {
 	if (!carg)
 	{
 		puts("exec is empty");
-		return;
+		return NULL;
 	}
 
-
-	char *fname = malloc(255);
+	size_t fsize = 255;
+	char *fname = malloc(fsize);
 	char *template = malloc(1000);
-	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
+	snprintf(fname, fsize-1, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
 	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
 	// TODO /bin/bash only linux, need customize
 	int rc;
@@ -185,36 +185,44 @@ void process_client(context_arg *carg)
 	write_to_file(fname, template, rc, NULL, NULL);
 	(ac->process_cnt)++;
 
-	int64_t i, y, start, n = 1;
-	char *tmp = fname;
-	size_t len = strlen(tmp);
-	for (i=0; i<len; i++)
-	{
-		if ( isspace(tmp[i]) )
-		{
-			for (; isspace(tmp[i]); i++);
-			n++;
-		}
-	}
-	char** args = calloc(n+1, sizeof(char*));
+	//int64_t i, y, start, n = 1;
+	//char *tmp = fname;
+	//size_t len = strlen(tmp);
+	//for (i=0; i<len; i++)
+	//{
+	//	if ( isspace(tmp[i]) )
+	//	{
+	//		for (; isspace(tmp[i]); i++);
+	//		n++;
+	//	}
+	//}
+	//char** args = calloc(n+1, sizeof(char*));
 
-	for (i=0, y=0, start=0; y<n; i++)
-	{
-		if ( isspace(tmp[i]) )
-		{
-			int64_t end = i;
-			for (; isspace(tmp[i]); i++);
-			args[y] = strndup(tmp+start, end-start);
+	//printf("start: %d\n", n);
+	//for (i=0, y=0, start=0; y<n && i < len; i++)
+	//{
+	//	printf("\tlen %d/%d\n", i, len);
+	//	if (tmp && isspace(tmp[i]) )
+	//	{
+	//		int64_t end = i;
+	//		for (; isspace(tmp[i]); i++);
+	//		args[y] = strndup(tmp+start, end-start);
+	//		printf("arg[%d] = '%s'\n", y, args[y]);
 
-			start = i;
-			y++;
-		}
-	}
-	args[n] = NULL;
+	//		start = i;
+	//		y++;
+	//	}
+	//}
+	//args[n] = NULL;
+	char **args = calloc(2, sizeof(char*));
+	args[0] = fname;
+	args[1] = NULL;
 
 	carg->key = carg->host;
 	carg->args = args;
 	tommy_hashdyn_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+
+	return "process";
 }
 
 void on_process_spawn(void* arg)

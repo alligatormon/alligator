@@ -12,6 +12,7 @@ void http_reply_free(http_reply_data* hrdata)
 {
 	free(hrdata->mesg);
 	free(hrdata->headers);
+	string_free(hrdata->clear_http);
 	free(hrdata);
 }
 

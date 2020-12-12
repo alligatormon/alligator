@@ -20,3 +20,4 @@ typedef struct aggregate_context
 } aggregate_context;
 
 int actx_compare(const void* arg, const void* obj);
+int aggregator_compare(const void* arg, const void* obj);

@@ -469,12 +469,15 @@ int match_mapper_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
+// return 0 if not matched
+// return 1 if matched
+// return 2 if matching all
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 {
 	int64_t n = tommy_hashdyn_count(mrules->hash);
 	if ((!n) && (!mrules->head))
 	{
-		return 1;
+		return 2;
 	}
 
 	match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, tommy_strhash_u32(0, str));

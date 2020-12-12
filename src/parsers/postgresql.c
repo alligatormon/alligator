@@ -869,15 +869,16 @@ void postgresql_client_handler()
 	postgresql_without_thread();
 }
 
-void postgresql_client(context_arg* carg)
+char* postgresql_client(context_arg* carg)
 {
 	if (!carg)
-		return;
+		return NULL;
 
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
 	tommy_hashdyn_insert(ac->pg_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	return "postgresql";
 }
 
 void pg_parser_push()

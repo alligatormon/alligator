@@ -317,7 +317,10 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 	strlcpy(metric_name, template_name, metric_len+1);
 	//printf("copy metric name %s from '%s' with size %zu\n", metric_name, template_name, metric_len);
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
+	{
+		labels_hash_free(lbl);
 		return 0;
+	}
 
 	if (carg)
 		mm = carg->mm;
@@ -373,6 +376,7 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 		if (ac->log_level > 3)
 			printf("%s: increment\n", metric_name);
 		//metric_increment();
+		labels_hash_free(lbl);
 		return 0;
 	}
 
@@ -502,7 +506,10 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 		value = atof(str+i);
 	}
 	else
+	{
+		labels_hash_free(lbl);
 		return 0;
+	}
 
 	// replacing dot symbols and other from metric
 	metric_name_normalizer(metric_name, metric_len);

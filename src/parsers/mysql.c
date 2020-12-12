@@ -237,16 +237,16 @@ void mysql_client_handler()
 	mysql_without_thread();
 }
 
-void mysql_client(context_arg* carg)
+char* mysql_client(context_arg* carg)
 {
-	puts("mysql");
 	if (!carg)
-		return;
+		return NULL;
 
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
 	tommy_hashdyn_insert(ac->my_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	return "mysql";
 }
 
 void mysql_parser_push()

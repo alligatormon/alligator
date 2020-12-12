@@ -216,14 +216,15 @@ void aggregator_resolve_host2(context_arg* carg)
 
 }
 
-void udp_client(void *arg)
+char* udp_client(void *arg)
 {
 	if (!arg)
-		return;
+		return NULL;
 
 	context_arg *carg = arg;
 
 	aggregator_resolve_host2(carg);
+	return "udp";
 }
 
 static void udp_client_crawl(uv_timer_t* handle) {

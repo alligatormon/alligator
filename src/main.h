@@ -182,9 +182,11 @@ typedef struct aconf
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	match_rules *packages_match;
+	match_rules *services_match;
 	tommy_hashdyn* fdesc;
 
 	tommy_hashdyn* entrypoints;
+	tommy_hashdyn* aggregators;
 
 	uv_lib_t* libjvm_handle;
 	jint (*create_jvm)(JavaVM**, void**, void*);

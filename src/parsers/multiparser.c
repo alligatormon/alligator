@@ -12,7 +12,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 
 	if (!strncmp(http_data->uri, "/api", 4))
 	{
-		api_router(response, http_data);
+		api_router(response, http_data, carg);
 	}
 	else
 	{
@@ -30,16 +30,16 @@ void do_http_delete(char *buf, size_t len, string *response, http_reply_data* ht
 	extern aconf *ac;
 
 	if (!strncmp(http_data->uri, "/api", 4))
-		api_router(response, http_data);
+		api_router(response, http_data, carg);
 	else
 		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
 }
 
-void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_data)
+void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	if (!strncmp(http_data->uri, "/api", 4))
 	{
-		api_router(response, http_data);
+		api_router(response, http_data, carg);
 	}
 	else if (!strncmp(http_data->uri, "/stats", 6))
 	{
@@ -107,7 +107,7 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	}
 	else if (http_data->method == HTTP_METHOD_GET)
 	{
-		do_http_get(buf, len, response, http_data);
+		do_http_get(buf, len, response, http_data, carg);
 	}
 	else if (http_data->method == HTTP_METHOD_PUT)
 	{

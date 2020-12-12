@@ -346,6 +346,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *tls_entrypoint = NULL;
 			json_t *unix_entrypoint = NULL;
 			json_t *unixgram_entrypoint = NULL;
+			json_t *mapping_entrypoint = NULL;
+			json_t *api_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -376,7 +378,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
-					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup")))
+					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup")))
 					{
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
@@ -475,6 +477,23 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						{
 							unixgram_entrypoint = json_array();
 							json_array_object_insert(operator_json, "unixgram", unixgram_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "mapping"))
+					{
+						if (!mapping_entrypoint)
+						{
+							mapping_entrypoint = json_array();
+							json_array_object_insert(operator_json, "mapping", unixgram_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "api"))
+					{
+						if (!api_entrypoint)
+						{
+							++i;
+							api_entrypoint = json_string(strdup(wstokens[i].token->s));
+							json_array_object_insert(operator_json, "api", api_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query"))
@@ -620,6 +639,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
 						json_array_object_insert(unixgram_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "mapping"))
+					{
+						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_array_object_insert(mapping_entrypoint, operator_name, arg_json);
 					}
 					else
 					{

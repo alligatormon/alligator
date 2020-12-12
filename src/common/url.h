@@ -26,6 +26,7 @@ typedef struct host_aggregator_info
 	char *user;
 	char *pass;
 	char *url;
+	char *transport_string;
 	int8_t proto;
 	int8_t transport;
 	int8_t tls;

@@ -10,6 +10,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "modules/modules.h"
+#include "events/context_arg.h"
+char* mysql_client(context_arg* carg);
 
 typedef struct my_library {
 	uv_lib_t *mysql_init_lib;

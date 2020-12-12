@@ -2904,16 +2904,51 @@ void get_service_tasks_status(char *servicename, char *fname, char *type)
 	metric_add_labels2("service_tasks_count", &cnt, DATATYPE_UINT, ac->system_carg, "service", servicename, "type", type);
 }
 
+void service_running_status(char *name)
+{
+	int match = match_mapper(ac->services_match, name, strlen(name), name);
+	//printf("name %s match %d\n", name, match);
+	if (!match)
+		return;
+
+	uint64_t val;
+	char pathsystemd[1000];
+	snprintf(pathsystemd, 999, "%s/fs/cgroup/systemd/system.slice/%s", ac->system_sysfs, name);
+	FILE *fd = fopen(pathsystemd, "r");
+	if (!fd)
+	{
+		val = 0;
+	}
+	else
+	{
+		val = 1;
+		fclose(fd);
+	}
+	metric_add_labels("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name);
+
+	get_activate_status_services(name);
+	get_service_tasks_status(name, "cgroup.procs", "processes");
+	get_service_tasks_status(name, "tasks", "threads");
+
+	if (match == 1)
+	{
+		metric_add_labels("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name);
+		char cgrouppath[1024];
+		snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
+		cgroup_procs_scrape(cgrouppath);
+	}
+}
+
 void get_services()
 {
 	char svcdir[1000];
-	char pathsystemd[1000];
-	snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
-
+	char svcdir_r[1000];
 	struct dirent *entry;
+	struct dirent *entry_r;
 	DIR *dp;
-	uint64_t val;
+	DIR *dp_r;
 
+	snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
 	dp = opendir(svcdir);
 	if (!dp)
 	{
@@ -2925,22 +2960,37 @@ void get_services()
 		if ( entry->d_name[0] == '.' )
 			continue;
 
-		snprintf(pathsystemd, 999, "%s/fs/cgroup/systemd/system.slice/%s", ac->system_sysfs, entry->d_name);
-		FILE *fd = fopen(pathsystemd, "r");
-		if (!fd)
-		{
-			val = 0;
-		}
-		else
-		{
-			val = 1;
-			fclose(fd);
-		}
-		metric_add_labels("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", entry->d_name);
+		service_running_status(entry->d_name);
+	}
+	closedir(dp);
 
-		get_activate_status_services(entry->d_name);
-		get_service_tasks_status(entry->d_name, "cgroup.procs", "processes");
-		get_service_tasks_status(entry->d_name, "tasks", "threads");
+	snprintf(svcdir, 999, "%s/systemd/", ac->system_rundir);
+	dp = opendir(svcdir);
+	if (!dp)
+	{
+		return;
+	}
+
+	while((entry = readdir(dp)))
+	{
+		if (strncmp(entry->d_name, "generator", 9))
+			continue;
+
+		snprintf(svcdir_r, 999, "%s/systemd/%s", ac->system_rundir, entry->d_name);
+		dp_r = opendir(svcdir_r);
+		if (!dp_r)
+		{
+			continue;
+		}
+
+		while((entry_r = readdir(dp_r)))
+		{
+			if ( entry_r->d_name[0] == '.' )
+				continue;
+
+			service_running_status(entry_r->d_name);
+		}
+		closedir(dp_r);
 	}
 	closedir(dp);
 }

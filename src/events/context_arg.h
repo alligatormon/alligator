@@ -24,7 +24,7 @@ typedef struct context_arg
 	struct sockaddr_in *dest;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
-	uv_timer_t *tt_timer;
+	uv_timer_t tt_timer;
 	//uv_handle_t * server;
 	char *key;
 	char *parser_name;
@@ -37,6 +37,7 @@ typedef struct context_arg
 	uint8_t data_lock; // lock for parser scrape
 	uint8_t proto;
 	uint8_t transport;
+	char *transport_string;
 	int write;
 	//size_t http_body_size;
 	//size_t expect_http_length;
@@ -56,7 +57,6 @@ typedef struct context_arg
 	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
-	uint8_t free_after;
 
 	uint64_t buffer_request_size;
 	uint64_t buffer_response_size;
@@ -185,6 +185,7 @@ typedef struct context_arg
 	int64_t curr_ttl;
 	uint8_t headers_pass;
 	uint64_t headers_size;
+	uint8_t api_enable;
 
 	char *url;
 
@@ -199,6 +200,7 @@ typedef struct context_arg
 	int fd;
 
 	int log_level;
+	int64_t context_ttl;
 
 	tommy_node node;
 	tommy_node context_node;

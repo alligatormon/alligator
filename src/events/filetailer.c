@@ -102,7 +102,7 @@ void stat_cb(uv_fs_t *req) {
 	uv_fs_req_cleanup(req);
 }
 
-void filetailer_handler(char *path, void *parser_handler)
+char* filetailer_handler(char *path, void *parser_handler)
 {
 	printf("showing file '%s'\n", path);
 	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
@@ -122,4 +122,6 @@ void filetailer_handler(char *path, void *parser_handler)
 
 	uv_fs_event_init(loop, handle);
 	uv_fs_event_start(handle, on_file_change, path, UV_FS_EVENT_WATCH_ENTRY);
+
+	return "file";
 }

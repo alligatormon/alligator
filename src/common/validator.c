@@ -96,7 +96,7 @@ int metric_name_validator_promstatsd(char *str, size_t sz)
 		return 0;
 
 	for (i=1; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == ',' || str[i] == ':')
+		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == ',' || str[i] == ':' || str[i] == '-')
 			continue;
 		else if (isdigit(str[i]))
 			continue;

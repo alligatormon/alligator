@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "modules/modules.h"
+char* postgresql_client(context_arg* carg);
 
 typedef struct pq_library {
 	uv_lib_t *PQclear_lib;
