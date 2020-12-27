@@ -5,24 +5,44 @@ yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-serve
 
 unbound-control-setup
 
-cd external/mbedtls/
+cd external
+git clone https://github.com/ARMmbed/mbedtls.git
+cd mbedtls
 make -j install
-cd -
-cd external/libfyaml/
+cd ../../
+
+cd external
+git clone https://github.com/pantoniou/libfyaml.git
+cd libfyaml
 make -j install
-cd -
-cd external/jansson-2.11/
+cd ../../
+
+cd external
+ls jansson-2.12.tar.gz || wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
+tar xfvz jansson-2.12.tar.gz
+cd jansson-2.12
+./configure
+make -j
 make -j install
-cd -
-cd external/libatasmart/
+cd ../../
+
 make -j install
-cd -
-rpm -i external/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
-cp external/bintray-apache-couchdb-rpm.repo /etc/yum.repos.d/
-cp external/datastax.repo /etc/yum.repos.d/
-cp external/mongodb.repo /etc/yum.repos.d/
-cp external/rabbitmq38.repo /etc/yum.repos.d/
-cp external/elasticsearch.repo /etc/yum.repos.d/
+cd external
+git clone https://github.com/Rupan/libatasmart.git
+cd libatasmart/
+./autogen.sh
+./configure --enable-static
+make -j
+make -j install
+cd ../../
+
+#rpm -i external/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
+yum -y install https://t2.unl.edu/osg/3.4/el7/rolling/x86_64/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
+cp ../misc/bintray-apache-couchdb-rpm.repo /etc/yum.repos.d/
+cp ../misc/datastax.repo /etc/yum.repos.d/
+cp ../misc/mongodb.repo /etc/yum.repos.d/
+cp ../misc/rabbitmq38.repo /etc/yum.repos.d/
+cp ../misc/elasticsearch.repo /etc/yum.repos.d/
 rpm --import https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
 yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 
