@@ -2,8 +2,8 @@ TEST=false
 [ ! -z "$1" ] && TEST=$1
 mkdir external
 
-yum -y install epel-release
-yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool libuuid-devel
+yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
+yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool libuuid-devel cutter
 
 unbound-control-setup
 
