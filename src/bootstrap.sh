@@ -16,6 +16,9 @@ cd ../../
 cd external
 git clone https://github.com/pantoniou/libfyaml.git
 cd libfyaml
+./bootstrap.sh
+./configure
+make
 make -j install
 cd ../../
 
