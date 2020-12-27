@@ -43,6 +43,8 @@ include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/
 include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/linux)
 include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/)
 include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
+include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/)
+include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/linux)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(/usr/local/lib64/)
@@ -241,7 +243,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

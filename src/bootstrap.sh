@@ -1,11 +1,37 @@
+#!/bin/sh
+
 TEST=false
 [ ! -z "$1" ] && TEST=$1
 mkdir external
 
+apt update
+export DEBIAN_FRONTEND=noninteractive
+apt install -y cmake g++ gcc libuv1-dev libudev-dev
+ln -s /usr/bin/make /usr/bin/gmake
+apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libiptc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool git valgrind netcat
+apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
-yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool libuuid-devel cutter
+yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool libuuid-devel cutter valgrind netcat
 
 unbound-control-setup
+
+. /etc/os-release
+
+echo $NAME | grep Ubuntu
+if [ $? -eq 0 ]; then
+        if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -le 19 ]; then
+		cd external
+		git clone https://github.com/libuv/libuv.git
+		cd libuv
+		./autogen.sh
+		./configure --enable-static
+		make -j install
+		cd ../../
+
+		cp ../misc/libbson-static-1.0.a /usr/lib
+	fi
+fi
+exit 
 
 cd external
 git clone git://git.netfilter.org/iptables
@@ -22,6 +48,7 @@ cd external
 git clone https://github.com/ARMmbed/mbedtls.git
 cd mbedtls
 git checkout mbedtls-2.15.1
+make clean
 make -j install
 cd ../../
 
@@ -43,7 +70,6 @@ make -j
 make -j install
 cd ../../
 
-make -j install
 cd external
 git clone https://github.com/Rupan/libatasmart.git
 cd libatasmart/
@@ -87,6 +113,7 @@ cd ../../
 cd external
 git clone https://github.com/jemalloc/jemalloc.git
 cd jemalloc
+make clean
 ./autogen.sh
 make -j install
 cd ../../
