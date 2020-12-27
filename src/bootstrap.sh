@@ -7,6 +7,17 @@ yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-serve
 unbound-control-setup
 
 cd external
+git clone git://git.netfilter.org/iptables
+cd iptables
+git checkout v1.8.6
+make -j install
+./autogen.sh
+./configure --disable-nftables --enable-static
+make -j
+make -j install
+cd ../../
+
+cd external
 git clone https://github.com/ARMmbed/mbedtls.git
 cd mbedtls
 git checkout mbedtls-2.15.1
