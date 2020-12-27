@@ -82,7 +82,11 @@ then
 	cd ../
 fi
 cd ../../
-cd external/jemalloc/
+
+cd external
+git clone https://github.com/jemalloc/jemalloc.git
+cd jemalloc
+./autogen.sh
 make -j install
 cd ../../
 
