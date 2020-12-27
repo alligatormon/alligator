@@ -1,5 +1,6 @@
 TEST=false
 [ ! -z "$1" ] && TEST=$1
+mkdir external
 
 yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip
 
