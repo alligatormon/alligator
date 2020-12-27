@@ -8,6 +8,7 @@ unbound-control-setup
 cd external
 git clone https://github.com/ARMmbed/mbedtls.git
 cd mbedtls
+git checkout mbedtls-2.15.1
 make -j install
 cd ../../
 
