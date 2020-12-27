@@ -101,30 +101,20 @@ void mongo_Stats(context_arg *carg, char *metrics, char *prefix, char *ns_overri
 	const char *key;
 	json_t *value1;
 	char string[255];
-	char string2[255];
-	char string3[255];
-	char string4[255];
 	size_t string_len;
-	size_t string_len2;
-	size_t string_len3;
 	snprintf(string,  254, "MongoDB_%s", prefix);
-	snprintf(string2, 254, "MongoDB_%s", prefix);
-	snprintf(string3, 254, "MongoDB_%s", prefix);
-	snprintf(string4, 254, "MongoDB_%s", prefix);
 	size_t fsize = strlen(string);
 	json_object_foreach(root, key, value1)
 	{
 		string_len = strlen(key);
 		if (key[string_len-1] == '_')
 			--string_len;
-		string[fsize] = '_';
-		string2[fsize] = '_';
-		string3[fsize] = '_';
-		string4[fsize] = '_';
-		strlcpy(string+1+fsize, key, string_len+1);
-		strlcpy(string2+1+fsize, key, string_len+1);
-		strlcpy(string3+1+fsize, key, string_len+1);
-		strlcpy(string4+1+fsize, key, string_len+1);
+
+		if (*key != '$')
+		{
+			string[fsize] = '_';
+			strlcpy(string+1+fsize, key, string_len+1);
+		}
 		int type = json_typeof(value1);
 
 		if (type == JSON_OBJECT)
@@ -133,13 +123,6 @@ void mongo_Stats(context_arg *carg, char *metrics, char *prefix, char *ns_overri
 			json_t *value2;
 			json_object_foreach(value1, key2, value2)
 			{
-				string_len2 = strlen(key2);
-				string2[fsize+string_len] = '_';
-				string3[fsize+string_len] = '_';
-				string4[fsize+string_len] = '_';
-				strlcpy(string2+1+fsize+string_len, key2, string_len2+1);
-				strlcpy(string3+1+fsize+string_len, key2, string_len2+1);
-				strlcpy(string4+1+fsize+string_len, key2, string_len2+1);
 				int type2 = mongo_get_value(carg, value2, (char*)key, NULL, NULL, (char*)key2, string, ns, 1);
 
 				if (type2 == JSON_OBJECT)
@@ -148,12 +131,6 @@ void mongo_Stats(context_arg *carg, char *metrics, char *prefix, char *ns_overri
 					json_t *value3;
 					json_object_foreach(value2, key3, value3)
 					{
-						string3[fsize+string_len+string_len2] = '_';
-						string4[fsize+string_len+string_len2] = '_';
-						string_len3 = strlen(key3);
-						strlcpy(string3+1+fsize+string_len+string_len2, key3, string_len3+1);
-						strlcpy(string4+1+fsize+string_len+string_len2, key3, string_len3+1);
-
 						int type3 = mongo_get_value(carg, value3, (char*)key2, NULL, NULL, (char*)key3, string, ns, 2);
 						if (type3 == JSON_OBJECT)
 						{
@@ -295,11 +272,11 @@ void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char 
 		if (carg->log_level > 1)
 			printf ("============ found collection: %s\n", bson_iter_utf8 (&iter, NULL));
 
-		if (!strcmp(collection_name, "products"))
-		{
-			mongo_find(client, collection, "{\"ping\" : 1}", NULL);
-			//mongo_find(client, collection, "{\"item\" : \"stamps\"}", "{ \"item\": 1 }");
-		}
+		//if (!strcmp(collection_name, "p"))
+		//{
+		//	mongo_find(client, collection, "{\"ping\" : 1}", NULL);
+		//	//mongo_find(client, collection, "{\"item\" : \"stamps\"}", "{ \"item\": 1 }");
+		//}
 
 		mongo_cmd_run(carg, collection, NULL, "", "collStats", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "Collection", NULL);
 		mongo_cmd_run(carg, collection, NULL, "", "dataSize", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "DataSize", collection_name);
@@ -613,6 +590,15 @@ char* mongodb_client(context_arg* carg)
 
 	tommy_hashdyn_insert(ac->mongodb_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "mongodb";
+}
+
+void mongodb_client_del(context_arg* carg)
+{
+	if (!carg)
+		return;
+
+	tommy_hashdyn_remove_existing(ac->mongodb_aggregator, &(carg->node));
+	carg_free(carg);
 }
 
 void mongodb_parser_push()

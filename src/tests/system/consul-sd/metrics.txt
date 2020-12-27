@@ -1,0 +1,1 @@
+alligator_parser_status {proto="tcp", key="tcp:uwsgi:127.0.0.2:2332", type="aggregator", host="127.0.0.2", parser="uwsgi", name="web"} 0

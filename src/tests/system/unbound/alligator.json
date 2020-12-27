@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"unbound", "url": "tls://localhost:8953", "tls_certificate": "/etc/unbound/unbound_control.pem", "tls_key": "/etc/unbound/unbound_control.key", "tls_ca": "/etc/unbound/unbound_server.pem"}]}

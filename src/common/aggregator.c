@@ -12,17 +12,35 @@
 #include "events/udp.h"
 #include "events/client.h"
 #include "events/process.h"
+#include "dynconf/sd.h"
 
-void smart_aggregator(context_arg *carg)
+int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port)
+{
+	return snprintf(key, 254, "%s:%s:%s:%s", transport_string, parser_name, host, port);
+}
+
+int smart_aggregator(context_arg *carg)
 {
 	char *type = NULL;
+
 	char key[255];
-	unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
-	snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
+	if (!carg->key)
+	{
+		//unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
+		//snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
+		smart_aggregator_default_key(key, carg->transport_string, carg->parser_name, carg->host, carg->port);
+	}
+	else
+		strlcpy(key, carg->key, 255);
+
+	if (ac->log_level > 0)
+		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
+
 	if (tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
 	{
-		printf("smart_aggregator: key '%s' already in use\n", key);
-		return;
+		if (ac->log_level > 2)
+			printf("smart_aggregator: key '%s' already in use\n", key);
+		return 0; // err, need for carg_free
 	}
 
 	if (carg->transport == APROTO_UNIX)
@@ -47,14 +65,18 @@ void smart_aggregator(context_arg *carg)
 		type = mysql_client(carg);
 	else if (carg->transport == APROTO_MONGODB)
 		type = mongodb_client(carg);
+	else if (carg->transport == APROTO_ZKCONF)
+		type = zk_client(carg);
 
-	if (type)
+	if (type && !carg->key)
 	{
 		carg->key = strdup(key);
 		//snprintf(carg->key, 254, "%s:%s:%s", type, carg->parser_name, carg->url);
 	}
 	if (carg->key)
 		tommy_hashdyn_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+
+	return 1; // OK
 }
 
 void smart_aggregator_del(context_arg *carg)
@@ -66,52 +88,57 @@ void smart_aggregator_del(context_arg *carg)
 	else if (carg->transport == APROTO_TLS)
 		tcp_client_del(carg);
 	else if (carg->transport == APROTO_UDP)
-		udp_client(carg);
+		udp_client_del(carg);
 	//else if (carg->transport == APROTO_ICMP)
 	//	unix_tcp_client(carg);
 	else if (carg->transport == APROTO_PROCESS)
-		process_client(carg);
+		process_client_del(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
 	else if (carg->transport == APROTO_FILE)
-		filetailer_handler("/var/log/", NULL);
+		filetailer_handler_del("/var/log/", NULL);
 	else if (carg->transport == APROTO_PG)
-		postgresql_client(carg);
+		postgresql_client_del(carg);
 	else if (carg->transport == APROTO_MY)
-		mysql_client(carg);
+		mysql_client_del(carg);
 	else if (carg->transport == APROTO_MONGODB)
-		mongodb_client(carg);
+		mongodb_client_del(carg);
 }
 
-void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name)
+void smart_aggregator_del_key(char *key)
 {
-	context_arg *new = calloc(1, sizeof(*new));
-	memcpy(new, carg, sizeof(*new));
+	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	if (carg)
+		smart_aggregator_del(carg);
+}
+
+void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port)
+{
+	char key[255];
+	smart_aggregator_default_key(key, transport_string, parser_name, host, port);
+	smart_aggregator_del_key(key);
+}
+
+void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key)
+{
+	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop);
+
+	new->key = override_key;
+	if (!new->key)
+	{
+		new->key = malloc(64);
+		snprintf(new->key, 64, "%s(tcp://%s:%u)", parser_name, carg->host, htons(carg->dest->sin_port));
+	}
 
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 
-	new->lock = 0;
-	new->parser_handler = handler;
-	new->parser_name = parser_name;
-	new->key = malloc(64);
-	new->buffer_request_size = 6553500;
-	new->buffer_response_size = 6553500;
-	new->full_body = string_init(6553500);
-	//new->tt_timer = malloc(sizeof(uv_timer_t));
-	//new->dest = malloc(sizeof(*new->dest));
-	//memcpy(new->dest, carg->dest, sizeof(*new->dest));
-	snprintf(new->key, 64, "%s(tcp://%s:%u)", parser_name, carg->host, htons(carg->dest->sin_port));
+	if (ac->log_level > 2)
+		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
-	aconf_mesg_set(new, mesg, mesg_len);
-	//printf("CREATE try_again %p:%p -> %s\n", new, new->mesg, new->key);
-
-	if (new->transport == APROTO_UNIX)
-		unix_client_connect(new);
-	if (new->transport == APROTO_TCP)
-		tcp_client_connect(new);
-	else if (new->transport == APROTO_UDP)
-		udp_client_connect(new);
+	if (!smart_aggregator(new))
+		carg_free(new);
 }
 
 int actx_compare(const void* arg, const void* obj)
@@ -136,6 +163,9 @@ void aggregate_ctx_init()
 	gdnsd_parser_push();
 	hadoop_parser_push();
 	sd_etcd_parser_push();
+	sd_consul_configuration_parser_push();
+	sd_consul_discovery_parser_push();
+	sd_zk_parser_push();
 	nginx_upstream_check_parser_push();
 	json_parser_push();
 	consul_parser_push();
@@ -169,6 +199,9 @@ void aggregate_ctx_init()
 	process_parser_push();
 	riak_parser_push();
 	nats_parser_push();
+	lighttpd_parser_push();
+	httpd_parser_push();
+	nsd_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

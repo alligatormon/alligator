@@ -227,6 +227,15 @@ char* udp_client(void *arg)
 	return "udp";
 }
 
+void udp_client_del(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	uv_udp_recv_stop(&carg->udp_client);
+	tommy_hashdyn_remove_existing(ac->udpaggregator, &(carg->node));
+}
+
 static void udp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
 	tommy_hashdyn_foreach(ac->udpaggregator, udp_client_connect);

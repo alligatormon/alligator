@@ -92,7 +92,6 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 
 void stat_cb(uv_fs_t *req) {
 	//context_arg *carg = req->data;
-	printf("dcdc\n");
 	//printf("%p\n", req->statfs);
 	uv_stat_t st = req->statbuf;
 	if (S_ISDIR(st.st_mode))
@@ -104,24 +103,35 @@ void stat_cb(uv_fs_t *req) {
 
 char* filetailer_handler(char *path, void *parser_handler)
 {
-	printf("showing file '%s'\n", path);
 	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
 	uv_fs_stat(uv_default_loop(), req_stat, path, stat_cb);
 
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
-	uv_fs_event_t *handle = calloc(1, sizeof(*handle));
+	//uv_fs_event_t *handle = calloc(1, sizeof(*handle));
 
 	context_arg *carg = malloc(sizeof(*carg));
 	carg->parser_handler = parser_handler;
 
 	carg->offset = 0;
 	carg->path = path;
-	handle->data = carg;
+	//handle->data = carg;
+	carg->fs_handle.data = carg;
 
-	uv_fs_event_init(loop, handle);
-	uv_fs_event_start(handle, on_file_change, path, UV_FS_EVENT_WATCH_ENTRY);
+	//uv_fs_event_init(loop, handle);
+	//uv_fs_event_start(handle, on_file_change, path, UV_FS_EVENT_WATCH_ENTRY);
+	uv_fs_event_init(loop, &carg->fs_handle);
+	uv_fs_event_start(&carg->fs_handle, on_file_change, path, UV_FS_EVENT_WATCH_ENTRY);
 
 	return "file";
+}
+
+void filetailer_handler_del(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	uv_fs_event_stop(&carg->fs_handle);
+	carg_free(carg);
 }

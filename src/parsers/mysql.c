@@ -249,6 +249,15 @@ char* mysql_client(context_arg* carg)
 	return "mysql";
 }
 
+void mysql_client_del(context_arg* carg)
+{
+	if (!carg)
+		return;
+
+	tommy_hashdyn_remove_existing(ac->my_aggregator, &(carg->node));
+	carg_free(carg);
+}
+
 void mysql_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));

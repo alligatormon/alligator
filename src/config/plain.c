@@ -640,10 +640,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
 						json_array_object_insert(unixgram_entrypoint, operator_name, arg_json);
 					}
-					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "mapping"))
+					else if (!strcmp(operator_name, "ttl"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
-						json_array_object_insert(mapping_entrypoint, operator_name, arg_json);
+						json_t *arg_json = json_integer(strtoll(strdup(wstokens[i].token->s), NULL, 10));
+						json_array_object_insert(operator_json, operator_name, arg_json);
 					}
 					else
 					{
@@ -651,7 +651,80 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_array_object_insert(operator_json, operator_name, arg_json);
 					}
 				}
-				if (wstokens[i].end)
+				else if (wstokens[i].context)
+				{
+					if (ac->log_level > 0)
+						printf("\t\t\tcontext_name: %s, argument: '%s'\n", context_name, wstokens[i].token->s);
+
+					if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "mapping"))
+					{
+						if (!mapping_entrypoint)
+						{
+							mapping_entrypoint = json_array();
+							json_array_object_insert(operator_json, "mapping", mapping_entrypoint);
+						}
+
+						json_t *mapping_object = json_object();
+						json_array_object_insert(mapping_entrypoint, "", mapping_object);
+
+						char *mapping_name = NULL;
+						for (; i < token_count; i++)
+						{
+							if (wstokens[i].token->l)
+							{
+								if (wstokens[i].operator)
+								{
+									mapping_name = wstokens[i].token->s;
+								}
+								else if (wstokens[i].argument)
+								{
+									json_t *arg_json = NULL;
+									if (!strcmp(mapping_name, "le") || !strcmp(mapping_name, "buckets") || !strcmp(mapping_name, "quantiles"))
+									{
+										if (ac->log_level > 1)
+											printf("aggregate %s\n", mapping_name);
+										arg_json = json_array();
+
+										for (; i < token_count; i++)
+										{
+											if (ac->log_level > 1)
+												printf("quantile/bucket %s\n", wstokens[i].token->s);
+											if (wstokens[i].token->l)
+											{
+												json_t *str_json = json_string(strdup(wstokens[i].token->s));
+												json_array_object_insert(arg_json, "", str_json);
+											}
+											if (wstokens[i].end || wstokens[i].semicolon)
+											{
+												break;
+											}
+										}
+									}
+									else if (!strcmp(mapping_name, "label"))
+									{
+										arg_json = json_object();
+
+										char *label_name = wstokens[i].token->s;
+										++i;
+										json_t *label_value = json_string(strdup(wstokens[i].token->s));
+										json_array_object_insert(arg_json, label_name, label_value);
+									}
+									else
+									{
+										arg_json = json_string(strdup(wstokens[i].token->s));
+									}
+									json_array_object_insert(mapping_object, mapping_name, arg_json);
+									//printf("mapping arg %s=%s to %p\n========\n%s\n=========\n", mapping_name, wstokens[i].token->s, mapping_object, json_dumps(mapping_object, 0));
+								}
+							}
+							if (wstokens[i].end)
+							{
+								break;
+							}
+						}
+					}
+				}
+				else if (wstokens[i].end)
 				{
 					break;
 				}

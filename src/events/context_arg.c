@@ -13,9 +13,8 @@ context_arg *carg_copy(context_arg *src)
 
 void carg_free(context_arg *carg)
 {
-	//printf("FREE %p:%p -> %s\n", carg, carg->mesg, carg->key);
-	//if (carg->dest)
-	//	free(carg->dest);
+	if (ac->log_level > 2)
+		printf("FREE context argument %p with hostname '%s', key '%s', with mesg '%s'\n", carg, carg->host, carg->key, carg->mesg);
 
 	if (carg->mesg)
 		free(carg->mesg);
@@ -29,19 +28,18 @@ void carg_free(context_arg *carg)
 	if (carg->buffer)
 		free(carg->buffer);
 
-	////if (carg->parser_name)
-	////	free(carg->parser_name);
-
 	if (carg->remote)
         	free(carg->remote);
 
 	if (carg->local)
         	free(carg->local);
 
-	//if (carg->tt_timer)
-	//	free(carg->tt_timer);
-
 	string_free(carg->full_body);
+
+	// TODO: free carg->labels
+	// TODO: free carg->name
+	// TODO: free carg->socket
+	// TODO: free carg->mm
 
 	free(carg);
 }
@@ -70,7 +68,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
 	if (ac->log_level > 2)
-		printf("allocated context argument with addr %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+		printf("allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
 	aconf_mesg_set(carg, mesg, mesg_len);
 
@@ -153,6 +151,17 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		}
 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);
+	}
+
+	json_t *json_env = json_object_get(root, "env");
+
+	const char *env_name;
+	json_t *env_jkey;
+	json_object_foreach(json_env, env_name, env_jkey)
+	{
+		char *env_key = (char*)json_string_value(env_jkey);
+		puts(env_name);
+		puts(env_key);
 	}
 
 	return carg;

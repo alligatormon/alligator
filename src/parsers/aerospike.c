@@ -61,7 +61,10 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		snprintf(aeronamespace+8, 255-8, "namespace/%s\n", namespace_name);
 		uint64_t writelen = 20 + elem_size-1;
 
-		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace");
+		char *key = malloc(255);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), aeronamespace+8);
+		key[strlen(key) - 1] = 0;
+		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace", NULL, key);
 
 		elem_size += strspn(tmp, ";");
 		tmp += elem_size;

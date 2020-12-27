@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"nsd", "url": "unix:///run/nsd/nsd.ctl"}]}

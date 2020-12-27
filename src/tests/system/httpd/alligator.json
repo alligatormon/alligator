@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"httpd", "url": "http://localhost/server-status"}]}

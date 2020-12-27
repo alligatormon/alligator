@@ -86,7 +86,7 @@ void free_mapping_split_free(char **split, size_t len)
 	free(split);
 }
 
-char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template_split, size_t template_split_size)
+char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template_split, size_t template_split_size, uint64_t *arr)
 {
 	uint64_t k;
 	uint64_t d = 0;
@@ -110,6 +110,7 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template
 
 	char **ret = malloc((globs+1)*sizeof(char*));
 
+	uint64_t arr_i = 0;
 	for (k=0; k<globs; ++k)
 	{
 		glob_size = strcspn(str+offset, ".");
@@ -118,9 +119,13 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template
 		//ret[k] = strndup(str+offset, glob_size);
 		if (template_split)
 		{
-			if (template_split[k][0] != '*')
-			{
+			//if (template_split[k][0] != '*')
+			//{
 				ret[d++] = tmpret;
+			//}
+			if (arr && template_split[k][0] == '*')
+			{
+				arr[arr_i++] = k;
 			}
 		}
 		else
@@ -138,7 +143,7 @@ char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template
 	return ret;
 }
 
-char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_size)
+char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_size, uint64_t *arr)
 {
 	char **split = 0;
 	if (mm->match == MAPPING_MATCH_GLOB)
@@ -146,8 +151,8 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 		uint8_t i;
 		size_t str_splits;
 
-		char **template_split = mapping_str_split(mm->template, size, &str_splits, NULL, 0);
-		split = mapping_str_split(str, size, &str_splits, template_split, str_splits);
+		char **template_split = mapping_str_split(mm->template, size, &str_splits, NULL, 0, NULL);
+		split = mapping_str_split(str, size, &str_splits, template_split, str_splits, arr);
 		if (!split)
 		{
 			free_mapping_split_free(template_split, str_splits);
@@ -181,7 +186,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 	return split;
 }
 
-size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
+size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, uint64_t *arr)
 {
 	size_t ret = 0;
 
@@ -220,6 +225,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 		
 		index--; // index decrement because take from null
 
+		index = arr[index];
 		if (ac->log_level > 4)
 			printf("<<<templating element '%s': with [%"u64"] element\n", cur, index);
 
@@ -229,6 +235,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split)
 		oldcur = cur;
 		if (ac->log_level > 4)
 			printf("<<<<< metric_split %s\n", metric_split[index]);
+		//printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n", metric_split[0], metric_split[1], metric_split[2], metric_split[3], metric_split[4], metric_split[5], metric_split[6]);
 
 		if (!metric_split[index])
 			break;
@@ -330,12 +337,13 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 		uint64_t input_name_size = strcspn(str, ": \t\n");
 		size_t metric_split_size = 0;
 		char *matchres = strndup(str, input_name_size);
-		char **metric_split = mapping_match(mm, matchres, input_name_size, &metric_split_size);
+		uint64_t arr[255];
+		char **metric_split = mapping_match(mm, matchres, input_name_size, &metric_split_size, arr);
 		if (metric_split)
 		{
 			if (mm->metric_name)
 			{
-				metric_len = mapping_template(metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split);
+				metric_len = mapping_template(metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split, arr);
 				mapping_label *ml = mm->label_head;
 				while (ml)
 				{
@@ -354,9 +362,9 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 					mm->label_tail = ml;
 
 					// template exec
-					mapping_template(label_name, ml->name, METRIC_NAME_SIZE, metric_split);
+					mapping_template(label_name, ml->name, METRIC_NAME_SIZE, metric_split, arr);
 					//printf("from template '%s' rendered: '%s'\n", ml->name, label_name);
-					mapping_template(label_key, ml->key, METRIC_NAME_SIZE, metric_split);
+					mapping_template(label_key, ml->key, METRIC_NAME_SIZE, metric_split, arr);
 
 					// insert
 					labels_hash_insert_nocache(lbl, label_name, label_key);
@@ -452,6 +460,9 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 			if (str[i] == ',')
 			{
 				++i;
+				multicollector_skip_spaces(&i, str, size);
+				if (str[i] == '}')
+					break;
 				//printf("2i=%"u64"\n", i);
 			}
 			else if (str[i] == '}')
@@ -552,17 +563,16 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (lbl && (uint64_t)lbl == 1)
 			continue;
 
-		if (carg && http_data)
+		// carg is null if directory persistence read
+		if (carg && http_data && http_data->expire != -1)
 			carg->curr_ttl = http_data->expire;
 
-		if (!carg->parser_status && fgets_counter == 1)
-		{
-			if (ac->log_level > 2)
-				puts("skip first incomplete string for statsd/graphite proto, loose by network");
-			continue;
-		}
+		//if (ac->log_level > 2)
+		//	puts("skip first incomplete string for statsd/graphite proto, loose by network");
 
-		carg->parser_status = multicollector_field_get(tmp, tmp_len, lbl, carg);
+		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg);
+		if (carg)
+			carg->parser_status = rc;
 	}
 	if (ac->log_level > 0)
 		printf("parsed metrics multicollector: %"u64", full size read: %zu\n", fgets_counter, size);

@@ -37,6 +37,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 	char respbody[1000];
 	char status[100];
 	snprintf(status, 100, "OK");
+	//printf("body is %s\n", body);
 
 	json_error_t error;
 	json_t *root = json_loads(body, 0, &error);
@@ -193,9 +194,9 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 				json_t *period = json_object_get(value, "period");
 				if (period)
-					ac->ttl = json_integer_value(period)*1000;
+					ac->persistence_period = json_integer_value(period)*1000;
 				else
-					ac->ttl = 15000;
+					ac->persistence_period = 300;
 					
 			}
 			if (!strcmp(key, "lang"))
@@ -264,7 +265,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				{
 					json_t *entrypoint = json_array_get(value, i);
 
-					context_arg *carg = calloc(1, sizeof(*carg));
+					context_arg *carg = calloc(1, sizeof(*carg)); // TODO: memory leak
 					carg->buffer_request_size = 6553500;
 					carg->buffer_response_size = 6553500;
 					carg->net_acl = calloc(1, sizeof(*carg->net_acl));
@@ -593,7 +594,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL);
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop);
-							smart_aggregator(carg);
+							if (!smart_aggregator(carg))
+								carg_free(carg);
 						}
 						else if (!strcmp(system_key, "cpuavg"))
 						{
@@ -826,56 +828,30 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							}
 						}
 
-						context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
 						if (enkey)
-							smart_aggregator(carg);
+						{
+							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
+							if (!smart_aggregator(carg))
+							{
+								carg_free(carg);
+								snprintf(status, 100, "ERROR");
+								snprintf(respbody, 1000, "Error (maybe already created?)");
+							}
+							else
+							{
+								snprintf(status, 100, "OK");
+								snprintf(respbody, 1000, "Accepted");
+							}
+						}
 						else
-							smart_aggregator_del(carg);
+						{
+							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port);
+							snprintf(status, 100, "OK");
+							snprintf(respbody, 1000, "Deleted OK");
+							// TODO: free hi
+						}
 					}
 				}
-			}
-
-
-
-			if (!strcmp(key, "configuration"))
-			{
-				uint64_t configuration_size = json_array_size(value);
-				for (uint64_t i = 0; i < configuration_size; i++)
-				{
-					json_t *configuration = json_array_get(value, i);
-
-					json_t *jhandler = json_object_get(configuration, "handler");
-					if (!jhandler)
-						continue;
-
-					char *handler = (char*)json_string_value(jhandler);
-					size_t handler_len = json_string_length(jhandler)+3;
-					char *shandler = malloc(handler_len);
-					snprintf(shandler, handler_len, "%s-sd", handler);
-
-					json_t *jurl = json_object_get(configuration, "url");
-					if (!jurl)
-						continue;
-
-					char *url = (char*)json_string_value(jurl);
-
-					host_aggregator_info *hi = parse_url(url, strlen(url));
-
-					aggregate_context *actx = tommy_hashdyn_search(ac->aggregate_ctx, actx_compare, shandler, tommy_strhash_u32(0, shandler));
-					if (!actx)
-						continue;
-
-					for (uint64_t j = 0; j < actx->handlers; j++)
-					{
-						//printf("mesg %p\n", actx->handler[j].mesg_func);
-						string *query = actx->handler[j].mesg_func(hi, actx);
-						context_arg *carg = context_arg_json_fill(configuration, hi, actx->handler[j].name, actx->handler[j].key, query->s, query->l, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
-						smart_aggregator(carg);
-					}
-				}
-
-
-
 			}
 		}
 

@@ -19,7 +19,7 @@ void tcp_client_closed(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	if (ac->log_level > 1)
-		printf("%"u64": tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+		printf("%"u64": tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
@@ -45,7 +45,9 @@ void tcp_client_closed(uv_handle_t *handle)
 	{
 		r_time time = setrtime();
 		if (time.sec >= carg->context_ttl)
-			carg_free(carg);
+			smart_aggregator_del(carg);
+			//tcp_client_del(carg->key);
+			//carg_free(carg);
 	}
 }
 
@@ -598,8 +600,8 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
 
 	carg->dest = (struct sockaddr_in*)res->ai_addr;
-	carg->key = malloc(64);
-	snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
+	//carg->key = malloc(64);
+	//snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
 
 	tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
@@ -649,12 +651,15 @@ char* unix_tcp_client(context_arg* carg)
 	return "unix";
 }
 
-void tcp_client_del(char *key)
+void tcp_client_del(context_arg *carg)
 {
-	if (!key)
+	if (!carg)
 		return;
 
-	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	//if (!key)
+	//	return;
+
+	//context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
@@ -674,12 +679,15 @@ void tcp_client_del(char *key)
 	}
 }
 
-void unix_tcp_client_del(char* key)
+void unix_tcp_client_del(context_arg *carg)
 {
-	if (!key)
+	if (!carg)
 		return;
 
-	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	//if (!key)
+	//	return;
+
+	//context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));

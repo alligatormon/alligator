@@ -225,6 +225,15 @@ char* process_client(context_arg *carg)
 	return "process";
 }
 
+void process_client_del(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	tommy_hashdyn_remove_existing(ac->process_spawner, &(carg->node));
+	carg_free(carg);
+}
+
 void on_process_spawn(void* arg)
 {
 	extern aconf* ac;

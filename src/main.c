@@ -99,6 +99,7 @@ aconf* configuration()
 	ac = calloc(1, sizeof(*ac));
 	ac->aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->pg_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->zk_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->mongodb_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->my_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
@@ -148,6 +149,7 @@ aconf* configuration()
 
 	tommy_hashdyn_init(ac->aggregator);
 	tommy_hashdyn_init(ac->pg_aggregator);
+	tommy_hashdyn_init(ac->zk_aggregator);
 	tommy_hashdyn_init(ac->mongodb_aggregator);
 	tommy_hashdyn_init(ac->my_aggregator);
 	tommy_hashdyn_init(ac->tls_aggregator);
@@ -275,6 +277,7 @@ int main(int argc, char **argv)
 	postgresql_client_handler();
 	mongodb_client_handler();
 	mysql_client_handler();
+	zk_client_handler();
 	//udp_send("\0\1sendfile.txt\0netascii\0", 24);
 	//udp_send("\0\1sendfile.txt\0octet\0", 21);
 

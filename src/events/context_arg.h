@@ -26,6 +26,7 @@ typedef struct context_arg
 	uv_tcp_t *socket;
 	uv_timer_t tt_timer;
 	//uv_handle_t * server;
+	uv_fs_event_t fs_handle;
 	char *key;
 	char *parser_name;
 	void *parser_handler;

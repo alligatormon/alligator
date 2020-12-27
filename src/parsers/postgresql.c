@@ -881,6 +881,15 @@ char* postgresql_client(context_arg* carg)
 	return "postgresql";
 }
 
+void postgresql_client_del(context_arg* carg)
+{
+	if (!carg)
+		return;
+
+	tommy_hashdyn_remove_existing(ac->pg_aggregator, &(carg->node));
+	carg_free(carg);
+}
+
 void pg_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));

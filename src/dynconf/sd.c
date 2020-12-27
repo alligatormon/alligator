@@ -8,9 +8,6 @@
 #include "common/selector.h"
 #include "common/json_parser.h"
 #include "common/http.h"
-//#include "common/url.h"
-//#include "common/http.h"
-//#include "common/json_parser.h"
 
 #ifdef __linux__
 #include "zookeeper.h"
@@ -155,11 +152,16 @@ void sd_cat_data(sd_handler *sdh, char *path)
 	//printf("get node from %s\n", path);
 	int rc = zoo_get(sdh->zh, path, 0, buffer, &buflen, &stat);
 	if (rc)
-		printf("zoo_get: %s\n", zerror(rc));
+		if (ac->log_level > 1)
+			printf("zoo_get: %s\n", zerror(rc));
 
 	buffer[buflen] = 0;
 	if (rc == ZOK)
-		printf("==> %s\n", buffer);
+	{
+		if (ac->log_level > 1)
+			printf("==> %s\n", buffer);
+		http_api_v1(NULL, NULL, buffer);
+	}
 }
 
 void sd_cat_children(sd_handler *sdh, char *prefix, size_t len)
@@ -180,7 +182,8 @@ void sd_cat_children(sd_handler *sdh, char *prefix, size_t len)
 			size_t mlen = len + strlen(strings.data[i])+1;
 			char *buf = malloc(mlen+1);
 			snprintf(buf, mlen, "%s/%s", prefix, strings.data[i]);
-			printf("> %s\n", buf);
+			if (ac->log_level > 1)
+				printf("> %s\n", buf);
 
 			sd_cat_data(sdh, buf);
 
@@ -222,20 +225,81 @@ sd_handler *sd_zookeeper_init(char *hostname, char *port, int64_t timeout, char 
 	return sdh;
 }
 
-void sd_scrape_cb()
+void sd_scrape_cb(void *arg)
 {
+	context_arg *carg = arg;
 	//sd_handler *sdh = sd_zookeeper_init("localhost", "2181", 5000, 0, 0);
-	sd_handler *sdh = sd_zookeeper_init("localhost", "2181", 5000, "digest", "kafka:12345");
-	//sd_handler *sdh = sd_zookeeper_init("10.10.10.10", "2181", 1000);
+	//sd_handler *sdh = sd_zookeeper_init("localhost", "2181", 5000, "digest", "kafka:12345");
+	if (carg->log_level > 0)
+		printf("scrape zookeeper conf from host %s, port %s\n", carg->host, carg->port);
+	sd_handler *sdh = sd_zookeeper_init(carg->host, carg->port, carg->timeout, "digest", "kafka:12345");
 	sd_getconf(sdh);
 	sd_close(sdh);
 }
+//
+//void zk_scrape()
+//{
+//	uv_thread_t th;
+//	uv_thread_create(&th, sd_scrape_cb, NULL);
+//}
+void zk_timer_without_thread(uv_timer_t* handle) {
+	(void)handle;
+	tommy_hashdyn_foreach(ac->zk_aggregator, sd_scrape_cb);
+}
 
-void sd_scrape()
+
+void zk_without_thread()
+{
+	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(ac->loop, timer1);
+	uv_timer_start(timer1, zk_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+}
+
+void zk_client_handler()
 {
 	uv_thread_t th;
-	uv_thread_create(&th, sd_scrape_cb, NULL);
+	uv_thread_create(&th, zk_without_thread, NULL);
 }
+
+char* zk_client(context_arg* carg)
+{
+	if (!carg)
+		return NULL;
+
+	carg->key = malloc(255);
+	snprintf(carg->key, 255, "%s", carg->host);
+
+	tommy_hashdyn_insert(ac->zk_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	return "zk";
+}
+
+void zk_client_del(context_arg* carg)
+{
+	if (!carg)
+		return;
+
+	tommy_hashdyn_remove_existing(ac->zk_aggregator, &(carg->node));
+	carg_free(carg);
+}
+
+void sd_zk_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	//zk_data *data = calloc(1, sizeof(*data));
+
+	actx->key = strdup("zookeeper-configuration");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	//actx->data = data;
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key,"zookeeper-configuration", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
 #endif
 
 void sd_etcd_node(json_t *rnode)
@@ -249,8 +313,8 @@ void sd_etcd_node(json_t *rnode)
 		json_t *value = json_object_get(node, "value");
 		if (value)
 		{
-			char *value_str = (char*)json_string_value(value);
-			printf("%s\n", value_str);
+			char *dvalue = (char*)json_string_value(value);
+			http_api_v1(NULL, NULL, dvalue);
 		}
 
 		//json_t *key = json_object_get(node, "key");
@@ -282,7 +346,6 @@ void sd_etcd_configuration(char *conf, size_t conf_len, context_arg *carg)
 
 void sd_consul_configuration(char *conf, size_t conf_len, context_arg *carg)
 {
-	puts("sd_consul_configuration");
 	puts(conf);
 	json_error_t error;
 	json_t *root = json_loads(conf, 0, &error);
@@ -304,7 +367,8 @@ void sd_consul_configuration(char *conf, size_t conf_len, context_arg *carg)
 			char *value_str = (char*)json_string_value(value);
 			size_t outlen;
 			char *dvalue = base64_decode(value_str, strlen(value_str), &outlen);
-			printf("consul %s\n", dvalue);
+			//printf("consul %s\n", dvalue);
+			http_api_v1(NULL, NULL, dvalue);
 		}
 	}
 
@@ -313,7 +377,6 @@ void sd_consul_configuration(char *conf, size_t conf_len, context_arg *carg)
 
 void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 {
-	puts("sd_consul_discovery");
 	json_error_t error;
 	json_t *root = json_loads(conf, 0, &error);
 	if (!root)
@@ -322,28 +385,95 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 		return;
 	}
 
-	const char *key;
+	const char *name;
 	json_t *value;
-	json_object_foreach(root, key, value)
+	json_object_foreach(root, name, value)
 	{
-		printf("service id: %s\n", key);
+		if (ac->log_level > 1)
+			printf("service id: %s\n", name);
 		json_t *meta = json_object_get(value, "Meta");
 		if (meta)
 		{
 			json_t *alligator_handler = json_object_get(meta, "alligator_handler");
 			json_t *alligator_url = json_object_get(meta, "alligator_url");
-			if (alligator_handler && alligator_url)
-			{
-				char *handler = (char*)json_string_value(alligator_handler);
-				char *url = (char*)json_string_value(alligator_url);
-				printf("handler: %s\n", handler);
-				printf("url: %s\n", url);
+			json_t *alligator_host = json_object_get(meta, "alligator_host");
+			json_t *alligator_port = json_object_get(meta, "alligator_port");
+			json_t *alligator_proto = json_object_get(meta, "alligator_proto");
+			json_t *alligator_path = json_object_get(meta, "alligator_path");
 
-				//host_aggregator_info *hi = parse_url(url, strlen(url));
-				//char *query = gen_http_query(0, hi->query, hi->host, "alligator", hi->auth, 1, NULL);
-				//context_arg *carg = context_arg_fill(NULL, 0, hi, json_handler, query, NULL, json_check);
-				//smart_aggregator(carg);
+			char *handler = (char*)json_string_value(alligator_handler);
+			if (!handler)
+				handler = "blackbox";
+			char *url = (char*)json_string_value(alligator_url);
+			char *host = NULL;
+			char *port;
+			char *proto;
+			char *path;
+			char port_c[6];
+			char url_c[1024];
+
+			if (!url)
+			{
+				host = (char*)json_string_value(alligator_host);
+				if (!host)
+				{
+					json_t *address = json_object_get(value, "Address");
+					host = (char*)json_string_value(address);
+					if (!host)
+					{
+						if (ac->log_level > 1)
+							printf("alligator_host for svc: %s not specified, skip\n", name);
+						continue;
+					}
+				}
+
+				port = (char*)json_string_value(alligator_port);
+				if (!port)
+				{
+					json_t *aport = json_object_get(value, "Port");
+					int64_t port_i = json_integer_value(aport);
+					if (!port_i)
+					{
+						if (ac->log_level > 1)
+							printf("alligator_port for svc: %s not specified, skip\n", name);
+						continue;
+					}
+
+					snprintf(port_c, 5, "%"d64, port_i);
+					port = port_c;
+				}
+
+				proto = (char*)json_string_value(alligator_proto);
+				if (!proto)
+				{
+					if (ac->log_level > 1)
+						printf("alligator_proto for svc: %s not specified, skip\n", name);
+					continue;
+				}
+
+				path = (char*)json_string_value(alligator_path);
+
+				snprintf(url_c, 1023, "%s://%s:%s%s", proto, host, port, path ? path : "");
+				url = url_c;
 			}
+
+			//printf("handler: %s\n", handler);
+			//printf("url: %s\n", url);
+			json_t *aggregate_root = json_object();
+			json_t *aggregate_arr = json_array();
+			json_t *aggregate_obj = json_object();
+			json_t *aggregate_handler = json_string(strdup(handler));
+			json_t *aggregate_url = json_string(strdup(url));
+			json_t *aggregate_name = json_string(strdup(name));
+			json_t *aggregate_add_label = json_object();
+			json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
+			json_array_object_insert(aggregate_arr, "", aggregate_obj);
+			json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
+			json_array_object_insert(aggregate_obj, "url", aggregate_url);
+			json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
+			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
+			const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+			http_api_v1(NULL, NULL, dvalue);
 		}
 	}
 
@@ -353,8 +483,8 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 string* sd_etcd_mesg(host_aggregator_info *hi, void *arg)
 {
 	char *replacedquery = malloc(255);
-	char *path = (char*)arg;
-	snprintf(replacedquery, 255, "%sv2%s?recursive=true", hi->query, path);
+	char *path = "";
+	snprintf(replacedquery, 255, "%sv2/keys%s?recursive=true", hi->query, path ? path : "");
 	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
 }
 
@@ -362,14 +492,56 @@ void sd_etcd_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
-	actx->key = strdup("etcd-sd");
+	actx->key = strdup("etcd-configuration");
 	actx->handlers = 1;
 	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = sd_etcd_configuration;
 	actx->handler[0].validator = json_validator;
 	actx->handler[0].mesg_func = sd_etcd_mesg;
-	strlcpy(actx->handler[0].key,"etcd-discovery", 255);
+	strlcpy(actx->handler[0].key,"etcd-configuration", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+string* sd_consul_configuration_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, "/v1/kv/?recurse", hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
+}
+
+void sd_consul_configuration_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("consul-configuration");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = sd_consul_configuration;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = sd_consul_configuration_mesg;
+	strlcpy(actx->handler[0].key, "consul-configuration", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+string* sd_consul_discovery_mesg(host_aggregator_info *hi, void *arg)
+{
+	return string_init_add(gen_http_query(0, hi->query, "/v1/agent/services", hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
+}
+
+void sd_consul_discovery_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("consul-discovery");
+	actx->handlers = 1;
+	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = sd_consul_discovery;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = sd_consul_discovery_mesg;
+	strlcpy(actx->handler[0].key, "consul-discovery", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

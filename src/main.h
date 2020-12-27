@@ -84,6 +84,7 @@ typedef struct aconf
 
 	tommy_hashdyn* aggregator;
 	tommy_hashdyn* pg_aggregator;
+	tommy_hashdyn* zk_aggregator;
 	tommy_hashdyn* mongodb_aggregator;
 	tommy_hashdyn* my_aggregator;
 	tommy_hashdyn* tls_aggregator;

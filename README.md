@@ -50,6 +50,12 @@ system {
 	firewall; # iptables scrape
 	packages [nginx] [alligator]; # scrape packages info with timestamp installed
 	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json]; # for scrape cadvisor metrics
+	services; # for systemd unit status
+	sysfs  /path/to/dir; # override path
+	procfs /path/to/dir; # override path
+	rundir /path/to/dir; # override path
+	usrdir /path/to/dir; # override path
+	etcdir /path/to/dir; # override path
 }
 
 #aggregator context (scrape from services)

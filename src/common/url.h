@@ -15,6 +15,7 @@
 #define APROTO_PG 16
 #define APROTO_MY 17
 #define APROTO_MONGODB 18
+#define APROTO_ZKCONF 19
 #include <stdio.h>
 typedef struct host_aggregator_info
 {

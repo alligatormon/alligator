@@ -1,0 +1,14 @@
+fastcgi.active-requests: 0
+  fastcgi.backend.fcgi-php.0.connected: 10127
+  fastcgi.backend.fcgi-php.0.died: 0
+  fastcgi.backend.fcgi-php.0.disabled: 0
+  fastcgi.backend.fcgi-php.0.load: 0
+  fastcgi.backend.fcgi-php.0.overloaded: 0
+  fastcgi.backend.fcgi-php.1.connected: 93855
+  fastcgi.backend.fcgi-php.1.died: 0
+  fastcgi.backend.fcgi-php.1.disabled: 0
+  fastcgi.backend.fcgi-php.1.load: 0
+  fastcgi.backend.fcgi-php.1.overloaded: 0
+  fastcgi.backend.fcgi-php.load: 1
+  fastcgi.requests: 103982
+
