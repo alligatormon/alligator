@@ -3,7 +3,7 @@ TEST=false
 mkdir external
 
 yum -y install epel-release
-yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool
+yum -y install rpm-devel pcre-static libuv-static systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-pgpool-II postgresql-devel postgresql-static pgbouncer mysql-proxy-devel mysql-proxy https://repo.ius.io/ius-release-el7.rpm sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc glibc-static wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo libpqxx-devel gcc-c++ make git libtool libuuid-devel
 
 unbound-control-setup
 
