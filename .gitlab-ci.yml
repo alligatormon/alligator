@@ -2,7 +2,8 @@ stages:
 - tests
 - build
 
-image: amoshi/cbuiler
+#image: amoshi/cbuiler
+image: centos:7.9.2009
 
 cutter_test:
   stage: tests
