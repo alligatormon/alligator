@@ -7,31 +7,8 @@ image: amoshi/cbuiler
 cutter_test:
   stage: tests
   script:
-  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
-  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
-  - tar xfvz jansson-2.12.tar.gz
-  - cd jansson-2.12
-  - ./configure
-  - make -j 
-  - make -j install
-  - cd -
   - cd src
-  - git clone https://github.com/deleisha/evt-tls.git
-  - git clone https://github.com/Rupan/libatasmart.git
-  - cd libatasmart
-  - ./autogen.sh
-  - ./configure --enable-static
-  - make -j
-  - make -j install
-  - cd ..
-  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
-  - tar xfvz openssl-1.0.2s.tar.gz
-  - cd openssl-1.0.2s
-  - ./config
-  - make -j
-  - make -j install
-  - cd ..
-
+  - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
   - cutter .
@@ -39,31 +16,8 @@ cutter_test:
 build_test:
   stage: tests
   script:
-  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
-  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
-  - tar xfvz jansson-2.12.tar.gz
-  - cd jansson-2.12
-  - ./configure
-  - make -j
-  - make -j install
-  - cd -
   - cd src
-  - git clone https://github.com/deleisha/evt-tls.git
-  - git clone https://github.com/Rupan/libatasmart.git
-  - cd libatasmart
-  - ./autogen.sh
-  - ./configure --enable-static
-  - make -j
-  - make -j install
-  - cd ..
-  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
-  - tar xfvz openssl-1.0.2s.tar.gz
-  - cd openssl-1.0.2s
-  - ./config
-  - make -j
-  - make -j install
-  - cd ..
-
+  - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
 
