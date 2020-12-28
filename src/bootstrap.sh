@@ -31,7 +31,6 @@ if [ $? -eq 0 ]; then
 		cp ../misc/libbson-static-1.0.a /usr/lib
 	fi
 fi
-exit 
 
 cd external
 git clone git://git.netfilter.org/iptables
