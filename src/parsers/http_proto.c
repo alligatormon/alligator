@@ -166,8 +166,8 @@ void http_proto_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t count = 1;
 	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%p'\nbody='%p', content-length: %d, chunked: %d, headers size: %zu, body size: %zu\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body, hrdata->content_length, hrdata->chunked_expect, hrdata->headers_size, hrdata->body_size);
 
-	char code[5];
-	snprintf(code, 5, "%"PRId16"", hrdata->http_code);
+	char code[7];
+	snprintf(code, 6, "%"PRId16, hrdata->http_code);
 
 	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "destination", carg->host, "port", carg->port);
 	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);

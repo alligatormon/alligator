@@ -157,7 +157,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 				if(!strncmp(pmetric, maps[j], n_sz))
 				{
 					strncat(ret, pfield, n_sz);
-					strncat(ret, "\n", 1);
+					strncat(ret, "\n", 2);
 					count++;
 				}
 			}

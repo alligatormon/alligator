@@ -22,6 +22,15 @@ build_centos:
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
 
+build_centos8:
+  image: centos:8
+  stage: tests
+  script:
+  - cd src
+  - sh bootstrap.sh
+  - cmake3 . -DCPACK_GENERATOR=RPM
+  - make -j
+
 build_ubuntu1804:
   image: ubuntu:18.04
   stage: tests
