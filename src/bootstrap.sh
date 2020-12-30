@@ -7,8 +7,7 @@ mkdir external
 apt update
 export DEBIAN_FRONTEND=noninteractive
 apt install -y cmake g++ gcc libuv1-dev libudev-dev
-ln -fs /usr/bin/make /usr/bin/gmake
-ln -fs /usr/bin/python{3,}
+ln -s /usr/bin/make /usr/bin/gmake
 apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libiptc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool git valgrind netcat
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
@@ -18,6 +17,8 @@ echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 yum -y install https://repo.ius.io/ius-release-el7.rpm
 yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat
+
+ln -s /usr/bin/python{3,}
 
 unbound-control-setup
 
