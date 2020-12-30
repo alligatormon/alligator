@@ -50,6 +50,7 @@ if [ $? -eq 0 ]; then
 		make -j install
 		cd ../../
 
+		cp ../misc/libpcre.a /usr/lib
 		cp ../misc/libbson-static-1.0.a /usr/lib
 	fi
 fi
