@@ -205,7 +205,11 @@ int tls_fs_dir_read(char *name, char *path, char *match)
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	//printf("tls open dir: %s\n", path);
+	if (ac->log_level > 0)
+		printf("tls open dir: %s, status: %p\n", path, readdir_req.ptr);
+
+	if (!readdir_req.ptr)
+		return 0;
 
 	uv_dirent_t dirents[1024];
 	uv_dir_t* rdir = readdir_req.ptr;
@@ -298,6 +302,12 @@ void tls_fs_del(char *name)
 
 void jks_push(char *name, char *path, char *match, char *password)
 {
+	if (!password)
+	{
+		printf("no set password for jks: %s\n", name);
+		return;
+	}
+
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->lang = "java";
 	lo->key = strdup(name);

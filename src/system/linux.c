@@ -1545,7 +1545,9 @@ void throttle_stat()
 }
 
 #define TCPUDP_NET_LENREAD 10000000
-void get_net_tcpudp(char *file, char *name)
+#define A_TCP_STATE 0
+#define A_UDP_STATE 1
+void get_net_tcpudp(char *file, char *name, int state_proto)
 {
 	r_time ts_start = setrtime();
 	if (ac->log_level > 2)
@@ -1634,7 +1636,7 @@ void get_net_tcpudp(char *file, char *name)
 
 			inet_ntop(AF_INET, &src, str1, INET_ADDRSTRLEN);
 			inet_ntop(AF_INET, &dest, str2, INET_ADDRSTRLEN);
-			if (state == 10)
+			if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
 			{
 				uint64_t val = 1;
 
@@ -2110,10 +2112,10 @@ void get_mdadm()
 		metric_add_labels2("raid_devices", &arr_cur, DATATYPE_INT, ac->system_carg, "array", name, "type", "current");
 		metric_add_labels2("raid_devices", &arr_sz, DATATYPE_INT, ac->system_carg, "array", name, "type", "full");
 
-		if (arr_cur != arr_sz)
-			metric_add_labels("raid_status", &nvl, DATATYPE_INT, ac->system_carg, "array", name);
-		else
+		if (arr_cur >= arr_sz && !strcmp(status, "active"))
 			metric_add_labels("raid_status", &vl, DATATYPE_INT, ac->system_carg, "array", name);
+		else
+			metric_add_labels("raid_status", &nvl, DATATYPE_INT, ac->system_carg, "array", name);
 	}
 }
 
@@ -3150,16 +3152,16 @@ void get_system_metrics()
 		get_netstat_statistics(dirname);
 
 		snprintf(dirname, 255, "%s/net/tcp", ac->system_procfs);
-		get_net_tcpudp(dirname, "tcp");
+		get_net_tcpudp(dirname, "tcp", A_TCP_STATE);
 
 		snprintf(dirname, 255, "%s/net/tcp6", ac->system_procfs);
-		get_net_tcpudp(dirname, "tcp6");
+		get_net_tcpudp(dirname, "tcp6", A_TCP_STATE);
 
 		snprintf(dirname, 255, "%s/net/udp", ac->system_procfs);
-		get_net_tcpudp(dirname, "udp");
+		get_net_tcpudp(dirname, "udp", A_UDP_STATE);
 
 		snprintf(dirname, 255, "%s/net/udp6", ac->system_procfs);
-		get_net_tcpudp(dirname, "udp6");
+		get_net_tcpudp(dirname, "udp6", A_UDP_STATE);
 
 		interface_stats();
 	}

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.172)
+set(VERSION 1.10.175)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -30,6 +30,8 @@ include_directories(/usr/local/include/libbson-1.0)
 include_directories(/usr/include/libbson-1.0/)
 include_directories(/usr/local/include/libmongoc-1.0)
 include_directories(/usr/include/libmongoc-1.0/)
+#include_directories(external/mongo-c-driver/src/libmongoc/src/mongoc)
+include_directories(external/mongo-c-driver/src/libbson/src)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")

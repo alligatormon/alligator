@@ -135,7 +135,7 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 		}
 		if (!str1)
 		{
-			return -1;
+			continue;
 		}
 		if (!str2)
 		{
@@ -170,6 +170,16 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 	return 0;
 }
 
+int metric_name_match(labels_t *labels1, labels_t *labels2)
+{
+	if (!labels1 || !labels2)
+		return 0;
+
+	char *str1 = labels1->key;
+	char *str2 = labels2->key;
+	return strcmp(str1, str2);
+}
+
 void labels_print(labels_t *labels, int l)
 {
 	labels_t *cur = labels;
@@ -198,51 +208,6 @@ void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color)
 		string_cat(s, tmps, size);
 		cur = cur->next;
 	}
-}
-
-void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x)
-{
-	if (!labels)
-		return;
-
-	labels_t *cur = labels;
-
-	string_cat(str, cur->key, strlen(cur->key));
-	string_cat(str, "{", 1);
-	cur = cur->next;
-
-	while (cur)
-	{
-		//uint64_t i;
-		//for ( i=0; i<l; i++)
-		//	printf("\t");
-		//printf("%s:%s (%zu/%zu), go to: %p\n", cur->name, cur->key, cur->name_len, cur->key_len, cur->next);
-		if(cur->key)
-		{
-			string_cat(str, cur->name, strlen(cur->name));
-			string_cat(str, "=\"", 2);
-			string_cat(str, cur->key, strlen(cur->key));
-
-			if (cur->next)
-				string_cat(str, "\", ", 3);
-			else
-				string_cat(str, "\"} ", 3);
-		}
-
-		cur = cur->next;
-	}
-
-	int8_t type = x->type;
-	if (type == DATATYPE_INT)
-		string_int(str, x->i);
-	else if (type == DATATYPE_UINT)
-		string_uint(str, x->u);
-	else if (type == DATATYPE_DOUBLE)
-		string_double(str, x->d);
-	else if (type == DATATYPE_STRING)
-		string_cat(str, x->s, strlen(x->s));
-
-	string_cat(str, "\n", 1);
 }
 
 int query_struct_compare(const void* arg, const void* obj)
@@ -739,31 +704,6 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 	}
 }
 
-//void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type)
-//{
-//	namespace_struct *ns;
-//
-//	if (!namespace)
-//		ns = ac->nsdefault;
-//	else // add support namespaces
-//		return;
-//
-//	metric_tree *tree = ns->metrictree;
-//	expire_tree *expiretree = ns->expiretree;
-//
-//	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
-//	metric_node* mnode = metric_find(tree, labels_list);
-//	if (mnode)
-//	{
-//		metric_set(mnode, type, value, expiretree);
-//		labels_head_free(labels_list);
-//	}
-//	else
-//	{
-//		metric_insert(tree, labels_list, type, value, expiretree);
-//	}
-//}
-
 void labels_dup_for(void *funcarg, void* arg)
 {
 	tommy_hashdyn *dst = funcarg;
@@ -1254,27 +1194,6 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	{
 		metric_insert(tree, labels_list, type, value, expiretree, ttl);
 	}
-}
-
-void metric_query (char *namespace, string *str, char *name, tommy_hashdyn *hash, char *query)
-{
-	namespace_struct *ns;
-
-	if (!namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-	metric_tree *tree = ns->metrictree;
-
-	//tommy_hashdyn *hash = malloc(sizeof(*hash));
-	//tommy_hashdyn_init(hash);
-
-	//labels_hash_insert(hash, name1, key1);
-
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
-
-	if ( tree && tree->root )
-		metrictree_get(tree->root, labels_list, str);
 }
 
 void metric_gen_foreach_avg(void *funcarg, void* arg)

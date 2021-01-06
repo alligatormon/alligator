@@ -99,7 +99,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 			j += k;
 		}
 		groupkey->s[groupkey->l - 1] = 0;
-		printf("group_key '%s'\n", groupkey->s);
+		//printf("group_key '%s'\n", groupkey->s);
 
 		str += strspn(str, " \t\r\n()");
 	}

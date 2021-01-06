@@ -165,11 +165,13 @@ void query_set_values(query_node *qn)
 
 void internal_query_process(query_node *qn)
 {
+	//puts("===============");
 	char *name = malloc(255);
 	string *groupkey = string_new();
 	int func;
 	tommy_hashdyn *hash = promql_parser(NULL, qn->expr, strlen(qn->expr), name, &func, groupkey);
 
+	//printf("query is %s:%s:%s:%d\n", name, qn->make, groupkey->s, func);
 	metric_query_gen(0, name, hash, "", qn->make, func, groupkey);
 	string_free(groupkey);
 	free(name);

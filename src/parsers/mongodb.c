@@ -171,7 +171,8 @@ void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_cl
 	char *str;
 	command = BCON_NEW (cmd, BCON_UTF8 (arg));
 	if ((collection) && ac->libmongo->mongoc_collection_command_simple ( collection, command, NULL, &reply, &error)) {
-		str = bson_as_canonical_extended_json (&reply, NULL);
+		//str = bson_as_canonical_extended_json (&reply, NULL);
+		str = bson_as_json (&reply, NULL);
 		if (carg->log_level > 2) 
 			printf ("======= run %s: =========\n%s\n", cmd, str);
 
@@ -180,7 +181,8 @@ void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_cl
 
 		bson_free (str);
 	} else if ((!collection) && ac->libmongo->mongoc_client_command_simple(client, db_name, command, NULL, &reply, &error)) {
-		str = bson_as_canonical_extended_json (&reply, NULL);
+		//str = bson_as_canonical_extended_json (&reply, NULL);
+		str = bson_as_json (&reply, NULL);
 		if (carg->log_level > 2) 
 			printf ("======= run %s (%s): =========\n%s\n", cmd, db_name, str);
 
@@ -227,7 +229,8 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 	const bson_t *doc;
 	char *str;
 	while (ac->libmongo->mongoc_cursor_next(cursor, &doc)) {
-		str = bson_as_canonical_extended_json (doc, NULL);
+		//str = bson_as_canonical_extended_json (doc, NULL);
+		str = bson_as_json (doc, NULL);
 		printf("\t\t\t%s\n", str);
 		bson_free(str);
 	}

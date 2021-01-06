@@ -172,7 +172,7 @@ void podman_parse(FILE *fd, size_t fd_size)
 						char cgroup_cnt_id[255];
 						snprintf(cgroup_cnt_id, 255, "libpod-%s.scope", podman_labels->id);
 
-						cadvisor_scrape(NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image);
+						cadvisor_scrape(NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image, NULL, NULL, NULL);
 
 						free(podman_labels->id);
 						free(podman_labels->name);
@@ -329,7 +329,7 @@ void openvz7_labels()
 			umount("/var/lib/alligator/nsmount");
 			unshare(CLONE_NEWNET);
 
-			cadvisor_scrape(NULL, "", rd_entry->d_name, rd_entry->d_name, NULL);
+			cadvisor_scrape(NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -361,7 +361,7 @@ void lxc_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL);
+			cadvisor_scrape(NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -393,7 +393,7 @@ void nspawn_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL);
+			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -401,7 +401,12 @@ void nspawn_labels()
 
 void docker_labels(char *metrics, size_t size, context_arg *carg)
 {
-	puts("DOCKER scraper!");
+	if (carg->log_level > 9)
+	{
+		puts("DOCKER scraper!");
+		puts(metrics);
+		puts("END");
+	}
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -443,16 +448,62 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 
 			const char *label_key;
 			json_t *label_value;
+
+			int is_k8s = 0;
+			char kubepath[255];
+			char kubenamespace[255];
+			char kubepod[255];
+			char kubecontainer[255];
+
 			json_object_foreach(json_labels, label_key, label_value)
 			{
 				if (json_typeof(label_value) == JSON_STRING)
 				{
 					char *str_value = (char*)json_string_value(label_value);
-					printf("\tlabels: '%s': '%s'\n", label_key, str_value);
+					if (carg->log_level > 2)
+						printf("\tlabels: '%s': '%s'\n", label_key, str_value);
+
+					
+					if (!strcmp(label_key, "io.kubernetes.pod.uid"))
+					{
+						size_t str_value_len = json_string_length(label_value);
+
+						for (uint64_t i = 0; i < str_value_len; i++)
+							if (str_value[i] == '-')
+								str_value[i] = '_';
+
+						is_k8s = 1;
+
+						snprintf(kubepath, 254, "kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod%s.slice/docker-%s.scope", str_value, id);
+						char fullpath[255];
+						snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+						struct stat path_stat;
+						if (stat(fullpath, &path_stat))
+						{
+							snprintf(kubepath, 254, "kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod%s.slice/docker-%s.scope", str_value, id);
+							snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+							if (stat(fullpath, &path_stat))
+								snprintf(kubepath, 254, "kubepods.slice/kubepods-pod%s.slice/docker-%s.scope/", str_value, id);
+						}
+
+					}
+					else if (!strcmp(label_key, "io.kubernetes.pod.namespace"))
+						strlcpy(kubenamespace, str_value, 255);
+					else if (!strcmp(label_key, "io.kubernetes.pod.name"))
+						strlcpy(kubepod, str_value, 255);
+					else if (!strcmp(label_key, "io.kubernetes.container.name"))
+						strlcpy(kubecontainer, str_value, 255);
 				}
 			}
 
-			cadvisor_scrape(NULL, "docker", id, name_str, image);
+			if (!is_k8s)
+				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL);
+			else
+			{
+				if (carg->log_level > 1)
+					printf("\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
+				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer);
+			}
 		}
 	}
 	json_decref(root);

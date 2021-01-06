@@ -408,35 +408,6 @@ void metric_str_build (char *namespace, string *str)
 	}
 }
 
-void metrictree_get_scan(metric_node *x, labels_t* labels, string *str)
-{
-	if (!x)
-		return;
-
-	if (!labels_match(x->labels, labels))
-		labels_gen_string(x->labels, 0, str, x);
-
-	metrictree_get_scan(x->steam[LEFT], labels, str);
-	metrictree_get_scan(x->steam[RIGHT], labels, str);
-}
-
-void metrictree_get(metric_node *x, labels_t* labels, string *str)
-{
-	while (x)
-	{
-		int rc1 = labels_match(x->labels, labels);
-		if ( rc1 > 0 )
-			x = x->steam[LEFT];
-		else if ( rc1 < 0 )
-			x = x->steam[RIGHT];
-		else
-		{
-			metrictree_get_scan(x, labels, str);
-			break;
-		}
-	}
-}
-
 void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash)
 {
 	if (!x)
@@ -455,7 +426,7 @@ void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_ha
 {
 	while (x)
 	{
-		int rc1 = labels_match(x->labels, labels);
+		int rc1 = metric_name_match(x->labels, labels);
 		if ( rc1 > 0 )
 			x = x->steam[LEFT];
 		else if ( rc1 < 0 )

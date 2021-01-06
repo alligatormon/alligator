@@ -112,8 +112,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					char *match = (char*)json_string_value(jmatch);
 
 					json_t *jpassword = json_object_get(x509, "password");
-					if (!jpassword)
-						continue;
 					char *password = (char*)json_string_value(jpassword);
 
 					json_t *jtype = json_object_get(x509, "type");
@@ -128,7 +126,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					}
 
-					if (!strcmp(type, "jks"))
+					if (type && !strcmp(type, "jks"))
 						jks_push(name, path, match, password);
 					else
 						tls_fs_push(name, path, match);
@@ -592,7 +590,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							mkdirp("/var/lib/alligator/nsmount");
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
-							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL);
+							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0");
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop);
 							if (!smart_aggregator(carg))
 								carg_free(carg);

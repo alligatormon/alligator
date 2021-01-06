@@ -202,6 +202,7 @@ void aggregate_ctx_init()
 	lighttpd_parser_push();
 	httpd_parser_push();
 	nsd_parser_push();
+	dummy_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

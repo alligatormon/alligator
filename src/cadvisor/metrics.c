@@ -135,30 +135,42 @@ void dlid_free(tommy_hashdyn* dlid_hash)
 //	return ifhash;
 //}
 
-void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1)
+void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
+	if (kubenamespace)
+		labels_hash_insert(hash, "namespace", kubenamespace);
+	if (kubepod)
+		labels_hash_insert(hash, "pod_name", kubepod);
+	if (kubecontainer)
+		labels_hash_insert(hash, "container_name", kubecontainer);
 	if (name1 && value1)
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
 
 	if (ac->log_level > 2)
-		printf("%s:%s:%s:%s:%s %"PRIu64"\n", mname, cad_id, cntid, name1, value1, val);
+		printf("%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname, cad_id, cntid, name1, value1, kubenamespace, kubepod, kubecontainer, val);
 
 	metric_add(mname, hash, &val, DATATYPE_UINT, ac->system_carg);
 }
 
-void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1)
+void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
+	if (kubenamespace)
+		labels_hash_insert(hash, "namespace", kubenamespace);
+	if (kubepod)
+		labels_hash_insert(hash, "pod_name", kubepod);
+	if (kubecontainer)
+		labels_hash_insert(hash, "container_name", kubecontainer);
 	if (name1 && value1)
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
@@ -169,13 +181,19 @@ void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, 
 	metric_add(mname, hash, &val, DATATYPE_INT, ac->system_carg);
 }
 
-void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1)
+void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	tommy_hashdyn *hash = malloc(sizeof(*hash));
 	tommy_hashdyn_init(hash);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
+	if (kubenamespace)
+		labels_hash_insert(hash, "namespace", kubenamespace);
+	if (kubepod)
+		labels_hash_insert(hash, "pod_name", kubepod);
+	if (kubecontainer)
+		labels_hash_insert(hash, "container_name", kubecontainer);
 	if (name1 && value1)
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
@@ -186,7 +204,7 @@ void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name
 	metric_add(mname, hash, &val, DATATYPE_DOUBLE, ac->system_carg);
 }
 
-void cgroup_get_netinfo(char *sysfs, char *ifname, char *stat, char *mname, char *cntid, char *name, char *image, char *cad_id)
+void cgroup_get_netinfo(char *sysfs, char *ifname, char *stat, char *mname, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	FILE *fd;
 	char buf[PATH_SIZE];
@@ -204,7 +222,7 @@ void cgroup_get_netinfo(char *sysfs, char *ifname, char *stat, char *mname, char
 	}
 
 	uint64_t val = strtoull(readbuf, NULL, 10);
-	add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "interface", ifname);
+	add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer);
 	// additional by k8s:
 	// io.kubernetes.container.name -> container_name
 	// io.kubernetes.pod.name -> pod_name
@@ -219,7 +237,7 @@ int mlist_hash_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *cad_id, tommy_hashdyn* mlist_hash)
+tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *cad_id, tommy_hashdyn* mlist_hash, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char buf[PATH_SIZE];
 	char mountpoint[1000];
@@ -285,7 +303,7 @@ tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *ca
 		disk_busy = strtoull(tmp, NULL, 10);
 
 		if (disk_busy)
-			add_cadvisor_metric_uint("container_fs_io_time_weighted_seconds_total", disk_busy, cntid, name, image, cad_id, "device", dlid->devname);
+			add_cadvisor_metric_uint("container_fs_io_time_weighted_seconds_total", disk_busy, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer);
 	}
 
 	fclose(fd);
@@ -299,7 +317,7 @@ int dlid_hash_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname_template, char *name, char *image, char *cad_id, char *wrname, char *rdname)
+void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname_template, char *name, char *image, char *cad_id, char *wrname, char *rdname, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	FILE *fd;
 	char buf[PATH_SIZE];
@@ -354,13 +372,13 @@ void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, ch
 		if (dlid)
 		{
 			//printf("%s:%s:%s:%s %"PRIu64"\n", mname, cntid, dlid->devname, stat, val);
-			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname);
+			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer);
 		}
 	}
 	fclose(fd);
 }
 
-void cgroup_get_diskinfo_total(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id)
+void cgroup_get_diskinfo_total(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	FILE *fd;
 	char buf[PATH_SIZE];
@@ -391,7 +409,7 @@ void cgroup_get_diskinfo_total(tommy_hashdyn* dlid_hash, char *prefix, char *cnt
 		uint32_t id_hash = tommy_strhash_u32(0, disk_id);
 		disk_list_id *dlid = tommy_hashdyn_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
 		if (dlid)
-			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname);
+			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer);
 	}
 	fclose(fd);
 }
@@ -422,8 +440,11 @@ uint64_t cgroup_get_pid(char *prefix, char *container)
 	return pid;
 }
 
-void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy_hashdyn* mlist_hash, char *name, char *image, char *cad_id)
+void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy_hashdyn* mlist_hash, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
+	if (!pid)
+		return;
+
 	char fpath[1000];
 	char mountpoint[1000];
 	struct mntent *fs;
@@ -463,12 +484,12 @@ void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy
 		if (mlist)
 		{
 			//printf("%s:%s %"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"""\n", "mname", prefix, mlist->mountpoint, mlist->total, mlist->avail, mlist->used, mlist->inodes_total, mlist->inodes_avail, mlist->inodes_used);
-			add_cadvisor_metric_uint("container_fs_inodes_free", mlist->inodes_avail, container, name, image, cad_id, "device", mlist->mountname);
-			add_cadvisor_metric_uint("container_fs_inodes_usage", mlist->inodes_used, container, name, image, cad_id, "device", mlist->mountname);
-			add_cadvisor_metric_uint("container_fs_inodes_total", mlist->inodes_total, container, name, image, cad_id, "device", mlist->mountname);
-			add_cadvisor_metric_uint("container_fs_limit_bytes", mlist->total, container, name, image, cad_id, "device", mlist->mountname);
-			add_cadvisor_metric_uint("container_fs_usage_bytes", mlist->used, container, name, image, cad_id, "device", mlist->mountname);
-			add_cadvisor_metric_uint("container_fs_free_bytes", mlist->avail, container, name, image, cad_id, "device", mlist->mountname);
+			add_cadvisor_metric_uint("container_fs_inodes_free", mlist->inodes_avail, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
+			add_cadvisor_metric_uint("container_fs_inodes_usage", mlist->inodes_used, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
+			add_cadvisor_metric_uint("container_fs_inodes_total", mlist->inodes_total, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
+			add_cadvisor_metric_uint("container_fs_limit_bytes", mlist->total, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
+			add_cadvisor_metric_uint("container_fs_usage_bytes", mlist->used, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
+			add_cadvisor_metric_uint("container_fs_free_bytes", mlist->avail, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer);
 		}
 	}
 	fclose(fp);
@@ -554,7 +575,7 @@ tommy_hashdyn* get_mountpoint_list()
 	return mlist_hash;
 }
 
-void cgroup_get_cpuinfo(char *prefix, char *cntid, char *stat, char *name, char *image, char *cad_id)
+void cgroup_get_cpuinfo(char *prefix, char *cntid, char *stat, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	char buf[1000];
@@ -574,20 +595,20 @@ void cgroup_get_cpuinfo(char *prefix, char *cntid, char *stat, char *name, char 
 		tmp += strspn(tmp, " \t");
 		val = strtoull(tmp, NULL, 10);
 		if (!strncmp(buf, "nr_periods", 10))
-			add_cadvisor_metric_uint("container_cpu_cfs_periods_total", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_cpu_cfs_periods_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "nr_throttled", 12))
-			add_cadvisor_metric_uint("container_cpu_cfs_throttled_periods_total", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_cpu_cfs_throttled_periods_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "throttled_time", 14))
-			add_cadvisor_metric_uint("container_cpu_cfs_throttled_seconds_total", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_cpu_cfs_throttled_seconds_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "system", 6))
 		{
 			system = val;
-			add_cadvisor_metric_uint("container_cpu_system_seconds_total", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_cpu_system_seconds_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		}
 		else if (!strncmp(buf, "user", 4))
 		{
 			user = val;
-			add_cadvisor_metric_uint("container_cpu_user_seconds_total", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_cpu_user_seconds_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		}
 	}
 	fclose(fd);
@@ -595,11 +616,11 @@ void cgroup_get_cpuinfo(char *prefix, char *cntid, char *stat, char *name, char 
 	if (system || user)
 	{
 		val = system + user;
-		add_cadvisor_metric_uint("container_cpu_all_seconds_total", val, cntid, name, image, cad_id, NULL, NULL);
+		add_cadvisor_metric_uint("container_cpu_all_seconds_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 	}
 }
 
-void cgroup_get_cpuacctinfo(char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id)
+void cgroup_get_cpuacctinfo(char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	char buf[1000];
@@ -630,7 +651,7 @@ void cgroup_get_cpuacctinfo(char *prefix, char *cntid, char *stat, char *mname, 
 		double fval = (double)val/1000000000.0;
 		snprintf(cpuname, 10, "cpu%02"PRIu64, i);
 		//printf("[%3zu/%zu] %s:%s:%s:%s:%s %lf\n", tmp-buf, read_size, mname, stat, cpuname, prefix, cntid, fval);
-		add_cadvisor_metric_double(mname, fval, cntid, name, image, cad_id, "cpu", cpuname);
+		add_cadvisor_metric_double(mname, fval, cntid, name, image, cad_id, "cpu", cpuname, kubenamespace, kubepod, kubecontainer);
 		tmp += strcspn(tmp, " \t");
 		tmp += strspn(tmp, " \t");
 	}
@@ -639,7 +660,31 @@ void cgroup_get_cpuacctinfo(char *prefix, char *cntid, char *stat, char *mname, 
 	fclose(fd);
 }
 
-void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *image, char *cad_id)
+uint64_t cadvisor_files_num(char *path)
+{
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir(path);
+	if (!dp)
+	{
+		return 0;
+	}
+
+	uint64_t i = 0;
+	while((entry = readdir(dp)))
+	{
+		if ( entry->d_name[0] == '.' )
+			continue;
+		++i;
+	}
+
+	closedir(dp);
+
+	return i;
+}
+
+void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	char buf[1000];
@@ -656,6 +701,7 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 	uint64_t uninterruptible = 0;
 	uint64_t zombie = 0;
 	uint64_t stopped = 0;
+	uint64_t open_files = 0;
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/pids/%s/%s/cgroup.procs", prefix, cntid);
 	FILE *fd = fopen(fpath, "r");
@@ -728,6 +774,10 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 			++zombie;
 		else if (*tmp == 'T')
 			++stopped;
+
+		snprintf(fpath, 1000, "/proc/%"PRIu64"/fd", pid);
+
+		open_files += cadvisor_files_num(fpath);
 	}
 
 	//printf("container_cpu_schedstat_run_periods_total:%s:%s %"PRIu64"\n", prefix, cntid, run_periods);
@@ -740,20 +790,22 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 	//printf("container_tasks_state:%s:%s:state:zombie %"PRIu64"\n", prefix, cntid, zombie);
 	//printf("container_tasks_state:%s:%s:state:stopped %"PRIu64"\n", prefix, cntid, stopped);
 
-	add_cadvisor_metric_uint("container_cpu_schedstat_run_periods_total", run_periods, cntid, name, image, cad_id, NULL, NULL);
-	add_cadvisor_metric_uint("container_cpu_schedstat_runqueue_seconds_total", runqueue_time, cntid, name, image, cad_id, NULL, NULL);
-	add_cadvisor_metric_uint("container_cpu_schedstat_run_seconds_total", run_time, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_cpu_schedstat_run_periods_total", run_periods, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_cpu_schedstat_runqueue_seconds_total", runqueue_time, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_cpu_schedstat_run_seconds_total", run_time, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
-	add_cadvisor_metric_uint("container_tasks_state", running, cntid, name, image, cad_id, "state", "running");
-	add_cadvisor_metric_uint("container_tasks_state", sleeping, cntid, name, image, cad_id, "state", "sleeping");
-	add_cadvisor_metric_uint("container_tasks_state", uninterruptible, cntid, name, image, cad_id, "state", "uninterruptible");
-	add_cadvisor_metric_uint("container_tasks_state", zombie, cntid, name, image, cad_id, "state", "zombie");
-	add_cadvisor_metric_uint("container_tasks_state", stopped, cntid, name, image, cad_id, "state", "stopped");
+	add_cadvisor_metric_uint("container_tasks_state", running, cntid, name, image, cad_id, "state", "running", kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_tasks_state", sleeping, cntid, name, image, cad_id, "state", "sleeping", kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_tasks_state", uninterruptible, cntid, name, image, cad_id, "state", "uninterruptible", kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_tasks_state", zombie, cntid, name, image, cad_id, "state", "zombie", kubenamespace, kubepod, kubecontainer);
+	add_cadvisor_metric_uint("container_tasks_state", stopped, cntid, name, image, cad_id, "state", "stopped", kubenamespace, kubepod, kubecontainer);
+
+	add_cadvisor_metric_uint("container_open_files", open_files, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	fclose(fd);
 }
 
-void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char *cad_id)
+void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	char buf[1000];
@@ -773,36 +825,36 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 		tmp += strspn(tmp, " \t");
 		val = strtoull(tmp, NULL, 10);
 		if (!strncmp(buf, "total_swap", 10))
-			add_cadvisor_metric_uint("container_memory_swap", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_memory_swap", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "total_rss ", 10))
 		{
 			working_set += val;
-			add_cadvisor_metric_uint("container_memory_rss", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_memory_rss", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		}
 		else if (!strncmp(buf, "total_swap ", 11))
 		{
 			working_set += val;
 		}
 		else if (!strncmp(buf, "total_cache ", 12))
-			add_cadvisor_metric_uint("container_memory_cache", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_memory_cache", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "total_mapped_file ", 18))
-			add_cadvisor_metric_uint("container_memory_mapped_file", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_memory_mapped_file", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "hierarchical_memory_limit ", 26))
 		{
 			if (val > 1000000000000000)
 				val = 0;
-			add_cadvisor_metric_uint("container_spec_memory_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_spec_memory_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		}
 		else if (!strncmp(buf, "hierarchical_memsw_limit ", 25))
 		{
 			if (val > 1000000000000000)
 				val = 0;
-			add_cadvisor_metric_uint("container_spec_memory_swap_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL);
+			add_cadvisor_metric_uint("container_spec_memory_swap_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 		}
 		else if (!strncmp(buf, "total_pgfault", 13))
-			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgfault");
+			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgfault", kubenamespace, kubepod, kubecontainer);
 		else if (!strncmp(buf, "total_pgmajfault", 16))
-			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgmajfault");
+			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgmajfault", kubenamespace, kubepod, kubecontainer);
 	}
 	fclose(fd);
 
@@ -820,7 +872,7 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 	fclose(fd);
 
 	val = strtoull(buf, NULL, 10);
-	add_cadvisor_metric_uint("container_memory_failcnt", val, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_memory_failcnt", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/memory/%s/%s/memory.kmem.usage_in_bytes", prefix, cntid);
 	fd = fopen(fpath, "r");
@@ -835,7 +887,7 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 	fclose(fd);
 
 	working_set += strtoull(buf, NULL, 10);
-	add_cadvisor_metric_uint("container_memory_working_set_bytes", working_set, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_memory_working_set_bytes", working_set, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/memory/%s/%s/memory.max_usage_in_bytes", prefix, cntid);
 	fd = fopen(fpath, "r");
@@ -850,7 +902,7 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 	fclose(fd);
 
 	val = strtoull(buf, NULL, 10);
-	add_cadvisor_metric_uint("container_memory_max_usage_bytes", val, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_memory_max_usage_bytes", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/memory/%s/%s/memory.usage_in_bytes", prefix, cntid);
 	fd = fopen(fpath, "r");
@@ -865,7 +917,7 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 	fclose(fd);
 
 	val = strtoull(buf, NULL, 10);
-	add_cadvisor_metric_uint("container_memory_usage_bytes", val, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_memory_usage_bytes", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/memory/%s/%s/memory.soft_limit_in_bytes", prefix, cntid);
 	fd = fopen(fpath, "r");
@@ -883,29 +935,29 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 
 	if (val > 1000000000000000)
 		val = 0;
-	add_cadvisor_metric_uint("container_spec_memory_reservation_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_uint("container_spec_memory_reservation_limit_bytes", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 }
 
-void get_start_time(char *prefix, char *cntid, char *name, char *image, char *cad_id)
+void get_start_time(char *prefix, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpu,cpuacct/%s/%s", prefix, cntid);
 	uint64_t uptime = get_file_atime(fpath);
-	add_cadvisor_metric_uint("container_start_time_seconds", uptime, cntid, name, image, cad_id, 0, 0);
+	add_cadvisor_metric_uint("container_start_time_seconds", uptime, cntid, name, image, cad_id, 0, 0, kubenamespace, kubepod, kubecontainer);
 }
 
-void cgroup_get_quotas(char *prefix, char *cntid, char *name, char *image, char *cad_id)
+void cgroup_get_quotas(char *prefix, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	int64_t ival;
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpuacct/%s/%s/cpu.shares", prefix, cntid);
 	ival = get_int_file(fpath);
-	add_cadvisor_metric_int("container_spec_cpu_shares", ival, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_int("container_spec_cpu_shares", ival, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpuacct/%s/%s/cpu.cfs_period_us", prefix, cntid);
 	ival = get_int_file(fpath);
-	add_cadvisor_metric_int("container_spec_cpu_period", ival, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_int("container_spec_cpu_period", ival, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 	uint64_t periods = ival;
 
 	snprintf(fpath, 1000, "/sys/fs/cgroup/cpuacct/%s/%s/cpu.cfs_quota_us", prefix, cntid);
@@ -921,10 +973,10 @@ void cgroup_get_quotas(char *prefix, char *cntid, char *name, char *image, char 
 				ival = 0;
 		}
 	}
-	add_cadvisor_metric_int("container_spec_cpu_quota", ival, cntid, name, image, cad_id, NULL, NULL);
+	add_cadvisor_metric_int("container_spec_cpu_quota", ival, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer);
 }
 
-void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *cntid, char *name, char *image, char *cad_id)
+void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
 	char mname[1000];
@@ -953,10 +1005,10 @@ void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *
 	}
 	fclose(fd);
 	snprintf(mname, 1000, "container_network_%s_usage_total", resource);
-	add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, 0, 0);
+	add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, 0, 0, kubenamespace, kubepod, kubecontainer);
 }
 
-void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, char *cad_id)
+void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char pidsdir[1000];
 	DIR *ethd;
@@ -988,15 +1040,15 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 			if (ethd_entry->d_name[0] == '.')
 				continue;
 
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cad_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 		}
 		closedir(ethd);
 	}
@@ -1005,8 +1057,10 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 	unshare(CLONE_NEWNET);
 }
 
-void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *image)
+void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
+	if (ac->log_level > 1)
+		printf("search id in slice %s id: %s with name: %s\n", slice, cntid, name);
 	if (!ac->cadvisor_tcpudpbuf)
 		ac->cadvisor_tcpudpbuf = malloc(TCPUDP_NET_LENREAD);
 
@@ -1016,57 +1070,57 @@ void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *i
 	else
 		snprintf(cad_id, 255, "/%s", cntid);
 
-	cadvisor_network_scrape(ac->system_sysfs, cntid, name, image, cad_id);
+	cadvisor_network_scrape(ac->system_sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 	if (ifname)
 	{
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cad_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 	}
 
 
 
 	tommy_hashdyn* mlist_hash = get_mountpoint_list();
-	tommy_hashdyn* dlid_hash = get_disk_ids_names(cntid, name, image, cad_id, mlist_hash);
+	tommy_hashdyn* dlid_hash = get_disk_ids_names(cntid, name, image, cad_id, mlist_hash, kubenamespace, kubepod, kubecontainer);
 	uint64_t pid = cgroup_get_pid(slice, cntid);
 
 	if (mlist_hash)
 	{
-		cgroup_fd_disk_part_info(slice, pid, cntid, mlist_hash, name, image, cad_id);
+		cgroup_fd_disk_part_info(slice, pid, cntid, mlist_hash, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 		mlist_free(mlist_hash);
 	}
 
 	if (dlid_hash)
 	{
-		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_merged", "container_fs_%s_merged_total", name, image, cad_id, "writes", "reads");
-		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_serviced", "container_fs_%s_total", name, image, cad_id, "writes", "reads");
-		cgroup_get_diskinfo(dlid_hash, slice, cntid, "sectors", "container_fs_sector_%s_total", name, image, cad_id, "writes", "reads");
-		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_service_bytes", "container_fs_%s_bytes_total", name, image, cad_id, "writes", "reads");
-		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_service_time", "container_fs_%s_seconds_total", name, image, cad_id, "write", "read");
-		cgroup_get_diskinfo_total(dlid_hash, slice, cntid, "io_service_time", "container_fs_io_time_seconds_total", name, image, cad_id);
-		cgroup_get_diskinfo_total(dlid_hash, slice, cntid, "io_queued", "container_fs_io_current", name, image, cad_id);
+		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_merged", "container_fs_%s_merged_total", name, image, cad_id, "writes", "reads", kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_serviced", "container_fs_%s_total", name, image, cad_id, "writes", "reads", kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo(dlid_hash, slice, cntid, "sectors", "container_fs_sector_%s_total", name, image, cad_id, "writes", "reads", kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_service_bytes", "container_fs_%s_bytes_total", name, image, cad_id, "writes", "reads", kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo(dlid_hash, slice, cntid, "io_service_time", "container_fs_%s_seconds_total", name, image, cad_id, "write", "read", kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo_total(dlid_hash, slice, cntid, "io_service_time", "container_fs_io_time_seconds_total", name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_diskinfo_total(dlid_hash, slice, cntid, "io_queued", "container_fs_io_current", name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
-		cgroup_get_tcpudpinfo(ac->cadvisor_tcpudpbuf, pid, "tcp", cntid, name, image, cad_id);
-		cgroup_get_tcpudpinfo(ac->cadvisor_tcpudpbuf, pid, "udp", cntid, name, image, cad_id);
+		cgroup_get_tcpudpinfo(ac->cadvisor_tcpudpbuf, pid, "tcp", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+		cgroup_get_tcpudpinfo(ac->cadvisor_tcpudpbuf, pid, "udp", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
 		dlid_free(dlid_hash);
 	}
 
-	cgroup_get_cpuinfo(slice, cntid, "cpu.stat", name, image, cad_id);
-	cgroup_get_cpuinfo(slice, cntid, "cpuacct.stat", name, image, cad_id);
-	cgroup_get_cpuacctinfo(slice, cntid, "cpuacct.usage_percpu", "container_cpu_usage_seconds_total", name, image, cad_id);
-	cgroup_get_quotas(slice, cntid, name, image, cad_id);
-	cgroup_cpu_schedstats_info(slice, cntid, name, image, cad_id);
+	cgroup_get_cpuinfo(slice, cntid, "cpu.stat", name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	cgroup_get_cpuinfo(slice, cntid, "cpuacct.stat", name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	cgroup_get_cpuacctinfo(slice, cntid, "cpuacct.usage_percpu", "container_cpu_usage_seconds_total", name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	cgroup_get_quotas(slice, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	cgroup_cpu_schedstats_info(slice, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
-	cgroup_memory_info(slice, cntid, name, image, cad_id);
-	get_start_time(slice, cntid, name, image, cad_id);
+	cgroup_memory_info(slice, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	get_start_time(slice, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
 	r_time now = setrtime();
 	uint64_t last_seen = now.sec;
-	add_cadvisor_metric_uint("container_last_seen", last_seen, cntid, name, image, cad_id, 0, 0);
+	add_cadvisor_metric_uint("container_last_seen", last_seen, cntid, name, image, cad_id, 0, 0, kubenamespace, kubepod, kubecontainer);
 }

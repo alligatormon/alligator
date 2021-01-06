@@ -668,6 +668,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_array_object_insert(mapping_entrypoint, "", mapping_object);
 
 						char *mapping_name = NULL;
+						json_t *label_json = NULL;
 						for (; i < token_count; i++)
 						{
 							if (wstokens[i].token->l)
@@ -702,29 +703,35 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									}
 									else if (!strcmp(mapping_name, "label"))
 									{
-										arg_json = json_object();
+										if (!label_json)
+											label_json = json_object();
 
 										char *label_name = wstokens[i].token->s;
 										++i;
 										json_t *label_value = json_string(strdup(wstokens[i].token->s));
-										json_array_object_insert(arg_json, label_name, label_value);
+										json_array_object_insert(label_json, label_name, label_value);
 									}
 									else
 									{
 										arg_json = json_string(strdup(wstokens[i].token->s));
 									}
-									json_array_object_insert(mapping_object, mapping_name, arg_json);
+
+									if (arg_json)
+										json_array_object_insert(mapping_object, mapping_name, arg_json);
 									//printf("mapping arg %s=%s to %p\n========\n%s\n=========\n", mapping_name, wstokens[i].token->s, mapping_object, json_dumps(mapping_object, 0));
 								}
 							}
 							if (wstokens[i].end)
 							{
+								if (label_json)
+									json_array_object_insert(mapping_object, "label", label_json);
+								wstokens[i].end = 0;
 								break;
 							}
 						}
 					}
 				}
-				else if (wstokens[i].end)
+				if (wstokens[i].end)
 				{
 					break;
 				}
