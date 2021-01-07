@@ -61,7 +61,7 @@ int8_t gearmand_validator(char *data, size_t size)
 		return 0;
 }
 
-string* gearmand_mesg(host_aggregator_info *hi, void *arg)
+string* gearmand_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_add(strdup("status\r\n"), 0, 0);
 }

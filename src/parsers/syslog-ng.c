@@ -61,7 +61,7 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 	}
 }
 
-string* syslog_ng_mesg(host_aggregator_info *hi, void *arg)
+string* syslog_ng_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("STATS\n", 0);
 }

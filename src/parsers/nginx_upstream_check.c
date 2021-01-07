@@ -230,9 +230,9 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 	//metric_add_auto("nginx_upstream_upstream_dead_total_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
 }
 
-string* nginx_upstream_check_mesg(host_aggregator_info *hi, void *arg)
+string* nginx_upstream_check_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "?format=csv", hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, "?format=csv", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 }
 
 void nginx_upstream_check_parser_push()

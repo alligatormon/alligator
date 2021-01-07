@@ -3,7 +3,7 @@
 . /app/src/tests/system/common.sh
 DIR="squid"
 
-/usr/sbin/squid -f /etc/squid/squid.conf -NYCd 1
+/usr/sbin/squid -f /etc/squid/squid.conf -NYCd 1&
 $APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 

@@ -365,7 +365,7 @@ int8_t redis_cluster_validator(char *data, size_t size)
 	return body_size >= expect_size;
 }
 
-string* redis_parser_mesg(host_aggregator_info *hi, void *arg)
+string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
 	if (hi->pass)
@@ -376,7 +376,7 @@ string* redis_parser_mesg(host_aggregator_info *hi, void *arg)
 	return string_init_add(query, 0, 0);
 }
 
-string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg)
+string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
 	if (hi->pass)

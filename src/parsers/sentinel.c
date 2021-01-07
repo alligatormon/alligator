@@ -88,7 +88,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	free(res);
 }
 
-string* sentinel_parser_mesg(host_aggregator_info *hi, void *arg)
+string* sentinel_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
 	if (hi->pass)

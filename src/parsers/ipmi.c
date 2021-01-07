@@ -534,27 +534,27 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
 }
 
-string* ipmi_sensor_mesg(host_aggregator_info *hi, void *arg)
+string* ipmi_sensor_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("sensor list", 0);
 }
 
-string* ipmi_chassis_status_mesg(host_aggregator_info *hi, void *arg)
+string* ipmi_chassis_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("chassis status", 0);
 }
 
-string* ipmi_sel_info_mesg(host_aggregator_info *hi, void *arg)
+string* ipmi_sel_info_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("sel info", 0);
 }
 
-string* ipmi_sel_elist_mesg(host_aggregator_info *hi, void *arg)
+string* ipmi_sel_elist_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("sel elist", 0);
 }
 
-string* ipmi_lan_print_mesg(host_aggregator_info *hi, void *arg)
+string* ipmi_lan_print_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("lan print", 0);
 }

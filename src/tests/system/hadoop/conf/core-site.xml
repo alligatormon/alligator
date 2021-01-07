@@ -28,4 +28,9 @@
   <value>127.0.0.1:1212</value>
 </property>
 
+<property>
+    <name>hadoop.tmp.dir</name>
+    <value>/hadoop/tmp</value>
+</property>
+
 </configuration>

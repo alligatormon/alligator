@@ -51,7 +51,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 	}
 }
 
-string* memcached_mesg(host_aggregator_info *hi, void *arg)
+string* memcached_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_add(strdup("stats\n"), 0, 0);
 }

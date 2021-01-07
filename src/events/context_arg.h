@@ -18,6 +18,13 @@
 #include "common/selector.h"
 #include "common/url.h"
 
+typedef struct env_struct {
+	char *k;
+	char *v;
+
+	tommy_node node;
+} env_struct;
+
 typedef struct context_arg
 {
 	char *name;
@@ -33,6 +40,7 @@ typedef struct context_arg
 	char *mesg;
 	size_t mesg_len;
 	char *hostname;
+	char *query_url;
 	//char *port;
 	uint8_t lock; // lock for aggregator scrape
 	uint8_t data_lock; // lock for parser scrape
@@ -76,6 +84,7 @@ typedef struct context_arg
 	char *uvbuf;
 
 	tommy_hashdyn *labels;
+	tommy_hashdyn *env;
 
 	// counters
 	uint64_t conn_counter;
@@ -208,4 +217,6 @@ typedef struct context_arg
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env);
+tommy_hashdyn *env_struct_parser(json_t *root);
+tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src);

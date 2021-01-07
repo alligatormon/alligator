@@ -106,3 +106,5 @@ x509_cert_not_after cert="yandex.ru"
 x509_cert_not_after cert="google.com"
 x509_cert_not_before cert="yandex.ru"
 x509_cert_not_before cert="google.com"
+test_metric 12.000000
+metric_test 24.000000

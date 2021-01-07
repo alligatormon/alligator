@@ -82,9 +82,9 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 	json_decref(root);
 }
 
-string* consul_mesg(host_aggregator_info *hi, void *arg)
+string* consul_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, "1.0"), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings), 0, 0);
 }
 
 void consul_parser_push()

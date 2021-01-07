@@ -562,16 +562,16 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	json_decref(root);
 }
 
-string *elastic_gen_url(host_aggregator_info *hi, char *addition)
+string *elastic_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL, env, proxy_settings), 0, 0);
 }
 
-string* elasticsearch_nodes_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_nodes/stats"); }
-string* elasticsearch_cluster_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_cluster/stats"); }
-string* elasticsearch_health_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_cluster/health?level=shards"); }
-string* elasticsearch_index_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_stats"); }
-string* elasticsearch_settings_mesg(host_aggregator_info *hi, void *arg) { return elastic_gen_url(hi, "/_settings"); }
+string* elasticsearch_nodes_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return elastic_gen_url(hi, "/_nodes/stats", env, proxy_settings); }
+string* elasticsearch_cluster_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return elastic_gen_url(hi, "/_cluster/stats", env, proxy_settings); }
+string* elasticsearch_health_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return elastic_gen_url(hi, "/_cluster/health?level=shards", env, proxy_settings); }
+string* elasticsearch_index_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return elastic_gen_url(hi, "/_stats", env, proxy_settings); }
+string* elasticsearch_settings_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return elastic_gen_url(hi, "/_settings", env, proxy_settings); }
 
 void elasticsearch_parser_push()
 {

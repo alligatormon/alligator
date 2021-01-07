@@ -544,6 +544,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					else if (!strcmp(context_name, "aggregate"))
 					{
 						operator_json = json_object();
+						json_t *env_obj = json_object();
+						json_t *add_label_obj = json_object();
+						json_array_object_insert(operator_json, "env", env_obj);
+						json_array_object_insert(operator_json, "add_label", add_label_obj);
 
 						json_t *handler = json_string(strdup(wstokens[i].token->s));
 						json_array_object_insert(operator_json, "handler", handler);
@@ -557,8 +561,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							uint64_t sep = strcspn(wstokens[i].token->s, "=");
 							if (sep < wstokens[i].token->l)
 							{
+								if (ac->log_level > 1)
+									printf("aggregate token '%s'\n", wstokens[i].token->s);
 								char arg_name[255];
 								strlcpy(arg_name, wstokens[i].token->s, sep+1);
+								if (ac->log_level > 1)
+									printf("\taggregate arg_name '%s'\n", arg_name);
 
 								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
 								json_t *arg_value = NULL;
@@ -566,8 +574,17 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								{
 									char kv_key[255];
 									strlcpy(kv_key, wstokens[i].token->s+sep+1, semisep-sep+1);
+									if (ac->log_level > 1)
+										printf("\taggregate kv_key '%s'\n", kv_key);
 
-									arg_value = json_object();
+									if (!strcmp(arg_name, "env"))
+									{
+										arg_value = env_obj;
+									}
+									else if (!strcmp(arg_name, "add_label"))
+										arg_value = add_label_obj;
+									else
+										arg_value = json_object();
 									json_t *kv_value = json_string(strdup(wstokens[i].token->s+semisep+2));
 									json_array_object_insert(arg_value, kv_key, kv_value);
 								}
@@ -580,9 +597,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									}
 									else
 										arg_value = json_string(strdup(wstokens[i].token->s+sep+1));
-								}
 
-								json_array_object_insert(operator_json, arg_name, arg_value);
+									json_array_object_insert(operator_json, arg_name, arg_value);
+								}
 							}
 							if (wstokens[i].semicolon)
 							{

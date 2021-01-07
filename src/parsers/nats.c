@@ -33,15 +33,15 @@ void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 	free(parsestring);
 }
 
-string *nats_gen_url(host_aggregator_info *hi, char *addition)
+string *nats_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL, env, proxy_settings), 0, 0);
 }
 
-string* nats_varz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/varz"); }
-string* nats_connz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/connz"); }
-string* nats_routez_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/routez"); }
-string* nats_subsz_mesg(host_aggregator_info *hi, void *arg) { return nats_gen_url(hi, "/subsz"); }
+string* nats_varz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return nats_gen_url(hi, "/varz", env, proxy_settings); }
+string* nats_connz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return nats_gen_url(hi, "/connz", env, proxy_settings); }
+string* nats_routez_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return nats_gen_url(hi, "/routez", env, proxy_settings); }
+string* nats_subsz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return nats_gen_url(hi, "/subsz", env, proxy_settings); }
 
 void nats_parser_push()
 {

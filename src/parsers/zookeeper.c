@@ -46,17 +46,17 @@ void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 	}
 }
 
-string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg)
+string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("mntr", 4);
 }
 
-string* zookeeper_isro_mesg(host_aggregator_info *hi, void *arg)
+string* zookeeper_isro_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("isro", 4);
 }
 
-string* zookeeper_wchs_mesg(host_aggregator_info *hi, void *arg)
+string* zookeeper_wchs_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("wchs", 4);
 }

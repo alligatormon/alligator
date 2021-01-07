@@ -15,7 +15,7 @@ yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutt
 echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 
 yum -y install https://repo.ius.io/ius-release-el7.rpm
-yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel
+yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat
 
 ln -s /usr/bin/python{3,}
@@ -108,6 +108,7 @@ cp ../misc/datastax.repo /etc/yum.repos.d/
 cp ../misc/mongodb.repo /etc/yum.repos.d/
 cp ../misc/rabbitmq38.repo /etc/yum.repos.d/
 cp ../misc/elasticsearch.repo /etc/yum.repos.d/
+cp ../misc/cloudera-cdh5.repo /etc/yum.repos.d/
 rpm --import https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
 yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 
@@ -144,9 +145,10 @@ cd ../../
 pip3 install statsd
 if [ $TEST == "true" ]
 then
-	yum -y install elasticsearch monit syslog-ng rsyslog unbound varnish nginx rabbitmq-server haproxy gearmand uwsgi redis beanstalkd openssl11-libs openssl11-devel openssl11-static openssl11 rabbitmq-server clickhouse-server zookeeper gearmand python3 python3-pip ragel-devel userspace-rcu-devel libsodium-devel nginx varnish uwsgi-plugin-python36 squid lighttpd httpd24u syslog-ng
+	yum -y install elasticsearch monit syslog-ng rsyslog unbound varnish nginx rabbitmq-server haproxy gearmand uwsgi redis beanstalkd openssl11-libs openssl11-devel openssl11-static openssl11 rabbitmq-server clickhouse-server zookeeper gearmand python3 python3-pip ragel-devel userspace-rcu-devel libsodium-devel nginx varnish uwsgi-plugin-python36 squid lighttpd httpd24u syslog-ng hadoop-hdfs xinetd tftp-server
 	rpm -i external/couchbase-server-community-6.5.1-centos7.x86_64.rpm
 	pip3 install https://github.com/mher/flower/zipball/master
+	pip3 install Celery==4.4.0
 
 	cd external
 	git clone https://github.com/gdnsd/gdnsd.git
@@ -165,7 +167,7 @@ then
 
 	cd external/memcached-1.5.16/
 	make install
-	cd ..
+	cd ../..
 
 	yum install https://github.com/nats-io/nats-server/releases/download/v2.1.9/nats-server-v2.1.9-amd64.rpm
 fi

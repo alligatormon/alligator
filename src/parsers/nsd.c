@@ -68,7 +68,7 @@ int8_t nsd_validator(char *data, size_t size)
 		return 0;
 }
 
-string* nsd_mesg(host_aggregator_info *hi, void *arg)
+string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("NSDCT1 stats_noreset\n", 0);
 }

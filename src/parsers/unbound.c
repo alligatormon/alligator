@@ -157,7 +157,7 @@ int8_t unbound_validator(char *data, size_t size)
 		return 0;
 }
 
-string* unbound_mesg(host_aggregator_info *hi, void *arg)
+string* unbound_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("UBCT1 stats_noreset\n", 0);
 }

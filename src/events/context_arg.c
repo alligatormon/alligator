@@ -11,6 +11,16 @@ context_arg *carg_copy(context_arg *src)
 	return carg;
 }
 
+void env_struct_free(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+	tommy_hashdyn *hash = funcarg;
+	tommy_hashdyn_remove_existing(hash, &(es->node));
+	free(es->k);
+	free(es->v);
+	free(es);
+}
+
 void carg_free(context_arg *carg)
 {
 	if (ac->log_level > 2)
@@ -34,9 +44,16 @@ void carg_free(context_arg *carg)
 	if (carg->local)
         	free(carg->local);
 
+	if (carg->query_url)
+		free(carg->query_url);
+
 	string_free(carg->full_body);
 
+	tommy_hashdyn_foreach_arg(carg->env, env_struct_free, carg->env);
+	tommy_hashdyn_done(carg->env);
+	free(carg->env);
 	// TODO: free carg->labels
+	// TODO: free carg->env
 	// TODO: free carg->name
 	// TODO: free carg->socket
 	// TODO: free carg->mm
@@ -63,7 +80,68 @@ void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len)
 
 }
 
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop)
+int env_struct_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((env_struct*)obj)->k;
+        return strcmp(s1, s2);
+}
+
+void env_struct_push_alloc(tommy_hashdyn* hash, char *k, char *v)
+{
+	if (!hash || !k || !v)
+		return;
+
+	uint32_t key_hash = tommy_strhash_u32(0, k);
+	env_struct *es = tommy_hashdyn_search(hash, env_struct_compare, k, key_hash);
+	if (!es)
+	{
+		es = calloc(1, sizeof(*es));
+		es->k = strdup(k);
+		es->v = strdup(v);
+		tommy_hashdyn_insert(hash, &(es->node), es, key_hash);
+	}
+	else if (ac->log_level > 1)
+		printf("duplicate header key %s\n", k);
+}
+
+tommy_hashdyn *env_struct_parser(json_t *root)
+{
+	json_t *json_env = json_object_get(root, "env");
+
+	const char *env_name;
+	json_t *env_jkey;
+	tommy_hashdyn *env = NULL;
+	env = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(env);
+
+	json_object_foreach(json_env, env_name, env_jkey)
+	{
+		char *env_key = (char*)json_string_value(env_jkey);
+		env_struct_push_alloc(env, (char*)env_name, env_key);
+	}
+	return env;
+}
+
+void env_struct_duplicate_foreach(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+	tommy_hashdyn *hash = funcarg;
+	env_struct_push_alloc(hash, es->k, es->v);
+}
+
+tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src)
+{
+	if (!src)
+		return src;
+
+	tommy_hashdyn *dst = malloc(sizeof(*dst));
+	tommy_hashdyn_init(dst);
+	tommy_hashdyn_foreach_arg(src, env_struct_duplicate_foreach, dst);
+	return dst;
+}
+
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
@@ -88,6 +166,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->tls = hi->tls;
 	carg->transport_string = hi->transport_string;
 	carg->loop = loop;
+	if (hi->query)
+		carg->query_url = strdup(hi->query);
+	else
+		carg->query_url = strdup("");
 	carg->parser_handler = handler;
 	carg->parser_name = parser_name;
 	//*(carg->buffer) = uv_buf_init(carg->mesg, carg->mesg_len);
@@ -153,16 +235,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);
 	}
 
-	json_t *json_env = json_object_get(root, "env");
-
-	const char *env_name;
-	json_t *env_jkey;
-	json_object_foreach(json_env, env_name, env_jkey)
-	{
-		char *env_key = (char*)json_string_value(env_jkey);
-		puts(env_name);
-		puts(env_key);
-	}
+	carg->env = env;
 
 	return carg;
 }

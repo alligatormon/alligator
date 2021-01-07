@@ -120,13 +120,13 @@ void patroni_config_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 0, NULL, "patroni_settings", carg);
 }
 
-string *patroni_gen_url(host_aggregator_info *hi, char *addition)
+string *patroni_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL, env, proxy_settings), 0, 0);
 }
 
-string* patroni_mesg(host_aggregator_info *hi, void *arg) { return patroni_gen_url(hi, "/patroni"); }
-string* patroni_config_mesg(host_aggregator_info *hi, void *arg) { return patroni_gen_url(hi, "/config"); }
+string* patroni_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return patroni_gen_url(hi, "/patroni", env, proxy_settings); }
+string* patroni_config_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return patroni_gen_url(hi, "/config", env, proxy_settings); }
 
 void patroni_parser_push()
 {

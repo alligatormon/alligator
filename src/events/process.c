@@ -158,6 +158,18 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 //	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
 //}
 
+void env_struct_process(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+	string *stemplate = funcarg;
+
+	string_cat(stemplate, "export ", 7);
+	string_cat(stemplate, es->k, strlen(es->k));
+	string_cat(stemplate, "='", 2);
+	string_cat(stemplate, es->v, strlen(es->v));
+	string_cat(stemplate, "'\n", 2);
+}
+
 char* process_client(context_arg *carg)
 {
 	if (!carg)
@@ -168,21 +180,34 @@ char* process_client(context_arg *carg)
 
 	size_t fsize = 255;
 	char *fname = malloc(fsize);
-	char *template = malloc(1000);
+	//char *template = malloc(1000);
+	string *stemplate = string_init(1000);
 	snprintf(fname, fsize-1, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
 	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
 	// TODO /bin/bash only linux, need customize
-	int rc;
+	//int rc;
+	string_cat(stemplate, "#!/bin/bash\n", 12);
+
+	if (carg->env)
+		tommy_hashdyn_foreach_arg(carg->env, env_struct_process, stemplate);
+
+	string_cat(stemplate, carg->host, strlen(carg->host));
 	if (carg->mesg)
-		rc = snprintf(template, 999, "#!/bin/bash\n%s %s\n", carg->host, carg->mesg);
-	else
-		rc = snprintf(template, 999, "#!/bin/bash\n%s\n", carg->host);
+	{
+		string_cat(stemplate, " ", 1);
+		string_cat(stemplate, carg->mesg, strlen(carg->mesg));
+	}
+	string_cat(stemplate, "\n", 1);
+
 	unlink(fname);
 
-	//printf("template: %s, args: %s\n", template, carg->mesg);
+	printf("template: %s, args: %s\n", stemplate->s, carg->mesg);
 
 	mkdirp(ac->process_script_dir);
-	write_to_file(fname, template, rc, NULL, NULL);
+	write_to_file(fname, stemplate->s, stemplate->l, NULL, NULL);
+
+	free(stemplate);
+
 	(ac->process_cnt)++;
 
 	//int64_t i, y, start, n = 1;

@@ -578,9 +578,9 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		printf("parsed metrics multicollector: %"u64", full size read: %zu\n", fgets_counter, size);
 }
 
-string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg)
+string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 }
 
 void prometheus_metrics_parser_push()

@@ -1,0 +1,15 @@
+
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+<property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:/hadoop/hdfs/namenode</value>
+</property>
+
+<property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:/hadoop/hdfs/datanode</value>
+</property>
+
+</configuration>

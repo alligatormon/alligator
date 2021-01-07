@@ -1,1 +1,1 @@
-{"entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"gearmand", "url": "tcp://127.0.0.1:4730"}]}
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"gearmand", "url": "tcp://127.0.0.1:4730"}]}

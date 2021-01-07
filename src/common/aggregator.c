@@ -14,9 +14,9 @@
 #include "events/process.h"
 #include "dynconf/sd.h"
 
-int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port)
+int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
-	return snprintf(key, 254, "%s:%s:%s:%s", transport_string, parser_name, host, port);
+	return snprintf(key, 254, "%s:%s:%s:%s/%s", transport_string, parser_name, host, port, query);
 }
 
 int smart_aggregator(context_arg *carg)
@@ -28,7 +28,7 @@ int smart_aggregator(context_arg *carg)
 	{
 		//unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
 		//snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
-		smart_aggregator_default_key(key, carg->transport_string, carg->parser_name, carg->host, carg->port);
+		smart_aggregator_default_key(key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
 	}
 	else
 		strlcpy(key, carg->key, 255);
@@ -112,17 +112,18 @@ void smart_aggregator_del_key(char *key)
 		smart_aggregator_del(carg);
 }
 
-void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port)
+void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query)
 {
 	char key[255];
-	smart_aggregator_default_key(key, transport_string, parser_name, host, port);
+	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query);
 	smart_aggregator_del_key(key);
 }
 
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key)
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop);
+	tommy_hashdyn *newenv = env_struct_duplicate(carg->env);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop, newenv);
 
 	new->key = override_key;
 	if (!new->key)

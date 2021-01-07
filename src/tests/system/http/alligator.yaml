@@ -8,3 +8,8 @@ aggregate:
   url: http://ya.ru
 - handler: http
   url: https://google.com
+- handler: prometheus_metrics
+  url: http://localhost
+  env:
+    X-Metric-Name: test_metric
+    X-Metric-Mane: metric_test

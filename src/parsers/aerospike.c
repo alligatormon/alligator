@@ -187,17 +187,17 @@ int8_t aerospike_validator(char *data, size_t size)
 }
 
 
-string* aerospike_statistics_mesg(host_aggregator_info *hi, void *arg)
+string* aerospike_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("\2\1\0\0\0\0\0\0", 8);
 }
 
-string* aerospike_status_mesg(host_aggregator_info *hi, void *arg)
+string* aerospike_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("\2\1\0\0\0\0\0\7status\n", 16);
 }
 
-string* aerospike_namespace_list_mesg(host_aggregator_info *hi, void *arg)
+string* aerospike_namespace_list_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	aggregate_context *actx = arg;
 	aerospike_data *ad = actx->data;

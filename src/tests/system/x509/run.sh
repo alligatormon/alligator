@@ -25,4 +25,4 @@ do
 	echo "$TEXT" | grep $NAME >/dev/null 2>&1 && success $NAME || error "$TEXT" $NAME
 done
 
-kill %1
+kill %2

@@ -3,6 +3,7 @@
 . /app/src/tests/system/common.sh
 DIR="http"
 
+nginx -p /app/src/ -c tests/system/http/nginx.conf
 $APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
@@ -38,3 +39,4 @@ do
 done
 
 kill %3
+nginx -p /app/src/ -c tests/system/http/nginx.conf -s stop

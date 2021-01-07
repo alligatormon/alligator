@@ -22,7 +22,7 @@ int8_t gdnsd_validator(char *data, size_t size)
 }
 
 
-string* gdnsd_mesg(host_aggregator_info *hi, void *arg)
+string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("S\0\0\0\0\0\0\0", 8);
 }

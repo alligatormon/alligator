@@ -29,7 +29,7 @@ void tftp_handler(char *metrics, size_t size, context_arg *carg)
 	//try_again(carg, mesg, 4, tftp_handler, "tftp");
 }
 
-string* tftp_mesg(host_aggregator_info *hi, void *arg)
+string* tftp_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	size_t query_len = strlen(hi->query);
 	char *query = malloc(9+query_len);

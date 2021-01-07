@@ -685,17 +685,17 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 	json_decref(root);
 }
 
-string *rabbitmq_gen_url(host_aggregator_info *hi, char *addition)
+string *rabbitmq_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 }
 
-string* rabbitmq_overview_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/overview"); }
-string* rabbitmq_nodes_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/nodes"); }
-string* rabbitmq_exchanges_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/exchanges"); }
-string* rabbitmq_connections_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/connections"); }
-string* rabbitmq_queues_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/queues"); }
-string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg) { return rabbitmq_gen_url(hi, "/api/vhosts"); }
+string* rabbitmq_overview_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/overview", env, proxy_settings); }
+string* rabbitmq_nodes_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/nodes", env, proxy_settings); }
+string* rabbitmq_exchanges_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/exchanges", env, proxy_settings); }
+string* rabbitmq_connections_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/connections", env, proxy_settings); }
+string* rabbitmq_queues_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/queues", env, proxy_settings); }
+string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return rabbitmq_gen_url(hi, "/api/vhosts", env, proxy_settings); }
 
 void rabbitmq_parser_push()
 {

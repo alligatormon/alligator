@@ -1,1 +1,1 @@
-{"log_level": 0, "entrypoint":{"tcp": ["1111"]}, "aggregate": [{"handler":"memcached", "url": "tcp://localhost:11211"}]}
+{"log_level": 0, "entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"memcached", "url": "tcp://localhost:11211"}]}

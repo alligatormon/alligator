@@ -5,7 +5,7 @@ DIR="flower"
 
 flower --port=5555&
 $APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
-sleep 15
+sleep 5
 
 TEXT=`curl -s localhost:1111`
 METRICS=`cat $APPDIR/tests/system/$DIR/metrics.txt`

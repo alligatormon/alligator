@@ -125,14 +125,14 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 	}
 }
 
-string* lighttpd_status_mesg(host_aggregator_info *hi, void *arg)
+string* lighttpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "?json", hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, "?json", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 }
 
-string* lighttpd_statistics_mesg(host_aggregator_info *hi, void *arg)
+string* lighttpd_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 }
 
 void lighttpd_parser_push()

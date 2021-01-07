@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.175)
+set(VERSION 1.10.176)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -204,6 +204,7 @@ add_library(${COMMON_TESTS} STATIC
 	common/base64.c
 	platform/libbsd.c
 	common/selector.c
+	events/context_arg.c
 	common/validator.c
 	common/url.c
 	common/netlib.c

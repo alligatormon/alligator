@@ -10,11 +10,11 @@ void dummy_handler(char *metrics, size_t size, context_arg *carg)
 	printf("====================(%zu)================\n%s\n======================================\n", size, metrics);
 }
 
-string* dummy_mesg(host_aggregator_info *hi, void *arg)
+string* dummy_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
 	{
-		return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL), 0, 0);
+		return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
 	}
 	else
 		return string_init_add("", 0, 0);

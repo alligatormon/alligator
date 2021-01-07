@@ -590,8 +590,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							mkdirp("/var/lib/alligator/nsmount");
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
-							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0");
-							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop);
+							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", NULL, NULL);
+							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL);
 							if (!smart_aggregator(carg))
 								carg_free(carg);
 						}
@@ -809,6 +809,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					aggregate_context *actx = tommy_hashdyn_search(ac->aggregate_ctx, actx_compare, handler, tommy_strhash_u32(0, handler));
 					if (!actx)
 						continue;
+					tommy_hashdyn *env = env_struct_parser(aggregate);
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
@@ -818,7 +819,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						if (actx->handler[j].mesg_func)
 						{
 							// check for NULL (non-write aggregates)
-							query = actx->handler[j].mesg_func(hi, actx);
+							query = actx->handler[j].mesg_func(hi, actx, env, NULL);
 							if (query && query != (string*)-1)
 							{
 								writemesg = query->s;
@@ -828,7 +829,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 						if (enkey)
 						{
-							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop);
+							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env);
 							if (!smart_aggregator(carg))
 							{
 								carg_free(carg);
@@ -843,7 +844,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						}
 						else
 						{
-							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port);
+							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query);
 							snprintf(status, 100, "OK");
 							snprintf(respbody, 1000, "Deleted OK");
 							// TODO: free hi

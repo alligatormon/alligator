@@ -185,7 +185,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 		carg->exec_time_finish = setrtime();
 }
 
-string* tcp_mesg(host_aggregator_info *hi, void *arg)
+string* tcp_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if (hi->query)
 		return string_init_add(strdup(hi->query), 0, 0);
@@ -209,7 +209,7 @@ void tcp_parser_push()
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
-string* blackbox_mesg(host_aggregator_info *hi, void *arg)
+string* blackbox_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if (hi->query)
 		return string_init_alloc(hi->query, 0);

@@ -9,7 +9,7 @@ void ntpd_handler(char *metrics, size_t size, context_arg *carg)
 	printf("====================(%zu)================\n%s\n======================================\n", size, metrics);
 }
 
-string* ntpd_mesg(host_aggregator_info *hi, void *arg)
+string* ntpd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_add("\26\2\0\2\0\0\304\"\0\0\0\0", 12, 0);
 }
