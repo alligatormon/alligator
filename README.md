@@ -137,6 +137,18 @@ aggregate backends {
 	ipmi exec:///usr/bin/ipmitool;
 	# TFTP
 	tftp udp://localhost:69/ping;
+	# NAMED (BIND)
+	named http://localhost:8080;
+	# SQUID
+	squid http://localhost:3128;
+	# LIGHTTPD status (status.status-url  = "/server-status")
+        lighttpd_status http://localhost:8080/server-status;
+	# LIGHTTPD statistics (status.statistics-url = "/server-statistics")
+        lighttpd_statistics http://localhost:8080/server-statistics;
+	# Apache HTTPD
+        httpd http://localhost/server-status;
+	# NSD
+        nsd unix:///run/nsd/nsd.ctl;
 }
 ```
 
@@ -174,6 +186,23 @@ ruleset(name="rs_impstats" queue.type="LinkedList" queue.filename="qimp" queue.s
 }
 ```
 
+Monitoring NameD stats:
+named.conf:
+```
+statistics-channels {
+    inet 127.0.0.1 port 8080 allow {any;};
+};```
+
+in zone context add statistics counting:
+```
+zone "localhost" IN {
+        type master;
+        file "named.localhost";
+        allow-update { none; };
+        zone-statistics yes;
+};
+```
+
 ## Monitoring nginx upstream check module
 https://github.com/yaoweibin/nginx_upstream_check_module
 ```
@@ -187,6 +216,12 @@ nginx.conf:
 	location /uc_status {
 		check_status;
 	}
+```
+alligator.conf:
+```
+aggregate {
+	named http://localhost:8080;
+}
 ```
 
 PostgreSQL support by user queries:
