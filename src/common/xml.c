@@ -34,6 +34,7 @@ int64_t get_xml_node(char *str, size_t size, char *name, size_t *name_size, char
 	size_t name_end;
 	char *nameptr;
 	char *tmp = nameptr = get_xml_name(str, name_size, &name_end);
+
 	if (!tmp)
 	{
 		*name_size = 0;

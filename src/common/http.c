@@ -59,7 +59,11 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	string_cat(sret, "\r\n", 2);
 
 	env_struct_push_alloc(env, "User-Agent", useragent);
-	env_struct_push_alloc(env, "Host", host);
+	if (*host == '/')
+		env_struct_push_alloc(env, "Host", "localhost");
+	else
+		env_struct_push_alloc(env, "Host", host);
+
 	if (auth)
 	{
 		char auth_basic_str[255];

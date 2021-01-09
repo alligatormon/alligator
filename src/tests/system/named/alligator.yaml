@@ -1,0 +1,6 @@
+entrypoint:
+- tcp:
+  - '1111'
+aggregate:
+- handler: named
+  url: http://localhost:8080
