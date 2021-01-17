@@ -300,26 +300,33 @@ void tls_fs_del(char *name)
 	}
 }
 
-void jks_push(char *name, char *path, char *match, char *password)
+void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 {
-	if (!password)
+	if (ac->log_level > 0)
+		printf("run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
+
+	if (!password && !passtr)
 	{
 		printf("no set password for jks: %s\n", name);
 		return;
 	}
 
 	lang_options *lo = calloc(1, sizeof(*lo));
-	lo->lang = "java";
 	lo->key = strdup(name);
+	lo->lang = "java";
 	lo->classpath = "-Djava.class.path=/var/lib/alligator/";
 	lo->classname = "alligatorJks";
 	lo->method = "walkJks";
-	size_t len = strlen(name) + strlen(path) + strlen(password);
-	char *passtr = malloc (len + 1);
-	snprintf(passtr, len, "%s %s %s", name, path, password);
-	lo->arg = passtr; // "/etc/ssl .jks SECRET"
-	//lo->carg = context_arg_fill(mt, i, hi, NULL, "jks", NULL, 0, NULL, NULL, ac->loop);
-	//lo->carg = context_arg_json_fill(NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL, 0, ac->loop);
+
+	if (!passtr)
+	{
+		size_t len = strlen(path) + strlen(match) + strlen(password) + 3;
+		passtr = malloc (len + 1);
+		snprintf(passtr, len, "%s %s %s", path, match, password);
+	}
+
+	lo->arg = passtr;
+
 	lo->carg = calloc(1, sizeof(*lo->carg));
 	lang_push(lo);
 }

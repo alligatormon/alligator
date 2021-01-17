@@ -13,7 +13,7 @@ fi
 $APPDIR/external/odyssey /app/src/tests/system/odyssey/odyssey.conf
 echo select 1 | psql -h 127.0.0.1 -p 6432 -U postgres postgres
 $APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
-sleep 15
+sleep 5
 
 TEXT=`curl -s localhost:1111`
 METRICS=`cat $APPDIR/tests/system/$DIR/metrics.txt`

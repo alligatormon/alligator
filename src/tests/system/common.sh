@@ -2,7 +2,7 @@ error()
 {
 	echo -e "\033[31mNo $2 in: \e[0m"
 	IIFS="$IFS"
-	echo "$1"
+	#echo "$1"
 	IFS="$IIFS"
 }
 

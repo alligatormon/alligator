@@ -339,7 +339,7 @@ int postgres_init_module()
 	return 1;
 }
 
-void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
+void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *database_class)
 {
 	if (carg->log_level > 1)
 	{
@@ -429,7 +429,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg)
 	}
 }
 
-void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg, void callback(PGresult*, query_node*, context_arg*))
+void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *carg, void callback(PGresult*, query_node*, context_arg*, char*), char *database_class)
 {
 	PGresult *res = ac->pqlib->PQexec(conn, query);
 	if (ac->pqlib->PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -438,7 +438,7 @@ void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *ca
 			fprintf(stderr, "%s command failed: %s", query, ac->pqlib->PQerrorMessage(conn));
 	}
 	else
-		callback(res, qn, carg);
+		callback(res, qn, carg, database_class);
 
 	if (res)
 		ac->pqlib->PQclear(res);
@@ -525,7 +525,7 @@ void postgresql_queries_foreach(void *funcarg, void* arg)
 		puts("+-+-+-+-+-+-+-+");
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
-	postgresql_query(conn, qn->expr, qn, carg, postgresql_write);
+	postgresql_query(conn, qn->expr, qn, carg, postgresql_write, "database");
 }
 
 void postgresql_set_params(PGconn *conn, context_arg *carg)
@@ -550,7 +550,7 @@ void postgresql_set_params(PGconn *conn, context_arg *carg)
 			printf("failed to set timeout\n");
 }
 
-void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
+void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *database_class)
 {
 	char pooler_name[20];
 
@@ -605,6 +605,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
 		{
 			char *colname = ac->pqlib->PQfname(r, j);
+			//printf("colname: '%s', type: %d\n", colname, ac->pqlib->PQftype(r, j));
 			if (ac->pqlib->PQftype(r, j) == 700 || ac->pqlib->PQftype(r, j) == 701) // FLOAT4OID FLOAT8OID
 			{
 				char *res = ac->pqlib->PQgetvalue(r, i, j);
@@ -618,7 +619,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 				tommy_hashdyn *hash = malloc(sizeof(*hash));
 				tommy_hashdyn_init(hash);
 				if (*dbname)
-					labels_hash_insert_nocache(hash, "database", dbname);
+					labels_hash_insert_nocache(hash, database_class, dbname);
 				if (*user)
 					labels_hash_insert_nocache(hash, "user", user);
 				if (*name)
@@ -696,7 +697,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 					tommy_hashdyn *hash = malloc(sizeof(*hash));
 					tommy_hashdyn_init(hash);
 					if (*dbname)
-						labels_hash_insert_nocache(hash, "database", dbname);
+						labels_hash_insert_nocache(hash, database_class, dbname);
 					if (*user)
 						labels_hash_insert_nocache(hash, "user", user);
 					if (*name)
@@ -729,7 +730,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg)
 					tommy_hashdyn *hash = malloc(sizeof(*hash));
 					tommy_hashdyn_init(hash);
 					if (*dbname)
-						labels_hash_insert_nocache(hash, "database", dbname);
+						labels_hash_insert_nocache(hash, database_class, dbname);
 					if (*user)
 						labels_hash_insert_nocache(hash, "user", user);
 					if (*name)
@@ -764,23 +765,23 @@ void pgbouncer_queries(context_arg *carg)
 {
 	pg_data *data = carg->data;
 	PGconn *conn = data->conn;
-	postgresql_query(conn, "SHOW STATS", NULL, carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW POOLS", (query_node *)"pool", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW CLIENTS", (query_node *)"client", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW SERVERS", (query_node *)"server", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW STATS", NULL, carg, pgbouncer_callback, "database_server");
+	postgresql_query(conn, "SHOW POOLS", (query_node *)"pool", carg, pgbouncer_callback, "database_server");
+	postgresql_query(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback, "database_client");
+	postgresql_query(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW CLIENTS", (query_node *)"client", carg, pgbouncer_callback, "database_client");
+	postgresql_query(conn, "SHOW SERVERS", (query_node *)"server", carg, pgbouncer_callback, "database_server");
 }
 
 void pgpool_queries(context_arg *carg)
 {
 	pg_data *data = carg->data;
 	PGconn *conn = data->conn;
-	postgresql_query(conn, "SHOW POOL_NODES", (query_node *)"node", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW POOL_PROCESSES", (query_node *)"process", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW POOL_POOLS", (query_node *)"pool", carg, pgbouncer_callback);
-	postgresql_query(conn, "SHOW POOL_CACHE", (query_node *)"cache", carg, pgbouncer_callback);
+	postgresql_query(conn, "SHOW POOL_NODES", (query_node *)"node", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW POOL_PROCESSES", (query_node *)"process", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW POOL_POOLS", (query_node *)"pool", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW POOL_CACHE", (query_node *)"cache", carg, pgbouncer_callback, "database");
 }
 
 void postgresql_run(void* arg)

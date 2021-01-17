@@ -7,6 +7,8 @@ extern aconf* ac;
 
 char* java_run(char *optionString, char* className, char *method, char *arg)
 {
+	if (ac->log_level > 0)
+		puts("java_run");
 	JavaVMOption options[3];
 	JavaVM *jvm;
 	JavaVMInitArgs vm_args;

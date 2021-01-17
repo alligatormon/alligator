@@ -205,6 +205,8 @@ void aggregate_ctx_init()
 	nsd_parser_push();
 	dummy_parser_push();
 	named_parser_push();
+	jmx_parser_push();
+	jks_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

@@ -61,29 +61,48 @@ public class alligatorJks {
 	}
 
 	public String walkJks(String argv) throws Exception {
-		String retstring = "LOL";
-		//String[] value = { "" };
+		//String retstring = "LOL";
+		if (argv == null)
+		{
+			System.out.println("argv is '" + argv + "': return from walkJks");
+			return "";
+		}
+		else if (argv.isEmpty())
+		{
+			System.out.println("argv is '" + argv + "': return from walkJks");
+			return "";
+		}
+		else
+			System.out.println("argv is '" + argv + "'");
 
-		//String[] argSplited = argv.split(" ");
-		//String dir = argSplited[0];
-		//String match = argSplited[1];
-		//String password = argSplited[2];
+		String[] value = { "" };
 
-		//Files.list(new File(dir).toPath()).forEach(path -> {
-		//	System.out.println(path);
-		//	//String StrPath = path.toAbsolutePath().toString();
-		//	//if (StrPath.contains(match)) {
-		//	//	try {
-		//	//		value[0] += getJks(StrPath, password);
-		//	//	}
-		//	//	catch (Exception e) {
-		//	//		e.printStackTrace();
-		//	//	}
-		//	//}
-		//});
+		String[] argSplited = argv.split(" ");
+		if (argSplited.length == 0)
+		{
+			System.out.println("not valid string arg, return from walkJks");
+			return "";
+		}
 
-		//return value[0];
-		return retstring;
+		String dir = argSplited[0];
+		String match = argSplited[1];
+		String password = argSplited[2];
+
+		Files.list(new File(dir).toPath()).forEach(path -> {
+			System.out.println(path);
+			String StrPath = path.toAbsolutePath().toString();
+			if (StrPath.contains(match)) {
+				try {
+					value[0] += getJks(StrPath, password);
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+
+		return value[0];
+		//return retstring;
 	}
 
 	//public static void main(String[] argv) throws Exception {

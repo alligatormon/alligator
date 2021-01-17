@@ -4,6 +4,9 @@ extern aconf *ac;
 
 void lang_push(lang_options *lo)
 {
+	if (ac->log_level > 0)
+		printf("lang push key %s\n", lo->key);
+
 	tommy_hashdyn_insert(ac->lang_aggregator, &(lo->node), lo, tommy_strhash_u32(0, lo->key));
 }
 

@@ -3,7 +3,6 @@
 #include <string.h>
 #include "alligator_version.h"
 aconf *ac;
-//pq_library *pqlib;
 
 void ts_initialize()
 {
