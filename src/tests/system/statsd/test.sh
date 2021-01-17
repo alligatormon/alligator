@@ -102,6 +102,9 @@ curl_test 'tata_papa {label_name_tata="papa_key"}'
 statsd_udp_send "io.reaper.service.RepairRunner.repairProgress.clustername.ksname.a12:12"
 curl_test 'io_reaper_service_RepairRunner_repairProgress {keyspace="ksname", run_id="a12", cluster="clustername", test_key="test_val"} 12.000000'
 
+statsd_udp_send "io.reaper.service.RepairRunner.repairProgress.clustername.ksname.a12.b14:12"
+curl_test 'io_reaper_service_RepairRunner_repairProgress_clustername_ksname_a12_b14 12.000000'
+
 # Send multiple queries for calculating quantiles. Calculation has complex solutions, because of this tests only prefix of answer numeric on unstable quantiles (0.9, 0.99).
 DATAS="13414 11737 9794 2743 10785 8717 9035 21296 17588 15529 7138 14999 25624 15637 25784 17479 12492 24182 32526 32531 5400 2690 9071 8916 21445 12141"
 for DATA in $DATAS

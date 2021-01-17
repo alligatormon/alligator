@@ -151,7 +151,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 		uint8_t i;
 		size_t str_splits;
 
-		char **template_split = mapping_str_split(mm->template, size, &str_splits, NULL, 0, NULL);
+		char **template_split = mapping_str_split(mm->template, mm->template_len, &str_splits, NULL, 0, NULL);
 		split = mapping_str_split(str, size, &str_splits, template_split, str_splits, arr);
 		if (!split)
 		{

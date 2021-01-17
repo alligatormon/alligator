@@ -18,7 +18,7 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 		return mm;
 
 	mm->template = strdup((char*)json_string_value(template));
-	size_t template_len = json_string_length(template);
+	size_t template_len = mm->template_len = json_string_length(template);
 
 	json_t *name = json_object_get(mapping, "name");
 	if (name)
