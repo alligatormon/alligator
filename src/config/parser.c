@@ -31,15 +31,19 @@ void config_parse_entry(char *filepath)
 			printf("is not a json %d: %s\n", error.line, error.text);
 	}
 
-	char *json = yaml_file_to_json_str(filepath);
-	root = json_loads(json, 0, &error);
-	if (root)
+	char *json = NULL;
+	if (strstr(filepath, ".yaml"))
 	{
-		json_decref(root);
-		puts("yaml loaded");
-		config_json(json);
-		free(json);
-		return;
+		json = yaml_file_to_json_str(filepath);
+		root = json_loads(json, 0, &error);
+		if (root)
+		{
+			json_decref(root);
+			puts("yaml loaded");
+			config_json(json);
+			free(json);
+			return;
+		}
 	}
 	else
 	{

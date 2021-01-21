@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.179)
+set(VERSION 1.10.180)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -134,6 +134,7 @@ set(STATIC_FILES
 	parsers/named.c
 	parsers/jmx.c
 	parsers/jks.c
+	parsers/kubernetes.c
 	common/selector.c
 	common/pem_check2.c
 	common/rtime.c

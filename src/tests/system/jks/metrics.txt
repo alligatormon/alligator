@@ -1,0 +1,3 @@
+x509_cert_expire_days {CN="selfsigned", cert="/app/src/tests/system/jks/keystore.jks", C="S1", subject="CN=One1", Prov1="", serial="e61a0ef06a5c79fb"}
+x509_cert_not_Before {CN="selfsigned", cert="/app/src/tests/system/jks/keystore.jks", C="S1", subject="CN=One1", Prov1="", serial="e61a0ef06a5c79fb"} 1610870909.000000
+x509_cert_not_after {CN="selfsigned", cert="/app/src/tests/system/jks/keystore.jks", C="S1", subject="CN=One1", Prov1="", serial="e61a0ef06a5c79fb"} 1641974909.000000
