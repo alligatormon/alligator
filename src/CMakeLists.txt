@@ -45,6 +45,8 @@ include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/i
 include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/include/linux)
 include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/)
 include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/linux)
+include_directories(/usr/lib/jvm/java-11-openjdk-11.0.10.0.9-0.el7_9.x86_64/include/)
+include_directories(/usr/lib/jvm/java-11-openjdk-11.0.10.0.9-0.el7_9.x86_64/include/linux)
 include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/)
 include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
 include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/)
