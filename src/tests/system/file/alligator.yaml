@@ -1,6 +1,28 @@
+log_level: 0
 entrypoint:
 - tcp:
   - "1111"
 aggregate:
 - handler: blackbox
-  url: file:///var/log/messages
+  url: file:///var/log/
+  file_stat: true
+- handler: blackbox
+  url: file:///etc/
+  checksum: murmur3
+  file_stat: true
+  calc_lines: true
+- handler: blackbox
+  url: file:///etc//
+  checksum: crc32
+  file_stat: true
+  calc_lines: true
+- handler: prometheus_metrics
+  url: file:///tmp/metrics.txt
+  notify: true
+  state: begin
+- handler: prometheus_metrics
+  url: file:///tmp/metrics-state.txt
+  notify: true
+  state: save
+- handler: prometheus_metrics
+  url: file:///tmp/metrics-nostate.txt

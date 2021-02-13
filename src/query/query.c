@@ -142,9 +142,9 @@ void query_field_set_foreach(void *funcarg, void* arg)
 		return;
 
 	tommy_hashdyn *duplabels = labels_dup(qn->labels);
-		//			printf("2 qf %p\n", qf);
-		//			printf("2 qf->value %p\n", &qf->i);
-		//			printf("2 qf->field %p\n", qf->field);
+	//printf("2 qf %p\n", qf);
+	//printf("2 qf->value %p\n", &qf->i);
+	//printf("2 qf->field %p\n", qf->field);
 	//printf("2 qf->value '%s': %"d64"\n", qf->field, (uint64_t)qf->i);
 	if (qf->type == DATATYPE_INT)
 		metric_add(qf->field, duplabels, &qf->i, qf->type, qn->carg);

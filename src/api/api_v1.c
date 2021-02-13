@@ -60,6 +60,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 			{
 				ac->log_level = json_integer_value(value);
 			}
+			if (!strcmp(key, "aggregate_period"))
+			{
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = ac->query_repeat = json_integer_value(value);
+			}
 			if (!strcmp(key, "ttl"))
 			{
 				ac->ttl = json_integer_value(value);
@@ -268,8 +272,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					carg->buffer_response_size = 6553500;
 					carg->net_acl = calloc(1, sizeof(*carg->net_acl));
 
+					carg->ttl = -1;
 					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
-					carg->ttl = json_integer_value(carg_ttl);
+					if (carg_ttl)
+						carg->ttl = json_integer_value(carg_ttl);
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
@@ -596,7 +602,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							tommy_hashdyn_init(env);
 
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", env, NULL);
-							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL);
+							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0);
 							if (!smart_aggregator(carg))
 								carg_free(carg);
 						}
@@ -645,9 +651,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						}
 						else if (!strcmp(system_key, "services"))
 						{
-							if (!ac->rpmlib)
-								rpm_library_init();
-
 							ac->system_services = enkey;
 							uint64_t services_size = json_array_size(sys_value);
 
@@ -804,6 +807,9 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					char *url = (char*)json_string_value(jurl);
 
+					json_t *jfollow_redirects = json_object_get(aggregate, "follow_redirects");
+					uint8_t follow_redirects = json_integer_value(jfollow_redirects);
+
 					host_aggregator_info *hi = parse_url(url, strlen(url));
 					//char *query;
 					//if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
@@ -834,7 +840,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 						if (enkey)
 						{
-							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env);
+							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects);
 							if (!smart_aggregator(carg))
 							{
 								carg_free(carg);

@@ -105,7 +105,7 @@ void sentinel_parser_push()
 
 	actx->key = strdup("sentinel");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->handler[0].name = sentinel_handler;
 	actx->handler[0].validator = redis_cluster_validator;
 	actx->handler[0].mesg_func = sentinel_parser_mesg;

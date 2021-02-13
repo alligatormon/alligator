@@ -150,14 +150,22 @@ typedef struct context_arg
 	uv_fs_t *read;
 	const char *filename;
 	char *path;
+	uint8_t is_dir;
 	uint64_t offset;
-	char pathname[1024];
+	uint64_t files_count;
+
+	uint64_t file_stat;
+	char *checksum;
+	uint8_t calc_lines;
+	uint8_t notify;
+	uint8_t state; // stream | begin | save
 
 	char is_async_writing;
 	char is_writing;
 	char is_write_error;
 	char is_closing;
 	uint8_t is_http_query;
+	uint8_t follow_redirects;
 	uint8_t tls;
 	mbedtls_ssl_context tls_ctx;
 	mbedtls_pk_context tls_key;
@@ -217,6 +225,6 @@ typedef struct context_arg
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects);
 tommy_hashdyn *env_struct_parser(json_t *root);
 tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src);

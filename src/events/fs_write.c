@@ -49,7 +49,7 @@ void open_cb(uv_fs_t* req) {
 	int result = req->result;
  
 	if (result < 0) {
-		printf("Error at opening file: %s\n", uv_strerror((int)req->result));
+		printf("Error at opening file '%s': %s\n", req->path, uv_strerror((int)req->result));
 	}
 	//printf("Successfully opened file.\n"); 
 	uv_fs_req_cleanup(req);
@@ -82,6 +82,6 @@ void write_to_file(char *filename, char *str, uint64_t len, void *callback, void
  
 	r = uv_fs_open(loop, fs_info->open_req, filename, O_CREAT | O_WRONLY | O_TRUNC, 0777, open_cb);
 	if (r < 0) {
-		printf("Error at opening file: %s\n", uv_strerror(r));
+		printf("Error at opening file '%s': %s\n", filename, uv_strerror(r));
 	}
 }

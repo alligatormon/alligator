@@ -89,7 +89,7 @@ void varnish_parser_push()
 
 	actx->key = strdup("varnish");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = varnish_handler;
 	actx->handler[0].validator = NULL;

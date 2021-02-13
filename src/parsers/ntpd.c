@@ -20,7 +20,7 @@ void ntpd_parser_push()
 
 	actx->key = strdup("ntpd");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = ntpd_handler;
 	actx->handler[0].validator = NULL;

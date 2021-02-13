@@ -171,14 +171,13 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	mbedtls_x509_crt cert;
 	mbedtls_x509_crt_init(&cert);
 
-
-	int ret = mbedtls_x509_crt_parse(&cert, (const unsigned char *)pem_cert, cert_size+1);
+	int ret = mbedtls_x509_crt_parse(&cert, (const unsigned char *)pem_cert, cert_size+2);
 	if (ret)
 	{
 		if (ac->log_level > 2)
 			printf("error parse certificate %s\n", filename);
 		if (ac->log_level > 10)
-			printf("error parse certificate %s: '%s' with size %zu\n", filename, pem_cert, strlen(pem_cert)+1);
+			printf("error parse certificate %s: '%s' with size %zu/%zu\n", filename, pem_cert, strlen(pem_cert), cert_size+2);
 		free(data);
 		return;
 	}

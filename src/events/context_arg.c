@@ -1,5 +1,6 @@
 #include "events/context_arg.h"
 #include "main.h"
+#include "common/file_stat.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -141,7 +142,7 @@ tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src)
 	return dst;
 }
 
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env)
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
@@ -163,6 +164,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->timeout = 5000;
 	carg->proto = hi->proto;
 	carg->transport = hi->transport;
+	carg->is_http_query = 0;
+	carg->follow_redirects = follow_redirects;
 	carg->tls = hi->tls;
 	carg->transport_string = hi->transport_string;
 	carg->loop = loop;
@@ -179,9 +182,9 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	//carg->tt_timer = malloc(sizeof(uv_timer_t));
 	carg->write = 2;
 	carg->curr_ttl = -1;
-	carg->buffer_request_size = 6553500;
-	carg->buffer_response_size = 6553500;
-	carg->full_body = string_init(6553500);
+	carg->buffer_request_size = 1553500;
+	carg->buffer_response_size = 1553500;
+	carg->full_body = string_init(1553500);
 	if (hi->proto == APROTO_HTTPS || hi->proto == APROTO_TLS)
 		carg->tls = 1;
 	else
@@ -211,6 +214,29 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	int64_t int_timeout = json_integer_value(json_timeout);
 	if (json_timeout)
 		carg->timeout = int_timeout;
+
+	json_t *json_file_stat = json_object_get(root, "file_stat");
+	carg->file_stat = json_boolean_value(json_file_stat);
+
+	json_t *json_checksum = json_object_get(root, "checksum");
+	if (json_checksum)
+		carg->checksum = strdup((char*)json_string_value(json_checksum));
+
+	json_t *json_calc_lines = json_object_get(root, "calc_lines");
+	carg->calc_lines = json_boolean_value(json_calc_lines);
+
+	json_t *json_notify = json_object_get(root, "notify");
+	carg->notify = json_boolean_value(json_notify);
+
+	json_t *json_state = json_object_get(root, "state");
+	char *state = (char*)json_string_value(json_state);
+	if (state)
+	{
+		if (!strcmp(state, "begin"))
+			carg->state = FILESTAT_STATE_BEGIN;
+		else if (!strcmp(state, "save"))
+			carg->state = FILESTAT_STATE_SAVE;
+	}
 
 	json_t *json_log_level = json_object_get(root, "log_level");
 	if (json_log_level)

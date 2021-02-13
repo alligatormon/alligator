@@ -186,7 +186,6 @@ void get_cpu(int8_t platform)
 		strlcpy(cpu_usage_name, "cpu_usage", 10);
 		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
 		strlcpy(cpu_usage_time_name, "cpu_usage_time", 15);
-		dividecpu = 1;
 	}
 	else
 	{
@@ -216,6 +215,14 @@ void get_cpu(int8_t platform)
 			else
 				sccs = &ac->scs->cores[core_num];
 
+			uint64_t ttotal = (t1 + t3) / dividecpu;
+			//printf("%"u64" = ( %"u64" + %"u64" ) / %lf\n", ttotal, t1, t3, dividecpu);
+			uint64_t tuser = t1 / dividecpu;
+			uint64_t tnice = t2 / dividecpu;
+			uint64_t tsystem = t3 / dividecpu;
+			uint64_t tidle = t4 / dividecpu;
+			uint64_t tiowait = t5 / dividecpu;
+
 			uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
 			sccs->total += t12345;
 
@@ -230,39 +237,41 @@ void get_cpu(int8_t platform)
 			t5 -= sccs->iowait;
 			sccs->iowait += t5;
 
-			double usage = ((t1 + t3)*100.0/t12345)/dividecpu;
+			double usage = ((t1 + t3)*100.0/t12345);
 			if (usage<0)
 				usage = 0;
-			double user = ((t1)*100.0/t12345)/dividecpu;
+			double user = ((t1)*100.0/t12345);
 			if (user<0)
 				user = 0;
-			double nice = ((t2)*100.0/t12345)/dividecpu;
+			double nice = ((t2)*100.0/t12345);
 			if (nice<0)
 				nice = 0;
-			double system = ((t3)*100.0/t12345)/dividecpu;
+			double system = ((t3)*100.0/t12345);
 			if (system<0)
 				system = 0;
-			double idle = ((t4)*100.0/t12345)/dividecpu;
+			double idle = ((t4)*100.0/t12345);
 			if (idle<0)
 				idle = 0;
-			double iowait = ((t5)*100.0/t12345)/dividecpu;
+			double iowait = ((t5)*100.0/t12345);
 			if (iowait<0)
 				iowait = 0;
 
 			if (!strcmp(cpuname, "cpu"))
 			{
 				//printf("CPU: usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", usage, user, system, nice, idle, iowait);
+				//printf("CPU: tusage %"d64", tuser %"d64", tnice %"d64", tsystem %"d64", tidle %"d64", tiowait %"d64"\n", ttotal, tuser, tnice, tsystem, tidle, tiowait);
 				metric_add_labels(cpu_usage_name, &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
 				metric_add_labels(cpu_usage_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 				metric_add_labels(cpu_usage_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 				metric_add_labels(cpu_usage_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 				metric_add_labels(cpu_usage_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
-				metric_add_labels(cpu_usage_time_name, &t12345, DATATYPE_UINT, ac->system_carg, "type", "total");
-				metric_add_labels(cpu_usage_time_name, &t1, DATATYPE_INT, ac->system_carg, "type", "user");
-				metric_add_labels(cpu_usage_time_name, &t2, DATATYPE_INT, ac->system_carg, "type", "nice");
-				metric_add_labels(cpu_usage_time_name, &t3, DATATYPE_INT, ac->system_carg, "type", "system");
-				metric_add_labels(cpu_usage_time_name, &t5, DATATYPE_INT, ac->system_carg, "type", "iowait");
+				metric_add_labels(cpu_usage_time_name, &ttotal, DATATYPE_UINT, ac->system_carg, "type", "total");
+				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_INT, ac->system_carg, "type", "user");
+				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_INT, ac->system_carg, "type", "nice");
+				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_INT, ac->system_carg, "type", "system");
+				metric_add_labels(cpu_usage_time_name, &tidle, DATATYPE_INT, ac->system_carg, "type", "idle");
+				metric_add_labels(cpu_usage_time_name, &tiowait, DATATYPE_INT, ac->system_carg, "type", "iowait");
 				if (!platform && ac->system_cpuavg)
 				{
 					cpu_avg_push(usage);
@@ -366,6 +375,8 @@ void get_cpu(int8_t platform)
 		sccs->user += cgroup_user_ticks;
 		//printf("user plus %lld\n", sccs->user);
 
+		dividecpu = (cfs_quota*1.0/cfs_period);
+		//printf("cfs_quota/cfs_period %d/%d = %lf/%lf\n", cfs_quota, cfs_period, (cfs_quota*1.0/cfs_period), dividecpu);
 		double cgroup_system_usage = cgroup_system_ticks*1.0/dividecpu;
 		double cgroup_user_usage = cgroup_user_ticks*1.0/dividecpu;
 		//printf("cgroup_system_ticks %lld, cgroup_user_ticks %lld dividecpu %lf\n", cgroup_system_ticks, cgroup_user_ticks, dividecpu);
@@ -378,17 +389,17 @@ void get_cpu(int8_t platform)
 			cgroup_total_usage = getkvfile(syspath)*cfs_period/1000000000/cfs_quota*100.0;
 		}
 
-		uint64_t sccs_total = sccs->system + sccs->user;
+		uint64_t time_system = sccs->system / dividecpu;
+		uint64_t time_user = sccs->user / dividecpu;
+		uint64_t sccs_total = time_system + time_user;
 
 		//printf("cgroup CPU: usage %lf, user %lf, system %lf\n", cgroup_total_usage, cgroup_user_usage, cgroup_system_usage);
 		metric_add_labels("cpu_usage_cgroup", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_cgroup", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage_cgroup", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
 		metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
-		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage_time", &sccs->system, DATATYPE_UINT, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_time", &sccs_total, DATATYPE_UINT, ac->system_carg, "type", "total");
 		metric_add_labels("cpu_usage_time", &sccs->user, DATATYPE_UINT, ac->system_carg, "type", "user");
@@ -918,6 +929,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 		return 0;
 
 	char cmdline[_POSIX_PATH_MAX];
+	cmdline[0] = 0;
 	if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
 		cmdline[0] = 0;
 
@@ -2682,9 +2694,13 @@ void get_alligator_info()
 			ival *= 1024;
 
 		if ( !strncmp(tmp, "VmRSS", 5) )
+		{
 			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, ac->system_carg, "type", "rss");
+		}
 		if ( !strncmp(tmp, "VmSize", 6) )
+		{
 			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz");
+		}
 	}
 	fclose(fd);
 }

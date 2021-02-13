@@ -1,5 +1,17 @@
-flower_tasks_total_active
-flower_tasks_total_failed
-flower_tasks_total_processed
-flower_tasks_total_retried
-flower_tasks_total_successed
+file_checksum
+file_lines
+files_in_directory
+file_stat_files_count
+file_stat_hardlinks
+file_stat_mode
+file_stat_modify_count
+file_stat_size
+file_stat_time
+type="atime"
+type="birthtime"
+type="ctime"
+type="mtime"
+file_stat_mode {path="/etc//exports", type="regular", user="root", group="root", int="100644", mode="rw-r--r--"} 33188
+file_lines {path="/etc//shells"} 4
+file_checksum {path="/etc//sudoers", hash="murmur3"} 1844674407294471273
+file_checksum {path="/etc///hostname", hash="crc32"} 1844674407225004028

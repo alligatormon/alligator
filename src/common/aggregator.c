@@ -16,7 +16,7 @@
 
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
-	return snprintf(key, 254, "%s:%s:%s:%s/%s", transport_string, parser_name, host, port, query);
+	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
 }
 
 int smart_aggregator(context_arg *carg)
@@ -58,7 +58,7 @@ int smart_aggregator(context_arg *carg)
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
 	else if (carg->transport == APROTO_FILE)
-		type = filetailer_handler(carg->host, NULL);
+		type = filetailer_handler(carg);
 	else if (carg->transport == APROTO_PG)
 		type = postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)
@@ -96,7 +96,7 @@ void smart_aggregator_del(context_arg *carg)
 	//else if (carg->proto == APROTO_UNIXGRAM)
 	//	do_unixgram_client_carg(carg);
 	else if (carg->transport == APROTO_FILE)
-		filetailer_handler_del("/var/log/", NULL);
+		filetailer_handler_del(carg);
 	else if (carg->transport == APROTO_PG)
 		postgresql_client_del(carg);
 	else if (carg->transport == APROTO_MY)
@@ -123,7 +123,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
 	tommy_hashdyn *newenv = env_struct_duplicate(carg->env);
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop, newenv);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop, newenv, carg->follow_redirects);
 
 	new->key = override_key;
 	if (!new->key)
@@ -191,6 +191,7 @@ void aggregate_ctx_init()
 	pgpool_parser_push();
 	patroni_parser_push();
 	mysql_parser_push();
+	sphinxsearch_parser_push();
 	mongodb_parser_push();
 	http_parser_push();
 	tcp_parser_push();

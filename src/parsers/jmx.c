@@ -20,7 +20,7 @@ string* jmx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_set
 	lo->method = "getJmx";
 	//lo->arg = strdup("service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi");
 	lo->arg = strdup(hi->url);
-	lo->carg = context_arg_json_fill(NULL, hi, NULL, "jmx", NULL, 0, NULL, NULL, 0, ac->loop, NULL);
+	lo->carg = context_arg_json_fill(NULL, hi, NULL, "jmx", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0);
 	lang_push(lo);
 
 	return NULL;
@@ -32,7 +32,7 @@ void jmx_parser_push()
 
 	actx->key = strdup("jmx");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;

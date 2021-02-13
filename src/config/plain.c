@@ -348,6 +348,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *unixgram_entrypoint = NULL;
 			json_t *mapping_entrypoint = NULL;
 			json_t *api_entrypoint = NULL;
+			json_t *ttl_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -494,6 +495,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							++i;
 							api_entrypoint = json_string(strdup(wstokens[i].token->s));
 							json_array_object_insert(operator_json, "api", api_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "ttl"))
+					{
+						if (!ttl_entrypoint)
+						{
+							++i;
+							ttl_entrypoint = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
+							json_array_object_insert(operator_json, "ttl", ttl_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query"))

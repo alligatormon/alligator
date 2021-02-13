@@ -56,7 +56,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 	json_t *root = json_loads(buf, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		fprintf(stderr, "podman_get_labels json error on line %d: %s\n", error.line, error.text);
 		fclose(fd);
 		return NULL;
 	}
@@ -85,7 +85,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 			json_t *metadata_root = json_loads(metadata, 0, &error);
 			if (!metadata_root)
 			{
-				fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+				fprintf(stderr, "podman_get_labels 2 json error on line %d: %s\n", error.line, error.text);
 				continue;
 			}
 
@@ -118,7 +118,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 	return NULL;
 }
 
-void podman_parse(FILE *fd, size_t fd_size)
+void podman_parse(FILE *fd, size_t fd_size, char *fname)
 {
 	char *buf = malloc(fd_size+1);
 	fread(buf, fd_size, 1, fd);
@@ -126,10 +126,10 @@ void podman_parse(FILE *fd, size_t fd_size)
 	//printf("fd_size %zu:\n'%s'\n", fd_size, buf);
 
 	json_error_t error;
-	json_t *root = json_loads(buf, 0, &error);
+	json_t *root = json_loads(buf, JSON_DECODE_INT_AS_REAL, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		fprintf(stderr, "podman_parse file %s: json error on line %d: %s\n", fname, error.line, error.text);
 		free(buf);
 		return;
 	}
@@ -216,7 +216,7 @@ void runc_labels(char *rundir)
 			fd = fopen(statefile, "r");
 			if (fd)
 			{
-				podman_parse(fd, statefile_size);
+				podman_parse(fd, statefile_size, statefile);
 
 				fclose(fd);
 			}
@@ -252,7 +252,7 @@ void runc_labels(char *rundir)
 					if (fd)
 					{
 						puts(statefile);
-						podman_parse(fd, statefile_size);
+						podman_parse(fd, statefile_size, statefile);
 
 						fclose(fd);
 					}
@@ -411,7 +411,7 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		fprintf(stderr, "docker_labels json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

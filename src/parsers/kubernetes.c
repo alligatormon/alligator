@@ -76,6 +76,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *aggregate_arr = json_array();
 			json_t *aggregate_obj = json_object();
 			json_t *aggregate_handler = json_string(strdup("http"));
+			json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
 			json_t *aggregate_url = json_string(keyhost);
 			json_t *aggregate_name = json_string(strdup(keyhost));
 			json_t *aggregate_add_label = json_object();
@@ -91,6 +92,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 
 			json_array_object_insert(aggregate_obj, "url", aggregate_url);
 			json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
+			json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
 			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
 			const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 			if (carg->log_level > 1)
@@ -281,7 +283,7 @@ void kubernetes_ingress_parser_push()
 
 	actx->key = strdup("kubernetes_ingress");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = kubernetes_ingress_handler;
 	actx->handler[0].validator = NULL;
@@ -297,7 +299,7 @@ void kubernetes_endpoint_parser_push()
 
 	actx->key = strdup("kubernetes_endpoint");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = kubernetes_endpoint_handler;
 	actx->handler[0].validator = NULL;

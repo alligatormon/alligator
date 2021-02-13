@@ -291,6 +291,7 @@ void string_new_size(string *str, size_t len)
 		return;
 	}
 	uint64_t newsize = str->m*2+len;
+	//printf("alloc %zu, copy %zu, str->m %zu, str->m*2 %zu, str->m*2+len %zu, len %zu\n", newsize, str->l+1, str->m, str->m*2, str->m*2+len, len);
 	char *newstr_char = malloc(newsize);
 	memcpy(newstr_char, str->s, str->l+1);
 	char *oldstr_char = str->s;
@@ -460,6 +461,12 @@ void string_cut(string *str, uint64_t offset, size_t len)
 	str->s[str->l] = 0;
 	printf("'%s'\n", str->s + offset);
 	puts("================================");
+}
+
+void string_free_callback(char *data)
+{
+	string *str = (string*)data;
+	string_free(str);
 }
 
 int match_mapper_compare(const void* arg, const void* obj)

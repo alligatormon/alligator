@@ -15,29 +15,32 @@ int64_t get_ttl(context_arg *carg)
 	if (!carg)
 		return ac->ttl;
 
+	//printf("curr ttl: %d, carg->ttl %d, ttl %d\n", carg->curr_ttl, carg->curr_ttl, ac->ttl);
 	if (carg->curr_ttl > -1)
 	{
 		if (carg->curr_ttl == 0)
 		{
-			return ac->ttl;
+			if (carg->ttl == 0)
+				return INT_MAX;
+			else
+				return carg->ttl;
 		}
 
 		return carg->curr_ttl;
 	}
-	if (carg->curr_ttl < 0)
-		return INT_MAX;
 
-	if (carg && carg->ttl > -1)
+	if (carg->ttl > -1)
 	{
 		if (carg->ttl == 0)
 		{
-			return ac->ttl;
+			if (ac->ttl == 0)
+				return INT_MAX;
+			else
+				return ac->ttl;
 		}
 
 		return carg->ttl;
 	}
-	if (carg->ttl < 0)
-		return INT_MAX;
 
 	return ac->ttl;
 }
@@ -702,6 +705,26 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 		labels = labels->next;
 	}
+}
+
+void labels_to_json_for(void *funcarg, void* arg)
+{
+	labels_container *labelscont = arg;
+	json_t *ret = funcarg;
+
+	json_t *key = json_string(labelscont->key);
+	json_array_object_insert(ret, labelscont->name, key);
+}
+
+json_t *labels_to_json(tommy_hashdyn *labels)
+{
+	json_t *ret = json_object();
+	if (!labels)
+		return ret;
+
+	tommy_hashdyn_foreach_arg(labels, labels_to_json_for, ret);
+
+	return ret;
 }
 
 void labels_dup_for(void *funcarg, void* arg)

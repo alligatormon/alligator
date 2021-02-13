@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-set(VERSION 1.10.180)
+set(VERSION 1.10.197)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)
@@ -153,6 +153,9 @@ set(STATIC_FILES
 	common/deb.c
 	common/mkdirp.c
 	common/yaml.c
+	common/file_stat.c
+	common/crc32.c
+	common/murmurhash.c
 	query/query.c
 	query/promql.c
 	common/stat.c

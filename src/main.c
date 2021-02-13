@@ -98,6 +98,7 @@ aconf* configuration()
 	ac = calloc(1, sizeof(*ac));
 	ac->aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->pg_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->file_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->zk_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->mongodb_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->my_aggregator = calloc(1, sizeof(tommy_hashdyn));
@@ -105,6 +106,7 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
+	ac->file_aggregator_repeat = 300000;
 
 	ac->tls_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	//ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
@@ -146,8 +148,11 @@ aconf* configuration()
 
 	ac->modules = calloc(1, sizeof(tommy_hashdyn));
 
+	ac->file_stat = calloc(1, sizeof(tommy_hashdyn));
+
 	tommy_hashdyn_init(ac->aggregator);
 	tommy_hashdyn_init(ac->pg_aggregator);
+	tommy_hashdyn_init(ac->file_aggregator);
 	tommy_hashdyn_init(ac->zk_aggregator);
 	tommy_hashdyn_init(ac->mongodb_aggregator);
 	tommy_hashdyn_init(ac->my_aggregator);
@@ -158,6 +163,7 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->fs_x509);
 	tommy_hashdyn_init(ac->query);
 	tommy_hashdyn_init(ac->modules);
+	tommy_hashdyn_init(ac->file_stat);
 
 	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
 	tommy_hashdyn_init(ac->entrypoints);
@@ -184,6 +190,8 @@ void restore_settings()
 {
 	if (ac->persistence_dir)
 		metric_restore();
+
+	filestat_restore();
 }
 
 void print_help()
@@ -245,6 +253,7 @@ int main(int argc, char **argv)
 
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	signal(SIGPIPE, SIG_IGN);
+	signal(SIGABRT, SIG_IGN);
 	general_loop();
 	if (argc < 2)
 	{
@@ -277,6 +286,7 @@ int main(int argc, char **argv)
 	mongodb_client_handler();
 	mysql_client_handler();
 	zk_client_handler();
+	filetailer_crawl_handler();
 	//udp_send("\0\1sendfile.txt\0netascii\0", 24);
 	//udp_send("\0\1sendfile.txt\0octet\0", 21);
 

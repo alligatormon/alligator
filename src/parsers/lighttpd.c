@@ -141,7 +141,7 @@ void lighttpd_parser_push()
 
 	actx->key = strdup("lighttpd_status");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = lighttpd_status_handler;
 	actx->handler[0].validator = NULL;
@@ -155,7 +155,7 @@ void lighttpd_parser_push()
 
 	actx->key = strdup("lighttpd_statistics");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = lighttpd_statistics_handler;
 	actx->handler[0].validator = NULL;

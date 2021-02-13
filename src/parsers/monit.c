@@ -211,7 +211,7 @@ void monit_parser_push()
 
 	actx->key = strdup("monit");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = monit_handler;
 	actx->handler[0].validator = NULL;

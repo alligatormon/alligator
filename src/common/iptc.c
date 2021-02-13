@@ -66,9 +66,10 @@ void get_iptables_info(const char *tablename, context_arg *system_carg)
 	struct ipt_entry_match *matchp;
 
 	h = (void*)iptc_init(tablename);
-	if ( !h )
+	if (!h)
 	{
-		printf("IPTC initializing: %s\n", iptc_strerror(errno));
+		if (ac->log_level > 0)
+			printf("IPTC initializing: %s\n", iptc_strerror(errno));
 		return;
 	}
 
@@ -187,7 +188,7 @@ void get_iptables_info(const char *tablename, context_arg *system_carg)
 						printf("%s %s ", (info->flags & IPSET_INV_MATCH) ? " !" : "", setname); 
 					for (i = 1; i <= info->dim; i++)
 					{		
-						//if (ac->log_level > 3)
+						if (ac->log_level > 3)
 							printf("%s%s ", i == 1 ? " " : ",", info->flags & (1 << i) ? "src" : "dst");
 					}
 				}
@@ -232,7 +233,8 @@ void get_iptables6_info(const char *tablename, context_arg *system_carg)
 	h = (void*)ip6tc_init(tablename);
 	if ( !h )
 	{
-		printf("IPTC initializing: %s\n", ip6tc_strerror(errno));
+		if (ac->log_level > 0)
+			printf("IPTC initializing: %s\n", ip6tc_strerror(errno));
 		return;
 	}
 
@@ -351,7 +353,7 @@ void get_iptables6_info(const char *tablename, context_arg *system_carg)
 						printf("%s %s ", (info->flags & IPSET_INV_MATCH) ? " !" : "", setname); 
 					for (i = 1; i <= info->dim; i++)
 					{		
-						//if (ac->log_level > 3)
+						if (ac->log_level > 3)
 							printf("%s%s ", i == 1 ? " " : ",", info->flags & (1 << i) ? "src" : "dst");
 					}
 				}

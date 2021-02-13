@@ -83,6 +83,7 @@ typedef struct aconf
 	tommy_hashdyn *_namespace;
 
 	tommy_hashdyn* aggregator;
+	tommy_hashdyn* file_aggregator;
 	tommy_hashdyn* pg_aggregator;
 	tommy_hashdyn* zk_aggregator;
 	tommy_hashdyn* mongodb_aggregator;
@@ -90,6 +91,7 @@ typedef struct aconf
 	tommy_hashdyn* tls_aggregator;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
+	int64_t file_aggregator_repeat;
 	int64_t tls_aggregator_startup;
 	int64_t tls_aggregator_repeat;
 
@@ -132,12 +134,12 @@ typedef struct aconf
 	// servers hash tables
 	tommy_hashdyn* tcp_server_handler;
 
-	// HTTPS TLS CHECK OBJECTS
-	//tommy_hashdyn *https_ssl_domains;
-
 	// config parser handlers
 	tommy_hashdyn* config_ctx;
 	tommy_hashdyn* aggregate_ctx;
+
+	// filetailer file list
+	tommy_hashdyn* file_stat;
 
 	// local fs x509 cert scraper
 	tommy_hashdyn* fs_x509;

@@ -1,10 +1,10 @@
 #include "common/selector.h"
 #include "main.h"
 
-void metric_dump_free(char *data)
-{
-	string_free(data);
-}
+//void metric_dump_free(char *data)
+//{
+//	string_free(data);
+//}
 
 void metric_dump(int exit_sig)
 {
@@ -25,7 +25,7 @@ void metric_dump(int exit_sig)
 		write_to_file(dirtowrite, body->s, body->l, exit, code);
 	}
 	else
-		write_to_file(dirtowrite, body->s, body->l, metric_dump_free, body);
+		write_to_file(dirtowrite, body->s, body->l, string_free_callback, body);
 }
 
 void restore_callback(char *buf, size_t len, void *data)

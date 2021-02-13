@@ -393,7 +393,7 @@ void redis_parser_push()
 
 	actx->key = strdup("redis");
 	actx->handlers = 2;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->handler[0].name = redis_handler;
 	actx->handler[0].validator = redis_validator;
 	actx->handler[0].mesg_func = redis_parser_mesg;

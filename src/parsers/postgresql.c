@@ -425,7 +425,6 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 		qn->carg = carg;
 		query_set_values(qn);
 		labels_hash_free(hash);
-		//metric_add(qn->make, hash, &, DATATYPE_UINT, ac->system_carg);
 	}
 }
 
@@ -643,7 +642,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 				if (*tls)
 					labels_hash_insert_nocache(hash, "tls", tls);
 
-				metric_add(metric_name, hash, &val, DATATYPE_DOUBLE, ac->system_carg);
+				metric_add(metric_name, hash, &val, DATATYPE_DOUBLE, carg);
 			}
 			if (ac->pqlib->PQftype(r, j) == 25) // string
 			{
@@ -722,7 +721,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 						labels_hash_insert_nocache(hash, "tls", tls);
 
 					wait += val;
-					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
+					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
 					wait = 0;
 				}
 				else
@@ -754,7 +753,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					if (*tls)
 						labels_hash_insert_nocache(hash, "tls", tls);
 
-					metric_add(metric_name, hash, &val, DATATYPE_INT, ac->system_carg);
+					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
 				}
 			}
 		}
@@ -767,6 +766,19 @@ void pgbouncer_queries(context_arg *carg)
 	PGconn *conn = data->conn;
 	postgresql_query(conn, "SHOW STATS", NULL, carg, pgbouncer_callback, "database_server");
 	postgresql_query(conn, "SHOW POOLS", (query_node *)"pool", carg, pgbouncer_callback, "database_server");
+	postgresql_query(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback, "database_client");
+	postgresql_query(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback, "database");
+	postgresql_query(conn, "SHOW CLIENTS", (query_node *)"client", carg, pgbouncer_callback, "database_client");
+	postgresql_query(conn, "SHOW SERVERS", (query_node *)"server", carg, pgbouncer_callback, "database_server");
+}
+
+void odyssey_queries(context_arg *carg)
+{
+	pg_data *data = carg->data;
+	PGconn *conn = data->conn;
+	postgresql_query(conn, "SHOW STATS", NULL, carg, pgbouncer_callback, "database_server");
+	postgresql_query(conn, "SHOW POOLS_EXTENDED", (query_node *)"pool", carg, pgbouncer_callback, "database_server");
 	postgresql_query(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback, "database_client");
 	postgresql_query(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback, "database");
 	postgresql_query(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback, "database");
@@ -828,7 +840,7 @@ void postgresql_run(void* arg)
 	}
 	else if (data->type == PG_TYPE_ODYSSEY)
 	{
-		pgbouncer_queries(carg);
+		odyssey_queries(carg);
 	}
 	else if (data->type == PG_TYPE_PGPOOL)
 	{
@@ -898,7 +910,7 @@ void pg_parser_push()
 
 	actx->key = strdup("postgresql");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->data = data;
 
 	actx->handler[0].name = NULL;
@@ -917,7 +929,7 @@ void pgbouncer_parser_push()
 
 	actx->key = strdup("pgbouncer");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->data = data;
 
 	actx->handler[0].name = NULL;
@@ -936,7 +948,7 @@ void odyssey_parser_push()
 
 	actx->key = strdup("odyssey");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->data = data;
 
 	actx->handler[0].name = NULL;
@@ -955,7 +967,7 @@ void pgpool_parser_push()
 
 	actx->key = strdup("pgpool");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->data = data;
 
 	actx->handler[0].name = NULL;

@@ -69,7 +69,6 @@ void tcp_client_close(uv_handle_t *handle)
 			//printf("is writing: %d, is closing: %d\n", carg->is_writing, carg->is_closing);
 			if (!carg->is_writing)
 			{
-				puts("mbedtls_ssl_close_notify");
 				int ret = mbedtls_ssl_close_notify(&carg->tls_ctx);
 				if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
 				{
@@ -131,6 +130,8 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				http_reply_data* hr_data = http_reply_parser(buf->base, nread);
 				if (hr_data)
 				{
+					http_hrdata_metrics(carg, hr_data);
+					http_follow_redirect(carg, hr_data);
 					//printf("INIT nread %zd, clear http size %"d64", full body size %"d64"\n", nread, hr_data->clear_http->l, carg->full_body->l);
 					string_string_cat(carg->full_body, hr_data->clear_http);
 
@@ -140,9 +141,6 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					carg->headers_size = hr_data->headers_size;
 					//printf("chunked_size %u, expect %d\n", carg->chunked_size, carg->chunked_expect);
 					carg->expect_body_length = hr_data->content_length;
-					uint64_t http_code = hr_data->http_code;
-					metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-					metric_add_labels5("alligator_aggregator_http_header_size", &hr_data->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 					if (carg->chunked_expect)
 						chunk_calc(carg, hr_data->body, hr_data->body_size);
@@ -224,11 +222,13 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			}
 		}
 		if (carg->ssl_read_buffer_offset != nread)
-			tcp_connected(&carg->connect,  -1);
+		{
+			tcp_connected(&carg->connect,  0);
+		}
 		carg->ssl_read_buffer_len = 0;
 		carg->ssl_read_buffer_offset = 0;
 		if (ret != 0 && ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
-			tcp_connected(&carg->connect,  -1);
+			tcp_connected(&carg->connect,  0);
 	}
 	else
 	{
@@ -297,7 +297,7 @@ void tls_client_writed(uv_write_t* req, int status)
 		}
 		if (ret != 0 && ret != MBEDTLS_ERR_SSL_WANT_WRITE && ret != MBEDTLS_ERR_SSL_WANT_READ)
 		{
-			tcp_connected(&carg->connect,  -1);
+			tcp_connected(&carg->connect,  0);
 		}
 		ret = 0;
 	}
@@ -343,7 +343,9 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 			len = -1;
 			carg->is_write_error = 1;
 			if (carg->tls_ctx.state != MBEDTLS_SSL_HANDSHAKE_OVER)
+			{
 				tcp_connected(&carg->connect,  -1);
+			}
 			if (write_req)
 				free(write_req);
 			if (carg->write_buffer.base)

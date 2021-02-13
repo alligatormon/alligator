@@ -67,7 +67,7 @@ void zookeeper_parser_push()
 
 	actx->key = strdup("zookeeper");
 	actx->handlers = 3;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = zookeeper_mntr_handler;
 	//actx->handler[0].validator = zookeeper_validator;

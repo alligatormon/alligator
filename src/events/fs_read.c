@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "main.h"
+#define MAX_FILE_SIZE 1000000
 
 typedef struct fs_read_info
 {
@@ -10,6 +11,7 @@ typedef struct fs_read_info
 	uv_fs_t *open_fd;
 	char *filename;
 	uv_buf_t buffer;
+	uint64_t size;
 	uint64_t offset;
 } fs_read_info;
 
@@ -18,7 +20,7 @@ void fs_read_close(uv_fs_t* req)
 	fs_read_info *frinfo  = req->data;
 
 	if (frinfo->callback)
-		frinfo->callback(frinfo->buffer.base, strlen(frinfo->buffer.base), frinfo->data, frinfo->filename);
+		frinfo->callback(frinfo->buffer.base, frinfo->size, frinfo->data, frinfo->filename);
 
 	free(frinfo->buffer.base);
 	free(frinfo->open_fd);
@@ -42,7 +44,9 @@ void fs_read_on_read(uv_fs_t *req)
 	else if (req->result == 0) {
 	}
 	else {
-		size_t str_len = strlen(frinfo->buffer.base);
+		size_t str_len = req->result;
+		frinfo->buffer.base[str_len] = 0;
+		frinfo->size = str_len-1;
 		frinfo->offset += str_len;
 	}
 	uv_fs_t *close_req = malloc(sizeof(*close_req));
@@ -72,7 +76,7 @@ void read_from_file(char *filename, uint64_t offset, void *callback, void *data)
 	extern aconf *ac;
 
 	uv_fs_t *open_req = malloc(sizeof(*open_req));
-	fs_read_info *frinfo = malloc(sizeof(*frinfo));
+	fs_read_info *frinfo = calloc(1, sizeof(*frinfo));
 	frinfo->callback = callback;
 	frinfo->data = data;
 	frinfo->offset = offset;
@@ -80,8 +84,9 @@ void read_from_file(char *filename, uint64_t offset, void *callback, void *data)
 	frinfo->filename = filename;
 	open_req->data = frinfo;
 
-	char *base = malloc(1000000);
-	frinfo->buffer = uv_buf_init(base, 1000000);
+	char *base = malloc(MAX_FILE_SIZE);
+	*base = 0;
+	frinfo->buffer = uv_buf_init(base, MAX_FILE_SIZE-1);
 
 	if (ac->log_level > 2)
 		printf("read_from_file: trying to file open '%s'\n", filename);

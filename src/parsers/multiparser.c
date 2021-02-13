@@ -3,6 +3,7 @@
 #include "main.h"
 #include "parsers/http_proto.h"
 #include "common/selector.h"
+#include "common/http.h"
 
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
@@ -199,7 +200,7 @@ void tcp_parser_push()
 
 	actx->key = strdup("tcp");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;
@@ -211,10 +212,21 @@ void tcp_parser_push()
 
 string* blackbox_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	if (hi->query)
+	//if (hi->query)
+	//	return string_init_alloc(hi->query, 0);
+	//else
+	//	return NULL;
+
+	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
+		return string_init_add(gen_http_query(0, hi->query, "", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
+	else if (hi->query)
 		return string_init_alloc(hi->query, 0);
 	else
 		return NULL;
+}
+
+void blackbox_null(char *metrics, size_t size, context_arg *carg)
+{
 }
 
 void blackbox_parser_push()
@@ -225,10 +237,28 @@ void blackbox_parser_push()
 	actx->handlers = 1;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
-	actx->handler[0].name = NULL;
+	actx->handler[0].name = blackbox_null;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = blackbox_mesg;
+	actx->handler[0].headers_pass = 0;
 	strlcpy(actx->handler[0].key,"blackbox", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void http_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("http");
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = blackbox_null;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = blackbox_mesg;
+	actx->handler[0].headers_pass = 0;
+	strlcpy(actx->handler[0].key,"http", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

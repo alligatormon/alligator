@@ -203,7 +203,7 @@ void haproxy_parser_push()
 
 	actx->key = strdup("haproxy");
 	actx->handlers = 4;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = haproxy_stat_handler;
 	actx->handler[0].validator = haproxy_validator;

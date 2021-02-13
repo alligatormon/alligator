@@ -467,10 +467,12 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 			json_t *aggregate_name = json_string(strdup(name));
 			json_t *aggregate_add_label = json_object();
 			json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
+			json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
 			json_array_object_insert(aggregate_arr, "", aggregate_obj);
 			json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
 			json_array_object_insert(aggregate_obj, "url", aggregate_url);
 			json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
+			json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
 			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
 			const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 			http_api_v1(NULL, NULL, dvalue);

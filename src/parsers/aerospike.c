@@ -226,7 +226,7 @@ void aerospike_parser_push()
 	actx->key = strdup("aerospike");
 	actx->data = ad;
 	actx->handlers = 3;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = aerospike_namespace_list_handler;
 	actx->handler[0].validator = aerospike_validator;

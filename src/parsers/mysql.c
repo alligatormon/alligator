@@ -1,6 +1,15 @@
 #include "parsers/mysql.h"
 #include "query/query.h"
 #include "main.h"
+#define MY_TYPE_MYSQL 0
+#define MY_TYPE_SPHINXSEARCH 1
+
+typedef struct my_data {
+	MYSQL *con;
+	int type;
+} my_data;
+
+void mysql_run(void* arg);
 
 my_library* mysql_module_init()
 {
@@ -113,7 +122,7 @@ int mysql_load_module()
 	return 1;
 }
 
-void mysql_print_result(MYSQL *con)
+void mysql_print_result(context_arg *carg, MYSQL *con, query_node *qn)
 {
 	MYSQL_RES *result = ac->mylib->mysql_store_result(con);
 	if (!result)
@@ -137,10 +146,266 @@ void mysql_print_result(MYSQL *con)
 	ac->mylib->mysql_free_result(result);
 }
 
+void mysql_execution(context_arg *carg, MYSQL *con, query_node *qn)
+{
+	MYSQL_RES *result = ac->mylib->mysql_store_result(con);
+	if (!result)
+	{
+		if (carg->log_level > 1)
+			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		return;
+	}
+
+	unsigned int num_fields = ac->mylib->mysql_num_fields(result);
+
+	MYSQL_ROW row;
+	while ((row = ac->mylib->mysql_fetch_row(result)))
+	{
+		tommy_hashdyn *hash = malloc(sizeof(*hash));
+		tommy_hashdyn_init(hash);
+
+		if (carg->ns)
+			labels_hash_insert_nocache(hash, "dbname", carg->ns);
+
+		for (unsigned int i = 0; i < num_fields; i++)
+		{
+			MYSQL_FIELD *field = ac->mylib->mysql_fetch_field_direct(result, i);
+			char *colname = field->name;
+			char *res = row[i];
+			if (!res)
+				continue;
+
+			if (field->type == 244) // BOOL
+			{
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tbool value '%s'\n", res);
+					if (!strncmp(res, "t", 0))
+						qf->i = 1;
+					else
+						qf->i = 0;
+
+					qf->type = DATATYPE_INT;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+			}
+			else if (field->type == MYSQL_TYPE_FLOAT || field->type == MYSQL_TYPE_DOUBLE)
+			{
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tfloat value '%s'\n", res);
+					qf->d = strtod(res, NULL);
+
+					qf->type = DATATYPE_DOUBLE;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+			}
+			//else if (field->type == MYSQL_TYPE_LONG || field->type == MYSQL_TYPE_SHORT || field->type == MYSQL_TYPE_DECIMAL || field->type == MYSQL_TYPE_TINY || field->type == MYSQL_TYPE_INT24 || field->type == MYSQL_TYPE_LONGLONG)
+			else
+			{
+				query_field *qf = query_field_get(qn->qf_hash, colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", res);
+					qf->i = strtoll(res, NULL, 10);
+					qf->type = DATATYPE_INT;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", colname, res);
+					labels_hash_insert_nocache(hash, colname, res);
+				}
+
+			}
+			//if (field->type == MYSQL_TYPE_VARCHAR || field->type == MYSQL_TYPE_STRING || field->type == MYSQL_TYPE_VAR_STRING)
+		}
+
+		qn->labels = hash;
+		qn->carg = carg;
+		query_set_values(qn);
+		labels_hash_free(hash);
+	}
+	ac->mylib->mysql_free_result(result);
+}
+
+void sphinxsearch_callback(context_arg *carg, MYSQL *con, query_node *qn)
+{
+	MYSQL_RES *result = ac->mylib->mysql_store_result(con);
+	if (!result)
+	{
+		if (carg->log_level > 1)
+			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		return;
+	}
+
+	unsigned int num_fields = ac->mylib->mysql_num_fields(result);
+
+	char *qtype = (char*)qn;
+	char mname[255];
+	MYSQL_ROW row;
+	while ((row = ac->mylib->mysql_fetch_row(result)))
+	{
+		if (!strcmp(qtype, "status") || !strcmp(qtype, "variables") || !strcmp(qtype, "plan"))
+		{
+			char *Counter = row[0];
+			char *Value = row[1];
+			snprintf(mname, 254, "sphinxsearch_%s_%s", qtype, Counter);
+			if (isdigit(*Value))
+			{
+				if (strstr(Value, "."))
+				{
+					double val = strtod(Value, NULL);
+					metric_add_auto(mname, &val, DATATYPE_DOUBLE, carg);
+				}
+				else
+				{
+					int64_t val = strtoll(Value, NULL, 10);
+					metric_add_auto(mname, &val, DATATYPE_INT, carg);
+				}
+			}
+		}
+		else
+		{
+			char status[255];
+			char ConnID[255];
+			char Host[255];
+			char Tid[255];
+			char Name[255];
+			char Proto[255];
+			char State[255];
+			char Info[255];
+			char Inidle[255];
+			*status = 0;
+			*ConnID = 0;
+			*Host = 0;
+			*Tid = 0;
+			*Name = 0;
+			*Proto = 0;
+			*State = 0;
+			*Info = 0;
+			*Inidle = 0;
+			for (unsigned int i = 0; i < num_fields; i++)
+			{
+				MYSQL_FIELD *field = ac->mylib->mysql_fetch_field_direct(result, i);
+				char *colname = field->name;
+				char *res = row[i];
+				if (!res)
+					continue;
+
+				if (!strcmp(colname, "Status"))
+					strlcpy(status, res, strlen(res)+1);
+				else if (!strcmp(colname, "ConnID"))
+					strlcpy(ConnID, res, strlen(res)+1);
+				else if (!strcmp(colname, "Host"))
+					strlcpy(Host, res, strlen(res)+1);
+				else if (!strcmp(colname, "Tid"))
+					strlcpy(Tid, res, strlen(res)+1);
+				else if (!strcmp(colname, "Name"))
+					strlcpy(Name, res, strlen(res)+1);
+				else if (!strcmp(colname, "Proto"))
+					strlcpy(Proto, res, strlen(res)+1);
+				else if (!strcmp(colname, "State"))
+					strlcpy(State, res, strlen(res)+1);
+				else if (!strcmp(colname, "Info"))
+					strlcpy(Info, res, strlen(res)+1);
+				else if (!strcmp(colname, "In idle"))
+					strlcpy(Inidle, res, strlen(res)+1);
+				else if (!strncmp(colname, "Work time", 9)) {}
+				else
+				{
+					if (isdigit(*res))
+					{
+						tommy_hashdyn *hash = malloc(sizeof(*hash));
+						tommy_hashdyn_init(hash);
+						if (*status)
+							labels_hash_insert_nocache(hash, "status", status);
+						if (*ConnID)
+							labels_hash_insert_nocache(hash, "ConnID", ConnID);
+						if (*Host)
+							labels_hash_insert_nocache(hash, "Host", Host);
+						if (*Tid)
+							labels_hash_insert_nocache(hash, "Tid", Tid);
+						if (*Name)
+							labels_hash_insert_nocache(hash, "Name", Name);
+						if (*Proto)
+							labels_hash_insert_nocache(hash, "Proto", Proto);
+						if (*State)
+							labels_hash_insert_nocache(hash, "State", State);
+						if (*Info)
+							labels_hash_insert_nocache(hash, "Info", Info);
+						if (*Inidle)
+							labels_hash_insert_nocache(hash, "InIdle", Inidle);
+
+						snprintf(mname, 254, "sphinxsearch_%s_%s", qtype, colname);
+						if (carg->log_level > 1)
+							printf("'%s' (%s): '%s'\n", colname, mname, res);
+						metric_name_normalizer(mname, strlen(mname));
+						if (strstr(res, "."))
+						{
+							double val = strtod(res, NULL);
+							metric_add(mname, hash, &val, DATATYPE_DOUBLE, carg);
+						}
+						else if (strstr(res, "ms"))
+						{
+							double val = strtod(res, NULL) / 1000;
+							metric_add(mname, hash, &val, DATATYPE_DOUBLE, carg);
+						}
+						else if (strstr(res, "us"))
+						{
+							double val = strtod(res, NULL) / 1000000;
+							metric_add(mname, hash, &val, DATATYPE_DOUBLE, carg);
+						}
+						else
+						{
+							int64_t val = strtoll(res, NULL, 10);
+							metric_add(mname, hash, &val, DATATYPE_INT, carg);
+						}
+					}
+					else
+					{
+						snprintf(mname, 254, "sphinxsearch_%s_%s", qtype, colname);
+						printf("'%s' (%s): '%s'\n", colname, mname, res);
+					}
+				}
+			}
+		}
+	}
+	ac->mylib->mysql_free_result(result);
+}
+
+void mysql_alligator_query(context_arg *carg, MYSQL *con, char *query, query_node *qn, void callback(context_arg*, MYSQL*, query_node *qn))
+{
+	if (ac->mylib->mysql_query(con, query)) 
+	{
+		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		ac->mylib->mysql_close(con);
+		return;
+	}
+
+	callback(carg, con, qn);
+}
+
 void mysql_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
-	MYSQL *con = carg->data;
+	my_data *data = carg->data;
+	MYSQL *con = data->con;
 	query_node *qn = arg;
 	if (carg->log_level > 1)
 	{
@@ -148,24 +413,106 @@ void mysql_queries_foreach(void *funcarg, void* arg)
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
 
-	if (ac->mylib->mysql_query(con, qn->expr)) 
+	mysql_alligator_query(carg, con, qn->expr, qn, mysql_execution);
+}
+
+void mysql_get_databases(MYSQL *con, context_arg *carg)
+{
+	if (ac->mylib->mysql_query(con, "SHOW DATABASES"))
 	{
 		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
 		ac->mylib->mysql_close(con);
 		return;
 	}
 
-	mysql_print_result(con);
+	context_arg *db_carg = malloc(sizeof(*db_carg));
+	size_t url_len = strlen(carg->url) + 1024;
+	char *url = malloc(url_len);
+	size_t name_len = strlen(carg->name) + 1024;
+	char *name = malloc(name_len);
+	char *ns = malloc(1024);
+
+	memcpy(db_carg, carg, sizeof(*db_carg));
+	db_carg->url = url;
+	db_carg->name = name;
+	db_carg->ns = ns;
+	db_carg->data_lock = 1;
+
+	int wildcard = 0;
+	snprintf(name, name_len - 1, "%s/*", carg->name);
+	if (query_get(name))
+		wildcard = 1;
+
+
+
+	MYSQL_RES *result = ac->mylib->mysql_store_result(con);
+	if (!result)
+	{
+		if (carg->log_level > 1)
+			fprintf(stderr, "command get databases failed: %s\n", ac->mylib->mysql_error(con));
+		return;
+	}
+
+	unsigned int num_fields = ac->mylib->mysql_num_fields(result);
+
+	MYSQL_ROW row;
+	while ((row = ac->mylib->mysql_fetch_row(result)))
+	{
+		for (unsigned int i = 0; i < num_fields; i++)
+		{
+			//MYSQL_FIELD *field = ac->mylib->mysql_fetch_field_direct(result, i);
+
+			char *resp = row[i];
+			snprintf(db_carg->url, url_len - 1, "%s/%s", carg->url, resp);
+			strlcpy(db_carg->ns, resp, 1024);
+
+			snprintf(db_carg->name, name_len - 1, "%s/*", carg->name);
+			if (wildcard)
+			{
+				if (carg->log_level > 1)
+					printf("run wildcard queries\n");
+				mysql_run(db_carg);
+			}
+
+			snprintf(db_carg->name, name_len - 1, "%s/%s", carg->name, resp);
+			if (query_get(db_carg->name))
+			{
+				if (query_get(db_carg->name))
+				{
+					if (carg->log_level > 1)
+						printf("exec queries database '%s'\n", resp);
+
+					mysql_run(db_carg);
+				}
+			}
+		}
+	}
+
+	ac->mylib->mysql_free_result(result);
+
+	free(db_carg);
+	free(ns);
+	free(url);
+	free(name);
+}
+
+void sphinxsearch_queries(context_arg *carg)
+{
+	my_data *data = carg->data;
+	MYSQL *con = data->con;
+	mysql_alligator_query(carg, con, "SHOW VARIABLES", (query_node *)"variables", sphinxsearch_callback);
+	mysql_alligator_query(carg, con, "SHOW STATUS", (query_node *)"status", sphinxsearch_callback);
+	mysql_alligator_query(carg, con, "SHOW PLAN", (query_node *)"plan", sphinxsearch_callback);
+	mysql_alligator_query(carg, con, "SHOW PROFILE", (query_node *)"profile", sphinxsearch_callback);
+	mysql_alligator_query(carg, con, "SHOW THREADS", (query_node *)"threads", sphinxsearch_callback);
 }
 
 void mysql_run(void* arg)
 {
-	puts("mysql_run");
 	if (!mysql_load_module())
 		return;
 
 	MYSQL *con = ac->mylib->mysql_init(NULL);
-	
 	if (con == NULL) 
 	{
 		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
@@ -173,34 +520,36 @@ void mysql_run(void* arg)
 	}
 	
 	context_arg *carg = arg;
-	printf("url: %s\n", carg->url);
-	//if (ac->mylib->mysql_real_connect(con, "localhost", "root", "root_pswd", NULL, 0, NULL, 0) == NULL) 
-	if (ac->mylib->mysql_real_connect(con, carg->host, carg->user, carg->password, NULL, strtoull(carg->port, NULL, 10), NULL, 0) == NULL) 
+	my_data *data = carg->data;
+	data->con = con;
+	if (ac->mylib->mysql_real_connect(con, carg->host, carg->user, carg->password, carg->ns ? carg->ns : NULL, strtoull(carg->port, NULL, 10), NULL, 0) == NULL) 
 	{
 		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
 		ac->mylib->mysql_close(con);
 		return;
 	}  
-	
-	if (ac->mylib->mysql_query(con, "SELECT table_schema \"DB Name\", ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) \"DB Size in MB\" FROM information_schema.tables GROUP BY table_schema;")) 
+
+	if (data->type == MY_TYPE_MYSQL)
 	{
-		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
-		ac->mylib->mysql_close(con);
-		return;
+		if (carg->name)
+		{
+			query_ds *qds = query_get(carg->name);
+			if (carg->log_level > 1)
+				printf("found queries for datasource: %s: %p\n", carg->name, qds);
+			if (qds)
+			{
+				//carg->data = con;
+				tommy_hashdyn_foreach_arg(qds->hash, mysql_queries_foreach, carg);
+			}
+		}
+
+		if (!carg->data_lock)
+			mysql_get_databases(con, carg);
 	}
 
-	mysql_print_result(con);
-
-	if (carg->name)
+	if (data->type == MY_TYPE_SPHINXSEARCH)
 	{
-		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
-		if (qds)
-		{
-			carg->data = con;
-			tommy_hashdyn_foreach_arg(qds->hash, mysql_queries_foreach, carg);
-		}
+		sphinxsearch_queries(carg);
 	}
 
 	ac->mylib->mysql_close(con);
@@ -263,13 +612,35 @@ void mysql_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("mysql");
+	actx->data = calloc(1, sizeof(my_data));
+	my_data *data = actx->data;
+	data->type = MY_TYPE_MYSQL;
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key, "mysql", 255);
+
+	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void sphinxsearch_parser_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("sphinxsearch");
+	actx->data = calloc(1, sizeof(my_data));
+	my_data *data = actx->data;
+	data->type = MY_TYPE_SPHINXSEARCH;
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+
+	actx->handler[0].name = NULL;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = NULL;
+	strlcpy(actx->handler[0].key, "sphinxsearch", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

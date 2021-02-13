@@ -50,7 +50,7 @@ void eventstore_parser_push()
 
 	actx->key = strdup("eventstore");
 	actx->handlers = 3;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = eventstore_stats_handler;
 	actx->handler[0].validator = NULL;

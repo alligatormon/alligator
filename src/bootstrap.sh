@@ -145,10 +145,12 @@ cd ../../
 pip3 install statsd
 if [ $TEST == "true" ]
 then
-	yum -y install elasticsearch monit syslog-ng rsyslog unbound varnish nginx rabbitmq-server haproxy gearmand uwsgi redis beanstalkd openssl11-libs openssl11-devel openssl11-static openssl11 rabbitmq-server clickhouse-server zookeeper gearmand python3 python3-pip ragel-devel userspace-rcu-devel libsodium-devel nginx varnish uwsgi-plugin-python36 squid lighttpd httpd24u syslog-ng hadoop-hdfs xinetd tftp-server
+	yum -y install elasticsearch monit syslog-ng rsyslog unbound varnish nginx rabbitmq-server haproxy gearmand uwsgi redis beanstalkd openssl11-libs openssl11-devel openssl11-static openssl11 rabbitmq-server clickhouse-server zookeeper gearmand python3 python3-pip ragel-devel userspace-rcu-devel libsodium-devel nginx varnish uwsgi-plugin-python36 squid lighttpd httpd24u syslog-ng hadoop-hdfs xinetd tftp-server manticore
 	rpm -i external/couchbase-server-community-6.5.1-centos7.x86_64.rpm
 	pip3 install https://github.com/mher/flower/zipball/master
 	pip3 install Celery==4.4.0
+
+	yum -y install https://github.com/sysown/proxysql/releases/download/v2.0.16/proxysql-2.0.16-1-centos7.x86_64.rpm
 
 	cd external
 	git clone https://github.com/gdnsd/gdnsd.git

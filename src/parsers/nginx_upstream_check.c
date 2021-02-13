@@ -241,7 +241,7 @@ void nginx_upstream_check_parser_push()
 
 	actx->key = strdup("nginx_upstream_check");
 	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = nginx_upstream_check_handler;
 	actx->handler[0].validator = NULL;

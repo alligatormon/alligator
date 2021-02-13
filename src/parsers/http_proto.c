@@ -6,6 +6,7 @@
 #include "parsers/http_proto.h"
 #include "common/http.h"
 #include "events/context_arg.h"
+#include "metric/labels.h"
 #include "main.h"
 
 void http_reply_free(http_reply_data* hrdata)
@@ -13,6 +14,10 @@ void http_reply_free(http_reply_data* hrdata)
 	free(hrdata->mesg);
 	free(hrdata->headers);
 	string_free(hrdata->clear_http);
+
+	if (hrdata->location)
+		free(hrdata->location);
+
 	free(hrdata);
 }
 
@@ -45,7 +50,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		cur++;
 
 	http_code = atoi(cur);
-	if (!http_code || http_code > 504)
+	if (!http_code || http_code > 599)
 	{
 		if (ac->log_level > 3)
 			printf("2DO NOT HTTP RESPONSE: %s\n", http);
@@ -78,12 +83,17 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 			tmp = http + n - 4;
 		}
 	}
+
+	// check a negative number
+	if (cur > tmp)
+		return NULL;
 	size_t headers_len = tmp - cur;
 	headers = strndup(cur, headers_len);
 
 	http_reply_data *hrdata = malloc(sizeof(*hrdata));
 	hrdata->content_length = 0;
 	hrdata->chunked_size = 0;
+	hrdata->location = NULL;
 	hrdata->chunked_expect = 0;
 	int64_t i;
 	for (i=0; i<headers_len; ++i)
@@ -96,6 +106,14 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		{	
 			if (strstr(headers+i+18, "chunked"))
 				hrdata->chunked_expect = 1;
+		}
+		else if((http_code == 301 || http_code == 302 || http_code == 307 || http_code == 308) && !strncasecmp(headers+i, "Location:", 9))
+		{
+			char *loc_start = headers+i+9 + strcspn(headers+i+9, " ");
+			loc_start += strspn(loc_start, " ");
+			uint64_t location_size = strcspn(loc_start, "\r\n");
+			hrdata->location = strndup(loc_start, location_size);
+			//printf("location '%s'\n", hrdata->location);
 		}
 	}
 
@@ -157,9 +175,8 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	return hrdata;
 }
 
-void http_proto_handler(char *metrics, size_t size, context_arg *carg)
+void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 {
-	http_reply_data *hrdata = http_reply_parser(metrics, size);
 	if (!hrdata)
 		return;
 
@@ -168,24 +185,13 @@ void http_proto_handler(char *metrics, size_t size, context_arg *carg)
 
 	char code[7];
 	snprintf(code, 6, "%"PRId16, hrdata->http_code);
+	uint64_t http_code = hrdata->http_code;
 
 	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "destination", carg->host, "port", carg->port);
 	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
 	metric_add_labels2("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
-	http_reply_free(hrdata);
-}
-
-char* http_proto_proxer(char *metrics, size_t size, char *instance)
-{
-	http_reply_data *hrdata = http_reply_parser(metrics, size);
-	// not http answer
-	if (!hrdata)
-		return metrics;
-
-	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%s'\nbody='%s'\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body);
-	char *body = hrdata->body;
-	http_reply_free(hrdata);
-	return body;
+	metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_aggregator_http_header_size", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 }
 
 void http_get_auth_data(http_reply_data *hr_data)
@@ -213,6 +219,67 @@ void http_get_auth_data(http_reply_data *hr_data)
 			hr_data->auth_bearer = strndup(ptr, size);
 			//printf("http auth bearer '%s'\n", hr_data->auth_bearer);
 		}
+	}
+}
+
+void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
+{
+	if (ac->log_level > 2)
+		printf("http_follow_redirect: %s\n", hrdata->location);
+	if (!hrdata)
+		return;
+
+	if (!carg->follow_redirects)
+		return;
+
+	if (hrdata->http_code == 301 || hrdata->http_code == 302 || hrdata->http_code == 307 || hrdata->http_code == 308)
+	{
+		if (!hrdata->location)
+			return;
+
+		char *location = NULL;
+		if (*hrdata->location == '/')
+		{
+			char *tmp = strstr(carg->url, "://");
+			tmp += strspn(tmp, "/");
+			tmp += strcspn(tmp, "/");
+			size_t url_len = tmp - carg->url;
+			size_t location_len = url_len + strlen(hrdata->location + 1);
+			location = malloc(location_len);
+			strlcpy(location, url_len + 1);
+			strlcpy(location + url_len, location, location_len - url_len);
+		}
+		else
+		{
+			location = strdup(hrdata->location);
+		}
+		if (ac->log_level > 2)
+			printf("location is %s\n", location);
+
+		json_t *aggregate_root = json_object();
+		json_t *aggregate_arr = json_array();
+		json_t *aggregate_obj = json_object();
+		json_t *aggregate_handler = json_string(strdup(carg->parser_name));
+		json_t *aggregate_url = json_string(location);
+		json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
+		json_t *aggregate_timeout = json_integer(carg->timeout);
+		json_t *aggregate_log_level = json_integer(carg->log_level);
+		json_t *aggregate_add_label = labels_to_json(carg->labels);
+		json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
+		json_array_object_insert(aggregate_arr, "", aggregate_obj);
+		json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
+
+		json_array_object_insert(aggregate_obj, "url", aggregate_url);
+		json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
+		json_array_object_insert(aggregate_obj, "timeout", aggregate_timeout);
+		json_array_object_insert(aggregate_obj, "log_level", aggregate_log_level);
+		json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
+
+		const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+		if (carg->log_level > 1)
+			puts(dvalue);
+		http_api_v1(NULL, NULL, dvalue);
+		json_decref(aggregate_root);
 	}
 }
 
@@ -344,25 +411,25 @@ void http_reply_data_free(http_reply_data* http)
 	free(http);
 }
 
-
-string* http_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
-{
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
-}
-
-void http_parser_push()
-{
-	aggregate_context *actx = calloc(1, sizeof(*actx));
-
-	actx->key = strdup("http");
-	actx->handlers = 1;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
-
-	actx->handler[0].name = http_proto_handler;
-	actx->handler[0].validator = NULL;
-	actx->handler[0].mesg_func = http_mesg;
-	actx->handler[0].headers_pass = 1;
-	strlcpy(actx->handler[0].key,"http", 255);
-
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
-}
+//
+//string* http_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+//{
+//	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
+//}
+//
+//void http_parser_push()
+//{
+//	aggregate_context *actx = calloc(1, sizeof(*actx));
+//
+//	actx->key = strdup("http");
+//	actx->handlers = 1;
+//	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+//
+//	actx->handler[0].name = blackbox_null;
+//	actx->handler[0].validator = NULL;
+//	actx->handler[0].mesg_func = http_mesg;
+//	actx->handler[0].headers_pass = 1;
+//	strlcpy(actx->handler[0].key,"http", 255);
+//
+//	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+//}

@@ -581,7 +581,7 @@ void elasticsearch_parser_push()
 	actx->key = strdup("elasticsearch");
 	actx->handlers = 5;
 	actx->data = data;
-	actx->handler = malloc(sizeof(*actx->handler)*actx->handlers);
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = elasticsearch_nodes_handler;
 	actx->handler[0].validator = NULL;
