@@ -157,7 +157,7 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 
-		char *annotation_key;
+		const char *annotation_key;
 		json_t *annotation_value;
 		json_object_foreach(annotations, annotation_key, annotation_value)
 		{
@@ -168,7 +168,7 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 			char metric_port_name[255];
 			char type[255];
 
-			char *ptr = annotation_key+10;
+			char *ptr = (char*)annotation_key+10;
 			uint64_t metric_port_size = strcspn(ptr, "-");
 			// alligator/<name>-(handler|proto|path)
 			strlcpy(metric_port_name, ptr, metric_port_size+1);
