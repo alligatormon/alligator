@@ -202,6 +202,7 @@ set(RPM_FILES common/rpm-common.c)
 ENDIF(${distro} MATCHES "centos")
 add_library(${COMMON} STATIC ${STATIC_FILES} ${RPM_FILES})
 add_executable(${HEAD} main.c)
+configure_file(alligator_template.h ${CMAKE_SOURCE_DIR}/alligator_version.h)
 
 add_library(${COMMON_TESTS} STATIC
 	common/selector.c
@@ -242,7 +243,6 @@ target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
 add_test(Test1 "cutter" ".")
 ENDIF(${distro}.${disversion} MATCHES "centos.7")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
-add_custom_command(TARGET ${TESTS} PRE_BUILD COMMAND sed -e 's/TEMPLATE_VERSION/${VERSION}/' alligator_template.h > alligator_version.h)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
 
