@@ -10,8 +10,11 @@ export DEBIAN_FRONTEND=noninteractive
 apt install -y g++ gcc  libudev-dev
 apt install -y cmake
 apt install -y libuv1-dev
+apt install -y automake
+apt install -y autoconf
+apt install -y libtool
 ln -s /usr/bin/make /usr/bin/gmake
-apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool valgrind netcat
+apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin valgrind netcat
 apt -y install libiptc-dev
 apt -y install git
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
