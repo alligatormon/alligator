@@ -33,7 +33,11 @@ int mount_ns_by_cgroup_procs(char *dirpath, char *name)
 	if (!fd)
 		return 0;
 
-	fgets(buf, 1000, fd);
+	if (!fgets(buf, 1000, fd))
+	{
+		fclose(fd);
+		return 0;
+	}
 	buf[strlen(buf)-1] = 0;
 	fclose(fd);
 

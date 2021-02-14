@@ -335,9 +335,11 @@ void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, ch
 		snprintf(buf, PATH_SIZE, "/sys/fs/cgroup/blkio/%s/%s/blkio.throttle.%s", prefix, cntid, stat);
 	else
 	{
-		fgets(readbuf, PATH_SIZE, fd);
-		if (!strncmp(readbuf, "Total 0", 7))
-			snprintf(buf, PATH_SIZE, "/sys/fs/cgroup/blkio/%s/%s/blkio.throttle.%s", prefix, cntid, stat);
+		if(fgets(readbuf, PATH_SIZE, fd))
+		{
+			if (!strncmp(readbuf, "Total 0", 7))
+				snprintf(buf, PATH_SIZE, "/sys/fs/cgroup/blkio/%s/%s/blkio.throttle.%s", prefix, cntid, stat);
+		}
 		fclose(fd);
 	}
 	// end

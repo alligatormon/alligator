@@ -2551,8 +2551,16 @@ void get_smart_info()
 	char dev[255];
 	strlcpy(dev, "/dev/", 6);
 	uint64_t cur;
-	fgets(buf, 1000, fd);
-	fgets(buf, 1000, fd);
+	if (!fgets(buf, 1000, fd))
+	{
+		fclose(fd);
+		return;
+	}
+	if (!fgets(buf, 1000, fd))
+	{
+		fclose(fd);
+		return;
+	}
 	while (fgets(buf, 1000, fd))
 	{
 		cur = strcspn(buf, " ");

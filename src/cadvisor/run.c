@@ -49,7 +49,12 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 
 	size_t file_size = get_file_size(path);
 	char *buf = malloc(file_size+1);
-	fread(buf, file_size, 1, fd);
+	if (!fread(buf, file_size, 1, fd))
+	{
+		free(buf);
+		fclose(fd);
+		return NULL;
+	}
 	buf[file_size] = 0;
 
 	json_error_t error;
@@ -121,7 +126,11 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 void podman_parse(FILE *fd, size_t fd_size, char *fname)
 {
 	char *buf = malloc(fd_size+1);
-	fread(buf, fd_size, 1, fd);
+	if (!fread(buf, fd_size, 1, fd))
+	{
+		free(buf);
+		return;
+	}
 	buf[fd_size] = 0;
 	//printf("fd_size %zu:\n'%s'\n", fd_size, buf);
 

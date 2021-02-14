@@ -50,8 +50,10 @@ char *read_file(char *name)
 	if (!fd)
 		return 0;
 
-	fread(pem_cert, 1, 2048, fd);
+	size_t rc = fread(pem_cert, 1, 2048, fd);
 	fclose(fd);
+	if (!rc)
+		return NULL;
 
 	return pem_cert;
 }
