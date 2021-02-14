@@ -7,7 +7,9 @@ mkdir external
 apt || ln -s /usr/bin/apt-get  /usr/bin/apt
 apt update
 export DEBIAN_FRONTEND=noninteractive
-apt install -y cmake g++ gcc libuv1-dev libudev-dev
+apt install -y g++ gcc  libudev-dev
+apt install -y cmake
+apt install -y libuv1-dev
 ln -s /usr/bin/make /usr/bin/gmake
 apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool valgrind netcat
 apt -y install libiptc-dev
