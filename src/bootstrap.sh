@@ -8,7 +8,8 @@ apt update
 export DEBIAN_FRONTEND=noninteractive
 apt install -y cmake g++ gcc libuv1-dev libudev-dev
 ln -s /usr/bin/make /usr/bin/gmake
-apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libiptc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool git valgrind netcat
+apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev autoconf libatasmart4 libjemalloc-dev libtool libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin libtool git valgrind netcat
+apt -y install libiptc-dev
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
 
