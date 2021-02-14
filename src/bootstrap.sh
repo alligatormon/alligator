@@ -47,6 +47,14 @@ if [ $? -eq 0 ]; then
 		apt-get update
 		apt install -y openjdk-11-jdk
 	fi
+        if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -le 14 ]; then
+		apt -y install software-properties-common
+		add-apt-repository -y ppa:george-edison55/cmake-3.x
+		apt-get update
+		apt install -y cmake
+		apt install -y make
+		#curl -sSL https://cmake.org/files/v3.5/cmake-3.5.2-Linux-x86_64.tar.gz | sudo tar -xzC /opt
+	fi
 fi
 
 echo $NAME | grep "CentOS Linux"
