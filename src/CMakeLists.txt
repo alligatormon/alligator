@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.2)
 
 set(VERSION 1.10.197)
 project(alligator VERSION ${VERSION})
