@@ -12,9 +12,13 @@ apt install -y cmake
 apt install -y libuv1-dev
 apt install -y automake
 apt install -y autoconf
+apt install -y wget
 apt install -y libtool
+apt install -y libnftnl-dev
+apt install -y libmongoc-dev
+apt install -y libbson-dev
 ln -s /usr/bin/make /usr/bin/gmake
-apt install -y libpcre3-dev python3 libbson-dev libmongoc-dev libpq-dev m4 wget curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev libnftnl-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin valgrind netcat
+apt install -y libpcre3-dev python3 libpq-dev m4 curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin valgrind netcat
 apt -y install libiptc-dev
 apt -y install git
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
