@@ -36,7 +36,7 @@ build_ubuntu1204:
   stage: tests
   script:
   - cd src
-  - sh bootstrap.sh
+  - sh -x bootstrap.sh
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j
 
