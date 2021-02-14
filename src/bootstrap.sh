@@ -4,6 +4,7 @@ TEST=false
 [ ! -z "$1" ] && TEST=$1
 mkdir external
 
+apt || ln -s /usr/bin/apt-get  /usr/bin/apt
 apt update
 export DEBIAN_FRONTEND=noninteractive
 apt install -y cmake g++ gcc libuv1-dev libudev-dev
