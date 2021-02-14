@@ -39,6 +39,12 @@ if [ $? -eq 0 ]; then
 		cp ../misc/libpcre.a /usr/lib
 		cp ../misc/libbson-static-1.0.a /usr/lib
 	fi
+        if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -le 16 ]; then
+		apt -y install software-properties-common
+		add-apt-repository -y ppa:openjdk-r/ppa
+		apt-get update
+		apt install -y openjdk-11-jdk
+	fi
 fi
 
 echo $NAME | grep "CentOS Linux"
