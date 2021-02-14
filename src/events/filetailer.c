@@ -4,6 +4,9 @@
 #include <uv.h>
 #include "common/file_stat.h"
 #include "main.h"
+extern aconf* ac;
+void filetailer_on_read(uv_fs_t *req);
+void file_on_open(uv_fs_t *req);
 
 typedef struct file_handle {
 	uv_fs_t open;
@@ -14,13 +17,13 @@ typedef struct file_handle {
 	context_arg *carg;
 } file_handle;
 
-file_handle *file_handler_struct_init(context_arg *carg)
+file_handle *file_handler_struct_init(context_arg *carg, size_t size)
 {
 	file_handle *fh = calloc(1, sizeof(*fh));
 
-	unsigned int len = 65535;
+	unsigned int len = size+1;
 	char *base = malloc(len);
-	fh->buffer = uv_buf_init(base, len-1);
+	fh->buffer = uv_buf_init(base, len);
 
 	fh->carg = carg;
 	fh->open.data = fh;
@@ -36,9 +39,35 @@ void file_handler_struct_free(file_handle *fh)
 	free(fh);
 }
 
-extern aconf* ac;
-void filetailer_on_read(uv_fs_t *req);
-void file_on_open(uv_fs_t *req);
+void file_stat_size_cb(uv_fs_t *req)
+{
+	context_arg *carg = req->data;
+	file_handle *fh = file_handler_struct_init(carg, req->statbuf.st_size);
+	strlcpy(fh->pathname, req->path, 1024);
+
+	if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
+	{
+		if (ac->log_level > 2)
+			printf("crawl file pathname: %s\n", fh->pathname);
+
+		if (carg->file_stat)
+		{
+			uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+			req_stat->data = carg;
+			uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
+		}
+
+		if (carg->checksum || carg->parser_name || carg->calc_lines)
+		{
+			if (ac->log_level > 1)
+				printf("checksum open: %s in %s\n", carg->checksum, fh->pathname);
+			uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
+		}
+	}
+
+	uv_fs_req_cleanup(req);
+	free(req);
+}
 
 void directory_crawl(void *arg)
 {
@@ -78,33 +107,56 @@ void directory_crawl(void *arg)
 			if (dirents[i].type == UV_DIRENT_FILE)
 			{
 				++acc;
-				if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
-				{
-					file_handle *fh = file_handler_struct_init(carg);
-					snprintf(fh->pathname, 1023, "%s/%s", carg->path, dirents[i].name);
-					if (ac->log_level > 2)
-						printf("crawl file pathname: %s\n", fh->pathname);
+				uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+				req_stat->data = carg;
+				char *pathname = malloc(1024);
+				snprintf(pathname, 1023, "%s/%s", carg->path, dirents[i].name);
+				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
+				//if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
+				//{
+				//	file_handle *fh = file_handler_struct_init(carg, 65535);
+				//	snprintf(fh->pathname, 1023, "%s/%s", carg->path, dirents[i].name);
+				//	if (ac->log_level > 2)
+				//		printf("crawl file pathname: %s\n", fh->pathname);
 
-					if (carg->file_stat)
-					{
-						uv_fs_t* req_stat = malloc(sizeof(*req_stat));
-						req_stat->data = carg;
-						uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
-					}
+				//	if (carg->file_stat)
+				//	{
+				//		uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+				//		req_stat->data = carg;
+				//		uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
+				//	}
 
-					if (carg->checksum || carg->parser_name || carg->calc_lines)
-					{
-						if (ac->log_level > 1)
-							printf("checksum open: %s in %s\n", carg->checksum, fh->pathname);
-						uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
-					}
-				}
+				//	if (carg->checksum || carg->parser_name || carg->calc_lines)
+				//	{
+				//		if (ac->log_level > 1)
+				//			printf("checksum open: %s in %s\n", carg->checksum, fh->pathname);
+				//		uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
+				//	}
+				//}
 			}
 		}
 	}
 
 	uv_fs_closedir(NULL, &readdir_req, readdir_req.ptr, NULL);
 	metric_add_labels("files_in_directory", &acc, DATATYPE_UINT, carg, "path", carg->path);
+}
+
+void file_crawl(void *arg)
+{
+	context_arg *carg = arg;
+
+	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+	req_stat->data = carg;
+	uv_fs_stat(carg->loop, req_stat, carg->path, file_stat_size_cb);
+}
+
+void filetailer_directory_file_crawl(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->is_dir)
+		directory_crawl(arg);
+	else
+		file_crawl(arg);
 }
 
 void filetailer_close(uv_fs_t *req) {
@@ -215,7 +267,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 	if (ac->log_level > 1)
 		printf("Change detected in '%s'\n", carg->filename);
 
-	file_handle *fh = file_handler_struct_init(carg);
+	file_handle *fh = file_handler_struct_init(carg, 65535);
 	if (carg->is_dir)
 		snprintf(fh->pathname, 1023, "%s/%s", carg->path, carg->filename);
 	else
@@ -278,7 +330,7 @@ void filetailer_handler_del(context_arg *carg)
 
 void failtailer_crawl(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->file_aggregator, directory_crawl);
+	tommy_hashdyn_foreach(ac->file_aggregator, filetailer_directory_file_crawl);
 }
 
 void filetailer_crawl_handler()

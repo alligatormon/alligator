@@ -3,7 +3,8 @@
 #include "platform/platform.h"
 #include "dstructures/tommy.h"
 #include <uv.h>
-#include <jni.h>
+//#include <jni.h>
+#include "common/jni.h"
 #include "metric/labels.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"

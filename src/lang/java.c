@@ -1,5 +1,6 @@
 #include "main.h"
-#include <jni.h>
+//#include <jni.h>
+#include "common/jni.h"
 #include <string.h>
 #include <stdlib.h>
 #include "modules/modules.h"
