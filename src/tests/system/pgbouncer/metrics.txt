@@ -1,12 +1,12 @@
-pgbouncer_avg_query_count {database="pgbouncer"} 0
-pgbouncer_avg_query_time {database="pgbouncer"} 0
-pgbouncer_avg_recv {database="pgbouncer"} 0
-pgbouncer_avg_sent {database="pgbouncer"} 0
-pgbouncer_avg_wait_time {database="pgbouncer"} 0
-pgbouncer_avg_xact_count {database="pgbouncer"} 0
-pgbouncer_avg_xact_time {database="pgbouncer"} 0
-pgbouncer_current_connections {database="pgbouncer", name="pgbouncer", force_user="pgbouncer", pool_mode="statement"} 0
-pgbouncer_disabled {database="pgbouncer", name="pgbouncer", force_user="pgbouncer", pool_mode="statement"} 0
+pgbouncer_avg_query_count {database_server="pgbouncer"} 0
+pgbouncer_avg_query_time {database_server="pgbouncer"} 0
+pgbouncer_avg_recv {database_server="pgbouncer"} 0
+pgbouncer_avg_sent {database_server="pgbouncer"} 0
+pgbouncer_avg_wait_time {database_server="pgbouncer"} 0
+pgbouncer_avg_xact_count {database_server="pgbouncer"} 0
+pgbouncer_avg_xact_time {database_server="pgbouncer"} 0
+pgbouncer_current_connections {database_server="pgbouncer", name="pgbouncer", user="pgbouncer", pool_mode="statement"} 0
+pgbouncer_disabled {database_server="pgbouncer", name="pgbouncer", user="pgbouncer", pool_mode="statement"} 0
 pgbouncer_lists_items {name="databases"} 1
 pgbouncer_lists_items {name="dns_names"} 0
 pgbouncer_lists_items {name="dns_pending"} 0
@@ -19,17 +19,17 @@ pgbouncer_lists_items {name="pools"} 1
 pgbouncer_lists_items {name="used_clients"} 1
 pgbouncer_lists_items {name="used_servers"} 0
 pgbouncer_lists_items {name="users"}
-pgbouncer_max_connections {database="pgbouncer", name="pgbouncer", force_user="pgbouncer", pool_mode="statement"} 0
-pgbouncer_pool_cl_active {database="pgbouncer", user="pgbouncer"} 1
-pgbouncer_pool_cl_waiting {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_maxwait {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_maxwait_us {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_size {database="pgbouncer", name="pgbouncer", force_user="pgbouncer"} 2
-pgbouncer_pool_sv_active {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_sv_idle {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_sv_login {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_sv_tested {database="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_sv_used {database="pgbouncer", user="pgbouncer"} 0
+pgbouncer_max_connections {database_server="pgbouncer", name="pgbouncer", user="pgbouncer", pool_mode="statement"} 0
+pgbouncer_pool_cl_active {database_server="pgbouncer", user="pgbouncer"} 1
+pgbouncer_pool_cl_waiting {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_maxwait {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_maxwait_us {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_size {database_server="pgbouncer", name="pgbouncer", user="pgbouncer"} 2
+pgbouncer_pool_sv_active {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_sv_idle {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_sv_login {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_sv_tested {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_sv_used {database_server="pgbouncer", user="pgbouncer"} 0
 pgbouncer_mem_free {name="client_cache"}
 pgbouncer_mem_free {name="db_cache"}
 pgbouncer_mem_free {name="iobuf_cache"}
@@ -54,14 +54,14 @@ pgbouncer_mem_used {name="iobuf_cache"}
 pgbouncer_mem_used {name="pool_cache"}
 pgbouncer_mem_used {name="server_cache"}
 pgbouncer_mem_used {name="user_cache"}
-pgbouncer_paused {database="pgbouncer", name="pgbouncer", force_user="pgbouncer", pool_mode="statement"}
-pgbouncer_pool_size {database="pgbouncer", name="pgbouncer", force_user="pgbouncer"}
+pgbouncer_paused {database_server="pgbouncer", name="pgbouncer", user="pgbouncer", pool_mode="statement"}
+pgbouncer_pool_size {database_server="pgbouncer", name="pgbouncer", user="pgbouncer"}
 pgbouncer_port {name="pgbouncer"} 6432
-pgbouncer_reserve_pool {database="pgbouncer", name="pgbouncer", force_user="pgbouncer"}
-pgbouncer_total_query_count {database="pgbouncer"}
-pgbouncer_total_query_time {database="pgbouncer"}
-pgbouncer_total_received {database="pgbouncer"}
-pgbouncer_total_sent {database="pgbouncer"}
-pgbouncer_total_wait_time {database="pgbouncer"}
-pgbouncer_total_xact_count {database="pgbouncer"}
-pgbouncer_total_xact_time {database="pgbouncer"}
+pgbouncer_reserve_pool {database_server="pgbouncer", name="pgbouncer", user="pgbouncer"}
+pgbouncer_total_query_count {database_server="pgbouncer"}
+pgbouncer_total_query_time {database_server="pgbouncer"}
+pgbouncer_total_received {database_server="pgbouncer"}
+pgbouncer_total_sent {database_server="pgbouncer"}
+pgbouncer_total_wait_time {database_server="pgbouncer"}
+pgbouncer_total_xact_count {database_server="pgbouncer"}
+pgbouncer_total_xact_time {database_server="pgbouncer"}
