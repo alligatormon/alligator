@@ -31,24 +31,6 @@ build_centos8:
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
 
-build_ubuntu1204:
-  image: ubuntu:14.04
-  stage: tests
-  script:
-  - cd src
-  - sh -x bootstrap.sh
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j
-
-build_ubuntu1404:
-  image: ubuntu:14.04
-  stage: tests
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j
-
 build_ubuntu1604:
   image: ubuntu:16.04
   stage: tests
