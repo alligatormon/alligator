@@ -101,6 +101,7 @@ deploy_centos7:
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/$CI_COMMIT_TAG/publish
 
 deploy_centos8:
+  stage: build
   image: centos:8
   only:
   - tags
