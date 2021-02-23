@@ -63,12 +63,15 @@ sources_tarball:
   #only:
   #- tags
   script:
-  - export CI_COMMIT_TAG=1.10.4
+  - cd src
+  - sh bootstrap.sh
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j
+  - export CI_COMMIT_TAG=1.11.0
   - mkdir /tmp/alligator-$CI_COMMIT_TAG
   - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
 
   - cd /tmp/alligator-$CI_COMMIT_TAG/src
-  - git clone https://github.com/deleisha/evt-tls.git
 
   - cd /tmp
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator-$CI_COMMIT_TAG/
@@ -77,36 +80,13 @@ sources_tarball:
   - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/sources/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/sources/alligator/$CI_COMMIT_TAG/publish
 
-build_rpm:
+build_centos7:
   stage: build
   only:
   - tags
   script:
-  - yum -y install libuv-devel libuv-static systemd-devel systemd-lib pcre-static
-  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
-  - tar xfvz jansson-2.12.tar.gz
-  - cd jansson-2.12
-  - ./configure
-  - make -j
-  - make -j install
-  - cd -
   - cd src
-  - git clone https://github.com/deleisha/evt-tls.git
-  - git clone https://github.com/Rupan/libatasmart.git
-  - cd libatasmart
-  - ./autogen.sh
-  - ./configure --enable-static
-  - make -j
-  - make -j install
-  - cd ..
-  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
-  - tar xfvz openssl-1.0.2s.tar.gz
-  - cd openssl-1.0.2s
-  - ./config
-  - make -j
-  - make -j install
-  - cd ..
-
+  - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
@@ -120,43 +100,66 @@ build_rpm:
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/rpm/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/$CI_COMMIT_TAG/publish
 
-build_deb:
-  image: ubuntu
+build_centos8:
+  image: centos:8
+  only:
+  - tags
+  script:
+  - cd src
+  - sh bootstrap.sh
+  - cmake3 . -DCPACK_GENERATOR=RPM
+  - make -j
+  - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
+  - >-
+    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
+  - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
+  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/generic/alligator/$CI_COMMIT_TAG/publish
+  - make -j package
+  - >-
+    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/rpm/
+  - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/rpm/
+  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/$CI_COMMIT_TAG/publish
+
+build_ubuntu2004:
+  image: ubuntu:20.04
   only:
   - tags
   stage: build
   script:
-  - apt update
-  - apt install -y cmake g++ gcc libuv1-dev libudev-dev git
-  - cat misc/deb-sources >> /etc/apt/sources.list
-  - ( apt update --allow-unauthenticated || exit 0 )
-  - apt -y --allow-unauthenticated install cutter-keyring wget curl
-  - ( apt update || exit 0 )
-  - apt -y install cutter-testing-framework
-
-  - wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
-  - tar xfvz jansson-2.12.tar.gz
-  - cd jansson-2.12
-  - ./configure
-  - make -j
-  - make -j install
-  - cd -
   - cd src
-  - git clone https://github.com/deleisha/evt-tls.git
-  - git clone https://github.com/Rupan/libatasmart.git
-  - cd libatasmart
-  - ./autogen.sh
-  - ./configure --enable-static
-  - make -j
-  - make -j install
-  - cd ..
-  - wget https://www.openssl.org/source/openssl-1.0.2s.tar.gz
-  - tar xfvz openssl-1.0.2s.tar.gz
-  - cd openssl-1.0.2s
-  - ./config
-  - make -j
-  - make -j install
-  - cd ..
+  - sh bootstrap.sh
+
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j package
+  - >-
+    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
+  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:wheezy" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/deb/alligator/"
+  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/$CI_COMMIT_TAG/publish
+
+build_ubuntu1804:
+  image: ubuntu:18.04
+  only:
+  - tags
+  stage: build
+  script:
+  - cd src
+  - sh bootstrap.sh
+
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j package
+  - >-
+    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/deb/
+  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:wheezy" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/deb/alligator/"
+  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/$CI_COMMIT_TAG/publish
+
+build_ubuntu1604:
+  image: ubuntu:16.04
+  only:
+  - tags
+  stage: build
+  script:
+  - cd src
+  - sh bootstrap.sh
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
