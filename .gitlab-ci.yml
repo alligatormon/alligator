@@ -80,7 +80,7 @@ sources_tarball:
   - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/sources/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/sources/alligator/$CI_COMMIT_TAG/publish
 
-build_centos7:
+deploy_centos7:
   stage: build
   only:
   - tags
@@ -100,7 +100,7 @@ build_centos7:
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/rpm/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/$CI_COMMIT_TAG/publish
 
-build_centos8:
+deploy_centos8:
   image: centos:8
   only:
   - tags
@@ -120,7 +120,7 @@ build_centos8:
   - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/rpm/
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/rpm/alligator/$CI_COMMIT_TAG/publish
 
-build_ubuntu2004:
+deploy_ubuntu2004:
   image: ubuntu:20.04
   only:
   - tags
@@ -136,7 +136,7 @@ build_ubuntu2004:
   - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:wheezy" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/deb/alligator/"
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/$CI_COMMIT_TAG/publish
 
-build_ubuntu1804:
+deploy_ubuntu1804:
   image: ubuntu:18.04
   only:
   - tags
@@ -152,7 +152,7 @@ build_ubuntu1804:
   - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:wheezy" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/deb/alligator/"
   - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/deb/alligator/$CI_COMMIT_TAG/publish
 
-build_ubuntu1604:
+deploy_ubuntu1604:
   image: ubuntu:16.04
   only:
   - tags
