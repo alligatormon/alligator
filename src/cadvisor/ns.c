@@ -55,6 +55,23 @@ int mount_ns_by_cgroup_procs(char *dirpath, char *name)
 	return 1;
 }
 
+int mount_ns_by_pid(char *pid)
+{
+	char dirpath[1000];
+	snprintf(dirpath, 1000, "/proc/%s/ns/net", pid);
+	int sfd = open(dirpath, O_RDONLY);
+	if (sfd < 0)
+		return 0;
+
+	int rc = setns(sfd, CLONE_NEWNET);
+	if (ac->log_level > 0)
+		printf("setns return: %d\n", rc);
+
+	close(sfd);
+
+	return rc;
+}
+
 //char* get_ifname_by_cgroup_id(char *slice, char *cntid, tommy_hashdyn *ifhash, char *name)
 //{
 //	FILE *fd;

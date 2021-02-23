@@ -217,30 +217,28 @@ void parse_args(int argc, char **argv)
 			print_help();
 			exit(0);
 		}
-		if (!strncmp(argv[i], "-v", 2))
+		else if (!strncmp(argv[i], "-v", 2))
 		{
 			print_version();
 			exit(0);
 		}
-		if (!strncmp(argv[i], "-l", 2))
+		else if (!strncmp(argv[i], "-l", 2))
 		{
 			++i;
 			ac->log_level = strtoll(argv[i], NULL, 10);
-			parse_configs(argv[1]);
 		}
 		else if (!strncmp(argv[i], "--help", 6))
 		{
 			print_help();
 			exit(0);
 		}
-		if (!strncmp(argv[i], "--version", 9))
+		else if (!strncmp(argv[i], "--version", 9))
 		{
 			print_version();
 			exit(0);
 		}
 		else
 		{
-			//split_config(argv[1]);
 			parse_configs(argv[1]);
 		}
 	}
@@ -257,7 +255,6 @@ int main(int argc, char **argv)
 	general_loop();
 	if (argc < 2)
 	{
-		//split_config(DEFAULT_CONF_DIR);
 		parse_configs(DEFAULT_CONF_PATH);
 	}
 	else

@@ -1012,24 +1012,18 @@ void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *
 
 void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
+	if (ac->log_level > 1)
+		printf("cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 	char pidsdir[1000];
 	DIR *ethd;
 	struct dirent *ethd_entry;
 
 	snprintf(pidsdir, 1000, "%s/fs/cgroup/pids/%s/cgroup.procs", sysfs, cad_id);
-	//FILE *fd = fopen(pidsdir, "r");
-	//if (!fd)
-	//{
-	//	snprintf(pidsdir, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/cgroup.procs", sysfs, cad_id);
-	//	fd = fopen(pidsdir, "r");
-	//	if (!fd)
-	//		return;
-	//}
-	//fclose(fd);
 
 	if (!mount_ns_by_cgroup_procs(pidsdir, name))
 	{
 		snprintf(pidsdir, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/cgroup.procs", sysfs, cad_id);
+		printf("fail, now is open/mount by: %s:::%s\n", pidsdir, name);
 		if (!mount_ns_by_cgroup_procs(pidsdir, name))
 			return;
 	}
@@ -1056,13 +1050,18 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 	}
 
 	umount("/var/lib/alligator/nsmount");
-	unshare(CLONE_NEWNET);
+
+	int rc = unshare(CLONE_NEWNET);
+	if (ac->log_level > 0 && rc)
+		printf("unshare %s failed: %d\n", name, rc);
+
+	mount_ns_by_pid("1");
 }
 
 void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	if (ac->log_level > 1)
-		printf("search id in slice %s id: %s with name: %s\n", slice, cntid, name);
+		printf("cadvisor_scrape search id in slice %s id: %s with name: %s\n", slice, cntid, name);
 	if (!ac->cadvisor_tcpudpbuf)
 		ac->cadvisor_tcpudpbuf = malloc(TCPUDP_NET_LENREAD);
 

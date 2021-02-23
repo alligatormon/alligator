@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.10.197)
+set(VERSION 1.10.198)
 project(alligator VERSION ${VERSION})
 
 set(CMAKE_BUILD_TYPE Debug)

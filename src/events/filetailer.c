@@ -471,11 +471,12 @@ void filestat_read_callback(char *buf, size_t len, void *data)
 	{
 		filestat_restore_v1(buf, len);
 	}
+
+	free(data);
 }
 
 void filestat_restore()
 {
-	char dirtoread[255];
-	snprintf(dirtoread, 255, "/var/lib/alligator/file_stat");
-	read_from_file(dirtoread, 0, filestat_read_callback, NULL);
+	char *dirtoread = strdup("/var/lib/alligator/file_stat");
+	read_from_file(dirtoread, 0, filestat_read_callback, dirtoread);
 }

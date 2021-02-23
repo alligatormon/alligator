@@ -211,6 +211,8 @@ char *gettextfile(char *path, size_t *filesz)
 	if (rc != fdsize)
 	{
 		fprintf(stderr, "I/O err read %s\n", path);
+		free(buf);
+		fclose(fd);
 		return NULL;
 	}
 #endif

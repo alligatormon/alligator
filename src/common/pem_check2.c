@@ -45,15 +45,18 @@ uint64_t get_timestamp_from_mbedtls(mbedtls_x509_time mbed_tm)
 
 char *read_file(char *name)
 {
-	char *pem_cert = malloc(2048);
 	FILE *fd = fopen(name, "r");
 	if (!fd)
 		return 0;
 
+	char *pem_cert = malloc(2048);
 	size_t rc = fread(pem_cert, 1, 2048, fd);
 	fclose(fd);
 	if (!rc)
+	{
+		free(pem_cert);
 		return NULL;
+	}
 
 	return pem_cert;
 }

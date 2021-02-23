@@ -19,7 +19,8 @@ char *base64_encode(const char *data, size_t input_length, size_t *output_length
 	*output_length = 4 * ((input_length + 2) / 3);
 
 	char *encoded_data = malloc(*output_length+1);
-	if (encoded_data == NULL) return NULL;
+	if (!encoded_data)
+		return NULL;
 
 	int i, j;
 	for (i = 0, j = 0; i < input_length;) {
@@ -84,7 +85,8 @@ char* base64_decode(const char *in, size_t len, size_t *outlen)
 	size_t j;
 	int    v;
 
-	if (len % 4 != 0) return NULL;
+	if (len % 4 != 0)
+		return NULL;
 	*outlen = b64_decoded_size(in, len);
 
 	if (!in)
@@ -94,6 +96,7 @@ char* base64_decode(const char *in, size_t len, size_t *outlen)
 
 	for (i=0; i<len; i++) {
 		if (!b64_isvalidchar(in[i])) {
+			free(out);
 			return 0;
 		}
 	}

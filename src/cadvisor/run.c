@@ -506,7 +506,11 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 			}
 
 			if (!is_k8s)
+			{
+				if (carg->log_level > 1)
+					printf("\tname: %s, image: %s, path: %s\n", name_str, image, id);
 				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL);
+			}
 			else
 			{
 				if (carg->log_level > 1)

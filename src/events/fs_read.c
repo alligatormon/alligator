@@ -36,10 +36,10 @@ void fs_read_on_read(uv_fs_t *req)
 	if ((req->result < 0))
 	{
 		frinfo->callback = 0;
-		fs_read_close(req);
 		if (ac->log_level > 2)
 			fprintf(stderr, "Read error: %s\n", frinfo->filename);
-		return;
+		//fs_read_close(req);
+		//return;
 	}
 	else if (req->result == 0) {
 	}
@@ -60,15 +60,20 @@ void fs_read_on_open(uv_fs_t *req)
 	uv_fs_t *read_req = malloc(sizeof(*read_req));
 	read_req->data = frinfo;
 
-
-	if (req->result != -1)
+	if (req->result > -1)
 	{
 		if (ac->log_level > 2)
-			printf("read_from_file: trying to file read '%s'\n", frinfo->filename);
+			printf("fs_read_on_open: trying to file read '%s', result: %zd\n", frinfo->filename, req->result);
 		uv_fs_read(uv_default_loop(), read_req, req->result, &frinfo->buffer, 1, frinfo->offset, fs_read_on_read);
 	}
 	else if (ac->log_level > 2)
+	{
 		fprintf(stdout, "Error opening file: %s\n", frinfo->filename);
+		uv_fs_t *close_req = malloc(sizeof(*close_req));
+		close_req->data = frinfo;
+		fs_read_close(close_req);
+		return;
+	}
 }
 
 void read_from_file(char *filename, uint64_t offset, void *callback, void *data)

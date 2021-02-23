@@ -97,9 +97,9 @@ uint128_t ip_to_integer(char *ip, uint8_t ip_version, char **ptr)
 {
 	char *cur = ip;
 	uint128_t ret = 0;
-	uint16_t exp;
-	int8_t blocks;
-	uint32_t blocksize;
+	uint16_t exp = 10;
+	int8_t blocks = 4;
+	uint32_t blocksize = 256;
 	if (ip_version == 4)
 	{
 		exp = 10;
@@ -164,6 +164,8 @@ void cidr_to_network_range(network_range_node *nr, char *cidr)
 		prefix = 32;
 
 	ip_range = ip_get_range(prefix, ip_version);
+	if (!ip_range)
+		return;
 
 	ip_network = ip_get_network(ipaddr, ip_range);
 

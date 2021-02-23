@@ -97,7 +97,7 @@ int8_t url_get_hostname(host_aggregator_info *hi, char **tmp)
 		rc = 1;
 	}
 
-	if (!hi->host)
+	if (!hi->host && hi->host_header)
 		hi->host = strdup(hi->host_header);
 
 	return rc;
