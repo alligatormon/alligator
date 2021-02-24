@@ -7,6 +7,8 @@ image: centos:7.9.2009
 
 cutter_centos:
   stage: tests
+  except:
+  - tags
   script:
   - cd src
   - sh bootstrap.sh
@@ -16,6 +18,8 @@ cutter_centos:
 
 build_centos:
   stage: tests
+  except:
+  - tags
   script:
   - cd src
   - sh bootstrap.sh
@@ -33,6 +37,8 @@ build_centos8:
 
 build_ubuntu1604:
   image: ubuntu:16.04
+  except:
+  - tags
   stage: tests
   script:
   - cd src
@@ -42,6 +48,8 @@ build_ubuntu1604:
 
 build_ubuntu1804:
   image: ubuntu:18.04
+  except:
+  - tags
   stage: tests
   script:
   - cd src
@@ -51,6 +59,8 @@ build_ubuntu1804:
 
 build_ubuntu2004:
   image: ubuntu:20.04
+  except:
+  - tags
   stage: tests
   script:
   - cd src
