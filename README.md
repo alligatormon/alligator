@@ -191,7 +191,8 @@ named.conf:
 ```
 statistics-channels {
     inet 127.0.0.1 port 8080 allow {any;};
-};```
+};
+```
 
 in zone context add statistics counting:
 ```

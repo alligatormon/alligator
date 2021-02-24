@@ -201,8 +201,6 @@ char* process_client(context_arg *carg)
 
 	unlink(fname);
 
-	printf("template: %s, args: %s\n", stemplate->s, carg->mesg);
-
 	mkdirp(ac->process_script_dir);
 	write_to_file(fname, stemplate->s, stemplate->l, NULL, NULL);
 

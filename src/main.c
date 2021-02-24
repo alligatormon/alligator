@@ -204,10 +204,11 @@ void print_version()
 	printf("Alligator is aggregator for system and software metrics. Version: \"%s\".\n", ALLIGATOR_VERSION);
 }
 
-void parse_args(int argc, char **argv)
+int parse_args(int argc, char **argv)
 {
+	int ret = 0;
 	if (argc < 2)
-		return;
+		return 0;
 
 	uint64_t i;
 	for (i = 1; i < argc; i++)
@@ -239,9 +240,12 @@ void parse_args(int argc, char **argv)
 		}
 		else
 		{
-			parse_configs(argv[1]);
+			parse_configs(argv[i]);
+			ret = 1;
 		}
 	}
+
+	return ret;
 }
 
 
@@ -253,12 +257,9 @@ int main(int argc, char **argv)
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGABRT, SIG_IGN);
 	general_loop();
-	if (argc < 2)
-	{
+
+	if (!parse_args(argc, argv))
 		parse_configs(DEFAULT_CONF_PATH);
-	}
-	else
-		parse_args(argc, argv);
 
 	restore_settings();
 
