@@ -25,7 +25,7 @@ ttl 0; # global ttl for metrics in sec, default 300
 
 #prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
 entrypoint prometheus {
-	ttl 1212;
+	ttl 3600;
 	tcp 1111;
 	unixgram /var/lib/alligator.unixgram;
 	unix /var/lib/alligator.unix;
@@ -33,11 +33,12 @@ entrypoint prometheus {
 }
 
 #configuration with reject metric label http_response_code="404":
-entrypoint prometheus {
+entrypoint {
 	reject http_response_code 404;
-	ttl 1212;
+	ttl 86400;
 	tcp 1111;
-	handler prometheus;
+
+	allow 127.0.0.0/8; # support ACL mechanism
 }
 
 #system metrics aggregation
@@ -48,9 +49,16 @@ system {
 	process [nginx] [bash] [/[bash]*/]; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
 	smart; #smart disk stats
 	firewall; # iptables scrape
+	cpuavg period=5; # analog loadavg by cpu usage stat only with period in minutes
 	packages [nginx] [alligator]; # scrape packages info with timestamp installed
 	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json]; # for scrape cadvisor metrics
-	services; # for systemd unit status
+	services [nginx.service]; # for systemd unit status
+
+	pidfile [tests/mock/linux/svc.pid]; # monitoring process by pidfile
+	userprocess [root]; # monitoring process by username
+	groupprocess [root]; # monitoring process by groupname
+	cgroup [/cpu/]; # monitoring process by cgroup
+
 	sysfs  /path/to/dir; # override path
 	procfs /path/to/dir; # override path
 	rundir /path/to/dir; # override path
@@ -116,7 +124,7 @@ aggregate backends {
 	#ELASTICSEARCH
 	elasticsearch http://localhost:9200;
 	#AEROSPIKE
-	aerospike tcp://localhost:3000 namespace1 namespace2;
+	aerospike tcp://localhost:3000;
 	#MONIT
 	monit http://admin:admin@localhost:2812;
 	#FLOWER celery
@@ -149,6 +157,80 @@ aggregate backends {
         httpd http://localhost/server-status;
 	# NSD
         nsd unix:///run/nsd/nsd.ctl;
+	# scrape prometheus format openmetrics from other exporters
+	prometheus_metrics http://localhost:9100;
+	# parse json
+	jsonparse http://localhost:9200/_stats;
+
+	# KUBERNETES ENDPOINT SCRAPE
+	kubernetes_endpoint https://k8s.example.com 'env=Authorization:Bearer TOKEN';
+	# KUBERNETES INGRESS SCRAPE FOR HTTP BLACKBOX CHECKS
+	kubernetes_ingress https://k8s.example.com 'env=Authorization:Bearer TOKEN';
+
+	# Consul configuration/discovery
+	consul-configuration http://localhost:8500;
+	consul-discovery http://localhost:8500;
+
+	# Zookeeper configuration
+	zookeeper-configuration zookeeper://localhost:2181;
+
+	# Etcd configuration
+	etcd-configuration http://localhost:2379;
+
+	# Blackbox checks
+	blackbox tcp://google.com:80 add_label=url:google.com;
+	blackbox tls://www.amazon.com:443 add_label=url:www.amazon.com;
+	blackbox udp://8.8.8.8:53;
+	blackbox http://yandex.ru;
+	blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
+
+	# metrics scrape from file:
+	prometheus_metrics file:///tmp/metrics-nostate.txt [notify=true];
+
+	# file stat calc:
+	blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
+}
+```
+
+## persistence directory for saving metrics between restarts
+```
+persistence {
+    directory /var/lib/alligator;
+}
+```
+
+## for monitoring PEM certs
+```
+x509
+{
+	name nginx-certs;
+	path /etc/nginx/;
+	match .crt;
+}
+```
+
+## for monitoring JKS certs
+```
+x509 {
+	name system-jks;
+	path /app/src/tests/system/jks;
+	match .jks;
+	password password;
+	type jks;
+}
+```
+
+## Internal queries (example: check if port is listen)
+```
+query {
+	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8085"})';
+	make socket_match;
+	datasource internal;
+}
+query {
+	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8080"})';
+	make socket_match;
+	datasource internal;
 }
 ```
 
@@ -255,6 +337,31 @@ query {
 }
 ```
 
+MySQL support by user queries:
+```
+modules {
+	mysql /usr/lib/libmysqlclient.so;
+}
+
+aggregate {
+	sphinxsearch mysql://127.0.0.1:9313;
+	mysql mysql://user:password@127.0.0.1:3306 name=mysql;
+}
+
+query {
+	expr 'SELECT table_schema "db_name", table_name "table", ROUND(SUM(data_length), 1) "mysql_table_size", ROUND(SUM(index_length), 1) "mysql_index_size", table_rows "mysql_table_rows" FROM information_schema.tables  GROUP BY table_schema';
+	field mysql_table_size mysql_index_size mysql_table_rows;
+	make mysql_db_size;
+	datasource mysql;
+}
+query {
+	expr 'SELECT command command, state state, user user, count(*) mysql_processlist_count, sum(time) mysql_processlist_sum_time FROM information_schema.processlist WHERE ID != connection_id() GROUP BY command,state, user';
+	field mysql_processlist_count mysql_processlist_sum_time;
+	make mysql_processlist_stats;
+	datasource mysql;
+}
+```
+
 MongoDB support:
 ```
 modules {
@@ -317,7 +424,7 @@ lang {
 # Distribution
 ## Docker
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
-## Centos 7
+## Centos 7, Centos 8
 ```
 [alligator-rpm]
 name=alligator-rpm
@@ -351,5 +458,4 @@ alligator: {
 }
 ```
 
-
-TODO: scrape from all services
+For more examples check URL with tests: https://github.com/alligatormon/alligator/tree/master/src/tests/system
