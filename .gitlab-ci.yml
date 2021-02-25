@@ -20,6 +20,7 @@ build_centos:
   except:
   - tags
   script:
+  - echo "$BINTRAY_USER:$BINTRAY_KEY" | sha256sum
   - cd src
   - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
