@@ -753,6 +753,17 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					if (*tls)
 						labels_hash_insert_nocache(hash, "tls", tls);
 
+					//query_0.99 | transaction_0.99
+					if (!strncmp(colname, "query_0", 7))
+					{
+						labels_hash_insert_nocache(hash, "percentile", metric_name+19);
+						metric_name[18] = 0;
+					}
+					else if (!strncmp(colname, "transaction_0", 13))
+					{
+						labels_hash_insert_nocache(hash, "percentile", metric_name+25);
+						metric_name[24] = 0;
+					}
 					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
 				}
 			}

@@ -327,9 +327,9 @@ enabled=1
 
 ## Ubuntu
 ```
-echo "deb https://dl.bintray.com/alligatormon/ubuntu20.04/ focal main" | sudo tee -a /etc/apt/sources.list
-echo "deb https://dl.bintray.com/alligatormon/ubuntu18.04/ bionic main" | sudo tee -a /etc/apt/sources.list
-echo "deb https://dl.bintray.com/alligatormon/ubuntu16.04/ xenial main" | sudo tee -a /etc/apt/sources.list
+echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu20.04/ focal main" | sudo tee -a /etc/apt/sources.list
+echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu18.04/ bionic main" | sudo tee -a /etc/apt/sources.list
+echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu16.04/ xenial main" | sudo tee -a /etc/apt/sources.list
 ```
 
 ## Binary
