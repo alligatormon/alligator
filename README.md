@@ -252,7 +252,8 @@ query {
 	field replication_delay;
 	datasource pg;
 	make postgresql_replication_lag;
-}```
+}
+```
 
 MongoDB support:
 ```
@@ -262,7 +263,8 @@ modules {
 
 aggregate {
 	mongodb 'mongodb://localhost:27017/?appname=executing-example';
-}```
+}
+```
 
 # StatsD mapping:
 ```
