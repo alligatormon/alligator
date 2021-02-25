@@ -315,19 +315,21 @@ lang {
 # Distribution
 ## Docker
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
-## yum
+## Centos 7
 ```
 [alligator-rpm]
 name=alligator-rpm
-baseurl=https://dl.bintray.com/alligatormon/rpm
+baseurl=https://dl.bintray.com/alligatormon/el$releasever/
 gpgcheck=0
 repo_gpgcheck=0
 enabled=1
 ```
 
-## deb
+## Ubuntu
 ```
-echo "deb https://dl.bintray.com/alligatormon/deb xenial main" | sudo tee -a /etc/apt/sources.list
+echo "deb https://dl.bintray.com/alligatormon/ubuntu20.04/ focal main" | sudo tee -a /etc/apt/sources.list
+echo "deb https://dl.bintray.com/alligatormon/ubuntu18.04/ bionic main" | sudo tee -a /etc/apt/sources.list
+echo "deb https://dl.bintray.com/alligatormon/ubuntu16.04/ xenial main" | sudo tee -a /etc/apt/sources.list
 ```
 
 ## Binary
