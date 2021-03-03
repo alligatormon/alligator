@@ -1,5 +1,9 @@
 Changelog
 
+## [1.11.2] - 03.03.2021
+- Fix bugs in filecollector: state "save" did not work.
+- Fix memory leak for non-debian distros with enabled "system packages" stats collecting.
+
 ## [1.11.1] - 25.02.2021
 - Fix bugs in parsers: Flower, Clickhouse, Haproxy, RabbitMQ, Redis (cluster stats), Nginx upstream checks
 - Update ACL mechanism for access entrypoints: allow, deny for each entrypoint

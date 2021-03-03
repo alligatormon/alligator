@@ -66,9 +66,10 @@ void fs_read_on_open(uv_fs_t *req)
 			printf("fs_read_on_open: trying to file read '%s', result: %zd\n", frinfo->filename, req->result);
 		uv_fs_read(uv_default_loop(), read_req, req->result, &frinfo->buffer, 1, frinfo->offset, fs_read_on_read);
 	}
-	else if (ac->log_level > 2)
+	else
 	{
-		fprintf(stdout, "Error opening file: %s\n", frinfo->filename);
+		if (ac->log_level > 2)
+			fprintf(stdout, "Error opening file: %s\n", frinfo->filename);
 		uv_fs_t *close_req = malloc(sizeof(*close_req));
 		close_req->data = frinfo;
 		fs_read_close(close_req);

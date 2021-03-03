@@ -14,6 +14,7 @@ typedef struct file_handle {
 	uv_fs_t close;
 	char pathname[1024];
 	uv_buf_t buffer;
+	size_t offset;
 	context_arg *carg;
 } file_handle;
 
@@ -224,6 +225,7 @@ void file_on_open(uv_fs_t *req)
 		{
 			if (ac->log_level > 1)
 				printf("read from file %s, offset %"u64"\n", req->path, offset);
+			fh->offset = offset;
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
 		}
 	}
@@ -245,6 +247,7 @@ void filetailer_on_read(uv_fs_t *req) {
 	else if (req->result == 0) {
 		if (ac->log_level > 2)
 			fprintf(stdout, "filetailer_on_read: No result read: %s\n", fh->pathname);
+		file_stat_add_offset(ac->file_stat, fh->pathname, carg, fh->offset);
 	}
 	else {
 		uint64_t str_len = req->result;
