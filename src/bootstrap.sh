@@ -27,6 +27,8 @@ yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutt
 echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 
 yum -y install https://repo.ius.io/ius-release-el7.rpm
+yum -y install vim
+ln -sf /usr/bin/vim /usr/bin/vi
 yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat
 
@@ -149,16 +151,12 @@ git clone https://github.com/mongodb/mongo-c-driver.git
 cd mongo-c-driver/
 git checkout 1.16.2
 make clean
-make -j install
-if [ $? -ne 0 ]
-then
-	python build/calc_release_version.py > VERSION_CURRENT
-	mkdir cmake-build
-	cd cmake-build
-	cmake3 -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
-	make -j install
-	cd ../
-fi
+python build/calc_release_version.py > VERSION_CURRENT
+mkdir cmake-build
+cd cmake-build
+cmake3 -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
+make install
+cd ../
 cd ../../
 
 cd external
