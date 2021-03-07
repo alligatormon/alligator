@@ -106,6 +106,7 @@ cd ../../
 cd external
 git clone https://github.com/pantoniou/libfyaml.git
 cd libfyaml
+git pull
 ./bootstrap.sh
 ./configure
 make

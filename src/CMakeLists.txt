@@ -263,7 +263,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.5.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl z libuv.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libbson-static-1.0.a libjemalloc.a libfyaml-0.6.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
