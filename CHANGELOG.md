@@ -1,5 +1,8 @@
 Changelog
 
+## [1.11.3] - 12.03.2021
+- Fix support prometheus metrics name with ':' symbol
+
 ## [1.11.2] - 03.03.2021
 - Fix bugs in filecollector: state "save" did not work.
 - Fix memory leak for non-debian distros with enabled "system packages" stats collecting.
