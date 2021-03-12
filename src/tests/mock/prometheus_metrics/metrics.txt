@@ -16,3 +16,4 @@ rpc_duration_seconds { quantile="0.5" } 4773
 rpc_duration_seconds { quantile="0.9" } 9001
 rpc_duration_seconds { quantile="0.99" } 76656
 rpc_duration_seconds_count 2693
+app:name:v1:request_middleware_seconds_sum { env_role="release", status="200", obj="api.rss.views.discovery.DiscoveryView", method="GET", view_name="discovery" } 2.032179

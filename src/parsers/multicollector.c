@@ -12,6 +12,27 @@
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
 
+// metric name is a label value
+int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t size, char *s2)
+{
+	char *ptr_to_start = strstr(str+*cur, "{");
+	uint64_t syms = 0;
+	if (ptr_to_start)
+	{
+		syms = strcspn(str+*cur, "\t\r={},# ");
+	}
+	else
+	{
+		syms = strcspn(str+*cur, "\t\r=:{},# ");
+	}
+
+	strlcpy(s2, str+*cur, syms + 1);
+	*cur = *cur + syms;
+
+	return syms;
+}
+
+// label name
 int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
 	uint64_t syms = strcspn(str+*cur, "\t\r:={},# ");
@@ -21,6 +42,7 @@ int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, c
 	return syms;
 }
 
+// label value
 int multicollector_get_value(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
 	uint64_t syms = strcspn(str+*cur, "\t\r{},# ");
@@ -311,12 +333,13 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
 	double value = 0;
 	uint64_t i = 0;
+	int is_prom = 0;
 	int rc;
 	int8_t increment = 0;
 	char template_name[METRIC_NAME_SIZE];
 	char metric_name[METRIC_NAME_SIZE];
 	multicollector_skip_spaces(&i, str, size);
-	size_t metric_len = multicollector_get_name(&i, str, size, template_name);
+	size_t metric_len = multicollector_get_metric_name(&i, str, size, template_name);
 	//printf("multicpllector from '%s' to '%s'\n", str, template_name);
 
 	// pass mapping
@@ -326,6 +349,8 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
 	{
 		labels_hash_free(lbl);
+		if (ac->log_level > 3)
+			printf("> metric name validator failed\n");
 		return 0;
 	}
 
@@ -397,6 +422,7 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 			lbl = malloc(sizeof(*lbl));
 			tommy_hashdyn_init(lbl);
 		}
+		is_prom = 1;
 
 		// prometheus with labels
 		char label_name[METRIC_NAME_SIZE];
@@ -523,7 +549,10 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 	}
 
 	// replacing dot symbols and other from metric
-	metric_name_normalizer(metric_name, metric_len);
+	if (is_prom)
+		prometheus_metric_name_normalizer(metric_name, metric_len);
+	else
+		metric_name_normalizer(metric_name, metric_len);
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
 
 	if (increment)
