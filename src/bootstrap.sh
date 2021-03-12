@@ -163,7 +163,7 @@ cd ../../
 cd external
 git clone https://github.com/jemalloc/jemalloc.git
 cd jemalloc
-make clean
+git pull
 ./autogen.sh
 make -j install
 cd ../../
