@@ -22,15 +22,21 @@ void mongo_add_metric(context_arg *carg, char *key1, char *key2, char *key3, cha
 
 int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, char *key3, char *key, char *name, char *ns, int in)
 {
+    char *_key1 = key1 ? key1 : "";
+    char *_key2 = key2 ? key2 : "";
+    char *_key3 = key3 ? key3 : "";
+    char *_key = key ? key : "";
+    char *_name = name ? name : "";
+    char *_ns = ns ? ns : "";
 	int type = json_typeof(value);
 	if (carg->log_level > 2)
-		printf("%d===== name: %s, key: %s, key1: %s, key2:%s, key3: %s, type %d\n", in, name, key, key1, key2, key3, type);
+		printf("%d===== name: %s, key: %s, key1: %s, key2:%s, key3: %s, type %d\n", in, _name, _key, _key1, _key2, _key3, type);
 	
 	if (type == JSON_REAL)
 	{
 		double dl = json_real_value(value);
 		if (carg->log_level > 2)
-			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", ns, name, key, key1, key2, key3, dl);
+			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", _ns, _name, _key, _key1, _key2, _key3, dl);
 
 		mongo_add_metric(carg, key1, key2, key3, key, name, ns, &dl, DATATYPE_DOUBLE);
 	}
@@ -38,7 +44,7 @@ int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, ch
 	{
 		int64_t vl = json_integer_value(value);
 		if (carg->log_level > 2)
-			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+			printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", _ns, _name, _key, _key1, _key2, _key3, vl);
 
 		mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
 	}
@@ -49,7 +55,7 @@ int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, ch
 		{
 			uint64_t vl = strtoll(svl, NULL, 10);
 			if (carg->log_level > 2)
-				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", _ns, _name, _key, _key1, _key2, _key3, vl);
 
 			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
 		}
@@ -57,7 +63,7 @@ int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, ch
 		{
 			double dl = strtod(svl, NULL);
 			if (carg->log_level > 2)
-				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", ns, name, key, key1, key2, key3, dl);
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %lf\n", _ns, _name, _key, _key1, _key2, _key3, dl);
 
 			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &dl, DATATYPE_DOUBLE);
 		}
@@ -65,7 +71,7 @@ int mongo_get_value(context_arg *carg, json_t *value, char *key1, char *key2, ch
 		{
 			uint64_t vl = strtoll(svl, NULL, 10);
 			if (carg->log_level > 2)
-				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", ns, name, key, key1, key2, key3, vl);
+				printf("ns: %s, metric: %s, TYPE: %s, name: %s, key:%s, desc: %s, value: %"d64"\n", _ns, _name, _key, _key1, _key2, _key3, vl);
 
 			mongo_add_metric(carg, key1, key2, key3, key, name, ns, &vl, DATATYPE_INT);
 		}

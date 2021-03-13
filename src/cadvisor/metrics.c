@@ -153,7 +153,7 @@ void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name
 	labels_hash_insert(hash, "id", cad_id);
 
 	if (ac->log_level > 2)
-		printf("%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname, cad_id, cntid, name1, value1, kubenamespace, kubepod, kubecontainer, val);
+		printf("%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", val);
 
 	metric_add(mname, hash, &val, DATATYPE_UINT, ac->system_carg);
 }

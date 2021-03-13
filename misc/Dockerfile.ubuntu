@@ -1,0 +1,8 @@
+FROM ubuntu:20.04
+WORKDIR /build
+ADD ./ /build/
+RUN  cd src && sh bootstrap.sh && cmake . && make -j
+
+FROM ubuntu
+COPY --from=0 /build/src/alligator /usr/bin/alligator
+ENTRYPOINT /usr/bin/alligator

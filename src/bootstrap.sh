@@ -29,7 +29,7 @@ echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 yum -y install https://repo.ius.io/ius-release-el7.rpm
 yum -y install vim
 ln -sf /usr/bin/vim /usr/bin/vi
-yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel
+yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel libxslt
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat
 
 ln -s /usr/bin/python{3,}
@@ -169,7 +169,8 @@ make -j install
 cd ../../
 
 pip3 install statsd
-if [ $TEST == "true" ]
+echo "TEST is $TEST"
+if [ ${TEST} == "true" ]
 then
 	yum -y install elasticsearch monit syslog-ng rsyslog unbound varnish nginx rabbitmq-server haproxy gearmand uwsgi redis beanstalkd openssl11-libs openssl11-devel openssl11-static openssl11 rabbitmq-server clickhouse-server zookeeper gearmand python3 python3-pip ragel-devel userspace-rcu-devel libsodium-devel nginx varnish uwsgi-plugin-python36 squid lighttpd httpd24u syslog-ng hadoop-hdfs xinetd tftp-server manticore
 	rpm -i external/couchbase-server-community-6.5.1-centos7.x86_64.rpm
