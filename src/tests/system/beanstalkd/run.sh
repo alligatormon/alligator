@@ -4,7 +4,7 @@
 DIR="beanstalkd"
 
 beanstalkd&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 5
 
 TEXT=`curl -s localhost:1111`

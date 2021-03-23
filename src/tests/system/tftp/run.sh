@@ -4,7 +4,7 @@
 DIR="tftp"
 
 xinetd -f $APPDIR/tests/system/tftp/xinetd/xinetd.conf
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`
@@ -16,7 +16,7 @@ done
 
 kill %1
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.json&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.json&
 sleep 15
 
 TEXT=`curl -s localhost:1111`
@@ -28,7 +28,7 @@ done
 
 kill %2
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

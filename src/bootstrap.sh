@@ -95,13 +95,13 @@ make -j
 make -j install
 cd ../../
 
-cd external
-git clone https://github.com/ARMmbed/mbedtls.git
-cd mbedtls
-git checkout mbedtls-2.15.1
-make clean
-make -j install
-cd ../../
+#cd external
+#git clone https://github.com/ARMmbed/mbedtls.git
+#cd mbedtls
+#git checkout mbedtls-2.15.1
+#make clean
+#make -j install
+#cd ../../
 
 cd external
 git clone https://github.com/pantoniou/libfyaml.git
@@ -113,14 +113,14 @@ make
 make -j install
 cd ../../
 
-cd external
-ls jansson-2.12.tar.gz || wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
-tar xfvz jansson-2.12.tar.gz
-cd jansson-2.12
-./configure
-make -j
-make -j install
-cd ../../
+#cd external
+#ls jansson-2.12.tar.gz || wget http://www.digip.org/jansson/releases/jansson-2.12.tar.gz
+#tar xfvz jansson-2.12.tar.gz
+#cd jansson-2.12
+#./configure
+#make -j
+#make -j install
+#cd ../../
 
 cd external
 git clone https://github.com/Rupan/libatasmart.git
@@ -169,6 +169,10 @@ make -j install
 cd ../../
 
 pip3 install statsd
+pip3 install conan
+
+conan install . --build=missing
+
 echo "TEST is $TEST"
 if [ ${TEST} == "true" ]
 then
@@ -198,5 +202,11 @@ then
 	make install
 	cd ../..
 
-	yum install https://github.com/nats-io/nats-server/releases/download/v2.1.9/nats-server-v2.1.9-amd64.rpm
+	yum -y install https://github.com/nats-io/nats-server/releases/download/v2.1.9/nats-server-v2.1.9-amd64.rpm
+
+	cd external
+		wget -O aerospike.tgz 'https://www.aerospike.com/download/server/latest/artifact/el7'
+		tar -xvf aerospike.tgz
+		rpm -i aerospike-server-community-*-el7/aerospike-server-community-*.el7.x86_64.rpm
+	cd ..
 fi

@@ -5,7 +5,7 @@ DIR="memcached"
 
 # TLS configuration
 memcached -u nobody -Z -o ssl_ca_cert=/app/src/tests/certs/ca.crt -o ssl_chain_cert=/app/src/tests/certs/server.crt -o ssl_key=/app/src/tests/certs/server.key -o ssl_verify_mode=2 -d
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator-tls.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator-tls.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`
@@ -25,7 +25,7 @@ pkill memcached
 
 # TCP configuration
 memcached -u nobody -d
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

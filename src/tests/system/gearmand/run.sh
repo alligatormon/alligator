@@ -8,7 +8,7 @@ gearman -w -f wc -- wc -l &
 sleep 1
 kill -1 %1
 
-$APPDIR/alligator $APPDIR/tests/system/gearmand/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/gearmand/alligator.yaml&
 sleep 5
 
 TEXT=`curl -s localhost:1111`

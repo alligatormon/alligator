@@ -4,7 +4,7 @@
 DIR="file"
 rm -rf /var/lib/alligator/file_stat
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 5
 
 TEXT=`curl -s localhost:1111`
@@ -20,7 +20,7 @@ curl -s localhost:1111 | grep 'test_metric 42' && success "step 1 file state" ||
 
 kill %1
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 1
 echo 'test_metric2 24' >> /tmp/metrics-state.txt
 

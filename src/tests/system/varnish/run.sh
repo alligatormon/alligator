@@ -4,7 +4,7 @@
 DIR="varnish"
 
 varnishd -b example.com:80
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.json&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.json&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

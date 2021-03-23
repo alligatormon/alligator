@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.11.3)
+set(VERSION 1.12.0)
 project(alligator VERSION ${VERSION})
+
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -143,8 +146,9 @@ set(STATIC_FILES
 	parsers/jmx.c
 	parsers/jks.c
 	parsers/kubernetes.c
+	parsers/kubeconfig.c
 	common/selector.c
-	common/pem_check2.c
+	common/pem_check.c
 	common/rtime.c
 	common/validator.c
 	common/base64.c
@@ -173,6 +177,7 @@ set(STATIC_FILES
 	common/iptc.c
 	common/entrypoint.c
 	common/pw.c
+	config/env.c
 	config/parser.c
 	config/plain.c
 	config/mapping.c
@@ -278,7 +283,7 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
-	install(FILES alligator
+	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/local/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -286,7 +291,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
-	install(FILES alligator
+	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")

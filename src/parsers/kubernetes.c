@@ -94,10 +94,11 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 			json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
 			json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
 			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
-			const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+			char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 			if (carg->log_level > 1)
 				puts(dvalue);
 			http_api_v1(NULL, NULL, dvalue);
+			free(dvalue);
 			json_decref(aggregate_root);
 		}
 	}

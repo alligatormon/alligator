@@ -5,7 +5,7 @@ DIR="httpd"
 
 cp -f $APPDIR/tests/system/$DIR/httpd.conf /etc/httpd/conf/httpd.conf
 httpd
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.json&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.json&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

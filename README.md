@@ -421,6 +421,38 @@ lang {
 }
 ```
 
+# Support environment variables (__ is a separator of contexts)
+Example:
+```
+export ALLIGATOR__ENTRYPOINT0__TCP0=1111
+export ALLIGATOR__ENTRYPOINT0__TCP1=1112
+export ALLIGATOR__TTL=1200
+export ALLIGATOR__LOG_LEVEL=0
+export ALLIGATOR__AGGREGATE0__HANDLER=tcp
+export ALLIGATOR__AGGREGATE0__URL="tcp://google.com:80"
+```
+Converts to config:
+```
+{
+  "entrypoint": [
+    {
+      "tcp": [
+        "1111",
+        "1112"
+      ]
+    }
+  ],
+  "ttl": "1200",
+  "log_level": "0",
+  "aggregate": [
+    {
+      "handler": "tcp",
+      "url": "tcp://google.com:80"
+    }
+  ]
+}
+```
+
 
 # Distribution
 ## Docker

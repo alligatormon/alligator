@@ -2,7 +2,7 @@
 IFS=""
 rpm -q rabbitmq-server >/dev/null || yum -y install rabbitmq-server
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
-$APPDIR/alligator $APPDIR/tests/system/rabbitmq/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/rabbitmq/alligator.conf&
 rabbitmq-server >/dev/null &
 
 rabbitmq-plugins enable rabbitmq_management >/dev/null

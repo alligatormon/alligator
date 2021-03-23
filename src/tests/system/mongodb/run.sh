@@ -6,7 +6,7 @@ DIR="mongodb"
 mongod --fork --syslog
 #$APPDIR/tests/system/mongodb/inserts.mongo
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

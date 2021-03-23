@@ -1,0 +1,26 @@
+{
+  "log_level": 0,
+  "entrypoint": [
+    {
+      "tcp": [
+        "1111"
+      ]
+    }
+  ],
+  "aggregate": [
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "kubeconfig",
+      "url": "file:///app/src/tests/system/kubectl/kubeconfig",
+      "state": "begin"
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "kubeconfig",
+      "url": "file:///app/src/tests/system/kubectl/kubeconfig.2",
+      "state": "begin"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+alligator_close {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_connect {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_connect_ok {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com", parser="tcp"} 
+alligator_connect_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_connect_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_execute_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_execute_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_metric_allocates
+alligator_metric_cache_hit
+alligator_metric_free
+alligator_parser_status {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com", parser="tcp"}
+alligator_read {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_read_bytes {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_read_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_read_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"}
+alligator_shutdown {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_timeout {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_connect_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_connect_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_init {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_read {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_read_bytes {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_read_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_read_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_write {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_write_bytes {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_write_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_tls_write_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_version {version="1.11.3"} 
+alligator_write {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_write_bytes {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_write_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 
+alligator_write_total_time {proto="tcp", key="tcp:tcp:google.com:80/", type="aggregator", host="google.com"} 

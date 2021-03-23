@@ -665,3 +665,13 @@ string* get_file_content(char *file)
 
 	return str;
 }
+
+void to_lower_s(char *s, size_t l)
+{
+	for ( ; *s; ++s, --l) *s = tolower(*s);
+}
+
+void to_lower_before(char *s, char *before)
+{
+	to_lower_s(s, strcspn(s, before));
+}

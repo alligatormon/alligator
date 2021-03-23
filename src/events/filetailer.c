@@ -308,7 +308,7 @@ char* filetailer_handler(context_arg *carg)
 
 	carg->key = strdup(carg->host);
 
-	if (carg->file_stat || carg->calc_lines || carg->checksum)
+	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler)
 		tommy_hashdyn_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	if (carg->notify)

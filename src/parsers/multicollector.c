@@ -172,12 +172,13 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 	{
 		uint8_t i;
 		size_t str_splits;
+		size_t template_splitsize;
 
-		char **template_split = mapping_str_split(mm->template, mm->template_len, &str_splits, NULL, 0, NULL);
-		split = mapping_str_split(str, size, &str_splits, template_split, str_splits, arr);
+		char **template_split = mapping_str_split(mm->template, mm->template_len, &template_splitsize, NULL, 0, NULL);
+		split = mapping_str_split(str, size, &str_splits, template_split, template_splitsize, arr);
 		if (!split)
 		{
-			free_mapping_split_free(template_split, str_splits);
+			free_mapping_split_free(template_split, template_splitsize);
 			return 0;
 		}
 		//printf("%d <> %d\n", str_splits, mm->glob_size);
@@ -194,7 +195,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 			int8_t selector = aglob(split[i], mm->glob[i]);
 			if (!selector)
 			{
-				free_mapping_split_free(template_split, str_splits);
+				free_mapping_split_free(template_split, template_splitsize);
 				free_mapping_split_free(split, str_splits);
 				return 0;
 			}
@@ -398,8 +399,10 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 				}
 			}
 			free_mapping_split_free(metric_split, metric_split_size);
+			free(matchres);
 			break;
 		}
+		free(matchres);
 	}
 
 	if (ac->log_level > 3)

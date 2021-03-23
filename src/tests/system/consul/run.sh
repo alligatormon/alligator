@@ -4,7 +4,7 @@
 DIR="consul"
 
 consul agent -dev&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

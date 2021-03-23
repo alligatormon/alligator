@@ -617,12 +617,12 @@ void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key)
 
 	uint32_t name_hash = tommy_strhash_u32(0, name);
 	labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, name, name_hash);
-	if (!labelscont)
+	if (!labelscont && name && key)
 	{
-		labelscont = malloc(sizeof(*labelscont));
+		labelscont = calloc(1, sizeof(*labelscont));
 		labelscont->name = strdup(name);
-		labelscont->key = strdup(key);
 		labelscont->allocatedname = 1;
+		labelscont->key = strdup(key);
 		labelscont->allocatedkey = 1;
 		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
 	}

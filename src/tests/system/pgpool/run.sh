@@ -7,7 +7,7 @@ su postgres -c 'initdb -D /tmp/pg'
 su postgres -c 'pg_ctl -D /tmp/pg -l logfile start'
 pgpool -f $APPDIR/tests/system/pgpool/pgpool.conf -n &
 echo select 1 | psql -h 127.0.0.1 -p 9999 -U postgres postgres
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

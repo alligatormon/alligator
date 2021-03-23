@@ -5,7 +5,7 @@ DIR="uwsgi"
 
 uwsgi --plugin python36 --http-socket :9090 --stats :1717 --stats-http --wsgi-file tests/system/uwsgi/hw.py >/dev/null 2>&1 &
 uwsgi --plugin python36 --http-socket :9091 --stats :1718 --wsgi-file tests/system/uwsgi/hw.py >/dev/null 2>&1 &
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.json&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.json&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

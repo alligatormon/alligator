@@ -1,7 +1,7 @@
 #!/bin/sh
 IFS=""
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
-$APPDIR/alligator $APPDIR/tests/system/shell/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/shell/alligator.conf&
 sleep 4
 TEXT=`curl -s localhost:1111`
 

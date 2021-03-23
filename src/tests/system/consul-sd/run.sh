@@ -7,7 +7,7 @@ consul agent -dev >/dev/null 2>&1 &
 sleep 1
 consul services register -name=web -port=1334 -address=127.0.0.1 -meta alligator_port=2332 -meta alligator_host=127.0.0.2 -meta alligator_handler=uwsgi -meta alligator_proto=tcp
 consul kv put fvwv '{"entrypoint": [{"tcp":["1113"]}]}'
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 25
 
 TEXT=`curl -s localhost:1111`

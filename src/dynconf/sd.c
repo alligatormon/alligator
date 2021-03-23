@@ -315,6 +315,7 @@ void sd_etcd_node(json_t *rnode)
 		{
 			char *dvalue = (char*)json_string_value(value);
 			http_api_v1(NULL, NULL, dvalue);
+			free(dvalue);
 		}
 
 		//json_t *key = json_object_get(node, "key");
@@ -369,6 +370,7 @@ void sd_consul_configuration(char *conf, size_t conf_len, context_arg *carg)
 			char *dvalue = base64_decode(value_str, strlen(value_str), &outlen);
 			//printf("consul %s\n", dvalue);
 			http_api_v1(NULL, NULL, dvalue);
+			free(dvalue);
 		}
 	}
 
@@ -474,8 +476,9 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 			json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
 			json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
 			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
-			const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+			char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 			http_api_v1(NULL, NULL, dvalue);
+			free(dvalue);
 		}
 	}
 

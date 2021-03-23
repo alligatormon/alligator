@@ -5,7 +5,7 @@ DIR="mysql"
 
 #mysql_install_db --user=mysql --datadir=/mysql/
 #cd '/usr' ; /usr/bin/mysqld_safe --user=mysql --datadir='/mysql/'&
-$APPDIR/alligator $APPDIR/tests/system/mysql/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/mysql/alligator.conf&
 sleep 9
 
 TEXT=`curl -s localhost:1111`

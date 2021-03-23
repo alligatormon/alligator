@@ -3,7 +3,7 @@
 . /app/src/tests/system/common.sh
 DIR="query"
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

@@ -24,6 +24,7 @@ void config_parse_entry(char *filepath)
 		json_decref(root);
 		puts("json loaded");
 		config_json(context->s);
+		string_free(context);
 		return;
 	}
 	else {
@@ -55,6 +56,7 @@ void config_parse_entry(char *filepath)
 	if (ac->log_level > 0)
 		printf("config_plain_to_json return:\n'%s'\n", json);
 	config_json(json);
+	free(json);
 }
 
 void parse_configs(char *dirpath)

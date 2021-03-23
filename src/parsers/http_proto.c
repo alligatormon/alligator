@@ -275,10 +275,11 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		json_array_object_insert(aggregate_obj, "log_level", aggregate_log_level);
 		json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
 
-		const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+		char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 		if (carg->log_level > 1)
 			puts(dvalue);
 		http_api_v1(NULL, NULL, dvalue);
+		free(dvalue);
 		json_decref(aggregate_root);
 	}
 }

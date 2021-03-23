@@ -1,0 +1,7 @@
+[requires]
+jansson/2.13.1
+mbedtls/2.16.3-apache
+jemalloc/5.2.1
+
+[generators]
+cmake

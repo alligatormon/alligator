@@ -38,3 +38,24 @@ void test_string()
 	uint newsize = str->m > 12;
 	cut_assert_equal_int(1, newsize);
 }
+
+void test1_string()
+{
+	char *test1 = strdup("BIG-sizE");
+	to_lower_s(test1, 2);
+	cut_assert_equal_string("biG-sizE", test1);
+}
+
+void test2_string()
+{
+	char *test = strdup("ALLIGATOR__ENTRYPOINT0__TCP0=1111");
+	to_lower_s(test, 22);
+	cut_assert_equal_string("alligator__entrypoint0__TCP0=1111", test);
+}
+
+void test3_string()
+{
+	char *test = strdup("ALLIGATOR__ENTRYPOINT0__HANDLER=RsYsLoG");
+	to_lower_before(test, "=");
+	cut_assert_equal_string("alligator__entrypoint0__handler=RsYsLoG", test);
+}

@@ -4,7 +4,7 @@
 DIR="clickhouse"
 
 clickhouse-server --daemon
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 60
 
 TEXT=`curl -s localhost:1111`

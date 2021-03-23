@@ -4,7 +4,7 @@
 DIR="squid"
 
 /usr/sbin/squid -f /etc/squid/squid.conf -NYCd 1&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

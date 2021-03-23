@@ -210,6 +210,7 @@ void aggregate_ctx_init()
 	jks_parser_push();
 	kubernetes_ingress_parser_push();
 	kubernetes_endpoint_parser_push();
+	kubeconfig_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

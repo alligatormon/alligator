@@ -3,7 +3,7 @@
 . /app/src/tests/system/common.sh
 DIR="x509"
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`
@@ -15,7 +15,7 @@ done
 
 kill %1
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator-recurse.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator-recurse.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

@@ -12,7 +12,7 @@ then
 fi
 $APPDIR/external/odyssey /app/src/tests/system/odyssey/odyssey.conf
 echo select 1 | psql -h 127.0.0.1 -p 6432 -U postgres postgres
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 5
 
 TEXT=`curl -s localhost:1111`

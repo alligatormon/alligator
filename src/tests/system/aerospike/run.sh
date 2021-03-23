@@ -5,9 +5,9 @@ mkdir -p /opt/aerospike/sys/udf/lua
 mkdir -p /opt/aerospike/usr/udf/lua
 mkdir -p /opt/aerospike/smd
 
-$APPDIR/external/aerospike/asd --config-file tests/system/aerospike/aerospike.conf
+asd --config-file tests/system/aerospike/aerospike.conf
 
-$APPDIR/alligator $APPDIR/tests/system/aerospike/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/aerospike/alligator.yaml&
 sleep 25
 
 TEXT=`curl -s localhost:1111`

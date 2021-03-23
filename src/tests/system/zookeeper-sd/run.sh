@@ -7,7 +7,7 @@ zookeeper-server start
 sleep 1
 #echo 1 > /var/lib/zookeeper/myid
 /usr/lib/zookeeper/bin/zkCli.sh create /test '{"aggregate": [{"url": "https://google.com", "handler": "http"}]}' >/dev/null 2>&1
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 25
 
 TEXT=`curl -s localhost:1111`

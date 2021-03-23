@@ -58,15 +58,27 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 		{
 			if (!strcmp(key, "log_level"))
 			{
-				ac->log_level = json_integer_value(value);
+				if (json_typeof(value) == JSON_STRING)
+					ac->log_level = strtoull(json_string_value(value), NULL, 10);
+				else
+					ac->log_level = json_integer_value(value);
 			}
 			if (!strcmp(key, "aggregate_period"))
 			{
-				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = ac->query_repeat = json_integer_value(value);
+				uint64_t aggregator_repeat;
+				if (json_typeof(value) == JSON_STRING)
+					aggregator_repeat = strtoull(json_string_value(value), NULL, 10);
+				else
+					aggregator_repeat = json_integer_value(value);
+
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = ac->query_repeat = aggregator_repeat;
 			}
 			if (!strcmp(key, "ttl"))
 			{
-				ac->ttl = json_integer_value(value);
+				if (json_typeof(value) == JSON_STRING)
+					ac->ttl = strtoull(json_string_value(value), NULL, 10);
+				else
+					ac->ttl = json_integer_value(value);
 			}
 			if (!strcmp(key, "modules"))
 			{
@@ -535,8 +547,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							ac->system_disk = enkey;
 						else if (!strcmp(system_key, "network"))
 							ac->system_network = enkey;
-						else if (!strcmp(system_key, "vm"))
-							ac->system_vm = enkey;
 						else if (!strcmp(system_key, "smart"))
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "firewall"))
@@ -807,8 +817,12 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					char *url = (char*)json_string_value(jurl);
 
+					uint8_t follow_redirects;
 					json_t *jfollow_redirects = json_object_get(aggregate, "follow_redirects");
-					uint8_t follow_redirects = json_integer_value(jfollow_redirects);
+					if (jfollow_redirects && json_typeof(jfollow_redirects) == JSON_STRING)
+						follow_redirects = strtoull(json_string_value(jfollow_redirects), NULL, 10);
+					else
+						follow_redirects = json_integer_value(jfollow_redirects);
 
 					host_aggregator_info *hi = parse_url(url, strlen(url));
 					//char *query;

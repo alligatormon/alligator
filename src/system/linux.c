@@ -924,32 +924,38 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	// get cmdline
 	snprintf(dir, FILENAME_MAX, "%s/%s/cmdline", ac->system_procfs, pid);
+	//printf("read '%s'\n", dir);
 	fd = fopen(dir, "r");
 	if (!fd)
 		return 0;
 
-	char cmdline[_POSIX_PATH_MAX];
-	cmdline[0] = 0;
-	if(!(rc=fread(cmdline, 1, _POSIX_PATH_MAX, fd)))
-		cmdline[0] = 0;
-
-	size_t cmdline_size;
-	if (rc)
+	size_t cmdline_size = get_any_file_size(dir);
+	char *cmdline = calloc(1, cmdline_size+1);
+	//cmdline[cmdline_size] = 0;
+	//cmdline[0] = 0;
+	if(!(rc=fread(cmdline, 1, cmdline_size, fd)))
 	{
-		for(int64_t iter = 0; iter < rc-1; iter++)
-			if (!cmdline[iter])
-				cmdline[iter] = ' ';
-		cmdline_size = strlen(cmdline);
+		cmdline[0] = 0;
+		cmdline_size = 0;
 	}
 	else
-		cmdline_size = 0;
+	{
+		for(int64_t iter = 0; iter < cmdline_size-1; iter++)
+			if (!cmdline[iter])
+				cmdline[iter] = ' ';
+		//cmdline_size = strlen(cmdline);
+	}
+
 	fclose(fd);
 
+	//printf("cmdline(%zu) is '%s'\n", cmdline_size, cmdline);
 	int8_t match = 1;
 	if (need_match)
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
 				match = 0;
+
+	free(cmdline);
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, pid);
 	get_proc_info(dir, procname, pid, lightweight, states, match);
@@ -2097,6 +2103,8 @@ void get_mdadm()
 		tmp += strspn(tmp, " ");
 		//printf("name is '%s', status is '%s', level is '%s'\n", name, status, level);
 
+		size_t str2_size = strlen(str2);
+
 		while (*tmp)
 		{
 			pt = strcspn(tmp, " [\n");
@@ -2109,14 +2117,20 @@ void get_mdadm()
 
 		pt = strcspn(str2, " ");
 		int64_t size = atoll(str2+pt);
+		int64_t arr_sz = 0;
+		int64_t arr_cur = 0;
 		tmp = str2+pt;
 
 		pt = strcspn(tmp, "[")+1;
-		int64_t arr_sz = atoll(tmp+pt);
-		tmp = str2+pt;
+		if (pt < str2_size)
+		{
+			arr_sz = atoll(tmp+pt);
+			tmp = str2+pt;
 
-		pt = strcspn(tmp, "/")+1;
-		int64_t arr_cur = atoll(tmp+pt);
+			pt = strcspn(tmp, "/")+1;
+			if (pt < str2_size - (tmp - str2))
+				arr_cur = atoll(tmp+pt);
+		}
 
 		//printf("size %lld, sz %lld, cur %lld\n", size, arr_sz, arr_cur);
 		metric_add_labels3("raid_configuration", &vl, DATATYPE_INT, ac->system_carg, "array", name, "status", status, "level", level);
@@ -2286,125 +2300,6 @@ void interface_stats()
 		}
 		closedir(dp_statistics);
 	}
-	closedir(dp);
-}
-
-void cgroup_vm(char *dir_template, char *template, uint8_t stat, char *sysfs)
-{
-	struct dirent *entry;
-	DIR *dp;
-	char cntpath[1000];
-	char memory_stat[1000];
-	char buf[1000];
-	char mname[255];
-	char cntname[255];
-	int64_t mval;
-	uint64_t cur1;
-
-	char dir[255];
-	snprintf(dir, 255, dir_template, sysfs);
-	dp = opendir(dir);
-	if (!dp)
-	{
-		return;
-	}
-
-	while((entry = readdir(dp)))
-	{
-		if (entry->d_name[0] == '.' || entry->d_type!=DT_DIR)
-			continue;
-
-		if (!strcmp(entry->d_name, "user.slice") || !strcmp(entry->d_name, "system.slice"))
-			continue;
-
-		snprintf(cntpath, 1000, template, sysfs, entry->d_name);
-
-		struct dirent *cntentry;
-		DIR *cntdp;
-
-		cntdp = opendir(cntpath);
-		if (!cntdp)
-		{
-			return;
-		}
-
-		while((cntentry = readdir(cntdp)))
-		{
-			if (cntentry->d_name[0] == '.' || cntentry->d_type!=DT_DIR)
-				continue;
-
-			if(!strncmp(cntentry->d_name, "systemd-nspawn@", 15))
-				strlcpy(cntname, cntentry->d_name+15, strlen(cntentry->d_name+15)-7);
-			else
-				strlcpy(cntname, cntentry->d_name, strlen(cntentry->d_name)+1);
-
-			if (stat == LINUX_MEMORY)
-			{
-				snprintf(memory_stat, 1000, "%s%s/memory.stat", cntpath, cntentry->d_name);
-
-				FILE *fd = fopen(memory_stat, "r");
-				if (!fd)
-				{
-					closedir(dp);
-					closedir(cntdp);
-					return;
-				}
-
-				while(fgets(buf, 1000, fd))
-				{
-					if (strncmp(buf, "total_", 6))
-						continue;
-
-					cur1 = strcspn(buf+6, " \t");
-					strlcpy(mname, buf+6, cur1+1);
-					cur1 += strspn(buf+6+cur1, " \t");
-					mval = atoll(buf+6+cur1);
-					metric_add_labels2("memory_vm", &mval, DATATYPE_INT, ac->system_carg, "vm", cntname, "type", mname);
-				}
-
-				snprintf(memory_stat, 1000, "%s%s/memory.memsw.failcnt", cntpath, cntentry->d_name);
-				mval = getkvfile(memory_stat);
-				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, ac->system_carg, "vm", cntname, "type", "memsw");
-
-				snprintf(memory_stat, 1000, "%s%s/memory.failcnt", cntpath, cntentry->d_name);
-				mval = getkvfile(memory_stat);
-				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, ac->system_carg, "vm", cntname, "type", "mem");
-
-				snprintf(memory_stat, 1000, "%s%s/memory.kmem.failcnt", cntpath, cntentry->d_name);
-				mval = getkvfile(memory_stat);
-				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, ac->system_carg, "vm", cntname, "type", "kmem");
-
-				snprintf(memory_stat, 1000, "%s%s/memory.kmem.tcp.failcnt", cntpath, cntentry->d_name);
-				mval = getkvfile(memory_stat);
-				metric_add_labels2("memory_vm_fails", &mval, DATATYPE_INT, ac->system_carg, "vm", cntname, "type", "kmem_tcp");
-			}
-			else if (stat == LINUX_CPU)
-			{
-				snprintf(memory_stat, 1000, "%s%s/cpu.cfs_period_us", cntpath, cntentry->d_name);
-				int64_t cfs_period = getkvfile(memory_stat);
-				snprintf(memory_stat, 1000, "%s%s/cpu.cfs_quota_us", cntpath, cntentry->d_name);
-				int64_t cfs_quota = getkvfile(memory_stat);
-				if ( cfs_quota < 0 )
-					cfs_quota = 1;
-
-
-				snprintf(memory_stat, 1000, "%s%s/cpuacct.usage_sys", cntpath, cntentry->d_name);
-				int64_t cgroup_system_ticks = getkvfile(memory_stat);
-				double cgroup_system_usage = cgroup_system_ticks*cfs_period/1000000000/cfs_quota*100.0;
-
-				snprintf(memory_stat, 1000, "%s%s/cpuacct.usage_user", cntpath, cntentry->d_name);
-				int64_t cgroup_user_ticks = getkvfile(memory_stat);
-				double cgroup_user_usage = cgroup_user_ticks*cfs_period/1000000000/cfs_quota*100.0;
-
-				double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;
-				metric_add_labels2("cpu_usage_vm", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "vm", cntname, "type", "system");
-				metric_add_labels2("cpu_usage_vm", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "vm", cntname, "type", "user");
-				metric_add_labels2("cpu_usage_vm", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "vm", cntname, "type", "total");
-			}
-		}
-		closedir(cntdp);
-	}
-
 	closedir(dp);
 }
 
@@ -3114,7 +3009,8 @@ void get_utmp_info()
 	size_t rc = 1;
 	for(i = 0; rc; i++) {
 		rc = fread(&log, sizeof(struct utmp), 1, file);
-		utmp_parse(&log);
+		if (rc)
+			utmp_parse(&log);
 	}
 
 	fclose(file);
@@ -3197,12 +3093,6 @@ void get_system_metrics()
 			platform = get_platform(0);
 		if (!platform)
 			get_mdadm();
-	}
-
-	if (ac->system_vm)
-	{
-		cgroup_vm("%s/fs/cgroup/memory/", "%s/fs/cgroup/memory/%s/", LINUX_MEMORY, ac->system_sysfs);
-		cgroup_vm("%s/fs/cgroup/cpuacct/", "%s/fs/cgroup/cpuacct/%s/", LINUX_CPU, ac->system_sysfs);
 	}
 
 	if (ac->fdesc)

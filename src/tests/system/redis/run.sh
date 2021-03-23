@@ -1,7 +1,7 @@
 #!/bin/sh
 IFS=""
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
-$APPDIR/alligator $APPDIR/tests/system/redis/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/redis/alligator.conf&
 
 redis-server redis1.conf >/dev/null
 redis-server redis2.conf >/dev/null

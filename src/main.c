@@ -40,7 +40,7 @@ void system_initialize()
 	ac->system_network = 0;
 	ac->system_disk = 0;
 	ac->system_process = 0;
-	ac->system_vm = 0;
+	ac->system_cadvisor = 0;
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->system_carg->ttl = 300;
@@ -249,7 +249,7 @@ int parse_args(int argc, char **argv)
 }
 
 
-int main(int argc, char **argv)
+int main(int argc, char **argv, char **envp)
 {
 	ac = configuration();
 
@@ -260,6 +260,8 @@ int main(int argc, char **argv)
 
 	if (!parse_args(argc, argv))
 		parse_configs(DEFAULT_CONF_PATH);
+
+	parse_env(envp);
 
 	restore_settings();
 

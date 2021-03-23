@@ -4,7 +4,7 @@
 
 DIR="pgbouncer"
 /usr/bin/pgbouncer $APPDIR/tests/system/pgbouncer/pgbouncer.ini >/dev/null 2>&1 &
-$APPDIR/alligator $APPDIR/tests/system/pgbouncer/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/pgbouncer/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

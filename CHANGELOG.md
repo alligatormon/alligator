@@ -1,5 +1,11 @@
 Changelog
 
+## [1.12.0] - 23.03.2021
+- Support environment variables
+- Support scrape kubectl certificates information about expires
+- Start migration to conan C/C++ package manager
+- Fix memory leak when use graphite/statsd metrics with mapping
+
 ## [1.11.3] - 12.03.2021
 - Fix support prometheus metrics name with ':' symbol
 

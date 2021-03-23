@@ -25,7 +25,9 @@
 #include "parsers/mysql.h"
 #include "common/aggregator.h"
 #define d8 PRId8
+#define u8 PRIu8
 #define u16 PRIu16
+#define u32 PRIu32
 #define d64 PRId64
 #define u64 PRIu64
 #define METRIC_SIZE 1000
@@ -156,7 +158,6 @@ typedef struct aconf
 	int system_disk;
 	int system_network;
 	int system_process;
-	int system_vm;
 	int system_smart;
 	int system_packages;
 	int system_firewall;

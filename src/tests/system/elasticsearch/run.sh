@@ -2,7 +2,7 @@
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
 . /app/src/tests/system/common.sh
 
-$APPDIR/alligator $APPDIR/tests/system/elasticsearch/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/elasticsearch/alligator.yaml&
 
 sudo -u elasticsearch /usr/share/elasticsearch/bin/systemd-entrypoint >/dev/null&
 

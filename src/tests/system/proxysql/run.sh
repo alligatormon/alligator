@@ -4,7 +4,7 @@ DIR="proxysql"
 . /app/src/tests/system/common.sh
 
 proxysql&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 9
 
 TEXT=`curl -s localhost:1111`

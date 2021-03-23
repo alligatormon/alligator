@@ -4,7 +4,7 @@
 DIR="syslog-ng"
 
 /usr/sbin/syslog-ng -F -p /var/run/syslogd.pid -f tests/system/syslog-ng/syslog-ng.conf&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

@@ -5,7 +5,7 @@ DIR="hadoop"
 
 hdfs --config tests/system/hadoop/conf/ datanode&
 sleep 5
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.yaml&
 sleep 50
 
 TEXT=`curl -s localhost:1111`

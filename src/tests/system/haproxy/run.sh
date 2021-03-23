@@ -4,7 +4,7 @@ IFS=""
 haproxy -f $APPDIR/tests/system/haproxy/haproxy.cfg
 
 #tcp conf test
-$APPDIR/alligator $APPDIR/tests/system/haproxy/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/haproxy/alligator.conf&
 sleep 5
 
 TEXT=`curl -s localhost:1111`
@@ -16,7 +16,7 @@ killall alligator
 
 
 # http conf test
-$APPDIR/alligator $APPDIR/tests/system/haproxy/alligator-http.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/haproxy/alligator-http.conf&
 sleep 5
 
 TEXT=`curl -s localhost:1111`

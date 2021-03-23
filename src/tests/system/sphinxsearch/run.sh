@@ -4,7 +4,7 @@ DIR="sphinxsearch"
 . /app/src/tests/system/common.sh
 
 searchd&
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 9
 
 TEXT=`curl -s localhost:1111`

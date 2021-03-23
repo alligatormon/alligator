@@ -14,7 +14,7 @@ export export JMX_PORT=12345
 sh bin/kafka-server-start.sh config/server.properties&
 cd ../../
 
-$APPDIR/alligator $APPDIR/tests/system/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
 sleep 15
 
 text=`curl -s localhost:1111`
@@ -29,3 +29,4 @@ sh external/kafka_2.13-2.7.0/bin/kafka-server-stop.sh
 kill %1
 kill %2
 kill %3
+killall -9 java
