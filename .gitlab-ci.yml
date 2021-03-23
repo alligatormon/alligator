@@ -82,6 +82,8 @@ sources_tarball:
   - mkdir /tmp/alligator-$CI_COMMIT_TAG
   - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
 
+  - ls /tmp
+  - ls /tmp/alligator-$CI_COMMIT_TAG/
   - cd /tmp/alligator-$CI_COMMIT_TAG/src
 
   - cd /tmp

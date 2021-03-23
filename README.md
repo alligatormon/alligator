@@ -190,6 +190,9 @@ aggregate backends {
 
 	# file stat calc:
 	blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
+
+    # kubeconfig scarpe certificate data
+    kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
 }
 ```
 
@@ -421,7 +424,8 @@ lang {
 }
 ```
 
-# Support environment variables (__ is a separator of contexts)
+# Support environment variables
+__ is a separator of contexts
 Example:
 ```
 export ALLIGATOR__ENTRYPOINT0__TCP0=1111

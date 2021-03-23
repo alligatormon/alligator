@@ -1,5 +1,8 @@
 Changelog
 
+## [1.12.1] - 23.03.2021
+- Fix match process with regexp
+
 ## [1.12.0] - 23.03.2021
 - Support environment variables
 - Support scrape kubectl certificates information about expires
