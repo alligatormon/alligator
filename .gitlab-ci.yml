@@ -72,14 +72,13 @@ build_ubuntu2004:
 
 sources_tarball:
   stage: build
-  #only:
-  #- tags
+  only:
+  - tags
   script:
   - cd src
   - sh bootstrap.sh
   - cmake3 .
   - make -j
-  - export CI_COMMIT_TAG=1.11.0
   - mkdir /tmp/alligator-$CI_COMMIT_TAG
   - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
 
@@ -101,7 +100,7 @@ deploy_centos7:
   - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
-  - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator
+  - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz bin/alligator
   - >-
     curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
   - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
