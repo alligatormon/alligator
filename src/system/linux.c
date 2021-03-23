@@ -929,10 +929,9 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	if (!fd)
 		return 0;
 
-	size_t cmdline_size = get_any_file_size(dir);
-	char *cmdline = calloc(1, cmdline_size+1);
-	//cmdline[cmdline_size] = 0;
-	//cmdline[0] = 0;
+	size_t cmdline_size = 16384;
+	char cmdline[cmdline_size];
+	cmdline[0] = 0;
 	if(!(rc=fread(cmdline, 1, cmdline_size, fd)))
 	{
 		cmdline[0] = 0;
@@ -940,10 +939,10 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	}
 	else
 	{
-		for(int64_t iter = 0; iter < cmdline_size-1; iter++)
+		for(int64_t iter = 0; iter < rc-1; iter++)
 			if (!cmdline[iter])
 				cmdline[iter] = ' ';
-		//cmdline_size = strlen(cmdline);
+		cmdline_size = strlen(cmdline);
 	}
 
 	fclose(fd);
@@ -954,8 +953,6 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
 				match = 0;
-
-	free(cmdline);
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, pid);
 	get_proc_info(dir, procname, pid, lightweight, states, match);
