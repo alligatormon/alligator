@@ -79,6 +79,7 @@ sources_tarball:
   - sh bootstrap.sh
   - cmake3 .
   - make -j
+  - cd ..
   - mkdir /tmp/alligator-$CI_COMMIT_TAG
   - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
 
