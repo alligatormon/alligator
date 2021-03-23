@@ -33,6 +33,7 @@ yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresq
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat
 
 ln -s /usr/bin/python{3,}
+ln -s /usr/bin/cmake{3,}
 
 unbound-control-setup
 
