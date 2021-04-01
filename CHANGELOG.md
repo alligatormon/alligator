@@ -1,5 +1,8 @@
 Changelog
 
+## [1.12.2] - 01.04.2021
+- Fix in query filter matching internal metrics
+
 ## [1.12.1] - 23.03.2021
 - Fix match process with regexp
 
