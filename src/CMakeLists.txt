@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.12.1)
+set(VERSION 1.12.2)
 project(alligator VERSION ${VERSION})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)

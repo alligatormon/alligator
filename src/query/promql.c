@@ -119,7 +119,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 	{
 		cur += strspn(str+cur, "{ \t");
 		size = size - (str - query);
-		int size_to_end = strcspn(str+cur, "}");
+		int size_to_end = strcspn(str+cur, "}") + cur;
 		for (; cur <= size_to_end;)
 		{
 			//printf("parsing (%d/%d) '%s'\n", cur, size_to_end, str+cur);
