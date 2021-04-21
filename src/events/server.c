@@ -11,6 +11,7 @@
 #include "events/debug.h"
 #include "events/uv_alloc.h"
 #include "common/entrypoint.h"
+#include "parsers/http_proto.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -144,7 +145,18 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	(srv_carg->read_counter)++;
 	carg->read_time_finish = setrtime();
 
-	if ((nread) > 0 && (nread < 65536))
+	http_reply_data* hrdata;
+	if (!carg->full_body->l)
+	{
+		hrdata = http_proto_get_request_data(buf->base, nread);
+		if (hrdata)
+		{
+			carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
+			http_reply_free(hrdata);
+		}
+	}
+
+	if ((nread) > 0 && (nread < 65536) && carg->expect_body_length <= (nread + carg->full_body->l))
 	{
 		srv_carg->read_bytes_counter += nread;
 		string *str = string_init(carg->buffer_response_size);
@@ -173,6 +185,11 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		string_null(carg->full_body);
 		carg->buffer_response_size = str->m;
 		free(str);
+	}
+	if (carg->expect_body_length > (nread + carg->full_body->l))
+	{
+		srv_carg->read_bytes_counter += nread;
+		string_cat(carg->full_body, buf->base, nread);
 	}
 	if ((nread) > 0 && (nread >= 65536))
 	{

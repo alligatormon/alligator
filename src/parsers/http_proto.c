@@ -13,7 +13,8 @@ void http_reply_free(http_reply_data* hrdata)
 {
 	free(hrdata->mesg);
 	free(hrdata->headers);
-	string_free(hrdata->clear_http);
+	if (hrdata->clear_http)
+		string_free(hrdata->clear_http);
 
 	if (hrdata->location)
 		free(hrdata->location);
@@ -319,7 +320,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	else	return 0;
 
 
-	http_reply_data* ret = malloc(sizeof(*ret));
+	http_reply_data* ret = calloc(1, sizeof(*ret));
 	ret->method = method;
 	ret->http_code = 0;
 	ret->mesg = 0;
@@ -365,6 +366,11 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 		{
 			ret->expire = strtoll(ret->headers+i+13+1, NULL, 10);
 		}
+		else if(!strncasecmp(ret->headers+i, "Content-Length:", 15))
+		{
+			ret->content_length = atoll(ret->headers+i+15+1);
+		}
+
 		i += strcspn(ret->headers+i, "\n");
 	}
 
