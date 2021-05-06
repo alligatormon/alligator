@@ -111,6 +111,18 @@ query_ds* query_get(char *datasource)
 		return NULL;
 }
 
+query_node *query_get_node(query_ds *qds, char *make)
+{
+	if (!qds)
+		return NULL;
+
+	query_node *qn = tommy_hashdyn_search(qds->hash, query_compare, make, tommy_strhash_u32(0, make));
+	if (qn)
+		return qn;
+	else
+		return NULL;
+}
+
 tommy_hashdyn* query_get_field(json_t *jfield)
 {
 	uint64_t fields_count = json_array_size(jfield);

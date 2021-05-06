@@ -5,9 +5,18 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include <query/query.h>
 #include "main.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 255
+#define CH_OTHER 0
+#define CH_FLOAT 1
+
+typedef struct ch_columns_types {
+	char *colname;
+	uint8_t type;
+} ch_columns_types;
+
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
 	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, carg);
@@ -370,6 +379,151 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	free(table);
 }
 
+void ch_columns_types_free(ch_columns_types *column_types, uint64_t size)
+{
+	for (uint64_t i = 0; i < size; i++)
+		free(column_types[i].colname);
+
+	free(column_types);
+}
+
+void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *carg)
+{
+	uint64_t cur = 0;
+	char ch_field[CH_NAME_SIZE];
+
+	uint8_t format_names = 1;
+	uint8_t format_type = 0;
+	query_node *qn = carg->data;
+	//char *colname = NULL;
+	uint64_t columns_count = selector_count_field(metrics, "\t\n", strcspn(metrics, "\n"));
+	ch_columns_types *column_types = calloc(columns_count, sizeof(*column_types));
+
+	while (cur < size) {
+		tommy_hashdyn *hash = malloc(sizeof(*hash));
+		tommy_hashdyn_init(hash);
+
+		if (carg->ns)
+			labels_hash_insert_nocache(hash, "dbname", carg->ns);
+
+		uint64_t end = strcspn(metrics + cur, "\n") + cur;
+		for (uint64_t i = 0; cur < end; i++) {
+			uint64_t word_end = strcspn(metrics + cur, "\n\t");
+			strlcpy(ch_field, metrics + cur, word_end + 1);
+
+			cur += word_end + 1;
+
+			//printf("ch: %s\n", ch_field);
+			//printf("2 %d < %d\n", cur, end);
+
+			if (format_names)
+				column_types[i].colname = strdup(ch_field);
+			else if (format_type)
+			{
+				if (!strncasecmp(ch_field, "Float", 5))
+					column_types[i].type = CH_FLOAT;
+			}
+			else if (column_types[i].type == CH_FLOAT) // Float32 Float64
+			{
+				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", ch_field);
+					qf->d = strtod(ch_field, NULL);
+					qf->type = DATATYPE_DOUBLE;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
+				}
+			}
+			else
+			{
+				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
+				if (qf)
+				{
+					if (carg->log_level > 2)
+						printf("\tvalue '%s'\n", ch_field);
+					qf->i = strtoll(ch_field, NULL, 10);
+					qf->type = DATATYPE_INT;
+				}
+				else
+				{
+					if (carg->log_level > 2)
+						printf("\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
+				}
+			}
+		}
+
+		//printf("1 %d < %d: %d:%d\n", cur, size, format_names, format_type);
+
+		if (format_names)
+		{
+			format_names = 0;
+			format_type = 1;
+		}
+		else if (format_type)
+		{
+			format_type = 0;
+		}
+		else
+		{
+			qn->labels = hash;
+			qn->carg = carg;
+			query_set_values(qn);
+			labels_hash_free(hash);
+		}
+	}
+	ch_columns_types_free(column_types, columns_count);
+}
+
+void clickhouse_queries_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = (context_arg*)funcarg;
+	query_node *qn = arg;
+	if (carg->log_level > 1)
+	{
+		puts("+-+-+-+-+-+-+-+");
+		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	}
+	char *key = malloc(255);
+	snprintf(key, 255, "(tcp://%s:%u)/custom", carg->host, htons(carg->dest->sin_port));
+
+	string *query = string_init(1024);
+	string_cat(query, qn->expr, strlen(qn->expr));
+	string_cat(query, " FORMAT TabSeparatedWithNamesAndTypes", 37);
+
+	char *query_encoded = malloc(query->l + 1024);
+	urlencode(query_encoded, query->s, query->l);
+	string_free(query);
+	env_struct_push_alloc(carg->env, "Content-Length", "0");
+	char *generated_query = gen_http_query(HTTP_POST, "/?query=", query_encoded, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL);
+
+	try_again(carg, generated_query, strlen(generated_query), clickhouse_custom_execute_handler, "clickhouse_custom", NULL, key, qn);
+	//printf("try again %s/%"u64"\n", generated_query, strlen(generated_query));
+}
+
+void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
+{
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		if (qds)
+		{
+			tommy_hashdyn_foreach_arg(qds->hash, clickhouse_queries_foreach, carg);
+		}
+	}
+
+	//if (!carg->data_lock)
+	//	postgresql_get_databases(conn, carg);
+}
+
 string *clickhouse_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
 	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings), 0, 0);
@@ -382,13 +536,14 @@ string* clickhouse_columns_mesg(host_aggregator_info *hi, void *arg, void *env, 
 string* clickhouse_dictionary_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20name,bytes_allocated,query_count,hit_rate,element_count,load_factor%20from\%20system.dictionaries", env, proxy_settings); }
 string* clickhouse_merges_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20database,is_mutation,table,progress,num_parts,total_size_bytes_compressed,total_size_marks,bytes_read_uncompressed,rows_read,bytes_written_uncompressed,rows_written%20from\%20system.merges", env, proxy_settings); }
 string* clickhouse_replicas_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20database,table,is_leader,is_readonly,future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,absolute_delay,active_replicas%20from\%20system.replicas", env, proxy_settings); }
+string* clickhouse_custom_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/", env, proxy_settings); }
 
 void clickhouse_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("clickhouse");
-	actx->handlers = 7;
+	actx->handlers = 8;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = clickhouse_system_handler;
@@ -425,6 +580,11 @@ void clickhouse_parser_push()
 	actx->handler[6].validator = NULL;
 	actx->handler[6].mesg_func = clickhouse_replicas_mesg;
 	strlcpy(actx->handler[6].key,"clickhouse_replicas", 255);
+
+	actx->handler[7].name = clickhouse_custom_handler;
+	actx->handler[7].validator = NULL;
+	actx->handler[7].mesg_func = clickhouse_custom_mesg;
+	strlcpy(actx->handler[7].key,"clickhouse_custom", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

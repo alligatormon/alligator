@@ -21,3 +21,4 @@ typedef struct aggregate_context
 
 int actx_compare(const void* arg, const void* obj);
 int aggregator_compare(const void* arg, const void* obj);
+void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data);

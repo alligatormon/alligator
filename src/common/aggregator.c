@@ -73,6 +73,7 @@ int smart_aggregator(context_arg *carg)
 		carg->key = strdup(key);
 		//snprintf(carg->key, 254, "%s:%s:%s", type, carg->parser_name, carg->url);
 	}
+
 	if (carg->key)
 		tommy_hashdyn_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 
@@ -119,11 +120,11 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 	smart_aggregator_del_key(key);
 }
 
-void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key)
+void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data)
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
 	tommy_hashdyn *newenv = env_struct_duplicate(carg->env);
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, carg->data, validator, 0, ac->loop, newenv, carg->follow_redirects);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, carg->follow_redirects);
 
 	new->key = override_key;
 	if (!new->key)
@@ -211,6 +212,8 @@ void aggregate_ctx_init()
 	kubernetes_ingress_parser_push();
 	kubernetes_endpoint_parser_push();
 	kubeconfig_parser_push();
+	oracle_parser_push();
+	oracle_query_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

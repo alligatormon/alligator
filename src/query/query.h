@@ -40,3 +40,4 @@ typedef struct query_ds
 query_ds* query_get(char *datasource);
 query_field* query_field_get(tommy_hashdyn *qf_hash, char *key);
 tommy_hashdyn* query_get_field(json_t *jfield);
+query_node *query_get_node(query_ds *qds, char *make);

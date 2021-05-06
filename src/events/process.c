@@ -241,7 +241,8 @@ char* process_client(context_arg *carg)
 	args[0] = fname;
 	args[1] = NULL;
 
-	carg->key = carg->host;
+	if (!carg->key)
+		carg->key = carg->host;
 	carg->args = args;
 	tommy_hashdyn_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 

@@ -147,6 +147,7 @@ set(STATIC_FILES
 	parsers/jks.c
 	parsers/kubernetes.c
 	parsers/kubeconfig.c
+	parsers/oracle.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c

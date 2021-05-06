@@ -190,6 +190,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	else
 		carg->tls = 0;
 
+	json_t *json_key = json_object_get(root, "key");
+	char *str_key = (char*)json_string_value(json_key);
+	if (str_key)
+		carg->key = strdup(str_key);
+
 	json_t *json_name = json_object_get(root, "name");
 	char *str_name = (char*)json_string_value(json_name);
 	if (str_name)
@@ -200,10 +205,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (str_cert)
 		carg->tls_cert_file = strdup(str_cert);
 
-	json_t *json_key = json_object_get(root, "tls_key");
-	char *str_key = (char*)json_string_value(json_key);
-	if (str_key)
-		carg->tls_key_file = strdup(str_key);
+	json_t *json_tls_key = json_object_get(root, "tls_key");
+	char *str_tls_key = (char*)json_string_value(json_tls_key);
+	if (str_tls_key)
+		carg->tls_key_file = strdup(str_tls_key);
 
 	json_t *json_ca = json_object_get(root, "tls_ca");
 	char *str_ca = (char*)json_string_value(json_ca);

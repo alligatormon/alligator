@@ -174,6 +174,17 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 	}
 }
 
+uint64_t selector_count_field(char *str, char *pattern, uint64_t sz)
+{
+	//printf("selector_count_field '%s' with size %d and pattern '%s'\n", str, sz, pattern);
+	uint64_t cnt;
+	uint64_t i;
+	for (cnt = 0, i = 0; i < sz; i++, ++cnt)
+		i += strcspn(str+i, pattern);
+	//printf("cnt is %d\n", cnt);
+	return cnt;
+}
+
 void stlencat(stlen *str, char *str2, size_t len)
 {
 	//printf("CONCAT '%p'(SSIZE %zu) + '%s' (SIZE %zu)\n", str->s, strlen(str->s), str2, len);
@@ -675,3 +686,31 @@ void to_lower_before(char *s, char *before)
 {
 	to_lower_s(s, strcspn(s, before));
 }
+
+uint8_t is_double(char *str, size_t len, double *f)
+{
+	char *p;
+
+	*f = strtod(str, &p);
+
+	if (!len)
+	{
+		//printf("empty string\n");
+		return 0;
+	}
+	else
+	{
+		//printf("f=%f\n", f);
+		if (*p == 0)
+		{
+			//printf("entire string valid\n");
+			return 1;
+		}
+		else
+		{
+			//printf("extra characters: %s\n", p);
+			return 0;
+		}
+	}
+}
+

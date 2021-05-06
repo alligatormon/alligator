@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "common/http.h"
 #include "main.h"
 
 void env_struct_gen_http_headers(void *funcarg, void* arg)
@@ -42,7 +43,10 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	char method[5];
 	switch (http_type)
 	{
+		case HTTP_POST: strlcpy(method, "POST", 5);
+			 break;
 		default: strlcpy(method, "GET", 4);
+			 break;
 	}
 
 	char *version_http = httpver ? httpver : "1.0";
@@ -82,3 +86,27 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 
 	return buf;
 }
+
+uint64_t urlencode(char* dest, char* src, size_t src_len)
+{
+  uint64_t i;
+  uint64_t ret = 0;
+  *dest = 0;
+  for(i = 0; i < src_len; i++, ret++) {
+    char c = src[i];
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') ||
+        c == '-' || c == '_' || c == '.' || c == '~') {
+      char t[2];
+      t[0] = c; t[1] = '\0';
+      strcat(dest, t);
+    } else {
+      char t[4];
+      snprintf(t, sizeof(t), "%%%02x", c & 0xff);
+      strcat(dest, t);
+      ret += 4;
+    }
+  }
+  return ret;
+}
+

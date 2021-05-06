@@ -3,8 +3,84 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "query/query.h"
 #include "main.h"
 #define MC_NAME_SIZE 255
+
+void memcached_query(char *metrics, size_t size, context_arg *carg)
+{
+	if (carg->log_level > 0)
+		puts(metrics);
+
+	char metricname[MC_NAME_SIZE];
+	char metricvalue[MC_NAME_SIZE];
+	for (uint64_t i = 0; i < size; i++)
+	{
+		uint64_t endline = strcspn(metrics + i, "\r\n");
+		uint64_t cur = i;
+		cur += strcspn(metrics + cur, " \n");
+		cur += strspn(metrics + cur, " \n");
+		uint64_t copysize = strcspn(metrics + cur, " \n");
+		if (!copysize)
+		{
+			if (carg->log_level > 0)
+				printf("metric name size is 0, error\n");
+			break;
+		}
+		//printf("cur = %d, copysize = %d\n", cur, copysize);
+
+		strlcpy(metricname, metrics + cur, copysize + 1);
+		if (carg->log_level > 0)
+			printf("metric name is %s\n", metricname);
+
+		metric_name_normalizer(metricname, copysize);
+
+		i += endline;
+		i += strspn(metrics + i, "\r\n");
+		cur = i;
+
+		copysize = strcspn(metrics + cur, " \n");
+		if (!copysize)
+		{
+			if (carg->log_level > 0)
+				printf("metric value size is 0, error\n");
+			break;
+		}
+		//printf("cur = %d, copysize = %d\n", cur, copysize);
+		strlcpy(metricvalue, metrics + cur, copysize + 1);
+		if (carg->log_level > 0)
+			printf("metric value is %s\n", metricvalue);
+
+		double mval = strtod(metricvalue, NULL);
+		metric_add_auto(metricname, &mval, DATATYPE_DOUBLE, carg);
+
+		i += copysize;
+		i += strspn(metrics + cur, "\r\n");
+	}
+}
+
+void memcached_queries_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = (context_arg*)funcarg;
+	query_node *qn = arg;
+
+	if (carg->log_level > 1)
+	{
+		puts("+-+-+-+-+-+-+-+");
+		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	}
+
+	uint64_t writelen = strlen(qn->expr) + 2; // "get KEY1 KEY2 KEY3\r\n"
+	char *write_comm = malloc(writelen + 1);
+	strlcpy(write_comm, qn->expr, writelen - 1);
+	strcat(write_comm, "\r\n");
+
+	char *key = malloc(255);
+	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), write_comm);
+	key[strlen(key) - 1] = 0;
+
+	try_again(carg, write_comm, writelen, memcached_query, "memcached_query", NULL, key, carg->data);
+}
 
 void memcached_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -18,7 +94,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		cur = strstr(cur, "STAT ");
 		if (!cur)
-			return;
+			break;
 
 		cur += 5;
 		msize = strcspn(cur, " \t\r\n");
@@ -45,8 +121,19 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
-			double mval = strtoll(cur, &cur, 10);
+			double mval = strtod(cur, &cur);
 			metric_add_auto(name, &mval, rc, carg);
+		}
+	}
+
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		if (qds)
+		{
+			tommy_hashdyn_foreach_arg(qds->hash, memcached_queries_foreach, carg);
 		}
 	}
 }
