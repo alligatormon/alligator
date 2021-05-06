@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ "$1" == "-V" ]
+then
+	printf '\nSQL*Plus: Release 11.2.0.4.0 Production\n\n'
+elif [ "$1" == "-s" ]
+then
+	all_tab=0
+	all_col=0
+	#cat <&0
+	STD_IN=`cat <&0`
+	echo $STD_IN | grep ALL_TAB_STATISTICS > /dev/null 2>&1 && all_tab=1
+	echo $STD_IN | grep ALL_TAB_COL_STATISTICS > /dev/null 2>&1 && all_col=1
+	if [ $all_tab -eq 1 ]
+	then
+		cat tests/mock/oracle/all_tab_stats.txt
+	elif [ $all_col -eq 1 ]
+	then
+		cat tests/mock/oracle/all_tab_col_stats.txt
+	fi
+fi

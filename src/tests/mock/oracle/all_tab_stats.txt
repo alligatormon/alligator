@@ -1,0 +1,10 @@
+OWNER			      |TABLE_NAME		     |PARTITION_NAME		    |  NUM_ROWS|AVG_ROW_LEN|	BLOCKS|LAST_ANA|AVG_CACHE_HIT_RATIO| AVG_SPACE
+------------------------------|------------------------------|------------------------------|----------|-----------|----------|--------|-------------------|----------
+SYS			      |DUAL			     |				    |	      1|	  2|	     1|09.03.21|		   |	     0
+SYS			      |SYSTEM_PRIVILEGE_MAP	     |				    |	    209|	 26|	     1|09.03.21|		   |	     0
+SYS			      |TABLE_PRIVILEGE_MAP	     |				    |	     26|	 11|	     1|09.03.21|		   |	     0
+SYS			      |STMT_AUDIT_OPTION_MAP	     |				    |	    271|	 24|	     2|09.03.21|		   |	     0
+SYS			      |AUDIT_ACTIONS		     |				    |	    181|	 19|	     1|09.03.21|		   |	     0
+
+82 rows selected.
+
