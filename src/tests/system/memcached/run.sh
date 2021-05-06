@@ -43,11 +43,22 @@ memcached -u nobody -d
 printf 'set xyzkez 0 0 4\r\n442f\r\n' | nc localhost 11211
 printf 'set test_metric 0 0 5\r\n424.4\r\n' | nc localhost 11211
 printf 'set third_metric 0 0 6\r\n300.91\r\n' | nc localhost 11211
+
+# generated metrics by
+# ( for i in `seq 0 100`; do printf "set `pwgen -0 -N 1` 0 0 5\r\n$RANDOM\r\n"; done ) > generated
+cat $APPDIR/tests/system/$DIR/generate.txt | nc localhost 11211
+
 $APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator.conf&
-sleep 25
+sleep 20
 
 TEXT=`curl -s localhost:1111`
 METRICS=`cat $APPDIR/tests/system/$DIR/metrics-additional.txt`
+for NAME in $METRICS
+do
+	echo "$TEXT" | grep $NAME >/dev/null 2>&1 && success $NAME || error "$TEXT" $NAME
+done
+
+METRICS=`cat $APPDIR/tests/system/$DIR/metrics-generated.txt`
 for NAME in $METRICS
 do
 	echo "$TEXT" | grep $NAME >/dev/null 2>&1 && success $NAME || error "$TEXT" $NAME

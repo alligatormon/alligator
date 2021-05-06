@@ -135,6 +135,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
+	new->log_level = carg->log_level;
 
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
