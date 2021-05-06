@@ -100,3 +100,5 @@ yaeXaifa
 yeiseShe
 zahngoQu
 zaishaWa
+test_metric_statsd
+test_metric_pushgateway job="statsd"

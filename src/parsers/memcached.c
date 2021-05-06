@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <fnmatch.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
@@ -37,9 +38,10 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 
 		i += endline;
 		i += strspn(metrics + i, "\r\n");
+		endline = strcspn(metrics + i, "\r\n");
 		cur = i;
 
-		copysize = strcspn(metrics + cur, " \n");
+		copysize = strcspn(metrics + cur, "\r");
 		if (!copysize)
 		{
 			if (carg->log_level > 0)
@@ -51,11 +53,18 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		if (carg->log_level > 0)
 			printf("metric value is %s\n", metricvalue);
 
-		double mval = strtod(metricvalue, NULL);
-		metric_add_auto(metricname, &mval, DATATYPE_DOUBLE, carg);
+		if (metric_value_validator(metricvalue, copysize-1))
+		{
+			double mval = strtod(metricvalue, NULL);
+			metric_add_auto(metricname, &mval, DATATYPE_DOUBLE, carg);
+		}
+		else
+		{
+			multicollector(NULL, metricvalue, copysize, carg);
+		}
 
-		i += copysize;
-		i += strspn(metrics + cur, "\r\n");
+		i += endline;
+		i += strspn(metrics + i, "\r\n");
 	}
 }
 
@@ -63,9 +72,27 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 {
 	string *get_query = string_new();
 	string_cat(get_query, "get", 3);
-	char field[MC_NAME_SIZE];
-
+	query_node *qn = carg->data;
 	uint64_t copysize;
+	char field[MC_NAME_SIZE];
+	char metric[MC_NAME_SIZE];
+
+	size_t expr_size = strlen(qn->expr);
+	size_t pattern_size = selector_count_field(qn->expr, " \t", expr_size);
+	char pattern[pattern_size][MC_NAME_SIZE];
+	uint64_t j = 0;
+	for (uint64_t i = 5; i < expr_size; j++)
+	{
+		i += strspn(qn->expr + i, " \t");
+		uint64_t endfield = strcspn(qn->expr + i, " \t");
+		strlcpy(pattern[j], qn->expr + i, endfield + 1);
+
+		i += endfield;
+		i += strspn(qn->expr + i, " \t");
+	}
+
+	pattern_size = j;
+
 	for (uint64_t i = 0; i < size;)
 	{
 		uint64_t endline = strcspn(metrics + i, "\r\n");
@@ -73,15 +100,27 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 
 		strlcpy(field, metrics + cur, endline + 1);
 		// ITEM third_metric
-		if (carg->log_level > 1)
-		printf("field is '%s'\n", field);
 		if (!strncmp(field, "ITEM", 4))
 		{
 			if (carg->log_level > 2)
 				puts("is item");
+
 			copysize = strcspn(field + 5, " \t\n");
-			string_cat(get_query, " ", 1);
-			string_cat(get_query, field + 5, copysize);
+			strlcpy(metric, field + 5, copysize + 1);
+			for (uint64_t j = 0; j < pattern_size; j++)
+			{
+				if (!fnmatch(pattern[j], metric, 0))
+				{
+					if (carg->log_level > 1)
+						printf("Matching key '%s' and pattern '%s': OK\n", metric, pattern[j]);
+					string_cat(get_query, " ", 1);
+					string_cat(get_query, field + 5, copysize);
+					break;
+				}
+				else
+					if (carg->log_level > 1)
+						printf("Matching key '%s' and pattern '%s': no match\n", metric, pattern[j]);
+			}
 		}
 
 		i += endline;
@@ -89,9 +128,9 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	}
 
 	string_cat(get_query, "\r\n", 2);
-	copysize = strcspn(get_query->s, "\r\n") + strlen (carg->host) + 16;
-	char *key = malloc(copysize+1);
-	snprintf(key, copysize, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), get_query->s);
+
+	char *key = malloc(255);
+	snprintf(key, 255, "memcached_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
 
 	if (carg->log_level > 0)
 		printf("memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
@@ -102,6 +141,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 {
 	string *slab_query = string_new();
 	char field[MC_NAME_SIZE];
+	query_node *qn = carg->data;
 
 	for (uint64_t i = 0; i < size;)
 	{
@@ -125,9 +165,8 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 		i += strspn(metrics + i, "\r\n");
 	}
 
-	uint8_t copysize = strcspn(slab_query->s, "\r\n") + strlen (carg->host) + 16;
-	char *key = malloc(copysize+1);
-	snprintf(key, copysize, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), slab_query->s);
+	char *key = malloc(255);
+	snprintf(key, 255, "memcached_cachedump(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
 
 	if (carg->log_level > 0)
 		printf("query is\n'%s'\nkey '%s'\n", slab_query->s, key);
@@ -149,6 +188,7 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 	char *write_comm = NULL;
 	void *func = NULL;
 	char *funcname = NULL;
+	void *data;
 	if (!strncmp(qn->expr, "glob", 4))
 	{
 		writelen = strlen("stats items\r\n");
@@ -156,6 +196,7 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 		strlcpy(write_comm, "stats items\r\n", writelen + 1);
 		func = memcached_stats_items;
 		funcname = "memcached_stats_items";
+		data = qn;
 	}
 	else
 	{
@@ -165,13 +206,14 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 		strcat(write_comm, "\r\n");
 		func = memcached_query;
 		funcname = "memcached_query";
+		data = carg->data;
 	}
 
 	char *key = malloc(255);
-	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), write_comm);
+	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
 	key[strlen(key) - 1] = 0;
 
-	try_again(carg, write_comm, writelen, func, funcname, NULL, key, carg->data);
+	try_again(carg, write_comm, writelen, func, funcname, NULL, key, data);
 }
 
 void memcached_handler(char *metrics, size_t size, context_arg *carg)

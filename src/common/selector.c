@@ -686,31 +686,3 @@ void to_lower_before(char *s, char *before)
 {
 	to_lower_s(s, strcspn(s, before));
 }
-
-uint8_t is_double(char *str, size_t len, double *f)
-{
-	char *p;
-
-	*f = strtod(str, &p);
-
-	if (!len)
-	{
-		//printf("empty string\n");
-		return 0;
-	}
-	else
-	{
-		//printf("f=%f\n", f);
-		if (*p == 0)
-		{
-			//printf("entire string valid\n");
-			return 1;
-		}
-		else
-		{
-			//printf("extra characters: %s\n", p);
-			return 0;
-		}
-	}
-}
-

@@ -76,9 +76,9 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 				printf("column name: '%s', column value: '%s'\n", colname[i], colvalue);
 
 			char *clname = colname[i];
-			double dres = 0;
-			if (is_double(colvalue, copysize, &dres))
+			if (metric_value_validator(colvalue, copysize) == DATATYPE_DOUBLE)
 			{
+				double dres = strtod(colvalue, NULL);
 				query_field *qf = query_field_get(qn->qf_hash, clname);
 				if (qf)
 				{
