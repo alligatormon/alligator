@@ -19,6 +19,10 @@ src/libpostgresql_client.so
 src/a.out
 src/external/
 src/libSHARED.a
+src/conan.lock
+src/conanbuildinfo.cmake
+src/conanbuildinfo.txt
+src/conaninfo.txt
 CMakeFiles
 CMakeCache.txt
 CPackConfig.cmake
