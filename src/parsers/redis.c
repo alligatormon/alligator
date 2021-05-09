@@ -4,9 +4,196 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "query/query.h"
 #include "main.h"
 
 #define REDIS_NAME_SIZE 100
+
+void redis_keys_free(char **redis_keys)
+{
+	uint64_t i = 0;
+	while (redis_keys[i])
+	{
+		free(redis_keys[i++]);
+	}
+
+	free(redis_keys);
+}
+
+void redis_query(char *metrics, size_t size, context_arg *carg)
+{
+	if (carg->log_level > 0)
+		puts(metrics);
+
+	char **redis_keys = carg->data;
+
+	char metricvalue[REDIS_NAME_SIZE];
+	uint64_t i = strcspn(metrics, "\r\n");
+	i += strspn(metrics + i, "\r\n");
+	for (uint64_t j = 0; i < size; i++, j++)
+	{
+		uint64_t endline = strcspn(metrics + i, "\r\n");
+		uint64_t cur = i;
+		cur += strcspn(metrics + cur, " \n");
+		cur += strspn(metrics + cur, " \n");
+		if (carg->log_level > 0)
+			printf("metric name is %s\n", redis_keys[j]);
+
+		metric_name_normalizer(redis_keys[j], strlen(redis_keys[j]));
+
+		i += endline;
+		i += strspn(metrics + i, "\r\n");
+		endline = strcspn(metrics + i, "\r\n");
+		cur = i;
+
+		uint64_t copysize = strcspn(metrics + cur, "\r");
+		if (!copysize)
+		{
+			if (carg->log_level > 0)
+				printf("metric value size is 0, error\n");
+			break;
+		}
+		//printf("cur = %d, copysize = %d\n", cur, copysize);
+		strlcpy(metricvalue, metrics + cur, copysize + 1);
+		if (carg->log_level > 0)
+			printf("metric value is %s\n", metricvalue);
+
+		if (metric_value_validator(metricvalue, copysize-1))
+		{
+			double mval = strtod(metricvalue, NULL);
+			metric_add_auto(redis_keys[j], &mval, DATATYPE_DOUBLE, carg);
+		}
+		else
+		{
+			multicollector(NULL, metricvalue, copysize, carg);
+		}
+
+		i += endline;
+		i += strspn(metrics + i, "\r\n");
+	}
+
+	redis_keys_free(redis_keys);
+}
+
+void redis_keysdump(char *metrics, size_t size, context_arg *carg)
+{
+	string *get_query = string_new();
+	string_cat(get_query, "MGET", 4);
+	query_node *qn = carg->data;
+	uint64_t copysize;
+	char field[REDIS_NAME_SIZE];
+
+	uint64_t num_elements = strtoull(metrics+1, NULL, 10);
+	if (!num_elements)
+	{
+		if (carg->log_level > 1)
+			printf("num of elements %"u64", error\n", num_elements);
+		return;
+	}
+	char **redis_keys = calloc(1, (num_elements + 1) * sizeof(void*));
+	uint64_t j = 0;
+
+	for (uint64_t i = 0; i < size;)
+	{
+		uint64_t endline = strcspn(metrics + i, "\r\n");
+		uint64_t cur = i;
+
+		strlcpy(field, metrics + cur, endline + 1);
+		// ITEM third_metric
+		if ((*field != '$') && (*field != '*'))
+		{
+			if (carg->log_level > 2)
+				puts("is item");
+
+			copysize = strcspn(field, " \t\n");
+			string_cat(get_query, " ", 1);
+			string_cat(get_query, field, copysize);
+			redis_keys[j++] = strndup(field, copysize);
+		}
+
+		redis_keys[j] = 0;
+
+		i += endline;
+		i += strspn(metrics + i, "\r\n");
+	}
+
+	string_cat(get_query, "\r\n", 2);
+
+	char *key = malloc(255);
+	snprintf(key, 255, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+
+	if (carg->log_level > 0)
+		printf("redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
+	try_again(carg, get_query->s, get_query->l, redis_query, "redis_query", NULL, key, redis_keys);
+}
+
+void redis_queries_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = (context_arg*)funcarg;
+	query_node *qn = arg;
+
+	if (carg->log_level > 1)
+	{
+		puts("+-+-+-+-+-+-+-+");
+		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	}
+
+	if (!strncmp(qn->expr, "glob", 4))
+	{
+		size_t expr_size = strlen(qn->expr);
+		for (uint64_t i = 5; i < expr_size;)
+		{
+			string *pattern_query = string_new();
+			string_cat(pattern_query, "KEYS", 4);
+
+			i += strspn(qn->expr + i, " \t");
+			uint64_t endfield = strcspn(qn->expr + i, " \t");
+			string_cat(pattern_query, " ", 1);
+			string_cat(pattern_query, qn->expr + i, endfield);
+
+			i += endfield;
+			i += strspn(qn->expr + i, " \t");
+
+			string_cat(pattern_query, "\r\n", 2);
+
+			char *key = malloc(255);
+			snprintf(key, 255, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+			key[strlen(key) - 1] = 0;
+
+			try_again(carg, pattern_query->s, pattern_query->l, redis_keysdump, "redis_keysdump", NULL, key, qn);
+			free(pattern_query);
+		}
+	}
+	else
+	{
+		size_t expr_size = strlen(qn->expr);
+		size_t num_elements = selector_count_field(qn->expr, " \t", expr_size);
+		char **redis_keys = calloc(1, (num_elements + 1) * sizeof(void*));
+		uint64_t j = 0;
+		for (uint64_t i = 5; i < expr_size; j++)
+		{
+			i += strspn(qn->expr + i, " \t");
+			uint64_t endfield = strcspn(qn->expr + i, " \t");
+			redis_keys[j] = strndup(qn->expr + i, endfield);
+
+			i += endfield;
+			i += strspn(qn->expr + i, " \t");
+		}
+		redis_keys[j] = 0;
+
+		uint64_t writelen = strlen(qn->expr) + 2; // "MGET KEY1 KEY2 KEY3\r\n"
+		char* write_comm = malloc(writelen + 1);
+		strlcpy(write_comm, qn->expr, writelen - 1);
+		strcat(write_comm, "\r\n");
+
+		char *key = malloc(255);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+		key[strlen(key) - 1] = 0;
+
+		try_again(carg, write_comm, writelen, redis_query, "redis_query", NULL, key, redis_keys);
+	}
+
+}
 
 void redis_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -295,6 +482,17 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					metric_add_auto(mname, &dl, DATATYPE_DOUBLE, carg);
 				}
 			}
+		}
+	}
+
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		if (qds)
+		{
+			tommy_hashdyn_foreach_arg(qds->hash, redis_queries_foreach, carg);
 		}
 	}
 }

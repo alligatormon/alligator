@@ -135,6 +135,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 0)
 		printf("memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, memcached_query, "memcached_query", NULL, key, carg->data);
+	free(get_query);
 }
 
 void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
@@ -171,6 +172,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 0)
 		printf("query is\n'%s'\nkey '%s'\n", slab_query->s, key);
 	try_again(carg, slab_query->s, slab_query->l, memcached_cachedump, "memcached_cachedump", NULL, key, carg->data);
+	free(slab_query);
 }
 
 void memcached_queries_foreach(void *funcarg, void* arg)

@@ -215,6 +215,7 @@ void aggregate_ctx_init()
 	kubeconfig_parser_push();
 	oracle_parser_push();
 	oracle_query_parser_push();
+	couchdb_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

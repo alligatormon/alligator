@@ -1,0 +1,161 @@
+couchdb_200 {type="current", db="httpd_status_codes"} 46.000000
+couchdb_200 {type="max", db="httpd_status_codes"} 1
+couchdb_200 {type="mean", db="httpd_status_codes"} 0.005000
+couchdb_200 {type="min", db="httpd_status_codes"} 0
+couchdb_200 {type="stddev", db="httpd_status_codes"} 0.068000
+couchdb_200 {type="sum", db="httpd_status_codes"} 46.000000
+couchdb_400 {type="current", db="httpd_status_codes"} 21.000000
+couchdb_400 {type="max", db="httpd_status_codes"} 1
+couchdb_400 {type="mean", db="httpd_status_codes"} 0.002000
+couchdb_400 {type="min", db="httpd_status_codes"} 0
+couchdb_400 {type="stddev", db="httpd_status_codes"} 0.046000
+couchdb_400 {type="sum", db="httpd_status_codes"} 21.000000
+couchdb_401 {type="current", db="httpd_status_codes"} 2.000000
+couchdb_401 {type="max", db="httpd_status_codes"} 1
+couchdb_401 {type="mean", db="httpd_status_codes"} 0.001000
+couchdb_401 {type="min", db="httpd_status_codes"} 0
+couchdb_401 {type="stddev", db="httpd_status_codes"} 0.032000
+couchdb_401 {type="sum", db="httpd_status_codes"} 2.000000
+couchdb_404 {type="current", db="httpd_status_codes"} 1.000000
+couchdb_404 {type="max", db="httpd_status_codes"} 1
+couchdb_404 {type="mean", db="httpd_status_codes"} 0.001000
+couchdb_404 {type="min", db="httpd_status_codes"} 0
+couchdb_404 {type="stddev", db="httpd_status_codes"} 0.024000
+couchdb_404 {type="sum", db="httpd_status_codes"} 1.000000
+couchdb_405 {type="current", db="httpd_status_codes"} 1.000000
+couchdb_405 {type="max", db="httpd_status_codes"} 1
+couchdb_405 {type="mean", db="httpd_status_codes"} 0.001000
+couchdb_405 {type="min", db="httpd_status_codes"} 0
+couchdb_405 {type="stddev", db="httpd_status_codes"} 0.037000
+couchdb_405 {type="sum", db="httpd_status_codes"} 1.000000
+couchdb_GET {type="current", db="httpd_request_methods"} 67.000000
+couchdb_GET {type="max", db="httpd_request_methods"} 1
+couchdb_GET {type="mean", db="httpd_request_methods"} 0.007000
+couchdb_GET {type="min", db="httpd_request_methods"} 0
+couchdb_GET {type="stddev", db="httpd_request_methods"} 0.082000
+couchdb_GET {type="sum", db="httpd_request_methods"} 67.000000
+couchdb_POST {type="current", db="httpd_request_methods"} 4.000000
+couchdb_POST {type="max", db="httpd_request_methods"} 1
+couchdb_POST {type="mean", db="httpd_request_methods"} 0.005000
+couchdb_POST {type="min", db="httpd_request_methods"} 0
+couchdb_POST {type="stddev", db="httpd_request_methods"} 0.068000
+couchdb_POST {type="sum", db="httpd_request_methods"} 4.000000
+couchdb_active_task_changes_done {type="database_compaction", database="mailbox", pid="<0.12986.1>"} 64438
+couchdb_active_task_changes_done {type="indexer", database="mailbox", pid="<0.10461.3>", design_document="c9753817b3ba7c674d92361f24f59b9f"} 14443
+couchdb_active_task_changes_done {type="indexer", database="mailbox", pid="<0.6838.4>", design_document="_design/meta"} 5454
+couchdb_active_task_checkpointed_source_seq {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 68585
+couchdb_active_task_continuous {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 0
+couchdb_active_task_doc_write_failures {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 0
+couchdb_active_task_docs_read {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 4524
+couchdb_active_task_docs_written {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 4524
+couchdb_active_task_missing_revisions_found {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 4524
+couchdb_active_task_progress {type="database_compaction", database="mailbox", pid="<0.12986.1>"} 84
+couchdb_active_task_progress {type="indexer", database="mailbox", pid="<0.10461.3>", design_document="c9753817b3ba7c674d92361f24f59b9f"} 18
+couchdb_active_task_progress {type="indexer", database="mailbox", pid="<0.6838.4>", design_document="_design/meta"} 7
+couchdb_active_task_progress {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 44
+couchdb_active_task_revisions_checked {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 4524
+couchdb_active_task_source_seq {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 154419
+couchdb_active_task_started_on {type="database_compaction", database="mailbox", pid="<0.12986.1>"} 1376116576
+couchdb_active_task_started_on {type="indexer", database="mailbox", pid="<0.10461.3>", design_document="c9753817b3ba7c674d92361f24f59b9f"} 1376116621
+couchdb_active_task_started_on {type="indexer", database="mailbox", pid="<0.6838.4>", design_document="_design/meta"} 1376116632
+couchdb_active_task_started_on {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 1376116644
+couchdb_active_task_total_changes {type="database_compaction", database="mailbox", pid="<0.12986.1>"} 76215
+couchdb_active_task_total_changes {type="indexer", database="mailbox", pid="<0.10461.3>", design_document="c9753817b3ba7c674d92361f24f59b9f"} 76215
+couchdb_active_task_total_changes {type="indexer", database="mailbox", pid="<0.6838.4>", design_document="_design/meta"} 76215
+couchdb_active_task_updated_on {type="database_compaction", database="mailbox", pid="<0.12986.1>"} 1376116619
+couchdb_active_task_updated_on {type="indexer", database="mailbox", pid="<0.10461.3>", design_document="c9753817b3ba7c674d92361f24f59b9f"} 1376116650
+couchdb_active_task_updated_on {type="indexer", database="mailbox", pid="<0.6838.4>", design_document="_design/meta"} 1376116651
+couchdb_active_task_updated_on {type="replication", pid="<0.1538.5>", replication_id="9bc1727d74d49d9e157e260bb8bbd1d5", target="http://mailsrv:5984/mailbox"} 1376116651
+couchdb_auth_cache_hits {type="current", db="couchdb"} 17.000000
+couchdb_auth_cache_hits {type="max", db="couchdb"} 1
+couchdb_auth_cache_hits {type="mean", db="couchdb"} 0.009000
+couchdb_auth_cache_hits {type="min", db="couchdb"} 0
+couchdb_auth_cache_hits {type="stddev", db="couchdb"} 0.093000
+couchdb_auth_cache_hits {type="sum", db="couchdb"} 17.000000
+couchdb_auth_cache_misses {type="current", db="couchdb"} 1.000000
+couchdb_auth_cache_misses {type="max", db="couchdb"} 1
+couchdb_auth_cache_misses {type="mean", db="couchdb"} 0.000000
+couchdb_auth_cache_misses {type="min", db="couchdb"} 0
+couchdb_auth_cache_misses {type="stddev", db="couchdb"} 0.010000
+couchdb_auth_cache_misses {type="sum", db="couchdb"} 1.000000
+couchdb_config_attachment_stream_buffer_size {context="couchdb"} 4096
+couchdb_config_auth_cache_size {context="couch_httpd_auth"} 50
+couchdb_config_bind_address {context="httpd"} 0
+couchdb_config_check_interval {context="compaction_daemon"} 300
+couchdb_config_checkpoint_after {context="database_compaction"} 5242880
+couchdb_config_compression_level {context="attachments"} 8
+couchdb_config_connection_timeout {context="replicator"} 30000
+couchdb_config_doc_buffer_size {context="database_compaction"} 524288
+couchdb_config_http_connections {context="replicator"} 20
+couchdb_config_iterations {context="couch_httpd_auth"} 10
+couchdb_config_keyvalue_buffer_size {context="view_compaction"} 2097152
+couchdb_config_log_max_chunk_size {context="httpd"} 1000000
+couchdb_config_max_count {context="uuids"} 1000
+couchdb_config_max_dbs_open {context="couchdb"} 100
+couchdb_config_max_document_size {context="couchdb"} 4294967296
+couchdb_config_max_replication_retry_count {context="replicator"} 10
+couchdb_config_min_file_size {context="compaction_daemon"} 131072
+couchdb_config_os_process_limit {context="query_server_config"} 25
+couchdb_config_os_process_timeout {context="couchdb"} 5000
+couchdb_config_port {context="httpd"} 5984
+couchdb_config_port {context="ssl"} 6984
+couchdb_config_rate {context="stats"} 1000
+couchdb_config_retries_per_request {context="replicator"} 10
+couchdb_config_ssl_certificate_max_depth {context="replicator"} 3
+couchdb_config_ssl_certificate_max_depth {context="ssl"} 1
+couchdb_config_timeout {context="couch_httpd_auth"} 600
+couchdb_config_uuid {context="couchdb"} 312258
+couchdb_config_version {context="vendor"} 1
+couchdb_config_worker_batch_size {context="replicator"} 500
+couchdb_config_worker_processes {context="replicator"} 4
+couchdb_db_committed_update_seq {db="_replicator"} 1
+couchdb_db_committed_update_seq {db="_users"} 1
+couchdb_db_committed_update_seq {db="mydb"} 0
+couchdb_db_compact_running {db="_replicator"} 0
+couchdb_db_compact_running {db="_users"} 0
+couchdb_db_compact_running {db="mydb"} 0
+couchdb_db_data_size {db="_replicator"} 2013
+couchdb_db_data_size {db="_users"} 2148
+couchdb_db_data_size {db="mydb"} 0
+couchdb_db_disk_format_version {db="_replicator"} 6
+couchdb_db_disk_format_version {db="_users"} 6
+couchdb_db_disk_format_version {db="mydb"} 6
+couchdb_db_disk_size {db="_replicator"} 8290
+couchdb_db_disk_size {db="_users"} 8290
+couchdb_db_disk_size {db="mydb"} 79
+couchdb_db_doc_count {db="_replicator"} 1
+couchdb_db_doc_count {db="_users"} 1
+couchdb_db_doc_count {db="mydb"} 0
+couchdb_db_doc_del_count {db="_replicator"} 0
+couchdb_db_doc_del_count {db="_users"} 0
+couchdb_db_doc_del_count {db="mydb"} 0
+couchdb_db_purge_seq {db="_replicator"} 0
+couchdb_db_purge_seq {db="_users"} 0
+couchdb_db_purge_seq {db="mydb"} 0
+couchdb_db_update_seq {db="_replicator"} 1
+couchdb_db_update_seq {db="_users"} 1
+couchdb_db_update_seq {db="mydb"} 0
+couchdb_open_databases {type="current", db="couchdb"} 1.000000
+couchdb_open_databases {type="max", db="couchdb"} 1
+couchdb_open_databases {type="mean", db="couchdb"} 0.000000
+couchdb_open_databases {type="min", db="couchdb"} 0
+couchdb_open_databases {type="stddev", db="couchdb"} 0.010000
+couchdb_open_databases {type="sum", db="couchdb"} 1.000000
+couchdb_open_os_files {type="current", db="couchdb"} 2.000000
+couchdb_open_os_files {type="max", db="couchdb"} 2
+couchdb_open_os_files {type="mean", db="couchdb"} 0.000000
+couchdb_open_os_files {type="min", db="couchdb"} 0
+couchdb_open_os_files {type="stddev", db="couchdb"} 0.020000
+couchdb_open_os_files {type="sum", db="couchdb"} 2.000000
+couchdb_request_time {type="current", db="couchdb"} 546.000000
+couchdb_request_time {type="max", db="couchdb"} 82.000000
+couchdb_request_time {type="mean", db="couchdb"} 7.690000
+couchdb_request_time {type="min", db="couchdb"} 1.000000
+couchdb_request_time {type="stddev", db="couchdb"} 14.892000
+couchdb_request_time {type="sum", db="couchdb"} 546.000000
+couchdb_requests {type="current", db="httpd"} 71.000000
+couchdb_requests {type="max", db="httpd"} 1
+couchdb_requests {type="mean", db="httpd"} 0.007000
+couchdb_requests {type="min", db="httpd"} 0
+couchdb_requests {type="stddev", db="httpd"} 0.084000
+couchdb_requests {type="sum", db="httpd"} 71.000000

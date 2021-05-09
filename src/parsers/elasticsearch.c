@@ -239,7 +239,6 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 			dl = json_real_value(value);
 			metric_add_labels(string, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name);
 		}
-		
 	}
 
 	strlcpy(string, "elasticsearch_indice_shard_", 28);
