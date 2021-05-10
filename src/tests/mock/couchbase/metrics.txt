@@ -1,0 +1,821 @@
+alligator_aggregator_http_code {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@fts/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@index/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@query/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_buckets"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_cbas_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_eventing_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_fts_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_index_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_nodes_list"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_query_stats"} 200
+alligator_aggregator_http_code {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_tasks"} 200
+alligator_aggregator_http_header_size {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@fts/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@index/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@query/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 243
+alligator_aggregator_http_header_size {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 243
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_buckets"} 243
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_cbas_stats"} 239
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_eventing_stats"} 239
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_fts_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_index_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_nodes_list"} 242
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_query_stats"} 241
+alligator_aggregator_http_header_size {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_tasks"} 243
+alligator_close {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_close {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_connect_ok {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@fts/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_connect_ok {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@index/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_connect_ok {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@query/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_connect_ok {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_connect_ok {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_buckets"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_cbas_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_eventing_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_fts_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_index_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_nodes_list"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_query_stats"} 1
+alligator_connect_ok {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_tasks"} 1
+alligator_connect_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 2660
+alligator_connect_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 2730
+alligator_connect_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 3253
+alligator_connect_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 2210
+alligator_connect_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 2923
+alligator_connect_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 2528
+alligator_connect_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 2109
+alligator_connect_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 2157
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 135675
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 131150
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 157923
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 115029
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 142475
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 120802
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 106382
+alligator_connect_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 111244
+alligator_execute_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 2018
+alligator_execute_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 12
+alligator_execute_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 14
+alligator_execute_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 169
+alligator_execute_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 304
+alligator_execute_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 658
+alligator_execute_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 274
+alligator_execute_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 1052
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 184825
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 1455
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 1920
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 14221
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 25906
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 60244
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 29754
+alligator_execute_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 75326
+alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@fts/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@index/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@query/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/travel-sample/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_buckets"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_cbas_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_eventing_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_fts_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_index_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_nodes_list"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_query_stats"} 1
+alligator_parser_status {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost", parser="couchbase_tasks"} 1
+alligator_read {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 160
+alligator_read {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 133
+alligator_read {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 146
+alligator_read {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 157
+alligator_read {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 161
+alligator_read {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 158
+alligator_read {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 151
+alligator_read {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 162
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 600992
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 19264
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 19264
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 120064
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 233352
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 266112
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 85736
+alligator_read_bytes {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 665224
+alligator_read_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 15041
+alligator_read_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 16210
+alligator_read_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 4006
+alligator_read_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 26497
+alligator_read_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 10209
+alligator_read_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 22069
+alligator_read_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 31793
+alligator_read_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 30121
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 1115560
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 1186545
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 285874
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 1969942
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 749263
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 1670404
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 2376611
+alligator_read_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 2224169
+alligator_shutdown {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_shutdown {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_timeout {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_timeout {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_connect_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_init {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_bytes {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_read_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_bytes {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_tls_write_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 56
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 6384
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 7056
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 7280
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 7000
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 7112
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 5824
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 7112
+alligator_write_bytes {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 6272
+alligator_write_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
+alligator_write_total_time {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
+couchbase_bucket_autoCompactionSettings {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_dataUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 33004544
+couchbase_bucket_basicStats_diskFetches {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_diskUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 46561750
+couchbase_bucket_basicStats_itemCount {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 31591
+couchbase_bucket_basicStats_memUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 56384776
+couchbase_bucket_basicStats_opsPerSec {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_quotaPercentUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 53.772713
+couchbase_bucket_basicStats_vbActiveNumNonResident {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_maxTTL {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_node_clusterCompatibility {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 393222
+couchbase_bucket_node_cpuCount {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 6
+couchbase_bucket_node_interestingStats_cmd_get {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_docs_actual_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 46561750
+couchbase_bucket_node_interestingStats_couch_docs_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 33004544
+couchbase_bucket_node_interestingStats_couch_spatial_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_spatial_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_views_actual_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_views_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_curr_items {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 31591
+couchbase_bucket_node_interestingStats_curr_items_tot {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 31591
+couchbase_bucket_node_interestingStats_ep_bg_fetched {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_get_hits {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_mem_used {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 56384776
+couchbase_bucket_node_interestingStats_ops {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_vb_active_num_non_resident {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_vb_replica_curr_items {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_mcdMemoryAllocated {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1589
+couchbase_bucket_node_mcdMemoryReserved {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1589
+couchbase_bucket_node_memoryFree {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 913506304
+couchbase_bucket_node_memoryTotal {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_nodeEncryption {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_ports_direct {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 11210
+couchbase_bucket_node_ports_distTCP {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 21100
+couchbase_bucket_node_ports_distTLS {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 21150
+couchbase_bucket_node_ports_httpsCAPI {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 18092
+couchbase_bucket_node_ports_httpsMgmt {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 18091
+couchbase_bucket_node_replication {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_stat_allocstall {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_avg_active_timestamp_drift {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_avg_bg_wait_time {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_avg_disk_commit_time {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_avg_disk_update_time {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_avg_replica_timestamp_drift {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_bg_wait_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_bg_wait_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_bytes_read {hostname="172.17.0.4:8091", bucket="travel-sample"} 197.979798
+couchbase_bucket_node_stat_bytes_written {hostname="172.17.0.4:8091", bucket="travel-sample"} 294029.292929
+couchbase_bucket_node_stat_cas_badval {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cas_hits {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cas_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cmd_get {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cmd_lookup {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cmd_set {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_docs_actual_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 46621350
+couchbase_bucket_node_stat_couch_docs_data_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 33004544
+couchbase_bucket_node_stat_couch_docs_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 33004544
+couchbase_bucket_node_stat_couch_docs_fragmentation {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_spatial_data_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_spatial_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_spatial_ops {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_total_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 46621350
+couchbase_bucket_node_stat_couch_views_actual_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_views_data_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_views_disk_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_views_fragmentation {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_couch_views_ops {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cpu_cores_available {hostname="172.17.0.4:8091", bucket="travel-sample"} 6
+couchbase_bucket_node_stat_cpu_irq_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cpu_stolen_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_cpu_sys_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 6.690778
+couchbase_bucket_node_stat_cpu_user_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 8.318264
+couchbase_bucket_node_stat_cpu_utilization_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 15.009042
+couchbase_bucket_node_stat_curr_connections {hostname="172.17.0.4:8091", bucket="travel-sample"} 43
+couchbase_bucket_node_stat_curr_items {hostname="172.17.0.4:8091", bucket="travel-sample"} 31591
+couchbase_bucket_node_stat_curr_items_tot {hostname="172.17.0.4:8091", bucket="travel-sample"} 31591
+couchbase_bucket_node_stat_decr_hits {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_decr_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_delete_hits {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_delete_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_disk_commit_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_disk_commit_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_disk_update_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_disk_update_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_disk_write_queue {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_active_ahead_exceptions {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_active_hlc_drift {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_active_hlc_drift_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_bg_fetched {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_cache_miss_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_clock_cas_drift_threshold_exceeded {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_data_read_failed {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_data_write_failed {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_2i_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_2i_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 6
+couchbase_bucket_node_stat_ep_dcp_2i_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_2i_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_2i_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 6
+couchbase_bucket_node_stat_ep_dcp_2i_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_2i_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_cbas_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_eventing_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_fts_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_fts_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 6
+couchbase_bucket_node_stat_ep_dcp_fts_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_fts_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_fts_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 6
+couchbase_bucket_node_stat_ep_dcp_fts_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_fts_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_other_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_replica_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views+indexes_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views+indexes_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 12
+couchbase_bucket_node_stat_ep_dcp_views+indexes_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views+indexes_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views+indexes_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 12
+couchbase_bucket_node_stat_ep_dcp_views+indexes_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views+indexes_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_views_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_backoff {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_items_remaining {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_items_sent {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_producer_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_total_backlog_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_dcp_xdcr_total_bytes {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_diskqueue_drain {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_diskqueue_fill {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_diskqueue_items {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_flusher_todo {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_item_commit_failed {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_kv_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 24906856
+couchbase_bucket_node_stat_ep_max_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 104857600
+couchbase_bucket_node_stat_ep_mem_high_wat {hostname="172.17.0.4:8091", bucket="travel-sample"} 89128960
+couchbase_bucket_node_stat_ep_mem_low_wat {hostname="172.17.0.4:8091", bucket="travel-sample"} 78643200
+couchbase_bucket_node_stat_ep_meta_data_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 2189512
+couchbase_bucket_node_stat_ep_num_non_resident {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_ops_del_meta {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_ops_del_ret_meta {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_ops_get_meta {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_ops_set_meta {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_ops_set_ret_meta {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_num_value_ejects {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_oom_errors {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_ops_create {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_ops_update {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_overhead {hostname="172.17.0.4:8091", bucket="travel-sample"} 4872856
+couchbase_bucket_node_stat_ep_queue_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_replica_ahead_exceptions {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_replica_hlc_drift {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_replica_hlc_drift_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_resident_items_rate {hostname="172.17.0.4:8091", bucket="travel-sample"} 100
+couchbase_bucket_node_stat_ep_tmp_oom_errors {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ep_vb_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 1024
+couchbase_bucket_node_stat_evictions {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_get_hits {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_get_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_hibernated_requests {hostname="172.17.0.4:8091", bucket="travel-sample"} 8
+couchbase_bucket_node_stat_hibernated_waked {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_hit_ratio {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_incr_hits {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_incr_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_mem_actual_free {hostname="172.17.0.4:8091", bucket="travel-sample"} 761307136
+couchbase_bucket_node_stat_mem_actual_used {hostname="172.17.0.4:8091", bucket="travel-sample"} 1322299392
+couchbase_bucket_node_stat_mem_free {hostname="172.17.0.4:8091", bucket="travel-sample"} 761307136
+couchbase_bucket_node_stat_mem_limit {hostname="172.17.0.4:8091", bucket="travel-sample"} 2083606528
+couchbase_bucket_node_stat_mem_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 2083606528
+couchbase_bucket_node_stat_mem_used {hostname="172.17.0.4:8091", bucket="travel-sample"} 56348008
+couchbase_bucket_node_stat_mem_used_sys {hostname="172.17.0.4:8091", bucket="travel-sample"} 1942204416
+couchbase_bucket_node_stat_misses {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_odp_report_failed {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_ops {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_rest_requests {hostname="172.17.0.4:8091", bucket="travel-sample"} 2
+couchbase_bucket_node_stat_swap_total {hostname="172.17.0.4:8091", bucket="travel-sample"} 1073737728
+couchbase_bucket_node_stat_swap_used {hostname="172.17.0.4:8091", bucket="travel-sample"} 323747840
+couchbase_bucket_node_stat_timestamp {hostname="172.17.0.4:8091", bucket="travel-sample"} 1620580315333
+couchbase_bucket_node_stat_vb_active_eject {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_itm_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 22434098
+couchbase_bucket_node_stat_vb_active_meta_data_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 2189512
+couchbase_bucket_node_stat_vb_active_num {hostname="172.17.0.4:8091", bucket="travel-sample"} 1024
+couchbase_bucket_node_stat_vb_active_num_non_resident {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_ops_create {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_ops_update {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_queue_drain {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_queue_fill {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_queue_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_resident_items_ratio {hostname="172.17.0.4:8091", bucket="travel-sample"} 100
+couchbase_bucket_node_stat_vb_active_sync_write_aborted_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_sync_write_accepted_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_active_sync_write_committed_count {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_avg_active_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_avg_pending_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_avg_replica_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_avg_total_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_curr_items {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_eject {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_itm_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_meta_data_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_num {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_num_non_resident {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_ops_create {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_ops_update {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_queue_drain {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_queue_fill {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_queue_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_pending_resident_items_ratio {hostname="172.17.0.4:8091", bucket="travel-sample"} 100
+couchbase_bucket_node_stat_vb_replica_curr_items {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_eject {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_itm_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_meta_data_memory {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_num {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_num_non_resident {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_ops_create {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_ops_update {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_queue_drain {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_queue_fill {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_queue_size {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_vb_replica_resident_items_ratio {hostname="172.17.0.4:8091", bucket="travel-sample"} 100
+couchbase_bucket_node_stat_vb_total_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_stat_xdc_ops {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
+couchbase_bucket_node_systemStats_allocstall {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_systemStats_cpu_cores_available {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 6
+couchbase_bucket_node_systemStats_cpu_stolen_rate {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_systemStats_cpu_utilization_rate {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 7.249071
+couchbase_bucket_node_systemStats_mem_free {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 913506304
+couchbase_bucket_node_systemStats_mem_limit {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_systemStats_mem_total {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_systemStats_swap_total {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1073737728
+couchbase_bucket_node_systemStats_swap_used {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 370933760
+couchbase_bucket_node_thisNode {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1
+couchbase_bucket_quota_ram {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
+couchbase_bucket_quota_rawRAM {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
+couchbase_bucket_replicaIndex {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_bucket_replicaNumber {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_bucket_stat_allocstall {bucket="travel-sample"} 0
+couchbase_bucket_stat_avg_active_timestamp_drift {bucket="travel-sample"} 0
+couchbase_bucket_stat_avg_bg_wait_time {bucket="travel-sample"} 0
+couchbase_bucket_stat_avg_disk_commit_time {bucket="travel-sample"} 0
+couchbase_bucket_stat_avg_disk_update_time {bucket="travel-sample"} 0
+couchbase_bucket_stat_avg_replica_timestamp_drift {bucket="travel-sample"} 0
+couchbase_bucket_stat_bg_wait_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_bg_wait_total {bucket="travel-sample"} 0
+couchbase_bucket_stat_bytes_read {bucket="travel-sample"} 298.688194
+couchbase_bucket_stat_bytes_written {bucket="travel-sample"} 88960.645812
+couchbase_bucket_stat_cas_badval {bucket="travel-sample"} 0
+couchbase_bucket_stat_cas_hits {bucket="travel-sample"} 0
+couchbase_bucket_stat_cas_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_cmd_get {bucket="travel-sample"} 0
+couchbase_bucket_stat_cmd_lookup {bucket="travel-sample"} 0
+couchbase_bucket_stat_cmd_set {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_docs_actual_disk_size {bucket="travel-sample"} 39802956
+couchbase_bucket_stat_couch_docs_data_size {bucket="travel-sample"} 33004544
+couchbase_bucket_stat_couch_docs_disk_size {bucket="travel-sample"} 33004544
+couchbase_bucket_stat_couch_docs_fragmentation {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_spatial_data_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_spatial_disk_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_spatial_ops {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_total_disk_size {bucket="travel-sample"} 39802956
+couchbase_bucket_stat_couch_views_actual_disk_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_views_data_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_views_disk_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_views_fragmentation {bucket="travel-sample"} 0
+couchbase_bucket_stat_couch_views_ops {bucket="travel-sample"} 0
+couchbase_bucket_stat_cpu_cores_available {bucket="travel-sample"} 6
+couchbase_bucket_stat_cpu_irq_rate {bucket="travel-sample"} 0.183824
+couchbase_bucket_stat_cpu_stolen_rate {bucket="travel-sample"} 0
+couchbase_bucket_stat_cpu_sys_rate {bucket="travel-sample"} 3.860294
+couchbase_bucket_stat_cpu_user_rate {bucket="travel-sample"} 3.676471
+couchbase_bucket_stat_cpu_utilization_rate {bucket="travel-sample"} 7.720588
+couchbase_bucket_stat_curr_connections {bucket="travel-sample"} 43
+couchbase_bucket_stat_curr_items {bucket="travel-sample"} 31591
+couchbase_bucket_stat_curr_items_tot {bucket="travel-sample"} 31591
+couchbase_bucket_stat_decr_hits {bucket="travel-sample"} 0
+couchbase_bucket_stat_decr_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_delete_hits {bucket="travel-sample"} 0
+couchbase_bucket_stat_delete_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_disk_commit_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_disk_commit_total {bucket="travel-sample"} 0
+couchbase_bucket_stat_disk_update_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_disk_update_total {bucket="travel-sample"} 0
+couchbase_bucket_stat_disk_write_queue {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_active_ahead_exceptions {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_active_hlc_drift {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_active_hlc_drift_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_bg_fetched {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_cache_miss_rate {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_clock_cas_drift_threshold_exceeded {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_data_read_failed {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_data_write_failed {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_2i_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_2i_count {bucket="travel-sample"} 6
+couchbase_bucket_stat_ep_dcp_2i_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_2i_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_2i_producer_count {bucket="travel-sample"} 6
+couchbase_bucket_stat_ep_dcp_2i_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_2i_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_cbas_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_eventing_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_fts_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_fts_count {bucket="travel-sample"} 6
+couchbase_bucket_stat_ep_dcp_fts_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_fts_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_fts_producer_count {bucket="travel-sample"} 6
+couchbase_bucket_stat_ep_dcp_fts_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_fts_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_other_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_replica_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views+indexes_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views+indexes_count {bucket="travel-sample"} 12
+couchbase_bucket_stat_ep_dcp_views+indexes_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views+indexes_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views+indexes_producer_count {bucket="travel-sample"} 12
+couchbase_bucket_stat_ep_dcp_views+indexes_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views+indexes_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_views_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_backoff {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_items_remaining {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_items_sent {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_producer_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_total_backlog_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_dcp_xdcr_total_bytes {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_diskqueue_drain {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_diskqueue_fill {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_diskqueue_items {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_flusher_todo {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_item_commit_failed {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_kv_size {bucket="travel-sample"} 24906856
+couchbase_bucket_stat_ep_max_size {bucket="travel-sample"} 104857600
+couchbase_bucket_stat_ep_mem_high_wat {bucket="travel-sample"} 89128960
+couchbase_bucket_stat_ep_mem_low_wat {bucket="travel-sample"} 78643200
+couchbase_bucket_stat_ep_meta_data_memory {bucket="travel-sample"} 2189512
+couchbase_bucket_stat_ep_num_non_resident {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_ops_del_meta {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_ops_del_ret_meta {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_ops_get_meta {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_ops_set_meta {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_ops_set_ret_meta {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_num_value_ejects {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_oom_errors {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_ops_create {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_ops_update {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_overhead {bucket="travel-sample"} 4872856
+couchbase_bucket_stat_ep_queue_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_replica_ahead_exceptions {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_replica_hlc_drift {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_replica_hlc_drift_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_resident_items_rate {bucket="travel-sample"} 100
+couchbase_bucket_stat_ep_tmp_oom_errors {bucket="travel-sample"} 0
+couchbase_bucket_stat_ep_vb_total {bucket="travel-sample"} 1024
+couchbase_bucket_stat_evictions {bucket="travel-sample"} 0
+couchbase_bucket_stat_get_hits {bucket="travel-sample"} 0
+couchbase_bucket_stat_get_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_hibernated_requests {bucket="travel-sample"} 8
+couchbase_bucket_stat_hibernated_waked {bucket="travel-sample"} 0
+couchbase_bucket_stat_hit_ratio {bucket="travel-sample"} 0
+couchbase_bucket_stat_incr_hits {bucket="travel-sample"} 0
+couchbase_bucket_stat_incr_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_mem_actual_free {bucket="travel-sample"} 747663360
+couchbase_bucket_stat_mem_actual_used {bucket="travel-sample"} 1335943168
+couchbase_bucket_stat_mem_free {bucket="travel-sample"} 747663360
+couchbase_bucket_stat_mem_limit {bucket="travel-sample"} 2083606528
+couchbase_bucket_stat_mem_total {bucket="travel-sample"} 2083606528
+couchbase_bucket_stat_mem_used {bucket="travel-sample"} 56348008
+couchbase_bucket_stat_mem_used_sys {bucket="travel-sample"} 2007613440
+couchbase_bucket_stat_misses {bucket="travel-sample"} 0
+couchbase_bucket_stat_odp_report_failed {bucket="travel-sample"} 0
+couchbase_bucket_stat_ops {bucket="travel-sample"} 0
+couchbase_bucket_stat_rest_requests {bucket="travel-sample"} 2
+couchbase_bucket_stat_swap_total {bucket="travel-sample"} 1073737728
+couchbase_bucket_stat_swap_used {bucket="travel-sample"} 323485696
+couchbase_bucket_stat_timestamp {bucket="travel-sample"} 1620576225376
+couchbase_bucket_stat_vb_active_eject {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_itm_memory {bucket="travel-sample"} 22434098
+couchbase_bucket_stat_vb_active_meta_data_memory {bucket="travel-sample"} 2189512
+couchbase_bucket_stat_vb_active_num {bucket="travel-sample"} 1024
+couchbase_bucket_stat_vb_active_num_non_resident {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_ops_create {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_ops_update {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_queue_drain {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_queue_fill {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_queue_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_resident_items_ratio {bucket="travel-sample"} 100
+couchbase_bucket_stat_vb_active_sync_write_aborted_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_sync_write_accepted_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_active_sync_write_committed_count {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_avg_active_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_avg_pending_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_avg_replica_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_avg_total_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_curr_items {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_eject {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_itm_memory {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_meta_data_memory {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_num {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_num_non_resident {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_ops_create {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_ops_update {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_queue_drain {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_queue_fill {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_queue_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_pending_resident_items_ratio {bucket="travel-sample"} 100
+couchbase_bucket_stat_vb_replica_curr_items {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_eject {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_itm_memory {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_meta_data_memory {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_num {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_num_non_resident {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_ops_create {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_ops_update {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_queue_drain {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_queue_fill {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_queue_size {bucket="travel-sample"} 0
+couchbase_bucket_stat_vb_replica_resident_items_ratio {bucket="travel-sample"} 100
+couchbase_bucket_stat_vb_total_queue_age {bucket="travel-sample"} 0
+couchbase_bucket_stat_xdc_ops {bucket="travel-sample"} 0
+couchbase_bucket_threadsNumber {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 3
+couchbase_bucket_vBucketServerMap_numReplicas {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_node_stat_fts_curr_batches_blocked_by_herder {hostname="172.17.0.4:8091", context="@fts"} 0
+couchbase_node_stat_fts_num_bytes_used_ram {hostname="172.17.0.4:8091", context="@fts"} 102885624
+couchbase_node_stat_fts_total_queries_rejected_by_herder {hostname="172.17.0.4:8091", context="@fts"} 0
+couchbase_node_stat_index_memory_quota {hostname="172.17.0.4:8091", context="@index"} 536870912
+couchbase_node_stat_index_memory_used {hostname="172.17.0.4:8091", context="@index"} 212312064
+couchbase_node_stat_index_ram_percent {hostname="172.17.0.4:8091", context="@index"} 39.546204
+couchbase_node_stat_index_remaining_ram {hostname="172.17.0.4:8091", context="@index"} 324558848
+couchbase_node_stat_query_active_requests {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_avg_req_time {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_avg_response_size {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_avg_result_count {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_avg_svc_time {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_errors {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_invalid_requests {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_queued_requests {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_request_time {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_requests {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_requests_1000ms {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_requests_250ms {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_requests_5000ms {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_requests_500ms {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_result_count {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_result_size {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_selects {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_service_time {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_query_warnings {hostname="172.17.0.4:8091", context="@query"} 0
+couchbase_node_stat_timestamp {hostname="172.17.0.4:8091", context="@fts"} 1620619725488
+couchbase_node_stat_timestamp {hostname="172.17.0.4:8091", context="@index"} 1620619751202
+couchbase_node_stat_timestamp {hostname="172.17.0.4:8091", context="@query"} 1620619704835
+couchbase_stat_fts_curr_batches_blocked_by_herder 0
+couchbase_stat_fts_num_bytes_used_ram 111249656
+couchbase_stat_fts_total_queries_rejected_by_herder 0
+couchbase_stat_index_memory_quota 536870912
+couchbase_stat_index_memory_used 174784512
+couchbase_stat_index_ram_percent 32.556152
+couchbase_stat_index_remaining_ram 362086400
+couchbase_stat_query_active_requests 0
+couchbase_stat_query_avg_req_time 0
+couchbase_stat_query_avg_response_size 0
+couchbase_stat_query_avg_result_count 0
+couchbase_stat_query_avg_svc_time 0
+couchbase_stat_query_errors 0
+couchbase_stat_query_invalid_requests 0
+couchbase_stat_query_queued_requests 0
+couchbase_stat_query_request_time 0
+couchbase_stat_query_requests 0
+couchbase_stat_query_requests_1000ms 0
+couchbase_stat_query_requests_250ms 0
+couchbase_stat_query_requests_5000ms 0
+couchbase_stat_query_requests_500ms 0
+couchbase_stat_query_result_count 0
+couchbase_stat_query_result_size 0
+couchbase_stat_query_selects 0
+couchbase_stat_query_service_time 0
+couchbase_stat_query_warnings 0
+couchbase_stat_timestamp 1620591808296
+couchbase_task_changesDone {type="bucket_compaction", status="running", bucket="beer-sample"} 177
+couchbase_task_changesDone {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 1
+couchbase_task_error {type="rebalance", status="notRunning", statusId="1f05321a7b359e1743ffc8b7ee69a8b9", errorMessage="Rebalance failed. See logs for detailed reason. You can try rebalance again."} 1
+couchbase_task_masterRequestTimedOut {type="rebalance", status="notRunning"} 0
+couchbase_task_progress {type="bucket_compaction", status="running", bucket="beer-sample"} 25
+couchbase_task_progress {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 14
+couchbase_task_progress {type="rebalance", status="running", statusId="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 60.588818
+couchbase_task_recommendedRefreshPeriod {type="bucket_compaction", status="running", bucket="beer-sample"} 2
+couchbase_task_recommendedRefreshPeriod {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 2
+couchbase_task_recommendedRefreshPeriod {type="rebalance", status="running", statusId="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 0.250000
+couchbase_task_statusIsStale {type="rebalance", status="notRunning"} 0
+couchbase_task_totalChanges {type="bucket_compaction", status="running", bucket="beer-sample"} 682
+couchbase_task_totalChanges {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 7

@@ -149,6 +149,7 @@ set(STATIC_FILES
 	parsers/kubeconfig.c
 	parsers/oracle.c
 	parsers/couchdb.c
+	parsers/couchbase.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c

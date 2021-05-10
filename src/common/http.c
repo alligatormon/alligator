@@ -106,7 +106,7 @@ uint64_t urlencode(char* dest, char* src, size_t src_len)
       char t[4];
       snprintf(t, sizeof(t), "%%%02x", c & 0xff);
       strcat(dest, t);
-      ret += 4;
+      ret += 2;
     }
   }
   return ret;

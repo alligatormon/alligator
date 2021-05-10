@@ -1,0 +1,403 @@
+[{"type":"rebalance","status":"notRunning","statusIsStale":false,"masterRequestTimedOut":false},
+{
+    "statusId": "28452d665fce646c98385fb590a30adc",
+    "type": "rebalance",
+    "status": "notRunning",
+    "statusIsStale": false,
+    "masterRequestTimedOut": false,
+    "lastReportURI": "/logs/rebalanceReport?reportID=0c41dba637a8971b1aa921a89e851d83"
+  },
+  {
+    "statusId": "1f05320a7b359e1672ffc8b7ee69a8b5",
+    "type": "rebalance",
+    "status": "notRunning",
+    "statusIsStale": false,
+    "masterRequestTimedOut": false,
+    "lastReportURI": "/logs/rebalanceReport?reportID=0c41dba637a8971b1aa921a89e851d83"
+  },
+  {
+    "status": "running",
+    "type": "loadingSampleBucket",
+    "bucket": "beer-sample",
+    "pid": "<0.24849.21>"
+  },
+  {
+    "statusId": "28452d665fce646c98385fb590a30adc",
+    "type": "rebalance",
+    "status": "notRunning",
+    "statusIsStale": false,
+    "masterRequestTimedOut": false,
+    "lastReportURI": "/logs/rebalanceReport?reportID=0c41dba637a8971b1aa921a89e851d83"
+  },
+  {
+    "cancelURI": "/pools/default/buckets/beer-sample/controller/cancelBucketCompaction",
+    "type": "bucket_compaction",
+    "recommendedRefreshPeriod": 2,
+    "status": "running",
+    "bucket": "beer-sample",
+    "changesDone": 177,
+    "totalChanges": 682,
+    "progress": 25
+  },
+  {
+    "statusId": "1a51786a937213ac456d2f066f65c08a",
+    "type": "rebalance",
+    "subtype": "rebalance",
+    "recommendedRefreshPeriod": 0.25,
+    "status": "running",
+    "progress": 1.531444089632196,
+    "perNode": {
+      "ns_1@10.143.194.101": {
+        "progress": 0.9765625
+      },
+      "ns_1@10.143.194.102": {
+        "progress": 0.9784735812133072
+      },
+      "ns_1@10.143.194.103": {
+        "progress": 2.639296187683282
+      }
+    },
+    "detailedProgress": {
+      "bucket": "beer-sample",
+      "bucketNumber": 1,
+      "bucketsCount": 2,
+      "perNode": {
+        "ns_1@10.143.194.103": {
+          "ingoing": {
+            "docsTotal": 0,
+            "docsTransferred": 0,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 0
+          },
+          "outgoing": {
+            "docsTotal": 2479,
+            "docsTransferred": 135,
+            "activeVBucketsLeft": 323,
+            "replicaVBucketsLeft": 340
+          }
+        },
+        "ns_1@10.143.194.102": {
+          "ingoing": {
+            "docsTotal": 2419,
+            "docsTransferred": 82,
+            "activeVBucketsLeft": 161,
+            "replicaVBucketsLeft": 332
+          },
+          "outgoing": {
+            "docsTotal": 1259,
+            "docsTransferred": 0,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 161
+          }
+        },
+        "ns_1@10.143.194.101": {
+          "ingoing": {
+            "docsTotal": 2495,
+            "docsTransferred": 61,
+            "activeVBucketsLeft": 162,
+            "replicaVBucketsLeft": 331
+          },
+          "outgoing": {
+            "docsTotal": 1176,
+            "docsTransferred": 8,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 162
+          }
+        }
+      }
+    },
+    "stageInfo": {
+      "data": {
+        "totalProgress": 1.531444089632196,
+        "perNodeProgress": {
+          "ns_1@10.143.194.101": 0.009765625,
+          "ns_1@10.143.194.102": 0.009784735812133072,
+          "ns_1@10.143.194.103": 0.02639296187683282
+        },
+        "startTime": "2020-03-16T04:49:22.624-07:00",
+        "completedTime": false,
+        "timeTaken": 6854,
+        "details": {
+          "beer-sample": {
+            "vbucketLevelInfo": {
+              "move": {
+                "averageTime": 3150.578947368421,
+                "totalCount": 682,
+                "remainingCount": 663
+              },
+              "backfill": {
+                "averageTime": 85.21875
+              },
+              "takeover": {
+                "averageTime": 67.2
+              },
+              "persistence": {
+                "averageTime": 57.01063829787234
+              }
+            },
+            "replicationInfo": {
+              "ns_1@10.143.194.101": {
+                "inDocsTotal": 2495,
+                "inDocsLeft": 2434,
+                "outDocsTotal": 1176,
+                "outDocsLeft": 1168
+              },
+              "ns_1@10.143.194.102": {
+                "inDocsTotal": 2419,
+                "inDocsLeft": 2337,
+                "outDocsTotal": 1259,
+                "outDocsLeft": 1259
+              },
+              "ns_1@10.143.194.103": {
+                "inDocsTotal": 0,
+                "inDocsLeft": 0,
+                "outDocsTotal": 2479,
+                "outDocsLeft": 2344
+              }
+            },
+            "startTime": "2020-03-16T04:49:23.148-07:00",
+            "completedTime": false,
+            "timeTaken": 6329
+          }
+        }
+      }
+    },
+    "rebalanceId": "b9a087fb3533d6ada22a1c43d8d09e24",
+    "nodesInfo": {
+      "active_nodes": [
+        "ns_1@10.143.194.101",
+        "ns_1@10.143.194.102",
+        "ns_1@10.143.194.103"
+      ],
+      "keep_nodes": [
+        "ns_1@10.143.194.101",
+        "ns_1@10.143.194.102"
+      ],
+      "eject_nodes": [
+        "ns_1@10.143.194.103"
+      ],
+      "delta_nodes": [],
+      "failed_nodes": []
+    },
+    "masterNode": "ns_1@10.143.194.102"
+  },
+  {
+    "type": "indexer",
+    "recommendedRefreshPeriod": 2,
+    "status": "running",
+    "bucket": "beer-sample",
+    "designDocument": "_design/beer",
+    "changesDone": 1,
+    "totalChanges": 7,
+    "progress": 14
+  },
+  {
+    "statusId": "1a51786a937213ac456d2f066f65c08a",
+    "type": "rebalance",
+    "subtype": "rebalance",
+    "recommendedRefreshPeriod": 0.25,
+    "status": "running",
+    "progress": 60.58881772169409,
+    "perNode": {
+      "ns_1@10.143.194.101": {
+        "progress": 58.69140625
+      },
+      "ns_1@10.143.194.102": {
+        "progress": 55.77299412915851
+      },
+      "ns_1@10.143.194.103": {
+        "progress": 67.30205278592376
+      }
+    },
+    "detailedProgress": {
+      "bucket": "travel-sample",
+      "bucketNumber": 2,
+      "bucketsCount": 2,
+      "perNode": {
+        "ns_1@10.143.194.103": {
+          "ingoing": {
+            "docsTotal": 0,
+            "docsTransferred": 0,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 0
+          },
+          "outgoing": {
+            "docsTotal": 10517,
+            "docsTransferred": 3620,
+            "activeVBucketsLeft": 223,
+            "replicaVBucketsLeft": 326
+          }
+        },
+        "ns_1@10.143.194.102": {
+          "ingoing": {
+            "docsTotal": 10594,
+            "docsTransferred": 2301,
+            "activeVBucketsLeft": 112,
+            "replicaVBucketsLeft": 267
+          },
+          "outgoing": {
+            "docsTotal": 5236,
+            "docsTransferred": 0,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 112
+          }
+        },
+        "ns_1@10.143.194.101": {
+          "ingoing": {
+            "docsTotal": 10485,
+            "docsTransferred": 1782,
+            "activeVBucketsLeft": 111,
+            "replicaVBucketsLeft": 282
+          },
+          "outgoing": {
+            "docsTotal": 5326,
+            "docsTransferred": 463,
+            "activeVBucketsLeft": 0,
+            "replicaVBucketsLeft": 111
+          }
+        }
+      }
+    },
+    "stageInfo": {
+      "data": {
+        "totalProgress": 60.58881772169409,
+        "perNodeProgress": {
+          "ns_1@10.143.194.101": 0.5869140625,
+          "ns_1@10.143.194.102": 0.5577299412915852,
+          "ns_1@10.143.194.103": 0.6730205278592376
+        },
+        "startTime": "2020-03-16T04:49:22.624-07:00",
+        "completedTime": false,
+        "timeTaken": 119473,
+        "details": {
+          "beer-sample": {
+            "compactionInfo": {
+              "perNode": {
+                "ns_1@10.143.194.103": {
+                  "averageTime": 1883.333333333333
+                },
+                "ns_1@10.143.194.102": {
+                  "averageTime": 131.3333333333333
+                },
+                "ns_1@10.143.194.101": {
+                  "averageTime": 310
+                }
+              }
+            },
+            "vbucketLevelInfo": {
+              "move": {
+                "averageTime": 4294.907624633431,
+                "totalCount": 682,
+                "remainingCount": 0
+              },
+              "backfill": {
+                "averageTime": 54.17595307917889
+              },
+              "takeover": {
+                "averageTime": 78.80994152046783
+              },
+              "persistence": {
+                "averageTime": 42.66529894490035
+              }
+            },
+            "replicationInfo": {
+              "ns_1@10.143.194.101": {
+                "inDocsTotal": 2495,
+                "inDocsLeft": 0,
+                "outDocsTotal": 1176,
+                "outDocsLeft": 0
+              },
+              "ns_1@10.143.194.102": {
+                "inDocsTotal": 2419,
+                "inDocsLeft": 0,
+                "outDocsTotal": 1259,
+                "outDocsLeft": 0
+              },
+              "ns_1@10.143.194.103": {
+                "inDocsTotal": 0,
+                "inDocsLeft": 0,
+                "outDocsTotal": 2479,
+                "outDocsLeft": 0
+              }
+            },
+            "startTime": "2020-03-16T04:49:23.148-07:00",
+            "completedTime": "2020-03-16T04:51:08.273-07:00",
+            "timeTaken": 105125
+          },
+          "travel-sample": {
+            "compactionInfo": {
+              "perNode": {
+                "ns_1@10.143.194.103": {
+                  "averageTime": 0
+                }
+              }
+            },
+            "vbucketLevelInfo": {
+              "move": {
+                "averageTime": 1198.556390977444,
+                "totalCount": 682,
+                "remainingCount": 549
+              },
+              "backfill": {
+                "averageTime": 44.24113475177305
+              },
+              "takeover": {
+                "averageTime": 44.74015748031496
+              },
+              "persistence": {
+                "averageTime": 31.35452322738386
+              }
+            },
+            "replicationInfo": {
+              "ns_1@10.143.194.101": {
+                "inDocsTotal": 10485,
+                "inDocsLeft": 8703,
+                "outDocsTotal": 5326,
+                "outDocsLeft": 4863
+              },
+              "ns_1@10.143.194.102": {
+                "inDocsTotal": 10594,
+                "inDocsLeft": 8293,
+                "outDocsTotal": 5236,
+                "outDocsLeft": 5236
+              },
+              "ns_1@10.143.194.103": {
+                "inDocsTotal": 0,
+                "inDocsLeft": 0,
+                "outDocsTotal": 10517,
+                "outDocsLeft": 6897
+              }
+            },
+            "startTime": "2020-03-16T04:51:08.455-07:00",
+            "completedTime": false,
+            "timeTaken": 13641
+          }
+        }
+      }
+    },
+    "rebalanceId": "b9a087fb3533d6ada22a1c43d8d09e24",
+    "nodesInfo": {
+      "active_nodes": [
+        "ns_1@10.143.194.101",
+        "ns_1@10.143.194.102",
+        "ns_1@10.143.194.103"
+      ],
+      "keep_nodes": [
+        "ns_1@10.143.194.101",
+        "ns_1@10.143.194.102"
+      ],
+      "eject_nodes": [
+        "ns_1@10.143.194.103"
+      ],
+      "delta_nodes": [],
+      "failed_nodes": []
+    },
+    "masterNode": "ns_1@10.143.194.102"
+  },
+  {
+    "statusId": "1f05321a7b359e1743ffc8b7ee69a8b9",
+    "type": "rebalance",
+    "status": "notRunning",
+    "errorMessage": "Rebalance failed. See logs for detailed reason. You can try rebalance again."
+  }
+]
