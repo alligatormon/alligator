@@ -5,6 +5,13 @@ stages:
 #image: amoshi/cbuiler
 image: centos:7.9.2009
 
+test_cli_packagecloud:
+  stage: tests
+  script:
+  - yum -y install ruby
+  - gem install package_cloud
+  - echo success
+
 cutter_centos:
   stage: tests
   script:
