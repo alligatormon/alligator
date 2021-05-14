@@ -8,8 +8,7 @@ image: centos:7.9.2009
 test_cli_packagecloud:
   stage: tests
   script:
-  - yum groupinstall -y "Development Tools"
-  - yum -y install ruby
+  - yum -y install ruby ruby-devel
   - gem install package_cloud
   - echo success
 
