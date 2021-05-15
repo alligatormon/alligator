@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <query/query.h>
+#include "events/context_arg.h"
 #include <main.h>
 
 void oracle_get_databases(context_arg *carg)
@@ -27,18 +28,21 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 	char colname[1000][31];
 
 	uint64_t end = strcspn(metrics + cur, "\n");
+	char colstring[end + 1];
+	strlcpy(colstring, metrics + cur, end + 1);
+
 	for (uint64_t i = 0; cur < end; cur++, i++)
 	{
 		uint64_t endfield;
 		uint64_t copysize;
 
 		cur += strspn(metrics + cur, "\t |");
-		endfield = strcspn(metrics + cur, "|");
+		endfield = strcspn(metrics + cur, "|\n");
 		copysize = strcspn(metrics + cur, "\t |\n");
 		strlcpy(colname[i], metrics + cur, copysize + 1);
 
 		if (carg->log_level > 0)
-			printf("found column name: '%s'\n", colname[i]);
+			printf("(%s) found column name: '%s'[%"u64"]\n", colstring, colname[i], i);
 
 		cur += endfield;
 	}
@@ -69,11 +73,13 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 
 			ccur += strspn(metrics + ccur, "\t ");
 			endfield = strcspn(metrics + ccur, "|");
-			copysize = strcspn(metrics + ccur, "\t |\n");
+			copysize = strcspn(metrics + ccur, "\t|\n");
+			copysize = copysize > 1024 ? 1023 : copysize;
 			strlcpy(colvalue, metrics + ccur, copysize + 1);
+			char_strip_end(colvalue, copysize);
 
 			if (carg->log_level > 1)
-				printf("column name: '%s', column value: '%s'\n", colname[i], colvalue);
+				printf("column name: '%s'[%"u64"], column value: '%s'\n", colname[i], i, colvalue);
 
 			char *clname = colname[i];
 			if (metric_value_validator(colvalue, copysize) == DATATYPE_DOUBLE)
@@ -135,7 +141,7 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 
 	string *str = string_init(1024);
 	string_cat(str, "exec://", strlen("exec://"));
-	string_cat(str, carg->hostname, strlen(carg->hostname));
+	string_cat(str, carg->host, strlen(carg->host));
 	string_cat(str, " -s /nolog <<EOF\n", strlen(" -s /nolog <<EOF\n"));
 
 	string_cat(str, "connect ", strlen("connect "));
@@ -170,6 +176,10 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 	json_array_object_insert(aggregate_arr, "", aggregate_obj);
 	json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
 
+	json_t *env = env_struct_dump(carg->env);
+	if (env)
+		json_array_object_insert(aggregate_obj, "env", env);
+
 	json_array_object_insert(aggregate_obj, "url", aggregate_url);
 	json_array_object_insert(aggregate_obj, "key", aggregate_key);
 	json_array_object_insert(aggregate_obj, "name", aggregate_name);
@@ -177,8 +187,9 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 	if (carg->log_level > 1)
 		puts(dvalue);
 	http_api_v1(NULL, NULL, dvalue);
-	free(dvalue);
 	json_decref(aggregate_root);
+	free(dvalue);
+	string_free(str);
 }
 
 void oracle_sql_generator(char *metrics, size_t size, context_arg *carg)

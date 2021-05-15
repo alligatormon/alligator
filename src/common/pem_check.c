@@ -1,5 +1,3 @@
-#include <limits.h>
-#include <printf.h>
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>

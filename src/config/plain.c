@@ -291,7 +291,7 @@ void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json)
 {
 	int json_type = json_typeof(dst_json);
 	if (json_type == JSON_ARRAY)
-		json_array_append(dst_json, src_json);
+		json_array_append_new(dst_json, src_json);
 	else if (json_type == JSON_OBJECT)
 		json_object_set_new(dst_json, key, src_json);
 }

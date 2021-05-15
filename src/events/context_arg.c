@@ -142,6 +142,25 @@ tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src)
 	return dst;
 }
 
+void env_struct_dump_foreach(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+	json_t *env = funcarg;
+	json_t *value = json_string(strdup(es->v));
+
+	json_array_object_insert(env, es->k, value);
+}
+
+json_t* env_struct_dump(tommy_hashdyn *src)
+{
+	if (!src)
+		return NULL;
+
+	json_t *env = json_object();
+	tommy_hashdyn_foreach_arg(src, env_struct_dump_foreach, env);
+	return env;
+}
+
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
@@ -157,8 +176,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		strlcpy(carg->user, hi->user, 1024);
 	if (hi->pass)
 		strlcpy(carg->password, hi->pass, 1024);
-	carg->hostname = hi->host; // old scheme
-	strlcpy(carg->host, hi->host, 1024); // new scheme
+	strlcpy(carg->host, hi->host, URL_SIZE); // new scheme
 	strlcpy(carg->port, hi->port, 6);
 	if (carg->timeout < 1)
 		carg->timeout = 5000;

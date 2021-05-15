@@ -192,6 +192,25 @@ void stlencat(stlen *str, char *str2, size_t len)
 	str->l += len;
 }
 
+void char_strip_end(char *str, size_t size)
+{
+	uint64_t last_sym = size;
+	uint8_t flag = 0;
+	for (uint64_t i = 0; i < size; i++)
+	{
+		if ((str[i] == ' ' || str[i] == '\t') && !flag)
+		{
+			flag = 1;
+			last_sym = i;
+		}
+		else if (str[i] != ' ' && str[i] != '\t' && flag)
+		{
+			flag = 0;
+		}
+	}
+	str[last_sym] = 0;
+}
+
 void stlentext(stlen *str, char *str2)
 {
 	size_t len = strlen(str2) +1;

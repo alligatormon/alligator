@@ -37,7 +37,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 	char respbody[1000];
 	char status[100];
 	snprintf(status, 100, "OK");
-	//printf("body is %s\n", body);
+	//printf("http_api_v1 is %s\n", body);
 
 	json_error_t error;
 	json_t *root = json_loads(body, 0, &error);
@@ -872,9 +872,9 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query);
 							snprintf(status, 100, "OK");
 							snprintf(respbody, 1000, "Deleted OK");
-							// TODO: free hi
 						}
 					}
+					url_free(hi);
 				}
 			}
 		}

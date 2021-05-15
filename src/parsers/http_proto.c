@@ -247,8 +247,8 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 			size_t url_len = tmp - carg->url;
 			size_t location_len = url_len + strlen(hrdata->location + 1);
 			location = malloc(location_len);
-			strlcpy(location, url_len + 1);
-			strlcpy(location + url_len, location, location_len - url_len);
+			strlcpy(location, carg->host, url_len + 1);
+			strlcpy(location + url_len, hrdata->location, location_len - url_len);
 		}
 		else
 		{
