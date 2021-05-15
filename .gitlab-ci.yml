@@ -32,7 +32,9 @@ packacloud_test:
   script:
   - cd src
   - touch /builds/amoshi/alligator_build/src/alligator-1.12.3-Linux.deb
-  - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" \ https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - PKGNAME=`ls alligator-*.deb`
+  - echo curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 build_centos8:
   image: centos:8
