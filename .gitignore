@@ -23,6 +23,8 @@ src/conan.lock
 src/conanbuildinfo.cmake
 src/conanbuildinfo.txt
 src/conaninfo.txt
+src/lib/
+src/bin/
 CMakeFiles
 CMakeCache.txt
 CPackConfig.cmake
