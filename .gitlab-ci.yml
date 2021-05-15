@@ -148,10 +148,8 @@ deploy_ubuntu2004:
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/ubuntu20.04/
-  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:focal" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/ubuntu20.04/alligator/"
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/ubuntu20.04/alligator/$CI_COMMIT_TAG/publish
+  - PKGNAME=`ls alligator-*.deb`
+  - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" \ https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/julio/example_repo/packages.json
 
 deploy_ubuntu1804:
   image: ubuntu:18.04
