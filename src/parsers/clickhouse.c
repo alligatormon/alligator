@@ -389,6 +389,7 @@ void ch_columns_types_free(ch_columns_types *column_types, uint64_t size)
 
 void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *carg)
 {
+	printf("clickhouse_custom_execute_handler runned: %zu\n", size);
 	uint64_t cur = 0;
 	char ch_field[CH_NAME_SIZE];
 

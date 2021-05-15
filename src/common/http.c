@@ -30,7 +30,7 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	*query = 0;
 	if (method_query && method_query_size > 1)
 		strcat(query, method_query);
-	else if (method_query && method_query_size == 1 && *append_query != '/')
+	else if (method_query && method_query_size == 1 && append_query && *append_query != '/')
 		strcat(query, method_query);
 	if (append_query)
 		strcat(query, append_query);
