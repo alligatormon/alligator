@@ -198,12 +198,12 @@ void char_strip_end(char *str, size_t size)
 	uint8_t flag = 0;
 	for (uint64_t i = 0; i < size; i++)
 	{
-		if ((str[i] == ' ' || str[i] == '\t') && !flag)
+		if ((str[i] == ' ' || str[i] == '\t' || str[i] == '\r' || str[i] == '\n') && !flag)
 		{
 			flag = 1;
 			last_sym = i;
 		}
-		else if (str[i] != ' ' && str[i] != '\t' && flag)
+		else if (str[i] != ' ' && str[i] != '\t' && str[i] == '\r' && str[i] == '\n' && flag)
 		{
 			flag = 0;
 		}

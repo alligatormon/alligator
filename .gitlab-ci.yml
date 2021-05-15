@@ -32,8 +32,7 @@ packacloud_test:
   script:
   - cd src
   - touch /builds/amoshi/alligator_build/src/alligator-1.12.3-Linux.deb
-  - PKGNAME=`ls alligator-*.deb`
-  - echo curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.deb`
   - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 build_centos8:
@@ -99,10 +98,6 @@ sources_tarball:
 
   - cd /tmp
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator-$CI_COMMIT_TAG/
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/sources/
-  - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/sources/
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/sources/alligator/$CI_COMMIT_TAG/publish
 
 deploy_centos7:
   stage: build
@@ -114,15 +109,8 @@ deploy_centos7:
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j
   - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz bin/alligator
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/generic/
-  - curl -sT alligator-$CI_COMMIT_TAG.tar.gz -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/generic/
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/generic/alligator/$CI_COMMIT_TAG/publish
-  - make -j package
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/el7/
-  - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/el7/
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/el7/alligator/$CI_COMMIT_TAG/publish
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.rpm`
+  - curl -F "package[distro_version_id]=140" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_centos8:
   stage: build
@@ -134,10 +122,8 @@ deploy_centos8:
   - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j package
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/el8/
-  - curl -sT alligator-*.rpm -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" https://api.bintray.com/content/alligatormon/el8/
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/el8/alligator/$CI_COMMIT_TAG/publish
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.rpm`
+  - curl -F "package[distro_version_id]=205" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_ubuntu2004:
   image: ubuntu:20.04
@@ -150,8 +136,8 @@ deploy_ubuntu2004:
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
-  - PKGNAME=`ls alligator-*.deb`
-  - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" \ https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/julio/example_repo/packages.json
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.deb`
+  - curl -F "package[distro_version_id]=210" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_ubuntu1804:
   image: ubuntu:18.04
@@ -164,10 +150,8 @@ deploy_ubuntu1804:
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/ubuntu18.04/
-  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:bionic" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/ubuntu18.04/alligator/"
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/ubuntu18.04/alligator/$CI_COMMIT_TAG/publish
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.deb`
+  - curl -F "package[distro_version_id]=190" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_ubuntu1604:
   image: ubuntu:16.04
@@ -180,7 +164,5 @@ deploy_ubuntu1604:
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
-  - >-
-    curl -s -XPOST -d '{"name":"alligator", "licenses": ["Apache-2.0"], "vcs_url": "https://github.com/alligatormon/alligator.git", "desc":"alligator is aggregator for system and software metrics"}' -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/packages/alligatormon/ubuntu16.04/
-  - curl -sT alligator-*.deb -u$BINTRAY_USER:$BINTRAY_KEY -H "X-Bintray-Package:alligator" -H "X-Bintray-Version:$CI_COMMIT_TAG" -H "X-Bintray-Debian-Distribution:xenial" -H "X-Bintray-Debian-Component:main" -H "X-Bintray-Debian-Architecture:amd64" "https://api.bintray.com/content/alligatormon/ubuntu16.04/alligator/"
-  - curl -s -XPOST -u$BINTRAY_USER:$BINTRAY_KEY -H "Content-Type:application/json" -H "Accept:application/json" https://api.bintray.com/content/alligatormon/ubuntu16.04/alligator/$CI_COMMIT_TAG/publish
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.deb`
+  - curl -F "package[distro_version_id]=165" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json

@@ -186,6 +186,54 @@ void druid_selfDiscovered_status_handler(char *metrics, size_t size, context_arg
 	json_decref(root);
 }
 
+void druid_coordinator_isleader_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	uint64_t leader = 0;
+	json_t *leader_json = json_object_get(root, "leader");
+	if (json_typeof(leader_json) == JSON_TRUE)
+		leader = 1;
+
+	metric_add_auto("druid_coordinator_isLeader", &leader, DATATYPE_UINT, carg);
+
+	json_decref(root);
+}
+
+void druid_coordinator_leader_handler(char *metrics, size_t size, context_arg *carg)
+{
+	char_strip_end(metrics, size);
+	uint64_t leader = 1;
+	metric_add_labels("druid_coordinator_leader", &leader, DATATYPE_UINT, carg, "leader", metrics);
+}
+
+void druid_coordinator_loadstatus_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	const char *loadstatus_key;
+	json_t *loadstatus_opt;
+	json_object_foreach(root, loadstatus_key, loadstatus_opt)
+	{
+		double metric_value = json_real_value(loadstatus_opt);
+		metric_add_labels("druid_coordinator_loadstatus", &metric_value, DATATYPE_DOUBLE, carg, "loadstatus", (char*)loadstatus_key);
+	}
+
+	json_decref(root);
+}
+
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 {
 	puts(metrics);
@@ -227,7 +275,7 @@ void druid_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("druid");
-	actx->handlers = 2;
+	actx->handlers = 5;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = druid_status_health_handler;
@@ -239,6 +287,21 @@ void druid_parser_push()
 	actx->handler[1].validator = NULL;
 	actx->handler[1].mesg_func = druid_selfDiscovered_status_mesg;
 	strlcpy(actx->handler[1].key,"druid_selfDiscovered_status", 255);
+
+	actx->handler[2].name = druid_coordinator_isleader_handler;
+	actx->handler[2].validator = NULL;
+	actx->handler[2].mesg_func = druid_coordinator_isleader_mesg;
+	strlcpy(actx->handler[2].key,"druid_coordinator_isleader", 255);
+
+	actx->handler[3].name = druid_coordinator_leader_handler;
+	actx->handler[3].validator = NULL;
+	actx->handler[3].mesg_func = druid_coordinator_leader_mesg;
+	strlcpy(actx->handler[3].key,"druid_coordinator_leader", 255);
+
+	actx->handler[4].name = druid_coordinator_loadstatus_handler;
+	actx->handler[4].validator = NULL;
+	actx->handler[4].mesg_func = druid_coordinator_loadstatus_mesg;
+	strlcpy(actx->handler[4].key,"druid_coordinator_loadstatus", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
