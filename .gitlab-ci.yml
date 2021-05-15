@@ -1,6 +1,6 @@
 stages:
-- tests
 - build
+- tests
 
 #image: amoshi/cbuiler
 image: centos:7.9.2009

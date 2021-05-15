@@ -163,7 +163,27 @@ void druid_status_health_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		health = 1;
 	}
-	metric_add_auto("druid_status_health", &health, DATATYPE_INT, carg);
+	metric_add_auto("druid_status_health", &health, DATATYPE_UINT, carg);
+}
+
+void druid_selfDiscovered_status_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	uint64_t selfDiscovered = 0;
+	json_t *selfDiscovered_json = json_object_get(root, "selfDiscovered");
+	if (json_typeof(selfDiscovered_json) == JSON_TRUE)
+		selfDiscovered = 1;
+
+	metric_add_auto("druid_selfDiscovered_status", &selfDiscovered, DATATYPE_UINT, carg);
+
+	json_decref(root);
 }
 
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
@@ -187,6 +207,7 @@ string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void 
 }
 
 string* druid_status_health_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/status/health", env, proxy_settings); }
+string* druid_selfDiscovered_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/status/selfDiscovered/status", env, proxy_settings); }
 string* druid_metadata_datasources_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/metadata/datasources?full", env, proxy_settings); }
 string* druid_coordinator_isleader_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/isLeader", env, proxy_settings); }
 string* druid_coordinator_leader_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/leader", env, proxy_settings); }
@@ -206,13 +227,18 @@ void druid_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("druid");
-	actx->handlers = 1;
+	actx->handlers = 2;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = druid_status_health_handler;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = druid_status_health_mesg;
 	strlcpy(actx->handler[0].key,"druid_status_health", 255);
+
+	actx->handler[1].name = druid_selfDiscovered_status_handler;
+	actx->handler[1].validator = NULL;
+	actx->handler[1].mesg_func = druid_selfDiscovered_status_mesg;
+	strlcpy(actx->handler[1].key,"druid_selfDiscovered_status", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
