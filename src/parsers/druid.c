@@ -264,10 +264,17 @@ void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *
 		if (!type)
 			continue;
 
-		json_t *host_json = json_object_get(srv, "host");
-		char *host = (char*)json_string_value(host_json);
-		if (!host)
-			continue;
+		json_t *priority_json = json_object_get(srv, "priority");
+		int64_t priority = json_integer_value(priority_json);
+		metric_add_labels3("druid_coordinator_servers_priority", &priority, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
+
+		json_t *currSize_json = json_object_get(srv, "currSize");
+		int64_t currSize = json_integer_value(currSize_json);
+		metric_add_labels3("druid_coordinator_servers_currSize", &currSize, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
+
+		json_t *maxSize_json = json_object_get(srv, "maxSize");
+		int64_t maxSize = json_integer_value(maxSize_json);
+		metric_add_labels3("druid_coordinator_servers_maxSize", &maxSize, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
 	}
 
 	json_decref(root);
