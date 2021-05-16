@@ -280,6 +280,57 @@ void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *
 	json_decref(root);
 }
 
+void druid_coordinator_compaction_status_handler(char *metrics, size_t size, context_arg *carg)
+{
+	puts("druid_coordinator_compaction_status_handler");
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	json_t *latestStatus = json_object_get(root, "latestStatus");
+	char metric_name[DRUID_NAME_SIZE];
+	strlcpy(metric_name, "druid_coordinator_compaction_latest_status_", DRUID_NAME_SIZE);
+
+	size_t status_num = json_array_size(latestStatus);
+	for (uint64_t i = 0; i < status_num; i++)
+	{
+		json_t *status = json_array_get(latestStatus, i);
+
+		json_t *dataSource_json = json_object_get(status, "dataSource");
+		char *dataSource = (char*)json_string_value(dataSource_json);
+		if (!dataSource)
+			continue;
+
+		json_t *scheduleStatus_json = json_object_get(status, "scheduleStatus");
+		char *scheduleStatus = (char*)json_string_value(scheduleStatus_json);
+		if (!scheduleStatus)
+			continue;
+
+		const char *status_key;
+		json_t *status_opt;
+		json_object_foreach(root, status_key, status_opt)
+		{
+			int type = json_typeof(status_opt);
+			if (type == JSON_INTEGER)
+			{
+				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
+				int64_t metric_value = json_real_value(status_opt);
+				metric_add_labels2(metric_name, &metric_value, DATATYPE_INT, carg, "dataSource", dataSource, "scheduleStatus", scheduleStatus);
+			}
+			else if (type == JSON_REAL)
+			{
+				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
+				double metric_value = json_real_value(status_opt);
+				metric_add_labels2(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "scheduleStatus", scheduleStatus);
+			}
+		}
+	}
+}
+
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 {
 	puts(metrics);
@@ -307,7 +358,7 @@ string* druid_coordinator_isleader_mesg(host_aggregator_info *hi, void *arg, voi
 string* druid_coordinator_leader_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/leader", env, proxy_settings); }
 string* druid_coordinator_loadqueue_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/loadqueue", env, proxy_settings); }
 string* druid_coordinator_loadstatus_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/loadstatus", env, proxy_settings); }
-string* druid_coordinator_compaction_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/compaction/status", env, proxy_settings); }
+string* druid_coordinator_compaction_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/compaction/status", env, proxy_settings); }
 string* druid_coordinator_servers_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/servers?simple", env, proxy_settings); }
 string* druid_indexer_tasks_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/indexer/v1/tasks", env, proxy_settings); }
 string* druid_indexer_supervisor_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/indexer/v1/supervisor?full", env, proxy_settings); }
@@ -321,7 +372,7 @@ void druid_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("druid");
-	actx->handlers = 5;
+	actx->handlers = 7;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = druid_status_health_handler;
@@ -353,6 +404,11 @@ void druid_parser_push()
 	actx->handler[5].validator = NULL;
 	actx->handler[5].mesg_func = druid_coordinator_servers_mesg;
 	strlcpy(actx->handler[5].key,"druid_coordinator_servers", 255);
+
+	actx->handler[6].name = druid_coordinator_compaction_status_handler;
+	actx->handler[6].validator = NULL;
+	actx->handler[6].mesg_func = druid_coordinator_compaction_status_mesg;
+	strlcpy(actx->handler[6].key,"druid_coordinator_compaction_status", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
