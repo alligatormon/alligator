@@ -234,6 +234,45 @@ void druid_coordinator_loadstatus_handler(char *metrics, size_t size, context_ar
 	json_decref(root);
 }
 
+void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	size_t servers_num = json_array_size(root);
+	for (uint64_t i = 0; i < servers_num; i++)
+	{
+		json_t *srv = json_array_get(root, i);
+
+		json_t *host_json = json_object_get(srv, "host");
+		char *host = (char*)json_string_value(host_json);
+		if (!host)
+			continue;
+
+		json_t *tier_json = json_object_get(srv, "tier");
+		char *tier = (char*)json_string_value(tier_json);
+		if (!tier)
+			continue;
+
+		json_t *type_json = json_object_get(srv, "type");
+		char *type = (char*)json_string_value(type_json);
+		if (!type)
+			continue;
+
+		json_t *host_json = json_object_get(srv, "host");
+		char *host = (char*)json_string_value(host_json);
+		if (!host)
+			continue;
+	}
+
+	json_decref(root);
+}
+
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 {
 	puts(metrics);
@@ -302,6 +341,11 @@ void druid_parser_push()
 	actx->handler[4].validator = NULL;
 	actx->handler[4].mesg_func = druid_coordinator_loadstatus_mesg;
 	strlcpy(actx->handler[4].key,"druid_coordinator_loadstatus", 255);
+
+	actx->handler[5].name = druid_coordinator_servers_handler;
+	actx->handler[5].validator = NULL;
+	actx->handler[5].mesg_func = druid_coordinator_servers_mesg;
+	strlcpy(actx->handler[5].key,"druid_coordinator_servers", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
