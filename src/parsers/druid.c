@@ -282,7 +282,6 @@ void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *
 
 void druid_coordinator_compaction_status_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts("druid_coordinator_compaction_status_handler");
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -307,43 +306,186 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 
 		json_t *scheduleStatus_json = json_object_get(status, "scheduleStatus");
 		char *scheduleStatus = (char*)json_string_value(scheduleStatus_json);
-		if (!scheduleStatus)
-			continue;
+		uint64_t schedstat = 0;
+		if (!strcmp(scheduleStatus, "RUNNING"))
+			schedstat = 1;
+
+		metric_add_labels("druid_coordinator_compaction_latest_status_running", &schedstat, DATATYPE_UINT, carg, "dataSource", dataSource);
 
 		const char *status_key;
 		json_t *status_opt;
-		json_object_foreach(root, status_key, status_opt)
+		json_object_foreach(status, status_key, status_opt)
 		{
 			int type = json_typeof(status_opt);
 			if (type == JSON_INTEGER)
 			{
 				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
 				int64_t metric_value = json_real_value(status_opt);
-				metric_add_labels2(metric_name, &metric_value, DATATYPE_INT, carg, "dataSource", dataSource, "scheduleStatus", scheduleStatus);
+				metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "dataSource", dataSource);
 			}
 			else if (type == JSON_REAL)
 			{
 				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
 				double metric_value = json_real_value(status_opt);
-				metric_add_labels2(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "scheduleStatus", scheduleStatus);
+				metric_add_labels(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "dataSource", dataSource);
 			}
 		}
 	}
+	json_decref(root);
+}
+
+void druid_coordinator_metadata_datasources_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	size_t ds_num = json_array_size(root);
+	for (uint64_t i = 0; i < ds_num; i++)
+	{
+		json_t *ds = json_array_get(root, i);
+		json_t *name_json = json_object_get(ds, "name");
+		char *name = (char*)json_string_value(name_json);
+		if (!name)
+			continue;
+
+		json_t *segments = json_object_get(ds, "segments");
+		size_t segments_num = json_array_size(segments);
+		for (uint64_t j = 0; j < segments_num; j++)
+		{
+			json_t *segment = json_array_get(segments, j);
+
+			json_t *identifier_json = json_object_get(segment, "identifier");
+			char *identifier = (char*)json_string_value(identifier_json);
+			if (!identifier)
+				continue;
+
+			json_t *dimensions_json = json_object_get(segment, "dimensions");
+			char *dimensions = (char*)json_string_value(dimensions_json);
+			int64_t val = 1;
+			if (dimensions)
+			{
+				metric_add_labels3("druid_coordinator_metadata_datasources_dimensions", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "dimensions", dimensions);
+			}
+
+			json_t *loadSpec = json_object_get(segment, "loadSpec");
+			json_t *loadSpec_type_json = json_object_get(loadSpec, "type");
+			char *loadSpec_type = (char*)json_string_value(loadSpec_type_json);
+			if (loadSpec_type)
+				metric_add_labels3("druid_coordinator_metadata_datasources_loadSpec_type", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "type", loadSpec_type);
+
+			json_t *shardSpec = json_object_get(segment, "shardSpec");
+			json_t *shardSpec_type_json = json_object_get(shardSpec, "type");
+			char *shardSpec_type = (char*)json_string_value(shardSpec_type_json);
+			if (shardSpec_type)
+				metric_add_labels3("druid_coordinator_metadata_datasources_shardSpec_type", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "type", shardSpec_type);
+
+			json_t *shardSpec_partitionNum = json_object_get(shardSpec, "partitionNum");
+			int64_t partitionNum = json_integer_value(shardSpec_partitionNum);
+			metric_add_labels2("druid_coordinator_metadata_datasources_partitionNum", &partitionNum, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
+
+			json_t *shardSpec_partitions = json_object_get(shardSpec, "partitions");
+			uint64_t partitions = json_integer_value(shardSpec_partitions);
+			metric_add_labels2("druid_coordinator_metadata_datasources_partitions", &partitions, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
+
+			json_t *size_json = json_object_get(segment, "size");
+			uint64_t size = json_integer_value(size_json);
+			metric_add_labels2("druid_coordinator_metadata_datasources_size", &size, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
+
+			json_t *binaryVersion_json = json_object_get(segment, "binaryVersion");
+			uint64_t binaryVersion = json_integer_value(binaryVersion_json);
+			metric_add_labels2("druid_coordinator_metadata_datasources_binaryVersion", &binaryVersion, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
+		}
+	}
+
+	json_decref(root);
+}
+
+void druid_indexer_tasks_handler(char *metrics, size_t size, context_arg *carg)
+{
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	size_t tasks_num = json_array_size(root);
+	for (uint64_t j = 0; j < tasks_num; j++)
+	{
+		json_t *task = json_array_get(root, j);
+
+		json_t *id_json = json_object_get(task, "id");
+		char *id = (char*)json_string_value(id_json);
+		if (!id)
+			continue;
+
+		json_t *groupId_json = json_object_get(task, "groupId");
+		char *groupId = (char*)json_string_value(groupId_json);
+		if (!groupId)
+			continue;
+
+		json_t *type_json = json_object_get(task, "type");
+		char *type = (char*)json_string_value(type_json);
+		if (!type)
+			continue;
+
+		json_t *status_json = json_object_get(task, "status");
+		char *status = (char*)json_string_value(status_json);
+		if (!status)
+			continue;
+
+		json_t *dataSource_json = json_object_get(task, "dataSource");
+		char *dataSource = (char*)json_string_value(dataSource_json);
+		if (!dataSource)
+			continue;
+
+		json_t *duration_json = json_object_get(task, "duration");
+		double duration = json_real_value(duration_json);
+
+		metric_add_labels5("druid_indexer_tasks_duration", &duration, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "id", id, "groupId", groupId, "type", type, "status", status);
+	}
+
+	json_decref(root);
 }
 
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	const char *host;
+	json_t *status_opt;
+	json_object_foreach(root, host, status_opt)
+	{
+		int64_t enabled = 0;
+		if (json_typeof(status_opt) == JSON_TRUE)
+			enabled = 1;
+
+		metric_add_labels("druid_worker_enabled", &enabled, DATATYPE_INT, carg, "host", (char*)host);
+	}
+
+	json_decref(root);
 }
 
 void druid_historical_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
+	json_parser_entry(metrics, 0, NULL, "druid_historical", carg);
 }
 
 void druid_broker_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
+	json_parser_entry(metrics, 0, NULL, "druid_broker", carg);
 }
 
 string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
@@ -353,13 +495,13 @@ string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void 
 
 string* druid_status_health_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/status/health", env, proxy_settings); }
 string* druid_selfDiscovered_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/status/selfDiscovered/status", env, proxy_settings); }
-string* druid_metadata_datasources_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/metadata/datasources?full", env, proxy_settings); }
+string* druid_coordinator_metadata_datasources_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/metadata/datasources?full", env, proxy_settings); }
 string* druid_coordinator_isleader_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/isLeader", env, proxy_settings); }
 string* druid_coordinator_leader_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/leader", env, proxy_settings); }
-string* druid_coordinator_loadqueue_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/loadqueue", env, proxy_settings); }
 string* druid_coordinator_loadstatus_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/loadstatus", env, proxy_settings); }
 string* druid_coordinator_compaction_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/compaction/status", env, proxy_settings); }
 string* druid_coordinator_servers_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/servers?simple", env, proxy_settings); }
+string* druid_coordinator_loadqueue_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/coordinator/v1/loadqueue", env, proxy_settings); }
 string* druid_indexer_tasks_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/indexer/v1/tasks", env, proxy_settings); }
 string* druid_indexer_supervisor_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/indexer/v1/supervisor?full", env, proxy_settings); }
 string* druid_worker_tasks_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/druid/worker/v1/enabled", env, proxy_settings); } // port 8091
@@ -372,7 +514,7 @@ void druid_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("druid");
-	actx->handlers = 7;
+	actx->handlers = 8;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = druid_status_health_handler;
@@ -409,6 +551,16 @@ void druid_parser_push()
 	actx->handler[6].validator = NULL;
 	actx->handler[6].mesg_func = druid_coordinator_compaction_status_mesg;
 	strlcpy(actx->handler[6].key,"druid_coordinator_compaction_status", 255);
+
+	actx->handler[7].name = druid_coordinator_metadata_datasources_handler;
+	actx->handler[7].validator = NULL;
+	actx->handler[7].mesg_func = druid_coordinator_metadata_datasources_mesg;
+	strlcpy(actx->handler[7].key,"druid_coordinator_metadata_datasources", 255);
+
+	actx->handler[8].name = druid_indexer_tasks_handler;
+	actx->handler[8].validator = NULL;
+	actx->handler[8].mesg_func = druid_indexer_tasks_mesg;
+	strlcpy(actx->handler[8].key,"druid_indexer_tasks", 255);
 
 	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -218,6 +218,9 @@ void aggregate_ctx_init()
 	couchdb_parser_push();
 	couchbase_parser_push();
 	druid_parser_push();
+	druid_worker_parser_push();
+	druid_historical_parser_push();
+	druid_broker_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)
