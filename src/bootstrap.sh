@@ -58,6 +58,16 @@ if [ $? -eq 0 ]; then
 		add-apt-repository -y ppa:openjdk-r/ppa
 		apt-get update
 		apt install -y openjdk-11-jdk
+
+        apt install -y software-properties-common
+        add-apt-repository ppa:deadsnakes/ppa
+        apt update
+        apt -y install python3.8*
+        ln -sf /usr/bin/pip3 /usr/bin/vi
+        ln -sf /usr/bin/python3.8 /usr/bin/python3
+
+        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        python3 get-pip.py
 	fi
         if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -le 14 ]; then
 		apt -y install software-properties-common
