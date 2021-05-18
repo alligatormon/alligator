@@ -1,0 +1,1 @@
+{"latestStatus":[{ "dataSource":"test", "scheduleStatus": "RUNNING", "bytesAwaitingCompaction": 2131231, "bytesCompacted": 123, "bytesSkipped": 23123, "segmentCountAwaitingCompaction": 213, "segmentCountCompacted": 213, "segmentCountSkipped": 12, "intervalCountAwaitingCompaction": 43, "intervalCountCompacted": 34, "intervalCountSkipped": 34}]}

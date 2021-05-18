@@ -1,0 +1,30 @@
+druid_broker_inventoryInitialized 1
+druid_coordinator_compaction_latest_status_bytesAwaitingCompaction {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_bytesCompacted {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_bytesSkipped {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_intervalCountAwaitingCompaction {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_intervalCountCompacted {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_intervalCountSkipped {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_running {dataSource="test"} 1
+druid_coordinator_compaction_latest_status_segmentCountAwaitingCompaction {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_segmentCountCompacted {dataSource="test"} 0
+druid_coordinator_compaction_latest_status_segmentCountSkipped {dataSource="test"} 0
+druid_coordinator_isLeader 1
+druid_coordinator_leader {leader="http://172.18.0.4:8081"} 1
+druid_coordinator_loadstatus {loadstatus="wikiticker-2015-09-12-sampled"} 100.000000
+druid_coordinator_metadata_datasources_binaryVersion {dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 9
+druid_coordinator_metadata_datasources_dimensions {dataSource="wikiticker-2015-09-12-sampled", dimensions="added,channel,cityName,comment,countryIsoCode,countryName,deleted,delta,isAnonymous,isMinor,isNew,isRobot,isUnpatrolled,metroCode,namespace,page,regionIsoCode,regionName,user", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 1
+druid_coordinator_metadata_datasources_loadSpec_type {type="local", dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 1
+druid_coordinator_metadata_datasources_partitionNum {dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 0
+druid_coordinator_metadata_datasources_partitions {dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 1
+druid_coordinator_metadata_datasources_shardSpec_type {type="numbered", dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 1
+druid_coordinator_metadata_datasources_size {dataSource="wikiticker-2015-09-12-sampled", identifier="wikiticker-2015-09-12-sampled_2015-09-12T00:00:00.000Z_2015-09-13T00:00:00.000Z_2021-05-11T07:27:28.062Z"} 5474040
+druid_coordinator_servers_currSize {type="historical", host="172.18.0.5:8083", tier="_default_tier"} 5474040
+druid_coordinator_servers_maxSize {type="historical", host="172.18.0.5:8083", tier="_default_tier"} 300000000000
+druid_coordinator_servers_priority {type="historical", host="172.18.0.5:8083", tier="_default_tier"} 0
+druid_historical_cacheInitialized 1
+druid_indexer_supervisor_healthy {spec="", detailedState=""} 1
+druid_indexer_tasks_duration {type="type", dataSource="test", groupId="12", status="running", id="1"} 12.200000
+druid_selfDiscovered_status 1
+druid_status_health 1
+druid_worker_enabled {host="172.18.0.6:8091"} 1
