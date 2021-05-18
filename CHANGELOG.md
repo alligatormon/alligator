@@ -1,5 +1,15 @@
 Changelog
 
+## [1.13.0] - 18.05.2021
+- Add support memcached query
+- Add support redis query
+- Add support oracle query
+- Add support clickhouse query
+- Add support druid query
+- Add support couchdb
+- Add support couchbase
+- Migrate to packagecloud
+
 ## [1.12.2] - 01.04.2021
 - Fix in query filter matching internal metrics
 

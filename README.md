@@ -193,6 +193,18 @@ aggregate backends {
 
     # kubeconfig scarpe certificate data
     kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
+
+    # Druid
+    druid http://localhost:8888 name=druid;
+    druid_worker http://localhost:8091;
+    druid_historical http://localhost:8083;
+    druid_broker http://localhost:8082;
+
+    # Couchbase
+    couchbase http://user:pass@localhost:8091;
+
+    # Couchdb
+    couchdb http://user:pass@localhost:5984;
 }
 ```
 
