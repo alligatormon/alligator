@@ -10,24 +10,25 @@
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
+	context_arg *carg = server->data;
 	if (nread == -1)
 	{
 		fprintf(stderr, "error echo_read");
+		free_buffer(carg, buf);
 		return;
 	}
 
 	if (nread < 0)
+	{
+		free_buffer(carg, buf);
 		return;
+	}
 
-	context_arg *carg = server->data;
 	(carg->read_counter)++;
 
 	string_cat(carg->full_body, buf->base, nread);
 
-	if (buf->base)
-	{
-		free(buf->base);
-	}
+	free_buffer(carg, buf);
 	// call abort
 	//free(server);
 }

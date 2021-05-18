@@ -15,7 +15,7 @@ void env_struct_gen_http_headers(void *funcarg, void* arg)
 	string_cat(stemplate, "\r\n", 2);
 }
 
-char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf, char *httpver, void *env_arg, void *proxy_settings)
+char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf, char *httpver, void *env_arg, void *proxy_settings, string *body)
 {
 	//printf("%d, %s, %s, %s, %s, %s, %d\n", http_type, method_query, append_query, host, useragent, auth, clrf);
 
@@ -80,6 +80,10 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	tommy_hashdyn_foreach_arg(env, env_struct_gen_http_headers, sret);
 
 	string_cat(sret, "\r\n", 2);
+
+	if (body)
+		string_string_cat(sret, body);
+
 	//puts(sret->s);
 	// end
 	char *buf = sret->s;

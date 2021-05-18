@@ -931,6 +931,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	size_t cmdline_size = 16384;
 	char cmdline[cmdline_size];
+	memset(cmdline, 0, cmdline_size);
 	cmdline[0] = 0;
 	if(!(rc=fread(cmdline, 1, cmdline_size, fd)))
 	{
@@ -939,9 +940,11 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	}
 	else
 	{
-		for(int64_t iter = 0; iter < rc-1; iter++)
+		for(int64_t iter = 0; iter < rc-1 && iter < cmdline_size - 1; iter++)
 			if (!cmdline[iter])
 				cmdline[iter] = ' ';
+		cmdline[cmdline_size - 1] = 0;
+		char_strip_end(cmdline, cmdline_size-1);
 		cmdline_size = strlen(cmdline);
 	}
 

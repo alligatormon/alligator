@@ -48,6 +48,9 @@ void carg_free(context_arg *carg)
 	if (carg->query_url)
 		free(carg->query_url);
 
+	if (carg->url)
+		free(carg->url);
+
 	string_free(carg->full_body);
 
 	tommy_hashdyn_foreach_arg(carg->env, env_struct_free, carg->env);
@@ -171,7 +174,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	aconf_mesg_set(carg, mesg, mesg_len);
 
 	carg->headers_pass = headers_pass;
-	carg->url = hi->url;
+	carg->url = strdup(hi->url);
 	if (hi->user)
 		strlcpy(carg->user, hi->user, 1024);
 	if (hi->pass)

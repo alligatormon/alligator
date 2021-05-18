@@ -5,6 +5,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "common/selector.h"
 #include <query/query.h>
 #include "main.h"
 #define d64	PRId64
@@ -389,7 +390,7 @@ void ch_columns_types_free(ch_columns_types *column_types, uint64_t size)
 
 void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *carg)
 {
-	printf("clickhouse_custom_execute_handler runned: %zu\n", size);
+	//printf("clickhouse_custom_execute_handler runned: %zu:\n%s\n", size, metrics);
 	uint64_t cur = 0;
 	char ch_field[CH_NAME_SIZE];
 
@@ -498,14 +499,14 @@ void clickhouse_queries_foreach(void *funcarg, void* arg)
 	string_cat(query, qn->expr, strlen(qn->expr));
 	string_cat(query, " FORMAT TabSeparatedWithNamesAndTypes", 37);
 
-	char *query_encoded = malloc(query->l + 1024);
-	urlencode(query_encoded, query->s, query->l);
+	char cl[20];
+	snprintf(cl, 19, "%"u64, query->l);
+	env_struct_push_alloc(carg->env, "Content-Length", cl);
+	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, NULL, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, query);
 	string_free(query);
-	env_struct_push_alloc(carg->env, "Content-Length", "0");
-	char *generated_query = gen_http_query(HTTP_POST, "/?query=", query_encoded, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL);
 
-	try_again(carg, generated_query, strlen(generated_query), clickhouse_custom_execute_handler, "clickhouse_custom", NULL, key, qn);
 	//printf("try again %s/%"u64"\n", generated_query, strlen(generated_query));
+	try_again(carg, generated_query, strlen(generated_query), clickhouse_custom_execute_handler, "clickhouse_custom", NULL, key, qn);
 }
 
 void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
@@ -527,7 +528,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 
 string *clickhouse_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
 }
 
 string* clickhouse_system_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.metrics", env, proxy_settings); }

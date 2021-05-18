@@ -137,7 +137,6 @@ yum -y install https://t2.unl.edu/osg/3.4/el7/rolling/x86_64/zookeeper-native-3.
 cp ../misc/bintray-apache-couchdb-rpm.repo /etc/yum.repos.d/
 cp ../misc/datastax.repo /etc/yum.repos.d/
 cp ../misc/mongodb.repo /etc/yum.repos.d/
-cp ../misc/rabbitmq38.repo /etc/yum.repos.d/
 cp ../misc/elasticsearch.repo /etc/yum.repos.d/
 cp ../misc/cloudera-cdh5.repo /etc/yum.repos.d/
 rpm --import https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
@@ -146,7 +145,6 @@ yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 #yum -y install couchdb
 #yum -y install dsc20
 #yum -y install mongodb-org-server mongodb-org mongodb-org-shell
-#yum -y install rabbitmq-server
 
 cd external
 git clone https://github.com/mongodb/mongo-c-driver.git

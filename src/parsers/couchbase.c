@@ -220,7 +220,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		string_cat(bucket_nodes_query_uri, name_encoded, name_encoded_length);
 		string_cat(bucket_nodes_query_uri, "/stats", strlen("/stats"));
 
-		char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL);
+		char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), bucket_nodes_query_uri->s);
@@ -280,7 +280,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			string_cat(bucket_nodes_query_uri, hostname_encoded, hostname_encoded_length);
 			string_cat(bucket_nodes_query_uri, "/stats", strlen("/stats"));
 
-			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL);
+			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 			char *key = malloc(255);
 			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), bucket_nodes_query_uri->s);
@@ -483,7 +483,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 			string_cat(query_string, hostname_encoded, hostname_encoded_length);
 			string_cat(query_string, "/stats", strlen("/stats"));
 
-			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, query_string->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL);
+			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, query_string->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 			char *key = malloc(255);
 			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), query_string->s);
@@ -500,7 +500,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 
 string *couchbase_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
 }
 
 string* couchbase_buckets_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return couchbase_gen_url(hi, "/pools/default/buckets", env, proxy_settings); }

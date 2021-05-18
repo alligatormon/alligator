@@ -421,7 +421,7 @@ void http_reply_data_free(http_reply_data* http)
 //
 //string* http_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 //{
-//	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
+//	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
 //}
 //
 //void http_parser_push()

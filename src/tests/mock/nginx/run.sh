@@ -4,7 +4,7 @@
 DIR="nginx"
 
 nginx -p /app/src/ -c tests/mock/nginx/nginx.conf
-$APPDIR/alligator $APPDIR/tests/mock/$DIR/alligator.conf&
+$APPDIR/bin/alligator $APPDIR/tests/mock/$DIR/alligator.conf&
 sleep 15
 
 TEXT=`curl -s localhost:1111`

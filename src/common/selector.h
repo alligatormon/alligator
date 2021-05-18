@@ -62,3 +62,4 @@ string* string_init_add(char *str, size_t len, size_t max);
 string* get_file_content(char *file);
 string* string_new();
 void string_free_callback(char *data);
+string* string_init_add_auto(char *str);

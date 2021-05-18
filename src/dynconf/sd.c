@@ -490,7 +490,7 @@ string* sd_etcd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy
 	char *replacedquery = malloc(255);
 	char *path = "";
 	snprintf(replacedquery, 255, "%sv2/keys%s?recursive=true", hi->query, path ? path : "");
-	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings), 0, 0);
+	return string_init_add(gen_http_query(0, replacedquery, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
 }
 
 void sd_etcd_parser_push()
@@ -511,7 +511,7 @@ void sd_etcd_parser_push()
 
 string* sd_consul_configuration_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "/v1/kv/?recurse", hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, "/v1/kv/?recurse", hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
 }
 
 void sd_consul_configuration_parser_push()
@@ -532,7 +532,7 @@ void sd_consul_configuration_parser_push()
 
 string* sd_consul_discovery_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "/v1/agent/services", hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, "/v1/agent/services", hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
 }
 
 void sd_consul_discovery_parser_push()
