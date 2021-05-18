@@ -475,19 +475,25 @@ Converts to config:
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
 ## Centos 7, Centos 8
 ```
-[alligator-rpm]
-name=alligator-rpm
-baseurl=https://dl.bintray.com/alligatormon/el$releasever/
+[rpm_alligator]
+name=rpm_alligator
+baseurl=https://packagecloud.io/amoshi/alligator/el/$releasever/$basearch
+repo_gpgcheck=1
 gpgcheck=0
-repo_gpgcheck=0
 enabled=1
+gpgkey=https://packagecloud.io/amoshi/alligator/gpgkey
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
+
 ```
 
 ## Ubuntu
 ```
-echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu20.04/ focal main" | sudo tee -a /etc/apt/sources.list
-echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu18.04/ bionic main" | sudo tee -a /etc/apt/sources.list
-echo "deb [trusted=yes] https://dl.bintray.com/alligatormon/ubuntu16.04/ xenial main" | sudo tee -a /etc/apt/sources.list
+curl -L https://packagecloud.io/amoshi/alligator/gpgkey | sudo apt-key add -
+echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main" | sudo tee -a /etc/apt/sources.list
+echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ bionic main" | sudo tee -a /etc/apt/sources.list
+echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ xenial main" | sudo tee -a /etc/apt/sources.list
 ```
 
 ## Binary
