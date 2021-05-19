@@ -8,7 +8,7 @@ Changelog
 - Add support druid query https://github.com/alligatormon/alligator/blob/master/src/tests/mock/druid/alligator.conf
 - Add support couchdb
 - Add support couchbase
-- Migrate artifacts to packagecloud
+- Migratete repos to packagecloud
 
 ## [1.12.2] - 01.04.2021
 - Fix in query filter matching internal metrics
