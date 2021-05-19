@@ -1,11 +1,11 @@
 Changelog
 
 ## [1.13.0] - 18.05.2021
-- Add support memcached query
-- Add support redis query
-- Add support oracle query
+- Add support memcached query https://github.com/alligatormon/alligator/blob/master/src/tests/system/memcached/alligator.conf
+- Add support redis query https://github.com/alligatormon/alligator/blob/master/src/tests/system/redis/alligator.conf
+- Add support oracle query https://github.com/alligatormon/alligator/blob/master/src/tests/mock/oracle/alligator.conf
 - Add support clickhouse query
-- Add support druid query
+- Add support druid query https://github.com/alligatormon/alligator/blob/master/src/tests/mock/druid/alligator.conf
 - Add support couchdb
 - Add support couchbase
 - Migrate to packagecloud
