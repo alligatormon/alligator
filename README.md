@@ -490,10 +490,23 @@ metadata_expire=300
 
 ## Ubuntu
 ```
-curl -L https://packagecloud.io/amoshi/alligator/gpgkey | sudo apt-key add -
-echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main" | sudo tee -a /etc/apt/sources.list
-echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ bionic main" | sudo tee -a /etc/apt/sources.list
-echo "deb https://packagecloud.io/amoshi/alligator/ubuntu/ xenial main" | sudo tee -a /etc/apt/sources.list
+apt install -y curl gnupg apt-transport-https && \
+curl -L https://packagecloud.io/amoshi/alligator/gpgkey | apt-key add -
+```
+
+Ubuntu 16.04:
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ xenial main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+Ubuntu 18.04:
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ bionic main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+Ubuntu 20.04:
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
 ## Binary
