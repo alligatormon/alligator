@@ -944,7 +944,6 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 			if (!cmdline[iter])
 				cmdline[iter] = ' ';
 		cmdline[cmdline_size - 1] = 0;
-		char_strip_end(cmdline, cmdline_size-1);
 		cmdline_size = strlen(cmdline);
 	}
 

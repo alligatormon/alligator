@@ -1,5 +1,8 @@
 Changelog
 
+## [1.13.1] - 19.05.2021
+- Fix bug with process match
+
 ## [1.13.0] - 18.05.2021
 - Add support memcached query https://github.com/alligatormon/alligator/blob/master/src/tests/system/memcached/alligator.conf
 - Add support redis query https://github.com/alligatormon/alligator/blob/master/src/tests/system/redis/alligator.conf

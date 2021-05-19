@@ -148,7 +148,6 @@ cp ../misc/bintray-apache-couchdb-rpm.repo /etc/yum.repos.d/
 cp ../misc/datastax.repo /etc/yum.repos.d/
 cp ../misc/mongodb.repo /etc/yum.repos.d/
 cp ../misc/elasticsearch.repo /etc/yum.repos.d/
-cp ../misc/cloudera-cdh5.repo /etc/yum.repos.d/
 rpm --import https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
 yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 
