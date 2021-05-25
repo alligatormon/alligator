@@ -18,9 +18,16 @@ apt install -y libnftnl-dev
 apt install -y libmongoc-dev
 apt install -y libbson-dev
 ln -s /usr/bin/make /usr/bin/gmake
-apt install -y libpcre3-dev python3 libpq-dev m4 curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev uuid-dev libghc-regex-pcre-dev libmysqlclient-dev vim python3-pip libtool-bin valgrind netcat
+apt install -y libpcre3-dev python3 libpq-dev m4 curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev uuid-dev libghc-regex-pcre-dev vim python3-pip libtool-bin valgrind netcat
+apt install -y libmysqlclient-dev
 apt -y install libiptc-dev
 apt -y install git
+apt -y install libpq-dev
+apt -y install python3-pip
+apt -y install libzookeeper-st-dev
+apt -y install libzookeeper-mt-dev
+apt -y install vim
+apt -y install default-libmysqlclient-dev
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
 
@@ -79,6 +86,29 @@ if [ $? -eq 0 ]; then
 	fi
 fi
 
+echo $NAME | grep Debian
+if [ $? -eq 0 ]; then
+        if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -le 9 ]; then
+		echo 'deb http://ftp.debian.org/debian stretch-backports main' | tee /etc/apt/sources.list.d/stretch-backports.list
+		apt update
+		apt install -y openjdk-11-jdk
+		ln -s /usr/lib/x86_64-linux-gnu /usr/lib64
+		apt install -y libicu-dev libzstd-dev libssl-dev libsasl2-dev
+
+		#cd external
+		#git clone https://github.com/mongodb/mongo-c-driver.git
+		#cd mongo-c-driver
+		#git checkout 1.17.5
+		#mkdir cmake-build
+		#python3 build/calc_release_version.py > VERSION_CURRENT
+		#cd cmake-build
+		#cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
+		#make -j install
+		#make -j install
+		#cd -
+	fi
+fi
+
 echo $NAME | grep "CentOS Linux"
 if [ $? -eq 0 ]; then
         if [ `echo $VERSION_ID | awk -F\. '{print $1}'` -ge 8 ]; then
@@ -94,6 +124,8 @@ if [ $? -eq 0 ]; then
 		cp ../misc/libbson-static-1.0.a /usr/lib
 	fi
 fi
+
+ln -s /usr/bin/python3 /usr/bin/python
 
 cd external
 git clone git://git.netfilter.org/iptables
@@ -155,15 +187,16 @@ yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 #yum -y install dsc20
 #yum -y install mongodb-org-server mongodb-org mongodb-org-shell
 
+ln -s /usr/bin/python{3,}
 cd external
 git clone https://github.com/mongodb/mongo-c-driver.git
 cd mongo-c-driver/
-git checkout 1.16.2
+git checkout 1.17.5
 make clean
 python build/calc_release_version.py > VERSION_CURRENT
 mkdir cmake-build
 cd cmake-build
-cmake3 -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
+cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF ..
 make install
 cd ../
 cd ../../

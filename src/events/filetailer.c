@@ -403,7 +403,7 @@ void filetailer_write_state(tommy_hashdyn *hash)
 //	{
 //		char dirtowrite[255];
 //		snprintf(dirtowrite, 255, "/var/lib/alligator/file_stat");
-//		write_to_file(dirtowrite, str->s, str->l, string_free_callback, str);
+//		write_to_file(dirtowrite, str->s, str->l, free, str);
 //	}
 //	else
 //		string_free(str);

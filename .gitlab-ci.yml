@@ -13,70 +13,6 @@ cutter_centos:
   - make -j
   - cutter .
 
-build_centos:
-  stage: tests
-  except:
-  - tags
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake3 . -DCPACK_GENERATOR=RPM
-  - make -j
-
-packacloud_test:
-  stage: tests
-  except:
-  - tags
-  script:
-  - cd src
-  - touch /builds/amoshi/alligator_build/src/alligator-1.12.3-Linux.deb
-  - PKGNAME=`ls alligator-$CI_COMMIT_TAG.deb`
-  - curl -F "package[distro_version_id]=220" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
-
-build_centos8:
-  image: centos:8
-  except:
-  - tags
-  stage: tests
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake3 . -DCPACK_GENERATOR=RPM
-  - make -j
-
-build_ubuntu1604:
-  image: ubuntu:16.04
-  except:
-  - tags
-  stage: tests
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j
-
-build_ubuntu1804:
-  image: ubuntu:18.04
-  except:
-  - tags
-  stage: tests
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j
-
-build_ubuntu2004:
-  image: ubuntu:20.04
-  except:
-  - tags
-  stage: tests
-  script:
-  - cd src
-  - sh bootstrap.sh
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j
-
 sources_tarball:
   stage: build
   only:
@@ -163,3 +99,31 @@ deploy_ubuntu1604:
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
   - curl -F "package[distro_version_id]=165" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+
+deploy_debian9:
+  image: debian:9
+  only:
+  - tags
+  stage: build
+  script:
+  - cd src
+  - sh bootstrap.sh
+
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j package
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
+  - curl -F "package[distro_version_id]=149" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+
+deploy_debian10:
+  image: debian:10
+  only:
+  - tags
+  stage: build
+  script:
+  - cd src
+  - sh bootstrap.sh
+
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j package
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
+  - curl -F "package[distro_version_id]=150" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json

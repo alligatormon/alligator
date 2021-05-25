@@ -25,7 +25,7 @@ void metric_dump(int exit_sig)
 		write_to_file(dirtowrite, body->s, body->l, exit, code);
 	}
 	else
-		write_to_file(dirtowrite, body->s, body->l, string_free_callback, body);
+		write_to_file(dirtowrite, body->s, body->l, free, body);
 }
 
 void restore_callback(char *buf, size_t len, void *data)
