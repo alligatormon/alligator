@@ -153,6 +153,8 @@ set(STATIC_FILES
 	parsers/couchdb.c
 	parsers/couchbase.c
 	parsers/druid.c
+	parsers/mogilefs.c
+	parsers/moosefs.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -177,6 +179,7 @@ set(STATIC_FILES
 	query/query.c
 	query/promql.c
 	common/stat.c
+	common/probe.c
 	common/reject.c
 	api/api_router.c
 	api/api_v1.c

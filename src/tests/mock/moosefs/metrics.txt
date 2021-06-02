@@ -1,0 +1,85 @@
+moosefs_chunk_matrix_chunkclass_endangered: 0
+moosefs_chunk_matrix_chunkclass_missing: 0
+moosefs_chunk_matrix_chunkclass_overgoal: 0
+moosefs_chunk_matrix_chunkclass_pending_deletion: 0
+moosefs_chunk_matrix_chunkclass_stable: 0
+moosefs_chunk_matrix_chunkclass_to_be_removed: 0
+moosefs_chunk_matrix_chunkclass_undergoal: 0
+moosefs_chunk_server_labels {labels="B"} 0
+moosefs_chunk_server_labels {labels="B,M"} 0
+moosefs_chunk_server_labels {labels="M"} 0
+moosefs_chunk_server_maintenance {maintenance="maintenance_off"} 0
+moosefs_chunk_server_regular_chunks {host="172.20.0.11", id="4", port="9422"} 0.000000
+moosefs_chunk_server_regular_chunks {host="172.20.0.12", id="3", port="9422"} 0.000000
+moosefs_chunk_server_regular_chunks {host="172.20.0.13", id="1", port="9422"} 0.000000
+moosefs_chunk_server_regular_chunks {host="172.20.0.14", id="2", port="9422"} 0.000000
+moosefs_chunk_server_regular_percent_used {host="172.20.0.11", id="4", port="9422"} 0.000000
+moosefs_chunk_server_regular_percent_used {host="172.20.0.12", id="3", port="9422"} 0.000000
+moosefs_chunk_server_regular_percent_used {host="172.20.0.13", id="1", port="9422"} 0.000000
+moosefs_chunk_server_regular_percent_used {host="172.20.0.14", id="2", port="9422"} 0.000000
+moosefs_chunk_server_regular_total {host="172.20.0.11", id="4", port="9422"} 476099993600.000000
+moosefs_chunk_server_regular_total {host="172.20.0.12", id="3", port="9422"} 476099993600.000000
+moosefs_chunk_server_regular_total {host="172.20.0.13", id="1", port="9422"} 476099993600.000000
+moosefs_chunk_server_regular_total {host="172.20.0.14", id="2", port="9422"} 476099993600.000000
+moosefs_chunk_server_regular_used {host="172.20.0.11", id="4", port="9422"} 252762742784.000000
+moosefs_chunk_server_regular_used {host="172.20.0.12", id="3", port="9422"} 252762742784.000000
+moosefs_chunk_server_regular_used {host="172.20.0.13", id="1", port="9422"} 252762742784.000000
+moosefs_chunk_server_regular_used {host="172.20.0.14", id="2", port="9422"} 252762742784.000000
+moosefs_chunk_server_removable_chunks {host="172.20.0.11", id="4", port="9422"} 0.000000
+moosefs_chunk_server_removable_chunks {host="172.20.0.12", id="3", port="9422"} 0.000000
+moosefs_chunk_server_removable_chunks {host="172.20.0.13", id="1", port="9422"} 0.000000
+moosefs_chunk_server_removable_chunks {host="172.20.0.14", id="2", port="9422"} 0.000000
+moosefs_chunk_server_removable_status {host="172.20.0.11", id="4", port="9422"} 0.000000
+moosefs_chunk_server_removable_status {host="172.20.0.12", id="3", port="9422"} 0.000000
+moosefs_chunk_server_removable_status {host="172.20.0.13", id="1", port="9422"} 0.000000
+moosefs_chunk_server_removable_status {host="172.20.0.14", id="2", port="9422"} 0.000000
+moosefs_chunk_server_removable_used {host="172.20.0.11", id="4", port="9422"} 0.000000
+moosefs_chunk_server_removable_used {host="172.20.0.12", id="3", port="9422"} 0.000000
+moosefs_chunk_server_removable_used {host="172.20.0.13", id="1", port="9422"} 0.000000
+moosefs_chunk_server_removable_used {host="172.20.0.14", id="2", port="9422"} 0.000000
+moosefs_chunk_server_version {version="3.0.115"} 3
+moosefs_master_info_RAM_used 214294528
+moosefs_master_info_all_chunk_copies 0
+moosefs_master_info_all_fs_objects 1
+moosefs_master_info_avail_space 893344735232
+moosefs_master_info_chunks 0
+moosefs_master_info_directories 1
+moosefs_master_info_files 0
+moosefs_master_info_free_space 893344735232
+moosefs_master_info_last_save_duration 0
+moosefs_master_info_last_save_status 0
+moosefs_master_info_last_successful_store 0
+moosefs_master_info_master_version 3
+moosefs_master_info_regular_chunk_copies 0
+moosefs_master_info_sustained_files 0
+moosefs_master_info_sustained_space 0
+moosefs_master_info_total_space 1904399974400
+moosefs_master_info_trash_files 0
+moosefs_master_info_trash_space 0
+moosefs_memory_info_memory_allocated {param="chunk hash"} 0
+moosefs_memory_info_memory_allocated {param="chunk tabs"} 0
+moosefs_memory_info_memory_allocated {param="chunks"} 0
+moosefs_memory_info_memory_allocated {param="cs lists"} 0
+moosefs_memory_info_memory_allocated {param="deleted nodes"} 0
+moosefs_memory_info_memory_allocated {param="edge hash"} 0
+moosefs_memory_info_memory_allocated {param="edges"} 0
+moosefs_memory_info_memory_allocated {param="node hash"} 134217728
+moosefs_memory_info_memory_allocated {param="nodes"} 9999936
+moosefs_memory_info_memory_allocated {param="quota"} 0
+moosefs_memory_info_memory_allocated {param="symlinks"} 0
+moosefs_memory_info_memory_used {param="chunk hash"} 0
+moosefs_memory_info_memory_used {param="chunk tabs"} 0
+moosefs_memory_info_memory_used {param="chunks"} 0
+moosefs_memory_info_memory_used {param="cs lists"} 0
+moosefs_memory_info_memory_used {param="deleted nodes"} 0
+moosefs_memory_info_memory_used {param="edge hash"} 0
+moosefs_memory_info_memory_used {param="edges"} 0
+moosefs_memory_info_memory_used {param="node hash"} 8
+moosefs_memory_info_memory_used {param="nodes"} 112
+moosefs_memory_info_memory_used {param="quota"} 0
+moosefs_memory_info_memory_used {param="symlinks"} 0
+moosefs_metadata_last_meta_save {ip="172.20.0.2"} 0.000000
+moosefs_metadata_last_save_duration {ip="172.20.0.2"} 0.000000
+moosefs_metadata_last_save_status {ip="172.20.0.2"} 0.000000
+moosefs_metadata_state {ip="172.20.0.2", state="-"} 1
+moosefs_metadata_version {version="3.0.115", ip="172.20.0.2"} 1

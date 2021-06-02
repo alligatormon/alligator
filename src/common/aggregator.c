@@ -11,6 +11,7 @@
 #include "events/filetailer.h"
 #include "events/udp.h"
 #include "events/client.h"
+#include "events/icmp.h"
 #include "events/process.h"
 #include "dynconf/sd.h"
 
@@ -51,8 +52,8 @@ int smart_aggregator(context_arg *carg)
 		type = tcp_client(carg);
 	else if (carg->transport == APROTO_UDP)
 		type = udp_client(carg);
-	//else if (carg->transport == APROTO_ICMP)
-	//	unix_tcp_client(carg);
+	else if (carg->transport == APROTO_ICMP)
+		type = icmp_client(carg);
 	else if (carg->transport == APROTO_PROCESS)
 		type = process_client(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
@@ -90,8 +91,8 @@ void smart_aggregator_del(context_arg *carg)
 		tcp_client_del(carg);
 	else if (carg->transport == APROTO_UDP)
 		udp_client_del(carg);
-	//else if (carg->transport == APROTO_ICMP)
-	//	unix_tcp_client(carg);
+	else if (carg->transport == APROTO_ICMP)
+		icmp_client_del(carg);
 	else if (carg->transport == APROTO_PROCESS)
 		process_client_del(carg);
 	//else if (carg->proto == APROTO_UNIXGRAM)
@@ -221,6 +222,8 @@ void aggregate_ctx_init()
 	druid_worker_parser_push();
 	druid_historical_parser_push();
 	druid_broker_parser_push();
+	mogilefs_parser_push();
+	moosefs_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

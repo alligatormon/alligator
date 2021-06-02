@@ -1,0 +1,56 @@
+metadata servers:#172.20.0.2#3.0.115#-#1622606322.535459#22#not available#214294528#all:2.1457813% sys:1.5924055% user:0.5533758%#-#-#-#FFCCFD8ADEFBE2DE
+
+master info:#master version#3.0.115
+master info:#RAM used#214294528
+master info:#CPU used (system)#0.015924055
+master info:#CPU used (user)#0.005533758
+master info:#total space#1904399974400
+master info:#avail space#893344735232
+master info:#free space#893344735232
+master info:#trash space#0
+master info:#trash files#0
+master info:#sustained space#0
+master info:#sustained files#0
+master info:#all fs objects#1
+master info:#directories#1
+master info:#files#0
+master info:#chunks#0
+master info:#all chunk copies#0
+master info:#regular chunk copies#0
+master info:#last successful store#-
+master info:#last save duration#-
+master info:#last save status#-
+
+memory usage detailed info:#chunk hash#0#0
+memory usage detailed info:#chunks#0#0
+memory usage detailed info:#cs lists#0#0
+memory usage detailed info:#edge hash#0#0
+memory usage detailed info:#edges#0#0
+memory usage detailed info:#node hash#8#134217728
+memory usage detailed info:#nodes#112#9999936
+memory usage detailed info:#deleted nodes#0#0
+memory usage detailed info:#chunk tabs#0#0
+memory usage detailed info:#symlinks#0#0
+memory usage detailed info:#quota#0#0
+all chunks matrix:#chunkclass missing:#0
+all chunks matrix:#chunkclass endangered:#0
+all chunks matrix:#chunkclass undergoal:#0
+all chunks matrix:#chunkclass stable:#0
+all chunks matrix:#chunkclass overgoal:#0
+all chunks matrix:#chunkclass pending deletion:#0
+all chunks matrix:#chunkclass to be removed:#0
+
+chunk servers:#172.20.0.11#9422#4#M#3.0.115#0#maintenance_off#0#252762742784#476099993600#-#0#0#0
+chunk servers:#172.20.0.12#9422#3#B,M#3.0.115#0#maintenance_off#0#252762742784#476099993600#-#0#0#0
+chunk servers:#172.20.0.13#9422#1#B,M#3.0.115#0#maintenance_off#0#252762742784#476099993600#-#0#0#0
+chunk servers:#172.20.0.14#9422#2#B#3.0.115#0#maintenance_off#0#252762742784#476099993600#-#0#0#0
+
+storage classes:#1#1#NO#STD#0#0#-#0#-#-#-#-#YES#1#*#YES#1#*#YES#1#*#-
+storage classes:#2#2#NO#STD#0#1#-#0#-#-#-#-#YES#2#* , *#YES#2#* , *#YES#2#* , *#-
+storage classes:#3#3#NO#STD#0#0#-#0#-#-#-#-#YES#3#* , * , *#YES#3#* , * , *#YES#3#* , * , *#-
+storage classes:#4#4#NO#STD#0#0#-#0#-#-#-#-#YES#4#* , * , * , *#YES#4#* , * , * , *#YES#4#* , * , * , *#-
+storage classes:#5#5#NO#STD#0#0#-#0#-#-#-#-#NO#5#* , * , * , * , *#NO#5#* , * , * , * , *#NO#5#* , * , * , * , *#-
+storage classes:#6#6#NO#STD#0#0#-#0#-#-#-#-#NO#6#* , * , * , * , * , *#NO#6#* , * , * , * , * , *#NO#6#* , * , * , * , * , *#-
+storage classes:#7#7#NO#STD#0#0#-#0#-#-#-#-#NO#7#* , * , * , * , * , * , *#NO#7#* , * , * , * , * , * , *#NO#7#* , * , * , * , * , * , *#-
+storage classes:#8#8#NO#STD#0#0#-#0#-#-#-#-#NO#8#* , * , * , * , * , * , * , *#NO#8#* , * , * , * , * , * , * , *#NO#8#* , * , * , * , * , * , * , *#-
+storage classes:#9#9#NO#STD#0#0#-#0#-#-#-#-#NO#9#* , * , * , * , * , * , * , * , *#NO#9#* , * , * , * , * , * , * , * , *#NO#9#* , * , * , * , * , * , * , * , *#-

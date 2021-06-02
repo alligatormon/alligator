@@ -1,0 +1,4 @@
+#!/bin/sh
+# ./mfscli -ns"#" -SIM -SMU -SIG -SCS -SIC -SSC
+
+cat /app/src/tests/mock/moosefs/out.txt
