@@ -3015,6 +3015,115 @@ void get_utmp_info()
 	fclose(file);
 }
 
+void get_drbd_info()
+{
+	FILE *file;
+	char drbdfile[1024];
+	char str[1024];
+	char token[1024];
+	char minor[1024];
+	*minor = 0;
+	char metric_name[1024];
+	snprintf(drbdfile, 1024, "%s/drbd", ac->system_procfs);
+	file = fopen(drbdfile, "r");
+	if (!file)
+		return;
+
+	strlcpy(metric_name, "drbd_", 6);
+
+	char *tmp = 0;
+	while (fgets(str, 1024, file))
+	{
+		uint64_t str_size = strlen(str);
+
+		uint64_t mode = 0;
+		if (*str == 0)
+			continue;
+
+		if (!isspace(*str))
+			continue;
+
+		if (!isdigit(*(str+1)))
+		{
+			if (strstr(str, "ns:"))
+				mode = 1;
+			else if ((tmp = strstr(str, "%")))
+				mode = 2;
+			else
+				continue;
+		}
+
+		if (mode == 0)
+		{
+			char *obj[] = {"field", "minor", "connection_state", "state", "disk_state"};
+			for (uint64_t i = 0, k = 0; i < str_size && k < 5; i++, k++)
+			{
+				uint64_t token_size = str_get_next(str, token, 1024, " \t\n\r", &i);
+				if (!token_size)
+					continue;
+
+				//printf("\ttoken is %s\n", token);
+
+				uint64_t key_sz = strcspn(token, ":");
+				char param[1024];
+				snprintf(param, 1024, token + key_sz + 1);
+
+				if (*param == 0)
+					strlcpy(param, token, key_sz + 1);
+
+				if (k == 1)
+				{
+					strlcpy(minor, token, key_sz + 1);
+					continue;
+				}
+
+				//printf("\t\tobj: %s, param %s\n", obj[k], param);
+				strlcpy(metric_name + 5, obj[k], 1024 - 5);
+				uint64_t val = 1;
+				metric_add_labels2(metric_name, &val, DATATYPE_UINT, ac->system_carg, obj[k], param, "minor", minor);
+			}
+		}
+		else if (mode == 1)
+		{
+			//printf("%u/%s", mode, str);
+			char *obj[] = {"network_send", "network_receive", "disk_write", "disk_read", "activity_log", "bit_map", "local_count", "pending", "unacknowledged", "application_pending", "epochs", "write_order", "out_of_sync" };
+			for (uint64_t i = 0, k = 0; i < str_size && k < 13; i++, k++)
+			{
+				uint64_t token_size = str_get_next(str, token, 1024, " \t\n\r", &i);
+				if (!token_size)
+					continue;
+
+				//printf("\ttoken is %s\n", token);
+
+				uint64_t key_sz = strcspn(token, ":");
+				char param[1024];
+				snprintf(param, 1024, token + key_sz + 1);
+
+				if (*param == 0)
+					strlcpy(param, token, key_sz + 1);
+
+				//printf("\t\tobj: %s, param %s\n", obj[k], param);
+				strlcpy(metric_name + 5, obj[k], 1024 - 5);
+				uint64_t val = strtoull(param, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "minor", minor);
+			}
+		}
+		else
+		{
+			//printf("%u/%s", mode, str);
+			tmp = strstr(str, "sync'ed:");
+			if (!tmp)
+				continue;
+
+			tmp += 9;
+			double val = strtod(tmp, NULL);
+			metric_add_labels("drbd_sync_percent", &val, DATATYPE_DOUBLE, ac->system_carg, "minor", minor);
+		}
+	}
+
+	fclose(file);
+}
+
 void get_system_metrics()
 {
 	int8_t platform = -1;
@@ -3032,6 +3141,7 @@ void get_system_metrics()
 		hw_cpu_info();
 		get_utsname();
 		get_utmp_info();
+		get_drbd_info();
 		if (!platform)
 		{
 			char edacdir[255];
