@@ -3124,6 +3124,207 @@ void get_drbd_info()
 	fclose(file);
 }
 
+void parse_nfs_stats(char *name, char *mname)
+{
+	FILE *file;
+	char fname[1024];
+	char str[1024];
+	char token[1024];
+	//char *param;
+	char metric_name[1024];
+	snprintf(fname, 1024, "%s/net/rpc/%s", ac->system_procfs, name);
+	file = fopen(fname, "r");
+	if (!file)
+		return;
+
+	uint64_t mname_size = strlcpy(metric_name, mname, 1024);
+
+	//char *tmp = 0;
+	while (fgets(str, 1024, file))
+	{
+		uint64_t str_size = strlen(str);
+		//puts(str);
+
+		uint64_t i = 0;
+		str_get_next(str, token, 1024, " \t\n\r", &i);
+		//printf("\tparam: '%s'\n", token);
+
+		if (!strncmp(token, "rc", 2))
+		{
+			strlcpy(metric_name + mname_size, "reply_cache_count", 1024 - mname_size);
+			char *obj[] = {"hits", "misses", "nocache" };
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+			for (uint64_t k = 0; i < str_size && k < 3; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+				uint64_t val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+			}
+		}
+
+		else if (!strncmp(token, "fh", 2))
+		{
+			strlcpy(metric_name + mname_size, "file_handlers_count", 1024 - mname_size);
+			char *obj[] = {"stale", "total_lookups", "nocanonlookups", "dirnocache", "nodirnocache" };
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+			for (uint64_t k = 0; i < str_size && k < 5; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+				uint64_t val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+			}
+		}
+
+		else if (!strncmp(token, "io", 2))
+		{
+			strlcpy(metric_name + mname_size, "io_bytes", 1024 - mname_size);
+			char *obj[] = {"read", "write" };
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+			for (uint64_t k = 0; i < str_size && k < 2; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+				uint64_t val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+			}
+		}
+
+		else if (!strncmp(token, "th", 2))
+		{
+			strlcpy(metric_name + mname_size, "threads_count", 1024 - mname_size);
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			//printf("\t{'%s'}:: '%s'\n", metric_name, token);
+			uint64_t val = strtoull(token, NULL, 10);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
+
+			strlcpy(metric_name + mname_size, "threads_full_count", 1024 - mname_size);
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			//printf("\t{'%s'}:: '%s'\n", metric_name, token);
+			val = strtoull(token, NULL, 10);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
+		}
+
+		else if (!strncmp(token, "ra", 2))
+		{
+			char *obj[] = { "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%" };
+
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+
+			strlcpy(metric_name + mname_size, "read_ahead_cache_size", 1024 - mname_size);
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			uint64_t val = strtoull(token, NULL, 10);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
+
+			strlcpy(metric_name + mname_size, "read_ahead_cache_found", 1024 - mname_size);
+
+			for (uint64_t k = 0; i < str_size && k < 10; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "percent", obj[k]);
+			}
+
+			strlcpy(metric_name + mname_size, "read_ahead_cache_not_found", 1024 - mname_size);
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			val = strtoull(token, NULL, 10);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
+		}
+
+		else if (!strncmp(token, "net", 3))
+		{
+			strlcpy(metric_name + mname_size, "network_count", 1024 - mname_size);
+			char *obj[] = {"total", "UDP", "TCP", "TCPconnect" };
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+			for (uint64_t k = 0; i < str_size && k < 4; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+				uint64_t val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+			}
+		}
+
+		else if (!strncmp(token, "rpc", 3))
+		{
+			strlcpy(metric_name + mname_size, "rpc", 1024 - mname_size);
+			char *obj[] = {"count", "bad_count", "badfmt", "bad_auth" };
+			str_get_next(str, token, 1024, " \t\n\r", &i);
+			++i;
+			for (uint64_t k = 0; i < str_size && k < 4; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+				uint64_t val = strtoull(token, NULL, 10);
+				metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+			}
+		}
+
+		else if (!strncmp(token, "proc2", 5))
+		{
+			strlcpy(metric_name + mname_size, "proto_v2_stat", 1024 - mname_size);
+			char *obj[] = {"values", "null", "null", "getattr", "setattr", "get_filesystem_root", "lookup", "readlink", "read", "write_cache", "write", "create", "remove", "rename", "link_create", "symlink_create", "mkdir", "rmdir", "readdir", "fsstat" };
+			for (uint64_t k = 0; i < str_size && k < 19; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				if (k > 2)
+				{
+					//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+					uint64_t val = strtoull(token, NULL, 10);
+					metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+				}
+			}
+		}
+
+		else if (!strncmp(token, "proc3", 5))
+		{
+			strlcpy(metric_name + mname_size, "proto_v3_stat", 1024 - mname_size);
+			char *obj[] = {"values", "null", "null", "getattr", "setattr", "lookup", "check_access", "readlink", "read", "write", "create", "mkdir", "symlink", "mknode", "remove", "rmdir", "rename", "link", "readdir", "extended_read", "fsstat", "fsinfo", "pathconf", "commit" };
+			for (uint64_t k = 0; i < str_size && k < 23; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				if (k > 2)
+				{
+					//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+					uint64_t val = strtoull(token, NULL, 10);
+					metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+				}
+			}
+		}
+
+		else if (!strncmp(token, "proc4ops", 8))
+		{
+			strlcpy(metric_name + mname_size, "proto_v4_stat_op", 1024 - mname_size);
+			char *obj[] = {"values", "null", "null", "compound", "access", "close", "commit", "create", "delegations_purge", "delegations_return", "getattr", "get_filehandle", "link_create", "lock_create", "lock_test", "unlock", "lookup_file", "lookup_parent_directory", "verify_difference_attr", "open", "openattr", "open_confirm", "open_downgrade", "set_current_filehandle", "set_public_filehandle", "set_root_filehandle", "read", "readdir", "readlink", "remove", "rename", "renew", "restore_filehandle", "save_filehandle", "secinfo", "setattr", "negotiate_clientid", "verify", "write"};
+			for (uint64_t k = 0; i < str_size && k < 38; i++, k++)
+			{
+				str_get_next(str, token, 1024, " \t\n\r", &i);
+				if (k > 2)
+				{
+					//printf("\t{'%s'}:: '%s': '%s'\n", metric_name, obj[k], token);
+					uint64_t val = strtoull(token, NULL, 10);
+					metric_add_labels(metric_name, &val, DATATYPE_UINT, ac->system_carg, "type", obj[k]);
+				}
+			}
+		}
+
+		//else
+		//	printf("%s:%s:%s\n", name, metric_name, str);
+	}
+}
+
+void get_nfs_stats()
+{
+	parse_nfs_stats("nfsd", "nfs_server_");
+	parse_nfs_stats("nfs", "nfs_client_");
+}
+
 void get_system_metrics()
 {
 	int8_t platform = -1;
@@ -3142,6 +3343,7 @@ void get_system_metrics()
 		get_utsname();
 		get_utmp_info();
 		get_drbd_info();
+		get_nfs_stats();
 		if (!platform)
 		{
 			char edacdir[255];
