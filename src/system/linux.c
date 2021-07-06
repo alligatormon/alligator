@@ -3124,7 +3124,7 @@ void get_drbd_info()
 
 				uint64_t key_sz = strcspn(token, ":");
 				char param[1024];
-				snprintf(param, 1024, token + key_sz + 1);
+				strlcpy(param, token + key_sz + 1, 1024);
 
 				if (*param == 0)
 					strlcpy(param, token, key_sz + 1);
@@ -3155,7 +3155,7 @@ void get_drbd_info()
 
 				uint64_t key_sz = strcspn(token, ":");
 				char param[1024];
-				snprintf(param, 1024, token + key_sz + 1);
+				strlcpy(param, token + key_sz + 1, 1024);
 
 				if (*param == 0)
 					strlcpy(param, token, key_sz + 1);
