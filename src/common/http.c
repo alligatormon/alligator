@@ -55,6 +55,11 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 
 	// new template
 	tommy_hashdyn *env = env_arg;
+	if (!env)
+	{
+		env = malloc(sizeof(tommy_hashdyn));
+		tommy_hashdyn_init(env);
+	}
 	string *sret = string_init(method_query_size + append_query_size);
 	string_cat(sret, method, strlen(method));
 	string_cat(sret, " ", 1);
@@ -116,3 +121,105 @@ uint64_t urlencode(char* dest, char* src, size_t src_len)
   return ret;
 }
 
+uint64_t urldecode(char* dest, char *src, size_t len) {
+    char ch;
+    int ii;
+    uint64_t j = 0;
+
+    char substr[3];
+
+    for (uint64_t i=0; i < len; i++) {
+        if (src[i] != '%') {
+            if(src[i] == '+')
+            {
+                dest[j++] = ' ';
+            }
+            else
+            {
+                dest[j++] = src[i];
+            }
+        } else {
+            strlcpy(substr, src + i + 1, 3);
+            sscanf(substr, "%x", &ii);
+            ch = (char)ii;
+            dest[j++] = ch;
+            i = i + 2;
+        }
+    }
+    dest[j--] = 0;
+    return j;
+}
+
+int http_arg_compare(const void* arg, const void* obj)
+{
+	char *s1 = (char*)arg;
+	char *s2 = ((http_arg*)obj)->key;
+	return strcmp(s1, s2);
+}
+
+tommy_hashdyn* http_get_args(char *str, size_t size)
+{
+	tommy_hashdyn *args = malloc(sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(args);
+
+	if (!str)
+		return args;
+
+	char *start = strstr(str, "?");
+	if (!start)
+		return args;
+
+	++start;
+
+	uint64_t args_size = size - (start - str);
+	char token[args_size];
+	char decodeurl[args_size + 1024];
+
+	for (uint64_t i = 0; i < args_size; i++)
+	{
+	        uint64_t token_size = str_get_next(start, token, args_size + 1, "&", &i);
+		//printf("token '%s'/%"u64" from '%s'\n", token, token_size, start);
+
+		uint64_t j = 0;
+		char key[token_size];
+		char value[token_size];
+
+	        uint64_t key_size = str_get_next(token, key, token_size, "=", &j);
+
+		uint32_t key_hash = tommy_strhash_u32(0, key);
+		if (!tommy_hashdyn_search(args, http_arg_compare, key, key_hash))
+		{
+			http_arg *ha = malloc(sizeof(*ha));
+			ha->key = strdup(key);
+
+			strlcpy(value, token + key_size + 1, token_size - key_size + 1);
+			//urldecode(decodeurl, value, args_size);
+			urldecode(decodeurl, value, token_size);
+			//printf("decoded is '%s'\n", decodeurl);
+			ha->value = strdup(decodeurl);
+
+			tommy_hashdyn_insert(args, &(ha->node), ha, key_hash);
+			//printf("key '%s', value '%s'\n", ha->key, ha->value);
+		}
+	}
+
+	return args;
+}
+
+void http_args_free_for(void *funcarg, void* arg)
+{
+	http_arg *harg = arg;
+	if (!harg)
+		return;
+
+	free(harg->key);
+	free(harg->value);
+	free(harg);
+}
+
+void http_args_free(tommy_hashdyn *arg)
+{
+	tommy_hashdyn_foreach_arg(arg, http_args_free_for, NULL);
+	tommy_hashdyn_done(arg);
+	free(arg);
+}

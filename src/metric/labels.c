@@ -7,6 +7,7 @@
 #include "metric/namespace.h"
 #include "common/mapping.h"
 #include "query/promql.h"
+#include "action/action.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -111,20 +112,36 @@ int labels_cmp(labels_t *labels1, labels_t *labels2)
 	return 0;
 }
 
-int labels_match(labels_t *labels1, labels_t *labels2)
+int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count)
 {
 	sortplan *sort_plan = ac->nsdefault->metrictree->sort_plan;
 
 	int64_t i;
 	size_t plan_size = sort_plan->size;
-	for (i=0; i<plan_size && labels1 && labels2; i++)
+	for (i=0; i<plan_size && labels_count; i++)
 	{
-		//printf("1check %s <> %s\n", sort_plan->plan[i], labels1->name);
-		if (strcmp(sort_plan->plan[i], labels1->name))
+		//printf("plan: %d<%d: %s: %zu\n", i, plan_size, sort_plan->plan[i], labels_count);
+
+		if (!labels1)
+		{
 			return -1;
-		//printf("2check %s <> %s\n", sort_plan->plan[i], labels2->name);
+		}
+
+		if (!labels2)
+		{
+			return 0;
+		}
+
+		//printf("\t1check %s <> %s\n", sort_plan->plan[i], labels1->name);
+		if (strcmp(sort_plan->plan[i], labels1->name))
+		{
+			return -1;
+		}
+		//printf("\t2check %s <> %s\n", sort_plan->plan[i], labels2->name);
 		if (strcmp(sort_plan->plan[i], labels2->name))
+		{
 			return 1;
+		}
 
 		char *str1 = labels1->key;
 		char *str2 = labels2->key;
@@ -138,6 +155,7 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 		}
 		if (!str1)
 		{
+			// TODO??? maybe next???
 			continue;
 		}
 		if (!str2)
@@ -145,10 +163,9 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 			labels1 = labels1->next;
 			labels2 = labels2->next;
 			continue;
-			//return 0;
 		}
-		//printf("labels1->key '%s'\n", str1);
-		//printf("labels2->key '%s'\n", str2);
+		//printf("\t\tlabels1->key '%s'\n", str1);
+		//printf("\t\tlabels2->key '%s'\n", str2);
 
 		size_t str1_len = labels1->key_len;
 		size_t str2_len = labels2->key_len;
@@ -159,16 +176,23 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 			if (str1_len == str2_len)
 			{
 				// equal
+				--labels_count;
 				labels1 = labels1->next;
 				labels2 = labels2->next;
 				continue;
 			}
 			else if (str1_len > str2_len)
+			{
 				return 1;
+			}
 			else
+			{
 				return -1;
+			}
 		else
+		{
 			return ret;
+		}
 	}
 	return 0;
 }
@@ -176,6 +200,9 @@ int labels_match(labels_t *labels1, labels_t *labels2)
 int metric_name_match(labels_t *labels1, labels_t *labels2)
 {
 	if (!labels1 || !labels2)
+		return 0;
+
+	if (!labels2->key_len)
 		return 0;
 
 	char *str1 = labels1->key;
@@ -302,6 +329,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		qs->lbl = labels_to_hash(labels_list, groupkey);
 		qs->count = 1;
 		qs->key = key->s;
+		qs->metric_name = labels_list->key;
 		tommy_hashdyn_insert(res_hash, &(qs->node), qs, key_hash);
 
 		int8_t type = x->type;
@@ -441,17 +469,13 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	cur->next = malloc(sizeof(labels_t));
 	cur = cur->next;
 	cur->name = strdup(labelscont->name);
-	//cur->name = labelscont->name;
 	cur->name_len = strlen(cur->name);
 	cur->key = strdup(labelscont->key);
-	//cur->key = labelscont->key;
 	cur->key_len = strlen(cur->key);
 	cur->next = 0;
 
 	cur->allocatedname = 1;
 	cur->allocatedkey = 1;
-	//cur->allocatedname = labelscont->allocatedname;
-	//cur->allocatedkey = labelscont->allocatedkey;
 
 	// add element to sortplan
 	sort_plan->plan[(sort_plan->size)++] = cur->name;
@@ -510,7 +534,11 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	labels->name = "__name__";
 	labels->name_len = 8;
 	labels->key = name;
-	labels->key_len = strlen(name);
+	if (name)
+		labels->key_len = strlen(name);
+	else
+		labels->key_len = 0;
+
 	labels->allocatedname = 0;
 	labels->allocatedkey = 0;
 
@@ -527,6 +555,8 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 		cur->sort_plan = sort_plan;
 		cur->name = sort_plan->plan[i];
 		cur->name_len = strlen(cur->name);
+		//printf ("ns %p, nskey %s, hash %p, sort_plan %p, sort_plan->size %d, i %d plan '%s'\n", ns, ns->key, hash, sort_plan, sort_plan->size, i, sort_plan->plan[i]);
+		//printf ("\tsort_plan->plan '%s' %p\n", hash, &sort_plan->plan[i], sort_plan->plan[i]);
 		labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, sort_plan->plan[i], tommy_strhash_u32(0, sort_plan->plan[i]));
 		if (labelscont)
 		{
@@ -861,15 +891,11 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
 {
 	//r_time start = setrtime();
-	namespace_struct *ns;
 
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
+	namespace_struct *ns = get_namespace_by_carg(carg);
 
 	if (!labels)
 	{
@@ -1222,7 +1248,9 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 void metric_gen_foreach_avg(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
-	char *name = funcarg;
+
+	query_pass *qp = funcarg;
+	char *name = qp->new_name;
 	if (ac->log_level > 2)
 		printf("qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
 
@@ -1243,11 +1271,14 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 void metric_gen_foreach_min(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
-	char *name = funcarg;
+
+	query_pass *qp = funcarg;
+	char *name = qp->new_name;
 	if (ac->log_level > 2)
 		printf("qs->key %s, min: %lf\n", qs->key, qs->min);
 
 	metric_add(name, qs->lbl, &qs->min, DATATYPE_DOUBLE, ac->system_carg);
+	action_query_foreach_process(qs, qp->an, &qs->min, DATATYPE_DOUBLE);
 
 	free(qs->key);
 	free(qs);
@@ -1256,11 +1287,14 @@ void metric_gen_foreach_min(void *funcarg, void* arg)
 void metric_gen_foreach_max(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
-	char *name = funcarg;
+
+	query_pass *qp = funcarg;
+	char *name = qp->new_name;
 	if (ac->log_level > 2)
 		printf("qs->key %s, max: %lf\n", qs->key, qs->max);
 
 	metric_add(name, qs->lbl, &qs->max, DATATYPE_DOUBLE, ac->system_carg);
+	action_query_foreach_process(qs, qp->an, &qs->max, DATATYPE_DOUBLE);
 
 	free(qs->key);
 	free(qs);
@@ -1269,11 +1303,14 @@ void metric_gen_foreach_max(void *funcarg, void* arg)
 void metric_gen_foreach_sum(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
-	char *name = funcarg;
+
+	query_pass *qp = funcarg;
+	char *name = qp->new_name;
 	if (ac->log_level > 2)
 		printf("qs->key %s, val: %lf\n", qs->key, qs->val);
 
 	metric_add(name, qs->lbl, &qs->val, DATATYPE_DOUBLE, ac->system_carg);
+	action_query_foreach_process(qs, qp->an, &qs->val, DATATYPE_DOUBLE);
 
 	free(qs->key);
 	free(qs);
@@ -1282,17 +1319,21 @@ void metric_gen_foreach_sum(void *funcarg, void* arg)
 void metric_gen_foreach_count(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
-	char *name = funcarg;
+
+	query_pass *qp = funcarg;
+	char *name = qp->new_name;
 	if (ac->log_level > 2)
 		printf("qs->key %s, count: %"u64"\n", qs->key, qs->count);
 
 	metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
+	if (qp->an)
+		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
 
 	free(qs->key);
 	free(qs);
 }
 
-void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *query, char *new_name, int func, string *groupkey)
+void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_name, char *action_name)
 {
 	namespace_struct *ns;
 
@@ -1303,13 +1344,14 @@ void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *q
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	size_t labels_count = tommy_hashdyn_count(mqc->lbl);
+	labels_t *labels_list = labels_initiate(mqc->lbl, mqc->name, 0, 0, 0);
 
 	if ( tree && tree->root)
 	{
 		tommy_hashdyn *res_hash = malloc(sizeof(*res_hash));
 		tommy_hashdyn_init(res_hash);
-		metrictree_gen(tree->root, labels_list, groupkey, res_hash);
+		metrictree_gen(tree->root, labels_list, mqc->groupkey, res_hash, labels_count);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
 
@@ -1319,6 +1361,12 @@ void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *q
 		double dvalue = 0;
 		int type = DATATYPE_UINT;
 		uint64_t res_count = tommy_hashdyn_count(res_hash);
+		int func = mqc->func;
+
+		action_node *an = NULL;
+		if (res_count && action_name)
+			an = action_get(action_name);
+
 		if (res_count && (func == QUERY_FUNC_PRESENT))
 		{
 			value = res_count > 0 ? 1 : 0;
@@ -1329,42 +1377,63 @@ void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *q
 		}
 		else if (res_count && (func == QUERY_FUNC_COUNT))
 		{
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_count, new_name);
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_count, &qp);
 			tommy_hashdyn_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
+			action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_SUM))
 		{
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_sum, new_name);
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_sum, &qp);
 			tommy_hashdyn_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
+			action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MIN))
 		{
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_min, new_name);
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_min, &qp);
 			tommy_hashdyn_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
+			action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MAX))
 		{
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			//tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, &qp);
 			tommy_hashdyn_done(res_hash);
 			free(res_hash);
+			action_run_process(action_name);
 			labels_head_free(labels_list);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_AVG))
 		{
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_avg, new_name);
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_avg, &qp);
 			tommy_hashdyn_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
+			action_run_process(action_name);
 			return;
 		}
 
@@ -1384,6 +1453,7 @@ void metric_query_gen (char *namespace, char *name, tommy_hashdyn *hash, char *q
 			else if (type == DATATYPE_DOUBLE)
 				mnode = metric_insert(tree, labels_list, type, &dvalue, expiretree, ttl);
 		}
+
 		tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
 	}
 }

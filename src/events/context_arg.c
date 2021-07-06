@@ -53,9 +53,12 @@ void carg_free(context_arg *carg)
 
 	string_free(carg->full_body);
 
-	tommy_hashdyn_foreach_arg(carg->env, env_struct_free, carg->env);
-	tommy_hashdyn_done(carg->env);
-	free(carg->env);
+	if (carg->env)
+	{
+		tommy_hashdyn_foreach_arg(carg->env, env_struct_free, carg->env);
+		tommy_hashdyn_done(carg->env);
+		free(carg->env);
+	}
 	// TODO: free carg->labels
 	// TODO: free carg->env
 	// TODO: free carg->name
@@ -164,7 +167,7 @@ json_t* env_struct_dump(tommy_hashdyn *src)
 	return env;
 }
 
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects)
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
@@ -189,6 +192,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->follow_redirects = follow_redirects;
 	carg->tls = hi->tls;
 	carg->transport_string = hi->transport_string;
+	carg->stdin_s = stdin_s;
+	carg->stdin_l = stdin_l;
 	carg->loop = loop;
 	if (hi->query)
 		carg->query_url = strdup(hi->query);
@@ -254,6 +259,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	json_t *json_notify = json_object_get(root, "notify");
 	carg->notify = json_boolean_value(json_notify);
 
+	carg->pingloop = 1;
+	json_t *json_pingloop = json_object_get(root, "pingloop");
+	int64_t int_pingloop = json_integer_value(json_pingloop);
+	if (json_pingloop)
+		carg->pingloop = int_pingloop;
+
 	json_t *json_state = json_object_get(root, "state");
 	char *state = (char*)json_string_value(json_state);
 	if (state)
@@ -285,6 +296,13 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		}
 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);
+	}
+
+	json_t *json_stdin = json_object_get(root, "stdin");
+	if (json_stdin)
+	{
+		carg->stdin_s = strdup(json_string_value(json_stdin));
+		carg->stdin_l = json_string_length(json_stdin);
 	}
 
 	carg->env = env;

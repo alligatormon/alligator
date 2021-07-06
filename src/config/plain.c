@@ -357,7 +357,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -506,7 +506,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "ttl", ttl_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe"))
 					{
 						operator_json = json_object();
 						char arg_name[255];
@@ -519,7 +519,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
-								if (!strcmp(operator_name, "field"))
+								if (!strcmp(operator_name, "field") ||!strcmp(operator_name, "valid_status_codes"))
 								{
 									json_t *arg_json = json_array();
 									for (; i < token_count; i++)
@@ -527,7 +527,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										if (wstokens[i].argument)
 										{
 											json_t *str_json = json_string(strdup(wstokens[i].token->s));
-											json_array_object_insert(arg_json, "field", str_json);
+											json_array_object_insert(arg_json, operator_name, str_json);
 										}
 										if (wstokens[i].semicolon)
 										{

@@ -40,6 +40,8 @@ typedef struct context_arg
 	void *parser_handler;
 	char *mesg;
 	size_t mesg_len;
+	char *stdin_s;
+	size_t stdin_l;
 	char *query_url;
 	//char *port;
 	uint8_t lock; // lock for aggregator scrape
@@ -66,6 +68,8 @@ typedef struct context_arg
 	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
+	uint64_t pingloop;
+	double pingpercent_success;
 
 	uint64_t buffer_request_size;
 	uint64_t buffer_response_size;
@@ -177,6 +181,8 @@ typedef struct context_arg
 	char *tls_ca_file;
 	char *tls_cert_file;
 	char *tls_key_file;
+	char *tls_server_name;
+	uint8_t tls_verify;
 
 	uv_buf_t write_buffer;
 	uv_buf_t user_read_buf;
@@ -220,12 +226,36 @@ typedef struct context_arg
 	int log_level;
 	int64_t context_ttl;
 
+	//uint64_t sequence_size;
+	uint64_t sequence_done;
+	uint64_t sequence_success;
+	uint64_t sequence_error;
+	uint64_t packets_send_period;
+	uint64_t timeout_time;
+	uint64_t sequence_time;
+	uint16_t sequence_id;
+	uint16_t packets_id;
+	uint8_t check_receive;
+
+	uv_poll_t poll_socket;
+	uv_timer_t t_timeout;
+	uv_timer_t t_towrite;
+	uv_timer_t t_seq_timer;
+
+	r_time resolve_time;
+	r_time resolve_time_finish;
+	r_time total_time;
+	r_time total_time_finish;
+
+	uint32_t ping_key;
+
 	tommy_node node;
 	tommy_node context_node;
+	tommy_node ping_node;
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l);
 tommy_hashdyn *env_struct_parser(json_t *root);
 tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src);
 json_t* env_struct_dump(tommy_hashdyn *src);

@@ -1,13 +1,28 @@
 #include "query/promql.h"
 #include "common/selector.h"
-tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char *name, int *func, string *groupkey)
+#include "common/http.h"
+
+metric_query_context *query_context_new(char *name)
 {
+	metric_query_context *mqc = calloc(1, sizeof(*mqc));
+	mqc->name = name;
+	mqc->lbl = calloc(1, sizeof(tommy_hashdyn));
+	tommy_hashdyn_init(mqc->lbl);
+
+	return mqc;
+}
+
+metric_query_context *promql_parser(tommy_hashdyn* lbl, char *query, size_t size)
+{
+	metric_query_context *mqc = query_context_new(NULL);
+	char *name = mqc->name = malloc(255);
+	string *groupkey = mqc->groupkey = string_new();
 	//printf("==== parse %s\n", query);
 	if (!size)
-		return lbl;
+		return mqc;
 
 	if (!query)
-		return lbl;
+		return mqc;
 
 	if (!lbl)
 	{
@@ -15,7 +30,7 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 		tommy_hashdyn_init(lbl);
 	}
 
-	*func = QUERY_FUNC_COUNT;
+	mqc->func = QUERY_FUNC_COUNT;
 
 	uint64_t i;
 	uint64_t cur;
@@ -36,37 +51,37 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 	{
 		if (!strncasecmp(str, "count", 5))
 		{
-			*func = QUERY_FUNC_COUNT;
+			mqc->func = QUERY_FUNC_COUNT;
 			jump = 5;
 		}
 		else if (!strncasecmp(str, "sum", 3))
 		{
-			*func = QUERY_FUNC_SUM;
+			mqc->func = QUERY_FUNC_SUM;
 			jump = 3;
 		}
 		else if (!strncasecmp(str, "absent", 6))
 		{
-			*func = QUERY_FUNC_ABSENT;
+			mqc->func = QUERY_FUNC_ABSENT;
 			jump = 6;
 		}
 		else if (!strncasecmp(str, "present", 7))
 		{
-			*func = QUERY_FUNC_PRESENT;
+			mqc->func = QUERY_FUNC_PRESENT;
 			jump = 7;
 		}
 		else if (!strncasecmp(str, "min", 3))
 		{
-			*func = QUERY_FUNC_MIN;
+			mqc->func = QUERY_FUNC_MIN;
 			jump = 3;
 		}
 		else if (!strncasecmp(str, "max", 3))
 		{
-			*func = QUERY_FUNC_MAX;
+			mqc->func = QUERY_FUNC_MAX;
 			jump = 3;
 		}
 		else if (!strncasecmp(str, "avg", 3))
 		{
-			*func = QUERY_FUNC_AVG;
+			mqc->func = QUERY_FUNC_AVG;
 			jump = 3;
 		}
 	}
@@ -182,5 +197,48 @@ tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char 
 		}
 	}
 
-	return lbl;
+	mqc->query = query;
+	mqc->size = size;
+	mqc->lbl = lbl;
+
+	return mqc;
+}
+
+void query_context_set_name(metric_query_context *mqc, char *name)
+{
+	mqc->name = name;
+}
+
+void query_context_set_label(metric_query_context *mqc, char *key, char *value)
+{
+	labels_hash_insert_nocache(mqc->lbl, key, value);
+}
+
+void http_args_to_query_context(void *funcarg, void* arg)
+{
+	http_arg *harg = arg;
+	if (!harg)
+		return;
+
+	metric_query_context *mqc = funcarg;
+
+	if (strcmp(harg->key, "query") && strcmp(harg->key, "delimiter"))
+	{
+		//printf("key '%s', value '%s'\n", harg->key, harg->value);
+		query_context_set_label(mqc, harg->key, harg->value);
+	}
+}
+
+void query_context_convert_http_args_to_query(metric_query_context *mqc, tommy_hashdyn *arg)
+{
+	tommy_hashdyn_foreach_arg(arg, http_args_to_query_context, mqc);
+}
+
+void query_context_free(metric_query_context *mqc)
+{
+	//if (mqc->lbl)
+	//	labels_hash_free(mqc->lbl);
+	if (mqc->groupkey)
+		string_free(mqc->groupkey);
+	free(mqc);
 }

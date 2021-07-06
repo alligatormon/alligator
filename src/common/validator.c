@@ -138,10 +138,10 @@ int metric_value_validator(char *str, size_t sz)
 {
 	int64_t i = 0;
 	int type = 0;
-	if (str[i] == '-')
+	if (str[i] == '-' && sz > 1)
 	{
 		++i;
-		type = DATATYPE_UINT;
+		type = DATATYPE_INT;
 	}
 
 	for (; i<sz; i++)

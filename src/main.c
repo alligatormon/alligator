@@ -118,7 +118,9 @@ aconf* configuration()
 
 	ac->iggregator = calloc(1, sizeof(tommy_hashdyn));
 	ac->iggregator_startup = 1000;
-	ac->iggregator_repeat = 1000;
+	ac->iggregator_repeat = 10000;
+	ac->ping_hash = calloc(1, sizeof(tommy_hashdyn));
+	ac->ping_id = 0;
 
 	ac->unixgram_aggregator = calloc(1, sizeof(tommy_hashdyn));
 	tommy_hashdyn_init(ac->unixgram_aggregator);
@@ -142,6 +144,8 @@ aconf* configuration()
 	ac->tls_fs_startup = 4500;
 	ac->tls_fs_repeat = 60000;
 
+	ac->action = calloc(1, sizeof(tommy_hashdyn));
+	ac->probe = calloc(1, sizeof(tommy_hashdyn));
 	ac->query = calloc(1, sizeof(tommy_hashdyn));
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
@@ -162,8 +166,11 @@ aconf* configuration()
 	tommy_hashdyn_init(ac->lang_aggregator);
 	tommy_hashdyn_init(ac->fs_x509);
 	tommy_hashdyn_init(ac->query);
+	tommy_hashdyn_init(ac->action);
+	tommy_hashdyn_init(ac->probe);
 	tommy_hashdyn_init(ac->modules);
 	tommy_hashdyn_init(ac->file_stat);
+	tommy_hashdyn_init(ac->ping_hash);
 
 	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
 	tommy_hashdyn_init(ac->entrypoints);

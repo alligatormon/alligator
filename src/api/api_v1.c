@@ -186,6 +186,53 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					query_push(datasource, expr, make, action, ns, jfield);
 				}
 			}
+			if (!strcmp(key, "action"))
+			{
+				uint64_t action_size = json_array_size(value);
+				for (uint64_t i = 0; i < action_size; i++)
+				{
+					json_t *action = json_array_get(value, i);
+					json_t *jname = json_object_get(action, "name");
+					if (!jname)
+						continue;
+					char *name = (char*)json_string_value(jname);
+
+					json_t *jdatasource = json_object_get(action, "datasource");
+					if (!jdatasource)
+						continue;
+					char *datasource = (char*)json_string_value(jdatasource);
+
+					json_t *jexpr = json_object_get(action, "expr");
+					json_t *jns = json_object_get(action, "ns");
+					json_t *jtype = json_object_get(action, "type");
+					json_t *jserializer = json_object_get(action, "serializer");
+					json_t *jfollow_redirects = json_object_get(action, "follow_redirects");
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						action_del(name, datasource);
+						continue;
+					}
+
+					action_push(name, datasource, jexpr, jns, jtype, jfollow_redirects, jserializer);
+				}
+			}
+			if (!strcmp(key, "probe"))
+			{
+				uint64_t probe_size = json_array_size(value);
+				for (uint64_t i = 0; i < probe_size; i++)
+				{
+					json_t *probe = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						probe_del_json(probe);
+						continue;
+					}
+
+					probe_push_json(probe);
+				}
+			}
 			if (!strcmp(key, "persistence"))
 			{
 				if (method == HTTP_METHOD_DELETE)
@@ -295,6 +342,12 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						carg->api_enable = 1;
 					else
 						carg->api_enable = 0;
+
+					carg->pingloop = 1;
+					json_t *carg_pingloop = json_object_get(entrypoint, "pingloop");
+					uint64_t pingloop = json_integer_value(carg_pingloop);
+					if (pingloop)
+						carg->pingloop = pingloop;
 
 					json_t *carg_handler = json_object_get(entrypoint, "handler");
 					char *str_handler = (char*)json_string_value(carg_handler);
@@ -612,7 +665,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							tommy_hashdyn_init(env);
 
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", env, NULL, NULL);
-							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0);
+							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
 							if (!smart_aggregator(carg))
 								carg_free(carg);
 						}
@@ -854,7 +907,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 						if (enkey)
 						{
-							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects);
+							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects, NULL, 0);
 							if (!smart_aggregator(carg))
 							{
 								carg_free(carg);

@@ -8,6 +8,7 @@
 #include "events/context_arg.h"
 #include "metric/labels.h"
 #include "main.h"
+#include "probe/probe.h"
 
 void http_reply_free(http_reply_data* hrdata)
 {
@@ -114,7 +115,6 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 			loc_start += strspn(loc_start, " ");
 			uint64_t location_size = strcspn(loc_start, "\r\n");
 			hrdata->location = strndup(loc_start, location_size);
-			//printf("location '%s'\n", hrdata->location);
 		}
 	}
 
@@ -188,11 +188,27 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	snprintf(code, 6, "%"PRId16, hrdata->http_code);
 	uint64_t http_code = hrdata->http_code;
 
-	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "destination", carg->host, "port", carg->port);
-	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
-	metric_add_labels2("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "destination", carg->host, "port", carg->port);
+	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port);
+	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port);
+	metric_add_labels2("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port);
 	metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 	metric_add_labels5("alligator_aggregator_http_header_size", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+
+	if (carg->data && carg->parser_handler == blackbox_null)
+	{
+		probe_node *pn = carg->data;
+		if (pn->valid_status_codes)
+		{
+			uint64_t val = 0;
+			uint64_t valid_status_codes_size = pn->valid_status_codes_size;
+			for (uint64_t i = 0; i < valid_status_codes_size; i++)
+			{
+				if (!strncmp(code, pn->valid_status_codes[i], strspn(pn->valid_status_codes[i], "0123456789")))
+					val = 1;
+			}
+			metric_add_labels6("probe_success", &val, DATATYPE_UINT, carg, "proto", "http", "type", "blackbox", "host", carg->host, "key", carg->key, "prober", pn->prober_str, "module", pn->name);
+		}
+	}
 }
 
 void http_get_auth_data(http_reply_data *hr_data)

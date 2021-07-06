@@ -46,6 +46,18 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		stat_router(response, http_data);
 	}
+	else if (!strncmp(http_data->uri, "/probe", 6))
+	{
+		probe_router(response, http_data, carg);
+	}
+	else if (!strncmp(http_data->uri, "/json", 5))
+	{
+		json_router(response, http_data, carg);
+	}
+	else if (!strncmp(http_data->uri, "/dsv", 4))
+	{
+		dsv_router(response, http_data, carg);
+	}
 	else
 	{
 		//metric_str_build(0, response);

@@ -1,0 +1,47 @@
+@SuperQ It's trading hassle for granularity. /proc/net/rpc/nfs reports global stats for the entire NFS client while /proc/self/mountstats includes more details and breaks it down for each mount but the format wasn't designed to be easily parsed. I work in an environment with a bunch of different NFS servers and mounts so the ability to break the metrics down by mount would be really useful but I recognize that it's a lot more work.
+
+Here's an example with a 4.6-series kernel:
+
+/proc/net/rpc/nfs:
+
+net 0 0 0 0
+rpc 105 0 105
+proc3 22 0 6 0 86 3 0 2 0 0 0 0 0 0 0 0 0 0 3 0 2 1 0
+proc4 59 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+/proc/self/mountstats:
+
+device sysfs mounted on /sys with fstype sysfs
+device proc mounted on /proc with fstype proc
+device devtmpfs mounted on /dev with fstype devtmpfs
+device server.example.org:/path/to/export mounted on /mnt/test with fstype nfs statvers=1.1
+    opts:   rw,vers=3,rsize=65536,wsize=65536,namlen=255,acregmin=3,acregmax=60,acdirmin=30,acdirmax=60,hard,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=1.2.3.4,mountvers=3,mountport=4046,mountproto=udp,local_lock=none
+    age:    78
+    caps:   caps=0x3fc7,wtmult=4096,dtsize=4096,bsize=0,namlen=255
+    sec:    flavor=1,pseudoflavor=1
+    events: 6 306 0 0 7 86 395 0 0 2 0 14 2 0 4 0 0 6 0 0 0 0 0 0 0 0 0 
+    bytes:  143698 0 0 0 23907 0 6 0 
+    RPC iostats version: 1.0  p/v: 100003/3 (nfs)
+    xprt:   tcp 812 1 1 0 65 105 105 0 105 0 2 0 0
+    per-op statistics
+            NULL: 0 0 0 0 0 0 0 0
+         GETATTR: 6 6 0 840 672 0 4 4
+         SETATTR: 0 0 0 0 0 0 0 0
+          LOOKUP: 86 86 0 13424 10120 0 75 78
+          ACCESS: 3 3 0 432 360 0 6 6
+        READLINK: 0 0 0 0 0 0 0 0
+            READ: 2 2 0 304 24164 0 18 18
+           WRITE: 0 0 0 0 0 0 0 0
+          CREATE: 0 0 0 0 0 0 0 0
+           MKDIR: 0 0 0 0 0 0 0 0
+         SYMLINK: 0 0 0 0 0 0 0 0
+           MKNOD: 0 0 0 0 0 0 0 0
+          REMOVE: 0 0 0 0 0 0 0 0
+           RMDIR: 0 0 0 0 0 0 0 0
+          RENAME: 0 0 0 0 0 0 0 0
+            LINK: 0 0 0 0 0 0 0 0
+         READDIR: 0 0 0 0 0 0 0 0
+     READDIRPLUS: 3 3 0 492 8028 0 12 12
+          FSSTAT: 0 0 0 0 0 0 0 0
+          FSINFO: 2 2 0 272 328 0 1 1
+        PATHCONF: 1 1 0 136 140 0 0 0
+          COMMIT: 0 0 0 0 0 0 0 0

@@ -1,6 +1,8 @@
 #include "stdlib.h"
 #include "query/query.h"
 #include "query/promql.h"
+#include "metric/query.h"
+#include "metric/labels.h"
 #include "main.h"
 
 int query_compare(const void* arg, const void* obj)
@@ -177,16 +179,10 @@ void query_set_values(query_node *qn)
 
 void internal_query_process(query_node *qn)
 {
-	//puts("===============");
-	char *name = malloc(255);
-	string *groupkey = string_new();
-	int func;
-	tommy_hashdyn *hash = promql_parser(NULL, qn->expr, strlen(qn->expr), name, &func, groupkey);
+	metric_query_context *mqc = promql_parser(NULL, qn->expr, strlen(qn->expr));
 
-	//printf("query is %s:%s:%s:%d\n", name, qn->make, groupkey->s, func);
-	metric_query_gen(0, name, hash, "", qn->make, func, groupkey);
-	string_free(groupkey);
-	free(name);
+	metric_query_gen(0, mqc, qn->make, qn->action);
+	query_context_free(mqc);
 }
 
 void query_processing(query_node *qn)

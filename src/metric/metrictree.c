@@ -408,21 +408,21 @@ void metric_str_build (char *namespace, string *str)
 	}
 }
 
-void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash)
+void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash, size_t labels_count)
 {
 	if (!x)
 		return;
 
-	if (!labels_match(x->labels, labels))
+	if (!labels_match(x->labels, labels, labels_count))
 	{
 		labels_gen_metric(x->labels, 0, x, groupkey, hash);
 	}
 
-	metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash);
-	metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash);
+	metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash, labels_count);
+	metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
 }
 
-void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash)
+void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash, size_t labels_count)
 {
 	while (x)
 	{
@@ -433,7 +433,43 @@ void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_ha
 			x = x->steam[RIGHT];
 		else
 		{
-			metrictree_gen_scan(x, labels, groupkey, hash);
+			labels_gen_metric(x->labels, 0, x, groupkey, hash);
+			metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash, labels_count);
+			metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
+			break;
+		}
+	}
+}
+
+void metrictree_serialize_query_node(metric_node *x, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+{
+	if (!x)
+		return;
+
+	if (!labels_match(x->labels, labels, labels_count))
+	{
+		metric_node_serialize(x, sc);
+	}
+
+	metrictree_serialize_query_node(x->steam[LEFT], labels, groupkey, sc, labels_count);
+	metrictree_serialize_query_node(x->steam[RIGHT], labels, groupkey, sc, labels_count);
+}
+
+void metrictree_serialize_query(metric_node *x, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+{
+	while (x)
+	{
+		int rc1 = metric_name_match(x->labels, labels);
+		if ( rc1 > 0 )
+			x = x->steam[LEFT];
+		else if ( rc1 < 0 )
+			x = x->steam[RIGHT];
+		else
+		{
+			if (labels->key_len || !labels_count)
+				metric_node_serialize(x, sc);
+			metrictree_serialize_query_node(x->steam[LEFT], labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->steam[RIGHT], labels, groupkey, sc, labels_count);
 			break;
 		}
 	}

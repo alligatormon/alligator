@@ -35,7 +35,17 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 
 void cmd_close(uv_handle_t *handle)
 {
+	context_arg *carg = handle->data;
 	free(handle);
+
+	if (carg->context_ttl)
+	{
+		r_time time = setrtime();
+		if (time.sec >= carg->context_ttl)
+		{
+			smart_aggregator_del(carg);
+		}
+	}
 }
 
 static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
@@ -192,6 +202,15 @@ char* process_client(context_arg *carg)
 	if (carg->env)
 		tommy_hashdyn_foreach_arg(carg->env, env_struct_process, stemplate);
 
+
+	if (carg->stdin_s && carg->stdin_l)
+	{
+		string_cat(stemplate, "printf '", 8);
+		string_cat(stemplate, carg->stdin_s, carg->stdin_l);
+		string_cat(stemplate, "' | '", 4);
+	}
+
+
 	string_cat(stemplate, carg->host, strlen(carg->host));
 	if (carg->mesg)
 	{
@@ -255,7 +274,9 @@ void process_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
+	tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
 	tommy_hashdyn_remove_existing(ac->process_spawner, &(carg->node));
+	ac->process_cnt--;
 	carg_free(carg);
 }
 

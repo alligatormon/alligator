@@ -1,0 +1,18 @@
+aggregator_packet_loss {type="icmp", host="8.8.8.8"} 0
+aggregator_packet_loss {type="icmp", host="google.com"} 0
+aggregator_packet_loss {type="icmp", host="yandex.ru"} 0
+aggregator_packet_loss_percent {type="icmp", host="8.8.8.8"} 0.000000
+aggregator_packet_loss_percent {type="icmp", host="google.com"} 0.000000
+aggregator_packet_loss_percent {type="icmp", host="yandex.ru"} 0.000000
+aggregator_packet_received {type="icmp", host="8.8.8.8"} 100
+aggregator_packet_received {type="icmp", host="google.com"} 100
+aggregator_packet_received {type="icmp", host="yandex.ru"} 100
+aggregator_packet_received_percent {type="icmp", host="8.8.8.8"} 1.000000
+aggregator_packet_received_percent {type="icmp", host="google.com"} 1.000000
+aggregator_packet_received_percent {type="icmp", host="yandex.ru"} 1.000000
+aggregator_read_time {type="icmp", host="8.8.8.8"}
+aggregator_read_time {type="icmp", host="google.com"}
+aggregator_read_time {type="icmp", host="yandex.ru"}
+aggregator_resolve_time {type="icmp", host="8.8.8.8"}
+aggregator_resolve_time {type="icmp", host="google.com"}
+aggregator_resolve_time {type="icmp", host="yandex.ru"}

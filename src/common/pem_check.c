@@ -59,7 +59,7 @@ char *read_file(char *name)
 	return pem_cert;
 }
 
-void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert)
+void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 {
 	if (!cert_ctx)
 		return;
@@ -76,6 +76,9 @@ void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert)
 	tommy_hashdyn *lbl = malloc(sizeof(*lbl));
 	tommy_hashdyn_init(lbl);
 	labels_hash_insert_nocache(lbl, "cert", cert);
+	if (host)
+		labels_hash_insert_nocache(lbl, "host", host);
+
 	for(int i=0; i<dn_subject_size;)
 	{
 		if (!strncmp(dn_subject+i, "C=", 2))
@@ -185,7 +188,7 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 		return;
 	}
 
-	parse_cert_info(&cert, filename);
+	parse_cert_info(&cert, filename, NULL);
 
 	free(filename);
 	mbedtls_x509_crt_free(&cert);

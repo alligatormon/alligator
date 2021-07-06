@@ -130,6 +130,7 @@ typedef struct aconf
 	uv_loop_t *loop;
 	uint64_t tcp_client_count;
 	uint64_t icmp_client_count;
+	uint64_t ping_id;
 	uint64_t tls_tcp_client_count;
 
 	uint64_t request_cnt;
@@ -150,7 +151,9 @@ typedef struct aconf
 	int64_t tls_fs_repeat;
 
 	// local query processing
+	tommy_hashdyn* action;
 	tommy_hashdyn* query;
+	tommy_hashdyn* probe;
 	int64_t query_startup;
 	int64_t query_repeat;
 
@@ -189,6 +192,7 @@ typedef struct aconf
 	match_rules *packages_match;
 	match_rules *services_match;
 	tommy_hashdyn* fdesc;
+	tommy_hashdyn* ping_hash;
 
 	tommy_hashdyn* entrypoints;
 	tommy_hashdyn* aggregators;

@@ -397,7 +397,7 @@ void test_metric_value_validator_12()
 void test_metric_value_validator_13()
 {
 	int rc = metric_value_validator(TEST_VALIDATOR_VALUE_13, strlen(TEST_VALIDATOR_VALUE_13));
-	cut_assert_equal_int(3, rc);
+	cut_assert_equal_int(2, rc);
 }
 
 void test_metric_value_validator_14()

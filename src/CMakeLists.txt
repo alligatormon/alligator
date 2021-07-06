@@ -178,11 +178,15 @@ set(STATIC_FILES
 	common/murmurhash.c
 	query/query.c
 	query/promql.c
-	common/stat.c
-	common/probe.c
-	common/reject.c
+	action/action.c
+	probe/probe.c
+	router/stat.c
+	router/probe.c
+	router/json.c
+	router/dsv.c
 	api/api_router.c
 	api/api_v1.c
+	common/reject.c
 	common/iptc.c
 	common/entrypoint.c
 	common/pw.c
@@ -203,6 +207,9 @@ set(STATIC_FILES
 	metric/metrictree.c
 	metric/percentile_heap.c
 	metric/metric_dump.c
+	metric/query.c
+	metric/namespace.c
+	metric/serializer.c
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c

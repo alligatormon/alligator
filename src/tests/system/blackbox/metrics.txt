@@ -1,0 +1,79 @@
+aggregator_http_body_size {host="r0.ru", port="80"}
+aggregator_http_body_size {host="yandex.ru", port="443"}
+aggregator_http_headers_size {host="r0.ru", port="80"}
+aggregator_http_headers_size {host="yandex.ru", port="443"}
+aggregator_http_request {host="r0.ru", code="301", port="80"}
+aggregator_http_request {host="yandex.ru", code="200", port="443"}
+aggregator_packet_loss {host="8.8.8.8", type="icmp"}
+aggregator_packet_loss_percent {host="8.8.8.8", type="icmp"}
+aggregator_packet_received {host="8.8.8.8", type="icmp"}
+aggregator_packet_received_percent {host="8.8.8.8", type="icmp"}
+aggregator_read_time {host="8.8.8.8", type="icmp"}
+alligator_aggregator_http_code {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null"}
+alligator_aggregator_http_code {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null"}
+alligator_aggregator_http_header_size {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null"}
+alligator_aggregator_http_header_size {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null"}
+alligator_close {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_close {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_connect {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_connect {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_connect_ok {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null"}
+alligator_connect_ok {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null"}
+alligator_connect_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_connect_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_connect_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_connect_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_execute_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_execute_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_execute_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_execute_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_parser_status {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null"}
+alligator_parser_status {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null"}
+alligator_read {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_read {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_read_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_read_bytes {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_read_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_read_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_read_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_read_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_shutdown {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_shutdown {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_timeout {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_timeout {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_connect_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_connect_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_connect_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_connect_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_init {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_init {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_read {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_read {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_read_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_read_bytes {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_read_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_read_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_read_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_read_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_write {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_write {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_write_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_write_bytes {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_write_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_write_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_tls_write_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_tls_write_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_write {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_write {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_write_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_write_bytes {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_write_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_write_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+alligator_write_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator"}
+alligator_write_total_time {host="yandex.ru", proto="tcp", key="tcp:blackbox_null:yandex.ru:443/", type="aggregator"}
+probe_success {host="8.8.8.8", proto="icmp", key="8.8.8.8:0:2", type="blackbox", module="icmp", prober="icmp"}
+probe_success {host="r0.ru", proto="http", key="tcp:blackbox_null:r0.ru:80/", type="blackbox", module="http_23xx", prober="http"}
+probe_success {host="yandex.ru", proto="http", key="tcp:blackbox_null:yandex.ru:443/", type="blackbox", module="http_2xx_nfr", prober="http"}
+x509_cert_expire_days {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"
+x509_cert_not_after {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"
+x509_cert_not_before {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"

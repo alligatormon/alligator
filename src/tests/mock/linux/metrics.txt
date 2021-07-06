@@ -221,3 +221,53 @@ service_tasks_count {type="threads", service="lvm2-monitor.service"} 11
 tasks_max 15638
 tasks_total 5
 tasks_usage 0.031973
+
+drbd_activity_log {minor="0"} 0
+drbd_activity_log {minor="1"} 17324442
+drbd_activity_log {minor="2"} 15068
+drbd_activity_log {minor="3"} 66084648
+drbd_application_pending {minor="0"} 6
+drbd_application_pending {minor="1"} 221
+drbd_application_pending {minor="2"} 37
+drbd_application_pending {minor="3"} 650
+drbd_bit_map {minor="0"} 15000
+drbd_bit_map {minor="1"} 10961011
+drbd_bit_map {minor="2"} 1032
+drbd_bit_map {minor="3"} 130552
+drbd_connection_state {connection_state="Connected", minor="1"} 1
+drbd_connection_state {connection_state="Connected", minor="2"} 1
+drbd_connection_state {connection_state="Connected", minor="3"} 1
+drbd_connection_state {connection_state="SyncTarget", minor="0"} 1
+drbd_disk_state {minor="0", disk_state="Inconsistent"} 1
+drbd_disk_state {minor="1", disk_state="UpToDate/UpToDate"} 1
+drbd_disk_state {minor="2", disk_state="UpToDate/UpToDate"} 1
+drbd_disk_state {minor="3", disk_state="UpToDate/UpToDate"} 1
+drbd_epochs {minor="0"} 0
+drbd_epochs {minor="1"} 12345
+drbd_epochs {minor="2"} 0
+drbd_epochs {minor="3"} 0
+drbd_local_count {minor="0"} 15000
+drbd_local_count {minor="1"} 28263521
+drbd_local_count {minor="2"} 16100
+drbd_local_count {minor="3"} 66215200
+drbd_out_of_sync {minor="0"} 0
+drbd_out_of_sync {minor="1"} 12347
+drbd_out_of_sync {minor="2"} 0
+drbd_out_of_sync {minor="3"} 0
+drbd_pending {minor="0"} 0
+drbd_pending {minor="1"} 118696670
+drbd_pending {minor="2"} 3529
+drbd_pending {minor="3"} 3052965
+drbd_state {minor="0", state="Secondary/Primary"} 1
+drbd_state {minor="1", state="Primary/Primary"} 1
+drbd_state {minor="2", state="Primary/Secondary"} 1
+drbd_state {minor="3", state="Primary/Secondary"} 1
+drbd_sync_percent {minor="0"} 50.000000
+drbd_unacknowledged {minor="0"} 0
+drbd_unacknowledged {minor="1"} 1100
+drbd_unacknowledged {minor="2"} 22
+drbd_unacknowledged {minor="3"} 23975
+drbd_write_order {minor="0"} 0
+drbd_write_order {minor="1"} 12346
+drbd_write_order {minor="2"} 0
+drbd_write_order {minor="3"} 0

@@ -1,0 +1,6 @@
+aggregator_packet_received {host="8.8.8.8", type="icmp}
+aggregator_packet_loss {host="8.8.8.8", type="icmp}
+aggregator_packet_loss_percent {host="8.8.8.8", type="icmp}
+aggregator_read_time {host="8.8.8.8", type="icmp}
+aggregator_packet_received_percent {host="8.8.8.8", type="icmp}
+probe_success {host="8.8.8.8", proto="icmp", key="8.8.8.8:0:2", type="blackbox", module="icmp", prober="icmp}

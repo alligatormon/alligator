@@ -56,6 +56,20 @@ typedef struct ulimit_pid_stat {
 	uint64_t addressspace;
 } ulimit_pid_stat;
 
+typedef struct port_usage {
+	char *remote_addr;
+	char *remote_port;
+	char *local_addr;
+	char *local_port;
+	uint64_t count;
+	int state_proto;
+	int state;
+	char *process;
+
+	char *key;
+	tommy_node node;
+} port_usage;
+
 void print_mount(const struct mntent *fs)
 {
 	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2"))
@@ -337,7 +351,10 @@ void get_cpu(int8_t platform)
 		snprintf(syspath, 255, "%s/fs/cgroup/cpuacct/cpuacct.stat", ac->system_sysfs);
 		FILE *fd = fopen(syspath, "r");
 		if (!fd)
+		{
+			printf("Not found %s\n", syspath);
 			return;
+		}
 
 		char *tmp;
 		char buf[1000];
@@ -1564,6 +1581,61 @@ void throttle_stat()
 #define TCPUDP_NET_LENREAD 10000000
 #define A_TCP_STATE 0
 #define A_UDP_STATE 1
+
+int port_usage_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((port_usage*)obj)->key;
+        return strcmp(s1, s2);
+}
+
+void port_usage_free(void *funcarg, void* arg)
+{
+	port_usage *pu = arg;
+	if (!pu)
+		return;
+
+	int state_proto = pu->state_proto;
+	int state = pu->state;
+
+	char *proto = state_proto == A_TCP_STATE ? "tcp" : "udp";
+
+	if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "LISTEN", "process", pu->process);
+	else if (state == 6)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "TIME_WAIT", "process", pu->process);
+	else if (state == 1)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "ESTABLISHED", "process", pu->process);
+	else if (state == 2)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "SYN_SENT", "process", pu->process);
+	else if (state == 4)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "SYN_RECV", "process", pu->process);
+	else if (state == 4)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "FIN_WAIT1", "process", pu->process);
+	else if (state == 5)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "FIN_WAIT2", "process", pu->process);
+	else if (state == 7)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSE", "process", pu->process);
+	else if (state == 8)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSE_WAIT", "process", pu->process);
+	else if (state == 9)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "LAST_ACK", "process", pu->process);
+	else if (state == 11)
+		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSING", "process", pu->process);
+
+	if (pu->local_port)
+		free(pu->local_port);
+	if (pu->remote_port)
+		free(pu->remote_port);
+	if (pu->local_addr)
+		free(pu->local_addr);
+	if (pu->remote_addr)
+		free(pu->remote_addr);
+
+	free(pu->key);
+	free(pu);
+}
+
 void get_net_tcpudp(char *file, char *name, int state_proto)
 {
 	r_time ts_start = setrtime();
@@ -1582,20 +1654,13 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 	char destp[6];
 	uint64_t src, dest, srcport, destport;
 
-	uint64_t established = 0;
-	uint64_t syn_sent = 0;
-	uint64_t syn_recv = 0;
-	uint64_t fin_wait1 = 0;
-	uint64_t fin_wait2 = 0;
-	uint64_t time_wait = 0;
-	uint64_t close_v = 0;
-	uint64_t close_wait = 0;
-	uint64_t last_ack = 0;
-	uint64_t listen = 0;
-	uint64_t closing = 0;
+	tommy_hashdyn *addr_port_usage = calloc(1, sizeof(*addr_port_usage));
+	tommy_hashdyn_init(addr_port_usage);
+
+	char srcaddrportkey[255];
+	char *start, *end;
 	uint64_t send_queue = 0;
 	uint64_t recv_queue = 0;
-	char *start, *end;
 
 	char procsomaxconn[255];
 	snprintf(procsomaxconn, 255, "%s/sys/net/core/somaxconn", ac->system_procfs);
@@ -1653,13 +1718,15 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 
 			inet_ntop(AF_INET, &src, str1, INET_ADDRSTRLEN);
 			inet_ntop(AF_INET, &dest, str2, INET_ADDRSTRLEN);
+
+
+			process_fdescriptors *fdescriptors = NULL;
+			if (ac->fdesc)
+				fdescriptors = tommy_hashdyn_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
+
 			if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
 			{
 				uint64_t val = 1;
-
-				process_fdescriptors *fdescriptors = NULL;
-				if (ac->fdesc)
-					fdescriptors = tommy_hashdyn_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
 
 				// case when send_queue is unknown or larger than somaxconn
 				if ((send_queue < 1) || (send_queue > somaxconn))
@@ -1677,56 +1744,42 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 					metric_add_labels6("socket_stat_receive_queue_length", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
 					metric_add_labels6("socket_stat_receive_queue_limit", &send_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
 				}
-				++listen;
 			}
-			else if (state == 6)
-				++time_wait;
-			else if (state == 1)
-				++established;
-			else if (state == 2)
-				++syn_sent;
-			else if (state == 3)
-				++syn_recv;
-			else if (state == 4)
-				++fin_wait1;
-			else if (state == 5)
-				++fin_wait2;
-			else if (state == 7)
-				++close_v;
-			else if (state == 8)
-				++close_wait;
-			else if (state == 9)
-				++last_ack;
-			else if (state == 11)
-				++closing;
 
 			start = end+1;
+
+			if (fdescriptors)
+				snprintf(srcaddrportkey, 255, "%s:%d:%s", str1, state, fdescriptors->procname);
+			else
+				snprintf(srcaddrportkey, 255, "%s:%d", str1, state);
+
+			uint32_t key_hash = tommy_strhash_u32(0, srcaddrportkey);
+			port_usage *pu = tommy_hashdyn_search(addr_port_usage, port_usage_compare, srcaddrportkey, key_hash);
+			if (!pu)
+			{
+				pu = calloc(1, sizeof(*pu));
+				pu->local_addr = strdup(str1);
+				pu->local_port = strdup(srcp);
+				pu->key = strdup(srcaddrportkey);
+				pu->count = 1;
+				pu->state_proto = state_proto;
+				pu->state = state;
+				pu->process = (fdescriptors && fdescriptors->procname) ? fdescriptors->procname : "";
+
+				tommy_hashdyn_insert(addr_port_usage, &(pu->node), pu, key_hash);
+			}
+			else
+			{
+				++pu->count;
+			}
 		}
 	}
 	fclose(fd);
-	if (established>0)
-		metric_add_labels2("socket_counters", &established, DATATYPE_UINT, ac->system_carg, "state", "ESTABLISHED", "proto", name);
-	if (syn_sent>0)
-		metric_add_labels2("socket_counters", &syn_sent, DATATYPE_UINT, ac->system_carg, "state", "SYN_SENT", "proto", name);
-	if (syn_recv>0)
-		metric_add_labels2("socket_counters", &syn_recv, DATATYPE_UINT, ac->system_carg, "state", "SYN_RECV", "proto", name);
-	if (fin_wait1>0)
-		metric_add_labels2("socket_counters", &fin_wait1, DATATYPE_UINT, ac->system_carg, "state", "FIN_WAIT1", "proto", name);
-	if (fin_wait2>0)
-		metric_add_labels2("socket_counters", &fin_wait2, DATATYPE_UINT, ac->system_carg, "state", "FIN_WAIT2", "proto", name);
-	if (time_wait>0)
-		metric_add_labels2("socket_counters", &time_wait, DATATYPE_UINT, ac->system_carg, "state", "TIME_WAIT", "proto", name);
-	if (close_v>0)
-		metric_add_labels2("socket_counters", &close_v, DATATYPE_UINT, ac->system_carg, "state", "CLOSE", "proto", name);
-	if (close_wait>0)
-		metric_add_labels2("socket_counters", &close_wait, DATATYPE_UINT, ac->system_carg, "state", "CLOSE_WAIT", "proto", name);
-	if (last_ack>0)
-		metric_add_labels2("socket_counters", &last_ack, DATATYPE_UINT, ac->system_carg, "state", "LAST_ACK", "proto", name);
-	if (listen>0)
-		metric_add_labels2("socket_counters", &listen, DATATYPE_UINT, ac->system_carg, "state", "LISTEN", "proto", name);
-	if (closing>0)
-		metric_add_labels2("socket_counters", &closing, DATATYPE_UINT, ac->system_carg, "state", "CLOSING", "proto", name);
 	free(buf);
+
+	tommy_hashdyn_foreach_arg(addr_port_usage, port_usage_free, NULL);
+	tommy_hashdyn_done(addr_port_usage);
+	free(addr_port_usage);
 
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
@@ -1740,6 +1793,9 @@ void get_netstat_statistics(char *ns_file)
 		printf("system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
 
 	FILE *fp = fopen(ns_file, "r");
+	if(!fp)
+		return;
+
 	size_t filesize = 10000;
 	char bufheader[filesize];
 	char bufbody[filesize];
@@ -1815,6 +1871,8 @@ void get_network_statistics()
 	char procnetdev[255];
 	snprintf(procnetdev, 255, "%s/net/dev", ac->system_procfs);
 	FILE *fp = fopen(procnetdev, "r");
+	if (!fp)
+		return;
 	char buf[200], ifname[20];
 
 	int i;

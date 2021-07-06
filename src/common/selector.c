@@ -271,6 +271,30 @@ int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
 	return 0;
 }
 
+double double_get_next(char *buf, char *sep, uint64_t *cursor)
+{
+	uint64_t end = strcspn(buf + *cursor, sep);
+	double ret = strtod(buf + *cursor, NULL);
+
+	//printf("cursor %d, end %d, ret %lf, '%s'\n", *cursor, end, ret, buf + *cursor);
+	*cursor += end;
+
+	return ret;
+}
+
+int64_t str_get_next(char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor)
+{
+	uint64_t end = strcspn(buf + *cursor, sep);
+	//printf("end is %"u64": '%s' (buf+%"u64"), find:('%s')\n", end, buf + *cursor, *cursor, sep);
+	uint64_t copysize = (end + 1) > ret_sz ? ret_sz : (end + 1);
+	//printf("copysize %"u64": (%d)\n", copysize, ((end + 1) > ret_sz));
+
+	strlcpy(ret, buf + *cursor, copysize);
+	(*cursor) += end;
+
+	return end;
+}
+
 int64_t getkvfile(char *file)
 {
 	char temp[20];

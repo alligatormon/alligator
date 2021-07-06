@@ -28,6 +28,7 @@ apt -y install libzookeeper-st-dev
 apt -y install libzookeeper-mt-dev
 apt -y install vim
 apt -y install default-libmysqlclient-dev
+apt -y install libsnappy-dev
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
 
@@ -35,6 +36,7 @@ echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 
 yum -y install https://repo.ius.io/ius-release-el7.rpm
 yum -y install vim
+yum -y install snappy-devel
 ln -sf /usr/bin/vim /usr/bin/vi
 yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel libxslt
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat

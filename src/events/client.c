@@ -5,12 +5,6 @@
 #include "events/debug.h"
 #include "main.h"
 #include "parsers/http_proto.h"
-#define URL "news.rambler.ru"
-#define PORT "443"
-#define MESG "GET / HTTP/1.1\r\nHost: news.rambler.ru\r\nConnection: Close\r\n\r\n"
-#define MESG2 "UBCT1 stats_noreset\n"
-#define MESG3 "stats\n"
-#define MESG4 "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
 extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);
@@ -58,7 +52,7 @@ void tcp_client_close(uv_handle_t *handle)
 		printf("%"u64": tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	const mbedtls_x509_crt* peercert = mbedtls_ssl_get_peer_cert(&carg->tls_ctx);
-	parse_cert_info(peercert, carg->host);
+	parse_cert_info(peercert, carg->host, carg->host);
 	//mbedtls_x509_crt_free(peercert);
 
 	carg->close_time = setrtime();

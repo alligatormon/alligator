@@ -41,75 +41,68 @@
 
 void test_query()
 {
-	char *name = malloc(255);
-	string *groupkey = string_new();
-	int func;
-
 	//printf("check promql: %s\n", QUERY_STR_TEST_1);
-	promql_parser(NULL, QUERY_STR_TEST_1, strlen(QUERY_STR_TEST_1), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_1, name);
-	cut_assert_equal_int(0, groupkey->l);
-	cut_assert_equal_int(QUERY_FUNC_TEST_1, func);
-	string_null(groupkey);
+	metric_query_context *mqc = promql_parser(NULL, QUERY_STR_TEST_1, strlen(QUERY_STR_TEST_1));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_1, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_1, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_2);
-	promql_parser(NULL, QUERY_STR_TEST_2, strlen(QUERY_STR_TEST_2), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_2, name);
-	cut_assert_equal_int(0, groupkey->l);
-	cut_assert_equal_int(QUERY_FUNC_TEST_2, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_2, strlen(QUERY_STR_TEST_2));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_2, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_2, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_3);
-	promql_parser(NULL, QUERY_STR_TEST_3, strlen(QUERY_STR_TEST_3), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_3, name);
-	cut_assert_equal_int(0, groupkey->l);
-	cut_assert_equal_int(QUERY_FUNC_TEST_3, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_3, strlen(QUERY_STR_TEST_3));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_3, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_3, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_4);
-	promql_parser(NULL, QUERY_STR_TEST_4, strlen(QUERY_STR_TEST_4), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_4, name);
-	cut_assert_equal_int(0, groupkey->l);
-	cut_assert_equal_int(QUERY_FUNC_TEST_4, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_4, strlen(QUERY_STR_TEST_4));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_4, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_4, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_5);
-	promql_parser(NULL, QUERY_STR_TEST_5, strlen(QUERY_STR_TEST_5), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_5, name);
-	cut_assert_equal_int(9, groupkey->l);
-	cut_assert_equal_string("src_port", groupkey->s);
-	cut_assert_equal_int(QUERY_FUNC_TEST_5, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_5, strlen(QUERY_STR_TEST_5));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_5, mqc->name);
+	cut_assert_equal_int(9, mqc->groupkey->l);
+	cut_assert_equal_string("src_port", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_5, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_6);
-	promql_parser(NULL, QUERY_STR_TEST_6, strlen(QUERY_STR_TEST_6), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_6, name);
-	cut_assert_equal_int(9, groupkey->l);
-	cut_assert_equal_string("src_port", groupkey->s);
-	cut_assert_equal_int(QUERY_FUNC_TEST_6, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_6, strlen(QUERY_STR_TEST_6));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_6, mqc->name);
+	cut_assert_equal_int(9, mqc->groupkey->l);
+	cut_assert_equal_string("src_port", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_6, mqc->func);
+	string_null(mqc->groupkey);
 
 	//printf("check promql: %s\n", QUERY_STR_TEST_7);
-	promql_parser(NULL, QUERY_STR_TEST_7, strlen(QUERY_STR_TEST_7), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_7, name);
-	cut_assert_equal_int(0, groupkey->l);
-	cut_assert_equal_int(QUERY_FUNC_TEST_7, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_7, strlen(QUERY_STR_TEST_7));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_7, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_7, mqc->func);
+	string_null(mqc->groupkey);
 
-	promql_parser(NULL, QUERY_STR_TEST_8, strlen(QUERY_STR_TEST_8), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_8, name);
-	cut_assert_equal_int(6, groupkey->l);
-	cut_assert_equal_string("proto", groupkey->s);
-	cut_assert_equal_int(QUERY_FUNC_TEST_8, func);
-	string_null(groupkey);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_8, strlen(QUERY_STR_TEST_8));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_8, mqc->name);
+	cut_assert_equal_int(6, mqc->groupkey->l);
+	cut_assert_equal_string("proto", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_8, mqc->func);
+	string_null(mqc->groupkey);
 
-	promql_parser(NULL, QUERY_STR_TEST_9, strlen(QUERY_STR_TEST_9), name, &func, groupkey);
-	cut_assert_equal_string(QUERY_EXPECT_TEST_9, name);
-	cut_assert_equal_int(6, groupkey->l);
-	cut_assert_equal_string("proto", groupkey->s);
-	cut_assert_equal_int(QUERY_FUNC_TEST_9, func);
-	string_null(groupkey);
-
-	string_free(groupkey);
-	free(name);
+	mqc = promql_parser(NULL, QUERY_STR_TEST_9, strlen(QUERY_STR_TEST_9));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_9, mqc->name);
+	cut_assert_equal_int(6, mqc->groupkey->l);
+	cut_assert_equal_string("proto", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_9, mqc->func);
+	string_null(mqc->groupkey);
 }

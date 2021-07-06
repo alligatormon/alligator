@@ -142,6 +142,7 @@ typedef struct mapping_metric
 } mapping_metric;
 
 typedef struct query_struct {
+	char *metric_name;
 	char *key;
 	double val;
 	double min;

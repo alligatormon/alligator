@@ -27,8 +27,8 @@ int smart_aggregator(context_arg *carg)
 	char key[255];
 	if (!carg->key)
 	{
-		//unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
-		//snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
+		unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
+		snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
 		smart_aggregator_default_key(key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
 	}
 	else
@@ -125,7 +125,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
 	tommy_hashdyn *newenv = env_struct_duplicate(carg->env);
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, carg->follow_redirects);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, carg->follow_redirects, carg->stdin_s, carg->stdin_l);
 
 	new->key = override_key;
 	if (!new->key)
@@ -137,6 +137,35 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
+
+	if (ac->log_level > 2)
+		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+
+	if (!smart_aggregator(new))
+		carg_free(new);
+}
+
+void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin)
+{
+	host_aggregator_info *hi = parse_url(url, url_len);
+
+	tommy_hashdyn *newenv = NULL;
+	if (carg)
+		newenv = env_struct_duplicate(carg->env);
+
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, follow_redirects, s_stdin, l_stdin);
+
+	new->key = override_key;
+	if (!new->key)
+	{
+		new->key = malloc(64);
+		snprintf(new->key, 64, "%s(%s://%s:%s)", parser_name, hi->transport_string, hi->host, hi->port);
+	}
+
+	r_time time = setrtime();
+	new->context_ttl = time.sec;
+
+	new->log_level = carg? carg->log_level : ac->log_level;
 
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
