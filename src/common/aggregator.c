@@ -11,9 +11,9 @@
 #include "events/filetailer.h"
 #include "events/udp.h"
 #include "events/client.h"
-#include "events/icmp.h"
 #include "events/process.h"
 #include "dynconf/sd.h"
+char* icmp_client(context_arg *carg);
 
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
