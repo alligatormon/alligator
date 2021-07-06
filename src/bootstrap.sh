@@ -31,6 +31,7 @@ apt -y install default-libmysqlclient-dev
 apt -y install libsnappy-dev
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
+yum -y update libarchive
 
 echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 
