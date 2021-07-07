@@ -187,6 +187,7 @@ yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 #yum -y install dsc20
 #yum -y install mongodb-org-server mongodb-org mongodb-org-shell
 
+yum -y update libarchive
 ln -s /usr/bin/python{3,}
 cd external
 git clone https://github.com/mongodb/mongo-c-driver.git
