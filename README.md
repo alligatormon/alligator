@@ -205,6 +205,12 @@ aggregate backends {
 
     # Couchdb
     couchdb http://user:pass@localhost:5984;
+
+    # MogileFS
+    mogilefs tcp://localhost:7001;
+
+    # MooseFS
+    moosefs exec:///app/src/tests/mock/moosefs/mfscli;
 }
 ```
 

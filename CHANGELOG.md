@@ -1,5 +1,42 @@
 Changelog
 
+## [1.14.0] - 07.07.2021
+- Add run commands (actions run when query return not empty) https://github.com/alligatormon/alligator/blob/1.14/src/tests/system/action/alligator.conf
+- Add support debian 9, 10
+- Add support blackbox interface /probe https://github.com/alligatormon/alligator/blob/1.14/src/tests/system/blackbox/alligator.conf
+- Add support DRBD
+- Add support NFS
+- Add support MoouseFS https://github.com/alligatormon/alligator/blob/1.14/src/tests/mock/moosefs/alligator.conf
+- Add support MogileFS
+- Update async mode in icmp module
+- Add support query by params
+- Add support json interface for internal query:
+```
+curl localhost:1111/json?query='uptime'
+[
+  {
+    "labels": [
+      {
+        "name": "__name__",
+        "value": "uptime"
+      }
+    ],
+    "samples": [
+      {
+        "timestamp": 2147368803,
+        "value": 321,
+        "expire": 1625645297
+      }
+    ]
+  }
+]
+```
+- Update metric `socket_counters`: add process and address
+```
+socket_counters {state="LISTEN", proto="tcp", process="alligator", addr="0.0.0.0"} 1
+socket_counters {state="TIME_WAIT", proto="tcp", process="", addr="127.0.0.1"} 1
+```
+
 ## [1.13.1] - 19.05.2021
 - Fix bug with process match
 
