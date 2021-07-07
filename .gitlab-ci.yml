@@ -53,7 +53,7 @@ deploy_centos8:
   script:
   - cd src
   - sh bootstrap.sh
-  - cmake3 . -DCPACK_GENERATOR=RPM
+  - cmake . -DCPACK_GENERATOR=RPM
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
   - curl -F "package[distro_version_id]=205" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
