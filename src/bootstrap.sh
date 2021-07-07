@@ -31,6 +31,7 @@ apt -y install default-libmysqlclient-dev
 apt -y install libsnappy-dev
 apt install -y openjdk-14-source || apt install -y openjdk-11-source
 yum -y install epel-release https://osdn.net/projects/cutter/storage/centos/cutter-release-1.3.0-1.noarch.rpm
+yum -y install libarchive
 yum -y update libarchive
 
 echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
@@ -179,14 +180,12 @@ cd ../../
 
 #rpm -i external/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
 yum -y install https://t2.unl.edu/osg/3.4/el7/rolling/x86_64/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
-cp ../misc/bintray-apache-couchdb-rpm.repo /etc/yum.repos.d/
 cp ../misc/datastax.repo /etc/yum.repos.d/
 cp ../misc/mongodb.repo /etc/yum.repos.d/
 cp ../misc/elasticsearch.repo /etc/yum.repos.d/
 rpm --import https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
 yum-config-manager --add-repo https://repo.clickhouse.tech/rpm/stable/x86_64
 
-#yum -y install couchdb
 #yum -y install dsc20
 #yum -y install mongodb-org-server mongodb-org mongodb-org-shell
 
