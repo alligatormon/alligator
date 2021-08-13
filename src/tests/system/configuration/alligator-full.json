@@ -1,0 +1,124 @@
+{
+  "aggregate_period": 10000,
+  "ttl": 300,
+  "modules": {
+    "postgresql": "/usr/lib64/libpq.so"
+  },
+  "entrypoint": [
+    {
+      "tcp": [
+        "1111"
+      ],
+      "ttl": 500
+    }
+  ],
+  "system": {
+    "sysfs": "tests/mock/linux/sys/",
+    "procfs": "tests/mock/linux/proc/",
+    "rundir": "tests/mock/linux/run/",
+    "usrdir": "tests/mock/linux/usr/",
+    "etcdir": "tests/mock/linux/etc/",
+    "base": {},
+    "disk": {},
+    "services": [],
+    "process": [
+      "beam.smp"
+    ],
+    "services": [
+      "docker.service"
+    ],
+    "pidfile": [
+      "tests/mock/linux/svc.pid"
+    ],
+    "userprocess": [
+      "root"
+    ],
+    "groupprocess": [
+      "root"
+    ],
+    "cgroup": [
+      "/cpu/"
+    ]
+  },
+  "persistence": {
+    "directory": "/var/lib/alligator",
+    "period": 10000
+  },
+  "aggregate": [
+    {
+      "env": {
+        "HOME": "/root"
+      },
+      "add_label": {
+        "my": "label"
+      },
+      "handler": "memcached",
+      "url": "http://local:12/info;stats",
+      "tls_certificate": "client.crt",
+      "tls_key": "client.key",
+      "tls_ca": "ca.crt"
+    }
+  ],
+  "probe": [
+    {
+      "name": "https_2xx",
+      "follow_redirects": 5,
+      "valid_status_codes": [
+        "2xx"
+      ],
+      "tls": "on",
+      "prober": "http",
+      "method": "GET",
+      "timeout": 5000,
+      "loop": 10,
+      "percent": 0.6
+    }
+  ],
+  "query": [
+    {
+      "expr": "sum(alligator_metric_allocates)",
+      "make": "lol",
+      "datasource": "internal",
+      "action": "stdin_print"
+    }
+  ],
+  "action": [
+    {
+      "name": "stdin_print",
+      "type": "shell",
+      "serializer": "json",
+      "datasource": "internal",
+      "expr": "exec://cat > /tmp/test"
+    }
+  ],
+  "puppeteer": {
+    "https://ya.ru": {},
+    "https://google.com": {},
+    "https://www.rambler.ru": {}
+  },
+  "x509": [
+    {
+      "name": "app-certs",
+      "path": "/app/src/tests/certs",
+      "match": ".crt"
+    }
+  ],
+  "lang": [
+    {
+      "lang": "lua",
+      "method": "alligator_metrics",
+      "arg": "lua_metrics",
+      "log_level": 1,
+      "key": "lua"
+    },
+    {
+      "lang": "lua",
+      "method": "alligator_metrics",
+      "query": "",
+      "file": "/app/src/tests/system/lang/script.lua",
+      "arg": "6",
+      "log_level": 1,
+      "key": "lua-file"
+    }
+  ]
+}

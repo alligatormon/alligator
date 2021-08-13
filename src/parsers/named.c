@@ -86,8 +86,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				if (carg->log_level > 1)
 					printf("\ttype: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
 
-				tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-				tommy_hashdyn_init(lbl);
+				alligator_ht *lbl = alligator_ht_init(NULL);
 				if (proto)
 					labels_hash_insert_nocache(lbl, "proto", proto);
 				if (ip_version)
@@ -470,5 +469,5 @@ void named_parser_push()
 	actx->handler[0].mesg_func = named_mesg;
 	strlcpy(actx->handler[0].key,"named", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

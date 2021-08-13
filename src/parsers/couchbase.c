@@ -368,8 +368,7 @@ void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			strlcpy(metric_name + 15, task_key, COUCHBASE_LEN - 15);
 
-			tommy_hashdyn *hash = malloc(sizeof(*hash));
-			tommy_hashdyn_init(hash);
+			alligator_ht *hash = alligator_ht_init(NULL);
 
 			if (statusId)
 				labels_hash_insert_nocache(hash, "statusId", statusId);
@@ -560,6 +559,6 @@ void couchbase_parser_push()
 	actx->handler[7].mesg_func = couchbase_nodes_list_mesg;
 	strlcpy(actx->handler[7].key,"couchbase_nodes_list", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <stdio.h>
 #include <linux/sched.h>
 #include <fcntl.h>
@@ -72,7 +72,7 @@ int mount_ns_by_pid(char *pid)
 	return rc;
 }
 
-//char* get_ifname_by_cgroup_id(char *slice, char *cntid, tommy_hashdyn *ifhash, char *name)
+//char* get_ifname_by_cgroup_id(char *slice, char *cntid, alligator_ht *ifhash, char *name)
 //{
 //	FILE *fd;
 //	char dirpath[1000];
@@ -100,7 +100,7 @@ int mount_ns_by_pid(char *pid)
 //	unshare(CLONE_NEWNET);
 //
 //	uint32_t id_ifhash = tommy_strhash_u32(0, buf);
-//	ifindexnames *iindex = tommy_hashdyn_search(ifhash, ifindexnames_compare, buf, id_ifhash);
+//	ifindexnames *iindex = alligator_ht_search(ifhash, ifindexnames_compare, buf, id_ifhash);
 //	if (!iindex)
 //		return NULL;
 //

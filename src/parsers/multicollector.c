@@ -59,7 +59,8 @@ int multicollector_get_quotes(uint64_t *cur, const char *str, const size_t size,
 
 	++*cur;
 	uint64_t syms = strcspn(str+*cur, "\"");
-	strlcpy(s2, str+*cur, syms+1);
+	uint64_t copy_size = syms > METRIC_NAME_SIZE ? METRIC_NAME_SIZE : syms + 1;
+	strlcpy(s2, str+*cur, copy_size);
 	*cur = *cur + syms + 1;
 
 	return syms;
@@ -277,7 +278,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 	return ret;
 }
 
-void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lbl, context_arg *carg)
+void parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
@@ -313,8 +314,7 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 
 		if (!*lbl)
 		{
-			*lbl = malloc(sizeof(tommy_hashdyn));
-			tommy_hashdyn_init(*lbl);
+			*lbl = alligator_ht_init(NULL);
 		}
 
 		if (carg && reject_metric(carg->reject, label_name, label_key))
@@ -328,7 +328,7 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, tommy_hashdyn **lb
 	}
 }
 
-uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, context_arg *carg)
+uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg)
 {
 	if (ac->log_level > 3)
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
@@ -378,8 +378,7 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 					// init labels
 					if (!lbl)
 					{
-						lbl = malloc(sizeof(*lbl));
-						tommy_hashdyn_init(lbl);
+						lbl = alligator_ht_init(NULL);
 					}
 
 					// init vars
@@ -422,8 +421,7 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 	{
 		if (!lbl)
 		{
-			lbl = malloc(sizeof(*lbl));
-			tommy_hashdyn_init(lbl);
+			lbl = alligator_ht_init(NULL);
 		}
 		is_prom = 1;
 
@@ -433,6 +431,7 @@ uint8_t multicollector_field_get(char *str, size_t size, tommy_hashdyn *lbl, con
 		++i;
 		while (i<size)
 		{
+			//printf("metric name %s, i %d, size %d: %s\n", metric_name, i, size, str);
 			// get label name
 			multicollector_skip_spaces(&i, str, size);
 			multicollector_get_name(&i, str, size, label_name);
@@ -588,7 +587,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (tmp[0] == 0)
 			continue;
 
-		tommy_hashdyn *lbl = NULL;
+		alligator_ht *lbl = NULL;
 		if (http_data)
 			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size, carg);
 
@@ -628,5 +627,5 @@ void prometheus_metrics_parser_push()
 	actx->handler[0].mesg_func = prometheus_metrics_mesg;
 	strlcpy(actx->handler[0].key,"prometheus_metrics", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

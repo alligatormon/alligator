@@ -269,7 +269,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 			printf("found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
-			tommy_hashdyn_foreach_arg(qds->hash, memcached_queries_foreach, carg);
+			alligator_ht_foreach_arg(qds->hash, memcached_queries_foreach, carg);
 		}
 	}
 }
@@ -292,5 +292,5 @@ void memcached_parser_push()
 	actx->handler[0].mesg_func = memcached_mesg;
 	strlcpy(actx->handler[0].key,"memcached", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

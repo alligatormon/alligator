@@ -403,6 +403,15 @@ string* string_init_add_auto(char *str)
 	return ret;
 }
 
+string* string_init_dup(char *str)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = ret->l = strlen(str);
+	ret->s = strdup(str);
+
+	return ret;
+}
+
 void string_cat(string *str, char *strcat, size_t len)
 {
 	size_t str_len = str->l;
@@ -537,13 +546,13 @@ int match_mapper_compare(const void* arg, const void* obj)
 // return 2 if matching all
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 {
-	int64_t n = tommy_hashdyn_count(mrules->hash);
+	int64_t n = alligator_ht_count(mrules->hash);
 	if ((!n) && (!mrules->head))
 	{
 		return 2;
 	}
 
-	match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, tommy_strhash_u32(0, str));
+	match_string *ms = alligator_ht_search(mrules->hash, match_mapper_compare, str, tommy_strhash_u32(0, str));
 	if (ms)
 	{
 		++ms->count;
@@ -612,7 +621,7 @@ void match_push(match_rules *mrules, char *str, size_t len)
 		// hash string
 		match_string *ms = malloc(sizeof(*ms));
 		ms->s = strndup(str, len);
-		tommy_hashdyn_insert(mrules->hash, &(ms->node), ms, tommy_strhash_u32(0, ms->s));
+		alligator_ht_insert(mrules->hash, &(ms->node), ms, tommy_strhash_u32(0, ms->s));
 	}
 }
 
@@ -625,8 +634,8 @@ void match_del(match_rules *mrules, char *str, size_t len)
 	{
 		// hash string
 		uint32_t str_hash = tommy_strhash_u32(0, str);
-		match_string *ms = tommy_hashdyn_search(mrules->hash, match_mapper_compare, str, str_hash);
-		tommy_hashdyn_remove_existing(mrules->hash, &(ms->node));
+		match_string *ms = alligator_ht_search(mrules->hash, match_mapper_compare, str, str_hash);
+		alligator_ht_remove_existing(mrules->hash, &(ms->node));
 
 		free(ms->s);
 		free(ms);

@@ -7,6 +7,8 @@
 #include "cadvisor/run.h"
 #include "events/context_arg.h"
 #include "lang/lang.h"
+#include "parsers/multiparser.h"
+#include "action/action.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -88,10 +90,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				{
 					if (method == HTTP_METHOD_DELETE)
 					{
-						module_t *module = tommy_hashdyn_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
+						module_t *module = alligator_ht_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
 						free(module->key);
 						free(module->path);
-						tommy_hashdyn_remove_existing(ac->modules, &(module->node));
+						alligator_ht_remove_existing(ac->modules, &(module->node));
 
 						free(module);
 						continue;
@@ -103,7 +105,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					module->key = strdup(module_key);
 					module->path = strdup(path);
 
-					tommy_hashdyn_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
+					alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 				}
 			}
 			if (!strcmp(key, "x509"))
@@ -143,7 +145,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					}
 
 					if (type && !strcmp(type, "jks"))
-						jks_push(name, path, match, password);
+						jks_push(name, path, match, password, NULL);
 					else
 						tls_fs_push(name, path, match);
 				}
@@ -206,7 +208,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					json_t *jns = json_object_get(action, "ns");
 					json_t *jtype = json_object_get(action, "type");
 					json_t *jserializer = json_object_get(action, "serializer");
-					json_t *jfollow_redirects = json_object_get(action, "follow_redirects");
+					uint8_t follow_redirects = config_get_intstr_json(action, "follow_redirects");
 
 					if (method == HTTP_METHOD_DELETE)
 					{
@@ -214,7 +216,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					}
 
-					action_push(name, datasource, jexpr, jns, jtype, jfollow_redirects, jserializer);
+					action_push(name, datasource, jexpr, jns, jtype, follow_redirects, jserializer);
 				}
 			}
 			if (!strcmp(key, "probe"))
@@ -269,7 +271,11 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					json_t *lang_key = json_object_get(lang, "key");
 					if (!lang_key)
+					{
+						if (ac->log_level)
+							printf("no key for lang ??\n");
 						continue;
+					}
 					char *key = (char*)json_string_value(lang_key);
 
 					if (method == HTTP_METHOD_DELETE)
@@ -294,7 +300,57 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					json_t *lang_arg = json_object_get(lang, "arg");
 					char *slang_arg = (char*)json_string_value(lang_arg);
 
+					json_t *lang_script = json_object_get(lang, "script");
+					char *slang_script = (char*)json_string_value(lang_script);
+
+					json_t *lang_file = json_object_get(lang, "file");
+					char *slang_file = (char*)json_string_value(lang_file);
+
+					json_t *lang_module = json_object_get(lang, "module");
+					char *slang_module = (char*)json_string_value(lang_module);
+
+					json_t *lang_path = json_object_get(lang, "path");
+					char *slang_path = (char*)json_string_value(lang_path);
+
+					json_t *lang_query = json_object_get(lang, "query");
+					char *slang_query = (char*)json_string_value(lang_query);
+
+					json_t *lang_conf = json_object_get(lang, "conf");
+
+					uint64_t slang_period = 0;
+					json_t *lang_period = json_object_get(lang, "period");
+					if (lang_period)
+					{
+						int type = json_typeof(lang_period);
+						if (type == JSON_INTEGER)
+							slang_period = json_integer_value(lang_period);
+						else if (type == JSON_STRING)
+							slang_period = strtoull((char*)json_string_value(lang_period), NULL, 10);
+					}
+
+					uint64_t slang_log_level = 0;
+					json_t *lang_log_level = json_object_get(lang, "log_level");
+					if (lang_log_level)
+					{
+						int type = json_typeof(lang_log_level);
+						if (type == JSON_INTEGER)
+							slang_log_level = json_integer_value(lang_log_level);
+						else if (type == JSON_STRING)
+							slang_log_level = strtoull((char*)json_string_value(lang_log_level), NULL, 10);
+					}
+
 					lang_options *lo = calloc(1, sizeof(*lo));
+
+					lo->serializer = METRIC_SERIALIZER_OPENMETRICS;
+					json_t *jserializer = json_object_get(lang, "serializer");
+					if (jserializer)
+					{
+						if(!strcmp(json_string_value(jserializer), "json"))
+							lo->serializer = METRIC_SERIALIZER_JSON;
+						else if(!strcmp(json_string_value(jserializer), "dsv"))
+							lo->serializer = METRIC_SERIALIZER_DSV;
+					}
+
 					lo->lang = strdup(slang_name);
 					lo->key = strdup(key);
 
@@ -306,6 +362,25 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						lo->method = strdup(slang_method);
 					if (slang_arg)
 						lo->arg = strdup(slang_arg);
+					if (slang_script)
+						lo->script = strdup(slang_script);
+					if (slang_file)
+						lo->file = strdup(slang_file);
+					if (slang_module)
+						lo->module = strdup(slang_module);
+					if (slang_path)
+						lo->path = strdup(slang_path);
+					if (slang_query)
+						lo->query = strdup(slang_query);
+					if (slang_period)
+						lo->period = slang_period;
+					if (lang_conf)
+						lo->conf = 1;
+
+					if (slang_log_level)
+						lo->log_level = slang_log_level;
+					else
+						lo->log_level = ac->log_level;
 
 					lang_push(lo);
 				}
@@ -393,7 +468,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						if (!carg->reject)
 						{
 							carg->reject = calloc(1, sizeof(*carg->reject));
-							tommy_hashdyn_init(carg->reject);
+							alligator_ht_init(carg->reject);
 						}
 
 						uint64_t reject_size = json_array_size(reject);
@@ -604,8 +679,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "firewall"))
 							ac->system_firewall = enkey;
-						//else if (!strcmp(system_key, "services"))
-						//	ac->system_services = enkey;
 						else if (!strcmp(system_key, "sysfs"))
 						{
 							char *sysfs = (char*)json_string_value(sys_value);
@@ -660,9 +733,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
 
-							tommy_hashdyn *env = NULL;
-							env = malloc(sizeof(tommy_hashdyn));
-							tommy_hashdyn_init(env);
+							alligator_ht *env = NULL;
+							env = alligator_ht_init(NULL);
 
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", env, NULL, NULL);
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
@@ -686,9 +758,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						}
 						else if (!strcmp(system_key, "packages"))
 						{
-							if (!ac->rpmlib)
-								rpm_library_init();
-
 							ac->system_packages = enkey;
 							uint64_t packages_size = json_array_size(sys_value);
 
@@ -870,12 +939,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 					char *url = (char*)json_string_value(jurl);
 
-					uint8_t follow_redirects;
-					json_t *jfollow_redirects = json_object_get(aggregate, "follow_redirects");
-					if (jfollow_redirects && json_typeof(jfollow_redirects) == JSON_STRING)
-						follow_redirects = strtoull(json_string_value(jfollow_redirects), NULL, 10);
-					else
-						follow_redirects = json_integer_value(jfollow_redirects);
+					uint8_t follow_redirects = config_get_intstr_json(aggregate, "follow_redirects");
 
 					host_aggregator_info *hi = parse_url(url, strlen(url));
 					//char *query;
@@ -884,10 +948,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					//else
 					//	query = hi->query;
 
-					aggregate_context *actx = tommy_hashdyn_search(ac->aggregate_ctx, actx_compare, handler, tommy_strhash_u32(0, handler));
+					aggregate_context *actx = alligator_ht_search(ac->aggregate_ctx, actx_compare, handler, tommy_strhash_u32(0, handler));
 					if (!actx)
 						continue;
-					tommy_hashdyn *env = env_struct_parser(aggregate);
+					alligator_ht *env = env_struct_parser(aggregate);
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
@@ -929,6 +993,13 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					}
 					url_free(hi);
 				}
+			}
+			if (!strcmp(key, "puppeteer"))
+			{
+				if (method == HTTP_METHOD_DELETE)
+					puppeteer_delete(value);
+				else
+					puppeteer_insert(value);
 			}
 		}
 

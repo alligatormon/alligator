@@ -13,8 +13,8 @@ typedef struct file_stat {
 	uint64_t offset;
 	uint8_t state;
 
-	tommy_hashdyn_node node;
+	alligator_ht_node node;
 } file_stat;
 
 void file_stat_cb(uv_fs_t *req);
-file_stat* file_stat_push(tommy_hashdyn *hash, char *path, context_arg *carg, uv_stat_t *st);
+file_stat* file_stat_push(alligator_ht *hash, char *path, context_arg *carg, uv_stat_t *st);

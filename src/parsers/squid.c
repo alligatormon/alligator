@@ -14,7 +14,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 	if (!strstr(metrics, "aborted_requests") || !strstr(metrics, "sample_time"))
 		return;
 
-	tommy_hashdyn *lbl = NULL;
+	alligator_ht *lbl = NULL;
 	char name[SQUID_LEN];
 	char label_key[SQUID_LEN];
 	strlcpy(name, "squid_", 7);
@@ -57,8 +57,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				if (!lbl)
 				{
-					lbl = malloc(sizeof(*lbl));
-					tommy_hashdyn_init(lbl);
+					lbl = alligator_ht_init(NULL);
 				}
 				if (carg->log_level > 2)
 					printf("'(%"u64"+%"u64"/%"u64")type:%s', ", j, dotlen, len, label_key);
@@ -68,8 +67,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				if (!lbl)
 				{
-					lbl = malloc(sizeof(*lbl));
-					tommy_hashdyn_init(lbl);
+					lbl = alligator_ht_init(NULL);
 				}
 				if (carg->log_level > 2)
 					printf("'(%"u64"+%"u64"/%"u64")proto:%s', ", j, dotlen, len, label_key);
@@ -215,7 +213,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 	char *debug_table;
 
 	uint64_t hash_table_offset = 0;
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
+	alligator_ht *hash = malloc(sizeof(*hash));
 
 	//printf("pos %"PRIu64" / read_size %zu\n", pos, read_size);
 	for (pos = 0; pos < read_size; pos++)
@@ -253,7 +251,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		tmp2 += strspn(tmp2, "\n");
 		uint64_t requests;
 		uint64_t connection_count;
-		tommy_hashdyn_init(hash);
+		alligator_ht_init(hash);
 		uint64_t i;
 		for (i = 0, requests_pos = 0; requests_pos < hash_table_offset; requests_pos++, i++)
 		{
@@ -273,7 +271,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			pconn->requests = requests;
 			pconn->connection_count = connection_count;
 			pconn->key = i;
-			tommy_hashdyn_insert(hash, &(pconn->node), pconn, pconn->key);
+			alligator_ht_insert(hash, &(pconn->node), pconn, pconn->key);
 
 			requests_pos = (tmp2 - tmp);
 		}
@@ -317,7 +315,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			strlcpy(hostname, tmp2, sep+1);
 			sep = strspn(tmp2+sep, "\r\n \t");
 
-			squid_pconn_reqconn *pconn = tommy_hashdyn_search(hash, squid_pconn_compare, &key, key);
+			squid_pconn_reqconn *pconn = alligator_ht_search(hash, squid_pconn_compare, &key, key);
 			if (pconn)
 			{
 				if (carg->log_level > 1)
@@ -335,8 +333,8 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			requests_pos = tmp2 - tmp;
 		}
 
-		tommy_hashdyn_foreach_arg(hash, squid_hash_tree, NULL);
-		tommy_hashdyn_done(hash);
+		alligator_ht_foreach_arg(hash, squid_hash_tree, NULL);
+		alligator_ht_done(hash);
 		pos = (tmp2 - metrics);
 	}
 	free(hash);
@@ -796,6 +794,6 @@ void squid_parser_push()
 	//strlcpy(actx->handler[2].key,"squid_active_requests", 255);
 
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

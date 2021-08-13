@@ -575,8 +575,8 @@ void unix_client_connect(void *arg)
 
 static void tcp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->aggregator, tcp_client_connect);
-	tommy_hashdyn_foreach(ac->uggregator, unix_client_connect);
+	alligator_ht_foreach(ac->aggregator, tcp_client_connect);
+	alligator_ht_foreach(ac->uggregator, unix_client_connect);
 }
 
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
@@ -599,7 +599,7 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 	//carg->key = malloc(64);
 	//snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
 
-	tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	//uv_freeaddrinfo(res);
 	free(req);
@@ -643,7 +643,7 @@ char* unix_tcp_client(context_arg* carg)
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
-	tommy_hashdyn_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "unix";
 }
 
@@ -655,10 +655,10 @@ void tcp_client_del(context_arg *carg)
 	//if (!key)
 	//	return;
 
-	//context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		if (carg->lock)
 		{
@@ -669,7 +669,7 @@ void tcp_client_del(context_arg *carg)
 		else
 		{
 			carg->lock = 1;
-			tommy_hashdyn_remove_existing(ac->aggregator, &(carg->node));
+			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
 			carg_free(carg);
 		}
 	}
@@ -683,10 +683,10 @@ void unix_tcp_client_del(context_arg *carg)
 	//if (!key)
 	//	return;
 
-	//context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		if (carg->lock)
 		{
@@ -697,7 +697,7 @@ void unix_tcp_client_del(context_arg *carg)
 		else
 		{
 			carg->lock = 1;
-			tommy_hashdyn_remove_existing(ac->aggregator, &(carg->node));
+			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
 			carg_free(carg);
 		}
 	}

@@ -21,11 +21,11 @@ typedef struct query_node
 	char *action;
 	char *ns;
 	//char *field;
-	tommy_hashdyn *qf_hash;
-	//tommy_hashdyn *qf;
+	alligator_ht *qf_hash;
+	//alligator_ht *qf;
 	char *datasource;
 	context_arg *carg;
-	tommy_hashdyn *labels;
+	alligator_ht *labels;
 
 	tommy_node node;
 } query_node;
@@ -33,11 +33,11 @@ typedef struct query_node
 typedef struct query_ds
 {
 	char *datasource;
-	tommy_hashdyn *hash;
+	alligator_ht *hash;
 	tommy_node node;
 } query_ds;
 
 query_ds* query_get(char *datasource);
-query_field* query_field_get(tommy_hashdyn *qf_hash, char *key);
-tommy_hashdyn* query_get_field(json_t *jfield);
+query_field* query_field_get(alligator_ht *qf_hash, char *key);
+alligator_ht* query_get_field(json_t *jfield);
 query_node *query_get_node(query_ds *qds, char *make);

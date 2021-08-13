@@ -60,8 +60,7 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *labels = json_object_get(arr_obj, "Labels");
 			if (labels)
 			{
-				tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-				tommy_hashdyn_init(lbl);
+				alligator_ht *lbl = alligator_ht_init(NULL);
 
 				const char *key;
 				json_t *value_json;
@@ -100,5 +99,5 @@ void consul_parser_push()
 	actx->handler[0].mesg_func = consul_mesg;
 	strlcpy(actx->handler[0].key,"consul", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

@@ -38,8 +38,8 @@ typedef struct query_pass {
 	char *new_name;
 } query_pass;
 
-void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg);
-void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg);
+void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
+void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg);
 void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1);
 void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2);
@@ -47,7 +47,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4);
 void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6);
-labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del);
+labels_t* labels_initiate(alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del);
 serializer_context *serializer_init(int serializer, string *str, char delimiter);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);

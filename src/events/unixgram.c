@@ -137,12 +137,12 @@ void do_unixgram_client(char *unixsockaddr, void *handler, char *mesg)
 	carg->mesg = mesg;
 	carg->key = unixsockaddr;
 
-	tommy_hashdyn_insert(ac->unixgram_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->unixgram_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }
 
 static void udgregator_timer_cb(uv_timer_t* handle)
 {
-	tommy_hashdyn_foreach(ac->unixgram_aggregator, do_unixgram);
+	alligator_ht_foreach(ac->unixgram_aggregator, do_unixgram);
 }
 
 void unixgram_client_handler()
@@ -211,7 +211,7 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	uv_poll_init_socket(loop, poll_handler, s);
 	uv_poll_start(poll_handler, UV_READABLE, unixgram_serve_cb);
 
-	tommy_hashdyn_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 	//char buf[65535];
 	//int n = recvfrom(s, buf, 65535, 0, (struct sockaddr*)remote, &remote_len);
 	//if( n < 0)
@@ -225,11 +225,11 @@ void unixgram_server_stop(const char* addr)
 {
 	char key[255];
 	snprintf(key, 255, "unixgram:%s", addr);
-	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		uv_poll_stop(carg->poll);
 		unlink(addr);
-		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 }

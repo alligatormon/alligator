@@ -54,11 +54,10 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	char *version_http = httpver ? httpver : "1.0";
 
 	// new template
-	tommy_hashdyn *env = env_arg;
+	alligator_ht *env = env_arg;
 	if (!env)
 	{
-		env = malloc(sizeof(tommy_hashdyn));
-		tommy_hashdyn_init(env);
+		env = alligator_ht_init(NULL);
 	}
 	string *sret = string_init(method_query_size + append_query_size);
 	string_cat(sret, method, strlen(method));
@@ -82,7 +81,7 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 		env_struct_push_alloc(env, "Authorization", auth_basic_str);
 	}
 
-	tommy_hashdyn_foreach_arg(env, env_struct_gen_http_headers, sret);
+	alligator_ht_foreach_arg(env, env_struct_gen_http_headers, sret);
 
 	string_cat(sret, "\r\n", 2);
 
@@ -157,10 +156,9 @@ int http_arg_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-tommy_hashdyn* http_get_args(char *str, size_t size)
+alligator_ht* http_get_args(char *str, size_t size)
 {
-	tommy_hashdyn *args = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(args);
+	alligator_ht *args = alligator_ht_init(NULL);
 
 	if (!str)
 		return args;
@@ -187,7 +185,7 @@ tommy_hashdyn* http_get_args(char *str, size_t size)
 	        uint64_t key_size = str_get_next(token, key, token_size, "=", &j);
 
 		uint32_t key_hash = tommy_strhash_u32(0, key);
-		if (!tommy_hashdyn_search(args, http_arg_compare, key, key_hash))
+		if (!alligator_ht_search(args, http_arg_compare, key, key_hash))
 		{
 			http_arg *ha = malloc(sizeof(*ha));
 			ha->key = strdup(key);
@@ -198,7 +196,7 @@ tommy_hashdyn* http_get_args(char *str, size_t size)
 			//printf("decoded is '%s'\n", decodeurl);
 			ha->value = strdup(decodeurl);
 
-			tommy_hashdyn_insert(args, &(ha->node), ha, key_hash);
+			alligator_ht_insert(args, &(ha->node), ha, key_hash);
 			//printf("key '%s', value '%s'\n", ha->key, ha->value);
 		}
 	}
@@ -217,9 +215,9 @@ void http_args_free_for(void *funcarg, void* arg)
 	free(harg);
 }
 
-void http_args_free(tommy_hashdyn *arg)
+void http_args_free(alligator_ht *arg)
 {
-	tommy_hashdyn_foreach_arg(arg, http_args_free_for, NULL);
-	tommy_hashdyn_done(arg);
+	alligator_ht_foreach_arg(arg, http_args_free_for, NULL);
+	alligator_ht_done(arg);
 	free(arg);
 }

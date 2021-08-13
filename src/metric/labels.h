@@ -4,6 +4,6 @@
 #include <string.h>
 #include <jansson.h>
 #include "dstructures/tommy.h"
-void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key);
-tommy_hashdyn *labels_dup(tommy_hashdyn *labels);
-json_t *labels_to_json(tommy_hashdyn *labels);
+void labels_hash_insert_nocache(alligator_ht *hash, char *name, char *key);
+alligator_ht *labels_dup(alligator_ht *labels);
+json_t *labels_to_json(alligator_ht *labels);

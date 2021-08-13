@@ -73,18 +73,18 @@ int file_stat_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-file_stat* file_stat_push(tommy_hashdyn *hash, char *path, context_arg *carg, uv_stat_t *st)
+file_stat* file_stat_push(alligator_ht *hash, char *path, context_arg *carg, uv_stat_t *st)
 {
 	if (!hash || !path)
 		return NULL;
 
 	uint32_t key_hash = tommy_strhash_u32(0, path);
-	file_stat *fstat = tommy_hashdyn_search(hash, file_stat_compare, path, key_hash);
+	file_stat *fstat = alligator_ht_search(hash, file_stat_compare, path, key_hash);
 	if (!fstat)
 	{
 		fstat = calloc(1, sizeof(*fstat));
 		fstat->key = strdup(path);
-		tommy_hashdyn_insert(hash, &(fstat->node), fstat, key_hash);
+		alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
 		carg->files_count++;
 		metric_add_labels("file_stat_files_count", &carg->files_count, DATATYPE_UINT, carg, "path", carg->path);
 	}
@@ -94,18 +94,18 @@ file_stat* file_stat_push(tommy_hashdyn *hash, char *path, context_arg *carg, uv
 	return fstat;
 }
 
-file_stat* file_stat_add_offset(tommy_hashdyn *hash, char *path, context_arg *carg, uint64_t add_offset)
+file_stat* file_stat_add_offset(alligator_ht *hash, char *path, context_arg *carg, uint64_t add_offset)
 {
 	if (!hash || !path)
 		return NULL;
 
 	uint32_t key_hash = tommy_strhash_u32(0, path);
-	file_stat *fstat = tommy_hashdyn_search(hash, file_stat_compare, path, key_hash);
+	file_stat *fstat = alligator_ht_search(hash, file_stat_compare, path, key_hash);
 	if (!fstat)
 	{
 		fstat = calloc(1, sizeof(*fstat));
 		fstat->key = strdup(path);
-		tommy_hashdyn_insert(hash, &(fstat->node), fstat, key_hash);
+		alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
 	}
 
 	if (ac->log_level > 1)
@@ -119,13 +119,13 @@ file_stat* file_stat_add_offset(tommy_hashdyn *hash, char *path, context_arg *ca
 	return fstat;
 }
 
-uint64_t file_stat_get_offset(tommy_hashdyn *hash, char *path, uint8_t state)
+uint64_t file_stat_get_offset(alligator_ht *hash, char *path, uint8_t state)
 {
 	if (!hash || !path)
 		return 0;
 
 	uint32_t key_hash = tommy_strhash_u32(0, path);
-	file_stat *fstat = tommy_hashdyn_search(hash, file_stat_compare, path, key_hash);
+	file_stat *fstat = alligator_ht_search(hash, file_stat_compare, path, key_hash);
 	if (!fstat)
 	{
 		if (state == FILESTAT_STATE_BEGIN)
@@ -142,7 +142,7 @@ uint64_t file_stat_get_offset(tommy_hashdyn *hash, char *path, uint8_t state)
 		}
 		//fstat = calloc(1, sizeof(*fstat));
 		//fstat->key = strdup(path);
-		//tommy_hashdyn_insert(hash, &(fstat->node), fstat, key_hash);
+		//alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
 	}
 	else
 	{

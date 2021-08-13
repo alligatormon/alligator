@@ -5,8 +5,8 @@ typedef struct probe_node
 {
 	char *name;
 
-	tommy_hashdyn *labels;
-	tommy_hashdyn *env;
+	alligator_ht *labels;
+	alligator_ht *env;
 	uint64_t follow_redirects;
 	//char *compression;
 	uint8_t method;

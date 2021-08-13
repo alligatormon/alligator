@@ -4,7 +4,7 @@
 #include "metric/namespace.h"
 #define METRIC_LABEL_MAX_SIZE 255
 
-tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size, context_arg *carg)
+alligator_ht *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size, context_arg *carg)
 {
 	if (!uri)
 		return 0;
@@ -13,8 +13,7 @@ tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size
 	if (!metrics_str)
 		return 0;
 
-	tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-	tommy_hashdyn_init(lbl);
+	alligator_ht *lbl = alligator_ht_init(NULL);
 	uint64_t index_get, prev_get;
 	char key[METRIC_LABEL_MAX_SIZE];
 	char mname[METRIC_LABEL_MAX_SIZE];
@@ -38,7 +37,7 @@ tommy_hashdyn *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size
 		if (carg && reject_metric(carg->reject, mname, key))
 		{
 			labels_hash_free(lbl);
-			return (tommy_hashdyn*)1;
+			return (alligator_ht*)1;
 		}
 
 		labels_hash_insert_nocache(lbl, mname, key);

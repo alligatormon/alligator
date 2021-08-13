@@ -4,10 +4,10 @@
 #include <uv.h>
 #include "main.h"
 #include "modules/modules.h"
+extern aconf *ac;
 
 init_func module_load(const char *so_name, const char *func, uv_lib_t **lib)
 {
-	extern aconf *ac;
 	int r;
 
 	*lib = malloc(sizeof(uv_lib_t));

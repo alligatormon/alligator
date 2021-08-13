@@ -63,10 +63,10 @@ void mlist_foreach_free(void *funcarg, void* arg)
 	free(mlist);
 }
 
-void mlist_free(tommy_hashdyn* mlist_hash)
+void mlist_free(alligator_ht* mlist_hash)
 {
-	tommy_hashdyn_foreach_arg(mlist_hash, mlist_foreach_free, NULL);
-	tommy_hashdyn_done(mlist_hash);
+	alligator_ht_foreach_arg(mlist_hash, mlist_foreach_free, NULL);
+	alligator_ht_done(mlist_hash);
 	free(mlist_hash);
 }
 
@@ -79,10 +79,10 @@ void dlid_foreach_free(void *funcarg, void* arg)
 	free(dlid);
 }
 
-void dlid_free(tommy_hashdyn* dlid_hash)
+void dlid_free(alligator_ht* dlid_hash)
 {
-	tommy_hashdyn_foreach_arg(dlid_hash, dlid_foreach_free, NULL);
-	tommy_hashdyn_done(dlid_hash);
+	alligator_ht_foreach_arg(dlid_hash, dlid_foreach_free, NULL);
+	alligator_ht_done(dlid_hash);
 	free(dlid_hash);
 }
 
@@ -93,14 +93,14 @@ void dlid_free(tommy_hashdyn* dlid_hash)
 //	return strcmp(s1, s2);
 //}
 //
-//tommy_hashdyn* network_index_scrape()
+//alligator_ht* network_index_scrape()
 //{
 //	DIR *rd;
 //	FILE *fd;
 //
 //	struct dirent *rd_entry;
-//	tommy_hashdyn* ifhash = calloc(1, sizeof(*ifhash));
-//	tommy_hashdyn_init(ifhash);
+//	alligator_ht* ifhash = calloc(1, sizeof(*ifhash));
+//	alligator_ht_init(ifhash);
 //
 //	char netdir[255];
 //	char indexfile[255];
@@ -126,7 +126,7 @@ void dlid_free(tommy_hashdyn* dlid_hash)
 //				iiname->key = strdup(buf);
 //				iiname->value = strdup(rd_entry->d_name);
 //				uint32_t id_hash = tommy_strhash_u32(0, iiname->key);
-//				tommy_hashdyn_insert(ifhash, &(iiname->node), iiname, id_hash);
+//				alligator_ht_insert(ifhash, &(iiname->node), iiname, id_hash);
 //			}
 //			fclose(fd);
 //		}
@@ -137,8 +137,7 @@ void dlid_free(tommy_hashdyn* dlid_hash)
 
 void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
@@ -160,8 +159,7 @@ void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name
 
 void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
@@ -183,8 +181,7 @@ void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, 
 
 void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 	labels_hash_insert(hash, "name", name);
 	if (image)
 		labels_hash_insert(hash, "image", image);
@@ -237,7 +234,7 @@ int mlist_hash_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *cad_id, tommy_hashdyn* mlist_hash, char *kubenamespace, char *kubepod, char *kubecontainer)
+alligator_ht* get_disk_ids_names(char *cntid, char *name, char *image, char *cad_id, alligator_ht* mlist_hash, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char buf[PATH_SIZE];
 	char mountpoint[1000];
@@ -253,8 +250,7 @@ tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *ca
 		return NULL;
 
 	uint64_t maj, min;
-	tommy_hashdyn* dlid_hash = malloc(sizeof(*dlid_hash));
-	tommy_hashdyn_init(dlid_hash);
+	alligator_ht* dlid_hash = alligator_ht_init(NULL);
 
 	while (fgets(buf, PATH_SIZE, fd))
 	{
@@ -275,7 +271,7 @@ tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *ca
 		{
 			strlcpy(mountpoint, buf, strcspn(buf, " ")+1);
 			uint32_t id_hash = tommy_strhash_u32(0, mountpoint);
-			mlist = tommy_hashdyn_search(mlist_hash, mlist_hash_compare, mountpoint, id_hash);
+			mlist = alligator_ht_search(mlist_hash, mlist_hash_compare, mountpoint, id_hash);
 		}
 
 		if (mlist)
@@ -291,7 +287,7 @@ tommy_hashdyn* get_disk_ids_names(char *cntid, char *name, char *image, char *ca
 
 		snprintf(dlid->id, 41, "%"PRIu64":%"PRIu64, maj, min);
 		uint32_t id_hash = tommy_strhash_u32(0, dlid->id);
-		tommy_hashdyn_insert(dlid_hash, &(dlid->node), dlid, id_hash);
+		alligator_ht_insert(dlid_hash, &(dlid->node), dlid, id_hash);
 
 
 		uint8_t j = 10;
@@ -317,7 +313,7 @@ int dlid_hash_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname_template, char *name, char *image, char *cad_id, char *wrname, char *rdname, char *kubenamespace, char *kubepod, char *kubecontainer)
+void cgroup_get_diskinfo(alligator_ht* dlid_hash, char *prefix, char *cntid, char *stat, char *mname_template, char *name, char *image, char *cad_id, char *wrname, char *rdname, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	FILE *fd;
 	char buf[PATH_SIZE];
@@ -370,7 +366,7 @@ void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, ch
 			continue; // take away all disks, only used
 
 		uint32_t id_hash = tommy_strhash_u32(0, disk_id);
-		disk_list_id *dlid = tommy_hashdyn_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
+		disk_list_id *dlid = alligator_ht_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
 		if (dlid)
 		{
 			//printf("%s:%s:%s:%s %"PRIu64"\n", mname, cntid, dlid->devname, stat, val);
@@ -380,7 +376,7 @@ void cgroup_get_diskinfo(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, ch
 	fclose(fd);
 }
 
-void cgroup_get_diskinfo_total(tommy_hashdyn* dlid_hash, char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
+void cgroup_get_diskinfo_total(alligator_ht* dlid_hash, char *prefix, char *cntid, char *stat, char *mname, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	FILE *fd;
 	char buf[PATH_SIZE];
@@ -409,7 +405,7 @@ void cgroup_get_diskinfo_total(tommy_hashdyn* dlid_hash, char *prefix, char *cnt
 		uint64_t val = strtoull(readbuf+read_size+1, NULL, 10)/1000000000;
 
 		uint32_t id_hash = tommy_strhash_u32(0, disk_id);
-		disk_list_id *dlid = tommy_hashdyn_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
+		disk_list_id *dlid = alligator_ht_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
 		if (dlid)
 			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer);
 	}
@@ -442,7 +438,7 @@ uint64_t cgroup_get_pid(char *prefix, char *container)
 	return pid;
 }
 
-void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy_hashdyn* mlist_hash, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
+void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, alligator_ht* mlist_hash, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	if (!pid)
 		return;
@@ -482,7 +478,7 @@ void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy
 
 		strlcpy(mountpoint, buf, 1000);
 		uint32_t id_hash = tommy_strhash_u32(0, mountpoint);
-		mnt_list *mlist = tommy_hashdyn_search(mlist_hash, mlist_hash_compare, mountpoint, id_hash);
+		mnt_list *mlist = alligator_ht_search(mlist_hash, mlist_hash_compare, mountpoint, id_hash);
 		if (mlist)
 		{
 			//printf("%s:%s %"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"""\n", "mname", prefix, mlist->mountpoint, mlist->total, mlist->avail, mlist->used, mlist->inodes_total, mlist->inodes_avail, mlist->inodes_used);
@@ -497,12 +493,12 @@ void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, tommy
 	fclose(fp);
 }
 
-tommy_hashdyn* get_mountpoint_list()
+alligator_ht* get_mountpoint_list()
 {
 	FILE *fp;
 	struct mntent *fs;
-	tommy_hashdyn* mlist_hash = calloc(1, sizeof(*mlist_hash));
-	tommy_hashdyn_init(mlist_hash);
+	alligator_ht* mlist_hash = calloc(1, sizeof(*mlist_hash));
+	alligator_ht_init(mlist_hash);
 
 	fp = setmntent("/etc/mtab", "r");
 	if (fp == NULL) {
@@ -539,7 +535,7 @@ tommy_hashdyn* get_mountpoint_list()
 		mlist->inodes_used = mlist->inodes_total-mlist->inodes_avail;
 
 		uint32_t id_hash = tommy_strhash_u32(0, mlist->mountpoint);
-		tommy_hashdyn_insert(mlist_hash, &(mlist->node), mlist, id_hash);
+		alligator_ht_insert(mlist_hash, &(mlist->node), mlist, id_hash);
 
 		char linkurl[255];
 		ssize_t len = readlink(fs->mnt_fsname, linkurl, 254);
@@ -553,7 +549,7 @@ tommy_hashdyn* get_mountpoint_list()
 			strlcpy(dmlist->mountname, fs->mnt_fsname, 1000);
 	
 			id_hash = tommy_strhash_u32(0, dmlist->mountpoint);
-			tommy_hashdyn_insert(mlist_hash, &(dmlist->node), dmlist, id_hash);
+			alligator_ht_insert(mlist_hash, &(dmlist->node), dmlist, id_hash);
 		}
 
 		mnt_list *nmlist = malloc(sizeof(*nmlist));
@@ -562,7 +558,7 @@ tommy_hashdyn* get_mountpoint_list()
 		strlcpy(nmlist->mountname, fs->mnt_dir, 1000);
 	
 		id_hash = tommy_strhash_u32(0, nmlist->mountpoint);
-		tommy_hashdyn_insert(mlist_hash, &(nmlist->node), nmlist, id_hash);
+		alligator_ht_insert(mlist_hash, &(nmlist->node), nmlist, id_hash);
 
 		mnt_list *olist = malloc(sizeof(*olist));
 		memcpy(olist, mlist, sizeof(*olist));
@@ -570,7 +566,7 @@ tommy_hashdyn* get_mountpoint_list()
 		strlcpy(olist->mountname, fs->mnt_dir, 1000);
 	
 		id_hash = tommy_strhash_u32(0, olist->mountpoint);
-		tommy_hashdyn_insert(mlist_hash, &(olist->node), olist, id_hash);
+		alligator_ht_insert(mlist_hash, &(olist->node), olist, id_hash);
 	}
 
 	endmntent(fp);
@@ -1086,8 +1082,8 @@ void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *i
 
 
 
-	tommy_hashdyn* mlist_hash = get_mountpoint_list();
-	tommy_hashdyn* dlid_hash = get_disk_ids_names(cntid, name, image, cad_id, mlist_hash, kubenamespace, kubepod, kubecontainer);
+	alligator_ht* mlist_hash = get_mountpoint_list();
+	alligator_ht* dlid_hash = get_disk_ids_names(cntid, name, image, cad_id, mlist_hash, kubenamespace, kubepod, kubecontainer);
 	uint64_t pid = cgroup_get_pid(slice, cntid);
 
 	if (mlist_hash)

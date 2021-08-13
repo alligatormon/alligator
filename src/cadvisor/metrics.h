@@ -1,5 +1,6 @@
 #pragma once
 #include "dstructures/tommyds/tommyds/tommy.h"
+#include "dstructures/ht.h"
 //typedef struct ifindexnames
 //{
 //	char *key;
@@ -9,4 +10,4 @@
 //} ifindexnames;
 
 //int ifindexnames_compare(const void* arg, const void* obj);
-//tommy_hashdyn* network_index_scrape();
+//alligator_ht* network_index_scrape();

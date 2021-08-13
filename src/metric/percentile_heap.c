@@ -96,8 +96,7 @@ void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mno
 	char quantilekey[30];
 	for (i=0; i<pb->percentile_size; i++)
 	{
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		labels_t *labels = mnode->labels;
 		char metric_name[255];

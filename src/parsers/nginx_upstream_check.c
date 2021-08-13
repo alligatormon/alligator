@@ -248,5 +248,5 @@ void nginx_upstream_check_parser_push()
 	actx->handler[0].mesg_func = nginx_upstream_check_mesg;
 	strlcpy(actx->handler[0].key,"nginx_upstream_check", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

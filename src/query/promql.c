@@ -6,13 +6,13 @@ metric_query_context *query_context_new(char *name)
 {
 	metric_query_context *mqc = calloc(1, sizeof(*mqc));
 	mqc->name = name;
-	mqc->lbl = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(mqc->lbl);
+	mqc->lbl = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(mqc->lbl);
 
 	return mqc;
 }
 
-metric_query_context *promql_parser(tommy_hashdyn* lbl, char *query, size_t size)
+metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 {
 	metric_query_context *mqc = query_context_new(NULL);
 	char *name = mqc->name = malloc(255);
@@ -26,8 +26,7 @@ metric_query_context *promql_parser(tommy_hashdyn* lbl, char *query, size_t size
 
 	if (!lbl)
 	{
-		lbl = malloc(sizeof(*lbl));
-		tommy_hashdyn_init(lbl);
+		lbl = alligator_ht_init(NULL);
 	}
 
 	mqc->func = QUERY_FUNC_COUNT;
@@ -229,9 +228,9 @@ void http_args_to_query_context(void *funcarg, void* arg)
 	}
 }
 
-void query_context_convert_http_args_to_query(metric_query_context *mqc, tommy_hashdyn *arg)
+void query_context_convert_http_args_to_query(metric_query_context *mqc, alligator_ht *arg)
 {
-	tommy_hashdyn_foreach_arg(arg, http_args_to_query_context, mqc);
+	alligator_ht_foreach_arg(arg, http_args_to_query_context, mqc);
 }
 
 void query_context_free(metric_query_context *mqc)

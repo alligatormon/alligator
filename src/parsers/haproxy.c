@@ -225,5 +225,5 @@ void haproxy_parser_push()
 	actx->handler[3].mesg_func = haproxy_sess_mesg;
 	strlcpy(actx->handler[3].key,"haproxy_sess", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

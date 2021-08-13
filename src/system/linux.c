@@ -17,7 +17,9 @@
 #include "main.h"
 #include "metric/labels.h"
 #include "common/smart.h"
+#include "dstructures/ht.h"
 #include <utmp.h>
+#include "system/linux.h"
 //#include "common/rpm.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
@@ -38,14 +40,6 @@ typedef struct process_states
 	uint64_t zombie;
 	uint64_t stopped;
 } process_states;
-
-typedef struct process_fdescriptors
-{
-	uint32_t fd;
-	char *procname;
-
-	tommy_node node;
-} process_fdescriptors;
 
 typedef struct ulimit_pid_stat {
 	uint64_t datasize;
@@ -92,6 +86,7 @@ void print_mount(const struct mntent *fs)
 			{
 				int64_t total = ((double)buf.f_blocks * buf.f_bsize);
 				int64_t avail = ((double)buf.f_bavail * buf.f_bsize);
+				//int64_t free = ((double)buf.f_bfree * buf.f_bsize);
 				int64_t used = total - avail;
 				int64_t inodes_total = buf.f_files;
 				int64_t inodes_avail = buf.f_favail;
@@ -227,7 +222,14 @@ void get_cpu(int8_t platform)
 			if (!strcmp(cpuname, "cpu"))
 				sccs = &ac->scs->hw;
 			else
+			{
 				sccs = &ac->scs->cores[core_num];
+				if (core_num >= num_cpus)
+				{
+					printf("error: cpus: %"PRId64", core num: %"PRIu64", field: '%s' (/proc/stat)\n", num_cpus, core_num, temp);
+					continue;
+				}
+			}
 
 			uint64_t ttotal = (t1 + t3) / dividecpu;
 			//printf("%"u64" = ( %"u64" + %"u64" ) / %lf\n", ttotal, t1, t3, dividecpu);
@@ -778,7 +780,7 @@ void process_fdescriptors_free(void *funcarg, void* arg)
 		fdescriptors->procname = NULL;
 	}
 
-	//tommy_hashdyn_remove_existing(funcarg, &(fdescriptors->node));
+	//alligator_ht_remove_existing(funcarg, &(fdescriptors->node));
 	free(fdescriptors);
 }
 
@@ -802,22 +804,21 @@ void get_proc_socket_number(char *path, char *procname)
 	uint32_t fdesc = strtoull(cur, NULL, 10);
 	//printf("%s/%s: %"PRIu32"\n", buf, cur, fdesc);
 
-	tommy_hashdyn *hash = ac->fdesc;
+	alligator_ht *hash = ac->fdesc;
 	if (!hash)
 	{
-		hash = ac->fdesc = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		hash = ac->fdesc = alligator_ht_init(NULL);
 	}
 
 	uint32_t fdesc_hash = tommy_inthash_u32(fdesc);
-	process_fdescriptors *fdescriptors = tommy_hashdyn_search(hash, process_fdescriptors_compare, &fdesc, fdesc_hash);
+	process_fdescriptors *fdescriptors = alligator_ht_search(hash, process_fdescriptors_compare, &fdesc, fdesc_hash);
 	if (!fdescriptors)
 	{
 		fdescriptors = malloc(sizeof(*fdescriptors));
 		fdescriptors->fd = fdesc;
 		fdescriptors->procname = strdup(procname);
 		//printf("DEB: alloc %p: %llu with name %s\n", fdescriptors, fdescriptors->fd, fdescriptors->procname);
-		tommy_hashdyn_insert(hash, &(fdescriptors->node), fdescriptors, fdesc_hash);
+		alligator_ht_insert(hash, &(fdescriptors->node), fdescriptors, fdesc_hash);
 	}
 	else
 	{
@@ -1018,9 +1019,17 @@ void pidfile_push(char *file, int type)
 
 	pidfile_node *node = NULL;
 	if (!ac->system_pidfile->head)
-		node = ac->system_pidfile->head = ac->system_pidfile->tail = calloc(1, sizeof(*ac->system_pidfile->head));
+	{
+		//node = ac->system_pidfile->head = ac->system_pidfile->tail = calloc(1, sizeof(*ac->system_pidfile->head));
+		node = calloc(1, sizeof(pidfile_node));
+		ac->system_pidfile->head = ac->system_pidfile->tail = node;
+	}
 	else
-		node = ac->system_pidfile->tail->next = calloc(1, sizeof(pidfile_node));
+	{
+		//node = ac->system_pidfile->tail->next = calloc(1, sizeof(pidfile_node));
+		node = calloc(1, sizeof(pidfile_node));
+		ac->system_pidfile->tail->next = node;
+	}
 
 	if (!node)
 		return;
@@ -1044,14 +1053,14 @@ void pidfile_del(char *file, int type)
 	{
 		if (!strcmp(node->pidfile, file))
 		{
-			free(node->pidfile);
-			if (prev)
-				prev->next = node->next;
 			if (ac->system_pidfile->head == node)
 				ac->system_pidfile->head = node->next;
 			if (ac->system_pidfile->tail == node)
 				ac->system_pidfile->tail = NULL;
+			if (prev)
+				prev->next = node->next;
 
+			free(node->pidfile);
 			free(node);
 		}
 
@@ -1141,13 +1150,13 @@ void get_pidfile_stats()
 	}
 }
 
-void userprocess_push(tommy_hashdyn *userprocess, char *user)
+void userprocess_push(alligator_ht *userprocess, char *user)
 {
 	if (!userprocess)
 		return;
 
 	uid_t uid = get_uid_by_username(user);
-	userprocess_node *upn = tommy_hashdyn_search(userprocess, userprocess_compare, &uid, uid);
+	userprocess_node *upn = alligator_ht_search(userprocess, userprocess_compare, &uid, uid);
 	if (upn)
 		return;
 
@@ -1155,20 +1164,20 @@ void userprocess_push(tommy_hashdyn *userprocess, char *user)
 	upn->uid = uid;
 	upn->name = strdup(user);
 
-	tommy_hashdyn_insert(userprocess, &(upn->node), upn, upn->uid);
+	alligator_ht_insert(userprocess, &(upn->node), upn, upn->uid);
 }
 
-void userprocess_del(tommy_hashdyn* userprocess, char *user)
+void userprocess_del(alligator_ht* userprocess, char *user)
 {
 	if (!userprocess)
 		return;
 
 	uid_t uid = get_uid_by_username(user);
-	userprocess_node *upn = tommy_hashdyn_search(userprocess, userprocess_compare, &uid, uid);
+	userprocess_node *upn = alligator_ht_search(userprocess, userprocess_compare, &uid, uid);
 	if (!upn)
 		return;
 
-	tommy_hashdyn_remove_existing(userprocess, &(upn->node));
+	alligator_ht_remove_existing(userprocess, &(upn->node));
 
 	free(upn->name);
 	free(upn);
@@ -1654,8 +1663,8 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 	char destp[6];
 	uint64_t src, dest, srcport, destport;
 
-	tommy_hashdyn *addr_port_usage = calloc(1, sizeof(*addr_port_usage));
-	tommy_hashdyn_init(addr_port_usage);
+	alligator_ht *addr_port_usage = calloc(1, sizeof(*addr_port_usage));
+	alligator_ht_init(addr_port_usage);
 
 	char srcaddrportkey[255];
 	char *start, *end;
@@ -1722,7 +1731,7 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 
 			process_fdescriptors *fdescriptors = NULL;
 			if (ac->fdesc)
-				fdescriptors = tommy_hashdyn_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
+				fdescriptors = alligator_ht_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
 
 			if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
 			{
@@ -1754,7 +1763,7 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 				snprintf(srcaddrportkey, 255, "%s:%d", str1, state);
 
 			uint32_t key_hash = tommy_strhash_u32(0, srcaddrportkey);
-			port_usage *pu = tommy_hashdyn_search(addr_port_usage, port_usage_compare, srcaddrportkey, key_hash);
+			port_usage *pu = alligator_ht_search(addr_port_usage, port_usage_compare, srcaddrportkey, key_hash);
 			if (!pu)
 			{
 				pu = calloc(1, sizeof(*pu));
@@ -1766,7 +1775,7 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 				pu->state = state;
 				pu->process = (fdescriptors && fdescriptors->procname) ? fdescriptors->procname : "";
 
-				tommy_hashdyn_insert(addr_port_usage, &(pu->node), pu, key_hash);
+				alligator_ht_insert(addr_port_usage, &(pu->node), pu, key_hash);
 			}
 			else
 			{
@@ -1777,8 +1786,8 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 	fclose(fd);
 	free(buf);
 
-	tommy_hashdyn_foreach_arg(addr_port_usage, port_usage_free, NULL);
-	tommy_hashdyn_done(addr_port_usage);
+	alligator_ht_foreach_arg(addr_port_usage, port_usage_free, NULL);
+	alligator_ht_done(addr_port_usage);
 	free(addr_port_usage);
 
 	r_time ts_end = setrtime();
@@ -2667,9 +2676,7 @@ void get_alligator_info()
 
 void get_packages_info()
 {
-	if (ac->rpmlib)
-		get_rpm_info();
-
+	get_rpm_info();
 	dpkg_crawl("/var/lib/dpkg/available");
 }
 
@@ -2684,8 +2691,8 @@ void clear_counts_process()
 {
 	if (!ac->process_match)
 		return;
-	tommy_hashdyn *hash = ac->process_match->hash;
-	tommy_hashdyn_foreach(hash, clear_counts_for);
+	alligator_ht *hash = ac->process_match->hash;
+	alligator_ht_foreach(hash, clear_counts_for);
 
 	regex_list *node = ac->process_match->head;
 	while (node)
@@ -2706,8 +2713,8 @@ void fill_counts_process()
 {
 	if (!ac->process_match)
 		return;
-	tommy_hashdyn *hash = ac->process_match->hash;
-	tommy_hashdyn_foreach(hash, fill_counts_for);
+	alligator_ht *hash = ac->process_match->hash;
+	alligator_ht_foreach(hash, fill_counts_for);
 
 	regex_list *node = ac->process_match->head;
 	while (node)
@@ -2977,8 +2984,8 @@ void get_services()
 void stat_userprocess_cb(uv_fs_t *req) {
 	uv_stat_t st = req->statbuf;
 
-	userprocess_node *uupn = tommy_hashdyn_search(ac->system_userprocess, userprocess_compare, &st.st_uid, st.st_uid);
-	userprocess_node *gupn = tommy_hashdyn_search(ac->system_groupprocess, userprocess_compare, &st.st_gid, st.st_gid);
+	userprocess_node *uupn = alligator_ht_search(ac->system_userprocess, userprocess_compare, &st.st_uid, st.st_uid);
+	userprocess_node *gupn = alligator_ht_search(ac->system_groupprocess, userprocess_compare, &st.st_gid, st.st_gid);
 	char *pid = req->data;
 
 	if (ac->log_level > 2)
@@ -3001,7 +3008,7 @@ void get_userprocess_stats()
 	if (!ac->system_userprocess && !ac->system_groupprocess)
 		return;
 
-	if (!tommy_hashdyn_count(ac->system_userprocess) && !tommy_hashdyn_count(ac->system_groupprocess))
+	if (!alligator_ht_count(ac->system_userprocess) && !alligator_ht_count(ac->system_groupprocess))
 		return;
 
 	DIR *dp;
@@ -3375,6 +3382,8 @@ void parse_nfs_stats(char *name, char *mname)
 		//else
 		//	printf("%s:%s:%s\n", name, metric_name, str);
 	}
+
+	fclose(file);
 }
 
 void get_nfs_stats()
@@ -3466,9 +3475,9 @@ void get_system_metrics()
 
 	if (ac->fdesc)
 	{
-		tommy_hashdyn_foreach_arg(ac->fdesc, process_fdescriptors_free, ac->fdesc);
-		tommy_hashdyn_done(ac->fdesc);
-		tommy_hashdyn_init(ac->fdesc);
+		alligator_ht_foreach_arg(ac->fdesc, process_fdescriptors_free, ac->fdesc);
+		alligator_ht_done(ac->fdesc);
+		alligator_ht_init(ac->fdesc);
 	}
 	if (ac->system_firewall)
 	{

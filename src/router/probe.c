@@ -14,9 +14,9 @@
 
 void probe_router(string *response, http_reply_data* http_data, context_arg *carg)
 {
-	tommy_hashdyn *args = http_get_args(http_data->uri, http_data->uri_size);
+	alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 
-	http_arg *harg = tommy_hashdyn_search(args, http_arg_compare, "module", tommy_strhash_u32(0, "module"));
+	http_arg *harg = alligator_ht_search(args, http_arg_compare, "module", tommy_strhash_u32(0, "module"));
 	if (!harg)
 	{
 		if (carg->log_level > 0)
@@ -31,7 +31,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	char *module = harg->value;
 
-	harg = tommy_hashdyn_search(args, http_arg_compare, "target", tommy_strhash_u32(0, "target"));
+	harg = alligator_ht_search(args, http_arg_compare, "target", tommy_strhash_u32(0, "target"));
 	if (!harg)
 	{
 		if (carg->log_level > 0)
@@ -67,7 +67,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	url_size += strlcpy(url + url_size, target, 1024 - url_size);
 
 	host_aggregator_info *hi = parse_url(url, url_size);
-	tommy_hashdyn *env = env_struct_duplicate(pn->env);
+	alligator_ht *env = env_struct_duplicate(pn->env);
 	context_arg *new_carg;
 	if ((pn->prober == APROTO_HTTP) || (pn->prober == APROTO_HTTPS))
 	{
@@ -93,7 +93,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	if (pn->labels)
 	{
-		tommy_hashdyn *labels = labels_dup(pn->labels);
+		alligator_ht *labels = labels_dup(pn->labels);
 		new_carg->labels = labels;
 	}
 

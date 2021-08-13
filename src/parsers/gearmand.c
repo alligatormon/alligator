@@ -79,5 +79,5 @@ void gearmand_parser_push()
 	actx->handler[0].mesg_func = gearmand_mesg;
 	strlcpy(actx->handler[0].key,"gearmand", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

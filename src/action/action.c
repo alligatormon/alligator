@@ -15,7 +15,7 @@ int action_compare(const void* arg, const void* obj)
 
 action_node* action_get(char *name)
 {
-	action_node *an = tommy_hashdyn_search(ac->action, action_compare, name, tommy_strhash_u32(0, name));
+	action_node *an = alligator_ht_search(ac->action, action_compare, name, tommy_strhash_u32(0, name));
 	if (an)
 		return an;
 	else
@@ -25,7 +25,9 @@ action_node* action_get(char *name)
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type)
 {
 	if (ac->log_level > 2)
-		printf("qs->key %s, count: %"u64"\n", qs->key, qs->count);
+		printf("an %p: qs %p: qs->key %s, count: %"u64"\n", an, qs, qs->key, qs->count);
+	if (!an)
+		return;
 
 	char key[255];
 	snprintf(key, 254, "action:%s", an->name);
@@ -67,7 +69,7 @@ void query_res_foreach(void *funcarg, void* arg)
 	action_node *an = funcarg;
 
 	if (ac->log_level > 2)
-		printf("qs->key %s, count: %"u64"\n", qs->key, qs->count);
+		printf("qs %p: qs->key %s, count: %"u64"\n", qs, qs->key, qs->count);
 
 	char key[255];
 	snprintf(key, 254, "action:%s", an->name);
@@ -82,7 +84,7 @@ void query_res_foreach(void *funcarg, void* arg)
 	free(current_carg);
 }
 
-void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_t *jtype, json_t *jfollow_redirects, json_t *jserializer)
+void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_t *jtype, uint8_t follow_redirects, json_t *jserializer)
 {
 	action_node *an = calloc(1, sizeof(*an));
 
@@ -97,10 +99,14 @@ void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_
 		char *ns = (char*)json_string_value(jns);
 		an->ns = strdup(ns);
 	}
-	if (jfollow_redirects)
+
+	an->follow_redirects = follow_redirects;
+
+	if (jtype)
 	{
-		char *follow_redirects = (char*)json_string_value(jfollow_redirects);
-		an->follow_redirects = strtoll(follow_redirects, NULL, 10);
+		char *type_str = (char*)json_string_value(jtype);
+		if (!strcmp(type_str, "shell"))
+			an->type = ACTION_TYPE_SHELL;
 	}
 	an->serializer = METRIC_SERIALIZER_OPENMETRICS;
 	if (jserializer)
@@ -115,17 +121,17 @@ void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_
 	an->datasource = strdup(datasource);
 
 	if (ac->log_level > 0)
-		printf("create action node name '%s', expr '%s'\n", an->name, an->expr);
+		printf("create action node %p name '%s', expr '%s'\n", an, an->name, an->expr);
 
-	tommy_hashdyn_insert(ac->action, &(an->node), an, tommy_strhash_u32(0, an->name));
+	alligator_ht_insert(ac->action, &(an->node), an, tommy_strhash_u32(0, an->name));
 }
 
 void action_del(char *name, char *datasource)
 {
-	action_node *an = tommy_hashdyn_search(ac->action, action_compare, name, tommy_strhash_u32(0, name));
+	action_node *an = alligator_ht_search(ac->action, action_compare, name, tommy_strhash_u32(0, name));
 	if (an)
 	{
-		tommy_hashdyn_remove_existing(ac->action, &(an->node));
+		alligator_ht_remove_existing(ac->action, &(an->node));
 
 		if (an->expr)
 			free(an->expr);
@@ -138,9 +144,9 @@ void action_del(char *name, char *datasource)
 		free(an);
 	}
 
-	uint64_t count = tommy_hashdyn_count(ac->action);
+	uint64_t count = alligator_ht_count(ac->action);
 	if (!count)
 	{
-		tommy_hashdyn_done(ac->action);
+		alligator_ht_done(ac->action);
 	}
 }

@@ -607,5 +607,5 @@ void elasticsearch_parser_push()
 	actx->handler[4].mesg_func = elasticsearch_settings_mesg;
 	strlcpy(actx->handler[4].key,"elasticsearch_settings", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

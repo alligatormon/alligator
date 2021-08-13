@@ -2,26 +2,26 @@
 #include <unistd.h>
 #include <string.h>
 #include "alligator_version.h"
+#include "events/a_signal.h"
 aconf *ac;
 
 void ts_initialize()
 {
 	// initialize multi NS
 	extern aconf *ac;
-	ac->_namespace = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->_namespace);
+	ac->_namespace = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->_namespace);
 
 	// initialize default NS
 	namespace_struct *ns = calloc(1, sizeof(*ns));
 	ns->key = strdup("default");
-	tommy_hashdyn_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
+	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 	ac->nsdefault = ns;
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
 	expire_tree *expiretree = calloc(1, sizeof(*expiretree));
 	
-	tommy_hashdyn* labels_words_hash = malloc(sizeof(*labels_words_hash));
-	tommy_hashdyn_init(labels_words_hash);
+	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
 	sortplan *sort_plan = malloc(sizeof(*sort_plan));
 	sort_plan->plan[0] = "__name__";
@@ -54,22 +54,16 @@ void system_initialize()
 	ac->system_pidfile = calloc(1, sizeof(*ac->system_pidfile));
 
 	ac->process_match = calloc(1, sizeof(match_rules));
-	ac->process_match->hash = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->process_match->hash);
+	ac->process_match->hash = alligator_ht_init(NULL);
 
 	ac->packages_match = calloc(1, sizeof(match_rules));
-	ac->packages_match->hash = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->packages_match->hash);
+	ac->packages_match->hash = alligator_ht_init(NULL);
 
 	ac->services_match = calloc(1, sizeof(match_rules));
-	ac->services_match->hash = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->services_match->hash);
+	ac->services_match->hash = alligator_ht_init(NULL);
 
-	ac->system_userprocess = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->system_userprocess);
-
-	ac->system_groupprocess = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->system_groupprocess);
+	ac->system_userprocess = alligator_ht_init(NULL);
+	ac->system_groupprocess = alligator_ht_init(NULL);
 }
 
 void system_metric_initialize()
@@ -83,8 +77,8 @@ void system_metric_initialize()
 void tcp_server_initialize()
 {
 	extern aconf *ac;
-	ac->tcp_server_handler = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->tcp_server_handler);
+	ac->tcp_server_handler = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->tcp_server_handler);
 }
 
 //void tls_initialize()
@@ -96,87 +90,86 @@ void tcp_server_initialize()
 aconf* configuration()
 {
 	ac = calloc(1, sizeof(*ac));
-	ac->aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->pg_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->file_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->zk_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->mongodb_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->my_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->uggregator);
+	ac->aggregator = calloc(1, sizeof(alligator_ht));
+	ac->pg_aggregator = calloc(1, sizeof(alligator_ht));
+	ac->file_aggregator = calloc(1, sizeof(alligator_ht));
+	ac->zk_aggregator = calloc(1, sizeof(alligator_ht));
+	ac->mongodb_aggregator = calloc(1, sizeof(alligator_ht));
+	ac->my_aggregator = calloc(1, sizeof(alligator_ht));
+	ac->uggregator = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
 	ac->file_aggregator_repeat = 300000;
 
-	ac->tls_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	//ac->uggregator = calloc(1, sizeof(tommy_hashdyn));
-	//tommy_hashdyn_init(ac->uggregator);
-	ac->udpaggregator = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->udpaggregator);
+	ac->tls_aggregator = calloc(1, sizeof(alligator_ht));
+	//ac->uggregator = calloc(1, sizeof(alligator_ht));
+	//alligator_ht_init(ac->uggregator);
+	ac->udpaggregator = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->udpaggregator);
 	ac->tls_aggregator_startup = 1500;
 	ac->tls_aggregator_repeat = 10000;
 
-	ac->iggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->iggregator = calloc(1, sizeof(alligator_ht));
 	ac->iggregator_startup = 1000;
 	ac->iggregator_repeat = 10000;
-	ac->ping_hash = calloc(1, sizeof(tommy_hashdyn));
+	ac->ping_hash = calloc(1, sizeof(alligator_ht));
 	ac->ping_id = 0;
 
-	ac->unixgram_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->unixgram_aggregator);
+	ac->unixgram_aggregator = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->unixgram_aggregator);
 	ac->unixgram_aggregator_startup = 1000;
 	ac->unixgram_aggregator_repeat = 1000;
 
-	ac->system_aggregator = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->system_aggregator);
+	ac->system_aggregator = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->system_aggregator);
 	ac->system_aggregator_startup = 1000;
 	ac->system_aggregator_repeat = 10000;
 
-	ac->process_spawner = calloc(1, sizeof(tommy_hashdyn));
+	ac->process_spawner = calloc(1, sizeof(alligator_ht));
 	ac->process_script_dir = "/var/lib/alligator/spawner";
 	ac->process_cnt = 0;
 
-	ac->lang_aggregator = calloc(1, sizeof(tommy_hashdyn));
+	ac->lang_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->lang_aggregator_startup = 4000;
 	ac->lang_aggregator_repeat = 10000;
 
-	ac->fs_x509 = calloc(1, sizeof(tommy_hashdyn));
+	ac->fs_x509 = calloc(1, sizeof(alligator_ht));
 	ac->tls_fs_startup = 4500;
 	ac->tls_fs_repeat = 60000;
 
-	ac->action = calloc(1, sizeof(tommy_hashdyn));
-	ac->probe = calloc(1, sizeof(tommy_hashdyn));
-	ac->query = calloc(1, sizeof(tommy_hashdyn));
+	//ac->puppeteer = calloc(1, sizeof(alligator_ht));
+	ac->puppeteer = alligator_ht_init(NULL);
+	ac->action = calloc(1, sizeof(alligator_ht));
+	ac->probe = calloc(1, sizeof(alligator_ht));
+	ac->query = calloc(1, sizeof(alligator_ht));
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
 
-	ac->modules = calloc(1, sizeof(tommy_hashdyn));
+	ac->modules = alligator_ht_init(NULL);
 
-	ac->file_stat = calloc(1, sizeof(tommy_hashdyn));
+	ac->file_stat = calloc(1, sizeof(alligator_ht));
 
-	tommy_hashdyn_init(ac->aggregator);
-	tommy_hashdyn_init(ac->pg_aggregator);
-	tommy_hashdyn_init(ac->file_aggregator);
-	tommy_hashdyn_init(ac->zk_aggregator);
-	tommy_hashdyn_init(ac->mongodb_aggregator);
-	tommy_hashdyn_init(ac->my_aggregator);
-	tommy_hashdyn_init(ac->tls_aggregator);
-	tommy_hashdyn_init(ac->iggregator);
-	tommy_hashdyn_init(ac->process_spawner);
-	tommy_hashdyn_init(ac->lang_aggregator);
-	tommy_hashdyn_init(ac->fs_x509);
-	tommy_hashdyn_init(ac->query);
-	tommy_hashdyn_init(ac->action);
-	tommy_hashdyn_init(ac->probe);
-	tommy_hashdyn_init(ac->modules);
-	tommy_hashdyn_init(ac->file_stat);
-	tommy_hashdyn_init(ac->ping_hash);
+	alligator_ht_init(ac->aggregator);
+	alligator_ht_init(ac->pg_aggregator);
+	alligator_ht_init(ac->file_aggregator);
+	alligator_ht_init(ac->zk_aggregator);
+	alligator_ht_init(ac->mongodb_aggregator);
+	alligator_ht_init(ac->my_aggregator);
+	alligator_ht_init(ac->tls_aggregator);
+	alligator_ht_init(ac->iggregator);
+	alligator_ht_init(ac->process_spawner);
+	alligator_ht_init(ac->lang_aggregator);
+	alligator_ht_init(ac->fs_x509);
+	alligator_ht_init(ac->query);
+	alligator_ht_init(ac->action);
+	alligator_ht_init(ac->probe);
+	alligator_ht_init(ac->file_stat);
+	alligator_ht_init(ac->ping_hash);
 
-	ac->entrypoints = malloc(sizeof(*ac->entrypoints));
-	tommy_hashdyn_init(ac->entrypoints);
+	ac->entrypoints = alligator_ht_init(NULL);
 
-	ac->aggregators = malloc(sizeof(*ac->aggregators));
-	tommy_hashdyn_init(ac->aggregators);
+	ac->aggregators = alligator_ht_init(NULL);
 
 	ac->request_cnt = 0;
 	ts_initialize();
@@ -274,8 +267,6 @@ int main(int argc, char **argv, char **envp)
 
 	signal_listen();
 
-	//filetailer_handler("/var/log/", dummy_handler);
-
 	tcp_client_handler();
 	udp_client_handler();
 #ifdef __linux__
@@ -286,7 +277,7 @@ int main(int argc, char **argv, char **envp)
 	process_handler();
 	//unix_client_handler();
 	unixgram_client_handler();
-	lang_handler();
+	//lang_handler();
 	tls_fs_handler();
 	query_handler();
 	postgresql_client_handler();
@@ -294,11 +285,7 @@ int main(int argc, char **argv, char **envp)
 	mysql_client_handler();
 	zk_client_handler();
 	filetailer_crawl_handler();
-	//udp_send("\0\1sendfile.txt\0netascii\0", 24);
-	//udp_send("\0\1sendfile.txt\0octet\0", 21);
-
-	//context_arg* carg = calloc(1, sizeof(*carg));
-	//carg->loop = loop;
+	puppeteer_generator();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

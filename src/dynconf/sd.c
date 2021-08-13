@@ -244,7 +244,7 @@ void sd_scrape_cb(void *arg)
 //}
 void zk_timer_without_thread(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->zk_aggregator, sd_scrape_cb);
+	alligator_ht_foreach(ac->zk_aggregator, sd_scrape_cb);
 }
 
 
@@ -269,7 +269,7 @@ char* zk_client(context_arg* carg)
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
-	tommy_hashdyn_insert(ac->zk_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->zk_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "zk";
 }
 
@@ -278,7 +278,7 @@ void zk_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
-	tommy_hashdyn_remove_existing(ac->zk_aggregator, &(carg->node));
+	alligator_ht_remove_existing(ac->zk_aggregator, &(carg->node));
 	carg_free(carg);
 }
 
@@ -297,7 +297,7 @@ void sd_zk_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"zookeeper-configuration", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 #endif
@@ -506,7 +506,7 @@ void sd_etcd_parser_push()
 	actx->handler[0].mesg_func = sd_etcd_mesg;
 	strlcpy(actx->handler[0].key,"etcd-configuration", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 string* sd_consul_configuration_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -527,7 +527,7 @@ void sd_consul_configuration_parser_push()
 	actx->handler[0].mesg_func = sd_consul_configuration_mesg;
 	strlcpy(actx->handler[0].key, "consul-configuration", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 string* sd_consul_discovery_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -548,5 +548,5 @@ void sd_consul_discovery_parser_push()
 	actx->handler[0].mesg_func = sd_consul_discovery_mesg;
 	strlcpy(actx->handler[0].key, "consul-discovery", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

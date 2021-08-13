@@ -309,7 +309,7 @@ char* filetailer_handler(context_arg *carg)
 	carg->key = strdup(carg->host);
 
 	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler)
-		tommy_hashdyn_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	if (carg->notify)
 	{
@@ -333,7 +333,7 @@ void filetailer_handler_del(context_arg *carg)
 
 void failtailer_crawl(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->file_aggregator, filetailer_directory_file_crawl);
+	alligator_ht_foreach(ac->file_aggregator, filetailer_directory_file_crawl);
 }
 
 void filetailer_crawl_handler()
@@ -374,15 +374,15 @@ void filetailer_write_state_foreach(void *funcarg, void *arg)
 	string_cat(str, "\n", 1);
 }
 
-void filetailer_write_state(tommy_hashdyn *hash)
+void filetailer_write_state(alligator_ht *hash)
 {
-	uint64_t hash_size = tommy_hashdyn_count(hash);
+	uint64_t hash_size = alligator_ht_count(hash);
 	if (!hash_size)
 		return;
 
 	string *str = string_init(1024);
 	string_cat(str, "/alligator/file_stat/v1/\n", 25);
-	tommy_hashdyn_foreach_arg(hash, filetailer_write_state_foreach, str);
+	alligator_ht_foreach_arg(hash, filetailer_write_state_foreach, str);
 	if (str->l > 25)
 	{
 		char dirtowrite[255];
@@ -394,11 +394,11 @@ void filetailer_write_state(tommy_hashdyn *hash)
 
 }
 
-//void filetailer_read_state(tommy_hashdyn *hash)
+//void filetailer_read_state(alligator_ht *hash)
 //{
 //	string *str = string_init(1024);
 //	string_cat(str, "/alligator/file_stat/v1/\n", 25);
-//	tommy_hashdyn_foreach_arg(hash, filetailer_write_state_foreach, str);
+//	alligator_ht_foreach_arg(hash, filetailer_write_state_foreach, str);
 //	if (str->l > 25)
 //	{
 //		char dirtowrite[255];

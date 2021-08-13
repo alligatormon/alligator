@@ -46,7 +46,7 @@ public class alligatorJmx
 		 return !bool;
 	}
 
-	public String getJmx(String arg) throws Exception {
+	public String getJmx(String arg, String metrics, String conf) throws Exception {
 	//public String getJmx() throws Exception {
 		System.out.println("arg is " + arg);
 		if (arg == null)

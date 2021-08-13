@@ -359,5 +359,5 @@ void mogilefs_parser_push()
 	actx->handler[6].mesg_func = mogilefs_queue_mesg;
 	strlcpy(actx->handler[6].key,"mogilefs_queue", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

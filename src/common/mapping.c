@@ -9,8 +9,7 @@ void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, int
 	int64_t pre_key = 0;
 	for (i=0; i<bucket_size; i++)
 	{
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		labels_t *labels = mnode->labels;
 		char metric_name[255];
@@ -38,7 +37,7 @@ void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, int
 		}
 		else
 		{
-			tommy_hashdyn_done(hash);
+			alligator_ht_done(hash);
 			free(hash);
 		}
 
@@ -55,8 +54,7 @@ void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node 
 	int8_t inf = 0;
 	for (i=0; i<le_size; i++)
 	{
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		labels_t *labels = mnode->labels;
 		char metric_name[255];
@@ -85,7 +83,7 @@ void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node 
 		}
 		else
 		{
-			tommy_hashdyn_done(hash);
+			alligator_ht_done(hash);
 			free(hash);
 		}
 	}

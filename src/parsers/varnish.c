@@ -46,8 +46,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *mvalue_json = json_object_get(value_json1, "value");
 			if (mvalue_json)
 			{
-				tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-				tommy_hashdyn_init(lbl);
+				alligator_ht *lbl = alligator_ht_init(NULL);
 
 				const char *key2;
 				json_t *value_json2;
@@ -96,5 +95,5 @@ void varnish_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"varnish", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

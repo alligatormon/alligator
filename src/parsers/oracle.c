@@ -59,8 +59,7 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 
 		uint64_t ccur = cur;
 
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		if (carg->ns)
 			labels_hash_insert_nocache(hash, "dbname", carg->ns);
@@ -201,7 +200,7 @@ void oracle_sql_generator(char *metrics, size_t size, context_arg *carg)
 			printf("found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
-			tommy_hashdyn_foreach_arg(qds->hash, oracle_queries_foreach, carg);
+			alligator_ht_foreach_arg(qds->hash, oracle_queries_foreach, carg);
 		}
 	}
 
@@ -227,7 +226,7 @@ void oracle_parser_push()
 	actx->handler[0].mesg_func = oracle_mesg;
 	strlcpy(actx->handler[0].key,"oracle_sql_generator", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 string* oracle_query_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -248,5 +247,5 @@ void oracle_query_parser_push()
 	actx->handler[0].mesg_func = oracle_query_mesg;
 	strlcpy(actx->handler[0].key,"oracle_query", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

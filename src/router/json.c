@@ -9,10 +9,10 @@
 
 void json_router(string *response, http_reply_data* http_data, context_arg *carg)
 {
-	tommy_hashdyn *args = http_get_args(http_data->uri, http_data->uri_size);
+	alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 	char *query = "{}";
 
-	http_arg *harg = tommy_hashdyn_search(args, http_arg_compare, "query", tommy_strhash_u32(0, "query"));
+	http_arg *harg = alligator_ht_search(args, http_arg_compare, "query", tommy_strhash_u32(0, "query"));
 	if (harg)
 		query = harg->value;
 

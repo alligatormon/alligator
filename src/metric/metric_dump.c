@@ -9,9 +9,9 @@
 void metric_dump(int exit_sig)
 {
 	extern aconf *ac;
-	if (!ac->persistence_dir && exit_sig >= 0)
-		exit(exit_sig);
-	else if (!ac->persistence_dir)
+	//if (!ac->persistence_dir && exit_sig >= 0)
+	//	exit(exit_sig);
+	if (!ac->persistence_dir)
 		return;
 
 	string *body = string_init(10000000);
@@ -22,7 +22,8 @@ void metric_dump(int exit_sig)
 	{
 		int *code = malloc(sizeof(*code));
 		*code = 0;
-		write_to_file(dirtowrite, body->s, body->l, exit, code);
+		//write_to_file(dirtowrite, body->s, body->l, exit, code);
+		write_to_file(dirtowrite, body->s, body->l, NULL, code);
 	}
 	else
 		write_to_file(dirtowrite, body->s, body->l, free, body);

@@ -89,8 +89,7 @@ void get_iptables_info(const char *tablename, context_arg *system_carg)
 		const struct ipt_entry *en = NULL;
 		for (en = iptc_first_rule(chain, h); en; en = iptc_next_rule(en, h), i++)
 		{
-			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-			tommy_hashdyn_init(lbl);
+			alligator_ht *lbl = alligator_ht_init(NULL);
 			char str[INET_ADDRSTRLEN];
 			uint8_t lg;
 
@@ -209,7 +208,7 @@ void get_iptables_info(const char *tablename, context_arg *system_carg)
 				printf("%-10s %-10s [%llu:%llu]\n", chain, target_name, counters->pcnt, counters->bcnt);
 			labels_hash_insert_nocache(lbl, "target", target_name);
 			labels_hash_insert_nocache(lbl, "chain", chain);
-			tommy_hashdyn *byteslbl = labels_dup(lbl);
+			alligator_ht *byteslbl = labels_dup(lbl);
 			metric_add("firewall_packages", lbl, &counters->pcnt, DATATYPE_UINT, system_carg);
 			metric_add("firewall_bytes", byteslbl, &counters->bcnt, DATATYPE_UINT, system_carg);
 		}
@@ -254,8 +253,7 @@ void get_iptables6_info(const char *tablename, context_arg *system_carg)
 		const struct ip6t_entry *en = NULL;
 		for (en = ip6tc_first_rule(chain, h); en; en = ip6tc_next_rule(en, h), i++)
 		{
-			tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-			tommy_hashdyn_init(lbl);
+			alligator_ht *lbl = alligator_ht_init(NULL);
 			//char str[INET_ADDRSTRLEN];
 			//uint8_t lg;
 
@@ -374,7 +372,7 @@ void get_iptables6_info(const char *tablename, context_arg *system_carg)
 				printf("%-10s %-10s [%llu:%llu]\n", chain, target_name, counters->pcnt, counters->bcnt);
 			labels_hash_insert_nocache(lbl, "target", target_name);
 			labels_hash_insert_nocache(lbl, "chain", chain);
-			tommy_hashdyn *byteslbl = labels_dup(lbl);
+			alligator_ht *byteslbl = labels_dup(lbl);
 			metric_add("firewall_packages", lbl, &counters->pcnt, DATATYPE_UINT, system_carg);
 			metric_add("firewall_bytes", byteslbl, &counters->bcnt, DATATYPE_UINT, system_carg);
 		}

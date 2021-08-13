@@ -87,8 +87,8 @@ typedef struct context_arg
 
 	char *uvbuf;
 
-	tommy_hashdyn *labels;
-	tommy_hashdyn *env;
+	alligator_ht *labels;
+	alligator_ht *env;
 
 	// counters
 	uint64_t conn_counter;
@@ -213,7 +213,7 @@ typedef struct context_arg
 
 	char *url;
 
-	tommy_hashdyn* reject;
+	alligator_ht* reject;
 	void *srv_carg;
 
 	// unixgram info
@@ -255,7 +255,7 @@ typedef struct context_arg
 } context_arg;
 
 context_arg *carg_copy(context_arg *src);
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l);
-tommy_hashdyn *env_struct_parser(json_t *root);
-tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src);
-json_t* env_struct_dump(tommy_hashdyn *src);
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l);
+alligator_ht *env_struct_parser(json_t *root);
+alligator_ht* env_struct_duplicate(alligator_ht *src);
+json_t* env_struct_dump(alligator_ht *src);

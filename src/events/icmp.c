@@ -16,6 +16,7 @@
 #include "common/rtime.h"
 #include "events/context_arg.h"
 #include "probe/probe.h"
+#include "parsers/multiparser.h"
 #include "main.h"
 #define PACKETSIZE 64
 
@@ -236,12 +237,12 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			i_p->hdr.checksum = checksum(i_p, sizeof(*i_p));
 
 			carg->ping_key = i_p->hdr.un.echo.id;
-			context_arg *test_carg = tommy_hashdyn_search(ac->ping_hash, ping_struct_compare, &carg->ping_key, tommy_inthash_u32(carg->ping_key));
+			context_arg *test_carg = alligator_ht_search(ac->ping_hash, ping_struct_compare, &carg->ping_key, tommy_inthash_u32(carg->ping_key));
 			if (!test_carg)
 			{
 				if (carg->log_level > 1)
 					printf("echo id %s:%p: %"PRIu32"\n", carg->host, carg, carg->ping_key);
-				tommy_hashdyn_insert(ac->ping_hash, &(carg->ping_node), carg, tommy_inthash_u32(carg->ping_key));
+				alligator_ht_insert(ac->ping_hash, &(carg->ping_node), carg, tommy_inthash_u32(carg->ping_key));
 			}
 
 			if ( sendto(carg->fd, i_p, sizeof(*i_p), 0, (const struct sockaddr *)carg->dest, sizeof(*sa)) <= 0 ) {
@@ -272,7 +273,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			sa1 = (struct sockaddr_in *) &r_addr;
 			uint32_t key = i_p->hdr.un.echo.id;
 
-			context_arg *carg = tommy_hashdyn_search(ac->ping_hash, ping_struct_compare, &key, tommy_inthash_u32(key));
+			context_arg *carg = alligator_ht_search(ac->ping_hash, ping_struct_compare, &key, tommy_inthash_u32(key));
 			if (!carg)
 				return;
 
@@ -366,7 +367,7 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	carg->key = malloc(64);
 	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
 
-	tommy_hashdyn_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }
 
 char* icmp_client(context_arg *carg)
@@ -396,15 +397,15 @@ char* icmp_client(context_arg *carg)
 //int main()
 //{
 //	ping_id = 0;
-//	ping_hash = calloc(1, sizeof(tommy_hashdyn));
-//	tommy_hashdyn_init(ping_hash);
+//	ping_hash = calloc(1, sizeof(alligator_ht));
+//	alligator_ht_init(ping_hash);
 //
 //	icmp_run_ping("192.168.1.1");
 //	return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 //}
 
 static void icmp_timer_cb(uv_timer_t* handle) {
-	tommy_hashdyn_foreach(ac->iggregator, icmp_start);
+	alligator_ht_foreach(ac->iggregator, icmp_start);
 }
 
 void icmp_client_handler()
@@ -421,10 +422,10 @@ void icmp_client_del(context_arg *carg)
 
 	if (carg)
 	{
-		tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		carg->lock = 1;
-		tommy_hashdyn_remove_existing(ac->iggregator, &(carg->node));
+		alligator_ht_remove_existing(ac->iggregator, &(carg->node));
 		(ac->icmp_client_count)--;
 		free(carg->data);
 		carg_free(carg);

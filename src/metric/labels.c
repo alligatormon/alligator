@@ -278,9 +278,9 @@ string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 	return label;
 }
 
-tommy_hashdyn *labels_to_hash(labels_t *labels_list, string *groupkey)
+alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 {
-	tommy_hashdyn *lbl = NULL;
+	alligator_ht *lbl = NULL;
 	if (!groupkey || !groupkey->l)
 	{
 		return lbl;
@@ -301,8 +301,7 @@ tommy_hashdyn *labels_to_hash(labels_t *labels_list, string *groupkey)
 			{
 				if (!lbl)
 				{
-					lbl = malloc(sizeof(tommy_hashdyn));
-					tommy_hashdyn_init(lbl);
+					lbl = alligator_ht_init(NULL);
 				}
 
 				labels_hash_insert_nocache(lbl, cur_labels->name, cur_labels->key);
@@ -314,14 +313,14 @@ tommy_hashdyn *labels_to_hash(labels_t *labels_list, string *groupkey)
 	return lbl;
 }
 
-void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, tommy_hashdyn *res_hash)
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash)
 {
 	if (!labels_list)
 		return;
 
 	string *key = labels_to_groupkey(labels_list, groupkey);
 	uint32_t key_hash = tommy_strhash_u32(0, key->s);
-	query_struct *qs = tommy_hashdyn_search(res_hash, query_struct_compare, key->s, key_hash);
+	query_struct *qs = alligator_ht_search(res_hash, query_struct_compare, key->s, key_hash);
 	if (!qs)
 	{
 		qs = malloc(sizeof(*qs));
@@ -330,7 +329,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		qs->count = 1;
 		qs->key = key->s;
 		qs->metric_name = labels_list->key;
-		tommy_hashdyn_insert(res_hash, &(qs->node), qs, key_hash);
+		alligator_ht_insert(res_hash, &(qs->node), qs, key_hash);
 
 		int8_t type = x->type;
 		if (type == DATATYPE_INT)
@@ -399,19 +398,19 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 
 	labels_words_cache *labels_cache;
-	tommy_hashdyn *labels_words_hash = metrictree->labels_words_hash;
+	alligator_ht *labels_words_hash = metrictree->labels_words_hash;
 	
 	while (labels)
 	{
 		uint32_t name_hash = tommy_strhash_u32(0, labels->name);
-		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
 		if (labels_cache)
 		{
 			labels_cache->count--;
 			if (labels_cache->count == 0)
 			{
 				free(labels_cache->w);
-				tommy_hashdyn_remove_existing(labels_words_hash, &(labels_cache->node));
+				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
 				++ac->metric_freed;
 			}
 		}
@@ -432,14 +431,14 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 			continue;
 		}
 		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
-		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
 		if (labels_cache)
 		{
 			labels_cache->count--;
 			if (labels_cache->count == 0)
 			{
 				free(labels_cache->w);
-				tommy_hashdyn_remove_existing(labels_words_hash, &(labels_cache->node));
+				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
 				++ac->metric_freed;
 			}
 		}
@@ -502,18 +501,18 @@ void labels_head_free(labels_t *labels)
 
 void labels_merge_for(void *funcarg, void* arg)
 {
-	tommy_hashdyn *dst = funcarg;
+	alligator_ht *dst = funcarg;
 	labels_container *labelscont = arg;
 
 	labels_hash_insert_nocache(dst, labelscont->name, labelscont->key);
 }
 
-void labels_merge(tommy_hashdyn *dst, tommy_hashdyn *src)
+void labels_merge(alligator_ht *dst, alligator_ht *src)
 {
-	tommy_hashdyn_foreach_arg(src, labels_merge_for, dst);
+	alligator_ht_foreach_arg(src, labels_merge_for, dst);
 }
 
-labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
+labels_t* labels_initiate(alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
 {
 	namespace_struct *ns;
 
@@ -526,8 +525,7 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 
 	if (!hash)
 	{
-		hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		hash = alligator_ht_init(NULL);
 	}
 
 	labels_t *labels = malloc(sizeof(*labels));
@@ -557,7 +555,7 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 		cur->name_len = strlen(cur->name);
 		//printf ("ns %p, nskey %s, hash %p, sort_plan %p, sort_plan->size %d, i %d plan '%s'\n", ns, ns->key, hash, sort_plan, sort_plan->size, i, sort_plan->plan[i]);
 		//printf ("\tsort_plan->plan '%s' %p\n", hash, &sort_plan->plan[i], sort_plan->plan[i]);
-		labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, sort_plan->plan[i], tommy_strhash_u32(0, sort_plan->plan[i]));
+		labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, sort_plan->plan[i], tommy_strhash_u32(0, sort_plan->plan[i]));
 		if (labelscont)
 		{
 			cur->key = labelscont->key;
@@ -570,7 +568,7 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 				free(labelscont->name);
 			}
 			if (!no_del)
-				tommy_hashdyn_remove_existing(hash, &(labelscont->node));
+				alligator_ht_remove_existing(hash, &(labelscont->node));
 
 			free(labelscont);
 		}
@@ -587,8 +585,8 @@ labels_t* labels_initiate(tommy_hashdyn *hash, char *name, char *namespace, name
 	cur->next = 0;
 	if (!no_del)
 	{
-		tommy_hashdyn_foreach_arg(hash, labels_new_plan_node, cur);
-		tommy_hashdyn_done(hash);
+		alligator_ht_foreach_arg(hash, labels_new_plan_node, cur);
+		alligator_ht_done(hash);
 		free(hash);
 	}
 
@@ -612,23 +610,23 @@ void labels_free_node(void *funcarg, void* arg)
 	free(labelscont);
 }
 
-void labels_hash_free(tommy_hashdyn *hash)
+void labels_hash_free(alligator_ht *hash)
 {
 	if (!hash)
 		return;
 
-	tommy_hashdyn_foreach_arg(hash, labels_free_node, NULL);
-	tommy_hashdyn_done(hash);
+	alligator_ht_foreach_arg(hash, labels_free_node, NULL);
+	alligator_ht_done(hash);
 	free(hash);
 }
 
-void labels_hash_insert(tommy_hashdyn *hash, char *name, char *key)
+void labels_hash_insert(alligator_ht *hash, char *name, char *key)
 {
 	if (!name)
 		return;
 
 	uint32_t name_hash = tommy_strhash_u32(0, name);
-	labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, name, name_hash);
+	labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, name, name_hash);
 	if (!labelscont)
 	{
 		labelscont = malloc(sizeof(*labelscont));
@@ -636,17 +634,17 @@ void labels_hash_insert(tommy_hashdyn *hash, char *name, char *key)
 		labelscont->key = key;
 		labelscont->allocatedname = 0;
 		labelscont->allocatedkey = 0;
-		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
+		alligator_ht_insert(hash, &(labelscont->node), labelscont, name_hash);
 	}
 }
 
-void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key)
+void labels_hash_insert_nocache(alligator_ht *hash, char *name, char *key)
 {
 	if (!name)
 		return;
 
 	uint32_t name_hash = tommy_strhash_u32(0, name);
-	labels_container *labelscont = tommy_hashdyn_search(hash, labels_hash_compare, name, name_hash);
+	labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, name, name_hash);
 	if (!labelscont && name && key)
 	{
 		labelscont = calloc(1, sizeof(*labelscont));
@@ -654,7 +652,7 @@ void labels_hash_insert_nocache(tommy_hashdyn *hash, char *name, char *key)
 		labelscont->allocatedname = 1;
 		labelscont->key = strdup(key);
 		labelscont->allocatedkey = 1;
-		tommy_hashdyn_insert(hash, &(labelscont->node), labelscont, name_hash);
+		alligator_ht_insert(hash, &(labelscont->node), labelscont, name_hash);
 	}
 }
 
@@ -673,12 +671,12 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		return;
 
 	labels_words_cache *labels_cache;
-	tommy_hashdyn *labels_words_hash = metrictree->labels_words_hash;
+	alligator_ht *labels_words_hash = metrictree->labels_words_hash;
 
 	while (labels)
 	{
 		uint32_t name_hash = tommy_strhash_u32(0, labels->name);
-		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
 		if (labels_cache)
 		{
 			++ac->metric_cache_hits;
@@ -691,7 +689,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 			labels_cache->w = strdup(labels->name);
 			labels_cache->l = labels->name_len;
 			labels_cache->count = 1;
-			tommy_hashdyn_insert(labels_words_hash, &(labels_cache->node), labels_cache, name_hash);
+			alligator_ht_insert(labels_words_hash, &(labels_cache->node), labels_cache, name_hash);
 		}
 
 		if (labels->allocatedname)
@@ -709,7 +707,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		}
 
 		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
-		labels_cache = tommy_hashdyn_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
 		if (labels_cache)
 		{
 			++ac->metric_cache_hits;
@@ -722,7 +720,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 			labels_cache->w = strdup(labels->key);
 			labels_cache->l = labels->key_len;
 			labels_cache->count = 1;
-			tommy_hashdyn_insert(labels_words_hash, &(labels_cache->node), labels_cache, key_hash);
+			alligator_ht_insert(labels_words_hash, &(labels_cache->node), labels_cache, key_hash);
 		}
 
 		if (labels->allocatedkey)
@@ -746,36 +744,35 @@ void labels_to_json_for(void *funcarg, void* arg)
 	json_array_object_insert(ret, labelscont->name, key);
 }
 
-json_t *labels_to_json(tommy_hashdyn *labels)
+json_t *labels_to_json(alligator_ht *labels)
 {
 	json_t *ret = json_object();
 	if (!labels)
 		return ret;
 
-	tommy_hashdyn_foreach_arg(labels, labels_to_json_for, ret);
+	alligator_ht_foreach_arg(labels, labels_to_json_for, ret);
 
 	return ret;
 }
 
 void labels_dup_for(void *funcarg, void* arg)
 {
-	tommy_hashdyn *dst = funcarg;
+	alligator_ht *dst = funcarg;
 	labels_container *labelscont = arg;
 
 	labels_hash_insert_nocache(dst, labelscont->name, labelscont->key);
 }
 
-tommy_hashdyn *labels_dup(tommy_hashdyn *labels)
+alligator_ht *labels_dup(alligator_ht *labels)
 {
-	tommy_hashdyn *rlbl = malloc(sizeof(*rlbl));
-	tommy_hashdyn_init(rlbl);
+	alligator_ht *rlbl = alligator_ht_init(NULL);
 
-	tommy_hashdyn_foreach_arg(labels, labels_dup_for, rlbl);
+	alligator_ht_foreach_arg(labels, labels_dup_for, rlbl);
 
 	return rlbl;
 }
 
-void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
+void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
 {
 	namespace_struct *ns;
 
@@ -787,8 +784,7 @@ void metric_update(char *name, tommy_hashdyn *labels, void* value, int8_t type, 
 
 	if (!labels)
 	{
-		labels = malloc(sizeof(*labels));
-		tommy_hashdyn_init(labels);
+		labels = alligator_ht_init(NULL);
 	}
 
 	if (carg && carg->labels)
@@ -827,8 +823,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -865,8 +860,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -888,7 +882,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	}
 }
 
-void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, context_arg *carg)
+void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
 {
 	//r_time start = setrtime();
 
@@ -899,8 +893,7 @@ void metric_add(char *name, tommy_hashdyn *labels, void* value, int8_t type, con
 
 	if (!labels)
 	{
-		labels = malloc(sizeof(*labels));
-		tommy_hashdyn_init(labels);
+		labels = alligator_ht_init(NULL);
 	}
 
 	if (carg && carg->labels)
@@ -946,8 +939,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *labels = malloc(sizeof(*labels));
-	tommy_hashdyn_init(labels);
+	alligator_ht *labels = alligator_ht_init(NULL);
 
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
@@ -981,8 +973,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 
@@ -1018,8 +1009,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1056,8 +1046,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1095,8 +1084,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1135,8 +1123,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1176,8 +1163,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1218,8 +1204,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
@@ -1344,13 +1329,12 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
-	size_t labels_count = tommy_hashdyn_count(mqc->lbl);
+	size_t labels_count = alligator_ht_count(mqc->lbl);
 	labels_t *labels_list = labels_initiate(mqc->lbl, mqc->name, 0, 0, 0);
 
 	if ( tree && tree->root)
 	{
-		tommy_hashdyn *res_hash = malloc(sizeof(*res_hash));
-		tommy_hashdyn_init(res_hash);
+		alligator_ht *res_hash = alligator_ht_init(NULL);
 		metrictree_gen(tree->root, labels_list, mqc->groupkey, res_hash, labels_count);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
@@ -1360,7 +1344,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		uint64_t value = 0;
 		double dvalue = 0;
 		int type = DATATYPE_UINT;
-		uint64_t res_count = tommy_hashdyn_count(res_hash);
+		uint64_t res_count = alligator_ht_count(res_hash);
 		int func = mqc->func;
 
 		action_node *an = NULL;
@@ -1380,8 +1364,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_count, &qp);
-			tommy_hashdyn_done(res_hash);
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_count, &qp);
+			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
 			action_run_process(action_name);
@@ -1392,8 +1376,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_sum, &qp);
-			tommy_hashdyn_done(res_hash);
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_sum, &qp);
+			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
 			action_run_process(action_name);
@@ -1404,8 +1388,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_min, &qp);
-			tommy_hashdyn_done(res_hash);
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_min, &qp);
+			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
 			action_run_process(action_name);
@@ -1416,9 +1400,9 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
-			//tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_max, &qp);
-			tommy_hashdyn_done(res_hash);
+			//alligator_ht_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_max, &qp);
+			alligator_ht_done(res_hash);
 			free(res_hash);
 			action_run_process(action_name);
 			labels_head_free(labels_list);
@@ -1429,8 +1413,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
-			tommy_hashdyn_foreach_arg(res_hash, metric_gen_foreach_avg, &qp);
-			tommy_hashdyn_done(res_hash);
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_avg, &qp);
+			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
 			action_run_process(action_name);

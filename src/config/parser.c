@@ -36,6 +36,8 @@ void config_parse_entry(char *filepath)
 	if (strstr(filepath, ".yaml"))
 	{
 		json = yaml_file_to_json_str(filepath);
+		if (ac->log_level)
+			printf("config yaml to json converted:\n'%s'\n", json);
 		root = json_loads(json, 0, &error);
 		if (root)
 		{

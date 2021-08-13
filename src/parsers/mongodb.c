@@ -6,8 +6,7 @@ extern aconf* ac;
 
 void mongo_add_metric(context_arg *carg, char *key1, char *key2, char *key3, char *key, char *name, char *ns, void* val, int8_t type)
 {
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 	if (ns)
 		labels_hash_insert_nocache(hash, "namespace", ns);
 	if (key1)
@@ -169,6 +168,7 @@ void mongo_Stats(context_arg *carg, char *metrics, char *prefix, char *ns_overri
 
 void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_client_t *client, char *db_name, char *cmd, char *arg, void (*callback)(context_arg *carg, char *str, char *prefix, char *ns_override), char *prefix, char *ns_override)
 {
+	libmongo *lmongo = ac->libmongo;
 	if (carg->log_level > 1) 
 		printf("mongo_cmd_run(carg %p, collection %p, client %p, db_name %s, cmd %s, arg %s\n", carg, collection, client, db_name, cmd, arg);
 	bson_t *command;
@@ -176,7 +176,7 @@ void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_cl
 	bson_t reply;
 	char *str;
 	command = BCON_NEW (cmd, BCON_UTF8 (arg));
-	if ((collection) && ac->libmongo->mongoc_collection_command_simple ( collection, command, NULL, &reply, &error)) {
+	if ((collection) && lmongo->mongoc_collection_command_simple ( collection, command, NULL, &reply, &error)) {
 		//str = bson_as_canonical_extended_json (&reply, NULL);
 		str = bson_as_json (&reply, NULL);
 		if (carg->log_level > 2) 
@@ -186,7 +186,7 @@ void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_cl
 			callback(carg, str, prefix, ns_override);
 
 		bson_free (str);
-	} else if ((!collection) && ac->libmongo->mongoc_client_command_simple(client, db_name, command, NULL, &reply, &error)) {
+	} else if ((!collection) && lmongo->mongoc_client_command_simple(client, db_name, command, NULL, &reply, &error)) {
 		//str = bson_as_canonical_extended_json (&reply, NULL);
 		str = bson_as_json (&reply, NULL);
 		if (carg->log_level > 2) 
@@ -207,6 +207,7 @@ void mongo_cmd_run(context_arg *carg, mongoc_collection_t *collection, mongoc_cl
 
 void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *json_query, char *json_opts)
 {
+	libmongo *lmongo = ac->libmongo;
 	puts("+++++++++++++++++++++++++++++++++++++");
 	printf("find '%s' with opts '%s'\n", json_query, json_opts);
 	bson_error_t error;
@@ -216,15 +217,15 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 	if (json_opts)
 		opts = bson_new_from_json ((const uint8_t *)json_opts, -1, &error);
 
-	//mongoc_cursor_t *cursor = ac->libmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
+	//mongoc_cursor_t *cursor = lmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
 	mongoc_cursor_t *cursor;
-	if (ac->libmongo->mongoc_collection_find_with_opts)
+	if (lmongo->mongoc_collection_find_with_opts)
 	{
-		cursor = ac->libmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
+		cursor = lmongo->mongoc_collection_find_with_opts (collection, query, opts, NULL);
 	}
-	else if (ac->libmongo->mongoc_collection_find)
+	else if (lmongo->mongoc_collection_find)
 	{
-		cursor = ac->libmongo->mongoc_collection_find (collection, 0, 0, 0, 0, query, opts, NULL);
+		cursor = lmongo->mongoc_collection_find (collection, 0, 0, 0, 0, query, opts, NULL);
 	}
 	else
 	{
@@ -234,7 +235,7 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 
 	const bson_t *doc;
 	char *str;
-	while (ac->libmongo->mongoc_cursor_next(cursor, &doc)) {
+	while (lmongo->mongoc_cursor_next(cursor, &doc)) {
 		//str = bson_as_canonical_extended_json (doc, NULL);
 		str = bson_as_json (doc, NULL);
 		printf("\t\t\t%s\n", str);
@@ -242,13 +243,14 @@ void mongo_find(mongoc_client_t *client, mongoc_collection_t *collection, char *
 	}
 
 	bson_destroy(query);
-	ac->libmongo->mongoc_cursor_destroy(cursor);
+	lmongo->mongoc_cursor_destroy(cursor);
 	puts("---------------------------");
 }
 
 
 void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char *db, mongoc_client_t *client)
 {
+	libmongo *lmongo = ac->libmongo;
 	bson_t opts = BSON_INITIALIZER;
 	bson_t name_filter;
 	const bson_t *doc;
@@ -260,13 +262,13 @@ void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char 
 	bson_append_document_end (&opts, &name_filter);
 
 	mongoc_cursor_t *cursor = NULL;
-	if (ac->libmongo->mongoc_database_find_collections_with_opts)
+	if (lmongo->mongoc_database_find_collections_with_opts)
 	{
-		cursor = ac->libmongo->mongoc_database_find_collections_with_opts (database, &opts);
+		cursor = lmongo->mongoc_database_find_collections_with_opts (database, &opts);
 	}
-	else if (ac->libmongo->mongoc_database_find_collections)
+	else if (lmongo->mongoc_database_find_collections)
 	{
-		cursor = ac->libmongo->mongoc_database_find_collections (database, &opts, NULL);
+		cursor = lmongo->mongoc_database_find_collections (database, &opts, NULL);
 	}
 	else
 	{
@@ -274,10 +276,10 @@ void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char 
 			printf("mongodb error: not loaded mongoc_database_find_collections_with_opts or mongoc_database_find_collections from mongo-c-driver.\n");
 		return;
 	}
-	while (ac->libmongo->mongoc_cursor_next (cursor, &doc)) {
+	while (lmongo->mongoc_cursor_next (cursor, &doc)) {
 		bson_iter_init_find (&iter, doc, "name");
 		char *collection_name = (char*)bson_iter_utf8 (&iter, NULL);
-		mongoc_collection_t *collection = ac->libmongo->mongoc_client_get_collection (client, db, bson_iter_utf8 (&iter, NULL));
+		mongoc_collection_t *collection = lmongo->mongoc_client_get_collection (client, db, bson_iter_utf8 (&iter, NULL));
 		if (carg->log_level > 1)
 			printf ("============ found collection: %s\n", bson_iter_utf8 (&iter, NULL));
 
@@ -289,27 +291,28 @@ void mongo_get_collections(context_arg *carg, mongoc_database_t *database, char 
 
 		mongo_cmd_run(carg, collection, NULL, "", "collStats", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "Collection", NULL);
 		mongo_cmd_run(carg, collection, NULL, "", "dataSize", (char*)bson_iter_utf8 (&iter, NULL), mongo_Stats, "DataSize", collection_name);
-		ac->libmongo->mongoc_collection_destroy (collection);
+		lmongo->mongoc_collection_destroy (collection);
 	}
 
-	if (ac->libmongo->mongoc_cursor_error (cursor, &error)) {
+	if (lmongo->mongoc_cursor_error (cursor, &error)) {
 		fprintf (stderr, "%s\n", error.message);
 	}
 
-	ac->libmongo->mongoc_cursor_destroy (cursor);
+	lmongo->mongoc_cursor_destroy (cursor);
 	bson_destroy (&opts);
 }
 
 void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 {
+	libmongo *lmongo = ac->libmongo;
 	bson_error_t error;
 	char **strv;
 	unsigned i;
 
-	if (ac->libmongo->mongoc_client_get_database_names_with_opts)
-		strv = ac->libmongo->mongoc_client_get_database_names_with_opts (client, NULL, &error);
-	else if (ac->libmongo->mongoc_client_get_database_names)
-		strv = ac->libmongo->mongoc_client_get_database_names(client, &error);
+	if (lmongo->mongoc_client_get_database_names_with_opts)
+		strv = lmongo->mongoc_client_get_database_names_with_opts (client, NULL, &error);
+	else if (lmongo->mongoc_client_get_database_names)
+		strv = lmongo->mongoc_client_get_database_names(client, &error);
 	else
 	{
 		if (carg->log_level > 0)
@@ -325,7 +328,7 @@ void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 				puts("============== database =================");
 				printf ("= %s\n", strv[i]);
 			}
-			mongoc_database_t *database = ac->libmongo->mongoc_client_get_database (client, strv[i]);
+			mongoc_database_t *database = lmongo->mongoc_client_get_database (client, strv[i]);
 	
 			mongo_cmd_run(carg, NULL, client, strv[i], "connPoolStats", "", mongo_Stats, "ConnectionPoolStatus", strv[i]);
 			mongo_cmd_run(carg, NULL, client, strv[i], "dbStats", "", mongo_Stats, "DBStats", strv[i]);
@@ -333,7 +336,7 @@ void mongo_get_databases(mongoc_client_t *client, context_arg *carg)
 			mongo_cmd_run(carg, NULL, client, strv[i], "serverStatus", "", mongo_Stats, "ServerStatus", strv[i]);
 
 			mongo_get_collections(carg, database, strv[i], client);
-			ac->libmongo->mongoc_database_destroy(database);
+			lmongo->mongoc_database_destroy(database);
 		}
 		mongo_cmd_run(carg, NULL, client, "admin", "buildInfo", "", mongo_Stats, "Build", "admin");
 		mongo_cmd_run(carg, NULL, client, "admin", "top", "", mongo_Stats, "Top", "admin");
@@ -372,7 +375,7 @@ void mongolib_free(libmongo *lm)
 
 libmongo *mongodb_init()
 {
-	module_t *lmongo = tommy_hashdyn_search(ac->modules, module_compare, "mongodb", tommy_strhash_u32(0, "mongodb"));
+	module_t *lmongo = alligator_ht_search(ac->modules, module_compare, "mongodb", tommy_strhash_u32(0, "mongodb"));
 	if (!lmongo)
 	{
 		printf("No defined mongodb library in configuration\n");
@@ -527,16 +530,17 @@ libmongo *mongodb_init()
 
 void mongodb_run(void* arg)
 {
+	libmongo *lmongo = ac->libmongo;
 	mongoc_client_t *client;
 	//bson_error_t error;
 
 	context_arg *carg = arg;
 
-	if (!ac->libmongo)
+	if (!lmongo)
 	{
 		libmongo *lm = mongodb_init();
 		if (lm)
-			ac->libmongo = lm;
+			lmongo = lm;
 		else
 		{
 			puts("Cannot initialize mongodb functions via module");
@@ -544,13 +548,13 @@ void mongodb_run(void* arg)
 		}
 	}
 
-	ac->libmongo->mongoc_init ();
+	lmongo->mongoc_init ();
 
-	client = ac->libmongo->mongoc_client_new (carg->url);
+	client = lmongo->mongoc_client_new (carg->url);
 	mongo_get_databases(client, carg);
 
-	ac->libmongo->mongoc_client_destroy (client);
-	ac->libmongo->mongoc_cleanup ();
+	lmongo->mongoc_client_destroy (client);
+	lmongo->mongoc_cleanup ();
 
 	return;
 }
@@ -560,14 +564,14 @@ void mongodb_timer(void *arg) {
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
 	{
-		tommy_hashdyn_foreach(ac->mongodb_aggregator, mongodb_run);
+		alligator_ht_foreach(ac->mongodb_aggregator, mongodb_run);
 		usleep(ac->aggregator_repeat * 1000);
 	}
 }
 
 void mongodb_timer_without_thread(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->mongodb_aggregator, mongodb_run);
+	alligator_ht_foreach(ac->mongodb_aggregator, mongodb_run);
 }
 
 void mongodb_without_thread()
@@ -597,7 +601,7 @@ char* mongodb_client(context_arg* carg)
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
-	tommy_hashdyn_insert(ac->mongodb_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->mongodb_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "mongodb";
 }
 
@@ -606,7 +610,7 @@ void mongodb_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
-	tommy_hashdyn_remove_existing(ac->mongodb_aggregator, &(carg->node));
+	alligator_ht_remove_existing(ac->mongodb_aggregator, &(carg->node));
 	carg_free(carg);
 }
 
@@ -623,6 +627,6 @@ void mongodb_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"mongodb", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

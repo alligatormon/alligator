@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <pcre.h>
-#include "dstructures/tommy.h"
+#include "dstructures/ht.h"
 
 typedef struct stlen
 {
@@ -40,7 +40,7 @@ typedef struct regex_list {
 
 typedef struct match_rules
 {
-	tommy_hashdyn *hash;
+	alligator_ht *hash;
 	regex_list *head;
 	regex_list *tail;
 } match_rules;
@@ -65,3 +65,4 @@ string* get_file_content(char *file);
 string* string_new();
 void string_free_callback(char *data);
 string* string_init_add_auto(char *str);
+string* string_init_dup(char *str);

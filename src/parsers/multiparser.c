@@ -58,6 +58,10 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		dsv_router(response, http_data, carg);
 	}
+	else if (!strncmp(http_data->uri, "/conf", 4))
+	{
+		conf_router(response, http_data, carg);
+	}
 	else
 	{
 		//metric_str_build(0, response);
@@ -219,7 +223,7 @@ void tcp_parser_push()
 	actx->handler[0].mesg_func = tcp_mesg;
 	strlcpy(actx->handler[0].key,"tcp", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 string* blackbox_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -255,7 +259,7 @@ void blackbox_parser_push()
 	actx->handler[0].headers_pass = 0;
 	strlcpy(actx->handler[0].key,"blackbox", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void http_parser_push()
@@ -272,7 +276,7 @@ void http_parser_push()
 	actx->handler[0].headers_pass = 0;
 	strlcpy(actx->handler[0].key,"http", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void process_parser_push()
@@ -288,5 +292,5 @@ void process_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key, "process", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

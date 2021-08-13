@@ -92,18 +92,18 @@ void unix_server_init(uv_loop_t *loop, const char* file, context_arg *carg)
 	if (r)
 		printf("unix %s listen %s %s\n", file, uv_err_name(r), uv_strerror(r));
 
-	tommy_hashdyn_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 }
 
 void unix_server_stop(const char* file)
 {
 	char key[255];
 	snprintf(key, 255, "unix:%s", file);
-	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		uv_close((uv_handle_t*)carg->pipe, NULL);
 		unlink(file);
-		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 }

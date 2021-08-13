@@ -16,10 +16,10 @@ typedef struct kubernetes_endpoint_port {
 
 void kubernetes_endpoint_port_free(void *funcarg, void* arg)
 {
-	tommy_hashdyn *hash = funcarg;
+	alligator_ht *hash = funcarg;
 	kubernetes_endpoint_port *kubeport = arg;
 
-	tommy_hashdyn_remove_existing(hash, &(kubeport->node));
+	alligator_ht_remove_existing(hash, &(kubeport->node));
 	free(kubeport->name);
 
 	if (kubeport->handler)
@@ -116,8 +116,8 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	tommy_hashdyn *hash = calloc(1, sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = calloc(1, sizeof(*hash));
+	alligator_ht_init(hash);
 
 	json_t *items = json_object_get(root, "items");
 	uint64_t items_size = json_array_size(items);
@@ -181,12 +181,12 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				printf("\tkey: %s, metric_port_name: %s, type: %s, value: %s \n", annotation_key, metric_port_name, type, annotation);
 
 			uint32_t metric_hash = tommy_strhash_u32(0, metric_port_name);
-			kubernetes_endpoint_port *kubeport = tommy_hashdyn_search(hash, kubernetes_endpoint_port_compare, metric_port_name, metric_hash);
+			kubernetes_endpoint_port *kubeport = alligator_ht_search(hash, kubernetes_endpoint_port_compare, metric_port_name, metric_hash);
 			if (!kubeport)
 			{
 				kubeport = calloc(1, sizeof(*kubeport));
 				kubeport->name = strdup(metric_port_name);
-				tommy_hashdyn_insert(hash, &(kubeport->node), kubeport, metric_hash);
+				alligator_ht_insert(hash, &(kubeport->node), kubeport, metric_hash);
 			}
 			if (!strcmp(type, "handler") && !kubeport->handler)
 				kubeport->handler = strdup(annotation);
@@ -214,7 +214,7 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				char *port_name = (char*)json_string_value(port_name_json);
 				
 				uint32_t port_hash = tommy_strhash_u32(0, port_name);
-				kubernetes_endpoint_port *kubeport = tommy_hashdyn_search(hash, kubernetes_endpoint_port_compare, port_name, port_hash);
+				kubernetes_endpoint_port *kubeport = alligator_ht_search(hash, kubernetes_endpoint_port_compare, port_name, port_hash);
 				if (kubeport && kubeport->handler && kubeport->proto)
 				{
 					if (carg->log_level > 0)
@@ -260,11 +260,11 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 
-		tommy_hashdyn_foreach_arg(hash, kubernetes_endpoint_port_free, hash);
+		alligator_ht_foreach_arg(hash, kubernetes_endpoint_port_free, hash);
 	}
 
 	json_decref(root);
-	tommy_hashdyn_done(hash);
+	alligator_ht_done(hash);
 	free(hash);
 }
 
@@ -291,7 +291,7 @@ void kubernetes_ingress_parser_push()
 	actx->handler[0].mesg_func = kubernetes_ingress_mesg;
 	strlcpy(actx->handler[0].key,"kubernetes_ingress", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void kubernetes_endpoint_parser_push()
@@ -307,5 +307,5 @@ void kubernetes_endpoint_parser_push()
 	actx->handler[0].mesg_func = kubernetes_endpoint_mesg;
 	strlcpy(actx->handler[0].key,"kubernetes_endpoint", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

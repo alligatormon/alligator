@@ -4,7 +4,7 @@
 #include "query/promql.h"
 extern aconf *ac;
 
-void metric_str_build_query (char *namespace, string *str, char *name, tommy_hashdyn *hash, int func, string *groupkey, int serializer, char delimiter)
+void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter)
 {
 	namespace_struct *ns = get_namespace(namespace);
 
@@ -12,7 +12,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, tommy_has
 		name = NULL;
 	//printf("namespace %s ns %p, name %s\n", namespace, ns, name);
 
-	size_t labels_count = tommy_hashdyn_count(hash);
+	size_t labels_count = alligator_ht_count(hash);
 	metric_tree *tree = ns->metrictree;
 	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
 

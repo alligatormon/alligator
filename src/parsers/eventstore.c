@@ -67,5 +67,5 @@ void eventstore_parser_push()
 	actx->handler[2].mesg_func = eventstore_info_mesg;
 	strlcpy(actx->handler[2].key, "eventstore_info", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

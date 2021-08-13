@@ -109,7 +109,7 @@ typedef struct metric_tree
 	int64_t count;
 	size_t str_size;
 	sortplan *sort_plan;
-	tommy_hashdyn* labels_words_hash;
+	alligator_ht* labels_words_hash;
 } metric_tree;
 
 typedef struct mapping_label
@@ -147,7 +147,7 @@ typedef struct query_struct {
 	double val;
 	double min;
 	double max;
-	tommy_hashdyn *lbl;
+	alligator_ht *lbl;
 	uint64_t count;
 	tommy_node node;
 } query_struct;

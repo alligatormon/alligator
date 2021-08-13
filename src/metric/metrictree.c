@@ -408,7 +408,7 @@ void metric_str_build (char *namespace, string *str)
 	}
 }
 
-void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash, size_t labels_count)
+void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
 {
 	if (!x)
 		return;
@@ -422,7 +422,7 @@ void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, tom
 	metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
 }
 
-void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, tommy_hashdyn *hash, size_t labels_count)
+void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
 {
 	while (x)
 	{
@@ -545,8 +545,7 @@ int64_t metric_get_int(void *value, int8_t type)
 ///	tree = calloc(1, sizeof(*tree));
 ///	expiretree = calloc(1, sizeof(*tree));
 ///	
-///	labels_words_hash = malloc(sizeof(*labels_words_hash));
-///	tommy_hashdyn_init(labels_words_hash);
+///	labels_words_hash = alligator_ht_init(NULL);
 ///
 ///	expire_purge(expiretree, 100000000000000);
 ///	//metric_build(tree);

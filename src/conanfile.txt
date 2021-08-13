@@ -5,6 +5,8 @@ mbedtls/2.16.3-apache
 jemalloc/5.2.1
 zlib/1.2.11
 libuuid/1.0.3
+lua/5.4.1
+duktape/2.5.0
 
 [generators]
 cmake

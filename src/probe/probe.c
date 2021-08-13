@@ -2,6 +2,7 @@
 #include "probe/probe.h"
 #include "metric/labels.h"
 #include "common/http.h"
+#include "config/intstrvalue.h"
 #include "main.h"
 
 int probe_compare(const void* arg, const void* obj)
@@ -13,7 +14,7 @@ int probe_compare(const void* arg, const void* obj)
 
 probe_node* probe_get(char *name)
 {
-	probe_node *pn = tommy_hashdyn_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
+	probe_node *pn = alligator_ht_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
 	if (pn)
 		return pn;
 	else
@@ -36,9 +37,7 @@ void probe_push_json(json_t *probe)
 	char *prober = (char*)json_string_value(jprober);
 
 	pn->timeout = 5000;
-	json_t *jtimeout = json_object_get(probe, "timeout");
-	if (jtimeout)
-		pn->timeout = json_integer_value(jtimeout);
+	pn->timeout = config_get_intstr_json(probe, "timeout");
 
 	pn->method = HTTP_GET;
 	json_t *jmethod = json_object_get(probe, "method");
@@ -49,26 +48,10 @@ void probe_push_json(json_t *probe)
 			pn->method = HTTP_POST;
 	}
 
-	json_t *jfollow_redirects = json_object_get(probe, "follow_redirects");
-	if (jfollow_redirects)
-	{
-		char *follow_redirects = (char*)json_string_value(jfollow_redirects);
-		pn->follow_redirects = strtoll(follow_redirects, NULL, 10);
-	}
+	pn->follow_redirects = config_get_intstr_json(probe, "follow_redirects");
 
-	json_t *jloop = json_object_get(probe, "loop");
-	if (jloop)
-	{
-		char *loop = (char*)json_string_value(jloop);
-		pn->loop = strtoll(loop, NULL, 10);
-	}
-
-	json_t *jpercent = json_object_get(probe, "percent");
-	if (jpercent)
-	{
-		char *percent = (char*)json_string_value(jpercent);
-		pn->percent_success = strtod(percent, NULL);
-	}
+	pn->loop = config_get_intstr_json(probe, "loop");
+	pn->percent_success = config_get_floatstr_json(probe, "percent");
 
 	json_t *jca_file = json_object_get(probe, "ca_file");
 	if (jca_file)
@@ -179,7 +162,7 @@ void probe_push_json(json_t *probe)
 	if (ac->log_level > 0)
 		printf("create probe node name '%s' and prober '%s'\n", pn->name, prober);
 
-	tommy_hashdyn_insert(ac->probe, &(pn->node), pn, tommy_strhash_u32(0, pn->name));
+	alligator_ht_insert(ac->probe, &(pn->node), pn, tommy_strhash_u32(0, pn->name));
 }
 
 void probe_del_json(json_t *probe)
@@ -189,10 +172,10 @@ void probe_del_json(json_t *probe)
 		return;
 	char *name = (char*)json_string_value(jname);
 
-	probe_node *pn = tommy_hashdyn_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
+	probe_node *pn = alligator_ht_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
 	if (pn)
 	{
-		tommy_hashdyn_remove_existing(ac->probe, &(pn->node));
+		alligator_ht_remove_existing(ac->probe, &(pn->node));
 
 		if (pn->name)
 			free(pn->name);

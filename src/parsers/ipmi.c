@@ -11,7 +11,7 @@
 
 typedef struct ipmi_data
 {
-	tommy_hashdyn *event_log;
+	alligator_ht *event_log;
 } ipmi_data;
 
 typedef struct eventlog_node
@@ -53,7 +53,7 @@ void event_log_for(void *funcarg, void* arg)
 	ipmi_data *idata = carg->data;
 	
 	metric_add_labels3("ipmi_eventlog_key", &eventnode->val, DATATYPE_UINT, carg, "key",  eventnode->key, "state", eventnode->state, "resource", eventnode->resource);
-	tommy_hashdyn_remove_existing(idata->event_log, &(eventnode->node));
+	alligator_ht_remove_existing(idata->event_log, &(eventnode->node));
 	free(eventnode);
 }
 
@@ -238,7 +238,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 	if (!idata->event_log)
 	{
 		idata->event_log = calloc(1, sizeof(*idata->event_log));
-		tommy_hashdyn_init(idata->event_log);
+		alligator_ht_init(idata->event_log);
 	}
 	
 	uint8_t newind;
@@ -317,7 +317,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 		i += strspn(metrics+i, " |\t");
 
 		uint32_t key_hash = tommy_strhash_u32(0, key);
-		eventlog_node *eventnode = tommy_hashdyn_search(idata->event_log, eventlog_node_compare, key, key_hash);
+		eventlog_node *eventnode = alligator_ht_search(idata->event_log, eventlog_node_compare, key, key_hash);
 		if (!eventnode)
 		{
 			eventnode = calloc(1, sizeof(*eventnode));
@@ -325,7 +325,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(eventnode->resource, resource, 255);
 			strlcpy(eventnode->state, state, 255);
 			eventnode->val = 1;
-			tommy_hashdyn_insert(idata->event_log, &(eventnode->node), eventnode, tommy_strhash_u32(0, eventnode->key));
+			alligator_ht_insert(idata->event_log, &(eventnode->node), eventnode, tommy_strhash_u32(0, eventnode->key));
 		}
 		else
 			++(eventnode->val);
@@ -333,7 +333,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 		i += strcspn(metrics+i, "\n");
 	}
 
-	tommy_hashdyn_foreach_arg(idata->event_log, event_log_for, carg);
+	alligator_ht_foreach_arg(idata->event_log, event_log_for, carg);
 	metric_add_auto("ipmi_eventlog_size", &num, DATATYPE_UINT, carg);
 }
 
@@ -478,8 +478,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 	char name[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
 
-	tommy_hashdyn *hash = malloc(sizeof(*hash));
-	tommy_hashdyn_init(hash);
+	alligator_ht *hash = alligator_ht_init(NULL);
 
 	for (uint64_t i = 0; i < size; i++)
 	{
@@ -593,5 +592,5 @@ void ipmi_parser_push()
 	actx->handler[4].mesg_func = ipmi_lan_print_mesg;
 	strlcpy(actx->handler[4].key,"ipmi_lan_print", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

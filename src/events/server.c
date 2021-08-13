@@ -528,7 +528,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		return NULL;
 	}
 
-	tommy_hashdyn_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+	alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
 	return srv_carg;
 }
 
@@ -536,11 +536,11 @@ void tcp_server_stop(const char* ip, int port)
 {
 	char key[255];
 	snprintf(key, 255, "tcp:%s:%u", ip, port);
-	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		uv_close((uv_handle_t*)&carg->server, NULL);
-		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 	carg_free(carg);
 }

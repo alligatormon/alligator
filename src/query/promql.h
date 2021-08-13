@@ -15,12 +15,12 @@
 typedef struct metric_query_context {
 	int func;
 	string *groupkey;
-	tommy_hashdyn *lbl;
+	alligator_ht *lbl;
 	char *query;
 	size_t size;
 	char *name;
 } metric_query_context;
 
-//tommy_hashdyn* promql_parser(tommy_hashdyn* lbl, char *query, size_t size, char *name, int *func, string *groupkey, metric_query_context *mqc);
-metric_query_context *promql_parser(tommy_hashdyn* lbl, char *query, size_t size);
+//alligator_ht* promql_parser(alligator_ht* lbl, char *query, size_t size, char *name, int *func, string *groupkey, metric_query_context *mqc);
+metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size);
 metric_query_context *query_context_new(char *name);

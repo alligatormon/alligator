@@ -60,7 +60,7 @@ public class alligatorJks {
 		return outstr;
 	}
 
-	public String walkJks(String argv) throws Exception {
+	public String walkJks(String argv, String metrics, String conf) throws Exception {
 		//String retstring = "LOL";
 		if (argv == null)
 		{

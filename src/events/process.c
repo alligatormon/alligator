@@ -166,7 +166,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 //	//pinfo->child_stdio = child_stdio;
 //	pinfo->parser_handler = parser_handler;
 //	pinfo->args = args;
-//	tommy_hashdyn_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
+//	alligator_ht_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
 //}
 
 void env_struct_process(void *funcarg, void* arg)
@@ -194,13 +194,14 @@ char* process_client(context_arg *carg)
 	//char *template = malloc(1000);
 	string *stemplate = string_init(1000);
 	snprintf(fname, fsize-1, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
-	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
+	if (ac->log_level > 0)
+		printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
 	// TODO /bin/bash only linux, need customize
 	//int rc;
 	string_cat(stemplate, "#!/bin/bash\n", 12);
 
 	if (carg->env)
-		tommy_hashdyn_foreach_arg(carg->env, env_struct_process, stemplate);
+		alligator_ht_foreach_arg(carg->env, env_struct_process, stemplate);
 
 
 	if (carg->stdin_s && carg->stdin_l)
@@ -264,7 +265,7 @@ char* process_client(context_arg *carg)
 	if (!carg->key)
 		carg->key = carg->host;
 	carg->args = args;
-	tommy_hashdyn_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	return "process";
 }
@@ -274,8 +275,8 @@ void process_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	tommy_hashdyn_remove_existing(ac->aggregators, &(carg->context_node));
-	tommy_hashdyn_remove_existing(ac->process_spawner, &(carg->node));
+	alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
 	ac->process_cnt--;
 	carg_free(carg);
 }
@@ -325,7 +326,7 @@ void on_process_spawn(void* arg)
 
 static void process_spawn_cb(uv_timer_t* handle) {
 	extern aconf* ac;
-	tommy_hashdyn_foreach(ac->process_spawner, on_process_spawn);
+	alligator_ht_foreach(ac->process_spawner, on_process_spawn);
 }
 
 void process_handler()

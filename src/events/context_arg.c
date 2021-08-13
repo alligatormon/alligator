@@ -15,8 +15,8 @@ context_arg *carg_copy(context_arg *src)
 void env_struct_free(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
-	tommy_hashdyn *hash = funcarg;
-	tommy_hashdyn_remove_existing(hash, &(es->node));
+	alligator_ht *hash = funcarg;
+	alligator_ht_remove_existing(hash, &(es->node));
 	free(es->k);
 	free(es->v);
 	free(es);
@@ -55,8 +55,8 @@ void carg_free(context_arg *carg)
 
 	if (carg->env)
 	{
-		tommy_hashdyn_foreach_arg(carg->env, env_struct_free, carg->env);
-		tommy_hashdyn_done(carg->env);
+		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
+		alligator_ht_done(carg->env);
 		free(carg->env);
 	}
 	// TODO: free carg->labels
@@ -94,33 +94,32 @@ int env_struct_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-void env_struct_push_alloc(tommy_hashdyn* hash, char *k, char *v)
+void env_struct_push_alloc(alligator_ht* hash, char *k, char *v)
 {
 	if (!hash || !k || !v)
 		return;
 
 	uint32_t key_hash = tommy_strhash_u32(0, k);
-	env_struct *es = tommy_hashdyn_search(hash, env_struct_compare, k, key_hash);
+	env_struct *es = alligator_ht_search(hash, env_struct_compare, k, key_hash);
 	if (!es)
 	{
 		es = calloc(1, sizeof(*es));
 		es->k = strdup(k);
 		es->v = strdup(v);
-		tommy_hashdyn_insert(hash, &(es->node), es, key_hash);
+		alligator_ht_insert(hash, &(es->node), es, key_hash);
 	}
 	else if (ac->log_level > 1)
 		printf("duplicate header key %s\n", k);
 }
 
-tommy_hashdyn *env_struct_parser(json_t *root)
+alligator_ht *env_struct_parser(json_t *root)
 {
 	json_t *json_env = json_object_get(root, "env");
 
 	const char *env_name;
 	json_t *env_jkey;
-	tommy_hashdyn *env = NULL;
-	env = malloc(sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(env);
+	alligator_ht *env = NULL;
+	env = alligator_ht_init(NULL);
 
 	json_object_foreach(json_env, env_name, env_jkey)
 	{
@@ -133,18 +132,17 @@ tommy_hashdyn *env_struct_parser(json_t *root)
 void env_struct_duplicate_foreach(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
-	tommy_hashdyn *hash = funcarg;
+	alligator_ht *hash = funcarg;
 	env_struct_push_alloc(hash, es->k, es->v);
 }
 
-tommy_hashdyn* env_struct_duplicate(tommy_hashdyn *src)
+alligator_ht* env_struct_duplicate(alligator_ht *src)
 {
 	if (!src)
 		return src;
 
-	tommy_hashdyn *dst = malloc(sizeof(*dst));
-	tommy_hashdyn_init(dst);
-	tommy_hashdyn_foreach_arg(src, env_struct_duplicate_foreach, dst);
+	alligator_ht *dst = alligator_ht_init(NULL);
+	alligator_ht_foreach_arg(src, env_struct_duplicate_foreach, dst);
 	return dst;
 }
 
@@ -157,17 +155,17 @@ void env_struct_dump_foreach(void *funcarg, void* arg)
 	json_array_object_insert(env, es->k, value);
 }
 
-json_t* env_struct_dump(tommy_hashdyn *src)
+json_t* env_struct_dump(alligator_ht *src)
 {
 	if (!src)
 		return NULL;
 
 	json_t *env = json_object();
-	tommy_hashdyn_foreach_arg(src, env_struct_dump_foreach, env);
+	alligator_ht_foreach_arg(src, env_struct_dump_foreach, env);
 	return env;
 }
 
-context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, tommy_hashdyn *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
+context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
@@ -231,6 +229,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (str_cert)
 		carg->tls_cert_file = strdup(str_cert);
 
+	json_t *json_tls_server_name = json_object_get(root, "tls_server_name");
+	char *tls_server_name = (char*)json_string_value(json_tls_server_name);
+	if (tls_server_name)
+		carg->tls_server_name = strdup(tls_server_name);
+
 	json_t *json_tls_key = json_object_get(root, "tls_key");
 	char *str_tls_key = (char*)json_string_value(json_tls_key);
 	if (str_tls_key)
@@ -291,8 +294,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 		if (!carg->labels)
 		{
-			carg->labels = malloc(sizeof(tommy_hashdyn));
-			tommy_hashdyn_init(carg->labels);
+			carg->labels = alligator_ht_init(NULL);
 		}
 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);

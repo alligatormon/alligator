@@ -6,10 +6,16 @@
 #include "modules/modules.h"
 extern aconf* ac;
 
-char* java_run(char *optionString, char* className, char *method, char *arg)
+char* java_run(char *optionString, char* className, char *method, char *arg, string *metrics, string *conf)
 {
 	if (ac->log_level > 0)
-		puts("java_run");
+		printf("java_run\n");
+
+	printf("option string is: %s, classname is %s, method %s, arg is %s\n", optionString, className, method, arg);
+
+	char *metrics_str = metrics ? metrics->s : "";
+	char *conf_str = conf ? conf->s : "";
+
 	JavaVMOption options[3];
 	JavaVM *jvm;
 	JavaVMInitArgs vm_args;
@@ -27,7 +33,7 @@ char* java_run(char *optionString, char* className, char *method, char *arg)
 
 	if (!ac->create_jvm)
 	{
-		module_t *libjvm = tommy_hashdyn_search(ac->modules, module_compare, "jvm", tommy_strhash_u32(0, "jvm"));
+		module_t *libjvm = alligator_ht_search(ac->modules, module_compare, "jvm", tommy_strhash_u32(0, "jvm"));
 		if (!libjvm)
 		{
 			if (ac->log_level > 0)
@@ -66,15 +72,20 @@ char* java_run(char *optionString, char* className, char *method, char *arg)
 	}
 
 	//mid = (*ac->env)->GetMethodID(ac->env, cls, method, "()Ljava/lang/String;");
-	mid = (*ac->env)->GetMethodID(ac->env, cls, method, "(Ljava/lang/String;)Ljava/lang/String;");
-	// LalligatorJks;.walkJks(Ljava/lang/String;)Ljava/lang/String
+	mid = (*ac->env)->GetMethodID(ac->env, cls, method, "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+	//if (!mid)
+	//{
+		printf("mid is %p, return! Not found (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;\n", mid);
+	//}
 	jobject classifierObj = (*ac->env)->NewObject(ac->env, cls, mid);
 
 	char *ptr = NULL;
 	if (mid)
 	{
 		jstring js = (*ac->env)->NewStringUTF(ac->env, arg);
-		jstring rv = (*ac->env)->CallObjectMethod(ac->env, classifierObj, mid, js);
+		jstring jmetrics = (*ac->env)->NewStringUTF(ac->env, metrics_str);
+		jstring jconf = (*ac->env)->NewStringUTF(ac->env, conf_str);
+		jstring rv = (*ac->env)->CallObjectMethod(ac->env, classifierObj, mid, js, jmetrics, jconf);
 
 		ptr = (char*)(*ac->env)->GetStringUTFChars(ac->env, rv, 0);
 		printf("Result of '%s': '%s'\n", method, ptr);

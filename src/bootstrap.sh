@@ -18,7 +18,7 @@ apt install -y libnftnl-dev
 apt install -y libmongoc-dev
 apt install -y libbson-dev
 ln -s /usr/bin/make /usr/bin/gmake
-apt install -y libpcre3-dev python3 libpq-dev m4 curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev uuid-dev libghc-regex-pcre-dev vim python3-pip libtool-bin valgrind netcat
+apt install -y libpcre3-dev python3 libpq-dev m4 curl libzookeeper-mt-dev libatasmart4 libjemalloc-dev uuid-dev libghc-regex-pcre-dev vim python3-pip libtool-bin valgrind netcat python3-devel
 apt install -y libmysqlclient-dev
 apt -y install libiptc-dev
 apt -y install git
@@ -37,6 +37,7 @@ echo 'skip_if_unavailable=true' >> /etc/yum.repos.d/cutter.repo
 yum -y install https://repo.ius.io/ius-release-el7.rpm
 yum -y install vim
 yum -y install snappy-devel
+yum -y install python3-devel
 ln -sf /usr/bin/vim /usr/bin/vi
 yum -y install rpm-devel systemd-devel nc mariadb-server mariadb-devel postgresql-server postgresql-devel postgresql-static pgbouncer sudo java-latest-openjdk-devel jq nsd nmap-ncat unbound python3-pip gcc wget cmake3 rpmdevtools redhat-rpm-config epel-rpm-macros createrepo gcc-c++ make git libtool libuuid-devel valgrind pcre-devel libbson-devel cyrus-sasl-devel libicu-devel libzstd-devel libev-devel libevent-devel libxslt
 yum -y install cutter pcre-static libuv-static postgresql-pgpool-II mysql-proxy-devel mysql-proxy glibc-static libpqxx-devel netcat

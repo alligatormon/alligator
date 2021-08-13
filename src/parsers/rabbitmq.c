@@ -735,6 +735,6 @@ void rabbitmq_parser_push()
 	actx->handler[5].mesg_func = rabbitmq_vhosts_mesg;
 	strlcpy(actx->handler[5].key,"rabbitmq_vhosts", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

@@ -2,25 +2,21 @@
 #define TCPUDP_NET_LENREAD 10000000
 #include "platform/platform.h"
 #include "dstructures/tommy.h"
+#include "dstructures/ht.h"
 #include <uv.h>
-//#include <jni.h>
 #include "common/jni.h"
 #include "metric/labels.h"
 #include "events/fs_write.h"
 #include "events/uv_alloc.h"
 #include "common/selector.h"
 #include "events/general.h"
-#include "events/a_signal.h"
 #include "events/udp.h"
 #include "events/server.h"
 #include "events/unixgram.h"
 #include "events/client.h"
 #include "events/process.h"
 #include "events/filetailer.h"
-#include "parsers/multiparser.h"
 #include "metric/namespace.h"
-//#include "common/rpm.h"
-#include "parsers/mongodb.h"
 #include "parsers/postgresql.h"
 #include "parsers/mysql.h"
 #include "common/aggregator.h"
@@ -83,49 +79,49 @@ typedef struct userprocess_node {
 typedef struct aconf
 {
 	namespace_struct *nsdefault;
-	tommy_hashdyn *_namespace;
+	alligator_ht *_namespace;
 
-	tommy_hashdyn* aggregator;
-	tommy_hashdyn* file_aggregator;
-	tommy_hashdyn* pg_aggregator;
-	tommy_hashdyn* zk_aggregator;
-	tommy_hashdyn* mongodb_aggregator;
-	tommy_hashdyn* my_aggregator;
-	tommy_hashdyn* tls_aggregator;
+	alligator_ht* aggregator;
+	alligator_ht* file_aggregator;
+	alligator_ht* pg_aggregator;
+	alligator_ht* zk_aggregator;
+	alligator_ht* mongodb_aggregator;
+	alligator_ht* my_aggregator;
+	alligator_ht* tls_aggregator;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
 	int64_t file_aggregator_repeat;
 	int64_t tls_aggregator_startup;
 	int64_t tls_aggregator_repeat;
 
-	tommy_hashdyn* uggregator;
-	tommy_hashdyn* udpaggregator;
+	alligator_ht* uggregator;
+	alligator_ht* udpaggregator;
 
-	tommy_hashdyn* iggregator;
+	alligator_ht* iggregator;
 	int64_t iggregator_startup;
 	int64_t iggregator_repeat;
 
-	tommy_hashdyn* unixgram_aggregator;
+	alligator_ht* unixgram_aggregator;
 	int64_t unixgram_aggregator_startup;
 	int64_t unixgram_aggregator_repeat;
 
 	// SYSTEM METRICS SCRAPE
-	tommy_hashdyn* system_aggregator;
+	alligator_ht* system_aggregator;
 	int64_t system_aggregator_startup;
 	int64_t system_aggregator_repeat;
 
 	// PROCESS SPAWNER
-	tommy_hashdyn* process_spawner; // hashtable with commands
+	alligator_ht* process_spawner; // hashtable with commands
 	char *process_script_dir; // dir where store commands into scripts
 	int64_t process_cnt; // count process pushed to hashtable
 
 	// LANG SPAWNER
-	tommy_hashdyn* lang_aggregator;
+	alligator_ht* lang_aggregator;
 	int64_t lang_aggregator_startup;
 	int64_t lang_aggregator_repeat;
 
 	// modules paths
-	tommy_hashdyn* modules;
+	alligator_ht* modules;
 
 	uv_loop_t *loop;
 	uint64_t tcp_client_count;
@@ -136,24 +132,26 @@ typedef struct aconf
 	uint64_t request_cnt;
 
 	// servers hash tables
-	tommy_hashdyn* tcp_server_handler;
+	alligator_ht* tcp_server_handler;
 
 	// config parser handlers
-	tommy_hashdyn* config_ctx;
-	tommy_hashdyn* aggregate_ctx;
+	alligator_ht* config_ctx;
+	alligator_ht* aggregate_ctx;
 
 	// filetailer file list
-	tommy_hashdyn* file_stat;
+	alligator_ht* file_stat;
 
 	// local fs x509 cert scraper
-	tommy_hashdyn* fs_x509;
+	alligator_ht* fs_x509;
 	int64_t tls_fs_startup;
 	int64_t tls_fs_repeat;
 
+	alligator_ht* puppeteer;
+
 	// local query processing
-	tommy_hashdyn* action;
-	tommy_hashdyn* query;
-	tommy_hashdyn* probe;
+	alligator_ht* action;
+	alligator_ht* query;
+	alligator_ht* probe;
 	int64_t query_startup;
 	int64_t query_repeat;
 
@@ -172,8 +170,8 @@ typedef struct aconf
 	char *system_usrdir;
 	char *system_etcdir;
 	char *cadvisor_tcpudpbuf;
-	tommy_hashdyn* system_userprocess;
-	tommy_hashdyn* system_groupprocess;
+	alligator_ht* system_userprocess;
+	alligator_ht* system_groupprocess;
 	uint64_t system_cpuavg_period;
 	double system_cpuavg_sum;
 	uint64_t system_cpuavg_ptr;
@@ -181,29 +179,25 @@ typedef struct aconf
 	double *system_avg_metrics;
 	r_time last_time_cpu;
 	pidfile_list *system_pidfile;
-#ifdef __linux__
-	//rpm_library *rpmlib;
-	void *rpmlib;
-#endif
-	int8_t rpm_readconf;
 	context_arg *system_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	match_rules *packages_match;
 	match_rules *services_match;
-	tommy_hashdyn* fdesc;
-	tommy_hashdyn* ping_hash;
+	alligator_ht* fdesc;
+	alligator_ht* ping_hash;
 
-	tommy_hashdyn* entrypoints;
-	tommy_hashdyn* aggregators;
+	alligator_ht* entrypoints;
+	alligator_ht* aggregators;
 
 	uv_lib_t* libjvm_handle;
 	jint (*create_jvm)(JavaVM**, void**, void*);
 	JNIEnv *env;
 
-	libmongo *libmongo;
+	void *libmongo;
 	pq_library *pqlib;
 	my_library *mylib;
+	void *pylib;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int64_t ttl; // global TTL for metrics

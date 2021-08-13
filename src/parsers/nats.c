@@ -71,5 +71,5 @@ void nats_parser_push()
 	actx->handler[3].mesg_func = nats_subsz_mesg;
 	strlcpy(actx->handler[3].key,"nats_subsz", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

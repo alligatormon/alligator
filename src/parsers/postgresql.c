@@ -61,7 +61,7 @@ void postgresql_free(pq_library* pglib)
 
 pq_library* postgresql_init()
 {
-	module_t *libpq = tommy_hashdyn_search(ac->modules, module_compare, "postgresql", tommy_strhash_u32(0, "postgresql"));
+	module_t *libpq = alligator_ht_search(ac->modules, module_compare, "postgresql", tommy_strhash_u32(0, "postgresql"));
 	if (!libpq)
 	{
 		printf("No defined postgresql library in configuration\n");
@@ -352,8 +352,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 
 	for (i=0; i<ac->pqlib->PQntuples(r); ++i)
 	{
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		if (carg->ns)
 			labels_hash_insert_nocache(hash, "dbname", carg->ns);
@@ -445,7 +444,8 @@ void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *ca
 
 void postgresql_get_databases(PGconn *conn, context_arg *carg)
 {
-	PGresult *res = ac->pqlib->PQexec(conn, "SELECT datname FROM pg_catalog.pg_database");
+	//PGresult *res = ac->pqlib->PQexec(conn, "SELECT datname FROM pg_catalog.pg_database");
+	PGresult *res = ac->pqlib->PQexec(conn, "SELECT datname FROM pg_catalog.pg_database WHERE datname != 'postgres'");
 	context_arg *db_carg = malloc(sizeof(*db_carg));
 	size_t url_len = strlen(carg->url) + 1024;
 	char *url = malloc(url_len);
@@ -615,8 +615,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 				else
 					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
 
-				tommy_hashdyn *hash = malloc(sizeof(*hash));
-				tommy_hashdyn_init(hash);
+				alligator_ht *hash = alligator_ht_init(NULL);
 				if (*dbname)
 					labels_hash_insert_nocache(hash, database_class, dbname);
 				if (*user)
@@ -693,8 +692,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 				}
 				else if (!strcmp(colname, "wait_us") || !strcmp(colname, "maxwait_us"))
 				{
-					tommy_hashdyn *hash = malloc(sizeof(*hash));
-					tommy_hashdyn_init(hash);
+					alligator_ht *hash = alligator_ht_init(NULL);
 					if (*dbname)
 						labels_hash_insert_nocache(hash, database_class, dbname);
 					if (*user)
@@ -726,8 +724,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 				}
 				else
 				{
-					tommy_hashdyn *hash = malloc(sizeof(*hash));
-					tommy_hashdyn_init(hash);
+					alligator_ht *hash = alligator_ht_init(NULL);
 					if (*dbname)
 						labels_hash_insert_nocache(hash, database_class, dbname);
 					if (*user)
@@ -837,7 +834,7 @@ void postgresql_run(void* arg)
 				printf("found queries for datasource: %s: %p\n", carg->name, qds);
 			if (qds)
 			{
-				tommy_hashdyn_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
+				alligator_ht_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
 			}
 		}
 
@@ -866,14 +863,14 @@ void postgresql_timer(void *arg) {
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
 	{
-		tommy_hashdyn_foreach(ac->pg_aggregator, postgresql_run);
+		alligator_ht_foreach(ac->pg_aggregator, postgresql_run);
 		usleep(ac->aggregator_repeat * 1000);
 	}
 }
 
 void postgresql_timer_without_thread(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->pg_aggregator, postgresql_run);
+	alligator_ht_foreach(ac->pg_aggregator, postgresql_run);
 }
 
 void postgresql_without_thread()
@@ -901,7 +898,7 @@ char* postgresql_client(context_arg* carg)
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
-	tommy_hashdyn_insert(ac->pg_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->pg_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "postgresql";
 }
 
@@ -910,7 +907,7 @@ void postgresql_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
-	tommy_hashdyn_remove_existing(ac->pg_aggregator, &(carg->node));
+	alligator_ht_remove_existing(ac->pg_aggregator, &(carg->node));
 	carg_free(carg);
 }
 
@@ -929,7 +926,7 @@ void pg_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"postgresql", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void pgbouncer_parser_push()
@@ -948,7 +945,7 @@ void pgbouncer_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"pgbouncer", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void odyssey_parser_push()
@@ -967,7 +964,7 @@ void odyssey_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"odyssey", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void pgpool_parser_push()
@@ -986,5 +983,5 @@ void pgpool_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key,"pgpool", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

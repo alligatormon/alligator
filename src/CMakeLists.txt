@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.2)
 set(VERSION 1.14.0)
 project(alligator VERSION ${VERSION})
 
+#set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
+#set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${CMAKE_COMMAND} -E time")
+
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
@@ -19,6 +22,7 @@ file(STRINGS /etc/os-release disversion REGEX "^VERSION_ID=")
 string(REGEX REPLACE "VERSION_ID=\"(.*)\"" "\\1" disversion "${disversion}")
 message("found ${distro}.${disversion}")
 
+# for speed check add -H -ftime-report
 IF(${distro}.${disversion} MATCHES "centos.7")
 #set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -fstack-protector-all -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wunreachable-code -O3 -std=gnu11 -pthread")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wundef -Wunreachable-code -O3 -std=gnu11 -pthread")
@@ -45,6 +49,8 @@ include_directories(external/mongo-c-driver/src/libmongoc/src/mongoc)
 include_directories(external/mongo-c-driver/src/libbson/src)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
+include_directories(external/mruby/include/)
+include_directories(/usr/include/python3.6m/)
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 include_directories(external/mbedtls/include/)
 link_directories(external/mbedtls/library/)
@@ -68,6 +74,7 @@ link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
 link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
+link_directories(external/mruby/build/host/lib/)
 IF(${distro} MATCHES "centos")
 link_directories(external/iptables/libiptc/.libs/)
 ELSE(${distro} MATCHES "centos")
@@ -155,6 +162,7 @@ set(STATIC_FILES
 	parsers/druid.c
 	parsers/mogilefs.c
 	parsers/moosefs.c
+	parsers/rpm.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -176,6 +184,7 @@ set(STATIC_FILES
 	common/file_stat.c
 	common/crc32.c
 	common/murmurhash.c
+	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c
 	action/action.c
@@ -184,19 +193,28 @@ set(STATIC_FILES
 	router/probe.c
 	router/json.c
 	router/dsv.c
+	router/conf.c
 	api/api_router.c
 	api/api_v1.c
 	common/reject.c
 	common/iptc.c
 	common/entrypoint.c
 	common/pw.c
+	common/stop.c
 	config/env.c
 	config/parser.c
 	config/plain.c
 	config/mapping.c
+	config/get.c
+	config/intstrvalue.c
 	dynconf/sd.c
 	lang/lang.c
 	lang/java.c
+	lang/lua.c
+	lang/mruby.c
+	lang/python.c
+	lang/so.c
+	lang/duktape.c
 	system/linux.c
 	system/common.c
 	system/freebsd.c
@@ -213,6 +231,7 @@ set(STATIC_FILES
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
+	dstructures/ht.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -224,11 +243,11 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
 )
-IF(${distro} MATCHES "centos")
-set(RPM_FILES common/rpm.c)
-ELSE(${distro} MATCHES "centos")
-set(RPM_FILES common/rpm-common.c)
-ENDIF(${distro} MATCHES "centos")
+#IF(${distro} MATCHES "centos")
+#set(RPM_FILES parser/rpm.c)
+#ELSE(${distro} MATCHES "centos")
+#set(RPM_FILES parser/rpm-common.c)
+#ENDIF(${distro} MATCHES "centos")
 add_library(${COMMON} STATIC ${STATIC_FILES} ${RPM_FILES})
 add_executable(${HEAD} main.c)
 configure_file(alligator_template.h ${CMAKE_SOURCE_DIR}/alligator_version.h)
@@ -274,6 +293,7 @@ ENDIF(${distro}.${disversion} MATCHES "centos.7")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer.js /var/lib/alligator)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
@@ -284,7 +304,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libjemalloc.a libfyaml-0.7.a libpcre.a libbson-static-1.0.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libjemalloc.a libfyaml-0.7.a libpcre.a libbson-static-1.0.a liblua.a libmruby.a libmruby_core.a libduktape.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
@@ -299,6 +319,7 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/puppeteer.js DESTINATION /var/lib/alligator)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/local/bin)
@@ -307,6 +328,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/puppeteer.js DESTINATION /var/lib/alligator)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/bin)

@@ -13,7 +13,7 @@ void mysql_run(void* arg);
 
 my_library* mysql_module_init()
 {
-	module_t *libmy = tommy_hashdyn_search(ac->modules, module_compare, "mysql", tommy_strhash_u32(0, "mysql"));
+	module_t *libmy = alligator_ht_search(ac->modules, module_compare, "mysql", tommy_strhash_u32(0, "mysql"));
 	if (!libmy)
 	{
 		printf("No defined libmysql library in configuration\n");
@@ -161,8 +161,7 @@ void mysql_execution(context_arg *carg, MYSQL *con, query_node *qn)
 	MYSQL_ROW row;
 	while ((row = ac->mylib->mysql_fetch_row(result)))
 	{
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		if (carg->ns)
 			labels_hash_insert_nocache(hash, "dbname", carg->ns);
@@ -331,8 +330,7 @@ void sphinxsearch_callback(context_arg *carg, MYSQL *con, query_node *qn)
 				{
 					if (isdigit(*res))
 					{
-						tommy_hashdyn *hash = malloc(sizeof(*hash));
-						tommy_hashdyn_init(hash);
+						alligator_ht *hash = alligator_ht_init(NULL);
 						if (*status)
 							labels_hash_insert_nocache(hash, "status", status);
 						if (*ConnID)
@@ -539,7 +537,7 @@ void mysql_run(void* arg)
 			if (qds)
 			{
 				//carg->data = con;
-				tommy_hashdyn_foreach_arg(qds->hash, mysql_queries_foreach, carg);
+				alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, carg);
 			}
 		}
 
@@ -560,15 +558,15 @@ void mysql_timer(void *arg) {
 	usleep(ac->aggregator_startup * 1000);
 	while ( 1 )
 	{
-		puts("tommy_hashdyn_foreach");
-		tommy_hashdyn_foreach(ac->my_aggregator, mysql_run);
+		puts("alligator_ht_foreach");
+		alligator_ht_foreach(ac->my_aggregator, mysql_run);
 		usleep(ac->aggregator_repeat * 1000);
 	}
 }
 
 void mysql_timer_without_thread(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->my_aggregator, mysql_run);
+	alligator_ht_foreach(ac->my_aggregator, mysql_run);
 }
 
 void mysql_without_thread()
@@ -594,7 +592,7 @@ char* mysql_client(context_arg* carg)
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
-	tommy_hashdyn_insert(ac->my_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->my_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "mysql";
 }
 
@@ -603,7 +601,7 @@ void mysql_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
-	tommy_hashdyn_remove_existing(ac->my_aggregator, &(carg->node));
+	alligator_ht_remove_existing(ac->my_aggregator, &(carg->node));
 	carg_free(carg);
 }
 
@@ -623,7 +621,7 @@ void mysql_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key, "mysql", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 
 void sphinxsearch_parser_push()
@@ -642,5 +640,5 @@ void sphinxsearch_parser_push()
 	actx->handler[0].mesg_func = NULL;
 	strlcpy(actx->handler[0].key, "sphinxsearch", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

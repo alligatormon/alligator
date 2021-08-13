@@ -20,7 +20,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 	char target[LIGHTTPD_LABEL_SIZE];
 	char backend[LIGHTTPD_LABEL_SIZE];
 	char debug_string[LIGHTTPD_LABEL_SIZE];
-	tommy_hashdyn *lbl = NULL;
+	alligator_ht *lbl = NULL;
 
 	char *tmp = metrics;
 	uint64_t sz;
@@ -35,7 +35,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		}
 
 		lbl = calloc(1, sizeof(*lbl));
-		tommy_hashdyn_init(lbl);
+		alligator_ht_init(lbl);
 		module[0] = 0;
 		type[0] = 0;
 		target[0] = 0;
@@ -148,7 +148,7 @@ void lighttpd_parser_push()
 	actx->handler[0].mesg_func = lighttpd_status_mesg;
 	strlcpy(actx->handler[0].key,"lighttpd_status", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 
 
 	actx = calloc(1, sizeof(*actx));
@@ -162,5 +162,5 @@ void lighttpd_parser_push()
 	actx->handler[0].mesg_func = lighttpd_statistics_mesg;
 	strlcpy(actx->handler[0].key,"lighttpd_statistics", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

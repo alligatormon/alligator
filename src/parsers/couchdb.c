@@ -166,8 +166,7 @@ void couchdb_active_tasks_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			strlcpy(metric_name + 20, context_key, COUCHDB_LEN - 20);
 
-			tommy_hashdyn *hash = malloc(sizeof(*hash));
-			tommy_hashdyn_init(hash);
+			alligator_ht *hash = alligator_ht_init(NULL);
 
 			if (replication_id)
 				labels_hash_insert_nocache(hash, "replication_id", replication_id);
@@ -334,6 +333,6 @@ void couchdb_parser_push()
 	actx->handler[3].mesg_func = couchdb_all_dbs_mesg;
 	strlcpy(actx->handler[3].key,"couchdb_all_dbs", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
 

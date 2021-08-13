@@ -402,8 +402,7 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 	ch_columns_types *column_types = calloc(columns_count, sizeof(*column_types));
 
 	while (cur < size) {
-		tommy_hashdyn *hash = malloc(sizeof(*hash));
-		tommy_hashdyn_init(hash);
+		alligator_ht *hash = alligator_ht_init(NULL);
 
 		if (carg->ns)
 			labels_hash_insert_nocache(hash, "dbname", carg->ns);
@@ -518,7 +517,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 			printf("found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
-			tommy_hashdyn_foreach_arg(qds->hash, clickhouse_queries_foreach, carg);
+			alligator_ht_foreach_arg(qds->hash, clickhouse_queries_foreach, carg);
 		}
 	}
 
@@ -588,5 +587,5 @@ void clickhouse_parser_push()
 	actx->handler[7].mesg_func = clickhouse_custom_mesg;
 	strlcpy(actx->handler[7].key,"clickhouse_custom", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

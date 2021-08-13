@@ -30,7 +30,7 @@ void query_push(char *datasource, char *expr, char *make, char *action, char *ns
 {
 	query_node *qn = calloc(1, sizeof(*qn));
 
-	tommy_hashdyn *qf_hash = query_get_field(jfield);
+	alligator_ht *qf_hash = query_get_field(jfield);
 
 	if (expr)
 		qn->expr = strdup(expr);
@@ -45,18 +45,18 @@ void query_push(char *datasource, char *expr, char *make, char *action, char *ns
 	qn->make = strdup(make);
 	qn->datasource = strdup(datasource); // part of query ds
 
-	query_ds *qds = tommy_hashdyn_search(ac->query, queryds_compare, qn->datasource, tommy_strhash_u32(0, qn->datasource));
+	query_ds *qds = alligator_ht_search(ac->query, queryds_compare, qn->datasource, tommy_strhash_u32(0, qn->datasource));
 	if (!qds)
 	{
 		qds = calloc(1, sizeof(*qds));
-		qds->hash = calloc(1, sizeof(tommy_hashdyn));
-		tommy_hashdyn_init(qds->hash);
+		qds->hash = calloc(1, sizeof(alligator_ht));
+		alligator_ht_init(qds->hash);
 		qds->datasource = qn->datasource;
-		tommy_hashdyn_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
+		alligator_ht_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
 	}
 	if (ac->log_level > 0)
-		printf("create query node make '%s', expr '%s'\n", qn->make, qn->expr);
-	tommy_hashdyn_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
+		printf("create query node make %p: '%s', expr '%s'\n", qn, qn->make, qn->expr);
+	alligator_ht_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
 }
 
 void query_field_clean_foreach(void *funcarg, void* arg)
@@ -67,13 +67,13 @@ void query_field_clean_foreach(void *funcarg, void* arg)
 
 void query_del(char *datasource, char *make)
 {
-	query_ds *qds = tommy_hashdyn_search(ac->query, queryds_compare, datasource, tommy_strhash_u32(0, datasource));
+	query_ds *qds = alligator_ht_search(ac->query, queryds_compare, datasource, tommy_strhash_u32(0, datasource));
 	if (qds)
 	{
-		query_node *qn = tommy_hashdyn_search(qds->hash, query_compare, make, tommy_strhash_u32(0, make));
+		query_node *qn = alligator_ht_search(qds->hash, query_compare, make, tommy_strhash_u32(0, make));
 		if (qn)
 		{
-			tommy_hashdyn_remove_existing(qds->hash, &(qn->node));
+			alligator_ht_remove_existing(qds->hash, &(qn->node));
 
 			if (qn->expr)
 				free(qn->expr);
@@ -85,17 +85,17 @@ void query_del(char *datasource, char *make)
 				free(qn->ns);
 			if (qn->qf_hash)
 			{
-				tommy_hashdyn_foreach_arg(qn->qf_hash, query_field_clean_foreach, NULL);
-				tommy_hashdyn_done(qn->qf_hash);
+				alligator_ht_foreach_arg(qn->qf_hash, query_field_clean_foreach, NULL);
+				alligator_ht_done(qn->qf_hash);
 				free(qn->qf_hash);
 			}
 			free(qn);
 		}
 
-		uint64_t count = tommy_hashdyn_count(qds->hash);
+		uint64_t count = alligator_ht_count(qds->hash);
 		if (!count)
 		{
-			tommy_hashdyn_done(qds->hash);
+			alligator_ht_done(qds->hash);
 			free(qds->hash);
 			free(qds->datasource);
 			free(qds);
@@ -106,7 +106,7 @@ void query_del(char *datasource, char *make)
 
 query_ds* query_get(char *datasource)
 {
-	query_ds *qds = tommy_hashdyn_search(ac->query, queryds_compare, datasource, tommy_strhash_u32(0, datasource));
+	query_ds *qds = alligator_ht_search(ac->query, queryds_compare, datasource, tommy_strhash_u32(0, datasource));
 	if (qds)
 		return qds;
 	else
@@ -118,18 +118,18 @@ query_node *query_get_node(query_ds *qds, char *make)
 	if (!qds)
 		return NULL;
 
-	query_node *qn = tommy_hashdyn_search(qds->hash, query_compare, make, tommy_strhash_u32(0, make));
+	query_node *qn = alligator_ht_search(qds->hash, query_compare, make, tommy_strhash_u32(0, make));
 	if (qn)
 		return qn;
 	else
 		return NULL;
 }
 
-tommy_hashdyn* query_get_field(json_t *jfield)
+alligator_ht* query_get_field(json_t *jfield)
 {
 	uint64_t fields_count = json_array_size(jfield);
-	tommy_hashdyn *fields_hash = calloc(1, sizeof(*fields_hash));
-	tommy_hashdyn_init(fields_hash);
+	alligator_ht *fields_hash = calloc(1, sizeof(*fields_hash));
+	alligator_ht_init(fields_hash);
 	
 	for (uint64_t i = 0; i < fields_count; i++)
 	{
@@ -137,15 +137,15 @@ tommy_hashdyn* query_get_field(json_t *jfield)
 		json_t *field_json = json_array_get(jfield, i);
 		char *field = (char*)json_string_value(field_json);
 		qf->field = strdup(field);
-		tommy_hashdyn_insert(fields_hash, &(qf->node), qf, tommy_strhash_u32(0, qf->field));
+		alligator_ht_insert(fields_hash, &(qf->node), qf, tommy_strhash_u32(0, qf->field));
 	}
 
 	return fields_hash;
 }
 
-query_field* query_field_get(tommy_hashdyn *qf_hash, char *key)
+query_field* query_field_get(alligator_ht *qf_hash, char *key)
 {
-	return tommy_hashdyn_search(qf_hash, query_field_compare, key, tommy_strhash_u32(0, key));
+	return alligator_ht_search(qf_hash, query_field_compare, key, tommy_strhash_u32(0, key));
 }
 
 void query_field_set_foreach(void *funcarg, void* arg)
@@ -155,7 +155,7 @@ void query_field_set_foreach(void *funcarg, void* arg)
 	if (!qf->type)
 		return;
 
-	tommy_hashdyn *duplabels = labels_dup(qn->labels);
+	alligator_ht *duplabels = labels_dup(qn->labels);
 	//printf("2 qf %p\n", qf);
 	//printf("2 qf->value %p\n", &qf->i);
 	//printf("2 qf->field %p\n", qf->field);
@@ -174,7 +174,7 @@ void query_field_set_foreach(void *funcarg, void* arg)
 
 void query_set_values(query_node *qn)
 {
-	tommy_hashdyn_foreach_arg(qn->qf_hash, query_field_set_foreach, qn);
+	alligator_ht_foreach_arg(qn->qf_hash, query_field_set_foreach, qn);
 }
 
 void internal_query_process(query_node *qn)
@@ -204,7 +204,7 @@ static void query_crawl(uv_timer_t* handle) {
 	(void)handle;
 	query_ds *qds = query_get("internal");
 	if (qds)
-		tommy_hashdyn_foreach(qds->hash, query_recurse);
+		alligator_ht_foreach(qds->hash, query_recurse);
 }
 
 void query_handler()

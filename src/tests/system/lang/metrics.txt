@@ -1,0 +1,8 @@
+lua_metrics 12.000000
+lua_script 36.000000
+go_metric 12.000000
+python_metric 4.000000
+mruby_metrics 18.000000
+mruby2_metrics 28.000000
+duktape2_metric 25.000000
+duktape_metric 15.000000

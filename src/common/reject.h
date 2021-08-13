@@ -10,7 +10,7 @@ typedef struct reject_item
 typedef struct reject_t
 {
 	char *name;
-	tommy_hashdyn *ritem;
+	alligator_ht *ritem;
 
 	tommy_node node;
 } reject_t;

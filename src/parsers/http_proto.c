@@ -9,6 +9,7 @@
 #include "metric/labels.h"
 #include "main.h"
 #include "probe/probe.h"
+#include "parsers/multiparser.h"
 
 void http_reply_free(http_reply_data* hrdata)
 {
@@ -454,5 +455,5 @@ void http_reply_data_free(http_reply_data* http)
 //	actx->handler[0].headers_pass = 1;
 //	strlcpy(actx->handler[0].key,"http", 255);
 //
-//	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+//	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 //}

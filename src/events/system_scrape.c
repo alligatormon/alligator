@@ -14,7 +14,7 @@ static void system_scrape(uv_timer_t* handle)
 {
 	(void)handle;
 	extern aconf* ac;
-	tommy_hashdyn_foreach(ac->system_aggregator, on_scrape_run);
+	alligator_ht_foreach(ac->system_aggregator, on_scrape_run);
 }
 
 void do_system_scrape(void *handler, char *name)
@@ -24,7 +24,7 @@ void do_system_scrape(void *handler, char *name)
 	ssinfo->parser_handler = handler;
 	ssinfo->key = name;
 
-	tommy_hashdyn_insert(ac->system_aggregator, &(ssinfo->node), ssinfo, tommy_strhash_u32(0, ssinfo->key));
+	alligator_ht_insert(ac->system_aggregator, &(ssinfo->node), ssinfo, tommy_strhash_u32(0, ssinfo->key));
 }
 
 void system_scrape_handler()

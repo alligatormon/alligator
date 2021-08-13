@@ -5,6 +5,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
+void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg);
 
 typedef struct aerospike_data
 {
@@ -243,5 +244,5 @@ void aerospike_parser_push()
 	actx->handler[2].mesg_func = aerospike_status_mesg;
 	strlcpy(actx->handler[2].key,"aerospike_status", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

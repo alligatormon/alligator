@@ -22,11 +22,12 @@ void alloc_buffer(uv_handle_t* handle, size_t size, uv_buf_t* buf)
 	{
 		buf->base = carg->uvbuf;
 		bzero(buf->base, size);
+		//printf("use carg bufbase %p: %zu\n", buf->base, size);
 	}
 	else
 	{
 		buf->base = calloc(1, size);
-		//printf("alloc bufbase %p\n", buf->base);
+		//printf("alloc bufbase %p: %zu\n", buf->base, size);
 	}
 	buf->len = size;
 }

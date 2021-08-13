@@ -37,7 +37,7 @@ int smart_aggregator(context_arg *carg)
 	if (ac->log_level > 0)
 		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
 
-	if (tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
+	if (alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
 	{
 		if (ac->log_level > 2)
 			printf("smart_aggregator: key '%s' already in use\n", key);
@@ -76,7 +76,7 @@ int smart_aggregator(context_arg *carg)
 	}
 
 	if (carg->key)
-		tommy_hashdyn_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+		alligator_ht_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 
 	return 1; // OK
 }
@@ -109,7 +109,7 @@ void smart_aggregator_del(context_arg *carg)
 
 void smart_aggregator_del_key(char *key)
 {
-	context_arg *carg = tommy_hashdyn_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 		smart_aggregator_del(carg);
 }
@@ -124,7 +124,7 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data)
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
-	tommy_hashdyn *newenv = env_struct_duplicate(carg->env);
+	alligator_ht *newenv = env_struct_duplicate(carg->env);
 	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, carg->follow_redirects, carg->stdin_s, carg->stdin_l);
 
 	new->key = override_key;
@@ -149,7 +149,7 @@ void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg
 {
 	host_aggregator_info *hi = parse_url(url, url_len);
 
-	tommy_hashdyn *newenv = NULL;
+	alligator_ht *newenv = NULL;
 	if (carg)
 		newenv = env_struct_duplicate(carg->env);
 
@@ -183,8 +183,8 @@ int actx_compare(const void* arg, const void* obj)
 
 void aggregate_ctx_init()
 {
-	ac->aggregate_ctx = calloc(1, sizeof(tommy_hashdyn));
-	tommy_hashdyn_init(ac->aggregate_ctx);
+	ac->aggregate_ctx = calloc(1, sizeof(alligator_ht));
+	alligator_ht_init(ac->aggregate_ctx);
 
 	redis_parser_push();
 	elasticsearch_parser_push();

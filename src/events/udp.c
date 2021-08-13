@@ -78,19 +78,19 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 	recv_socket->data = carg;
 	uv_udp_recv_start(recv_socket, alloc_buffer, udp_on_read);
 
-	tommy_hashdyn_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 }
 
 void udp_server_stop(const char* addr, uint16_t port)
 {
 	char key[255];
 	snprintf(key, 255, "udp:%s:%"PRIu16, addr, port);
-	context_arg *carg = tommy_hashdyn_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
+	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		uv_udp_recv_stop(carg->udp_server);
 		uv_close((uv_handle_t*)carg->udp_server, NULL);
-		tommy_hashdyn_remove_existing(ac->entrypoints, &(carg->context_node));
+		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 }
 
@@ -181,12 +181,12 @@ void aggregator_getaddrinfo2(uv_getaddrinfo_t* req, int status, struct addrinfo*
 	if (carg->transport == APROTO_UDP)
 	{
 		snprintf(carg->key, 64, "udp://%s:%u", addr, htons(carg->dest->sin_port));
-		tommy_hashdyn_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+		alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	}
 	else
 	{
 		snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
-		tommy_hashdyn_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+		alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	}
 
 
@@ -238,12 +238,12 @@ void udp_client_del(context_arg *carg)
 		return;
 
 	uv_udp_recv_stop(&carg->udp_client);
-	tommy_hashdyn_remove_existing(ac->udpaggregator, &(carg->node));
+	alligator_ht_remove_existing(ac->udpaggregator, &(carg->node));
 }
 
 static void udp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->udpaggregator, udp_client_connect);
+	alligator_ht_foreach(ac->udpaggregator, udp_client_connect);
 }
 
 void udp_client_handler()

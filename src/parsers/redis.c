@@ -492,7 +492,7 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 			printf("found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
-			tommy_hashdyn_foreach_arg(qds->hash, redis_queries_foreach, carg);
+			alligator_ht_foreach_arg(qds->hash, redis_queries_foreach, carg);
 		}
 	}
 }
@@ -601,5 +601,5 @@ void redis_parser_push()
 	actx->handler[1].mesg_func = redis_parser_cluster_mesg;
 	strlcpy(actx->handler[1].key,"redis_cluster", 255);
 
-	tommy_hashdyn_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

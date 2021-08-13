@@ -4,15 +4,8 @@
 #include "mbedtls/x509_crt.h"
 #include "common/rtime.h"
 #include "lang/lang.h"
+#include "common/pem_check.h"
 #include "main.h"
-
-typedef struct x509_fs_t {
-	char *name;
-	char *path;
-	char *match;
-
-	tommy_node node;
-} x509_fs_t;
 
 int x509_fs_compare(const void* arg, const void* obj)
 {
@@ -73,8 +66,8 @@ void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 	char organization_name[1000];
 	char organization_unit[1000];
 	char common_name[1000];
-	tommy_hashdyn *lbl = malloc(sizeof(*lbl));
-	tommy_hashdyn_init(lbl);
+	alligator_ht *lbl = calloc(1, sizeof(*lbl));
+	alligator_ht_init(lbl);
 	labels_hash_insert_nocache(lbl, "cert", cert);
 	if (host)
 		labels_hash_insert_nocache(lbl, "host", host);
@@ -165,8 +158,8 @@ void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 		printf("cert: %s, %"d64" exp\n", cert, expdays);
 		printf("cert: %s, version: %d\n", cert, cert_ctx->version);
 	}
-	tommy_hashdyn *notafter_lbl = labels_dup(lbl);
-	tommy_hashdyn *expiredays_lbl = labels_dup(lbl);
+	alligator_ht *notafter_lbl = labels_dup(lbl);
+	alligator_ht *expiredays_lbl = labels_dup(lbl);
 	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
 	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
 	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
@@ -270,7 +263,7 @@ void tls_fs_recurse(void *arg)
 
 static void tls_fs_crawl(uv_timer_t* handle) {
 	(void)handle;
-	tommy_hashdyn_foreach(ac->fs_x509, tls_fs_recurse);
+	alligator_ht_foreach(ac->fs_x509, tls_fs_recurse);
 }
 
 void tls_fs_handler()
@@ -288,15 +281,15 @@ void tls_fs_push(char *name, char *path, char *match)
 	tls_fs->name = strdup(name);
 	tls_fs->path = strdup(path);
 	tls_fs->match = strdup(match);
-	tommy_hashdyn_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
+	alligator_ht_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
 }
 
 void tls_fs_del(char *name)
 {
-	x509_fs_t *tls_fs = tommy_hashdyn_search(ac->fs_x509, x509_fs_compare, name, tommy_strhash_u32(0, name));
+	x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, x509_fs_compare, name, tommy_strhash_u32(0, name));
 	if (tls_fs)
 	{
-		tommy_hashdyn_remove_existing(ac->fs_x509, &(tls_fs->node));
+		alligator_ht_remove_existing(ac->fs_x509, &(tls_fs->node));
 
 		free(tls_fs->name);
 		free(tls_fs->path);
