@@ -23,7 +23,7 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 
 	for (i=0; i<size; )
 	{
-		int64_t cursor = 0;
+		uint64_t cursor = 0;
 		int to = strcspn(metrics+i, "\t");
 		name_size = GEARMAND_NAME_SIZE > to+1 ? to+1 : GEARMAND_NAME_SIZE;
 		strlcpy(cdc, metrics+i, name_size);

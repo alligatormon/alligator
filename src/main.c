@@ -94,7 +94,6 @@ aconf* configuration()
 	ac->pg_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->file_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->zk_aggregator = calloc(1, sizeof(alligator_ht));
-	ac->mongodb_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->my_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->uggregator = calloc(1, sizeof(alligator_ht));
 	alligator_ht_init(ac->uggregator);
@@ -154,7 +153,6 @@ aconf* configuration()
 	alligator_ht_init(ac->pg_aggregator);
 	alligator_ht_init(ac->file_aggregator);
 	alligator_ht_init(ac->zk_aggregator);
-	alligator_ht_init(ac->mongodb_aggregator);
 	alligator_ht_init(ac->my_aggregator);
 	alligator_ht_init(ac->tls_aggregator);
 	alligator_ht_init(ac->iggregator);
@@ -281,7 +279,6 @@ int main(int argc, char **argv, char **envp)
 	tls_fs_handler();
 	query_handler();
 	postgresql_client_handler();
-	mongodb_client_handler();
 	mysql_client_handler();
 	zk_client_handler();
 	filetailer_crawl_handler();

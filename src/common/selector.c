@@ -254,7 +254,7 @@ char *gettextfile(char *path, size_t *filesz)
 	return buf;
 }
 
-int64_t int_get_next(char *buf, size_t sz, char sep, int64_t *cursor)
+int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor)
 {
 	for (; *cursor<sz; ++(*cursor))
 	{

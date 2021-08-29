@@ -72,8 +72,8 @@ void lang_crawl(void* arg)
 		ret = lua_run(lo, lo->script, lo->file, lo->arg, body, conf);
 	else if (!strcmp(lo->lang, "mruby"))
 		ret = mruby_run(lo, lo->script, lo->file, lo->arg, body, conf);
-	else if (!strcmp(lo->lang, "python"))
-		ret = python_run(lo, lo->script, lo->file, lo->arg, lo->path, body, conf);
+	//else if (!strcmp(lo->lang, "python"))
+	//	ret = python_run(lo, lo->script, lo->file, lo->arg, lo->path, body, conf);
 	else if (!strcmp(lo->lang, "duktape"))
 		ret = duktape_run(lo, lo->script, lo->file, lo->arg, lo->path, body, conf);
 	else if (!strcmp(lo->lang, "so"))

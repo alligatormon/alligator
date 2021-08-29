@@ -28,14 +28,12 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 		++j;
 		str_get_next(field, release, RPMLEN, " ", &j);
 
-		metric_add_labels3("package_installed", &ts, DATATYPE_INT, carg, "name", name, "version", version, "release", release);
-
 		int8_t match = 1;
 		if (!match_mapper(ac->packages_match, name, strlen(name), name))
 			match = 0;
  
 		if (match)
-			metric_add_labels3("package_installed", ctime, DATATYPE_INT, ac->system_carg, "name", name, "release", release, "version", version);
+			metric_add_labels3("package_installed", &ts, DATATYPE_INT, carg, "name", name, "version", version, "release", release);
 
 		++pkgs;
 	}

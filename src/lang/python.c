@@ -5,6 +5,7 @@
 #include "main.h"
 
 extern aconf *ac;
+void _Py_Dealloc(PyObject *op);
 
 void python_free(python_lib *pylib)
 {

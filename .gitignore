@@ -17,7 +17,6 @@ src/liballigator_tests.so
 src/libliballigator_tests.a
 src/libpostgresql_client.so
 src/a.out
-src/external/
 src/libSHARED.a
 src/conan.lock
 src/conanbuildinfo.cmake

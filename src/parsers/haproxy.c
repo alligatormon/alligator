@@ -23,7 +23,7 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 	int64_t users;
 	int to;
 	size_t sz;
-	int64_t cursor;
+	uint64_t cursor;
 
 	to = strcspn(metrics, "\n");
 	char *tmp = metrics + to;

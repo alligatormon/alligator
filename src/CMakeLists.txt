@@ -41,16 +41,11 @@ include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/cutter)
 include_directories(/usr/local/include/cutter)
-include_directories(/usr/local/include/libbson-1.0)
-include_directories(/usr/include/libbson-1.0/)
-include_directories(/usr/local/include/libmongoc-1.0)
-include_directories(/usr/include/libmongoc-1.0/)
-include_directories(external/mongo-c-driver/src/libmongoc/src/mongoc)
-include_directories(external/mongo-c-driver/src/libbson/src)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 include_directories(external/mruby/include/)
-include_directories(/usr/include/python3.6m/)
+#include_directories(/usr/include/python3.6m/)
+#include_directories(/usr/include/python3.8/)
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 include_directories(external/mbedtls/include/)
 link_directories(external/mbedtls/library/)
@@ -141,7 +136,6 @@ set(STATIC_FILES
 	parsers/hadoop.c
 	parsers/unbound.c
 	parsers/solr.c
-	parsers/mongodb.c
 	parsers/ntpd.c
 	parsers/ipmi.c
 	parsers/mysql.c
@@ -212,7 +206,7 @@ set(STATIC_FILES
 	lang/java.c
 	lang/lua.c
 	lang/mruby.c
-	lang/python.c
+	#lang/python.c
 	lang/so.c
 	lang/duktape.c
 	system/linux.c
@@ -287,7 +281,7 @@ set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 IF(${distro}.${disversion} MATCHES "centos.7")
 add_library(${TESTS} SHARED tests/unit/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} uv cutter)
+target_link_libraries(${TESTS} ${COMMON_TESTS} libuv_a.a cutter)
 add_test(Test1 "cutter" ".")
 ENDIF(${distro}.${disversion} MATCHES "centos.7")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
@@ -304,7 +298,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a libjemalloc.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libjemalloc.a libfyaml-0.7.a libpcre.a libbson-static-1.0.a liblua.a libmruby.a libmruby_core.a libduktape.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

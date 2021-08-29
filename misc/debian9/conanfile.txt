@@ -7,7 +7,7 @@ zlib/1.2.11
 libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
-pcre/8.45
+#pcre/8.45
 libpq/13.3
 libmysqlclient/8.0.25
 

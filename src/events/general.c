@@ -37,8 +37,6 @@ void internal_query_loop()
 {
 	//query_processing();
 
-	//mongodb_parser();
-
 	//postgres_run("postgresql://postgres@localhost", "SELECT * FROM pg_stat_activity", "SELECT * FROM pg_stat_all_tables", "SELECT * FROM pg_stat_replication", "SELECT count(datname) FROM pg_database;");
 
 	//mysql_run();

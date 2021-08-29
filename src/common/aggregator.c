@@ -7,7 +7,6 @@
 #include "parsers/elasticsearch.h"
 #include "parsers/mysql.h"
 #include "parsers/postgresql.h"
-#include "parsers/mongodb.h"
 #include "events/filetailer.h"
 #include "events/udp.h"
 #include "events/client.h"
@@ -64,8 +63,6 @@ int smart_aggregator(context_arg *carg)
 		type = postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)
 		type = mysql_client(carg);
-	else if (carg->transport == APROTO_MONGODB)
-		type = mongodb_client(carg);
 	else if (carg->transport == APROTO_ZKCONF)
 		type = zk_client(carg);
 
@@ -103,8 +100,6 @@ void smart_aggregator_del(context_arg *carg)
 		postgresql_client_del(carg);
 	else if (carg->transport == APROTO_MY)
 		mysql_client_del(carg);
-	else if (carg->transport == APROTO_MONGODB)
-		mongodb_client_del(carg);
 }
 
 void smart_aggregator_del_key(char *key)
@@ -224,7 +219,6 @@ void aggregate_ctx_init()
 	patroni_parser_push();
 	mysql_parser_push();
 	sphinxsearch_parser_push();
-	mongodb_parser_push();
 	http_parser_push();
 	tcp_parser_push();
 	tftp_parser_push();

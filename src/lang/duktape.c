@@ -52,7 +52,7 @@ char* duktape_run(lang_options *lo, char *script, char *file, char *arg, char *p
 		if (duk_pcall(ctx, 3) != DUK_EXEC_SUCCESS)
 		{
 			duk_get_prop_string(ctx, -1, "stack");
-			printf(duk_safe_to_string(ctx, -1));
+			printf("%s\n", duk_safe_to_string(ctx, -1));
 		}
 		else
 		{

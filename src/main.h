@@ -85,7 +85,6 @@ typedef struct aconf
 	alligator_ht* file_aggregator;
 	alligator_ht* pg_aggregator;
 	alligator_ht* zk_aggregator;
-	alligator_ht* mongodb_aggregator;
 	alligator_ht* my_aggregator;
 	alligator_ht* tls_aggregator;
 	int64_t aggregator_startup;
@@ -194,7 +193,6 @@ typedef struct aconf
 	jint (*create_jvm)(JavaVM**, void**, void*);
 	JNIEnv *env;
 
-	void *libmongo;
 	pq_library *pqlib;
 	my_library *mylib;
 	void *pylib;

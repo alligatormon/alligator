@@ -653,7 +653,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	char *t;
 	t = strchr (szStatStr, ')');
 	size_t sz = strlen(t);
-	int64_t cursor = 0;
+	uint64_t cursor = 0;
 	int64_t val = 1;
 	int64_t unval = 0;
 

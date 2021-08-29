@@ -1,0 +1,15 @@
+[submodule "src/external/mruby"]
+	path = src/external/mruby
+	url = https://github.com/mruby/mruby.git
+[submodule "src/external/iptables"]
+	path = src/external/iptables
+	url = git://git.netfilter.org/iptables
+[submodule "src/external/libfyaml"]
+	path = src/external/libfyaml
+	url = https://github.com/pantoniou/libfyaml.git
+[submodule "src/external/libatasmart"]
+	path = src/external/libatasmart
+	url = https://github.com/Rupan/libatasmart.git
+[submodule "src/external/llhttp"]
+	path = src/external/llhttp
+	url = https://github.com/nodejs/llhttp.git

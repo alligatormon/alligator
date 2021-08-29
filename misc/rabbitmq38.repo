@@ -1,19 +1,11 @@
-[bintray-rabbitmq-server]
-name=bintray-rabbitmq-rpm
-baseurl=https://dl.bintray.com/rabbitmq/rpm/rabbitmq-server/v3.8.x/el/7/
-gpgcheck=0
-repo_gpgcheck=0
-enabled=1
-
 [rabbitmq_erlang]
 name=rabbitmq_erlang
 baseurl=https://packagecloud.io/rabbitmq/erlang/el/7/$basearch
 repo_gpgcheck=1
-gpgcheck=1
+gpgcheck=0
 enabled=1
 # PackageCloud's repository key and RabbitMQ package signing key
 gpgkey=https://packagecloud.io/rabbitmq/erlang/gpgkey
-       https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc
 sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 metadata_expire=300
@@ -26,8 +18,17 @@ gpgcheck=0
 enabled=1
 # PackageCloud's repository key and RabbitMQ package signing key
 gpgkey=https://packagecloud.io/rabbitmq/erlang/gpgkey
-       https://dl.bintray.com/rabbitmq/Keys/rabbitmq-release-signing-key.asc
 sslverify=1
 sslcacert=/etc/pki/tls/certs/ca-bundle.crt
 metadata_expire=300
 
+[rabbitmq-server]
+name=rabbitmq-server
+baseurl=https://packagecloud.io/rabbitmq/rabbitmq-server/el/7/$basearch
+repo_gpgcheck=1
+gpgcheck=0
+enabled=1
+gpgkey=https://packagecloud.io/rabbitmq/rabbitmq-server/gpgkey
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+metadata_expire=300
