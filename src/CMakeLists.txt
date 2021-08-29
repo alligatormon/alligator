@@ -260,6 +260,7 @@ add_library(${COMMON_TESTS} STATIC
 	common/netlib.c
 	common/pw.c
 	query/promql.c
+	dstructures/ht.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
