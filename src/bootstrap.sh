@@ -1,3 +1,4 @@
+pwd
 apt update
 apt -y install software-properties-common gpg
 lsb_release --id | awk -F: '{print $2}' | awk '{print $1}' | grep Debian && echo 'deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main' > /etc/apt/sources.list.d/ansible.list
