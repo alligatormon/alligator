@@ -4,7 +4,7 @@
   - name: Copy rabbitmq.repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.copy:
-      src: ../rabbitmq38.repo
+      src: ../misc/rabbitmq38.repo
       dest: /etc/yum.repos.d/rabbitmq.repo
 
   - name: Install pgpool
