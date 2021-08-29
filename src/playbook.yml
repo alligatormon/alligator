@@ -147,6 +147,7 @@
       - clickhouse-server
       - redis
       - monit
+      - gcc-c++
 
   - name: Install el7
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'
@@ -192,7 +193,6 @@
       - python3-pip
       - gcc
       - wget
-      #- gcc-c++
       - make
       - libtool
       - valgrind
