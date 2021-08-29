@@ -4,7 +4,7 @@
   - name: Copy rabbitmq.repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.copy:
-      src: /app/misc/rabbitmq38.repo
+      src: ../rabbitmq38.repo
       dest: /etc/yum.repos.d/rabbitmq.repo
 
   - name: Install pgpool
@@ -50,13 +50,13 @@
   - name: Copy elasticsearch.repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.copy:
-      src: /app/misc/elasticsearch.repo
+      src: ../misc/elasticsearch.repo
       dest: /etc/yum.repos.d/elasticsearch.repo
 
   - name: Copy datastax.repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.copy:
-      src: /app/misc/datastax.repo
+      src: ../misc/datastax.repo
       dest: /etc/yum.repos.d/datastax.repo
 
   - name: Import a key from clickhouse repo
