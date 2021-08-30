@@ -76,6 +76,7 @@ deploy_ubuntu2004:
   - tags
   stage: build
   script:
+  - apt update
   - apt -y install git
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -93,6 +94,7 @@ deploy_ubuntu1804:
   - tags
   stage: build
   script:
+  - apt update
   - apt -y install git
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -110,6 +112,7 @@ deploy_ubuntu1604:
   - tags
   stage: build
   script:
+  - apt update
   - apt -y install git
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -127,6 +130,7 @@ deploy_debian9:
   - tags
   stage: build
   script:
+  - apt update
   - apt -y install git
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -144,6 +148,7 @@ deploy_debian10:
   - tags
   stage: build
   script:
+  - apt update
   - apt -y install git
   - git submodule sync --recursive
   - git submodule update --init --recursive
