@@ -21,8 +21,9 @@ sources_tarball:
   only:
   - tags
   script:
-  - git submodule init
-  - git submodule update
+  - yum -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
   - cmake3 .
@@ -43,8 +44,9 @@ deploy_centos7:
   only:
   - tags
   script:
-  - git submodule init
-  - git submodule update
+  - yum -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
   - cmake3 . -DCPACK_GENERATOR=RPM
@@ -58,8 +60,9 @@ deploy_centos8:
   only:
   - tags
   script:
-  - git submodule init
-  - git submodule update
+  - yum -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
   - cmake . -DCPACK_GENERATOR=RPM
@@ -73,8 +76,9 @@ deploy_ubuntu2004:
   - tags
   stage: build
   script:
-  - git submodule init
-  - git submodule update
+  - apt -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
 
@@ -89,8 +93,9 @@ deploy_ubuntu1804:
   - tags
   stage: build
   script:
-  - git submodule init
-  - git submodule update
+  - apt -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
 
@@ -105,8 +110,9 @@ deploy_ubuntu1604:
   - tags
   stage: build
   script:
-  - git submodule init
-  - git submodule update
+  - apt -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
 
@@ -121,8 +127,9 @@ deploy_debian9:
   - tags
   stage: build
   script:
-  - git submodule init
-  - git submodule update
+  - apt -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
 
@@ -137,8 +144,9 @@ deploy_debian10:
   - tags
   stage: build
   script:
-  - git submodule init
-  - git submodule update
+  - apt -y install git
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
 
