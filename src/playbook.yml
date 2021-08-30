@@ -143,7 +143,6 @@
       - openssl-devel
       - libsodium-devel
       - httpd
-      - syslog-ng
       - clickhouse-server
       - redis
       - monit
