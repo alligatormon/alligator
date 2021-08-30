@@ -74,6 +74,21 @@
       baseurl: https://repo.clickhouse.tech/rpm/stable/x86_64
       enabled: yes
 
+  - name: install debian == 10
+    when: ansible_os_family == "Debian" and ansible_distribution_major_version == "10"
+    ansible.builtin.package:
+      state: present
+      name:
+      - default-libmysqlclient-dev
+
+  - name: install ubuntu >= 18
+    when: ansible_os_family == "Debian" and ansible_distribution_major_version >= "16"
+    ansible.builtin.package:
+      state: present
+      name:
+      - libmysqlclient-dev
+      - openjdk-11-jdk
+
   - name: install debian 10
     when: ansible_os_family == "Debian" and ansible_distribution_version <= "10"
     ansible.builtin.package:
@@ -254,4 +269,4 @@
       name:
       - statsd
       - conan
-      - 'MarkupSafe>=1.0.0'
+      - 'MarkupSafe==1.0.0'

@@ -1,5 +1,8 @@
+export DEBIAN_FRONTEND=noninteractive
 apt update
-apt -y install software-properties-common gpg
+apt -y install software-properties-common
+apt -y install gpg
+apt -y install lsb-release
 lsb_release --id | awk -F: '{print $2}' | awk '{print $1}' | grep Debian && echo 'deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main' > /etc/apt/sources.list.d/ansible.list
 lsb_release --id | awk -F: '{print $2}' | awk '{print $1}' | grep Debian && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
 lsb_release --id | awk -F: '{print $2}' | awk '{print $1}' | grep Debian && echo 'deb http://ftp.debian.org/debian stretch-backports main' > /etc/apt/sources.list.d/java.list
