@@ -82,7 +82,7 @@
       - default-libmysqlclient-dev
 
   - name: install ubuntu >= 18
-    when: ansible_os_family == "Debian" and ansible_distribution_major_version >= "16"
+    when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version >= "16"
     ansible.builtin.package:
       state: present
       name:
@@ -90,7 +90,7 @@
       - openjdk-11-jdk
 
   - name: install debian 10
-    when: ansible_os_family == "Debian" and ansible_distribution_version <= "10"
+    when: ansible_os_family == "Debian"
     ansible.builtin.package:
       state: present
       name:
