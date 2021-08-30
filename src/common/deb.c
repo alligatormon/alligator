@@ -15,7 +15,7 @@ void dpkg_list(char *str, size_t len)
 	char releasename[255];
 	size_t sz;
 	size_t releasesz;
-	uint64_t pkgs;
+	uint64_t pkgs = 0;
 	uint64_t datetime = 1;
 
 	for (i=0; i<len; i++)

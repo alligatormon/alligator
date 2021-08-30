@@ -1,6 +1,6 @@
 #include "common/file_stat.h"
 
-void strmode(mode_t mode, char * buf) {
+void strfmode(mode_t mode, char * buf) {
   const char chars[] = "rwxrwxrwx";
   for (size_t i = 0; i < 9; i++) {
     buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
@@ -50,7 +50,7 @@ void file_stat_cb(uv_fs_t *req) {
 
 	char modebuf[10];
 	char modeint[10];
-	strmode(st.st_mode, modebuf);
+	strfmode(st.st_mode, modebuf);
 	snprintf(modeint, 9, "%04o", (unsigned int)st.st_mode);
 	
 	metric_add_labels6("file_stat_mode", &st.st_mode, DATATYPE_INT, carg, "path", path, "user", user, "group", group, "type", type, "mode", modebuf, "int", modeint);

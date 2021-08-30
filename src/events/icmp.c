@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <uv.h>
 #include <stdlib.h>
 #include <string.h>
@@ -431,3 +432,4 @@ void icmp_client_del(context_arg *carg)
 		carg_free(carg);
 	}
 }
+#endif
