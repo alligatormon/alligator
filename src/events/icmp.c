@@ -1,3 +1,4 @@
+#include "events/context_arg.h"
 #ifdef __linux__
 #include <uv.h>
 #include <stdlib.h>
@@ -15,7 +16,6 @@
 #include <netinet/in.h>
 #include "dstructures/tommy.h"
 #include "common/rtime.h"
-#include "events/context_arg.h"
 #include "probe/probe.h"
 #include "parsers/multiparser.h"
 #include "main.h"
@@ -432,4 +432,8 @@ void icmp_client_del(context_arg *carg)
 		carg_free(carg);
 	}
 }
+#endif
+#ifdef __FreeBSD__
+char* icmp_client(context_arg *carg) {return NULL;}
+void icmp_client_del(context_arg *carg) {}
 #endif

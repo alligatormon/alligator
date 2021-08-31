@@ -15,7 +15,7 @@ void ipaddr_info() {
 	while (i--) {
 		uv_interface_address_t interface = info[i];
 
-		unsigned char phys_addr[5];
+		unsigned char phys_addr[6];
 		phys_addr[0] = interface.phys_addr[0];
 		phys_addr[1] = interface.phys_addr[1];
 		phys_addr[2] = interface.phys_addr[2];

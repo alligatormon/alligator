@@ -1,3 +1,5 @@
+#include "main.h"
+#ifdef __linux__
 #include <stdio.h>
 #include <dirent.h>
 #include <inttypes.h>
@@ -5,7 +7,6 @@
 #include <string.h>
 #include <linux/sched.h>
 #include "cadvisor/ns.h"
-#include "main.h"
 extern aconf *ac;
 
 typedef struct cnt_labels {
@@ -528,3 +529,8 @@ void cadvisor_metrics()
 	lxc_labels();
 	nspawn_labels();
 }
+#endif
+
+#ifdef __FreeBSD__
+void docker_labels(char *metrics, size_t size, context_arg *carg) {};
+#endif

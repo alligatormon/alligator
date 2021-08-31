@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -1121,3 +1122,4 @@ void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *i
 	uint64_t last_seen = now.sec;
 	add_cadvisor_metric_uint("container_last_seen", last_seen, cntid, name, image, cad_id, 0, 0, kubenamespace, kubepod, kubecontainer);
 }
+#endif

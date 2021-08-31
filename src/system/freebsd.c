@@ -739,7 +739,7 @@ void get_system_metrics()
 	{
 		get_proc_info(0);
 	}
-	if (ac->system_vm)
+	if (ac->system_cadvisor)
 	{
 		get_jail_stat();
 	}
@@ -754,6 +754,22 @@ void system_fast_scrape()
 }
 
 void system_slow_scrape()
+{
+}
+
+void userprocess_push(alligator_ht *userprocess, char *user)
+{
+}
+
+void userprocess_del(alligator_ht* userprocess, char *user)
+{
+}
+
+void pidfile_push(char *file, int type)
+{
+}
+
+void pidfile_del(char *file, int type)
 {
 }
 #endif

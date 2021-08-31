@@ -12,10 +12,10 @@ apt update
 stat /usr/bin/yum || alias yum=apt
 yum -y install epel-release
 yum -y install ansible
+pkg install -y py38-ansible
 ansible-playbook --connection=local --inventory 127.0.0.1, playbook.yml
 
 conan install . --build=missing
 lsb_release -c | awk -F: '{print $2}' | awk '{print $1}' | grep stretch && conan install ../misc/debian9/ --build=missing && apt -y install libpcre3-dev
 conan install
 conan build external/
-/etc/rc.conf

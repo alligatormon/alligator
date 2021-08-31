@@ -301,6 +301,11 @@ void sd_zk_parser_push()
 }
 
 #endif
+#ifdef __FreeBSD__
+void zk_client_handler() {}
+char* zk_client(context_arg* carg) {return NULL;}
+void sd_zk_parser_push() {}
+#endif
 
 void sd_etcd_node(json_t *rnode)
 {

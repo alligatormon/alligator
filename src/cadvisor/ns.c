@@ -1,3 +1,4 @@
+#ifdef __linux__
 //#define _GNU_SOURCE
 #include <stdio.h>
 #include <linux/sched.h>
@@ -107,3 +108,4 @@ int mount_ns_by_pid(char *pid)
 //
 //	return iindex->value;
 //}
+#endif
