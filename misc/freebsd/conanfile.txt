@@ -1,0 +1,14 @@
+[requires]
+libuv/1.41.0
+jansson/2.13.1
+mbedtls/2.16.3-apache
+zlib/1.2.11
+lua/5.4.1
+duktape/2.5.0
+pcre/8.45
+
+[generators]
+cmake
+
+[options]
+pcre:with_jit=True
