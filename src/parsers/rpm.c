@@ -19,6 +19,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 	for (uint64_t i = 0; i < size; i++)
 	{
 		uint64_t j = 0;
+		*field = 0;
 		str_get_next(metrics, field, RPMLEN, "\n", &i);
 
 		int64_t ts = int_get_next(field, RPMLEN, ' ', &j);

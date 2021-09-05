@@ -15,8 +15,8 @@ context_arg *carg_copy(context_arg *src)
 void env_struct_free(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
-	alligator_ht *hash = funcarg;
-	alligator_ht_remove_existing(hash, &(es->node));
+	//alligator_ht *hash = funcarg;
+	//alligator_ht_remove_existing(hash, &(es->node));
 	free(es->k);
 	free(es->v);
 	free(es);
@@ -50,6 +50,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->url)
 		free(carg->url);
+
+	if (carg->name)
+		free(carg->name);
 
 	string_free(carg->full_body);
 

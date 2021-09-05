@@ -16,10 +16,8 @@ typedef struct kubernetes_endpoint_port {
 
 void kubernetes_endpoint_port_free(void *funcarg, void* arg)
 {
-	alligator_ht *hash = funcarg;
 	kubernetes_endpoint_port *kubeport = arg;
 
-	alligator_ht_remove_existing(hash, &(kubeport->node));
 	free(kubeport->name);
 
 	if (kubeport->handler)

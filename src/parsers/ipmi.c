@@ -50,10 +50,7 @@ void event_log_for(void *funcarg, void* arg)
 	eventlog_node *eventnode = arg;
 	context_arg *carg = funcarg;
 
-	ipmi_data *idata = carg->data;
-	
 	metric_add_labels3("ipmi_eventlog_key", &eventnode->val, DATATYPE_UINT, carg, "key",  eventnode->key, "state", eventnode->state, "resource", eventnode->resource);
-	alligator_ht_remove_existing(idata->event_log, &(eventnode->node));
 	free(eventnode);
 }
 

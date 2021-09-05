@@ -150,6 +150,8 @@ void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg
 
 	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, follow_redirects, s_stdin, l_stdin);
 
+	if (carg && carg->name)
+		new->name = strdup(carg->name);
 	new->key = override_key;
 	if (!new->key)
 	{
@@ -163,7 +165,7 @@ void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg
 	new->log_level = carg? carg->log_level : ac->log_level;
 
 	if (ac->log_level > 2)
-		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
 	if (!smart_aggregator(new))
 		carg_free(new);

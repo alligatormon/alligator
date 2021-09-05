@@ -239,7 +239,7 @@ void druid_coordinator_isleader_handler(char *metrics, size_t size, context_arg 
 
 void druid_coordinator_leader_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char_strip_end(metrics, size);
+	trim(metrics);
 	uint64_t leader = 1;
 	metric_add_labels("druid_coordinator_leader", &leader, DATATYPE_UINT, carg, "leader", metrics);
 }

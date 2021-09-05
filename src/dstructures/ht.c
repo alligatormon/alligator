@@ -154,6 +154,7 @@ size_t alligator_ht_memory_usage(alligator_ht *h)
 	return tommy_hashdyn_memory_usage(h->ht);
 }
 
+// NO RUN write/remove inside callback!!!
 void alligator_ht_foreach_arg(alligator_ht *h, tommy_foreach_arg_func *func, void *arg)
 {
 	if (!h)
@@ -169,6 +170,7 @@ void alligator_ht_foreach_arg(alligator_ht *h, tommy_foreach_arg_func *func, voi
 	}
 }
 
+// NO RUN write/remove inside callback!!!
 void alligator_ht_foreach(alligator_ht *h, tommy_foreach_func *func)
 {
 	if (!h)

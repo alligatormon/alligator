@@ -8,6 +8,7 @@
 #include <query/query.h>
 #include "events/context_arg.h"
 #include <main.h>
+#define ORACLE_PROMPT "SQL> SQL> SQL> SQL> SQL> SQL> "
 
 void oracle_get_databases(context_arg *carg)
 {
@@ -18,7 +19,13 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 0)
 		puts("===== oracle_query_run ======");
 
-	uint64_t cur = 0;
+	char *tmp = strstr(metrics, ORACLE_PROMPT);
+	if (!tmp)
+		return;
+	uint64_t cur = tmp - metrics + strlen(ORACLE_PROMPT);
+
+	//if (strcmp(carg->key, "col_stats"))
+	//	return;
 
 	query_ds *qds = query_get(carg->name);
 	query_node *qn = query_get_node(qds, carg->key);
@@ -27,11 +34,13 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 	// max columns per table 1000: https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/logical-database-limits.html
 	char colname[1000][31];
 
-	uint64_t end = strcspn(metrics + cur, "\n");
+	uint64_t end = strcspn(metrics + cur, "\n") + cur;
+	//printf("cur: %"PRIu64", end: %"PRIu64", metrics: '%s'\n", cur, end, metrics);
 	char colstring[end + 1];
 	strlcpy(colstring, metrics + cur, end + 1);
 
-	for (uint64_t i = 0; cur < end; cur++, i++)
+	uint64_t i;
+	for (i = 0; cur < end; cur++, i++)
 	{
 		uint64_t endfield;
 		uint64_t copysize;
@@ -46,13 +55,19 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 
 		cur += endfield;
 	}
+	if (!i)
+		return;
 
 	// skip terminate string
 	cur += strspn(metrics + cur, "\n");
 	cur += strcspn(metrics + cur, "\n");
 	cur += strspn(metrics + cur, "\n");
-	
-	for (; cur < size; cur++)
+
+	char *tssize = strstr(metrics + cur, "\n\n");
+	if (!tssize)
+		return;
+	size_t ssize = tssize ? (tssize - metrics) : 0;
+	for (; cur < ssize; cur++)
 	{
 		end = strcspn(metrics + cur, "\n");
 		uint64_t endcur = end + cur;
@@ -75,12 +90,17 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 			copysize = strcspn(metrics + ccur, "\t|\n");
 			copysize = copysize > 1024 ? 1023 : copysize;
 			strlcpy(colvalue, metrics + ccur, copysize + 1);
-			char_strip_end(colvalue, copysize);
+			trim(colvalue);
 
+			if (strstr(colvalue, "---")) {
+				break;
+			}
 			if (carg->log_level > 1)
 				printf("column name: '%s'[%"u64"], column value: '%s'\n", colname[i], i, colvalue);
 
 			char *clname = colname[i];
+			if (!*clname)
+				continue;
 			if (metric_value_validator(colvalue, copysize) == DATATYPE_DOUBLE)
 			{
 				double dres = strtod(colvalue, NULL);
@@ -139,15 +159,11 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 	query_node *qn = arg;
 
 	string *str = string_init(1024);
-	string_cat(str, "exec://", strlen("exec://"));
-	string_cat(str, carg->host, strlen(carg->host));
-	string_cat(str, " -s /nolog <<EOF\n", strlen(" -s /nolog <<EOF\n"));
-
-	string_cat(str, "connect ", strlen("connect "));
 	string_cat(str, carg->user, strlen(carg->user));
 	string_cat(str, "/", 1);
 	string_cat(str, carg->password, strlen(carg->password));
-	string_cat(str, "\n", 1);
+	string_cat(str, "@$ORACLE_SID", strlen("@$ORACLE_SID"));
+	string_cat(str, " <<EOF\n", strlen(" <<EOF\n"));
 
 	string_cat(str, "SET HEADING ON\n", strlen("SET HEADING ON\n"));
 	string_cat(str, "SET WRAP OFF\n", strlen("SET WRAP OFF\n"));
@@ -164,31 +180,8 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
 
-	json_t *aggregate_root = json_object();
-	json_t *aggregate_arr = json_array();
-	json_t *aggregate_obj = json_object();
-	json_t *aggregate_handler = json_string(strdup("oracle_query"));
-	json_t *aggregate_url = json_string(str->s);
-	json_t *aggregate_key = json_string(strdup(qn->make));
-	json_t *aggregate_name = json_string(strdup(carg->name));
-	json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
-	json_array_object_insert(aggregate_arr, "", aggregate_obj);
-	json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
-
-	json_t *env = env_struct_dump(carg->env);
-	if (env)
-		json_array_object_insert(aggregate_obj, "env", env);
-
-	json_array_object_insert(aggregate_obj, "url", aggregate_url);
-	json_array_object_insert(aggregate_obj, "key", aggregate_key);
-	json_array_object_insert(aggregate_obj, "name", aggregate_name);
-	char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
-	if (carg->log_level > 1)
-		puts(dvalue);
-	http_api_v1(NULL, NULL, dvalue);
-	json_decref(aggregate_root);
-	free(dvalue);
-	string_free(str);
+	aggregator_oneshot(carg, carg->url, strlen(carg->url), str->s, str->l, oracle_query_run, "oracle_query", NULL, strdup(qn->make), 0, NULL, NULL, 0);
+	free(str);
 }
 
 void oracle_sql_generator(char *metrics, size_t size, context_arg *carg)

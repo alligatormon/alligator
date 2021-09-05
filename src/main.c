@@ -141,7 +141,7 @@ aconf* configuration()
 	ac->puppeteer = alligator_ht_init(NULL);
 	ac->action = calloc(1, sizeof(alligator_ht));
 	ac->probe = calloc(1, sizeof(alligator_ht));
-	ac->query = calloc(1, sizeof(alligator_ht));
+	ac->query = alligator_ht_init(NULL);
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
 
@@ -159,7 +159,6 @@ aconf* configuration()
 	alligator_ht_init(ac->process_spawner);
 	alligator_ht_init(ac->lang_aggregator);
 	alligator_ht_init(ac->fs_x509);
-	alligator_ht_init(ac->query);
 	alligator_ht_init(ac->action);
 	alligator_ht_init(ac->probe);
 	alligator_ht_init(ac->file_stat);
