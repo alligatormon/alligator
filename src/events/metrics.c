@@ -57,16 +57,16 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	metric_add_labels4("alligator_tls_read_total_time", &srv_carg->tls_read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_execute_total_time", &srv_carg->exec_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 
-	probe_node *pn = carg->data;
-	if (pn)
-	{
-		if (pn->prober == APROTO_TCP)
-		{
-			printf("TCP\n");
-		}
-		else if (pn->prober == APROTO_TLS)
-		{
-			printf("TLS\n");
-		}
-	}
+	//probe_node *pn = carg->data;
+	//if (pn)
+	//{
+	//	if (pn->prober == APROTO_TCP)
+	//	{
+	//		printf("TCP\n");
+	//	}
+	//	else if (pn->prober == APROTO_TLS)
+	//	{
+	//		printf("TLS\n");
+	//	}
+	//}
 }

@@ -48,6 +48,7 @@ typedef struct match_rules
 double double_get_next(char *buf, char *sep, uint64_t *cursor);
 int64_t str_get_next(char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor);
 int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
+int64_t uint_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
 void selector_get_plain_metrics(char *m, size_t ms, char *sep, char *msep, char *prefix, size_t prefix_size);
 size_t get_file_size(char *filename);
 char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num );

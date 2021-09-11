@@ -115,6 +115,8 @@ int labels_cmp(labels_t *labels1, labels_t *labels2)
 int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count)
 {
 	sortplan *sort_plan = ac->nsdefault->metrictree->sort_plan;
+	if (labels_count)
+		++labels_count;
 
 	int64_t i;
 	size_t plan_size = sort_plan->size;
@@ -194,7 +196,8 @@ int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count)
 			return ret;
 		}
 	}
-	return 0;
+	//printf("return result labels count %zu\n", labels_count);
+	return labels_count;
 }
 
 int metric_name_match(labels_t *labels1, labels_t *labels2)
@@ -321,6 +324,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 	string *key = labels_to_groupkey(labels_list, groupkey);
 	uint32_t key_hash = tommy_strhash_u32(0, key->s);
 	query_struct *qs = alligator_ht_search(res_hash, query_struct_compare, key->s, key_hash);
+	//printf("labels->list '%s': %p: %lf\n", labels_list->key, qs, x->d);
 	if (!qs)
 	{
 		qs = malloc(sizeof(*qs));
@@ -1230,6 +1234,49 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	}
 }
 
+void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8)
+{
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+	int64_t ttl = get_ttl(carg);
+
+	alligator_ht *hash = alligator_ht_init(NULL);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+	labels_hash_insert(hash, name4, key4);
+	labels_hash_insert(hash, name5, key5);
+	labels_hash_insert(hash, name6, key6);
+	labels_hash_insert(hash, name7, key7);
+	labels_hash_insert(hash, name8, key8);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_set(mnode, type, value, expiretree, ttl);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree, ttl);
+	}
+}
+
 void metric_gen_foreach_avg(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
@@ -1253,17 +1300,44 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 	free(qs);
 }
 
+uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
+{
+	if (!op)
+		return 1;
+
+	if (op == QUERY_OPERATOR_EQ)
+		return val == opval;
+	else if (op == QUERY_OPERATOR_NE)
+		return val != opval;
+	else if (op == QUERY_OPERATOR_GT)
+		return val > opval;
+	else if (op == QUERY_OPERATOR_LT)
+		return val < opval;
+	else if (op == QUERY_OPERATOR_GE)
+		return val >= opval;
+	else if (op == QUERY_OPERATOR_LE)
+		return val <= opval;
+
+	printf("query_struct_check_expr: unknown OP!!!\n");
+	return 1;
+}
+
 void metric_gen_foreach_min(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
 
 	query_pass *qp = funcarg;
+	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
 	if (ac->log_level > 2)
-		printf("qs->key %s, min: %lf\n", qs->key, qs->min);
+		printf("qs->key %s, min: %lf, op: %d, opval: %lf\n", qs->key, qs->min, mqc->op, mqc->opval);
 
-	metric_add(name, qs->lbl, &qs->min, DATATYPE_DOUBLE, ac->system_carg);
-	action_query_foreach_process(qs, qp->an, &qs->min, DATATYPE_DOUBLE);
+	if (query_struct_check_expr(mqc->op, qs->min, mqc->opval))
+	{
+		metric_add(name, qs->lbl, &qs->min, DATATYPE_DOUBLE, ac->system_carg);
+		action_query_foreach_process(qs, qp->an, &qs->min, DATATYPE_DOUBLE);
+		qp->action_need_run = 1;
+	}
 
 	free(qs->key);
 	free(qs);
@@ -1274,12 +1348,17 @@ void metric_gen_foreach_max(void *funcarg, void* arg)
 	query_struct *qs = arg;
 
 	query_pass *qp = funcarg;
+	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
 	if (ac->log_level > 2)
-		printf("qs->key %s, max: %lf\n", qs->key, qs->max);
+		printf("qs->key %s, max: %lf, op: %d, opval: %lf\n", qs->key, qs->max, mqc->op, mqc->opval);
 
-	metric_add(name, qs->lbl, &qs->max, DATATYPE_DOUBLE, ac->system_carg);
-	action_query_foreach_process(qs, qp->an, &qs->max, DATATYPE_DOUBLE);
+	if (query_struct_check_expr(mqc->op, qs->max, mqc->opval))
+	{
+		metric_add(name, qs->lbl, &qs->max, DATATYPE_DOUBLE, ac->system_carg);
+		action_query_foreach_process(qs, qp->an, &qs->max, DATATYPE_DOUBLE);
+		qp->action_need_run = 1;
+	}
 
 	free(qs->key);
 	free(qs);
@@ -1290,12 +1369,17 @@ void metric_gen_foreach_sum(void *funcarg, void* arg)
 	query_struct *qs = arg;
 
 	query_pass *qp = funcarg;
+	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
 	if (ac->log_level > 2)
-		printf("qs->key %s, val: %lf\n", qs->key, qs->val);
+		printf("qs->key %s, val: %lf, op: %d, opval: %lf\n", qs->key, qs->val, mqc->op, mqc->opval);
 
-	metric_add(name, qs->lbl, &qs->val, DATATYPE_DOUBLE, ac->system_carg);
-	action_query_foreach_process(qs, qp->an, &qs->val, DATATYPE_DOUBLE);
+	if (query_struct_check_expr(mqc->op, qs->val, mqc->opval))
+	{
+		metric_add(name, qs->lbl, &qs->val, DATATYPE_DOUBLE, ac->system_carg);
+		action_query_foreach_process(qs, qp->an, &qs->val, DATATYPE_DOUBLE);
+		qp->action_need_run = 1;
+	}
 
 	free(qs->key);
 	free(qs);
@@ -1306,13 +1390,17 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 	query_struct *qs = arg;
 
 	query_pass *qp = funcarg;
+	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
 	if (ac->log_level > 2)
-		printf("qs->key %s, count: %"u64"\n", qs->key, qs->count);
+		printf("qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
 
-	metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
-	if (qp->an)
+	if (query_struct_check_expr(mqc->op, qs->count, mqc->opval))
+	{
+		metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
 		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
+		qp->action_need_run = 1;
+	}
 
 	free(qs->key);
 	free(qs);
@@ -1364,11 +1452,14 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_count, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			action_run_process(action_name);
+			if (qp.action_need_run)
+				action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_SUM))
@@ -1376,11 +1467,14 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_sum, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			action_run_process(action_name);
+			if (qp.action_need_run)
+				action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MIN))
@@ -1388,11 +1482,14 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_min, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			action_run_process(action_name);
+			if (qp.action_need_run)
+				action_run_process(action_name);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MAX))
@@ -1400,11 +1497,14 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
 			//alligator_ht_foreach_arg(res_hash, metric_gen_foreach_max, new_name);
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_max, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
-			action_run_process(action_name);
+			if (qp.action_need_run)
+				action_run_process(action_name);
 			labels_head_free(labels_list);
 			return;
 		}
@@ -1413,11 +1513,21 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			query_pass qp;
 			qp.new_name = new_name;
 			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_avg, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			action_run_process(action_name);
+			if (qp.action_need_run)
+				action_run_process(action_name);
+			return;
+		}
+
+		// check expr
+		if (!query_struct_check_expr(mqc->op, value, mqc->opval))
+		{
+			tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
 			return;
 		}
 

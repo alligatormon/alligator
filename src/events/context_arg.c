@@ -252,6 +252,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_timeout)
 		carg->timeout = int_timeout;
 
+	json_t *json_ttl = json_object_get(root, "ttl");
+	int64_t int_ttl = json_integer_value(json_ttl);
+	if (json_ttl)
+		carg->ttl = int_ttl;
+
 	json_t *json_file_stat = json_object_get(root, "file_stat");
 	carg->file_stat = json_boolean_value(json_file_stat);
 

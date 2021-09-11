@@ -295,6 +295,23 @@ int64_t str_get_next(char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t 
 	return end;
 }
 
+int64_t uint_get_next(char *buf, size_t sz, char sep, uint64_t *cursor)
+{
+	for (; *cursor<sz; ++(*cursor))
+	{
+		for (; *cursor<sz && buf[*cursor]==sep; ++(*cursor));
+		if (isdigit(buf[*cursor]) || buf[*cursor] == '-')
+		{
+			int64_t ret = strtoull(buf+(*cursor), NULL, 10);
+			for (; *cursor<sz && (isdigit(buf[*cursor]) || buf[*cursor] == '-'); ++(*cursor));
+			++(*cursor);
+
+			return ret;
+		}
+	}
+	return 0;
+}
+
 int64_t getkvfile(char *file)
 {
 	char temp[20];

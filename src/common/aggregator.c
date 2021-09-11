@@ -140,7 +140,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 		carg_free(new);
 }
 
-void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin)
+context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin)
 {
 	host_aggregator_info *hi = parse_url(url, url_len);
 
@@ -163,12 +163,18 @@ void aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg
 	new->context_ttl = time.sec;
 
 	new->log_level = carg? carg->log_level : ac->log_level;
+	new->ttl = carg? carg->ttl : ac->ttl;
 
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
 	if (!smart_aggregator(new))
+	{
 		carg_free(new);
+		return NULL;
+	}
+
+	return new;
 }
 
 int actx_compare(const void* arg, const void* obj)

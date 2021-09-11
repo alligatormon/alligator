@@ -71,6 +71,7 @@ system {
 #<parser> <url>;
 #asynchronous, the crawler downloads the data from <url>, parser converts them into metrics
 aggregate_period 10000 # in milliseconds
+query_period 20000 # in milliseconds
 aggregate backends {
 	#REDIS and SENTINEL
 	redis tcp://localhost:6379/;

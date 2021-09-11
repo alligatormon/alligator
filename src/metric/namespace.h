@@ -3,6 +3,7 @@
 #include "metric/metrictree.h"
 #include "events/context_arg.h"
 #include "action/action.h"
+#include "query/promql.h"
 
 #define DATATYPE_LIST_STRING 8
 #define DATATYPE_LIST_UINT 7
@@ -35,7 +36,9 @@ typedef struct serializer_context {
 
 typedef struct query_pass {
 	action_node *an;
+	metric_query_context *mqc;
 	char *new_name;
+	uint8_t action_need_run;
 } query_pass;
 
 void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);

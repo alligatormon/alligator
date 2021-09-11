@@ -62,6 +62,7 @@ typedef struct context_arg
 	string *full_body;
 	//int8_t expect_json;
 	uint64_t expect_body_length;
+	uint8_t no_exit_status;
 	int64_t chunked_size;
 	int64_t chunked_expect;
 	uint8_t chunked_done;

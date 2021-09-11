@@ -433,7 +433,8 @@ void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, alligato
 			x = x->steam[RIGHT];
 		else
 		{
-			labels_gen_metric(x->labels, 0, x, groupkey, hash);
+			if (!labels_match(x->labels, labels, labels_count))
+				labels_gen_metric(x->labels, 0, x, groupkey, hash);
 			metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash, labels_count);
 			metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
 			break;

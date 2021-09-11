@@ -3481,10 +3481,14 @@ void get_system_metrics()
 	}
 	if (ac->system_firewall)
 	{
-		get_iptables_info("filter", ac->system_carg);
-		get_iptables_info("nat", ac->system_carg);
-		get_iptables6_info("filter", ac->system_carg);
-		get_iptables6_info("nat", ac->system_carg);
+		//get_iptables_info("filter", ac->system_carg);
+		//get_iptables_info("nat", ac->system_carg);
+		//get_iptables6_info("filter", ac->system_carg);
+		//get_iptables6_info("nat", ac->system_carg);
+		get_iptables_info("exec://iptables -t filter", "filter", ac->system_carg);
+		get_iptables_info("exec://iptables -t nat", "nat", ac->system_carg);
+		get_iptables_info("exec://ip6tables -t filter", "filter", ac->system_carg);
+		get_iptables_info("exec://ip6tables -t nat", "nat", ac->system_carg);
 	}
 	if (ac->system_cpuavg)
 		get_cpu_avg();

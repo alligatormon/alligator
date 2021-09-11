@@ -73,7 +73,17 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				else
 					aggregator_repeat = json_integer_value(value);
 
-				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = ac->query_repeat = aggregator_repeat;
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = aggregator_repeat;
+			}
+			if (!strcmp(key, "query_period"))
+			{
+				uint64_t query_repeat;
+				if (json_typeof(value) == JSON_STRING)
+					query_repeat = strtoull(json_string_value(value), NULL, 10);
+				else
+					query_repeat = json_integer_value(value);
+
+				ac->query_repeat = query_repeat;
 			}
 			if (!strcmp(key, "ttl"))
 			{

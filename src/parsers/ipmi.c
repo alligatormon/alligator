@@ -234,9 +234,9 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 	ipmi_data *idata = carg->data;
 	if (!idata->event_log)
 	{
-		idata->event_log = calloc(1, sizeof(*idata->event_log));
-		alligator_ht_init(idata->event_log);
+		idata->event_log = alligator_ht_init(NULL);
 	}
+	alligator_ht_init(idata->event_log);
 	
 	uint8_t newind;
 	uint64_t num;
@@ -331,6 +331,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	alligator_ht_foreach_arg(idata->event_log, event_log_for, carg);
+	alligator_ht_done(idata->event_log);
 	metric_add_auto("ipmi_eventlog_size", &num, DATATYPE_UINT, carg);
 }
 

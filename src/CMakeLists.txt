@@ -73,11 +73,6 @@ link_directories(/usr/local/lib/)
 link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
 link_directories(external/mruby/build/host/lib/)
-IF(${distro} MATCHES "centos")
-link_directories(external/iptables/libiptc/.libs/)
-ELSE(${distro} MATCHES "centos")
-link_directories(external/iptables-ubuntu/libiptc/.libs/)
-ENDIF(${distro} MATCHES "centos")
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
 set(STATIC_FILES
@@ -160,6 +155,7 @@ set(STATIC_FILES
 	parsers/mogilefs.c
 	parsers/moosefs.c
 	parsers/rpm.c
+	parsers/firewall.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -194,7 +190,6 @@ set(STATIC_FILES
 	api/api_router.c
 	api/api_v1.c
 	common/reject.c
-	common/iptc.c
 	common/entrypoint.c
 	common/pw.c
 	common/stop.c

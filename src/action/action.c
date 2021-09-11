@@ -39,7 +39,8 @@ void action_query_foreach_process(query_struct *qs, action_node *an, void *val, 
 	current_carg->namespace = ns->key;
 
 	//printf("insert metric name %s, namespace %s\n", qs->metric_name, key);
-	metric_add(qs->metric_name, qs->lbl, val, type, current_carg);
+	alligator_ht *duplabels = labels_dup(qs->lbl);
+	metric_add(qs->metric_name, duplabels, val, type, current_carg);
 	free(current_carg);
 }
 
@@ -59,29 +60,8 @@ void action_run_process(char *name)
 	string *body = metric_query_deserialize(1024, mqc, an->serializer, 0, key);
 	query_context_free(mqc);
 
+	printf("run %s\n", an->expr);
 	aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l);
-}
-
-void query_res_foreach(void *funcarg, void* arg)
-{
-	query_struct *qs = arg;
-
-	action_node *an = funcarg;
-
-	if (ac->log_level > 2)
-		printf("qs %p: qs->key %s, count: %"u64"\n", qs, qs->key, qs->count);
-
-	char key[255];
-	snprintf(key, 254, "action:%s", an->name);
-	namespace_struct *ns = insert_namespace(key);
-	if (!ns)
-		return;
-
-	context_arg *current_carg = calloc(1, sizeof(*current_carg));
-	current_carg->namespace = ns->key;
-
-	metric_add(qs->metric_name, qs->lbl, &qs->count, DATATYPE_UINT, current_carg);
-	free(current_carg);
 }
 
 void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_t *jtype, uint8_t follow_redirects, json_t *jserializer)

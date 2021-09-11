@@ -182,7 +182,6 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 				if (*str == ')')
 					break;
 
-				//printf("\t(%d/%d) cur position: '%s'\n", j, i, str);
 				k = strcspn(str, ",)");
 				string_cat(groupkey, str, k);
 				string_cat(groupkey, ",", 1);
@@ -194,6 +193,33 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 
 			str += strspn(str, " \t\r\n()");
 		}
+	}
+
+	// get expression
+	str = strstr(query, "}");
+	if (!str)
+		str = strstr(query, ")");
+
+	if (str)
+	{
+		str += strcspn(str, "><=");
+
+		if (!strncmp(str, "==", 2))
+			mqc->op = QUERY_OPERATOR_EQ;
+		else if (!strncmp(str, "!=", 2))
+			mqc->op = QUERY_OPERATOR_NE;
+		else if (!strncmp(str, ">", 1))
+			mqc->op = QUERY_OPERATOR_GT;
+		else if (!strncmp(str, "<", 1))
+			mqc->op = QUERY_OPERATOR_LT;
+		else if (!strncmp(str, ">=", 2))
+			mqc->op = QUERY_OPERATOR_GE;
+		else if (!strncmp(str, "<=", 2))
+			mqc->op = QUERY_OPERATOR_LE;
+
+		str += strspn(str, "><=! \t");
+		mqc->opval = strtod(str, NULL);
+		//printf("mqc->op == %d, mqc->opval = %lf\n", mqc->op, mqc->opval);
 	}
 
 	mqc->query = query;
