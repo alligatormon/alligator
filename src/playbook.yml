@@ -59,6 +59,12 @@
       src: ../misc/datastax.repo
       dest: /etc/yum.repos.d/datastax.repo
 
+  - name: Copy mongodb.repo
+    when: ansible_os_family == "RedHat"
+    ansible.builtin.copy:
+      src: ../misc/mongodb.repo
+      dest: /etc/yum.repos.d/mongodb.repo
+
   - name: Import a key from clickhouse repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.rpm_key:
@@ -176,6 +182,9 @@
       - redis
       - monit
       - gcc-c++
+      - go
+      - mongodb-org-server
+      - mongodb-org-shell
 
   - name: Install el7
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'
@@ -193,6 +202,7 @@
       - uwsgi
       - uwsgi-plugin-python36
       - cmake3
+      - vim-go
 
   - name: Install el8
     when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8'
@@ -240,6 +250,14 @@
       - lighttpd
       - xinetd
       - tftp-server
+
+  - name: Create /data/db directory
+    file:
+      path: /data/db/
+      state: directory
+      owner: mongod
+      group: mongod
+
 
   - name: Create a symbolic link force
     when: ansible_system == "FreeBSD"

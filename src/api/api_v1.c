@@ -963,6 +963,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						continue;
 					alligator_ht *env = env_struct_parser(aggregate);
 
+					// TODO: potential memory leak
+					if (actx->data_func)
+						actx->data = actx->data_func(hi, actx, aggregate);
+
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{
 						string *query = NULL;

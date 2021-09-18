@@ -186,7 +186,7 @@ void env_node_scan(env_tree *node, int64_t indent, json_t *nroot)
 
 		nroot = env_tree_new_node_json(nroot, node);
 	}
-	else if (ac->log_level > 1)
+	else if (ac->log_level > 11)
 	{
 		for (int64_t i = 0; i < indent; i++)
 			printf(" ");
@@ -208,7 +208,7 @@ void env_tree_deserialize_json(env_tree *tree)
 	env_node_scan(tree, 0, root);
 
 	char *dvalue = json_dumps(root, JSON_INDENT(2));
-	if (ac->log_level > 1)
+	if (ac->log_level > 11)
 		puts(dvalue);
 	http_api_v1(NULL, NULL, dvalue);
 	free(dvalue);
@@ -249,7 +249,7 @@ void env_node_scan_del(env_tree *node, int64_t indent)
 
 		env_tree_del_node(node);
 	}
-	else if (ac->log_level > 1)
+	else if (ac->log_level > 11)
 	{
 		for (int64_t i = 0; i < indent; i++)
 			printf(" ");

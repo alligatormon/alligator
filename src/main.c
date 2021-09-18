@@ -274,7 +274,7 @@ int main(int argc, char **argv, char **envp)
 	process_handler();
 	//unix_client_handler();
 	unixgram_client_handler();
-	//lang_handler();
+	lang_handler();
 	tls_fs_handler();
 	query_handler();
 	postgresql_client_handler();

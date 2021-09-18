@@ -156,6 +156,7 @@ set(STATIC_FILES
 	parsers/moosefs.c
 	parsers/rpm.c
 	parsers/firewall.c
+	parsers/mongodb.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -287,6 +288,7 @@ ENDIF(${distro}.${disversion} MATCHES "centos.7")
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer.js /var/lib/alligator)
+add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /tmp/liblang.so -buildmode=c-shared cmd/mongo/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 

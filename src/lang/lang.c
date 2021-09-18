@@ -130,7 +130,6 @@ static void lang_cb(void *arg)
 	usleep(ac->lang_aggregator_startup*1000);
 	while ( 1 )
 	{
-
 		alligator_ht_foreach(ac->lang_aggregator, lang_run_threads);
 		usleep(ac->lang_aggregator_repeat*1000);
 	}

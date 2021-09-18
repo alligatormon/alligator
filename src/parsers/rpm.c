@@ -34,7 +34,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 			match = 0;
  
 		if (match)
-			metric_add_labels3("package_installed", &ts, DATATYPE_INT, carg, "name", name, "version", version, "release", release);
+			metric_add_labels3("package_installed", &ts, DATATYPE_INT, ac->system_carg, "name", name, "version", version, "release", release);
 
 		++pkgs;
 	}

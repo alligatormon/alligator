@@ -263,6 +263,8 @@ void query_context_free(metric_query_context *mqc)
 {
 	//if (mqc->lbl)
 	//	labels_hash_free(mqc->lbl);
+	if (mqc->name)
+		free(mqc->name);
 	if (mqc->groupkey)
 		string_free(mqc->groupkey);
 	free(mqc);

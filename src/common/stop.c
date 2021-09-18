@@ -1,20 +1,16 @@
 #include <stdio.h>
 #include "main.h"
-
-void alligator_stop_timeout(uv_timer_t *timer)
-{
-	free(timer);
-	uv_loop_close(uv_default_loop());
-	exit(0);
-}
+#include "metric/expiretree.h"
 
 void alligator_stop(char *initiator, int code)
 {
 	printf("Stop signal received: %d from '%s'\n", code, initiator);
 	metric_dump(1);
 	puppeteer_done();
+	aggregate_ctx_free();
+	namespace_free(0, NULL);
 
-	uv_timer_t* timer1 = calloc(1, sizeof(*timer1));;
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, alligator_stop_timeout, 500, 1000);
+	uv_loop_close(uv_default_loop());
+
+	exit(0);
 }

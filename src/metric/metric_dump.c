@@ -20,10 +20,12 @@ void metric_dump(int exit_sig)
 	snprintf(dirtowrite, 255, "%s/metric_dump", ac->persistence_dir);
 	if (exit_sig >= 0)
 	{
-		int *code = malloc(sizeof(*code));
-		*code = 0;
-		//write_to_file(dirtowrite, body->s, body->l, exit, code);
-		write_to_file(dirtowrite, body->s, body->l, NULL, code);
+		//int *code = malloc(sizeof(*code));
+		//*code = 0;
+		//write_to_file(dirtowrite, body->s, body->l, NULL, code);
+		FILE *fd = fopen(dirtowrite, "w");
+		fwrite(body->s, body->l, 1, fd);
+		fclose(fd);
 	}
 	else
 		write_to_file(dirtowrite, body->s, body->l, free, body);

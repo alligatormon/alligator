@@ -14,6 +14,7 @@ typedef struct aggregate_context
 	uint64_t handlers;
 	aggregate_handler *handler;
 	void *data;
+	void* (*data_func)(host_aggregator_info*, void *arg, void *data);
 
 	tommy_node node;
 	char *key;

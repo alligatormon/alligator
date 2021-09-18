@@ -22,7 +22,7 @@ int64_t get_ttl(context_arg *carg)
 		if (carg->curr_ttl == 0)
 		{
 			if (carg->ttl == 0)
-				return INT_MAX;
+				return INT_MAX-1; // INT_MAX for full clean tree
 			else
 				return carg->ttl;
 		}
@@ -35,7 +35,7 @@ int64_t get_ttl(context_arg *carg)
 		if (carg->ttl == 0)
 		{
 			if (ac->ttl == 0)
-				return INT_MAX;
+				return INT_MAX-1; // INT_MAX for full clean tree
 			else
 				return ac->ttl;
 		}
@@ -667,6 +667,41 @@ void print_labels(labels_t *labels)
 		printf("labels %p, labels->name: '%s' (%zu), labels->key: '%s' (%zu)\n", labels, labels->name, labels->name_len, labels->key, labels->key_len);
 		labels = labels->next;
 	}
+}
+
+namespace_struct *get_ns(char *namespace, namespace_struct *arg_ns)
+{
+	namespace_struct *ns;
+
+	if ((!namespace) && !(arg_ns))
+		ns = ac->nsdefault;
+	else if(arg_ns)
+		ns = arg_ns;
+	else // add support namespaces
+		return NULL;
+
+	return ns;
+}
+
+void labels_cache_free_foreach(void *funcarg, void* arg)
+{
+	labels_words_cache *labels_cache = arg;
+	
+	if (labels_cache->w)
+		free(labels_cache->w);
+
+	free(labels_cache);
+}
+
+void namespace_free(char *namespace, namespace_struct *arg_ns)
+{
+	namespace_struct *ns = get_ns(namespace, arg_ns);
+	if (!ns)
+		return;
+
+	expire_purge(INT_MAX, namespace);
+
+	alligator_ht_foreach_arg(ns->metrictree->labels_words_hash, labels_cache_free_foreach, NULL);
 }
 
 void labels_cache_fill(labels_t *labels, metric_tree *metrictree)

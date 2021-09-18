@@ -347,7 +347,6 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 		{
 			metric_delete(tree, x->metric->labels, expiretree);
 			return ++ret;
-			//ret++;
 		}
 
 		if(x->steam[LEFT])
@@ -361,7 +360,6 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 		{
 			metric_delete(tree, x->metric->labels, expiretree);
 			return ++ret;
-			//ret++;
 		}
 
 		if(x->steam[LEFT])

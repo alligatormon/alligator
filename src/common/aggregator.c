@@ -255,6 +255,7 @@ void aggregate_ctx_init()
 	druid_broker_parser_push();
 	mogilefs_parser_push();
 	moosefs_parser_push();
+	mongodb_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)
@@ -262,4 +263,20 @@ int aggregator_compare(const void* arg, const void* obj)
 	char *s1 = (char*)arg;
 	char *s2 = ((context_arg*)obj)->key;
 	return strcmp(s1, s2);
+}
+
+void aggregate_free_foreach(void *funcarg, void* arg)
+{
+	aggregate_context *actx = arg;
+
+	if (actx->handler)
+		free(actx->handler);
+	if (actx->key)
+		free(actx->key);
+	free(actx);
+}
+
+void aggregate_ctx_free()
+{
+	alligator_ht_foreach_arg(ac->aggregate_ctx, aggregate_free_foreach, NULL);
 }
