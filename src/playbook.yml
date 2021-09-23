@@ -254,6 +254,7 @@
       - tftp-server
 
   - name: Create /data/db directory
+    when: ansible_system == "Linux"
     file:
       path: /data/db/
       state: directory
