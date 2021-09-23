@@ -296,7 +296,10 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kv
+m util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx5
+09.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libm
+ruby.a libmruby_core.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libip4tc.a libip6tc.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a)
@@ -308,6 +311,7 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_FREEBSD_PACKAGE_LICENSE "APACHE20")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 

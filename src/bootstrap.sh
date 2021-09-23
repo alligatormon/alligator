@@ -17,5 +17,6 @@ ansible-playbook --connection=local --inventory 127.0.0.1, playbook.yml
 
 conan install . --build=missing
 lsb_release -c | awk -F: '{print $2}' | awk '{print $1}' | grep stretch && conan install ../misc/debian9/ --build=missing && apt -y install libpcre3-dev
+uname -s | grep FreeBSD && conan install ../misc/freebsd/ --build=missing
 conan install
 conan build external/

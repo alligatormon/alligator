@@ -91,6 +91,7 @@
       - vim
       - rubygem-rake
       - autotools
+      - go
       - json-yaml #/usr/local/bin/yaml-json /etc/alligator.yaml
 
   - name: install debian == 10
@@ -181,6 +182,7 @@
       - clickhouse-server
       - redis
       - monit
+      - strace
       - gcc-c++
       - go
       - mongodb-org-server
