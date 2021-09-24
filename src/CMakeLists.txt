@@ -316,6 +316,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer.js DESTINATION /var/lib/alligator)
+	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/local/bin)
