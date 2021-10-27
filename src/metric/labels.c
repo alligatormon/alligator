@@ -16,13 +16,13 @@ int64_t get_ttl(context_arg *carg)
 	if (!carg)
 		return ac->ttl;
 
-	//printf("curr ttl: %d, carg->ttl %d, ttl %d\n", carg->curr_ttl, carg->curr_ttl, ac->ttl);
+	//printf("curr ttl: %d, carg->ttl %d, ttl %d\n", carg->curr_ttl, carg->ttl, ac->ttl);
 	if (carg->curr_ttl > -1)
 	{
 		if (carg->curr_ttl == 0)
 		{
 			if (carg->ttl == 0)
-				return INT_MAX-1; // INT_MAX for full clean tree
+				return INT64_MAX-UINT32_MAX; // LLONG_MAX for full clean tree
 			else
 				return carg->ttl;
 		}
@@ -35,13 +35,16 @@ int64_t get_ttl(context_arg *carg)
 		if (carg->ttl == 0)
 		{
 			if (ac->ttl == 0)
-				return INT_MAX-1; // INT_MAX for full clean tree
+				return INT64_MAX-UINT32_MAX; // LLONG_MAX for full clean tree
 			else
 				return ac->ttl;
 		}
 
 		return carg->ttl;
 	}
+
+	if (ac->ttl == 0)
+		return INT64_MAX-UINT32_MAX;
 
 	return ac->ttl;
 }
@@ -699,7 +702,7 @@ void namespace_free(char *namespace, namespace_struct *arg_ns)
 	if (!ns)
 		return;
 
-	expire_purge(INT_MAX, namespace);
+	expire_purge(INT64_MAX, namespace);
 
 	alligator_ht_foreach_arg(ns->metrictree->labels_words_hash, labels_cache_free_foreach, NULL);
 }

@@ -54,7 +54,6 @@ typedef struct port_usage {
 	char *remote_addr;
 	char *remote_port;
 	char *local_addr;
-	char *local_port;
 	uint64_t count;
 	int state_proto;
 	int state;
@@ -63,6 +62,18 @@ typedef struct port_usage {
 	char *key;
 	tommy_node node;
 } port_usage;
+
+typedef struct count_port_usage_t {
+	alligator_ht *count;
+
+	char *key;
+	tommy_node node;
+} count_port_usage_t;
+
+typedef struct count_addr_port_usage {
+	char *key;
+	tommy_node node;
+} count_addr_port_usage;
 
 void print_mount(const struct mntent *fs)
 {
@@ -1598,6 +1609,20 @@ int port_usage_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
+int count_port_usage_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((count_port_usage_t*)obj)->key;
+        return strcmp(s1, s2);
+}
+
+int count_addr_port_usage_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((count_addr_port_usage*)obj)->key;
+        return strcmp(s1, s2);
+}
+
 void port_usage_free(void *funcarg, void* arg)
 {
 	port_usage *pu = arg;
@@ -1632,8 +1657,6 @@ void port_usage_free(void *funcarg, void* arg)
 	else if (state == 11)
 		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSING", "process", pu->process);
 
-	if (pu->local_port)
-		free(pu->local_port);
 	if (pu->remote_port)
 		free(pu->remote_port);
 	if (pu->local_addr)
@@ -1643,6 +1666,36 @@ void port_usage_free(void *funcarg, void* arg)
 
 	free(pu->key);
 	free(pu);
+}
+
+void count_port_free(void *funcarg, void* arg)
+{
+	count_addr_port_usage *capu = arg;
+	if (!capu)
+		return;
+
+	free(capu->key);
+	free(capu);
+}
+
+void count_port(void *funcarg, void* arg)
+{
+	count_port_usage_t *cput = arg;
+	if (!cput)
+		return;
+
+	char *proto = funcarg;
+
+	uint64_t count = alligator_ht_count(cput->count);
+
+	metric_add_labels2("port_usage_count", &count, DATATYPE_UINT, ac->system_carg, "addr", cput->key, "proto", proto);
+
+	alligator_ht_foreach_arg(cput->count, count_port_free, NULL);
+	alligator_ht_done(cput->count);
+	free(cput->count);
+
+	free(cput->key);
+	free(cput);
 }
 
 void get_net_tcpudp(char *file, char *name, int state_proto)
@@ -1665,6 +1718,8 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 
 	alligator_ht *addr_port_usage = calloc(1, sizeof(*addr_port_usage));
 	alligator_ht_init(addr_port_usage);
+
+	alligator_ht *count_port_usage = alligator_ht_init(NULL);
 
 	char srcaddrportkey[255];
 	char *start, *end;
@@ -1768,7 +1823,6 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 			{
 				pu = calloc(1, sizeof(*pu));
 				pu->local_addr = strdup(str1);
-				pu->local_port = strdup(srcp);
 				pu->key = strdup(srcaddrportkey);
 				pu->count = 1;
 				pu->state_proto = state_proto;
@@ -1781,14 +1835,38 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 			{
 				++pu->count;
 			}
+
+			key_hash = tommy_strhash_u32(0, str1);
+			count_port_usage_t* count_addr = alligator_ht_search(count_port_usage, count_port_usage_compare, str1, key_hash);
+			if (!count_addr)
+			{
+				count_addr = calloc(1, sizeof(*count_addr));
+				count_addr->key = strdup(str1);
+				count_addr->count = alligator_ht_init(NULL);
+
+				alligator_ht_insert(count_port_usage, &(count_addr->node), count_addr, key_hash);
+			}
+
+			key_hash = tommy_strhash_u32(0, srcp);
+			count_addr_port_usage *capu = alligator_ht_search(count_addr->count, count_addr_port_usage_compare, srcp, key_hash);
+			if (!capu)
+			{
+				capu = calloc(1, sizeof(*count_addr));
+				capu->key = strdup(srcp);
+
+				alligator_ht_insert(count_addr->count, &(capu->node), capu, key_hash);
+			}
 		}
 	}
 	fclose(fd);
 	free(buf);
 
+	alligator_ht_foreach_arg(count_port_usage, count_port, name);
 	alligator_ht_foreach_arg(addr_port_usage, port_usage_free, NULL);
 	alligator_ht_done(addr_port_usage);
+	alligator_ht_done(count_port_usage);
 	free(addr_port_usage);
+	free(count_port_usage);
 
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);

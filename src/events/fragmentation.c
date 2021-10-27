@@ -4,74 +4,32 @@
 #include "main.h"
 extern aconf *ac;
 
-void chunk_calc(context_arg* carg, char *buf, ssize_t nread)
+uint64_t chunk_calc(context_arg* carg, char *buf, ssize_t nread, uint8_t copying)
 {
-	char *tmp = buf;
-	ssize_t tsize = nread;
-	uint64_t offset = 0;
-	//printf("CHUNK CALC %"d64", %"d64"\n", carg->chunked_size, carg->chunked_expect);
-	if (carg->chunked_size < 0)
+	size_t prevsize;
+	size_t bufsz = prevsize = nread;
+	//printf("\n\n\n\n========bus is=====\n'%s'\n\t=====\n", buf);
+	phr_decode_chunked(&carg->chunked_dec, buf, &bufsz);
+	//printf("0phr_decode_chunked return: %zd/%zu: %zu, prevsize %zu\n", ret, nread, bufsz, prevsize);
+	if (bufsz)
 	{
-		//puts("case -1");
-		carg->chunked_done = 1;
-		return;
-	}
-	if (!carg->chunked_expect)
-		return;
-	if (!buf)
-		return;
-
-	if (!carg->chunked_size)
-	{
-		//puts("case 0");
-		offset = strspn(tmp, "\r\n");
-		tsize = nread - offset;
-		tmp += offset;
-
-		carg->chunked_size = strtoll(tmp, NULL, 16);
-
-		offset = strcspn(tmp, "\r\n");
-		offset += strspn(tmp+offset, "\r\n");
-		tsize = nread - (tmp - buf) - offset;
-		tmp += offset;
+		//printf("\n+++++ 1decoded: ++++\n'%s'\n++++end+++++\n", buf);
+		//strlcpy(carg->full_body->s, buf, bufsz + 1);
+		if (copying)
+			string_cat(carg->full_body, buf, bufsz);
+		//printf("\n+++++ 2decoded: ++++\n'%s'\n=======end=======\n\n\n\n", carg->full_body->s);
 	}
 
-	if (tsize < carg->chunked_size)
-	{
-		//printf("case 1: cat %"d64"\n", tsize);
-		string_cat(carg->full_body, tmp, tsize);
-		carg->chunked_size -= tsize;
-	}
-	else
-	{
-		//puts("case 2");
-		size_t n;
-		for (n = 0; n < tsize; n++)
-		{
-			//printf("loop case 3: read %"d64"\n", carg->chunked_size);
-			string_cat(carg->full_body, tmp+n, carg->chunked_size);
-			n += carg->chunked_size;
-			n += strspn(tmp, "\r\n");
-			
-			//printf("strtoll '%s'\n", tmp);
-			carg->chunked_size = strtoll(tmp, NULL, 16);
-			if (!carg->chunked_size)
-			{
-				//puts("loop end 3");
-				carg->chunked_done = 1;
-				break;
-			}
-		}
-	}
+	return bufsz;
 }
 
-int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
+int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread, uint64_t chunksize)
 {
-	//printf("check buf for '%s'\n", buf);
-	// check body size
+	
 	if (ac->log_level > 2)
-		printf("check body full: length (%"u64"/%zu), chunk (%"d64"/%"d64"), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l - carg->headers_size, carg->expect_body_length, carg->chunked_size, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
+		printf("check body full: length (%"u64"/%zu), chunk (X/%"d64"), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l - carg->headers_size, carg->expect_body_length, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
 
+	//printf("expect %"d64": %"u64"\n", carg->chunked_expect, chunksize);
 	if (carg->expect_body_length && carg->expect_body_length <= carg->full_body->l - carg->headers_size)
 	{
 		if (ac->log_level > 2)
@@ -79,8 +37,8 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread)
 		return 1;
 	}
 
-	// check chunk http validator
-	else if (carg->chunked_expect && carg->chunked_done)
+	//// check chunk http validator
+	else if (carg->chunked_expect && !chunksize)
 	{
 		if (ac->log_level > 2)
 			puts("check body full: chunk match");

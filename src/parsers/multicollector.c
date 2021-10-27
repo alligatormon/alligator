@@ -611,7 +611,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, "1.1", env, proxy_settings, NULL), 0, 0);
 }
 
 void prometheus_metrics_parser_push()

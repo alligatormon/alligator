@@ -545,6 +545,20 @@ void string_cut(string *str, uint64_t offset, size_t len)
 	puts("================================");
 }
 
+void string_break(string *str, uint64_t start, uint64_t end)
+{
+	uint64_t newend = end - start;
+	//printf("1start is %"u64", end is %"u64", newend is %"u64", l is %zu, m is %zu\n", start, end, newend, str->l, str->m);
+	if (!end)
+		newend = str->l - start;
+	//printf("2start is %"u64", end is %"u64", newend is %"u64", l is %zu, m is %zu\n", start, end, newend, str->l, str->m);
+
+	if (start)
+		memcpy(str->s, str->s + start, newend);
+	str->l = newend;
+	str->s[str->l] = 0;
+}
+
 void string_free_callback(char *data)
 {
 	string *str = (string*)data;

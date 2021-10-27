@@ -3,6 +3,7 @@
 #include "mbedtls/debug.h"
 #include "events/uv_alloc.h"
 #include "events/debug.h"
+#include "events/fragmentation.h"
 #include "main.h"
 #include "parsers/http_proto.h"
 extern aconf* ac;
@@ -99,7 +100,7 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
-	//printf("tcp_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
+	//printf("tcp_client_readed: nread %zd, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
@@ -109,12 +110,13 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	if (nread > 0)
 	{
+		uint64_t chunksize = 0;
 		if (buf && buf->base)
 			buf->base[nread] = 0;
 		if (carg && carg->log_level > 99)
 		{
 			puts("");
-			printf("==================BASE===================\n'%s'\n======\n", buf->base);
+			printf("==================BASE===================\n'%s'\n======\n", buf? buf->base : NULL);
 		}
 		carg->read_bytes_counter += nread;
 		if (buf && buf->base)
@@ -130,14 +132,20 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 					string_string_cat(carg->full_body, hr_data->clear_http);
 
 					carg->is_http_query = 1;
-					carg->chunked_size = hr_data->chunked_size;
 					carg->chunked_expect = hr_data->chunked_expect;
 					carg->headers_size = hr_data->headers_size;
+					carg->body = carg->chunked_ptr = carg->full_body->s + hr_data->body_offset; //
+					size_t body_size = carg->full_body->l - hr_data->body_offset; //
 					//printf("chunked_size %u, expect %d\n", carg->chunked_size, carg->chunked_expect);
 					carg->expect_body_length = hr_data->content_length;
 
 					if (carg->chunked_expect)
-						chunk_calc(carg, hr_data->body, hr_data->body_size);
+					{
+						memset(&carg->chunked_dec, 0, sizeof(carg->chunked_dec));
+						chunksize = chunk_calc(carg, carg->body, body_size, 0);
+						carg->body[chunksize + 1] = 0;
+						string_break(carg->full_body, 0, carg->full_body->l - (body_size - chunksize));
+					}
 
 					http_reply_free(hr_data);
 				}
@@ -149,14 +157,14 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			}
 			else if (carg->chunked_expect) // maybe chunked_expect?
 			{
-				chunk_calc(carg, buf->base, nread);
+				chunksize = chunk_calc(carg, buf->base, nread, 1);
 			}
 			else
 			{
 				string_cat(carg->full_body, buf->base, nread);
 			}
 
-			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l);
+			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l, chunksize);
 			//printf("tcp_check_full: %d: %p\n", rc, carg->full_body->s);
 			if (rc)
 			{
@@ -231,14 +239,20 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		carg->ssl_read_buffer_offset = 0;
  
 		while((read_len = mbedtls_ssl_read(&carg->tls_ctx, (unsigned char *)carg->user_read_buf.base,  carg->user_read_buf.len)) > 0)
+		{
 			tcp_client_readed(stream, read_len, &carg->user_read_buf);
+		}
 
 		if (read_len !=0 && read_len != MBEDTLS_ERR_SSL_WANT_READ)
 		{
 			if (MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY == read_len)
+			{
 				tcp_client_readed(stream, nread, 0);
+			}
 			else
+			{
 				tcp_client_readed(stream, nread, 0);
+			}
 		}
 	}
 }

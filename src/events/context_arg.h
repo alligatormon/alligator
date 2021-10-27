@@ -18,6 +18,7 @@
 #include "mbedtls/ssl.h"
 #include "common/selector.h"
 #include "common/url.h"
+#include "picohttpparser.h"
 
 typedef struct env_struct {
 	char *k;
@@ -57,15 +58,15 @@ typedef struct context_arg
 	//char *http_body;
 	regex_match *rematch;
 	mapping_metric *mm;
+	struct phr_chunked_decoder chunked_dec;
 
 	// chunk body read
 	string *full_body;
 	//int8_t expect_json;
 	uint64_t expect_body_length;
 	uint8_t no_exit_status;
-	int64_t chunked_size;
 	int64_t chunked_expect;
-	uint8_t chunked_done;
+	char *chunked_ptr;
 	int8_t (*expect_function)(char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
@@ -78,6 +79,7 @@ typedef struct context_arg
 	char *namespace;
 	char *auth_basic;
 	char *auth_bearer;
+	char *body;
 	network_range *net_acl;
 
 	// for process spawn

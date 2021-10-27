@@ -98,6 +98,7 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 			cursor += strspn(field + cursor, " ");
 
 			strlcpy(comment, field + cursor, end - cursor + 1);
+			prometheus_metric_name_normalizer(comment, end - cursor);
 			
 			if (ac->log_level > 0)
 				printf("pkts is %"PRId64", bytes is %"PRId64", target is '%s', prot is '%s', opt is '%s', in is '%s', out is '%s', source is '%s', destination is '%s', comment is '%s'\n", pkts, bytes, target, prot, opt, in, out, source, destination, comment);
