@@ -134,6 +134,18 @@ int metric_label_validator(char *str, size_t sz)
 	return 1;
 }
 
+int metric_label_value_validator(char *str, size_t sz)
+{
+	int64_t i;
+	for (i=0; i<sz; i++)
+		if (str[i] == '\\')
+			return 0;
+		else
+			continue;
+
+	return 1;
+}
+
 int metric_value_validator(char *str, size_t sz)
 {
 	int64_t i = 0;

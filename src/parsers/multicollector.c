@@ -322,6 +322,11 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl
 			labels_hash_free(lbl);
 			return;
 		}
+		else if (!metric_label_value_validator(label_key, strlen(label_key)))
+		{
+			labels_hash_free(lbl);
+			return;
+		}
 
 		if (metric_name_validator_promstatsd(label_name, strlen(label_name)))
 			labels_hash_insert_nocache(*lbl, label_name, label_key);
@@ -469,6 +474,11 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			if (metric_name_validator(label_name, strlen(label_name)))
 			{
 				if (carg && reject_metric(carg->reject, label_name, label_key))
+				{
+					labels_hash_free(lbl);
+					return 0;
+				}
+				else if (!metric_label_value_validator(label_key, strlen(label_key)))
 				{
 					labels_hash_free(lbl);
 					return 0;
