@@ -69,7 +69,6 @@ int smart_aggregator(context_arg *carg)
 	if (type && !carg->key)
 	{
 		carg->key = strdup(key);
-		//snprintf(carg->key, 254, "%s:%s:%s", type, carg->parser_name, carg->url);
 	}
 
 	if (carg->key)
@@ -119,8 +118,7 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data)
 {
 	host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
-	alligator_ht *newenv = env_struct_duplicate(carg->env);
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, carg->follow_redirects, carg->stdin_s, carg->stdin_l);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, carg->env, carg->follow_redirects, carg->stdin_s, carg->stdin_l);
 
 	new->key = override_key;
 	if (!new->key)
@@ -145,8 +143,8 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	host_aggregator_info *hi = parse_url(url, url_len);
 
 	alligator_ht *newenv = NULL;
-	if (carg)
-		newenv = env_struct_duplicate(carg->env);
+	if (carg && carg->env)
+		newenv = carg->env;
 
 	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, follow_redirects, s_stdin, l_stdin);
 
@@ -279,4 +277,32 @@ void aggregate_free_foreach(void *funcarg, void* arg)
 void aggregate_ctx_free()
 {
 	alligator_ht_foreach_arg(ac->aggregate_ctx, aggregate_free_foreach, NULL);
+}
+
+void aggregators_free_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = arg;
+	if (!carg->lock)
+	{
+		carg_free(carg);
+	}
+}
+
+void aggregators_free()
+{
+	alligator_ht_foreach_arg(ac->aggregators, aggregators_free_foreach, NULL);
+}
+
+void entrypoint_free_foreach(void *funcarg, void* arg)
+{
+	context_arg *carg = arg;
+	if (!carg->lock)
+	{
+		carg_free(carg);
+	}
+}
+
+void entrypoints_free()
+{
+	alligator_ht_foreach_arg(ac->entrypoints, entrypoint_free_foreach, NULL);
 }

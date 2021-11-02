@@ -25,3 +25,4 @@ typedef struct network_range
 
 void cidr_to_network_range(network_range_node *nr, char *cidr);
 char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version);
+network_range* network_range_duplicate(network_range *nr);

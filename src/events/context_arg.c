@@ -8,6 +8,10 @@ context_arg *carg_copy(context_arg *src)
 	size_t carg_size = sizeof(context_arg);
 	context_arg *carg = malloc(carg_size);
 	memcpy(carg, src, carg_size);
+
+	carg->net_acl = network_range_duplicate(src->net_acl);
+	if (src->key)
+		carg->key = strdup(src->key);
 	//printf("carg_size is %zu\n", carg_size);
 	return carg;
 }
@@ -25,7 +29,7 @@ void env_struct_free(void *funcarg, void* arg)
 void carg_free(context_arg *carg)
 {
 	if (ac->log_level > 2)
-		printf("FREE context argument %p with hostname '%s', key '%s', with mesg '%s'\n", carg, carg->host, carg->key, carg->mesg);
+		printf("FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n", carg, carg->host, carg->key, carg->key, carg->mesg);
 
 	if (carg->mesg)
 		free(carg->mesg);
@@ -54,7 +58,11 @@ void carg_free(context_arg *carg)
 	if (carg->name)
 		free(carg->name);
 
-	string_free(carg->full_body);
+	if (carg->full_body)
+		string_free(carg->full_body);
+
+	if (carg->args)
+		string_free(carg->args);
 
 	if (carg->env)
 	{
@@ -63,8 +71,6 @@ void carg_free(context_arg *carg)
 		free(carg->env);
 	}
 	// TODO: free carg->labels
-	// TODO: free carg->env
-	// TODO: free carg->name
 	// TODO: free carg->socket
 	// TODO: free carg->mm
 
@@ -121,8 +127,7 @@ alligator_ht *env_struct_parser(json_t *root)
 
 	const char *env_name;
 	json_t *env_jkey;
-	alligator_ht *env = NULL;
-	env = alligator_ht_init(NULL);
+	alligator_ht *env = alligator_ht_init(NULL);
 
 	json_object_foreach(json_env, env_name, env_jkey)
 	{
@@ -166,6 +171,13 @@ json_t* env_struct_dump(alligator_ht *src)
 	json_t *env = json_object();
 	alligator_ht_foreach_arg(src, env_struct_dump_foreach, env);
 	return env;
+}
+
+void env_free(alligator_ht *env)
+{
+	alligator_ht_foreach_arg(env, env_struct_free, env);
+	alligator_ht_done(env);
+	free(env);
 }
 
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
@@ -315,7 +327,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->stdin_l = json_string_length(json_stdin);
 	}
 
-	carg->env = env;
+	// duplicate env
+	carg->env = env_struct_duplicate(env);
 
 	return carg;
 }

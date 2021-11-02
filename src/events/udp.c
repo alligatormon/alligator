@@ -70,7 +70,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 	carg->key = malloc(255);
 	snprintf(carg->key, 255, "udp:%s:%"PRIu16, addr, port);
 
-	uv_udp_t *recv_socket = carg->udp_server = calloc(1, sizeof(*recv_socket));
+	uv_udp_t *recv_socket = &carg->udp_server;
 	uv_udp_init(loop, recv_socket);
 	struct sockaddr_in *recv_addr = calloc(1, sizeof(*recv_addr));
 	uv_ip4_addr(addr, port, recv_addr);
@@ -88,8 +88,8 @@ void udp_server_stop(const char* addr, uint16_t port)
 	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		uv_udp_recv_stop(carg->udp_server);
-		uv_close((uv_handle_t*)carg->udp_server, NULL);
+		uv_udp_recv_stop(&carg->udp_server);
+		uv_close((uv_handle_t*)&carg->udp_server, NULL);
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 }

@@ -9,6 +9,7 @@
 #include "lang/lang.h"
 #include "parsers/multiparser.h"
 #include "action/action.h"
+#include "events/server.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -545,10 +546,16 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						if (port)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
-							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							if (!ret)
+								carg_free(passcarg);
 						}
 						else
-							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
+						{
+							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
+							if (!ret)
+								carg_free(passcarg);
+						}
 					}
 
 					json_t *tls_json = json_object_get(entrypoint, "tls");
@@ -580,10 +587,16 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						if (port)
 						{
 							char *host = strndup(tls_string, port - tls_string);
-							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
+							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
+							if (!ret)
+								carg_free(passcarg);
 						}
 						else
-							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
+						{
+							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
+							if (!ret)
+								carg_free(passcarg);
+						}
 					}
 
 					json_t *udp_json = json_object_get(entrypoint, "udp");
@@ -653,9 +666,9 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
 						}
 					}
-					//carg_free(carg);
 					int8_t ret = 1;
 					code = http_error_handler_v1(ret, "Created", "Cannot bind", "", "", 0, status, respbody);
+					carg_free(carg);
 				}
 			}
 			if (!strcmp(key, "system"))
@@ -1005,6 +1018,11 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							snprintf(respbody, 1000, "Deleted OK");
 						}
 					}
+
+					//free env
+					env_free(env);
+
+					//free hi
 					url_free(hi);
 				}
 			}

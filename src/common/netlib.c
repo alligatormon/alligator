@@ -194,6 +194,29 @@ uint8_t ip_check_access(network_range *nr, char *ip)
 	return 0;
 }
 
+network_range* network_range_duplicate(network_range *nr)
+{
+	if (!nr)
+		return nr;
+
+	network_range *ret = calloc(1, sizeof(*ret));
+
+	if (nr->nr_node)
+	{
+		ret->nr_node = malloc((nr->max) * sizeof(network_range_node));
+		for (uint64_t i = 0; i < nr->cur; i++)
+		{
+			ret->nr_node[i].action = nr->nr_node[i].action;
+			ret->nr_node[i].start = nr->nr_node[i].start;
+			ret->nr_node[i].end = nr->nr_node[i].end;
+		}
+		ret->cur = nr->cur;
+		ret->cur = nr->max;
+	}
+
+	return ret;
+}
+
 void network_range_push(network_range *nr, char *cidr, uint8_t action)
 {
 	if (!nr)

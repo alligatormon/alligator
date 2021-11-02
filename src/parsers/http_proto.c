@@ -93,9 +93,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	size_t headers_len = tmp - cur;
 	headers = strndup(cur, headers_len);
 
-	http_reply_data *hrdata = malloc(sizeof(*hrdata));
-	hrdata->content_length = 0;
-	hrdata->location = NULL;
+	http_reply_data *hrdata = calloc(1, sizeof(*hrdata));
 	int64_t i;
 	for (i=0; i<headers_len; ++i)
 	{
@@ -316,10 +314,6 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 
 	http_reply_data* ret = calloc(1, sizeof(*ret));
 	ret->method = method;
-	ret->http_code = 0;
-	ret->mesg = 0;
-	ret->headers = 0;
-	ret->content_length = 0;
 	ret->expire = -1;
 
 	for (i=skip; i<size && buf[i]==' '; i++); // skip spaces after GET
@@ -343,14 +337,24 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 	}
 
 	i+= skip;
+	uint8_t nn_size = 4;
 	ret->body = strstr(buf+i, "\r\n\r\n");
+	if (!ret->body)
+	{
+		nn_size = 2;
+		ret->body = strstr(buf+i, "\n\n");
+	}
+
+	if (!ret->body)
+		return ret;
+
 	ret->body_size = 0;
 	ret->headers_size = ret->body - (buf + i);
 	ret->headers = strndup(buf + i, ret->headers_size);
 
 	if (ret->body)
 	{
-		ret->body += 4;
+		ret->body += nn_size;
 		ret->body_size = size - (ret->body - buf);
 	}
 

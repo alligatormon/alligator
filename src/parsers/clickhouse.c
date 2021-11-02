@@ -23,6 +23,17 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, carg);
 }
 
+
+void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_arg *carg)
+{
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Asynchronous_", 24, carg);
+}
+
+void clickhouse_system_events_handler(char *metrics, size_t size, context_arg *carg)
+{
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Events_", 18, carg);
+}
+
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t i = 0;
@@ -228,22 +239,22 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		bytes_allocated = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		query_count = atoll(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		hit_rate = atof(metrics+i);
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\n");
+		cur = strcspn(metrics+i, "\t");
 		element_count = atoll(metrics+i);
 		cur++;
 		i+=cur;
@@ -552,12 +563,12 @@ void clickhouse_parser_push()
 	actx->handler[0].mesg_func = clickhouse_system_mesg;
 	strlcpy(actx->handler[0].key,"clickhouse_system", 255);
 
-	actx->handler[1].name = clickhouse_system_handler;
+	actx->handler[1].name = clickhouse_system_asynchronous_handler;
 	actx->handler[1].validator = NULL;
 	actx->handler[1].mesg_func = clickhouse_system_asynchronous_mesg;
 	strlcpy(actx->handler[1].key,"clickhouse_system_asynchronous", 255);
 
-	actx->handler[2].name = clickhouse_system_handler;
+	actx->handler[2].name = clickhouse_system_events_handler;
 	actx->handler[2].validator = NULL;
 	actx->handler[2].mesg_func = clickhouse_system_events_mesg;
 	strlcpy(actx->handler[2].key,"clickhouse_system_events", 255);

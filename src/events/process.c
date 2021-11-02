@@ -29,14 +29,11 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	string_cat(carg->full_body, buf->base, nread);
 
 	free_buffer(carg, buf);
-	// call abort
-	//free(server);
 }
 
 void cmd_close(uv_handle_t *handle)
 {
 	context_arg *carg = handle->data;
-	free(handle);
 
 	if (carg->context_ttl)
 	{
@@ -77,7 +74,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	carg->lock = 0;
 
 	uv_close((uv_handle_t*)req, NULL);
-	uv_close((uv_handle_t*)carg->channel, cmd_close);
+	uv_close((uv_handle_t*)&carg->channel, cmd_close);
 }
 
 //void timeout_process(uv_work_t* req)
@@ -295,20 +292,21 @@ void on_process_spawn(void* arg)
 	carg->lock = 1;
 
 	int r;
-	uv_process_t *child_req = malloc(sizeof(uv_process_t));
+	uv_process_t *child_req = &carg->child_req;
 	child_req->data = carg;
 	carg->read_time = setrtime();
 
-	uv_pipe_t *channel = carg->channel = malloc(sizeof(uv_pipe_t));
+	uv_pipe_t *channel = &carg->channel;
 	channel->data = carg;
 	uv_pipe_init(loop, channel, 1);
-	uv_stdio_container_t *child_stdio = malloc(3*sizeof(uv_stdio_container_t));
+	uv_stdio_container_t *child_stdio = carg->child_stdio;
 	child_stdio[ASTDIN_FILENO].flags = UV_IGNORE;
 	child_stdio[ASTDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
 	child_stdio[ASTDOUT_FILENO].data.stream = (uv_stream_t*)channel;
 	child_stdio[ASTDERR_FILENO].flags = UV_IGNORE;
 
-	uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
+	uv_process_options_t *options = &carg->options;
+	bzero(options, sizeof(uv_process_options_t));
 	options->exit_cb = _on_exit;
 	options->file = carg->args[0];
 	options->args = carg->args;

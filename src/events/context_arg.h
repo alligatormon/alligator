@@ -83,9 +83,10 @@ typedef struct context_arg
 	network_range *net_acl;
 
 	// for process spawn
-	uv_process_options_t *options;
-	uv_pipe_t *channel;
-	uv_stdio_container_t *child_stdio;
+	uv_process_options_t options;
+	uv_pipe_t channel;
+	uv_stdio_container_t child_stdio[3];
+	uv_process_t child_req;
 	char** args;
 
 	char *uvbuf;
@@ -147,7 +148,7 @@ typedef struct context_arg
 	uv_connect_t connect;
 	uv_write_t write_req;
 	uv_shutdown_t shutdown_req;
-	uv_udp_t *udp_server;
+	uv_udp_t udp_server;
 	uv_poll_t *poll;
 	uv_poll_t poll2;
 	uv_pipe_t *pipe;
