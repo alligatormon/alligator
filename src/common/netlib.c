@@ -211,7 +211,7 @@ network_range* network_range_duplicate(network_range *nr)
 			ret->nr_node[i].end = nr->nr_node[i].end;
 		}
 		ret->cur = nr->cur;
-		ret->cur = nr->max;
+		ret->max = nr->max;
 	}
 
 	return ret;

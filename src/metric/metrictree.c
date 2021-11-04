@@ -80,6 +80,10 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 			rn->list[0].s = value;
 			rn->index_element_list = 1;
 		}
+		else
+		{
+			bzero(rn->list, sizeof(*rn->list));
+		}
 	}
 	return rn;
 }

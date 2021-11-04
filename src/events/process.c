@@ -73,8 +73,10 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	carg->lock = 0;
 
-	uv_close((uv_handle_t*)req, NULL);
-	uv_close((uv_handle_t*)&carg->channel, cmd_close);
+	uv_close((uv_handle_t*)req, cmd_close);
+
+	uv_read_stop((uv_stream_t*)&carg->channel);
+	uv_close((uv_handle_t*)&carg->channel, NULL);
 }
 
 //void timeout_process(uv_work_t* req)
@@ -264,7 +266,7 @@ char* process_client(context_arg *carg)
 	args[1] = NULL;
 
 	if (!carg->key)
-		carg->key = carg->host;
+		carg->key = strdup(carg->host);
 	carg->args = args;
 	alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 

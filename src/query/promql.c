@@ -224,7 +224,12 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 
 	mqc->query = query;
 	mqc->size = size;
-	mqc->lbl = lbl;
+
+	if (lbl)
+	{
+		free(mqc->lbl);
+		mqc->lbl = lbl;
+	}
 
 	return mqc;
 }
