@@ -1566,8 +1566,6 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		if (!query_struct_check_expr(mqc->op, value, mqc->opval))
 		{
 			tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
-			alligator_ht_done(res_hash);
-			free(res_hash);
 			labels_head_free(labels_list);
 			return;
 		}
@@ -1579,7 +1577,6 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 				metric_set(mnode, type, &value, expiretree, ttl);
 			else if (type == DATATYPE_DOUBLE)
 				metric_set(mnode, type, &dvalue, expiretree, ttl);
-			labels_head_free(labels_list);
 		}
 		else
 		{
@@ -1590,9 +1587,5 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		}
 
 		tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
-
-		alligator_ht_done(res_hash);
-		free(res_hash);
-		labels_head_free(labels_list);
 	}
 }

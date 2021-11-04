@@ -12,7 +12,6 @@ context_arg *carg_copy(context_arg *src)
 	carg->net_acl = network_range_duplicate(src->net_acl);
 	if (src->key)
 		carg->key = strdup(src->key);
-	//printf("carg_size is %zu\n", carg_size);
 	return carg;
 }
 

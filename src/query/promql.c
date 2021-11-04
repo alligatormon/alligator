@@ -6,8 +6,8 @@ metric_query_context *query_context_new(char *name)
 {
 	metric_query_context *mqc = calloc(1, sizeof(*mqc));
 	mqc->name = name;
-	mqc->lbl = calloc(1, sizeof(alligator_ht));
-	alligator_ht_init(mqc->lbl);
+	//mqc->lbl = calloc(1, sizeof(alligator_ht));
+	//alligator_ht_init(mqc->lbl);
 
 	return mqc;
 }

@@ -547,14 +547,14 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
 							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-							if (!ret)
-								carg_free(passcarg);
+							//if (!ret)
+							//	carg_free(passcarg);
 						}
 						else
 						{
 							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							if (!ret)
-								carg_free(passcarg);
+							//if (!ret)
+							//	carg_free(passcarg);
 						}
 					}
 
@@ -588,14 +588,14 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						{
 							char *host = strndup(tls_string, port - tls_string);
 							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
-							if (!ret)
-								carg_free(passcarg);
+							//if (!ret)
+							//	carg_free(passcarg);
 						}
 						else
 						{
 							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
-							if (!ret)
-								carg_free(passcarg);
+							//if (!ret)
+							//	carg_free(passcarg);
 						}
 					}
 
