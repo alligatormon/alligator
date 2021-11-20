@@ -101,6 +101,7 @@ void lang_crawl(void* arg)
 
 static void lang_threads_cb(void *arg)
 {
+	//printf("pthread id %lu\n", pthread_self());
 	lang_options *lo = arg;
 	uint64_t period = ac->lang_aggregator_repeat*1000;
 	if (lo->period)
@@ -120,8 +121,9 @@ void lang_run_threads(void *arg)
 	lang_options *lo = arg;
 	if (!lo->th)
 	{
-		lo->th = calloc(1, sizeof(*lo->th));
-		uv_thread_create(lo->th, lang_threads_cb, arg);
+		//lo->th = calloc(1, sizeof(*lo->th));
+		//uv_thread_create(lo->th, lang_threads_cb, arg);
+		lang_threads_cb(arg);
 	}
 }
 

@@ -6,17 +6,11 @@ void general_loop_cb(uv_timer_t* handle)
 {
 	extern aconf* ac;
 
-	//check_https_cert("google.com");
-
 	uint64_t val = 1;
 	metric_add_labels("alligator_version", &val, DATATYPE_UINT, NULL, "version", ALLIGATOR_VERSION);
 	metric_add_auto("alligator_metric_cache_hit", &ac->metric_cache_hits, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_allocates", &ac->metric_allocates, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_free", &ac->metric_freed, DATATYPE_UINT, NULL);
-	//fs_cert_check(strdup("../trash/t2/evt-tls/sample/libuv-tls/server-cert.pem"));
-	//fs_cert_check(strdup("cert2.pem"));
-
-	//sd_scrape();
 }
 
 void expire_loop(uv_timer_t* handle)

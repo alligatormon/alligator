@@ -37,6 +37,15 @@ import javax.management.ReflectionException;
 
 public class alligatorJmx
 {
+	public static void main(String[] args) {
+		String data = "";
+		try {
+			data = getJmx(args[0], "", "");
+		} catch (Exception e) {
+		}
+		System.out.println(data);
+	}
+
 	public static int intMethod(int n) {
 		System.out.println("hello world");
 		return n*n;
@@ -46,7 +55,7 @@ public class alligatorJmx
 		 return !bool;
 	}
 
-	public String getJmx(String arg, String metrics, String conf) throws Exception {
+	public static String getJmx(String arg, String metrics, String conf) throws Exception {
 	//public String getJmx() throws Exception {
 		System.out.println("arg is " + arg);
 		if (arg == null)

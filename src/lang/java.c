@@ -17,7 +17,7 @@ char* java_run(char *optionString, char* className, char *method, char *arg, str
 	char *conf_str = conf ? conf->s : "";
 
 	JavaVMOption options[3];
-	JavaVM *jvm;
+	JavaVM *jvm = NULL;
 	JavaVMInitArgs vm_args;
 	long status;
 	jclass cls;
@@ -52,6 +52,7 @@ char* java_run(char *optionString, char* className, char *method, char *arg, str
 			return NULL;
 		}
 
+		//printf("jvm is %s, env is %s, args is %s\n", vm_args.options[0].optionString, vm_args.options[1].optionString, vm_args.options[2].optionString);
 		status = ac->create_jvm(&jvm, (void**)&ac->env, &vm_args);
 		if (status == JNI_ERR)
 		{

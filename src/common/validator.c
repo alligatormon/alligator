@@ -140,6 +140,10 @@ int metric_label_value_validator(char *str, size_t sz)
 	for (i=0; i<sz; i++)
 		if (str[i] == '\\')
 			return 0;
+		else if (str[i] == '"')
+			return 0;
+		else if (str[i] == '\'')
+			return 0;
 		else
 			continue;
 

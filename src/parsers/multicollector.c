@@ -33,7 +33,7 @@ int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t 
 }
 
 // label name
-int multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
+uint64_t multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
 	uint64_t syms = strcspn(str+*cur, "\t\r:={},# ");
 	strlcpy(s2, str+*cur, syms + 1);
@@ -278,7 +278,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 	return ret;
 }
 
-void parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
+uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
@@ -294,7 +294,7 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl
 			++*i;
 
 		//printf("1str+i '%s'\n", str+*i);
-		multicollector_get_name(i, str, size, label_name);
+		uint64_t label_name_size = multicollector_get_name(i, str, size, label_name);
 		//printf("2str+i '%s'\n", str+*i);
 		multicollector_skip_spaces(i, str, size);
 
@@ -319,18 +319,23 @@ void parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl
 
 		if (carg && reject_metric(carg->reject, label_name, label_key))
 		{
-			labels_hash_free(lbl);
-			return;
+			labels_hash_free(*lbl);
+			return 0;
 		}
 		else if (!metric_label_value_validator(label_key, strlen(label_key)))
 		{
-			labels_hash_free(lbl);
-			return;
+			labels_hash_free(*lbl);
+			return 0;
 		}
 
-		if (metric_name_validator_promstatsd(label_name, strlen(label_name)))
+		if (metric_name_validator_promstatsd(label_name, label_name_size))
+		{
+			metric_name_normalizer(label_name, label_name_size);
 			labels_hash_insert_nocache(*lbl, label_name, label_key);
+		}
 	}
+
+	return 1;
 }
 
 uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg)
@@ -439,7 +444,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			//printf("metric name %s, i %d, size %d: %s\n", metric_name, i, size, str);
 			// get label name
 			multicollector_skip_spaces(&i, str, size);
-			multicollector_get_name(&i, str, size, label_name);
+			uint64_t label_name_size =  multicollector_get_name(&i, str, size, label_name);
 			multicollector_skip_spaces(&i, str, size);
 			if (str[i] != '=')
 			{
@@ -471,7 +476,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 				fprintf(stdout, "> label_key = %s\n", label_key);
 			}
 
-			if (metric_name_validator(label_name, strlen(label_name)))
+			if (metric_name_validator(label_name, label_name_size))
 			{
 				if (carg && reject_metric(carg->reject, label_name, label_key))
 				{
@@ -484,6 +489,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 					return 0;
 				}
 
+				prometheus_metric_name_normalizer(label_name, label_name_size);
 				labels_hash_insert_nocache(lbl, label_name, label_key);
 			}
 			else
@@ -521,7 +527,9 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
-		parse_statsd_labels(str, &i, size, &lbl, carg);
+		// don't need free labels
+		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
+			return 0;
 		// statsd
 		++i;
 		//printf("3i=%"u64"\n", i);
@@ -545,7 +553,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 		i += strcspn(str+i, "#");
 		//printf("> last parse: %s)\n", str+i);
-		parse_statsd_labels(str, &i, size, &lbl, carg);
+
+		// don't need free labels
+		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
+			return 0;
 	}
 	else if (isdigit(str[i]))
 	{
