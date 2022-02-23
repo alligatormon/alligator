@@ -15,6 +15,10 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 	{
 		api_router(response, http_data, carg);
 	}
+	else if (!strncmp(http_data->uri, "/oplog", 6))
+	{
+		oplog_post_router(response, http_data, carg);
+	}
 	else
 	{
 		if (ac->log_level > 2)
@@ -61,6 +65,10 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	else if (!strncmp(http_data->uri, "/conf", 4))
 	{
 		conf_router(response, http_data, carg);
+	}
+	else if (!strncmp(http_data->uri, "/oplog", 6))
+	{
+		oplog_get_router(response, http_data, carg);
 	}
 	else
 	{

@@ -16,6 +16,15 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 	char release[RPMLEN];
 	uint64_t pkgs = 0;
 
+	if (!isdigit(*metrics))
+	{
+		if (ac->log_level > 2)
+		{
+			printf("rpm handler: format error:\n'%s'\n", metrics);
+		}
+		return;
+	}
+
 	for (uint64_t i = 0; i < size; i++)
 	{
 		uint64_t j = 0;

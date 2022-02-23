@@ -1,10 +1,10 @@
 [requires]
-libuv/1.41.0
+libuv/1.42.0
 jansson/2.13.1
 mbedtls/2.16.3-apache
 jemalloc/5.2.1
 zlib/1.2.11
-#libuuid/1.0.3
+libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
 pcre/8.45

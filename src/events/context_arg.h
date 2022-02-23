@@ -10,6 +10,7 @@
 #include "metric/metrictree.h"
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "common/netlib.h"
+#include "cluster/type.h"
 
 #include "mbedtls/config.h"
 #include "mbedtls/platform.h"
@@ -33,7 +34,7 @@ typedef struct context_arg
 	struct sockaddr_in *dest;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
-	uv_timer_t tt_timer;
+	uv_timer_t *tt_timer;
 	//uv_handle_t * server;
 	uv_fs_event_t fs_handle;
 	char *key;
@@ -215,6 +216,8 @@ typedef struct context_arg
 	uint64_t headers_size;
 	uint8_t api_enable;
 
+	uint8_t remove_from_hash; // enable if deleting 1 object
+
 	char *url;
 
 	alligator_ht* reject;
@@ -252,6 +255,11 @@ typedef struct context_arg
 	r_time total_time_finish;
 
 	uint32_t ping_key;
+
+	char *cluster;
+	uint8_t cluster_size;
+	cluster_node *cluster_node;
+	char *instance;
 
 	tommy_node node;
 	tommy_node context_node;

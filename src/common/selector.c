@@ -456,6 +456,19 @@ void string_string_cat(string *str, string *src)
 	str->s[str->l] = 0;
 }
 
+
+void string_string_copy(string *dst, string *src)
+{
+	size_t src_len = src->l;
+
+	if (src_len > dst->m)
+		string_new_size(dst, src_len);
+
+	memcpy(dst->s, src->s, src_len);
+	dst->l = src_len;
+	dst->s[dst->l] = 0;
+}
+
 void string_merge(string *str, string *src)
 {
 	string_string_cat(str, src);
@@ -505,6 +518,16 @@ void string_double(string *str, double d)
 	size_t copy_size = len < (str->m - str_len) ? len : str_len;
 	strlcpy(str->s+str_len, num, copy_size+1);
 	str->l += copy_size;
+}
+
+void string_number(string *str, void* value, int8_t type)
+{
+	if (type == DATATYPE_INT)
+		string_int(str, *(int64_t*)value);
+	else if (type == DATATYPE_UINT)
+		string_uint(str, *(uint64_t*)value);
+	else if (type == DATATYPE_DOUBLE)
+		string_double(str, *(double*)value);
 }
 
 string* string_init_alloc(char *str, size_t max)

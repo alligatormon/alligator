@@ -86,6 +86,16 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 				ac->query_repeat = query_repeat;
 			}
+			if (!strcmp(key, "synchronization_period"))
+			{
+				uint64_t cluster_repeat;
+				if (json_typeof(value) == JSON_STRING)
+					cluster_repeat = strtoull(json_string_value(value), NULL, 10);
+				else
+					cluster_repeat = json_integer_value(value);
+
+				ac->cluster_repeat = cluster_repeat;
+			}
 			if (!strcmp(key, "ttl"))
 			{
 				if (json_typeof(value) == JSON_STRING)
@@ -244,6 +254,22 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					}
 
 					probe_push_json(probe);
+				}
+			}
+			if (!strcmp(key, "cluster"))
+			{
+				uint64_t cluster_size = json_array_size(value);
+				for (uint64_t i = 0; i < cluster_size; i++)
+				{
+					json_t *cluster = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						cluster_del_json(cluster);
+						continue;
+					}
+
+					cluster_push_json(cluster);
 				}
 			}
 			if (!strcmp(key, "persistence"))
@@ -516,6 +542,19 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							else
 								push_mapping_metric(carg->mm, mm);
 						}
+					}
+
+					json_t *json_cluster = json_object_get(entrypoint, "cluster");
+					if (json_cluster)
+					{
+						carg->cluster = strdup(json_string_value(json_cluster));
+						carg->cluster_size = json_string_length(json_cluster);
+					}
+
+					json_t *json_instance = json_object_get(entrypoint, "instance");
+					if (json_instance)
+					{
+						carg->instance = strdup(json_string_value(json_instance));
 					}
 
 					json_t *tcp_json = json_object_get(entrypoint, "tcp");

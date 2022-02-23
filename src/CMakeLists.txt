@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.14.9)
+set(VERSION 1.14.20)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -184,11 +184,20 @@ set(STATIC_FILES
 	query/promql.c
 	action/action.c
 	probe/probe.c
+	cluster/type.c
+	cluster/del.c
+	cluster/get.c
+	cluster/push.c
+	cluster/pass.c
+	cluster/api.c
+	cluster/sync.c
+	cluster/handler.c
 	router/stat.c
 	router/probe.c
 	router/json.c
 	router/dsv.c
 	router/conf.c
+	router/oplog.c
 	api/api_router.c
 	api/api_v1.c
 	common/reject.c
@@ -226,6 +235,7 @@ set(STATIC_FILES
 	cadvisor/ns.c
 	cadvisor/metrics.c
 	dstructures/ht.c
+	dstructures/maglev.c
 	dstructures/tommy.c
 	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
@@ -301,7 +311,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

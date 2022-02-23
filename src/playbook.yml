@@ -313,7 +313,7 @@
       name:
       - statsd
       - conan
-      - 'MarkupSafe==1.0.0'
+      - 'MarkupSafe>=2.0'
 
   - name: Install pip deps
     when: ansible_system == "FreeBSD"

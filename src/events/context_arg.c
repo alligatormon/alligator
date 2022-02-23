@@ -329,5 +329,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	// duplicate env
 	carg->env = env_struct_duplicate(env);
 
+	json_t *json_cluster = json_object_get(root, "cluster");
+	if (json_cluster)
+	{
+		carg->cluster = strdup(json_string_value(json_cluster));
+		carg->cluster_size = json_string_length(json_cluster);
+	}
+
 	return carg;
 }

@@ -18,9 +18,9 @@ void tcp_client_closed(uv_handle_t *handle)
 	(carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
+
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-	uv_timer_stop(&carg->tt_timer);
 
 	if (carg->tls)
 	{
@@ -40,9 +40,10 @@ void tcp_client_closed(uv_handle_t *handle)
 	{
 		r_time time = setrtime();
 		if (time.sec >= carg->context_ttl)
+		{
+			carg->remove_from_hash = 1;
 			smart_aggregator_del(carg);
-			//tcp_client_del(carg->key);
-			//carg_free(carg);
+		}
 	}
 }
 
@@ -52,6 +53,9 @@ void tcp_client_close(uv_handle_t *handle)
 	if (ac->log_level > 1)
 		printf("%"u64": tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
+	carg->tt_timer->data = NULL;
+
+	//uv_read_stop((uv_stream_t*)handle);
 	const mbedtls_x509_crt* peercert = mbedtls_ssl_get_peer_cert(&carg->tls_ctx);
 	parse_cert_info(peercert, carg->host, carg->host);
 	//mbedtls_x509_crt_free(peercert);
@@ -93,6 +97,7 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 
+	//printf("%s tcp_client_shutdown\n", carg->key);
 	tcp_client_close((uv_handle_t *)&carg->client);
 	free(req);
 }
@@ -100,7 +105,6 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
-	//printf("tcp_client_readed: nread %zd, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 
 	if (ac->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
@@ -169,6 +173,12 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			if (rc)
 			{
 				alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
+				req->data = carg;
+				carg->shutdown_time = setrtime();
+				uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+				//printf("%s tcp_client_readed0 \n", carg->key);
+				tcp_client_close((uv_handle_t *)&carg->client);
 			}
 		}
 	}
@@ -185,12 +195,19 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		req->data = carg;
 		carg->shutdown_time = setrtime();
 		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		//printf("%s tcp_client_readed1 \n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
+	{
+		//printf("%s tcp_client_readed2\n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
+	}
 	else if (nread == UV_ENOBUFS)
+	{
+		//printf("%s tcp_client_readed3\n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
+	}
 }
 
 void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
@@ -394,7 +411,7 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	}
 	else
 	{
-		printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
+		//printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cacert, carg->tls_ca_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cert, carg->tls_cert_file);
 		mbedtls_pk_parse_keyfile(&carg->tls_key, carg->tls_key_file, NULL);
@@ -503,7 +520,16 @@ void tcp_connected(uv_connect_t* req, int status)
 
 void tcp_timeout_timer(uv_timer_t *timer)
 {
+	printf("tcp timeout timer %p\n", timer);
+	uv_timer_stop(timer);
+	//uv_close((uv_handle_t*)timer, (uv_close_cb)free);
+
 	context_arg *carg = timer->data;
+	if (!carg)
+	{
+		return;
+	}
+
 	if (ac->log_level > 1)
 		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
@@ -528,9 +554,15 @@ void tcp_client_connect(void *arg)
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer.data = carg;
-	uv_timer_init(carg->loop, &carg->tt_timer);
-	uv_timer_start(&carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+	carg->tt_timer = calloc(1, sizeof(uv_timer_t));
+	carg->tt_timer->data = carg;
+	if (carg->context_ttl)
+		printf("init try_again timer %p with time %"u64"\n", carg->tt_timer, carg->timeout);
+	else
+		printf("init general timer %p with time %"u64"\n", carg->tt_timer, carg->timeout);
+	uv_timer_init(carg->loop, carg->tt_timer);
+	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+
 	memset(&carg->connect, 0, sizeof(carg->connect));
 	carg->connect.data = carg;
 
@@ -562,9 +594,11 @@ void unix_client_connect(void *arg)
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer.data = carg;
-	uv_timer_init(carg->loop, &carg->tt_timer);
-	uv_timer_start(&carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+	carg->tt_timer = calloc(1, sizeof(uv_timer_t));
+	carg->tt_timer->data = carg;
+	uv_timer_init(carg->loop, carg->tt_timer);
+	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+
 	memset(&carg->connect, 0, sizeof(carg->connect));
 	carg->connect.data = carg;
 
@@ -672,17 +706,20 @@ void tcp_client_del(context_arg *carg)
 	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+		if (carg->remove_from_hash)
+			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		if (carg->lock)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
+			//printf("%s tcp_client_del\n", carg->key);
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else
 		{
 			carg->lock = 1;
+
 			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
 			carg_free(carg);
 		}
@@ -700,12 +737,14 @@ void unix_tcp_client_del(context_arg *carg)
 	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+		if (carg->remove_from_hash)
+			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		if (carg->lock)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
+			//printf("%s unix_tcp_client_del\n", carg->key);
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else

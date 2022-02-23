@@ -80,7 +80,7 @@ void write_to_file(char *filename, char *str, uint64_t len, void *callback, void
 	fs_info->write_req->data = fs_info;
 	fs_info->close_req->data = fs_info;
  
-	r = uv_fs_open(loop, fs_info->open_req, filename, O_CREAT | O_WRONLY | O_TRUNC, 0777, open_cb);
+	r = uv_fs_open(loop, fs_info->open_req, filename, O_CREAT | O_WRONLY | O_TRUNC, 0700, open_cb);
 	if (r < 0) {
 		printf("Error at opening file '%s': %s\n", filename, uv_strerror(r));
 	}

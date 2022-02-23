@@ -11,6 +11,8 @@ void alligator_stop(char *initiator, int code)
 	aggregate_ctx_free();
 	entrypoints_free();
 	namespace_free(0, NULL);
+	cluster_del_all();
+	cluster_handler_stop();
 
 	uv_loop_close(uv_default_loop());
 

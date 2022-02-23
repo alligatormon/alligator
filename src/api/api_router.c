@@ -11,7 +11,7 @@ void api_router(string *response, http_reply_data* http_data, context_arg *carg)
 		string_cat(response, HTTP_STATUS_API_DISABLED, strlen(HTTP_STATUS_API_DISABLED));
 	}
 	else if (!strncmp(http_data->uri, "/api/v1/", 8))
-		http_api_v1(response, http_data);
+		http_api_v1(response, http_data, NULL);
 	else
 		string_cat(response, HTTP_STATUS_API_VERSION_NOT_FOUND, strlen(HTTP_STATUS_API_VERSION_NOT_FOUND));
 }

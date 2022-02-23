@@ -26,7 +26,8 @@ string* jmx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_set
 	//lang_push(lo);
 
 	context_arg *carg = aggregator_oneshot(NULL, JMXEXEC, strlen(JMXEXEC), strdup(hi->url), strlen(hi->url), NULL, "jmx_handler", NULL, NULL, 0, NULL, NULL, 0);
-	carg->context_ttl = 0;
+	if (carg)
+		carg->context_ttl = 0;
 	return NULL;
 }
 

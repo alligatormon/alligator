@@ -105,7 +105,10 @@ void smart_aggregator_del_key(char *key)
 {
 	context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
+	{
+		carg->remove_from_hash = 1;
 		smart_aggregator_del(carg);
+	}
 }
 
 void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query)
@@ -153,8 +156,11 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	new->key = override_key;
 	if (!new->key)
 	{
-		new->key = malloc(64);
-		snprintf(new->key, 64, "%s(%s://%s:%s)", parser_name, hi->transport_string, hi->host, hi->port);
+		new->key = malloc(255);
+		snprintf(new->key, 254, "%s(%s://%s:%s)", parser_name, hi->transport_string, hi->host, hi->port);
+		//char *hi_query = hi->query ? strdup(hi->query) : NULL;
+		//smart_aggregator_default_key(new->key, carg->transport_string, parser_name, carg->host, carg->port, hi->query);
+		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url);
 	}
 
 	r_time time = setrtime();
@@ -282,10 +288,11 @@ void aggregate_ctx_free()
 void aggregators_free_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = arg;
-	if (!carg->lock)
-	{
-		carg_free(carg);
-	}
+	smart_aggregator_del(carg);
+	//if (!carg->lock)
+	//{
+	//	carg_free(carg);
+	//}
 }
 
 void aggregators_free()

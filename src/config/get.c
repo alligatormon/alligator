@@ -575,6 +575,46 @@ void puppeteer_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+
+void cluster_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	cluster_node *cn = arg;
+
+	json_t *cluster = json_object_get(dst, "cluster");
+	if (!cluster)
+	{
+		cluster = json_object();
+		json_array_object_insert(dst, "cluster", cluster);
+	}
+
+	json_t *name_ctx = json_string(cn->name);
+	json_array_object_insert(cluster, "name", name_ctx);
+
+	json_t *size_ctx = json_integer(cn->servers_size);
+	json_array_object_insert(cluster, "size", size_ctx);
+
+	json_t *replica_factor_ctx = json_integer(cn->replica_factor);
+	json_array_object_insert(cluster, "replica_factor", replica_factor_ctx);
+
+	json_t *timeout_ctx = json_integer(cn->timeout);
+	json_array_object_insert(cluster, "timeout", timeout_ctx);
+
+	json_t *servers_ctx = json_array();
+	json_array_object_insert(cluster, "servers", servers_ctx);
+
+	for (uint64_t i = 0; i < cn->servers_size; i++)
+	{
+		json_t *srv_ctx = json_object();
+		json_t *server_name = json_string(cn->servers[i].name);
+		json_t *is_me = json_integer(cn->servers[i].is_me);
+
+		json_array_object_insert(srv_ctx, "name", server_name);
+		json_array_object_insert(srv_ctx, "is_me", is_me);
+		json_array_object_insert(servers_ctx, "", srv_ctx);
+	}
+}
+
 void entrypoints_generate_conf(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -865,6 +905,7 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->entrypoints, entrypoints_generate_conf, dst);
 	system_config_get(dst);
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_generate_conf, dst);
+	alligator_ht_foreach_arg(ac->cluster, cluster_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_userprocess,  userprocess_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_groupprocess, groupprocess_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->modules, modules_generate_conf, dst);

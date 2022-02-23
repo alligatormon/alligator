@@ -5,6 +5,18 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
+
+int8_t aerospike_validator(char *data, size_t size)
+{
+	//char *ret = strstr(data, "Keyspace");
+	//if (ret)
+	//	return 1;
+	//else
+	//	return 0;
+	//printf("aerospike_validator %zu\n=======\n%s\n======\n", size, data);
+	return 1;
+}
+
 void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg);
 
 typedef struct aerospike_data
@@ -65,7 +77,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), aeronamespace+8);
 		key[strlen(key) - 1] = 0;
-		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace", NULL, key, carg->data);
+		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace", aerospike_validator, key, carg->data);
 
 		elem_size += strspn(tmp, ";");
 		tmp += elem_size;
@@ -182,10 +194,10 @@ void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_labels("aerospike_status", &vl, DATATYPE_UINT, carg, "status", tmp);
 }
 
-int8_t aerospike_validator(char *data, size_t size)
-{
-	return 1;
-}
+//int8_t aerospike_validator(char *data, size_t size)
+//{
+//	return 1;
+//}
 
 
 string* aerospike_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -349,6 +349,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *mapping_entrypoint = NULL;
 			json_t *api_entrypoint = NULL;
 			json_t *ttl_entrypoint = NULL;
+			json_t *cluster_entrypoint = NULL;
+			json_t *instance_entrypoint = NULL;
+			json_t *key_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -357,7 +360,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -506,7 +509,34 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "ttl", ttl_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang"))
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "cluster"))
+					{
+						if (!cluster_entrypoint)
+						{
+							++i;
+							cluster_entrypoint = json_string(strdup(wstokens[i].token->s));
+							json_array_object_insert(operator_json, "cluster", cluster_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "instance"))
+					{
+						if (!instance_entrypoint)
+						{
+							++i;
+							instance_entrypoint = json_string(strdup(wstokens[i].token->s));
+							json_array_object_insert(operator_json, "instance", instance_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "key"))
+					{
+						if (!key_entrypoint)
+						{
+							++i;
+							key_entrypoint = json_string(strdup(wstokens[i].token->s));
+							json_array_object_insert(operator_json, "key", key_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster"))
 					{
 						operator_json = json_object();
 						char arg_name[255];
@@ -519,7 +549,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
-								if (!strcmp(operator_name, "field") ||!strcmp(operator_name, "valid_status_codes"))
+								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key"))
 								{
 									json_t *arg_json = json_array();
 									for (; i < token_count; i++)

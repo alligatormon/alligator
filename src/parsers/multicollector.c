@@ -578,6 +578,9 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		metric_name_normalizer(metric_name, metric_len);
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
 
+	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE))
+		return 1;
+
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	else

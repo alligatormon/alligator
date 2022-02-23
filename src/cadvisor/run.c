@@ -214,7 +214,6 @@ void runc_labels(char *rundir)
 	rd = opendir(runcdir);
 	if (rd)
 	{
-		puts("RUNC root scraper!");
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')
@@ -249,7 +248,6 @@ void runc_labels(char *rundir)
 			rd = opendir(runcdir);
 			if (rd)
 			{
-				puts("RUNC user scraper!");
 				while((rd_entry = readdir(rd)))
 				{
 					if (rd_entry->d_name[0] == '.')
@@ -281,8 +279,6 @@ void openvz7_labels()
 	struct stat path_stat;
 	if (stat(beancounters, &path_stat))
 		return;
-
-	puts("OpenVZ scraper!");
 
 	char nsdir[1000];
 	char nsfile[1000];
@@ -356,7 +352,6 @@ void lxc_labels()
 	rd = opendir(lxcdir);
 	if (rd)
 	{
-		puts("LXC scraper!");
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')

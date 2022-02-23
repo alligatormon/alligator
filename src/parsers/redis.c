@@ -304,6 +304,29 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 			}
 		}
+		else if (!strncmp(tmp+i, " Errorstats", 4))
+		{
+//# Errorstats
+//errorstat_CLUSTERDOWN:count=1653679
+			i += 4;
+			for (; i<size && tmp[i]!='#'; i++)
+			{
+				if (!strncmp(tmp+i, "errorstat_", 10))
+				{
+					i += 10;
+					uint64_t i_pre = i;
+					char label[REDIS_NAME_SIZE];
+
+					uint64_t size_counter = strcspn(tmp + i_pre, "=");
+					i += size_counter + 1;
+					strlcpy(label, tmp + i_pre, size_counter + 1);
+
+					double dl = atof(tmp+i);
+					metric_add_labels("redis_error_stat", &dl, DATATYPE_DOUBLE, carg, "stat", label);
+					i += strcspn(tmp+i, "\n");
+				}
+			}
+		}
 		else if (!strncmp(tmp+i, " Commandstats", 13))
 		{
 			char cmdname[REDIS_NAME_SIZE];
@@ -563,6 +586,51 @@ int8_t redis_cluster_validator(char *data, size_t size)
 	return body_size >= expect_size;
 }
 
+void redis_memory_stat_handler(char *metrics, size_t size, context_arg *carg)
+{
+	char field[REDIS_NAME_SIZE];
+	char metric_name[REDIS_NAME_SIZE];
+	strlcpy(metric_name, "redis_memory_", REDIS_NAME_SIZE);
+	int64_t metric_data;
+
+	char *tmp = strstr(metrics, "\r\n");
+	if (!tmp)
+		return;
+
+	uint64_t i = tmp - metrics + 2;
+	size -= i;
+
+	for (; i < size; i++)
+	{
+		*field = 0;
+		uint64_t field_size = str_get_next(tmp, field, REDIS_NAME_SIZE, "\r\n", &i);
+		if (field[0] == '$')
+			continue;
+		if (field[0] == 0)
+			continue;
+		if (field[0] == ':')
+		{
+			metric_data = strtoll(field + 1, NULL, 10);
+			//printf("metric: '%s', data: %u\n", metric_name, metric_data);
+			metric_add_auto(metric_name, &metric_data, DATATYPE_INT, carg);
+		}
+		else
+		{
+			metric_name_normalizer(field, field_size);
+			strlcpy(metric_name + 13, field, REDIS_NAME_SIZE - 13);
+		}
+		//printf("field:\n'%s', %u/%u\n", field, i, size);
+	}
+}
+
+int8_t redis_memory_stat_validator(char *data, size_t size)
+{
+	if (data[0] == '*')
+		return 1;
+
+	return 0;
+}
+
 string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
@@ -570,6 +638,17 @@ string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *
 		snprintf(query, 1000, "AUTH %s\r\nINFO ALL\r\n", hi->pass);
 	else
 		snprintf(query, 1000, "INFO ALL\n");
+
+	return string_init_add(query, 0, 0);
+}
+
+string* redis_parser_memory_stat_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nMEMORY STATS\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "MEMORY STATS\r\n");
 
 	return string_init_add(query, 0, 0);
 }
@@ -590,7 +669,7 @@ void redis_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("redis");
-	actx->handlers = 2;
+	actx->handlers = 3;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->handler[0].name = redis_handler;
 	actx->handler[0].validator = redis_validator;
@@ -600,6 +679,10 @@ void redis_parser_push()
 	actx->handler[1].validator = redis_cluster_validator;
 	actx->handler[1].mesg_func = redis_parser_cluster_mesg;
 	strlcpy(actx->handler[1].key,"redis_cluster", 255);
+	actx->handler[2].name = redis_memory_stat_handler;
+	actx->handler[2].validator = redis_memory_stat_validator;
+	actx->handler[2].mesg_func = redis_parser_memory_stat_mesg;
+	strlcpy(actx->handler[2].key,"redis_memory_stat", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

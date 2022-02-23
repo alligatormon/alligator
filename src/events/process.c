@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <uv.h>
+#include <uuid/uuid.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "main.h"
 #include "events/uv_alloc.h"
@@ -40,6 +41,7 @@ void cmd_close(uv_handle_t *handle)
 		r_time time = setrtime();
 		if (time.sec >= carg->context_ttl)
 		{
+			carg->remove_from_hash = 1;
 			smart_aggregator_del(carg);
 		}
 	}
@@ -79,98 +81,10 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	uv_close((uv_handle_t*)&carg->channel, NULL);
 }
 
-//void timeout_process(uv_work_t* req)
-//{
-//	printf("Sleeping...\n");
-//	sleep(1);
-//	uv_timer_stop(req->data);
-//	//printf("UnSleeping...\n");
-//}
-
-//void timer_exec_sentinel(uv_timer_t* timer) {
-//	uint64_t timestamp = uv_hrtime();
-//	//uv_work_t* work_req = (uv_work_t*)malloc(sizeof(*work_req));
-//	//uv_queue_work(uv_default_loop(), work_req, timeout_process, on_after_work);
-//}
-
-//void put_to_loop_cmd(char *cmd, void *parser_handler)
-//{
-//	if (!cmd)
-//	{
-//		puts("exec is empty");
-//		return;
-//	}
-//
-//	extern aconf* ac;
-//	size_t len = strlen(cmd);
-//
-//	char *fname = malloc(255);
-//	char *template = malloc(1000);
-//	snprintf(fname, 255, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
-//	printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
-//	// TODO /bin/bash only linux, need customize
-//	int rc = snprintf(template, 1000, "#!/bin/bash\n%s\n", cmd);
-//	//free(cmd);
-//	unlink(fname);
-//
-//	mkdirp(ac->process_script_dir);
-//	write_to_file(fname, template, rc, NULL, NULL);
-//	(ac->process_cnt)++;
-//
-//	int64_t i, y, start, n = 1;
-//	char *tmp = fname;
-//	for (i=0; i<len; i++)
-//	{
-//		if ( isspace(tmp[i]) )
-//		{
-//			for (; isspace(tmp[i]); i++);
-//			n++;
-//		}
-//	}
-//	char** args = calloc(n+1, sizeof(char*));
-//
-//	for (i=0, y=0, start=0; y<n; i++)
-//	{
-//		if ( isspace(tmp[i]) )
-//		{
-//			int64_t end = i;
-//			for (; isspace(tmp[i]); i++);
-//			args[y] = strndup(tmp+start, end-start);
-//
-//			start = i;
-//			y++;
-//		}
-//	}
-//	args[n] = NULL;
-//
-//
-//
-//
-//	//uv_pipe_t *channel = calloc(1, sizeof(uv_pipe_t));
-//	//uv_pipe_init(loop, channel, 1);
-//	//uv_stdio_container_t *child_stdio = calloc(3, sizeof(uv_stdio_container_t)); // {stdin, stdout, stderr}
-//	//child_stdio[STDIN_FILENO].flags = UV_IGNORE;
-//	//child_stdio[STDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
-//	//child_stdio[STDOUT_FILENO].data.stream = (uv_stream_t*)channel;
-//	//child_stdio[STDERR_FILENO].flags = UV_IGNORE;
-//
-//	//uv_process_options_t *options = calloc(1, sizeof(uv_process_options_t));
-//	//options->exit_cb = _on_exit;
-//	//options->file = args[0];
-//	//options->args = args;
-//	//options->stdio = child_stdio;
-//	//options->stdio_count = 3;
-//	//printf (":%d:\n", options->stdio_count);
-//
-//	context_arg *pinfo = calloc(1, sizeof(*pinfo));
-//	//pinfo->options = options;
-//	pinfo->key = cmd;
-//	//pinfo->channel = channel;
-//	//pinfo->child_stdio = child_stdio;
-//	pinfo->parser_handler = parser_handler;
-//	pinfo->args = args;
-//	alligator_ht_insert(ac->process_spawner, &(pinfo->node), pinfo, tommy_strhash_u32(0, pinfo->key));
-//}
+void timer_exec_sentinel(uv_timer_t* timer) {
+	printf("Sleeping...\n");
+	uv_timer_stop(timer);
+}
 
 void env_struct_process(void *funcarg, void* arg)
 {
@@ -192,15 +106,19 @@ char* process_client(context_arg *carg)
 		return NULL;
 	}
 
+	uuid_t uuid;
+	uuid_generate_time_safe(uuid);
+	char uuid_str[37];
+	uuid_unparse_lower(uuid, uuid_str);
+
 	size_t fsize = 255;
 	char *fname = malloc(fsize);
-	//char *template = malloc(1000);
 	string *stemplate = string_init(1000);
-	snprintf(fname, fsize-1, "%s/%"d64"", ac->process_script_dir, ac->process_cnt);
+	snprintf(fname, fsize-1, "%s/%s", ac->process_script_dir, uuid_str);
 	if (ac->log_level > 0)
-		printf("exec command saved to: %s/%"d64"\n", ac->process_script_dir, ac->process_cnt);
+		printf("exec command saved to: %s/%s: '%s'\n", ac->process_script_dir, uuid_str, carg->host);
+
 	// TODO /bin/bash only linux, need customize
-	//int rc;
 	string_cat(stemplate, "#!/bin/bash\n", 12);
 
 	if (carg->env)
@@ -230,37 +148,6 @@ char* process_client(context_arg *carg)
 
 	free(stemplate);
 
-	(ac->process_cnt)++;
-
-	//int64_t i, y, start, n = 1;
-	//char *tmp = fname;
-	//size_t len = strlen(tmp);
-	//for (i=0; i<len; i++)
-	//{
-	//	if ( isspace(tmp[i]) )
-	//	{
-	//		for (; isspace(tmp[i]); i++);
-	//		n++;
-	//	}
-	//}
-	//char** args = calloc(n+1, sizeof(char*));
-
-	//printf("start: %d\n", n);
-	//for (i=0, y=0, start=0; y<n && i < len; i++)
-	//{
-	//	printf("\tlen %d/%d\n", i, len);
-	//	if (tmp && isspace(tmp[i]) )
-	//	{
-	//		int64_t end = i;
-	//		for (; isspace(tmp[i]); i++);
-	//		args[y] = strndup(tmp+start, end-start);
-	//		printf("arg[%d] = '%s'\n", y, args[y]);
-
-	//		start = i;
-	//		y++;
-	//	}
-	//}
-	//args[n] = NULL;
 	char **args = calloc(2, sizeof(char*));
 	args[0] = fname;
 	args[1] = NULL;
@@ -278,9 +165,12 @@ void process_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+	// if not in callback
+	if (carg->remove_from_hash)
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+
 	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
-	ac->process_cnt--;
+	unlink(carg->args[0]);
 	carg_free(carg);
 }
 
@@ -318,6 +208,7 @@ void on_process_spawn(void* arg)
 	r = uv_spawn(loop, child_req, options);
 	if (r) {
 		fprintf(stderr, "uv_spawn: %s\n", uv_strerror(r));
+		_on_exit(child_req, 0, 0);
 	}
 	else
 	{
@@ -338,22 +229,6 @@ void process_handler()
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer = calloc(1, sizeof(*timer));
-	uv_timer_init(loop, timer);
-	uv_timer_start(timer, process_spawn_cb, 2500, ac->aggregator_repeat);
+	uv_timer_init(loop, &ac->process_timer);
+	uv_timer_start(&ac->process_timer, process_spawn_cb, 2500, ac->aggregator_repeat);
 }
-
-//int main()
-//{
-//	uv_loop_t* loop = uv_default_loop();
-//	const int N = 3;
-//	uv_pipe_t *channel = calloc(N, sizeof(uv_pipe_t));
-//	uv_process_options_t **options = calloc(N, sizeof(uv_process_options_t*));
-//	uv_timer_t *timer = calloc(N, sizeof(uv_timer_t));
-//	put_to_loop_cmd(CDM1, strlen(CDM1), &channel[0]);
-//	put_to_loop_cmd(CDM2, strlen(CDM2), &channel[1]);
-//	put_to_loop_cmd(CDM3, strlen(CDM3), &channel[2]);
-//
-//
-//	return uv_run(loop, UV_RUN_DEFAULT);
-//}

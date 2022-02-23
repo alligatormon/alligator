@@ -22,7 +22,7 @@ void config_parse_entry(char *filepath)
 	if (root)
 	{
 		json_decref(root);
-		puts("json loaded");
+		printf("json loaded: '%s'\n", filepath);
 		config_json(context->s);
 		string_free(context);
 		return;
@@ -42,7 +42,7 @@ void config_parse_entry(char *filepath)
 		if (root)
 		{
 			json_decref(root);
-			puts("yaml loaded");
+			printf("yaml loaded: '%s'\n", filepath);
 			config_json(json);
 			free(json);
 			return;

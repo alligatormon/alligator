@@ -127,7 +127,6 @@ aconf* configuration()
 
 	ac->process_spawner = calloc(1, sizeof(alligator_ht));
 	ac->process_script_dir = "/var/lib/alligator/spawner";
-	ac->process_cnt = 0;
 
 	ac->lang_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->lang_aggregator_startup = 4000;
@@ -141,9 +140,13 @@ aconf* configuration()
 	ac->puppeteer = alligator_ht_init(NULL);
 	ac->action = calloc(1, sizeof(alligator_ht));
 	ac->probe = calloc(1, sizeof(alligator_ht));
+	ac->cluster = calloc(1, sizeof(alligator_ht));
 	ac->query = alligator_ht_init(NULL);
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
+
+	ac->cluster_startup = 5500;
+	ac->cluster_repeat = 10000;
 
 	ac->modules = alligator_ht_init(NULL);
 
@@ -161,6 +164,7 @@ aconf* configuration()
 	alligator_ht_init(ac->fs_x509);
 	alligator_ht_init(ac->action);
 	alligator_ht_init(ac->probe);
+	alligator_ht_init(ac->cluster);
 	alligator_ht_init(ac->file_stat);
 	alligator_ht_init(ac->ping_hash);
 
@@ -282,6 +286,7 @@ int main(int argc, char **argv, char **envp)
 	zk_client_handler();
 	filetailer_crawl_handler();
 	puppeteer_generator();
+	cluster_handler();
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

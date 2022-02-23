@@ -1247,6 +1247,26 @@ void find_pid(int8_t lightweight)
 	closedir(dp);
 }
 
+uint64_t get_container_mem_usage()
+{
+	char fpath[255];
+	char buf[21];
+	snprintf(fpath, 254, "%s/fs/cgroup/memory/memory.usage_in_bytes", ac->system_sysfs);
+	FILE *fd = fopen(fpath, "r");
+	if (!fd)
+		return 0;
+
+	if (!fgets(buf, 20, fd))
+	{
+		fclose(fd);
+		return 0;
+	}
+	fclose(fd);
+
+	return strtoull(buf, NULL, 10);
+}
+
+
 void get_mem(int8_t platform)
 {
 	if (ac->log_level > 2)
@@ -1442,15 +1462,6 @@ void get_mem(int8_t platform)
 			cache = cgroup ? ival : cache;
 			metric_add_labels("memory_usage", &cache, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
-		else if (!strcmp(key, "total_rss")) {
-			strlcpy(key_map, "usage", 6);
-			usagemem = cgroup ? ival : usagemem;
-			double percentused = (double)usagemem*100/(double)memtotal;
-			double percentfree = 100 - percentused;
-			metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", key_map);
-			metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
-			metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
-		}
 		else if (!strcmp(key, "total_mapped_file")) {
 			strlcpy(key_map, "mapped", 7);
 			mapped = cgroup ? ival : mapped;
@@ -1538,6 +1549,16 @@ void get_mem(int8_t platform)
 	metric_add_auto("oom_kill", &oom_kill, DATATYPE_INT, ac->system_carg);
 
 	fclose(fd);
+
+	// set memory usage
+	ival = get_container_mem_usage();
+	strlcpy(key_map, "usage", 6);
+	usagemem = platform ? ival : usagemem;
+	double percentused = (double)usagemem*100/(double)memtotal;
+	double percentfree = 100 - percentused;
+	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", key_map);
+	metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
+	metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
 }
 
 void throttle_stat()

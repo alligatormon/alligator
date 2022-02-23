@@ -423,7 +423,8 @@ void icmp_client_del(context_arg *carg)
 
 	if (carg)
 	{
-		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+		if (carg->remove_from_hash)
+			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 		
 		carg->lock = 1;
 		alligator_ht_remove_existing(ac->iggregator, &(carg->node));

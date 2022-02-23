@@ -71,3 +71,4 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg);
 int8_t unbound_validator(char *data, size_t size);
 void solr_handler(char *metrics, size_t size, context_arg *carg);
 void blackbox_null(char *metrics, size_t size, context_arg *carg);
+void cluster_sync_handler(char *metrics, size_t size, context_arg *carg);

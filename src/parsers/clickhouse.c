@@ -282,7 +282,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	char *table = malloc(CH_NAME_SIZE);
 	size_t name_size;
 	int64_t cur;
-	int64_t leader, readonly, future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,absolute_delay,part_mutations_in_queue,active_replicas;
+	int64_t leader, readonly, future_parts,parts_to_check,queue_size,inserts_in_queue,merges_in_queue,log_max_index,log_pointer,total_replicas,absolute_delay,active_replicas;
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
@@ -363,11 +363,6 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		cur = strcspn(metrics+i, "\t");
-		part_mutations_in_queue = atoll(metrics+i);
-		cur++;
-		i+=cur;
-
 		cur = strcspn(metrics+i, "\n");
 		active_replicas = atoll(metrics+i);
 		cur++;
@@ -384,7 +379,6 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels3("Clickhouse_Replicas_Stats", &log_pointer, DATATYPE_INT, carg, "database", database, "table", table, "type", "log_pointer");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "total_replicas");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &absolute_delay, DATATYPE_INT, carg, "database", database, "table", table, "type", "absolute_delay");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &part_mutations_in_queue, DATATYPE_INT, carg, "database", database, "table", table, "type", "part_mutations_in_queue");
 		metric_add_labels3("Clickhouse_Replicas_Stats", &active_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "active_replicas");
 	}
 	free(database);

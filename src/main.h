@@ -112,7 +112,7 @@ typedef struct aconf
 	// PROCESS SPAWNER
 	alligator_ht* process_spawner; // hashtable with commands
 	char *process_script_dir; // dir where store commands into scripts
-	int64_t process_cnt; // count process pushed to hashtable
+	uv_timer_t process_timer;
 
 	// LANG SPAWNER
 	alligator_ht* lang_aggregator;
@@ -151,8 +151,12 @@ typedef struct aconf
 	alligator_ht* action;
 	alligator_ht* query;
 	alligator_ht* probe;
+	alligator_ht* cluster;
 	int64_t query_startup;
 	int64_t query_repeat;
+	int64_t cluster_startup;
+	int64_t cluster_repeat;
+	uv_timer_t cluster_timer;
 
 	int system_base;
 	int system_disk;
