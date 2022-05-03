@@ -707,6 +707,36 @@ void namespace_free(char *namespace, namespace_struct *arg_ns)
 	alligator_ht_foreach_arg(ns->metrictree->labels_words_hash, labels_cache_free_foreach, NULL);
 }
 
+void labels_cache_print_foreach(void *funcarg, void* arg)
+{
+	labels_words_cache *labels_cache = arg;
+	string *str = funcarg;
+	
+	if (labels_cache->w)
+	{
+		if (str->l > 2)
+			string_cat(str, ",\n", 2);
+		string_cat(str, "\"", 1);
+		string_cat(str, labels_cache->w, labels_cache->l);
+		string_cat(str, "\"", 1);
+	}
+}
+
+string* namespace_print(char *namespace, namespace_struct *arg_ns)
+{
+	namespace_struct *ns = get_ns(namespace, arg_ns);
+	if (!ns)
+		return NULL;
+
+	string *ret = string_new();
+	string_cat(ret, "[\n", 2);
+
+	alligator_ht_foreach_arg(ns->metrictree->labels_words_hash, labels_cache_print_foreach, ret);
+	string_cat(ret, "]\n", 2);
+
+	return ret;
+}
+
 void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 {
 	if (!labels)

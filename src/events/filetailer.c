@@ -7,6 +7,7 @@
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
 void file_on_open(uv_fs_t *req);
+void blackbox_null(char *metrics, size_t size, context_arg *carg);
 
 typedef struct file_handle {
 	uv_fs_t open;
@@ -40,30 +41,44 @@ void file_handler_struct_free(file_handle *fh)
 	free(fh);
 }
 
+void filetailer_close(uv_fs_t *req) {
+	file_handle *fh = req->data;
+	uv_fs_req_cleanup(req);
+	file_handler_struct_free(fh);
+}
+
 void file_stat_size_cb(uv_fs_t *req)
 {
 	context_arg *carg = req->data;
+
 	file_handle *fh = file_handler_struct_init(carg, req->statbuf.st_size);
 	strlcpy(fh->pathname, req->path, 1024);
 
 	if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
 	{
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			printf("crawl file pathname: %s\n", fh->pathname);
 
+		uint8_t if_selected = 0;
 		if (carg->file_stat)
 		{
+			if_selected = 1;
 			uv_fs_t* req_stat = malloc(sizeof(*req_stat));
 			req_stat->data = carg;
 			uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
 		}
 
-		if (carg->checksum || carg->parser_name || carg->calc_lines)
+		if (carg->checksum || (carg->parser_name && carg->parser_handler != blackbox_null) || carg->calc_lines)
 		{
-			if (ac->log_level > 1)
-				printf("checksum open: %s in %s\n", carg->checksum, fh->pathname);
+			if (carg->log_level > 1)
+				printf("checksum/calc/parser file open: %s in %s\n", carg->checksum, fh->pathname);
+
+			if_selected = 1;
 			uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
 		}
+
+		if (!if_selected)
+			file_handler_struct_free(fh);
 	}
 
 	uv_fs_req_cleanup(req);
@@ -77,7 +92,7 @@ void directory_crawl(void *arg)
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	if (ac->log_level > 0)
+	if (carg->log_level > 0)
 		printf("open dir: %s, status: %p\n", path, readdir_req.ptr);
 
 	if (!readdir_req.ptr)
@@ -98,42 +113,25 @@ void directory_crawl(void *arg)
 		int r = uv_fs_readdir(carg->loop, &readdir_req, readdir_req.ptr, NULL);
 		if (r <= 0)
 		{
-			if (ac->log_level > 0)
+			if (carg->log_level > 0)
 				printf("read dir: %s, failed, result: %d\n", path, r);
 			break;
 		}
 
 		for (int i=0; i<r; i++)
 		{
-			if (dirents[i].type == UV_DIRENT_FILE)
+			if (dirents[i].type == UV_DIRENT_FILE && (carg->checksum || carg->parser_name || carg->calc_lines))
 			{
 				++acc;
 				uv_fs_t* req_stat = malloc(sizeof(*req_stat));
 				req_stat->data = carg;
-				char *pathname = malloc(1024);
+				char pathname[1024];
 				snprintf(pathname, 1023, "%s/%s", carg->path, dirents[i].name);
+
+				if (carg->log_level > 2)
+					printf("stat open: %s\n", pathname);
+
 				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
-				//if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
-				//{
-				//	file_handle *fh = file_handler_struct_init(carg, 65535);
-				//	snprintf(fh->pathname, 1023, "%s/%s", carg->path, dirents[i].name);
-				//	if (ac->log_level > 2)
-				//		printf("crawl file pathname: %s\n", fh->pathname);
-
-				//	if (carg->file_stat)
-				//	{
-				//		uv_fs_t* req_stat = malloc(sizeof(*req_stat));
-				//		req_stat->data = carg;
-				//		uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
-				//	}
-
-				//	if (carg->checksum || carg->parser_name || carg->calc_lines)
-				//	{
-				//		if (ac->log_level > 1)
-				//			printf("checksum open: %s in %s\n", carg->checksum, fh->pathname);
-				//		uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
-				//	}
-				//}
 			}
 		}
 	}
@@ -160,23 +158,17 @@ void filetailer_directory_file_crawl(void *arg)
 		file_crawl(arg);
 }
 
-void filetailer_close(uv_fs_t *req) {
-	file_handle *fh = req->data;
-	file_handler_struct_free(fh);
-}
-
 void filetailer_checksum(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	context_arg *carg = fh->carg;
-	//printf("checksum: %s on %s/%s\n", carg->checksum, fh->pathname, req->path);
 	uv_fs_req_cleanup(req);
 
 	if (req->result < 0) {
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			fprintf(stdout, "filetailer_checksum: Read error: %s\n", fh->pathname);
 	}
 	else if (req->result == 0) {
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			fprintf(stdout, "filetailer_checksum: No result read: %s\n", fh->pathname);
 	}
 	else {
@@ -211,19 +203,18 @@ void filetailer_checksum(uv_fs_t *req) {
 void file_on_open(uv_fs_t *req)
 {
 	file_handle *fh = req->data;
+	uv_fs_req_cleanup(req);
 	context_arg *carg = fh->carg;
 	uint64_t offset = file_stat_get_offset(ac->file_stat, req->path, carg->state);
 	if (req->result != -1)
 	{
-		//printf("check %p / %p / %d: %s\n", carg->parser_name, carg->checksum, carg->calc_lines, fh->pathname);
 		if (carg->checksum || carg->calc_lines)
 		{
-			//printf("checksum read: %s in %s\n", carg->checksum, fh->pathname);
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, 0, filetailer_checksum);
 		}
 		else if (carg->parser_name)
 		{
-			if (ac->log_level > 1)
+			if (carg->log_level > 1)
 				printf("read from file %s, offset %"u64"\n", req->path, offset);
 			fh->offset = offset;
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
@@ -241,11 +232,11 @@ void filetailer_on_read(uv_fs_t *req) {
 	uv_fs_req_cleanup(req);
 
 	if (req->result < 0) {
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			fprintf(stdout, "filetailer_on_read: Read error: %s\n", fh->pathname);
 	}
 	else if (req->result == 0) {
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			fprintf(stdout, "filetailer_on_read: No result read: %s\n", fh->pathname);
 		file_stat_add_offset(ac->file_stat, fh->pathname, carg, fh->offset);
 	}
@@ -253,7 +244,7 @@ void filetailer_on_read(uv_fs_t *req) {
 		uint64_t str_len = req->result;
 		fh->buffer.base[str_len] = 0;
 
-		if (ac->log_level > 2)
+		if (carg->log_level > 2)
 			printf("filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, str_len);
 
 		file_stat_add_offset(ac->file_stat, fh->pathname, carg, str_len);
@@ -267,7 +258,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 {
 	context_arg *carg = handle->data;
 	carg->filename = filename;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("Change detected in '%s'\n", carg->filename);
 
 	file_handle *fh = file_handler_struct_init(carg, 65535);
@@ -278,7 +269,6 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 
 	if (events == UV_CHANGE)
 	{
-		//printf("fh->pathname %s\n", fh->pathname);
 		uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
 
 		if (carg->file_stat)
@@ -293,11 +283,8 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 char* filetailer_handler(context_arg *carg)
 {
 	uv_loop_t *loop = carg->loop;
-	//printf("checksum handler: %s in %s\n", carg->checksum, carg->host);
 
 	carg->path = carg->host;
-	if (ac->log_level > 0)
-		printf("create file handler with carg->path %s\n", carg->path);
 
 	carg->offset = 0;
 	if (carg->path[strlen(carg->path)-1] == '/')
@@ -305,15 +292,18 @@ char* filetailer_handler(context_arg *carg)
 
 	carg->fs_handle.data = carg;
 
-
 	carg->key = strdup(carg->host);
 
-	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler)
+	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler || carg->parser_name)
+	{
+		if (carg->log_level > 0)
+			printf("create file handler with carg->path %s\n", carg->path);
 		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	}
 
 	if (carg->notify)
 	{
-		if (ac->log_level > 1)
+		if (carg->log_level > 1)
 			printf("run notify %s\n", carg->path);
 		uv_fs_event_init(loop, &carg->fs_handle);
 		uv_fs_event_start(&carg->fs_handle, on_file_change, carg->path, UV_FS_EVENT_WATCH_ENTRY);

@@ -8,16 +8,6 @@
 #include <stdlib.h>
 #define OPLOG_RESPONSE_HEADERS "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
-char *oplog_get_param(alligator_ht *args, char *key)
-{
-	char *value = NULL;
-	http_arg *harg = alligator_ht_search(args, http_arg_compare, key, tommy_strhash_u32(0, key));
-	if (harg)
-		value = harg->value;
-
-	return value;
-}
-
 void oplog_api_response(string *response, string *body)
 {
 	char *content_length = malloc(255);
@@ -37,8 +27,8 @@ void oplog_get_router(string *response, http_reply_data* http_data, context_arg 
 {
 	alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 
-	char *name = oplog_get_param(args, "name");
-	char *replica = oplog_get_param(args, "replica");
+	char *name = http_get_param(args, "name");
+	char *replica = http_get_param(args, "replica");
 
 	string *body = cluster_get_server_data(replica, name);
 
@@ -52,8 +42,8 @@ void oplog_post_router(string *response, http_reply_data* http_data, context_arg
 {
 	alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 
-	char *name = oplog_get_param(args, "name");
-	char *replica = oplog_get_param(args, "replica");
+	char *name = http_get_param(args, "name");
+	char *replica = http_get_param(args, "replica");
 
 	string *body = cluster_shift_server_data(replica, name);
 

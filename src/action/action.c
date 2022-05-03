@@ -61,7 +61,7 @@ void action_run_process(char *name)
 	query_context_free(mqc);
 
 	printf("run %s\n", an->expr);
-	aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l);
+	aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, NULL);
 }
 
 void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_t *jtype, uint8_t follow_redirects, json_t *jserializer)

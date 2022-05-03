@@ -1,0 +1,205 @@
+------< Global definitions >------
+ Network namespace = (default)
+ Network namespace ipvs = (main namespace)
+ Router ID = router-0001
+ Default smtp_alert = unset
+ Default smtp_alert_vrrp = unset
+ Default smtp_alert_checker = unset
+ Checkers log all failures = false
+ Dynamic interfaces = false
+ Default interface = eth0
+ LVS flush = false
+ LVS flush on stop = disabled
+ VRRP notify priority changes = false
+ VRRP IPv4 mcast group = 224.0.0.18
+ VRRP IPv6 mcast group = ff02::12
+ Gratuitous ARP delay = 5
+ Gratuitous ARP repeat = 5
+ Gratuitous ARP refresh timer = 0
+ Gratuitous ARP refresh repeat = 1
+ Gratuitous ARP lower priority delay = 5
+ Gratuitous ARP lower priority repeat = 5
+ Send advert after receive lower priority advert = true
+ Send advert after receive higher priority advert = false
+ Gratuitous ARP interval = 0.000000
+ Gratuitous NA interval = 0.000000
+ VRRP default protocol version = 2
+ VRRP check unicast_src = false
+ VRRP skip check advert addresses = false
+ VRRP strict mode = false
+ Max auto priority = 0
+ Min auto priority delay = 1000000 usecs
+ VRRP process priority = 0
+ VRRP don't swap = false
+ VRRP realtime priority = 0
+ VRRP realtime limit = 10000
+ Checker process priority = 0
+ Checker don't swap = false
+ Checker realtime priority = 0
+ Checker realtime limit = 10000
+ SNMP vrrp disabled
+ SNMP checker disabled
+ SNMP RFCv2 disabled
+ SNMP RFCv3 disabled
+ SNMP traps disabled
+ SNMP socket = default (unix:/var/agentx/master)
+ Script security disabled
+ Default script uid:gid 0:0
+ vrrp_netlink_cmd_rcv_bufs = 0
+ vrrp_netlink_cmd_rcv_bufs_force = 0
+ vrrp_netlink_monitor_rcv_bufs = 0
+ vrrp_netlink_monitor_rcv_bufs_force = 0
+ process_monitor_rcv_bufs = 0
+ process_monitor_rcv_bufs_force = 0
+ lvs_netlink_cmd_rcv_bufs = 0
+ lvs_netlink_cmd_rcv_bufs_force = 0
+ lvs_netlink_monitor_rcv_bufs = 0
+ lvs_netlink_monitor_rcv_bufs_force = 0
+ rs_init_notifies = 0
+ no_checker_emails = 0
+ rx_bufs_multiples = 3
+ umask = 0177
+------< VRRP Topology >------
+ VRRP Instance = master
+   VRRP Version = 2
+   State = MASTER
+   Wantstate = MASTER
+   Number of interface and track script faults = 0
+   Number of track scripts init = 0
+   Last transition = 1638877253.722891 (Tue Dec  7 14:40:53 2021.722891)
+   Read timeout = 1646584684.112443 (Sun Mar  6 19:38:04.112443)
+   Master down timer = 3570312 usecs
+   Interface = eth0
+   Using src_ip = 172.24.8.172 (from configuration)
+   Gratuitous ARP delay = 5
+   Gratuitous ARP repeat = 5
+   Gratuitous ARP refresh = 0
+   Gratuitous ARP refresh repeat = 1
+   Gratuitous ARP lower priority delay = 5
+   Gratuitous ARP lower priority repeat = 5
+   Send advert after receive lower priority advert = true
+   Send advert after receive higher priority advert = false
+   Virtual Router ID = 101
+   Priority = 100
+   Effective priority = 110
+   Total priority = 110
+   Advert interval = 1 sec
+   Preempt = enabled
+   Promote_secondaries = disabled
+   Authentication type = SIMPLE_PASSWORD
+   Password = qwerty
+   Virtual IP :
+     172.24.8.20 dev eth0 scope global set
+   Unicast TTL = 255
+   Check unicast src : no
+   Unicast Peer :
+     172.24.8.215 min_ttl 0 max_ttl 255
+   Unicast checksum compatibility = no
+   fd_in 11, fd_out 14
+   Tracked scripts :
+     nginx weight 10
+   Using smtp notification = no
+   Notify deleted = Fault
+   Notify priority changes = false
+ VRRP Instance = backup
+   VRRP Version = 2
+   State = BACKUP
+   Master router = 172.24.8.215
+   Master priority = 110
+   Wantstate = BACKUP
+   Number of interface and track script faults = 0
+   Number of track scripts init = 0
+   Last transition = 1638877488.411635 (Tue Dec  7 14:44:48 2021.411635)
+   Read timeout = 1646584686.713443 (Sun Mar  6 19:38:06.713443)
+   Master down timer = 3589843 usecs
+   Interface = eth0
+   Using src_ip = 172.24.8.172 (from configuration)
+   Gratuitous ARP delay = 5
+   Gratuitous ARP repeat = 5
+   Gratuitous ARP refresh = 0
+   Gratuitous ARP refresh repeat = 1
+   Gratuitous ARP lower priority delay = 5
+   Gratuitous ARP lower priority repeat = 5
+   Send advert after receive lower priority advert = true
+   Send advert after receive higher priority advert = false
+   Virtual Router ID = 102
+   Priority = 100
+   Effective priority = 105
+   Total priority = 105
+   Advert interval = 1 sec
+   Preempt = enabled
+   Promote_secondaries = disabled
+   Authentication type = SIMPLE_PASSWORD
+   Password = qwerty
+   Virtual IP :
+     172.24.8.25 dev eth0 scope global
+   Unicast TTL = 255
+   Check unicast src : no
+   Unicast Peer :
+     172.24.8.215 min_ttl 0 max_ttl 255
+   Unicast checksum compatibility = no
+   fd_in 11, fd_out 14
+   Tracked scripts :
+     nginx weight 5
+   Using smtp notification = no
+   Notify deleted = Fault
+   Notify priority changes = false
+------< VRRP Sockpool >------
+ fd_in 11 fd_out = 14
+   Interface = eth0
+   Family = IPv4
+   Protocol = VRRP
+   Type = Unicast
+   Address = 172.24.8.172
+   Rx buf size = 0
+   VRRP instances
+     master vrid 101
+     backup vrid 102
+------< VRRP Scripts >------
+ VRRP Script = nginx
+   Command = '/usr/bin/curl' '-sf' '-m1' 'http://localhost/ping'
+   Interval = 5 sec
+   Timeout = 0 sec
+   Weight = 0
+   Rise = 3
+   Fall = 3
+   Insecure = no
+   Status = GOOD
+   Script uid:gid = 0:0
+   VRRP instances :
+   Tracking instances :
+     master, weight 10
+     backup, weight 5
+   State = idle
+------< Interfaces >------
+ Name = lo
+   index = 1
+   IPv4 address = 127.0.0.1
+   IPv6 address = (none)
+   State = UP, RUNNING, no broadcast, loopback, no multicast
+   MTU = 65536
+   HW Type = LOOPBACK
+   NIC netlink status update
+   Reset ARP config counter 0
+   Original arp_ignore 0
+   Original arp_filter 0
+   Original promote_secondaries 0
+   Reset promote_secondaries counter 0
+ Name = eth0
+   index = 2
+   IPv4 address = 172.24.8.172
+   IPv6 address = fe80::f816:3eff:fe0c:a7bb
+   MAC = fa:16:3e:0c:a7:bb
+   MAC broadcast = ff:ff:ff:ff:ff:ff
+   State = UP, RUNNING
+   MTU = 1500
+   HW Type = ETHERNET
+   NIC netlink status update
+   Reset ARP config counter 0
+   Original arp_ignore 0
+   Original arp_filter 0
+   Original promote_secondaries 0
+   Reset promote_secondaries counter 0
+   Tracking VRRP instances :
+     master, weight 0
+     backup, weight 0

@@ -84,7 +84,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 
 				snprintf(mname, 255, "named_%s_%s_counter", ctx, type);
 				if (carg->log_level > 1)
-					printf("\ttype: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
+					printf("\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
 
 				alligator_ht *lbl = alligator_ht_init(NULL);
 				if (proto)

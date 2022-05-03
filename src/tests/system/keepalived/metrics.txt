@@ -1,0 +1,121 @@
+Keepalived_Address_List {instance="backup", context="Packet Errors"} 0
+Keepalived_Address_List {instance="master", context="Packet Errors"} 0
+Keepalived_Advertisement_Interval {instance="backup", context="Packet Errors"} 0
+Keepalived_Advertisement_Interval {instance="master", context="Packet Errors"} 0
+Keepalived_Became_master {instance="backup", context=""} 1
+Keepalived_Became_master {instance="master", context=""} 1
+Keepalived_Data_Advert_interval {instance="backup", context="VRRP Topology"} 1
+Keepalived_Data_Advert_interval {instance="master", context="VRRP Topology"} 1
+Keepalived_Data_Effective_priority {instance="backup", context="VRRP Topology"} 105
+Keepalived_Data_Effective_priority {instance="master", context="VRRP Topology"} 110
+Keepalived_Data_Fall {instance="nginx", context="VRRP Scripts"} 3
+Keepalived_Data_Gratuitous_ARP_delay {instance="backup", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_delay {instance="master", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_lower_priority_delay {instance="backup", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_lower_priority_delay {instance="master", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_lower_priority_repeat {instance="backup", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_lower_priority_repeat {instance="master", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_refresh {instance="backup", context="VRRP Topology"} 0
+Keepalived_Data_Gratuitous_ARP_refresh {instance="master", context="VRRP Topology"} 0
+Keepalived_Data_Gratuitous_ARP_refresh_repeat {instance="backup", context="VRRP Topology"} 1
+Keepalived_Data_Gratuitous_ARP_refresh_repeat {instance="master", context="VRRP Topology"} 1
+Keepalived_Data_Gratuitous_ARP_repeat {instance="backup", context="VRRP Topology"} 5
+Keepalived_Data_Gratuitous_ARP_repeat {instance="master", context="VRRP Topology"} 5
+Keepalived_Data_HW_Type {instance="eth0", context="Interfaces", key="ETHERNET"} 1
+Keepalived_Data_HW_Type {instance="lo", context="Interfaces", key="LOOPBACK"} 1
+Keepalived_Data_IPv4_address {instance="eth0", context="Interfaces"} 172
+Keepalived_Data_IPv4_address {instance="lo", context="Interfaces"} 127
+Keepalived_Data_IPv6_address {instance="eth0", context="Interfaces", key="fe80::f816:3eff:fe0c:a7bb"} 1
+Keepalived_Data_IPv6_address {instance="lo", context="Interfaces", key="(none)"} 1
+Keepalived_Data_Insecure {instance="nginx", context="VRRP Scripts", key="no"} 1
+Keepalived_Data_Interface {instance="backup", context="VRRP Topology", key="eth0"} 1
+Keepalived_Data_Interface {instance="master", context="VRRP Topology", key="eth0"} 1
+Keepalived_Data_Interval {instance="nginx", context="VRRP Scripts"} 5
+Keepalived_Data_Last_transition {instance="backup", context="VRRP Topology"} 1638877488
+Keepalived_Data_Last_transition {instance="master", context="VRRP Topology"} 1638877253
+Keepalived_Data_MAC {instance="eth0", context="Interfaces", key="fa:16:3e:0c:a7:bb"} 1
+Keepalived_Data_MAC_broadcast {instance="eth0", context="Interfaces", key="ff:ff:ff:ff:ff:ff"} 1
+Keepalived_Data_MTU {instance="eth0", context="Interfaces"} 1500
+Keepalived_Data_MTU {instance="lo", context="Interfaces"} 65536
+Keepalived_Data_Master_down_timer {instance="backup", context="VRRP Topology"} 3589843
+Keepalived_Data_Master_down_timer {instance="master", context="VRRP Topology"} 3570312
+Keepalived_Data_Master_priority {instance="backup", context="VRRP Topology"} 110
+Keepalived_Data_Master_router {instance="backup", context="VRRP Topology"} 172
+Keepalived_Data_Name {instance="eth0", context="Interfaces", key="eth0"} 1
+Keepalived_Data_Name {instance="lo", context="Interfaces", key="lo"} 1
+Keepalived_Data_Notify_deleted {instance="backup", context="VRRP Topology", key="Fault"} 1
+Keepalived_Data_Notify_deleted {instance="master", context="VRRP Topology", key="Fault"} 1
+Keepalived_Data_Notify_priority_changes {instance="backup", context="VRRP Topology", key="false"} 1
+Keepalived_Data_Notify_priority_changes {instance="master", context="VRRP Topology", key="false"} 1
+Keepalived_Data_Number_of_interface_and_track_script_faults {instance="backup", context="VRRP Topology"} 0
+Keepalived_Data_Number_of_interface_and_track_script_faults {instance="master", context="VRRP Topology"} 0
+Keepalived_Data_Number_of_track_scripts_init {instance="backup", context="VRRP Topology"} 0
+Keepalived_Data_Number_of_track_scripts_init {instance="master", context="VRRP Topology"} 0
+Keepalived_Data_Preempt {instance="backup", context="VRRP Topology", key="enabled"} 1
+Keepalived_Data_Preempt {instance="master", context="VRRP Topology", key="enabled"} 1
+Keepalived_Data_Priority {instance="backup", context="VRRP Topology"} 100
+Keepalived_Data_Priority {instance="master", context="VRRP Topology"} 100
+Keepalived_Data_Promote_secondaries {instance="backup", context="VRRP Topology", key="disabled"} 1
+Keepalived_Data_Promote_secondaries {instance="master", context="VRRP Topology", key="disabled"} 1
+Keepalived_Data_Read_timeout {instance="backup", context="VRRP Topology"} 1646584686
+Keepalived_Data_Read_timeout {instance="master", context="VRRP Topology"} 1646584684
+Keepalived_Data_Reset_ARP_config_counter {instance="eth0", context="Interfaces"} 0
+Keepalived_Data_Reset_ARP_config_counter {instance="lo", context="Interfaces"} 0
+Keepalived_Data_Reset_promote_secondaries_counter {instance="eth0", context="Interfaces"} 0
+Keepalived_Data_Reset_promote_secondaries_counter {instance="lo", context="Interfaces"} 0
+Keepalived_Data_Rise {instance="nginx", context="VRRP Scripts"} 3
+Keepalived_Data_Send_advert_after_receive_higher_priority_advert {instance="backup", context="VRRP Topology", key="false"} 1
+Keepalived_Data_Send_advert_after_receive_higher_priority_advert {instance="master", context="VRRP Topology", key="false"} 1
+Keepalived_Data_Send_advert_after_receive_lower_priority_advert {instance="backup", context="VRRP Topology", key="true"} 1
+Keepalived_Data_Send_advert_after_receive_lower_priority_advert {instance="master", context="VRRP Topology", key="true"} 1
+Keepalived_Data_State {instance="backup", context="VRRP Topology", key="BACKUP"} 1
+Keepalived_Data_State {instance="eth0", context="Interfaces", key="UP, RUNNING"} 1
+Keepalived_Data_State {instance="lo", context="Interfaces", key="UP, RUNNING, no broadcast, loopback, no multicast"} 1
+Keepalived_Data_State {instance="master", context="VRRP Topology", key="MASTER"} 1
+Keepalived_Data_State {instance="nginx", context="VRRP Scripts", key="idle"} 1
+Keepalived_Data_Status {instance="nginx", context="VRRP Scripts", key="GOOD"} 1
+Keepalived_Data_Timeout {instance="nginx", context="VRRP Scripts"} 0
+Keepalived_Data_Total_priority {instance="backup", context="VRRP Topology"} 105
+Keepalived_Data_Total_priority {instance="master", context="VRRP Topology"} 110
+Keepalived_Data_Unicast_TTL {instance="backup", context="VRRP Topology"} 255
+Keepalived_Data_Unicast_TTL {instance="master", context="VRRP Topology"} 255
+Keepalived_Data_Unicast_checksum_compatibility {instance="backup", context="VRRP Topology", key="no"} 1
+Keepalived_Data_Unicast_checksum_compatibility {instance="master", context="VRRP Topology", key="no"} 1
+Keepalived_Data_Using_smtp_notification {instance="backup", context="VRRP Topology", key="no"} 1
+Keepalived_Data_Using_smtp_notification {instance="master", context="VRRP Topology", key="no"} 1
+Keepalived_Data_Using_src_ip {instance="backup", context="VRRP Topology"} 172
+Keepalived_Data_Using_src_ip {instance="master", context="VRRP Topology"} 172
+Keepalived_Data_VRRP_Instance {instance="backup", context="VRRP Topology", key="backup"} 1
+Keepalived_Data_VRRP_Instance {instance="master", context="VRRP Topology", key="master"} 1
+Keepalived_Data_VRRP_Script {instance="nginx", context="VRRP Scripts", key="nginx"} 1
+Keepalived_Data_VRRP_Version {instance="backup", context="VRRP Topology"} 2
+Keepalived_Data_VRRP_Version {instance="master", context="VRRP Topology"} 2
+Keepalived_Data_Virtual_Router_ID {instance="backup", context="VRRP Topology"} 102
+Keepalived_Data_Virtual_Router_ID {instance="master", context="VRRP Topology"} 101
+Keepalived_Data_Wantstate {instance="backup", context="VRRP Topology", key="BACKUP"} 1
+Keepalived_Data_Wantstate {instance="master", context="VRRP Topology", key="MASTER"} 1
+Keepalived_Data_Weight {instance="nginx", context="VRRP Scripts"} 0
+Keepalived_Data_index {instance="eth0", context="Interfaces"} 2
+Keepalived_Data_index {instance="lo", context="Interfaces"} 1
+Keepalived_Failure {instance="backup", context="Authentication Errors"} 222
+Keepalived_Failure {instance="master", context="Authentication Errors"} 187
+Keepalived_Invalid_Type {instance="backup", context="Authentication Errors"} 0
+Keepalived_Invalid_Type {instance="backup", context="Packet Errors"} 0
+Keepalived_Invalid_Type {instance="master", context="Authentication Errors"} 0
+Keepalived_Invalid_Type {instance="master", context="Packet Errors"} 0
+Keepalived_Length {instance="backup", context="Packet Errors"} 0
+Keepalived_Length {instance="master", context="Packet Errors"} 0
+Keepalived_Received {instance="backup", context="Advertisements"} 7706592
+Keepalived_Received {instance="backup", context="Priority Zero"} 0
+Keepalived_Received {instance="master", context="Advertisements"} 0
+Keepalived_Received {instance="master", context="Priority Zero"} 0
+Keepalived_Released_master {instance="backup", context=""} 1
+Keepalived_Released_master {instance="master", context=""} 0
+Keepalived_Sent {instance="backup", context="Advertisements"} 151
+Keepalived_Sent {instance="backup", context="Priority Zero"} 0
+Keepalived_Sent {instance="master", context="Advertisements"} 7706718
+Keepalived_Sent {instance="master", context="Priority Zero"} 0
+Keepalived_TTL {instance="backup", context="Packet Errors"} 0
+Keepalived_TTL {instance="master", context="Packet Errors"} 0
+Keepalived_Type_Mismatch {instance="backup", context="Authentication Errors"} 0
+Keepalived_Type_Mismatch {instance="master", context="Authentication Errors"} 0

@@ -19,6 +19,15 @@ int smart_aggregator_default_key(char *key, char* transport_string, char* parser
 	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
 }
 
+void smart_aggregator_key_normalize(char *key)
+{
+	for (uint64_t i = 0; key[i]; ++i)
+	{
+		if (iscntrl(key[i]))
+			key[i] = '_';
+	}
+}
+
 int smart_aggregator(context_arg *carg)
 {
 	char *type = NULL;
@@ -73,6 +82,8 @@ int smart_aggregator(context_arg *carg)
 
 	if (carg->key)
 		alligator_ht_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+
+	smart_aggregator_key_normalize(carg->key);
 
 	return 1; // OK
 }
@@ -130,6 +141,8 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 		snprintf(new->key, 64, "%s(tcp://%s:%u)", parser_name, carg->host, htons(carg->dest->sin_port));
 	}
 
+	smart_aggregator_key_normalize(new->key);
+
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
@@ -137,11 +150,13 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
+	url_free(hi);
+
 	if (!smart_aggregator(new))
 		carg_free(new);
 }
 
-context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin)
+context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir)
 {
 	host_aggregator_info *hi = parse_url(url, url_len);
 
@@ -163,14 +178,19 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url);
 	}
 
+	smart_aggregator_key_normalize(new->key);
+
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 
 	new->log_level = carg? carg->log_level : ac->log_level;
 	new->ttl = carg? carg->ttl : ac->ttl;
+	new->work_dir = work_dir;
 
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
+
+	url_free(hi);
 
 	if (!smart_aggregator(new))
 	{
@@ -260,6 +280,7 @@ void aggregate_ctx_init()
 	mogilefs_parser_push();
 	moosefs_parser_push();
 	mongodb_parser_push();
+	keepalived_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

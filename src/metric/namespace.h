@@ -55,3 +55,4 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter)
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 namespace_struct *insert_namespace(char *key);
+string* namespace_print(char *namespace, namespace_struct *arg_ns);

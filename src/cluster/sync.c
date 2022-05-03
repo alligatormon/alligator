@@ -29,7 +29,7 @@ void cluster_recurse(void *funcarg, void* arg)
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
 		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
-		aggregator_oneshot(NULL, url->s, url->l, strdup(query), strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0);
+		aggregator_oneshot(NULL, url->s, url->l, strdup(query), strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
 		url_free(hi);
 	}
 }

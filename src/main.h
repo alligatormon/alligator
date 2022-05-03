@@ -20,6 +20,7 @@
 #include "parsers/postgresql.h"
 #include "parsers/mysql.h"
 #include "common/aggregator.h"
+#include "dstructures/uv_timer.h"
 #define d8 PRId8
 #define u8 PRIu8
 #define u16 PRIu16
@@ -157,6 +158,7 @@ typedef struct aconf
 	int64_t cluster_startup;
 	int64_t cluster_repeat;
 	uv_timer_t cluster_timer;
+	alligator_timer *altimer;
 
 	int system_base;
 	int system_disk;

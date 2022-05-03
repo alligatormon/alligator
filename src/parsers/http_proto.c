@@ -11,18 +11,39 @@
 #include "probe/probe.h"
 #include "parsers/multiparser.h"
 
-void http_reply_free(http_reply_data* hrdata)
+//void http_reply_free(http_reply_data* hrdata)
+//{
+//	free(hrdata->mesg);
+//	free(hrdata->headers);
+//	if (hrdata->clear_http)
+//		string_free(hrdata->clear_http);
+//
+//	if (hrdata->location)
+//		free(hrdata->location);
+//
+//	free(hrdata);
+//}
+
+void http_reply_data_free(http_reply_data* http)
 {
-	free(hrdata->mesg);
-	free(hrdata->headers);
-	if (hrdata->clear_http)
-		string_free(hrdata->clear_http);
+	if (http->uri)
+		free(http->uri);
+	if (http->mesg)
+		free(http->mesg);
+	if (http->headers)
+		free(http->headers);
+	if (http->auth_bearer)
+		free(http->auth_bearer);
+	if (http->clear_http)
+		string_free(http->clear_http);
+	if (http->auth_basic)
+		free(http->auth_basic);
+	if (http->location)
+		free(http->location);
 
-	if (hrdata->location)
-		free(hrdata->location);
-
-	free(hrdata);
+	free(http);
 }
+
 
 http_reply_data* http_reply_parser(char *http, ssize_t n)
 {
@@ -252,7 +273,7 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		json_t *aggregate_root = json_object();
 		json_t *aggregate_arr = json_array();
 		json_t *aggregate_obj = json_object();
-		json_t *aggregate_handler = json_string(strdup(carg->parser_name));
+		json_t *aggregate_handler = json_string(carg->parser_name);
 		json_t *aggregate_url = json_string(location);
 		json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
 		json_t *aggregate_timeout = json_integer(carg->timeout);
@@ -398,22 +419,6 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 			return 1;
 
 	return 0;
-}
-
-void http_reply_data_free(http_reply_data* http)
-{
-	if (http->uri)
-		free(http->uri);
-	if (http->mesg)
-		free(http->mesg);
-	if (http->headers)
-		free(http->headers);
-	if (http->auth_bearer)
-		free(http->auth_bearer);
-	if (http->auth_basic)
-		free(http->auth_basic);
-
-	free(http);
 }
 
 //

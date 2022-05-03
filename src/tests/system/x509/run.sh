@@ -26,3 +26,15 @@ do
 done
 
 kill %2
+
+$APPDIR/bin/alligator $APPDIR/tests/system/$DIR/alligator-pfx.conf&
+sleep 15
+
+TEXT=`curl -s localhost:1111`
+METRICS=`cat $APPDIR/tests/system/$DIR/metrics-pfx.txt`
+for NAME in $METRICS
+do
+	echo "$TEXT" | grep $NAME >/dev/null 2>&1 && success $NAME || error "$TEXT" $NAME
+done
+
+kill %3

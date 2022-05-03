@@ -42,8 +42,11 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	if (carg->tls)
 		mbedtls_ssl_free(&carg->tls_ctx);
 
-	carg->buffer_request_size = carg->full_body->m;
-	string_free(carg->full_body);
+	if (carg->full_body)
+	{
+		carg->buffer_request_size = carg->full_body->m;
+		string_free(carg->full_body);
+	}
 	free(carg);
 }
 
@@ -146,15 +149,23 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	carg->read_time_finish = setrtime();
 
 	http_reply_data* hrdata;
-	if (!carg->full_body->l)
+	if (!carg->full_body || !carg->full_body->l)
 	{
 		hrdata = http_proto_get_request_data(buf->base, nread);
 		if (hrdata)
 		{
 			carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
-			http_reply_free(hrdata);
+
+			// initial big size of answer only for GET method
+			if (!carg->full_body && hrdata->method == HTTP_METHOD_GET)
+				carg->full_body = string_init(carg->buffer_request_size);
+
+			http_reply_data_free(hrdata);
 		}
 	}
+
+	if (!carg->full_body)
+		carg->full_body = string_init(1024);
 
 	if ((nread) > 0 && (nread < 65536) && carg->expect_body_length <= (nread + carg->full_body->l))
 	{
@@ -444,7 +455,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	carg->srv_carg = srv_carg;
 	carg->client.data = carg;
-	carg->full_body = string_init(carg->buffer_request_size);
+	//carg->full_body = string_init(carg->buffer_request_size);
 	carg->curr_ttl = carg->ttl;
 
 	if (carg->tls)

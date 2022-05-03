@@ -221,3 +221,13 @@ void http_args_free(alligator_ht *arg)
 	alligator_ht_done(arg);
 	free(arg);
 }
+
+char *http_get_param(alligator_ht *args, char *key)
+{
+	char *value = NULL;
+	http_arg *harg = alligator_ht_search(args, http_arg_compare, key, tommy_strhash_u32(0, key));
+	if (harg)
+		value = harg->value;
+
+	return value;
+}

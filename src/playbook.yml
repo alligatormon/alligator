@@ -172,7 +172,7 @@
       - rpmdevtools
       - redhat-rpm-config
       - epel-rpm-macros
-      - elasticsearch
+      #- elasticsearch
       - createrepo
       - gearmand
       - openssl-libs
@@ -187,6 +187,9 @@
       - go
       - mongodb-org-server
       - mongodb-org-shell
+      - perl-Digest-SHA
+      - perl-IPC-Cmd
+      - clang
 
   - name: Install el7
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'

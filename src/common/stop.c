@@ -13,6 +13,8 @@ void alligator_stop(char *initiator, int code)
 	namespace_free(0, NULL);
 	cluster_del_all();
 	cluster_handler_stop();
+	system_free();
+	alligator_timer_full_free(ac->altimer);
 
 	uv_loop_close(uv_default_loop());
 

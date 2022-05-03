@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.14.20)
+set(VERSION 1.14.34)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -158,6 +158,7 @@ set(STATIC_FILES
 	parsers/rpm.c
 	parsers/firewall.c
 	parsers/mongodb.c
+	parsers/keepalived.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -179,6 +180,7 @@ set(STATIC_FILES
 	common/file_stat.c
 	common/crc32.c
 	common/murmurhash.c
+	common/lcrypto.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c
@@ -198,6 +200,7 @@ set(STATIC_FILES
 	router/dsv.c
 	router/conf.c
 	router/oplog.c
+	router/labels_cache.c
 	api/api_router.c
 	api/api_v1.c
 	common/reject.c
@@ -234,6 +237,7 @@ set(STATIC_FILES
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
+	dstructures/uv_timer.c
 	dstructures/ht.c
 	dstructures/maglev.c
 	dstructures/tommy.c
@@ -299,7 +303,7 @@ ENDIF(${distro}.${disversion} MATCHES "centos.7")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer.js /var/lib/alligator)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /tmp/liblang.so -buildmode=c-shared cmd/mongo/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
@@ -311,7 +315,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)
@@ -327,7 +331,7 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/puppeteer.js DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
@@ -337,7 +341,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/puppeteer.js DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/bin)

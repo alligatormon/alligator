@@ -35,6 +35,8 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 void cmd_close(uv_handle_t *handle)
 {
 	context_arg *carg = handle->data;
+	if (carg->log_level > 2)
+		printf("run cmd close %p with cmd %s\n", handle, carg->host);
 
 	if (carg->context_ttl)
 	{
@@ -52,7 +54,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	context_arg *carg = req->data;
 
 	if (carg->log_level > 2)
-		fprintf(stdout, "Process %d exited with status %" PRId64 ", signal %d\n", req->pid, exit_status, term_signal);
+		fprintf(stdout, "Process %p with pid %d with cmd %s exited with status %" PRId64 ", signal %d\n", req, req->pid, carg->host, exit_status, term_signal);
 
 	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	string_null(carg->full_body);
@@ -98,6 +100,12 @@ void env_struct_process(void *funcarg, void* arg)
 	string_cat(stemplate, "'\n", 2);
 }
 
+void process_insert(void *arg)
+{
+	context_arg *carg = arg;
+	alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+}
+
 char* process_client(context_arg *carg)
 {
 	if (!carg)
@@ -124,10 +132,16 @@ char* process_client(context_arg *carg)
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_struct_process, stemplate);
 
+	if (carg->work_dir)
+	{
+		string_cat(stemplate, "cd ", 3);
+		string_cat(stemplate, carg->work_dir->s, carg->work_dir->l);
+		string_cat(stemplate, "\n", 1);
+	}
+
 
 	if (carg->stdin_s && carg->stdin_l)
 	{
-		string_cat(stemplate, "printf '", 8);
 		string_cat(stemplate, carg->stdin_s, carg->stdin_l);
 		string_cat(stemplate, "' | '", 4);
 	}
@@ -144,7 +158,7 @@ char* process_client(context_arg *carg)
 	unlink(fname);
 
 	mkdirp(ac->process_script_dir);
-	write_to_file(fname, stemplate->s, stemplate->l, NULL, NULL);
+	write_to_file(fname, stemplate->s, stemplate->l, process_insert, carg);
 
 	free(stemplate);
 
@@ -152,10 +166,11 @@ char* process_client(context_arg *carg)
 	args[0] = fname;
 	args[1] = NULL;
 
-	if (!carg->key)
-		carg->key = strdup(carg->host);
+	//if (!carg->key)
+	//	carg->key = strdup(carg->host);
+
 	carg->args = args;
-	alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	//alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
 	return "process";
 }
@@ -207,11 +222,12 @@ void on_process_spawn(void* arg)
 
 	r = uv_spawn(loop, child_req, options);
 	if (r) {
-		fprintf(stderr, "uv_spawn: %s\n", uv_strerror(r));
+		fprintf(stderr, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
 		_on_exit(child_req, 0, 0);
 	}
 	else
 	{
+		//printf("spawned process %s\n", carg->host);
 		uv_read_start((uv_stream_t*)channel, alloc_buffer, echo_read);
 		//uv_timer_t *timer = malloc(sizeof(uv_timer_t));
 		//uv_timer_init(loop, timer);

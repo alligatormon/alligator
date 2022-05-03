@@ -81,6 +81,7 @@ void jsonparser_collector_foreach(void *funcarg, void* arg)
 	if (node->action == JSON_PARSER_AVG)
 		collector->collector /= node->size;
 
+	prometheus_metric_name_normalizer(node->key, strlen(node->key));
 	metric_add_labels(node->key, &collector->collector, DATATYPE_DOUBLE, node ? node->carg : NULL, "key", collector->label);
 }
 
@@ -158,6 +159,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 		if (pjnode && pjnode->action == JSON_PARSER_LABEL)
 		{
 			int64_t num = 1;
+			prometheus_metric_name_normalizer(buf, strlen(buf));
 			metric_add_labels(buf, &num, DATATYPE_INT, node ? node->carg : NULL, pjnode->by, (char*)json_string_value(element));
 		}
 
@@ -194,6 +196,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 				else
 				{
 					int64_t num = json_integer_value(element);
+					prometheus_metric_name_normalizer(buf, strlen(buf));
 					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
@@ -203,6 +206,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 	else if (jsontype == JSON_INTEGER && !kv)
 	{
 		int64_t num = json_integer_value(element);
+		prometheus_metric_name_normalizer(buf, strlen(buf));
 		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : carg);
 	}
 	else if (jsontype == JSON_INTEGER && kv)
@@ -230,6 +234,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 				else
 				{
 					int64_t num = json_integer_value(element);
+					prometheus_metric_name_normalizer(buf, strlen(buf));
 					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
@@ -238,6 +243,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 	else if (jsontype == JSON_REAL && !kv)
 	{
 		double num = json_real_value(element);
+		prometheus_metric_name_normalizer(buf, strlen(buf));
 		metric_add_auto(buf, &num, DATATYPE_DOUBLE, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_REAL && kv)
@@ -265,6 +271,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 				}
 				else
 				{
+					prometheus_metric_name_normalizer(buf, strlen(buf));
 					metric_add(buf, lbl, &num, DATATYPE_DOUBLE, node ? node->carg : NULL);
 				}
 			}
@@ -273,6 +280,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 	else if (jsontype == JSON_TRUE && !kv)
 	{
 		int64_t num = 1;
+		prometheus_metric_name_normalizer(buf, strlen(buf));
 		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_TRUE && kv)
@@ -301,6 +309,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 				else
 				{
 					int64_t num = 1;
+					prometheus_metric_name_normalizer(buf, strlen(buf));
 					metric_add(buf, lbl, &num, DATATYPE_INT, node ? node->carg : NULL);
 				}
 			}
@@ -309,6 +318,7 @@ void print_json_aux(json_t *element, char *buf, alligator_ht *hash, jsonparse_kv
 	else if (jsontype == JSON_FALSE && !kv)
 	{
 		int64_t num = 0;
+		prometheus_metric_name_normalizer(buf, strlen(buf));
 		metric_add_auto(buf, &num, DATATYPE_INT, node ? node->carg : NULL);
 	}
 	else if (jsontype == JSON_FALSE && kv)

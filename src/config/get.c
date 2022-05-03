@@ -30,7 +30,7 @@ void labels_kv_deserialize(void *funcarg, void* arg)
 
 	if (labelscont->name && labelscont->key)
 	{
-		json_t *name = json_string(strdup(labelscont->key));
+		json_t *name = json_string(labelscont->key);
 		json_array_object_insert(add_label, labelscont->name, name);
 	}
 }
@@ -49,7 +49,7 @@ void env_struct_conf_deserialize(void *funcarg, void* arg)
 
 	if (es->k && es->v)
 	{
-		json_t *value = json_string(strdup(es->v));
+		json_t *value = json_string(es->v);
 		json_array_object_insert(env, es->k, value);
 	}
 }
@@ -78,7 +78,7 @@ void config_global_get(json_t *dst)
 	{
 		json_t *ctx = json_object();
 
-		json_t *persistence_dir = json_string(strdup(ac->persistence_dir));
+		json_t *persistence_dir = json_string(ac->persistence_dir);
 		json_t *persistence_period = json_integer(ac->aggregator_repeat);
 
 		json_array_object_insert(dst, "persistence", ctx);
@@ -105,37 +105,37 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 
 	if (carg->url)
 	{
-		json_t *url = json_string(strdup(carg->url));
+		json_t *url = json_string(carg->url);
 		json_array_object_insert(ctx, "url", url);
 	}
 
 	if (carg->tls_ca_file)
 	{
-		json_t *ca_certificate = json_string(strdup(carg->tls_ca_file));
+		json_t *ca_certificate = json_string(carg->tls_ca_file);
 		json_array_object_insert(ctx, "tls_ca", ca_certificate);
 	}
 
 	if (carg->tls_cert_file)
 	{
-		json_t *tls_certificate = json_string(strdup(carg->tls_cert_file));
+		json_t *tls_certificate = json_string(carg->tls_cert_file);
 		json_array_object_insert(ctx, "tls_certificate", tls_certificate);
 	}
 
 	if (carg->tls_key_file)
 	{
-		json_t *tls_key = json_string(strdup(carg->tls_key_file));
+		json_t *tls_key = json_string(carg->tls_key_file);
 		json_array_object_insert(ctx, "tls_key", tls_key);
 	}
 
 	if (carg->tls_server_name)
 	{
-		json_t *tls_server_name = json_string(strdup(carg->tls_server_name));
+		json_t *tls_server_name = json_string(carg->tls_server_name);
 		json_array_object_insert(ctx, "tls_server_name", tls_server_name);
 	}
 
 	if (carg->parser_name)
 	{
-		json_t *parser_name = json_string(strdup(carg->parser_name));
+		json_t *parser_name = json_string(carg->parser_name);
 		json_array_object_insert(ctx, "handler", parser_name);
 	}
 
@@ -169,61 +169,61 @@ void lang_generate_conf(void *funcarg, void* arg)
 	json_array_object_insert(lang, NULL, ctx);
 	if (lo->key)
 	{
-		json_t *key = json_string(strdup(lo->key));
+		json_t *key = json_string(lo->key);
 		json_array_object_insert(ctx, "key", key);
 	}
 
 	if (lo->lang)
 	{
-		json_t *lang = json_string(strdup(lo->lang));
+		json_t *lang = json_string(lo->lang);
 		json_array_object_insert(ctx, "lang", lang);
 	}
 
 	if (lo->classpath)
 	{
-		json_t *classpath = json_string(strdup(lo->classpath));
+		json_t *classpath = json_string(lo->classpath);
 		json_array_object_insert(ctx, "classpath", classpath);
 	}
 
 	if (lo->classname)
 	{
-		json_t *classname = json_string(strdup(lo->classname));
+		json_t *classname = json_string(lo->classname);
 		json_array_object_insert(ctx, "classname", classname);
 	}
 
 	if (lo->method)
 	{
-		json_t *method = json_string(strdup(lo->method));
+		json_t *method = json_string(lo->method);
 		json_array_object_insert(ctx, "method", method);
 	}
 
 	if (lo->arg)
 	{
-		json_t *arg = json_string(strdup(lo->arg));
+		json_t *arg = json_string(lo->arg);
 		json_array_object_insert(ctx, "arg", arg);
 	}
 
 	if (lo->file)
 	{
-		json_t *file = json_string(strdup(lo->file));
+		json_t *file = json_string(lo->file);
 		json_array_object_insert(ctx, "file", file);
 	}
 
 	if (lo->module)
 	{
-		json_t *module = json_string(strdup(lo->module));
+		json_t *module = json_string(lo->module);
 		json_array_object_insert(ctx, "module", module);
 	}
 
 	if (lo->path)
 	{
-		json_t *path = json_string(strdup(lo->path));
+		json_t *path = json_string(lo->path);
 		json_array_object_insert(ctx, "path", path);
 	}
 
 	if (lo->query)
 	{
-		json_t *query = json_string(strdup(lo->query));
+		json_t *query = json_string(lo->query);
 		json_array_object_insert(ctx, "query", query);
 	}
 
@@ -249,13 +249,13 @@ void lang_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *sertype = NULL;
 		if (lo->serializer == METRIC_SERIALIZER_JSON)
-			sertype = json_string(strdup("json"));
+			sertype = json_string("json");
 		else if (lo->serializer == METRIC_SERIALIZER_OPENMETRICS)
-			sertype = json_string(strdup("openmetrics"));
+			sertype = json_string("openmetrics");
 		else if (lo->serializer == METRIC_SERIALIZER_DSV)
-			sertype = json_string(strdup("dsv"));
+			sertype = json_string("dsv");
 		else
-			sertype = json_string(strdup("none"));
+			sertype = json_string("none");
 		json_array_object_insert(ctx, "serializer", sertype);
 	}
 }
@@ -277,19 +277,19 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 
 	if (tls_fs->path)
 	{
-		json_t *path = json_string(strdup(tls_fs->path));
+		json_t *path = json_string(tls_fs->path);
 		json_array_object_insert(ctx, "path", path);
 	}
 
 	if (tls_fs->name)
 	{
-		json_t *name = json_string(strdup(tls_fs->name));
+		json_t *name = json_string(tls_fs->name);
 		json_array_object_insert(ctx, "name", name);
 	}
 
 	if (tls_fs->match)
 	{
-		json_t *match = json_string(strdup(tls_fs->match));
+		json_t *match = json_string(tls_fs->match);
 		json_array_object_insert(ctx, "match", match);
 	}
 }
@@ -311,31 +311,31 @@ void query_node_generate_conf(void *funcarg, void* arg)
 
 	if (qn->expr)
 	{
-		json_t *expr = json_string(strdup(qn->expr));
+		json_t *expr = json_string(qn->expr);
 		json_array_object_insert(ctx, "expr", expr);
 	}
 
 	if (qn->make)
 	{
-		json_t *make = json_string(strdup(qn->make));
+		json_t *make = json_string(qn->make);
 		json_array_object_insert(ctx, "make", make);
 	}
 
 	if (qn->action)
 	{
-		json_t *action = json_string(strdup(qn->action));
+		json_t *action = json_string(qn->action);
 		json_array_object_insert(ctx, "action", action);
 	}
 
 	if (qn->ns)
 	{
-		json_t *ns = json_string(strdup(qn->ns));
+		json_t *ns = json_string(qn->ns);
 		json_array_object_insert(ctx, "ns", ns);
 	}
 
 	if (qn->datasource)
 	{
-		json_t *datasource = json_string(strdup(qn->datasource));
+		json_t *datasource = json_string(qn->datasource);
 		json_array_object_insert(ctx, "datasource", datasource);
 	}
 }
@@ -371,25 +371,25 @@ void action_generate_conf(void *funcarg, void* arg)
 
 	if (an->expr)
 	{
-		json_t *expr = json_string(strdup(an->expr));
+		json_t *expr = json_string(an->expr);
 		json_array_object_insert(ctx, "expr", expr);
 	}
 
 	if (an->name)
 	{
-		json_t *name = json_string(strdup(an->name));
+		json_t *name = json_string(an->name);
 		json_array_object_insert(ctx, "name", name);
 	}
 
 	if (an->ns)
 	{
-		json_t *ns = json_string(strdup(an->ns));
+		json_t *ns = json_string(an->ns);
 		json_array_object_insert(ctx, "ns", ns);
 	}
 
 	if (an->datasource)
 	{
-		json_t *datasource = json_string(strdup(an->datasource));
+		json_t *datasource = json_string(an->datasource);
 		json_array_object_insert(ctx, "datasource", datasource);
 	}
 
@@ -403,18 +403,18 @@ void action_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *sertype = NULL;
 		if (an->serializer == METRIC_SERIALIZER_JSON)
-			sertype = json_string(strdup("json"));
+			sertype = json_string("json");
 		else if (an->serializer == METRIC_SERIALIZER_OPENMETRICS)
-			sertype = json_string(strdup("openmetrics"));
+			sertype = json_string("openmetrics");
 		else if (an->serializer == METRIC_SERIALIZER_DSV)
-			sertype = json_string(strdup("dsv"));
+			sertype = json_string("dsv");
 		else
-			sertype = json_string(strdup("none"));
+			sertype = json_string("none");
 		json_array_object_insert(ctx, "serializer", sertype);
 	}
 
 	if (an->type == ACTION_TYPE_SHELL)
-		json_array_object_insert(ctx, "type", json_string(strdup("shell")));
+		json_array_object_insert(ctx, "type", json_string("shell"));
 
 	if (an->labels)
 		alligator_ht_foreach_arg(an->labels, labels_kv_deserialize, ctx);
@@ -437,55 +437,55 @@ void probe_generate_conf(void *funcarg, void* arg)
 
 	if (pn->source_ip_address)
 	{
-		json_t *source_ip_address = json_string(strdup(pn->source_ip_address));
+		json_t *source_ip_address = json_string(pn->source_ip_address);
 		json_array_object_insert(ctx, "source_ip_address", source_ip_address);
 	}
 
 	if (pn->body)
 	{
-		json_t *body = json_string(strdup(pn->body));
+		json_t *body = json_string(pn->body);
 		json_array_object_insert(ctx, "body", body);
 	}
 
 	if (pn->prober_str)
 	{
-		json_t *prober_str = json_string(strdup(pn->prober_str));
+		json_t *prober_str = json_string(pn->prober_str);
 		json_array_object_insert(ctx, "prober", prober_str);
 	}
 
 	if (pn->http_proxy_url)
 	{
-		json_t *http_proxy_url = json_string(strdup(pn->http_proxy_url));
+		json_t *http_proxy_url = json_string(pn->http_proxy_url);
 		json_array_object_insert(ctx, "http_proxy_url", http_proxy_url);
 	}
 
 	if (pn->name)
 	{
-		json_t *name = json_string(strdup(pn->name));
+		json_t *name = json_string(pn->name);
 		json_array_object_insert(ctx, "name", name);
 	}
 
 	if (pn->ca_file)
 	{
-		json_t *ca_file = json_string(strdup(pn->ca_file));
+		json_t *ca_file = json_string(pn->ca_file);
 		json_array_object_insert(ctx, "ca_file", ca_file);
 	}
 
 	if (pn->cert_file)
 	{
-		json_t *cert_file = json_string(strdup(pn->cert_file));
+		json_t *cert_file = json_string(pn->cert_file);
 		json_array_object_insert(ctx, "cert_file", cert_file);
 	}
 
 	if (pn->key_file)
 	{
-		json_t *key_file = json_string(strdup(pn->key_file));
+		json_t *key_file = json_string(pn->key_file);
 		json_array_object_insert(ctx, "key_file", key_file);
 	}
 
 	if (pn->server_name)
 	{
-		json_t *server_name = json_string(strdup(pn->server_name));
+		json_t *server_name = json_string(pn->server_name);
 		json_array_object_insert(ctx, "server_name", server_name);
 	}
 
@@ -511,9 +511,9 @@ void probe_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *tls;
 		if (pn->tls)
-			tls = json_string(strdup("on"));
+			tls = json_string("on");
 		else
-			tls = json_string(strdup("off"));
+			tls = json_string("off");
 		json_array_object_insert(ctx, "tls", tls);
 	}
 
@@ -531,11 +531,11 @@ void probe_generate_conf(void *funcarg, void* arg)
 
 	json_t *jmethod = NULL;
 	if (pn->method == HTTP_GET)
-		jmethod = json_string(strdup("GET"));
+		jmethod = json_string("GET");
 	else if (pn->method == HTTP_POST)
-		jmethod = json_string(strdup("POST"));
+		jmethod = json_string("POST");
 	else
-		jmethod = json_string(strdup("none"));
+		jmethod = json_string("none");
 	json_array_object_insert(ctx, "method", jmethod);
 
 	if (pn->valid_status_codes_size)
@@ -544,7 +544,7 @@ void probe_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "valid_status_codes", valid_status_codes);
 		for (uint64_t i = 0; i < pn->valid_status_codes_size; i++)
 		{
-			json_t *vss = json_string(strdup(pn->valid_status_codes[i]));
+			json_t *vss = json_string(pn->valid_status_codes[i]);
 			json_array_object_insert(valid_status_codes, NULL, vss);
 		}
 	}
@@ -644,7 +644,7 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 
 	if (carg->key)
 	{
-		json_t *key = json_string(strdup(carg->key));
+		json_t *key = json_string(carg->key);
 		json_array_object_insert(ctx, "key", key);
 	}
 
@@ -716,27 +716,27 @@ void system_config_get(json_t *dst)
 	}
 
 	if (ac->system_sysfs) {
-		json_t *ctxsys = json_string(strdup(ac->system_sysfs));
+		json_t *ctxsys = json_string(ac->system_sysfs);
 		json_array_object_insert(system, "sysfs", ctxsys);
 	}
 
 	if (ac->system_procfs) {
-		json_t *ctxsys = json_string(strdup(ac->system_procfs));
+		json_t *ctxsys = json_string(ac->system_procfs);
 		json_array_object_insert(system, "procfs", ctxsys);
 	}
 
 	if (ac->system_rundir) {
-		json_t *ctxsys = json_string(strdup(ac->system_rundir));
+		json_t *ctxsys = json_string(ac->system_rundir);
 		json_array_object_insert(system, "rundir", ctxsys);
 	}
 
 	if (ac->system_usrdir) {
-		json_t *ctxsys = json_string(strdup(ac->system_usrdir));
+		json_t *ctxsys = json_string(ac->system_usrdir);
 		json_array_object_insert(system, "usrdir", ctxsys);
 	}
 
 	if (ac->system_etcdir) {
-		json_t *ctxsys = json_string(strdup(ac->system_etcdir));
+		json_t *ctxsys = json_string(ac->system_etcdir);
 		json_array_object_insert(system, "etcdir", ctxsys);
 	}
 }
@@ -762,7 +762,7 @@ void userprocess_generate_conf(void *funcarg, void* arg)
 
 	if (upn->name)
 	{
-		json_t *name = json_string(strdup(upn->name));
+		json_t *name = json_string(upn->name);
 		json_array_object_insert(userprocess, NULL, name);
 	}
 }
@@ -788,7 +788,7 @@ void groupprocess_generate_conf(void *funcarg, void* arg)
 
 	if (upn->name)
 	{
-		json_t *name = json_string(strdup(upn->name));
+		json_t *name = json_string(upn->name);
 		json_array_object_insert(groupprocess, NULL, name);
 	}
 }
@@ -816,7 +816,7 @@ void system_mapper_generate_conf(void *funcarg, void* arg)
 
 	if (ms->s)
 	{
-		json_t *name = json_string(strdup(ms->s));
+		json_t *name = json_string(ms->s);
 		json_array_object_insert(systemmapper, NULL, name);
 	}
 }
@@ -862,7 +862,7 @@ void system_pidfile_generate_conf(json_t *dst)
 
 		if (node->pidfile)
 		{
-			json_t *name = json_string(strdup(node->pidfile));
+			json_t *name = json_string(node->pidfile);
 			json_array_object_insert(pidfile, NULL, name);
 		}
 
@@ -884,7 +884,7 @@ void modules_generate_conf(void *funcarg, void* arg)
 
 	if (module->path && module->key)
 	{
-		json_t *path = json_string(strdup(module->path));
+		json_t *path = json_string(module->path);
 		json_array_object_insert(modules, module->key, path);
 	}
 }

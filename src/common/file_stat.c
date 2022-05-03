@@ -146,9 +146,18 @@ uint64_t file_stat_get_offset(alligator_ht *hash, char *path, uint8_t state)
 	}
 	else
 	{
-		if (ac->log_level > 1)
-			printf("file_stat_get_offset: %s SAVE CASE: %"u64"\n", path, fstat->offset);
-		return fstat->offset;
+		if (state == FILESTAT_STATE_FORGET)
+		{
+			if (ac->log_level > 1)
+				printf("file_stat_get_offset: %s FORGET CASE: %"u64"\n", path, 0);
+			return 0;
+		}
+		else
+		{
+			if (ac->log_level > 1)
+				printf("file_stat_get_offset: %s SAVE CASE: %"u64"\n", path, fstat->offset);
+			return fstat->offset;
+		}
 	}
 
 	if (ac->log_level > 1)

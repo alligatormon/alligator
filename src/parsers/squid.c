@@ -213,7 +213,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 	char *debug_table;
 
 	uint64_t hash_table_offset = 0;
-	alligator_ht *hash = malloc(sizeof(*hash));
+	alligator_ht *hash = calloc(1, sizeof(*hash));
 
 	//printf("pos %"PRIu64" / read_size %zu\n", pos, read_size);
 	for (pos = 0; pos < read_size; pos++)

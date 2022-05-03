@@ -1,0 +1,38 @@
+VRRP Instance: master
+  Advertisements:
+    Received: 0
+    Sent: 7706718
+  Became master: 1
+  Released master: 0
+  Packet Errors:
+    Length: 0
+    TTL: 0
+    Invalid Type: 0
+    Advertisement Interval: 0
+    Address List: 0
+  Authentication Errors:
+    Invalid Type: 0
+    Type Mismatch: 0
+    Failure: 187
+  Priority Zero:
+    Received: 0
+    Sent: 0
+VRRP Instance: backup
+  Advertisements:
+    Received: 7706592
+    Sent: 151
+  Became master: 1
+  Released master: 1
+  Packet Errors:
+    Length: 0
+    TTL: 0
+    Invalid Type: 0
+    Advertisement Interval: 0
+    Address List: 0
+  Authentication Errors:
+    Invalid Type: 0
+    Type Mismatch: 0
+    Failure: 222
+  Priority Zero:
+    Received: 0
+    Sent: 0

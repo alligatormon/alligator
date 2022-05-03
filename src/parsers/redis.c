@@ -631,6 +631,63 @@ int8_t redis_memory_stat_validator(char *data, size_t size)
 	return 0;
 }
 
+void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
+{
+	char field[REDIS_NAME_SIZE];
+	char indicator[REDIS_NAME_SIZE];
+	char metric_name[REDIS_NAME_SIZE];
+	strlcpy(metric_name, "redis_latency_stat_ms", REDIS_NAME_SIZE);
+	int64_t metric_data;
+	uint64_t arg = 0;
+
+	char *tmp = strstr(metrics, "\r\n");
+	if (!tmp)
+		return;
+
+	uint64_t i = tmp - metrics + 2;
+	size -= i;
+
+	for (; i < size; i++)
+	{
+		*field = 0;
+		str_get_next(tmp, field, REDIS_NAME_SIZE, "\r\n", &i);
+		if (carg->log_level > 1)
+			printf("redis latency field:\n'%s', %"u64"\n", field, i);
+		if (field[0] == '$')
+			continue;
+		if (field[0] == 0)
+			continue;
+		if (field[0] == '*')
+			continue;
+		if (field[0] == ':')
+		{
+			if (arg == 1)
+			{
+				metric_data = strtoll(field + 1, NULL, 10);
+				if (carg->log_level > 1)
+					printf("metric: '%s', indicator: '%s', data: %"u64"\n", metric_name, indicator, metric_data);
+				metric_add_labels(metric_name, &metric_data, DATATYPE_INT, carg, "operation", indicator);
+			}
+			++arg;
+		}
+		else
+		{
+			strlcpy(indicator, field, REDIS_NAME_SIZE);
+			if (carg->log_level > 1)
+				printf("indicator: %s\n", indicator);
+			arg = 0;
+		}
+	}
+}
+
+int8_t redis_latency_stat_validator(char *data, size_t size)
+{
+	if (data[0] == '*')
+		return 1;
+
+	return 0;
+}
+
 string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
@@ -653,6 +710,17 @@ string* redis_parser_memory_stat_mesg(host_aggregator_info *hi, void *arg, void 
 	return string_init_add(query, 0, 0);
 }
 
+string* redis_parser_latency_stat_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nLATENCY LATEST\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "LATENCY LATEST\r\n");
+
+	return string_init_add(query, 0, 0);
+}
+
 string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	char* query = malloc(1000);
@@ -669,7 +737,7 @@ void redis_parser_push()
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("redis");
-	actx->handlers = 3;
+	actx->handlers = 4;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 	actx->handler[0].name = redis_handler;
 	actx->handler[0].validator = redis_validator;
@@ -683,6 +751,10 @@ void redis_parser_push()
 	actx->handler[2].validator = redis_memory_stat_validator;
 	actx->handler[2].mesg_func = redis_parser_memory_stat_mesg;
 	strlcpy(actx->handler[2].key,"redis_memory_stat", 255);
+	actx->handler[3].name = redis_latency_stat_handler;
+	actx->handler[3].validator = redis_latency_stat_validator;
+	actx->handler[3].mesg_func = redis_parser_latency_stat_mesg;
+	strlcpy(actx->handler[3].key,"redis_latency_stat", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

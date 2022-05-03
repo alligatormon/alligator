@@ -113,7 +113,7 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 
 void get_iptables_info(char *binarytable, char *table, context_arg *carg)
 {
-	context_arg *new = aggregator_oneshot(carg, binarytable, strlen(binarytable), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0);
+	context_arg *new = aggregator_oneshot(carg, binarytable, strlen(binarytable), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
 	if (new)
 	{
 		new->data = table;

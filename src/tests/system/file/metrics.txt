@@ -14,4 +14,4 @@ type="mtime"
 file_stat_mode {path="/etc//exports", type="regular", user="root", group="root", int="100644", mode="rw-r--r--"} 33188
 file_lines {path="/etc//shells"} 4
 file_checksum {path="/etc//sudoers", hash="murmur3"} 1844674407294471273
-file_checksum {path="/etc///hostname", hash="crc32"} 1844674407225004028
+file_checksum {path="/etc///hostname", hash="crc32"}

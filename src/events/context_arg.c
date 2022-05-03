@@ -63,6 +63,9 @@ void carg_free(context_arg *carg)
 	if (carg->args)
 		string_free(carg->args);
 
+	if (carg->work_dir)
+		string_free(carg->work_dir);
+
 	if (carg->env)
 	{
 		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
@@ -157,7 +160,7 @@ void env_struct_dump_foreach(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
 	json_t *env = funcarg;
-	json_t *value = json_string(strdup(es->v));
+	json_t *value = json_string(es->v);
 
 	json_array_object_insert(env, es->k, value);
 }
@@ -270,6 +273,9 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	json_t *json_file_stat = json_object_get(root, "file_stat");
 	carg->file_stat = json_boolean_value(json_file_stat);
+	char *flstt = (char*)json_string_value(json_file_stat);
+	if (flstt && !strcmp(flstt, "true"))
+		carg->file_stat = 1;
 
 	json_t *json_checksum = json_object_get(root, "checksum");
 	if (json_checksum)
@@ -277,9 +283,16 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	json_t *json_calc_lines = json_object_get(root, "calc_lines");
 	carg->calc_lines = json_boolean_value(json_calc_lines);
+	char *clc = (char*)json_string_value(json_calc_lines);
+	if (clc && !strcmp(clc, "true"))
+		carg->calc_lines = 1;
+
 
 	json_t *json_notify = json_object_get(root, "notify");
 	carg->notify = json_boolean_value(json_notify);
+	char *ntf = (char*)json_string_value(json_notify);
+	if (ntf && !strcmp(ntf, "true"))
+		carg->notify = 1;
 
 	carg->pingloop = 1;
 	json_t *json_pingloop = json_object_get(root, "pingloop");
@@ -295,6 +308,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			carg->state = FILESTAT_STATE_BEGIN;
 		else if (!strcmp(state, "save"))
 			carg->state = FILESTAT_STATE_SAVE;
+		if (!strcmp(state, "forget"))
+			carg->state = FILESTAT_STATE_FORGET;
 	}
 
 	json_t *json_log_level = json_object_get(root, "log_level");

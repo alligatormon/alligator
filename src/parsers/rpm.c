@@ -53,26 +53,10 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 
 void get_rpm_info()
 {
-	aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0);
+	context_arg *carg = aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+	if (carg)
+	{
+		carg->no_exit_status = 1;
+	}
 }
 #endif
-
-//string* rpm_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
-//{
-//	return string_init_alloc("", 0);
-//}
-//
-//void rpm_parser_push()
-//{
-//	aggregate_context *actx = calloc(1, sizeof(*actx));
-//
-//	actx->key = strdup("rpm");
-//	actx->handlers = 1;
-//	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
-//
-//	actx->handler[0].name = rpm_handler;
-//	actx->handler[0].mesg_func = rpm_mesg;
-//	strlcpy(actx->handler[0].key, "rpm", 255);
-//
-//	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
-//}

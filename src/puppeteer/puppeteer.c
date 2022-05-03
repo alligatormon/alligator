@@ -84,18 +84,21 @@ void puppeteer_foreach_run(void *funcarg, void* arg)
 	string_string_cat(domains, pn->url);
 }
 void puppeteer_crawl(uv_timer_t* handle) {
-	string *domains = string_new();
-
 	if (!alligator_ht_count(ac->puppeteer))
 		return;
+
+	string *domains = string_new();
 
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_foreach_run, domains);
 
 	//printf("string is %s\n", domains->s);
 
 	char *expr = malloc(1024);
-	size_t expr_len = snprintf(expr, 1024, "exec:///bin/node /var/lib/alligator/puppeteer.js %s", domains->s);
-	aggregator_oneshot(NULL, expr, expr_len, NULL, 0, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0);
+	size_t expr_len = snprintf(expr, 1024, "exec:///bin/node /var/lib/alligator/puppeteer-alligator.js %s", domains->s);
+	string *work_dir = string_init_dup("/var/lib/alligator");
+	context_arg *carg = aggregator_oneshot(NULL, expr, expr_len, NULL, 0, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0, work_dir);
+	if (carg)
+		carg->no_exit_status = 1;
 
 	string_free(domains);
 }

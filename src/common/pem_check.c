@@ -5,6 +5,7 @@
 #include "common/rtime.h"
 #include "lang/lang.h"
 #include "common/pem_check.h"
+#include "common/lcrypto.h"
 #include "main.h"
 
 int x509_fs_compare(const void* arg, const void* obj)
@@ -188,17 +189,20 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	free(data);
 }
 
-void fs_cert_check(char *name, char *fname, char *match)
+void fs_cert_check(char *name, char *fname, char *match, char *password, uint8_t type)
 {
-	//printf("match %s <> %s\n", fname, match);
+	void *func = pem_check_cert;
+	if (type == X509_TYPE_PFX)
+		func = libcrypto_check_cert;
 	if (strstr(fname, match))
-		read_from_file(fname, 0, pem_check_cert, NULL);
+		read_from_file(fname, 0, func, password);
+		//read_from_file(fname, 0, pem_check_cert, NULL);
 	else
 		free(fname);
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
-int tls_fs_dir_read(char *name, char *path, char *match)
+int tls_fs_dir_read(char *name, char *path, char *match, char *password, uint8_t type)
 {
 	uv_fs_t readdir_req;
 
@@ -232,7 +236,7 @@ int tls_fs_dir_read(char *name, char *path, char *match)
 			if (dirents[i].type == UV_DIRENT_DIR)
 			{
 				strcpy(filebase, dirents[i].name);
-				acc += tls_fs_dir_read(name, fullname, match);
+				acc += tls_fs_dir_read(name, fullname, match, password, type);
 			}
 			else if (dirents[i].type == UV_DIRENT_FILE)
 			{
@@ -241,8 +245,9 @@ int tls_fs_dir_read(char *name, char *path, char *match)
 				char *filename = malloc(1024);
 				snprintf(filename, 1023, "%s/%s", path, dirents[i].name);
 				//printf("fs_cert_check(%s, %s, %s)\n", name, filename, match);
-				fs_cert_check(name, filename, match);
+				fs_cert_check(name, filename, match, password, type);
 			}
+			free((void*)dirents[i].name);
 		}
 	}
 
@@ -257,8 +262,7 @@ void tls_fs_recurse(void *arg)
 
 	x509_fs_t *tls_fs = arg;
 
-	//printf("tls_fs_dir_read(%s, %s, %s)\n", tls_fs->name, tls_fs->path, tls_fs->match);
-	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match);
+	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match, tls_fs->password, tls_fs->type);
 }
 
 static void tls_fs_crawl(uv_timer_t* handle) {
@@ -275,13 +279,21 @@ void tls_fs_handler()
 	uv_timer_start(timer1, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
 }
 
-void tls_fs_push(char *name, char *path, char *match)
+void tls_fs_push(char *name, char *path, char *match, char *password, char *type)
 {
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
 	tls_fs->path = strdup(path);
 	tls_fs->match = strdup(match);
+
+	if (password)
+		tls_fs->password = strdup(password);
+
+	if (type && !strcmp(type, "pfx"))
+		tls_fs->type = X509_TYPE_PFX;
+
 	alligator_ht_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
+
 }
 
 void tls_fs_del(char *name)
@@ -294,6 +306,7 @@ void tls_fs_del(char *name)
 		free(tls_fs->name);
 		free(tls_fs->path);
 		free(tls_fs->match);
+		free(tls_fs->password);
 		free(tls_fs);
 	}
 }

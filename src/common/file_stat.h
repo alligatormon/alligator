@@ -6,6 +6,7 @@
 #define FILESTAT_STATE_STREAM 0
 #define FILESTAT_STATE_BEGIN 1
 #define FILESTAT_STATE_SAVE 2
+#define FILESTAT_STATE_FORGET 3
 
 typedef struct file_stat {
 	char *key;

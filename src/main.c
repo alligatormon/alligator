@@ -96,10 +96,11 @@ aconf* configuration()
 	ac->zk_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->my_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->uggregator = calloc(1, sizeof(alligator_ht));
+	ac->altimer = calloc(1, sizeof(tommy_list));
 	alligator_ht_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
-	ac->file_aggregator_repeat = 300000;
+	ac->file_aggregator_repeat = 10000;
 
 	ac->tls_aggregator = calloc(1, sizeof(alligator_ht));
 	//ac->uggregator = calloc(1, sizeof(alligator_ht));
@@ -287,6 +288,8 @@ int main(int argc, char **argv, char **envp)
 	filetailer_crawl_handler();
 	puppeteer_generator();
 	cluster_handler();
+
+	//openssl_r("../trash/pfx/domain.name.pfx", "123456");
 
 	return uv_run(loop, UV_RUN_DEFAULT);
 }

@@ -73,10 +73,10 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *aggregate_root = json_object();
 			json_t *aggregate_arr = json_array();
 			json_t *aggregate_obj = json_object();
-			json_t *aggregate_handler = json_string(strdup("http"));
+			json_t *aggregate_handler = json_string("http");
 			json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
 			json_t *aggregate_url = json_string(keyhost);
-			json_t *aggregate_name = json_string(strdup(keyhost));
+			json_t *aggregate_name = json_string(keyhost);
 			json_t *aggregate_add_label = json_object();
 			json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
 			json_array_object_insert(aggregate_arr, "", aggregate_obj);
@@ -97,6 +97,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 				puts(dvalue);
 			http_api_v1(NULL, NULL, dvalue);
 			free(dvalue);
+			free(keyhost);
 			json_decref(aggregate_root);
 		}
 	}
@@ -235,10 +236,10 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				json_t *aggregate_root = json_object();
 				json_t *aggregate_arr = json_array();
 				json_t *aggregate_obj = json_object();
-				json_t *aggregate_handler = json_string(strdup(kubeport->handler));
+				json_t *aggregate_handler = json_string(kubeport->handler);
 
-				json_t *aggregate_url = json_string(strdup(url));
-				json_t *aggregate_name = json_string(strdup(url));
+				json_t *aggregate_url = json_string(url);
+				json_t *aggregate_name = json_string(url);
 				json_t *aggregate_add_label = json_object();
 				json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
 				json_array_object_insert(aggregate_arr, "", aggregate_obj);
@@ -247,9 +248,9 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				json_array_object_insert(aggregate_obj, "url", aggregate_url);
 				json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
 				json_array_object_insert(aggregate_add_label, "instance", aggregate_name);
-				json_array_object_insert(aggregate_add_label, "kubernetes_namespace", json_string(strdup(namespace)));
-				json_array_object_insert(aggregate_add_label, "kubernetes_pod_name", json_string(strdup(pod_name)));
-				json_array_object_insert(aggregate_add_label, "kubernetes_container_name", json_string(strdup(name)));
+				json_array_object_insert(aggregate_add_label, "kubernetes_namespace", json_string(namespace));
+				json_array_object_insert(aggregate_add_label, "kubernetes_pod_name", json_string(pod_name));
+				json_array_object_insert(aggregate_add_label, "kubernetes_container_name", json_string(name));
 				const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 				if (carg->log_level > 1)
 					puts(dvalue);

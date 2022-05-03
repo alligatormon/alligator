@@ -157,7 +157,7 @@ void druid_queries_foreach(void *funcarg, void* arg)
 
 //{"query":"SELECT *\nFROM \"wikiticker-2015-09-12-sampled\"","resultFormat":"array","header":true}
 	json_t *post_data = json_object();
-	json_t *post_query = json_string(strdup(qn->expr));
+	json_t *post_query = json_string(qn->expr);
 	json_t *resultFormat = json_string("array");
 	json_t *header = json_true();
 

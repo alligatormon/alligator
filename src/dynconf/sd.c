@@ -469,9 +469,9 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 			json_t *aggregate_root = json_object();
 			json_t *aggregate_arr = json_array();
 			json_t *aggregate_obj = json_object();
-			json_t *aggregate_handler = json_string(strdup(handler));
-			json_t *aggregate_url = json_string(strdup(url));
-			json_t *aggregate_name = json_string(strdup(name));
+			json_t *aggregate_handler = json_string(handler);
+			json_t *aggregate_url = json_string(url);
+			json_t *aggregate_name = json_string(name);
 			json_t *aggregate_add_label = json_object();
 			json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
 			json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);

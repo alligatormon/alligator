@@ -19,5 +19,6 @@ typedef struct http_arg
 char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf, char *httpver, void *env_arg, void *proxy_settings, string *body);
 alligator_ht* http_get_args(char *str, size_t size);
 int http_arg_compare(const void* arg, const void* obj);
+char *http_get_param(alligator_ht *args, char *key);
 #define HTTP_GET 0
 #define HTTP_POST 1

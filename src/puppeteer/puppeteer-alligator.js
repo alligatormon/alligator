@@ -1,4 +1,7 @@
 const puppeteer = require('puppeteer');
+const f = require('/var/lib/alligator/argOptions.js')
+
+process.setMaxListeners(0);
 
 function perfMetricsPush(ret, name, resource, source, entryType, initiatorType, nextHopProtocol, val)
 {
@@ -27,11 +30,16 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 		"--blink-settings=imagesEnabled=false",
 	];
 
-	const options = {
-		args,
-		headless: true,
-		ignoreHTTPSErrors: true,
-	};
+        stdOptions = {
+                args,
+                headless: true,
+                ignoreHTTPSErrors: true,
+        }
+
+        const options = {
+                ...stdOptions,
+                ...argOptions,
+        };
 
 	ret = []
 	process.argv.forEach(async function (val, index, array) {
@@ -60,7 +68,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 		  })
 		  .on('pageerror', ({ message }) => {
 			//console.log(message)
-			labelMetricsPush(ret, "eventPageError", resource, "text", consoleObj.text(), 1);
+			labelMetricsPush(ret, "eventPageError", resource, "text", message, 1);
 		  })
 		  .on('response', response => {
 			//console.log(`${response.status()} ${response.url()}`)

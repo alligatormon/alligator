@@ -18,12 +18,14 @@ typedef struct fs_read_info
 void fs_read_close(uv_fs_t* req)
 {
 	fs_read_info *frinfo  = req->data;
+	//uv_fs_req_cleanup(req);
 
 	if (frinfo->callback)
 		frinfo->callback(frinfo->buffer.base, frinfo->size, frinfo->data, frinfo->filename);
 
 	free(frinfo->buffer.base);
-	free(frinfo->open_fd);
+	//free(frinfo->open_fd);
+	uv_fs_req_cleanup(frinfo->open_fd);
 	free(req);
 	free(frinfo);
 }
@@ -57,11 +59,12 @@ void fs_read_on_read(uv_fs_t *req)
 void fs_read_on_open(uv_fs_t *req)
 {
 	fs_read_info *frinfo  = req->data;
-	uv_fs_t *read_req = malloc(sizeof(*read_req));
-	read_req->data = frinfo;
 
 	if (req->result > -1)
 	{
+		uv_fs_t *read_req = malloc(sizeof(*read_req));
+		read_req->data = frinfo;
+
 		if (ac->log_level > 2)
 			printf("fs_read_on_open: trying to file read '%s', result: %zd\n", frinfo->filename, req->result);
 		uv_fs_read(uv_default_loop(), read_req, req->result, &frinfo->buffer, 1, frinfo->offset, fs_read_on_read);
@@ -73,8 +76,8 @@ void fs_read_on_open(uv_fs_t *req)
 		uv_fs_t *close_req = malloc(sizeof(*close_req));
 		close_req->data = frinfo;
 		fs_read_close(close_req);
-		return;
 	}
+	uv_fs_req_cleanup(req);
 }
 
 void read_from_file(char *filename, uint64_t offset, void *callback, void *data)

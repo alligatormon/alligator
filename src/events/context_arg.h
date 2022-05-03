@@ -89,6 +89,7 @@ typedef struct context_arg
 	uv_stdio_container_t child_stdio[3];
 	uv_process_t child_req;
 	char** args;
+	string *work_dir;
 
 	char *uvbuf;
 

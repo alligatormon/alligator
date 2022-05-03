@@ -953,7 +953,6 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	// get cmdline
 	snprintf(dir, FILENAME_MAX, "%s/%s/cmdline", ac->system_procfs, pid);
-	//printf("read '%s'\n", dir);
 	fd = fopen(dir, "r");
 	if (!fd)
 		return 0;
@@ -978,7 +977,6 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	fclose(fd);
 
-	//printf("cmdline(%zu) is '%s'\n", cmdline_size, cmdline);
 	int8_t match = 1;
 	if (need_match)
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
@@ -1092,9 +1090,9 @@ void simple_pidfile_scrape(char *find_pid)
 	int64_t allfilesnum = 0;
 	process_states *states = calloc(1, sizeof(*states));
 
-	char pid_strict[6];
+	char pid_strict[21];
 	size_t pid_size = strspn(pid->s, "0123456789") + 1;
-	size_t copy_size = pid_size > 6 ? 6 : pid_size;
+	size_t copy_size = pid_size > 21 ? 21 : pid_size;
 	strlcpy(pid_strict, pid->s, copy_size);
 	
 	if (ac->log_level > 1)
@@ -1123,9 +1121,9 @@ void cgroup_procs_scrape(char *cgroup_path)
 
 	while (fgets(pid, 10, fd))
 	{
-		char pid_strict[6];
+		char pid_strict[21];
 		size_t pid_size = strspn(pid, "0123456789") + 1;
-		size_t copy_size = pid_size > 6 ? 6 : pid_size;
+		size_t copy_size = pid_size > 21 ? 21 : pid_size;
 		strlcpy(pid_strict, pid, copy_size);
 
 		if (ac->log_level > 1)
@@ -1753,9 +1751,10 @@ void get_net_tcpudp(char *file, char *name, int state_proto)
 
 	size_t rc;
 	char *bufend;
-	while((rc=fread(buf, 1, TCPUDP_NET_LENREAD, fd)))
+	while((rc=fread(buf, 1, TCPUDP_NET_LENREAD - 1, fd)))
 	{
 		bufend = buf+rc;
+		*bufend = 0;
 		start = buf;
 		while(start < bufend)
 		{
@@ -3600,6 +3599,17 @@ void get_system_metrics()
 
 	get_pidfile_stats();
 	get_userprocess_stats();
+}
+
+void system_free()
+{
+	if (ac->fdesc)
+	{
+		alligator_ht_foreach_arg(ac->fdesc, process_fdescriptors_free, ac->fdesc);
+		alligator_ht_done(ac->fdesc);
+		free(ac->fdesc);
+		ac->fdesc = NULL;
+	}
 }
 
 void system_fast_scrape()

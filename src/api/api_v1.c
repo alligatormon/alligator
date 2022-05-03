@@ -168,7 +168,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					if (type && !strcmp(type, "jks"))
 						jks_push(name, path, match, password, NULL);
 					else
-						tls_fs_push(name, path, match);
+						tls_fs_push(name, path, match, password, type);
 				}
 			}
 			if (!strcmp(key, "query"))
@@ -806,6 +806,8 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
 							if (!smart_aggregator(carg))
 								carg_free(carg);
+
+							url_free(hi);
 						}
 						else if (!strcmp(system_key, "cpuavg"))
 						{
@@ -1036,6 +1038,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 							{
 								writemesg = query->s;
 								writelen = query->l;
+								free(query);
 							}
 						}
 

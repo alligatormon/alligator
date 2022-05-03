@@ -13,7 +13,7 @@ void tcp_connected(uv_connect_t* req, int status);
 void tcp_client_closed(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 	carg->close_time_finish = setrtime();
@@ -50,7 +50,7 @@ void tcp_client_closed(uv_handle_t *handle)
 void tcp_client_close(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	carg->tt_timer->data = NULL;
@@ -92,7 +92,7 @@ void tcp_client_close(uv_handle_t *handle)
 void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
@@ -106,7 +106,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
 
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	
 	(carg->read_counter)++;
@@ -151,7 +151,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 						string_break(carg->full_body, 0, carg->full_body->l - (body_size - chunksize));
 					}
 
-					http_reply_free(hr_data);
+					http_reply_data_free(hr_data);
 				}
 				else
 				{
@@ -214,7 +214,7 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	//printf("========= tls_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 	context_arg* carg = stream->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	(carg->tls_read_counter)++;
 	carg->tls_read_time_finish = setrtime();
@@ -310,6 +310,7 @@ void tls_client_writed(uv_write_t* req, int status)
 		return;
 	}
 	if (carg->write_buffer.base) {
+		//printf("2write buffer free %p\n", carg->write_buffer.base);
 		free(carg->write_buffer.base);
 		carg->write_buffer.base = 0;
 	}
@@ -337,6 +338,7 @@ void tls_client_writed(uv_write_t* req, int status)
 	}
 	if (carg->write_buffer.base)
 	{
+		//printf("3write buffer free %p\n", carg->write_buffer.base);
 		free(carg->write_buffer.base);
 		carg->write_buffer.base = 0;
 	}
@@ -356,6 +358,7 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 	if (carg->is_async_writing == 0)
 	{
 		carg->write_buffer.base = (char*)malloc(len);
+		//printf("write buffer malloc %p\n", carg->write_buffer.base);
 		memcpy(carg->write_buffer.base, buf, len);
 		carg->write_buffer.len = len;
 		write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
@@ -375,6 +378,7 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 				free(write_req);
 			if (carg->write_buffer.base)
 			{
+				//printf("write buffer free %p\n", carg->write_buffer.base);
 				free(carg->write_buffer.base);
 				carg->write_buffer.base = 0;
 			}
@@ -444,7 +448,7 @@ void tls_connected(uv_connect_t* req, int status)
 {
 	int ret = 0;
 	context_arg* carg = (context_arg*)req->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	carg->connect_time_finish = setrtime();
 
@@ -472,7 +476,7 @@ void tls_connected(uv_connect_t* req, int status)
 void tcp_connected(uv_connect_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tcp client connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	(carg->conn_counter)++;
 
@@ -530,7 +534,7 @@ void tcp_timeout_timer(uv_timer_t *timer)
 		return;
 	}
 
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
@@ -543,7 +547,7 @@ void tcp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
@@ -586,7 +590,7 @@ void unix_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	carg->lock = 1;
@@ -630,7 +634,7 @@ static void tcp_client_crawl(uv_timer_t* handle) {
 void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
 	context_arg* carg = (context_arg*)req->data;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 
 	char addr[17] = {'\0'};
@@ -655,7 +659,7 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 
 void aggregator_resolve_host(context_arg* carg)
 {
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	struct addrinfo hints;
 	uv_getaddrinfo_t* addr_info = 0;

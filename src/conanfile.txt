@@ -9,6 +9,8 @@ lua/5.4.1
 duktape/2.5.0
 pcre/8.45
 libpq/13.3
+#openssl/1.0.2s
+openssl/3.0.2
 #libmysqlclient/8.0.25
 
 [generators]

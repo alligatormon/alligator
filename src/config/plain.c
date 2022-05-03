@@ -305,7 +305,7 @@ json_t *json_integer_string_set(char *str)
 		value = json_integer(num);
 	}
 	else
-		value = json_string(strdup(str));
+		value = json_string(str);
 
 	return value;
 }
@@ -329,7 +329,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 				else
 				{
-					json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+					json_t *arg_json = json_string(wstokens[i].token->s);
 					json_object_set_new(root, operator_name, arg_json);
 				}
 			}
@@ -346,6 +346,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *tls_entrypoint = NULL;
 			json_t *unix_entrypoint = NULL;
 			json_t *unixgram_entrypoint = NULL;
+			json_t *handler_entrypoint = NULL;
 			json_t *mapping_entrypoint = NULL;
 			json_t *api_entrypoint = NULL;
 			json_t *ttl_entrypoint = NULL;
@@ -390,7 +391,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
 					{
 						++i;
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, operator_name, arg_json);
 					}
 					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg"))
@@ -483,12 +484,21 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "unixgram", unixgram_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "handler"))
+					{
+						if (!handler_entrypoint)
+						{
+							++i;
+							handler_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "handler", handler_entrypoint);
+						}
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "mapping"))
 					{
 						if (!mapping_entrypoint)
 						{
 							mapping_entrypoint = json_array();
-							json_array_object_insert(operator_json, "mapping", unixgram_entrypoint);
+							json_array_object_insert(operator_json, "mapping", mapping_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "api"))
@@ -496,7 +506,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						if (!api_entrypoint)
 						{
 							++i;
-							api_entrypoint = json_string(strdup(wstokens[i].token->s));
+							api_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "api", api_entrypoint);
 						}
 					}
@@ -514,7 +524,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						if (!cluster_entrypoint)
 						{
 							++i;
-							cluster_entrypoint = json_string(strdup(wstokens[i].token->s));
+							cluster_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "cluster", cluster_entrypoint);
 						}
 					}
@@ -523,7 +533,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						if (!instance_entrypoint)
 						{
 							++i;
-							instance_entrypoint = json_string(strdup(wstokens[i].token->s));
+							instance_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "instance", instance_entrypoint);
 						}
 					}
@@ -532,7 +542,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						if (!key_entrypoint)
 						{
 							++i;
-							key_entrypoint = json_string(strdup(wstokens[i].token->s));
+							key_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "key", key_entrypoint);
 						}
 					}
@@ -556,7 +566,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									{
 										if (wstokens[i].argument)
 										{
-											json_t *str_json = json_string(strdup(wstokens[i].token->s));
+											json_t *str_json = json_string(wstokens[i].token->s);
 											json_array_object_insert(arg_json, operator_name, str_json);
 										}
 										if (wstokens[i].semicolon)
@@ -570,7 +580,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							else if (wstokens[i].argument)
 							{
 								strlcpy(arg_name, wstokens[i].token->s, 255);
-								arg_value = json_string(strdup(wstokens[i].token->s));
+								arg_value = json_string(wstokens[i].token->s);
 								json_array_object_insert(operator_json, operator_name, arg_value);
 							}
 
@@ -589,11 +599,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_array_object_insert(operator_json, "env", env_obj);
 						json_array_object_insert(operator_json, "add_label", add_label_obj);
 
-						json_t *handler = json_string(strdup(wstokens[i].token->s));
+						json_t *handler = json_string(wstokens[i].token->s);
 						json_array_object_insert(operator_json, "handler", handler);
 
 						++i;
-						json_t *url= json_string(strdup(wstokens[i].token->s));
+						json_t *url= json_string(wstokens[i].token->s);
 						json_array_object_insert(operator_json, "url", url);
 
 						for (; i < token_count; i++)
@@ -625,7 +635,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = add_label_obj;
 									else
 										arg_value = json_object();
-									json_t *kv_value = json_string(strdup(wstokens[i].token->s+semisep+2));
+									json_t *kv_value = json_string(wstokens[i].token->s+semisep+2);
 									json_array_object_insert(arg_value, kv_key, kv_value);
 								}
 								else
@@ -636,7 +646,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = json_integer(num);
 									}
 									else
-										arg_value = json_string(strdup(wstokens[i].token->s+sep+1));
+										arg_value = json_string(wstokens[i].token->s+sep+1);
 
 									json_array_object_insert(operator_json, arg_name, arg_value);
 								}
@@ -664,47 +674,52 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(allow_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(deny_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(tcp_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "udp"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(udp_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tls"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(tls_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unix"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(unix_entrypoint, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "unixgram"))
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(unixgram_entrypoint, operator_name, arg_json);
 					}
+					//else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "handler"))
+					//{
+					//	json_t *arg_json = json_string(wstokens[i].token->s);
+					//	json_array_object_insert(handler_entrypoint, operator_name, arg_json);
+					//}
 					else if (!strcmp(operator_name, "ttl"))
 					{
-						json_t *arg_json = json_integer(strtoll(strdup(wstokens[i].token->s), NULL, 10));
+						json_t *arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
 						json_array_object_insert(operator_json, operator_name, arg_json);
 					}
 					else
 					{
-						json_t *arg_json = json_string(strdup(wstokens[i].token->s));
+						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(operator_json, operator_name, arg_json);
 					}
 				}
@@ -749,7 +764,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 												printf("quantile/bucket %s\n", wstokens[i].token->s);
 											if (wstokens[i].token->l)
 											{
-												json_t *str_json = json_string(strdup(wstokens[i].token->s));
+												json_t *str_json = json_string(wstokens[i].token->s);
 												json_array_object_insert(arg_json, "", str_json);
 											}
 											if (wstokens[i].end || wstokens[i].semicolon)
@@ -765,12 +780,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 										char *label_name = wstokens[i].token->s;
 										++i;
-										json_t *label_value = json_string(strdup(wstokens[i].token->s));
+										json_t *label_value = json_string(wstokens[i].token->s);
 										json_array_object_insert(label_json, label_name, label_value);
 									}
 									else
 									{
-										arg_json = json_string(strdup(wstokens[i].token->s));
+										arg_json = json_string(wstokens[i].token->s);
 									}
 
 									if (arg_json)
@@ -796,7 +811,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 		}
 	}
 	char *ret = json_dumps(root, JSON_INDENT(2));
+	json_decref(root);
 	return ret;
+}
+
+void config_parser_stat_free(config_parser_stat *wstokens, uint64_t token_count)
+{
+	for (uint64_t i = 0; i < token_count; ++i)
+		string_free(wstokens[i].token);
+	free(wstokens);
 }
 
 char* config_plain_to_json(string *context)
@@ -804,6 +827,6 @@ char* config_plain_to_json(string *context)
 	uint64_t token_count = plain_count_get(context);
 	config_parser_stat *wstokens = string_tokenizer(context, &token_count);
 	char *ret = build_json_from_tokens(wstokens, token_count);
-	free(wstokens);
+	config_parser_stat_free(wstokens, token_count);
 	return ret;
 }

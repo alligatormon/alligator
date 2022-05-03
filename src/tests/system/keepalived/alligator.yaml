@@ -1,0 +1,1 @@
+{"entrypoint":[{"tcp": ["1111"]}], "aggregate": [{"handler":"keepalived", "url": "file:///app/src/tests/system/keepalived/keepalived.pid", "state": "begin"}]}

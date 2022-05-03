@@ -7,7 +7,7 @@
 typedef struct fs_write_info
 {
 	uv_fs_t *open_req;
-	uv_fs_t *exit_req;
+	//uv_fs_t *exit_req;
 	uv_fs_t *write_req;
 	uv_fs_t *close_req;
 	uv_buf_t buffer;
@@ -19,9 +19,10 @@ typedef struct fs_write_info
 void fs_write_exit(uv_fs_t* req) {
 	fs_write_info *fs_info = req->data;
 	free(fs_info->buffer.base);
-	uv_fs_req_cleanup(fs_info->write_req);
+	//uv_fs_req_cleanup(fs_info->write_req);
+	uv_fs_req_cleanup(req);
 	free(fs_info->open_req);
-	free(fs_info->exit_req);
+	//free(fs_info->exit_req);
 	free(fs_info->write_req);
 	free(fs_info->close_req);
 	//free(fs_info->write_data);
@@ -41,6 +42,7 @@ void write_cb(uv_fs_t* req) {
 		printf("Error at writing file: %s\n", uv_strerror(result));
 	}
 	uv_fs_close(loop, fs_info->close_req, (uv_file)req->file, fs_write_exit);
+	uv_fs_req_cleanup(req);
 }
  
 void open_cb(uv_fs_t* req) {
@@ -72,11 +74,11 @@ void write_to_file(char *filename, char *str, uint64_t len, void *callback, void
 	fs_info->buffer.len = len;
 	//fs_info->write_data = str;
 	fs_info->open_req = malloc(sizeof(uv_fs_t));
-	fs_info->exit_req = malloc(sizeof(uv_fs_t));
+	//fs_info->exit_req = malloc(sizeof(uv_fs_t));
 	fs_info->write_req = malloc(sizeof(uv_fs_t));
 	fs_info->close_req = malloc(sizeof(uv_fs_t));
 	fs_info->open_req->data = fs_info;
-	fs_info->exit_req->data = fs_info;
+	//fs_info->exit_req->data = fs_info;
 	fs_info->write_req->data = fs_info;
 	fs_info->close_req->data = fs_info;
  
