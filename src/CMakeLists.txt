@@ -96,7 +96,6 @@ set(STATIC_FILES
 	events/access.c
 	events/metrics.c
 	events/context_arg.c
-	#platform/libbsd.c
 	parsers/dummy.c
 	parsers/pushgateway.c
 	parsers/multiparser.c
@@ -267,7 +266,6 @@ add_library(${COMMON_TESTS} STATIC
 	system/linux.c
 	common/http.c
 	common/base64.c
-	#platform/libbsd.c
 	common/selector.c
 	events/context_arg.c
 	common/validator.c
