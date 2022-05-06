@@ -268,3 +268,14 @@ void network_range_delete(network_range *nr, char *cidr)
 		}
 	}
 }
+
+void network_range_free(network_range *nr)
+{
+	if (!nr)
+		return;
+
+	if (nr->nr_node)
+		free(nr->nr_node);
+
+	free(nr);
+}

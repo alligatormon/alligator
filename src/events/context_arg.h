@@ -32,6 +32,7 @@ typedef struct context_arg
 {
 	char *name;
 	struct sockaddr_in *dest;
+	struct sockaddr_in *recv;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
 	uv_timer_t *tt_timer;
@@ -138,6 +139,10 @@ typedef struct context_arg
 	r_time shutdown_time_finish;
 	r_time close_time;
 	r_time close_time_finish;
+
+	uint64_t push_parsing_time;
+	uint64_t push_metric_time;
+	uint64_t push_split_data;
 
 	void *data; // for parser-data
 	char *ns; // for parsers ns

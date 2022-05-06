@@ -24,8 +24,8 @@ void fs_read_close(uv_fs_t* req)
 		frinfo->callback(frinfo->buffer.base, frinfo->size, frinfo->data, frinfo->filename);
 
 	free(frinfo->buffer.base);
+	//uv_fs_req_cleanup(frinfo->open_fd);
 	//free(frinfo->open_fd);
-	uv_fs_req_cleanup(frinfo->open_fd);
 	free(req);
 	free(frinfo);
 }

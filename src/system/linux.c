@@ -1192,6 +1192,20 @@ void userprocess_del(alligator_ht* userprocess, char *user)
 	free(upn);
 }
 
+void userprocess_free_foreach(void *arg)
+{
+	userprocess_node *upn = arg;
+	free(upn->name);
+	free(upn);
+}
+
+void userprocess_free(alligator_ht* userprocess)
+{
+	alligator_ht_foreach(userprocess, userprocess_free_foreach);
+	alligator_ht_done(userprocess);
+	free(userprocess);
+}
+
 void find_pid(int8_t lightweight)
 {
 	if (ac->log_level > 2)
@@ -3610,6 +3624,51 @@ void system_free()
 		free(ac->fdesc);
 		ac->fdesc = NULL;
 	}
+
+	if (ac->system_avg_metrics)
+	{
+		free(ac->system_avg_metrics);
+		ac->system_avg_metrics = NULL;
+	}
+
+	if (ac->scs)
+	{
+		if (ac->scs->cores)
+			free(ac->scs->cores);
+
+		free(ac->scs);
+		ac->scs = NULL;
+	}
+
+	free(ac->system_sysfs);
+	free(ac->system_procfs);
+	free(ac->system_rundir);
+	free(ac->system_usrdir);
+	free(ac->system_etcdir);
+	free(ac->system_pidfile);
+
+	match_free(ac->process_match);
+	//alligator_ht_done(ac->process_match->hash);
+	//free(ac->process_match->hash);
+	//free(ac->process_match);
+
+	match_free(ac->packages_match);
+	//alligator_ht_done(ac->packages_match->hash);
+	//free(ac->packages_match->hash);
+	//free(ac->packages_match);
+
+	match_free(ac->services_match);
+	//alligator_ht_done(ac->services_match->hash);
+	//free(ac->services_match->hash);
+	//free(ac->services_match);
+
+	userprocess_free(ac->system_userprocess);
+	//alligator_ht_done(ac->system_userprocess);
+	//free(ac->system_userprocess);
+
+	userprocess_free(ac->system_groupprocess);
+	//alligator_ht_done(ac->system_groupprocess);
+	//free(ac->system_groupprocess);
 }
 
 void system_fast_scrape()

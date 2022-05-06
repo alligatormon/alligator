@@ -132,6 +132,7 @@ void directory_crawl(void *arg)
 					printf("stat open: %s\n", pathname);
 
 				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
+				free((void*)dirents[i].name);
 			}
 		}
 	}

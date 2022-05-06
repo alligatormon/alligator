@@ -586,6 +586,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
 							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							free(host);
 							//context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
 							//if (!ret)
 							//	carg_free(passcarg);
@@ -629,6 +630,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						{
 							char *host = strndup(tls_string, port - tls_string);
 							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
+							free(host);
 							//context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
 							//if (!ret)
 							//	carg_free(passcarg);
@@ -671,6 +673,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						{
 							char *host = strndup(udp_string, port - udp_string);
 							udp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							free(host);
 						}
 						else
 							udp_server_init(ac->loop, "0.0.0.0", strtoll(udp_string, NULL, 10), 0, passcarg);

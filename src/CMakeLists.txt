@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-set(VERSION 1.14.34)
+set(VERSION 1.14.36)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -96,7 +96,7 @@ set(STATIC_FILES
 	events/access.c
 	events/metrics.c
 	events/context_arg.c
-	platform/libbsd.c
+	#platform/libbsd.c
 	parsers/dummy.c
 	parsers/pushgateway.c
 	parsers/multiparser.c
@@ -267,7 +267,7 @@ add_library(${COMMON_TESTS} STATIC
 	system/linux.c
 	common/http.c
 	common/base64.c
-	platform/libbsd.c
+	#platform/libbsd.c
 	common/selector.c
 	events/context_arg.c
 	common/validator.c
@@ -315,7 +315,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

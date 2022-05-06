@@ -68,12 +68,13 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 	carg->read_counter = 0;
 	carg->curr_ttl = carg->ttl;
 	carg->key = malloc(255);
-	snprintf(carg->key, 255, "udp:%s:%"PRIu16, addr, port);
+	strlcpy(carg->host, addr, URL_SIZE);
+	snprintf(carg->key, 255, "udp:%s:%"PRIu16, carg->host, port);
 
 	uv_udp_t *recv_socket = &carg->udp_server;
 	uv_udp_init(loop, recv_socket);
-	struct sockaddr_in *recv_addr = calloc(1, sizeof(*recv_addr));
-	uv_ip4_addr(addr, port, recv_addr);
+	struct sockaddr_in *recv_addr = carg->recv = calloc(1, sizeof(*recv_addr));
+	uv_ip4_addr(carg->host, port, recv_addr);
 	uv_udp_bind(recv_socket, (const struct sockaddr *)recv_addr, 0);
 	recv_socket->data = carg;
 	uv_udp_recv_start(recv_socket, alloc_buffer, udp_on_read);

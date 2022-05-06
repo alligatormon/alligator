@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <sys/stat.h>
-#include "platform/platform.h"
+//#include "platform/platform.h"
 #include "main.h"
 #include "metric/namespace.h"
 
@@ -694,6 +694,31 @@ void match_del(match_rules *mrules, char *str, size_t len)
 		free(ms->s);
 		free(ms);
 	}
+}
+
+void match_foreach(void *arg)
+{
+	match_string *ms = arg;
+	free(ms->s);
+	free(ms);
+}
+
+void match_free(match_rules *mrules)
+{
+	alligator_ht_foreach(mrules->hash, match_foreach);
+
+	regex_list *node = mrules->head;
+	while (node != mrules->tail)
+	{
+		free(node->name);
+		regex_list *prev = node;
+		node = node->next;
+		free(prev);
+	}
+
+	alligator_ht_done(mrules->hash);
+	free(mrules->hash);
+	free(mrules);
 }
 
 void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)

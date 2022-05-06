@@ -500,10 +500,11 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		srv_carg = calloc(1, sizeof(context_arg));
 
 	srv_carg->key = malloc(255);
-	snprintf(srv_carg->key, 255, "tcp:%s:%u", ip, port);
+	strlcpy(srv_carg->host, ip, URL_SIZE);
+	snprintf(srv_carg->key, 255, "tcp:%s:%u", srv_carg->host, port);
 
 	if (ac->log_level > 1)
-		printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, ip, port);
+		printf("init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
 
 	srv_carg->loop = loop;
 	srv_carg->tls = tls;
@@ -516,7 +517,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 			return NULL;
 		}
 
-	if(uv_ip4_addr(ip, port, &addr))
+	if(uv_ip4_addr(srv_carg->host, port, &addr))
 	{
 		return NULL;
 	}
@@ -535,7 +536,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
 	if (ret)
 	{
-		fprintf(stderr, "Listen '%s:%d' error %s\n", ip, port, uv_strerror(ret));
+		fprintf(stderr, "Listen '%s:%d' error %s\n", srv_carg->host, port, uv_strerror(ret));
 		return NULL;
 	}
 

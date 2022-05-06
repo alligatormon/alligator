@@ -77,7 +77,7 @@ int multicollector_skip_spaces(uint64_t *cur, const char *str, const size_t size
 
 extern uint64_t fgets_counter;
 
-int char_fgets(char *str, char *buf, int64_t *cnt, size_t len)
+int char_fgets(char *str, char *buf, int64_t *cnt, size_t len, uint64_t *diff_split_data)
 {
 	if (*cnt >= len)
 	{
@@ -85,7 +85,11 @@ int char_fgets(char *str, char *buf, int64_t *cnt, size_t len)
 		return 0;
 	}
 	int64_t i = strcspn(str+(*cnt), "\n");
-	strlcpy(buf, str+(*cnt), i+1);
+	r_time start_split_data = setrtime();
+	memcpy(buf, str+(*cnt), i);
+	buf[i+1] = 0;
+	r_time end_split_data = setrtime();
+	*diff_split_data += getrtime_ns(start_split_data, end_split_data);
 	i++;
 	*cnt += i;
 	return i;
@@ -342,6 +346,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 {
 	if (ac->log_level > 3)
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
+	r_time start_parsing = setrtime();
 	double value = 0;
 	uint64_t i = 0;
 	int is_prom = 0;
@@ -581,10 +586,20 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE))
 		return 1;
 
+	r_time end_parsing = setrtime();
+
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	else
 		metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+
+	r_time end_metrictree = setrtime();
+
+	if (carg)
+	{
+		carg->push_parsing_time += getrtime_ns(start_parsing, end_parsing);
+		carg->push_metric_time += getrtime_ns(end_parsing, end_metrictree);
+	}
 
 	return 1;
 }
@@ -601,7 +616,9 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 	}
 
 	uint64_t fgets_counter = 0;
-	while ( (tmp_len = char_fgets(str, tmp, &cnt, size)) )
+
+
+	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, &carg->push_split_data)) )
 	{
 		++fgets_counter;
 
@@ -629,8 +646,16 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (carg)
 			carg->parser_status = rc;
 	}
+
 	if (ac->log_level > 0)
-		printf("parsed metrics multicollector: %"u64", full size read: %zu\n", fgets_counter, size);
+		printf("parsed metrics multicollector: %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
+
+	if (carg)
+	{
+		metric_add_labels("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
+		metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
+		metric_add_labels("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
+	}
 }
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

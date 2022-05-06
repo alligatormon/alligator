@@ -188,6 +188,32 @@ aconf* configuration()
 	return ac;
 }
 
+void main_free()
+{
+	free(ac->system_carg);
+	free(ac->tcp_server_handler);
+	free(ac->aggregator);
+	free(ac->pg_aggregator);
+	free(ac->file_aggregator);
+	free(ac->zk_aggregator);
+	free(ac->my_aggregator);
+	free(ac->uggregator);
+	free(ac->altimer);
+	free(ac->tls_aggregator);
+	free(ac->udpaggregator);
+	free(ac->iggregator);
+	free(ac->ping_hash);
+	free(ac->unixgram_aggregator);
+	free(ac->system_aggregator);
+	free(ac->process_spawner);
+	free(ac->lang_aggregator);
+	free(ac->fs_x509);
+	free(ac->action);
+	free(ac->probe);
+	free(ac->file_stat);
+	free(ac);
+}
+
 void restore_settings()
 {
 	if (ac->persistence_dir)

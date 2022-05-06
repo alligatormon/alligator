@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <netinet/ip_icmp.h>
+#include </usr/include/netinet/ip_icmp.h>
 #include <unistd.h>
 #include <inttypes.h>
 #include <netinet/in.h>

@@ -67,3 +67,24 @@ namespace_struct *get_namespace_by_carg(context_arg *carg)
 
 	return ns;
 }
+
+void namespaces_free_foreach(void *funcarg, void* arg)
+{
+	namespace_struct *ns = arg;
+
+	free(ns->key);
+	free(ns->expiretree);
+	free(ns->metrictree->sort_plan);
+	alligator_ht_done(ns->metrictree->labels_words_hash);
+	free(ns->metrictree->labels_words_hash);
+	free(ns->metrictree);
+
+	free(ns);
+}
+
+void free_namespaces()
+{
+	printf("free namspace size %zu\n", alligator_ht_count(ac->_namespace));
+	alligator_ht_foreach_arg(ac->_namespace, namespaces_free_foreach, NULL);
+	free(ac->_namespace);
+}

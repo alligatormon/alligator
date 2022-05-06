@@ -76,7 +76,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 		  })
 		  .on('requestfailed', request => {
 			//console.log(`${request.failure().errorText} ${request.url()}`)
-			label2MetricsPush(ret, "eventRequestFailed", resource, "text", request.failure().errorText, "source", request.url(), 1);
+			labelMetricsPush(ret, "eventRequestFailed", resource, "source", request.url(), 1);
 		  })
 		  //.on('response', response => { console.log(response) })
 

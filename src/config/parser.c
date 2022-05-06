@@ -59,6 +59,7 @@ void config_parse_entry(char *filepath)
 		printf("config_plain_to_json return:\n'%s'\n", json);
 	config_json(json);
 	free(json);
+	string_free(context);
 }
 
 void parse_configs(char *dirpath)

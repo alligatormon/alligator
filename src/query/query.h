@@ -16,13 +16,12 @@ typedef struct query_field
 
 typedef struct query_node
 {
+	//char *field;
 	char *expr;
 	char *make;
 	char *action;
 	char *ns;
-	//char *field;
 	alligator_ht *qf_hash;
-	//alligator_ht *qf;
 	char *datasource;
 	context_arg *carg;
 	alligator_ht *labels;

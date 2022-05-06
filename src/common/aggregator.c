@@ -298,12 +298,16 @@ void aggregate_free_foreach(void *funcarg, void* arg)
 		free(actx->handler);
 	if (actx->key)
 		free(actx->key);
+	if (actx->data)
+		free(actx->data);
 	free(actx);
 }
 
 void aggregate_ctx_free()
 {
 	alligator_ht_foreach_arg(ac->aggregate_ctx, aggregate_free_foreach, NULL);
+	alligator_ht_done(ac->aggregate_ctx);
+	free(ac->aggregate_ctx);
 }
 
 void aggregators_free_foreach(void *funcarg, void* arg)

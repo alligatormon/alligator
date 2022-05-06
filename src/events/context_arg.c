@@ -36,9 +36,6 @@ void carg_free(context_arg *carg)
 	if (carg->key)
 		free(carg->key);
 
-	if (carg->net_acl)
-		free(carg->net_acl);
-
 	if (carg->buffer)
 		free(carg->buffer);
 
@@ -57,6 +54,9 @@ void carg_free(context_arg *carg)
 	if (carg->name)
 		free(carg->name);
 
+	if (carg->checksum)
+		free(carg->checksum);
+
 	if (carg->full_body)
 		string_free(carg->full_body);
 
@@ -66,12 +66,36 @@ void carg_free(context_arg *carg)
 	if (carg->work_dir)
 		string_free(carg->work_dir);
 
+	//if (carg->dest)
+	//	free(carg->dest);
+
+	if (carg->recv)
+		free(carg->recv);
+
+	if (carg->cluster)
+		free(carg->cluster);
+
+	if (carg->tls_ca_file)
+		free(carg->tls_ca_file);
+
+	if (carg->tls_key_file)
+		free(carg->tls_key_file);
+
+	if (carg->tls_cert_file)
+		free(carg->tls_cert_file);
+
+	if (carg->stdin_s)
+		free(carg->stdin_s);
+
 	if (carg->env)
 	{
 		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
 		alligator_ht_done(carg->env);
 		free(carg->env);
 	}
+
+	network_range_free(carg->net_acl);
+	labels_free(carg->labels);
 	// TODO: free carg->labels
 	// TODO: free carg->socket
 	// TODO: free carg->mm

@@ -65,10 +65,15 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			if (!strcmp(node_key, "adaptive_selection"))
 				continue;
 			stringlen2 = strlen(node_key);
-			strlcpy(string2+14, node_key, stringlen2+1);
-			strlcpy(string3+14, node_key, stringlen2+1);
-			strlcpy(string4+14, node_key, stringlen2+1);
-			strlcpy(string5+14, node_key, stringlen2+1);
+
+			char copy_key[255];
+			strlcpy(copy_key, node_key, 255);
+			metric_name_normalizer(copy_key, stringlen2);
+
+			strlcpy(string2+14, copy_key, stringlen2+1);
+			strlcpy(string3+14, copy_key, stringlen2+1);
+			strlcpy(string4+14, copy_key, stringlen2+1);
+			strlcpy(string5+14, copy_key, stringlen2+1);
 
 			int type = json_typeof(node_value);
 			if (type == JSON_OBJECT)
@@ -78,12 +83,17 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 				json_object_foreach(node_value, node_key1, node_value1)
 				{
 					stringlen3 = strlen(node_key1);
+
+					char copy_key1[255];
+					strlcpy(copy_key1, node_key1, 255);
+					metric_name_normalizer(copy_key1, stringlen3);
+
 					string3[stringlen2+14] = '_';
 					string4[stringlen2+14] = '_';
 					string5[stringlen2+14] = '_';
-					strlcpy(string3+stringlen2+1+14, node_key1, stringlen3+1);
-					strlcpy(string4+stringlen2+1+14, node_key1, stringlen3+1);
-					strlcpy(string5+stringlen2+1+14, node_key1, stringlen3+1);
+					strlcpy(string3+stringlen2+1+14, copy_key1, stringlen3+1);
+					strlcpy(string4+stringlen2+1+14, copy_key1, stringlen3+1);
+					strlcpy(string5+stringlen2+1+14, copy_key1, stringlen3+1);
 
 					int type1 = json_typeof(node_value1);
 					if (type1 == JSON_INTEGER)
@@ -126,7 +136,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 									bytes = 1;
 									*tmp = 0;
 								}
-								metric_name_normalizer(string3, strlen(string3));
+								//metric_name_normalizer(string3, strlen(string3));
 								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key2);
 
 								if (bytes)
@@ -135,16 +145,21 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 							else if (type2 == JSON_REAL)
 							{
 								dl = json_real_value(node_value2);
-								metric_name_normalizer(string3, strlen(string3));
+								//metric_name_normalizer(string3, strlen(string3));
 								metric_add_labels3(string3, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key2);
 							}
 							else if (type2 == JSON_OBJECT)
 							{
 								stringlen4 = strlen(node_key2);
+
+								char copy_key2[255];
+								strlcpy(copy_key2, node_key2, 255);
+								metric_name_normalizer(copy_key2, stringlen4);
+
 								string4[stringlen2+stringlen3+14] = '_';
 								string5[stringlen2+stringlen3+14] = '_';
-								strlcpy(string4+stringlen3+stringlen2+1+14, node_key2, stringlen4+1);
-								strlcpy(string5+stringlen3+stringlen2+1+14, node_key2, stringlen4+1);
+								strlcpy(string4+stringlen3+stringlen2+1+14, copy_key2, stringlen4+1);
+								strlcpy(string5+stringlen3+stringlen2+1+14, copy_key2, stringlen4+1);
 
 								json_t *node_value3;
 								const char *node_key3;
