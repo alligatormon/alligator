@@ -6,6 +6,7 @@ typedef struct alligator_cache
 	void *data;
 	uint64_t ttl;
 
+	uint8_t lock;
 	tommy_list *uv_cache;
 	tommy_node node;
 } alligator_cache;

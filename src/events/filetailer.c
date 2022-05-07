@@ -132,8 +132,8 @@ void directory_crawl(void *arg)
 					printf("stat open: %s\n", pathname);
 
 				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
-				free((void*)dirents[i].name);
 			}
+			free((void*)dirents[i].name);
 		}
 	}
 
@@ -331,9 +331,8 @@ void filetailer_crawl_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, failtailer_crawl, ac->aggregator_startup, ac->file_aggregator_repeat);
+	uv_timer_init(loop, &ac->filetailer_timer);
+	uv_timer_start(&ac->filetailer_timer, failtailer_crawl, ac->aggregator_startup, ac->file_aggregator_repeat);
 }
 
 void filetailer_write_state_foreach(void *funcarg, void *arg)
@@ -384,22 +383,6 @@ void filetailer_write_state(alligator_ht *hash)
 		string_free(str);
 
 }
-
-//void filetailer_read_state(alligator_ht *hash)
-//{
-//	string *str = string_init(1024);
-//	string_cat(str, "/alligator/file_stat/v1/\n", 25);
-//	alligator_ht_foreach_arg(hash, filetailer_write_state_foreach, str);
-//	if (str->l > 25)
-//	{
-//		char dirtowrite[255];
-//		snprintf(dirtowrite, 255, "/var/lib/alligator/file_stat");
-//		write_to_file(dirtowrite, str->s, str->l, free, str);
-//	}
-//	else
-//		string_free(str);
-//
-//}
 
 void filestat_restore_v1(char *buf, size_t len)
 {

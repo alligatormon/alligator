@@ -18,14 +18,12 @@ typedef struct fs_read_info
 void fs_read_close(uv_fs_t* req)
 {
 	fs_read_info *frinfo  = req->data;
-	//uv_fs_req_cleanup(req);
 
 	if (frinfo->callback)
 		frinfo->callback(frinfo->buffer.base, frinfo->size, frinfo->data, frinfo->filename);
 
 	free(frinfo->buffer.base);
-	//uv_fs_req_cleanup(frinfo->open_fd);
-	//free(frinfo->open_fd);
+	alligator_cache_push(ac->uv_cache_fs, frinfo->open_fd);
 	free(req);
 	free(frinfo);
 }
@@ -84,7 +82,7 @@ void read_from_file(char *filename, uint64_t offset, void *callback, void *data)
 {
 	extern aconf *ac;
 
-	uv_fs_t *open_req = malloc(sizeof(*open_req));
+	uv_fs_t *open_req = alligator_cache_get(ac->uv_cache_fs, sizeof(*open_req));
 	fs_read_info *frinfo = calloc(1, sizeof(*frinfo));
 	frinfo->callback = callback;
 	frinfo->data = data;

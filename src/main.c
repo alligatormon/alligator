@@ -96,7 +96,13 @@ aconf* configuration()
 	ac->zk_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->my_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->uggregator = calloc(1, sizeof(alligator_ht));
-	ac->altimer = calloc(1, sizeof(tommy_list));
+
+	ac->uv_cache_fs = calloc(1, sizeof(tommy_list));
+	tommy_list_init(ac->uv_cache_fs);
+
+	ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
+	tommy_list_init(ac->uv_cache_timer);
+
 	alligator_ht_init(ac->uggregator);
 	ac->aggregator_startup = 1500;
 	ac->aggregator_repeat = 10000;
@@ -198,7 +204,8 @@ void main_free()
 	free(ac->zk_aggregator);
 	free(ac->my_aggregator);
 	free(ac->uggregator);
-	free(ac->altimer);
+	free(ac->uv_cache_timer);
+	free(ac->uv_cache_fs);
 	free(ac->tls_aggregator);
 	free(ac->udpaggregator);
 	free(ac->iggregator);

@@ -20,9 +20,6 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-
-	//printf("nread %zd\n", nread);
-
 	context_arg *carg = req->data;
 	(carg->conn_counter)++;
 	(carg->read_counter)++;
@@ -59,7 +56,6 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 }
 
 void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *carg)
-//void udp_server_handler(char *addr, uint16_t port, void* parser_handler, context_arg *carg)
 {
 	if (ac->log_level > 1)
 		printf("init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", NULL, 0, carg, addr, port);
@@ -94,47 +90,6 @@ void udp_server_stop(const char* addr, uint16_t port)
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}
 }
-
-//int main() {
-//	uv_loop_t *loop = uv_default_loop();
-//
-//	udp_server_handler("0.0.0.0", 1111, NULL);
-//
-//
-//	uv_udp_t *send_socket = malloc(sizeof(*send_socket));
-//	uv_udp_send_t *send_req = malloc(sizeof(*send_req));
-//	uv_buf_t *discover_msg = malloc(sizeof(*discover_msg));
-//	discover_msg->base = strdup("PING");
-//	discover_msg->len = 4;
-//	uv_udp_init(loop, send_socket);
-//
-//	struct sockaddr_in *send_addr = malloc(sizeof(*send_addr));
-//	uv_ip4_addr("127.0.0.1", 1717, send_addr);
-//	uv_udp_send(send_req, send_socket, discover_msg, 1, (struct sockaddr *)send_addr, udp_on_send);
-//
-//	//return uv_run(loop, UV_RUN_DEFAULT);
-//}
-
-//void tftp_handler(char *metrics, size_t size, context_arg *carg);
-//void udp_send(char *msg, size_t len)
-//{
-//	uv_buf_t *discover_msg = malloc(sizeof(*discover_msg));
-//	discover_msg->base = msg;
-//	discover_msg->len = len;
-//
-//	uv_udp_t *send_socket = malloc(sizeof(*send_socket));
-//
-//	uv_udp_send_t *send_req = malloc(sizeof(*send_req));
-//	context_arg *carg = send_req->data = calloc(1, sizeof(context_arg));
-//	carg->key = strdup("dcedc");
-//	carg->parser_handler = tftp_handler;
-//	uv_udp_init(uv_default_loop(), send_socket);
-//
-//	struct sockaddr_in *send_addr = malloc(sizeof(*send_addr));
-//	uv_ip4_addr("127.0.0.1", 69, send_addr);
-//
-//	uv_udp_send(send_req, send_socket, discover_msg, 1, (struct sockaddr *)send_addr, udp_on_send);
-//}
 
 void udp_client_connect(void *arg)
 {
@@ -251,7 +206,6 @@ void udp_client_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, udp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(loop, &ac->udp_client_timer);
+	uv_timer_start(&ac->udp_client_timer, udp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
 }

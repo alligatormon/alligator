@@ -32,15 +32,12 @@ void system_scrape_handler()
 	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, system_scrape, ac->system_aggregator_startup, ac->system_aggregator_repeat);
+	uv_timer_init(loop, &ac->system_scrape_timer_general);
+	uv_timer_start(&ac->system_scrape_timer_general, system_scrape, ac->system_aggregator_startup, ac->system_aggregator_repeat);
 
-	uv_timer_t *timer2 = calloc(1, sizeof(*timer2));
-	uv_timer_init(loop, timer2);
-	uv_timer_start(timer2, system_fast_scrape, 500, 1000);
+	uv_timer_init(loop, &ac->system_scrape_timer_fast);
+	uv_timer_start(&ac->system_scrape_timer_fast, system_fast_scrape, 500, 1000);
 
-	uv_timer_t *timer3 = calloc(1, sizeof(*timer3));
-	uv_timer_init(loop, timer3);
-	uv_timer_start(timer3, system_slow_scrape, 10000, 250000);
+	uv_timer_init(loop, &ac->system_scrape_timer_slow);
+	uv_timer_start(&ac->system_scrape_timer_slow, system_slow_scrape, 10000, 250000);
 }

@@ -84,7 +84,6 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 
 void free_namespaces()
 {
-	printf("free namspace size %zu\n", alligator_ht_count(ac->_namespace));
 	alligator_ht_foreach_arg(ac->_namespace, namespaces_free_foreach, NULL);
 	free(ac->_namespace);
 }

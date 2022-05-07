@@ -6,6 +6,7 @@
 #include "events/fragmentation.h"
 #include "main.h"
 #include "parsers/http_proto.h"
+#include "dstructures/uv_cache.h"
 extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);
@@ -97,7 +98,6 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 
-	//printf("%s tcp_client_shutdown\n", carg->key);
 	tcp_client_close((uv_handle_t *)&carg->client);
 	free(req);
 }
@@ -177,7 +177,6 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				req->data = carg;
 				carg->shutdown_time = setrtime();
 				uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
-				//printf("%s tcp_client_readed0 \n", carg->key);
 				tcp_client_close((uv_handle_t *)&carg->client);
 			}
 		}
@@ -195,24 +194,20 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		req->data = carg;
 		carg->shutdown_time = setrtime();
 		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
-		//printf("%s tcp_client_readed1 \n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
 	{
-		//printf("%s tcp_client_readed2\n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 	else if (nread == UV_ENOBUFS)
 	{
-		//printf("%s tcp_client_readed3\n", carg->key);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 }
 
 void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
-	//printf("========= tls_client_readed: nread %lld, EOF: %d, UV_ECONNRESET: %d, UV_ECONNABORTED: %d, UV_ENOBUFS: %d\n", nread, UV_EOF, UV_ECONNRESET, UV_ECONNABORTED, UV_ENOBUFS);
 	context_arg* carg = stream->data;
 	if (carg->log_level > 1)
 		printf("%"u64": tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zu\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
@@ -310,7 +305,6 @@ void tls_client_writed(uv_write_t* req, int status)
 		return;
 	}
 	if (carg->write_buffer.base) {
-		//printf("2write buffer free %p\n", carg->write_buffer.base);
 		free(carg->write_buffer.base);
 		carg->write_buffer.base = 0;
 	}
@@ -338,7 +332,6 @@ void tls_client_writed(uv_write_t* req, int status)
 	}
 	if (carg->write_buffer.base)
 	{
-		//printf("3write buffer free %p\n", carg->write_buffer.base);
 		free(carg->write_buffer.base);
 		carg->write_buffer.base = 0;
 	}
@@ -358,7 +351,6 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 	if (carg->is_async_writing == 0)
 	{
 		carg->write_buffer.base = (char*)malloc(len);
-		//printf("write buffer malloc %p\n", carg->write_buffer.base);
 		memcpy(carg->write_buffer.base, buf, len);
 		carg->write_buffer.len = len;
 		write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
@@ -378,7 +370,6 @@ int tls_client_mbed_send(void *ctx, const unsigned char *buf, size_t len)
 				free(write_req);
 			if (carg->write_buffer.base)
 			{
-				//printf("write buffer free %p\n", carg->write_buffer.base);
 				free(carg->write_buffer.base);
 				carg->write_buffer.base = 0;
 			}
@@ -415,7 +406,6 @@ int tls_client_init(uv_loop_t* loop, context_arg *carg)
 	}
 	else
 	{
-		//printf("get certs %s:%s:%s\n", carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cacert, carg->tls_ca_file);
 		mbedtls_x509_crt_parse_file(&carg->tls_cert, carg->tls_cert_file);
 		mbedtls_pk_parse_keyfile(&carg->tls_key, carg->tls_key_file, NULL);
@@ -524,9 +514,8 @@ void tcp_connected(uv_connect_t* req, int status)
 
 void tcp_timeout_timer(uv_timer_t *timer)
 {
-	printf("tcp timeout timer %p\n", timer);
 	uv_timer_stop(timer);
-	//uv_close((uv_handle_t*)timer, (uv_close_cb)free);
+	alligator_cache_push(ac->uv_cache_timer, timer);
 
 	context_arg *carg = timer->data;
 	if (!carg)
@@ -558,12 +547,8 @@ void tcp_client_connect(void *arg)
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer = calloc(1, sizeof(uv_timer_t));
+	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 	carg->tt_timer->data = carg;
-	if (carg->context_ttl)
-		printf("init try_again timer %p with time %"u64"\n", carg->tt_timer, carg->timeout);
-	else
-		printf("init general timer %p with time %"u64"\n", carg->tt_timer, carg->timeout);
 	uv_timer_init(carg->loop, carg->tt_timer);
 	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
 
@@ -648,8 +633,6 @@ void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* 
 	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
 
 	carg->dest = (struct sockaddr_in*)res->ai_addr;
-	//carg->key = malloc(64);
-	//snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
 
 	alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 
@@ -704,10 +687,7 @@ void tcp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	//if (!key)
-	//	return;
 
-	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		if (carg->remove_from_hash)
@@ -717,7 +697,6 @@ void tcp_client_del(context_arg *carg)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
-			//printf("%s tcp_client_del\n", carg->key);
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else
@@ -735,10 +714,6 @@ void unix_tcp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	//if (!key)
-	//	return;
-
-	//context_arg *carg = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
 		if (carg->remove_from_hash)
@@ -748,7 +723,6 @@ void unix_tcp_client_del(context_arg *carg)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
-			//printf("%s unix_tcp_client_del\n", carg->key);
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else
@@ -760,83 +734,10 @@ void unix_tcp_client_del(context_arg *carg)
 	}
 }
 
-//void fill_unixunbound(context_arg *carg)
-//{
-//	carg->tls = 1;
-//	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
-//	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
-//	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
-//	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
-//	memcpy(carg->host, "/var/run/unbound.sock",  strlen("/var/run/unbound.sock"));
-//
-//	unix_tcp_client(carg);
-//}
-//
-//void fill_tcpunbound(context_arg *carg)
-//{
-//	carg->tls = 1;
-//	carg->request_buffer = uv_buf_init(MESG2, sizeof(MESG2));
-//	carg->tls_ca_file = strdup("/etc/unbound/unbound_server.pem");
-//	carg->tls_cert_file = strdup("/etc/unbound/unbound_control.pem");
-//	carg->tls_key_file = strdup("/etc/unbound/unbound_control.key");
-//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-//	memcpy(carg->port, "8953", strlen("8953"));
-//
-//	tcp_client(carg);
-//}
-//
-//void fill_tcpmemcached(context_arg *carg)
-//{
-//	carg->tls = 1;
-//	carg->request_buffer = uv_buf_init(MESG3, sizeof(MESG3));
-//	carg->tls_ca_file = strdup("/app/certs/ca.key");
-//	carg->tls_cert_file = strdup("/app/certs/client2.crt");
-//	carg->tls_key_file = strdup("/app/certs/client2.key");
-//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-//	memcpy(carg->port, "11211", strlen("11211"));
-//	tcp_client(carg);
-//}
-//
-//void fill_news(context_arg *carg)
-//{
-//	carg->tls = 1;
-//	carg->request_buffer = uv_buf_init(MESG, sizeof(MESG));
-//	memcpy(carg->host, URL,  strlen(URL));
-//	memcpy(carg->port, PORT, strlen(PORT));
-//	tcp_client(carg);
-//}
-//
-//void fill_nginx(context_arg *carg)
-//{
-//	carg->tls = 1;
-//	carg->request_buffer = uv_buf_init(MESG4, sizeof(MESG4)-1);
-//	carg->tls_ca_file = strdup("/app/certs/ca.key");
-//	carg->tls_cert_file = strdup("/app/certs/client2.crt");
-//	carg->tls_key_file = strdup("/app/certs/client2.key");
-//	memcpy(carg->host, "127.0.0.1",  strlen("127.0.0.1"));
-//	memcpy(carg->port, "443", strlen("443"));
-//	tcp_client(carg);
-//}
-
-//int main()
-//{
-//
-//	context_arg* carg = calloc(1, sizeof(*carg));
-//	uv_loop_t *loop = carg->loop = uv_loop_new();
-//
-//	//fill_unixunbound(carg);
-//	//fill_tcpunbound(carg);
-//	fill_news(carg);
-//	//fill_tcpmemcached(carg);
-//	//fill_nginx(carg);
-//	uv_run(loop, UV_RUN_DEFAULT);
-//}
-
 void tcp_client_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, tcp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(loop, &ac->tcp_client_timer);
+	uv_timer_start(&ac->tcp_client_timer, tcp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
 }

@@ -411,9 +411,9 @@ static void icmp_timer_cb(uv_timer_t* handle) {
 
 void icmp_client_handler()
 {
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, icmp_timer_cb, ac->iggregator_startup, ac->iggregator_repeat);
+	//uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
+	uv_timer_init(ac->loop, &ac->icmp_client_timer);
+	uv_timer_start(&ac->icmp_client_timer, icmp_timer_cb, ac->iggregator_startup, ac->iggregator_repeat);
 }
 
 void icmp_client_del(context_arg *carg)

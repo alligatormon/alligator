@@ -27,7 +27,10 @@ string* jmx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_set
 
 	context_arg *carg = aggregator_oneshot(NULL, JMXEXEC, strlen(JMXEXEC), strdup(hi->url), strlen(hi->url), NULL, "jmx_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
 	if (carg)
+	{
 		carg->context_ttl = 0;
+		carg->no_exit_status = 1;
+	}
 	return NULL;
 }
 

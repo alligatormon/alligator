@@ -20,7 +20,7 @@
 #include "parsers/postgresql.h"
 #include "parsers/mysql.h"
 #include "common/aggregator.h"
-#include "dstructures/uv_timer.h"
+#include "dstructures/uv_cache.h"
 #define d8 PRId8
 #define u8 PRIu8
 #define u16 PRIu16
@@ -93,13 +93,17 @@ typedef struct aconf
 	int64_t file_aggregator_repeat;
 	int64_t tls_aggregator_startup;
 	int64_t tls_aggregator_repeat;
+	uv_timer_t tcp_client_timer;
 
 	alligator_ht* uggregator;
 	alligator_ht* udpaggregator;
 
+	uv_timer_t udp_client_timer;
+
 	alligator_ht* iggregator;
 	int64_t iggregator_startup;
 	int64_t iggregator_repeat;
+	uv_timer_t icmp_client_timer;
 
 	alligator_ht* unixgram_aggregator;
 	int64_t unixgram_aggregator_startup;
@@ -109,6 +113,9 @@ typedef struct aconf
 	alligator_ht* system_aggregator;
 	int64_t system_aggregator_startup;
 	int64_t system_aggregator_repeat;
+	uv_timer_t system_scrape_timer_general;
+	uv_timer_t system_scrape_timer_fast;
+	uv_timer_t system_scrape_timer_slow;
 
 	// PROCESS SPAWNER
 	alligator_ht* process_spawner; // hashtable with commands
@@ -140,6 +147,7 @@ typedef struct aconf
 
 	// filetailer file list
 	alligator_ht* file_stat;
+	uv_timer_t filetailer_timer;
 
 	// local fs x509 cert scraper
 	alligator_ht* fs_x509;
@@ -158,7 +166,8 @@ typedef struct aconf
 	int64_t cluster_startup;
 	int64_t cluster_repeat;
 	uv_timer_t cluster_timer;
-	alligator_timer *altimer;
+	tommy_list *uv_cache_timer;
+	tommy_list *uv_cache_fs;
 
 	int system_base;
 	int system_disk;

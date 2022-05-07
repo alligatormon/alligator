@@ -3,17 +3,17 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include "main.h"
+extern aconf *ac;
  
 typedef struct fs_write_info
 {
 	uv_fs_t *open_req;
-	//uv_fs_t *exit_req;
 	uv_fs_t *write_req;
 	uv_fs_t *close_req;
 	uv_buf_t buffer;
 	void (*callback)(void*);
 	void *data;
-	//char *write_data;
 } fs_write_info;
  
 void fs_write_exit(uv_fs_t* req) {
@@ -21,11 +21,11 @@ void fs_write_exit(uv_fs_t* req) {
 	free(fs_info->buffer.base);
 	//uv_fs_req_cleanup(fs_info->write_req);
 	uv_fs_req_cleanup(req);
-	free(fs_info->open_req);
 	//free(fs_info->exit_req);
 	free(fs_info->write_req);
 	free(fs_info->close_req);
 	//free(fs_info->write_data);
+	alligator_cache_push(ac->uv_cache_fs, fs_info->open_req);
 
 	if (fs_info->callback)
 		fs_info->callback(fs_info->data);
@@ -53,17 +53,12 @@ void open_cb(uv_fs_t* req) {
 	if (result < 0) {
 		printf("Error at opening file '%s': %s\n", req->path, uv_strerror((int)req->result));
 	}
-	//printf("Successfully opened file.\n"); 
 	uv_fs_req_cleanup(req);
 	uv_fs_write(loop, fs_info->write_req, result, &fs_info->buffer, 1, 0, write_cb);
 }
 
 void write_to_file(char *filename, char *str, uint64_t len, void *callback, void *data)
 {
-	//char *filename = "textfile.txt";
-	//char *data = strdup("fevrc");
-	//size_t len = 5;
-	//printf("write_to_file:\n===\n'%s'\n===\nwith size %zu\n", data, len);
 	uv_loop_t* loop = uv_default_loop();
 	int r;
  
@@ -73,7 +68,8 @@ void write_to_file(char *filename, char *str, uint64_t len, void *callback, void
 	fs_info->buffer = uv_buf_init(str, len);
 	fs_info->buffer.len = len;
 	//fs_info->write_data = str;
-	fs_info->open_req = malloc(sizeof(uv_fs_t));
+	//fs_info->open_req = malloc(sizeof(uv_fs_t));
+	fs_info->open_req = alligator_cache_get(ac->uv_cache_fs, sizeof(uv_fs_t));
 	//fs_info->exit_req = malloc(sizeof(uv_fs_t));
 	fs_info->write_req = malloc(sizeof(uv_fs_t));
 	fs_info->close_req = malloc(sizeof(uv_fs_t));
