@@ -59,5 +59,6 @@ void cluster_foreach_del_object(void *funcarg, void* arg)
 void cluster_del_all()
 {
 	alligator_ht_foreach_arg(ac->cluster, cluster_foreach_del_object, NULL);
+	alligator_ht_done(ac->cluster);
 	free(ac->cluster);
 }

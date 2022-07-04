@@ -223,9 +223,8 @@ void query_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, query_crawl, ac->query_startup, ac->query_repeat);
+	uv_timer_init(loop, &ac->query_timer);
+	uv_timer_start(&ac->query_timer, query_crawl, ac->query_startup, ac->query_repeat);
 }
 
 //void query_hash_foreach_done(void *funcarg, void* arg)

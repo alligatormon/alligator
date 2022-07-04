@@ -571,9 +571,8 @@ void mysql_timer_without_thread(uv_timer_t* handle) {
 
 void mysql_without_thread()
 {
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, mysql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(ac->loop, &ac->my_timer);
+	uv_timer_start(&ac->my_timer, mysql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
 }
 
 void mysql_client_handler()

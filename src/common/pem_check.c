@@ -274,9 +274,8 @@ void tls_fs_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(loop, timer1);
-	uv_timer_start(timer1, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
+	uv_timer_init(loop, &ac->tls_fs_timer);
+	uv_timer_start(&ac->tls_fs_timer, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
 }
 
 void tls_fs_push(char *name, char *path, char *match, char *password, char *type)
@@ -296,19 +295,34 @@ void tls_fs_push(char *name, char *path, char *match, char *password, char *type
 
 }
 
+void tls_fs_del_node(x509_fs_t *tls_fs)
+{
+	free(tls_fs->name);
+	free(tls_fs->path);
+	free(tls_fs->match);
+	free(tls_fs->password);
+	free(tls_fs);
+}
+
 void tls_fs_del(char *name)
 {
 	x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, x509_fs_compare, name, tommy_strhash_u32(0, name));
 	if (tls_fs)
 	{
 		alligator_ht_remove_existing(ac->fs_x509, &(tls_fs->node));
-
-		free(tls_fs->name);
-		free(tls_fs->path);
-		free(tls_fs->match);
-		free(tls_fs->password);
-		free(tls_fs);
+		tls_fs_del_node(tls_fs);
 	}
+}
+
+void tls_fs_free_foreach(void *arg)
+{
+	x509_fs_t *tls_fs = arg;
+	tls_fs_del_node(tls_fs);
+}
+
+void tls_fs_free()
+{
+	alligator_ht_foreach(ac->fs_x509, tls_fs_free_foreach);
 }
 
 void jks_push(char *name, char *path, char *match, char *password, char *passtr)

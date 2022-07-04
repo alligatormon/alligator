@@ -875,9 +875,8 @@ void postgresql_timer_without_thread(uv_timer_t* handle) {
 
 void postgresql_without_thread()
 {
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, postgresql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(ac->loop, &ac->pg_timer);
+	uv_timer_start(&ac->pg_timer, postgresql_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
 }
 
 void postgresql_client_handler()

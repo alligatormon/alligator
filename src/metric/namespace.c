@@ -85,5 +85,6 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 void free_namespaces()
 {
 	alligator_ht_foreach_arg(ac->_namespace, namespaces_free_foreach, NULL);
+	alligator_ht_done(ac->_namespace);
 	free(ac->_namespace);
 }

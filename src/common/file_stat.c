@@ -164,3 +164,15 @@ uint64_t file_stat_get_offset(alligator_ht *hash, char *path, uint8_t state)
 		printf("file_stat_get_offset: %s UNKNOWN CASE: 0\n", path);
 	return 0;
 }
+
+void file_stat_free_foreach(void *arg)
+{
+	file_stat *fstat = arg;
+	free(fstat->key);
+	free(fstat);
+}
+
+void file_stat_free(alligator_ht *hash)
+{
+	alligator_ht_foreach(hash, file_stat_free_foreach);
+}

@@ -184,6 +184,7 @@ void process_client_del(context_arg *carg)
 	if (carg->remove_from_hash)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
+	printf("process_spawner %p, carg %p, key %s\n", ac->process_spawner, carg, carg->key);
 	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
 	unlink(carg->args[0]);
 	carg_free(carg);

@@ -149,9 +149,8 @@ void unixgram_client_handler()
 {
 	uv_loop_t *loop = ac->loop;
 
-	uv_timer_t *udgregator_timer = calloc(1, sizeof(*udgregator_timer));
-	uv_timer_init(loop, udgregator_timer);
-	uv_timer_start(udgregator_timer, udgregator_timer_cb, 1000, 1000);
+	uv_timer_init(loop, &ac->udgregator_timer);
+	uv_timer_start(&ac->udgregator_timer, udgregator_timer_cb, 1000, 1000);
 }
 
 // server

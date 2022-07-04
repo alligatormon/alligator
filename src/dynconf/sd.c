@@ -250,9 +250,8 @@ void zk_timer_without_thread(uv_timer_t* handle) {
 
 void zk_without_thread()
 {
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, zk_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(ac->loop, &ac->zk_timer);
+	uv_timer_start(&ac->zk_timer, zk_timer_without_thread, ac->aggregator_startup, ac->aggregator_repeat);
 }
 
 void zk_client_handler()

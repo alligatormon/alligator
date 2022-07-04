@@ -105,9 +105,8 @@ void puppeteer_crawl(uv_timer_t* handle) {
 
 void puppeteer_generator()
 {
-	uv_timer_t *timer1 = calloc(1, sizeof(*timer1));
-	uv_timer_init(ac->loop, timer1);
-	uv_timer_start(timer1, puppeteer_crawl, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_init(ac->loop, &ac->puppeteer_timer);
+	uv_timer_start(&ac->puppeteer_timer, puppeteer_crawl, ac->aggregator_startup, ac->aggregator_repeat);
 }
 
 void puppeteer_foreach_done(void *funcarg, void* arg)

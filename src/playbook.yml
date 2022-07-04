@@ -185,8 +185,8 @@
       - strace
       - gcc-c++
       - go
-      - mongodb-org-server
-      - mongodb-org-shell
+      #- mongodb-org-server
+      #- mongodb-org-shell
       - perl-Digest-SHA
       - perl-IPC-Cmd
       - clang
@@ -256,13 +256,13 @@
       - xinetd
       - tftp-server
 
-  - name: Create /data/db directory
-    when: ansible_system == "Linux"
-    file:
-      path: /data/db/
-      state: directory
-      owner: mongod
-      group: mongod
+#  - name: Create /data/db directory
+#    when: ansible_system == "Linux"
+#    file:
+#      path: /data/db/
+#      state: directory
+#      owner: mongod
+#      group: mongod
 
 
   - name: Create a symbolic link force

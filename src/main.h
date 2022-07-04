@@ -94,11 +94,15 @@ typedef struct aconf
 	int64_t tls_aggregator_startup;
 	int64_t tls_aggregator_repeat;
 	uv_timer_t tcp_client_timer;
+	uv_timer_t pg_timer;
+	uv_timer_t my_timer;
+	uv_timer_t zk_timer;
 
 	alligator_ht* uggregator;
 	alligator_ht* udpaggregator;
 
 	uv_timer_t udp_client_timer;
+	uv_timer_t udgregator_timer;
 
 	alligator_ht* iggregator;
 	int64_t iggregator_startup;
@@ -153,8 +157,10 @@ typedef struct aconf
 	alligator_ht* fs_x509;
 	int64_t tls_fs_startup;
 	int64_t tls_fs_repeat;
+	uv_timer_t tls_fs_timer;
 
 	alligator_ht* puppeteer;
+	uv_timer_t puppeteer_timer;
 
 	// local query processing
 	alligator_ht* action;
@@ -163,6 +169,7 @@ typedef struct aconf
 	alligator_ht* cluster;
 	int64_t query_startup;
 	int64_t query_repeat;
+	uv_timer_t query_timer;
 	int64_t cluster_startup;
 	int64_t cluster_repeat;
 	uv_timer_t cluster_timer;
@@ -211,6 +218,10 @@ typedef struct aconf
 	pq_library *pqlib;
 	my_library *mylib;
 	void *pylib;
+
+	uv_timer_t general_timer;
+	uv_timer_t expire_timer;
+	uv_timer_t dump_timer;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int64_t ttl; // global TTL for metrics
