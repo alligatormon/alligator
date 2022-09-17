@@ -119,7 +119,7 @@ void get_conntrack_info()
 				return;
 			}
 
-			uint64_t entries = (uint8_t)dt[11] + ((uint32_t)dt[10] << 8) + ((uint64_t)dt[9] << 16) + ((uint64_t)dt[8] << 24);
+			uint64_t entries = (uint8_t)dt[11] + ((uint8_t)dt[10] << 8) + ((uint64_t)dt[9] << 16) + ((uint64_t)dt[8] << 24);
 			uint64_t maxentries = (uint8_t)dt[19] + ((uint8_t)dt[18] * 256) + ((uint64_t)dt[17] * 65536) + ((uint64_t)dt[16] << 24);
 			//uint16_t esize = ((uint16_t)*(dt + 4));
 			//uint16_t etype = ((uint16_t)*(dt + 6));
