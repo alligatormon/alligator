@@ -1,0 +1,31 @@
+aggregator_resolve_address {class="IN", type="AAAA", name="yandex.ru"}
+aggregator_resolve_address {class="IN", type="CNAME", name="www.dnsimple.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="NS", name="yandex.ru"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="NS", name="yandex.ru"}
+aggregator_resolve_address {host="udp://77.88.8.1:53", class="IN", type="NS", name="yandex.ru"}
+aggregator_resolve_soa_expire
+aggregator_resolve_soa_minimum
+aggregator_resolve_soa_refresh
+aggregator_resolve_soa_retry
+aggregator_resolve_soa_serial
+resolver_read_time_mcs_quantile {quantile="0.90", host="udp://77.88.8.1:53"}
+resolver_read_time_mcs_quantile {quantile="0.95", host="udp://77.88.8.1:53"}
+resolver_read_time_mcs_quantile {quantile="0.99", host="udp://77.88.8.1:53"}
+resolver_response_time_mcs_quantile {quantile="0.90", host="udp://77.88.8.1:53"}
+resolver_response_time_mcs_quantile {quantile="0.95", host="udp://77.88.8.1:53"}
+resolver_response_time_mcs_quantile {quantile="0.99", host="udp://77.88.8.1:53"}
+resolver_write_time_mcs_quantile {quantile="0.90", host="udp://77.88.8.1:53"}
+resolver_write_time_mcs_quantile {quantile="0.95", host="udp://77.88.8.1:53"}
+resolver_write_time_mcs_quantile {quantile="0.99", host="udp://77.88.8.1:53"}

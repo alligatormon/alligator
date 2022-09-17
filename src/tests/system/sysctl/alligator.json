@@ -1,0 +1,16 @@
+{
+  "entrypoint": [
+    {
+      "tcp": [
+        "1111"
+      ]
+    }
+  ],
+  "system": {
+    "sysctl": [
+      "vm.overcommit_memory",
+      "fs",
+      "net"
+    ]
+  }
+}

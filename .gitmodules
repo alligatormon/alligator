@@ -10,3 +10,6 @@
 [submodule "src/external/llhttp"]
 	path = src/external/llhttp
 	url = https://github.com/nodejs/llhttp.git
+[submodule "src/external/zookeeper"]
+	path = src/external/zookeeper
+	url = https://github.com/apache/zookeeper

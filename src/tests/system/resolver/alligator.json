@@ -1,0 +1,62 @@
+{
+  "entrypoint": [
+    {
+      "tcp": [
+        "1111"
+      ]
+    }
+  ],
+  "resolver": [
+    "udp://77.88.8.8:53",
+    "udp://77.88.8.1:53"
+  ],
+  "aggregate": [
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "dns",
+      "url": "resolver://",
+      "resolve": "yandex.ru",
+      "type": "ns",
+      "log_level": 10
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "dns",
+      "url": "resolver://",
+      "resolve": "google.com",
+      "type": "a"
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "dns",
+      "url": "udp://8.8.8.8:53",
+      "resolve": "yandex.ru",
+      "type": "aaaa"
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "dns",
+      "url": "udp://77.88.8.8:53",
+      "resolve": "www.dnsimple.com",
+      "type": "cname"
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "dns",
+      "url": "udp://77.88.8.8:53",
+      "resolve": "habr.com",
+      "type": "soa"
+    },
+    {
+      "env": {},
+      "add_label": {},
+      "handler": "blackbox",
+      "url": "http://google.com"
+    }
+  ]
+}

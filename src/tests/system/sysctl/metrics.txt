@@ -1,0 +1,11 @@
+sysctl_data {name="net.unix.max_dgram_qlen"}
+sysctl_data {name="vm.overcommit_memory"}
+sysctl_data {name="net.netfilter.nf_conntrack_acct"}
+sysctl_data {name="fs.file-max"}
+sysctl_data {name="fs.file-nr"}
+sysctl_data {name="fs.inode-nr"}
+sysctl_data {name="fs.inode-state"}
+sysctl_data {name="fs.inotify.max_queued_events"}
+sysctl_data {name="fs.inotify.max_user_instances"}
+sysctl_data {name="fs.inotify.max_user_watches"}
+sysctl_data {name="net.core.somaxconn"}

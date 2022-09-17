@@ -48,7 +48,7 @@ system {
 	network; #network interface start
 	process [nginx] [bash] [/[bash]*/]; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
 	smart; #smart disk stats
-	firewall; # iptables scrape
+	firewall [ipset=[entries|on]];
 	cpuavg period=5; # analog loadavg by cpu usage stat only with period in minutes
 	packages [nginx] [alligator]; # scrape packages info with timestamp installed
 	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json]; # for scrape cadvisor metrics
