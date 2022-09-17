@@ -5,17 +5,27 @@
 #include "common/http.h"
 #include "common/aggregator.h"
 #include "common/json_parser.h"
+#include "common/yaml.h"
 #include "main.h"
 void json_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "json", carg);
-	//puts("==============");
-	//puts(metrics);
-	//puts("==============");
-	//write_to_file("1", metrics, size, NULL, NULL);
-	//FILE *fd = fopen("1", "w");
-	//fwrite(metrics, strlen(metrics), 1, fd);
-	//fclose(fd);
+	json_error_t error;
+	char *data = metrics;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		data = yaml_str_to_json_str(metrics);
+		if (!data)
+			return;
+
+		json_parser_entry(data, 0, NULL, "json", carg);
+		free(data);
+	}
+	else
+	{
+		json_decref(root);
+		json_parser_entry(data, 0, NULL, "json", carg);
+	}
 }
 
 string* json_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

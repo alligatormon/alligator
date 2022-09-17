@@ -657,7 +657,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 	if (carg && ac->log_level > 0)
 		printf("parsed metrics multicollector: %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
 
-	if (carg)
+	if (carg && !carg->no_metric)
 	{
 		metric_add_labels("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
 		metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);

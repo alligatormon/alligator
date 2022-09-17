@@ -27,12 +27,12 @@
       state: present
       name: https://repo.ius.io/ius-release-el7.rpm
 
-  - name: Install zookeeper-native
-    when: ansible_os_family == "RedHat"
-    yum:
-      state: present
-      disable_gpg_check: True
-      name: https://t2.unl.edu/osg/3.4/el7/rolling/x86_64/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
+#  - name: Install zookeeper-native
+#    when: ansible_os_family == "RedHat"
+#    yum:
+#      state: present
+#      disable_gpg_check: True
+#      name: https://t2.unl.edu/osg/3.4/el7/rolling/x86_64/zookeeper-native-3.4.5+cdh5.14.2+142-1.cdh5.14.2.p0.11.1.osg34.el7.x86_64.rpm
 
   - name: Install proxysql
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'
@@ -190,6 +190,10 @@
       - perl-Digest-SHA
       - perl-IPC-Cmd
       - clang
+      - cppunit-devel
+      - cppunit
+      - maven
+      - libnl-devel
 
   - name: Install el7
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'

@@ -6,7 +6,9 @@
 #include "query/query.h"
 #include "probe/probe.h"
 #include "puppeteer/puppeteer.h"
+#include "resolver/resolver.h"
 #include "system/linux.h"
+#include "system/linux/sysctl.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -143,6 +145,18 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *follow_redirects = json_integer(carg->follow_redirects);
 		json_array_object_insert(ctx, "follow_redirects", follow_redirects);
+	}
+
+	if (carg->parser_handler == dns_handler)
+	{
+		json_t *resolve = json_string(carg->data);
+		json_array_object_insert(ctx, "resolve", resolve);
+	}
+
+	if (carg->key)
+	{
+		json_t *key = json_string(carg->key);
+		json_array_object_insert(ctx, "key", key);
 	}
 
 	if (carg->labels)
@@ -570,7 +584,19 @@ void puppeteer_generate_conf(void *funcarg, void* arg)
 
 	if (pn->url)
 	{
-		json_t *url_ctx = json_object();
+		json_t *url_ctx = NULL;
+
+		if (pn->value)
+		{
+			json_error_t error;
+			url_ctx = json_loads(pn->value, 0, &error);
+		}
+
+		if (!url_ctx)
+		{
+			url_ctx = json_object();
+		}
+
 		json_array_object_insert(puppeteer, pn->url->s, url_ctx);
 	}
 }
@@ -687,6 +713,16 @@ void system_config_get(json_t *dst)
 
 	if (ac->system_firewall) {
 		json_t *ctxsys = json_object();
+		if (ac->system_ipset_entries)
+		{
+			json_t *entries = json_string("entries");
+			json_array_object_insert(ctxsys, "ipset", entries);
+		}
+		else if (ac->system_ipset)
+		{
+			json_t *entries = json_string("on");
+			json_array_object_insert(ctxsys, "ipset", entries);
+		}
 		json_array_object_insert(system, "firewall", ctxsys);
 	}
 
@@ -793,6 +829,32 @@ void groupprocess_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+void sysctl_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	sysctl_node *scn = arg;
+
+	json_t *system = json_object_get(dst, "system");
+	if (!system)
+	{
+		system = json_object();
+		json_array_object_insert(dst, "system", system);
+	}
+
+	json_t *sysctlsystem = json_object_get(system, "sysctl");
+	if (!sysctlsystem)
+	{
+		sysctlsystem = json_array();
+		json_array_object_insert(system, "sysctl", sysctlsystem);
+	}
+
+	if (scn->name)
+	{
+		json_t *name = json_string(scn->name);
+		json_array_object_insert(sysctlsystem, NULL, name);
+	}
+}
+
 void system_mapper_generate_conf(void *funcarg, void* arg)
 {
 	config_get_arg *cgarg = funcarg;
@@ -889,6 +951,55 @@ void modules_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+void resolver_generate_conf(json_t *dst)
+{
+	json_t *resolver = json_array();
+	uint8_t resolver_set = 0;
+
+	for (uint64_t i = 0; i < ac->resolver_size; ++i)
+	{
+		resolver_set = 1;
+		json_t *json_data = json_object();
+
+		json_t *host = json_string(ac->srv_resolver[i]->hi->host);
+		json_array_object_insert(json_data, "host", host);
+
+		json_t *port = json_string(ac->srv_resolver[i]->hi->port);
+		json_array_object_insert(json_data, "port", port);
+
+		json_t *url = json_string(ac->srv_resolver[i]->hi->url);
+		json_array_object_insert(json_data, "url", url);
+
+		json_t *user = json_string(ac->srv_resolver[i]->hi->user);
+		json_array_object_insert(json_data, "user", user);
+
+		json_t *transport_string = json_string(ac->srv_resolver[i]->hi->transport_string);
+		json_array_object_insert(json_data, "transport", transport_string);
+
+		json_array_object_insert(resolver, NULL, json_data);
+	}
+
+	if (resolver_set)
+		json_array_object_insert(dst, "resolver", resolver);
+
+	//alligator_ht_foreach_arg(ac->resolver, resolver_generate_conf, dst);
+	//json_t *dst = funcarg;
+	//module_t *module = arg;
+
+	//json_t *modules = json_object_get(dst, "resolver");
+	//if (!modules)
+	//{
+	//	modules = json_object();
+	//	json_array_object_insert(dst, "resolver", modules);
+	//}
+
+	//if (module->path && module->key)
+	//{
+	//	json_t *path = json_string(module->path);
+	//	json_array_object_insert(modules, module->key, path);
+	//}
+}
+
 json_t *config_get()
 {
 	json_t *dst = json_object();
@@ -908,8 +1019,10 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->cluster, cluster_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_userprocess,  userprocess_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_groupprocess, groupprocess_generate_conf, dst);
+	alligator_ht_foreach_arg(ac->system_sysctl, sysctl_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->modules, modules_generate_conf, dst);
 	system_pidfile_generate_conf(dst);
+	resolver_generate_conf(dst);
 
 	cgarg.arg = "process";
 	alligator_ht_foreach_arg(ac->process_match->hash, system_mapper_generate_conf, &cgarg);

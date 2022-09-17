@@ -1,7 +1,7 @@
 [requires]
 libuv/1.42.0
 jansson/2.13.1
-mbedtls/2.16.3-apache
+#mbedtls/2.16.3-apache
 jemalloc/5.2.1
 zlib/1.2.11
 libuuid/1.0.3

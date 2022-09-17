@@ -1345,6 +1345,95 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 	}
 }
 
+void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9)
+{
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+	int64_t ttl = get_ttl(carg);
+
+	alligator_ht *hash = alligator_ht_init(NULL);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+	labels_hash_insert(hash, name4, key4);
+	labels_hash_insert(hash, name5, key5);
+	labels_hash_insert(hash, name6, key6);
+	labels_hash_insert(hash, name7, key7);
+	labels_hash_insert(hash, name8, key8);
+	labels_hash_insert(hash, name9, key9);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_set(mnode, type, value, expiretree, ttl);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree, ttl);
+	}
+}
+
+void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9, char* name10, char* key10)
+{
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+	int64_t ttl = get_ttl(carg);
+
+	alligator_ht *hash = alligator_ht_init(NULL);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+	labels_hash_insert(hash, name4, key4);
+	labels_hash_insert(hash, name5, key5);
+	labels_hash_insert(hash, name6, key6);
+	labels_hash_insert(hash, name7, key7);
+	labels_hash_insert(hash, name8, key8);
+	labels_hash_insert(hash, name9, key9);
+	labels_hash_insert(hash, name10, key10);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_set(mnode, type, value, expiretree, ttl);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree, ttl);
+	}
+}
+
 void metric_gen_foreach_avg(void *funcarg, void* arg)
 {
 	query_struct *qs = arg;
@@ -1596,6 +1685,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		if (!query_struct_check_expr(mqc->op, value, mqc->opval))
 		{
 			tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
+			//alligator_ht_done(res_hash);
+			//free(res_hash);
 			labels_head_free(labels_list);
 			return;
 		}
@@ -1603,6 +1694,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		metric_node* mnode = metric_find(tree, labels_list);
 		if (mnode)
 		{
+			labels_head_free(labels_list);
 			if (type == DATATYPE_UINT)
 				metric_set(mnode, type, &value, expiretree, ttl);
 			else if (type == DATATYPE_DOUBLE)
@@ -1614,8 +1706,12 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 				mnode = metric_insert(tree, labels_list, type, &value, expiretree, ttl);
 			else if (type == DATATYPE_DOUBLE)
 				mnode = metric_insert(tree, labels_list, type, &dvalue, expiretree, ttl);
+			else
+				labels_head_free(labels_list);
 		}
 
 		tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
+		//alligator_ht_done(res_hash);
+		//free(res_hash);
 	}
 }

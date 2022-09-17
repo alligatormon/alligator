@@ -12,6 +12,7 @@
 #include "events/client.h"
 #include "events/process.h"
 #include "dynconf/sd.h"
+#include "resolver/resolver.h"
 char* icmp_client(context_arg *carg);
 
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
@@ -24,6 +25,8 @@ void smart_aggregator_key_normalize(char *key)
 	for (uint64_t i = 0; key[i]; ++i)
 	{
 		if (iscntrl(key[i]))
+			key[i] = '_';
+		else if ((key[i] == '}') || (key[i] == '{') || (key[i] == '~') || (key[i] == '\'') || (key[i] == '"'))
 			key[i] = '_';
 	}
 }
@@ -52,7 +55,15 @@ int smart_aggregator(context_arg *carg)
 		return 0; // err, need for carg_free
 	}
 
-	if (carg->transport == APROTO_UNIX)
+	if (carg->resolver)
+	{
+		type = "resolver";
+		context_arg *new_carg = aggregator_push_addr_strtype(carg, carg->data, carg->rrtype, carg->rrclass);
+		carg_free(carg);
+		carg = new_carg;
+		printf("new carg is %p\n", new_carg);
+	}
+	else if (carg->transport == APROTO_UNIX)
 		type = unix_tcp_client(carg);
 	else if (carg->transport == APROTO_TCP)
 		type = tcp_client(carg);
@@ -81,7 +92,9 @@ int smart_aggregator(context_arg *carg)
 	}
 
 	if (carg->key)
+	{
 		alligator_ht_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	}
 
 	smart_aggregator_key_normalize(carg->key);
 
@@ -90,7 +103,9 @@ int smart_aggregator(context_arg *carg)
 
 void smart_aggregator_del(context_arg *carg)
 {
-	if (carg->transport == APROTO_UNIX)
+	if (carg->resolver)
+		resolver_del(carg);
+	else if (carg->transport == APROTO_UNIX)
 		unix_tcp_client_del(carg);
 	else if (carg->transport == APROTO_TCP)
 		tcp_client_del(carg);
@@ -281,6 +296,7 @@ void aggregate_ctx_init()
 	moosefs_parser_push();
 	mongodb_parser_push();
 	keepalived_parser_push();
+	dns_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

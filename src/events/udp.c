@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common/entrypoint.h"
+#include "resolver/resolver.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -102,6 +103,23 @@ void udp_client_connect(void *arg)
 	carg->parsed = 0;
 	carg->curr_ttl = carg->ttl;
 
+	char *addr = NULL;
+	if (is_ip_addr(carg->host))
+		addr = carg->host;
+	else
+	{
+		puts("4aggregator_get_addr");
+		string *addr_name = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
+		addr = addr_name ? addr_name->s : NULL;
+	}
+
+	if (!addr)
+		return;
+
+	struct addrinfo res;
+	uv_ip4_name((struct sockaddr_in*)&res.ai_addr, addr, 16);
+	carg->dest = (struct sockaddr_in*)&res.ai_addr;
+
 	//carg->tt_timer->data = carg;
 	//uv_timer_init(carg->loop, carg->tt_timer);
 	//uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
@@ -116,66 +134,66 @@ void udp_client_connect(void *arg)
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)carg->dest, udp_on_send);
 }
 
-void aggregator_getaddrinfo2(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
-{
-	context_arg* carg = (context_arg*)req->data;
-	if (ac->log_level > 1)
-		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-
-	char addr[17] = {'\0'};
-	if (status < 0)
-	{
-		uv_freeaddrinfo(res);
-		free(req);
-		return;
-	}
-
-	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
-
-	carg->dest = (struct sockaddr_in*)res->ai_addr;
-	carg->key = malloc(64);
-	if (carg->transport == APROTO_UDP)
-	{
-		snprintf(carg->key, 64, "udp://%s:%u", addr, htons(carg->dest->sin_port));
-		alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-	}
-	else
-	{
-		snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
-		alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-	}
-
-
-	//uv_freeaddrinfo(res);
-	free(req);
-}
-
-void aggregator_resolve_host2(context_arg* carg)
-{
-	if (ac->log_level > 1)
-		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-	struct addrinfo hints;
-	uv_getaddrinfo_t* addr_info = 0;
-	addr_info = malloc(sizeof(uv_getaddrinfo_t));
-	addr_info->data = carg;
-
-	hints.ai_family = PF_INET;
-	if (carg->transport == APROTO_UDP)
-	{
-		hints.ai_socktype = SOCK_DGRAM;
-		hints.ai_protocol = IPPROTO_UDP;
-	}
-	else
-	{
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = IPPROTO_TCP;
-	}
-	hints.ai_flags = 0;
-
-	if (uv_getaddrinfo(carg->loop, addr_info, aggregator_getaddrinfo2, carg->host, carg->port, &hints))
-		free(addr_info);
-
-}
+//void aggregator_getaddrinfo2(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
+//{
+//	context_arg* carg = (context_arg*)req->data;
+//	if (ac->log_level > 1)
+//		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+//
+//	char addr[17] = {'\0'};
+//	if (status < 0)
+//	{
+//		uv_freeaddrinfo(res);
+//		free(req);
+//		return;
+//	}
+//
+//	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
+//
+//	carg->dest = (struct sockaddr_in*)res->ai_addr;
+//	//carg->key = malloc(64);
+//	if (carg->transport == APROTO_UDP)
+//	{
+//	//	snprintf(carg->key, 64, "udp://%s:%u", addr, htons(carg->dest->sin_port));
+//		alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+//	}
+//	else
+//	{
+//	//	snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
+//		alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+//	}
+//
+//
+//	//uv_freeaddrinfo(res);
+//	free(req);
+//}
+//
+//void aggregator_resolve_host2(context_arg* carg)
+//{
+//	if (ac->log_level > 1)
+//		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+//	struct addrinfo hints;
+//	uv_getaddrinfo_t* addr_info = 0;
+//	addr_info = malloc(sizeof(uv_getaddrinfo_t));
+//	addr_info->data = carg;
+//
+//	hints.ai_family = PF_INET;
+//	if (carg->transport == APROTO_UDP)
+//	{
+//		hints.ai_socktype = SOCK_DGRAM;
+//		hints.ai_protocol = IPPROTO_UDP;
+//	}
+//	else
+//	{
+//		hints.ai_socktype = SOCK_STREAM;
+//		hints.ai_protocol = IPPROTO_TCP;
+//	}
+//	hints.ai_flags = 0;
+//
+//	if (uv_getaddrinfo(carg->loop, addr_info, aggregator_getaddrinfo2, carg->host, carg->port, &hints))
+//		free(addr_info);
+//
+//}
 
 char* udp_client(void *arg)
 {
@@ -183,8 +201,10 @@ char* udp_client(void *arg)
 		return NULL;
 
 	context_arg *carg = arg;
+	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 
-	aggregator_resolve_host2(carg);
+	alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	//aggregator_resolve_host2(carg);
 	return "udp";
 }
 
@@ -207,5 +227,5 @@ void udp_client_handler()
 	uv_loop_t *loop = ac->loop;
 
 	uv_timer_init(loop, &ac->udp_client_timer);
-	uv_timer_start(&ac->udp_client_timer, udp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
+	uv_timer_start(&ac->udp_client_timer, udp_client_crawl, 0, ac->aggregator_repeat);
 }

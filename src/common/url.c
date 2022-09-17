@@ -179,6 +179,8 @@ void url_dump(host_aggregator_info *hi)
 			puts("proto: fastcgi");
 		if (hi->proto == APROTO_HTTP)
 			puts("proto: http");
+		if (hi->proto == APROTO_RESOLVER)
+			puts("proto: resolver");
 
 
 		printf("port: %s\n", hi->port);
@@ -226,6 +228,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, "postgresql", 0);
 	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, "mysql", 0);
 	url_set_proto(hi, &tmp, "zookeeper://", 12, APROTO_ZKCONF, APROTO_ZKCONF, "zookeeper", 0);
+	url_set_proto(hi, &tmp, "resolver://", 11, APROTO_RESOLVER, APROTO_RESOLVER, "resolver", 0);
 
 	url_set_default_port(hi);
 

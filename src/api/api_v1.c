@@ -256,6 +256,22 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					probe_push_json(probe);
 				}
 			}
+			if (!strcmp(key, "resolver"))
+			{
+				uint64_t resolver_size = json_array_size(value);
+				for (uint64_t i = 0; i < resolver_size; i++)
+				{
+					json_t *resolver = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						resolver_del_json(resolver);
+						continue;
+					}
+
+					resolver_push_json(resolver);
+				}
+			}
 			if (!strcmp(key, "cluster"))
 			{
 				uint64_t cluster_size = json_array_size(value);
@@ -747,7 +763,29 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						else if (!strcmp(system_key, "smart"))
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "firewall"))
+						{
 							ac->system_firewall = enkey;
+							json_t *cvalue = json_object_get(sys_value, "ipset");
+							if (cvalue)
+							{
+								const char *dt = json_string_value(cvalue);
+								if (!strcmp(dt, "on"))
+									ac->system_ipset = 1;
+								else if (!strcmp(dt, "off"))
+								{
+									ac->system_ipset = 0;
+									ac->system_ipset_entries = 0;
+								}
+								else if (!strcmp(dt, "entries"))
+								{
+									ac->system_ipset = 1;
+									ac->system_ipset_entries = 1;
+								}
+							}
+
+							if (ac->system_avg_metrics)
+								free(ac->system_avg_metrics);
+						}
 						else if (!strcmp(system_key, "sysfs"))
 						{
 							char *sysfs = (char*)json_string_value(sys_value);
@@ -976,6 +1014,25 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 										userprocess_push(ac->system_groupprocess, obj_str);
 									else
 										userprocess_del(ac->system_groupprocess, obj_str);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "sysctl"))
+						{
+							uint64_t sysctl_size = json_array_size(sys_value);
+
+							// enable or disable selected processes
+							for (uint64_t i = 0; i < sysctl_size; i++)
+							{
+								json_t *sysctl_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(sysctl_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(sysctl_obj);
+									if (enkey)
+										sysctl_push(ac->system_sysctl, obj_str);
+									else
+										sysctl_del(ac->system_sysctl, obj_str);
 								}
 							}
 						}

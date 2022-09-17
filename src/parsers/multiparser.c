@@ -74,6 +74,10 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		oplog_get_router(response, http_data, carg);
 	}
+	else if (!strncmp(http_data->uri, "/resolver", 9))
+	{
+		resolver_router(response, http_data, carg);
+	}
 	else
 	{
 		//metric_str_build(0, response);

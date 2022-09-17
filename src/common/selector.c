@@ -192,6 +192,22 @@ void stlencat(stlen *str, char *str2, size_t len)
 	str->l += len;
 }
 
+int sisdigit(char *str)
+{
+	uint8_t dot = 0;
+	for (uint64_t i = 0; str[i] != 0; ++i)
+	{
+		if (!isdigit(str[i]))
+			return 0;
+		else if ((str[i] == '.') && (!dot))
+			dot = 1;
+		else if ((str[i] == '.') && (dot))
+			return 0;
+	}
+
+	return 1;
+}
+
 char *ltrim(char *s)
 {
 	while(isspace(*s)) s++;
@@ -330,6 +346,29 @@ int64_t getkvfile(char *file)
 	return atoll(temp);
 }
 
+int64_t getkvfile_ext(char *file, uint8_t *err)
+{
+	char temp[20];
+	*err = 0;
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+	{
+		*err = 1;
+		return 0;
+	}
+
+	if ( !fgets(temp, 20, fd) )
+	{
+		fclose(fd);
+		*err = 2;
+		return 0;
+	}
+
+	fclose(fd);
+
+	return atoll(temp);
+}
+
 string* string_init(size_t max)
 {
 	++max;
@@ -424,6 +463,15 @@ string* string_init_dup(char *str)
 {
 	string *ret = malloc(sizeof(*ret));
 	ret->m = ret->l = strlen(str);
+	ret->s = strdup(str);
+
+	return ret;
+}
+
+string* string_init_dupn(char *str, uint64_t size)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = ret->l = size;
 	ret->s = strdup(str);
 
 	return ret;

@@ -21,6 +21,7 @@
 #include "parsers/mysql.h"
 #include "common/aggregator.h"
 #include "dstructures/uv_cache.h"
+#include "resolver/resolver.h"
 #define d8 PRId8
 #define u8 PRIu8
 #define u16 PRIu16
@@ -113,6 +114,12 @@ typedef struct aconf
 	int64_t unixgram_aggregator_startup;
 	int64_t unixgram_aggregator_repeat;
 
+	alligator_ht* resolver;
+	resolver_data *srv_resolver[255];
+	uint8_t resolver_size;
+	int64_t resolver_max_ttl;
+	int64_t resolver_replace_ttl;
+
 	// SYSTEM METRICS SCRAPE
 	alligator_ht* system_aggregator;
 	int64_t system_aggregator_startup;
@@ -183,6 +190,8 @@ typedef struct aconf
 	int system_smart;
 	int system_packages;
 	int system_firewall;
+	int system_ipset;
+	int system_ipset_entries;
 	int system_cadvisor;
 	int system_services;
 	char *system_procfs;
@@ -193,6 +202,7 @@ typedef struct aconf
 	char *cadvisor_tcpudpbuf;
 	alligator_ht* system_userprocess;
 	alligator_ht* system_groupprocess;
+	alligator_ht* system_sysctl;
 	uint64_t system_cpuavg_period;
 	double system_cpuavg_sum;
 	uint64_t system_cpuavg_ptr;

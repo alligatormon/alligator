@@ -87,6 +87,14 @@ void carg_free(context_arg *carg)
 	if (carg->stdin_s)
 		free(carg->stdin_s);
 
+	if (carg->q_request_time)
+		free_percentile_buffer(carg->q_request_time);
+	if (carg->q_read_time)
+		free_percentile_buffer(carg->q_read_time);
+	if (carg->q_connect_time)
+		free_percentile_buffer(carg->q_connect_time);
+
+
 	if (carg->env)
 	{
 		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
@@ -223,6 +231,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		strlcpy(carg->password, hi->pass, 1024);
 	strlcpy(carg->host, hi->host, URL_SIZE); // new scheme
 	strlcpy(carg->port, hi->port, 6);
+	carg->numport = strtoull(hi->port, NULL, 10);
 	if (carg->timeout < 1)
 		carg->timeout = 5000;
 	carg->proto = hi->proto;
@@ -374,6 +383,36 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->cluster = strdup(json_string_value(json_cluster));
 		carg->cluster_size = json_string_length(json_cluster);
 	}
+
+	json_t *json_resolve = json_object_get(root, "resolve");
+	if (json_resolve)
+	{
+		char *buf = calloc(1, 1024);
+		json_t *json_rrtype = json_object_get(root, "type");
+		char *rrtype;
+		if (json_rrtype)
+			rrtype = (char*)json_string_value(json_rrtype);
+		else
+			rrtype = "any";
+
+		carg->resolver = 1;
+		//resolver_carg_set_transport(carg);
+
+		carg->key = malloc(255);
+		carg->data = strdup(json_string_value(json_resolve));
+		snprintf(carg->key, 254, "%s://%s/%s:%s:%s", carg->transport_string, carg->host, (char*)carg->data, "IN", rrtype);
+
+		uint16_t transaction_id;
+		uint64_t buflen = dns_init_strtype(carg->data, buf, rrtype, &transaction_id);
+		carg->rrtype = rrtype;
+		carg->rrclass = 1;
+		carg->packets_id = transaction_id;
+		aconf_mesg_set(carg, buf, buflen);
+	}
+
+	carg->q_request_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
+	carg->q_read_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
+	carg->q_connect_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
 
 	return carg;
 }

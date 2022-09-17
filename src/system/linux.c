@@ -2836,23 +2836,6 @@ void fill_counts_process()
 	}
 }
 
-void get_conntrack_info()
-{
-	char path[255];
-
-	snprintf(path, 255, "%s/sys/net/netfilter/nf_conntrack_max", ac->system_procfs);
-	int64_t conntrack_max = getkvfile(path);
-
-	snprintf(path, 255, "%s/sys/net/netfilter/nf_conntrack_count", ac->system_procfs);
-	int64_t conntrack_count = getkvfile(path);
-
-	double conntrack_usage = conntrack_count*100.0/conntrack_max;
-
-	metric_add_auto("conntrack_max", &conntrack_max, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("conntrack_count", &conntrack_count, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("conntrack_usage", &conntrack_usage, DATATYPE_DOUBLE, ac->system_carg);
-}
-
 void get_cpu_avg()
 {
 	double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
@@ -3597,10 +3580,13 @@ void get_system_metrics()
 		//get_iptables_info("nat", ac->system_carg);
 		//get_iptables6_info("filter", ac->system_carg);
 		//get_iptables6_info("nat", ac->system_carg);
-		get_iptables_info("exec://iptables -t filter", "filter", ac->system_carg);
-		get_iptables_info("exec://iptables -t nat", "nat", ac->system_carg);
-		get_iptables_info("exec://ip6tables -t filter", "filter", ac->system_carg);
-		get_iptables_info("exec://ip6tables -t nat", "nat", ac->system_carg);
+		get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t filter", "filter", ac->system_carg);
+		get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t nat", "nat", ac->system_carg);
+		get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t filter", "filter", ac->system_carg);
+		get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
+
+		if (ac->system_ipset)
+			ipset();
 	}
 	if (ac->system_cpuavg)
 		get_cpu_avg();
@@ -3613,6 +3599,7 @@ void get_system_metrics()
 
 	get_pidfile_stats();
 	get_userprocess_stats();
+	sysctl_run(ac->system_sysctl);
 }
 
 void system_free()
@@ -3669,6 +3656,7 @@ void system_free()
 	userprocess_free(ac->system_groupprocess);
 	//alligator_ht_done(ac->system_groupprocess);
 	//free(ac->system_groupprocess);
+	sysctl_free(ac->system_sysctl);
 }
 
 void system_fast_scrape()

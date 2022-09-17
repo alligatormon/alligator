@@ -17,6 +17,7 @@ void alligator_stop(char *initiator, int code)
 	cluster_handler_stop();
 	query_stop();
 	system_free();
+	resolver_stop();
 	alligator_cache_full_free(ac->uv_cache_timer);
 	alligator_cache_full_free(ac->uv_cache_fs);
 

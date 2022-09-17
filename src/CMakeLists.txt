@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.40)
+set(VERSION 0.14.61)
+#set(VERSION 1.14.41)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -46,12 +47,13 @@ include_directories(/usr/local/include/cutter)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 include_directories(external/mruby/include/)
-#include_directories(/usr/include/python3.6m/)
-#include_directories(/usr/include/python3.8/)
-IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+include_directories(external/libhv/protocol/)
+include_directories(external/zookeeper/zookeeper-client/zookeeper-client-c/include/)
+include_directories(external/zookeeper/zookeeper-client/zookeeper-client-c/generated/)
+#IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 include_directories(external/mbedtls/include/)
 link_directories(external/mbedtls/library/)
-ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+#ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 
 include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
@@ -66,6 +68,9 @@ include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
 include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/)
 include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/linux)
 include_directories(/usr/local/include/mysql)
+include_directories(/usr/local/include/hv/)
+include_directories(external/libhv/include/hv/)
+include_directories(/usr/local/include/)
 include_directories(/app/trash/picohttpparser)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
@@ -75,6 +80,7 @@ link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
 link_directories(external/mruby/build/host/lib/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
+link_directories(/usr/local/lib64/)
 
 set(STATIC_FILES
 	events/uv_alloc.c
@@ -96,6 +102,13 @@ set(STATIC_FILES
 	events/access.c
 	events/metrics.c
 	events/context_arg.c
+	resolver/resolver.c
+	resolver/udp.c
+	resolver/tcp.c
+	resolver/internal.c
+	resolver/get.c
+	resolver/parser.c
+	resolver/getaddrinfo.c
 	parsers/dummy.c
 	parsers/pushgateway.c
 	parsers/multiparser.c
@@ -200,6 +213,7 @@ set(STATIC_FILES
 	router/conf.c
 	router/oplog.c
 	router/labels_cache.c
+	router/resolver.c
 	api/api_router.c
 	api/api_v1.c
 	common/reject.c
@@ -220,10 +234,13 @@ set(STATIC_FILES
 	#lang/python.c
 	lang/so.c
 	lang/duktape.c
-	system/linux.c
 	system/common.c
 	system/freebsd.c
 	system/macosx.c
+	system/linux.c
+	system/linux/ipset.c
+	system/linux/sysctl.c
+	system/linux/conntrack.c
 	modules/modules.c
 	metric/expiretree.c
 	metric/labels.c
@@ -250,6 +267,7 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
 	/app/trash/picohttpparser/picohttpparser.c
+	/app/src/external/libhv/protocol/dns.c
 )
 #IF(${distro} MATCHES "centos")
 #set(RPM_FILES parser/rpm.c)
@@ -310,10 +328,10 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv_static.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv_static.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

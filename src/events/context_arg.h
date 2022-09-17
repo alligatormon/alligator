@@ -121,6 +121,7 @@ typedef struct context_arg
 	uint64_t close_time_counter;
 	uint64_t exec_time_counter;
 
+	uint8_t no_metric;
 	r_time connect_time;
 	r_time connect_time_finish;
 	r_time write_time;
@@ -139,6 +140,10 @@ typedef struct context_arg
 	r_time shutdown_time_finish;
 	r_time close_time;
 	r_time close_time_finish;
+
+	percentile_buffer* q_request_time;
+	percentile_buffer* q_read_time;
+	percentile_buffer* q_connect_time;
 
 	uint64_t push_parsing_time;
 	uint64_t push_metric_time;
@@ -209,6 +214,7 @@ typedef struct context_arg
 
 	char host[URL_SIZE];
 	char port[PORT_SIZE];
+	uint16_t numport;
 	char user[AUTH_SIZE];
 	char password[AUTH_SIZE];
 	uint64_t timeout;
@@ -254,7 +260,12 @@ typedef struct context_arg
 	uv_timer_t t_timeout;
 	uv_timer_t t_towrite;
 	uv_timer_t t_seq_timer;
+	uv_timer_t resolver_timer;
 
+	char *rrtype;
+	uint32_t rrclass;
+	uint8_t resolver;
+	void *rd; //resolver_data
 	r_time resolve_time;
 	r_time resolve_time_finish;
 	r_time total_time;

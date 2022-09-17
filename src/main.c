@@ -1,6 +1,8 @@
 #include "main.h"
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include "resolver/resolver.h"
 #include "alligator_version.h"
 #include "events/a_signal.h"
 aconf *ac;
@@ -64,6 +66,8 @@ void system_initialize()
 
 	ac->system_userprocess = alligator_ht_init(NULL);
 	ac->system_groupprocess = alligator_ht_init(NULL);
+
+	ac->system_sysctl = alligator_ht_init(NULL);
 }
 
 void system_metric_initialize()
@@ -178,6 +182,8 @@ aconf* configuration()
 	ac->entrypoints = alligator_ht_init(NULL);
 
 	ac->aggregators = alligator_ht_init(NULL);
+
+	ac->resolver = alligator_ht_init(NULL);
 
 	ac->request_cnt = 0;
 	ts_initialize();

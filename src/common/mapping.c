@@ -104,7 +104,7 @@ void mapping_processing(context_arg *carg, metric_node *mnode, int64_t ival)
 			mnode->pb = init_percentile_buffer(mm->percentile, mm->percentile_size);
 
 		heap_insert(mnode->pb, ival);
-		calc_percentiles(carg, mnode->pb, mnode);
+		calc_percentiles(carg, mnode->pb, mnode, NULL, NULL);
 	}
 	else if (mm->le)
 		calc_buckets_cumulative(carg, mm, mnode, ival);

@@ -361,7 +361,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -383,10 +383,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
-					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup")))
+					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
 					{
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
+					}
+					else if (!strcmp(context_name, "resolver"))
+					{
+						json_t *resolver_data = json_string(wstokens[i].token->s);
+						json_array_object_insert(context_json, NULL, resolver_data);
 					}
 					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
 					{
@@ -394,7 +399,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, operator_name, arg_json);
 					}
-					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg"))
+					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg") || !strcmp(wstokens[i].token->s, "firewall"))
 					{
 						operator_json = json_object();
 
@@ -640,7 +645,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								}
 								else
 								{
-									if (isdigit(wstokens[i].token->s[sep+1]))
+									if (sisdigit(wstokens[i].token->s+sep+1))
 									{
 										int64_t num = strtoll(wstokens[i].token->s+sep+1, NULL, 10);
 										arg_value = json_integer(num);
@@ -802,6 +807,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
+
 				}
 				if (wstokens[i].end)
 				{

@@ -68,12 +68,15 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 		metric_add_labels3("alligator_process_term_signal", &tsignal, DATATYPE_INT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
 	}
 
-	metric_add_labels3("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
+	if (!carg->no_metric)
+	{
+		metric_add_labels3("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
 
-	uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-	carg->read_time_counter += read_time;
-	metric_add_labels3("alligator_read_time", &read_time, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
-	metric_add_labels3("alligator_read_total_time", &carg->read_time_counter, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
+		uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
+		carg->read_time_counter += read_time;
+		metric_add_labels3("alligator_read_time", &read_time, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
+		metric_add_labels3("alligator_read_total_time", &carg->read_time_counter, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregtor", "key", carg->key);
+	}
 
 	carg->lock = 0;
 
@@ -184,7 +187,6 @@ void process_client_del(context_arg *carg)
 	if (carg->remove_from_hash)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
-	printf("process_spawner %p, carg %p, key %s\n", ac->process_spawner, carg, carg->key);
 	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
 	unlink(carg->args[0]);
 	carg_free(carg);

@@ -77,7 +77,7 @@ void heapSort(int64_t *arr, int64_t n)
 	} 
 } 
 
-void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mnode)
+void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mnode, char *custom_mname, alligator_ht *custom_labels)
 {
 	int64_t i;
 	int64_t *arr = pb->arr;
@@ -96,20 +96,30 @@ void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mno
 	char quantilekey[30];
 	for (i=0; i<pb->percentile_size; i++)
 	{
-		alligator_ht *hash = alligator_ht_init(NULL);
+		alligator_ht *hash = NULL;
 
-		labels_t *labels = mnode->labels;
 		char metric_name[255];
-		//printf("labels: %p\n", labels);
-		//printf("labels->key: %p\n", labels->key);
-		snprintf(metric_name, 255, "%s_quantile", labels->key);
-		labels = labels->next;
-		for (; labels; labels = labels->next)
+		if (mnode)
 		{
-			if (!labels->key)
-				continue;
-			labels_hash_insert(hash, labels->name, labels->key);
-			//printf("labels name %s, key %s\n", labels->name, labels->key);
+			hash = alligator_ht_init(NULL);
+			labels_t *labels = mnode->labels;
+			//printf("labels: %p\n", labels);
+			//printf("labels->key: %p\n", labels->key);
+			snprintf(metric_name, 255, "%s_quantile", labels->key);
+			labels = labels->next;
+
+			for (; labels; labels = labels->next)
+			{
+				if (!labels->key)
+					continue;
+				labels_hash_insert(hash, labels->name, labels->key);
+				//printf("labels name %s, key %s\n", labels->name, labels->key);
+			}
+		}
+		else
+		{
+			hash = labels_dup(custom_labels);
+			snprintf(metric_name, 255, "%s", custom_mname);
 		}
 
 		if ( pb->percentile[i] == -1 )
@@ -199,6 +209,16 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 	pb->arr = calloc(pb->n, sizeof(int64_t));
 
 	return pb;
+}
+
+int64_t* percentile_init_3n(int64_t n1, int64_t n2, int64_t n3)
+{
+	int64_t *percentile = calloc(3, sizeof(int64_t));
+	percentile[0] = n1;
+	percentile[1] = n2;
+	percentile[2] = n3;
+
+	return percentile;
 }
 
 // ADD PERCEntiLES CONF

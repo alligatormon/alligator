@@ -8,6 +8,9 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	if (!key)
 		key = carg->key;
 
+	if (carg->no_metric)
+		return;
+
 	metric_add_labels4("alligator_connect", &srv_carg->conn_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_read", &srv_carg->read_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write", &srv_carg->write_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
@@ -40,6 +43,7 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	srv_carg->close_time_counter += close_time;
 	uint64_t exec_time = getrtime_mcs(carg->exec_time, carg->exec_time_finish, 0);
 	srv_carg->exec_time_counter += exec_time;
+	uint64_t request_time = getrtime_mcs(carg->connect_time, carg->close_time, 0);
 
 	metric_add_labels4("alligator_connect_time", &connect_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_tls_connect_time", &tls_connect_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
@@ -48,6 +52,7 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	metric_add_labels4("alligator_read_time", &read_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_tls_read_time", &tls_read_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_execute_time", &exec_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	metric_add_labels4("alligator_request_time", &request_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 
 	metric_add_labels4("alligator_connect_total_time", &srv_carg->connect_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_tls_connect_total_time", &srv_carg->tls_connect_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
@@ -56,6 +61,25 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	metric_add_labels4("alligator_read_total_time", &srv_carg->read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_tls_read_total_time", &srv_carg->tls_read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_execute_total_time", &srv_carg->exec_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+
+
+	if (carg->q_request_time)
+	{
+		heap_insert(carg->q_request_time, request_time);
+		heap_insert(carg->q_read_time, read_time);
+		heap_insert(carg->q_connect_time, connect_time);
+
+		alligator_ht *hash = alligator_ht_init(NULL);
+		labels_merge(hash, carg->labels);
+		labels_hash_insert(hash, "key", key);
+		labels_hash_insert(hash, "proto", proto);
+		labels_hash_insert(hash, "type", type);
+		labels_hash_insert(hash, "host", host);
+		calc_percentiles(carg, carg->q_read_time, NULL, "alligator_read_time_mcs_quantile", hash);
+		calc_percentiles(carg, carg->q_request_time, NULL, "alligator_request_time_mcs_quantile", hash);
+		calc_percentiles(carg, carg->q_connect_time, NULL, "alligator_connect_time_mcs_quantile", hash);
+		labels_hash_free(hash);
+	}
 
 	//probe_node *pn = carg->data;
 	//if (pn)
@@ -69,4 +93,6 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	//		printf("TLS\n");
 	//	}
 	//}
+	//int64_t a = 10;
+	//heap_insert(pb, a);
 }
