@@ -42,6 +42,7 @@ void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string* powerdns_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -27,11 +27,17 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 	char source[IPTABLES_LEN];
 	char destination[IPTABLES_LEN];
 	char comment[IPTABLES_LEN];
+	char data[IPTABLES_LEN];
+	char dports[IPTABLES_LEN];
+	char match_set[IPTABLES_LEN];
 	char *table = carg && carg->data ? carg->data : "unknown";
 
 	for (; cur < size; )
 	{
 		end = strcspn(metrics + cur, "\n");
+		*comment = 0;
+		*dports = 0;
+		*match_set = 0;
 
 		field_size = copysize = end + 1 > IPTABLES_LEN ? IPTABLES_LEN : end + 1;
 		strlcpy(field, metrics + cur, copysize);
@@ -97,23 +103,65 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 			str_get_next(field, destination, IPTABLES_LEN, " ", &cursor);
 			cursor += strspn(field + cursor, " ");
 
-			strlcpy(comment, field + cursor, end - cursor + 1);
-			prometheus_metric_name_normalizer(comment, end - cursor);
-			
-			if (ac->log_level > 0)
-				printf("pkts is %"PRId64", bytes is %"PRId64", target is '%s', prot is '%s', opt is '%s', in is '%s', out is '%s', source is '%s', destination is '%s', comment is '%s'\n", pkts, bytes, target, prot, opt, in, out, source, destination, comment);
-			metric_add_labels8("firewall_bytes", &bytes, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment);
-			metric_add_labels8("firewall_packages", &pkts, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment);
+			size_t data_size = strlcpy(data, field + cursor, end - cursor + 1);
+			for (uint64_t j = 0; j < data_size; )
+			{
+				size_t data_size = strcspn(data + j, " \t");
+				if (!strncmp(data + j, "multiport", 9))
+				{
+				}
+				else if (!strncmp(data + j, "dport", 5))
+				{
+					j += data_size;
+					j += strspn(data + j, " \t");
+					data_size = strcspn(data + j, " \t");
+
+					strlcpy(dports, data + j, data_size + 1);
+				}
+				else if (!strncmp(data + j, "match-set", 9))
+				{
+					j += data_size;
+					j += strspn(data + j, " \t");
+					data_size = strcspn(data + j, " \t");
+
+					strlcpy(match_set, data + j, data_size + 1);
+				}
+				else if (!strncmp(data + j, "/*", 2))
+				{
+					j += data_size;
+					j += strspn(data + j, " \t");
+					char *end = strstr(data + j, "*/");
+					if (!end)
+						data_size = size;
+					else
+						data_size = end - (data + j);
+
+					strlcpy(comment, data + j, data_size);
+					prometheus_metric_name_normalizer(comment, data_size - 1);
+				}
+
+				j += data_size;
+				j += strspn(data + j, " \t");
+			}
+			//
+			//if (ac->log_level > 0)
+			//	printf("pkts is %"PRId64", bytes is %"PRId64", target is '%s', prot is '%s', opt is '%s', in is '%s', out is '%s', source is '%s', destination is '%s', comment is '%s'\n", pkts, bytes, target, prot, opt, in, out, source, destination, comment);
+			metric_add_labels10("firewall_bytes", &bytes, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
+			metric_add_labels10("firewall_packages", &pkts, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment);
 		}
 
 		cur += end;
 		cur += strspn(metrics + cur, "\n");
 	}
+	carg->parser_status = 1;
 }
 
-void get_iptables_info(char *binarytable, char *table, context_arg *carg)
+void get_iptables_info(char *procfs, char *binarytable, char *table, context_arg *carg)
 {
-	context_arg *new = aggregator_oneshot(carg, binarytable, strlen(binarytable), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
+	char url[1024];
+	snprintf(url, 1024, "exec://grep -q conntrack %s/modules && %s -t %s", procfs, binarytable, table);
+	context_arg *new = aggregator_oneshot(carg, url, strlen(url), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
 	if (new)
 	{
 		new->data = table;

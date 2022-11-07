@@ -179,6 +179,7 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 		if (ac->log_level > 10)
 			printf("error parse certificate %s: '%s' with size %zu/%zu\n", filename, pem_cert, strlen(pem_cert), cert_size+2);
 		free(data);
+		free(filename);
 		return;
 	}
 
@@ -198,7 +199,9 @@ void fs_cert_check(char *name, char *fname, char *match, char *password, uint8_t
 		read_from_file(fname, 0, func, password);
 		//read_from_file(fname, 0, pem_check_cert, NULL);
 	else
+	{
 		free(fname);
+	}
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
@@ -238,13 +241,12 @@ int tls_fs_dir_read(char *name, char *path, char *match, char *password, uint8_t
 				strcpy(filebase, dirents[i].name);
 				acc += tls_fs_dir_read(name, fullname, match, password, type);
 			}
-			else if (dirents[i].type == UV_DIRENT_FILE)
+			else if (dirents[i].type == UV_DIRENT_FILE || dirents[i].type == UV_DIRENT_LINK)
 			{
 				//printf("\tpath '%s', dirents[i].name '%s'\n", path, dirents[i].name);
 				acc += 1;
 				char *filename = malloc(1024);
 				snprintf(filename, 1023, "%s/%s", path, dirents[i].name);
-				//printf("fs_cert_check(%s, %s, %s)\n", name, filename, match);
 				fs_cert_check(name, filename, match, password, type);
 			}
 			free((void*)dirents[i].name);

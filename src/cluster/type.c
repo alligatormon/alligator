@@ -55,7 +55,7 @@ string* oplog_record_get_string(oplog_record *oplog)
 
 	for (uint64_t i = 0; i < oplog->size; i++)
 	{
-		uint64_t index = i + oplog->begin % oplog->size;
+		uint64_t index = (i + oplog->begin) % oplog->size;
 		if (index == oplog->end)
 			break;
 
@@ -72,7 +72,7 @@ string* oplog_record_shift_string(oplog_record *oplog)
 
 	for (uint64_t i = 0; i < oplog->size; i++)
 	{
-		uint64_t index = i + oplog->begin % oplog->size;
+		uint64_t index = (i + oplog->begin) % oplog->size;
 		if (index == oplog->end)
 			break;
 

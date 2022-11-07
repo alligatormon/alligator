@@ -353,6 +353,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
 			json_t *key_entrypoint = NULL;
+			json_t *return_entrypoint = NULL;
+			json_t *auth_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -551,6 +553,34 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "key", key_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "return"))
+					{
+						if (!return_entrypoint)
+						{
+							++i;
+							return_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "return", return_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "auth"))
+					{
+						if (!auth_entrypoint)
+						{
+							auth_entrypoint = json_array();
+							json_array_object_insert(operator_json, "auth", auth_entrypoint);
+						}
+
+						++i;
+						json_t *type_auth = json_string(wstokens[i].token->s);
+
+						++i;
+						json_t *data_auth = json_string(wstokens[i].token->s);
+
+						json_t *instance_auth = json_object();
+						json_array_object_insert(auth_entrypoint, NULL, instance_auth);
+						json_array_object_insert(instance_auth, "type", type_auth);
+						json_array_object_insert(instance_auth, "data", data_auth);
+					}
 					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster"))
 					{
 						operator_json = json_object();
@@ -624,6 +654,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									printf("\taggregate arg_name '%s'\n", arg_name);
 
 								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
+								if (!strcmp(arg_name, "instance"))
+									semisep = wstokens[i].token->l;
+
 								json_t *arg_value = NULL;
 								if (semisep+1 < wstokens[i].token->l)
 								{

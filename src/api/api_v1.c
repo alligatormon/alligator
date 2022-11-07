@@ -10,6 +10,7 @@
 #include "parsers/multiparser.h"
 #include "action/action.h"
 #include "events/server.h"
+#include "common/base64.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -573,6 +574,62 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						carg->instance = strdup(json_string_value(json_instance));
 					}
 
+					json_t *json_return = json_object_get(entrypoint, "return");
+					if (json_return)
+					{
+						char *str_return = (char*)json_string_value(json_return);
+						if (!strcmp(str_return, "empty"))
+							carg->rreturn = ENTRYPOINT_RETURN_EMPTY;
+					}
+
+					json_t *json_auth = json_object_get(entrypoint, "auth");
+					if (json_auth)
+					{
+						uint64_t auth_size = json_array_size(json_auth);
+
+						for (uint64_t i = 0; i < auth_size; i++)
+						{
+							json_t *auth_obj = json_array_get(json_auth, i);
+
+							json_t *json_auth_type = json_object_get(auth_obj, "type");
+							char *auth_type = (char*)json_string_value(json_auth_type);
+
+							json_t *json_auth_data = json_object_get(auth_obj, "data");
+							char *auth_data = (char*)json_string_value(json_auth_data);
+							size_t auth_data_len = json_string_length(json_auth_data);
+
+							if (!strcmp(auth_type, "basic"))
+							{
+								if (!carg->auth_basic)
+								{
+									carg->auth_basic = calloc(1, sizeof(void*) * auth_size);
+									carg->auth_basic_size = auth_size;
+								}
+
+								uint64_t b64sz;
+								for (uint64_t i = 0; i < auth_size; ++i)
+									if (carg->auth_basic[i] == NULL)
+									{
+										carg->auth_basic[i] = base64_encode(auth_data, auth_data_len, &b64sz);
+									}
+										
+							}
+							else if (!strcmp(auth_type, "bearer"))
+							{
+								if (!carg->auth_bearer)
+								{
+									carg->auth_bearer = calloc(1, sizeof(void*) * auth_size);
+									carg->auth_bearer_size = auth_size;
+								}
+
+								for (uint64_t i = 0; i < auth_size; ++i)
+									if (carg->auth_bearer[i] == NULL)
+										carg->auth_bearer[i] = strndup(auth_data, auth_data_len);
+							}
+
+						}
+					}
+
 					json_t *tcp_json = json_object_get(entrypoint, "tcp");
 					uint64_t tcp_size = json_array_size(tcp_json);
 					for (uint64_t i = 0; i < tcp_size; i++)
@@ -782,9 +839,6 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 									ac->system_ipset_entries = 1;
 								}
 							}
-
-							if (ac->system_avg_metrics)
-								free(ac->system_avg_metrics);
 						}
 						else if (!strcmp(system_key, "sysfs"))
 						{

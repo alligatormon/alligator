@@ -8,11 +8,13 @@
 void nats_varz_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "nats_varz", carg);
+	carg->parser_status = 1;
 }
 
 void nats_subsz_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "nats_subsz", carg);
+	carg->parser_status = 1;
 }
 
 void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
@@ -22,6 +24,7 @@ void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "nats_connz", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }
 
 void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
@@ -31,6 +34,7 @@ void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "nats_routez", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }
 
 string *nats_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

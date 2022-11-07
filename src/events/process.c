@@ -84,11 +84,31 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	uv_read_stop((uv_stream_t*)&carg->channel);
 	uv_close((uv_handle_t*)&carg->channel, NULL);
+
+	uv_timer_stop(carg->tt_timer);
+	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
 }
 
 void timer_exec_sentinel(uv_timer_t* timer) {
-	printf("Sleeping...\n");
 	uv_timer_stop(timer);
+	alligator_cache_push(ac->uv_cache_timer, timer);
+
+	context_arg *carg = timer->data;
+	if (!carg)
+	{
+		return;
+	}
+
+	if (carg->log_level > 1)
+		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	(carg->timeout_counter)++;
+
+	string_null(carg->full_body);
+	if (!carg->parsed)
+		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+	uv_process_t *child_req = &carg->child_req;
+	_on_exit(child_req, 0, 0);
 }
 
 void env_struct_process(void *funcarg, void* arg)
@@ -199,7 +219,11 @@ void on_process_spawn(void* arg)
 	context_arg *carg = arg;
 	if (carg->lock)
 		return;
+	if (cluster_come_later(carg))
+		return;
+
 	carg->lock = 1;
+	carg->parser_status = 0;
 
 	int r;
 	uv_process_t *child_req = &carg->child_req;
@@ -230,11 +254,12 @@ void on_process_spawn(void* arg)
 	}
 	else
 	{
-		//printf("spawned process %s\n", carg->host);
 		uv_read_start((uv_stream_t*)channel, alloc_buffer, echo_read);
-		//uv_timer_t *timer = malloc(sizeof(uv_timer_t));
-		//uv_timer_init(loop, timer);
-		//uv_timer_start(timer, timer_exec_sentinel, 0, 10);
+
+		carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->tt_timer->data = carg;
+		uv_timer_init(carg->loop, carg->tt_timer);
+		uv_timer_start(carg->tt_timer, timer_exec_sentinel, carg->timeout, 0);
 	}
 }
 

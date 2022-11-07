@@ -160,7 +160,8 @@
       - python3-devel
       - systemd-devel
       - postgresql-devel
-      - java-latest-openjdk-devel
+      #- java-latest-openjdk-devel
+      - java-11-openjdk-devel
       - libuuid-devel
       - rpm-devel
       - nc
@@ -302,6 +303,10 @@
     loop:
     - dst: /usr/bin/cmake
       src: /usr/bin/cmake3
+    - dst: /usr/bin/java
+      src: /usr/lib/jvm/java-11-openjdk/bin/java
+    - dst: /usr/bin/javac
+      src: /usr/lib/jvm/java-11-openjdk/bin/javac
 
   - name: Create a symbolic link force gmake
     when: ansible_os_family == "Debian"

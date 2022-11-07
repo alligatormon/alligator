@@ -12,6 +12,31 @@ context_arg *carg_copy(context_arg *src)
 	carg->net_acl = network_range_duplicate(src->net_acl);
 	if (src->key)
 		carg->key = strdup(src->key);
+
+	if (carg->cluster)
+		carg->cluster = strdup(src->cluster);
+
+	if (carg->instance)
+		carg->instance = strdup(src->instance);
+
+	if (carg->auth_bearer)
+	{
+		carg->auth_bearer_size = src->auth_bearer_size;
+		carg->auth_bearer = calloc(1, sizeof(void*) * carg->auth_bearer_size);
+
+		for (uint64_t i = 0; i < carg->auth_bearer_size; ++i)
+			carg->auth_bearer[i] = strdup(src->auth_bearer[i]);
+	}
+
+	if (carg->auth_basic)
+	{
+		carg->auth_basic_size = src->auth_basic_size;
+		carg->auth_basic = calloc(1, sizeof(void*) * carg->auth_basic_size);
+
+		for (uint64_t i = 0; i < carg->auth_basic_size; ++i)
+			carg->auth_basic[i] = strdup(src->auth_basic[i]);
+	}
+
 	return carg;
 }
 
@@ -75,6 +100,9 @@ void carg_free(context_arg *carg)
 	if (carg->cluster)
 		free(carg->cluster);
 
+	if (carg->instance)
+		free(carg->instance);
+
 	if (carg->tls_ca_file)
 		free(carg->tls_ca_file);
 
@@ -100,6 +128,22 @@ void carg_free(context_arg *carg)
 		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
 		alligator_ht_done(carg->env);
 		free(carg->env);
+	}
+
+	if (carg->auth_basic)
+	{
+		for (uint64_t i = 0; i < carg->auth_basic_size; ++i)
+			if (carg->auth_basic[i])
+				free(carg->auth_basic[i]);
+		free(carg->auth_basic);
+	}
+
+	if (carg->auth_bearer)
+	{
+		for (uint64_t i = 0; i < carg->auth_bearer_size; ++i)
+			if (carg->auth_bearer[i])
+				free(carg->auth_bearer[i]);
+		free(carg->auth_bearer);
 	}
 
 	network_range_free(carg->net_acl);
@@ -382,6 +426,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	{
 		carg->cluster = strdup(json_string_value(json_cluster));
 		carg->cluster_size = json_string_length(json_cluster);
+	}
+
+	json_t *json_instance = json_object_get(root, "instance");
+	if (json_instance)
+	{
+		carg->instance = strdup(json_string_value(json_instance));
 	}
 
 	json_t *json_resolve = json_object_get(root, "resolve");

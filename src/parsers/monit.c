@@ -198,6 +198,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 			tmp += end;
 		}
 	}
+	carg->parser_status = 1;
 }
 
 string* monit_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

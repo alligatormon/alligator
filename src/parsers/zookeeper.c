@@ -24,6 +24,7 @@ void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 	else if(strstr(res, "leader"))
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "leader");
 	free(res);
+	carg->parser_status = 1;
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -32,6 +33,7 @@ void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	int64_t pvalue = atoi(cur+14);
 	metric_add_auto("zk_total_watches", &pvalue, DATATYPE_INT, carg);
+	carg->parser_status = 1;
 }
 void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -44,6 +46,7 @@ void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "rw");
 	}
+	carg->parser_status = 1;
 }
 
 string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

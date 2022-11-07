@@ -52,6 +52,7 @@ void patroni_string_to_label(json_t *root, char *str, context_arg *carg)
 	snprintf(metric_name, 254, "patroni_%s", str);
 	if (stat_str)
 		metric_add_labels(metric_name, &vl, DATATYPE_UINT, carg, str, stat_str);
+	carg->parser_status = 1;
 }
 
 void patroni_handler(char *metrics, size_t size, context_arg *carg)
@@ -113,11 +114,13 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void patroni_config_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "patroni_settings", carg);
+	carg->parser_status = 1;
 }
 
 string *patroni_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

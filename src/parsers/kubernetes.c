@@ -103,6 +103,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
@@ -265,6 +266,7 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 	json_decref(root);
 	alligator_ht_done(hash);
 	free(hash);
+	carg->parser_status = 1;
 }
 
 string* kubernetes_ingress_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

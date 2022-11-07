@@ -29,16 +29,66 @@ void cluster_recurse(void *funcarg, void* arg)
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
 		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
-		aggregator_oneshot(NULL, url->s, url->l, strdup(query), strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		string_free(url);
 		url_free(hi);
 	}
+}
+
+void cluster_aggregate_timer_recurse(uv_timer_t *handle)
+{
+	context_arg *carg = handle->data;
+
+	uv_timer_stop(handle);
+	alligator_cache_push(ac->uv_cache_timer, handle);
+	r_time time_now = setrtime();
+
+	if (!carg->cluster || !carg->instance)
+		return;
+
+	cluster_node* cn = get_cluster_node_from_carg(carg);
+
+	printf("SYNC run: %d && %d\n", cn->parser_status, (time_now.sec < cn->ttl));
+	if ((!cn->parser_status) && (time_now.sec < cn->ttl))
+		return;
+
+	uint64_t servers_size = cn->servers_size;
+	for (uint64_t i = 0; i < servers_size; i++)
+	{
+		string *url = string_new();
+		string_cat(url, "http://", 7);
+		string_cat(url, cn->servers[i].name, strlen(cn->servers[i].name));
+		string_cat(url, "/sharedlock?name=", 17);
+		string_cat(url, cn->name, strlen(cn->name));
+		string_cat(url, "&replica=", 9);
+		string_cat(url, carg->instance, strlen(carg->instance));
+		host_aggregator_info *hi = parse_url(url->s, url->l);
+		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
+		context_arg *carg = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_aggregate_sync_handler, "cluster_aggregate_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		if (carg)
+			carg->data = cn;
+		string_free(url);
+		url_free(hi);
+	}
+}
+
+void cluster_aggregate_recurse(void *funcarg, void* arg)
+{
+	context_arg *carg = arg;
+	uv_timer_t *timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+	timer->data = carg;
+	uv_timer_init(carg->loop, timer);
+	uv_timer_start(timer, cluster_aggregate_timer_recurse, 0, 0);
 }
 
 void cluster_sync(uv_timer_t* handle) {
 	(void)handle;
 	if (ac->cluster)
 		if (alligator_ht_count(ac->cluster))
+		{
 			alligator_ht_foreach_arg(ac->entrypoints, cluster_recurse, NULL);
+			alligator_ht_foreach_arg(ac->aggregator, cluster_aggregate_recurse, NULL);
+		}
 }
 
 void cluster_handler()

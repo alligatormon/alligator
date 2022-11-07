@@ -10,6 +10,12 @@
 
 void rpm_handler(char *metrics, size_t size, context_arg *carg)
 {
+	uint64_t failedval = 0;
+	if (!size)
+		failedval = 1;
+
+	metric_add_auto("rpmdb_load_failed", &failedval, DATATYPE_UINT, ac->system_carg);
+
 	char field[RPMLEN];
 	char version[RPMLEN];
 	char name[RPMLEN];
@@ -49,6 +55,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	metric_add_auto("package_total", &pkgs, DATATYPE_UINT, ac->system_carg);
+	carg->parser_status = 1;
 }
 
 void get_rpm_info()

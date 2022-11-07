@@ -4,6 +4,8 @@
 #include "parsers/http_proto.h"
 #include "common/selector.h"
 #include "common/http.h"
+#define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"
+#define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"
 
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
@@ -19,6 +21,10 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 	{
 		oplog_post_router(response, http_data, carg);
 	}
+	else if (!strncmp(http_data->uri, "/sharedlock", 11))
+	{
+		sharedlock_post_router(response, http_data, carg);
+	}
 	else
 	{
 		if (ac->log_level > 2)
@@ -26,7 +32,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 		if (ac->log_level > 10)
 			printf("get metrics from body:\n%s\n", body);
 		multicollector(http_data, NULL, 0, carg);
-		string_cat(response, "HTTP/1.1 202 Accepted\n\n", strlen("HTTP/1.1 202 Accepted\n\n")+1);
+		string_cat(response, "HTTP/1.1 202 Accepted\r\n\r\n", strlen("HTTP/1.1 202 Accepted\r\n\r\n")+1);
 	}
 }
 
@@ -74,9 +80,17 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		oplog_get_router(response, http_data, carg);
 	}
+	else if (!strncmp(http_data->uri, "/sharedlock", 11))
+	{
+		sharedlock_get_router(response, http_data, carg);
+	}
 	else if (!strncmp(http_data->uri, "/resolver", 9))
 	{
 		resolver_router(response, http_data, carg);
+	}
+	else if (!strncmp(http_data->uri, "/ready", 6))
+	{
+		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
 	}
 	else
 	{
@@ -93,6 +107,12 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 
 		free(content_length);
 		string_free(body);
+	}
+
+	if (carg->rreturn == ENTRYPOINT_RETURN_EMPTY)
+	{
+		string_null(response);
+		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
 	}
 }
 
@@ -180,6 +200,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 	if (carg)
 	{
 		carg->parsed = 1;
+		carg->parser_status = 0;
 		carg->exec_time = setrtime();
 	}
 	
@@ -254,6 +275,7 @@ string* blackbox_mesg(host_aggregator_info *hi, void *arg, void *env, void *prox
 
 void blackbox_null(char *metrics, size_t size, context_arg *carg)
 {
+	carg->parser_status = 1;
 }
 
 void blackbox_parser_push()

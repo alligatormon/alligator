@@ -22,7 +22,6 @@ void tcp_client_closed(uv_handle_t *handle)
 
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	if (carg->tls)
 	{
@@ -542,9 +541,12 @@ void tcp_client_connect(void *arg)
 
 	if (carg->lock)
 		return;
+	if (cluster_come_later(carg))
+		return;
 
 	carg->lock = 1;
 	carg->parsed = 0;
+	carg->parser_status = 0;
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
@@ -591,12 +593,18 @@ void unix_client_connect(void *arg)
 	if (carg->log_level > 1)
 		printf("%"u64": unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
+	if (carg->lock)
+		return;
+	if (cluster_come_later(carg))
+		return;
+
 	carg->lock = 1;
 	carg->parsed = 0;
+	carg->parser_status = 0;
 	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
-	carg->tt_timer = calloc(1, sizeof(uv_timer_t));
+	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 	carg->tt_timer->data = carg;
 	uv_timer_init(carg->loop, carg->tt_timer);
 	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
@@ -679,6 +687,8 @@ char* tcp_client(void *arg)
 
 	context_arg *carg = arg;
 
+	if (carg->key)
+		free(carg->key);
 	carg->key = malloc(255);
 	smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
 
@@ -693,7 +703,8 @@ char* unix_tcp_client(context_arg* carg)
 	if (!carg)
 		return NULL;
 
-	carg->key = malloc(255);
+	if (!carg->key)
+		carg->key = malloc(255);
 	snprintf(carg->key, 255, "%s", carg->host);
 
 	alligator_ht_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));

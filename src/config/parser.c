@@ -13,7 +13,7 @@ void config_json(char *json)
 
 void config_parse_entry(char *filepath)
 {
-	string* context = get_file_content(filepath);
+	string* context = get_file_content(filepath, 1);
 	if (!context)
 		return;
 

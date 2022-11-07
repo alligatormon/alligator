@@ -411,12 +411,19 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 		return 1;
 
 	if (carg->auth_basic && http_data->auth_basic)
-		if (!strcmp(carg->auth_basic, http_data->auth_basic))
-			return 1;
+	{
+		for(uint64_t i = 0; i < carg->auth_basic_size; ++i)
+		{
+			printf("[%d] test '%s' and '%s'\n", i, carg->auth_basic[i], http_data->auth_basic);
+			if ((carg->auth_basic[i]) && (!strcmp(carg->auth_basic[i], http_data->auth_basic)))
+				return 1;
+		}
+	}
 
 	if (carg->auth_bearer && http_data->auth_bearer)
-		if (!strcmp(carg->auth_bearer, http_data->auth_bearer))
-			return 1;
+		for(uint64_t i = 0; i < carg->auth_bearer_size; ++i)
+			if ((carg->auth_bearer[i]) && (!strcmp(carg->auth_bearer[i], http_data->auth_bearer)))
+				return 1;
 
 	return 0;
 }

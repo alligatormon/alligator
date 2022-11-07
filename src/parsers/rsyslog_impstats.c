@@ -94,4 +94,5 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 		else
 			metric_add_labels3("rsyslog_stats", &vl, DATATYPE_INT, carg, "module", module, "origin", origin, "key", key);
 	}
+	carg->parser_status = 1;
 }

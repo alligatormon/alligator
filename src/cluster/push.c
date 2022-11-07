@@ -85,6 +85,16 @@ void cluster_push_json(json_t *cluster)
 		}
 	}
 
+	json_t *type_key = json_object_get(cluster, "type");
+	if (type_key)
+	{
+		char *data = (char*)json_string_value(type_key);
+		if (!strcmp(data, "sharedlock"))
+			cn->type = CLUSER_TYPE_SHAREDLOCK;
+		else if (!strcmp(data, "oplog"))
+			cn->type = CLUSER_TYPE_OPLOG;
+	}
+
 	cn->timeout = 5000;
 	cn->timeout = config_get_intstr_json(cluster, "timeout");
 

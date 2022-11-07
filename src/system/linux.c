@@ -1083,7 +1083,7 @@ void simple_pidfile_scrape(char *find_pid)
 	if (ac->log_level > 1)
 		printf("PIDfile check %s\n", find_pid);
 
-	string* pid = get_file_content(find_pid);
+	string* pid = get_file_content(find_pid, 1);
 	if (!pid)
 		return;
 
@@ -2845,7 +2845,7 @@ void get_cpu_avg()
 void baseboard_info()
 {
 	uint64_t val = 1;
-	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor");
+	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor", 0);
 	if (board_vendor)
 	{
 		board_vendor->s[strcspn(board_vendor->s, "\n\r")] = 0;
@@ -2853,7 +2853,7 @@ void baseboard_info()
 		string_free(board_vendor);
 	}
 
-	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name");
+	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name", 0);
 	if (product_name)
 	{
 		product_name->s[strcspn(product_name->s, "\n\r")] = 0;
@@ -2861,7 +2861,7 @@ void baseboard_info()
 		string_free(product_name);
 	}
 
-	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag");
+	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag", 0);
 	if (asset_tag)
 	{
 		asset_tag->s[strcspn(asset_tag->s, "\n\r")] = 0;
@@ -2869,7 +2869,7 @@ void baseboard_info()
 		string_free(asset_tag);
 	}
 
-	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version");
+	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version", 0);
 	if (board_version)
 	{
 		board_version->s[strcspn(board_version->s, "\n\r")] = 0;
@@ -2877,7 +2877,7 @@ void baseboard_info()
 		string_free(board_version);
 	}
 
-	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial");
+	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial", 0);
 	if (board_serial)
 	{
 		board_serial->s[strcspn(board_serial->s, "\n\r")] = 0;
@@ -2885,7 +2885,7 @@ void baseboard_info()
 		string_free(board_serial);
 	}
 
-	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor");
+	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor", 0);
 	if (bios_vendor)
 	{
 		bios_vendor->s[strcspn(bios_vendor->s, "\n\r")] = 0;
@@ -2893,7 +2893,7 @@ void baseboard_info()
 		string_free(bios_vendor);
 	}
 
-	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version");
+	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version", 0);
 	if (bios_version)
 	{
 		bios_version->s[strcspn(bios_version->s, "\n\r")] = 0;
@@ -2918,7 +2918,7 @@ void baseboard_info()
 
 		char blockpath[255];
 		snprintf(blockpath, 254, "/sys/class/block/%s/device/model", entry->d_name);
-		string *disk_model = get_file_content(blockpath);
+		string *disk_model = get_file_content(blockpath, 0);
 		if (disk_model)
 		{
 			++disks_num;
@@ -3487,6 +3487,49 @@ void get_nfs_stats()
 	parse_nfs_stats("nfs", "nfs_client_");
 }
 
+void get_systemd_scopes()
+{
+	char dirname[255];
+	snprintf(dirname, 255, "%s/systemd/system/", ac->system_rundir);
+
+	uint64_t session = 0;
+	uint64_t run = 0;
+	uint64_t user = 0;
+
+	struct dirent *entry;
+	DIR* dp = opendir(dirname);
+	if (!dp)
+	{
+		return;
+	}
+
+	while((entry = readdir(dp)))
+	{
+		if (!strncmp(entry->d_name, "session", 7))
+		{
+			if (!strstr(entry->d_name, ".scope.d"))
+				++session;
+		}
+
+		else if (!strncmp(entry->d_name, "run", 3))
+		{
+			if (!strstr(entry->d_name, ".scope.d"))
+				++run;
+		}
+
+		else if (!strncmp(entry->d_name, "user", 3))
+		{
+			if (!strstr(entry->d_name, ".slice.d"))
+				++user;
+		}
+	}
+
+	metric_add_labels("systemd_scopes_count", &session, DATATYPE_UINT, ac->system_carg, "type", "session");
+	metric_add_labels("systemd_scopes_count", &run, DATATYPE_UINT, ac->system_carg, "type", "run");
+	metric_add_labels("systemd_scopes_count", &user, DATATYPE_UINT, ac->system_carg, "type", "user");
+	closedir(dp);
+}
+
 void get_system_metrics()
 {
 	int8_t platform = -1;
@@ -3506,6 +3549,7 @@ void get_system_metrics()
 		get_utmp_info();
 		get_drbd_info();
 		get_nfs_stats();
+		get_systemd_scopes();
 		if (!platform)
 		{
 			char edacdir[255];
@@ -3580,10 +3624,16 @@ void get_system_metrics()
 		//get_iptables_info("nat", ac->system_carg);
 		//get_iptables6_info("filter", ac->system_carg);
 		//get_iptables6_info("nat", ac->system_carg);
-		get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t filter", "filter", ac->system_carg);
-		get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t nat", "nat", ac->system_carg);
-		get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t filter", "filter", ac->system_carg);
-		get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
+
+		//get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t filter", "filter", ac->system_carg);
+		//get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t nat", "nat", ac->system_carg);
+		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t filter", "filter", ac->system_carg);
+		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
+
+		get_iptables_info(ac->system_procfs, "iptables", "nat", ac->system_carg);
+		get_iptables_info(ac->system_procfs, "iptables", "filter", ac->system_carg);
+		get_iptables_info(ac->system_procfs, "ip6tables", "nat", ac->system_carg);
+		get_iptables_info(ac->system_procfs, "ip6tables", "filter", ac->system_carg);
 
 		if (ac->system_ipset)
 			ipset();

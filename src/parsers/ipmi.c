@@ -52,6 +52,7 @@ void event_log_for(void *funcarg, void* arg)
 
 	metric_add_labels3("ipmi_eventlog_key", &eventnode->val, DATATYPE_UINT, carg, "key",  eventnode->key, "state", eventnode->state, "resource", eventnode->resource);
 	free(eventnode);
+	carg->parser_status = 1;
 }
 
 // return 0 if success
@@ -225,6 +226,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
+	carg->parser_status = 1;
 }
 
 void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
@@ -333,6 +335,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 	alligator_ht_foreach_arg(idata->event_log, event_log_for, carg);
 	alligator_ht_done(idata->event_log);
 	metric_add_auto("ipmi_eventlog_size", &num, DATATYPE_UINT, carg);
+	carg->parser_status = 1;
 }
 
 void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
@@ -391,6 +394,7 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
+	carg->parser_status = 1;
 }
 
 void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
@@ -467,6 +471,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
+	carg->parser_status = 1;
 }
 
 void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
@@ -529,6 +534,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 		i += strcspn(metrics+i, "\n");
 	}
 	metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
+	carg->parser_status = 1;
 }
 
 string* ipmi_sensor_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -591,7 +591,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
 
 	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE))
+	{
+		labels_hash_free(lbl);
 		return 1;
+	}
 
 	r_time end_parsing = setrtime();
 

@@ -196,12 +196,14 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	carg->parser_status = 1;
 	json_decref(root);
 }
 
 void elasticsearch_cluster_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "elasticsearch_cluster", carg);
+	carg->parser_status = 1;
 }
 
 void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
@@ -214,17 +216,17 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	json_t *value, *value2, *value3, *value4;
-	const char *key, *key2, *key3, *key4;
-	int64_t vl = 1;
-	double dl;
-
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	char* cluster_name = (char*)json_string_value(cluster_name_json);
 	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		es_data->cluster_name = strdup(cluster_name);
+
+	json_t *value, *value2, *value3, *value4;
+	const char *key, *key2, *key3, *key4;
+	int64_t vl = 1;
+	double dl;
 
 	// get cluster status
 	json_t *cluster_status_json = json_object_get(root, "status");
@@ -320,17 +322,11 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_error_t error;
-	json_t *root = json_loads(metrics, 0, &error);
-	if (!root)
-	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
-		return;
-	}
 
 	// get cluster name
 	//json_t *cluster_name_json = json_object_get(root, "cluster_name");
@@ -339,6 +335,14 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		return;
+
+	json_error_t error;
+	json_t *root = json_loads(metrics, 0, &error);
+	if (!root)
+	{
+		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
 
 	char* cluster_name = es_data->cluster_name;
 
@@ -492,6 +496,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	carg->parser_status = 1;
 	json_decref(root);
 }
 
@@ -574,6 +579,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 		}
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string *elastic_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

@@ -15,6 +15,7 @@ void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }
 
 void eventstore_projections_handler(char *metrics, size_t size, context_arg *carg)
@@ -24,6 +25,7 @@ void eventstore_projections_handler(char *metrics, size_t size, context_arg *car
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }
 
 void eventstore_info_handler(char *metrics, size_t size, context_arg *carg)
@@ -33,6 +35,7 @@ void eventstore_info_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }
 
 string *eventstore_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

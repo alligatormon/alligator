@@ -31,6 +31,9 @@ void cluster_object_del(cluster_node *cn)
 		free(cn->sharding_key);
 	}
 
+	if (cn->shared_lock_instance)
+		string_free(cn->shared_lock_instance);
+
 	maglev_loopup_item_clean(&cn->m_maglev_hash, 0);
 	maglev_loopup_item_clean(&cn->m_maglev_hash, 1);
 

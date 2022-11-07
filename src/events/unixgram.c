@@ -69,14 +69,18 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 
 void do_unixgram(void *arg)
 {
-
 	if ( !arg )
 		return;
+
 	context_arg *carg = arg;
 	printf("run %s\n", carg->key);
 	printf("arg %p\n", carg);
 	//char *client_sock = malloc(255);
 
+	if (cluster_come_later(carg))
+		return;
+
+	carg->parser_status = 0;
 	socklen_t remote_len = sizeof(struct sockaddr_un);
 	struct sockaddr_un *remote = calloc(1, remote_len);
 	remote->sun_family = AF_UNIX;
@@ -135,6 +139,8 @@ void do_unixgram_client(char *unixsockaddr, void *handler, char *mesg)
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->parser_handler = handler;
 	carg->mesg = mesg;
+	if (carg->key)
+		free(carg->key);
 	carg->key = unixsockaddr;
 
 	alligator_ht_insert(ac->unixgram_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
@@ -182,7 +188,8 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	//socklen_t remote_len = sizeof(struct sockaddr_un);
 	//struct sockaddr_un *remote = calloc(1, remote_len);
 
-	carg->key = malloc(255);
+	if (!carg->key)
+		carg->key = malloc(255);
 	snprintf(carg->key, 255, "unixgram:%s", addr);
 
 	int s = socket(AF_UNIX, SOCK_DGRAM, 0);

@@ -79,6 +79,7 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string* consul_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -18,7 +18,10 @@ void oplog_api_response(string *response, string *body)
 	string_cat(response, content_length, strlen(content_length));
 
 	if (body)
+	{
 		string_string_cat(response, body);
+		string_free(body);
+	}
 
 	free(content_length);
 }
@@ -50,4 +53,11 @@ void oplog_post_router(string *response, http_reply_data* http_data, context_arg
 	oplog_api_response(response, body);
 
 	http_args_free(args);
+
+	if (carg->rreturn == ENTRYPOINT_RETURN_EMPTY)
+	{
+		string_null(response);
+		string_cat(response, OPLOG_RESPONSE_HEADERS, strlen(OPLOG_RESPONSE_HEADERS));
+		string_cat(response, "\r\n", 2);
+	}
 }

@@ -181,6 +181,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 	}
+	carg->parser_status = 1;
 }
 
 string* moosefs_mfscli_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

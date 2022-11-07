@@ -62,8 +62,8 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
-
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void kubeconfig_parser_push()

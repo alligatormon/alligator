@@ -11,6 +11,7 @@
 void rabbitmq_overview_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "rabbitmq", carg);
+	carg->parser_status = 1;
 }
 void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -129,6 +130,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -198,6 +200,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -337,6 +340,7 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
@@ -566,6 +570,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -683,6 +688,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string *rabbitmq_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

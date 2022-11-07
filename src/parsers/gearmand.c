@@ -50,6 +50,7 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_auto("gearmand_server_total", &total, DATATYPE_INT, carg);
 	metric_add_auto("gearmand_server_running", &running, DATATYPE_INT, carg);
 	metric_add_auto("gearmand_server_available_workers", &available_workers, DATATYPE_INT, carg);
+	carg->parser_status = 1;
 }
 
 int8_t gearmand_validator(char *data, size_t size)

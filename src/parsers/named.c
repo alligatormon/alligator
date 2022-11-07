@@ -449,6 +449,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 			named_get_value(carg, tmp, "named_memory_summary", "<Lost>", "lost", NULL, NULL, ctx_end);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 string* named_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -1,4 +1,5 @@
 #include "dstructures/ht.h"
+#include <unistd.h>
 
 void* alligator_ht_init(alligator_ht *h)
 {

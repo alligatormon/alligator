@@ -55,6 +55,7 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
+	carg->parser_status = 1;
 }
 
 int8_t nsd_validator(char *data, size_t size)

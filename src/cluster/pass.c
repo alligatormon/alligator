@@ -40,7 +40,19 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *hash, void* va
 	if (!carg->cluster)
 		return 0;
 
+	if (!carg->instance)
+		return 0;
+
 	cluster_node* cn = get_cluster_node_from_carg(carg);
+	if (!cn)
+	{
+		if (carg->log_level > 0)
+			printf("No cluster with name %s\n", carg->cluster);
+		return 0;
+	}
+
+	if (cn->type == CLUSER_TYPE_SHAREDLOCK)
+		return 0;
 
 	string *hash_str = string_new();
 
@@ -84,6 +96,8 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *hash, void* va
 			string_cat(oplog, "\t", 1);
 			string_cat(oplog, cn->servers[current_index].name, strlen(cn->servers[current_index].name));
 			string_cat(oplog, "\t", 1);
+			if (carg->log_level > 0)
+				printf("\tpass metric to %s\n", cn->servers[current_index].name);
 		}
 		else
 		{

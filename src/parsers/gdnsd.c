@@ -7,6 +7,7 @@
 void gdnsd_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics+8, 0, NULL, "gdnsd", carg);
+	carg->parser_status = 1;
 }
 
 int8_t gdnsd_validator(char *data, size_t size)

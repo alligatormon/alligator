@@ -33,6 +33,7 @@ void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		plain_parse(clmetrics, strlen(clmetrics), "=", ";", "aerospike_", 10, carg);
 		free(clmetrics);
 	}
+	carg->parser_status = 1;
 }
 
 void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *carg)
@@ -75,7 +76,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		uint64_t writelen = 20 + elem_size-1;
 
 		char *key = malloc(255);
-		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), aeronamespace+8);
+		snprintf(key, 255, "(tcp://%s:%s)/%s", carg->host, carg->port, aeronamespace+8);
 		key[strlen(key) - 1] = 0;
 		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace", aerospike_validator, key, carg->data);
 
@@ -83,6 +84,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		tmp += elem_size;
 		i += elem_size;
 	}
+	carg->parser_status = 1;
 }
 
 void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
@@ -182,6 +184,7 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 		else
 			metric_add_labels(key, &vl, DATATYPE_UINT, carg, "namespace", namespace);
 	}
+	carg->parser_status = 1;
 }
 
 void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
@@ -192,13 +195,8 @@ void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 	tmp[size - (tmp-metrics) - 1] = 0;
 	uint64_t vl = 1;
 	metric_add_labels("aerospike_status", &vl, DATATYPE_UINT, carg, "status", tmp);
+	carg->parser_status = 1;
 }
-
-//int8_t aerospike_validator(char *data, size_t size)
-//{
-//	return 1;
-//}
-
 
 string* aerospike_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {

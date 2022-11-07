@@ -138,6 +138,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_queries_foreach(void *funcarg, void* arg)
@@ -195,6 +196,7 @@ void druid_status_health_handler(char *metrics, size_t size, context_arg *carg)
 		health = 1;
 	}
 	metric_add_auto("druid_status_health", &health, DATATYPE_UINT, carg);
+	carg->parser_status = 1;
 }
 
 void druid_selfDiscovered_status_handler(char *metrics, size_t size, context_arg *carg)
@@ -215,6 +217,7 @@ void druid_selfDiscovered_status_handler(char *metrics, size_t size, context_arg
 	metric_add_auto("druid_selfDiscovered_status", &selfDiscovered, DATATYPE_UINT, carg);
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_coordinator_isleader_handler(char *metrics, size_t size, context_arg *carg)
@@ -235,6 +238,7 @@ void druid_coordinator_isleader_handler(char *metrics, size_t size, context_arg 
 	metric_add_auto("druid_coordinator_isLeader", &leader, DATATYPE_UINT, carg);
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_coordinator_leader_handler(char *metrics, size_t size, context_arg *carg)
@@ -263,6 +267,7 @@ void druid_coordinator_loadstatus_handler(char *metrics, size_t size, context_ar
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *carg)
@@ -309,6 +314,7 @@ void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_coordinator_compaction_status_handler(char *metrics, size_t size, context_arg *carg)
@@ -363,6 +369,7 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 		}
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_coordinator_metadata_datasources_handler(char *metrics, size_t size, context_arg *carg)
@@ -434,6 +441,7 @@ void druid_coordinator_metadata_datasources_handler(char *metrics, size_t size, 
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_indexer_tasks_handler(char *metrics, size_t size, context_arg *carg)
@@ -483,6 +491,7 @@ void druid_indexer_tasks_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_indexer_supervisor_handler(char *metrics, size_t size, context_arg *carg)
@@ -519,6 +528,7 @@ void druid_indexer_supervisor_handler(char *metrics, size_t size, context_arg *c
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
@@ -543,16 +553,19 @@ void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void druid_historical_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "druid_historical", carg);
+	carg->parser_status = 1;
 }
 
 void druid_broker_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "druid_broker", carg);
+	carg->parser_status = 1;
 }
 
 string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

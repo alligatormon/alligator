@@ -21,17 +21,20 @@ typedef struct ch_columns_types {
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
 	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, carg);
+	carg->parser_status = 1;
 }
 
 
 void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_arg *carg)
 {
 	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Asynchronous_", 24, carg);
+	carg->parser_status = 1;
 }
 
 void clickhouse_system_events_handler(char *metrics, size_t size, context_arg *carg)
 {
 	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Events_", 18, carg);
+	carg->parser_status = 1;
 }
 
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
@@ -117,6 +120,7 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 	free(database);
 	free(column);
 	free(table);
+	carg->parser_status = 1;
 }
 
 void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
@@ -216,6 +220,7 @@ void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 	free(database);
 	free(table);
 	free(is_mutation);
+	carg->parser_status = 1;
 }
 
 void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg)
@@ -273,6 +278,7 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 		metric_add_labels2("Clickhouse_Dictionary_Stats", &load_factor, DATATYPE_DOUBLE, carg, "name", name, "type", "load_factor");
 	}
 	free(name);
+	carg->parser_status = 1;
 }
 
 void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
@@ -383,6 +389,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	free(database);
 	free(table);
+	carg->parser_status = 1;
 }
 
 void ch_columns_types_free(ch_columns_types *column_types, uint64_t size)
@@ -485,6 +492,7 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 		}
 	}
 	ch_columns_types_free(column_types, columns_count);
+	carg->parser_status = 1;
 }
 
 void clickhouse_queries_foreach(void *funcarg, void* arg)

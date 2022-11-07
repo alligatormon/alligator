@@ -17,6 +17,7 @@ void beanstalkd_handler(char *metrics, size_t size, context_arg *carg)
 	tmp += strspn(tmp, "\n");
 	
 	plain_parse(tmp, size, ": ", "\n", "beanstalkd_", 11, carg);
+	carg->parser_status = 1;
 }
 
 int8_t beanstalkd_validator(char *data, size_t size)

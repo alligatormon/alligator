@@ -42,6 +42,8 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		uv_udp_recv_stop(req);
 		uv_close((uv_handle_t*) req, NULL);
 	}
+
+	carg->lock = 0;
 	free(buf->base);
 }
 
@@ -99,8 +101,14 @@ void udp_client_connect(void *arg)
 	if (ac->log_level > 1)
 		printf("%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
+	if (carg->lock)
+		return;
+	if (cluster_come_later(carg))
+		return;
+
 	carg->lock = 1;
 	carg->parsed = 0;
+	carg->parser_status = 0;
 	carg->curr_ttl = carg->ttl;
 
 	char *addr = NULL;

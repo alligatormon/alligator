@@ -58,6 +58,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 
 		i = tmp - metrics;
 	}
+	carg->parser_status = 1;
 }
 
 string* httpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

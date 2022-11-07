@@ -11,6 +11,7 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	if (carg->no_metric)
 		return;
 
+	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", proto, "type", type, "host", host, "key", key, "parser", carg->parser_name ? carg->parser_name : "");
 	metric_add_labels4("alligator_connect", &srv_carg->conn_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_read", &srv_carg->read_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write", &srv_carg->write_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);

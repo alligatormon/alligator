@@ -221,13 +221,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels3("nginx_upstream_check_fall_count", &fall, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
 	}
 
-	//double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
-	//double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
-
-	//metric_add_auto("nginx_upstream_upstream_live_total", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
-	//metric_add_auto("nginx_upstream_upstream_dead_total", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
-	//metric_add_auto("nginx_upstream_upstream_live_total_percent", &percent_live, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
-	//metric_add_auto("nginx_upstream_upstream_dead_total_percent", &percent_dead, DATATYPE_DOUBLE, carg, "upstream", upstream_counter);
+	carg->parser_status = 1;
 }
 
 string* nginx_upstream_check_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

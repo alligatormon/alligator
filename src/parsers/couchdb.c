@@ -74,6 +74,7 @@ void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
@@ -122,6 +123,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchdb_active_tasks_handler(char *metrics, size_t size, context_arg *carg)
@@ -213,6 +215,7 @@ void couchdb_active_tasks_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
@@ -267,6 +270,7 @@ void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
@@ -293,6 +297,7 @@ void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string *couchdb_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

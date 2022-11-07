@@ -10,4 +10,5 @@ void php_fpm_handler(char *metrics, size_t size, context_arg *carg)
 	json_parser_entry(metrics, 1, parsestring, "php_fpm", carg);
 	free(parsestring[0]);
 	free(parsestring);
+	carg->parser_status = 1;
 }

@@ -150,4 +150,5 @@ void solr_handler(char *metrics, size_t size, context_arg *carg)
 	//}
 
 	//json_decref(root);
+	//carg->parser_status = 1;
 }

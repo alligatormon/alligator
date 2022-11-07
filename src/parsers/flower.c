@@ -99,6 +99,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t task_retried = atoll(cur);
 			metric_add_labels("flower_tasks_retried", &task_retried, DATATYPE_INT, carg, "worker",  label);
 	}
+	carg->parser_status = 1;
 }
 
 string* flower_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

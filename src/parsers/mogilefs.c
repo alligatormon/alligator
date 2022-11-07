@@ -68,6 +68,7 @@ void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char
 			metric_add_labels(metric_name, &val, DATATYPE_INT, carg, itemname, item);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void mogilefs_device_list(char *metrics, size_t size, context_arg *carg)
@@ -85,6 +86,7 @@ void mogilefs_device_list(char *metrics, size_t size, context_arg *carg)
 	}
 
 	mogilefs_full_item_hash(metrics + 3, size - 3, carg, "mogilefs_device_list_", "device");
+	carg->parser_status = 1;
 }
 
 void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
@@ -147,6 +149,7 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
@@ -194,6 +197,7 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void mogilefs_host_list(char *metrics, size_t size, context_arg *carg)
@@ -211,6 +215,7 @@ void mogilefs_host_list(char *metrics, size_t size, context_arg *carg)
 	}
 
 	mogilefs_full_item_hash(metrics + 3, size - 3, carg, "mogilefs_host_list_", "host");
+	carg->parser_status = 1;
 }
 
 void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *name)
@@ -254,6 +259,7 @@ void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *nam
 			metric_add_auto(metric_name, &val, DATATYPE_INT, carg);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void mogilefs_stats(char *metrics, size_t size, context_arg *carg)
@@ -262,6 +268,7 @@ void mogilefs_stats(char *metrics, size_t size, context_arg *carg)
 		printf("mogilefs_stats get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_stats_");
+	carg->parser_status = 1;
 }
 
 void mogilefs_jobs(char *metrics, size_t size, context_arg *carg)
@@ -270,6 +277,7 @@ void mogilefs_jobs(char *metrics, size_t size, context_arg *carg)
 		printf("mogilefs_jobs get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_jobs_");
+	carg->parser_status = 1;
 }
 
 void mogilefs_queue(char *metrics, size_t size, context_arg *carg)
@@ -278,6 +286,7 @@ void mogilefs_queue(char *metrics, size_t size, context_arg *carg)
 		printf("mogilefs_queue get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_queue_");
+	carg->parser_status = 1;
 }
 
 string* mogilefs_device_list_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

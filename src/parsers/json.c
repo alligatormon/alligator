@@ -26,6 +26,7 @@ void json_handler(char *metrics, size_t size, context_arg *carg)
 		json_decref(root);
 		json_parser_entry(data, 0, NULL, "json", carg);
 	}
+	carg->parser_status = 1;
 }
 
 string* json_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

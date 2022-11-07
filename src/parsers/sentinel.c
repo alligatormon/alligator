@@ -87,6 +87,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, carg, "name", name, "address", address);
 
 	free(res);
+	carg->parser_status = 1;
 }
 
 string* sentinel_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

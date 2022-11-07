@@ -20,6 +20,7 @@
 #include "common/selector.h"
 #include "common/url.h"
 #include "picohttpparser.h"
+#define ENTRYPOINT_RETURN_EMPTY 1
 
 typedef struct env_struct {
 	char *k;
@@ -79,8 +80,10 @@ typedef struct context_arg
 	uint64_t buffer_response_size;
 
 	char *namespace;
-	char *auth_basic;
-	char *auth_bearer;
+	char **auth_basic;
+	uint64_t auth_basic_size;
+	char **auth_bearer;
+	uint64_t auth_bearer_size;
 	char *body;
 	network_range *net_acl;
 
@@ -276,7 +279,8 @@ typedef struct context_arg
 	char *cluster;
 	uint8_t cluster_size;
 	cluster_node *cluster_node;
-	char *instance;
+	char *instance; // only for entrypoint, not aggregate!
+	uint8_t rreturn; // only for entrypoint, not aggregate!
 
 	tommy_node node;
 	tommy_node context_node;

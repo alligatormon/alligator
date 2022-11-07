@@ -293,6 +293,8 @@ char* filetailer_handler(context_arg *carg)
 
 	carg->fs_handle.data = carg;
 
+	if (carg->key)
+		free(carg->key);
 	carg->key = strdup(carg->host);
 
 	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler || carg->parser_name)

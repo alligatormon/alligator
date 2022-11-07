@@ -54,6 +54,7 @@ void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string* opentsdb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -110,6 +110,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		i += len;
 		lbl = NULL;
 	}
+	carg->parser_status = 1;
 }
 
 char* squid_info_5min_parser(context_arg *carg, char *field, char *metric, char *cur) {
@@ -174,6 +175,7 @@ void squid_info_handler(char *metrics, size_t size, context_arg *carg)
 	cur = squid_info_counter_parser(carg, "memPoolAlloc calls", "squid_memory_pool_alloc_calls", cur, DATATYPE_UINT);
 	cur = squid_info_counter_parser(carg, "memPoolFree calls", "squid_memory_pool_free_calls", cur, DATATYPE_UINT);
 	cur = squid_info_counter_parser(carg, "Number of file desc currently in use", "squid_file_descriptors_used", cur, DATATYPE_UINT);
+	carg->parser_status = 1;
 }
 
 //void squid_active_requests_handler(char *metrics, size_t size, context_arg *carg)
@@ -338,6 +340,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		pos = (tmp2 - metrics);
 	}
 	free(hash);
+	carg->parser_status = 1;
 }
 
 void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
@@ -401,6 +404,7 @@ void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
 
 	tmp += i;
 	//puts(tmp);
+	carg->parser_status = 1;
 }
 
 void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *carg)
@@ -439,6 +443,7 @@ void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *
 
 		tmp = loops;
 	}
+	carg->parser_status = 1;
 }
 
 void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
@@ -523,6 +528,7 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 
 		i = tmp - metrics;
 	}
+	carg->parser_status = 1;
 }
 
 void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
@@ -610,6 +616,7 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
 
 		i = tmp - metrics;
 	}
+	carg->parser_status = 1;
 }
 
 void squid_diskd_stats(char *str, char **ret, char *stat, context_arg *carg)
@@ -702,6 +709,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	squid_diskd_stats(tmp, &tmp, "unlink", carg);
 	squid_diskd_stats(tmp, &tmp, "read", carg);
 	squid_diskd_stats(tmp, &tmp, "write", carg);
+	carg->parser_status = 1;
 }
 
 string *squid_counters_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {

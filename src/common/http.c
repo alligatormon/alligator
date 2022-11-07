@@ -4,6 +4,15 @@
 #include "common/http.h"
 #include "main.h"
 
+void env_struct_free_headers(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+
+	free(es->k);
+	free(es->v);
+	free(es);
+}
+
 void env_struct_gen_http_headers(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
@@ -15,6 +24,7 @@ void env_struct_gen_http_headers(void *funcarg, void* arg)
 	string_cat(stemplate, "\r\n", 2);
 }
 
+// change to string*
 char* gen_http_query(int http_type, char *method_query, char *append_query, char *host, char *useragent, char *auth, int clrf, char *httpver, void *env_arg, void *proxy_settings, string *body)
 {
 	//printf("%d, %s, %s, %s, %s, %s, %d\n", http_type, method_query, append_query, host, useragent, auth, clrf);
@@ -82,6 +92,14 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	}
 
 	alligator_ht_foreach_arg(env, env_struct_gen_http_headers, sret);
+
+	// free internal initialized args hash
+	if (!env_arg)
+	{
+		alligator_ht_foreach_arg(env, env_struct_free_headers, NULL);
+		alligator_ht_done(env);
+		free(env);
+	}
 
 	string_cat(sret, "\r\n", 2);
 
@@ -192,7 +210,7 @@ alligator_ht* http_get_args(char *str, size_t size)
 
 			strlcpy(value, token + key_size + 1, token_size - key_size + 1);
 			//urldecode(decodeurl, value, args_size);
-			urldecode(decodeurl, value, token_size);
+			urldecode(decodeurl, value, token_size - key_size);
 			//printf("decoded is '%s'\n", decodeurl);
 			ha->value = strdup(decodeurl);
 

@@ -153,6 +153,14 @@ void mysql_execution(context_arg *carg, MYSQL *con, query_node *qn)
 	{
 		if (carg->log_level > 1)
 			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+
+		char reason[255];
+		uint64_t val = 1;
+		uint64_t reason_size = strlcpy(reason, ac->mylib->mysql_error(con), 255);
+		prometheus_metric_name_normalizer(reason, reason_size);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+        carg->parser_status = 0;
+
 		return;
 	}
 
@@ -250,6 +258,13 @@ void sphinxsearch_callback(context_arg *carg, MYSQL *con, query_node *qn)
 	{
 		if (carg->log_level > 1)
 			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+
+		char reason[255];
+		uint64_t reason_size = strlcpy(reason, ac->mylib->mysql_error(con), 255);
+		uint64_t val = 1;
+		prometheus_metric_name_normalizer(reason, reason_size);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+
 		return;
 	}
 
@@ -448,6 +463,13 @@ void mysql_get_databases(MYSQL *con, context_arg *carg)
 	{
 		if (carg->log_level > 1)
 			fprintf(stderr, "command get databases failed: %s\n", ac->mylib->mysql_error(con));
+
+		char reason[255];
+		uint64_t reason_size = strlcpy(reason, ac->mylib->mysql_error(con), 255);
+		uint64_t val = 1;
+		prometheus_metric_name_normalizer(reason, reason_size);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+
 		return;
 	}
 
@@ -507,25 +529,57 @@ void sphinxsearch_queries(context_arg *carg)
 
 void mysql_run(void* arg)
 {
+	uint64_t unval = 0;
+	uint64_t val = 1;
+	context_arg *carg = arg;
+
 	if (!mysql_load_module())
+	{
+		char reason[255];
+		strlcpy(reason, "error with load mysql module", 255);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		metric_add_labels6("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+	    metric_add_labels6("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+
 		return;
+	}
 
 	MYSQL *con = ac->mylib->mysql_init(NULL);
 	if (con == NULL) 
 	{
-		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		if (carg->log_level > 0)
+			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+
+		char reason[255];
+		uint64_t reason_size = strlcpy(reason, ac->mylib->mysql_error(con), 255);
+		prometheus_metric_name_normalizer(reason, reason_size);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		metric_add_labels6("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+	    metric_add_labels6("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+
 		return;
 	}
 	
-	context_arg *carg = arg;
 	my_data *data = carg->data;
 	data->con = con;
 	if (ac->mylib->mysql_real_connect(con, carg->host, carg->user, carg->password, carg->ns ? carg->ns : NULL, strtoull(carg->port, NULL, 10), NULL, 0) == NULL) 
 	{
-		fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+		if (carg->log_level > 0)
+			fprintf(stderr, "%s\n", ac->mylib->mysql_error(con));
+
+		char reason[255];
+		uint64_t reason_size = strlcpy(reason, ac->mylib->mysql_error(con), 255);
+		prometheus_metric_name_normalizer(reason, reason_size);
+		metric_add_labels2("mysql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		metric_add_labels6("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+	    metric_add_labels6("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+
 		ac->mylib->mysql_close(con);
 		return;
 	}  
+
+	metric_add_labels6("alligator_connect_ok", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
+    carg->parser_status = 1;
 
 	if (data->type == MY_TYPE_MYSQL)
 	{
@@ -551,6 +605,7 @@ void mysql_run(void* arg)
 	}
 
 	ac->mylib->mysql_close(con);
+	metric_add_labels6("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
 }
 
 void mysql_timer(void *arg) {

@@ -10,6 +10,7 @@
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
 {
 	plain_parse(metrics, size, ": ", "\n", "Haproxy_", 8, carg);
+	carg->parser_status = 1;
 }
 
 void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
@@ -76,6 +77,7 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 
 	used = int_get_next(total, sz, ' ', &cursor);
 	metric_add_auto("haproxy_pool_used_total", &used, DATATYPE_INT, carg);
+	carg->parser_status = 1;
 }
 
 void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
@@ -138,6 +140,7 @@ void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 		to = strcspn(metrics+i, "\n");
 		i += to;
 	}
+	carg->parser_status = 1;
 }
 
 void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
@@ -153,6 +156,7 @@ void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 		i += to;
 	}
 	metric_add_auto("haproxy_sess_count", &cnt, DATATYPE_INT, carg);
+	carg->parser_status = 1;
 }
 
 int8_t haproxy_validator(char *data, size_t size)

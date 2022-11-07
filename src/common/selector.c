@@ -504,12 +504,21 @@ void string_string_cat(string *str, string *src)
 	str->s[str->l] = 0;
 }
 
+void string_copy(string *dst, char *src, uint64_t src_len)
+{
+	if (src_len >= dst->m)
+		string_new_size(dst, src_len);
+
+	memcpy(dst->s, src, src_len);
+	dst->l = src_len;
+	dst->s[dst->l] = 0;
+}
 
 void string_string_copy(string *dst, string *src)
 {
 	size_t src_len = src->l;
 
-	if (src_len > dst->m)
+	if (src_len >= dst->m)
 		string_new_size(dst, src_len);
 
 	memcpy(dst->s, src->s, src_len);
@@ -628,6 +637,23 @@ void string_break(string *str, uint64_t start, uint64_t end)
 		memcpy(str->s, str->s + start, newend);
 	str->l = newend;
 	str->s[str->l] = 0;
+}
+
+int string_compare(string *str, char *cmp, uint64_t len)
+{
+	if (!str)
+		return -1;
+
+	if (!str->l)
+		return -1;
+
+	if (!cmp)
+		return 1;
+
+	if (!len)
+		return 1;
+
+	return strncmp(str->s, cmp, len);
 }
 
 void string_free_callback(char *data)
@@ -831,12 +857,13 @@ void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix
 	}
 }
 
-string* get_file_content(char *file)
+string* get_file_content(char *file, uint8_t error_logging)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
 	{
-		fprintf(stderr, "Open config file failed: %s", file);
+		if (error_logging)
+			fprintf(stderr, "Open config file failed: %s", file);
 		perror(": ");
 		return 0;
 	}

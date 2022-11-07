@@ -2,6 +2,8 @@
 #include "dstructures/tommy.h"
 #include "dstructures/maglev.h"
 #include "common/selector.h"
+#define CLUSER_TYPE_OPLOG 0
+#define CLUSER_TYPE_SHAREDLOCK 1
 
 typedef struct oplog_node
 {
@@ -30,6 +32,7 @@ typedef struct cluster_node
 	char *name;
 	uint64_t replica_factor;
 	uint64_t timeout;
+	uint64_t update_count;
 
 	uint64_t servers_size;
 	cluster_server_oplog *servers;
@@ -39,6 +42,12 @@ typedef struct cluster_node
 	char **sharding_key;
 
 	uint64_t size;
+
+	uint8_t type;
+	string *shared_lock_instance;
+	uint64_t ttl;
+	uint64_t shared_lock_set_time;
+	uint8_t parser_status;
 
 	tommy_node node;
 } cluster_node;
@@ -52,3 +61,5 @@ string* oplog_record_get_string(oplog_record *oplog);
 string* oplog_record_shift_string(oplog_record *oplog);
 string* cluster_get_server_data(char *replica, char *name);
 string* cluster_shift_server_data(char *replica, char *name);
+string* cluster_get_sharedlock(char *name);
+string* cluster_set_sharedlock(char *replica, char *name, void *data);

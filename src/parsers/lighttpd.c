@@ -9,6 +9,7 @@
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_parser_entry(metrics, 0, NULL, "lighttpd", carg);
+	carg->parser_status = 1;
 }
 
 void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
@@ -123,6 +124,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += strspn(tmp, "\n");
 		i = tmp - metrics;
 	}
+	carg->parser_status = 1;
 }
 
 string* lighttpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

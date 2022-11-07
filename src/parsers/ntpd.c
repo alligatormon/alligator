@@ -7,6 +7,7 @@ void ntpd_handler(char *metrics, size_t size, context_arg *carg)
 {
 	puts("ntpd");
 	printf("====================(%zu)================\n%s\n======================================\n", size, metrics);
+	carg->parser_status = 1;
 }
 
 string* ntpd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

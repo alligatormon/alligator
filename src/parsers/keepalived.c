@@ -67,6 +67,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 
 		}
 	}
+	carg->parser_status = 1;
 }
 
 int keepalived_isdigit(char *val)
@@ -208,6 +209,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 			strlcpy(context, name + start_sym_context, copy_size);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void keepalived_stats_parser(char *context, size_t size, void *data, char *filename)

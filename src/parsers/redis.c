@@ -73,6 +73,7 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 	}
 
 	redis_keys_free(redis_keys);
+	carg->parser_status = 1;
 }
 
 void redis_keysdump(char *metrics, size_t size, context_arg *carg)
@@ -125,6 +126,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 0)
 		printf("redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, redis_query, "redis_query", NULL, key, redis_keys);
+	carg->parser_status = 1;
 }
 
 void redis_queries_foreach(void *funcarg, void* arg)
@@ -518,6 +520,8 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 			alligator_ht_foreach_arg(qds->hash, redis_queries_foreach, carg);
 		}
 	}
+
+	carg->parser_status = 1;
 }
 
 int8_t redis_validator(char *data, size_t size)
@@ -567,6 +571,8 @@ void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_auto(mname, &mval, DATATYPE_INT, carg);
 		//printf("%s(%u),%s: %d\n", mname, fsize, mname, mval);
 	}
+
+	carg->parser_status = 1;
 }
 
 int8_t redis_cluster_validator(char *data, size_t size)
@@ -621,6 +627,8 @@ void redis_memory_stat_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		//printf("field:\n'%s', %u/%u\n", field, i, size);
 	}
+
+	carg->parser_status = 1;
 }
 
 int8_t redis_memory_stat_validator(char *data, size_t size)
@@ -678,6 +686,8 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 			arg = 0;
 		}
 	}
+
+	carg->parser_status = 1;
 }
 
 int8_t redis_latency_stat_validator(char *data, size_t size)

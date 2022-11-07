@@ -253,9 +253,8 @@ void uwsgi_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_auto("uwsgi_worker_read_errors", &worker_read_errors_cnt, DATATYPE_INT, carg);
 	metric_add_auto("uwsgi_worker_in_request", &worker_in_request_cnt, DATATYPE_INT, carg);
 
-
-
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string* uwsgi_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

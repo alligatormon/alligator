@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 0.14.61)
-#set(VERSION 1.14.41)
+#set(VERSION 0.14.61)
+set(VERSION 1.14.48)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -206,12 +206,14 @@ set(STATIC_FILES
 	cluster/api.c
 	cluster/sync.c
 	cluster/handler.c
+	cluster/later.c
 	router/stat.c
 	router/probe.c
 	router/json.c
 	router/dsv.c
 	router/conf.c
 	router/oplog.c
+	router/sharedlock.c
 	router/labels_cache.c
 	router/resolver.c
 	api/api_router.c

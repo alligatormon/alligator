@@ -365,7 +365,8 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	char addr[17] = {'\0'};
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
 	carg->dest = (struct sockaddr_in*)res->ai_addr;
-	carg->key = malloc(64);
+	if (!carg->key)
+		carg->key = malloc(64);
 	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
 
 	alligator_ht_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));

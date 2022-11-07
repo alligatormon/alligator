@@ -181,6 +181,7 @@ void couchbase_bucket_nodes_stats(char *metrics, size_t size, context_arg *carg)
 	if (bucket)
 		free(bucket);
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
@@ -318,6 +319,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
@@ -427,6 +429,7 @@ void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
 		pid = NULL;
 	}
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
@@ -495,6 +498,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 	}
 
 	json_decref(root);
+	carg->parser_status = 1;
 }
 
 string *couchbase_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

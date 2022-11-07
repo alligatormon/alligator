@@ -59,6 +59,7 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 		else
 			metric_add_labels5("syslogng_stats", &value, DATATYPE_UINT, carg, "source_name", source_name, "source_id", source_id, "source_instance", source_instance, "state", state, "type", type);
 	}
+	carg->parser_status = 1;
 }
 
 string* syslog_ng_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

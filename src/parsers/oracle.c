@@ -151,6 +151,7 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 
 	if (carg->log_level > 0)
 		puts("----- oracle_query_run ------");
+	carg->parser_status = 1;
 }
 
 void oracle_queries_foreach(void *funcarg, void* arg)
@@ -182,6 +183,7 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 
 	aggregator_oneshot(carg, carg->url, strlen(carg->url), str->s, str->l, oracle_query_run, "oracle_query", NULL, strdup(qn->make), 0, NULL, NULL, 0, NULL);
 	free(str);
+	carg->parser_status = 1;
 }
 
 void oracle_sql_generator(char *metrics, size_t size, context_arg *carg)
@@ -199,6 +201,7 @@ void oracle_sql_generator(char *metrics, size_t size, context_arg *carg)
 
 	if (!carg->data_lock)
 		oracle_get_databases(carg);
+	carg->parser_status = 1;
 }
 
 string* oracle_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

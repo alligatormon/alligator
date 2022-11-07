@@ -20,6 +20,7 @@ void tftp_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 2)
 		printf("id: %d:%d %"u64"\n", metrics[2], metrics[3], val);
 	metric_add_labels("tftp_file_exists", &val, DATATYPE_UINT, carg, "name", carg->mesg+2);
+	carg->parser_status = 1;
 
 	//char *mesg = malloc(sizeof(mesg));
 	//mesg[0] = 0;

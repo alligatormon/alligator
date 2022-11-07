@@ -8,6 +8,7 @@ void dummy_handler(char *metrics, size_t size, context_arg *carg)
 {
 	puts("DUMMY");
 	printf("====================(%zu)================\n%s\n======================================\n", size, metrics);
+	carg->parser_status = 1;
 }
 
 string* dummy_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

@@ -66,6 +66,7 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		i += endline;
 		i += strspn(metrics + i, "\r\n");
 	}
+	carg->parser_status = 1;
 }
 
 void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
@@ -136,6 +137,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 		printf("memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, memcached_query, "memcached_query", NULL, key, carg->data);
 	free(get_query);
+	carg->parser_status = 1;
 }
 
 void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
@@ -173,6 +175,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 		printf("query is\n'%s'\nkey '%s'\n", slab_query->s, key);
 	try_again(carg, slab_query->s, slab_query->l, memcached_cachedump, "memcached_cachedump", NULL, key, carg->data);
 	free(slab_query);
+	carg->parser_status = 1;
 }
 
 void memcached_queries_foreach(void *funcarg, void* arg)
@@ -272,6 +275,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 			alligator_ht_foreach_arg(qds->hash, memcached_queries_foreach, carg);
 		}
 	}
+	carg->parser_status = 1;
 }
 
 string* memcached_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
