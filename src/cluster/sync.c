@@ -29,7 +29,7 @@ void cluster_recurse(void *funcarg, void* arg)
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
 		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
-		aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 		string_free(url);
 		url_free(hi);
 	}
@@ -64,7 +64,7 @@ void cluster_aggregate_timer_recurse(uv_timer_t *handle)
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
 		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
-		context_arg *carg = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_aggregate_sync_handler, "cluster_aggregate_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+		context_arg *carg = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_aggregate_sync_handler, "cluster_aggregate_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 		if (carg)
 			carg->data = cn;
 		string_free(url);

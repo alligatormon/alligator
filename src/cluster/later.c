@@ -13,7 +13,7 @@ int cluster_come_later(context_arg *carg)
 	if (!cn)
 		return 0;
 
-	printf("LATER update_count is %llu\n", cn->update_count);
+	printf("LATER update_count is %"PRIu64"\n", cn->update_count);
 
 	if (cn->update_count < (cn->servers_size * 8))
 		return 0;

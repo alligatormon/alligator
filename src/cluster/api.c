@@ -21,9 +21,23 @@ cluster_server_oplog *get_server_oplog_by_node(cluster_node *cn, char *replica)
 	 	if (!rc)
 			return &cn->servers[new];
 		if (rc < 0)
+		{
 			min = new + 1;
+			if (min > cn->servers_size)
+			{
+				printf("cluster not found machine: %s, latest checked machine: %s", replica, cn->servers[new].name);
+				return NULL;
+			}
+		}
 		else
+		{
+			if (new == 0)
+			{
+				printf("cluster not found machine: %s, latest checked machine: %s", replica, cn->servers[new].name);
+				return NULL;
+			}
 			max = new - 1;
+		}
 	}
 
 	return NULL;
