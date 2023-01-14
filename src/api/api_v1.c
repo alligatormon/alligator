@@ -216,29 +216,13 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				for (uint64_t i = 0; i < action_size; i++)
 				{
 					json_t *action = json_array_get(value, i);
-					json_t *jname = json_object_get(action, "name");
-					if (!jname)
-						continue;
-					char *name = (char*)json_string_value(jname);
-
-					json_t *jdatasource = json_object_get(action, "datasource");
-					if (!jdatasource)
-						continue;
-					char *datasource = (char*)json_string_value(jdatasource);
-
-					json_t *jexpr = json_object_get(action, "expr");
-					json_t *jns = json_object_get(action, "ns");
-					json_t *jtype = json_object_get(action, "type");
-					json_t *jserializer = json_object_get(action, "serializer");
-					uint8_t follow_redirects = config_get_intstr_json(action, "follow_redirects");
-
 					if (method == HTTP_METHOD_DELETE)
 					{
-						action_del(name, datasource);
+						action_del(action);
 						continue;
 					}
 
-					action_push(name, datasource, jexpr, jns, jtype, follow_redirects, jserializer);
+					action_push(action);
 				}
 			}
 			if (!strcmp(key, "probe"))
@@ -289,6 +273,22 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					cluster_push_json(cluster);
 				}
 			}
+			if (!strcmp(key, "scheduler"))
+			{
+				uint64_t scheduler_size = json_array_size(value);
+				for (uint64_t i = 0; i < scheduler_size; i++)
+				{
+					json_t *scheduler = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						scheduler_del_json(scheduler);
+						continue;
+					}
+
+					scheduler_push_json(scheduler);
+				}
+			}
 			if (!strcmp(key, "persistence"))
 			{
 				if (method == HTTP_METHOD_DELETE)
@@ -335,108 +335,10 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					if (method == HTTP_METHOD_DELETE)
 					{
 						lang_delete(key);
-					}
-
-					json_t *lang_name = json_object_get(lang, "lang");
-					if (!lang_name)
 						continue;
-					char *slang_name = (char*)json_string_value(lang_name);
-
-					json_t *lang_classpath = json_object_get(lang, "classpath");
-					char *slang_classpath = (char*)json_string_value(lang_classpath);
-
-					json_t *lang_classname = json_object_get(lang, "classname");
-					char *slang_classname = (char*)json_string_value(lang_classname);
-
-					json_t *lang_method = json_object_get(lang, "method");
-					char *slang_method = (char*)json_string_value(lang_method);
-
-					json_t *lang_arg = json_object_get(lang, "arg");
-					char *slang_arg = (char*)json_string_value(lang_arg);
-
-					json_t *lang_script = json_object_get(lang, "script");
-					char *slang_script = (char*)json_string_value(lang_script);
-
-					json_t *lang_file = json_object_get(lang, "file");
-					char *slang_file = (char*)json_string_value(lang_file);
-
-					json_t *lang_module = json_object_get(lang, "module");
-					char *slang_module = (char*)json_string_value(lang_module);
-
-					json_t *lang_path = json_object_get(lang, "path");
-					char *slang_path = (char*)json_string_value(lang_path);
-
-					json_t *lang_query = json_object_get(lang, "query");
-					char *slang_query = (char*)json_string_value(lang_query);
-
-					json_t *lang_conf = json_object_get(lang, "conf");
-
-					uint64_t slang_period = 0;
-					json_t *lang_period = json_object_get(lang, "period");
-					if (lang_period)
-					{
-						int type = json_typeof(lang_period);
-						if (type == JSON_INTEGER)
-							slang_period = json_integer_value(lang_period);
-						else if (type == JSON_STRING)
-							slang_period = strtoull((char*)json_string_value(lang_period), NULL, 10);
 					}
 
-					uint64_t slang_log_level = 0;
-					json_t *lang_log_level = json_object_get(lang, "log_level");
-					if (lang_log_level)
-					{
-						int type = json_typeof(lang_log_level);
-						if (type == JSON_INTEGER)
-							slang_log_level = json_integer_value(lang_log_level);
-						else if (type == JSON_STRING)
-							slang_log_level = strtoull((char*)json_string_value(lang_log_level), NULL, 10);
-					}
-
-					lang_options *lo = calloc(1, sizeof(*lo));
-
-					lo->serializer = METRIC_SERIALIZER_OPENMETRICS;
-					json_t *jserializer = json_object_get(lang, "serializer");
-					if (jserializer)
-					{
-						if(!strcmp(json_string_value(jserializer), "json"))
-							lo->serializer = METRIC_SERIALIZER_JSON;
-						else if(!strcmp(json_string_value(jserializer), "dsv"))
-							lo->serializer = METRIC_SERIALIZER_DSV;
-					}
-
-					lo->lang = strdup(slang_name);
-					lo->key = strdup(key);
-
-					if (slang_classpath)
-						lo->classpath = strdup(slang_classpath);
-					if (slang_classname)
-						lo->classname = strdup(slang_classname);
-					if (slang_method)
-						lo->method = strdup(slang_method);
-					if (slang_arg)
-						lo->arg = strdup(slang_arg);
-					if (slang_script)
-						lo->script = strdup(slang_script);
-					if (slang_file)
-						lo->file = strdup(slang_file);
-					if (slang_module)
-						lo->module = strdup(slang_module);
-					if (slang_path)
-						lo->path = strdup(slang_path);
-					if (slang_query)
-						lo->query = strdup(slang_query);
-					if (slang_period)
-						lo->period = slang_period;
-					if (lang_conf)
-						lo->conf = 1;
-
-					if (slang_log_level)
-						lo->log_level = slang_log_level;
-					else
-						lo->log_level = ac->log_level;
-
-					lang_push(lo);
+					lang_push(lang, key);
 				}
 			}
 			if (!strcmp(key, "entrypoint"))
@@ -482,8 +384,12 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					char *str_handler = (char*)json_string_value(carg_handler);
 					if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
 						carg->parser_handler =  &rsyslog_impstats_handler;
+					else if (str_handler && !strcmp(str_handler, "lang"))
+						carg->parser_handler =  &lang_parser_handler;
 					else if (str_handler && !strcmp(str_handler, "log"))
 						carg->parser_handler =  &log_handler;
+
+					carg->env = env_struct_parser(entrypoint);
 
 					json_t *allow = json_object_get(entrypoint, "allow");
 					if (allow)
@@ -580,6 +486,12 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						char *str_return = (char*)json_string_value(json_return);
 						if (!strcmp(str_return, "empty"))
 							carg->rreturn = ENTRYPOINT_RETURN_EMPTY;
+					}
+
+					json_t *json_lang = json_object_get(entrypoint, "lang");
+					if (json_lang)
+					{
+						carg->lang = strdup(json_string_value(json_lang));
 					}
 
 					json_t *json_auth = json_object_get(entrypoint, "auth");
