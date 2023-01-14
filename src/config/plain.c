@@ -352,9 +352,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *ttl_entrypoint = NULL;
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
+			json_t *lang_entrypoint = NULL;
 			json_t *key_entrypoint = NULL;
 			json_t *return_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
+			json_t *env_entrypoint = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -363,7 +365,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -449,6 +451,14 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						{
 							deny_entrypoint = json_array();
 							json_array_object_insert(operator_json, "deny", deny_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && (!strcmp(operator_name, "env") || !strcmp(operator_name, "header")))
+					{
+						if (!env_entrypoint)
+						{
+							env_entrypoint = json_object();
+							json_array_object_insert(operator_json, "env", env_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
@@ -553,6 +563,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "key", key_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "lang"))
+					{
+						if (!lang_entrypoint)
+						{
+							++i;
+							lang_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "lang", lang_entrypoint);
+						}
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "return"))
 					{
 						if (!return_entrypoint)
@@ -581,7 +600,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_array_object_insert(instance_auth, "type", type_auth);
 						json_array_object_insert(instance_auth, "data", data_auth);
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler"))
 					{
 						operator_json = json_object();
 						char arg_name[255];
@@ -669,6 +688,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									{
 										arg_value = env_obj;
 									}
+									else if (!strcmp(arg_name, "header"))
+									{
+										arg_value = env_obj;
+									}
 									else if (!strcmp(arg_name, "add_label"))
 										arg_value = add_label_obj;
 									else
@@ -714,6 +737,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(allow_entrypoint, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && (!strcmp(operator_name, "env") || !strcmp(operator_name, "header")))
+					{
+						json_t *value_json = json_string(wstokens[++i].token->s);
+						json_array_object_insert(env_entrypoint, wstokens[i-1].token->s, value_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
 					{

@@ -674,6 +674,24 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "key", key);
 	}
 
+	if (carg->cluster)
+	{
+		json_t *cluster = json_string(carg->cluster);
+		json_array_object_insert(ctx, "cluster", cluster);
+	}
+
+	if (carg->instance)
+	{
+		json_t *instance = json_string(carg->instance);
+		json_array_object_insert(ctx, "instance", instance);
+	}
+
+	if (carg->lang)
+	{
+		json_t *lang = json_string(carg->lang);
+		json_array_object_insert(ctx, "lang", lang);
+	}
+
 	if (carg->labels)
 		alligator_ht_foreach_arg(carg->labels, labels_kv_deserialize, ctx);
 
@@ -953,12 +971,13 @@ void modules_generate_conf(void *funcarg, void* arg)
 
 void resolver_generate_conf(json_t *dst)
 {
+	if (!ac->resolver_size)
+		return;
+
 	json_t *resolver = json_array();
-	uint8_t resolver_set = 0;
 
 	for (uint64_t i = 0; i < ac->resolver_size; ++i)
 	{
-		resolver_set = 1;
 		json_t *json_data = json_object();
 
 		json_t *host = json_string(ac->srv_resolver[i]->hi->host);
@@ -979,25 +998,7 @@ void resolver_generate_conf(json_t *dst)
 		json_array_object_insert(resolver, NULL, json_data);
 	}
 
-	if (resolver_set)
-		json_array_object_insert(dst, "resolver", resolver);
-
-	//alligator_ht_foreach_arg(ac->resolver, resolver_generate_conf, dst);
-	//json_t *dst = funcarg;
-	//module_t *module = arg;
-
-	//json_t *modules = json_object_get(dst, "resolver");
-	//if (!modules)
-	//{
-	//	modules = json_object();
-	//	json_array_object_insert(dst, "resolver", modules);
-	//}
-
-	//if (module->path && module->key)
-	//{
-	//	json_t *path = json_string(module->path);
-	//	json_array_object_insert(modules, module->key, path);
-	//}
+	json_array_object_insert(dst, "resolver", resolver);
 }
 
 json_t *config_get()
@@ -1048,7 +1049,7 @@ string *config_get_string()
 		ret = string_init_add(dvalue, dvalsize, dvalsize);
 	}
 
-	//json_decref(dst);
+	json_decref(dst);
 
 	return ret;
 }
