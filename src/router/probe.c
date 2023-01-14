@@ -9,8 +9,8 @@
 #include "query/promql.h"
 #include "probe/probe.h"
 
-#define HTTP_PROBE_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
-#define HTTP_PROBE_HANDLER_ERR "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"
+#define HTTP_PROBE_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HTTP_PROBE_HANDLER_ERR "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
 void probe_router(string *response, http_reply_data* http_data, context_arg *carg)
 {
@@ -54,6 +54,9 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		if (carg->log_level > 0)
 			printf("no such module '%s' in query '%s'\n", module, http_data->uri);
 		string_cat(response, HTTP_PROBE_HANDLER_ERR, strlen(HTTP_PROBE_HANDLER_ERR));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		string_cat(response, "\r\n", 2);
 		string_cat(response, "no such module '", 16);
 		string_cat(response, module, strlen(module));
 		string_cat(response, "' in query'", 11);
@@ -109,13 +112,15 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	metric_query_context *mqc = query_context_new(NULL);
 	query_context_set_label(mqc, "host", target);
-	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL);
+	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, NULL);
 	query_context_free(mqc);
 
 	char *content_length = malloc(255);
 	snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
 
-	string_cat(response, "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n", strlen("HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"));
+	string_cat(response, HTTP_PROBE_HANDLER, strlen(HTTP_PROBE_HANDLER));
+	if (carg->env)
+		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 	string_cat(response, content_length, strlen(content_length));
 	string_cat(response, body->s, body->l);
 
