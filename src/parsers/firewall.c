@@ -161,7 +161,7 @@ void get_iptables_info(char *procfs, char *binarytable, char *table, context_arg
 		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
 	char url[1024];
 	snprintf(url, 1024, "exec://grep -q conntrack %s/modules && %s -t %s", procfs, binarytable, table);
-	context_arg *new = aggregator_oneshot(carg, url, strlen(url), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+	context_arg *new = aggregator_oneshot(carg, url, strlen(url), strdup(IPTABLES_ARGS), strlen(IPTABLES_ARGS), firewall_handler, "firewall_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 	if (new)
 	{
 		new->data = table;

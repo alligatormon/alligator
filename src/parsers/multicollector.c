@@ -363,7 +363,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	char metric_name[METRIC_NAME_SIZE];
 	multicollector_skip_spaces(&i, str, size);
 	size_t metric_len = multicollector_get_metric_name(&i, str, size, template_name);
-	//printf("multicpllector from '%s' to '%s'\n", str, template_name);
+	//printf("multicollector from '%s' to '%s'\n", str, template_name);
 
 	// pass mapping
 	mapping_metric *mm = NULL;
@@ -626,7 +626,6 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 	}
 
 	uint64_t fgets_counter = 0;
-
 
 	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, carg)) )
 	{

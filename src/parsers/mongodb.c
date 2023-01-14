@@ -24,7 +24,7 @@ string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy
 	printf("lo script is %s\n", lo->script);
 	lo->arg = strdup(hi->url);
 	lo->carg = context_arg_json_fill(NULL, hi, NULL, "mongodb", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
-	lang_push(lo);
+	lang_push_options(lo);
 
 	return NULL;
 }

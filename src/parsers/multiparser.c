@@ -4,8 +4,12 @@
 #include "parsers/http_proto.h"
 #include "common/selector.h"
 #include "common/http.h"
-#define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"
-#define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n"
+#define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
+#define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
+#define OPTIONS_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nAllow: OPTIONS, GET, PUT, POST\r\n"
+#define METHOD_NOT_ALLOWED "HTTP/1.1 405 Method Not Allowed\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
+#define COMMON_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HTTP_FORBIDDEN "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
@@ -32,8 +36,32 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 		if (ac->log_level > 10)
 			printf("get metrics from body:\n%s\n", body);
 		multicollector(http_data, NULL, 0, carg);
-		string_cat(response, "HTTP/1.1 202 Accepted\r\n\r\n", strlen("HTTP/1.1 202 Accepted\r\n\r\n")+1);
+		string_cat(response, HANDLER_202, strlen(HANDLER_202));
+
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		string_cat(response, "\r\n", 2);
 	}
+}
+
+void do_http_options(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
+{
+	extern aconf *ac;
+
+	string_cat(response, OPTIONS_ANSWER, strlen(OPTIONS_ANSWER));
+	if (carg->env)
+		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+	string_cat(response, "\r\n", 2);
+}
+
+void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
+{
+	extern aconf *ac;
+
+	string_cat(response, METHOD_NOT_ALLOWED, strlen(METHOD_NOT_ALLOWED));
+	if (carg->env)
+		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+	string_cat(response, "\r\n", 2);
 }
 
 void do_http_delete(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
@@ -54,7 +82,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	}
 	else if (!strncmp(http_data->uri, "/stats", 6))
 	{
-		stat_router(response, http_data);
+		stat_router(response, http_data, carg);
 	}
 	else if (!strncmp(http_data->uri, "/probe", 6))
 	{
@@ -91,6 +119,9 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	else if (!strncmp(http_data->uri, "/ready", 6))
 	{
 		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		string_cat(response, "\r\n", 2);
 	}
 	else
 	{
@@ -101,7 +132,9 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 		char *content_length = malloc(255);
 		snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
 
-		string_cat(response, "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n", strlen("HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"));
+		string_cat(response, COMMON_ANSWER, strlen(COMMON_ANSWER));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, content_length, strlen(content_length));
 		string_cat(response, body->s, body->l);
 
@@ -143,9 +176,12 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	if(!http_data)
 		return 0;
 
-	if (!http_check_auth(carg, http_data))
+	if (!http_check_auth(carg, http_data) && http_data->method != HTTP_METHOD_OPTIONS)
 	{
-		string_cat(response, "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
+		string_cat(response, HTTP_FORBIDDEN, strlen(HTTP_FORBIDDEN));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		string_cat(response, "\r\n", 2);
 		return 1;
 	}
 
@@ -171,6 +207,17 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	{
 		if (http_data->body)
 	 		do_http_delete(buf, len, response, http_data, carg);
+	}
+	else if (http_data->method == HTTP_METHOD_OPTIONS)
+	{
+	    do_http_options(buf, len, response, http_data, carg);
+	}
+	else if ((http_data->method == HTTP_METHOD_HEAD) ||
+		(http_data->method == HTTP_METHOD_TRACE) ||
+		(http_data->method == HTTP_METHOD_PATCH))
+
+	{
+        do_http_not_allowed(buf, len, response, http_data, carg);
 	}
 	else	ret = 0;
 
@@ -199,6 +246,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 
 	if (carg)
 	{
+		carg->response = response;
 		carg->parsed = 1;
 		carg->parser_status = 0;
 		carg->exec_time = setrtime();

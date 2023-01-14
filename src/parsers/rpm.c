@@ -60,7 +60,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 
 void get_rpm_info()
 {
-	context_arg *carg = aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0, NULL);
+	context_arg *carg = aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 	if (carg)
 	{
 		carg->no_exit_status = 1;

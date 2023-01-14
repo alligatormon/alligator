@@ -73,3 +73,6 @@ void solr_handler(char *metrics, size_t size, context_arg *carg);
 void blackbox_null(char *metrics, size_t size, context_arg *carg);
 void cluster_sync_handler(char *metrics, size_t size, context_arg *carg);
 void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *carg);
+void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg);
+void lang_parser_handler(char *metrics, size_t size, context_arg *carg);

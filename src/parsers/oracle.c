@@ -181,7 +181,7 @@ void oracle_queries_foreach(void *funcarg, void* arg)
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
 
-	aggregator_oneshot(carg, carg->url, strlen(carg->url), str->s, str->l, oracle_query_run, "oracle_query", NULL, strdup(qn->make), 0, NULL, NULL, 0, NULL);
+	aggregator_oneshot(carg, carg->url, strlen(carg->url), str->s, str->l, oracle_query_run, "oracle_query", NULL, strdup(qn->make), 0, NULL, NULL, 0, NULL, NULL);
 	free(str);
 	carg->parser_status = 1;
 }

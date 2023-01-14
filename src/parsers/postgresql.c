@@ -437,11 +437,11 @@ void postgresql_query(PGconn *conn, char *query, query_node *qn, context_arg *ca
 			fprintf(stderr, "%s command failed: %s", query, ac->pqlib->PQerrorMessage(conn));
 			carg->parser_status = 0;
 
-			char reason[255];
-			uint64_t val = 1;
-			uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
-			prometheus_metric_name_normalizer(reason, reason_size);
-			metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+			//char reason[255];
+			//uint64_t val = 1;
+			//uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
+			//prometheus_metric_name_normalizer(reason, reason_size);
+			//metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
 		}
 	}
 	else
@@ -478,11 +478,11 @@ void postgresql_get_databases(PGconn *conn, context_arg *carg)
 		if (carg->log_level > 1)
 			fprintf(stderr, "command get databases failed: %s", ac->pqlib->PQerrorMessage(conn));
 
-		char reason[255];
-		uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
-		uint64_t val = 1;
-		prometheus_metric_name_normalizer(reason, reason_size);
-		metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		//char reason[255];
+		//uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
+		//uint64_t val = 1;
+		//prometheus_metric_name_normalizer(reason, reason_size);
+		//metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
 	}
 	else
 	{
@@ -829,9 +829,9 @@ void postgresql_run(void* arg)
 	{
 		char reason[255];
 		strlcpy(reason, "error with load libpq module", 255);
-		metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
-		metric_add_labels6("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql", "name", carg->name);
-		metric_add_labels6("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql", "name", carg->name);
+		//metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		metric_add_labels5("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
+		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 
 		return;
 	}
@@ -847,9 +847,9 @@ void postgresql_run(void* arg)
 		char reason[255];
 		uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
 		prometheus_metric_name_normalizer(reason, reason_size);
-		metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
-		metric_add_labels6("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql", "name", carg->name);
-		metric_add_labels6("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql", "name", carg->name);
+		//metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+		metric_add_labels5("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
+		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 
 		ac->pqlib->PQfinish(conn);
 		return;
@@ -859,7 +859,7 @@ void postgresql_run(void* arg)
 	pg_data *data = carg->data;
 	data->conn = conn;
 
-	metric_add_labels6("alligator_connect_ok", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql", "name", carg->name);
+	metric_add_labels5("alligator_connect_ok", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 	carg->parser_status = 1;
 
 	if (data->type == PG_TYPE_PG)
@@ -892,7 +892,7 @@ void postgresql_run(void* arg)
 		pgpool_queries(carg);
 	}
 
-	metric_add_labels6("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql", "name", carg->name);
+	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 	ac->pqlib->PQfinish(conn);
 }
 

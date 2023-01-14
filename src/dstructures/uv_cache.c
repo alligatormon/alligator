@@ -37,7 +37,7 @@ void *alligator_cache_get(tommy_list *uv_cache, size_t size)
 		return calloc(1, size);
 
 	tommy_list_remove_existing(uv_cache, &acache->node);
-	//printf("cache get %zu\n", tommy_list_count(uv_cache));
+	//printf("[%zu] cache get %p with data %p\n", tommy_list_count(uv_cache), acache, acache->data);
 
 	void *data = acache->data;
 	//printf("free acache %p with size %zu\n", acache, sizeof(*acache));
@@ -55,7 +55,7 @@ int alligator_cache_push(tommy_list *uv_cache, void *data)
 		return 0;
 
 	alligator_cache *acache = calloc(1, sizeof(*acache));
-	//printf("create acache %p with size %zu\n", acache, sizeof(*acache));
+	//printf("[%zu] create acache %p with size %zu and data %p\n", tommy_list_count(uv_cache), acache, sizeof(*acache), data);
 
 	acache->data = data;
         r_time time = setrtime();

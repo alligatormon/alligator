@@ -582,6 +582,80 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	carg->parser_status = 1;
 }
 
+void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg)
+{
+	if (1)
+	{
+		puts("elasticsearch_response_catch");
+		json_error_t error;
+		json_t *root = json_loads(metrics, 0, &error);
+		if (!root)
+		{
+			fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+			return;
+		}
+
+		json_t *jtook = json_object_get(root, "took");
+		int64_t took = json_integer_value(jtook);
+
+		json_t *jerrors = json_object_get(root, "errors");
+		int jsontype = json_typeof(jerrors);
+		int errors = 0;
+		if (jsontype == JSON_TRUE)
+			errors = 1;
+
+		json_t *jitems = json_object_get(root, "items");
+		uint64_t items_size = json_array_size(jitems);
+
+		printf("took is %"PRId64"\n", took);
+		printf("errors is %d\n", errors);
+		printf("items is %"PRIu64"\n", items_size);
+
+		//if (ac->log_level > 2)
+		if (2)
+		{
+			for (uint64_t i = 0; i < items_size; i++)
+			{
+				json_t *item = json_array_get(jitems, i);
+				json_t *index= json_object_get(item, "index");
+
+				json_t *jid = json_object_get(index, "_id");
+				const char *id = json_string_value(jid);
+
+				json_t *jseq_no = json_object_get(index, "_seq_no");
+				int64_t seq_no = json_integer_value(jseq_no);
+
+				json_t *j_index = json_object_get(index, "_index");
+				const char *_index = json_string_value(j_index);
+
+				json_t *jresult = json_object_get(index, "result");
+				const char *result = json_string_value(jresult);
+
+				json_t *jshards = json_object_get(index, "_shards");
+
+				json_t *jtotal = json_object_get(jshards, "total");
+				int64_t total = json_integer_value(jtotal);
+
+				json_t *jsuccessful = json_object_get(jshards, "successful");
+				int64_t successful = json_integer_value(jsuccessful);
+
+				json_t *jfailed = json_object_get(jshards, "failed");
+				int64_t failed = json_integer_value(jfailed);
+
+				printf("\tid: %s, index: %s, result: %s, seq_no: %"PRId64", shards:[total: %"PRId64", successful: %"PRId64", failed: %"PRId64"\n", id, _index, result, seq_no, total, successful, failed);
+			}
+		}
+
+		if (!errors)
+			carg->parser_status = 1;
+
+		json_decref(root);
+		return;
+	}
+
+	carg->parser_status = 1;
+}
+
 string *elastic_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
 	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL, env, proxy_settings, NULL), 0, 0);

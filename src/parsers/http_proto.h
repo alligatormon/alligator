@@ -7,6 +7,11 @@
 #define HTTP_METHOD_POST 2
 #define HTTP_METHOD_PUT 3
 #define HTTP_METHOD_DELETE 4
+#define HTTP_METHOD_OPTIONS 5
+#define HTTP_METHOD_HEAD 6
+#define HTTP_METHOD_CONNECT 7
+#define HTTP_METHOD_TRACE 8
+#define HTTP_METHOD_PATCH 9
 
 typedef struct http_reply_data
 {
@@ -36,3 +41,4 @@ http_reply_data* http_reply_parser(char *http, ssize_t n);
 http_reply_data* http_proto_get_request_data(char *buf, size_t size);
 void http_reply_data_free(http_reply_data* http);
 char* http_proto_proxer(char *metrics, size_t size, char *instance);
+void env_serialize_http_answer(void *funcarg, void* arg);

@@ -330,6 +330,31 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 		skip = 6;
 		method = HTTP_METHOD_DELETE;
 	}
+	else if ( !strncmp(buf, "OPTIONS", 7) )
+	{
+		skip = 7;
+		method = HTTP_METHOD_OPTIONS;
+	}
+	else if ( !strncmp(buf, "HEAD", 4) )
+	{
+		skip = 4;
+		method = HTTP_METHOD_HEAD;
+	}
+	else if ( !strncmp(buf, "CONNECT", 7) )
+	{
+		skip = 7;
+		method = HTTP_METHOD_CONNECT;
+	}
+	else if ( !strncmp(buf, "TRACE", 5) )
+	{
+		skip = 5;
+		method = HTTP_METHOD_TRACE;
+	}
+	else if ( !strncmp(buf, "PATCH", 5) )
+	{
+		skip = 5;
+		method = HTTP_METHOD_PATCH;
+	}
 	else	return 0;
 
 
@@ -414,7 +439,7 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 	{
 		for(uint64_t i = 0; i < carg->auth_basic_size; ++i)
 		{
-			printf("[%d] test '%s' and '%s'\n", i, carg->auth_basic[i], http_data->auth_basic);
+			//printf("[%d] test '%s' and '%s'\n", i, carg->auth_basic[i], http_data->auth_basic);
 			if ((carg->auth_basic[i]) && (!strcmp(carg->auth_basic[i], http_data->auth_basic)))
 				return 1;
 		}
@@ -450,3 +475,14 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 //
 //	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 //}
+
+void env_serialize_http_answer(void *funcarg, void* arg)
+{
+	env_struct *es = arg;
+	string *stemplate = funcarg;
+
+	string_cat(stemplate, es->k, strlen(es->k));
+	string_cat(stemplate, ": ", 2);
+	string_cat(stemplate, es->v, strlen(es->v));
+	string_cat(stemplate, "\r\n", 2);
+}

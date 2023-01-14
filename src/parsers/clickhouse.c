@@ -400,6 +400,41 @@ void ch_columns_types_free(ch_columns_types *column_types, uint64_t size)
 	free(column_types);
 }
 
+void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
+{
+	if (1)
+	{
+		char X_ClickHouse_Summary[255];
+		*X_ClickHouse_Summary = 0;
+		char *cur = strstr(carg->full_body->s, "X-ClickHouse-Summary:" );
+		if (cur)
+		{
+			cur += strcspn(cur, ":");
+			cur += strspn(cur, ": \t");
+			size_t len = strcspn(cur, "\r\n");
+			strlcpy(X_ClickHouse_Summary, cur, len + 1);
+		}
+
+		char X_ClickHouse_Exception_Code[255];
+		*X_ClickHouse_Exception_Code = 0;
+		cur = strstr(carg->full_body->s, "X-ClickHouse-Exception-Code:" );
+		if (cur)
+		{
+			cur += strcspn(cur, ":");
+			cur += strspn(cur, ": \t");
+			size_t len = strcspn(cur, "\r\n");
+			strlcpy(X_ClickHouse_Exception_Code, cur, len + 1);
+		}
+
+		if (ac->log_level > 0)
+		{
+			printf("clickhouse summary %s\n", X_ClickHouse_Summary);
+			printf("clickhouse exception code %s\n", X_ClickHouse_Exception_Code);
+			printf("clickhouse body %s\n", metrics);
+		}
+	}
+}
+
 void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *carg)
 {
 	//printf("clickhouse_custom_execute_handler runned: %zu:\n%s\n", size, metrics);

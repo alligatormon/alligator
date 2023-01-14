@@ -24,12 +24,12 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t rise;
 	uint64_t fall;
 
-	while(i<size)
+	while(i < size)
 	{
 		if (carg->log_level > 2)
 		{
 			char str[255];
-			strlcpy(str, metrics+i+2, strcspn(metrics+i+2, "\n")+1);
+			strlcpy(str, metrics+i, strcspn(metrics+i, "\n")+1);
 			printf("nginx processing string: %"d64" < %zu: '%s'\n", i, size, str);
 		}
 		//++i;
@@ -219,6 +219,9 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		metric_add_labels3("nginx_upstream_check_rise_count", &rise, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
 		metric_add_labels3("nginx_upstream_check_fall_count", &fall, DATATYPE_UINT, carg, "upstream", upstream, "server", server, "type", type);
+
+		i += strcspn(metrics+i, "\n");
+		i += strspn(metrics+i, "\n");
 	}
 
 	carg->parser_status = 1;
