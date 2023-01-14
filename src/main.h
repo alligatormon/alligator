@@ -88,11 +88,13 @@ typedef struct aconf
 	alligator_ht* zk_aggregator;
 	alligator_ht* my_aggregator;
 	alligator_ht* tls_aggregator;
+	alligator_ht* scheduler;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
 	int64_t file_aggregator_repeat;
 	int64_t tls_aggregator_startup;
 	int64_t tls_aggregator_repeat;
+	int64_t scheduler_startup;
 	uv_timer_t tcp_client_timer;
 	uv_timer_t pg_timer;
 	uv_timer_t my_timer;
@@ -134,8 +136,6 @@ typedef struct aconf
 
 	// LANG SPAWNER
 	alligator_ht* lang_aggregator;
-	int64_t lang_aggregator_startup;
-	int64_t lang_aggregator_repeat;
 
 	// modules paths
 	alligator_ht* modules;

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.48)
+set(VERSION 1.14.61)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -171,6 +171,12 @@ set(STATIC_FILES
 	parsers/firewall.c
 	parsers/mongodb.c
 	parsers/keepalived.c
+	parsers/lang.c
+	scheduler/influxdb.c
+	scheduler/handler.c
+	scheduler/push.c
+	scheduler/get.c
+	scheduler/del.c
 	common/selector.c
 	common/pem_check.c
 	common/rtime.c
@@ -233,9 +239,9 @@ set(STATIC_FILES
 	lang/java.c
 	lang/lua.c
 	lang/mruby.c
-	#lang/python.c
 	lang/so.c
 	lang/duktape.c
+	lang/push.c
 	system/common.c
 	system/freebsd.c
 	system/macosx.c
@@ -252,6 +258,7 @@ set(STATIC_FILES
 	metric/query.c
 	metric/namespace.c
 	metric/serializer.c
+	#metric/influxdb.c
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c

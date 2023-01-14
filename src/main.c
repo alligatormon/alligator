@@ -112,13 +112,14 @@ aconf* configuration()
 	ac->aggregator_repeat = 10000;
 	ac->file_aggregator_repeat = 10000;
 
+	ac->scheduler_startup = 13000;
+
 	ac->tls_aggregator = calloc(1, sizeof(alligator_ht));
-	//ac->uggregator = calloc(1, sizeof(alligator_ht));
-	//alligator_ht_init(ac->uggregator);
 	ac->udpaggregator = calloc(1, sizeof(alligator_ht));
 	alligator_ht_init(ac->udpaggregator);
 	ac->tls_aggregator_startup = 1500;
 	ac->tls_aggregator_repeat = 10000;
+	ac->scheduler = alligator_ht_init(NULL);
 
 	ac->iggregator = calloc(1, sizeof(alligator_ht));
 	ac->iggregator_startup = 1000;
@@ -140,8 +141,6 @@ aconf* configuration()
 	ac->process_script_dir = "/var/lib/alligator/spawner";
 
 	ac->lang_aggregator = calloc(1, sizeof(alligator_ht));
-	ac->lang_aggregator_startup = 4000;
-	ac->lang_aggregator_repeat = 10000;
 
 	ac->fs_x509 = calloc(1, sizeof(alligator_ht));
 	ac->tls_fs_startup = 4500;
@@ -224,6 +223,9 @@ void main_free()
 
 	alligator_ht_done(ac->uggregator);
 	free(ac->uggregator);
+
+	alligator_ht_done(ac->scheduler);
+	free(ac->scheduler);
 
 	alligator_ht_done(ac->modules);
 	free(ac->modules);
@@ -367,7 +369,6 @@ int main(int argc, char **argv, char **envp)
 	process_handler();
 	//unix_client_handler();
 	unixgram_client_handler();
-	lang_handler();
 	tls_fs_handler();
 	query_handler();
 	postgresql_client_handler();
