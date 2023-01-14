@@ -11,6 +11,7 @@
 #include <netlink/attr.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
 #include <inttypes.h>
+#include <byteswap.h>
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
 #include "main.h"
@@ -119,16 +120,11 @@ void get_conntrack_info()
 				return;
 			}
 
-			uint64_t entries = (uint8_t)dt[11] + ((uint8_t)dt[10] << 8) + ((uint64_t)dt[9] << 16) + ((uint64_t)dt[8] << 24);
-			uint64_t maxentries = (uint8_t)dt[19] + ((uint8_t)dt[18] * 256) + ((uint64_t)dt[17] * 65536) + ((uint64_t)dt[16] << 24);
-			//uint16_t esize = ((uint16_t)*(dt + 4));
-			//uint16_t etype = ((uint16_t)*(dt + 6));
-			//for (uint64_t h = 0; h < dt_size; ++h)
-			//	printf("H[%d] = '%hhu'\n", h, dt[h]);
-			//printf("size %hu\n", esize);
-			//printf("type %hu\n", etype);
-			//printf("entries %"PRIu64"\n", entries);
-			//printf("max %"PRIu64"\n", maxentries);
+			uint32_t *kdvalue = (uint32_t*)(dt + 8);
+			uint64_t entries = bswap_32(*kdvalue);
+
+			kdvalue = (uint32_t*)(dt + 16);
+			uint64_t maxentries = bswap_32(*kdvalue);
 
 			double conntrack_usage = entries*100.0/maxentries;
 

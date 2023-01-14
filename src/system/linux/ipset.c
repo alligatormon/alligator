@@ -11,6 +11,7 @@
 #include <netlink/attr.h>
 #include <linux/netfilter/ipset/ip_set.h>
 #include <inttypes.h>
+#include <byteswap.h>
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
 #include "main.h"
@@ -42,38 +43,40 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 		memcpy(kvalue, kdt + k + 4, ksize - 4);
 		if (ktype == IPSET_ATTR_HASHSIZE && ksize == 8)
 		{
-			uint64_t uvalue = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			uint64_t uvalue = bswap_32(*kdvalue);
 			metric_add_labels("ipset_hashsize", &uvalue, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
 		else if (ktype == IPSET_ATTR_MAXELEM && ksize == 8)
 		{
-			uint64_t uvalue = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			uint64_t uvalue = bswap_32(*kdvalue);
 			metric_add_labels("ipset_maxelem", &uvalue, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
 		else if (ktype == IPSET_ATTR_TIMEOUT && ksize == 8)
 		{
-			timeout = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			timeout = bswap_32(*kdvalue);
 			metric_add_labels("ipset_timeout", &timeout, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
 		else if (ktype == IPSET_ATTR_ELEMENTS && ksize == 8)
 		{
-			uint64_t uvalue = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			uint64_t uvalue = bswap_32(*kdvalue);
 			metric_add_labels("ipset_entries_count", &uvalue, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
 		else if (ktype == IPSET_ATTR_REFERENCES && ksize == 8)
 		{
-			uint64_t uvalue = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			uint64_t uvalue = bswap_32(*kdvalue);
 			metric_add_labels("ipset_references", &uvalue, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
 		else if (ktype == IPSET_ATTR_MEMSIZE && ksize == 8)
 		{
-			uint64_t uvalue = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			uint64_t uvalue = bswap_32(*kdvalue);
 			metric_add_labels("ipset_memsize", &uvalue, DATATYPE_UINT, ac->system_carg, "name", name);
 		}
-		//else if (ktype == IPSET_ATTR_TIMEOUT)
-		//{
-		//	timeout = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
-		//}
 		else if (!ac->system_ipset_entries)
 		{
 			k += NLMSG_ALIGN(ksize);
@@ -81,15 +84,18 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 		}
 		else if (ktype == IPSET_ATTR_MARK)
 		{
-			mark = (uint64_t)kvalue[3] + ((uint64_t)kvalue[2] << 8) + ((uint64_t)kvalue[1] << 16) + ((uint64_t)kvalue[0] << 24);
+			uint32_t *kdvalue = (uint32_t*)kvalue;
+			mark = bswap_32(*kdvalue);
 		}
 		else if (ktype == IPSET_ATTR_BYTES)
 		{
-			bytes = (uint64_t)kvalue[7] + ((uint64_t)kvalue[6] << 8) + ((uint64_t)kvalue[5] << 16) + ((uint64_t)kvalue[4] << 24) + ((uint64_t)kvalue[3] << 32) + ((uint64_t)kvalue[2] << 40) + ((uint64_t)kvalue[1] << 48) + ((uint64_t)kvalue[0] << 56);
+			uint64_t *kdvalue = (uint64_t*)kvalue;
+			bytes = bswap_64(*kdvalue);
 		}
 		else if (ktype == IPSET_ATTR_PACKETS)
 		{
-			packets = kvalue[7] + ((uint64_t)kvalue[6] << 8) + ((uint64_t)kvalue[5] << 16) + ((uint64_t)kvalue[4] << 24) + ((uint64_t)kvalue[3] << 32) + ((uint64_t)kvalue[2] << 40) + ((uint64_t)kvalue[1] << 48) + ((uint64_t)kvalue[0] << 56);
+			uint64_t *kdvalue = (uint64_t*)kvalue;
+			packets = bswap_64(*kdvalue);
 		}
 		else if (ktype == IPSET_ATTR_ETHER)
 		{
@@ -176,8 +182,6 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 
 	if (*ipaddr || *cidr || *attrcomment || *iface || *macaddr || *strproto || *strport || *strmark)
 	{
-		//metric_add_labels9("ipset_entry_data", &okval, DATATYPE_UINT, ac->system_carg, "name", name, "addr", ipaddr, "prefix", cidr, "comment", attrcomment, "iface", iface, "mac", macaddr, "proto", strproto, "port", strport, "mark", strmark);
-
 		if (ac->system_carg->log_level > 0)
 			printf("\n\t\t\tip is %s, cidr is %s, range to %s, comment is %s, iface is %s, macaddr is %s, timeout is %"PRIu64", mark is %"PRIu64", proto is %s, bytes is %"PRIu64", packets is %"PRIu64", port is %"PRIu16"\n", ipaddr, cidr, ipaddr_to, attrcomment, iface, macaddr, timeout, mark, strproto, bytes, packets, port);
 		if (*ipaddr_to)
@@ -303,7 +307,6 @@ void ipset()
 			char typename[255] = { 0 };
 			for (uint64_t i = 4; (i + 4) < dt_size;)
 			{
-				//uint16_t size = ((uint16_t)*(dt + i));
 				uint16_t size = (uint8_t)(dt[i + 1] << 8) + (uint8_t)(dt[i]);
 				uint16_t type = ((uint16_t)*(dt + i + 2));
 				if (ac->system_carg->log_level > 0)
