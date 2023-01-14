@@ -112,19 +112,23 @@ void puppeteer_crawl(uv_timer_t* handle) {
 	char *get_data = json_dumps(puppeteer_conf, 0);
 	json_decref(puppeteer_conf);
 	string_cat(domains, get_data, strlen(get_data));
+	free(get_data);
 
 	//printf("string is %s\n", domains->s);
 
 	char *expr = malloc(domains->l + 128);
 	size_t expr_len = snprintf(expr, domains->l + 127, "exec:///bin/node /var/lib/alligator/puppeteer-alligator.js '%s'", domains->s);
 	string *work_dir = string_init_dup("/var/lib/alligator");
-	context_arg *carg = aggregator_oneshot(NULL, expr, expr_len, NULL, 0, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0, work_dir);
+	context_arg *carg = aggregator_oneshot(NULL, expr, expr_len, NULL, 0, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0, work_dir, NULL);
 	if (carg)
 	{
 		carg->no_metric = 1;
 		carg->no_exit_status = 1;
+		carg->timeout = 60000;
 	}
 
+
+	free(expr);
 	string_free(domains);
 }
 
