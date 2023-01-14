@@ -8,6 +8,11 @@ extern aconf *ac;
 
 void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
+	context_arg *carg = req->data;
+	carg->read_time_finish = setrtime();
+	if (carg->log_level > 1)
+		printf("%"u64": udp readed %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+
 	if (nread < 0)
 	{
 		fprintf(stderr, "Read error %s\n", uv_err_name(nread));
@@ -21,7 +26,6 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-	context_arg *carg = req->data;
 	(carg->conn_counter)++;
 	(carg->read_counter)++;
 
@@ -41,6 +45,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	{
 		uv_udp_recv_stop(req);
 		uv_close((uv_handle_t*) req, NULL);
+		aggregator_events_metric_add(carg, carg, NULL, "entrypoint", "aggregator", carg->host);
 	}
 
 	carg->lock = 0;
@@ -51,10 +56,15 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	if (status != 0) {
 		fprintf(stderr, "send_cb error: %s\n", uv_strerror(status));
 	}
+	context_arg *carg = req->data;
+	carg->write_time_finish = setrtime();
+	if (carg->log_level > 1)
+		printf("%"u64": udp sended %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	req->handle->data = req->data;
 
 	uv_udp_recv_start(req->handle, alloc_buffer, udp_on_read);
+	carg->read_time = setrtime();
 	//free(req);
 }
 
@@ -98,7 +108,7 @@ void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	if (ac->log_level > 1)
+	if (carg->log_level > 1)
 		printf("%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
@@ -111,22 +121,33 @@ void udp_client_connect(void *arg)
 	carg->parser_status = 0;
 	carg->curr_ttl = carg->ttl;
 
-	char *addr = NULL;
-	if (is_ip_addr(carg->host))
-		addr = carg->host;
-	else
+	//char *addr = NULL;
+	//if (is_ip_addr(carg->host))
+	//	addr = carg->host;
+	//else
+	//{
+	//	puts("4aggregator_get_addr");
+	//	string *addr_name = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
+	//	addr = addr_name ? addr_name->s : NULL;
+	//}
+
+	//if (!addr)
+	//	return;
+
+	//struct addrinfo res;
+	//uv_ip4_name((struct sockaddr_in*)&res.ai_addr, addr, 16);
+	//carg->dest = (struct sockaddr_in*)&res.ai_addr;
+
+	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
+	if (!data)
 	{
-		puts("4aggregator_get_addr");
-		string *addr_name = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
-		addr = addr_name ? addr_name->s : NULL;
+		carg->lock = 0;
+		return;
 	}
 
-	if (!addr)
-		return;
-
-	struct addrinfo res;
-	uv_ip4_name((struct sockaddr_in*)&res.ai_addr, addr, 16);
-	carg->dest = (struct sockaddr_in*)&res.ai_addr;
+	struct sockaddr_in res;
+	uv_ip4_addr(data->s, carg->numport, &res);
+	carg->dest = &res;
 
 	//carg->tt_timer->data = carg;
 	//uv_timer_init(carg->loop, carg->tt_timer);
@@ -140,6 +161,7 @@ void udp_client_connect(void *arg)
 	uv_udp_init(uv_default_loop(), &carg->udp_client);
 
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)carg->dest, udp_on_send);
+	carg->write_time = setrtime();
 }
 
 //void aggregator_getaddrinfo2(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
@@ -211,6 +233,11 @@ char* udp_client(void *arg)
 	context_arg *carg = arg;
 	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 
+	if (carg->key)
+		free(carg->key);
+	carg->key = malloc(255);
+	smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
+
 	alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	//aggregator_resolve_host2(carg);
 	return "udp";
@@ -235,5 +262,5 @@ void udp_client_handler()
 	uv_loop_t *loop = ac->loop;
 
 	uv_timer_init(loop, &ac->udp_client_timer);
-	uv_timer_start(&ac->udp_client_timer, udp_client_crawl, 0, ac->aggregator_repeat);
+	uv_timer_start(&ac->udp_client_timer, udp_client_crawl, ac->aggregator_startup, ac->aggregator_repeat);
 }

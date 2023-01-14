@@ -85,6 +85,7 @@ typedef struct context_arg
 	char **auth_bearer;
 	uint64_t auth_bearer_size;
 	char *body;
+	uint8_t body_readed;
 	network_range *net_acl;
 
 	// for process spawn
@@ -94,6 +95,8 @@ typedef struct context_arg
 	uv_process_t child_req;
 	char** args;
 	string *work_dir;
+
+	char *lang;
 
 	char *uvbuf;
 
@@ -214,6 +217,7 @@ typedef struct context_arg
 	char* ssl_write_buffer;
 	uv_buf_t request_buffer;
 	uv_buf_t response_buffer;
+	string *response; // temporary buffer for pass to parsers
 
 	char host[URL_SIZE];
 	char port[PORT_SIZE];
@@ -292,3 +296,5 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 alligator_ht *env_struct_parser(json_t *root);
 alligator_ht* env_struct_duplicate(alligator_ht *src);
 json_t* env_struct_dump(alligator_ht *src);
+void env_struct_duplicate_foreach(void *funcarg, void* arg);
+void env_struct_free(void *funcarg, void* arg);

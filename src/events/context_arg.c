@@ -19,6 +19,9 @@ context_arg *carg_copy(context_arg *src)
 	if (carg->instance)
 		carg->instance = strdup(src->instance);
 
+	if (carg->lang)
+		carg->lang = strdup(src->lang);
+
 	if (carg->auth_bearer)
 	{
 		carg->auth_bearer_size = src->auth_bearer_size;
@@ -36,6 +39,9 @@ context_arg *carg_copy(context_arg *src)
 		for (uint64_t i = 0; i < carg->auth_basic_size; ++i)
 			carg->auth_basic[i] = strdup(src->auth_basic[i]);
 	}
+
+	if (src->env)
+		carg->env = env_struct_duplicate(src->env);
 
 	return carg;
 }
@@ -78,6 +84,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->name)
 		free(carg->name);
+
+	if (carg->lang)
+		free(carg->lang);
 
 	if (carg->checksum)
 		free(carg->checksum);
@@ -317,6 +326,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	char *str_name = (char*)json_string_value(json_name);
 	if (str_name)
 		carg->name = strdup(str_name);
+
+	json_t *json_lang = json_object_get(root, "lang");
+	char *str_lang = (char*)json_string_value(json_lang);
+	if (str_lang)
+		carg->lang = strdup(str_lang);
 
 	json_t *json_cert = json_object_get(root, "tls_certificate");
 	char *str_cert = (char*)json_string_value(json_cert);

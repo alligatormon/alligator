@@ -155,6 +155,11 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (hrdata)
 		{
 			carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
+			carg->body = hrdata->body;
+			if (carg->body)
+				carg->body_readed = 1;
+			else
+				carg->body_readed = 0;
 
 			// initial big size of answer only for GET method
 			if (!carg->full_body && hrdata->method == HTTP_METHOD_GET)
@@ -164,10 +169,20 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		}
 	}
 
+	if (!carg->body_readed)
+	{
+		char *body = strstr(buf->base, "\r\n\r\n");
+		if (!body)
+			body = strstr(buf->base, "\n\n");
+
+		if (body)
+			carg->body_readed = 1;
+	}
+
 	if (!carg->full_body)
 		carg->full_body = string_init(1024);
 
-	if ((nread) > 0 && (nread < 65536) && carg->expect_body_length <= (nread + carg->full_body->l))
+	if ((nread) > 0 && (nread < 65536) && carg->expect_body_length <= (nread + carg->full_body->l) && carg->body_readed)
 	{
 		srv_carg->read_bytes_counter += nread;
 		string *str = string_init(carg->buffer_response_size);
@@ -175,13 +190,21 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (buf && buf->base)
 			string_cat(carg->full_body, buf->base, nread);
 
+		if (carg->body)
+		{
+			carg->body = strstr(carg->full_body->s, "\r\n\r\n");
+			if (!carg->body)
+				carg->body = strstr(carg->full_body->s, "\n\n");
+		}
+
 		char *pastr = carg->full_body->l ? carg->full_body->s : buf->base;
 		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
 
 		//alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
 		alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
-		carg->write_req.data = carg;
+
 		carg->response_buffer = uv_buf_init(str->s, str->l);
+		carg->write_req.data = carg;
 		if (uv_is_writable((uv_stream_t*)&carg->client))
 		{
 			if(!carg->tls && uv_is_writable((uv_stream_t *)&carg->client))
@@ -197,12 +220,12 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		carg->buffer_response_size = str->m;
 		free(str);
 	}
-	if (carg->expect_body_length > (nread + carg->full_body->l))
+	else if (carg->expect_body_length > (nread + carg->full_body->l))
 	{
 		srv_carg->read_bytes_counter += nread;
 		string_cat(carg->full_body, buf->base, nread);
 	}
-	if ((nread) > 0 && (nread >= 65536))
+	else if (nread >= 65536)
 	{
 		srv_carg->read_bytes_counter += nread;
 		string_cat(carg->full_body, buf->base, nread);
@@ -219,6 +242,8 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		tcp_server_close_client(carg);
 	}
+	else
+		string_cat(carg->full_body, buf->base, nread);
 }
 
 void tls_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)

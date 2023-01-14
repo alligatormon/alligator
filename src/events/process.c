@@ -12,6 +12,9 @@
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
+	if (carg->log_level > 2)
+		fprintf(stdout, "Process %p with pid %d with cmd %s readed %u bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
+
 	if (nread == -1)
 	{
 		fprintf(stderr, "error echo_read");
@@ -89,11 +92,9 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
 }
 
-void timer_exec_sentinel(uv_timer_t* timer) {
-	uv_timer_stop(timer);
-	alligator_cache_push(ac->uv_cache_timer, timer);
-
+void timeout_exec_sentinel(uv_timer_t* timer) {
 	context_arg *carg = timer->data;
+
 	if (!carg)
 	{
 		return;
@@ -103,12 +104,12 @@ void timer_exec_sentinel(uv_timer_t* timer) {
 		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
-	string_null(carg->full_body);
 	if (!carg->parsed)
 		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
-	uv_process_t *child_req = &carg->child_req;
-	_on_exit(child_req, 0, 0);
+	int err = uv_process_kill(&carg->child_req, SIGTERM);
+	if (err)
+		printf("Error kill process with pid %d: %s\n", carg->child_req.pid, uv_strerror(err));
 }
 
 void env_struct_process(void *funcarg, void* arg)
@@ -165,6 +166,7 @@ char* process_client(context_arg *carg)
 
 	if (carg->stdin_s && carg->stdin_l)
 	{
+		string_cat(stemplate, "echo '", 6);
 		string_cat(stemplate, carg->stdin_s, carg->stdin_l);
 		string_cat(stemplate, "' | '", 4);
 	}
@@ -259,7 +261,7 @@ void on_process_spawn(void* arg)
 		carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->tt_timer->data = carg;
 		uv_timer_init(carg->loop, carg->tt_timer);
-		uv_timer_start(carg->tt_timer, timer_exec_sentinel, carg->timeout, 0);
+		uv_timer_start(carg->tt_timer, timeout_exec_sentinel, carg->timeout, 0);
 	}
 }
 

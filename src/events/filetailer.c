@@ -49,6 +49,14 @@ void filetailer_close(uv_fs_t *req) {
 
 void file_stat_size_cb(uv_fs_t *req)
 {
+	if (req->result < 0)
+	{
+		if (ac->log_level > 0)
+			printf("error file_stat_size_cb: %s\n", req->path);
+
+		return;
+	}
+
 	context_arg *carg = req->data;
 
 	file_handle *fh = file_handler_struct_init(carg, req->statbuf.st_size);
