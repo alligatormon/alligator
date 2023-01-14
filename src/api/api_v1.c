@@ -75,7 +75,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 				else
 					aggregator_repeat = json_integer_value(value);
 
-				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->lang_aggregator_repeat = ac->tls_fs_repeat = aggregator_repeat;
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->tls_fs_repeat = aggregator_repeat;
 			}
 			if (!strcmp(key, "query_period"))
 			{
