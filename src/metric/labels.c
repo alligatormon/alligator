@@ -446,6 +446,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 			{
 				free(labels_cache->w);
 				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
+				free(labels_cache);
 				++ac->metric_freed;
 			}
 		}
@@ -797,7 +798,6 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 		if (labels->allocatedkey)
 		{
-			//printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
 			free(labels->key);
 		}
 
@@ -1615,8 +1615,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			if (qp.action_need_run)
-				action_run_process(action_name);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_SUM))
@@ -1630,8 +1630,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			if (qp.action_need_run)
-				action_run_process(action_name);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MIN))
@@ -1645,8 +1645,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			if (qp.action_need_run)
-				action_run_process(action_name);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
 			return;
 		}
 		else if (res_count && (func == QUERY_FUNC_MAX))
@@ -1660,8 +1660,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_max, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
-			if (qp.action_need_run)
-				action_run_process(action_name);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
 			labels_head_free(labels_list);
 			return;
 		}
@@ -1676,8 +1676,8 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
-			if (qp.action_need_run)
-				action_run_process(action_name);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
 			return;
 		}
 
