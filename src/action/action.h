@@ -1,6 +1,7 @@
 #pragma once
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
+#include "query/promql.h"
 #define ACTION_TYPE_SHELL 0
 
 typedef struct action_node
@@ -9,6 +10,7 @@ typedef struct action_node
 	size_t expr_len;
 	char *name;
 	char *ns;
+	string *work_dir;
 	int serializer;
 	uint8_t type;
 	alligator_ht *af_hash;
@@ -16,9 +18,16 @@ typedef struct action_node
 	context_arg *carg;
 	alligator_ht *labels;
 	uint64_t follow_redirects;
+	string *engine;
+	string *index_template;
+	uint8_t content_type_json;
+	void *parser;
+	char *parser_name;
 
 	tommy_node node;
 } action_node;
 
 action_node* action_get(char *name);
-void action_push(char *name, char *datasource, json_t *jexpr, json_t *jns, json_t *jtype, uint8_t follow_redirects, json_t *jserializer);
+void action_run_process(char *name, char *namespace, metric_query_context *mqc);
+void action_del(json_t *action);
+void action_push(json_t *action);
