@@ -16,6 +16,7 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 {
 	metric_query_context *mqc = query_context_new(NULL);
 	char *name = mqc->name = malloc(255);
+	*name = 0;
 	string *groupkey = mqc->groupkey = string_new();
 	//printf("==== parse %s\n", query);
 	if (!size)
