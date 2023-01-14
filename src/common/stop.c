@@ -15,9 +15,11 @@ void alligator_stop(char *initiator, int code)
 	namespace_free(0, NULL);
 	cluster_del_all();
 	cluster_handler_stop();
+	scheduler_del_all();
 	query_stop();
 	system_free();
 	resolver_stop();
+	lang_stop();
 	alligator_cache_full_free(ac->uv_cache_timer);
 	alligator_cache_full_free(ac->uv_cache_fs);
 

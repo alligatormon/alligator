@@ -477,6 +477,15 @@ string* string_init_dupn(char *str, uint64_t size)
 	return ret;
 }
 
+string* string_string_init_dup(string *str)
+{
+	string *ret = malloc(sizeof(*ret));
+	ret->m = ret->l = str->l;
+	ret->s = strdup(str->s);
+
+	return ret;
+}
+
 void string_cat(string *str, char *strcat, size_t len)
 {
 	size_t str_len = str->l;
@@ -863,8 +872,10 @@ string* get_file_content(char *file, uint8_t error_logging)
 	if (!fd)
 	{
 		if (error_logging)
+		{
 			fprintf(stderr, "Open config file failed: %s", file);
-		perror(": ");
+			perror(": ");
+		}
 		return 0;
 	}
 

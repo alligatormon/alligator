@@ -171,13 +171,20 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 		carg_free(new);
 }
 
-context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir)
+context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env)
 {
 	host_aggregator_info *hi = parse_url(url, url_len);
 
 	alligator_ht *newenv = NULL;
 	if (carg && carg->env)
 		newenv = carg->env;
+
+	if (env)
+	{
+		if (!newenv)
+			newenv = alligator_ht_init(NULL);
+		alligator_ht_foreach_arg(env, env_struct_duplicate_foreach, newenv);
+	}
 
 	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, follow_redirects, s_stdin, l_stdin);
 
@@ -257,7 +264,7 @@ void aggregate_ctx_init()
 	unbound_parser_push();
 	syslog_ng_parser_push();
 	zookeeper_parser_push();
-	ntpd_parser_push();
+	ntp_parser_push();
 	ipmi_parser_push();
 	pg_parser_push();
 	pgbouncer_parser_push();
@@ -297,6 +304,7 @@ void aggregate_ctx_init()
 	mongodb_parser_push();
 	keepalived_parser_push();
 	dns_parser_push();
+	influxdb_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

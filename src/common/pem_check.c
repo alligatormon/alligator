@@ -355,7 +355,7 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 	lo->arg = passtr;
 
 	lo->carg = calloc(1, sizeof(*lo->carg));
-	lang_push(lo);
+	lang_push_options(lo);
 }
 
 void jks_del(char *name)
