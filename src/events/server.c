@@ -24,19 +24,10 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	(srv_carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
+	if (carg->parser_handler && !carg->parser_status)
+		carg->parser_status = 1;
+
 	aggregator_events_metric_add(srv_carg, carg, NULL, "tcp", "entrypoint", srv_carg->key);
-	//metric_add_labels2("entrypoint_connect", &srv_carg->conn_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_read", &srv_carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_write", &srv_carg->write_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_tls_write", &srv_carg->tls_write_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_tls_read", &srv_carg->tls_read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_tls_init", &srv_carg->tls_init_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_close", &srv_carg->close_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_shutdown", &srv_carg->shutdown_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_write_bytes", &srv_carg->write_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_read_bytes", &srv_carg->read_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_tls_write_bytes", &srv_carg->tls_write_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
-	//metric_add_labels2("entrypoint_tls_read_bytes", &srv_carg->tls_read_bytes_counter, DATATYPE_UINT, carg, "entrypoint", carg->key, "proto", "tcp");
 
 	carg->is_closing = 0;
 	if (carg->tls)

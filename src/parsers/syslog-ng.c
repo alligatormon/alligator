@@ -24,7 +24,7 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 		msize = strcspn(cur, ";");
 		strlcpy(source_name, cur, msize+1);
 		if (strstr(source_name, ".\n"))
-			return;
+			break;
 		cur += msize;
 		++cur;
 

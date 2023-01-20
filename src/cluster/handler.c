@@ -57,6 +57,7 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 			}
 		}
 	}
+	carg->parser_status = 1;
 }
 
 void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *carg)

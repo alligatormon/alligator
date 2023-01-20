@@ -524,7 +524,7 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t redis_validator(char *data, size_t size)
+int8_t redis_validator(context_arg *carg, char *data, size_t size)
 {
 	char *ret = strstr(data, "Keyspace");
 	if (ret)
@@ -575,10 +575,13 @@ void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t redis_cluster_validator(char *data, size_t size)
+int8_t redis_cluster_validator(context_arg *carg, char *data, size_t size)
 {
 	if (strncmp(data, "+OK", 3))
+	{
 		return 0;
+	}
+	carg->parser_status = 1;
 
 	uint64_t body_size;
 	char *tmp;
@@ -631,7 +634,7 @@ void redis_memory_stat_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t redis_memory_stat_validator(char *data, size_t size)
+int8_t redis_memory_stat_validator(context_arg *carg, char *data, size_t size)
 {
 	if (data[0] == '*')
 		return 1;
@@ -690,7 +693,7 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t redis_latency_stat_validator(char *data, size_t size)
+int8_t redis_latency_stat_validator(context_arg *carg, char *data, size_t size)
 {
 	if (data[0] == '*')
 		return 1;

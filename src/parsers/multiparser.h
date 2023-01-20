@@ -4,7 +4,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 void redis_handler(char *metrics, size_t size, context_arg *carg);
 int8_t redis_validator(char *data, size_t size);
 void redis_cluster_handler(char *metrics, size_t size, context_arg *carg);
-int8_t redis_cluster_validator(char *data, size_t size);
+int8_t redis_cluster_validator(context_arg *carg, char *data, size_t size);
 void sentinel_handler(char *metrics, size_t size, context_arg *carg);
 void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg);
 void aerospike_get_namespaces_handler(char *metrics, size_t size, context_arg *carg);

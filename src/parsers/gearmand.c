@@ -53,7 +53,7 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t gearmand_validator(char *data, size_t size)
+int8_t gearmand_validator(context_arg *carg, char *data, size_t size)
 {
 	char *ret = strstr(data, "\n.\n");
 	if (ret)

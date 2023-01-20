@@ -11,7 +11,7 @@ void influxdb_handler(char *metrics, size_t size, context_arg *carg)
 	printf("body is %s\n", body->s);
 }
 
-int8_t influxdb_validator(char *data, size_t size)
+int8_t influxdb_validator(context_arg *carg, char *data, size_t size)
 {
 	json_error_t error;
 	json_t *root = json_loads(data+8, 0, &error);

@@ -6,7 +6,7 @@
 #include "common/aggregator.h"
 #include "main.h"
 
-int8_t aerospike_validator(char *data, size_t size)
+int8_t aerospike_validator(context_arg *carg, char *data, size_t size)
 {
 	//char *ret = strstr(data, "Keyspace");
 	//if (ret)

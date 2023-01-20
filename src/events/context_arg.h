@@ -21,6 +21,7 @@
 #include "common/url.h"
 #include "picohttpparser.h"
 #define ENTRYPOINT_RETURN_EMPTY 1
+#define ENTRYPOINT_AGGREGATION_COUNT 1
 
 typedef struct env_struct {
 	char *k;
@@ -70,7 +71,7 @@ typedef struct context_arg
 	uint8_t no_exit_status;
 	int64_t chunked_expect;
 	char *chunked_ptr;
-	int8_t (*expect_function)(char *, size_t);
+	int8_t (*expect_function)(struct context_arg*, char *, size_t);
 	uint8_t expect_count;
 	uint8_t read_count;
 	uint64_t pingloop;
@@ -285,6 +286,7 @@ typedef struct context_arg
 	cluster_node *cluster_node;
 	char *instance; // only for entrypoint, not aggregate!
 	uint8_t rreturn; // only for entrypoint, not aggregate!
+	uint8_t metric_aggregation; // only for entrypoint, not aggregate!
 
 	tommy_node node;
 	tommy_node context_node;

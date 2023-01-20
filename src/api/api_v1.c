@@ -494,6 +494,16 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						carg->lang = strdup(json_string_value(json_lang));
 					}
 
+					json_t *json_aggregation = json_object_get(entrypoint, "metric_aggregation");
+					if (json_aggregation)
+					{
+						const char *aggregation = json_string_value(json_aggregation);
+						if (!strcmp(aggregation, "count"))
+						{
+							carg->metric_aggregation = ENTRYPOINT_AGGREGATION_COUNT;
+						}
+					}
+
 					json_t *json_auth = json_object_get(entrypoint, "auth");
 					if (json_auth)
 					{

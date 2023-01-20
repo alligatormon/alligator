@@ -58,7 +58,7 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-int8_t nsd_validator(char *data, size_t size)
+int8_t nsd_validator(context_arg *carg, char *data, size_t size)
 {
 	if (size < 500)
 		return 0;

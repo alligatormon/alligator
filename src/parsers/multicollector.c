@@ -11,6 +11,31 @@
 #include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
+#define METRIC_TYPE_UNTYPED 0
+#define METRIC_TYPE_COUNTER 1
+#define METRIC_TYPE_HISTOGRAM 2
+
+typedef struct metric_datatypes {
+	char *key;
+	uint8_t type;
+
+	tommy_node node;
+} metric_datatypes;
+
+void metric_datatype_foreach(void *arg)
+{
+	metric_datatypes *dt = arg;
+	free(dt->key);
+	free(dt);
+}
+
+int metric_datatypes_compare(const void* arg, const void* obj)
+{
+	char* s1 = (char*)arg;
+	char* s2 = ((metric_datatypes*)obj)->key;
+	return strcmp(s1, s2);
+}
+
 
 // metric name is a label value
 int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t size, char *s2)
@@ -349,7 +374,7 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 	return 1;
 }
 
-uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg)
+uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
 {
 	if (ac->log_level > 3)
 		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
@@ -598,8 +623,19 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 	r_time end_parsing = setrtime();
 
+	metric_datatypes *dt = NULL;
+	if (carg && carg->metric_aggregation)
+	{
+		uint32_t key_hash = tommy_strhash_u32(0, metric_name);
+		dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
+	}
+
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+	else if (dt && (dt->type == METRIC_TYPE_COUNTER || dt->type == METRIC_TYPE_HISTOGRAM))
+	{
+		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+	}
 	else
 		metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 
@@ -625,6 +661,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		size = http_data->body_size;
 	}
 
+	alligator_ht *counter_names = alligator_ht_init(NULL);
 	uint64_t fgets_counter = 0;
 
 	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, carg)) )
@@ -632,7 +669,54 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		++fgets_counter;
 
 		if (tmp[0] == '#')
+		{
+			if (carg->metric_aggregation)
+			{
+				uint16_t cursor = 1;
+				cursor += strspn(tmp + cursor, " \t");
+				if (!strncmp(tmp + cursor, "TYPE", 4))
+				{
+					size_t size;
+					char metric_name[255];
+					cursor += strcspn(tmp + cursor, " \t");
+					cursor += strspn(tmp + cursor, " \t");
+					size = strcspn(tmp + cursor, " \t");
+					if (size > 255)
+						continue;
+
+					strlcpy(metric_name, tmp + cursor, size + 1);
+
+					cursor += size;
+					cursor += strspn(tmp + cursor, " \t");
+
+					if (!strncmp(tmp + cursor, "counter", 7))
+					{
+						uint32_t key_hash = tommy_strhash_u32(0, metric_name);
+						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
+						if (!dt)
+						{
+							dt = calloc(1, sizeof(*dt));
+							dt->key = strdup(metric_name);
+							dt->type = METRIC_TYPE_COUNTER;
+							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
+						}
+					}
+					else if (!strncmp(tmp + cursor, "histogram", 9))
+					{
+						uint32_t key_hash = tommy_strhash_u32(0, metric_name);
+						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
+						if (!dt)
+						{
+							dt = calloc(1, sizeof(*dt));
+							dt->key = strdup(metric_name);
+							dt->type = METRIC_TYPE_HISTOGRAM;
+							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
+						}
+					}
+				}
+			}
 			continue;
+		}
 
 		if (tmp[0] == 0)
 			continue;
@@ -651,7 +735,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		//if (ac->log_level > 2)
 		//	puts("skip first incomplete string for statsd/graphite proto, loose by network");
 
-		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg);
+		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg, counter_names);
 		if (carg)
 			carg->parser_status = rc;
 	}
@@ -665,6 +749,10 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
 		metric_add_labels("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
 	}
+
+	alligator_ht_foreach(counter_names, metric_datatype_foreach);
+	alligator_ht_done(counter_names);
+	free(counter_names);
 }
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

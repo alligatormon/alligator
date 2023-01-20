@@ -692,6 +692,15 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "lang", lang);
 	}
 
+	if (carg->metric_aggregation)
+	{
+		if (carg->metric_aggregation == ENTRYPOINT_AGGREGATION_COUNT)
+		{
+			json_t *metric_aggregation = json_string("count");
+			json_array_object_insert(ctx, "metric_aggregation", metric_aggregation);
+		}
+	}
+
 	if (carg->labels)
 		alligator_ht_foreach_arg(carg->labels, labels_kv_deserialize, ctx);
 

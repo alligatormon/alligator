@@ -305,6 +305,7 @@ void aggregate_ctx_init()
 	keepalived_parser_push();
 	dns_parser_push();
 	influxdb_parser_push();
+	lang_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

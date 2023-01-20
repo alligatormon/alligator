@@ -353,6 +353,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
 			json_t *lang_entrypoint = NULL;
+			json_t *metric_aggregation_entrypoint = NULL;
 			json_t *key_entrypoint = NULL;
 			json_t *return_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
@@ -552,6 +553,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							++i;
 							instance_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "instance", instance_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metric_aggregation"))
+					{
+						if (!metric_aggregation_entrypoint)
+						{
+							++i;
+							metric_aggregation_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "metric_aggregation", metric_aggregation_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "key"))

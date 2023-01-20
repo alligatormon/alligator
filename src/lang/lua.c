@@ -3,7 +3,7 @@
 #include <lauxlib.h>
 #include "lang/lang.h"
 
-char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, char *arg, string* smetrics, string *conf)
+char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, char *arg, string* smetrics, string *conf, string *parser_data, string *response)
 {
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
@@ -11,6 +11,7 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 
 	char *metrics_str = smetrics ? smetrics->s : "";
 	char *conf_str = conf ? conf->s : "";
+	char *parser_data_str = parser_data ? parser_data->s : "";
 
 	if (code)
 	{
@@ -27,13 +28,25 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 			lua_pushstring(L, arg);
 			lua_pushstring(L, metrics_str);
 			lua_pushstring(L, conf_str);
-			if (lua_pcall(L, 3, 1, 0)) // L, numArgs, numRets, errFuncIndex
+			lua_pushstring(L, parser_data_str);
+			//lua_pushstring(L, response_str);
+			if (lua_pcall(L, 4, 2, 0)) // L, numArgs, numRets, errFuncIndex
 			{
 				if (log_level)
 					printf("lua_pcall failed: %s\n", lua_tostring(L, -1));
 
 				lua_pop(L, 1);
 			}
+		}
+		if (lua_isstring(L, -1)) {
+			char* response_from_lua = (char*)lua_tostring(L, -1);
+
+			if (response_from_lua && response)
+				string_cat(response, response_from_lua, strlen(response_from_lua));
+			lua_pop(L, 1);
+
+			if (log_level)
+				printf("Lang lua exec key '%s' response result:\n'%s'\n", key, response_from_lua);
 		}
 		if (lua_isstring(L, -1)) {
 			char* metrics_from_lua = (char*)lua_tostring(L, -1);
@@ -43,7 +56,7 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 			lua_pop(L, 1);
 
 			if (log_level)
-				printf("Lang lua exec key '%s' result:\n'%s'\n", key, metrics);
+				printf("Lang lua exec key '%s' metrics result:\n'%s'\n", key, metrics);
 		}
 	}
 
@@ -52,11 +65,11 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 	return metrics;
 }
 
-char* lua_run(lang_options *lo, char* script, char *file, char *arg, string* smetrics, string *conf)
+char* lua_run(lang_options *lo, char* script, char *file, char *arg, string* smetrics, string *conf, string *parser_data, string *response)
 {
 	char *metrics = NULL;
 	if (script)
-		metrics = lua_run_script(script, lo->key, lo->log_level, lo->method, lo->arg, smetrics, conf);
+		metrics = lua_run_script(script, lo->key, lo->log_level, lo->method, lo->arg, smetrics, conf, parser_data, response);
 	else if (file)
 		read_from_file(strdup(file), 0, lang_load_script, lo);
 	else
