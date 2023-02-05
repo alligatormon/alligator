@@ -24,12 +24,14 @@ log_level 0..10;
 ttl 0; # global ttl for metrics in sec, default 300
 
 #prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
-entrypoint prometheus {
+entrypoint {
+	[return empty]; # this case for push-only interfaces without return any http bodies
 	ttl 3600;
 	tcp 1111;
 	unixgram /var/lib/alligator.unixgram;
 	unix /var/lib/alligator.unix;
 	handler prometheus;
+	metric_aggregation count; # for counting histograms and counter datatypes as aggregation gateway
 }
 
 #configuration with reject metric label http_response_code="404":

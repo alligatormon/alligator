@@ -139,9 +139,6 @@ void do_unixgram_client(char *unixsockaddr, void *handler, char *mesg)
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->parser_handler = handler;
 	carg->mesg = mesg;
-	if (carg->key)
-		free(carg->key);
-	carg->key = unixsockaddr;
 
 	alligator_ht_insert(ac->unixgram_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }

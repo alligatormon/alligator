@@ -156,8 +156,7 @@ void carg_free(context_arg *carg)
 	}
 
 	network_range_free(carg->net_acl);
-	labels_free(carg->labels);
-	// TODO: free carg->labels
+	labels_hash_free(carg->labels);
 	// TODO: free carg->socket
 	// TODO: free carg->mm
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.67)
+set(VERSION 1.14.70)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -71,7 +71,7 @@ include_directories(/usr/local/include/mysql)
 include_directories(/usr/local/include/hv/)
 include_directories(external/libhv/include/hv/)
 include_directories(/usr/local/include/)
-include_directories(/app/trash/picohttpparser)
+include_directories(external/picohttpparser)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(/usr/local/lib64/)
@@ -275,7 +275,7 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytree.c
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
-	/app/trash/picohttpparser/picohttpparser.c
+	external/picohttpparser/picohttpparser.c
 	/app/src/external/libhv/protocol/dns.c
 )
 #IF(${distro} MATCHES "centos")

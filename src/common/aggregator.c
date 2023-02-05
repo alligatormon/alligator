@@ -15,9 +15,9 @@
 #include "resolver/resolver.h"
 char* icmp_client(context_arg *carg);
 
-int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
+int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query, char *name)
 {
-	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
+	return name ? snprintf(key, 254, "%s", name) : snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
 }
 
 void smart_aggregator_key_normalize(char *key)
@@ -38,12 +38,11 @@ int smart_aggregator(context_arg *carg)
 	char key[255];
 	if (!carg->key)
 	{
-		unsigned int sin_port = carg->dest ? htons(carg->dest->sin_port) : 0;
-		snprintf(key, 254, "%s:%s:%s:%u", carg->transport_string, carg->parser_name, carg->host, sin_port);
-		smart_aggregator_default_key(key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
+		carg->key = malloc(255);
+		smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url, carg->name);
 	}
-	else
-		strlcpy(key, carg->key, 255);
+
+	strlcpy(key, carg->key, 255);
 
 	if (ac->log_level > 0)
 		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
@@ -137,10 +136,10 @@ void smart_aggregator_del_key(char *key)
 	}
 }
 
-void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query)
+void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query, char *name)
 {
 	char key[255];
-	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query);
+	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query, name);
 	smart_aggregator_del_key(key);
 }
 
@@ -153,7 +152,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	if (!new->key)
 	{
 		new->key = malloc(64);
-		snprintf(new->key, 64, "%s(tcp://%s:%u)", parser_name, carg->host, htons(carg->dest->sin_port));
+		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url, new->name);
 	}
 
 	smart_aggregator_key_normalize(new->key);
@@ -194,10 +193,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	if (!new->key)
 	{
 		new->key = malloc(255);
-		snprintf(new->key, 254, "%s(%s://%s:%s)", parser_name, hi->transport_string, hi->host, hi->port);
-		//char *hi_query = hi->query ? strdup(hi->query) : NULL;
-		//smart_aggregator_default_key(new->key, carg->transport_string, parser_name, carg->host, carg->port, hi->query);
-		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url);
+		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url, new->name);
 	}
 
 	smart_aggregator_key_normalize(new->key);

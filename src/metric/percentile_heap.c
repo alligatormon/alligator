@@ -145,6 +145,14 @@ void heap_insert(percentile_buffer *pb, int64_t key)
 
 	pb->arr[pb->cur] = key;
 
+	if (pb->cur == 0 && pb->arr[1] == 0)
+	{
+		for (uint64_t i = 1; i < pb->n; ++i)
+		{
+			pb->arr[i] = key;
+		}
+	}
+
 	++pb->cur;
 }
 

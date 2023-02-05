@@ -3,24 +3,24 @@ const f = require('/var/lib/alligator/argOptions.js')
 
 process.setMaxListeners(0);
 
-function perfMetricsPush(ret, name, resource, source, entryType, initiatorType, nextHopProtocol, val)
+function perfMetricsPush(ret, name, resource, source, entryType, initiatorType, nextHopProtocol, val, extra_labels)
 {
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", source="' + source.substring(0, 128) + '", entryType="' + entryType + '", initiatorType="' + initiatorType + '", nextHopProtocol="' + nextHopProtocol + '"} ' + val);
+	ret.push('puppeteer_' + name + ' {resource="' + resource + '", source="' + source.substring(0, 128) + extra_labels + '", entryType="' + entryType + '", initiatorType="' + initiatorType + '", nextHopProtocol="' + nextHopProtocol + '"} ' + val);
 }
 
-function resourceMetricsPush(ret, name, resource, val)
+function resourceMetricsPush(ret, name, resource, val, extra_labels)
 {
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '"} ' + val);
+	ret.push('puppeteer_' + name + ' {' + extra_labels + 'resource="' + resource + '"} ' + val);
 }
 
-function labelMetricsPush(ret, name, resource, label, value, val)
+function labelMetricsPush(ret, name, resource, label, value, val, extra_labels)
 {
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + label + '="' + value.replace(/"/g, '_') + '"} ' + val);
+	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + extra_labels + label + '="' + value.replace(/"/g, '_') + '"} ' + val);
 }
 
-function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, val)
+function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, val, extra_labels)
 {
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + label1 + '="' + value1.replace(/"/g, '_') + '", ' + label2 + '="' + value2.replace(/"/g, '_').substring(0,128) + '"} ' + val);
+	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + extra_labels + label1 + '="' + value1.replace(/"/g, '_') + '", ' + label2 + '="' + value2.replace(/"/g, '_').substring(0,128) + '"} ' + val);
 }
 
 (async () => {
@@ -53,6 +53,14 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 
 		await Promise.all(Object.entries(jsonVal).map(async ([pupKey, pupValue]) => {
 
+			let extra_labels = ""
+			if ("add_label" in pupValue)
+			{
+				labels = pupValue["add_label"]
+				Object.entries(labels).forEach(([label_name, label_key]) => {
+					extra_labels += label_name + '="' + label_key + '", '
+				})
+			}
 			const page = await context.newPage();
 
 			await page.setCacheEnabled(false);
@@ -77,19 +85,19 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			page
 			.on('console', consoleObj => {
 					//console.log("console is", consoleObj.text()))
-					labelMetricsPush(ret, "eventConsole", resource, "text", consoleObj.text(), 1);
+					labelMetricsPush(ret, "eventConsole", resource, "text", consoleObj.text(), 1, extra_labels);
 			})
 			.on('pageerror', ({ message }) => {
 					//console.log(message)
-					labelMetricsPush(ret, "eventPageError", resource, "text", message.replace(/(\r\n|\n|\r)/gm, ""), 1);
+					labelMetricsPush(ret, "eventPageError", resource, "text", message.replace(/(\r\n|\n|\r)/gm, ""), 1, extra_labels);
 			})
 			.on('response', response => {
 					//console.log(`${response.status()} ${response.url()}`)
-					labelMetricsPush(ret, "eventSourceResponseStatus", resource, "source", response.url().substring(0, 128), response.status());
+					labelMetricsPush(ret, "eventSourceResponseStatus", resource, "source", response.url().substring(0, 128), response.status(), extra_labels);
 			})
 			.on('requestfailed', request => {
 					//console.log(`${request.failure().errorText} ${request.url()}`)
-					labelMetricsPush(ret, "eventRequestFailed", resource, "source", request.url(), 1);
+					labelMetricsPush(ret, "eventRequestFailed", resource, "source", request.url(), 1, extra_labels);
 			})
 			//.on('response', response => { console.log(response) })
 
@@ -104,11 +112,14 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 				});
 			}
 
+			if ("env" in pupValue) {
+				await page.setExtraHTTPHeaders(pupValue["env"])
+			}
 
 			try {
 				await page.goto(resource, { waitUntil: 'networkidle2', timeout: Number(pupValue["timeout"]) || 30000, });
 			} catch (error) {
-				labelMetricsPush(ret, "ErrorFetch", resource, "error", error.message, 1);
+				labelMetricsPush(ret, "ErrorFetch", resource, "error", error.message, 1, extra_labels);
 			}
 
 			const perfEntries = []
@@ -130,17 +141,17 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 				perfEntries.forEach(entry => {
 					if (entry.transferSize > 0) {
 						totalSize += entry.transferSize;
-						[ "startTime", "duration", "workerStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "secureConnectionStart", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"].forEach(metric => perfMetricsPush(ret, metric, resource, entry.name, entry.entryType, entry.initiatorType, entry.nextHopProtocol, entry[metric]))
+						[ "startTime", "duration", "workerStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "secureConnectionStart", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"].forEach(metric => perfMetricsPush(ret, metric, resource, entry.name, entry.entryType, entry.initiatorType, entry.nextHopProtocol, entry[metric], extra_labels))
 					}
 				});
 				return totalSize;
 			}
 
-			resourceMetricsPush(ret, "totalSize", resource, totalSize());
+			resourceMetricsPush(ret, "totalSize", resource, totalSize(), extra_labels);
 
 			let performanceMetrics = await page._client.send('Performance.getMetrics');
 			performanceMetrics.metrics.forEach(entry => {
-				resourceMetricsPush(ret, entry.name, resource, entry.value);
+				resourceMetricsPush(ret, entry.name, resource, entry.value, extra_labels);
 			});
 
 			console.log(ret.join("\n"));

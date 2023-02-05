@@ -405,7 +405,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 
 	labels_words_cache *labels_cache;
-	alligator_ht *labels_words_hash = metrictree->labels_words_hash;
+	alligator_ht *labels_words_hash = metrictree ? metrictree->labels_words_hash : NULL;
 	
 	while (labels)
 	{

@@ -13,7 +13,7 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
 	if (carg->log_level > 2)
-		fprintf(stdout, "Process %p with pid %d with cmd %s readed %u bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
+		fprintf(stdout, "Process %p with pid %d with cmd %s readed %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
 
 	if (nread == -1)
 	{

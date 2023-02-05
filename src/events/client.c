@@ -568,10 +568,6 @@ void tcp_client_connect(void *arg)
 	if (!data)
 		return;
 
-	//struct addrinfo res;
-	//uv_ip4_name((struct sockaddr_in*)&res.ai_addr, data->s, 16);
-	//carg->dest = (struct sockaddr_in*)&res.ai_addr;
-
 	struct sockaddr_in res;
 	uv_ip4_addr(data->s, carg->numport, &res);
 	carg->dest = &res;
@@ -637,49 +633,6 @@ static void tcp_client_crawl(uv_timer_t* handle) {
 	alligator_ht_foreach(ac->uggregator, unix_client_connect);
 }
 
-//void aggregator_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
-//{
-//	context_arg* carg = (context_arg*)req->data;
-//	if (carg->log_level > 1)
-//		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-//
-//	char addr[17] = {'\0'};
-//	if (status < 0)
-//	{
-//		uv_freeaddrinfo(res);
-//		free(req);
-//		return;
-//	}
-//
-//	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
-//
-//	carg->dest = (struct sockaddr_in*)res->ai_addr;
-//
-//	alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-//
-//	//uv_freeaddrinfo(res);
-//	free(req);
-//}
-//
-//void aggregator_resolve_host(context_arg* carg)
-//{
-//	if (carg->log_level > 1)
-//		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-//	struct addrinfo hints;
-//	uv_getaddrinfo_t* addr_info = 0;
-//	addr_info = malloc(sizeof(uv_getaddrinfo_t));
-//	addr_info->data = carg;
-//
-//	hints.ai_family = PF_INET;
-//	hints.ai_socktype = SOCK_STREAM;
-//	hints.ai_protocol = IPPROTO_TCP;
-//	hints.ai_flags = 0;
-//
-//	if (uv_getaddrinfo(carg->loop, addr_info, aggregator_getaddrinfo, carg->host, carg->port, &hints))
-//		free(addr_info);
-//
-//}
-
 char* tcp_client(void *arg)
 {
 	if (!arg)
@@ -687,12 +640,6 @@ char* tcp_client(void *arg)
 
 	context_arg *carg = arg;
 
-	if (carg->key)
-		free(carg->key);
-	carg->key = malloc(255);
-	smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
-
-	//aggregator_resolve_host(carg);
 	alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 	return "tcp";
@@ -702,10 +649,6 @@ char* unix_tcp_client(context_arg* carg)
 {
 	if (!carg)
 		return NULL;
-
-	if (!carg->key)
-		carg->key = malloc(255);
-	snprintf(carg->key, 255, "%s", carg->host);
 
 	alligator_ht_insert(ac->uggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	return "unix";

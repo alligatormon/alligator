@@ -121,23 +121,6 @@ void udp_client_connect(void *arg)
 	carg->parser_status = 0;
 	carg->curr_ttl = carg->ttl;
 
-	//char *addr = NULL;
-	//if (is_ip_addr(carg->host))
-	//	addr = carg->host;
-	//else
-	//{
-	//	puts("4aggregator_get_addr");
-	//	string *addr_name = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
-	//	addr = addr_name ? addr_name->s : NULL;
-	//}
-
-	//if (!addr)
-	//	return;
-
-	//struct addrinfo res;
-	//uv_ip4_name((struct sockaddr_in*)&res.ai_addr, addr, 16);
-	//carg->dest = (struct sockaddr_in*)&res.ai_addr;
-
 	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 	if (!data)
 	{
@@ -164,67 +147,6 @@ void udp_client_connect(void *arg)
 	carg->write_time = setrtime();
 }
 
-//void aggregator_getaddrinfo2(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
-//{
-//	context_arg* carg = (context_arg*)req->data;
-//	if (ac->log_level > 1)
-//		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-//
-//	char addr[17] = {'\0'};
-//	if (status < 0)
-//	{
-//		uv_freeaddrinfo(res);
-//		free(req);
-//		return;
-//	}
-//
-//	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
-//
-//	carg->dest = (struct sockaddr_in*)res->ai_addr;
-//	//carg->key = malloc(64);
-//	if (carg->transport == APROTO_UDP)
-//	{
-//	//	snprintf(carg->key, 64, "udp://%s:%u", addr, htons(carg->dest->sin_port));
-//		alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-//	}
-//	else
-//	{
-//	//	snprintf(carg->key, 64, "tcp://%s:%u", addr, htons(carg->dest->sin_port));
-//		alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-//	}
-//
-//
-//	//uv_freeaddrinfo(res);
-//	free(req);
-//}
-//
-//void aggregator_resolve_host2(context_arg* carg)
-//{
-//	if (ac->log_level > 1)
-//		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
-//	struct addrinfo hints;
-//	uv_getaddrinfo_t* addr_info = 0;
-//	addr_info = malloc(sizeof(uv_getaddrinfo_t));
-//	addr_info->data = carg;
-//
-//	hints.ai_family = PF_INET;
-//	if (carg->transport == APROTO_UDP)
-//	{
-//		hints.ai_socktype = SOCK_DGRAM;
-//		hints.ai_protocol = IPPROTO_UDP;
-//	}
-//	else
-//	{
-//		hints.ai_socktype = SOCK_STREAM;
-//		hints.ai_protocol = IPPROTO_TCP;
-//	}
-//	hints.ai_flags = 0;
-//
-//	if (uv_getaddrinfo(carg->loop, addr_info, aggregator_getaddrinfo2, carg->host, carg->port, &hints))
-//		free(addr_info);
-//
-//}
-
 char* udp_client(void *arg)
 {
 	if (!arg)
@@ -233,13 +155,7 @@ char* udp_client(void *arg)
 	context_arg *carg = arg;
 	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 
-	if (carg->key)
-		free(carg->key);
-	carg->key = malloc(255);
-	smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
-
 	alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-	//aggregator_resolve_host2(carg);
 	return "udp";
 }
 
