@@ -74,7 +74,6 @@ void puppeteer_delete(json_t *root)
 void puppeteer_foreach_crawl(void *funcarg, void* arg)
 {
 	puppeteer_node *pn = arg;
-	//printf("free url '%s'\n", pn->url->s);
 	string_free(pn->url);
 	free(pn);
 }

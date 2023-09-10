@@ -340,10 +340,11 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = strdup(name);
-	lo->lang = "java";
-	lo->classpath = "-Djava.class.path=/var/lib/alligator/";
-	lo->classname = "alligatorJks";
-	lo->method = "walkJks";
+	lo->lang = "so";
+	lo->file = "/var/lib/alligator/parseJks.so";
+	lo->module = "parseJks";
+	lo->method = "alligator_call";
+	//lo->script = 
 
 	if (!passtr)
 	{
@@ -354,7 +355,7 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 
 	lo->arg = passtr;
 
-	lo->carg = calloc(1, sizeof(*lo->carg));
+	//lo->carg = calloc(1, sizeof(*lo->carg));
 	lang_push_options(lo);
 }
 

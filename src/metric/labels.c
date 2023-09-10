@@ -954,6 +954,48 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	}
 }
 
+void metric_update_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7)
+{
+	namespace_struct *ns;
+
+	if (numbercheck(name))
+		return;
+
+	if (!carg || !carg->namespace)
+		ns = ac->nsdefault;
+	else // add support namespaces
+		return;
+
+	metric_tree *tree = ns->metrictree;
+	expire_tree *expiretree = ns->expiretree;
+	int64_t ttl = get_ttl(carg);
+
+	alligator_ht *hash = alligator_ht_init(NULL);
+
+	labels_hash_insert(hash, name1, key1);
+	labels_hash_insert(hash, name2, key2);
+	labels_hash_insert(hash, name3, key3);
+	labels_hash_insert(hash, name4, key4);
+	labels_hash_insert(hash, name5, key5);
+	labels_hash_insert(hash, name6, key6);
+	labels_hash_insert(hash, name7, key7);
+
+	if (carg && carg->labels)
+		labels_merge(hash, carg->labels);
+
+	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	metric_node* mnode = metric_find(tree, labels_list);
+	if (mnode)
+	{
+		metric_gset(mnode, type, value, expiretree, ttl);
+		labels_head_free(labels_list);
+	}
+	else
+	{
+		metric_insert(tree, labels_list, type, value, expiretree, ttl);
+	}
+}
+
 void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
 {
 	//r_time start = setrtime();

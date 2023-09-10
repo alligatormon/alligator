@@ -7,7 +7,6 @@
 #include "probe/probe.h"
 #include "puppeteer/puppeteer.h"
 #include "resolver/resolver.h"
-#include "system/linux.h"
 #include "system/linux/sysctl.h"
 #include "main.h"
 extern aconf *ac;

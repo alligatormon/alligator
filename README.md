@@ -427,21 +427,15 @@ entrypoint {
 }
 ```
 
-# Call external methods in different languages (now support only java)
+# Call external methods in different languages (now support duktape, lua, mruby and .so files (c/rust/c++)
 ```
-modules {
-	jvm /usr/lib64/libjvm.so;
-	postgresql /lib64/libpq.so.5;
-	mysql /usr/lib64/mysql/libmysqlclient.so;
-	mongodb /usr/local/lib64/libmongoc-1.0.so;
-	rpm /usr/lib64/librpm.so.3;
-}
 lang {
-	lang java;
-	classpath dfvfvr;
-	classname alligatorJmx;
-	method getJmx;
-	arg service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
+    lang lua;
+    method metrics_response;
+    file /app/src/tests/system/lang/response.lua;
+    arg "6";
+    log_level 1;
+    key lua_response;
 }
 ```
 

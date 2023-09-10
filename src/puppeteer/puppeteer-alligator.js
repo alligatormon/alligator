@@ -80,7 +80,9 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			}
 
 			let resource = pupKey
+			resourceMetricsPush(ret, "Info", resource, 1, extra_labels);
 			//console.log("fetch:", resource);
+			let resp_code = 0;
 
 			page
 			.on('console', consoleObj => {
@@ -93,6 +95,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			})
 			.on('response', response => {
 					//console.log(`${response.status()} ${response.url()}`)
+					resp_code = response.status()
 					labelMetricsPush(ret, "eventSourceResponseStatus", resource, "source", response.url().substring(0, 128), response.status(), extra_labels);
 			})
 			.on('requestfailed', request => {
@@ -155,6 +158,22 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			});
 
 			console.log(ret.join("\n"));
+
+			if ("screenshot" in pupValue) {
+				let necessary_code = pupValue["screenshot"]["minimum_code"] || 400;
+				let fullPage = pupValue["screenshot"]["fullPage"] || false
+				let type = pupValue["screenshot"]["png"] || "png"
+				let dir = pupValue["screenshot"]["dir"] || "/var/lib/alligator/"
+				let utcStr = new Date().toISOString();
+				let path = dir + "/" + pupKey.replaceAll("/", "-") + "-" + utcStr + "." + type
+				if (resp_code >= necessary_code) {
+					await page.screenshot({
+						path: path,
+						type: type,
+						fullPage: fullPage,
+					});
+				}
+			}
 
 			await page.close();
 		}));

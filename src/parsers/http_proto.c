@@ -173,6 +173,19 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	return hrdata;
 }
 
+void http_null_metrics(context_arg *carg)
+{
+	uint64_t count = 1;
+	uint64_t status = 0;
+	uint64_t http_code = 0;
+	char code[2];
+	strlcpy(code, "0", 2);
+	metric_update_labels7("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
+	metric_add_labels6("aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "port", carg->port, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels6("aggregator_http_headers_size", &status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
+	metric_add_labels6("aggregator_http_body_size", &status, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
+}
+
 void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 {
 	if (!hrdata)
@@ -185,11 +198,10 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	snprintf(code, 6, "%"PRId16, hrdata->http_code);
 	uint64_t http_code = hrdata->http_code;
 
-	metric_update_labels3("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port);
-	metric_add_labels2("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port);
-	metric_add_labels2("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port);
-	metric_add_labels5("alligator_aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-	metric_add_labels5("alligator_aggregator_http_header_size", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_update_labels7("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
+	metric_add_labels6("aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
+	metric_add_labels6("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
+	metric_add_labels6("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
 
 	if (carg->data && carg->parser_handler == blackbox_null)
 	{
@@ -208,11 +220,12 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	}
 }
 
-void http_get_auth_data(http_reply_data *hr_data)
+void http_get_auth_data(http_reply_data *hr_data, char *auth_header)
 {
 	hr_data->auth_bearer = 0;
 	hr_data->auth_basic = 0;
-	char *ptr = strcasestr(hr_data->headers, "Authorization");
+	hr_data->auth_other = 0;
+	char *ptr = strcasestr(hr_data->headers, auth_header);
 	if (ptr)
 	{
 		ptr += strcspn(ptr, ": \t");
@@ -223,7 +236,6 @@ void http_get_auth_data(http_reply_data *hr_data)
 			ptr += strspn(ptr, " \t");
 			uint8_t size = strcspn(ptr, "\r\n");
 			hr_data->auth_basic = strndup(ptr, size);
-			//printf("http auth basic '%s'\n", hr_data->auth_basic);
 		}
 		else if (!strncasecmp(ptr, "Bearer", 6))
 		{
@@ -231,7 +243,11 @@ void http_get_auth_data(http_reply_data *hr_data)
 			ptr += strspn(ptr, " \t");
 			uint8_t size = strcspn(ptr, "\r\n");
 			hr_data->auth_bearer = strndup(ptr, size);
-			//printf("http auth bearer '%s'\n", hr_data->auth_bearer);
+		}
+		else
+		{
+			uint8_t size = strcspn(ptr, "\r\n");
+			hr_data->auth_other = strndup(ptr, size);
 		}
 	}
 }
@@ -298,7 +314,7 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 	}
 }
 
-http_reply_data* http_proto_get_request_data(char *buf, size_t size)
+http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_header)
 {
 	uint64_t i;
 	int8_t skip = 0;
@@ -418,7 +434,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size)
 		i += strcspn(ret->headers+i, "\n");
 	}
 
-	http_get_auth_data(ret);
+	http_get_auth_data(ret, auth_header);
 
 	return ret;
 }
@@ -427,27 +443,29 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 {
 	extern aconf *ac;
 	if (ac->log_level > 3)
-		printf("http auth: basic:%d bearer %d\n", carg->auth_basic ? 1:0, carg->auth_bearer ? 1:0);
+		printf("http auth: basic:%d bearer:%d other:%d\n", carg->auth_basic ? 1:0, carg->auth_bearer ? 1:0, carg->auth_other ? 1:0);
 
 	if (!carg)
 		return 1;
 
-	if (!carg->auth_basic && !carg->auth_bearer)
+	if (!carg->auth_basic && !carg->auth_bearer && !carg->auth_other)
 		return 1;
 
 	if (carg->auth_basic && http_data->auth_basic)
 	{
 		for(uint64_t i = 0; i < carg->auth_basic_size; ++i)
-		{
-			//printf("[%d] test '%s' and '%s'\n", i, carg->auth_basic[i], http_data->auth_basic);
 			if ((carg->auth_basic[i]) && (!strcmp(carg->auth_basic[i], http_data->auth_basic)))
 				return 1;
-		}
 	}
 
 	if (carg->auth_bearer && http_data->auth_bearer)
 		for(uint64_t i = 0; i < carg->auth_bearer_size; ++i)
 			if ((carg->auth_bearer[i]) && (!strcmp(carg->auth_bearer[i], http_data->auth_bearer)))
+				return 1;
+
+	if (carg->auth_other && http_data->auth_other)
+		for(uint64_t i = 0; i < carg->auth_other_size; ++i)
+			if ((carg->auth_other[i]) && (!strcmp(carg->auth_other[i], http_data->auth_other)))
 				return 1;
 
 	return 0;

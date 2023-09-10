@@ -172,7 +172,7 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 
 	int ret = 1;
 
-	http_reply_data* http_data = http_proto_get_request_data(buf, len);
+	http_reply_data* http_data = http_proto_get_request_data(buf, len, carg->auth_header);
 	if(!http_data)
 		return 0;
 

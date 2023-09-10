@@ -47,6 +47,7 @@ typedef struct context_arg
 	size_t mesg_len;
 	char *stdin_s;
 	size_t stdin_l;
+	char *auth_header;
 	char *query_url;
 	//char *port;
 	uint8_t lock; // lock for aggregator scrape
@@ -85,6 +86,8 @@ typedef struct context_arg
 	uint64_t auth_basic_size;
 	char **auth_bearer;
 	uint64_t auth_bearer_size;
+	char **auth_other;
+	uint64_t auth_other_size;
 	char *body;
 	uint8_t body_readed;
 	network_range *net_acl;

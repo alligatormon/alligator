@@ -70,9 +70,7 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 		conf = config_get_string();
 	}
 
-	if (!strcmp(lo->lang, "java"))
-		ret = java_run("-Djava.class.path=/var/lib/alligator/", lo->classname, lo->method, lo->arg, body, conf);
-	else if (!strcmp(lo->lang, "lua"))
+	if (!strcmp(lo->lang, "lua"))
 		ret = lua_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
 	else if (!strcmp(lo->lang, "mruby"))
 		ret = mruby_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
@@ -88,7 +86,6 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 		}
 		else
 		{
-			//multicollector(NULL, ret, strlen(ret), NULL);
 			alligator_multiparser(ret, strlen(ret), NULL, NULL, lo->carg);
 		}
 		free(ret);

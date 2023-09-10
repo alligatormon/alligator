@@ -1020,7 +1020,6 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 	if (!mount_ns_by_cgroup_procs(pidsdir, name))
 	{
 		snprintf(pidsdir, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/cgroup.procs", sysfs, cad_id);
-		printf("fail, now is open/mount by: %s:::%s\n", pidsdir, name);
 		if (!mount_ns_by_cgroup_procs(pidsdir, name))
 			return;
 	}

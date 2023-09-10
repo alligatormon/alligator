@@ -142,7 +142,7 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	http_reply_data* hrdata;
 	if (!carg->full_body || !carg->full_body->l)
 	{
-		hrdata = http_proto_get_request_data(buf->base, nread);
+		hrdata = http_proto_get_request_data(buf->base, nread, carg->auth_header);
 		if (hrdata)
 		{
 			carg->expect_body_length = hrdata->content_length + hrdata->headers_size;

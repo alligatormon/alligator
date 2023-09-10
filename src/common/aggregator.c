@@ -282,7 +282,6 @@ void aggregate_ctx_init()
 	nsd_parser_push();
 	dummy_parser_push();
 	named_parser_push();
-	jmx_parser_push();
 	jks_parser_push();
 	kubernetes_ingress_parser_push();
 	kubernetes_endpoint_parser_push();

@@ -58,12 +58,28 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-void get_rpm_info()
+void scrape_rpm_info(uv_fs_t *req)
 {
+	free(req->data);
+	uv_fs_req_cleanup(req);
+	free(req);
+
+	if (req->result < 0)
+		return;
+
 	context_arg *carg = aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 	if (carg)
 	{
 		carg->no_exit_status = 1;
 	}
+}
+
+void get_rpm_info()
+{
+	char *path = malloc(FILENAME_MAX);
+	snprintf(path, FILENAME_MAX-1, "%s/bin/rpm", ac->system_usrdir);
+	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+	req_stat->data = path;
+	uv_fs_stat(uv_default_loop(), req_stat, path, scrape_rpm_info);
 }
 #endif

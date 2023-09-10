@@ -40,6 +40,18 @@ context_arg *carg_copy(context_arg *src)
 			carg->auth_basic[i] = strdup(src->auth_basic[i]);
 	}
 
+	if (carg->auth_other)
+	{
+		carg->auth_other_size = src->auth_other_size;
+		carg->auth_other = calloc(1, sizeof(void*) * carg->auth_other_size);
+
+		for (uint64_t i = 0; i < carg->auth_other_size; ++i)
+			carg->auth_other[i] = strdup(src->auth_other[i]);
+	}
+
+	if (carg->auth_header)
+		carg->auth_header = strdup(src->auth_header);
+
 	if (src->env)
 		carg->env = env_struct_duplicate(src->env);
 
@@ -124,6 +136,9 @@ void carg_free(context_arg *carg)
 	if (carg->stdin_s)
 		free(carg->stdin_s);
 
+	if (carg->auth_header)
+		free(carg->auth_header);
+
 	if (carg->q_request_time)
 		free_percentile_buffer(carg->q_request_time);
 	if (carg->q_read_time)
@@ -153,6 +168,14 @@ void carg_free(context_arg *carg)
 			if (carg->auth_bearer[i])
 				free(carg->auth_bearer[i]);
 		free(carg->auth_bearer);
+	}
+
+	if (carg->auth_other)
+	{
+		for (uint64_t i = 0; i < carg->auth_other_size; ++i)
+			if (carg->auth_other[i])
+				free(carg->auth_other[i]);
+		free(carg->auth_other);
 	}
 
 	network_range_free(carg->net_acl);

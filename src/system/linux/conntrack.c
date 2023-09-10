@@ -125,6 +125,8 @@ void get_conntrack_info()
 
 			kdvalue = (uint32_t*)(dt + 16);
 			uint64_t maxentries = bswap_32(*kdvalue);
+			if (!maxentries)
+				maxentries = getkvfile("/proc/sys/net/netfilter/nf_conntrack_max");
 
 			double conntrack_usage = entries*100.0/maxentries;
 

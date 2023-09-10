@@ -362,6 +362,12 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 					carg->buffer_response_size = 6553500;
 					carg->net_acl = calloc(1, sizeof(*carg->net_acl));
 
+					json_t *json_auth_header = json_object_get(entrypoint, "auth_header");
+					if (json_auth_header)
+						carg->auth_header = strdup((char*)json_string_value(json_auth_header));
+					else
+						carg->auth_header = strdup("Authorization");
+
 					carg->ttl = -1;
 					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
 					if (carg_ttl)
@@ -547,6 +553,18 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 								for (uint64_t i = 0; i < auth_size; ++i)
 									if (carg->auth_bearer[i] == NULL)
 										carg->auth_bearer[i] = strndup(auth_data, auth_data_len);
+							}
+							else if (!strcmp(auth_type, "other"))
+							{
+								if (!carg->auth_other)
+								{
+									carg->auth_other = calloc(1, sizeof(void*) * auth_size);
+									carg->auth_other_size = auth_size;
+								}
+
+								for (uint64_t i = 0; i < auth_size; ++i)
+									if (carg->auth_other[i] == NULL)
+										carg->auth_other[i] = strndup(auth_data, auth_data_len);
 							}
 
 						}

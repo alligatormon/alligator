@@ -53,7 +53,19 @@ uint64_t getrtime_mcs(r_time t1, r_time t2, int debug)
 
 uint64_t getrtime_ms(r_time t1, r_time t2)
 {
-	uint64_t ret = ((t2.sec-t1.sec)*1000 + ((t2.nsec-t1.nsec)/1000000));
+	uint64_t ret = ((t2.sec-t1.sec)*1000.0 + ((t2.nsec-t1.nsec)/1000000.0));
 	//printf("complete for: %u.%09d sec, ret: %llu\n",t2.sec-t1.sec,t2.nsec-t1.nsec, ret);
+	return ret;
+}
+
+double getrtime_sec_float(r_time t2, r_time t1)
+{
+	double ret = ((t2.sec-t1.sec)*1000 + ((t2.nsec-t1.nsec)/1000000));
+	return ret;
+}
+
+uint64_t getrtime_now_ms(r_time t1)
+{
+	uint64_t ret = ((t1.sec)*1000 + ((t1.nsec)/1000000));
 	return ret;
 }

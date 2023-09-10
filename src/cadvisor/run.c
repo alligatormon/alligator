@@ -466,28 +466,74 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 					char *str_value = (char*)json_string_value(label_value);
 					if (carg->log_level > 2)
 						printf("\tlabels: '%s': '%s'\n", label_key, str_value);
-
 					
 					if (!strcmp(label_key, "io.kubernetes.pod.uid"))
 					{
+						uint8_t success = 0;
+
 						size_t str_value_len = json_string_length(label_value);
 
+						char underscore_value[255];
 						for (uint64_t i = 0; i < str_value_len; i++)
 							if (str_value[i] == '-')
-								str_value[i] = '_';
+								underscore_value[i] = '_';
+							else
+								underscore_value[i] = str_value[i];
 
 						is_k8s = 1;
 
-						snprintf(kubepath, 254, "kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod%s.slice/docker-%s.scope", str_value, id);
+						snprintf(kubepath, 254, "kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod%s.slice/docker-%s.scope", underscore_value, id);
 						char fullpath[255];
 						snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
 						struct stat path_stat;
 						if (stat(fullpath, &path_stat))
 						{
-							snprintf(kubepath, 254, "kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod%s.slice/docker-%s.scope", str_value, id);
+							snprintf(kubepath, 254, "kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod%s.slice/docker-%s.scope", underscore_value, id);
 							snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
 							if (stat(fullpath, &path_stat))
-								snprintf(kubepath, 254, "kubepods.slice/kubepods-pod%s.slice/docker-%s.scope/", str_value, id);
+							{
+								snprintf(kubepath, 254, "kubepods.slice/kubepods-pod%s.slice/docker-%s.scope/", underscore_value, id);
+								snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+								if (!stat(fullpath, &path_stat))
+									success = 1;
+							}
+
+						}
+
+						if (!success)
+						{
+							snprintf(kubepath, 254, "kubepods/kubepods-burstable/kubepods-burstable-pod%s/%s", str_value, id);
+							snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+							if (stat(fullpath, &path_stat))
+							{
+								snprintf(kubepath, 254, "kubepods.slice/kubepods-besteffort.slice/kubepods-besteffort-pod%s.slice/docker-%s.scope", str_value, id);
+								snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+								if (stat(fullpath, &path_stat))
+								{
+									snprintf(kubepath, 254, "kubepods.slice/kubepods-pod%s.slice/docker-%s.scope/", str_value, id);
+									snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+									if (!stat(fullpath, &path_stat))
+										success = 1;
+								}
+							}
+						}
+
+						if (!success)
+						{
+							snprintf(kubepath, 254, "kubepods/pod%s/%s", str_value, id);
+							snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+							if (stat(fullpath, &path_stat))
+							{
+								snprintf(kubepath, 254, "kubepods/burstable/pod%s/%s", str_value, id);
+								snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+								if (stat(fullpath, &path_stat))
+								{
+									snprintf(kubepath, 254, "kubepods/besteffort/pod%s/%s", str_value, id);
+									snprintf(fullpath, 254, "%s/fs/cgroup/cpu,cpuacct/%s", ac->system_sysfs, kubepath);
+									if (!stat(fullpath, &path_stat))
+										success = 1;
+								}
+							}
 						}
 
 					}

@@ -357,6 +357,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *key_entrypoint = NULL;
 			json_t *return_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
+			json_t *auth_header_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
 
 			if (ac->log_level > 0)
@@ -609,6 +610,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_array_object_insert(auth_entrypoint, NULL, instance_auth);
 						json_array_object_insert(instance_auth, "type", type_auth);
 						json_array_object_insert(instance_auth, "data", data_auth);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "auth_header"))
+					{
+						if (!auth_header_entrypoint)
+						{
+							++i;
+							auth_header_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "auth_header", auth_header_entrypoint);
+						}
 					}
 					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler"))
 					{

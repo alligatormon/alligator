@@ -19,8 +19,7 @@
 #include "common/smart.h"
 #include "dstructures/ht.h"
 #include <utmp.h>
-#include "system/linux.h"
-//#include "common/rpm.h"
+#include "system/fdescriptors.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define PLATFORM_BAREMETAL 0
@@ -31,6 +30,8 @@
 #define LINUX_MEMORY 1
 #define LINUX_CPU 2
 extern aconf *ac;
+
+void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto);
 
 typedef struct process_states
 {
@@ -50,36 +51,11 @@ typedef struct ulimit_pid_stat {
 	uint64_t addressspace;
 } ulimit_pid_stat;
 
-typedef struct port_usage {
-	char *remote_addr;
-	char *remote_port;
-	char *local_addr;
-	uint64_t count;
-	int state_proto;
-	int state;
-	char *process;
-
-	char *key;
-	tommy_node node;
-} port_usage;
-
-typedef struct count_port_usage_t {
-	alligator_ht *count;
-
-	char *key;
-	tommy_node node;
-} count_port_usage_t;
-
-typedef struct count_addr_port_usage {
-	char *key;
-	tommy_node node;
-} count_addr_port_usage;
-
 void print_mount(const struct mntent *fs)
 {
-	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2"))
+	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strncmp(fs->mnt_dir, "/", 1))
 	{
-		if (!strncmp(fs->mnt_dir, "/etc", 4) || !strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_dir, "/var/lib/docker", 15))
+		if (!strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4))
 			return;
 
 		int f_d = 0;
@@ -285,8 +261,6 @@ void get_cpu(int8_t platform)
 
 			if (!strcmp(cpuname, "cpu"))
 			{
-				//printf("CPU: usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", usage, user, system, nice, idle, iowait);
-				//printf("CPU: tusage %"d64", tuser %"d64", tnice %"d64", tsystem %"d64", tidle %"d64", tiowait %"d64"\n", ttotal, tuser, tnice, tsystem, tidle, tiowait);
 				metric_add_labels(cpu_usage_name, &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
 				metric_add_labels(cpu_usage_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 				metric_add_labels(cpu_usage_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
@@ -306,7 +280,6 @@ void get_cpu(int8_t platform)
 			}
 			else
 			{
-				//printf("core: '%s' usage %lf, user %lf, system %lf, nice %lf, idle %lf, iowait %lf\n", cpuname, usage, user, system, nice, idle, iowait);
 				metric_add_labels2(cpu_usage_core_name, &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total", "cpu", cpuname);
 				metric_add_labels2(cpu_usage_core_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", cpuname);
 				metric_add_labels2(cpu_usage_core_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", cpuname);
@@ -430,9 +403,9 @@ void get_cpu(int8_t platform)
 		metric_add_labels("cpu_usage", &cgroup_total_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
 		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-		metric_add_labels("cpu_usage_time", &sccs->system, DATATYPE_UINT, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage_time", &time_system, DATATYPE_UINT, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage_time", &time_user, DATATYPE_UINT, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage_time", &sccs_total, DATATYPE_UINT, ac->system_carg, "type", "total");
-		metric_add_labels("cpu_usage_time", &sccs->user, DATATYPE_UINT, ac->system_carg, "type", "user");
 
 		if (ac->system_cpuavg)
 		{
@@ -762,37 +735,11 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 	metric_add_labels3("process_cpu", &total_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "total");
 }
 
-int process_fdescriptors_compare(const void* arg, const void* obj)
-{
-	uint32_t s1 = *(uint32_t*)arg;
-	uint32_t s2 = ((process_fdescriptors*)obj)->fd;
-	return s1 != s2;
-}
-
 int userprocess_compare(const void* arg, const void* obj)
 {
 	uint32_t s1 = *(uint32_t*)arg;
 	uint32_t s2 = ((userprocess_node*)obj)->uid;
 	return s1 != s2;
-}
-
-void process_fdescriptors_free(void *funcarg, void* arg)
-{
-	process_fdescriptors *fdescriptors = arg;
-	//printf("DEB: free %p: %llu\n", fdescriptors, fdescriptors->fd);
-	if (!fdescriptors)
-		return;
-
-	if (fdescriptors->procname)
-	{
-		// SF
-		//printf("DEB: procname %p/%s\n", fdescriptors, fdescriptors->procname);
-		free(fdescriptors->procname);
-		fdescriptors->procname = NULL;
-	}
-
-	//alligator_ht_remove_existing(funcarg, &(fdescriptors->node));
-	free(fdescriptors);
 }
 
 void get_proc_socket_number(char *path, char *procname)
@@ -1451,7 +1398,12 @@ void get_mem(int8_t platform)
 	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.stat", ac->system_sysfs);
 	fd = fopen(pathbuf, "r");
 	if (!fd)
-		return;
+	{
+		snprintf(pathbuf, 255, "%s/fs/cgroup/memory.stat", ac->system_sysfs);
+		fd = fopen(pathbuf, "r");
+		if (!fd)
+			return;
+	}
 
 	ival = 1;
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
@@ -1472,67 +1424,54 @@ void get_mem(int8_t platform)
 		if	(!strcmp(key, "total_cache")) {
 			strlcpy(key_map, "cache", 6);
 			cache = cgroup ? ival : cache;
-			metric_add_labels("memory_usage", &cache, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_mapped_file")) {
 			strlcpy(key_map, "mapped", 7);
 			mapped = cgroup ? ival : mapped;
-			metric_add_labels("memory_usage", &mapped, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_dirty")) {
 			strlcpy(key_map, "dirty", 6);
 			dirty = cgroup ? ival : dirty;
-			metric_add_labels("memory_usage", &dirty, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_unevictable")) {
 			strlcpy(key_map, "unevictable", 12);
 			unevictable = cgroup ? ival : unevictable;
-			metric_add_labels("memory_usage", &unevictable, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_active_anon")) {
 			strlcpy(key_map, "active_anon", 12);
 			active_anon = cgroup ? ival : active_anon;
-			metric_add_labels("memory_usage", &active_anon, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_inactive_anon")) {
 			strlcpy(key_map, "inactive_anon", 14);
 			inactive_anon = cgroup ? ival : inactive_anon;
-			metric_add_labels("memory_usage", &inactive_anon, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_active_file")) {
 			strlcpy(key_map, "active_file", 12);
 			active_file = cgroup ? ival : active_file;
-			metric_add_labels("memory_usage", &active_file, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_inactive_file")) {
 			strlcpy(key_map, "inactive_file", 14);
 			inactive_file = cgroup ? ival : inactive_file;
-			metric_add_labels("memory_usage", &inactive_file, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_pgpgin")) {
 			strlcpy(key_map, "pgpgin", 7);
 			pgpgin = cgroup ? ival : pgpgin;
-			metric_add_labels("memory_stat", &pgpgin, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_pgpgout")) {
 			strlcpy(key_map, "pgpgout", 8);
 			pgpgout = cgroup ? ival : pgpgout;
-			metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_pgfault")) {
 			strlcpy(key_map, "pgfault", 8);
 			pgfault = cgroup ? ival : pgfault;
-			metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "total_pgmajfault")) {
 			strlcpy(key_map, "pgmajfault", 11);
 			pgmajfault = cgroup ? ival : pgmajfault;
-			metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else if (!strcmp(key, "hierarchical_memory_limit")) {
 			strlcpy(key_map, "total", 6);
 			memtotal = memtotal > ival ? ival : memtotal;
-			metric_add_labels("memory_usage", &memtotal, DATATYPE_INT, ac->system_carg, "type", key_map);
 		}
 		else	continue;
 
@@ -1540,37 +1479,51 @@ void get_mem(int8_t platform)
 	}
 	fclose(fd);
 
+	metric_add_labels("memory_usage", &cache, DATATYPE_INT, ac->system_carg, "type", "cache");
+	metric_add_labels("memory_usage", &mapped, DATATYPE_INT, ac->system_carg, "type", "mapped");
+	metric_add_labels("memory_usage", &dirty, DATATYPE_INT, ac->system_carg, "type", "dirty");
+	metric_add_labels("memory_usage", &unevictable, DATATYPE_INT, ac->system_carg, "type", "unevictable");
+	metric_add_labels("memory_usage", &inactive_anon, DATATYPE_INT, ac->system_carg, "type", "inactive_anon");
+	metric_add_labels("memory_usage", &active_anon, DATATYPE_INT, ac->system_carg, "type", "active_anon");
+	metric_add_labels("memory_usage", &active_file, DATATYPE_INT, ac->system_carg, "type", "active_file");
+	metric_add_labels("memory_usage", &inactive_file, DATATYPE_INT, ac->system_carg, "type", "inactive_file");
+	metric_add_labels("memory_stat", &pgpgin, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
+	metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", "pgmajfault");
+	metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, ac->system_carg, "type", "pgfault");
+	metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
+
 	inactive = inactive_file+inactive_anon;
 	active = active_file+active_anon;
 	metric_add_labels("memory_usage", &active, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
 
-	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.oom_control", ac->system_sysfs);
-	fd = fopen(pathbuf, "r");
-	if (!fd)
-		return;
-
-	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
-	{
-		if (!strncmp(tmp, "oom_kill", 8))
-		{
-			char *tmp2 = tmp+8 + strspn(tmp + 8, " \t\r\n");
-			oom_kill = strtoll(tmp2, NULL, 10);
-		}
-	}
-	metric_add_auto("oom_kill", &oom_kill, DATATYPE_INT, ac->system_carg);
-
-	fclose(fd);
-
 	// set memory usage
 	ival = get_container_mem_usage();
-	strlcpy(key_map, "usage", 6);
 	usagemem = platform ? ival : usagemem;
 	double percentused = (double)usagemem*100/(double)memtotal;
 	double percentfree = 100 - percentused;
-	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", key_map);
+	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
+	metric_add_labels("memory_usage", &memtotal, DATATYPE_INT, ac->system_carg, "type", "total");
 	metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
 	metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
+
+	// check oom control
+	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.oom_control", ac->system_sysfs);
+	fd = fopen(pathbuf, "r");
+	if (fd)
+	{
+		while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+		{
+			if (!strncmp(tmp, "oom_kill", 8))
+			{
+				char *tmp2 = tmp+8 + strspn(tmp + 8, " \t\r\n");
+				oom_kill = strtoll(tmp2, NULL, 10);
+			}
+		}
+		metric_add_auto("oom_kill", &oom_kill, DATATYPE_INT, ac->system_carg);
+
+		fclose(fd);
+	}
 }
 
 void throttle_stat()
@@ -1629,283 +1582,6 @@ void throttle_stat()
 		}
 	}
 	fclose(fd);
-}
-
-#define TCPUDP_NET_LENREAD 10000000
-#define A_TCP_STATE 0
-#define A_UDP_STATE 1
-
-int port_usage_compare(const void* arg, const void* obj)
-{
-        char *s1 = (char*)arg;
-        char *s2 = ((port_usage*)obj)->key;
-        return strcmp(s1, s2);
-}
-
-int count_port_usage_compare(const void* arg, const void* obj)
-{
-        char *s1 = (char*)arg;
-        char *s2 = ((count_port_usage_t*)obj)->key;
-        return strcmp(s1, s2);
-}
-
-int count_addr_port_usage_compare(const void* arg, const void* obj)
-{
-        char *s1 = (char*)arg;
-        char *s2 = ((count_addr_port_usage*)obj)->key;
-        return strcmp(s1, s2);
-}
-
-void port_usage_free(void *funcarg, void* arg)
-{
-	port_usage *pu = arg;
-	if (!pu)
-		return;
-
-	int state_proto = pu->state_proto;
-	int state = pu->state;
-
-	char *proto = state_proto == A_TCP_STATE ? "tcp" : "udp";
-
-	if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "LISTEN", "process", pu->process);
-	else if (state == 6)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "TIME_WAIT", "process", pu->process);
-	else if (state == 1)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "ESTABLISHED", "process", pu->process);
-	else if (state == 2)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "SYN_SENT", "process", pu->process);
-	else if (state == 4)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "SYN_RECV", "process", pu->process);
-	else if (state == 4)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "FIN_WAIT1", "process", pu->process);
-	else if (state == 5)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "FIN_WAIT2", "process", pu->process);
-	else if (state == 7)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSE", "process", pu->process);
-	else if (state == 8)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSE_WAIT", "process", pu->process);
-	else if (state == 9)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "LAST_ACK", "process", pu->process);
-	else if (state == 11)
-		metric_add_labels4("socket_counters", &pu->count, DATATYPE_UINT, ac->system_carg, "addr", pu->local_addr, "proto", proto, "state", "CLOSING", "process", pu->process);
-
-	if (pu->remote_port)
-		free(pu->remote_port);
-	if (pu->local_addr)
-		free(pu->local_addr);
-	if (pu->remote_addr)
-		free(pu->remote_addr);
-
-	free(pu->key);
-	free(pu);
-}
-
-void count_port_free(void *funcarg, void* arg)
-{
-	count_addr_port_usage *capu = arg;
-	if (!capu)
-		return;
-
-	free(capu->key);
-	free(capu);
-}
-
-void count_port(void *funcarg, void* arg)
-{
-	count_port_usage_t *cput = arg;
-	if (!cput)
-		return;
-
-	char *proto = funcarg;
-
-	uint64_t count = alligator_ht_count(cput->count);
-
-	metric_add_labels2("port_usage_count", &count, DATATYPE_UINT, ac->system_carg, "addr", cput->key, "proto", proto);
-
-	alligator_ht_foreach_arg(cput->count, count_port_free, NULL);
-	alligator_ht_done(cput->count);
-	free(cput->count);
-
-	free(cput->key);
-	free(cput);
-}
-
-void get_net_tcpudp(char *file, char *name, int state_proto)
-{
-	r_time ts_start = setrtime();
-	if (ac->log_level > 2)
-		printf("system scrape metrics: network: get_net_tcpudp '%s'\n", name);
-
-	FILE *fd = fopen(file, "r");
-	if (!fd)
-		return;
-
-	char *buf = malloc(TCPUDP_NET_LENREAD);
-
-	uint8_t state;
-	//uint32_t bucket;//, srcp, destp;
-	char srcp[6];
-	char destp[6];
-	uint64_t src, dest, srcport, destport;
-
-	alligator_ht *addr_port_usage = calloc(1, sizeof(*addr_port_usage));
-	alligator_ht_init(addr_port_usage);
-
-	alligator_ht *count_port_usage = alligator_ht_init(NULL);
-
-	char srcaddrportkey[255];
-	char *start, *end;
-	uint64_t send_queue = 0;
-	uint64_t recv_queue = 0;
-
-	char procsomaxconn[255];
-	snprintf(procsomaxconn, 255, "%s/sys/net/core/somaxconn", ac->system_procfs);
-	int64_t somaxconn = getkvfile(procsomaxconn);
-
-	size_t rc;
-	char *bufend;
-	while((rc=fread(buf, 1, TCPUDP_NET_LENREAD - 1, fd)))
-	{
-		bufend = buf+rc;
-		*bufend = 0;
-		start = buf;
-		while(start < bufend)
-		{
-			end = strstr(start, "\n");
-			if (!end)
-				break;
-			*end = 0;
-
-			char str1[INET_ADDRSTRLEN];
-			char str2[INET_ADDRSTRLEN];
-
-			char *pEnd = start;
-			pEnd += strspn(pEnd, "\t :");
-			strtoul(pEnd, &pEnd, 10);
-			pEnd += strspn(pEnd, "\t :");
-			src = strtoul(pEnd, &pEnd, 16);
-			pEnd += strspn(pEnd, "\t :");
-			srcport = strtoul(pEnd, &pEnd, 16);
-			pEnd += strspn(pEnd, "\t :");
-			dest = strtoul(pEnd, &pEnd, 16);
-			pEnd += strspn(pEnd, "\t :");
-			destport = strtoul(pEnd, &pEnd, 16);
-			pEnd += strspn(pEnd, "\t :");
-			state = strtoul(pEnd, &pEnd, 16);
-
-			pEnd += strspn(pEnd, "\t :");
-			send_queue = strtoul(pEnd, &pEnd, 16);
-			pEnd += strspn(pEnd, "\t :");
-			recv_queue = strtoul(pEnd, &pEnd, 16);
-
-			pEnd += strcspn(pEnd, " \t");
-			pEnd += strspn(pEnd, " \t");
-			pEnd += strcspn(pEnd, " \t");
-			pEnd += strspn(pEnd, " \t");
-			pEnd += strcspn(pEnd, " \t");
-			pEnd += strspn(pEnd, " \t");
-			pEnd += strcspn(pEnd, " \t");
-			pEnd += strspn(pEnd, " \t");
-			pEnd += strcspn(pEnd, " \t");
-
-			uint32_t fdesc = strtoull(pEnd, &pEnd, 10);
-
-			snprintf(srcp, 6, "%lu", srcport);
-			snprintf(destp, 6, "%lu", destport);
-
-			inet_ntop(AF_INET, &src, str1, INET_ADDRSTRLEN);
-			inet_ntop(AF_INET, &dest, str2, INET_ADDRSTRLEN);
-
-
-			process_fdescriptors *fdescriptors = NULL;
-			if (ac->fdesc)
-				fdescriptors = alligator_ht_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
-
-			if ((state_proto == A_TCP_STATE && state == 10) || (state_proto == A_UDP_STATE && state == 7))
-			{
-				uint64_t val = 1;
-
-				// case when send_queue is unknown or larger than somaxconn
-				if ((send_queue < 1) || (send_queue > somaxconn))
-					send_queue = somaxconn;
-
-				if (fdescriptors)
-				{
-					metric_add_labels7("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
-					metric_add_labels7("socket_stat_receive_queue_length", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
-					metric_add_labels7("socket_stat_receive_queue_limit", &send_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name, "process", fdescriptors->procname);
-				}
-				else
-				{
-					metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
-					metric_add_labels6("socket_stat_receive_queue_length", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
-					metric_add_labels6("socket_stat_receive_queue_limit", &send_queue, DATATYPE_UINT, ac->system_carg, "src", str1, "src_port", srcp, "dst", str2, "dst_port", destp, "state", "listen", "proto", name);
-				}
-			}
-
-			start = end+1;
-
-			if (fdescriptors)
-				snprintf(srcaddrportkey, 255, "%s:%d:%s", str1, state, fdescriptors->procname);
-			else
-				snprintf(srcaddrportkey, 255, "%s:%d", str1, state);
-
-			uint32_t key_hash = tommy_strhash_u32(0, srcaddrportkey);
-			port_usage *pu = alligator_ht_search(addr_port_usage, port_usage_compare, srcaddrportkey, key_hash);
-			if (!pu)
-			{
-				pu = calloc(1, sizeof(*pu));
-				pu->local_addr = strdup(str1);
-				pu->key = strdup(srcaddrportkey);
-				pu->count = 1;
-				pu->state_proto = state_proto;
-				pu->state = state;
-				pu->process = (fdescriptors && fdescriptors->procname) ? fdescriptors->procname : "";
-
-				alligator_ht_insert(addr_port_usage, &(pu->node), pu, key_hash);
-			}
-			else
-			{
-				++pu->count;
-			}
-
-			key_hash = tommy_strhash_u32(0, str1);
-			count_port_usage_t* count_addr = alligator_ht_search(count_port_usage, count_port_usage_compare, str1, key_hash);
-			if (!count_addr)
-			{
-				count_addr = calloc(1, sizeof(*count_addr));
-				count_addr->key = strdup(str1);
-				count_addr->count = alligator_ht_init(NULL);
-
-				alligator_ht_insert(count_port_usage, &(count_addr->node), count_addr, key_hash);
-			}
-
-			key_hash = tommy_strhash_u32(0, srcp);
-			count_addr_port_usage *capu = alligator_ht_search(count_addr->count, count_addr_port_usage_compare, srcp, key_hash);
-			if (!capu)
-			{
-				capu = calloc(1, sizeof(*count_addr));
-				capu->key = strdup(srcp);
-
-				alligator_ht_insert(count_addr->count, &(capu->node), capu, key_hash);
-			}
-		}
-	}
-	fclose(fd);
-	free(buf);
-
-	alligator_ht_foreach_arg(count_port_usage, count_port, name);
-	alligator_ht_foreach_arg(addr_port_usage, port_usage_free, NULL);
-	alligator_ht_done(addr_port_usage);
-	alligator_ht_done(count_port_usage);
-	free(addr_port_usage);
-	free(count_port_usage);
-
-	r_time ts_end = setrtime();
-	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
-	if (ac->log_level > 2)
-		printf("system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
 }
 
 void get_netstat_statistics(char *ns_file)
@@ -2067,12 +1743,7 @@ void get_network_statistics()
 
 		snprintf(ifdir, 1000, "%s/class/net/%s/speed", ac->system_sysfs, ifname);
 		int64_t interface_speed_bits = getkvfile(ifdir);
-		metric_add_labels2("if_stat", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "speed");
-
-		//double iface_util_transmit = (transmit_bytes*100.0)/(interface_speed_bits/8.0);
-		//double iface_util_received = (received_bytes*100.0)/(interface_speed_bits/8.0);
-		//metric_add_labels2("if_utilization", &iface_util_transmit, DATATYPE_DOUBLE, ac->system_carg, "ifname", ifname, "type", "transmit");
-		//metric_add_labels2("if_utilization", &iface_util_received, DATATYPE_DOUBLE, ac->system_carg, "ifname", ifname, "type", "received");
+		metric_add_labels("if_speed", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname);
 	}
 
 	fclose(fp);
@@ -2970,7 +2641,12 @@ void get_activate_status_services(char *service_name)
 void get_service_tasks_status(char *servicename, char *fname, char *type)
 {
 	char systemdpath[1000];
+	struct stat path_stat;
+
 	snprintf(systemdpath, 999, "%s/fs/cgroup/systemd/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+	if (stat(systemdpath, &path_stat))
+		snprintf(systemdpath, 999, "%s/fs/cgroup/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+
 	uint64_t cnt;
 
 	FILE *fd = fopen(systemdpath, "r");
@@ -2993,7 +2669,12 @@ void service_running_status(char *name)
 
 	uint64_t val;
 	char pathsystemd[1000];
+	struct stat path_stat;
+
 	snprintf(pathsystemd, 999, "%s/fs/cgroup/systemd/system.slice/%s", ac->system_sysfs, name);
+	if (stat(pathsystemd, &path_stat))
+		snprintf(pathsystemd, 999, "%s/fs/cgroup/system.slice/%s", ac->system_sysfs, name);
+
 	FILE *fd = fopen(pathsystemd, "r");
 	if (!fd)
 	{
@@ -3015,6 +2696,8 @@ void service_running_status(char *name)
 		metric_add_labels("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name);
 		char cgrouppath[1024];
 		snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
+		if (stat(cgrouppath, &path_stat))
+			snprintf(cgrouppath, 1023, "%s/fs/cgroup/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
 		cgroup_procs_scrape(cgrouppath);
 	}
 }
@@ -3588,19 +3271,13 @@ void get_system_metrics()
 		snprintf(dirname, 255, "%s/net/snmp", ac->system_procfs);
 		get_netstat_statistics(dirname);
 
-		snprintf(dirname, 255, "%s/net/tcp", ac->system_procfs);
-		get_net_tcpudp(dirname, "tcp", A_TCP_STATE);
-
-		snprintf(dirname, 255, "%s/net/tcp6", ac->system_procfs);
-		get_net_tcpudp(dirname, "tcp6", A_TCP_STATE);
-
-		snprintf(dirname, 255, "%s/net/udp", ac->system_procfs);
-		get_net_tcpudp(dirname, "udp", A_UDP_STATE);
-
-		snprintf(dirname, 255, "%s/net/udp6", ac->system_procfs);
-		get_net_tcpudp(dirname, "udp6", A_UDP_STATE);
-
 		interface_stats();
+
+		check_sockets_by_netlink("tcp", AF_INET, IPPROTO_TCP);
+		check_sockets_by_netlink("tcp6", AF_INET6, IPPROTO_TCP);
+
+		check_sockets_by_netlink("udp", AF_INET, IPPROTO_UDP);
+		check_sockets_by_netlink("udp6", AF_INET6, IPPROTO_UDP);
 	}
 	if (ac->system_disk)
 	{
@@ -3685,27 +3362,14 @@ void system_free()
 	free(ac->system_pidfile);
 
 	match_free(ac->process_match);
-	//alligator_ht_done(ac->process_match->hash);
-	//free(ac->process_match->hash);
-	//free(ac->process_match);
 
 	match_free(ac->packages_match);
-	//alligator_ht_done(ac->packages_match->hash);
-	//free(ac->packages_match->hash);
-	//free(ac->packages_match);
 
 	match_free(ac->services_match);
-	//alligator_ht_done(ac->services_match->hash);
-	//free(ac->services_match->hash);
-	//free(ac->services_match);
 
 	userprocess_free(ac->system_userprocess);
-	//alligator_ht_done(ac->system_userprocess);
-	//free(ac->system_userprocess);
 
 	userprocess_free(ac->system_groupprocess);
-	//alligator_ht_done(ac->system_groupprocess);
-	//free(ac->system_groupprocess);
 	sysctl_free(ac->system_sysctl);
 }
 

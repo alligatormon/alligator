@@ -1,12 +1,6 @@
 - hosts: localhost
   tasks:
 
-  - name: Copy rabbitmq.repo
-    when: ansible_os_family == "RedHat"
-    ansible.builtin.copy:
-      src: ../misc/rabbitmq38.repo
-      dest: /etc/yum.repos.d/rabbitmq.repo
-
   - name: Install pgpool
     yum:
       disable_gpg_check: True
@@ -324,7 +318,7 @@
       executable: pip3
       name:
       - statsd
-      - conan
+      - conan==1.59.0
       - 'MarkupSafe>=2.0'
 
   - name: Install pip deps
@@ -333,4 +327,4 @@
       executable: pip-3.8
       name:
       - statsd
-      - conan
+      - conan==1.59.0

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.70)
+set(VERSION 1.14.78)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -157,7 +157,6 @@ set(STATIC_FILES
 	parsers/httpd.c
 	parsers/nsd.c
 	parsers/named.c
-	parsers/jmx.c
 	parsers/jks.c
 	parsers/kubernetes.c
 	parsers/kubeconfig.c
@@ -236,7 +235,6 @@ set(STATIC_FILES
 	config/intstrvalue.c
 	dynconf/sd.c
 	lang/lang.c
-	lang/java.c
 	lang/lua.c
 	lang/mruby.c
 	lang/so.c
@@ -249,6 +247,8 @@ set(STATIC_FILES
 	system/linux/ipset.c
 	system/linux/sysctl.c
 	system/linux/conntrack.c
+	system/linux/sockets.c
+	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c
 	metric/labels.c
@@ -326,10 +326,10 @@ target_link_libraries(${TESTS} ${COMMON_TESTS} libuv_a.a cutter)
 add_test(Test1 "cutter" ".")
 ENDIF(${distro}.${disversion} MATCHES "centos.7")
 #add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJmx.java)
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND javac -d /var/lib/alligator lang/alligatorJks.java)
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator)
-add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /tmp/liblang.so -buildmode=c-shared cmd/mongo/main.go)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
+add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
+add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
+add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /var/lib/alligator/mongo.so -buildmode=c-shared cmd/mongo/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
@@ -354,8 +354,8 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES bin/alligator
@@ -364,8 +364,8 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
-	install(FILES /var/lib/alligator/alligatorJmx.class DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/alligatorJks.class DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
