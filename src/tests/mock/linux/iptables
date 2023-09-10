@@ -1,0 +1,17 @@
+Chain INPUT (policy DROP 0 packets, 0 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+    7649  6891931 ACCEPT     all  --  *      *       127.0.0.0/8          0.0.0.0/0            /* Loopback */
+   79217 27572338 ACCEPT     all  --  *      *       0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED /* conntrack */
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            0.0.0.0/0            multiport dports 1111,1112,9000 match-set monitoring src /* promehteus monitoring */
+       0        0 ACCEPT     icmp --  *      *       10.0.0.0/8           0.0.0.0/0            icmptype 8 ctstate NEW /* ICMP */
+       1       64 ACCEPT     tcp  --  *      *       0.0.0.0/0            0.0.0.0/0            multiport dports 22 match-set local-network src /* ssh from local network */
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            0.0.0.0/0            multiport dports 9300 /* ES access */ match-set es-hosts src
+       0        0 ACCEPT     tcp  --  *      *       0.0.0.0/0            0.0.0.0/0            multiport dports 80 /* nginx access */
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+       0        0 ACCEPT     all  --  *      *       0.0.0.0/0            0.0.0.0/0            ctstate RELATED,ESTABLISHED /* conntracks */
+
+Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+    pkts      bytes target     prot opt in     out     source               destination
+   93914 63810738 ACCEPT     all  --  *      *       0.0.0.0/0            0.0.0.0/0            /* Allows all */
