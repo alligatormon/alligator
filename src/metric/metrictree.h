@@ -131,9 +131,9 @@ typedef struct mapping_metric
 
 	int64_t *percentile;
 	int64_t percentile_size;
-	int64_t *bucket;
+	double *bucket;
 	int64_t bucket_size;
-	int64_t *le;
+	double *le;
 	int64_t le_size;
 
 	size_t wildcard;
@@ -156,5 +156,6 @@ typedef struct query_struct {
 //void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
+int64_t metric_get_double(void *value, int8_t type);
 void metrictree_get(metric_node *x, labels_t* labels, string *str);
 void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x);

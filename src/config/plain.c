@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include "config/plain.h"
 #include "main.h"
 
@@ -850,7 +851,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 												printf("quantile/bucket %s\n", wstokens[i].token->s);
 											if (wstokens[i].token->l)
 											{
-												json_t *str_json = json_string(wstokens[i].token->s);
+												json_t *str_json = json_real(strtod(wstokens[i].token->s, NULL));
 												json_array_object_insert(arg_json, "", str_json);
 											}
 											if (wstokens[i].end || wstokens[i].semicolon)

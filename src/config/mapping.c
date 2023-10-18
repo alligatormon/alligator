@@ -58,15 +58,15 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 	else
 		mm->match = MAPPING_MATCH_GLOB;
 
-	json_t *bucket = json_object_get(mapping, "bucket");
+	json_t *bucket = json_object_get(mapping, "buckets");
 	uint64_t bucket_size = json_array_size(bucket);
 	if (bucket_size)
 	{
-		int64_t *buckets = calloc(bucket_size, sizeof(int64_t));
+		double *buckets = calloc(bucket_size, sizeof(double));
 		for (uint64_t i = 0; i < bucket_size; i++)
 		{
 			json_t *bucket_obj = json_array_get(bucket, i);
-			buckets[i] = json_integer_value(bucket_obj);
+			buckets[i] = json_real_value(bucket_obj);
 		}
 
 		qsort(buckets, bucket_size, sizeof(int64_t), mapping_bucket_compare);
@@ -78,11 +78,11 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 	uint64_t le_size = json_array_size(le);
 	if (le_size)
 	{
-		int64_t *les = calloc(le_size, sizeof(int64_t));
+		double *les = calloc(le_size, sizeof(double));
 		for (uint64_t i = 0; i < le_size; i++)
 		{
 			json_t *le_obj = json_array_get(le, i);
-			les[i] = json_integer_value(le_obj);
+			les[i] = json_real_value(le_obj);
 		}
 
 		mm->le = les;

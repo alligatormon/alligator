@@ -1029,9 +1029,10 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 		mnode = metric_insert(tree, labels_list, type, value, expiretree, ttl);
 	}
 
+	printf("mapping %p->%p, name %s, res: %d\n", carg, carg->mm, name, (carg && carg->mm && !strstr(name, "_quantile") && !strstr(name, "_le") && !strstr(name, "_bucket")));
 	if (carg && carg->mm && !strstr(name, "_quantile") && !strstr(name, "_le") && !strstr(name, "_bucket"))
 	{
-		mapping_processing(carg, mnode, metric_get_int(value, type));
+		mapping_processing(carg, mnode, metric_get_double(value, type));
 	}
 	//r_time end = setrtime();
 	//getrtime(start, end);

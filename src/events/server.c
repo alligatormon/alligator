@@ -29,6 +29,9 @@ void tcp_server_closed_client(uv_handle_t* handle)
 
 	aggregator_events_metric_add(srv_carg, carg, NULL, "tcp", "entrypoint", srv_carg->key);
 
+	if (!carg->body_readed)
+		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
 	carg->is_closing = 0;
 	if (carg->tls)
 		mbedtls_ssl_free(&carg->tls_ctx);
@@ -191,7 +194,6 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		char *pastr = carg->full_body->l ? carg->full_body->s : buf->base;
 		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
 
-		//alligator_multiparser(buf->base, nread, carg->parser_handler, str, carg);
 		alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
 
 		carg->response_buffer = uv_buf_init(str->s, str->l);

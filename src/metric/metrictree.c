@@ -543,6 +543,26 @@ int64_t metric_get_int(void *value, int8_t type)
 	return ret;
 }
 
+int64_t metric_get_double(void *value, int8_t type)
+{
+	double ret;
+	if (type == DATATYPE_INT)
+		ret = *(int64_t*)value;
+	else if (type == DATATYPE_UINT)
+		ret = *(uint64_t*)value;
+	else if (type == DATATYPE_DOUBLE)
+	{
+		if (isnan(*(double*)value) || isinf(*(double*)value))
+			ret = 0;
+		else
+			ret = *(double*)value;
+	}
+	else
+		ret = 0;
+
+	return ret;
+}
+
 // examples for use
 ///	sort_plan = malloc(sizeof(*sort_plan));
 ///	sort_plan->plan[0] = "__name__";
