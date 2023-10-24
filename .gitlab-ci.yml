@@ -168,6 +168,6 @@ deploy_dockerhub:
   - tags
   stage: build
   script:
-  - echo ${DOCKER_PASSWORD} | docker login $DOCKER_USER --password-stdin
+  - echo ${DOCKER_PASSWORD} | docker login --username $DOCKER_USER --password-stdin
   - docker build -f misc/Dockerfile.ubuntu .
   - docker push alligatormon/alligator:$CI_COMMIT_TAG
