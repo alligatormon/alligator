@@ -5,7 +5,7 @@ stages:
 image: centos:7.9.2009
 
 cutter_centos:
-  stage: tests
+  stage: build
   script:
   - yum -y install git
   - git submodule sync --recursive
