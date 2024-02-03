@@ -652,8 +652,6 @@ void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg)
 		json_decref(root);
 		return;
 	}
-
-	carg->parser_status = 1;
 }
 
 string *elastic_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

@@ -120,7 +120,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (carg && carg->log_level > 99)
 		{
 			puts("");
-			printf("==================BASE===================\n'%s'\n======\n", buf? buf->base : NULL);
+			printf("==================BASE===================\n'%s'\n======\n", buf? buf->base : "");
 		}
 		carg->read_bytes_counter += nread;
 		if (buf && buf->base)

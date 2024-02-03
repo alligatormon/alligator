@@ -271,3 +271,19 @@ drbd_write_order {minor="0"} 0
 drbd_write_order {minor="1"} 12346
 drbd_write_order {minor="2"} 0
 drbd_write_order {minor="3"} 0
+memory_errors {type="correctable", cpu="0", controller="mc0", slot="0", channel="0"} 9
+memory_errors {type="correctable", cpu="0", controller="mc0", slot="0", channel="1"} 213
+memory_errors {type="correctable", cpu="0", controller="mc1", slot="0", channel="0"} 0
+memory_errors {type="correctable", cpu="0", controller="mc1", slot="0", channel="1"} 23
+memory_errors {type="correctable", cpu="1", controller="mc2", slot="0", channel="0"} 0
+memory_errors {type="correctable", cpu="1", controller="mc2", slot="0", channel="1"} 23
+memory_errors {type="correctable", cpu="1", controller="mc3", slot="0", channel="0"} 0
+memory_errors {type="correctable", cpu="1", controller="mc3", slot="0", channel="1"} 23
+memory_errors {type="uncorrectable", cpu="0", controller="mc0", slot="0", channel="0"} 99
+memory_errors {type="uncorrectable", cpu="0", controller="mc0", slot="0", channel="1"} 2
+memory_errors {type="uncorrectable", cpu="0", controller="mc1", slot="0", channel="0"} 2313
+memory_errors {type="uncorrectable", cpu="0", controller="mc1", slot="0", channel="1"} 234
+memory_errors {type="uncorrectable", cpu="1", controller="mc2", slot="0", channel="0"} 2313
+memory_errors {type="uncorrectable", cpu="1", controller="mc2", slot="0", channel="1"} 234
+memory_errors {type="uncorrectable", cpu="1", controller="mc3", slot="0", channel="0"} 2313
+memory_errors {type="uncorrectable", cpu="1", controller="mc3", slot="0", channel="1"} 234

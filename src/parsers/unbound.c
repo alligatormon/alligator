@@ -123,14 +123,12 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 
 			char *lastdot = argindex = tmp;
 			char *pre_lastdot = argindex = tmp;
-			uint64_t dots = 0;
 			while (*argindex)
 			{
 				if (*argindex == '.')
 				{
 					pre_lastdot = lastdot;
 					lastdot = argindex + 1;
-					++dots;
 				}
 				++argindex;
 			}

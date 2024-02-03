@@ -9,7 +9,7 @@
 #include <query/query.h>
 #include "main.h"
 #define d64	PRId64
-#define CH_NAME_SIZE 255
+#define CH_NAME_SIZE 64
 #define CH_OTHER 0
 #define CH_FLOAT 1
 
@@ -17,6 +17,35 @@ typedef struct ch_columns_types {
 	char *colname;
 	uint8_t type;
 } ch_columns_types;
+
+typedef struct ch_table_kv {
+	tommy_node node;
+	char *key;
+	char database[64];
+	char table[64];
+	int64_t marks_bytes;
+	int64_t data_compressed_bytes;
+	int64_t data_uncompressed_bytes;
+} ch_table_kv;
+
+int ch_table_kv_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((ch_table_kv*)obj)->key;
+        return strcmp(s1, s2);
+}
+
+void table_struct_free(void *funcarg, void* arg)
+{
+	ch_table_kv *chtable = arg;
+	context_arg *carg = funcarg;
+	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_compressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_compressed_bytes");
+	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_uncompressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_uncompressed_bytes");
+	metric_add_labels3("Clickhouse_Table_Stats", &chtable->marks_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "marks_bytes");
+
+	free(chtable->key);
+	free(chtable);
+}
 
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -43,9 +72,11 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 	char *database = malloc(CH_NAME_SIZE);
 	char *table = malloc(CH_NAME_SIZE);
 	char *column = malloc(CH_NAME_SIZE);
+	char key[128];
 	size_t name_size;
 	int64_t cur;
 	int64_t data_compressed_bytes,data_uncompressed_bytes,marks_bytes;
+	alligator_ht *table_stats = alligator_ht_init(NULL);
 	while(i<size)
 	{
 		cur = strcspn(metrics+i, "\t");
@@ -113,10 +144,35 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		metric_add_labels4("Clickhouse_Table_Stats", &data_compressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_compressed_bytes");
-		metric_add_labels4("Clickhouse_Table_Stats", &data_uncompressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_uncompressed_bytes");
-		metric_add_labels4("Clickhouse_Table_Stats", &marks_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "marks_bytes");
+		metric_add_labels4("Clickhouse_Column_Stats", &data_compressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_compressed_bytes");
+		metric_add_labels4("Clickhouse_Column_Stats", &data_uncompressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_uncompressed_bytes");
+		metric_add_labels4("Clickhouse_Column_Stats", &marks_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "marks_bytes");
+
+		snprintf(key, 128, "%s:%s", database, table);
+		uint32_t key_hash = tommy_strhash_u32(0, key);
+		ch_table_kv *chtable = alligator_ht_search(table_stats, ch_table_kv_compare, key, key_hash);
+		if (!chtable)
+		{
+			chtable = calloc(1, sizeof(*chtable));
+			chtable->key = strdup(key);
+			chtable->data_compressed_bytes = data_compressed_bytes;
+			chtable->data_uncompressed_bytes = data_uncompressed_bytes;
+			chtable->marks_bytes = marks_bytes;
+			strlcpy(chtable->database, database, CH_NAME_SIZE);
+			strlcpy(chtable->table, table, CH_NAME_SIZE);
+			alligator_ht_insert(table_stats, &(chtable->node), chtable, key_hash);
+		}
+		else
+		{
+			chtable->data_compressed_bytes += data_compressed_bytes;
+			chtable->data_uncompressed_bytes += data_uncompressed_bytes;
+			chtable->marks_bytes += marks_bytes;
+		}
 	}
+
+	alligator_ht_foreach_arg(table_stats, table_struct_free, NULL);
+	alligator_ht_done(table_stats);
+	free(table_stats);
 	free(database);
 	free(column);
 	free(table);

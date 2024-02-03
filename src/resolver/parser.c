@@ -23,7 +23,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	dns_rr_t* rr = resp.answers;
-	int addr_cnt = 0;
+	uint64_t addr_cnt = 0;
 	if (resp.hdr.transaction_id != carg->packets_id ||
 		resp.hdr.qr != DNS_RESPONSE ||
 		resp.hdr.rcode != 0) {
@@ -165,6 +165,8 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			dns_record_rule_push(carg->data, rr->rtype, rr->data, rr->datalen, name, size, rr->ttl);
 		}
 	}
+
+	metric_add_labels3("aggregator_resolve_address_rr_count", &addr_cnt, DATATYPE_UINT, carg, "name", carg->data, "class", "IN", "type", carg->rrtype);
 
     	dns_free(&resp);
 	carg->parsed = 1;

@@ -40,7 +40,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 
 	if (!lo->module)
 	{
-		printf("No defined module for key '%s', module: %s\n", lo->key, lo->module);
+		printf("No defined module for key '%s', module: %s\n", lo->key, lo->module ? lo->module : "");
 		return NULL;
 	}
 

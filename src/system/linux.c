@@ -1603,15 +1603,9 @@ void get_netstat_statistics(char *ns_file)
 	while (1)
 	{
 		if (!fgets(bufheader, filesize, fp))
-		{
-			fclose(fp);
-			return;
-		}
+			break;
 		if (!fgets(bufbody, filesize, fp))
-		{
-			fclose(fp);
-			return;
-		}
+			break;
 
 		size_t header_size = strlen(bufheader);
 		size_t body_size = strlen(bufbody);
@@ -2074,10 +2068,10 @@ int8_t get_platform(int8_t mode)
 	{
 		if (mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "bare-metal");
+
+		fclose(env);
 		return PLATFORM_BAREMETAL;
 	}
-	fclose(env);
-	return 0;
 }
 
 void interface_stats()
@@ -2105,10 +2099,10 @@ void interface_stats()
 		if (!strncmp(entry->d_name, "veth", 4))
 			continue;
 
-		char operfile[255];
-		char ifacestatistics[255];
+		char operfile[512];
+		char ifacestatistics[512];
 		char operstate[100];
-		snprintf(operfile, 255, "%s/class/net/%s/operstate", ac->system_sysfs, entry->d_name);
+		snprintf(operfile, 511, "%s/class/net/%s/operstate", ac->system_sysfs, entry->d_name);
 		FILE *fd = fopen(operfile, "r");
 		if (!fd)
 			continue;
@@ -2127,7 +2121,7 @@ void interface_stats()
 
 		struct dirent *entry_statistics;
 		DIR *dp_statistics;
-		snprintf(ifacestatistics, 255, "%s/class/net/%s/statistics/", ac->system_sysfs, entry->d_name);
+		snprintf(ifacestatistics, 511, "%s/class/net/%s/statistics/", ac->system_sysfs, entry->d_name);
 		dp_statistics = opendir(ifacestatistics);
 		if (!dp_statistics)
 		{
@@ -2140,8 +2134,8 @@ void interface_stats()
 			if ( entry_statistics->d_name[0] == '.' )
 				continue;
 
-			char statisticsfile[255];
-			snprintf(statisticsfile, 255, "%s%s", ifacestatistics, entry_statistics->d_name);
+			char statisticsfile[768];
+			snprintf(statisticsfile, 767, "%s%s", ifacestatistics, entry_statistics->d_name);
 
 			int64_t stat = getkvfile(statisticsfile);
 
@@ -2152,60 +2146,10 @@ void interface_stats()
 	closedir(dp);
 }
 
-void get_memory_errors(char *edac)
-{
-	struct dirent *entry;
-	DIR *dp;
-
-	dp = opendir(edac);
-	if (!dp)
-		return;
-
-	while((entry = readdir(dp)))
-	{
-		if ( entry->d_name[0] == '.' )
-			continue;
-		if (strncmp(entry->d_name, "csrow", 5))
-			continue;
-
-		struct dirent *rowentry;
-		DIR *rowdp;
-
-		char rowname[255];
-		char chname[255];
-		snprintf(rowname, 255, "%s%s/", edac, entry->d_name);
-		rowdp = opendir(rowname);
-		if (!rowdp)
-			continue;
-
-		while((rowentry = readdir(rowdp)))
-		{
-			if ( rowentry->d_name[0] == '.' )
-				continue;
-
-			if (strstr(rowentry->d_name, "_ce_count"))
-			{
-				snprintf(chname, 255, "%s/%s", rowname, rowentry->d_name);
-				int cur = strcspn(rowentry->d_name+2, "_");
-				char channel[100];
-				strlcpy(channel, rowentry->d_name+2, cur+1);
-				int64_t correrrors = getkvfile(chname);
-				metric_add_labels3("memory_errors", &correrrors, DATATYPE_INT, ac->system_carg, "type", "correctable", "row", entry->d_name+5, "channel", channel);
-			}
-		}
-		closedir(rowdp);
-
-		snprintf(chname, 255, "%s/ue_count", rowname);
-		int64_t uncorrerrors = getkvfile(chname);
-		metric_add_labels2("memory_errors", &uncorrerrors, DATATYPE_INT, ac->system_carg, "type", "uncorrectable", "row", entry->d_name+5);
-	}
-	closedir(dp);
-}
-
 void get_thermal()
 {
-	char fname[255];
-	char monname[255];
+	char fname[1024];
+	char monname[512];
 	char devname[255];
 	char *tmp;
 	char name[255];
@@ -2227,13 +2171,13 @@ void get_thermal()
 		struct dirent *monentry;
 		DIR *mondp;
 
-		snprintf(monname, 255, "%s/class/hwmon/%s/", ac->system_sysfs, entry->d_name);
+		snprintf(monname, 511, "%s/class/hwmon/%s/", ac->system_sysfs, entry->d_name);
 		mondp = opendir(monname);
 		if (!mondp)
 			continue;
 
 		// get device name
-		snprintf(fname, 255, "%s/name", monname);
+		snprintf(fname, 1023, "%s/name", monname);
 		FILE *fd = fopen(fname, "r");
 		if(!fd)
 		{
@@ -2258,7 +2202,7 @@ void get_thermal()
 			if ((tmp = strstr(monentry->d_name, "_label")))
 			{
 				// get component name
-				snprintf(fname, 255, "%s/%s", monname, monentry->d_name);
+				snprintf(fname, 1023, "%s/%s", monname, monentry->d_name);
 				FILE *fd = fopen(fname, "r");
 				if(!fd)
 					continue;
@@ -2587,8 +2531,8 @@ void baseboard_info()
 		if (strpbrk(entry->d_name, "0123456789"))
 			continue;
 
-		char blockpath[255];
-		snprintf(blockpath, 254, "/sys/class/block/%s/device/model", entry->d_name);
+		char blockpath[512];
+		snprintf(blockpath, 511, "/sys/class/block/%s/device/model", entry->d_name);
 		string *disk_model = get_file_content(blockpath, 0);
 		if (disk_model)
 		{
@@ -2605,7 +2549,7 @@ void baseboard_info()
 void get_activate_status_services(char *service_name)
 {
 	char svcdir[1000];
-	char pathsystemd[1000];
+	char pathsystemd[1280];
 	snprintf(svcdir, 999, "%s/systemd/system/", ac->system_etcdir);
 
 	struct dirent *entry;
@@ -2625,7 +2569,7 @@ void get_activate_status_services(char *service_name)
 		if (!strstr(entry->d_name, ".target.wants"))
 			continue;
 
-		snprintf(pathsystemd, 999, "%s/%s/%s", svcdir, entry->d_name, service_name);
+		snprintf(pathsystemd, 1279, "%s/%s/%s", svcdir, entry->d_name, service_name);
 		FILE *fd = fopen(pathsystemd, "r");
 		if (fd)
 		{
@@ -2836,7 +2780,6 @@ void get_utmp_info()
 	FILE *file;
 	//struct utmp log[logsize];
 	struct utmp log;
-	int i = 0;
 
 	uint64_t btmp_size = get_file_size("/var/log/btmp");
 	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
@@ -2849,7 +2792,7 @@ void get_utmp_info()
 
 	//fread(&log, sizeof(struct utmp), logsize, file);
 	size_t rc = 1;
-	for(i = 0; rc; i++) {
+	for(; rc;) {
 		rc = fread(&log, sizeof(struct utmp), 1, file);
 		if (rc)
 			utmp_parse(&log);
@@ -3235,13 +3178,7 @@ void get_system_metrics()
 		get_systemd_scopes();
 		if (!platform)
 		{
-			char edacdir[255];
-
-			snprintf(edacdir, 255, "%s/devices/system/edac/mc/mc0/", ac->system_sysfs);
-			get_memory_errors(edacdir);
-
-			snprintf(edacdir, 255, "%s/devices/system/edac/mc/mc1/", ac->system_sysfs);
-			get_memory_errors(edacdir);
+			memory_errors_by_controller();
 			get_thermal();
 			get_buddyinfo();
 			baseboard_info();

@@ -1,6 +1,6 @@
 #pragma once
 #define PORT_SIZE 6
-#define URL_SIZE 65535
+#define HOSTHEADER_SIZE 232
 #define AUTH_SIZE 1024
 #define EVENT_BUFFER 65536
 #include <uv.h>
@@ -223,7 +223,7 @@ typedef struct context_arg
 	uv_buf_t response_buffer;
 	string *response; // temporary buffer for pass to parsers
 
-	char host[URL_SIZE];
+	char host[HOSTHEADER_SIZE];
 	char port[PORT_SIZE];
 	uint16_t numport;
 	char user[AUTH_SIZE];

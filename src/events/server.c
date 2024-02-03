@@ -518,7 +518,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		srv_carg = calloc(1, sizeof(context_arg));
 
 	srv_carg->key = malloc(255);
-	strlcpy(srv_carg->host, ip, URL_SIZE);
+	strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
 	snprintf(srv_carg->key, 255, "tcp:%s:%u", srv_carg->host, port);
 
 	if (ac->log_level > 1)

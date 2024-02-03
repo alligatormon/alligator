@@ -47,6 +47,12 @@
       src: ../misc/elasticsearch.repo
       dest: /etc/yum.repos.d/elasticsearch.repo
 
+  - name: Copy rabbitmq.repo
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
+    ansible.builtin.copy:
+      src: ../misc/rabbitmq-el9.repo
+      dest: /etc/yum.repos.d/rabbitmq.repo
+
   - name: Copy datastax.repo
     when: ansible_os_family == "RedHat"
     ansible.builtin.copy:
@@ -59,20 +65,20 @@
       src: ../misc/mongodb.repo
       dest: /etc/yum.repos.d/mongodb.repo
 
-  - name: Import a key from clickhouse repo
-    when: ansible_os_family == "RedHat"
-    ansible.builtin.rpm_key:
-      state: present
-      key: https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
+#  - name: Import a key from clickhouse repo
+#    when: ansible_os_family == "RedHat"
+#    ansible.builtin.rpm_key:
+#      state: present
+#      key: https://repo.clickhouse.tech/CLICKHOUSE-KEY.GPG
 
-  - name: Add clickhouse repo
-    when: ansible_os_family == "RedHat"
-    yum_repository:
-      name: clickhouse
-      description: clickhouse repo
-      file: clickhouse.repo
-      baseurl: https://repo.clickhouse.tech/rpm/stable/x86_64
-      enabled: yes
+#  - name: Add clickhouse repo
+#    when: ansible_os_family == "RedHat"
+#    yum_repository:
+#      name: clickhouse
+#      description: clickhouse repo
+#      file: clickhouse.repo
+#      baseurl: https://repo.clickhouse.tech/rpm/stable/x86_64
+#      enabled: yes
 
   - name: install freebsd
     when: ansible_os_family == "FreeBSD"
@@ -152,17 +158,14 @@
       name:
       - epel-release
       - python3-devel
+      - make
       - systemd-devel
       - postgresql-devel
-      #- java-latest-openjdk-devel
-      - java-11-openjdk-devel
       - libuuid-devel
       - rpm-devel
       - nc
-      - mariadb-devel
       - mariadb-server
       - postgresql-server
-      - postgresql-static
       - nmap-ncat
       - rpmdevtools
       - redhat-rpm-config
@@ -174,7 +177,7 @@
       - openssl-devel
       - libsodium-devel
       - httpd
-      - clickhouse-server
+      #- clickhouse-server
       - redis
       - monit
       - strace
@@ -185,10 +188,11 @@
       - perl-Digest-SHA
       - perl-IPC-Cmd
       - clang
+      - maven
+      - mariadb-devel
+      - postgresql-static
       - cppunit-devel
       - cppunit
-      - maven
-      - libnl-devel
 
   - name: Install el7
     when: ansible_os_family == "RedHat" and ansible_distribution_version < '8'
@@ -207,9 +211,10 @@
       - uwsgi-plugin-python36
       - cmake3
       - vim-go
+      - libnl-devel
 
   - name: Install el8
-    when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8'
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '8'
     ansible.builtin.package:
       state: present
       skip_broken: yes
@@ -219,6 +224,18 @@
       - cmake
       - libarchive-3.3.3
       - gdb
+      - libnl-devel
+      - libatasmart-devel
+
+  - name: Install el9
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
+    ansible.builtin.package:
+      state: present
+      skip_broken: yes
+      allow_downgrade: yes
+      name:
+      - libnl3-devel
+      - cmake
 
   - name: Install general Linux
     when: ansible_system == "Linux"
@@ -252,7 +269,7 @@
       - varnish
       - squid
       - lighttpd
-      - xinetd
+      #- xinetd
       - tftp-server
 
 #  - name: Create /data/db directory
@@ -297,10 +314,6 @@
     loop:
     - dst: /usr/bin/cmake
       src: /usr/bin/cmake3
-    - dst: /usr/bin/java
-      src: /usr/lib/jvm/java-11-openjdk/bin/java
-    - dst: /usr/bin/javac
-      src: /usr/lib/jvm/java-11-openjdk/bin/javac
 
   - name: Create a symbolic link force gmake
     when: ansible_os_family == "Debian"

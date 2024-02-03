@@ -47,7 +47,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		return;
 
 	size_t elem_size;
-	char namespace_name[255];
+	char namespace_name[32];
 	char *tmp = strstr(metrics+8, "namespaces\t");
 	if (tmp)
 	{
@@ -63,7 +63,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 			++elem_size;
 		strlcpy(namespace_name, tmp, elem_size);
 
-		char *aeronamespace = malloc(255);
+		char *aeronamespace = malloc(64);
 		aeronamespace[0] = 2;
 		aeronamespace[1] = 1;
 		aeronamespace[2] = 0;
@@ -72,7 +72,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		aeronamespace[5] = 0;
 		aeronamespace[6] = 0;
 		aeronamespace[7] = '\13' + elem_size-1;
-		snprintf(aeronamespace+8, 255-8, "namespace/%s\n", namespace_name);
+		snprintf(aeronamespace+8, 64-8, "namespace/%s\n", namespace_name);
 		uint64_t writelen = 20 + elem_size-1;
 
 		char *key = malloc(255);

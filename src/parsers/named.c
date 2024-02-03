@@ -7,14 +7,15 @@
 #include "main.h"
 
 #define NAMED_NAME_SIZE 10000
-#define NAMED_SLIM_SIZE 1000
+#define NAMED_MNAME_SIZEE 2000
+#define NAMED_SLIM_SIZE 900
 
 void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, char *metrics, char **ptr, char *ctx, char *proto, char *ip_version, char *view, char *zone)
 {
 	uint64_t start_type = 0;
 	char type[NAMED_SLIM_SIZE];
 	char name[NAMED_SLIM_SIZE];
-	char mname[NAMED_SLIM_SIZE];
+	char mname[NAMED_MNAME_SIZEE];
 	uint64_t value;
 	char *context_end = NULL;
 
@@ -82,7 +83,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				start_type = strcspn(tmp, "\"");
 				value = strtoull(tmp, &tmp, 10);
 
-				snprintf(mname, 255, "named_%s_%s_counter", ctx, type);
+				snprintf(mname, NAMED_MNAME_SIZEE, "named_%s_%s_counter", ctx, type);
 				if (carg->log_level > 1)
 					printf("\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
 

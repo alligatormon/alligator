@@ -203,9 +203,9 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 		}
 		else
 		{
-			uint8_t start_sym_context = strcspn(name, "<") + 2;
-			uint8_t stop_sym_context = strcspn(name + start_sym_context, ">");
-			uint8_t copy_size = stop_sym_context > KEEPALIVEDLEN ? KEEPALIVEDLEN : stop_sym_context;
+			uint16_t start_sym_context = strcspn(name, "<") + 2;
+			uint16_t stop_sym_context = strcspn(name + start_sym_context, ">");
+			uint16_t copy_size = stop_sym_context > KEEPALIVEDLEN ? KEEPALIVEDLEN : stop_sym_context;
 			strlcpy(context, name + start_sym_context, copy_size);
 		}
 	}

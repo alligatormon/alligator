@@ -24,37 +24,37 @@ void postgresql_free(pq_library* pglib)
 {
 	if (!pglib) return;
 
-	if (pglib && pglib->PQclear) free(pglib->PQclear);
-	if (pglib && pglib->PQconnectdb) free(pglib->PQconnectdb);
-	if (pglib && pglib->PQerrorMessage) free(pglib->PQerrorMessage);
-	if (pglib && pglib->PQexecParams) free(pglib->PQexecParams);
-	if (pglib && pglib->PQfinish) free(pglib->PQfinish);
-	if (pglib && pglib->PQfname) free(pglib->PQfname);
-	if (pglib && pglib->PQgetlength) free(pglib->PQgetlength);
-	if (pglib && pglib->PQgetvalue) free(pglib->PQgetvalue);
-	if (pglib && pglib->PQnfields) free(pglib->PQnfields);
-	if (pglib && pglib->PQntuples) free(pglib->PQntuples);
-	if (pglib && pglib->PQresultStatus) free(pglib->PQresultStatus);
-	if (pglib && pglib->PQstatus) free(pglib->PQstatus);
-	if (pglib && pglib->PQftype) free(pglib->PQftype);
-	if (pglib && pglib->PQflush) free(pglib->PQflush);
-	if (pglib && pglib->PQgetResult) free(pglib->PQgetResult);
-	if (pglib && pglib->PQresetPoll) free(pglib->PQresetPoll);
-	if (pglib && pglib->PQconnectPoll) free(pglib->PQconnectPoll);
-	if (pglib && pglib->PQresetStart) free(pglib->PQresetStart);
-	if (pglib && pglib->PQsocket) free(pglib->PQsocket);
-	if (pglib && pglib->PQconnectStart) free(pglib->PQconnectStart);
-	if (pglib && pglib->PQsendQueryParams) free(pglib->PQsendQueryParams);
-	if (pglib && pglib->PQsendPrepare) free(pglib->PQsendPrepare);
-	if (pglib && pglib->PQsendQueryPrepared) free(pglib->PQsendQueryPrepared);
-	if (pglib && pglib->PQconsumeInput) free(pglib->PQconsumeInput);
-	if (pglib && pglib->PQisBusy) free(pglib->PQisBusy);
-	if (pglib && pglib->PQconnectStartParams) free(pglib->PQconnectStartParams);
-	if (pglib && pglib->PQescapeIdentifier) free(pglib->PQescapeIdentifier);
-	if (pglib && pglib->PQsendQuery) free(pglib->PQsendQuery);
-	if (pglib && pglib->PQfreemem) free(pglib->PQfreemem);
-	if (pglib && pglib->PQnotifies) free(pglib->PQnotifies);
-	if (pglib && pglib->PQexec) free(pglib->PQexec);
+	//if (pglib && pglib->PQclear) free(pglib->PQclear);
+	//if (pglib && pglib->PQconnectdb) free(pglib->PQconnectdb);
+	//if (pglib && pglib->PQerrorMessage) free(pglib->PQerrorMessage);
+	//if (pglib && pglib->PQexecParams) free(pglib->PQexecParams);
+	//if (pglib && pglib->PQfinish) free(pglib->PQfinish);
+	//if (pglib && pglib->PQfname) free(pglib->PQfname);
+	//if (pglib && pglib->PQgetlength) free(pglib->PQgetlength);
+	//if (pglib && pglib->PQgetvalue) free(pglib->PQgetvalue);
+	//if (pglib && pglib->PQnfields) free(pglib->PQnfields);
+	//if (pglib && pglib->PQntuples) free(pglib->PQntuples);
+	//if (pglib && pglib->PQresultStatus) free(pglib->PQresultStatus);
+	//if (pglib && pglib->PQstatus) free(pglib->PQstatus);
+	//if (pglib && pglib->PQftype) free(pglib->PQftype);
+	//if (pglib && pglib->PQflush) free(pglib->PQflush);
+	//if (pglib && pglib->PQgetResult) free(pglib->PQgetResult);
+	//if (pglib && pglib->PQresetPoll) free(pglib->PQresetPoll);
+	//if (pglib && pglib->PQconnectPoll) free(pglib->PQconnectPoll);
+	//if (pglib && pglib->PQresetStart) free(pglib->PQresetStart);
+	//if (pglib && pglib->PQsocket) free(pglib->PQsocket);
+	//if (pglib && pglib->PQconnectStart) free(pglib->PQconnectStart);
+	//if (pglib && pglib->PQsendQueryParams) free(pglib->PQsendQueryParams);
+	//if (pglib && pglib->PQsendPrepare) free(pglib->PQsendPrepare);
+	//if (pglib && pglib->PQsendQueryPrepared) free(pglib->PQsendQueryPrepared);
+	//if (pglib && pglib->PQconsumeInput) free(pglib->PQconsumeInput);
+	//if (pglib && pglib->PQisBusy) free(pglib->PQisBusy);
+	//if (pglib && pglib->PQconnectStartParams) free(pglib->PQconnectStartParams);
+	//if (pglib && pglib->PQescapeIdentifier) free(pglib->PQescapeIdentifier);
+	//if (pglib && pglib->PQsendQuery) free(pglib->PQsendQuery);
+	//if (pglib && pglib->PQfreemem) free(pglib->PQfreemem);
+	//if (pglib && pglib->PQnotifies) free(pglib->PQnotifies);
+	//if (pglib && pglib->PQexec) free(pglib->PQexec);
 
 	free(pglib);
 }
@@ -614,7 +614,6 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 		*local_addr = 0;
 		*local_port = 0;
 		*tls = 0;
-		int64_t wait = 0;
 
 		for (j=0; j<ac->pqlib->PQnfields(r); ++j)
 		{
@@ -701,10 +700,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
 
 
-				if (!strcmp(colname, "wait") || !strcmp(colname, "maxwait"))
-				{
-					wait = val * 1000000;
-				}
+				if (!strcmp(colname, "wait") || !strcmp(colname, "maxwait")) { }
 				else if (!strcmp(colname, "wait_us") || !strcmp(colname, "maxwait_us"))
 				{
 					alligator_ht *hash = alligator_ht_init(NULL);
@@ -733,9 +729,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					if (*tls)
 						labels_hash_insert_nocache(hash, "tls", tls);
 
-					wait += val;
 					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
-					wait = 0;
 				}
 				else
 				{

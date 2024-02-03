@@ -369,6 +369,28 @@ int64_t getkvfile_ext(char *file, uint8_t *err)
 	return atoll(temp);
 }
 
+void getkvfile_str(char *file, char *str, uint64_t size)
+{
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+		return;
+
+	if ( !fgets(str, size, fd) )
+	{
+		fclose(fd);
+		return;
+	}
+
+	fclose(fd);
+}
+
+void str_tolower(char *str, size_t size)
+{
+	for(int i = 0; str[i] || i < size; i++)
+		str[i] = tolower(str[i]);
+}
+
+
 string* string_init(size_t max)
 {
 	++max;

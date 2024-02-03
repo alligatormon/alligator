@@ -373,7 +373,6 @@ int main(int argc, char **argv, char **envp)
 	query_handler();
 	postgresql_client_handler();
 	mysql_client_handler();
-	zk_client_handler();
 	filetailer_crawl_handler();
 	puppeteer_generator();
 	cluster_handler();

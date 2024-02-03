@@ -37,7 +37,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 	char *body = http_data ? http_data->body : configbody;
 	uint8_t method = http_data ? http_data->method : HTTP_METHOD_PUT;
 	uint16_t code = 200;
-	char temp_resp[1000];
+	char temp_resp[1200];
 	char respbody[1000];
 	char status[100];
 	snprintf(status, 100, "OK");
@@ -1140,7 +1140,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 
 	if (response)
 	{
-		snprintf(temp_resp, 1000, "HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n", code, status, respbody);
+		snprintf(temp_resp, 1200, "HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n", code, status, respbody);
 		string_cat(response, temp_resp, strlen(temp_resp));
 	}
 }

@@ -120,8 +120,8 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 				{
 					snprintf(hextet, 4, "%X", kvalue[4]);
 					if (*ipaddr)
-						strncat(ipaddr, ":", 1);
-					strncat(ipaddr, hextet, 4);
+						strcat(ipaddr, ":");
+					strcat(ipaddr, hextet);
 				}
 			}
 		}
@@ -140,8 +140,8 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 				{
 					snprintf(hextet, 4, "%X", kvalue[4]);
 					if (*ipaddr_to)
-						strncat(ipaddr_to, ":", 1);
-					strncat(ipaddr_to, hextet, 4);
+						strcat(ipaddr_to, ":");
+					strcat(ipaddr_to, hextet);
 				}
 			}
 		}
@@ -178,7 +178,7 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 
 	char strmark[20] = { 0 };
 	if (mark)
-		snprintf(strmark, 6, "%"PRIu64, mark);
+		snprintf(strmark, 19, "%"PRIu64, mark);
 
 	if (*ipaddr || *cidr || *attrcomment || *iface || *macaddr || *strproto || *strport || *strmark)
 	{

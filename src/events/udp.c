@@ -77,7 +77,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 	carg->read_counter = 0;
 	carg->curr_ttl = carg->ttl;
 	carg->key = malloc(255);
-	strlcpy(carg->host, addr, URL_SIZE);
+	strlcpy(carg->host, addr, HOSTHEADER_SIZE);
 	snprintf(carg->key, 255, "udp:%s:%"PRIu16, carg->host, port);
 
 	uv_udp_t *recv_socket = &carg->udp_server;

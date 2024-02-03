@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.80)
+set(VERSION 1.14.86)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -26,7 +26,10 @@ message("found ${distro}.${disversion}")
 # for speed check add -H -ftime-report
 IF(${distro}.${disversion} MATCHES "centos.7")
 #set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -fstack-protector-all -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wunreachable-code -O3 -std=gnu11 -pthread")
-set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wunreachable-code -O3 -std=gnu11 -pthread")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wunreachable-code -O3 -std=gnu99 -pthread")
+ELSEIF(${distro}.${disversion} MATCHES "centos.9")
+set(CMAKE_C_COMPILER "/usr/bin/clang")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wno-visibility -Wunreachable-code -O3 -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.16.04")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wundef -Wunreachable-code -O3 -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.14.04")
@@ -67,6 +70,7 @@ include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/)
 include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
 include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/)
 include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/linux)
+include_directories(/usr/include/libnl3)
 include_directories(/usr/local/include/mysql)
 include_directories(/usr/local/include/hv/)
 include_directories(external/libhv/include/hv/)
@@ -248,6 +252,7 @@ set(STATIC_FILES
 	system/linux/sysctl.c
 	system/linux/conntrack.c
 	system/linux/sockets.c
+	system/linux/memory.c
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c
@@ -340,7 +345,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv_static.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libzookeeper_mt.a libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv_static.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv_static.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

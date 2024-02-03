@@ -177,7 +177,6 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 
 	int print_states=0;
 	struct iovec iov[3];
-	char *sockname;
 	unsigned state;//, tx_queue, rx_queue;
 	char sockmask[SOCKET_MAXN];
 	char srcaddrportkey[255];
@@ -305,14 +304,10 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 					got_states = 1;
 				}
 				if (state == 10 &&
-					 //(sockname = sockname_get(type, inp)) != NULL &&
-					 //(((socknum = sock_get(sockname)) >= 0) ||
-					  //((socknum = sock_add(sockname)) >= 0)) &&
 					 !sockmask[socknum]) {
 					typemask[type] --;
 					sockmask[socknum] = 1;
-					//sock_update(socknum, r->idiag_rqueue, -1, r->idiag_wqueue);
-					fprintf(stderr,"got socket %s from netlink, qlen %d, qlimit %d", sockname, r->idiag_rqueue, r->idiag_wqueue);
+					fprintf(stderr,"got state 10 from netlink, qlen %d, qlimit %d", r->idiag_rqueue, r->idiag_wqueue);
 				}
 
 				//printf("state %d, family %d/%d/%d\n", state, pproto, IPPROTO_TCP, IPPROTO_UDP);
@@ -383,12 +378,6 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 					alligator_ht_insert(count_addr->count, &(capu->node), capu, key_hash);
 				}
 
-				if (!print_states &&
-					!typemask[0] &&
-					!typemask[2]) {
-					status = -1;
-					break;
-				}
 				h = NLMSG_NEXT(h, status);
 			}
 			if (status < 0)

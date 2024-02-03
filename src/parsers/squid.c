@@ -412,7 +412,7 @@ void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *
 	char *tmp = metrics;
 	char pool_str[255];
 	uint64_t loops_uint;
-	for (uint64_t i = 0; (tmp - metrics) < size; i++)
+	for (; (tmp - metrics) < size;)
 	{
 		char *loops = strstr(tmp, "Total number of epoll(2) loops:");
 		if (!loops)
@@ -508,9 +508,9 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 				k += strspn(tmp2+k, " \t");
 
 				char try[21];
-				char scode[4];
+				char scode[21];
 				snprintf(try, 21, "%"u64, ind);
-				snprintf(scode, 4, "%"u64, code);
+				snprintf(scode, 21, "%"u64, code);
 				if (carg->log_level > 1)
 					printf("\t\tcounter[%"u64"]: %"u64"\n", ind, counter);
 				metric_add_labels3("squid_forward_code", &counter, DATATYPE_UINT, carg, "pool", pool, "try", try, "code", scode);

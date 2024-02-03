@@ -35,14 +35,14 @@ int smart_aggregator(context_arg *carg)
 {
 	char *type = NULL;
 
-	char key[255];
+	char key[512];
 	if (!carg->key)
 	{
-		carg->key = malloc(255);
+		carg->key = malloc(512);
 		smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url, carg->name);
 	}
 
-	strlcpy(key, carg->key, 255);
+	strlcpy(key, carg->key, 512);
 
 	if (ac->log_level > 0)
 		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
@@ -82,8 +82,6 @@ int smart_aggregator(context_arg *carg)
 		type = postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)
 		type = mysql_client(carg);
-	else if (carg->transport == APROTO_ZKCONF)
-		type = zk_client(carg);
 
 	if (type && !carg->key)
 	{
@@ -138,7 +136,7 @@ void smart_aggregator_del_key(char *key)
 
 void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query, char *name)
 {
-	char key[255];
+	char key[512];
 	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query, name);
 	smart_aggregator_del_key(key);
 }
@@ -160,6 +158,8 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
+
+	new->labels = labels_dup(carg->labels);
 
 	if (ac->log_level > 2)
 		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
@@ -243,7 +243,6 @@ void aggregate_ctx_init()
 	sd_etcd_parser_push();
 	sd_consul_configuration_parser_push();
 	sd_consul_discovery_parser_push();
-	sd_zk_parser_push();
 	nginx_upstream_check_parser_push();
 	json_parser_push();
 	consul_parser_push();

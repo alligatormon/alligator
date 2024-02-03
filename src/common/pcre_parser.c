@@ -195,7 +195,7 @@ int ____main(int argc, char **argv) {
 				"No chance of a match...",
 				NULL};
 
-	regex_match **rematch = malloc(sizeof(void*));
+	regex_match **rematch = malloc(sizeof(void*) * 2);
 
 	regex_metric *metrics;
 	regex_metric_node *metric;

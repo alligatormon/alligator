@@ -304,7 +304,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		strlcpy(carg->user, hi->user, 1024);
 	if (hi->pass)
 		strlcpy(carg->password, hi->pass, 1024);
-	strlcpy(carg->host, hi->host, URL_SIZE); // new scheme
+	strlcpy(carg->host, hi->host, HOSTHEADER_SIZE); // new scheme
 	strlcpy(carg->port, hi->port, 6);
 	carg->numport = strtoull(hi->port, NULL, 10);
 	if (carg->timeout < 1)

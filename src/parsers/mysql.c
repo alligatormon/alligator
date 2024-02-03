@@ -323,23 +323,23 @@ void sphinxsearch_callback(context_arg *carg, MYSQL *con, query_node *qn)
 					continue;
 
 				if (!strcmp(colname, "Status"))
-					strlcpy(status, res, strlen(res)+1);
+					strlcpy(status, res, 255);
 				else if (!strcmp(colname, "ConnID"))
-					strlcpy(ConnID, res, strlen(res)+1);
+					strlcpy(ConnID, res, 255);
 				else if (!strcmp(colname, "Host"))
-					strlcpy(Host, res, strlen(res)+1);
+					strlcpy(Host, res, 255);
 				else if (!strcmp(colname, "Tid"))
-					strlcpy(Tid, res, strlen(res)+1);
+					strlcpy(Tid, res, 255);
 				else if (!strcmp(colname, "Name"))
-					strlcpy(Name, res, strlen(res)+1);
+					strlcpy(Name, res, 255);
 				else if (!strcmp(colname, "Proto"))
-					strlcpy(Proto, res, strlen(res)+1);
+					strlcpy(Proto, res, 255);
 				else if (!strcmp(colname, "State"))
-					strlcpy(State, res, strlen(res)+1);
+					strlcpy(State, res, 255);
 				else if (!strcmp(colname, "Info"))
-					strlcpy(Info, res, strlen(res)+1);
+					strlcpy(Info, res, 255);
 				else if (!strcmp(colname, "In idle"))
-					strlcpy(Inidle, res, strlen(res)+1);
+					strlcpy(Inidle, res, 255);
 				else if (!strncmp(colname, "Work time", 9)) {}
 				else
 				{

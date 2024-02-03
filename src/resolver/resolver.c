@@ -137,7 +137,7 @@ uint64_t dns_init_type(char *domain, char *buf, uint16_t rrtype, uint16_t *trans
 	query->hdr.nquestion = 1;
 
 	dns_rr_t *question = calloc(1, sizeof(*question));
-	strncpy(question->name, domain, sizeof(question->name));
+	strncpy(question->name, domain, sizeof(*question->name));
 
 	question->rtype = rrtype;
 	question->rclass = DNS_CLASS_IN;
@@ -393,7 +393,7 @@ void resolver_carg_set_transport(context_arg *carg)
 	char *proto = ac->srv_resolver[r]->hi->proto == APROTO_TCP ? "tcp" : "udp";
 	carg->transport_string = proto;
 	carg->transport = carg->proto = ac->srv_resolver[r]->hi->proto;
-	strlcpy(carg->host, ac->srv_resolver[r]->hi->host, URL_SIZE);
+	strlcpy(carg->host, ac->srv_resolver[r]->hi->host, HOSTHEADER_SIZE);
 }
 
 context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
@@ -539,6 +539,9 @@ void resolver_stop()
 	free(ac->resolver);
 
 	if (ac->resolver_size)
-		while (ac->resolver_size != -1)
+	{
+		while (ac->resolver_size != 0)
 			url_free(ac->srv_resolver[ac->resolver_size--]->hi);
+		url_free(ac->srv_resolver[0]->hi);
+	}
 }
