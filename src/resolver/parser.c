@@ -103,7 +103,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			char name[256];
 			uint16_t priority_int = rr->data[1];
 			char priority[4];
-			snprintf(priority, 3, "%hhu", priority_int);
+			snprintf(priority, 3, "%hu", priority_int);
 			int size = dns_name_decode_ext(rr->data + 2, metrics, name);
 			metric_add_labels5("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", carg->data, "data", name, "type", "MX", "class", class, "priority", priority);
 			dns_record_rule_push(carg->data, rr->rtype, rr->data, rr->datalen, name, size, rr->ttl);

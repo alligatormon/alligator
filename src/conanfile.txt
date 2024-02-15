@@ -13,6 +13,7 @@ libpq/13.3
 openssl/3.0.2
 #libmysqlclient/8.0.25
 libbsd/0.10.0
+#libmnl/1.0.5
 
 [generators]
 cmake

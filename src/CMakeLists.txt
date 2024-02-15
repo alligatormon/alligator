@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.86)
+set(VERSION 1.14.88)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -253,6 +253,8 @@ set(STATIC_FILES
 	system/linux/conntrack.c
 	system/linux/sockets.c
 	system/linux/memory.c
+	system/linux/nftables.c
+	system/linux/distribution_name.c
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c

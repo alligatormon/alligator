@@ -236,6 +236,12 @@
       name:
       - libnl3-devel
       - cmake
+      - yum-utils
+      - lldb
+
+  - name: yum-config-manager
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
+    ansible.builtin.command: yum-config-manager --enable crb
 
   - name: Install general Linux
     when: ansible_system == "Linux"
@@ -331,7 +337,7 @@
       executable: pip3
       name:
       - statsd
-      - conan==1.59.0
+      - conan==1.60.0
       - 'MarkupSafe>=2.0'
 
   - name: Install pip deps
@@ -340,4 +346,4 @@
       executable: pip-3.8
       name:
       - statsd
-      - conan==1.59.0
+      - conan==1.60.0

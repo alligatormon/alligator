@@ -17,7 +17,7 @@ int resolver_compare(const void* arg, const void* obj)
 void dns_record_rule_push(char *dname, uint16_t rtype, void *data, uint64_t datalen, char *IP, uint64_t SIZE, uint64_t ttl)
 {
 	char key[DNS_NAME_MAXLEN];
-	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hhu", dname, rtype);
+	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hu", dname, rtype);
 	uint32_t key_hash = tommy_strhash_u32(0, key);
 	dns_resource_records *dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
 	if (!dns_rr)
@@ -456,7 +456,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
 {
 	char key[DNS_NAME_MAXLEN];
-	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hhu", dname, rrtype);
+	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hu", dname, rrtype);
 	uint32_t key_hash = tommy_strhash_u32(0, key);
 
 	if (carg->log_level > 1)

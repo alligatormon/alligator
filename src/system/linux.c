@@ -3159,6 +3159,7 @@ void get_systemd_scopes()
 void get_system_metrics()
 {
 	int8_t platform = -1;
+	//nftables_handler();
 	if (ac->system_base)
 	{
 		get_uptime();
@@ -3176,6 +3177,7 @@ void get_system_metrics()
 		get_drbd_info();
 		get_nfs_stats();
 		get_systemd_scopes();
+		get_distribution_name();
 		if (!platform)
 		{
 			memory_errors_by_controller();
