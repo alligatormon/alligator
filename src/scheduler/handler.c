@@ -6,7 +6,6 @@ void scheduler_run(uv_timer_t* handle)
 {
 	//scheduler_node *sn = arg;
 	scheduler_node *sn = handle->data;
-	printf("scheduler node: %s\n", sn->name);
 
 	if (sn->datasource_int == SCHEDULER_DATASOURCE_INTERNAL)
 	{

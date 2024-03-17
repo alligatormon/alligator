@@ -18,17 +18,17 @@ regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
 
 	if(rematch->regex_compiled == NULL) {
 		printf("ERROR: Could not compile '%s': %s\n", regexstring, pcreErrorStr);
-		free(rematch);
 		pcre_jit_stack_free(rematch->jstack);
+		free(rematch);
 		return 0;
 	}
 
 	rematch->pcreExtra = pcre_study(rematch->regex_compiled, PCRE_STUDY_JIT_COMPILE, &pcreErrorStr);
 	if(pcreErrorStr != NULL) {
 		printf("ERROR: Could not study '%s': %s\n", regexstring, pcreErrorStr);
-		free(rematch);
 		pcre_jit_stack_free(rematch->jstack);
 		pcre_free(rematch->regex_compiled);
+		free(rematch);
 		return 0;
 	}
 

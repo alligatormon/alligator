@@ -3,10 +3,9 @@ alligator is aggregator for system and software metrics
 
 # Properties
 - custom metrics collection
-"default scrape only "up 1"
 - support prometheus
 - support scrape processes metrics
-- support GNU/Linux (TODO support FreeBSD and Microsoft Windows)
+- support GNU/Linux (TODO support FreeBSD)
 - pushgateway protocol (with TTL expire when set in config, or HTTP header X-Expire-Time in seconds)
 - statsd protocol
 - multiservice scrape
@@ -74,7 +73,7 @@ system {
 #asynchronous, the crawler downloads the data from <url>, parser converts them into metrics
 aggregate_period 10000 # in milliseconds
 query_period 20000 # in milliseconds
-aggregate backends {
+aggregate {
 	#REDIS and SENTINEL
 	redis tcp://localhost:6379/;
 	sentinel tcp://localhost:2/;
@@ -175,9 +174,6 @@ aggregate backends {
 	consul-configuration http://localhost:8500;
 	consul-discovery http://localhost:8500;
 
-	# Zookeeper configuration
-	zookeeper-configuration zookeeper://localhost:2181;
-
 	# Etcd configuration
 	etcd-configuration http://localhost:2379;
 
@@ -194,33 +190,33 @@ aggregate backends {
 	# file stat calc:
 	blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
 
-    # kubeconfig scarpe certificate data
-    kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
+	# kubeconfig scarpe certificate data
+	kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
 
-    # Druid
-    druid http://localhost:8888 name=druid;
-    druid_worker http://localhost:8091;
-    druid_historical http://localhost:8083;
-    druid_broker http://localhost:8082;
+	# Druid
+	druid http://localhost:8888 name=druid;
+	druid_worker http://localhost:8091;
+	druid_historical http://localhost:8083;
+	druid_broker http://localhost:8082;
 
-    # Couchbase
-    couchbase http://user:pass@localhost:8091;
+	# Couchbase
+	couchbase http://user:pass@localhost:8091;
 
-    # Couchdb
-    couchdb http://user:pass@localhost:5984;
+	# Couchdb
+	couchdb http://user:pass@localhost:5984;
 
-    # MogileFS
-    mogilefs tcp://localhost:7001;
+	# MogileFS
+	mogilefs tcp://localhost:7001;
 
-    # MooseFS
-    moosefs exec:///app/src/tests/mock/moosefs/mfscli;
+	# MooseFS
+	moosefs exec:///app/src/tests/mock/moosefs/mfscli;
 }
 ```
 
 ## persistence directory for saving metrics between restarts
 ```
 persistence {
-    directory /var/lib/alligator;
+	directory /var/lib/alligator;
 }
 ```
 

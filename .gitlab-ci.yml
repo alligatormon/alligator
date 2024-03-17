@@ -12,43 +12,26 @@ cutter_centos:
   - git submodule update --init --recursive
   - cd src
   - sh bootstrap.sh
-  - cmake3 . -DCPACK_GENERATOR=RPM
+  - cmake3 . -DCPACK_GENERATOR=RPM -DCONAN_DISABLE_CHECK_COMPILER=True
   - make -j
   - cutter .
-
-sources_tarball:
-  stage: build
-  only:
-  - tags
-  script:
-  - yum -y install git
-  - git submodule sync --recursive
-  - git submodule update --init --recursive
-  - cd src
-  - sh bootstrap.sh
-  - cmake3 .
-  - make -j
-  - cd ..
-  - mkdir /tmp/alligator-$CI_COMMIT_TAG
-  - cp -a ./ /tmp/alligator-$CI_COMMIT_TAG/
-
-  - ls /tmp
-  - ls /tmp/alligator-$CI_COMMIT_TAG/
-  - cd /tmp/alligator-$CI_COMMIT_TAG/src
-
-  - cd /tmp
-  - tar cfvz alligator-$CI_COMMIT_TAG.tar.gz alligator-$CI_COMMIT_TAG/
 
 deploy_centos7:
   stage: build
   only:
   - tags
   script:
-  - yum -y install git
+  - yum -y install epel-release https://acc.dl.osdn.jp/storage/g/c/cu/cutter/centos/cutter-release-1.3.0-1.noarch.rpm
+  - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter
+  - ln -s /usr/bin/cmake3 /usr/bin/cmake
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
   - cmake3 . -DCPACK_GENERATOR=RPM
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
@@ -56,15 +39,19 @@ deploy_centos7:
 
 deploy_centos9:
   stage: build
-  image: centos:9
+  image: quay.io/centos/centos:stream9
   only:
   - tags
   script:
-  - yum -y install git
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
   - cmake . -DCPACK_GENERATOR=RPM
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
@@ -75,90 +62,102 @@ deploy_ubuntu2004:
   only:
   - tags
   stage: build
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+    TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+  - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
+  - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
+  - ln -s /usr/local/go/bin/go /usr/bin/go
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
   - curl -F "package[distro_version_id]=210" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
-deploy_ubuntu1804:
-  image: ubuntu:18.04
+deploy_ubuntu2204:
+  image: ubuntu:22.04
   only:
   - tags
   stage: build
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+    TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
-  - curl -F "package[distro_version_id]=190" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - curl -F "package[distro_version_id]=237" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
-deploy_ubuntu1604:
-  image: ubuntu:16.04
+deploy_debian11:
+  image: debian:11
   only:
   - tags
   stage: build
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+    TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+  - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
+  - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
+  - ln -s /usr/local/go/bin/go /usr/bin/go
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
-  - curl -F "package[distro_version_id]=165" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - curl -F "package[distro_version_id]=207" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
-deploy_debian9:
-  image: debian:9
+deploy_debian12:
+  image: debian:12
   only:
   - tags
   stage: build
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+    TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
+
+  - pip3 install --break-system-packages conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
 
   - cmake . -DCPACK_GENERATOR=DEB
   - make -j package
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
-  - curl -F "package[distro_version_id]=149" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
-
-deploy_debian10:
-  image: debian:10
-  only:
-  - tags
-  stage: build
-  script:
-  - apt update
-  - apt -y install git
-  - git submodule sync --recursive
-  - git submodule update --init --recursive
-  - cd src
-  - sh bootstrap.sh
-
-  - cmake . -DCPACK_GENERATOR=DEB
-  - make -j package
-  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.deb`
-  - curl -F "package[distro_version_id]=150" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+  - curl -F "package[distro_version_id]=215" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_dockerhub:
   image: docker:24.0.5
@@ -168,6 +167,10 @@ deploy_dockerhub:
   - tags
   stage: build
   script:
+  - apk add git
   - echo ${DOCKER_PASSWORD} | docker login --username $DOCKER_USER --password-stdin
-  - docker build -f misc/Dockerfile.ubuntu .
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - docker build -t alligatormon/alligator -f misc/Dockerfile.ubuntu .
+  - docker tag alligatormon/alligator alligatormon/alligator:$CI_COMMIT_TAG
   - docker push alligatormon/alligator:$CI_COMMIT_TAG

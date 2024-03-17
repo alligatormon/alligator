@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter/nfnetlink.h>
-#include <netlink/attr.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
 #include <inttypes.h>
 #include <byteswap.h>

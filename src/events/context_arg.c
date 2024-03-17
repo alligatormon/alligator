@@ -124,6 +124,9 @@ void carg_free(context_arg *carg)
 	if (carg->instance)
 		free(carg->instance);
 
+	if (carg->pquery)
+		free(carg->pquery);
+
 	if (carg->tls_ca_file)
 		free(carg->tls_ca_file);
 
@@ -468,6 +471,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_instance)
 	{
 		carg->instance = strdup(json_string_value(json_instance));
+	}
+
+	json_t *json_pquery = json_object_get(root, "pquery");
+	if (json_pquery)
+	{
+		carg->pquery = strdup(json_string_value(json_pquery));
 	}
 
 	json_t *json_resolve = json_object_get(root, "resolve");

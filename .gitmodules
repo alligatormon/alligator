@@ -7,9 +7,12 @@
 [submodule "src/external/libatasmart"]
 	path = src/external/libatasmart
 	url = https://github.com/Rupan/libatasmart.git
-[submodule "src/external/llhttp"]
-	path = src/external/llhttp
-	url = https://github.com/nodejs/llhttp.git
-[submodule "src/external/zookeeper"]
-	path = src/external/zookeeper
-	url = https://github.com/apache/zookeeper
+[submodule "src/external/libhv"]
+	path = src/external/libhv
+	url = https://github.com/ithewei/libhv.git
+[submodule "src/external/picohttpparser"]
+	path = src/external/picohttpparser
+	url = https://github.com/h2o/picohttpparser.git
+[submodule "src/external/mbedtls"]
+	path = src/external/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

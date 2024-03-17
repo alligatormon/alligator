@@ -6,6 +6,8 @@
 #include "lang/lang.h"
 #include "common/pem_check.h"
 #include "common/lcrypto.h"
+#include "scheduler/type.h"
+#include "modules/modules.h"
 #include "main.h"
 
 int x509_fs_compare(const void* arg, const void* obj)
@@ -341,10 +343,8 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = strdup(name);
 	lo->lang = "so";
-	lo->file = "/var/lib/alligator/parseJks.so";
 	lo->module = "parseJks";
 	lo->method = "alligator_call";
-	//lo->script = 
 
 	if (!passtr)
 	{
@@ -355,8 +355,28 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 
 	lo->arg = passtr;
 
-	//lo->carg = calloc(1, sizeof(*lo->carg));
 	lang_push_options(lo);
+	scheduler_push_json();
+	scheduler_node* sn = scheduler_get(name);
+	if (!sn) {
+		sn = calloc(1, sizeof(*sn));
+		sn->name = strdup(name);
+		sn->repeat = 100000;
+		sn->lang = strdup(name);
+		uint32_t hash = tommy_strhash_u32(0, sn->name);
+		alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
+		scheduler_start(sn);
+	}
+
+	const char *module_key = "parseJks";
+	module_t *module = alligator_ht_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
+	if (!module)
+	{
+		module_t *module = calloc(1, sizeof(*module));
+		module->key = strdup(module_key);
+		module->path = strdup("/var/lib/alligator/parseJks.so");
+		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
+	}
 }
 
 void jks_del(char *name)

@@ -51,14 +51,7 @@ include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 include_directories(external/mruby/include/)
 include_directories(external/libhv/protocol/)
-include_directories(external/zookeeper/zookeeper-client/zookeeper-client-c/include/)
-include_directories(external/zookeeper/zookeeper-client/zookeeper-client-c/generated/)
-#IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-include_directories(external/mbedtls/include/)
-link_directories(external/mbedtls/library/)
-#ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 
-include_directories(external/iptables/include/)
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/include/)
 include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/include/linux)
@@ -76,15 +69,24 @@ include_directories(/usr/local/include/hv/)
 include_directories(external/libhv/include/hv/)
 include_directories(/usr/local/include/)
 include_directories(external/picohttpparser)
+include_directories(external/mbedtls/include/)
+include_directories(external/libfyaml/include/)
+include_directories(external/libatasmart/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(external/mruby/include)
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
+link_directories(external/mruby/build/host/lib/)
+link_directories(external/libhv/lib/)
+link_directories(/usr/lib/x86_64-linux-gnu/)
+link_directories(/usr/local/lib64/)
 link_directories(external/mbedtls/library/)
 link_directories(external/mbedtls/crypto/library/)
 link_directories(external/mruby/build/host/lib/)
-link_directories(/usr/lib/x86_64-linux-gnu/)
-link_directories(/usr/local/lib64/)
+link_directories(external/libatasmart/.libs/)
+link_directories(external/libfyaml/src/.libs/)
+link_directories(external/picohttpparser/)
 
 set(STATIC_FILES
 	events/uv_alloc.c
@@ -282,8 +284,6 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytree.c
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
-	external/picohttpparser/picohttpparser.c
-	/app/src/external/libhv/protocol/dns.c
 )
 #IF(${distro} MATCHES "centos")
 #set(RPM_FILES parser/rpm.c)
@@ -341,13 +341,13 @@ add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMM
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} uv jansson)
+	target_link_libraries(${HEAD} ${COMMON} libuv_a.a jansson)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libuv.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv_static.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv_a.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv.a picohttpparser.a libdns.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml-0.7.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv_static.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

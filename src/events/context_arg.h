@@ -290,6 +290,7 @@ typedef struct context_arg
 	char *instance; // only for entrypoint, not aggregate!
 	uint8_t rreturn; // only for entrypoint, not aggregate!
 	uint8_t metric_aggregation; // only for entrypoint, not aggregate!
+	char *pquery; // parser query
 
 	tommy_node node;
 	tommy_node context_node;

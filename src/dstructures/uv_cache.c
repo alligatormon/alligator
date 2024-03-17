@@ -75,7 +75,9 @@ void alligator_cache_foreach_free(void *arg, void *obj)
 
 	uint64_t sec = INT64_MAX;
 	if (arg)
-		sec = *(uint64_t*)arg;
+	{
+		sec = (uint64_t)arg;
+	}
 
 	if (acache->ttl <= sec)
 	{
@@ -97,9 +99,11 @@ void alligator_cache_foreach_free(void *arg, void *obj)
 
 void alligator_cache_periodical_free(tommy_list *uv_cache)
 {
-        r_time time = setrtime();
+	r_time time = setrtime();
+	uint64_t *pass_sec;
 	time.sec += ALLIGATOR_TIMER_SECONDS_EXPIRE;
-	tommy_list_foreach_arg (uv_cache, alligator_cache_foreach_free, &time.sec);
+	pass_sec = (void*)(uint64_t)time.sec;
+	tommy_list_foreach_arg (uv_cache, alligator_cache_foreach_free, pass_sec);
 }
 
 void alligator_cache_full_free(tommy_list *uv_cache)

@@ -62,10 +62,13 @@ void scrape_rpm_info(uv_fs_t *req)
 {
 	free(req->data);
 	uv_fs_req_cleanup(req);
-	free(req);
 
 	if (req->result < 0)
+	{
+		free(req);
 		return;
+	}
+	free(req);
 
 	context_arg *carg = aggregator_oneshot(NULL, RPMEXEC, strlen(RPMEXEC), NULL, 0, rpm_handler, "rpm_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 	if (carg)

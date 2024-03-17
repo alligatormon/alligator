@@ -15,10 +15,11 @@ yum -y install epel-release
 yum -y install ansible
 pkg install -y py38-ansible
 ansible-playbook --connection=local --inventory 127.0.0.1, playbook.yml
+cmake -version
 
 #conan install . --build=missing -s build_type=Debug
 conan install . --build=missing
+#CONAN_DISABLE_CHECK_COMPILER=True conan install . --build=missing -s compiler.version=5
 lsb_release -c | awk -F: '{print $2}' | awk '{print $1}' | grep stretch && conan install ../misc/debian9/ --build=missing && apt -y install libpcre3-dev
 uname -s | grep FreeBSD && conan install ../misc/freebsd/ --build=missing
-conan install
 conan build external/

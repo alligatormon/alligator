@@ -1,3 +1,4 @@
+#ifdef __linux__
 #include <dirent.h>
 #include <netpacket/packet.h>
 #include "main.h"
@@ -55,7 +56,6 @@ void get_memory_errors(char *edac, char* controller)
 		char label_file[255];
 		snprintf(label_file, 254, "%sdimm_label", rowname);
 	 	getkvfile_str(label_file, label, 254);
-		printf("open file %s\n", label_file);
 
 		char cpuid[3];
 		char channelid[3];
@@ -112,3 +112,4 @@ void memory_errors_by_controller() {
 	}
 	closedir(dp);
 }
+#endif

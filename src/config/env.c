@@ -85,7 +85,7 @@ env_tree *env_node_select(env_tree *node, char *name, size_t size, uint8_t is_ar
 	if (ac->log_level > 0)
 		printf(" > env_node_select: murmurhash: '%"u32"', index: '%"u32"'\n", hash, index);
 
-	for (; index < node->allocated && &node->steam[index] && node->steam[index].active; index++)
+	for (; index < node->allocated && (&node->steam[index] != (struct env_tree*)NULL) && node->steam[index].active; index++)
 	{
 		if (!strncmp(node->steam[index].name, name, size))
 		{
@@ -114,7 +114,7 @@ env_tree *env_node_add(env_tree *node, char *name, size_t size, uint8_t is_array
 	uint32_t index = hash % node->allocated;
 	uint32_t step = 0;
 
-	for (; index < node->allocated && &node->steam[index] && node->steam[index].active; index++)
+	for (; index < node->allocated && (&node->steam[index] != (struct env_tree*)NULL) && node->steam[index].active; index++)
 	{
 		++step;
 	}

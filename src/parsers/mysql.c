@@ -1,4 +1,4 @@
-#include "parsers/mysql.h"
+#include "parsers/alligator_mysql.h"
 #include "query/query.h"
 #include "main.h"
 #define MY_TYPE_MYSQL 0

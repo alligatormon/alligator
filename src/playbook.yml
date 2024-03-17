@@ -87,7 +87,6 @@
       name:
       - autoconf-wrapper
       - mysql80-client
-      - openjdk16
       - vim
       - rubygem-rake
       - autotools
@@ -107,7 +106,13 @@
       state: present
       name:
       - libmysqlclient-dev
-      - openjdk-11-jdk
+
+  - name: install ubuntu >= 22
+    when: ansible_distribution == "Ubuntu" and ansible_distribution_major_version >= "22"
+    ansible.builtin.package:
+      state: present
+      name:
+      - golang-go
 
   - name: install debian 10
     when: ansible_os_family == "Debian"
@@ -118,7 +123,6 @@
       - libudev-dev
       - cmake
       - libzookeeper-mt-dev
-      - openjdk-11-jdk
       - curl
 
   - name: install debian
@@ -148,6 +152,22 @@
       - netcat-openbsd
       - make
       - autoconf
+
+  - name: Install el9
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
+    ansible.builtin.package:
+      state: present
+      skip_broken: yes
+      allow_downgrade: yes
+      name:
+      - libnl3-devel
+      - cmake
+      - yum-utils
+      - lldb
+
+  - name: yum-config-manager
+    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
+    ansible.builtin.command: yum-config-manager --enable crb
 
   - name: install el
     when: ansible_os_family == "RedHat"
@@ -227,22 +247,6 @@
       - libnl-devel
       - libatasmart-devel
 
-  - name: Install el9
-    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
-    ansible.builtin.package:
-      state: present
-      skip_broken: yes
-      allow_downgrade: yes
-      name:
-      - libnl3-devel
-      - cmake
-      - yum-utils
-      - lldb
-
-  - name: yum-config-manager
-    when: ansible_os_family == "RedHat" and ansible_distribution_version == '9'
-    ansible.builtin.command: yum-config-manager --enable crb
-
   - name: Install general Linux
     when: ansible_system == "Linux"
     ansible.builtin.package:
@@ -277,6 +281,7 @@
       - lighttpd
       #- xinetd
       - tftp-server
+      - clang
 
 #  - name: Create /data/db directory
 #    when: ansible_system == "Linux"
@@ -332,8 +337,18 @@
       src: /usr/bin/make
 
   - name: Install pip deps
-    when: ansible_system == "Linux"
+    when: ansible_system == "Linux" and ansible_distribution_major_version != "12"
     pip:
+      executable: pip3
+      name:
+      - statsd
+      - conan==1.60.0
+      - 'MarkupSafe>=2.0'
+
+  - name: Install pip deps
+    when: ansible_os_family == "Debian" and ansible_distribution_major_version == "12"
+    pip:
+      extra_args: --break-system-packages
       executable: pip3
       name:
       - statsd

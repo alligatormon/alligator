@@ -5,7 +5,7 @@
 #include "main.h"
 #include "parsers/multiparser.h"
 #include "parsers/elasticsearch.h"
-#include "parsers/mysql.h"
+#include "parsers/alligator_mysql.h"
 #include "parsers/postgresql.h"
 #include "events/filetailer.h"
 #include "events/udp.h"
@@ -149,7 +149,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	new->key = override_key;
 	if (!new->key)
 	{
-		new->key = malloc(64);
+		new->key = malloc(255);
 		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url, new->name);
 	}
 

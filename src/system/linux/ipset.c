@@ -8,7 +8,6 @@
 #include <sys/socket.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter/nfnetlink.h>
-#include <netlink/attr.h>
 #include <linux/netfilter/ipset/ip_set.h>
 #include <inttypes.h>
 #include <byteswap.h>
@@ -307,7 +306,7 @@ void ipset()
 			char typename[255] = { 0 };
 			for (uint64_t i = 4; (i + 4) < dt_size;)
 			{
-				uint16_t size = (uint8_t)(dt[i + 1] << 8) + (uint8_t)(dt[i]);
+				uint16_t size = ((uint8_t)(dt[i + 1]) << 8) + (uint8_t)(dt[i]);
 				uint16_t type = ((uint16_t)*(dt + i + 2));
 				if (ac->system_carg->log_level > 0)
 					printf("\t1[%"PRIu64"/%"PRIu64"] name: %s, type: %d, size: %d: %hhu %hhu %hhu %hhu %hhu %hhu %hhu %hhu\n", i, dt_size, name, type, size, dt[i], dt[i+1], dt[i+2], dt[i+3], dt[i+4], dt[i+5], dt[i+6], dt[i+7]);

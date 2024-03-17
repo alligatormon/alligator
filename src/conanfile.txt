@@ -1,7 +1,6 @@
 [requires]
 libuv/1.43.0
 jansson/2.13.1
-#mbedtls/2.16.3-apache
 jemalloc/5.2.1
 zlib/1.2.11
 libuuid/1.0.3
@@ -9,14 +8,21 @@ lua/5.4.1
 duktape/2.5.0
 pcre/8.45
 libpq/13.3
-#openssl/1.0.2s
 openssl/3.0.2
 #libmysqlclient/8.0.25
 libbsd/0.10.0
-#libmnl/1.0.5
+#mbedtls/2.28.4
+mariadb-connector-c/3.3.3
 
 [generators]
 cmake
+CMakeDeps
+CMakeToolchain
+
 
 [options]
 pcre:with_jit=True
+
+[layout]
+cmake_layout
+

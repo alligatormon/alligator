@@ -17,7 +17,7 @@
 #include "events/filetailer.h"
 #include "metric/namespace.h"
 #include "parsers/postgresql.h"
-#include "parsers/mysql.h"
+#include "parsers/alligator_mysql.h"
 #include "common/aggregator.h"
 #include "dstructures/uv_cache.h"
 #include "resolver/resolver.h"
