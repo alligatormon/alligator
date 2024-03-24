@@ -2457,67 +2457,11 @@ void get_cpu_avg()
 	metric_add_auto("cpu_avg", &result, DATATYPE_DOUBLE, ac->system_carg);
 }
 
-void baseboard_info()
+void disks_info()
 {
-	uint64_t val = 1;
-	string *board_vendor = get_file_content("/sys/devices/virtual/dmi/id/board_vendor", 0);
-	if (board_vendor)
-	{
-		board_vendor->s[strcspn(board_vendor->s, "\n\r")] = 0;
-		metric_add_labels("baseboard_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", board_vendor->s);
-		string_free(board_vendor);
-	}
-
-	string *product_name = get_file_content("/sys/devices/virtual/dmi/id/product_name", 0);
-	if (product_name)
-	{
-		product_name->s[strcspn(product_name->s, "\n\r")] = 0;
-		metric_add_labels("baseboard_product_name", &val, DATATYPE_UINT, ac->system_carg, "name", product_name->s);
-		string_free(product_name);
-	}
-
-	string *asset_tag = get_file_content("/sys/devices/virtual/dmi/id/board_asset_tag", 0);
-	if (asset_tag)
-	{
-		asset_tag->s[strcspn(asset_tag->s, "\n\r")] = 0;
-		metric_add_labels("baseboard_asset_tag", &val, DATATYPE_UINT, ac->system_carg, "name", asset_tag->s);
-		string_free(asset_tag);
-	}
-
-	string *board_version = get_file_content("/sys/devices/virtual/dmi/id/board_version", 0);
-	if (board_version)
-	{
-		board_version->s[strcspn(board_version->s, "\n\r")] = 0;
-		metric_add_labels("baseboard_version", &val, DATATYPE_UINT, ac->system_carg, "version", board_version->s);
-		string_free(board_version);
-	}
-
-	string *board_serial = get_file_content("/sys/devices/virtual/dmi/id/board_serial", 0);
-	if (board_serial)
-	{
-		board_serial->s[strcspn(board_serial->s, "\n\r")] = 0;
-		metric_add_labels("baseboard_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", board_serial->s);
-		string_free(board_serial);
-	}
-
-	string *bios_vendor = get_file_content("/sys/devices/virtual/dmi/id/bios_vendor", 0);
-	if (bios_vendor)
-	{
-		bios_vendor->s[strcspn(bios_vendor->s, "\n\r")] = 0;
-		metric_add_labels("bios_vendor", &val, DATATYPE_UINT, ac->system_carg, "vendor", bios_vendor->s);
-		string_free(bios_vendor);
-	}
-
-	string *bios_version = get_file_content("/sys/devices/virtual/dmi/id/bios_version", 0);
-	if (bios_version)
-	{
-		bios_version->s[strcspn(bios_version->s, "\n\r")] = 0;
-		metric_add_labels("bios_version", &val, DATATYPE_UINT, ac->system_carg, "version", bios_version->s);
-		string_free(bios_version);
-	}
-
 	struct dirent *entry;
 	DIR *dp;
+	uint64_t val;
 
 	dp = opendir("/sys/class/block/");
 	if (!dp)
@@ -3183,7 +3127,6 @@ void get_system_metrics()
 			memory_errors_by_controller();
 			get_thermal();
 			get_buddyinfo();
-			baseboard_info();
 		}
 		else
 			throttle_stat();
@@ -3322,16 +3265,23 @@ void system_fast_scrape()
 
 void system_slow_scrape()
 {
-	int8_t platform = -1;
+	int8_t platform = get_platform(0);
 	if (ac->system_packages)
 	{
 		get_packages_info();
 	}
 
+	if (ac->system_base)
+	{
+		if (!platform)
+		{
+			get_smbios();
+			disks_info();
+		}
+	}
+
 	if (ac->system_smart)
 	{
-		if (platform == -1)
-			platform = get_platform(0);
 		if (!platform)
 			get_smart_info();
 	}

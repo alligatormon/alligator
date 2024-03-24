@@ -53,16 +53,6 @@ include_directories(external/mruby/include/)
 include_directories(external/libhv/protocol/)
 
 include_directories(/usr/include/zookeeper/)
-include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/include/)
-include_directories(/usr/lib/jvm/java-15-openjdk-15.0.1.9-2.rolling.el8.x86_64/include/linux)
-include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/)
-include_directories(/usr/lib/jvm/java-14-openjdk-14.0.2.12-1.rolling.el7.x86_64/include/linux)
-include_directories(/usr/lib/jvm/java-11-openjdk-11.0.10.0.9-0.el7_9.x86_64/include/)
-include_directories(/usr/lib/jvm/java-11-openjdk-11.0.10.0.9-0.el7_9.x86_64/include/linux)
-include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/)
-include_directories(/usr/lib/jvm/java-14-openjdk-amd64/include/linux)
-include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/)
-include_directories(/usr/lib/jvm/java-11-openjdk-amd64/include/linux)
 include_directories(/usr/include/libnl3)
 include_directories(/usr/local/include/mysql)
 include_directories(/usr/local/include/hv/)
@@ -249,6 +239,7 @@ set(STATIC_FILES
 	system/common.c
 	system/freebsd.c
 	system/macosx.c
+	system/smbios.c
 	system/linux.c
 	system/linux/ipset.c
 	system/linux/sysctl.c
@@ -385,4 +376,6 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
 							/usr/lib/systemd
 							/usr/lib/systemd/system)
 
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "alligator is aggregator for system and software metrics")
+set(CPACK_RPM_PACKAGE_DESCRIPTION "alligator is aggregator for system and software metrics")
 include(CPack)

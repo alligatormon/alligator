@@ -925,3 +925,21 @@ void to_lower_before(char *s, char *before)
 {
 	to_lower_s(s, strcspn(s, before));
 }
+
+char *trim_whitespaces(char *str)
+{
+	char *end;
+
+	while(isspace((unsigned char)*str)) str++;
+
+	if(*str == 0)
+	  return str;
+
+	end = str + strlen(str) - 1;
+	while(end > str && isspace((unsigned char)*end)) end--;
+
+	end[1] = '\0';
+
+	return str;
+}
+

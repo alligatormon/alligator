@@ -755,6 +755,10 @@ void system_fast_scrape()
 
 void system_slow_scrape()
 {
+	if (ac->system_base)
+	{
+		get_smbios();
+	}
 }
 
 void userprocess_push(alligator_ht *userprocess, char *user)

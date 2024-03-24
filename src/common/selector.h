@@ -77,3 +77,4 @@ void string_copy(string *dst, char *src, uint64_t len);
 void string_uint(string *str, uint64_t u);
 void string_int(string *str, int64_t i);
 void string_double(string *str, double d);
+char *trim_whitespaces(char *str);
