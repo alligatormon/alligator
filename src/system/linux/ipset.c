@@ -259,7 +259,7 @@ void ipset()
 	{
 		int status;
 		struct nlmsghdr *h;
-		
+
 		iov[0] = (struct iovec) {
 			.iov_base = fbuf,
 			.iov_len = sizeof(fbuf)
@@ -301,7 +301,7 @@ void ipset()
 
 			uint64_t dt_size = h->nlmsg_len;
 
-			char value[255];
+			char value[65536];
 			char name[255] = { 0 };
 			char typename[255] = { 0 };
 			for (uint64_t i = 4; (i + 4) < dt_size;)
@@ -324,7 +324,7 @@ void ipset()
 						printf("ipset attribute 0x%02x of length %d is truncated, only %"PRIu64" bytes remaining\n", type, size, dt_size-i);
 					break;
 				}
-				
+
 				memcpy(value, dt + i + 4, size - 3);
 				if (type == IPSET_ATTR_PROTOCOL)
 				{

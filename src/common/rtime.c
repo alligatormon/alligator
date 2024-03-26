@@ -13,7 +13,7 @@ r_time setrtime()
 	struct timespec timer1;
 	int ret = clock_gettime(CLOCK_REALTIME, &timer1);
 	r_time rt = {0, 0};
-	if (ret) {
+	if (ret != -1) {
 		rt.sec=timer1.tv_sec;
 		rt.nsec=timer1.tv_nsec;
 	}

@@ -21,7 +21,7 @@ void parse_mem_label(char* label, char* cpuid, char* channelid, char* slotid, ch
 	str_tolower(label, 255);
 
 	parse_mem_field(label, cpuid, "cpu");
-	parse_mem_field(label, branchid, "chan");
+	parse_mem_field(label, channelid, "chan");
 	parse_mem_field(label, branchid, "branch");
 
 	if (!parse_mem_field(label, slotid, "dimm"))
@@ -57,10 +57,10 @@ void get_memory_errors(char *edac, char* controller)
 		snprintf(label_file, 254, "%sdimm_label", rowname);
 	 	getkvfile_str(label_file, label, 254);
 
-		char cpuid[3];
-		char channelid[3];
-		char slotid[3];
-		char branchid[3];
+		char cpuid[3] = { 0 };
+		char channelid[3] = { 0 };
+		char slotid[3] = { 0 };
+		char branchid[3] = { 0 };
 		parse_mem_label(label, cpuid, channelid, slotid, branchid);
 
 		while((rowentry = readdir(rowdp)))
