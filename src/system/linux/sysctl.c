@@ -8,12 +8,6 @@
 #include <ftw.h>
 #include "system/linux/sysctl.h"
 
-struct alligator_FTW
-{
-	int base;
-	int level;
-};
-
 void sysctl_copy_name(char *dst, char *src, size_t len)
 {
 	uint64_t j = 0;
