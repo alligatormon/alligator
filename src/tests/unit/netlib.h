@@ -20,7 +20,7 @@ void test_ip_check_access_1()
 	ip_access = ip_check_access(net_acl, TEST_ADDR_1);
 	cut_assert_equal_int(ip_access, IPACCESS_DENY);
 
-	network_range_delete(net_acl, "127.0.0.1", IPACCESS_ALLOW);
+	network_range_delete(net_acl, "127.0.0.1");
 	ip_access = ip_check_access(net_acl, TEST_ADDR_1);
 	cut_assert_equal_int(ip_access, IPACCESS_ALLOW);
 }
