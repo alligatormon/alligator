@@ -5,6 +5,7 @@
 #include "hsocket.h"
 #include "herr.h"
 #include "resolver/resolver.h"
+#include "common/json_parser.h"
 
 void resolver_recurse(void *funcarg, void* arg)
 {

@@ -1,5 +1,6 @@
 #include "main.h"
 #include "parsers/http_proto.h"
+#include "api/api.h"
 #define HTTP_STATUS_API_OK "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_STATUS_API_VERSION_NOT_FOUND "HTTP/1.1 404 No found api version\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_STATUS_API_DISABLED "HTTP/1.1 403 API disabled\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"

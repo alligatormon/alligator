@@ -1,5 +1,5 @@
 #ifdef __linux__
-//#define _GNU_SOURCE
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <linux/sched.h>
 #include <fcntl.h>
@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sched.h>
 #include "cadvisor/ns.h"
 #include "main.h"
 extern aconf *ac;

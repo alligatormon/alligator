@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "common/yaml.h"
 #include "config/plain.h"
+#include "api/api.h"
 #include "main.h"
 
 void config_json(char *json)

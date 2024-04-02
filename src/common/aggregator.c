@@ -11,8 +11,10 @@
 #include "events/udp.h"
 #include "events/client.h"
 #include "events/process.h"
+#include "events/icmp.h"
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
+#include "scheduler/type.h"
 char* icmp_client(context_arg *carg);
 
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query, char *name)

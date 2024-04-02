@@ -8,6 +8,8 @@
 #include "common/lcrypto.h"
 #include "scheduler/type.h"
 #include "modules/modules.h"
+#include "events/fs_read.h"
+#include "scheduler/type.h"
 #include "main.h"
 
 int x509_fs_compare(const void* arg, const void* obj)
@@ -55,7 +57,7 @@ char *read_file(char *name)
 	return pem_cert;
 }
 
-void parse_cert_info(mbedtls_x509_crt *cert_ctx, char *cert, char *host)
+void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 {
 	if (!cert_ctx)
 		return;
@@ -356,7 +358,6 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 	lo->arg = passtr;
 
 	lang_push_options(lo);
-	scheduler_push_json();
 	scheduler_node* sn = scheduler_get(name);
 	if (!sn) {
 		sn = calloc(1, sizeof(*sn));

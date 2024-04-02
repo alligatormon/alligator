@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <query/query.h>
+#include "common/validator.h"
 #include <main.h>
 
 #define PG_TYPE_PG 0

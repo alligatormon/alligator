@@ -3,10 +3,11 @@
 #include <string.h>
 #include "metric/labels.h"
 #include "metric/expiretree.h"
-#include "dstructures/tommy.h"
+#include "dstructures/ht.h"
 #include "metric/namespace.h"
 #include "common/mapping.h"
 #include "query/promql.h"
+#include "common/json_parser.h"
 #include "action/action.h"
 #include "main.h"
 extern aconf *ac;
@@ -1726,7 +1727,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		// check expr
 		if (!query_struct_check_expr(mqc->op, value, mqc->opval))
 		{
-			tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
+			alligator_ht_forfree(res_hash, metric_gen_foreach_free_res);
 			//alligator_ht_done(res_hash);
 			//free(res_hash);
 			labels_head_free(labels_list);
@@ -1752,7 +1753,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 				labels_head_free(labels_list);
 		}
 
-		tommy_hash_forfree(res_hash, metric_gen_foreach_free_res);
+		alligator_ht_forfree(res_hash, metric_gen_foreach_free_res);
 		//alligator_ht_done(res_hash);
 		//free(res_hash);
 	}

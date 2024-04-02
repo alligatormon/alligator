@@ -1,4 +1,5 @@
 #include "query/promql.h"
+#include "metric/labels.h"
 #include "common/selector.h"
 #include "common/http.h"
 

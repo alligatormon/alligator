@@ -2,6 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "common/validator.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"

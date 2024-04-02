@@ -159,3 +159,14 @@ metric_node* metric_find(metric_tree *tree, labels_t* labels);
 int64_t metric_get_double(void *value, int8_t type);
 void metrictree_get(metric_node *x, labels_t* labels, string *str);
 void labels_gen_string(labels_t *labels, int l, string *str, metric_node *x);
+void labels_free(labels_t *labels, metric_tree *metrictree);
+void metric_build (char *namespace, string *s);
+
+void labels_cache_fill(labels_t *labels, metric_tree *metrictree);
+int labels_cmp(labels_t *labels1, labels_t *labels2);
+void labels_print(labels_t *labels, int l);
+void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color);
+int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count);
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash);
+int metric_name_match(labels_t *labels1, labels_t *labels2);
+void labels_head_free(labels_t *labels);

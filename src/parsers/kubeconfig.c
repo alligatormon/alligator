@@ -7,6 +7,7 @@
 #include "common/http.h"
 #include "common/base64.h"
 #include "common/pem_check.h"
+#include "events/fs_read.h"
 #include "main.h"
 void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 {

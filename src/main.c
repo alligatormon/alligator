@@ -5,6 +5,23 @@
 #include "resolver/resolver.h"
 #include "alligator_version.h"
 #include "events/a_signal.h"
+#include "common/pem_check.h"
+#include "query/query.h"
+#include "events/system_scrape.h"
+#include "events/icmp.h"
+#include "events/udp.h"
+#include "common/aggregator.h"
+#include "metric/metric_dump.h"
+#include "events/filetailer.h"
+#include "config/parser.h"
+#include "config/env.h"
+#include "events/client.h"
+#include "parsers/postgresql.h"
+#include "parsers/alligator_mysql.h"
+#include "events/filetailer.h"
+#include "puppeteer/puppeteer.h"
+#include "cluster/type.h"
+
 aconf *ac;
 
 void ts_initialize()

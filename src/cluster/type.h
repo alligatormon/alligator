@@ -1,4 +1,5 @@
 #pragma once
+#include <jansson.h>
 #include "dstructures/tommy.h"
 #include "dstructures/maglev.h"
 #include "common/selector.h"
@@ -63,3 +64,9 @@ string* cluster_get_server_data(char *replica, char *name);
 string* cluster_shift_server_data(char *replica, char *name);
 string* cluster_get_sharedlock(char *name);
 string* cluster_set_sharedlock(char *replica, char *name, void *data);
+void cluster_push_json(json_t *cluster);
+void cluster_del_json(json_t *cluster);
+void oplog_record_free(oplog_record *oplog);
+void cluster_del_all();
+void cluster_handler_stop();
+void cluster_handler();

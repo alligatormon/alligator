@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdio.h>
 #include "context_arg.h"
+#include "common/netlib.h"
 #include "main.h"
 extern aconf *ac;
 

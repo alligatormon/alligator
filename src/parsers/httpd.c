@@ -4,6 +4,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/validator.h"
 #include "main.h"
 #define HTTPD_LABEL_SIZE 100
 

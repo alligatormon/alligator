@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "duktape.h"
+#include "events/fs_read.h"
 #include "lang/lang.h"
 
 int compileJS(duk_context *ctx, const char* programBody)

@@ -3,6 +3,9 @@
 #include <string.h>
 #include "common/entrypoint.h"
 #include "resolver/resolver.h"
+#include "dstructures/uv_cache.h"
+#include "events/metrics.h"
+#include "events/client.h"
 #include "main.h"
 
 void resolver_closed_tcp(uv_handle_t *handle)

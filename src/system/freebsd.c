@@ -776,4 +776,16 @@ void pidfile_push(char *file, int type)
 void pidfile_del(char *file, int type)
 {
 }
+
+void sysctl_push(alligator_ht *sysctl, char *sysctl_name)
+{
+}
+
+void sysctl_del(alligator_ht* sysctl, char *sysctl_name)
+{
+}
+
+void system_free()
+{
+}
 #endif

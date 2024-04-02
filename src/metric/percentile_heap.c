@@ -77,8 +77,10 @@ void heapSort(int64_t *arr, int64_t n)
 	} 
 } 
 
-void calc_percentiles(context_arg *carg, percentile_buffer *pb, metric_node *mnode, char *custom_mname, alligator_ht *custom_labels)
+void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom_mname, alligator_ht *custom_labels)
 {
+	metric_node *mnode = node;
+	context_arg *carg = arg;
 	int64_t i;
 	int64_t *arr = pb->arr;
 	size_t n = pb->n;

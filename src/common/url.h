@@ -35,3 +35,4 @@ typedef struct host_aggregator_info
 } host_aggregator_info;
 
 host_aggregator_info *parse_url (char *str, size_t len);
+void url_free(host_aggregator_info *hi);

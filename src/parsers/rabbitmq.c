@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/json_parser.h"
 #include "common/http.h"
 #include "main.h"
 #define RABBITMQ_LEN 1000

@@ -1,4 +1,5 @@
 #include "cluster/type.h"
+#include "common/json_parser.h"
 #include <string.h>
 #include "main.h"
 

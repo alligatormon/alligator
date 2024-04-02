@@ -1,4 +1,5 @@
 #include "lang/lang.h"
+#include "events/fs_read.h"
 #include "main.h"
 extern aconf *ac;
 

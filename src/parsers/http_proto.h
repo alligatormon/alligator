@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "common/selector.h"
+#include "events/context_arg.h"
 #define HTTP_METHOD_RESPONSE 0
 #define HTTP_METHOD_GET 1
 #define HTTP_METHOD_POST 2
@@ -43,3 +44,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 void http_reply_data_free(http_reply_data* http);
 char* http_proto_proxer(char *metrics, size_t size, char *instance);
 void env_serialize_http_answer(void *funcarg, void* arg);
+void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata);
+void http_null_metrics(context_arg *carg);
+void http_follow_redirect(context_arg *carg, http_reply_data *hrdata);
+uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data);

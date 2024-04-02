@@ -2,8 +2,10 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "common/json_parser.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/validator.h"
 #include "main.h"
 #define LIGHTTPD_LABEL_SIZE 100
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg)

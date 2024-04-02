@@ -5,6 +5,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/validator.h"
 #include "common/aggregator.h"
 #include "main.h"
 #define MOOSEFS_METRIC_SIZE 256

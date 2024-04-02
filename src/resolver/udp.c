@@ -3,6 +3,7 @@
 #include <string.h>
 #include "common/entrypoint.h"
 #include "resolver/resolver.h"
+#include "events/metrics.h"
 #include "main.h"
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)

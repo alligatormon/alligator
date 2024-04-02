@@ -1,5 +1,6 @@
 #include "dstructures/ht.h"
 #include <unistd.h>
+#include "dstructures/tommy.h"
 
 void* alligator_ht_init(alligator_ht *h)
 {
@@ -183,6 +184,21 @@ void alligator_ht_foreach(alligator_ht *h, tommy_foreach_func *func)
 	if (alligator_ht_r_lock(h))
 	{
 		tommy_hashdyn_foreach(h->ht, func);
+		alligator_ht_r_unlock(h);
+	}
+}
+
+void alligator_ht_forfree(alligator_ht *h, void *funcfree)
+{
+	if (!h)
+		return;
+
+	if (!h->ht)
+		return;
+
+	if (alligator_ht_r_lock(h))
+	{
+		tommy_hash_forfree(h->ht, funcfree);
 		alligator_ht_r_unlock(h);
 	}
 }

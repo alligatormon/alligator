@@ -8,3 +8,4 @@ typedef struct env_tree {
 	uint64_t allocated;
 	void *value;
 } env_tree;
+void parse_env(char **envp);

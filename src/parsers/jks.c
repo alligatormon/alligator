@@ -7,6 +7,7 @@
 #include "parsers/elasticsearch.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "common/pem_check.h"
 #include "lang/lang.h"
 #include "main.h"
 

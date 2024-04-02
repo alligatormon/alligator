@@ -4,6 +4,8 @@
 #include <mruby/compile.h>
 #include <mruby/string.h>
 #include "lang/lang.h"
+#include "parsers/multiparser.h"
+#include "events/fs_read.h"
 
 mrb_value call_from_ruby_handler_set_metrics(mrb_state *mrb, mrb_value self)
 {

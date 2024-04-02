@@ -80,7 +80,7 @@ void query_node_del(query_node *qn)
 	if (qn->action)
 		free(qn->action);
 	if (qn->labels)
-		labels_free(qn->labels);
+		labels_hash_free(qn->labels);
 
 	if (qn->qf_hash)
 	{

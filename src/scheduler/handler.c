@@ -1,6 +1,8 @@
 #include "main.h"
 #include "scheduler/type.h"
 #include "query/promql.h"
+#include "dstructures/uv_cache.h"
+#include "lang/lang.h"
 //void scheduler_run(void *arg)
 void scheduler_run(uv_timer_t* handle)
 {

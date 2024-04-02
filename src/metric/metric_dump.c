@@ -1,4 +1,6 @@
 #include "common/selector.h"
+#include "parsers/multiparser.h"
+#include "events/fs_read.h"
 #include "main.h"
 
 //void metric_dump_free(char *data)

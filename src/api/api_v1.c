@@ -4,13 +4,29 @@
 #include "config/mapping.h"
 #include "common/url.h"
 #include "common/http.h"
+#include "common/pem_check.h"
+#include "common/selector.h"
 #include "cadvisor/run.h"
-#include "events/context_arg.h"
 #include "lang/lang.h"
+#include "query/query.h"
+#include "common/netlib.h"
+#include "probe/probe.h"
+#include "scheduler/type.h"
+#include "common/mkdirp.h"
+#include "common/reject.h"
 #include "parsers/multiparser.h"
+#include "config/mapping.h"
 #include "action/action.h"
+#include "events/context_arg.h"
 #include "events/server.h"
+#include "events/udp.h"
+#include "events/unix_server.h"
+#include "events/unixgram.h"
 #include "common/base64.h"
+#include "cluster/type.h"
+#include "system/common.h"
+#include "common/json_parser.h"
+#include "puppeteer/puppeteer.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -31,10 +47,10 @@ uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, con
 	return code;
 }
 
-void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
+void http_api_v1(string *response, http_reply_data* http_data, const char *configbody)
 {
 	extern aconf *ac;
-	char *body = http_data ? http_data->body : configbody;
+	const char *body = http_data ? http_data->body : configbody;
 	uint8_t method = http_data ? http_data->method : HTTP_METHOD_PUT;
 	uint16_t code = 200;
 	char temp_resp[1200];
@@ -1113,7 +1129,7 @@ void http_api_v1(string *response, http_reply_data* http_data, char *configbody)
 						}
 						else
 						{
-							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query);
+							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query, NULL);
 							snprintf(status, 100, "OK");
 							snprintf(respbody, 1000, "Deleted OK");
 						}

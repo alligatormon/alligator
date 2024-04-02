@@ -1,5 +1,7 @@
 #include "lang/lang.h"
 #include "config/get.h"
+#include "api/api.h"
+#include "parsers/multiparser.h"
 #include "main.h"
 extern aconf *ac;
 

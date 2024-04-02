@@ -2,6 +2,7 @@
 #include <string.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/validator.h"
 #include "common/http.h"
 #include "main.h"
 #define NGINX_UPSTREAM_CHECK_SIZE 1000

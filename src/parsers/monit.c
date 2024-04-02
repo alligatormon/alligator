@@ -4,6 +4,8 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/xml.h"
+#include "common/validator.h"
 #include "main.h"
 
 #define MONIT_NAME_SIZE 10000

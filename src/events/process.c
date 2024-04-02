@@ -7,7 +7,11 @@
 #include <uuid/uuid.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "main.h"
+#include "common/selector.h"
 #include "events/uv_alloc.h"
+#include "cluster/later.h"
+#include "parsers/multiparser.h"
+#include "common/mkdirp.h"
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {

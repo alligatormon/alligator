@@ -2,6 +2,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include "lang/lang.h"
+#include "events/fs_read.h"
 
 char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, char *arg, string* smetrics, string *conf, string *parser_data, string *response)
 {

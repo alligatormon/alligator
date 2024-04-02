@@ -1,6 +1,8 @@
 #include "main.h"
 #include "common/selector.h"
 #include "alligator_version.h"
+#include "metric/metric_dump.h"
+#include "events/filetailer.h"
 
 void general_loop_cb(uv_timer_t* handle)
 {

@@ -1,9 +1,11 @@
 #ifdef __linux__
+#define _XOPEN_SOURCE 500
 #include "main.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <ftw.h>
 #include "system/linux/sysctl.h"
 
 struct alligator_FTW
@@ -39,7 +41,7 @@ void sysctl_copy_path(char *dst, char *src, size_t len)
 	dst[i] = 0;
 }
 
-int nftw_info(const char *fpath, const struct stat *sb, int tflag, struct alligator_FTW *ftwbuf)
+int nftw_info(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
 	if (!S_ISREG(sb->st_mode))
 		return 0;

@@ -19,3 +19,4 @@ void* alligator_ht_init(alligator_ht *h);
 void alligator_ht_foreach(alligator_ht *h, tommy_foreach_func *func);
 size_t alligator_ht_memory_usage(alligator_ht *h);
 void *alligator_ht_remove(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const char *key, uint32_t sum);
+void alligator_ht_forfree(alligator_ht *h, void *funcfree);

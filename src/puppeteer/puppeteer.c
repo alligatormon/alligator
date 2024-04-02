@@ -1,6 +1,7 @@
 #include <jansson.h>
 #include "main.h"
 #include "puppeteer/puppeteer.h"
+#include "common/json_parser.h"
 
 int puppeteer_compare(const void* arg, const void* obj)
 {

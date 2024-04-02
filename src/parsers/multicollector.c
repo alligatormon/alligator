@@ -8,6 +8,8 @@
 #include "config/mapping.h"
 #include "common/http.h"
 #include "common/aggregator.h"
+#include "common/validator.h"
+#include "cluster/pass.h"
 #include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10

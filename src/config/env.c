@@ -1,6 +1,11 @@
 #define ENV_MAX_SIZE 1024
 #include "main.h"
 #include "config/env.h"
+#include "common/murmurhash.h"
+#include "api/api.h"
+#include "common/selector.h"
+#include "common/json_parser.h"
+#include <jansson.h>
 extern aconf *ac;
 
 // env tree example structure

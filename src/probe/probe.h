@@ -1,5 +1,6 @@
 #pragma once
 #include "dstructures/tommy.h"
+#include <jansson.h>
 
 typedef struct probe_node
 {
@@ -48,3 +49,5 @@ typedef struct probe_node
 } probe_node;
 
 probe_node* probe_get(char *name);
+void probe_del_json(json_t *probe);
+void probe_push_json(json_t *probe);

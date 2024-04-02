@@ -7,6 +7,8 @@
 #include <string.h>
 #include <query/query.h>
 #include "events/context_arg.h"
+#include "common/validator.h"
+#include "common/selector.h"
 #include <main.h>
 #define ORACLE_PROMPT "SQL> SQL> SQL> SQL> SQL> SQL> "
 

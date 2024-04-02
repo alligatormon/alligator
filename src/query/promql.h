@@ -33,3 +33,6 @@ typedef struct metric_query_context {
 //alligator_ht* promql_parser(alligator_ht* lbl, char *query, size_t size, char *name, int *func, string *groupkey, metric_query_context *mqc);
 metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size);
 metric_query_context *query_context_new(char *name);
+void query_context_free(metric_query_context *mqc);
+void query_context_set_label(metric_query_context *mqc, char *key, char *value);
+void query_context_convert_http_args_to_query(metric_query_context *mqc, alligator_ht *arg);

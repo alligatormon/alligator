@@ -120,3 +120,6 @@ typedef struct pq_library {
 	uv_lib_t *PQexec_lib;
 	PGresult *(*PQexec)(PGconn *conn, const char *query);
 } pq_library;
+
+void postgresql_client_del(context_arg* carg);
+void postgresql_client_handler();

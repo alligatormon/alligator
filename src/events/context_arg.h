@@ -61,7 +61,7 @@ typedef struct context_arg
 	uv_buf_t *buffer;
 	size_t buflen;
 	//char *http_body;
-	regex_match *rematch;
+	regex_match **rematch;
 	mapping_metric *mm;
 	struct phr_chunked_decoder chunked_dec;
 
@@ -304,3 +304,7 @@ alligator_ht* env_struct_duplicate(alligator_ht *src);
 json_t* env_struct_dump(alligator_ht *src);
 void env_struct_duplicate_foreach(void *funcarg, void* arg);
 void env_struct_free(void *funcarg, void* arg);
+void carg_free(context_arg *carg);
+void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
+void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);
+void env_free(alligator_ht *env);

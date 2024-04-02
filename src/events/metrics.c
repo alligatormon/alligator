@@ -1,6 +1,8 @@
 #include "main.h"
 #include "events/context_arg.h"
 #include "common/rtime.h"
+#include "metric/percentile_heap.h"
+#include "metric/labels.c"
 #include "probe/probe.h"
 
 void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char *key, char *proto, char *type, char *host)

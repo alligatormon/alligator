@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include "config/plain.h"
+#include "common/json_parser.h"
+#include "common/selector.h"
 #include "main.h"
 
 typedef struct config_parser_stat {
@@ -286,29 +288,6 @@ uint64_t plain_count_get(string *context)
 	}
 
 	return j;
-}
-
-void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json)
-{
-	int json_type = json_typeof(dst_json);
-	if (json_type == JSON_ARRAY)
-		json_array_append_new(dst_json, src_json);
-	else if (json_type == JSON_OBJECT)
-		json_object_set_new(dst_json, key, src_json);
-}
-
-json_t *json_integer_string_set(char *str)
-{
-	json_t *value;
-	if (isdigit(*str))
-	{
-		int64_t num = strtoll(str, NULL, 10);
-		value = json_integer(num);
-	}
-	else
-		value = json_string(str);
-
-	return value;
 }
 
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)

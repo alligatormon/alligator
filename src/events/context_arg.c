@@ -1,6 +1,9 @@
 #include "events/context_arg.h"
 #include "main.h"
 #include "common/file_stat.h"
+#include "common/netlib.h"
+#include "resolver/resolver.h"
+#include "common/json_parser.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -107,7 +110,13 @@ void carg_free(context_arg *carg)
 		string_free(carg->full_body);
 
 	if (carg->args)
-		string_free(carg->args);
+	{
+		char **args = carg->args;
+		for(uint64_t i = 0; args[i]; ++i) {
+			free(args[i]);
+		}
+		carg->args = NULL;
+	}
 
 	if (carg->work_dir)
 		string_free(carg->work_dir);

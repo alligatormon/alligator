@@ -1,6 +1,18 @@
-#include <stdio.h>
 #include "main.h"
 #include "metric/expiretree.h"
+#include "metric/metric_dump.h"
+#include "common/file_stat.h"
+#include "common/pem_check.h"
+#include "puppeteer/puppeteer.h"
+#include "common/aggregator.h"
+#include "metric/namespace.h"
+#include "cluster/type.h"
+#include "scheduler/type.h"
+#include "query/query.h"
+#include "resolver/resolver.h"
+#include "lang/lang.h"
+#include "dstructures/uv_cache.h"
+#include "system/common.h"
 
 void alligator_stop(char *initiator, int code)
 {

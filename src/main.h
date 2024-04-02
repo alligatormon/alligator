@@ -250,3 +250,4 @@ extern aconf *ac;
 void get_system_metrics();
 void system_fast_scrape();
 void system_slow_scrape();
+void main_free();

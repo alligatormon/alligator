@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <uv.h>
 #include "common/entrypoint.h"
+#include "parsers/multiparser.h"
 #include <main.h>
 extern aconf* ac;
 

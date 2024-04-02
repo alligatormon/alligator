@@ -9,7 +9,10 @@
 #include <linux/sched.h>
 #include "main.h"
 #include "cadvisor/metrics.h"
+#include "cadvisor/ns.h"
+#include <sys/mount.h>
 #define PATH_SIZE 1000
+int unshare(int flags);
 
 extern aconf *ac;
 

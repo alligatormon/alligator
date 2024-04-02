@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "metric/namespace.h"
+#include "common/reject.h"
 #define METRIC_LABEL_MAX_SIZE 255
 
 alligator_ht *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size, context_arg *carg)

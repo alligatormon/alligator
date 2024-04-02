@@ -12,6 +12,9 @@
 #include "events/uv_alloc.h"
 #include "common/entrypoint.h"
 #include "parsers/http_proto.h"
+#include "parsers/multiparser.h"
+#include "events/metrics.h"
+#include "events/access.h"
 #include "main.h"
 extern aconf *ac;
 

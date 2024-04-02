@@ -3,6 +3,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/pcre_parser.h"
 
 void log_handler(char *metrics, size_t size, context_arg *carg)
 {

@@ -29,7 +29,7 @@ IF(${distro}.${disversion} MATCHES "centos.7")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wunreachable-code -O3 -std=gnu99 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "centos.9")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wunreachable-code -O3 -std=gnu11 -pthread")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wunreachable-code -Wno-visibility -O3 -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.16.04")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wundef -Wunreachable-code -O3 -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.14.04")
@@ -228,7 +228,6 @@ set(STATIC_FILES
 	config/plain.c
 	config/mapping.c
 	config/get.c
-	config/intstrvalue.c
 	dynconf/sd.c
 	lang/lang.c
 	lang/lua.c

@@ -2,6 +2,7 @@
 #include "metric/namespace.h"
 #include "common/rtime.h"
 #include "common/selector.h"
+#include "common/json_parser.h"
 #include <time.h>
 #include <jansson.h>
 #define SQL_CREATE "CREATE TABLE IF NOT EXISTS "

@@ -308,7 +308,6 @@ void metric_show ( metric_tree *tree )
 }
 
 
-void metric_build (char *namespace, string *s);
 uint64_t metrictree_build(metric_node *x, uint64_t l, string *s)
 {
 	l++;

@@ -1,6 +1,7 @@
 #include "main.h"
 #include "cluster/type.h"
 #include "events/context_arg.h"
+#include "common/selector.h"
 #include "metric/metrictree.h"
 #include "metric/labels.h"
 #include "cluster/get.h"

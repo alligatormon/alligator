@@ -23,3 +23,9 @@ typedef struct scheduler_node {
 
 scheduler_node* scheduler_get(char *name);
 int scheduler_compare(const void *a1, const void *a2);
+void scheduler_start(scheduler_node *sn);
+void scheduler_stop(scheduler_node *sn);
+void scheduler_push_json(json_t *scheduler);
+void influxdb_parser_push();
+void scheduler_del_json(json_t *scheduler);
+void scheduler_del_all();

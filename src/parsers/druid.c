@@ -4,6 +4,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/json_parser.h"
 #include "common/http.h"
 #include <query/query.h>
 #include "common/selector.h"

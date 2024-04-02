@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common/entrypoint.h"
+#include "events/metrics.h"
 #include "resolver/resolver.h"
+#include "events/access.h"
+#include "cluster/later.h"
+#include "parsers/multiparser.h"
 #include "main.h"
 extern aconf *ac;
 

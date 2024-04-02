@@ -55,3 +55,5 @@ typedef struct regex_match
 
 	regex_metric *metrics;
 } regex_match;
+
+void pcre_match_multi(regex_match **rematch, size_t rematch_size, const char *regex_match_string);

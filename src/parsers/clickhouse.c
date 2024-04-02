@@ -6,6 +6,7 @@
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/selector.h"
+#include "common/validator.h"
 #include <query/query.h>
 #include "main.h"
 #define d64	PRId64
@@ -49,20 +50,20 @@ void table_struct_free(void *funcarg, void* arg)
 
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, carg);
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, (void*)carg);
 	carg->parser_status = 1;
 }
 
 
 void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Asynchronous_", 24, carg);
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Asynchronous_", 24, (void*)carg);
 	carg->parser_status = 1;
 }
 
 void clickhouse_system_events_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Events_", 18, carg);
+	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Events_", 18, (void*)carg);
 	carg->parser_status = 1;
 }
 

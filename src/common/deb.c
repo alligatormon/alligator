@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
+#include "events/fs_read.h"
 extern aconf *ac;
 
 void dpkg_list(char *str, size_t len)

@@ -3,6 +3,10 @@
 #include <string.h>
 #include <uv.h>
 #include "common/file_stat.h"
+#include "parsers/multiparser.h"
+#include "common/crc32.h"
+#include "common/murmurhash.h"
+#include "events/fs_read.h"
 #include "main.h"
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
@@ -187,7 +191,7 @@ void filetailer_checksum(uv_fs_t *req) {
 		{
 			if (!strcmp(carg->checksum, "crc32"))
 			{
-				uint64_t ret = xcrc32(fh->buffer.base, str_len, 0);
+				uint64_t ret = xcrc32((unsigned char*)fh->buffer.base, str_len, 0);
 				metric_add_labels2("file_checksum", &ret, DATATYPE_UINT, carg, "path", fh->pathname, "hash", "crc32");
 			}
 			else if (!strcmp(carg->checksum, "murmur3"))

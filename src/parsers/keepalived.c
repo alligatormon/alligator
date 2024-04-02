@@ -2,6 +2,8 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/validator.h"
+#include "events/fs_read.h"
 #include "main.h"
 #define KEEPALIVEDLEN_BIG 2048
 #define KEEPALIVEDLEN 1024

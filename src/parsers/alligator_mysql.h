@@ -44,3 +44,6 @@ typedef struct my_library {
 	uv_lib_t *mysql_free_result_lib;
 	void (*mysql_free_result)(MYSQL_RES *result);
 } my_library;
+
+void mysql_client_del(context_arg* carg);
+void mysql_client_handler();

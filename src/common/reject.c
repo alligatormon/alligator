@@ -1,5 +1,6 @@
 #include "reject.h"
 #include <stdio.h>
+#include <string.h>
 int reject_hash_compare(const void* arg, const void* obj)
 {
         char *s1 = (char*)arg;

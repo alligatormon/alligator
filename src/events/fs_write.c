@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include "dstructures/uv_cache.h"
 #include "main.h"
 extern aconf *ac;
  

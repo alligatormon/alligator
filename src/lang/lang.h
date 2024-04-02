@@ -49,3 +49,4 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 void lang_load_script(char *script, size_t script_size, void *data, char *filename);
 char* duktape_run(lang_options *lo, char *script, char *file, char *arg, char *path, string* metrics, string *conf, string *parser_data, string *response);
 void lang_run(char *key, string *body, string *parser_data, string *response);
+void lang_stop();

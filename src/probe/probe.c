@@ -2,7 +2,7 @@
 #include "probe/probe.h"
 #include "metric/labels.h"
 #include "common/http.h"
-#include "config/intstrvalue.h"
+#include "common/json_parser.h"
 #include "main.h"
 
 int probe_compare(const void* arg, const void* obj)

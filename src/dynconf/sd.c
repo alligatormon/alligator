@@ -8,6 +8,7 @@
 #include "common/selector.h"
 #include "common/json_parser.h"
 #include "common/http.h"
+#include "api/api.h"
 
 void sd_etcd_node(json_t *rnode)
 {

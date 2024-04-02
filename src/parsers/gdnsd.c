@@ -2,6 +2,7 @@
 #include <jansson.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/json_parser.h"
 #include "common/aggregator.h"
 #include "main.h"
 void gdnsd_handler(char *metrics, size_t size, context_arg *carg)

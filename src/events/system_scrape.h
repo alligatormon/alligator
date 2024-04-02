@@ -7,3 +7,5 @@ typedef struct system_scrape_info
 
 	tommy_node node;
 } system_scrape_info;
+void do_system_scrape(void *handler, char *name);
+void system_scrape_handler();

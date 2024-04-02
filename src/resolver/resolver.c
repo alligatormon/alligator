@@ -5,6 +5,8 @@
 #include "hsocket.h"
 #include "herr.h"
 #include "resolver/resolver.h"
+#include "resolver/getaddrinfo.h"
+#include "common/url.h"
 #include "metric/percentile_heap.h"
 
 int resolver_compare(const void* arg, const void* obj)
@@ -400,7 +402,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 {
 	if (!ac->resolver_size)
 	{
-		resolver_getaddrinfo_get(carg, dname);
+		resolver_getaddrinfo_get(carg);
 		return NULL;
 	}
 

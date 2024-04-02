@@ -16,3 +16,6 @@ typedef struct reject_t
 } reject_t;
 
 int reject_hash_compare(const void* arg, const void* obj);
+int reject_metric(alligator_ht *reject_hash, char *label_name, char *label_value);
+void reject_delete(alligator_ht *reject_hash, char *label_name);
+void reject_insert(alligator_ht *reject_hash, char *label_name, char *label_value);

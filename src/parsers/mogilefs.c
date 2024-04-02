@@ -6,6 +6,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/validator.h"
 #include "main.h"
 #define MOGILEFS_METRIC_SIZE 256
 #define MOGILEFS_FIELD_SIZE 1024

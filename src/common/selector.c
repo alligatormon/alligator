@@ -5,13 +5,14 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include "common/validator.h"
 //#include "platform/platform.h"
 #include "main.h"
 #include "metric/namespace.h"
 
 #define PLAIN_METRIC_SIZE 1000
 
-size_t get_file_size(char *filename)
+size_t get_file_size(const char *filename)
 {
 	struct stat st;
 	stat(filename, &st);
@@ -826,8 +827,9 @@ void match_free(match_rules *mrules)
 	free(mrules);
 }
 
-void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)
+void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, void *arg)
 {
+	context_arg *carg = arg;
 	if (!text)
 		return;
 

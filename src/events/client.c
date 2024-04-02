@@ -7,7 +7,12 @@
 #include "main.h"
 #include "parsers/http_proto.h"
 #include "dstructures/uv_cache.h"
+#include "events/metrics.h"
+#include "cluster/later.h"
 #include "resolver/resolver.h"
+#include "common/pem_check.h"
+#include "common/selector.h"
+#include "parsers/multiparser.h"
 extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);

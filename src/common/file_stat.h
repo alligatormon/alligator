@@ -19,3 +19,6 @@ typedef struct file_stat {
 
 void file_stat_cb(uv_fs_t *req);
 file_stat* file_stat_push(alligator_ht *hash, char *path, context_arg *carg, uv_stat_t *st);
+uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t state);
+file_stat* file_stat_add_offset(alligator_ht *hash, const char *path, context_arg *carg, uint64_t add_offset);
+void file_stat_free(alligator_ht *hash);

@@ -1,6 +1,7 @@
 #include "parsers/http_proto.h"
 #include "events/context_arg.h"
 #include "common/selector.h"
+#include "metric/metrictree.h"
 #include <string.h>
 #define HTTP_STATUS_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 

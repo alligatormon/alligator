@@ -1,4 +1,5 @@
 #include "cluster/type.h"
+#include "common/selector.h"
 #include "main.h"
 
 int cluster_compare(const void* arg, const void* obj)

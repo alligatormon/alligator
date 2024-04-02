@@ -3,9 +3,9 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "events/context_arg.h"
 #include "common/http.h"
 #include "common/aggregator.h"
+#include "common/json_parser.h"
 #include "main.h"
 
 void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)

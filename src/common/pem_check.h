@@ -13,3 +13,10 @@ typedef struct x509_fs_t {
 } x509_fs_t;
 
 void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename);
+void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host);
+void jks_push(char *name, char *path, char *match, char *password, char *passtr);
+void jks_del(char *name);
+void tls_fs_del(char *name);
+void tls_fs_push(char *name, char *path, char *match, char *password, char *type);
+void tls_fs_free();
+void tls_fs_handler();

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "metric/namespace.h"
+#include "common/validator.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/http.h"

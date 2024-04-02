@@ -3,6 +3,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/json_parser.h"
 #include "common/http.h"
 #include "main.h"
 void nats_varz_handler(char *metrics, size_t size, context_arg *carg)

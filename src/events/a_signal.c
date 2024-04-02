@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include "common/stop.h"
 void signal_handler_sigusr1(uv_signal_t *handle, int signum)
 {
 	alligator_stop("SIGUSR1", signum);

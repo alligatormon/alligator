@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "events/context_arg.h"
 
-void free_buffer(context_arg *carg, uv_buf_t* buf)
+void free_buffer(context_arg *carg, const uv_buf_t* buf)
 {
 	if (carg && carg->uvbuf && buf->base == carg->uvbuf)
 	{

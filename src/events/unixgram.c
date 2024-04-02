@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <uv.h>
 #include <stdlib.h>
+#include "cluster/later.h"
+#include "parsers/multiparser.h"
 #include "common/entrypoint.h"
 #include "main.h"
 

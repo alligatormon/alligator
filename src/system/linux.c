@@ -15,11 +15,20 @@
 #include <time.h>
 #include <fcntl.h>
 #include "main.h"
+#include "common/pw.h"
+#include "common/selector.h"
+#include "common/rpm.h"
+#include "system/common.h"
+#include "common/deb.h"
+#include "parsers/firewall.h"
+#include "system/linux/parsers.h"
 #include "metric/labels.h"
 #include "common/smart.h"
 #include "dstructures/ht.h"
+#include "cadvisor/run.h"
 #include <utmp.h>
 #include "system/fdescriptors.h"
+#include "common/rtime.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define PLATFORM_BAREMETAL 0

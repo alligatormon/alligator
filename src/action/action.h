@@ -31,3 +31,5 @@ action_node* action_get(char *name);
 void action_run_process(char *name, char *namespace, metric_query_context *mqc);
 void action_del(json_t *action);
 void action_push(json_t *action);
+void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type);
+void action_namespaced_run(char *action_name, char *key, metric_query_context *mqc);
