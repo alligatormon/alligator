@@ -12,23 +12,38 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 	size_t n;
 	char label[FLOWER_LABEL_SIZE];
 
-	cur = strstr(cur, "Active:")+8;
+	cur = strstr(cur, "Active:");
+	if (!cur)
+		return;
+	cur += 8;
 	int64_t total_active = atoll(cur);
 	metric_add_auto("flower_tasks_total_active", &total_active, DATATYPE_INT, carg);
 
-	cur = strstr(cur, "Processed:")+11;
+	cur = strstr(cur, "Processed:");
+	if (!cur)
+		return;
+	cur += 11;
 	int64_t total_processed = atoll(cur);
 	metric_add_auto("flower_tasks_total_processed", &total_processed, DATATYPE_INT, carg);
 
-	cur = strstr(cur, "Failed:")+8;
+	cur = strstr(cur, "Failed:");
+	if (!cur)
+		return;
+	cur += 8;
 	int64_t total_failed = atoll(cur);
 	metric_add_auto("flower_tasks_total_failed", &total_failed, DATATYPE_INT, carg);
 
-	cur = strstr(cur, "Succeeded:")+11;
+	cur = strstr(cur, "Succeeded:");
+	if (!cur)
+		return;
+	cur += 11;
 	int64_t total_successed = atoll(cur);
 	metric_add_auto("flower_tasks_total_successed", &total_successed, DATATYPE_INT, carg);
 
-	cur = strstr(cur, "Retried:")+9;
+	cur = strstr(cur, "Retried:");
+	if (!cur)
+		return;
+	cur += 9;
 	int64_t total_retried = atoll(cur);
 	metric_add_auto("flower_tasks_total_retried", &total_retried, DATATYPE_INT, carg);
 
