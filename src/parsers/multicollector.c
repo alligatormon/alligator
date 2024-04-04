@@ -220,13 +220,11 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 			free_mapping_split_free(template_split, template_splitsize);
 			return 0;
 		}
-		//printf("%d <> %d\n", str_splits, mm->glob_size);
-		//if (str_splits != mm->glob_size)
-		//{
-		//	free_mapping_split_free(split, str_splits);
-		//	puts("return 1");
-		//	return 0;
-		//}
+		if (str_splits != mm->glob_size)
+		{
+			free_mapping_split_free(split, str_splits);
+			return 0;
+		}
 
 		//for (i=0; i<mm->glob_size; ++i)
 		for (i=0; i<str_splits; ++i)
@@ -301,6 +299,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 
 		if (!metric_split[index])
 			break;
+
 		copysize = strlen(metric_split[index]);
 		strlcpy(dst+csym, metric_split[index], copysize+1);
 		if (ac->log_level > 4)

@@ -149,8 +149,7 @@ aconf* configuration()
 	ac->unixgram_aggregator_startup = 1000;
 	ac->unixgram_aggregator_repeat = 1000;
 
-	ac->system_aggregator = calloc(1, sizeof(alligator_ht));
-	alligator_ht_init(ac->system_aggregator);
+	ac->system_aggregator = alligator_ht_init(NULL);
 	ac->system_aggregator_startup = 1000;
 	ac->system_aggregator_repeat = 10000;
 

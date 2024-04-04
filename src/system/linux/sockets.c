@@ -23,8 +23,6 @@
 #include <netpacket/packet.h>
 #include "main.h"
 #include "system/fdescriptors.h"
-#define SOCKET_MAXN		192
-#define TCP_CONN_MAXN		32
 #define TCP_STATE_MAX sizeof(tcp_states) / sizeof(tcp_states[0])
 extern aconf *ac;
 
@@ -155,8 +153,6 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 	if (ac->log_level > 2)
 		printf("system scrape metrics: network: get_net_tcpudp '%s'\n", proto);
 
-	int type, socknum = 0;
-	int got_states = 0;
 	struct sockaddr_nl nladdr;
 	struct msghdr msg;
 
@@ -168,40 +164,16 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 	char srcp[6];
 	char destp[6];
 
-	struct sockaddr_in6 sin6;
 	struct {
 		struct nlmsghdr nlh;
 		//struct inet_diag_req r;
 		struct inet_diag_req_v2 r;
 	} req;
 
-	int print_states=0;
 	struct iovec iov[3];
-	unsigned state;//, tx_queue, rx_queue;
-	char sockmask[SOCKET_MAXN];
+	unsigned state;
 	char srcaddrportkey[255];
-	int typemask[5];
 	char fbuf[getpagesize() * 8];
-	uint64_t tcp_connections[TCP_CONN_MAXN];
-	bzero (tcp_connections, sizeof(tcp_connections));
-
-	struct {
-		unsigned long long count;
-		char * state;
-	} tcp_states[] = {
-		{ 0, "undef",		/* not a state */ },
-		{ 0, "ESTABLISHED",	/* TCP_ESTABLISHED */ },
-		{ 0, "SYN_SENT",	/* TCP_SYN_SENT	*/ },
-		{ 0, "SYN_RECV",	/* TCP_SYN_RECV	*/ },
-		{ 0, "FIN_WAIT1",	/* TCP_FIN_WAIT1 */ },
-		{ 0, "FIN_WAIT2",	/* TCP_FIN_WAIT2 */ },
-		{ 0, "TIME_WAIT",	/* TCP_TIME_WAIT */ },
-		{ 0, "CLOSE",		/* TCP_CLOSE */ },
-		{ 0, "CLOSE_WAIT",	/* TCP_CLOSE_WAIT */ },
-		{ 0, "LAST_ACK",	/* TCP_LAST_ACK	*/ },
-		{ 0, "LISTEN",		/* TCP_LISTEN */ },
-		{ 0, "CLOSING",		/* TCP_CLOSING */ },
-	};
 
 	int nld = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG);
 	if (nld != -1)
@@ -270,19 +242,6 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 					break;
 				}
 				state = r->idiag_state;
-				switch (r->idiag_family) {
-				case AF_INET:
-					type = 0;
-					break;
-				case AF_INET6:
-					//sin6.sin6_port = r->id.idiag_sport;
-					memcpy(&sin6.sin6_addr, r->id.idiag_src, 16);
-					//inp = &sin6;
-					type = 2;
-					break;
-				default:
-					type = 5;
-				}
 				char src[20];
 				char dst[20];
 				inet_ntop(AF_INET, r->id.idiag_src, src, sizeof(src));
@@ -291,24 +250,11 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 				uint16_t dport = htons(r->id.idiag_dport);
 				snprintf(srcp, 6, "%"PRIu16, sport);
 				snprintf(destp, 6, "%"PRIu16, dport);
-				//printf("state %d, family %d, src addr %s, src port %u, dst adr %s, dst port %u rqueue %u, wqueue %u\n", state, r->idiag_family, src, sport, dst, dport, r->idiag_rqueue, r->idiag_wqueue);
 
 				uint32_t fdesc = r->idiag_inode;
 				process_fdescriptors *fdescriptors = NULL;
 				if (ac->fdesc)
 					fdescriptors = alligator_ht_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
-
-				if (print_states &&
-					state < TCP_STATE_MAX) {
-					tcp_states[state].count ++;
-					got_states = 1;
-				}
-				if (state == 10 &&
-					 !sockmask[socknum]) {
-					typemask[type] --;
-					sockmask[socknum] = 1;
-					fprintf(stderr,"got state 10 from netlink, qlen %d, qlimit %d", r->idiag_rqueue, r->idiag_wqueue);
-				}
 
 				//printf("state %d, family %d/%d/%d\n", state, pproto, IPPROTO_TCP, IPPROTO_UDP);
 				if ((pproto == IPPROTO_TCP && state == 10) || (pproto == IPPROTO_UDP && state == 7))
@@ -383,12 +329,6 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 			if (status < 0)
 				break;
 		}
-		if (rep > 0) {
-			typemask[0] = 0;
-			typemask[2] = 0;
-		}
-		if (got_states)
-			print_states = 0;
 		close(nld);
 	}
 

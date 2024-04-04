@@ -387,7 +387,7 @@ void getkvfile_str(char *file, char *str, uint64_t size)
 
 void str_tolower(char *str, size_t size)
 {
-	for(int i = 0; str[i] || i < size; i++)
+	for(int i = 0; str[i] && i < size; i++)
 		str[i] = tolower(str[i]);
 }
 

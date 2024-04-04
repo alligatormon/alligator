@@ -60,11 +60,18 @@ typedef struct ulimit_pid_stat {
 	uint64_t addressspace;
 } ulimit_pid_stat;
 
+int fd_sock_compare(const void* arg, const void* obj)
+{
+        char *s1 = (char*)arg;
+        char *s2 = ((fd_info*)obj)->key;
+        return strcmp(s1, s2);
+}
+
 void print_mount(const struct mntent *fs)
 {
 	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strncmp(fs->mnt_dir, "/", 1))
 	{
-		if (!strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4))
+		if (!strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_type, "overlay", 7))
 			return;
 
 		int f_d = 0;
@@ -734,7 +741,6 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 
 	fclose (fp);
 
-	//int64_t Hertz = sysconf(_SC_CLK_TCK);
 	int64_t stotal_time = stime + cstime;
 	int64_t utotal_time = utime + cutime;
 	int64_t total_time = stotal_time + utotal_time;
@@ -751,7 +757,7 @@ int userprocess_compare(const void* arg, const void* obj)
 	return s1 != s2;
 }
 
-void get_proc_socket_number(char *path, char *procname)
+void get_proc_socket_number(char *path, char *procname, alligator_ht *files, int64_t *sockets, int64_t *pipes)
 {
 	char buf[255];
 	ssize_t len = readlink(path, buf, 254);
@@ -763,6 +769,28 @@ void get_proc_socket_number(char *path, char *procname)
 	}
 
 	buf[len] = 0;
+
+	if (files) {
+		char fd_key[512];
+		if (!strncmp(buf, "socket:", 7)) {
+			++(*sockets);
+			strlcpy(fd_key, buf, 512);
+		} else if (!strncmp(buf, "pipe:", 5)) {
+			++(*pipes);
+			strlcpy(fd_key, buf, 512);
+		} else {
+			strlcpy(fd_key, buf, 512);
+			strlcpy(fd_key+len, path, 512 - len);
+		}
+		uint32_t fd_sock_hash = tommy_strhash_u32(0, fd_key);
+		fd_info *fd_sock = alligator_ht_search(files, fd_sock_compare, fd_key, fd_sock_hash);
+		if (!fd_sock) {
+			fd_sock = malloc(sizeof(*fd_sock));
+			fd_sock->key = strdup(fd_key);
+			alligator_ht_insert(files, &(fd_sock->node), fd_sock, fd_sock_hash);
+		}
+	}
+
 	char *cur = buf;
 	if (*cur != 's')
 		return;
@@ -798,7 +826,7 @@ void get_proc_socket_number(char *path, char *procname)
 	}
 }
 
-int64_t get_fd_info_process(char *fddir, char *procname)
+int64_t get_fd_info_process(char *fddir, char *procname, alligator_ht *files, int64_t *sockets, int64_t *pipes)
 {
 	char buf[255];
 	size_t buf_size = strlcpy(buf, fddir, 255);
@@ -824,7 +852,7 @@ int64_t get_fd_info_process(char *fddir, char *procname)
 		if (ac->system_network)
 		{
 			strcpy(bufcur, entry->d_name);
-			get_proc_socket_number(buf, procname);
+			get_proc_socket_number(buf, procname, files, sockets, pipes);
 		}
 
 		i++;
@@ -886,7 +914,7 @@ void schedstat_process_info(char *pid, char *name)
 	metric_add_labels2("process_schedstat_run_periods", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 }
 
-int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match)
+int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files)
 {
 	char dir[FILENAME_MAX];
 	uint64_t rc;
@@ -943,9 +971,15 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	get_proc_info(dir, procname, pid, lightweight, states, match);
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/fd/", ac->system_procfs, pid);
-	int64_t filesnum = get_fd_info_process(dir, procname);
+	int64_t socketsnum = 0;
+	int64_t pipesnum = 0;
+	int64_t filesnum = get_fd_info_process(dir, procname, files, &socketsnum, &pipesnum);
 	if (match && filesnum && !lightweight)
+	{
 		metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", pid);
+		metric_add_labels3("process_stats", &socketsnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_sockets", "pid", pid);
+		metric_add_labels3("process_stats", &pipesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_pipes", "pid", pid);
+	}
 	*allfilesnum += filesnum;
 
 	if (!match)
@@ -1054,7 +1088,7 @@ void simple_pidfile_scrape(char *find_pid)
 	if (ac->log_level > 1)
 		printf("check PID '%s'\n", pid_strict);
 
-	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0);
+	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL);
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", find_pid);
 	string_free(pid);
 	free(states);
@@ -1085,7 +1119,7 @@ void cgroup_procs_scrape(char *cgroup_path)
 		if (ac->log_level > 1)
 			 printf("check PID '%s' from '%s'\n", pid_strict, cgroup_path);
 
-		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0);
+		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL);
 	}
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", cgroup_path);
 	free(states);
@@ -1162,6 +1196,25 @@ void userprocess_free(alligator_ht* userprocess)
 	free(userprocess);
 }
 
+void files_fd_free(void *funcarg, void* arg)
+{
+	fd_info *files = arg;
+	if (!files)
+		return;
+
+	fd_info_summarize *sum = funcarg;
+
+	if (!strncmp(files->key, "socket:", 7))
+		++sum->sockets;
+	else if (!strncmp(files->key, "pipe:", 5))
+		++sum->pipes;
+
+	++sum->files;
+
+	free(files->key);
+	free(files);
+}
+
 void find_pid(int8_t lightweight)
 {
 	if (ac->log_level > 2)
@@ -1180,9 +1233,10 @@ void find_pid(int8_t lightweight)
 
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
-
 	uint64_t tasks = 0;
 	uint64_t processes = 0;
+
+	alligator_ht *files_open = alligator_ht_init(NULL);
 	while((entry = readdir(dp)))
 	{
 		if ( !isdigit(entry->d_name[0]) )
@@ -1191,8 +1245,16 @@ void find_pid(int8_t lightweight)
 		++tasks;
 		++processes;
 
-		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1);
+		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1, files_open);
 	}
+
+	fd_info_summarize sum = { 0 };
+	alligator_ht_foreach_arg(files_open, files_fd_free, &sum);
+	alligator_ht_done(files_open);
+	free(files_open);
+	metric_add_auto("open_files_weighted", &sum.files, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("open_sockets", &sum.sockets, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("open_pipes", &sum.pipes, DATATYPE_UINT, ac->system_carg);
 
 	metric_add_labels("process_states", &states->running, DATATYPE_UINT, ac->system_carg, "state", "running");
 	metric_add_labels("process_states", &states->sleeping, DATATYPE_UINT, ac->system_carg, "state", "sleeping");
@@ -2375,14 +2437,14 @@ void get_kernel_version(int8_t platform)
 void get_alligator_info()
 {
 	char genpath[255];
+	char tmp[LINUXFS_LINE_LENGTH];
 	char val[255];
 	int64_t ival;
-	snprintf(genpath, 255, "%s/%"d64"/status", ac->system_procfs, (int64_t)getpid());
+	snprintf(genpath, 254, "%s/%"d64"/status", ac->system_procfs, (int64_t)getpid());
 	FILE *fd = fopen(genpath, "r");
 	if (!fd)
 		return;
 
-	char tmp[LINUXFS_LINE_LENGTH];
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
 		size_t tmp_len = strlen(tmp)-1;
@@ -2408,6 +2470,38 @@ void get_alligator_info()
 		}
 	}
 	fclose(fd);
+
+
+	char cpupath[255];
+	snprintf(cpupath, 254, "%s/%"d64"/stat", ac->system_procfs, (int64_t)getpid());
+	fd = fopen(cpupath, "r");
+
+	if ( !fd )
+		return;
+
+	if (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		char *t;
+		t = strchr (tmp, ')');
+		size_t sz = strlen(t);
+
+		uint64_t cursor = 0;
+		for (int i = 0; i++ < 10; int_get_next(t+4, sz, ' ', &cursor));
+
+		int64_t utime = int_get_next(t+4, sz, ' ', &cursor);
+		int64_t stime = int_get_next(t+4, sz, ' ', &cursor);
+		int64_t cutime = int_get_next(t+4, sz, ' ', &cursor);
+		int64_t cstime = int_get_next(t+4, sz, ' ', &cursor);
+
+		int64_t stotal_time = stime + cstime;
+		int64_t utotal_time = utime + cutime;
+		int64_t total_time = stotal_time + utotal_time;
+
+		metric_add_labels("alligator_cpu_usage_time", &stotal_time, DATATYPE_INT, ac->system_carg, "type", "system");
+		metric_add_labels("alligator_cpu_usage_time", &utotal_time, DATATYPE_INT, ac->system_carg, "type", "user");
+		metric_add_labels("alligator_cpu_usage_time", &total_time, DATATYPE_INT, ac->system_carg, "type", "total");
+	}
+	fclose (fd);
 }
 
 void get_packages_info()
@@ -2669,7 +2763,7 @@ void stat_userprocess_cb(uv_fs_t *req) {
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
 	if (uupn || gupn)
-		get_pid_info(pid, &allfilesnum, 0, states, 0);
+		get_pid_info(pid, &allfilesnum, 0, states, 0, NULL);
 
 	free(pid);
 	free(states);

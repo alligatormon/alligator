@@ -32,7 +32,7 @@ void tcp_server_closed_client(uv_handle_t* handle)
 
 	aggregator_events_metric_add(srv_carg, carg, NULL, "tcp", "entrypoint", srv_carg->key);
 
-	if (!carg->body_readed)
+	if (!carg->body_readed && carg->full_body)
 		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
 	carg->is_closing = 0;
@@ -134,10 +134,6 @@ void tcp_server_writed(uv_write_t* req, int status)
 
 void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
-	//if (buf && buf->base)
-	//{
-	//	printf("tcp server readed: %d / %zd and:\n%s\n", UV_EOF, nread, buf->base);
-	//}
 	context_arg* carg = (context_arg*)stream->data;
 	context_arg *srv_carg = carg->srv_carg;
 	if (ac->log_level > 1)
@@ -476,7 +472,6 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	carg->srv_carg = srv_carg;
 	carg->client.data = carg;
-	//carg->full_body = string_init(carg->buffer_request_size);
 	carg->curr_ttl = carg->ttl;
 
 	if (carg->tls)
