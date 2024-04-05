@@ -40,7 +40,8 @@ char* duktape_run(lang_options *lo, char *script, char *file, char *arg, char *p
 	duk_context *ctx = duk_create_heap_default();
 	if (!compileJS(ctx, script))
 	{
-		printf("JS code compile error: key '%s' code: '%s'\n", lo->key, script);
+		if (ac->log_level)
+			printf("JS code compile error: key '%s' code: '%s'\n", lo->key, script);
 		return ret;
 	}
 
@@ -64,7 +65,8 @@ char* duktape_run(lang_options *lo, char *script, char *file, char *arg, char *p
 			json_t *ret_root = json_loads(duk_ret, 0, &error);
 			if (!ret_root)
 			{
-				fprintf(stderr, "return json for duktape '%s' decode error %d: %s\n", lo->key, error.line, error.text);
+				if (ac->log_level)
+					fprintf(stderr, "return json for duktape '%s' decode error %d: %s\n", lo->key, error.line, error.text);
 				return ret;
 			}
 
@@ -102,7 +104,8 @@ char* duktape_run(lang_options *lo, char *script, char *file, char *arg, char *p
 	}
 	else
 	{
-		printf("JS function not found: key '%s' function: '%s', code: '%s'\n", lo->key, lo->method, script);
+		if (ac->log_level)
+			printf("JS function not found: key '%s' function: '%s', code: '%s'\n", lo->key, lo->method, script);
 	}
 
 	duk_destroy_heap(ctx);
