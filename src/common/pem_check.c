@@ -347,6 +347,7 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 	lo->lang = "so";
 	lo->module = "parseJks";
 	lo->method = "alligator_call";
+	lo->hidden_arg = 1;
 
 	if (!passtr)
 	{

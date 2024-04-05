@@ -211,10 +211,16 @@ void lang_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "method", method);
 	}
 
-	if (lo->arg)
+	if (!(lo->hidden_arg) && (lo->arg))
 	{
 		json_t *arg = json_string(lo->arg);
 		json_array_object_insert(ctx, "arg", arg);
+		json_array_object_insert(ctx, "hidden_arg", json_false());
+	}
+
+	if (lo->hidden_arg)
+	{
+		json_array_object_insert(ctx, "hidden_arg", json_true());
 	}
 
 	if (lo->file)

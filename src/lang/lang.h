@@ -12,6 +12,7 @@ typedef struct lang_options {
 	char *classname;
 	char *method;
 	char *arg;
+	uint8_t hidden_arg;
 	char *script;
 	size_t script_size;
 	char *file;

@@ -1252,7 +1252,7 @@ void find_pid(int8_t lightweight)
 	alligator_ht_foreach_arg(files_open, files_fd_free, &sum);
 	alligator_ht_done(files_open);
 	free(files_open);
-	metric_add_auto("open_files_weighted", &sum.files, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("open_files", &sum.files, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("open_sockets", &sum.sockets, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("open_pipes", &sum.pipes, DATATYPE_UINT, ac->system_carg);
 
@@ -1847,7 +1847,7 @@ void get_nofile_stat()
 	if (j>0)
 	{
 		file_open = stat[0];
-		metric_add_auto("open_files", &file_open, DATATYPE_INT, ac->system_carg);
+		metric_add_auto("open_files_system", &file_open, DATATYPE_INT, ac->system_carg);
 	}
 	if (j>2)
 	{

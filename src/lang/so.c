@@ -21,7 +21,6 @@ char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, cha
 	char *parser_data_str = parser_data ? parser_data->s : "";
 	char *response_str = response ? response->s : "";
 
-	printf("func %p, script %p\n", func, script);
 	if (func)
 	{
 		if (log_level)

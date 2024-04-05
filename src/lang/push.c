@@ -40,6 +40,15 @@ void lang_push(json_t *lang, char *key)
 	json_t *lang_query = json_object_get(lang, "query");
 	char *slang_query = (char*)json_string_value(lang_query);
 
+	uint8_t hidden_arg = 0;
+	json_t *slang_hidden_arg = json_object_get(lang, "hidden_arg");
+	if (slang_hidden_arg) {
+		char *strlang_hidden_arg = (char*)json_string_value(slang_hidden_arg);
+		if (strlang_hidden_arg)
+			if (!strcmp(strlang_hidden_arg, "true"))
+				hidden_arg = 1;
+	}
+
 	uint64_t slang_period = 0;
 	json_t *lang_period = json_object_get(lang, "period");
 	if (lang_period)
@@ -102,6 +111,8 @@ void lang_push(json_t *lang, char *key)
 		lo->method = strdup(slang_method);
 	if (slang_arg)
 		lo->arg = strdup(slang_arg);
+	if (slang_hidden_arg)
+		lo->hidden_arg = hidden_arg;
 	if (slang_script)
 		lo->script = strdup(slang_script);
 	if (slang_file)
