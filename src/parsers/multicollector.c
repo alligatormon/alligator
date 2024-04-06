@@ -222,6 +222,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 		}
 		if (str_splits != mm->glob_size)
 		{
+			free_mapping_split_free(template_split, template_splitsize);
 			free_mapping_split_free(split, str_splits);
 			return 0;
 		}
@@ -238,6 +239,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 			}
 		}
 		*split_size = str_splits;
+		free_mapping_split_free(template_split, template_splitsize);
 	}
 	else if (mm->match == MAPPING_MATCH_PCRE)
 	{
