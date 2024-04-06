@@ -136,6 +136,7 @@ void pgpool_parser_push();
 void powerdns_parser_push();
 void rabbitmq_parser_push();
 void redis_parser_push();
+void redis_parser_ping_push();
 void riak_parser_push();
 void sentinel_parser_push();
 void squid_parser_push();

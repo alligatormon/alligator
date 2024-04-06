@@ -224,7 +224,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 		char *key = malloc(255);
-		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), bucket_nodes_query_uri->s);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), bucket_nodes_query_uri->s);
 		string_free(bucket_nodes_query_uri);
 
 		try_again(carg, generated_query, strlen(generated_query), couchbase_bucket_nodes_stats, "couchbase_bucket_nodes_stats", NULL, key, strdup(name));
@@ -284,7 +284,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, bucket_nodes_query_uri->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 			char *key = malloc(255);
-			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), bucket_nodes_query_uri->s);
+			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), bucket_nodes_query_uri->s);
 			string_free(bucket_nodes_query_uri);
 
 			try_again(carg, generated_query, strlen(generated_query), couchbase_bucket_nodes_stats, "couchbase_bucket_nodes_stats", NULL, key, strdup(name));
@@ -488,7 +488,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 			char *generated_query = gen_http_query(HTTP_GET, carg->query_url, query_string->s, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 
 			char *key = malloc(255);
-			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), query_string->s);
+			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), query_string->s);
 			string_null(query_string);
 
 			try_again(carg, generated_query, strlen(generated_query), couchbase_bucket_nodes_stats, "couchbase_bucket_nodes_stats", NULL, key, strdup(subqueries[j]));

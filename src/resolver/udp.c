@@ -95,14 +95,12 @@ void resolver_connect_udp(void *arg)
 	if (!addr)
 		return;
 
-	struct sockaddr_in res;
-	uv_ip4_addr(addr, carg->numport, &res);
-	carg->dest = &res;
+	uv_ip4_addr(addr, carg->numport, &carg->dest);
 
 	carg->udp_send.data = carg;
 	uv_udp_init(uv_default_loop(), &carg->udp_client);
 
-	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)carg->dest, resolver_send_udp);
+	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, resolver_send_udp);
 	if (status)
 		if (carg->log_level > 1)
 			fprintf(stderr, "uv_udp_send error: %s\n", uv_strerror(status));

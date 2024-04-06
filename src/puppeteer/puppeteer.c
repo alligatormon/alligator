@@ -2,6 +2,7 @@
 #include "main.h"
 #include "puppeteer/puppeteer.h"
 #include "common/json_parser.h"
+#define PUPPETEER_CMD "exec:///bin/node /var/lib/alligator/puppeteer-alligator.js"
 
 int puppeteer_compare(const void* arg, const void* obj)
 {
@@ -106,6 +107,7 @@ void puppeteer_crawl(uv_timer_t* handle) {
 		return;
 
 	string *domains = string_new();
+	string_cat(domains, "'", 1);
 
 	json_t *puppeteer_conf = json_object();
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_foreach_run, puppeteer_conf);
@@ -114,12 +116,9 @@ void puppeteer_crawl(uv_timer_t* handle) {
 	string_cat(domains, get_data, strlen(get_data));
 	free(get_data);
 
-	//printf("string is %s\n", domains->s);
-
-	char *expr = malloc(domains->l + 128);
-	size_t expr_len = snprintf(expr, domains->l + 127, "exec:///bin/node /var/lib/alligator/puppeteer-alligator.js '%s'", domains->s);
+	string_cat(domains, "'", 1);
 	string *work_dir = string_init_dup("/var/lib/alligator");
-	context_arg *carg = aggregator_oneshot(NULL, expr, expr_len, NULL, 0, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0, work_dir, NULL);
+	context_arg *carg = aggregator_oneshot(NULL, PUPPETEER_CMD, strlen(PUPPETEER_CMD), domains->s, domains->l, NULL, "NULL", NULL, NULL, 0, NULL, NULL, 0, work_dir, NULL);
 	if (carg)
 	{
 		carg->no_metric = 1;
@@ -127,8 +126,6 @@ void puppeteer_crawl(uv_timer_t* handle) {
 		carg->timeout = 60000;
 	}
 
-
-	free(expr);
 	string_free(domains);
 }
 

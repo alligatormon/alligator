@@ -17,9 +17,9 @@
 #include "scheduler/type.h"
 char* icmp_client(context_arg *carg);
 
-int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query, char *name)
+int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
-	return name ? snprintf(key, 254, "%s", name) : snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
+	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
 }
 
 void smart_aggregator_key_normalize(char *key)
@@ -41,7 +41,7 @@ int smart_aggregator(context_arg *carg)
 	if (!carg->key)
 	{
 		carg->key = malloc(512);
-		smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url, carg->name);
+		smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name, carg->host, carg->port, carg->query_url);
 	}
 
 	strlcpy(key, carg->key, 512);
@@ -136,10 +136,10 @@ void smart_aggregator_del_key(char *key)
 	}
 }
 
-void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query, char *name)
+void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query)
 {
 	char key[512];
-	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query, name);
+	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query);
 	smart_aggregator_del_key(key);
 }
 
@@ -152,7 +152,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	if (!new->key)
 	{
 		new->key = malloc(255);
-		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url, new->name);
+		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url);
 	}
 
 	smart_aggregator_key_normalize(new->key);
@@ -195,7 +195,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	if (!new->key)
 	{
 		new->key = malloc(255);
-		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url, new->name);
+		smart_aggregator_default_key(new->key, new->transport_string, new->parser_name, new->host, new->port, new->query_url);
 	}
 
 	smart_aggregator_key_normalize(new->key);
@@ -234,6 +234,7 @@ void aggregate_ctx_init()
 	alligator_ht_init(ac->aggregate_ctx);
 
 	redis_parser_push();
+	redis_parser_ping_push();
 	elasticsearch_parser_push();
 	gearmand_parser_push();
 	beanstalkd_parser_push();

@@ -597,7 +597,7 @@ void clickhouse_queries_foreach(void *funcarg, void* arg)
 		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	}
 	char *key = malloc(255);
-	snprintf(key, 255, "(tcp://%s:%u)/custom", carg->host, htons(carg->dest->sin_port));
+	snprintf(key, 255, "(tcp://%s:%u)/custom", carg->host, htons(carg->dest.sin_port));
 
 	string *query = string_init(1024);
 	string_cat(query, qn->expr, strlen(qn->expr));

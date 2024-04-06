@@ -226,7 +226,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 	if (events & UV_WRITABLE) {
 		socket_write_mode(carg, 0);
 
-			struct sockaddr *sa = (struct sockaddr *)carg->dest;
+			struct sockaddr *sa = (struct sockaddr *)&carg->dest;
 			i_p = &pckt.icmp_req;
 
 			// prepare icmp packet
@@ -246,7 +246,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 				alligator_ht_insert(ac->ping_hash, &(carg->ping_node), carg, tommy_inthash_u32(carg->ping_key));
 			}
 
-			if ( sendto(carg->fd, i_p, sizeof(*i_p), 0, (const struct sockaddr *)carg->dest, sizeof(*sa)) <= 0 ) {
+			if ( sendto(carg->fd, i_p, sizeof(*i_p), 0, (const struct sockaddr *)&carg->dest, sizeof(*sa)) <= 0 ) {
 				icmp_stop_run(carg);
 				perror("sendto");
 				return;
@@ -286,7 +286,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			if (i_p->hdr.un.echo.id == carg->packets_id && i_p->hdr.type != ICMP_ECHO && carg->check_receive) {
 				// it's our packets, lets see what within
 				//sa2 = (struct sockaddr_in *) &carg->dest;
-				if ( sa1->sin_addr.s_addr == carg->dest->sin_addr.s_addr ) {
+				if ( sa1->sin_addr.s_addr == carg->dest.sin_addr.s_addr ) {
 					carg->check_receive = 0;
 					if (carg->log_level > 1)
 						puts("======");
@@ -364,10 +364,11 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	//char *addr = calloc(17, sizeof(*addr));
 	char addr[17] = {'\0'};
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
-	carg->dest = (struct sockaddr_in*)res->ai_addr;
+	memcpy(&carg->dest, (struct sockaddr_in*)res->ai_addr, sizeof(struct sockaddr_in));
+	//carg->dest = (struct sockaddr_in*)res->ai_addr;
 	if (!carg->key)
 		carg->key = malloc(64);
-	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest->sin_port, carg->dest->sin_family);
+	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest.sin_port, carg->dest.sin_family);
 
 	alligator_ht_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 }

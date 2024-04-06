@@ -1129,7 +1129,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						}
 						else
 						{
-							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query, NULL);
+							smart_aggregator_del_key_gen(hi->transport_string, actx->handler[j].key, hi->host, hi->port, hi->query);
 							snprintf(status, 100, "OK");
 							snprintf(respbody, 1000, "Deleted OK");
 						}

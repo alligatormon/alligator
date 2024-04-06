@@ -132,9 +132,7 @@ void udp_client_connect(void *arg)
 		return;
 	}
 
-	struct sockaddr_in res;
-	uv_ip4_addr(data->s, carg->numport, &res);
-	carg->dest = &res;
+	uv_ip4_addr(data->s, carg->numport, &carg->dest);
 
 	//carg->tt_timer->data = carg;
 	//uv_timer_init(carg->loop, carg->tt_timer);
@@ -147,7 +145,7 @@ void udp_client_connect(void *arg)
 	//send_req->data = carg;
 	uv_udp_init(uv_default_loop(), &carg->udp_client);
 
-	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)carg->dest, udp_on_send);
+	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, udp_on_send);
 	carg->write_time = setrtime();
 }
 

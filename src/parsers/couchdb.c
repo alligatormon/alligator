@@ -291,7 +291,7 @@ void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
 		char *db_name = (char*)json_string_value(db);
 
 		char *key = malloc(255);
-		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), db_name);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), db_name);
 
 		char *generated_query = gen_http_query(HTTP_GET, "/", db_name, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
 		try_again(carg, generated_query, strlen(generated_query), couchdb_db_stats, "couchdb_db_stats", NULL, key, NULL);

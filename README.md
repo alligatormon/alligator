@@ -81,6 +81,8 @@ aggregate {
 	#REDIS with password
 	redis tcp://:pass@127.0.0.1:6379;
 	redis unix://:pass@/tmp/redis.sock;
+	# REDIS only ping (or queries)
+	redis_ping tcp://localhost:2/;
 	#CKICKHOUSE (http proto support)
 	clickhouse http://localhost:8123;
 	#ZOOKEEPER

@@ -33,7 +33,7 @@ typedef struct env_struct {
 typedef struct context_arg
 {
 	char *name;
-	struct sockaddr_in *dest;
+	struct sockaddr_in dest;
 	struct sockaddr_in *recv;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;

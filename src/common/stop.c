@@ -14,9 +14,11 @@
 #include "dstructures/uv_cache.h"
 #include "system/common.h"
 
-void alligator_stop(char *initiator, int code)
+void alligator_stop(char *sig, int code)
 {
-	printf("Stop signal received: %d from '%s'\n", code, initiator);
+	printf("Stop signal received: %d: '%s'\n", code, sig);
+	printf("Don't forget to start me again, otherwise the alligator will bite you :)\n");
+	fflush(stdout);
 	metric_dump(1);
 	file_stat_free(ac->file_stat);
 	tls_fs_free();
@@ -38,7 +40,7 @@ void alligator_stop(char *initiator, int code)
 	free_namespaces();
 	main_free();
 
-	uv_loop_close(uv_default_loop());
+	//uv_loop_close(uv_default_loop());
 
 	exit(0);
 }

@@ -240,9 +240,6 @@ void main_free()
 	alligator_ht_done(ac->uggregator);
 	free(ac->uggregator);
 
-	alligator_ht_done(ac->scheduler);
-	free(ac->scheduler);
-
 	alligator_ht_done(ac->modules);
 	free(ac->modules);
 
@@ -269,9 +266,6 @@ void main_free()
 
 	alligator_ht_done(ac->process_spawner);
 	free(ac->process_spawner);
-
-	alligator_ht_done(ac->lang_aggregator);
-	free(ac->lang_aggregator);
 
 	alligator_ht_done(ac->fs_x509);
 	free(ac->fs_x509);

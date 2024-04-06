@@ -188,12 +188,10 @@ void resolver_connect_tcp(void *arg)
 	if (!addr)
 		return;
 
-	struct sockaddr_in res;
-	uv_ip4_addr(addr, carg->numport, &res);
-	carg->dest = &res;
+	uv_ip4_addr(addr, carg->numport, &carg->dest);
 
 	carg->connect_time = setrtime();
-	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, resolver_connected_tcp);
+	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, resolver_connected_tcp);
 	if (status)
 		if (carg->log_level > 1)
 			fprintf(stderr, "resolver_connect_tcp error: %s\n", uv_strerror(status));

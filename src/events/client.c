@@ -574,9 +574,7 @@ void tcp_client_connect(void *arg)
 	if (!data)
 		return;
 
-	struct sockaddr_in res;
-	uv_ip4_addr(data->s, carg->numport, &res);
-	carg->dest = &res;
+	uv_ip4_addr(data->s, carg->numport, &carg->dest);
 
 	carg->connect_time = setrtime();
 	if (carg->log_level > 1)
@@ -584,10 +582,10 @@ void tcp_client_connect(void *arg)
 	if (carg->tls)
 	{
 		carg->tls_connect_time = setrtime();
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tls_connected);
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, tls_connected);
 	}
 	else
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)carg->dest, tcp_connected);
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, tcp_connected);
 }
 
 void unix_client_connect(void *arg)

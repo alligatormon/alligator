@@ -123,7 +123,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	string_cat(get_query, "\r\n", 2);
 
 	char *key = malloc(512);
-	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
 
 	if (carg->log_level > 0)
 		printf("redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
@@ -161,7 +161,7 @@ void redis_queries_foreach(void *funcarg, void* arg)
 			string_cat(pattern_query, "\r\n", 2);
 
 			char *key = malloc(512);
-			snprintf(key, 511, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+			snprintf(key, 511, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
 			key[strlen(key) - 1] = 0;
 
 			try_again(carg, pattern_query->s, pattern_query->l, redis_keysdump, "redis_keysdump", NULL, key, qn);
@@ -191,12 +191,31 @@ void redis_queries_foreach(void *funcarg, void* arg)
 		strcat(write_comm, "\r\n");
 
 		char *key = malloc(255);
-		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest->sin_port), qn->expr);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
 		key[strlen(key) - 1] = 0;
 
 		try_again(carg, write_comm, writelen, redis_query, "redis_query", NULL, key, redis_keys);
 	}
 
+}
+
+void redis_queries(char *metrics, size_t size, context_arg *carg)
+{
+	if (carg->name)
+	{
+		query_ds *qds = query_get(carg->name);
+		if (carg->log_level > 1)
+			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		if (qds)
+		{
+			alligator_ht_foreach_arg(qds->hash, redis_queries_foreach, carg);
+		}
+	}
+
+	if (metrics && strstr(metrics, "PONG"))
+	{
+		carg->parser_status = 1;
+	}
 }
 
 void redis_handler(char *metrics, size_t size, context_arg *carg)
@@ -512,16 +531,7 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
-	if (carg->name)
-	{
-		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
-		if (qds)
-		{
-			alligator_ht_foreach_arg(qds->hash, redis_queries_foreach, carg);
-		}
-	}
+	redis_queries(NULL, 0, carg);
 
 	carg->parser_status = 1;
 }
@@ -747,6 +757,17 @@ string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg, void *env
 	return string_init_add(query, 0, 0);
 }
 
+string* redis_parser_ping_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+{
+	char* query = malloc(1000);
+	if (hi->pass)
+		snprintf(query, 1000, "AUTH %s\r\nPING\r\n", hi->pass);
+	else
+		snprintf(query, 1000, "PING\r\n");
+
+	return string_init_add(query, 0, 0);
+}
+
 void redis_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
@@ -770,6 +791,21 @@ void redis_parser_push()
 	actx->handler[3].validator = redis_latency_stat_validator;
 	actx->handler[3].mesg_func = redis_parser_latency_stat_mesg;
 	strlcpy(actx->handler[3].key,"redis_latency_stat", 255);
+
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}
+
+void redis_parser_ping_push()
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+
+	actx->key = strdup("redis_ping");
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
+	actx->handler[0].name = redis_queries;
+	actx->handler[0].validator = redis_validator;
+	actx->handler[0].mesg_func = redis_parser_ping_mesg;
+	strlcpy(actx->handler[0].key,"redis", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
