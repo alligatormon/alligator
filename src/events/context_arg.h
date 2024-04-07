@@ -292,6 +292,10 @@ typedef struct context_arg
 	uint8_t metric_aggregation; // only for entrypoint, not aggregate!
 	char *pquery; // parser query
 
+	// overwrited period
+	uint64_t period;
+	uv_timer_t *period_timer;
+
 	tommy_node node;
 	tommy_node context_node;
 	tommy_node ping_node;

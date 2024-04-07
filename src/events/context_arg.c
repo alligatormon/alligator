@@ -4,6 +4,7 @@
 #include "common/netlib.h"
 #include "resolver/resolver.h"
 #include "common/json_parser.h"
+#include "common/units.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -486,6 +487,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_pquery)
 	{
 		carg->pquery = strdup(json_string_value(json_pquery));
+	}
+
+	json_t *json_period = json_object_get(root, "period");
+	if (json_period)
+	{
+		carg->period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 	}
 
 	json_t *json_resolve = json_object_get(root, "resolve");

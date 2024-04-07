@@ -13,6 +13,7 @@
 #include "common/pem_check.h"
 #include "common/selector.h"
 #include "parsers/multiparser.h"
+#include "common/units.h"
 extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);
@@ -50,6 +51,11 @@ void tcp_client_closed(uv_handle_t *handle)
 			carg->remove_from_hash = 1;
 			smart_aggregator_del(carg);
 		}
+	}
+
+	if (carg->period)
+	{
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 	}
 }
 
@@ -540,6 +546,7 @@ void tcp_timeout_timer(uv_timer_t *timer)
 		http_null_metrics(carg);
 }
 
+void tcp_client_repeat_period(uv_timer_t *timer);
 void tcp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -549,6 +556,14 @@ void tcp_client_connect(void *arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->period && !carg->close_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, tcp_client_repeat_period, carg->period, 0);
+	}
+
 
 	carg->lock = 1;
 	carg->parsed = 0;
@@ -588,6 +603,25 @@ void tcp_client_connect(void *arg)
 		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, tcp_connected);
 }
 
+void for_tcp_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->close_counter)
+		return;
+
+	tcp_client_connect(arg);
+}
+
+void tcp_client_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	tcp_client_connect((void*)carg);
+}
+
+void unix_client_repeat_period(uv_timer_t *timer);
 void unix_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -597,6 +631,13 @@ void unix_client_connect(void *arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->period && !carg->close_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, unix_client_repeat_period, carg->period, 0);
+	}
 
 	carg->lock = 1;
 	carg->parsed = 0;
@@ -633,10 +674,28 @@ void unix_client_connect(void *arg)
 		uv_pipe_connect(&carg->connect, (uv_pipe_t *)&carg->client, carg->host, tcp_connected);
 }
 
+void for_unix_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->close_counter)
+		return;
+
+	unix_client_connect(arg);
+}
+
+void unix_client_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	unix_client_connect((void*)carg);
+}
+
 static void tcp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
-	alligator_ht_foreach(ac->aggregator, tcp_client_connect);
-	alligator_ht_foreach(ac->uggregator, unix_client_connect);
+	alligator_ht_foreach(ac->aggregator, for_tcp_client_connect);
+	alligator_ht_foreach(ac->uggregator, for_unix_client_connect);
 }
 
 char* tcp_client(void *arg)
