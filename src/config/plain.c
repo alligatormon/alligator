@@ -301,7 +301,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			++i;
 			if (wstokens[i].argument)
 			{
-				if (isdigit(*wstokens[i].token->s))
+				if (sisdigit(wstokens[i].token->s))
 				{
 					int64_t num = strtoll(wstokens[i].token->s, NULL, 10);
 					json_t *arg_json = json_integer(num);

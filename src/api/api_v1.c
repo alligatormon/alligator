@@ -27,6 +27,7 @@
 #include "system/common.h"
 #include "common/json_parser.h"
 #include "puppeteer/puppeteer.h"
+#include "common/units.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -87,17 +88,37 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			{
 				uint64_t aggregator_repeat;
 				if (json_typeof(value) == JSON_STRING)
-					aggregator_repeat = strtoull(json_string_value(value), NULL, 10);
+					aggregator_repeat = get_ms_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					aggregator_repeat = json_integer_value(value);
 
-				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->system_aggregator_repeat = ac->tls_fs_repeat = aggregator_repeat;
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = aggregator_repeat;
+			}
+			if (!strcmp(key, "system_collect_period"))
+			{
+				uint64_t aggregator_repeat;
+				if (json_typeof(value) == JSON_STRING)
+					aggregator_repeat = get_ms_from_human_range(json_string_value(value), json_string_length(value));
+				else
+					aggregator_repeat = json_integer_value(value);
+
+				ac->system_aggregator_repeat = aggregator_repeat;
+			}
+			if (!strcmp(key, "tls_collect_period"))
+			{
+				uint64_t aggregator_repeat;
+				if (json_typeof(value) == JSON_STRING)
+					aggregator_repeat = get_ms_from_human_range(json_string_value(value), json_string_length(value));
+				else
+					aggregator_repeat = json_integer_value(value);
+
+				ac->tls_fs_repeat = aggregator_repeat;
 			}
 			if (!strcmp(key, "query_period"))
 			{
 				uint64_t query_repeat;
 				if (json_typeof(value) == JSON_STRING)
-					query_repeat = strtoull(json_string_value(value), NULL, 10);
+					query_repeat = get_ms_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					query_repeat = json_integer_value(value);
 
@@ -107,7 +128,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			{
 				uint64_t cluster_repeat;
 				if (json_typeof(value) == JSON_STRING)
-					cluster_repeat = strtoull(json_string_value(value), NULL, 10);
+					cluster_repeat = get_ms_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					cluster_repeat = json_integer_value(value);
 
@@ -116,7 +137,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			if (!strcmp(key, "ttl"))
 			{
 				if (json_typeof(value) == JSON_STRING)
-					ac->ttl = strtoull(json_string_value(value), NULL, 10);
+					ac->ttl = get_ms_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					ac->ttl = json_integer_value(value);
 			}

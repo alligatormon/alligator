@@ -69,6 +69,26 @@ void config_global_get(json_t *dst)
 		json_t *aggregate_period = json_integer(ac->aggregator_repeat);
 		json_array_object_insert(dst, "aggregate_period", aggregate_period);
 	}
+	if (ac->tls_fs_repeat)
+	{
+		json_t *aggregate_period = json_integer(ac->tls_fs_repeat);
+		json_array_object_insert(dst, "tls_collect_period", aggregate_period);
+	}
+	if (ac->system_aggregator_repeat)
+	{
+		json_t *aggregate_period = json_integer(ac->system_aggregator_repeat);
+		json_array_object_insert(dst, "system_collect_period", aggregate_period);
+	}
+	if (ac->query_repeat)
+	{
+		json_t *aggregate_period = json_integer(ac->query_repeat);
+		json_array_object_insert(dst, "query_period", aggregate_period);
+	}
+	if (ac->cluster_repeat)
+	{
+		json_t *aggregate_period = json_integer(ac->cluster_repeat);
+		json_array_object_insert(dst, "synchronization_period", aggregate_period);
+	}
 
 	if (ac->ttl)
 	{
