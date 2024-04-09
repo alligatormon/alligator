@@ -427,7 +427,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 	{
 		if(!strncasecmp(ret->headers+i, "X-Expire-Time", 13))
 		{
-			ret->expire = strtoll(ret->headers+i+13+1, NULL, 10);
+			ret->expire = get_sec_from_human_range(ret->headers+i+13+1, strlen(ret->headers+i+13+1));
 		}
 		else if(!strncasecmp(ret->headers+i, "Content-Length:", 15))
 		{

@@ -51,6 +51,12 @@ int64_t get_ms_from_human_range(const char *hrange, size_t hsize) {
 	return ret;
 }
 
+int64_t get_sec_from_human_range(const char *hrange, size_t hsize) {
+	if ((strcspn(hrange, "mshd")) == hsize)
+		return strtoll(hrange, NULL, 10);
+	return get_ms_from_human_range(hrange, hsize) / 1000;
+}
+
 //#define TEST_1 "1h12m"
 //#define TEST_2 "1m15s"
 //#define TEST_3 "18d64h4m12s78ms"

@@ -153,7 +153,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			if (!strcmp(key, "ttl"))
 			{
 				if (json_typeof(value) == JSON_STRING)
-					ac->ttl = get_ms_from_human_range(json_string_value(value), json_string_length(value));
+					ac->ttl = get_sec_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					ac->ttl = json_integer_value(value);
 			}
@@ -429,7 +429,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					carg->ttl = -1;
 					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
 					if (carg_ttl)
-						carg->ttl = json_integer_value(carg_ttl);
+						carg->ttl = get_sec_from_human_range(json_string_value(carg_ttl), json_string_length(carg_ttl));
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
