@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.98)
+set(VERSION 1.14.99)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
