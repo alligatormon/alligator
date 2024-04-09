@@ -25,6 +25,18 @@ alligator is aggregator for system and software metrics
 - debug
 - trace
 
+# Log destinations
+```
+log_dest <dest>
+```
+
+Dest can be:
+- stdout
+- stderr
+- file:///var/log/messages
+- udp://127.0.0.1:514
+
+
 # config description:
 ```
 #/etc/alligator.conf
