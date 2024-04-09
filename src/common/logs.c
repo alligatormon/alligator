@@ -107,11 +107,9 @@ void wrlog(int level, int priority, const char *format, ...)
     va_list args;
     va_start(args, format);
 
-    printf("check %d>=%d \n", level, priority);
     if(level >= priority)
     {
             vdprintf(ac->log_socket, format, args);
-	    puts("OK");
     }
 
     va_end(args);

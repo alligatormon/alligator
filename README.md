@@ -16,10 +16,19 @@ alligator is aggregator for system and software metrics
 - memcached
 - beanstalkd
 
+# Log levels
+- off
+- fatal
+- error
+- warn
+- info
+- debug
+- trace
+
 # config description:
 ```
 #/etc/alligator.conf
-log_level 0..10;
+log_level off;
 ttl 0; # global ttl for metrics in sec, default 300
 
 #prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
