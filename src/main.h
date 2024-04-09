@@ -87,13 +87,10 @@ typedef struct aconf
 	alligator_ht* pg_aggregator;
 	alligator_ht* zk_aggregator;
 	alligator_ht* my_aggregator;
-	alligator_ht* tls_aggregator;
 	alligator_ht* scheduler;
 	int64_t aggregator_startup;
 	int64_t aggregator_repeat;
 	int64_t file_aggregator_repeat;
-	int64_t tls_aggregator_startup;
-	int64_t tls_aggregator_repeat;
 	int64_t scheduler_startup;
 	uv_timer_t tcp_client_timer;
 	uv_timer_t pg_timer;
@@ -233,6 +230,13 @@ typedef struct aconf
 	uv_timer_t dump_timer;
 
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
+	int log_socket;
+	int log_form;
+	char *log_dest;
+	char *log_host;
+	int log_port;
+	int update_log_dest;
+	struct sockaddr_in logsoaddr;
 	int64_t ttl; // global TTL for metrics
 
 	// persistence settings

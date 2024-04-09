@@ -26,6 +26,7 @@
 #include "cluster/type.h"
 #include "system/common.h"
 #include "common/json_parser.h"
+#include "common/logs.h"
 #include "puppeteer/puppeteer.h"
 #include "common/units.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
@@ -80,9 +81,24 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			if (!strcmp(key, "log_level"))
 			{
 				if (json_typeof(value) == JSON_STRING)
-					ac->log_level = strtoull(json_string_value(value), NULL, 10);
+					ac->log_level = get_log_level_by_name(json_string_value(value), json_string_length(value));
 				else
 					ac->log_level = json_integer_value(value);
+			}
+			if (!strcmp(key, "log_dest"))
+			{
+				if (ac->log_dest)
+					free(ac->log_dest);
+				ac->log_dest = strdup(json_string_value(value));
+				ac->update_log_dest = 1;
+			}
+			if (!strcmp(key, "log_form"))
+			{
+				const char *form = json_string_value(value);
+				ac->log_form = FORM_SIMPLE;
+				if (!strcmp(form, "syslog")) {
+					ac->log_form = FORM_SYSLOG;
+				}
 			}
 			if (!strcmp(key, "aggregate_period"))
 			{
@@ -92,7 +108,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				else
 					aggregator_repeat = json_integer_value(value);
 
-				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = aggregator_repeat;
+				ac->aggregator_repeat = ac->iggregator_repeat = ac->unixgram_aggregator_repeat = ac->file_aggregator_repeat = aggregator_repeat;
 			}
 			if (!strcmp(key, "system_collect_period"))
 			{

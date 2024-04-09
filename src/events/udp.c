@@ -41,7 +41,6 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-
 	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
 	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
@@ -54,6 +53,9 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 
 	carg->lock = 0;
 	free(buf->base);
+
+	if (carg->period)
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 }
 
 void udp_on_send(uv_udp_send_t* req, int status) {
@@ -108,6 +110,7 @@ void udp_server_stop(const char* addr, uint16_t port)
 	}
 }
 
+void udp_client_repeat_period(uv_timer_t *timer);
 void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -119,6 +122,13 @@ void udp_client_connect(void *arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->period && !carg->conn_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, udp_client_repeat_period, carg->period, 0);
+	}
 
 	carg->lock = 1;
 	carg->parsed = 0;
@@ -149,6 +159,24 @@ void udp_client_connect(void *arg)
 	carg->write_time = setrtime();
 }
 
+void udp_client_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	udp_client_connect((void*)carg);
+}
+
+void for_udp_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->conn_counter)
+		return;
+
+	udp_client_connect(arg);
+}
+
 char* udp_client(void *arg)
 {
 	if (!arg)
@@ -172,7 +200,7 @@ void udp_client_del(context_arg *carg)
 
 static void udp_client_crawl(uv_timer_t* handle) {
 	(void)handle;
-	alligator_ht_foreach(ac->udpaggregator, udp_client_connect);
+	alligator_ht_foreach(ac->udpaggregator, for_udp_client_connect);
 }
 
 void udp_client_handler()

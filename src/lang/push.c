@@ -1,4 +1,5 @@
 #include "lang/lang.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -68,7 +69,7 @@ void lang_push(json_t *lang, char *key)
 		if (type == JSON_INTEGER)
 			slang_log_level = json_integer_value(lang_log_level);
 		else if (type == JSON_STRING)
-			slang_log_level = strtoull((char*)json_string_value(lang_log_level), NULL, 10);
+			slang_log_level = get_log_level_by_name(json_string_value(lang_log_level), json_string_length(lang_log_level));
 	}
 
 	lang_options *lo = calloc(1, sizeof(*lo));

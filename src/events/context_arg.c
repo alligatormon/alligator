@@ -5,6 +5,7 @@
 #include "resolver/resolver.h"
 #include "common/json_parser.h"
 #include "common/units.h"
+#include "common/logs.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -439,10 +440,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	}
 
 	json_t *json_log_level = json_object_get(root, "log_level");
-	if (json_log_level)
-	{
+	if (json_typeof(json_log_level) == JSON_STRING)
+		carg->log_level = get_log_level_by_name(json_string_value(json_log_level), json_string_length(json_log_level));
+	else
 		carg->log_level = json_integer_value(json_log_level);
-	}
 
 	json_t *json_add_label = json_object_get(root, "add_label");
 
@@ -526,4 +527,9 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->q_connect_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
 
 	return carg;
+}
+
+void carglog(context_arg *carg, int priority, const char *format, ...)
+{
+	wrlog(carg->log_level, priority, format);
 }

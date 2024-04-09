@@ -15,72 +15,68 @@
 
 extern aconf* ac;
 
-//typedef struct unixgram_info
-//{
-//	char *key;
-//	struct sockaddr_un *local;
-//	socklen_t local_len;
-//	struct sockaddr_un *remote;
-//	socklen_t remote_len;
-//	int fd;
-//	void *parser_handler;
-//	char *mesg;
-//
-//	tommy_node node;
-//} unixgram_info;
-
-void unixgram_poll_cb(uv_poll_t* handle, int status, int events)
-{
-	if (status)
-	{
-		fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
-		return;
-	}
-	uv_close((uv_handle_t*)handle, NULL);
-}
-
 void unixgram_cb(uv_poll_t* handle, int status, int events)
 {
+	context_arg *carg = handle->data;
 	if (status)
 	{
-		fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
+		if (carg->log_level > 0)
+			fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
 		return;
 	}
-	context_arg *carg = handle->data;
 	char buf[65535];
 	int size;
-	if ( ( size = recvfrom(carg->fd, buf, 65535, 0, (struct sockaddr*)carg->local, &carg->local_len)) <= 0 )
+	if ((size = recvfrom(carg->fd, buf, 65535, 0, (struct sockaddr*)carg->local, &carg->local_len)) <= 0)
 	{
-		perror("recvfrom: ");
-		printf("recvfrom err\n");
+		if (carg->log_level > 1) {
+			perror("recvfrom: ");
+			printf("recvfrom err\n");
+		}
 		uv_close((uv_handle_t*)handle, NULL);
 		return;
 	}
 	buf[size]=0;
-	//printf("buf %s\n", buf);
 	alligator_multiparser(buf, size, carg->parser_handler, NULL, NULL);
 
 	uv_close((uv_handle_t*)handle, NULL);
 
+	(carg->read_counter)++;
+	metric_add_labels("unixgram_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
+
 	close(carg->fd);
-	printf("deleting file %s\n", carg->local->sun_path);
+	if (carg->log_level > 0)
+		printf("deleting file %s\n", carg->local->sun_path);
 	unlink(carg->local->sun_path);
 	free(carg->remote);
 	free(carg->local);
+
+	++carg->read_counter;
+	if (carg->period)
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 }
 
+void unixgram_client_repeat_period(uv_timer_t *timer);
 void do_unixgram(void *arg)
 {
-	if ( !arg )
+	if (!arg)
 		return;
 
 	context_arg *carg = arg;
-	printf("run %s\n", carg->key);
-	printf("arg %p\n", carg);
+	if (carg->log_level > 1) {
+		printf("run %s\n", carg->key);
+		printf("arg %p\n", carg);
+	}
 	//char *client_sock = malloc(255);
 
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->period && !carg->read_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, unixgram_client_repeat_period, carg->period, 0);
+	}
 
 	carg->parser_status = 0;
 	socklen_t remote_len = sizeof(struct sockaddr_un);
@@ -102,7 +98,8 @@ void do_unixgram(void *arg)
 
 	int s;
 	if ((s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
-		perror("socket");
+		if (carg->log_level > 0)
+			perror("socket");
 		return;
 	}
 	struct timeval tv_out; 
@@ -114,7 +111,8 @@ void do_unixgram(void *arg)
 	int len = strlen(local->sun_path) + sizeof(local->sun_family);
 	if (bind(s, (struct sockaddr *)local, len) == -1)
 	{
-		perror("bind");
+		if (carg->log_level > 0)
+			perror("bind");
 		free(remote);
 		free(local);
 		return;
@@ -122,18 +120,40 @@ void do_unixgram(void *arg)
 
 	if (sendto(s, carg->mesg, strlen(carg->mesg), 0, (struct sockaddr*)remote, remote_len) == -1)
 	{
-		perror("sendto");
+		if (carg->log_level > 0)
+			perror("sendto");
 		free(remote);
 		free(local);
 		return;
 	}
-	printf("sent %zu bytes\n", strlen(carg->mesg));
+
+	if (carg->log_level > 0)
+		printf("sent %zu bytes\n", strlen(carg->mesg));
+
 	uv_poll_t *poll_handler = calloc(1, sizeof(*poll_handler));
 	poll_handler->data = carg;
 	uv_poll_init_socket(uv_default_loop(), poll_handler, s);
 	uv_poll_start(poll_handler, UV_READABLE, unixgram_cb);
 
 	uv_run(uv_default_loop(), 0);
+}
+
+void unixgram_client_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	do_unixgram((void*)carg);
+}
+
+void for_unixgram_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->read_counter)
+		return;
+
+	do_unixgram(arg);
 }
 
 void do_unixgram_client(char *unixsockaddr, void *handler, char *mesg)
@@ -147,7 +167,7 @@ void do_unixgram_client(char *unixsockaddr, void *handler, char *mesg)
 
 static void udgregator_timer_cb(uv_timer_t* handle)
 {
-	alligator_ht_foreach(ac->unixgram_aggregator, do_unixgram);
+	alligator_ht_foreach(ac->unixgram_aggregator, for_unixgram_client_connect);
 }
 
 void unixgram_client_handler()
@@ -175,18 +195,11 @@ void unixgram_serve_cb(uv_poll_t* handle, int status, int events)
 		return;
 	}
 	buf[size]=0;
-	//printf("buf %s\n", buf);
 	alligator_multiparser(buf, size, carg->parser_handler, NULL, NULL);
 }
 
 void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 {
-	//udp_server_info *udpinfo = malloc(sizeof(*udpinfo));
-	//udpinfo->parser_handler = parser_handler;
-
-	//socklen_t remote_len = sizeof(struct sockaddr_un);
-	//struct sockaddr_un *remote = calloc(1, remote_len);
-
 	if (!carg->key)
 		carg->key = malloc(255);
 	snprintf(carg->key, 255, "unixgram:%s", addr);
@@ -217,13 +230,6 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	uv_poll_start(poll_handler, UV_READABLE, unixgram_serve_cb);
 
 	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
-	//char buf[65535];
-	//int n = recvfrom(s, buf, 65535, 0, (struct sockaddr*)remote, &remote_len);
-	//if( n < 0)
-	//{
-	//	perror("recvfrom");
-	//}
-	//close(s);
 }
 
 void unixgram_server_stop(const char* addr)

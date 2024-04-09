@@ -21,6 +21,7 @@
 #include "events/filetailer.h"
 #include "puppeteer/puppeteer.h"
 #include "cluster/type.h"
+#include "common/logs.h"
 
 aconf *ac;
 
@@ -131,11 +132,8 @@ aconf* configuration()
 
 	ac->scheduler_startup = 13000;
 
-	ac->tls_aggregator = calloc(1, sizeof(alligator_ht));
 	ac->udpaggregator = calloc(1, sizeof(alligator_ht));
 	alligator_ht_init(ac->udpaggregator);
-	ac->tls_aggregator_startup = 1500;
-	ac->tls_aggregator_repeat = 10000;
 	ac->scheduler = alligator_ht_init(NULL);
 
 	ac->iggregator = calloc(1, sizeof(alligator_ht));
@@ -183,7 +181,6 @@ aconf* configuration()
 	alligator_ht_init(ac->file_aggregator);
 	alligator_ht_init(ac->zk_aggregator);
 	alligator_ht_init(ac->my_aggregator);
-	alligator_ht_init(ac->tls_aggregator);
 	alligator_ht_init(ac->iggregator);
 	alligator_ht_init(ac->process_spawner);
 	alligator_ht_init(ac->lang_aggregator);
@@ -218,6 +215,8 @@ aconf* configuration()
 void main_free()
 {
 	free(ac->system_carg);
+	free(ac->log_host);
+	free(ac->log_dest);
 
 	alligator_ht_done(ac->tcp_server_handler);
 	free(ac->tcp_server_handler);
@@ -245,9 +244,6 @@ void main_free()
 
 	free(ac->uv_cache_timer);
 	free(ac->uv_cache_fs);
-
-	alligator_ht_done(ac->tls_aggregator);
-	free(ac->tls_aggregator);
 
 	alligator_ht_done(ac->udpaggregator);
 	free(ac->udpaggregator);
@@ -366,6 +362,9 @@ int main(int argc, char **argv, char **envp)
 	parse_env(envp);
 
 	restore_settings();
+
+	log_init();
+	wrlog(0, 0, "log system initialized\n");
 
 	signal_listen();
 

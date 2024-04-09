@@ -192,6 +192,7 @@ set(STATIC_FILES
 	common/murmurhash.c
 	common/lcrypto.c
 	common/units.c
+	common/logs.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c

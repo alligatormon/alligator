@@ -85,7 +85,7 @@ void string_double(string *str, double d);
 void string_string_cat(string *str, string *src);
 void string_string_copy(string *dst, string *src);
 void string_merge(string *str, string *src);
-int sisdigit(char *str);
+int sisdigit(const char *str);
 char *trim_whitespaces(char *str);
 char *trim(char *s);
 uint64_t get_file_atime(char *filename);

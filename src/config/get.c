@@ -9,6 +9,7 @@
 #include "resolver/resolver.h"
 #include "system/linux/sysctl.h"
 #include "common/json_parser.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -60,7 +61,12 @@ void config_global_get(json_t *dst)
 {
 	if (ac->log_level)
 	{
-		json_t *log_level = json_integer(ac->log_level);
+		char *log = get_log_level_by_id(ac->log_level);
+		json_t *log_level;
+		if (!log)
+			log_level =  json_integer(ac->log_level);
+		else
+			log_level = json_string(log);
 		json_array_object_insert(dst, "log_level", log_level);
 	}
 
@@ -167,6 +173,12 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "follow_redirects", follow_redirects);
 	}
 
+	if (carg->period)
+	{
+		json_t *period = json_integer(carg->period);
+		json_array_object_insert(ctx, "follow_redirects", period);
+	}
+
 	if (carg->parser_handler == dns_handler)
 	{
 		json_t *resolve = json_string(carg->data);
@@ -177,6 +189,17 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *key = json_string(carg->key);
 		json_array_object_insert(ctx, "key", key);
+	}
+
+	if (carg->log_level)
+	{
+		char *log = get_log_level_by_id(carg->log_level);
+		json_t *log_level;
+		if (!log)
+			log_level =  json_integer(carg->log_level);
+		else
+			log_level = json_string(log);
+		json_array_object_insert(ctx, "log_level", log_level);
 	}
 
 	if (carg->labels)
@@ -275,7 +298,12 @@ void lang_generate_conf(void *funcarg, void* arg)
 
 	if (lo->log_level)
 	{
-		json_t *log_level = json_integer(lo->log_level);
+		char *log = get_log_level_by_id(lo->log_level);
+		json_t *log_level;
+		if (!log)
+			log_level =  json_integer(lo->log_level);
+		else
+			log_level = json_string(log);
 		json_array_object_insert(ctx, "log_level", log_level);
 	}
 

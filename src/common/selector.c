@@ -193,7 +193,7 @@ void stlencat(stlen *str, char *str2, size_t len)
 	str->l += len;
 }
 
-int sisdigit(char *str)
+int sisdigit(const char *str)
 {
 	uint8_t dot = 0;
 	for (uint64_t i = 0; str[i] != 0; ++i)

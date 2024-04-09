@@ -99,6 +99,11 @@ void icmp_stop_run (context_arg *carg) {
 	close(carg->fd);
 
 	carg->lock = 0;
+	(carg->read_counter)++;
+	metric_add_labels("icmp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
+
+	if (carg->period)
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 }
 
 void icmp_metrics(context_arg *carg)
@@ -298,6 +303,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 }
 
 
+void icmp_client_repeat_period(uv_timer_t *timer);
 void icmp_start(void *arg)
 {
 	context_arg *carg = arg;
@@ -306,6 +312,13 @@ void icmp_start(void *arg)
 
 	if (carg->lock)
 		return;
+
+	if (carg->period && !carg->read_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, icmp_client_repeat_period, carg->period, 0);
+	}
 
 	carg->lock = 1;
 	// reset runtime data
@@ -319,7 +332,7 @@ void icmp_start(void *arg)
 	int sd = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if ( sd < 0 )
 	{
-		puts("open raw socket");
+		puts("open raw socket error");
 		carg->lock = 0;
 		return;
 	}
@@ -348,6 +361,24 @@ void icmp_start(void *arg)
 
 	uv_timer_start(&carg->t_towrite, on_towrite, 0, carg->packets_send_period);
 	carg->total_time = setrtime();
+}
+
+void for_icmp_client_connect(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->read_counter)
+		return;
+
+	icmp_start(arg);
+}
+
+void icmp_client_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	icmp_start((void*)carg);
 }
 
 void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
@@ -408,7 +439,7 @@ char* icmp_client(context_arg *carg)
 //}
 
 static void icmp_timer_cb(uv_timer_t* handle) {
-	alligator_ht_foreach(ac->iggregator, icmp_start);
+	alligator_ht_foreach(ac->iggregator, for_icmp_client_connect);
 }
 
 void icmp_client_handler()

@@ -54,9 +54,7 @@ void tcp_client_closed(uv_handle_t *handle)
 	}
 
 	if (carg->period)
-	{
 		uv_timer_set_repeat(carg->period_timer, carg->period);
-	}
 }
 
 void tcp_client_close(uv_handle_t *handle)

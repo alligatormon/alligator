@@ -37,6 +37,9 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	string_cat(carg->full_body, buf->base, nread);
 
 	free_buffer(carg, buf);
+
+	if (carg->period)
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 }
 
 void cmd_close(uv_handle_t *handle)
@@ -218,6 +221,7 @@ void process_client_del(context_arg *carg)
 	carg_free(carg);
 }
 
+void on_process_spawn_repeat_period(uv_timer_t *timer);
 void on_process_spawn(void* arg)
 {
 	extern aconf* ac;
@@ -227,6 +231,13 @@ void on_process_spawn(void* arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->period && !carg->read_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, on_process_spawn_repeat_period, carg->period, 0);
+	}
 
 	carg->lock = 1;
 	carg->parser_status = 0;
@@ -267,6 +278,26 @@ void on_process_spawn(void* arg)
 		uv_timer_init(carg->loop, carg->tt_timer);
 		uv_timer_start(carg->tt_timer, timeout_exec_sentinel, carg->timeout, 0);
 	}
+}
+
+void for_on_process_spawn(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->read_counter)
+		return;
+
+	puts("SPAWN");
+	on_process_spawn(arg);
+}
+
+void on_process_spawn_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	puts("PERIOD");
+	on_process_spawn((void*)carg);
 }
 
 static void process_spawn_cb(uv_timer_t* handle) {
