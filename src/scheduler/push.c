@@ -1,6 +1,7 @@
 #include "scheduler/type.h"
 #include <string.h>
 #include "common/selector.h"
+#include "common/units.h"
 #include "main.h"
 
 void scheduler_push_json(json_t *scheduler)
@@ -38,12 +39,12 @@ void scheduler_push_json(json_t *scheduler)
 	sn = calloc(1, sizeof(*sn));
 	sn->name = strdup(json_string_value(jname));
 
-	json_t *jrepeat = json_object_get(scheduler, "repeat");
-	sn->repeat = 10000;
-	if (json_typeof(jrepeat) == JSON_STRING)
-		sn->repeat = strtoull(json_string_value(jrepeat), NULL, 10);
+	json_t *jperiod = json_object_get(scheduler, "period");
+	sn->period = 10000;
+	if (json_typeof(jperiod) == JSON_STRING)
+		sn->period = get_ms_from_human_range(json_string_value(jperiod), json_string_length(jperiod));
 	else
-		sn->repeat = json_integer_value(jrepeat);
+		sn->period = json_integer_value(jperiod);
 
 	if (action)
 		sn->action = strdup(action);

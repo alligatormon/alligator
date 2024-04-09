@@ -210,6 +210,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					json_t *jtype = json_object_get(x509, "type");
 					char *type = (char*)json_string_value(jtype);
 
+					uint64_t period = 10000;
+					json_t *json_period = json_object_get(x509, "period");
+					if (json_period)
+						period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
+
 					if (method == HTTP_METHOD_DELETE)
 					{
 						if (!strcmp(type, "jks"))
@@ -220,9 +225,9 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					if (type && !strcmp(type, "jks"))
-						jks_push(name, path, match, password, NULL);
+						jks_push(name, path, match, password, NULL, period);
 					else
-						tls_fs_push(name, path, match, password, type);
+						tls_fs_push(name, path, match, password, type, period);
 				}
 			}
 			if (!strcmp(key, "query"))

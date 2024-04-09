@@ -150,7 +150,6 @@ set(STATIC_FILES
 	parsers/httpd.c
 	parsers/nsd.c
 	parsers/named.c
-	parsers/jks.c
 	parsers/kubernetes.c
 	parsers/kubeconfig.c
 	parsers/oracle.c

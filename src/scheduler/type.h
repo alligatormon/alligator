@@ -17,6 +17,7 @@ typedef struct scheduler_node {
 	char *datasource;
 	uint8_t datasource_int;
 	uv_timer_t *timer;
+	uint64_t period;
 
 	tommy_node node;
 } scheduler_node;

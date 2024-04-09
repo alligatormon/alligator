@@ -271,9 +271,27 @@ void tls_fs_recurse(void *arg)
 	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match, tls_fs->password, tls_fs->type);
 }
 
+void for_tls_fs_recurse(void *arg)
+{
+	x509_fs_t *tls_fs = arg;
+	if (tls_fs->period)
+		return;
+
+	tls_fs_recurse(arg);
+}
+
+void for_tls_fs_recurse_repeat_period(uv_timer_t *timer)
+{
+	x509_fs_t *tls_fs = timer->data;
+	if (!tls_fs->period)
+		return;
+
+	tls_fs_recurse((void*)tls_fs);
+}
+
 static void tls_fs_crawl(uv_timer_t* handle) {
 	(void)handle;
-	alligator_ht_foreach(ac->fs_x509, tls_fs_recurse);
+	alligator_ht_foreach(ac->fs_x509, for_tls_fs_recurse);
 }
 
 void tls_fs_handler()
@@ -284,12 +302,13 @@ void tls_fs_handler()
 	uv_timer_start(&ac->tls_fs_timer, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
 }
 
-void tls_fs_push(char *name, char *path, char *match, char *password, char *type)
+void tls_fs_push(char *name, char *path, char *match, char *password, char *type, uint64_t period)
 {
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
 	tls_fs->path = strdup(path);
 	tls_fs->match = strdup(match);
+	tls_fs->period = period;
 
 	if (password)
 		tls_fs->password = strdup(password);
@@ -299,6 +318,12 @@ void tls_fs_push(char *name, char *path, char *match, char *password, char *type
 
 	alligator_ht_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
 
+	if (tls_fs->period) {
+		tls_fs->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		tls_fs->period_timer->data = tls_fs;
+		uv_timer_init(ac->loop, tls_fs->period_timer);
+		uv_timer_start(tls_fs->period_timer, for_tls_fs_recurse_repeat_period, tls_fs->period, 0);
+	}
 }
 
 void tls_fs_del_node(x509_fs_t *tls_fs)
@@ -331,7 +356,7 @@ void tls_fs_free()
 	alligator_ht_foreach(ac->fs_x509, tls_fs_free_foreach);
 }
 
-void jks_push(char *name, char *path, char *match, char *password, char *passtr)
+void jks_push(char *name, char *path, char *match, char *password, char *passtr, uint64_t period)
 {
 	if (ac->log_level > 0)
 		printf("run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
@@ -363,7 +388,7 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr)
 	if (!sn) {
 		sn = calloc(1, sizeof(*sn));
 		sn->name = strdup(name);
-		sn->repeat = 100000;
+		sn->period = period;
 		sn->lang = strdup(name);
 		uint32_t hash = tommy_strhash_u32(0, sn->name);
 		alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
