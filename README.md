@@ -27,7 +27,7 @@ alligator is aggregator for system and software metrics
 
 # Log destinations
 ```
-log_dest <dest>
+log_dest <dest>;
 ```
 
 Dest can be:
@@ -40,7 +40,7 @@ Dest can be:
 # config description:
 ```
 #/etc/alligator.conf
-log_level off;
+log_level info;
 ttl 0; # global ttl for metrics in sec, default 300
 
 #prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
