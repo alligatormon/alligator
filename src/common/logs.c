@@ -115,6 +115,11 @@ void wrlog(int level, int priority, const char *format, ...)
     va_end(args);
 }
 
+void glog(int priority, const char *format, ...)
+{
+	wrlog(ac->log_level, priority, format);
+}
+
 //int main() {
 //	write_log(1, "hello %s\n", "pidor");
 //}

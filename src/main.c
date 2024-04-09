@@ -364,7 +364,6 @@ int main(int argc, char **argv, char **envp)
 	restore_settings();
 
 	log_init();
-	wrlog(0, 0, "log system initialized\n");
 
 	signal_listen();
 

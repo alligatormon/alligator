@@ -108,6 +108,7 @@ typedef struct context_arg
 	alligator_ht *env;
 
 	// counters
+	uint64_t open_counter;
 	uint64_t conn_counter;
 	uint64_t read_counter;
 	uint64_t write_counter;
@@ -312,3 +313,4 @@ void carg_free(context_arg *carg);
 void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
 void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);
 void env_free(alligator_ht *env);
+void carglog(context_arg *carg, int priority, const char *format, ...);

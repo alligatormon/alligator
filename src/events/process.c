@@ -286,7 +286,6 @@ void for_on_process_spawn(void *arg)
 	if (carg->period && carg->read_counter)
 		return;
 
-	puts("SPAWN");
 	on_process_spawn(arg);
 }
 
@@ -296,13 +295,12 @@ void on_process_spawn_repeat_period(uv_timer_t *timer)
 	if (!carg->period)
 		return;
 
-	puts("PERIOD");
 	on_process_spawn((void*)carg);
 }
 
 static void process_spawn_cb(uv_timer_t* handle) {
 	extern aconf* ac;
-	alligator_ht_foreach(ac->process_spawner, on_process_spawn);
+	alligator_ht_foreach(ac->process_spawner, for_on_process_spawn);
 }
 
 void process_handler()

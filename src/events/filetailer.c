@@ -6,8 +6,10 @@
 #include "parsers/multiparser.h"
 #include "common/crc32.h"
 #include "common/murmurhash.h"
+#include "events/context_arg.h"
 #include "events/fs_read.h"
 #include "main.h"
+#include "common/logs.h"
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
 void file_on_open(uv_fs_t *req);
@@ -49,27 +51,34 @@ void filetailer_close(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	uv_fs_req_cleanup(req);
 	file_handler_struct_free(fh);
+	context_arg *carg = fh->carg;
+
+	(carg->close_counter)++;
+	metric_add_labels4("alligator_open", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_close", &carg->close_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+
+
+	if (carg->period)
+		uv_timer_set_repeat(carg->period_timer, carg->period);
 }
 
 void file_stat_size_cb(uv_fs_t *req)
 {
+	context_arg *carg = req->data;
+
 	if (req->result < 0)
 	{
-		if (ac->log_level > 0)
-			printf("error file_stat_size_cb: %s\n", req->path);
-
+		carglog(carg, L_ERROR, "error file_stat_size_cb: %s\n", req->path);
 		return;
 	}
-
-	context_arg *carg = req->data;
 
 	file_handle *fh = file_handler_struct_init(carg, req->statbuf.st_size);
 	strlcpy(fh->pathname, req->path, 1024);
 
 	if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
 	{
-		if (carg->log_level > 2)
-			printf("crawl file pathname: %s\n", fh->pathname);
+		carglog(carg, L_INFO, "crawl file pathname: %s\n", fh->pathname);
 
 		uint8_t if_selected = 0;
 		if (carg->file_stat)
@@ -82,8 +91,7 @@ void file_stat_size_cb(uv_fs_t *req)
 
 		if (carg->checksum || (carg->parser_name && carg->parser_handler != blackbox_null) || carg->calc_lines)
 		{
-			if (carg->log_level > 1)
-				printf("checksum/calc/parser file open: %s in %s\n", carg->checksum, fh->pathname);
+			carglog(carg, L_INFO, "checksum/calc/parser file open: %s in %s\n", carg->checksum, fh->pathname);
 
 			if_selected = 1;
 			uv_fs_open(carg->loop, &fh->open, fh->pathname, O_RDONLY, 0, file_on_open);
@@ -104,12 +112,11 @@ void directory_crawl(void *arg)
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	if (carg->log_level > 0)
-		printf("open dir: %s, status: %p\n", path, readdir_req.ptr);
+	carglog(carg, L_ERROR, "open dir: %s, status: %p\n", path, readdir_req.ptr);
 
 	if (!readdir_req.ptr)
 	{
-		printf("open dir: %s, failed, result: %zd\n", path, readdir_req.result);
+		carglog(carg, L_ERROR, "open dir: %s, failed, result: %zd\n", path, readdir_req.result);
 		return;
 	}
 
@@ -125,8 +132,7 @@ void directory_crawl(void *arg)
 		int r = uv_fs_readdir(carg->loop, &readdir_req, readdir_req.ptr, NULL);
 		if (r <= 0)
 		{
-			if (carg->log_level > 0)
-				printf("read dir: %s, failed, result: %d\n", path, r);
+			carglog(carg, L_ERROR, "read dir: %s, failed, result: %d\n", path, r);
 			break;
 		}
 
@@ -140,8 +146,7 @@ void directory_crawl(void *arg)
 				char pathname[1024];
 				snprintf(pathname, 1023, "%s/%s", carg->path, dirents[i].name);
 
-				if (carg->log_level > 2)
-					printf("stat open: %s\n", pathname);
+				carglog(carg, L_INFO, "stat open: %s\n", pathname);
 
 				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
 			}
@@ -150,6 +155,7 @@ void directory_crawl(void *arg)
 	}
 
 	uv_fs_closedir(NULL, &readdir_req, readdir_req.ptr, NULL);
+	++carg->close_counter;
 	metric_add_labels("files_in_directory", &acc, DATATYPE_UINT, carg, "path", carg->path);
 }
 
@@ -162,9 +168,18 @@ void file_crawl(void *arg)
 	uv_fs_stat(carg->loop, req_stat, carg->path, file_stat_size_cb);
 }
 
+void filetailer_directory_file_crawl_repeat_period(uv_timer_t *timer);
 void filetailer_directory_file_crawl(void *arg)
 {
 	context_arg *carg = arg;
+
+	if (carg->period && !carg->close_counter) {
+		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->period_timer->data = carg;
+		uv_timer_init(carg->loop, carg->period_timer);
+		uv_timer_start(carg->period_timer, filetailer_directory_file_crawl_repeat_period, carg->period, 0);
+	}
+
 	if (carg->is_dir)
 		directory_crawl(arg);
 	else
@@ -177,12 +192,10 @@ void filetailer_checksum(uv_fs_t *req) {
 	uv_fs_req_cleanup(req);
 
 	if (req->result < 0) {
-		if (carg->log_level > 2)
-			fprintf(stdout, "filetailer_checksum: Read error: %s\n", fh->pathname);
+		carglog(carg, L_ERROR, "filetailer_checksum: Read error: %s\n", fh->pathname);
 	}
 	else if (req->result == 0) {
-		if (carg->log_level > 2)
-			fprintf(stdout, "filetailer_checksum: No result read: %s\n", fh->pathname);
+		carglog(carg, L_ERROR, "filetailer_checksum: No result read: %s\n", fh->pathname);
 	}
 	else {
 		uint64_t str_len = req->result;
@@ -218,6 +231,7 @@ void file_on_open(uv_fs_t *req)
 	file_handle *fh = req->data;
 	uv_fs_req_cleanup(req);
 	context_arg *carg = fh->carg;
+	(carg->open_counter)++;
 	uint64_t offset = file_stat_get_offset(ac->file_stat, req->path, carg->state);
 	if (req->result != -1)
 	{
@@ -227,15 +241,14 @@ void file_on_open(uv_fs_t *req)
 		}
 		else if (carg->parser_name)
 		{
-			if (carg->log_level > 1)
-				printf("read from file %s, offset %"u64"\n", req->path, offset);
+			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", req->path, offset);
 			fh->offset = offset;
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
 		}
 	}
 	else
 	{
-		fprintf(stderr, "Error opening file!\n");
+		carglog(carg, L_ERROR, "Error opening file!\n");
 	}
 }
 
@@ -243,22 +256,20 @@ void filetailer_on_read(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	context_arg *carg = fh->carg;
 	uv_fs_req_cleanup(req);
+	(carg->read_counter)++;
 
 	if (req->result < 0) {
-		if (carg->log_level > 2)
-			fprintf(stdout, "filetailer_on_read: Read error: %s\n", fh->pathname);
+		carglog(carg, L_ERROR, "filetailer_on_read: Read error: %s\n", fh->pathname);
 	}
 	else if (req->result == 0) {
-		if (carg->log_level > 2)
-			fprintf(stdout, "filetailer_on_read: No result read: %s\n", fh->pathname);
+		carglog(carg, L_ERROR, "filetailer_on_read: No result read: %s\n", fh->pathname);
 		file_stat_add_offset(ac->file_stat, fh->pathname, carg, fh->offset);
 	}
 	else {
 		uint64_t str_len = req->result;
 		fh->buffer.base[str_len] = 0;
 
-		if (carg->log_level > 2)
-			printf("filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, str_len);
+		carglog(carg, L_INFO, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, str_len);
 
 		file_stat_add_offset(ac->file_stat, fh->pathname, carg, str_len);
 		alligator_multiparser(fh->buffer.base, str_len, carg->parser_handler, NULL, carg);
@@ -271,8 +282,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 {
 	context_arg *carg = handle->data;
 	carg->filename = filename;
-	if (carg->log_level > 1)
-		printf("Change detected in '%s'\n", carg->filename);
+	carglog(carg, L_INFO, "Change detected in '%s'\n", carg->filename);
 
 	file_handle *fh = file_handler_struct_init(carg, 65535);
 	if (carg->is_dir)
@@ -311,15 +321,13 @@ char* filetailer_handler(context_arg *carg)
 
 	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler || carg->parser_name)
 	{
-		if (carg->log_level > 0)
-			printf("create file handler with carg->path %s\n", carg->path);
+		carglog(carg, L_INFO, "create file handler with carg->path %s\n", carg->path);
 		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	}
 
 	if (carg->notify)
 	{
-		if (carg->log_level > 1)
-			printf("run notify %s\n", carg->path);
+		carglog(carg, L_INFO, "run notify %s\n", carg->path);
 		uv_fs_event_init(loop, &carg->fs_handle);
 		uv_fs_event_start(&carg->fs_handle, on_file_change, carg->path, UV_FS_EVENT_WATCH_ENTRY);
 	}
@@ -336,9 +344,28 @@ void filetailer_handler_del(context_arg *carg)
 	carg_free(carg);
 }
 
+void for_filetailer_directory_file_crawl(void *arg)
+{
+	context_arg *carg = arg;
+	if (carg->period && carg->close_counter)
+		return;
+
+	filetailer_directory_file_crawl(arg);
+}
+
+void filetailer_directory_file_crawl_repeat_period(uv_timer_t *timer)
+{
+	context_arg *carg = timer->data;
+	if (!carg->period)
+		return;
+
+	filetailer_directory_file_crawl((void*)carg);
+}
+
+
 void failtailer_crawl(uv_timer_t* handle) {
 	(void)handle;
-	alligator_ht_foreach(ac->file_aggregator, filetailer_directory_file_crawl);
+	alligator_ht_foreach(ac->file_aggregator, for_filetailer_directory_file_crawl);
 }
 
 void filetailer_crawl_handler()
@@ -357,8 +384,7 @@ void filetailer_write_state_foreach(void *funcarg, void *arg)
 	if (fstat->state != FILESTAT_STATE_SAVE)
 		return;
 
-	if (ac->log_level > 1)
-		printf("save file_stat: %s, %"u64", %"u64"\n", fstat->key, fstat->offset, fstat->modify);
+	glog(L_INFO, "save file_stat: %s, %"u64", %"u64"\n", fstat->key, fstat->offset, fstat->modify);
 
 	string_cat(str, "3", 1);
 	string_cat(str, "key", 3);
@@ -424,8 +450,7 @@ void filestat_restore_v1(char *buf, size_t len)
 			uint64_t valsize = strtoull(tmp, &tmp, 10);
 			if (*tmp == '\t' || *tmp == '\n')
 			{
-				if (ac->log_level > 1)
-					printf("filestat_restore_v1:: %s: %"u64"\n", object, valsize);
+				glog(L_INFO, "filestat_restore_v1:: %s: %"u64"\n", object, valsize);
 				if (!strcmp(object, "offset"))
 				{
 					offset = valsize;
@@ -435,8 +460,7 @@ void filestat_restore_v1(char *buf, size_t len)
 			{
 				char value[valsize+1];
 				strlcpy(value, tmp, valsize+1);
-				if (ac->log_level > 1)
-					printf("filestat_restore_v1:: '%s': '%s'\n", object, value);
+				glog(L_INFO, "filestat_restore_v1:: '%s': '%s'\n", object, value);
 
 				if (!strcmp(object, "key"))
 				{

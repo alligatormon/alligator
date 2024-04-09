@@ -41,8 +41,6 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
-
 	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
 	if (carg->lock)
 	{
