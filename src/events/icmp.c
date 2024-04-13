@@ -15,6 +15,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 #include "dstructures/tommy.h"
+#include "common/logs.h"
 #include "common/rtime.h"
 #include "probe/probe.h"
 #include "parsers/multiparser.h"
@@ -73,11 +74,11 @@ get_monotonic_time_diff (uint32_t start, uint32_t end) {
 }
 
 static void
-dump_packet (icmp_packet_t *icmp) {
+dump_packet (context_arg *carg, icmp_packet_t *icmp) {
 	uint8_t *raw = (uint8_t *) icmp;
 	uint32_t te = get_monotonic_time();
 
-	printf("type: %d code: %d checksum: %d/%d id: %d seq: %d time diff: %d ms\n",
+	carglog(carg, L_DEBUG, "type: %d code: %d checksum: %d/%d id: %d seq: %d time diff: %d ms\n",
 			icmp->hdr.type, icmp->hdr.code,
 			icmp->hdr.checksum, checksum(icmp, sizeof(*icmp)),
 			icmp->hdr.un.echo.id, icmp->hdr.un.echo.sequence,
@@ -85,10 +86,10 @@ dump_packet (icmp_packet_t *icmp) {
 			);
 	unsigned int i;
 	for (i = 0; i < sizeof(*icmp); i++) {
-		if (i % 16 == 0) printf("\n");
-		printf("%02X ", raw[i]);
+		if (i % 16 == 0) carglog(carg, L_DEBUG, "\n");
+		carglog(carg, L_DEBUG, "%02X ", raw[i]);
 	}
-	printf("\n------------------------------------\n");
+	carglog(carg, L_DEBUG,"\n------------------------------------\n");
 }
 
 void icmp_stop_run (context_arg *carg) {
@@ -125,8 +126,7 @@ void icmp_metrics(context_arg *carg)
 		total_time = getrtime_mcs(carg->total_time, carg->total_time_finish, 0);
 	}
 
-	if (carg->log_level > 0)
-		printf("host %s success %"PRIu64", error %"PRIu64", percent success: %lf, percent error: %lf, resolve time: %"PRIu64", read time: %"PRIu64", total time: %"PRIu64", tries %"PRIu64"\n", carg->host, carg->sequence_success, carg->sequence_error, success_percent, error_percent, resolve_time, read_time, total_time, carg->pingloop);
+	carglog(carg, L_INFO, "host %s success %"PRIu64", error %"PRIu64", percent success: %lf, percent error: %lf, resolve time: %"PRIu64", read time: %"PRIu64", total time: %"PRIu64", tries %"PRIu64"\n", carg->host, carg->sequence_success, carg->sequence_error, success_percent, error_percent, resolve_time, read_time, total_time, carg->pingloop);
 
 	metric_add_labels2("aggregator_read_time", &read_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
 	//metric_add_labels2("aggregator_resolve_time", &resolve_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
@@ -167,10 +167,9 @@ void icmp_emit_one (context_arg* carg, icmp_packet_t* icmp)
 	++carg->sequence_done;
 	++carg->sequence_success;
 	uv_timer_stop(&carg->t_seq_timer);
-	if (carg->log_level > 1)
-		printf("host %s, code id: %"PRIu32",  type id: %"PRIu32", time diff: %"PRIu32", resolve_time: %"PRIu64", read_time: %"PRIu64", done/size %"PRIu64"/%"PRIu64"\n", carg->host, icmp_type_id, icmp_code_id, time_diff, resolve_time, read_time, carg->sequence_done, carg->pingloop);
+	carglog(carg, L_INFO, "host %s, code id: %"PRIu32",  type id: %"PRIu32", time diff: %"PRIu32", resolve_time: %"PRIu64", read_time: %"PRIu64", done/size %"PRIu64"/%"PRIu64"\n", carg->host, icmp_type_id, icmp_code_id, time_diff, resolve_time, read_time, carg->sequence_done, carg->pingloop);
 	if (carg->sequence_done >= carg->pingloop) {
-		//printf("host %s success %d, error %d\n", carg->host, carg->sequence_success, carg->sequence_error);
+		carglog(carg, L_INFO, "host %s success %d, error %d\n", carg->host, carg->sequence_success, carg->sequence_error);
 		carg->total_time_finish = setrtime();
 		icmp_metrics(carg);
 		icmp_stop_run (carg);
@@ -194,8 +193,7 @@ void socket_write_mode (context_arg *carg, int isOn) {
 void on_timeout (uv_timer_t *handle) {
 	context_arg *carg = handle->data;
 	++carg->sequence_error;
-	if (carg->log_level > 1)
-		printf("host timeout: %s\n", carg->host);
+	carglog(carg, L_INFO, "host timeout: %s\n", carg->host);
 	icmp_metrics(carg);
 	icmp_stop_run(carg);
 }
@@ -209,8 +207,7 @@ void on_seq_timer (uv_timer_t *handle) {
 	context_arg *carg = handle->data;
 	++carg->sequence_done;
 	++carg->sequence_error;
-	if (carg->log_level > 1)
-		printf("host sequence: %s: %"PRIu64"\n", carg->host, carg->sequence_done);
+	carglog(carg, L_INFO, "host sequence: %s: %"PRIu64"\n", carg->host, carg->sequence_done);
 	//++carg->sequence_done;
 	socket_write_mode(carg, 1);
 	uv_timer_start(&carg->t_towrite, on_towrite, 0, carg->packets_send_period);
@@ -246,8 +243,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			context_arg *test_carg = alligator_ht_search(ac->ping_hash, ping_struct_compare, &carg->ping_key, tommy_inthash_u32(carg->ping_key));
 			if (!test_carg)
 			{
-				if (carg->log_level > 1)
-					printf("echo id %s:%p: %"PRIu32"\n", carg->host, carg, carg->ping_key);
+				carglog(carg, L_INFO, "echo id %s:%p: %"PRIu32"\n", carg->host, carg, carg->ping_key);
 				alligator_ht_insert(ac->ping_hash, &(carg->ping_node), carg, tommy_inthash_u32(carg->ping_key));
 			}
 
@@ -283,18 +279,15 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			if (!carg)
 				return;
 
-			if (carg->log_level > 1)
-				printf("echo get id %s:%p: %"PRIu32"\n", carg->host, carg, key);
-			if (carg->log_level > 4)
-				dump_packet(i_p);
+			carglog(carg, L_INFO, "echo get id %s:%p: %"PRIu32"\n", carg->host, carg, key);
+			dump_packet(carg, i_p);
 
 			if (i_p->hdr.un.echo.id == carg->packets_id && i_p->hdr.type != ICMP_ECHO && carg->check_receive) {
 				// it's our packets, lets see what within
 				//sa2 = (struct sockaddr_in *) &carg->dest;
 				if ( sa1->sin_addr.s_addr == carg->dest.sin_addr.s_addr ) {
 					carg->check_receive = 0;
-					if (carg->log_level > 1)
-						puts("======");
+					carglog(carg, L_DEBUG,	"======");
 					icmp_emit_one(carg, i_p);
 				}
 			}
@@ -332,17 +325,17 @@ void icmp_start(void *arg)
 	int sd = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if ( sd < 0 )
 	{
-		puts("open raw socket error");
+		carglog(carg, L_ERROR, "open raw socket error\n");
 		carg->lock = 0;
 		return;
 	}
 	if ( setsockopt(sd, SOL_IP, IP_TTL, &ttl_val, sizeof(ttl_val)) != 0) {
-		puts("set TTL option");
+		carglog(carg, L_ERROR, "set TTL option error\n");
 		carg->lock = 0;
 		return;
 	}
 	if ( fcntl(sd, F_SETFL, O_NONBLOCK) != 0 ) {
-		puts("sequest nonblocking I/O");
+		carglog(carg, L_ERROR, "sequest nonblocking I/O error\n");
 		carg->lock = 0;
 		return;
 	}
@@ -388,15 +381,13 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	carg->resolve_time_finish = setrtime();
 
 	if (status == -1 || !res) {
-		fprintf(stderr, "getaddrinfo callback error\n");
+		carglog(carg, L_ERROR, "getaddrinfo callback error\n");
 		return;
 	}
 
-	//char *addr = calloc(17, sizeof(*addr));
 	char addr[17] = {'\0'};
 	uv_ip4_name((struct sockaddr_in*)res->ai_addr, addr, 16);
 	memcpy(&carg->dest, (struct sockaddr_in*)res->ai_addr, sizeof(struct sockaddr_in));
-	//carg->dest = (struct sockaddr_in*)res->ai_addr;
 	if (!carg->key)
 		carg->key = malloc(64);
 	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest.sin_port, carg->dest.sin_family);
@@ -418,7 +409,7 @@ char* icmp_client(context_arg *carg)
 	int r = uv_getaddrinfo(uv_default_loop(), resolver, icmp_resolved, carg->host, 0, NULL);
 	if (r)
 	{
-		fprintf(stderr, "%s\n", uv_strerror(r));
+		carglog(carg, L_ERROR, "%s\n", uv_strerror(r));
 		return NULL;
 	}
 	else

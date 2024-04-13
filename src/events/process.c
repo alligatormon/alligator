@@ -12,16 +12,16 @@
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
 #include "common/mkdirp.h"
+#include "common/logs.h"
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
-	if (carg->log_level > 2)
-		fprintf(stdout, "Process %p with pid %d with cmd %s readed %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
+	carglog(carg, L_DEBUG, "Process %p with pid %d with cmd %s readed %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
 
 	if (nread == -1)
 	{
-		fprintf(stderr, "error echo_read");
+		carglog(carg, L_ERROR, "error echo_read");
 		free_buffer(carg, buf);
 		return;
 	}
@@ -45,8 +45,7 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 void cmd_close(uv_handle_t *handle)
 {
 	context_arg *carg = handle->data;
-	if (carg->log_level > 2)
-		printf("run cmd close %p with cmd %s\n", handle, carg->host);
+	carglog(carg, L_INFO, "run cmd close %p with cmd %s\n", handle, carg->host);
 
 	if (carg->context_ttl)
 	{
@@ -63,8 +62,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 {
 	context_arg *carg = req->data;
 
-	if (carg->log_level > 2)
-		fprintf(stdout, "Process %p with pid %d with cmd %s exited with status %" PRId64 ", signal %d\n", req, req->pid, carg->host, exit_status, term_signal);
+	carglog(carg, L_INFO, "Process %p with pid %d with cmd %s exited with status %" PRId64 ", signal %d\n", req, req->pid, carg->host, exit_status, term_signal);
 
 	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	string_null(carg->full_body);
@@ -107,8 +105,7 @@ void timeout_exec_sentinel(uv_timer_t* timer) {
 		return;
 	}
 
-	if (carg->log_level > 1)
-		printf("%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	if (!carg->parsed)
@@ -141,7 +138,7 @@ char* process_client(context_arg *carg)
 {
 	if (!carg)
 	{
-		puts("exec is empty");
+		carglog(carg, L_INFO, "exec is empty\n");
 		return NULL;
 	}
 
@@ -154,8 +151,7 @@ char* process_client(context_arg *carg)
 	char *fname = malloc(fsize);
 	string *stemplate = string_init(1000);
 	snprintf(fname, fsize-1, "%s/%s", ac->process_script_dir, uuid_str);
-	if (ac->log_level > 0)
-		printf("exec command saved to: %s/%s: '%s'\n", ac->process_script_dir, uuid_str, carg->host);
+	carglog(carg, L_INFO, "exec command saved to: %s/%s: '%s'\n", ac->process_script_dir, uuid_str, carg->host);
 
 	// TODO /bin/bash only linux, need customize
 	string_cat(stemplate, "#!/bin/bash\n", 12);
@@ -191,15 +187,13 @@ char* process_client(context_arg *carg)
 
 	mkdirp(ac->process_script_dir);
 	write_to_file(fname, stemplate->s, stemplate->l, process_insert, carg);
+	carglog(carg, L_DEBUG, "Saved command %zu\n'%s'\n", stemplate->l, stemplate->s);
 
 	free(stemplate);
 
 	char **args = calloc(2, sizeof(char*));
 	args[0] = fname;
 	args[1] = NULL;
-
-	//if (!carg->key)
-	//	carg->key = strdup(carg->host);
 
 	carg->args = args;
 	//alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
@@ -266,7 +260,7 @@ void on_process_spawn(void* arg)
 
 	r = uv_spawn(loop, child_req, options);
 	if (r) {
-		fprintf(stderr, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
+		carglog(carg, L_ERROR, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
 		_on_exit(child_req, 0, 0);
 	}
 	else

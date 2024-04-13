@@ -35,7 +35,7 @@ void scheduler_start(scheduler_node *sn)
 	sn->timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 	sn->timer->data = sn;
 	uv_timer_init(ac->loop, sn->timer);
-	uv_timer_start(sn->timer, scheduler_run, ac->scheduler_startup, sn->repeat);
+	uv_timer_start(sn->timer, scheduler_run, ac->scheduler_startup, sn->period);
 }
 
 void scheduler_stop(scheduler_node *sn)

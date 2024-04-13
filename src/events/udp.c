@@ -7,6 +7,7 @@
 #include "events/access.h"
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -14,13 +15,11 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 {
 	context_arg *carg = req->data;
 	carg->read_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": udp readed %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp readed %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (nread < 0)
 	{
-		fprintf(stderr, "Read error %s\n", uv_err_name(nread));
-		//uv_close((uv_handle_t*) req, NULL);
+		carglog(carg, L_ERROR, "Read error %s\n", uv_err_name(nread));
 		free(buf->base);
 		return;
 	}
@@ -35,8 +34,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 
 	if (!check_udp_ip_port(addr, carg))
 	{
-		if (ac->log_level > 3)
-			printf("no access!\n");
+		carglog(carg, L_ERROR, "no access!\n");
 		free(buf->base);
 		return;
 	}
@@ -57,13 +55,12 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 }
 
 void udp_on_send(uv_udp_send_t* req, int status) {
-	if (status != 0) {
-		fprintf(stderr, "send_cb error: %s\n", uv_strerror(status));
-	}
 	context_arg *carg = req->data;
+	if (status != 0) {
+		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
+	}
 	carg->write_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": udp sended %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp sended %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	req->handle->data = req->data;
 
@@ -74,8 +71,7 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 
 void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *carg)
 {
-	if (ac->log_level > 1)
-		printf("init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", NULL, 0, carg, addr, port);
+	carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", NULL, 0, carg, addr, port);
 
 	carg->conn_counter = 0;
 	carg->read_counter = 0;
@@ -113,8 +109,7 @@ void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	if (carg->log_level > 1)
-		printf("%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;

@@ -10,7 +10,6 @@
 
 typedef struct scheduler_node {
 	char *name;
-	uint64_t repeat;
 	char *action;
 	char *lang;
 	string *expr;

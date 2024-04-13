@@ -11,6 +11,7 @@
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
 #include "common/entrypoint.h"
+#include "common/logs.h"
 #include "main.h"
 
 extern aconf* ac;
@@ -20,8 +21,7 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	context_arg *carg = handle->data;
 	if (status)
 	{
-		if (carg->log_level > 0)
-			fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
+		carglog(carg, L_ERROR, "uv_write error: %s\n", uv_strerror(status));
 		return;
 	}
 	char buf[65535];
@@ -181,12 +181,12 @@ void unixgram_client_handler()
 // server
 void unixgram_serve_cb(uv_poll_t* handle, int status, int events)
 {
+	context_arg *carg = handle->data;
 	if (status)
 	{
-		fprintf(stderr, "uv_write error: %s\n", uv_strerror(status));
+		carglog(carg, L_ERROR, "uv_write error: %s\n", uv_strerror(status));
 		return;
 	}
-	context_arg *carg = handle->data;
 	char buf[65535];
 	int size;
 	if ( ( size = recvfrom(carg->fd, buf, 65535, 0, (struct sockaddr*)carg->local, &carg->local_len)) <= 0 )

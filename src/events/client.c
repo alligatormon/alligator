@@ -14,6 +14,7 @@
 #include "common/selector.h"
 #include "parsers/multiparser.h"
 #include "common/units.h"
+#include "common/logs.h"
 extern aconf* ac;
 
 void tcp_connected(uv_connect_t* req, int status);
@@ -22,8 +23,7 @@ void tcp_client_closed(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	carg->close_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, getrtime_now_ms(carg->close_time_finish), getrtime_sec_float(carg->close_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, getrtime_now_ms(carg->close_time_finish), getrtime_sec_float(carg->close_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 
 
@@ -61,8 +61,7 @@ void tcp_client_close(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	carg->close_time = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, getrtime_now_ms(carg->close_time), getrtime_sec_float(carg->close_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, getrtime_now_ms(carg->close_time), getrtime_sec_float(carg->close_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	carg->tt_timer->data = NULL;
 
@@ -103,8 +102,7 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
 	carg->shutdown_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->shutdown_time_finish), getrtime_sec_float(carg->shutdown_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->shutdown_time_finish), getrtime_sec_float(carg->shutdown_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 
 	tcp_client_close((uv_handle_t *)&carg->client);
@@ -116,8 +114,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	context_arg* carg = (context_arg*)stream->data;
 
 	carg->read_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->read_time_finish), getrtime_sec_float(carg->read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->read_time_finish), getrtime_sec_float(carg->read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	
 	(carg->read_counter)++;
 
@@ -126,11 +123,7 @@ void tcp_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		uint64_t chunksize = 0;
 		if (buf && buf->base)
 			buf->base[nread] = 0;
-		if (carg && carg->log_level > 99)
-		{
-			puts("");
-			printf("==================BASE===================\n'%s'\n======\n", buf? buf->base : "");
-		}
+		carglog(carg, L_TRACE, "\n==================BASE===================\n'%s'\n======\n", buf? buf->base : "");
 		carg->read_bytes_counter += nread;
 		if (buf && buf->base)
 		{
@@ -219,8 +212,7 @@ void tls_client_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = stream->data;
 	carg->tls_read_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	(carg->tls_read_counter)++;
 
 	if (nread <= 0)
@@ -448,8 +440,7 @@ void tls_connected(uv_connect_t* req, int status)
 	int ret = 0;
 	context_arg* carg = (context_arg*)req->data;
 	carg->connect_time_finish = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, getrtime_now_ms(carg->connect_time_finish), getrtime_sec_float(carg->connect_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, getrtime_now_ms(carg->connect_time_finish), getrtime_sec_float(carg->connect_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 
 	if (status < 0)
 	{
@@ -488,8 +479,7 @@ void tcp_connected(uv_connect_t* req, int status)
 	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->read_time = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] tcp client connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	if (!carg->tls)
 	{
 		carg->connect_time_finish = setrtime();
@@ -532,8 +522,7 @@ void tcp_timeout_timer(uv_timer_t *timer)
 		return;
 	}
 
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/%lf] timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(setrtime()), getrtime_sec_float(setrtime(), carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(setrtime()), getrtime_sec_float(setrtime(), carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	if (!carg->parsed && carg->full_body->l)
@@ -590,8 +579,7 @@ void tcp_client_connect(void *arg)
 	uv_ip4_addr(data->s, carg->numport, &carg->dest);
 
 	carg->connect_time = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/0] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/0] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 	if (carg->tls)
 	{
 		carg->tls_connect_time = setrtime();
@@ -661,8 +649,7 @@ void unix_client_connect(void *arg)
 		tls_client_init(carg->loop, carg);
 
 	carg->connect_time = setrtime();
-	if (carg->log_level > 1)
-		printf("%"u64": [%"PRIu64"/0] unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/0] unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 	if (carg->tls)
 	{
 		carg->tls_connect_time = setrtime();

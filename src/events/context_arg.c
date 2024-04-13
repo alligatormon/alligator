@@ -75,8 +75,7 @@ void env_struct_free(void *funcarg, void* arg)
 
 void carg_free(context_arg *carg)
 {
-	if (ac->log_level > 2)
-		printf("FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n", carg, carg->host, carg->key, carg->key, carg->mesg);
+	carglog(carg, L_DEBUG, "FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n", carg, carg->host, carg->key, carg->key, carg->mesg);
 
 	if (carg->mesg)
 		free(carg->mesg);
@@ -240,8 +239,7 @@ void env_struct_push_alloc(alligator_ht* hash, char *k, char *v)
 		es->v = strdup(v);
 		alligator_ht_insert(hash, &(es->node), es, key_hash);
 	}
-	else if (ac->log_level > 1)
-		printf("duplicate header key %s\n", k);
+	glog(L_ERROR, "duplicate header key %s\n", k);
 }
 
 alligator_ht *env_struct_parser(json_t *root)
@@ -307,8 +305,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
-	if (ac->log_level > 2)
-		printf("allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+	carglog(carg, L_INFO, "allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
 	aconf_mesg_set(carg, mesg, mesg_len);
 

@@ -324,7 +324,10 @@ int parse_args(int argc, char **argv)
 		else if (!strncmp(argv[i], "-l", 2))
 		{
 			++i;
-			ac->log_level = strtoll(argv[i], NULL, 10);
+			if (sisdigit(argv[i]))
+				ac->log_level = strtoll(argv[i], NULL, 10);
+			else
+				ac->log_level = get_log_level_by_name(argv[i], strlen(argv[i]));
 		}
 		else if (!strncmp(argv[i], "--help", 6))
 		{
