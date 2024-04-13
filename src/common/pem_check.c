@@ -39,6 +39,7 @@ uint64_t get_timestamp_from_mbedtls(mbedtls_x509_time mbed_tm)
 	return timestamp;
 }
 
+// TODO: function read_all_file from selector.c more flexiblw
 char *read_file(char *name)
 {
 	FILE *fd = fopen(name, "r");

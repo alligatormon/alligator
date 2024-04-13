@@ -914,6 +914,12 @@ void schedstat_process_info(char *pid, char *name)
 	metric_add_labels2("process_schedstat_run_periods", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 }
 
+
+void get_vmap_info(char *filename, char *pid, char *exName) {
+	uint64_t vmap_count = count_file_lines(filename);
+	metric_add_labels2("process_vmap_count", &vmap_count, DATATYPE_UINT, ac->system_carg, "name", exName, "pid", pid);
+}
+
 int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files)
 {
 	char dir[FILENAME_MAX];
@@ -987,6 +993,9 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	if (lightweight)
 		return 1;
+
+	snprintf(dir, FILENAME_MAX, "%s/%s/maps", ac->system_procfs, pid);
+	get_vmap_info(dir, procname, pid);
 
 	schedstat_process_info(pid, procname);
 

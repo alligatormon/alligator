@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 
 #set(VERSION 0.14.61)
-set(VERSION 1.14.102)
+set(VERSION 1.14.103)
 project(alligator VERSION ${VERSION})
 
 #set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
@@ -375,4 +375,6 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "alligator is aggregator for system and software metrics")
 set(CPACK_RPM_PACKAGE_DESCRIPTION "alligator is aggregator for system and software metrics")
+set(CPACK_RESOURCE_FILE_LICENSE ../LICENSE)
+set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
 include(CPack)

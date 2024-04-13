@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "common/validator.h"
 //#include "platform/platform.h"
 #include "main.h"
@@ -31,11 +35,53 @@ size_t get_any_file_size(char *filename)
 	return fdsize;
 }
 
+uint64_t count_nl(char *buffer, uint64_t size) {
+	uint64_t chars = 0;
+	for(uint64_t i = 0; buffer[i] != 0 && i < size; ++i)
+		if (buffer[i] == '\n')
+			++chars;
+	return chars;
+}
+
+uint64_t count_file_lines(char *filename) {
+	uint64_t charcount = 0;
+	int fd = open(filename, O_RDONLY);
+	if (!fd)
+		return 0;
+
+	char buffer[65535];
+	uint64_t ret = 0;
+	while ((ret = read(fd, buffer, 65534)))
+	{
+		buffer[ret] = 0;
+		charcount += count_nl(buffer, ret);
+	}
+	close(fd);
+
+	return charcount;
+}
+
 uint64_t get_file_atime(char *filename)
 {
 	struct stat st;
 	stat(filename, &st);
 	return st.st_atime;
+}
+
+uint64_t read_all_file(char *filename, char **buf) {
+	FILE *fd = fopen(filename, "rb");
+	if (!fd)
+		return 0;
+
+	uint64_t fsize = get_any_file_size(filename);
+
+	*buf = malloc(fsize + 1);
+	fread(*buf, fsize, 1, fd);
+	fclose(fd);
+
+	buf[fsize] = 0;
+
+	return fsize;
 }
 
 char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num )

@@ -96,3 +96,5 @@ void match_push(match_rules *mrules, char *str, size_t len);
 void match_del(match_rules *mrules, char *str, size_t len);
 void to_lower_before(char *s, char *before);
 void match_free(match_rules *mrules);
+uint64_t read_all_file(char *filename, char **buf);
+uint64_t count_file_lines(char *filename);
