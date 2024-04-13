@@ -286,6 +286,8 @@ void for_tls_fs_recurse_repeat_period(uv_timer_t *timer)
 	if (!tls_fs->period)
 		return;
 
+	uv_timer_set_repeat(tls_fs->period_timer, tls_fs->period);
+
 	tls_fs_recurse((void*)tls_fs);
 }
 
@@ -322,7 +324,7 @@ void tls_fs_push(char *name, char *path, char *match, char *password, char *type
 		tls_fs->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		tls_fs->period_timer->data = tls_fs;
 		uv_timer_init(ac->loop, tls_fs->period_timer);
-		uv_timer_start(tls_fs->period_timer, for_tls_fs_recurse_repeat_period, tls_fs->period, 0);
+		uv_timer_start(tls_fs->period_timer, for_tls_fs_recurse_repeat_period, tls_fs->period, tls_fs->period);
 	}
 }
 
