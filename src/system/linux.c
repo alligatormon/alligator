@@ -1336,7 +1336,6 @@ void find_pid(int8_t lightweight)
 	metric_add_labels("process_states", &states->stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
-	metric_add_auto("processes_total", &processes, DATATYPE_UINT, ac->system_carg);
 
 	char threadmax[255];
 	snprintf(threadmax, 255, "%s/sys/kernel/threads-max", ac->system_procfs);
@@ -1345,6 +1344,17 @@ void find_pid(int8_t lightweight)
 
 	double threads_usage = tasks * 100.0 / threads_max;
 	metric_add_auto("tasks_usage", &threads_usage, DATATYPE_DOUBLE, ac->system_carg);
+
+	metric_add_auto("processes_total", &processes, DATATYPE_UINT, ac->system_carg);
+
+	char pidmax[255];
+	snprintf(pidmax, 255, "%s/sys/kernel/pid_max", ac->system_procfs);
+	int64_t pid_max = getkvfile(pidmax);
+	metric_add_auto("processes_max", &pid_max, DATATYPE_INT, ac->system_carg);
+
+	double pids_usage = processes * 100.0 / pid_max;
+	metric_add_auto("processes_usage", &pids_usage, DATATYPE_DOUBLE, ac->system_carg);
+
 	free(states);
 
 	closedir(dp);
