@@ -501,7 +501,38 @@ ulimit_pid_stat* get_pid_ulimit_stat(char *path)
 	return ups;
 }
 
-void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups)
+void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid) {
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+		return;
+
+	char tmp[LINUXFS_LINE_LENGTH];
+	char key[LINUXFS_LINE_LENGTH];
+	char val[LINUXFS_LINE_LENGTH];
+	int64_t ival = 1;
+
+	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
+	{
+		size_t tmp_len = strlen(tmp)-1;
+		tmp[tmp_len] = 0;
+		int64_t i = strcspn(tmp, " \t");
+		strlcpy(key, tmp, i+1);
+
+		int swap = strspn(tmp+i, " \t")+i;
+		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
+		strlcpy(val, tmp+swap, i-swap+1);
+
+		ival = atoll(val);
+
+		if  ( !strncmp(key, "Threads", 7) )
+		{
+			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
+			*threads += (uint64_t)ival;
+		}
+	}
+}
+
+void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups, uint64_t *threads)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
@@ -534,7 +565,10 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 			ival *= 1024;
 
 		if  ( !strncmp(key, "Threads", 7) )
+		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
+			*threads += (uint64_t)ival;
+		}
 		else if (!strncmp(key, "voluntary_ctxt_switches", 23))
 		{
 			if ( ctxt_switches != 0 )
@@ -920,7 +954,7 @@ void get_vmap_info(char *filename, char *pid, char *exName) {
 	metric_add_labels2("process_vmap_count", &vmap_count, DATATYPE_UINT, ac->system_carg, "name", exName, "pid", pid);
 }
 
-int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files)
+int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files, uint64_t *threads)
 {
 	char dir[FILENAME_MAX];
 	uint64_t rc;
@@ -989,10 +1023,24 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	*allfilesnum += filesnum;
 
 	if (!match)
+	{
+		if (!lightweight)
+		{
+			snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
+			only_calculate_threads(dir, threads, procname, pid);
+		}
 		return 1;
+	}
 
 	if (lightweight)
+	{
+		if (match)
+		{
+			snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
+			only_calculate_threads(dir, threads, procname, pid);
+		}
 		return 1;
+	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/maps", ac->system_procfs, pid);
 	get_vmap_info(dir, procname, pid);
@@ -1010,7 +1058,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
-	get_process_extra_info(dir, procname, pid, ups);
+	get_process_extra_info(dir, procname, pid, ups, threads);
 	if (ups)
 		free(ups);
 
@@ -1097,7 +1145,7 @@ void simple_pidfile_scrape(char *find_pid)
 	if (ac->log_level > 1)
 		printf("check PID '%s'\n", pid_strict);
 
-	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL);
+	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL);
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", find_pid);
 	string_free(pid);
 	free(states);
@@ -1128,7 +1176,7 @@ void cgroup_procs_scrape(char *cgroup_path)
 		if (ac->log_level > 1)
 			 printf("check PID '%s' from '%s'\n", pid_strict, cgroup_path);
 
-		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL);
+		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL);
 	}
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", cgroup_path);
 	free(states);
@@ -1251,10 +1299,9 @@ void find_pid(int8_t lightweight)
 		if ( !isdigit(entry->d_name[0]) )
 			continue;
 
-		++tasks;
 		++processes;
 
-		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1, files_open);
+		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1, files_open, &tasks);
 	}
 
 	fd_info_summarize sum = { 0 };
@@ -2772,7 +2819,7 @@ void stat_userprocess_cb(uv_fs_t *req) {
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
 	if (uupn || gupn)
-		get_pid_info(pid, &allfilesnum, 0, states, 0, NULL);
+		get_pid_info(pid, &allfilesnum, 0, states, 0, NULL, NULL);
 
 	free(pid);
 	free(states);
