@@ -60,6 +60,7 @@ char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, cha
 int64_t getkvfile(char *file);
 int64_t getkvfile_ext(char *file, uint8_t *err);
 void getkvfile_str(char *file, char *str, uint64_t size);
+int64_t getkvfile_uint(char *file);
 void str_tolower(char *str, size_t size);
 string* string_init_str(char *str, size_t max);
 string* string_init(size_t max);

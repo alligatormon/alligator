@@ -393,6 +393,24 @@ int64_t getkvfile(char *file)
 	return atoll(temp);
 }
 
+int64_t getkvfile_uint(char *file)
+{
+	char temp[20];
+	FILE *fd = fopen(file, "r");
+	if (!fd)
+		return 0;
+
+	if ( !fgets(temp, 20, fd) )
+	{
+		fclose(fd);
+		return 0;
+	}
+
+	fclose(fd);
+
+	return strtoull(temp, NULL, 10);
+}
+
 int64_t getkvfile_ext(char *file, uint8_t *err)
 {
 	char temp[20];

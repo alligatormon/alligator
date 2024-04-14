@@ -532,7 +532,7 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 	}
 }
 
-void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups, uint64_t *threads)
+void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups, uint64_t *threads, uint64_t shm_max)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
@@ -656,7 +656,11 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 			}
 		}
 		else if ( !strncmp(key, "RssShmem", 8) )
+		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "shmem_bytes", "name", name, "pid", pid);
+			double usage = ival * 1.0 / shm_max;
+			metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "shmem_bytes", "name", name, "pid", pid);
+		}
 		else	continue;
 	}
 
@@ -954,7 +958,7 @@ void get_vmap_info(char *filename, char *pid, char *exName) {
 	metric_add_labels2("process_vmap_count", &vmap_count, DATATYPE_UINT, ac->system_carg, "name", exName, "pid", pid);
 }
 
-int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files, uint64_t *threads)
+int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files, uint64_t *threads, uint64_t shm_max)
 {
 	char dir[FILENAME_MAX];
 	uint64_t rc;
@@ -1058,7 +1062,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
-	get_process_extra_info(dir, procname, pid, ups, threads);
+	get_process_extra_info(dir, procname, pid, ups, threads, shm_max);
 	if (ups)
 		free(ups);
 
@@ -1145,7 +1149,7 @@ void simple_pidfile_scrape(char *find_pid)
 	if (ac->log_level > 1)
 		printf("check PID '%s'\n", pid_strict);
 
-	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL);
+	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL, 0);
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", find_pid);
 	string_free(pid);
 	free(states);
@@ -1176,7 +1180,7 @@ void cgroup_procs_scrape(char *cgroup_path)
 		if (ac->log_level > 1)
 			 printf("check PID '%s' from '%s'\n", pid_strict, cgroup_path);
 
-		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL);
+		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL, 0);
 	}
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", cgroup_path);
 	free(states);
@@ -1293,6 +1297,10 @@ void find_pid(int8_t lightweight)
 	uint64_t tasks = 0;
 	uint64_t processes = 0;
 
+	char shmmax[255];
+	snprintf(shmmax, 255, "%s/sys/kernel/shmmax", ac->system_procfs);
+	uint64_t shmem_max = getkvfile_uint(shmmax);
+
 	alligator_ht *files_open = alligator_ht_init(NULL);
 	while((entry = readdir(dp)))
 	{
@@ -1301,7 +1309,7 @@ void find_pid(int8_t lightweight)
 
 		++processes;
 
-		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1, files_open, &tasks);
+		get_pid_info(entry->d_name, &allfilesnum, lightweight, states, 1, files_open, &tasks, shmem_max);
 	}
 
 	fd_info_summarize sum = { 0 };
@@ -2819,7 +2827,7 @@ void stat_userprocess_cb(uv_fs_t *req) {
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
 	if (uupn || gupn)
-		get_pid_info(pid, &allfilesnum, 0, states, 0, NULL, NULL);
+		get_pid_info(pid, &allfilesnum, 0, states, 0, NULL, NULL, 0);
 
 	free(pid);
 	free(states);
