@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <ftw.h>
+#include "events/context_arg.h"
+#include "common/logs.h"
 #include "system/linux/sysctl.h"
 
 void sysctl_copy_name(char *dst, char *src, size_t len)
@@ -62,7 +64,7 @@ void sysctl_get_foreach(void *arg)
 	int rc = nftw(full_path, nftw_info, 20, flags);
 	if ((rc == -1) && (ac->system_carg->log_level > 0))
 	{
-		printf("nftw error %s", full_path);
+		carglog(ac->system_carg, L_ERROR, "nftw error %s", full_path);
 		perror("");
 	}
 

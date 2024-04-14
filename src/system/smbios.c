@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include "main.h"
 #include "common/selector.h"
+#include "events/context_arg.h"
+#include "common/logs.h"
 
 #ifndef __linux__
 #include <kenv.h>
@@ -255,20 +257,17 @@ int smbios_read_memory(int memfd, off_t offset, size_t len, uint8_t **buf) {
 	ssize_t nbytes;
 
 	if (lseek(memfd, offset, SEEK_SET) < 0) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: lseek\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR, "%s: lseek\n", __FUNCTION__);
 		return(0);
 	}
 
 	nbytes = read(memfd, *buf, len);
 	if (nbytes < 0) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: read\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR,"%s: read\n", __FUNCTION__);
 		return(0);
 	}
 	if ((size_t)nbytes != len) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: read: %lu bytes requested but only %lu bytes actually read\n", __FUNCTION__, (u_long)len, (u_long)nbytes);
+		carglog(ac->system_carg, L_ERROR, "%s: read: %lu bytes requested but only %lu bytes actually read\n", __FUNCTION__, (u_long)len, (u_long)nbytes);
 		return(0);
 	}
 
@@ -302,8 +301,7 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 #endif
 
 	if (!(buf = malloc(EPS_RANGE_LEN))) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: malloc(%lu)\n", __FUNCTION__, (u_long)EPS_RANGE_LEN);
+		carglog(ac->system_carg, L_ERROR, "%s: malloc(%lu)\n", __FUNCTION__, (u_long)EPS_RANGE_LEN);
 		return(0);
 	}
 
@@ -317,8 +315,7 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 	for (offset = 0; offset < EPS_RANGE_LEN - sizeof(*eps); offset += EPS_RANGE_STEP) {
 		eps = (struct smbios_eps *)(buf + offset);
 		if (!memcmp(eps->anchor, EPS_ANCHOR, sizeof(eps->anchor))) {
-			if (ac->log_level > 1)
-				printf("%s: SMBIOS EPS found at 0x%08lx\n", __FUNCTION__, (u_long)offset + EPS_RANGE_START);
+			carglog(ac->system_carg, L_INFO, "%s: SMBIOS EPS found at 0x%08lx\n", __FUNCTION__, (u_long)offset + EPS_RANGE_START);
 			f_found = 1;
 			break;
 		}
@@ -335,13 +332,11 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 #else
 		if ((fp = fopen("/sys/firmware/efi/systab", "r")) != NULL && fscanf(fp, "%"PRIu64, &uefi_smbios_addr) == 1 && uefi_smbios_addr) {
 #endif
-			if (ac->log_level > 1)
-				printf("SMBIOS EPS not found at default location" ", but we're got alternative addr 0x%016lx " "from UEFI\n", uefi_smbios_addr);
+			carglog(ac->system_carg, L_INFO, "SMBIOS EPS not found at default location" ", but we're got alternative addr 0x%016lx " "from UEFI\n", uefi_smbios_addr);
 			if (smbios_read_memory(memfd, uefi_smbios_addr, sizeof(*eps), &buf)) {
 				eps = (struct smbios_eps *) buf;
 				if (!memcmp(eps->anchor, EPS_ANCHOR, sizeof(eps->anchor))) {
-					if (ac->log_level > 1)
-						printf("%s: SMBIOS EPS found\n", __FUNCTION__);
+					carglog(ac->system_carg, L_INFO, "%s: SMBIOS EPS found\n", __FUNCTION__);
 					f_found = 1;
 				}
 			}
@@ -356,32 +351,26 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 	}
 
 	if (eps->length < sizeof(*eps)) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: SMBIOS EPS has too small length (%lu bytes)\n", __FUNCTION__, (u_long)eps->length);
+		carglog(ac->system_carg, L_ERROR, "%s: SMBIOS EPS has too small length (%lu bytes)\n", __FUNCTION__, (u_long)eps->length);
 		free(buf);
 		return(0);
 	}
 
 	if (!smbios_eval_checksum((uint8_t *)eps, eps->length)) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: SMBIOS EPS has wrong checksum\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR, "%s: SMBIOS EPS has wrong checksum\n", __FUNCTION__);
 		free(buf);
 		return(0);
 	}
 
 	if (!eps->table_length) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: SMBIOS table has zero length\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR, "%s: SMBIOS table has zero length\n", __FUNCTION__);
 		free(buf);
 		return(0);
 	}
 
-	if (ac->log_level > 1)
-	{
-		printf("%s: SMBIOS version %u.%u present\n", __FUNCTION__, (u_int)eps->major_version, (u_int)eps->minor_version);
-		printf("%s: SMBIOS table located at 0x%08lx\n", __FUNCTION__, (u_long)eps->table_address);
-		printf("%s: %lu structures occupying %lu bytes\n", __FUNCTION__, (u_long)eps->struct_count, (u_long)eps->table_length);
-	}
+	carglog(ac->system_carg, L_INFO, "%s: SMBIOS version %u.%u present\n", __FUNCTION__, (u_int)eps->major_version, (u_int)eps->minor_version);
+	carglog(ac->system_carg, L_INFO, "%s: SMBIOS table located at 0x%08lx\n", __FUNCTION__, (u_long)eps->table_address);
+	carglog(ac->system_carg, L_INFO, "%s: %lu structures occupying %lu bytes\n", __FUNCTION__, (u_long)eps->struct_count, (u_long)eps->table_length);
 
 	memcpy(eps_buf, eps, sizeof(*eps));
 
@@ -402,8 +391,7 @@ int smbios_decode_strings(struct smbios_s *smbios, char ***strings, u_int *strin
 	p += smbios->h.length;
 	while (*p) {
 		if (n == STRINGS_MAXN) {
-			if (ac->log_level > 0)
-				fprintf(stderr, "%s: Too many strings in unformed section " "(maximum %u allowed)\n", __FUNCTION__, (u_int)STRINGS_MAXN);
+			carglog(ac->system_carg, L_ERROR, "%s: Too many strings in unformed section " "(maximum %u allowed)\n", __FUNCTION__, (u_int)STRINGS_MAXN);
 			return(0);
 		}
 		(*strings)[n++] = (char *)p;
@@ -565,8 +553,7 @@ void smbios_read_table(int memfd, const struct smbios_eps *eps) {
 	struct smbios_s *smbios;
 
 	if (!(buf = malloc(eps->table_length))) {
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s: malloc(%lu)\n", __FUNCTION__, (u_long)eps->table_length);
+		carglog(ac->system_carg, L_ERROR, "%s: malloc(%lu)\n", __FUNCTION__, (u_long)eps->table_length);
 		return;
 	}
 
@@ -578,20 +565,17 @@ void smbios_read_table(int memfd, const struct smbios_eps *eps) {
 	p = buf;
 	pe = p + eps->table_length;
 	for (i = 1; i <= eps->struct_count; i++) {
-		if (ac->log_level > 2)
-			printf("%s: Processing structure %u of %u\n", __FUNCTION__, i, (u_int)eps->struct_count);
+		carglog(ac->system_carg, L_INFO, "%s: Processing structure %u of %u\n", __FUNCTION__, i, (u_int)eps->struct_count);
 		smbios = (struct smbios_s *)p;
 
 		if ((size_t)(pe - p) < sizeof(smbios->h) + 2 || (size_t)(pe - p) < (size_t)smbios->h.length + 2)
 		{
-			if (ac->log_level > 2)
-				printf("%s: Formatted section extends beyond the table\n", __FUNCTION__);
+			carglog(ac->system_carg, L_INFO, "%s: Formatted section extends beyond the table\n", __FUNCTION__);
 			free(buf);
 			return;
 		}
 		if (smbios->h.length < sizeof(smbios->h)) {
-			if (ac->log_level > 2)
-				printf("%s: Formatted section too short (%lu bytes)\n", __FUNCTION__, (u_long)smbios->h.length);
+			carglog(ac->system_carg, L_INFO, "%s: Formatted section too short (%lu bytes)\n", __FUNCTION__, (u_long)smbios->h.length);
 			free(buf);
 			return;
 		}
@@ -599,16 +583,14 @@ void smbios_read_table(int memfd, const struct smbios_eps *eps) {
 		p += smbios->h.length + 2;
 		while (*(p - 1) || *(p - 2)) {
 			if (p == pe) {
-				if (ac->log_level > 2)
-					fprintf(stderr, "%s: Unformed section extends beyond the table\n", __FUNCTION__);
+				carglog(ac->system_carg, L_ERROR, "%s: Unformed section extends beyond the table\n", __FUNCTION__);
 				free(buf);
 				return;
 			}
 			p++;
 		}
 
-		if (ac->log_level > 2)
-			printf("%s: Type %u, Handle 0x%04x, %lu/%lu bytes\n", __FUNCTION__, (u_int)smbios->h.type, (u_int)smbios->h.handle, (u_long)smbios->h.length, (u_long)(p - (uint8_t *)smbios - smbios->h.length));
+		carglog(ac->system_carg, L_INFO, "%s: Type %u, Handle 0x%04x, %lu/%lu bytes\n", __FUNCTION__, (u_int)smbios->h.type, (u_int)smbios->h.handle, (u_long)smbios->h.length, (u_long)(p - (uint8_t *)smbios - smbios->h.length));
 
 		smbios_decode_struct(smbios);
 	}

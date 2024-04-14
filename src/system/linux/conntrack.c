@@ -12,6 +12,8 @@
 #include <inttypes.h>
 #include <byteswap.h>
 #include "dstructures/ht.h"
+#include "events/context_arg.h"
+#include "common/logs.h"
 #include "metric/namespace.h"
 #include "main.h"
 
@@ -61,8 +63,7 @@ void get_conntrack_info()
 	int rep = sendmsg(fd, &msg, 0);
 	if (rep < 0)
 	{
-		if (ac->system_carg->log_level > 1)
-			printf("sendmsg error: get_conntrack_info\n");
+		carglog(ac->system_carg, L_ERROR, "sendmsg error: get_conntrack_info\n");
 		close(fd);
 		return;
 	}
@@ -90,7 +91,7 @@ void get_conntrack_info()
 				close(fd);
 				return;
 			}
-			printf("OVERRUN\n");
+			carglog(ac->system_carg, L_DEBUG, "conntrack OVERRUN\n");
 			{
 				close(fd);
 				return;

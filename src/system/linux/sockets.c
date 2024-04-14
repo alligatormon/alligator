@@ -19,6 +19,8 @@
 #include <linux/inet_diag.h>
 #include <linux/sock_diag.h>
 #include <linux/netlink.h>
+#include "events/context_arg.h"
+#include "common/logs.h"
 #include <dirent.h>
 #include <netpacket/packet.h>
 #include "main.h"
@@ -150,8 +152,7 @@ void count_port(void *funcarg, void* arg)
 void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 {
 	r_time ts_start = setrtime();
-	if (ac->log_level > 2)
-		printf("system scrape metrics: network: get_net_tcpudp '%s'\n", proto);
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: get_net_tcpudp '%s'\n", proto);
 
 	struct sockaddr_nl nladdr;
 	struct msghdr msg;
@@ -204,7 +205,7 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 		};
 		int rep;
 		if ((rep = sendmsg(nld, &msg, 0)) < 0)
-			fprintf(stderr, "sendmsg: %d\n", rep);
+			carglog(ac->system_carg, L_ERROR, "sockets sendmsg: %d\n", rep);
 		iov[0] = (struct iovec) {
 			.iov_base = fbuf,
 			.iov_len = sizeof(fbuf)
@@ -224,7 +225,7 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 			if (status < 0) {
 				if (errno == EINTR)
 					continue;
-				fprintf(stderr, "OVERRUN\n");
+				carglog(ac->system_carg, L_ERROR, "sockets OVERRUN\n");
 				continue;
 			}
 			if (status == 0)
@@ -256,7 +257,7 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 				if (ac->fdesc)
 					fdescriptors = alligator_ht_search(ac->fdesc, process_fdescriptors_compare, &fdesc, tommy_inthash_u32(fdesc));
 
-				//printf("state %d, family %d/%d/%d\n", state, pproto, IPPROTO_TCP, IPPROTO_UDP);
+				carglog(ac->system_carg, L_TRACE, "state %d, family %d/%d/%d\n", state, pproto, IPPROTO_TCP, IPPROTO_UDP);
 				if ((pproto == IPPROTO_TCP && state == 10) || (pproto == IPPROTO_UDP && state == 7))
 				{
 					uint64_t val = 1;
@@ -341,6 +342,5 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
-	if (ac->log_level > 2)
-		printf("system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
 }

@@ -13,6 +13,8 @@
 #include <byteswap.h>
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
+#include "events/context_arg.h"
+#include "common/logs.h"
 #include "main.h"
 #define IPSET_CMD_LIST NLM_F_MULTI|NLM_F_ACK|NLM_F_DUMP
 
@@ -36,8 +38,7 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 	{
 		uint16_t ksize = ((uint16_t)*(kdt + k));
 		uint16_t ktype = ((uint16_t)*(kdt + k + 2));
-		if (ac->system_carg->log_level > 0)
-			printf("\t\t\t3[%"PRIu64"/%u] internal name: %s, type: %d/%d, size: %d: %u %u %u %u\n", k, dsize - 4, name, ktype, IPSET_ATTR_COMMENT, ksize, kdt[k+4], kdt[k+5], kdt[k+6], kdt[k+7]);
+		carglog(ac->system_carg, L_INFO, "\t\t\t3[%"PRIu64"/%u] internal name: %s, type: %d/%d, size: %d: %u %u %u %u\n", k, dsize - 4, name, ktype, IPSET_ATTR_COMMENT, ksize, kdt[k+4], kdt[k+5], kdt[k+6], kdt[k+7]);
 
 		memcpy(kvalue, kdt + k + 4, ksize - 4);
 		if (ktype == IPSET_ATTR_HASHSIZE && ksize == 8)
@@ -154,8 +155,7 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 		}
 		else
 		{
-			if (ac->system_carg->log_level > 0)
-				fprintf(stderr, "\t\tipset_data_entry unknown ipset attribute from kernel: %s: %u\n", name, ktype);
+			carglog(ac->system_carg, L_ERROR, "\t\tipset_data_entry unknown ipset attribute from kernel: %s: %u\n", name, ktype);
 		}
 
 		k += NLMSG_ALIGN(ksize);
@@ -181,8 +181,7 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 
 	if (*ipaddr || *cidr || *attrcomment || *iface || *macaddr || *strproto || *strport || *strmark)
 	{
-		if (ac->system_carg->log_level > 0)
-			printf("\n\t\t\tip is %s, cidr is %s, range to %s, comment is %s, iface is %s, macaddr is %s, timeout is %"PRIu64", mark is %"PRIu64", proto is %s, bytes is %"PRIu64", packets is %"PRIu64", port is %"PRIu16"\n", ipaddr, cidr, ipaddr_to, attrcomment, iface, macaddr, timeout, mark, strproto, bytes, packets, port);
+		carglog(ac->system_carg, L_INFO, "\n\t\t\tip is %s, cidr is %s, range to %s, comment is %s, iface is %s, macaddr is %s, timeout is %"PRIu64", mark is %"PRIu64", proto is %s, bytes is %"PRIu64", packets is %"PRIu64", port is %"PRIu16"\n", ipaddr, cidr, ipaddr_to, attrcomment, iface, macaddr, timeout, mark, strproto, bytes, packets, port);
 		if (*ipaddr_to)
 			metric_add_labels10("ipset_entry_data", &okval, DATATYPE_UINT, ac->system_carg, "name", name, "addr", ipaddr, "prefix", cidr, "comment", attrcomment, "iface", iface, "mac", macaddr, "proto", strproto, "port", strport, "mark", strmark, "range_to", ipaddr_to);
 		else
@@ -247,8 +246,7 @@ void ipset()
 	int rep = sendmsg(fd, &msg, 0);
 	if (rep < 0)
 	{
-		if (ac->system_carg->log_level > 1)
-			printf("sendmsg error: ipset()\n");
+		carglog(ac->system_carg, L_ERROR, "sendmsg error: ipset()\n");
 		close(fd);
 		return;
 	}
@@ -308,20 +306,17 @@ void ipset()
 			{
 				uint16_t size = ((uint8_t)(dt[i + 1]) << 8) + (uint8_t)(dt[i]);
 				uint16_t type = ((uint16_t)*(dt + i + 2));
-				if (ac->system_carg->log_level > 0)
-					printf("\t1[%"PRIu64"/%"PRIu64"] name: %s, type: %d, size: %d: %hhu %hhu %hhu %hhu %hhu %hhu %hhu %hhu\n", i, dt_size, name, type, size, dt[i], dt[i+1], dt[i+2], dt[i+3], dt[i+4], dt[i+5], dt[i+6], dt[i+7]);
+				carglog(ac->system_carg, L_INFO, "\t1[%"PRIu64"/%"PRIu64"] name: %s, type: %d, size: %d: %hhu %hhu %hhu %hhu %hhu %hhu %hhu %hhu\n", i, dt_size, name, type, size, dt[i], dt[i+1], dt[i+2], dt[i+3], dt[i+4], dt[i+5], dt[i+6], dt[i+7]);
 
 				if (size < 4)
 				{
-					if (ac->system_carg->log_level > 1)
-						printf("ipset attribute 0x%02x has invalid length of %d bytes\n", type, size);
+					carglog(ac->system_carg, L_ERROR, "ipset attribute 0x%02x has invalid length of %d bytes\n", type, size);
 					break;
 				}
 
 				if (dt_size < (i+size))
 				{
-					if (ac->system_carg->log_level > 1)
-						printf("ipset attribute 0x%02x of length %d is truncated, only %"PRIu64" bytes remaining\n", type, size, dt_size-i);
+					carglog(ac->system_carg, L_ERROR, "ipset attribute 0x%02x of length %d is truncated, only %"PRIu64" bytes remaining\n", type, size, dt_size-i);
 					break;
 				}
 
@@ -375,8 +370,7 @@ void ipset()
 					{
 						uint16_t dsize = ((uint16_t)*(ddt + j));
 						uint16_t dtype = ((uint16_t)*(ddt + j + 2));
-						if (ac->system_carg->log_level > 0)
-							printf("\t\t2[%"PRIu64"/%u] ADT type: '%s' %d, size: %d: %u %u %u %u\n", j, size - 4, typename, dtype, dsize, ddt[j+4], ddt[j+5], ddt[j+6], ddt[j+7]);
+						carglog(ac->system_carg, L_INFO, "\t\t2[%"PRIu64"/%u] ADT type: '%s' %d, size: %d: %u %u %u %u\n", j, size - 4, typename, dtype, dsize, ddt[j+4], ddt[j+5], ddt[j+6], ddt[j+7]);
 
 						memcpy(dvalue, ddt + j + 4, dsize - 4);
 						if (dtype == IPSET_ATTR_DATA)
@@ -390,8 +384,7 @@ void ipset()
 				}
 				else
 				{
-					if (ac->system_carg->log_level > 0)
-						fprintf(stderr, "\tunknown ipset attribute from kernel: %u, typename '%s'\n", type, typename);
+					carglog(ac->system_carg, L_ERROR, "\tunknown ipset attribute from kernel: %u, typename '%s'\n", type, typename);
 				}
 
 				i += NLMSG_ALIGN(size);

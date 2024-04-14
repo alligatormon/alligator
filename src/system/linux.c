@@ -25,6 +25,8 @@
 #include "metric/labels.h"
 #include "common/smart.h"
 #include "dstructures/ht.h"
+#include "events/context_arg.h"
+#include "common/logs.h"
 #include "cadvisor/run.h"
 #include <utmp.h>
 #include "system/fdescriptors.h"
@@ -122,15 +124,14 @@ void print_mount(const struct mntent *fs)
 
 void get_disk()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: disk: get_stat");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: get_stat\n");
 
 	FILE *fp;
 	struct mntent *fs;
 
 	fp = setmntent("/etc/mtab", "r");
 	if (fp == NULL) {
-		fprintf(stderr, "could not open /etc/mtab\n " );
+		carglog(ac->system_carg, L_ERROR, "could not open /etc/mtab\n");
 		return;
 	}
 
@@ -148,8 +149,7 @@ void cpu_avg_push(double now)
 	double old = ac->system_avg_metrics[ac->system_cpuavg_ptr];
 	ac->system_avg_metrics[ac->system_cpuavg_ptr] = now;
 	ac->system_cpuavg_sum = (ac->system_cpuavg_sum - old) + now;
-	if (ac->log_level > 2)
-		printf("set ac->system_avg_metrics[%"u64"]=%lf, sum: %lf\n", ac->system_cpuavg_ptr, ac->system_avg_metrics[ac->system_cpuavg_ptr], ac->system_cpuavg_sum);
+	carglog(ac->system_carg, L_INFO, "set ac->system_avg_metrics[%"u64"]=%lf, sum: %lf\n", ac->system_cpuavg_ptr, ac->system_avg_metrics[ac->system_cpuavg_ptr], ac->system_cpuavg_sum);
 
 	++ac->system_cpuavg_ptr;
 	if (ac->system_cpuavg_ptr >= ac->system_cpuavg_period)
@@ -158,8 +158,7 @@ void cpu_avg_push(double now)
 
 void get_cpu(int8_t platform)
 {
-	if (ac->log_level > 2)
-		puts("fast scrape metrics: base: cpu");
+	carglog(ac->system_carg, L_INFO, "fast scrape metrics: base: cpu\n");
 	r_time ts_start = setrtime();
 
 	int64_t effective_cores;
@@ -431,8 +430,7 @@ void get_cpu(int8_t platform)
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
 	double diff_time = getrtime_ns(ac->last_time_cpu, ts_start)/1000000000.0;
-	if (ac->log_level > 2)
-		printf("system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
 
 	ac->last_time_cpu = ts_start;
 	metric_add_auto("cpu_usage_calc_delta_time", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
@@ -488,15 +486,12 @@ ulimit_pid_stat* get_pid_ulimit_stat(char *path)
 				ups->addressspace = strtoull(tmp, NULL, 10) * 1024;
 		}
 	}
-	if (ac->log_level > 2)
-	{
-		printf("rlimit: %s: datasize = %"PRIu64"\n", path, ups->datasize);
-		printf("rlimit: %s: stacksize = %"PRIu64"\n", path, ups->stacksize);
-		printf("rlimit: %s: rsssize = %"PRIu64"\n", path, ups->rsssize);
-		printf("rlimit: %s: openfiles = %"PRIu64"\n", path, ups->openfiles);
-		printf("rlimit: %s: lockedsize = %"PRIu64"\n", path, ups->lockedsize);
-		printf("rlimit: %s: addressspace = %"PRIu64"\n", path, ups->addressspace);
-	}
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: datasize = %"PRIu64"\n", path, ups->datasize);
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: stacksize = %"PRIu64"\n", path, ups->stacksize);
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: rsssize = %"PRIu64"\n", path, ups->rsssize);
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: openfiles = %"PRIu64"\n", path, ups->openfiles);
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: lockedsize = %"PRIu64"\n", path, ups->lockedsize);
+	carglog(ac->system_carg, L_DEBUG, "rlimit: %s: addressspace = %"PRIu64"\n", path, ups->addressspace);
 	fclose(fd);
 	return ups;
 }
@@ -1136,8 +1131,7 @@ void pidfile_del(char *file, int type)
 
 void simple_pidfile_scrape(char *find_pid)
 {
-	if (ac->log_level > 1)
-		printf("PIDfile check %s\n", find_pid);
+	carglog(ac->system_carg, L_DEBUG, "PIDfile check %s\n", find_pid);
 
 	string* pid = get_file_content(find_pid, 1);
 	if (!pid)
@@ -1151,8 +1145,7 @@ void simple_pidfile_scrape(char *find_pid)
 	size_t copy_size = pid_size > 21 ? 21 : pid_size;
 	strlcpy(pid_strict, pid->s, copy_size);
 	
-	if (ac->log_level > 1)
-		printf("check PID '%s'\n", pid_strict);
+	carglog(ac->system_carg, L_DEBUG, "check PID '%s'\n", pid_strict);
 
 	uint64_t rc = get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL, 0, 0);
 	metric_add_labels("process_match", &rc, DATATYPE_UINT, ac->system_carg, "name", find_pid);
@@ -1163,8 +1156,7 @@ void simple_pidfile_scrape(char *find_pid)
 
 void cgroup_procs_scrape(char *cgroup_path)
 {
-	if (ac->log_level > 1)
-		printf("Cgroup procs file check %s\n", cgroup_path);
+	carglog(ac->system_carg, L_DEBUG, "Cgroup procs file check %s\n", cgroup_path);
 
 	FILE *fd = fopen(cgroup_path, "r");
 	if (!fd)
@@ -1182,8 +1174,7 @@ void cgroup_procs_scrape(char *cgroup_path)
 		size_t copy_size = pid_size > 21 ? 21 : pid_size;
 		strlcpy(pid_strict, pid, copy_size);
 
-		if (ac->log_level > 1)
-			 printf("check PID '%s' from '%s'\n", pid_strict, cgroup_path);
+		carglog(ac->system_carg, L_DEBUG, "check PID '%s' from '%s'\n", pid_strict, cgroup_path);
 
 		rc += get_pid_info(pid_strict, &allfilesnum, 0, states, 0, NULL, NULL, 0, 0);
 	}
@@ -1283,8 +1274,7 @@ void files_fd_free(void *funcarg, void* arg)
 
 void find_pid(int8_t lightweight)
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: processes");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: processes\n");
 
 
 	struct dirent *entry;
@@ -1382,8 +1372,7 @@ uint64_t get_container_mem_usage()
 
 void get_mem(int8_t platform)
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: base: mem");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: mem\n");
 
 	char pathbuf[255];
 	snprintf(pathbuf, 255, "%s/meminfo", ac->system_procfs);
@@ -1740,8 +1729,7 @@ void throttle_stat()
 
 void get_netstat_statistics(char *ns_file)
 {
-	if (ac->log_level > 2)
-		printf("system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
 
 	FILE *fp = fopen(ns_file, "r");
 	if(!fp)
@@ -1791,8 +1779,7 @@ void get_netstat_statistics(char *ns_file)
 
 void get_network_statistics()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: network: network_statistics");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics\n");
 
 	int64_t received_bytes;
 	int64_t received_packets;
@@ -1899,8 +1886,7 @@ void get_network_statistics()
 
 void get_nofile_stat()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: base: nofile_stat");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: nofile_stat\n");
 
 	char filenr[255];
 	snprintf(filenr, 255, "%s/sys/fs/file-nr", ac->system_procfs);
@@ -1942,8 +1928,7 @@ void get_nofile_stat()
 
 void get_disk_io_stat()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: disk: io_stat");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: io_stat\n");
 
 	char diskstats[255];
 	snprintf(diskstats, 255, "%s/diskstats", ac->system_procfs);
@@ -2000,8 +1985,7 @@ void get_disk_io_stat()
 
 void get_loadavg()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: base: loadavg");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: loadavg\n");
 
 	char loadavg[255];
 	snprintf(loadavg, 255, "%s/loadavg", ac->system_procfs);
@@ -2026,8 +2010,7 @@ void get_loadavg()
 
 void get_uptime()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: base: uptime");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: uptime\n");
 	r_time time1 = setrtime();
 
 	time_t t = time(NULL);
@@ -2043,8 +2026,7 @@ void get_uptime()
 
 void get_mdadm()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: disk: mdadm");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: mdadm\n");
 
 	char mdstat[255];
 	snprintf(mdstat, 255, "%s/mdstat", ac->system_procfs);
@@ -2144,8 +2126,7 @@ void get_mdadm()
 
 int8_t get_platform(int8_t mode)
 {
-	if (ac->log_level > 2)
-		printf("system scrape metrics: base: platform %d\n", mode);
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d\n", mode);
 
 	int64_t vl = 1;
 
@@ -2230,8 +2211,7 @@ int8_t get_platform(int8_t mode)
 
 void interface_stats()
 {
-	if (ac->log_level > 2)
-		puts("system scrape metrics: network: interface_stats");
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: interface_stats\n");
 
 	struct dirent *entry;
 	DIR *dp;
@@ -2840,8 +2820,7 @@ void stat_userprocess_cb(uv_fs_t *req) {
 	userprocess_node *gupn = alligator_ht_search(ac->system_groupprocess, userprocess_compare, &st.st_gid, st.st_gid);
 	char *pid = req->data;
 
-	if (ac->log_level > 2)
-		printf("%s: st_uid is %"u64", st_gid is %"u64": %p/%p\n", pid, st.st_uid, st.st_gid, uupn, gupn);
+	carglog(ac->system_carg, L_INFO, "%s: st_uid is %"u64", st_gid is %"u64": %p/%p\n", pid, st.st_uid, st.st_gid, uupn, gupn);
 
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;
