@@ -522,7 +522,8 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 		if  ( !strncmp(key, "Threads", 7) )
 		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
-			*threads += (uint64_t)ival;
+			if (threads)
+				*threads += (uint64_t)ival;
 		}
 	}
 }
@@ -562,7 +563,8 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		if  ( !strncmp(key, "Threads", 7) )
 		{
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
-			*threads += (uint64_t)ival;
+			if (threads)
+				*threads += (uint64_t)ival;
 		}
 		else if (!strncmp(key, "voluntary_ctxt_switches", 23))
 		{
