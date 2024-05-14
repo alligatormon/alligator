@@ -528,5 +528,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 void carglog(context_arg *carg, int priority, const char *format, ...)
 {
-	wrlog(carg->log_level, priority, format);
+	va_list args;
+	va_start(args, format);
+	wrlog(carg->log_level, priority, format, args);
+	va_end(args);
 }

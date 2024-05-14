@@ -208,7 +208,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	new->work_dir = work_dir;
 
 	if (ac->log_level > 2)
-		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
+		printf("aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
 	url_free(hi);
 

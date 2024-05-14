@@ -526,6 +526,7 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 				*threads += (uint64_t)ival;
 		}
 	}
+	fclose(fd);
 }
 
 void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* ups, uint64_t *threads, uint64_t shm_max)
@@ -952,6 +953,12 @@ void schedstat_process_info(char *pid, char *name)
 
 void get_vmap_info(char *filename, char *pid, char *exName, uint64_t max_map_count) {
 	uint64_t vmap_count = count_file_lines(filename);
+
+	if (!vmap_count)
+		carglog(ac->system_carg, L_ERROR, "%s not found vmaps for process from file: \n", __FUNCTION__, filename);
+	else
+		carglog(ac->system_carg, L_DEBUG, "%s found %"u64" vmaps from '%s'\n", __FUNCTION__, vmap_count, filename);
+
 	metric_add_labels2("process_vmap_count", &vmap_count, DATATYPE_UINT, ac->system_carg, "name", exName, "pid", pid);
 	if (max_map_count)
 	{
@@ -962,6 +969,7 @@ void get_vmap_info(char *filename, char *pid, char *exName, uint64_t max_map_cou
 
 int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_states *states, int8_t need_match, alligator_ht *files, uint64_t *threads, uint64_t shm_max, uint64_t max_map_count)
 {
+	carglog(ac->system_carg, L_DEBUG, "get_pid_info for process %s, need match: %"PRId8"\n", pid, need_match);
 	char dir[FILENAME_MAX];
 	uint64_t rc;
 
@@ -1009,9 +1017,22 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	int8_t match = 1;
 	if (need_match)
+	{
+		carglog(ac->system_carg, L_DEBUG, "%s check for match: '%s' by procname", __FUNCTION__, procname);
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
+		{
+			carglog(ac->system_carg, L_DEBUG, "not matched, %s check for match '%s' by cmdline", __FUNCTION__, cmdline);
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
+			{
+				carglog(ac->system_carg, L_DEBUG, "not matched");
 				match = 0;
+			}
+			else
+				carglog(ac->system_carg, L_DEBUG, "matched");
+		}
+		else
+			carglog(ac->system_carg, L_DEBUG, "matched");
+	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, pid);
 	get_proc_info(dir, procname, pid, lightweight, states, match);
@@ -2601,6 +2622,7 @@ void fill_counts_for(void* arg)
 {
 	match_string* ms = arg;
 
+	carglog(ac->system_carg, L_DEBUG, "counted process with name '%s' and count: %"PRIu64"\n", ms->s, ms->count);
 	metric_add_labels("process_match", &ms->count, DATATYPE_UINT, ac->system_carg, "name", ms->s);
 }
 

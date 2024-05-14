@@ -349,10 +349,10 @@ int parse_args(int argc, char **argv)
 	return ret;
 }
 
-
 int main(int argc, char **argv, char **envp)
 {
 	ac = configuration();
+	log_default();
 
 	uv_loop_t *loop = ac->loop = uv_default_loop();
 	signal(SIGPIPE, SIG_IGN);

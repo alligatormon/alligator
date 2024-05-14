@@ -93,8 +93,11 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	uv_read_stop((uv_stream_t*)&carg->channel);
 	uv_close((uv_handle_t*)&carg->channel, NULL);
 
-	uv_timer_stop(carg->tt_timer);
-	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+	if (carg->tt_timer)
+	{
+		uv_timer_stop(carg->tt_timer);
+		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+	}
 }
 
 void timeout_exec_sentinel(uv_timer_t* timer) {

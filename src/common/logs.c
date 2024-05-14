@@ -60,6 +60,10 @@ char* get_log_level_by_id(uint64_t id) {
 	return ret;
 }
 
+void log_default() {
+	ac->log_socket = fileno(stdout);
+}
+
 void log_init() {
 	if (!ac->log_dest)
 		ac->log_socket = fileno(stdout);
@@ -76,9 +80,9 @@ void log_init() {
 		ac->log_host = strdup(hi->host);
 		//string *data = aggregator_get_addr(NULL, ac->log_host, DNS_TYPE_A, DNS_CLASS_IN);
 		bzero(&ac->logsoaddr, sizeof(ac->logsoaddr)); 
-    		ac->logsoaddr.sin_addr.s_addr = inet_addr(ac->log_host); 
-    		ac->logsoaddr.sin_port = htons(ac->log_port); 
-    		ac->logsoaddr.sin_family = AF_INET; 
+		ac->logsoaddr.sin_addr.s_addr = inet_addr(ac->log_host);
+		ac->logsoaddr.sin_port = htons(ac->log_port);
+		ac->logsoaddr.sin_family = AF_INET;
 		ac->log_socket = socket(AF_INET, SOCK_DGRAM, 0);
 
 		if(connect(ac->log_socket, (struct sockaddr *)&ac->logsoaddr, sizeof(ac->logsoaddr)) < 0)
@@ -103,24 +107,18 @@ void log_init() {
 	}
 }
 
-void wrlog(int level, int priority, const char *format, ...)
+void wrlog(int level, int priority, const char *format, va_list args)
 {
-    va_list args;
-    va_start(args, format);
-
-    if(level >= priority)
-    {
-            vdprintf(ac->log_socket, format, args);
-    }
-
-    va_end(args);
+	if(level >= priority)
+	{
+		vdprintf(ac->log_socket, format, args);
+	}
 }
 
 void glog(int priority, const char *format, ...)
 {
-	wrlog(ac->log_level, priority, format);
+	va_list args;
+	va_start(args, format);
+	wrlog(ac->log_level, priority, format, args);
+	va_end(args);
 }
-
-//int main() {
-//	write_log(1, "hello %s\n", "pidor");
-//}

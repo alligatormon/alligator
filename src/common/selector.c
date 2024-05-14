@@ -50,8 +50,8 @@ uint64_t count_file_lines(char *filename) {
 		return 0;
 
 	char buffer[65535];
-	uint64_t ret = 0;
-	while ((ret = read(fd, buffer, 65534)))
+	int64_t ret = 0;
+	while ((ret = read(fd, buffer, 65534)) > 0)
 	{
 		buffer[ret] = 0;
 		charcount += count_nl(buffer, ret);

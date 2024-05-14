@@ -5,6 +5,7 @@
 #include "common/logs.h"
 #include "main.h"
 #define MAX_FILE_SIZE 1000000
+extern aconf *ac;
 
 typedef struct fs_read_info
 {
@@ -77,8 +78,8 @@ void fs_read_on_open(uv_fs_t *req)
 
 void read_from_file(char *filename, uint64_t offset, void *callback, void *data)
 {
-	extern aconf *ac;
-
+	filename = strdup(filename);
+	glog(L_INFO, "read_from_file: trying to file open '%s' %p\n", filename, filename);
 	uv_fs_t *open_req = alligator_cache_get(ac->uv_cache_fs, sizeof(*open_req));
 	fs_read_info *frinfo = calloc(1, sizeof(*frinfo));
 	frinfo->callback = callback;
@@ -91,8 +92,6 @@ void read_from_file(char *filename, uint64_t offset, void *callback, void *data)
 	char *base = malloc(MAX_FILE_SIZE);
 	*base = 0;
 	frinfo->buffer = uv_buf_init(base, MAX_FILE_SIZE-1);
-
-	glog(L_INFO, "read_from_file: trying to file open '%s'\n", filename);
 
 	uv_fs_open(uv_default_loop(), open_req, filename, O_RDONLY, 0, fs_read_on_open);
 }
