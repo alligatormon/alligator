@@ -493,7 +493,5 @@ void filestat_read_callback(char *buf, size_t len, void *data)
 void filestat_restore()
 {
 	char *dirtoread = strdup("/var/lib/alligator/file_stat");
-	printf("dirtoread call read_from_file('%s'), %p\n", dirtoread, dirtoread);
 	read_from_file(dirtoread, 0, filestat_read_callback, dirtoread);
-	printf("dirtoreaded called read_from_file('%s'), %p\n", dirtoread, dirtoread);
 }

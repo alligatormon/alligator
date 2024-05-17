@@ -1070,7 +1070,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/maps", ac->system_procfs, pid);
-	get_vmap_info(dir, procname, pid, max_map_count);
+	get_vmap_info(dir, pid, procname, max_map_count);
 
 	schedstat_process_info(pid, procname);
 

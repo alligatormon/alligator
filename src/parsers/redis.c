@@ -290,6 +290,17 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					metric_add_auto("redis_mem_fragmentation_ratio", &dl, DATATYPE_DOUBLE, carg);
 					i += strcspn(tmp+i, "\n");
 				}
+				else if (!strncmp(tmp+i, "maxmemory_policy:", 17))
+				{
+					i += 17;
+					char policy[64];
+					uint8_t size = strcspn(tmp+i, "\r\n");
+					size = ++size > 64 ? 64 : size;
+					strlcpy(policy, tmp+i, size);
+					uint64_t okval = 1;
+					metric_add_labels("redis_maxmemory_policy", &okval, DATATYPE_UINT, carg, "policy", policy);
+					i += strcspn(tmp+i, "\n");
+				}
 			}
 		}
 		else if (!strncmp(tmp+i, " CPU", 4))
@@ -719,7 +730,7 @@ string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *
 	if (hi->pass)
 		snprintf(query, 1000, "AUTH %s\r\nINFO ALL\r\n", hi->pass);
 	else
-		snprintf(query, 1000, "INFO ALL\n");
+		snprintf(query, 1000, "INFO ALL\r\n");
 
 	return string_init_add(query, 0, 0);
 }

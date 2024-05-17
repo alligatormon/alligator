@@ -14,6 +14,7 @@ stat /usr/bin/yum || alias yum=apt
 yum -y install epel-release
 yum -y install ansible
 pkg install -y py38-ansible
+export PIP_BREAK_SYSTEM_PACKAGES=1
 ansible-playbook --connection=local --inventory 127.0.0.1, playbook.yml
 cmake -version
 
