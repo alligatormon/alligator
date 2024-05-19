@@ -31,13 +31,9 @@
 #include <utmp.h>
 #include "system/fdescriptors.h"
 #include "common/rtime.h"
+#include "system/linux/systemd.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
-#define PLATFORM_BAREMETAL 0
-#define PLATFORM_LXC 1
-#define PLATFORM_OPENVZ 2
-#define PLATFORM_NSPAWN 3
-#define PLATFORM_DOCKER 4
 #define LINUX_MEMORY 1
 #define LINUX_CPU 2
 extern aconf *ac;
@@ -158,6 +154,7 @@ void cpu_avg_push(double now)
 
 void get_cpu(int8_t platform)
 {
+	platform = ((!platform) || (platform < 5)); // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "fast scrape metrics: base: cpu\n");
 	r_time ts_start = setrtime();
 
@@ -1395,6 +1392,7 @@ uint64_t get_container_mem_usage()
 
 void get_mem(int8_t platform)
 {
+	platform = ((!platform) || (platform < 5)); // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: mem\n");
 
 	char pathbuf[255];
@@ -2151,6 +2149,17 @@ int8_t get_platform(int8_t mode)
 {
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d\n", mode);
 
+	if (ac->system_platform == PLATFORM_OPENSTACK) {
+		uint64_t okval = 1;
+		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "openstack");
+		return PLATFORM_OPENSTACK;
+	}
+	else if (ac->system_platform == PLATFORM_KVM) {
+		uint64_t okval = 1;
+		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "kvm");
+		return PLATFORM_KVM;
+	}
+
 	int64_t vl = 1;
 
 	char procpath[255];
@@ -2682,6 +2691,9 @@ void disks_info()
 
 void get_activate_status_services(char *service_name)
 {
+	if (strstr(service_name, ".mount"))
+		return;
+
 	char svcdir[1000];
 	char pathsystemd[1280];
 	snprintf(svcdir, 999, "%s/systemd/system/", ac->system_etcdir);
@@ -2741,28 +2753,11 @@ void get_service_tasks_status(char *servicename, char *fname, char *type)
 void service_running_status(char *name)
 {
 	int match = match_mapper(ac->services_match, name, strlen(name), name);
-	//printf("name %s match %d\n", name, match);
 	if (!match)
 		return;
 
-	uint64_t val;
-	char pathsystemd[1000];
-	struct stat path_stat;
+	uint64_t val = systemd_check_service(name);
 
-	snprintf(pathsystemd, 999, "%s/fs/cgroup/systemd/system.slice/%s", ac->system_sysfs, name);
-	if (stat(pathsystemd, &path_stat))
-		snprintf(pathsystemd, 999, "%s/fs/cgroup/system.slice/%s", ac->system_sysfs, name);
-
-	FILE *fd = fopen(pathsystemd, "r");
-	if (!fd)
-	{
-		val = 0;
-	}
-	else
-	{
-		val = 1;
-		fclose(fd);
-	}
 	metric_add_labels("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name);
 
 	get_activate_status_services(name);
@@ -2774,6 +2769,7 @@ void service_running_status(char *name)
 		metric_add_labels("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name);
 		char cgrouppath[1024];
 		snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
+		struct stat path_stat;
 		if (stat(cgrouppath, &path_stat))
 			snprintf(cgrouppath, 1023, "%s/fs/cgroup/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
 		cgroup_procs_scrape(cgrouppath);

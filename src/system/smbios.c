@@ -13,6 +13,7 @@
 #include "common/selector.h"
 #include "events/context_arg.h"
 #include "common/logs.h"
+#include "system/common.h"
 
 #ifndef __linux__
 #include <kenv.h>
@@ -431,8 +432,14 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 	case 1:
 		if (smbios->u.system.manufacturer)
 			metric_add_labels("system_manufacturer", &okval, DATATYPE_UINT, ac->system_carg, "manufacturer", trim_whitespaces(str[smbios->u.system.manufacturer-1]));
-		if (smbios->u.system.product_name)
-			metric_add_labels("system_product_name", &okval, DATATYPE_UINT, ac->system_carg, "name", trim_whitespaces(str[smbios->u.system.product_name-1]));
+		if (smbios->u.system.product_name) {
+			char *sys_product_name = trim_whitespaces(str[smbios->u.system.product_name-1]);
+			metric_add_labels("system_product_name", &okval, DATATYPE_UINT, ac->system_carg, "name", sys_product_name);
+			if (!strncmp(sys_product_name, "OpenStack", 9))
+				ac->system_platform = PLATFORM_OPENSTACK;
+			else if (!strncmp(sys_product_name, "KVM", 3))
+				ac->system_platform = PLATFORM_KVM;
+		}
 		if (smbios->u.system.version)
 			metric_add_labels("system_version", &okval, DATATYPE_UINT, ac->system_carg, "version", trim_whitespaces(str[smbios->u.system.version-1]));
 		if (smbios->u.system.serial_number)

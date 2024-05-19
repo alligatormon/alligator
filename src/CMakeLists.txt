@@ -9,6 +9,7 @@ project(alligator VERSION ${VERSION})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
+include(FindPkgConfig)
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -273,12 +274,28 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommytrie.c
 	dstructures/tommyds/tommyds/tommyarrayblk.c
 )
+
+message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")
+pkg_check_modules(SYSTEMD "systemd" REQUIRED)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	if(SYSTEMD_FOUND)
+		if(${SYSTEMD_VERSION} VERSION_LESS 221)
+			set(SYSTEMD_FILES
+				system/linux/systemd.c
+			)
+		else()
+			set(SYSTEMD_FILES
+				system/linux/systemd-sdbus.c
+			)
+		endif()
+	endif()
+endif()
 #IF(${distro} MATCHES "centos")
 #set(RPM_FILES parser/rpm.c)
 #ELSE(${distro} MATCHES "centos")
 #set(RPM_FILES parser/rpm-common.c)
 #ENDIF(${distro} MATCHES "centos")
-add_library(${COMMON} STATIC ${STATIC_FILES} ${RPM_FILES})
+add_library(${COMMON} STATIC ${STATIC_FILES} ${SYSTEMD_FILES} ${RPM_FILES})
 add_executable(${HEAD} main.c)
 configure_file(alligator_template.h ${CMAKE_SOURCE_DIR}/alligator_version.h)
 
@@ -335,7 +352,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	target_link_libraries(${HEAD} ${COMMON} libuv_a.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libmbedtls.a libmbedx509.a libmbedcrypto.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv.a picohttpparser.a libdns.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

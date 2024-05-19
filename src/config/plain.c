@@ -379,7 +379,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_t *resolver_data = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, NULL, resolver_data);
 					}
-					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
+					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir") || !strcmp(wstokens[i].token->s, "log_level"))
 					{
 						++i;
 						json_t *arg_json = json_string(wstokens[i].token->s);

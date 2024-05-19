@@ -229,6 +229,7 @@ typedef struct aconf
 	uv_timer_t expire_timer;
 	uv_timer_t dump_timer;
 
+	int8_t system_platform;
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int log_socket;
 	int log_form;

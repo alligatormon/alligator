@@ -1,4 +1,11 @@
 #pragma once
+#define PLATFORM_BAREMETAL 0
+#define PLATFORM_LXC 1
+#define PLATFORM_OPENVZ 2
+#define PLATFORM_NSPAWN 3
+#define PLATFORM_DOCKER 4
+#define PLATFORM_KVM 5
+#define PLATFORM_OPENSTACK 6
 void pidfile_push(char *file, int type);
 void pidfile_del(char *file, int type);
 void userprocess_push(alligator_ht *userprocess, char *user);
