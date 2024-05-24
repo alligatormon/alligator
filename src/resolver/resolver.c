@@ -139,7 +139,7 @@ uint64_t dns_init_type(char *domain, char *buf, uint16_t rrtype, uint16_t *trans
 	query->hdr.nquestion = 1;
 
 	dns_rr_t *question = calloc(1, sizeof(*question));
-	strncpy(question->name, domain, sizeof(*question->name));
+	strlcpy(question->name, domain, DNS_NAME_MAXLEN);
 
 	question->rtype = rrtype;
 	question->rclass = DNS_CLASS_IN;
@@ -442,6 +442,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 	new_carg->packets_id = transaction_id;
 	new_carg->log_level = carg->log_level;
 	new_carg->resolver = 1;
+	new_carg->rrtype = get_str_by_rrtype(rrtype);
 
 	aconf_mesg_set(new_carg, buf, buflen);
 

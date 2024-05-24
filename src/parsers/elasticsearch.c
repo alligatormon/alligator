@@ -231,9 +231,21 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	double dl;
 
 	// get cluster status
+	uint64_t green = 0;
+	uint64_t red = 0;
+	uint64_t yellow = 0;
 	json_t *cluster_status_json = json_object_get(root, "status");
 	char* cluster_status = (char*)json_string_value(cluster_status_json);
-	metric_add_labels2("elasticsearch_cluster_status", &vl, DATATYPE_INT, carg, "cluster", cluster_name, "status", cluster_status);
+	if (!strcmp(cluster_status, "green"))
+		green = 1;
+	else if (!strcmp(cluster_status, "yellow"))
+		yellow = 1;
+	else if (!strcmp(cluster_status, "red"))
+		red = 1;
+
+	metric_add_labels2("elasticsearch_cluster_status", &green, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "green");
+	metric_add_labels2("elasticsearch_cluster_status", &yellow, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "yellow");
+	metric_add_labels2("elasticsearch_cluster_status", &red, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "red");
 
 	json_t *indices = json_object_get(root, "indices");
 	char string[1000];

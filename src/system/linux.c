@@ -154,7 +154,7 @@ void cpu_avg_push(double now)
 
 void get_cpu(int8_t platform)
 {
-	platform = ((!platform) || (platform < 5)); // exclude baremetal and virt
+	platform = (!platform) || (platform > 4) ? 0 : 1; // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "fast scrape metrics: base: cpu\n");
 	r_time ts_start = setrtime();
 
@@ -1392,7 +1392,7 @@ uint64_t get_container_mem_usage()
 
 void get_mem(int8_t platform)
 {
-	platform = ((!platform) || (platform < 5)); // exclude baremetal and virt
+	platform = (!platform) || (platform > 4) ? 0 : 1; // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: mem\n");
 
 	char pathbuf[255];
