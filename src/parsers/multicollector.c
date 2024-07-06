@@ -10,12 +10,11 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "cluster/pass.h"
+#include "parsers/metric_types.h"
+#include "common/logs.h"
 #include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
-#define METRIC_TYPE_UNTYPED 0
-#define METRIC_TYPE_COUNTER 1
-#define METRIC_TYPE_HISTOGRAM 2
 
 typedef struct metric_datatypes {
 	char *key;
@@ -618,27 +617,29 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		metric_name_normalizer(metric_name, metric_len);
 	//metric_add_ret(metric_name, lbl, &value, DATATYPE_DOUBLE, mm);
 
-	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE))
-	{
-		labels_hash_free(lbl);
-		return 1;
-	}
-
 	r_time end_parsing = setrtime();
 
 	metric_datatypes *dt = NULL;
+	uint8_t data_type = METRIC_TYPE_UNTYPED;
 	if (carg && carg->metric_aggregation)
 	{
 		uint32_t key_hash = tommy_strhash_u32(0, metric_name);
 		dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
+		if (dt)
+			data_type = dt->type;
+	}
+
+	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE, data_type))
+	{
+		carglog(carg, L_TRACE, "metric went to the replication, don't need to make: %s\n", metric_name);
+        labels_hash_free(lbl);
+		return 1;
 	}
 
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
-	else if (dt && (dt->type == METRIC_TYPE_COUNTER || dt->type == METRIC_TYPE_HISTOGRAM))
-	{
+	else if (data_type == METRIC_TYPE_COUNTER || data_type == METRIC_TYPE_HISTOGRAM)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
-	}
 	else
 		metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 

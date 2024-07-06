@@ -467,7 +467,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							if (method == HTTP_METHOD_DELETE)
 								network_range_delete(carg->net_acl, allow_str);
 							else
-								network_range_push(carg->net_acl, allow_str, IPACCESS_ALLOW);
+								network_range_push(carg->net_acl, &carg->net_tree_acl, allow_str, IPACCESS_ALLOW);
 						}
 					}
 					json_t *deny = json_object_get(entrypoint, "deny");
@@ -482,7 +482,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							if (method == HTTP_METHOD_DELETE)
 								network_range_delete(carg->net_acl, deny_str);
 							else
-								network_range_push(carg->net_acl, deny_str, IPACCESS_DENY);
+								network_range_push(carg->net_acl, &carg->net_tree_acl, deny_str, IPACCESS_DENY);
 						}
 					}
 

@@ -99,3 +99,4 @@ void to_lower_before(char *s, char *before);
 void match_free(match_rules *mrules);
 uint64_t read_all_file(char *filename, char **buf);
 uint64_t count_file_lines(char *filename);
+size_t strcspn_n(const char *s, const char *find, size_t max);

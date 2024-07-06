@@ -796,8 +796,7 @@ void get_proc_socket_number(char *path, char *procname, alligator_ht *files, int
 	ssize_t len = readlink(path, buf, 254);
 	if (len < 0)
 	{
-		if (ac->log_level > 1)
-			perror("readlink: ");
+		carglog(ac->system_carg, L_TRACE, "%s path readlink error: %s: %s\n", __FUNCTION__, path, strerror(errno));
 		return;
 	}
 
@@ -2602,7 +2601,7 @@ void get_alligator_info()
 void get_packages_info()
 {
 	get_rpm_info();
-	dpkg_crawl("/var/lib/dpkg/available");
+	dpkg_crawl(strdup("/var/lib/dpkg/available"));
 }
 
 void clear_counts_for(void* arg)

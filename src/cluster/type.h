@@ -23,6 +23,7 @@ typedef struct oplog_record
 typedef struct cluster_server_oplog
 {
 	uint8_t is_me;
+	uint64_t ttl;
 	oplog_record *oprec;
 	uint64_t index;
 	char *name;
@@ -70,3 +71,4 @@ void oplog_record_free(oplog_record *oplog);
 void cluster_del_all();
 void cluster_handler_stop();
 void cluster_handler();
+string* maglev_key_make(cluster_node *cn, char* name, alligator_ht *lbl);

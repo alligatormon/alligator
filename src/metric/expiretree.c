@@ -370,18 +370,20 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 	return ret;
 }
 
-void expire_purge(uint64_t key, char *namespace)
+void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 {
 	extern aconf *ac;
-	namespace_struct *ns;
 
 	if (ac->log_level > 2)
 		printf("run expire purge\n");
 
-	if (!namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
+	if (!ns) {
+		if (!namespace)
+			ns = ac->nsdefault;
+		else
+			ns = get_namespace(namespace);
+	}
+
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 

@@ -143,7 +143,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 				break;
 	
 			last = dir;
-			dir = labels_cmp(labels, q->labels) > 0;
+			dir = labels_cmp(tree->sort_plan, labels, q->labels) > 0;
 	
 			if ( g != NULL )
 				t = g;
@@ -178,9 +178,9 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
  
 			g = p, p = q;
 			q = q->steam[dir];
-			dir = labels_cmp(labels, q->labels) > 0;
+			dir = labels_cmp(tree->sort_plan, labels, q->labels) > 0;
 
-			if ( !labels_cmp(q->labels, labels) )
+			if ( !labels_cmp(tree->sort_plan, q->labels, labels) )
 				f = q;
  
 			if ( !is_red ( q ) && !is_red ( q->steam[dir] ) ) {
@@ -397,15 +397,11 @@ void metrictree_str_build(metric_node *x, string *str)
 void metric_str_build (char *namespace, string *str)
 {
 	extern aconf *ac;
-	namespace_struct *ns;
 
-	if (!namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
+	namespace_struct *ns = get_namespace(namespace);
 	metric_tree *tree = ns->metrictree;
 
-	if ( tree && tree->root )
+	if (tree && tree->root)
 	{
 		metrictree_str_build(tree->root, str);
 	}
@@ -486,15 +482,11 @@ metric_node* metric_find ( metric_tree *tree, labels_t* labels )
 	metric_node *x = tree->root;
 	while ( x )
 	{
-		//if ( x->labels > labels )
-		int rc1 = labels_cmp(x->labels, labels);
-		//int rc2 = labels_cmp(labels, x->labels);
+		int rc1 = labels_cmp(tree->sort_plan, x->labels, labels);
 		if ( rc1 > 0 )
 			x = x->steam[LEFT];
-		//else if ( x->labels < labels )
 		else if ( rc1 < 0 )
 			x = x->steam[RIGHT];
-		//else if ( !labels_cmp(labels, x->labels) )
 		else if ( !rc1 )
 		{
 			return x;

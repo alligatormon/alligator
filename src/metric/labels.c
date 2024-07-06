@@ -61,10 +61,8 @@ uint8_t numbercheck(char *str)
 	return 1;
 }
 
-int labels_cmp(labels_t *labels1, labels_t *labels2)
+int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 {
-	sortplan *sort_plan = ac->nsdefault->metrictree->sort_plan;
-
 	int64_t i;
 	size_t plan_size = sort_plan->size;
 	for (i=0; i<plan_size && labels1 && labels2; i++)
@@ -682,8 +680,8 @@ namespace_struct *get_ns(char *namespace, namespace_struct *arg_ns)
 		ns = ac->nsdefault;
 	else if(arg_ns)
 		ns = arg_ns;
-	else // add support namespaces
-		return NULL;
+	else
+		ns = get_namespace(namespace);
 
 	return ns;
 }
@@ -704,7 +702,7 @@ void namespace_free(char *namespace, namespace_struct *arg_ns)
 	if (!ns)
 		return;
 
-	expire_purge(INT64_MAX, namespace);
+	expire_purge(INT64_MAX, namespace, ns);
 
 	alligator_ht_foreach_arg(ns->metrictree->labels_words_hash, labels_cache_free_foreach, NULL);
 }
@@ -1005,6 +1003,10 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 		return;
 
 	namespace_struct *ns = get_namespace_by_carg(carg);
+	if (ns)
+		if (ns->key)
+			if (!strcmp(ns->key, "replication"))
+				printf("ns '%s' (%p), metric: %s\n", ns->key, ns, name);
 
 	if (!labels)
 	{

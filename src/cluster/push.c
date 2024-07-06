@@ -1,5 +1,6 @@
 #include "cluster/type.h"
 #include "common/json_parser.h"
+#include "metric/namespace.h"
 #include <string.h>
 #include "main.h"
 
@@ -51,6 +52,13 @@ void cluster_push_json(json_t *cluster)
 			if (data)
 			{
 				cn->servers[j].name = strdup(data);
+
+				char namespacename[255];
+				uint16_t cur = strlcpy(namespacename, name, 255);
+				strlcpy(namespacename + cur, ":", 255);
+				strlcpy(namespacename + cur + 1, data, 255);
+				insert_namespace(namespacename);
+
 				cn->servers[j].oprec = oplog_record_init(cn->size);
 				cn->servers[j].index = j;
 				rc = maglev_add_node(&cn->m_maglev_hash, cn->servers[j].name, &cn->servers[j]);
@@ -65,6 +73,10 @@ void cluster_push_json(json_t *cluster)
 		maglev_create_ht(&cn->m_maglev_hash);
 		maglev_swap_entry(&cn->m_maglev_hash);
 		qsort(cn->servers, servers_size, sizeof(*cn->servers), cluster_sort_compare);
+
+		for (uint64_t i = 0, j = 0; i < servers_size; i++, j++) {
+			cn->servers[i].index = i;
+		}
 	}
 
 	json_t *jsharding_key = json_object_get(cluster, "sharding_key");

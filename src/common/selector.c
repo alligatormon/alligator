@@ -274,6 +274,11 @@ char *trim(char *s)
 	return rtrim(ltrim(s));
 }
 
+inline size_t strcspn_n(const char *s, const char *find, size_t max) {
+	size_t ret = strcspn(s, find);
+	return ret > max ? max : ret;
+}
+
 void stlentext(stlen *str, char *str2)
 {
 	size_t len = strlen(str2) +1;

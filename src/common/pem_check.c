@@ -10,6 +10,7 @@
 #include "modules/modules.h"
 #include "events/fs_read.h"
 #include "scheduler/type.h"
+#include "common/logs.h"
 #include "main.h"
 
 int x509_fs_compare(const void* arg, const void* obj)
@@ -86,8 +87,7 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", ");
 			strlcpy(country_name, dn_subject+i, size+1);
-			if (ac->log_level > 2)
-				printf("cert: %s, country=%s\n", cert, country_name);
+			glog(L_INFO, "cert: %s, country=%s\n", cert, country_name);
 			labels_hash_insert_nocache(lbl, "country", country_name);
 			i += size;
 		}
@@ -97,8 +97,7 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", ");
 			strlcpy(county, dn_subject+i, size+1);
-			if (ac->log_level > 2)
-				printf("cert: %s, county=%s\n", cert, county);
+			glog(L_INFO, "cert: %s, county=%s\n", cert, county);
 			labels_hash_insert_nocache(lbl, "county", county);
 			i += size;
 		}
@@ -108,8 +107,7 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", ");
 			strlcpy(organization_name, dn_subject+i, size+1);
-			if (ac->log_level > 2)
-				printf("cert: %s, organization_name=%s\n", cert, organization_name);
+			glog(L_INFO, "cert: %s, organization_name=%s\n", cert, organization_name);
 			labels_hash_insert_nocache(lbl, "organization_name", organization_name);
 			i += size;
 		}
@@ -119,8 +117,7 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", ");
 			strlcpy(organization_unit, dn_subject+i, size+1);
-			if (ac->log_level > 2)
-				printf("cert: %s, organization_unit=%s\n", cert, organization_unit);
+			glog(L_INFO, "cert: %s, organization_unit=%s\n", cert, organization_unit);
 			labels_hash_insert_nocache(lbl, "organization_unit", organization_unit);
 			i += size;
 		}
@@ -130,8 +127,7 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", ");
 			strlcpy(common_name, dn_subject+i, size+1);
-			if (ac->log_level > 2)
-				printf("cert: %s, common_name=%s\n", cert, common_name);
+			glog(L_INFO, "cert: %s, common_name=%s\n", cert, common_name);
 			labels_hash_insert_nocache(lbl, "common_name", common_name);
 			i += size;
 		}
@@ -142,13 +138,11 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 	char dn_issuer[1000];
 	mbedtls_x509_dn_gets(dn_issuer, 1000, &cert_ctx->issuer);
 	labels_hash_insert_nocache(lbl, "issuer", dn_issuer);
-	if (ac->log_level > 2)
-		printf("cert: %s, issuer: %s\n", cert, dn_issuer);
+	glog(L_INFO, "cert: %s, issuer: %s\n", cert, dn_issuer);
 
 	char serial[100];
 	mbedtls_x509_serial_gets(serial, 100, &cert_ctx->serial);
-	if (ac->log_level > 2)
-		printf("cert: %s, serial: %s\n", cert, serial);
+	glog(L_INFO, "cert: %s, serial: %s\n", cert, serial);
 	labels_hash_insert_nocache(lbl, "serial", serial);
 
 	int64_t valid_from = get_timestamp_from_mbedtls(cert_ctx->valid_from);
@@ -156,14 +150,11 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 	r_time now = setrtime();
 
 	int64_t expdays =  (valid_to-now.sec)/86400; 
-	if (ac->log_level > 2)
-	{
-		printf("cert: %s, certsubject: %s\n", cert, dn_subject);
-		printf("cert: %s, complete for: %u.\n", cert, now.sec);
-		printf("cert: %s, valid from: %"d64".\n", cert, valid_from);
-		printf("cert: %s, %"d64" exp\n", cert, expdays);
-		printf("cert: %s, version: %d\n", cert, cert_ctx->version);
-	}
+	glog(L_INFO, "cert: %s, certsubject: %s\n", cert, dn_subject);
+	glog(L_INFO, "cert: %s, complete for: %u.\n", cert, now.sec);
+	glog(L_INFO, "cert: %s, valid from: %"d64".\n", cert, valid_from);
+	glog(L_INFO, "cert: %s, %"d64" exp\n", cert, expdays);
+	glog(L_INFO, "cert: %s, version: %d\n", cert, cert_ctx->version);
 	alligator_ht *notafter_lbl = labels_dup(lbl);
 	alligator_ht *expiredays_lbl = labels_dup(lbl);
 	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
@@ -179,18 +170,14 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	int ret = mbedtls_x509_crt_parse(&cert, (const unsigned char *)pem_cert, cert_size+2);
 	if (ret)
 	{
-		if (ac->log_level > 2)
-			printf("error parse certificate %s\n", filename);
-		if (ac->log_level > 10)
-			printf("error parse certificate %s: '%s' with size %zu/%zu\n", filename, pem_cert, strlen(pem_cert), cert_size+2);
+		glog(L_ERROR, "error parse certificate %s\n", filename);
+		glog(L_DEBUG, "error parse certificate %s: '%s' with size %zu/%zu\n", filename, pem_cert, strlen(pem_cert), cert_size+2);
 		free(data);
-		free(filename);
 		return;
 	}
 
 	parse_cert_info(&cert, filename, NULL);
 
-	free(filename);
 	mbedtls_x509_crt_free(&cert);
 	free(data);
 }
@@ -215,8 +202,7 @@ int tls_fs_dir_read(char *name, char *path, char *match, char *password, uint8_t
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	if (ac->log_level > 0)
-		printf("tls open dir: %s, status: %p\n", path, readdir_req.ptr);
+	glog(L_INFO, "tls open dir: %s, status: %p\n", path, readdir_req.ptr);
 
 	if (!readdir_req.ptr)
 		return 0;
@@ -361,8 +347,7 @@ void tls_fs_free()
 
 void jks_push(char *name, char *path, char *match, char *password, char *passtr, uint64_t period)
 {
-	if (ac->log_level > 0)
-		printf("run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
+	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
 
 	if (!password && !passtr)
 	{

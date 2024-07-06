@@ -32,13 +32,6 @@ void oplog_record_free(oplog_record *oplog)
 
 oplog_node* oplog_record_insert(oplog_record *oplog, string *data)
 {
-	// move end
-	oplog->end = (oplog->end + 1 ) % oplog->size;
-
-	// move begin
-	if (oplog->end == oplog->begin)
-		oplog->begin = (oplog->begin + 1 ) % oplog->size;
-
 	oplog_node *opnode = &oplog->container[oplog->end];
 	if (!opnode->data)
 		opnode->data = string_new();
@@ -46,6 +39,14 @@ oplog_node* oplog_record_insert(oplog_record *oplog, string *data)
 	string *opdata = opnode->data;
 
 	string_string_copy(opdata, data);
+
+	// move end
+	oplog->end = (oplog->end + 1 ) % oplog->size;
+
+	// move begin
+	if (oplog->end == oplog->begin)
+		oplog->begin = (oplog->begin + 1 ) % oplog->size;
+
 
 	return opnode;
 }
@@ -84,4 +85,25 @@ string* oplog_record_shift_string(oplog_record *oplog)
 	oplog->begin = oplog->end;
 
 	return ret;
+}
+
+string* maglev_key_make(cluster_node *cn, char* name, alligator_ht *lbl) {
+	string *hash_str = string_new();
+
+	if (cn->sharding_key)
+	{
+		uint64_t sharding_key_size = cn->sharding_key_size;
+		for (uint64_t i = 0; i < sharding_key_size; i++)
+		{
+			labels_container *labelscont = NULL;
+			if (!cn->sharding_key[i]) // alias for __name__: NULL
+				string_cat(hash_str, name, strlen(name));
+			else if ((labelscont = alligator_ht_search(lbl, labels_hash_compare, cn->sharding_key[i], tommy_strhash_u32(0, cn->sharding_key[i]))))
+				string_cat(hash_str, labelscont->key, strlen(labelscont->key));
+		}
+	}
+	else
+		string_cat(hash_str, name, strlen(name));
+
+	return hash_str;
 }

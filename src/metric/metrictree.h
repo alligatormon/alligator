@@ -163,7 +163,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree);
 void metric_build (char *namespace, string *s);
 
 void labels_cache_fill(labels_t *labels, metric_tree *metrictree);
-int labels_cmp(labels_t *labels1, labels_t *labels2);
+int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2);
 void labels_print(labels_t *labels, int l);
 void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color);
 int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count);

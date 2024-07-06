@@ -1,18 +1,5 @@
 #include "netlib.h"
-
-uint128_t grpow(uint128_t basis, uint64_t exponent)
-{
-	uint128_t ret = basis;
-	if (!exponent)
-		return 1;
-	else if (exponent == 1)
-		return basis;
-
-	while (--exponent)
-		ret *= basis;
-
-	return ret;
-}
+#include "patricia.h"
 
 uint8_t ip_get_version(char *ip)
 {
@@ -93,44 +80,6 @@ char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
 	return ip;
 }
 
-uint128_t ip_to_integer(char *ip, uint8_t ip_version, char **ptr)
-{
-	char *cur = ip;
-	uint128_t ret = 0;
-	uint16_t exp = 10;
-	int8_t blocks = 4;
-	uint32_t blocksize = 256;
-	if (ip_version == 4)
-	{
-		exp = 10;
-		blocksize= 256;
-		blocks = 4;
-	}
-	if (ip_version == 6)
-	{
-		exp = 16;
-		blocksize= 65536;
-		blocks = 8;
-	}
-
-	while (--blocks >= 0)
-	{
-		uint16_t ochextet = strtoull(cur, &cur, exp);
-		uint8_t sep = strcspn(cur, ".:");
-		if (cur[sep] != '.' && cur[sep] != ':' )
-			blocks = 0;
-
-		ret += (grpow(blocksize, blocks)*ochextet);
-
-		++cur;
-	}
-
-	if (ptr)
-		*ptr = --cur;
-
-	return ret;
-}
-
 uint128_t ip_get_range(uint8_t prefix, uint8_t ip_version)
 {
 	uint128_t ip_range;
@@ -176,7 +125,7 @@ void cidr_to_network_range(network_range_node *nr, char *cidr)
 	nr->end = ip_network+ip_range-1;
 }
 
-uint8_t ip_check_access(network_range *nr, char *ip)
+uint8_t ip_check_access(network_range *nr, patricia_t* tree, char *ip)
 {
 	if (!nr)
 		return 1;
@@ -184,12 +133,25 @@ uint8_t ip_check_access(network_range *nr, char *ip)
 	if (!i)
 		return 1;
 
-	uint128_t ipaddr = ip_to_integer(ip, ip_get_version(ip), NULL);
+	uint8_t ip_version = ip_get_version(ip);
+	if (ip_version == 6) {
+		uint128_t ipaddr = ip_to_integer(ip, ip_version, NULL);
 
-	while (i--)
-	{
-		if (ipaddr >= nr->nr_node[i].start && ipaddr <= nr->nr_node[i].end)
-			return nr->nr_node[i].action;
+		while (i--)
+		{
+			if (ipaddr >= nr->nr_node[i].start && ipaddr <= nr->nr_node[i].end)
+				return nr->nr_node[i].action;
+		}
+	}
+	else if (ip_version == 4) {
+		uint32_t int_ip;
+			cidr_to_ip_and_mask(ip, &int_ip, NULL);
+			uint64_t t;
+			rnode *node = patricia_find(tree, int_ip, &t);
+			if (node && node->data) {
+			return *(uint8_t*)node->data;
+		}
+
 	}
 	return 0;
 }
@@ -217,10 +179,13 @@ network_range* network_range_duplicate(network_range *nr)
 	return ret;
 }
 
-void network_range_push(network_range *nr, char *cidr, uint8_t action)
+void network_range_push(network_range *nr, patricia_t** tree, char *cidr, uint8_t action)
 {
 	if (!nr)
 		return;
+
+	if (!*tree)
+		*tree = patricia_new();
 
 	if (!nr->nr_node)
 	{
@@ -229,6 +194,10 @@ void network_range_push(network_range *nr, char *cidr, uint8_t action)
 		nr->nr_node[0].action = !action;
 		nr->cur = 1;
 		nr->max = 8;
+
+		uint8_t *action_pass = malloc(sizeof(uint8_t));
+		*action_pass = !action;
+		network_add_ip(*tree, "0.0.0.0/0", action_pass);
 	}
 
 	if (nr->cur == nr->max)
@@ -243,6 +212,10 @@ void network_range_push(network_range *nr, char *cidr, uint8_t action)
 	cidr_to_network_range(&nr->nr_node[nr->cur], cidr);
 	nr->nr_node[nr->cur].action = action;
 	++nr->cur;
+
+	uint8_t *action_pass = malloc(sizeof(uint8_t));
+	*action_pass = action;
+	network_add_ip(*tree, cidr, action_pass);
 }
 
 void network_range_delete(network_range *nr, char *cidr)

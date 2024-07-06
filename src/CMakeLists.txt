@@ -193,6 +193,7 @@ set(STATIC_FILES
 	common/lcrypto.c
 	common/units.c
 	common/logs.c
+	common/patricia.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c

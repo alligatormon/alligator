@@ -76,6 +76,29 @@ void do_http_delete(char *buf, size_t len, string *response, http_reply_data* ht
 		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
 }
 
+void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
+{
+	cluster_node *cn = arg;
+	string *body = funcarg;
+	char namespacename[255];
+	r_time time_now = setrtime();
+
+	for (uint64_t i = 0; i < cn->servers_size; i++)
+	{
+		if (cn->servers[i].is_me)
+			continue;
+
+		uint16_t cur = strlcpy(namespacename, cn->name, 255);
+		strlcpy(namespacename + cur, ":", 255);
+		strlcpy(namespacename + cur + 1, cn->servers[i].name, 255);
+
+
+		if (cn->servers[i].ttl < time_now.sec) {
+			metric_str_build(namespacename, body);
+		}
+	}
+}
+
 void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	if (!strncmp(http_data->uri, "/api", 4))
@@ -127,9 +150,15 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	}
 	else
 	{
-		//metric_str_build(0, response);
 		string *body = string_init(response->m);
-		metric_str_build(0, body);
+
+		alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
+		char *namespace = http_get_param(args, "namespace");
+
+		if (!namespace)
+			alligator_ht_foreach_arg(ac->cluster, prometheus_response_cluster_namespaces, body);
+
+		metric_str_build(namespace, body);
 
 		char *content_length = malloc(255);
 		snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
@@ -140,6 +169,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 		string_cat(response, content_length, strlen(content_length));
 		string_cat(response, body->s, body->l);
 
+		http_args_free(args);
 		free(content_length);
 		string_free(body);
 	}

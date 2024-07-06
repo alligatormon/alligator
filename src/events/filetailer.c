@@ -480,14 +480,12 @@ void filestat_restore_v1(char *buf, size_t len)
 	}
 }
 
-void filestat_read_callback(char *buf, size_t len, void *data)
+void filestat_read_callback(char *buf, size_t len, void *data, char *filename)
 {
 	if (!strncmp(buf, "/alligator/file_stat/v1/\n", 25))
 	{
 		filestat_restore_v1(buf, len);
 	}
-
-	free(data);
 }
 
 void filestat_restore()

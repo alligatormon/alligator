@@ -169,7 +169,8 @@ aconf* configuration()
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
 
-	ac->cluster_startup = 5500;
+	ac->cluster_startup = 1500;
+	ac->cluster_reload = 10000;
 	ac->cluster_repeat = 10000;
 
 	ac->modules = alligator_ht_init(NULL);
@@ -367,6 +368,7 @@ int main(int argc, char **argv, char **envp)
 	restore_settings();
 
 	log_init();
+	glog(L_OFF, "logger started\n");
 
 	signal_listen();
 

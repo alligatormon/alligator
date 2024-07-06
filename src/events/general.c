@@ -4,6 +4,8 @@
 #include "metric/metric_dump.h"
 #include "events/filetailer.h"
 
+extern aconf *ac;
+
 void general_loop_cb(uv_timer_t* handle)
 {
 	extern aconf* ac;
@@ -15,12 +17,19 @@ void general_loop_cb(uv_timer_t* handle)
 	metric_add_auto("alligator_metric_free", &ac->metric_freed, DATATYPE_UINT, NULL);
 }
 
+void namespaces_expire_foreach(void *funcarg, void* arg)
+{
+	namespace_struct *ns = arg;
+	r_time time = setrtime();
+	expire_purge(time.sec, NULL, ns);
+}
+
+
 void expire_loop(uv_timer_t* handle)
 {
 	extern aconf* ac;
 
-	r_time time = setrtime();
-	expire_purge(time.sec, 0);
+	alligator_ht_foreach_arg(ac->_namespace, namespaces_expire_foreach, NULL);
 }
 
 void dump_loop()

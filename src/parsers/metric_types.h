@@ -1,0 +1,5 @@
+#pragma once
+
+#define METRIC_TYPE_UNTYPED 0
+#define METRIC_TYPE_COUNTER 1
+#define METRIC_TYPE_HISTOGRAM 2

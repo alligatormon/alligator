@@ -174,6 +174,7 @@ typedef struct aconf
 	int64_t query_repeat;
 	uv_timer_t query_timer;
 	int64_t cluster_startup;
+	int64_t cluster_reload;
 	int64_t cluster_repeat;
 	uv_timer_t cluster_timer;
 	tommy_list *uv_cache_timer;

@@ -3,11 +3,9 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <common/patricia.h>
 #define IPACCESS_DENY 0
 #define IPACCESS_ALLOW 1
-
-__extension__ typedef unsigned __int128 uint128_t;
-//typedef uint64_t uint128_t;
 
 typedef struct network_range_node
 {
@@ -27,6 +25,6 @@ void cidr_to_network_range(network_range_node *nr, char *cidr);
 char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version);
 network_range* network_range_duplicate(network_range *nr);
 void network_range_free(network_range *nr);
-uint8_t ip_check_access(network_range *nr, char *ip);
-void network_range_push(network_range *nr, char *cidr, uint8_t action);
+uint8_t ip_check_access(network_range *nr, patricia_t *tree, char *ip);
+void network_range_push(network_range *nr, patricia_t **tree, char *cidr, uint8_t action);
 void network_range_delete(network_range *nr, char *cidr);
