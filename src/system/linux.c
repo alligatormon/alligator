@@ -60,9 +60,9 @@ typedef struct ulimit_pid_stat {
 
 int fd_sock_compare(const void* arg, const void* obj)
 {
-        char *s1 = (char*)arg;
-        char *s2 = ((fd_info*)obj)->key;
-        return strcmp(s1, s2);
+		char *s1 = (char*)arg;
+		char *s2 = ((fd_info*)obj)->key;
+		return strcmp(s1, s2);
 }
 
 void print_mount(const struct mntent *fs)
@@ -3306,6 +3306,9 @@ void get_system_metrics()
 		get_nfs_stats();
 		get_systemd_scopes();
 		get_distribution_name();
+		if ((!platform) || (platform > 4)) { // exclude containers
+			get_proc_interrupts(ac->system_interrupts);
+		}
 		if (!platform)
 		{
 			memory_errors_by_controller();

@@ -792,6 +792,11 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "smart", ctxsys);
 	}
 
+	if (ac->system_interrupts) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "interrupts", ctxsys);
+	}
+
 	if (ac->system_firewall) {
 		json_t *ctxsys = json_object();
 		if (ac->system_ipset_entries)

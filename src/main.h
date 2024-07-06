@@ -181,6 +181,7 @@ typedef struct aconf
 	tommy_list *uv_cache_fs;
 
 	int system_base;
+	int system_interrupts;
 	int system_disk;
 	int system_network;
 	int system_process;

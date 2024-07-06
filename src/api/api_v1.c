@@ -817,6 +817,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							ac->system_network = enkey;
 						else if (!strcmp(system_key, "smart"))
 							ac->system_smart = enkey;
+						else if (!strcmp(system_key, "interrupts"))
+							ac->system_interrupts = enkey;
 						else if (!strcmp(system_key, "firewall"))
 						{
 							ac->system_firewall = enkey;

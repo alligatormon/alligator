@@ -57,6 +57,7 @@ void system_initialize()
 {
 	extern aconf *ac;
 	ac->system_base = 0;
+	ac->system_interrupts = 0;
 	ac->system_network = 0;
 	ac->system_disk = 0;
 	ac->system_process = 0;

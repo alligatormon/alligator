@@ -247,6 +247,7 @@ set(STATIC_FILES
 	system/linux/memory.c
 	system/linux/nftables.c
 	system/linux/distribution_name.c
+	system/linux/interrupts.c
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c
