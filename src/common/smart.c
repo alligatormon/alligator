@@ -31,11 +31,12 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 	snprintf(tc, sizeof(tc), "%3u", a->current_value);
 	tc[sizeof(tc)-1] = 0;
 
+	print_name(name, sizeof(name), a->id, a->name);
+
 	//char *good_now = a->good_now ? "yes" : "no";
 	//char *good_now_valid = a->good_now_valid ? good_now : "n/a";
 	//char *good_in_the_past = a->good_in_the_past ? "yes" : "no";
 	//char *good_in_the_past_valid = a->good_in_the_past_valid ? good_in_the_past : "n/a";
-	print_name(name, sizeof(name), a->id, a->name);
 
 	//printf("field: %3u %-27s %-3s   %-3s   %-3s   %llu 0x%02x%02x%02x%02x%02x%02x %-7s %-7s %-4s %-4s\n",
 	//       a->id,
@@ -61,22 +62,17 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 	int64_t pretty_value;
 	if (a->pretty_unit == SK_SMART_ATTRIBUTE_UNIT_MKELVIN)
 		pretty_value = (a->pretty_value - 273150) / 1000;
+	else if (a->pretty_unit == SK_SMART_ATTRIBUTE_UNIT_MSECONDS)
+		pretty_value = a->pretty_value / 3600000;
 	else
 		pretty_value = a->pretty_value;
 
-	//puts("smart_attribute_stat_value");
 	metric_add_labels3("smart_attribute_stat_value", &current_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("smart_attribute_stat_raw_value");
 	metric_add_labels3("smart_attribute_stat_raw_value", &pretty_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("smart_attribute_stat_worst");
 	metric_add_labels3("smart_attribute_stat_worst", &worst_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("smart_attribute_stat_threshold");
 	metric_add_labels3("smart_attribute_stat_threshold", &threshold, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("smart_attribute_stat_online");
 	metric_add_labels3("smart_attribute_stat_online", &online, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("smart_attribute_stat_prefailure");
 	metric_add_labels3("smart_attribute_stat_prefailure", &prefailure, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	//puts("======");
 
 }
 
