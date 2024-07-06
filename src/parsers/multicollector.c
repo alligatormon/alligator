@@ -360,11 +360,8 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 			labels_hash_free(*lbl);
 			return 0;
 		}
-		else if (!metric_label_value_validator(label_key, strlen(label_key)))
-		{
-			labels_hash_free(*lbl);
-			return 0;
-		}
+
+		metric_label_value_validator_normalizer(label_key, strlen(label_key));
 
 		if (metric_name_validator_promstatsd(label_name, label_name_size))
 		{
@@ -522,11 +519,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 					labels_hash_free(lbl);
 					return 0;
 				}
-				else if (!metric_label_value_validator(label_key, strlen(label_key)))
-				{
-					labels_hash_free(lbl);
-					return 0;
-				}
+				metric_label_value_validator_normalizer(label_key, strlen(label_key))
 
 				prometheus_metric_name_normalizer(label_name, label_name_size);
 				labels_hash_insert_nocache(lbl, label_name, label_key);
