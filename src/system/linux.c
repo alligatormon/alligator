@@ -1369,26 +1369,6 @@ void find_pid(int8_t lightweight)
 	closedir(dp);
 }
 
-uint64_t get_container_mem_usage()
-{
-	char fpath[255];
-	char buf[21];
-	snprintf(fpath, 254, "%s/fs/cgroup/memory/memory.usage_in_bytes", ac->system_sysfs);
-	FILE *fd = fopen(fpath, "r");
-	if (!fd)
-		return 0;
-
-	if (!fgets(buf, 20, fd))
-	{
-		fclose(fd);
-		return 0;
-	}
-	fclose(fd);
-
-	return strtoull(buf, NULL, 10);
-}
-
-
 void get_mem(int8_t platform)
 {
 	platform = (!platform) || (platform > 4) ? 0 : 1; // exclude baremetal and virt
@@ -1421,6 +1401,7 @@ void get_mem(int8_t platform)
 	int64_t cache = 0;
 	int64_t mapped = 0;
 	int64_t unevictable = 0;
+	int64_t shmem = 0;
 	int64_t dirty = 0;
 	int64_t pgpgin = 0;
 	int64_t pgpgout = 0;
@@ -1503,6 +1484,10 @@ void get_mem(int8_t platform)
 			strlcpy(key_map, "unevictable", 12);
 			unevictable = ival;
 		}
+		else if ( !strcmp(key, "Shmem") ) {
+			strlcpy(key_map, "shmem", 6);
+			shmem = ival;
+		}
 		else	continue;
 
 		metric_add_labels("memory_usage_hw", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
@@ -1569,6 +1554,7 @@ void get_mem(int8_t platform)
 	}
 
 	ival = 1;
+	uint64_t container_memory_usage = 0;
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
 		tmp[strlen(tmp)-1] = 0;
@@ -1595,6 +1581,7 @@ void get_mem(int8_t platform)
 		else if (!strcmp(key, "total_dirty")) {
 			strlcpy(key_map, "dirty", 6);
 			dirty = cgroup ? ival : dirty;
+			container_memory_usage += dirty;
 		}
 		else if (!strcmp(key, "total_unevictable")) {
 			strlcpy(key_map, "unevictable", 12);
@@ -1603,10 +1590,12 @@ void get_mem(int8_t platform)
 		else if (!strcmp(key, "total_active_anon")) {
 			strlcpy(key_map, "active_anon", 12);
 			active_anon = cgroup ? ival : active_anon;
+			container_memory_usage += active_anon;
 		}
 		else if (!strcmp(key, "total_inactive_anon")) {
 			strlcpy(key_map, "inactive_anon", 14);
 			inactive_anon = cgroup ? ival : inactive_anon;
+			container_memory_usage += inactive_anon;
 		}
 		else if (!strcmp(key, "total_active_file")) {
 			strlcpy(key_map, "active_file", 12);
@@ -1636,6 +1625,11 @@ void get_mem(int8_t platform)
 			strlcpy(key_map, "total", 6);
 			memtotal = memtotal > ival ? ival : memtotal;
 		}
+		else if (!strcmp(key, "total_shmem")) {
+			strlcpy(key_map, "shmem", 6);
+			shmem = cgroup ? ival : shmem;
+			container_memory_usage += shmem;
+		}
 		else	continue;
 
 		metric_add_labels("memory_usage_cgroup", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
@@ -1654,15 +1648,14 @@ void get_mem(int8_t platform)
 	metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", "pgmajfault");
 	metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, ac->system_carg, "type", "pgfault");
 	metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
+	metric_add_labels("memory_stat", &shmem, DATATYPE_INT, ac->system_carg, "type", "shmem");
 
 	inactive = inactive_file+inactive_anon;
 	active = active_file+active_anon;
 	metric_add_labels("memory_usage", &active, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
 
-	// set memory usage
-	ival = get_container_mem_usage();
-	usagemem = platform ? ival : usagemem;
+	usagemem = platform ? container_memory_usage : usagemem;
 	double percentused = (double)usagemem*100/(double)memtotal;
 	double percentfree = 100 - percentused;
 	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
