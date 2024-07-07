@@ -248,6 +248,7 @@ void aggregate_ctx_init()
 	sd_consul_discovery_parser_push();
 	nginx_upstream_check_parser_push();
 	json_parser_push();
+    json_query_push();
 	consul_parser_push();
 	prometheus_metrics_parser_push();
 	sentinel_parser_push();
