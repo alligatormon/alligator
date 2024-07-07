@@ -50,8 +50,8 @@ void file_handler_struct_free(file_handle *fh)
 void filetailer_close(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	uv_fs_req_cleanup(req);
-	file_handler_struct_free(fh);
 	context_arg *carg = fh->carg;
+	file_handler_struct_free(fh);
 
 	(carg->close_counter)++;
 	metric_add_labels4("alligator_open", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);

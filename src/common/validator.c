@@ -58,7 +58,7 @@ int prometheus_metric_name_normalizer(char *str, size_t sz)
 {
 	int64_t i;
 	for (i=0; i<sz; i++)
-		if ( isalpha(str[i]) || str[i] == '_' || str[i] == ':')
+		if (isalpha(str[i]) || str[i] == '_' || str[i] == ':')
 			continue;
 		else if (isdigit(str[i]))
 			continue;

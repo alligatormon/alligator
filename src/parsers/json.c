@@ -53,7 +53,6 @@ void json_parser_push()
 
 void json_query_handler(char *metrics, size_t size, context_arg *carg)
 {
-    puts("this is json query handler");
 	json_error_t error;
 	char *data = metrics;
 	json_t *root = json_loads(metrics, 0, &error);
