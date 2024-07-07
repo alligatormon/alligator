@@ -23,7 +23,7 @@ void json_parse_object(context_arg *carg, json_t *element, string *prefix) {
 		string_cat(new_key, "_", 1);
 		string_cat(new_key, (char*)key, strlen(key));
 		json_parse_level(carg, value, new_key);
-        string_free(new_key);
+		string_free(new_key);
 	}
 }
 
@@ -36,7 +36,7 @@ void json_parse_array(context_arg *carg, json_t *element, string *prefix) {
 		string *new_key = string_new();
 		string_string_cat(new_key, prefix);
 		json_parse_level(carg, value, new_key);
-        string_free(new_key);
+		string_free(new_key);
 	}
 }
 
@@ -110,7 +110,7 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	string *pass = string_new();
 	string_cat(pass, prefix, strlen(prefix));
 	json_parse_level(carg, root, pass);
-    string_free(pass);
+	string_free(pass);
 
 	return 1;
 }
