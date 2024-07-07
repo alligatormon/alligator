@@ -62,12 +62,12 @@ void json_query_handler(char *metrics, size_t size, context_arg *carg)
 		if (!data)
 			return;
 
-		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->path);
+		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery);
 		free(data);
 	}
 	else
 	{
-		carg->parser_status = json_query(NULL, root, "json", carg, carg->pquery, carg->path);
+		carg->parser_status = json_query(NULL, root, "json", carg, carg->pquery);
 		json_decref(root);
 	}
 }

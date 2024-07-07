@@ -98,11 +98,11 @@ void json_parse_level(context_arg *carg, json_t *element, string *prefix)
 	}
 }
 
-int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *queries, char *describes) {
+int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *queries) {
 	json_error_t error;
 	if (!root) {
 		root = json_loads(data, 0, &error);
-		carglog(carg, L_ERROR, "json '%s' error on line %d: %s\n", describes, error.line, error.text);
+		carglog(carg, L_ERROR, "json '%s' error on line %d: %s\n", carg->key, error.line, error.text);
 		if (!root)
 			return 0;
 	}
