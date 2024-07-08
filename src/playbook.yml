@@ -344,6 +344,7 @@
       - statsd
       - conan==1.60.0
       - 'MarkupSafe>=2.0'
+      - PyYAML==6.0.1
 
   - name: Install pip deps
     when: ansible_os_family == "Debian" and ansible_distribution_major_version == "12"
