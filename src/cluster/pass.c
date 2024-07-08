@@ -68,7 +68,6 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 	char namespacename[255];
 	if (srvoplog->is_me)
 	{
-		primary_number = 0;
 		retcode = 0;
 		i = 1;
 	}

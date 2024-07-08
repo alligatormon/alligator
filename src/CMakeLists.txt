@@ -279,8 +279,9 @@ set(STATIC_FILES
 )
 
 message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")
-pkg_check_modules(SYSTEMD "systemd" REQUIRED)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if(${distro} MATCHES "centos")
+pkg_check_modules(SYSTEMD "systemd" REQUIRED)
 	if(SYSTEMD_FOUND)
 		if(${SYSTEMD_VERSION} VERSION_LESS 221)
 			set(SYSTEMD_FILES
@@ -292,6 +293,20 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 			)
 		endif()
 	endif()
+else()
+pkg_check_modules(SYSTEMD "libsystemd" REQUIRED)
+	if(SYSTEMD_FOUND)
+		if(${SYSTEMD_VERSION} VERSION_LESS 221)
+			set(SYSTEMD_FILES
+				system/linux/systemd.c
+			)
+		else()
+			set(SYSTEMD_FILES
+				system/linux/systemd-sdbus.c
+			)
+		endif()
+	endif()
+endif()
 endif()
 #IF(${distro} MATCHES "centos")
 #set(RPM_FILES parser/rpm.c)
