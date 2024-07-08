@@ -23,6 +23,10 @@ deploy_centos7:
   only:
   - tags
   script:
+  - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+  - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+  - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
   - yum -y install epel-release https://acc.dl.osdn.jp/storage/g/c/cu/cutter/centos/cutter-release-1.3.0-1.noarch.rpm
   - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter
   - ln -s /usr/bin/cmake3 /usr/bin/cmake
