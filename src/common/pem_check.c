@@ -64,8 +64,6 @@ void parse_cert_info(const mbedtls_x509_crt *cert_ctx, char *cert, char *host)
 	if (!cert_ctx)
 		return;
 
-	extern aconf *ac;
-
 	char dn_subject[1000];
 	int dn_subject_size = mbedtls_x509_dn_gets( dn_subject, 1000, &cert_ctx->subject );
 	char country_name[1000];
