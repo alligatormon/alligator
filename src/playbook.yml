@@ -342,7 +342,7 @@
       executable: pip3
       name:
       - statsd
-      - conan==1.60.0
+      - conan==1.64.1
       - 'MarkupSafe>=2.0'
       - PyYAML==6.0.1
 
@@ -353,7 +353,7 @@
       executable: pip3
       name:
       - statsd
-      - conan==1.60.0
+      - conan==1.64.1
       - 'MarkupSafe>=2.0'
 
   - name: Install pip deps

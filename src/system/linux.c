@@ -230,11 +230,11 @@ void get_cpu(int8_t platform)
 				}
 			}
 
-			uint64_t tuser = t1 / dividecpu;
-			uint64_t tnice = t2 / dividecpu;
-			uint64_t tsystem = t3 / dividecpu;
-			uint64_t tidle = t4 / dividecpu;
-			uint64_t tiowait = t5 / dividecpu;
+			double tuser = t1 / (dividecpu * 100.00);
+			double tnice = t2 / (dividecpu * 100.00);
+			double tsystem = t3 / (dividecpu * 100.00);
+			double tidle = t4 / (dividecpu * 100.00);
+			double tiowait = t5 / (dividecpu * 100.00);
 
 			uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
 			sccs->total += t12345;
@@ -250,22 +250,22 @@ void get_cpu(int8_t platform)
 			t5 -= sccs->iowait;
 			sccs->iowait += t5;
 
-			double usage = ((t1 + t3)*1.0/t12345);
+			double usage = ((t1 + t3)*100.0/t12345);
 			if (usage<0)
 				usage = 0;
-			double user = ((t1)*1.0/t12345);
+			double user = ((t1)*100.0/t12345);
 			if (user<0)
 				user = 0;
-			double nice = ((t2)*1.0/t12345);
+			double nice = ((t2)*100.0/t12345);
 			if (nice<0)
 				nice = 0;
-			double system = ((t3)*1.0/t12345);
+			double system = ((t3)*100.0/t12345);
 			if (system<0)
 				system = 0;
-			double idle = ((t4)*1.0/t12345);
+			double idle = ((t4)*100.0/t12345);
 			if (idle<0)
 				idle = 0;
-			double iowait = ((t5)*1.0/t12345);
+			double iowait = ((t5)*100.0/t12345);
 			if (iowait<0)
 				iowait = 0;
 
@@ -276,11 +276,11 @@ void get_cpu(int8_t platform)
 				metric_add_labels(cpu_usage_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 				metric_add_labels(cpu_usage_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
-				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_INT, ac->system_carg, "type", "user");
-				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_INT, ac->system_carg, "type", "nice");
-				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_INT, ac->system_carg, "type", "system");
-				metric_add_labels(cpu_usage_time_name, &tidle, DATATYPE_INT, ac->system_carg, "type", "idle");
-				metric_add_labels(cpu_usage_time_name, &tiowait, DATATYPE_INT, ac->system_carg, "type", "iowait");
+				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+				metric_add_labels(cpu_usage_time_name, &tidle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+				metric_add_labels(cpu_usage_time_name, &tiowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
 				if (!platform && ac->system_cpuavg)
 				{
 					cpu_avg_push(usage);
