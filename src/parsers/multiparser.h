@@ -101,6 +101,7 @@ void haproxy_parser_push();
 void httpd_parser_push();
 void ipmi_parser_push();
 void json_parser_push();
+void json_query_push();
 void keepalived_parser_push();
 void kubeconfig_parser_push();
 void kubernetes_ingress_parser_push();

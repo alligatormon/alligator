@@ -17,3 +17,4 @@ patricia_t *patricia_new();
 void *patricia_find(patricia_t *tree, uint32_t key, uint64_t *elem);
 uint128_t ip_to_integer(char *ip, uint8_t ip_version, char **ptr);
 uint128_t grpow(uint128_t basis, uint64_t exponent);
+void cidr_to_ip_and_mask(char *cidr, uint32_t *ip, uint32_t *mask);
