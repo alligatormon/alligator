@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include "patricia.h"
+#include "common/logs.h"
 
 patricia_t *patricia_new() {
     return calloc(1, sizeof(patricia_t));
@@ -16,7 +17,7 @@ rnode *patricia_node_create() {
     return calloc(1, sizeof(rnode));
 }
 
-rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data) {
+rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data, char *s_ip) {
     if (!tree->root)
         tree->root = patricia_node_create();
 
@@ -41,7 +42,12 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
 
     if (next) {
         if (node->data) {
-            return NULL;
+            if ((key != 0) && (mask != 0)) {
+                glog(L_WARN, "patricia_insert warning: the same address already had added to ACL: '%s'", s_ip);
+            }
+            free(node->data);
+            node->data = data;
+            return node;
         }
 
         node->data = data;
@@ -215,7 +221,7 @@ rnode* network_add_ip(patricia_t *tree, char *s_ip, void *tag) {
     uint32_t mask;
     uint32_t ip;
     cidr_to_ip_and_mask(s_ip, &ip, &mask);
-    return patricia_insert(tree, ip, mask, tag);
+    return patricia_insert(tree, ip, mask, tag, s_ip);
 }
 
 uint32_t fill_networks (patricia_t *tree, char *dir) {
