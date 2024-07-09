@@ -43,7 +43,7 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
     if (next) {
         if (node->data) {
             if ((key != 0) && (mask != 0)) {
-                glog(L_WARN, "patricia_insert warning: the same address already had added to ACL: '%s'", s_ip);
+                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'", s_ip);
             }
             free(node->data);
             node->data = data;
