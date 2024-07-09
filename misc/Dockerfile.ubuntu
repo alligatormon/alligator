@@ -1,7 +1,7 @@
 FROM ubuntu
 WORKDIR /build
 ADD ./ /build/
-RUN apt update && apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl && git submodule sync --recursive && git submodule update --init --recursive && cd src && pip3 install --break-system-packages conan==1.60.0 && conan install . --build=missing && conan build external/ && sh bootstrap.sh && cmake . && make -j
+RUN apt update && apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl && git submodule sync --recursive && git submodule update --init --recursive && cd src && pip3 install --break-system-packages conan==1.64.0 && conan install . --build=missing && conan build external/ && sh bootstrap.sh && cmake . && make -j
 
 FROM ubuntu
 COPY --from=0 /build/src/bin/alligator /usr/bin/alligator

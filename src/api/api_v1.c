@@ -80,10 +80,16 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 		{
 			if (!strcmp(key, "log_level"))
 			{
-				if (json_typeof(value) == JSON_STRING)
-					ac->system_carg->log_level = ac->log_level = get_log_level_by_name(json_string_value(value), json_string_length(value));
-				else
-					ac->system_carg->log_level = ac->log_level = json_integer_value(value);
+				if (json_typeof(value) == JSON_STRING) {
+					ac->log_level = get_log_level_by_name(json_string_value(value), json_string_length(value));
+					if (!ac->system_carg->log_level)
+						ac->system_carg->log_level = ac->log_level;
+				}
+				else {
+					ac->log_level = json_integer_value(value);
+					if (!ac->system_carg->log_level)
+						ac->system_carg->log_level = ac->log_level;
+				}
 			}
 			if (!strcmp(key, "log_dest"))
 			{
@@ -1092,10 +1098,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						}
 						else if (!strcmp(system_key, "log_level"))
 						{
-							if (json_typeof(value) == JSON_STRING)
-								ac->log_level = get_log_level_by_name(json_string_value(value), json_string_length(value));
+							if (json_typeof(sys_value) == JSON_STRING)
+								ac->system_carg->log_level = get_log_level_by_name(json_string_value(sys_value), json_string_length(sys_value));
 							else
-								ac->log_level = json_integer_value(value);
+								ac->system_carg->log_level = json_integer_value(sys_value);
 						}
 					}
 					code = 202;
