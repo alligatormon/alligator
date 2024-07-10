@@ -53,6 +53,10 @@ deploy_centos8:
   only:
   - tags
   script:
+  - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+  - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+  - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
   - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
   - git submodule sync --recursive
 
