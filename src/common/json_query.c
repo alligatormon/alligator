@@ -112,7 +112,7 @@ string_tokens *json_query_parser_object(char *obj, size_t sz, int *type) {
 	uint8_t is_array = 0;
 	uint8_t is_object = 0;
 	uint64_t i = 0;
-	char *key;
+	char *key = NULL;
 	for (; i < sz; ++i) {
 		if (obj[i] == '[') {
 			*type = JSON_ARRAY;

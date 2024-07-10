@@ -247,7 +247,7 @@ char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_s
 	return split;
 }
 
-size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, uint64_t *arr)
+size_t mapping_template(context_arg *carg, char *dst, char *src, size_t size, char **metric_split, uint64_t *arr)
 {
 	size_t ret = 0;
 
@@ -265,12 +265,10 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 			cur = updatecur;
 		else
 			cur += strlen(cur);
-		if (ac->log_level > 4)
-			printf("<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
+			carglog(carg, L_TRACE, "<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
 
 		size_t copysize = cur - oldcur;
-		if (ac->log_level > 4)
-			printf("<<<< copy non template %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
+		carglog(carg, L_TRACE, "<<<< copy non template %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
 		strncpy(dst+csym, oldcur, copysize);
 		csym += copysize;
 
@@ -279,36 +277,29 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 
 		cur += 1;
 		index = strtoll(cur, &cur, 10);
-		if (ac->log_level > 4)
-			printf("<<<get index of template '%s': %"u64"\n", cur, index);
+		carglog(carg, L_TRACE, "<<<get index of template '%s': %"u64"\n", cur, index);
 		if (index < 1)
 			break;
 		
 		index--; // index decrement because take from null
 
 		index = arr[index];
-		if (ac->log_level > 4)
-			printf("<<<templating element '%s': with [%"u64"] element\n", cur, index);
+		carglog(carg, L_TRACE, "<<<templating element '%s': with [%"u64"] element\n", cur, index);
 
-		if (ac->log_level > 4)
-			printf("<<<<<1 dst %s\n", dst);
+		carglog(carg, L_TRACE, "<<<<<1 dst %s\n", dst);
 
 		oldcur = cur;
-		if (ac->log_level > 4)
-			printf("<<<<< metric_split %s\n", metric_split[index]);
-		//printf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n", metric_split[0], metric_split[1], metric_split[2], metric_split[3], metric_split[4], metric_split[5], metric_split[6]);
+		carglog(carg, L_TRACE, "<<<<< metric_split %s\n", metric_split[index]);
 
 		if (!metric_split[index])
 			break;
 
 		copysize = strlen(metric_split[index]);
 		strlcpy(dst+csym, metric_split[index], copysize+1);
-		if (ac->log_level > 4)
-			printf("<<<< 2copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
+		carglog(carg, L_TRACE, "<<<< 2copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
 
 		csym += copysize;
-		if (ac->log_level > 4)
-			printf("<<<<<%"u64" dst %s\n", index, dst);
+		carglog(carg, L_TRACE, "<<<<<%"u64" dst %s\n", index, dst);
 	}
 	dst[csym] = 0;
 	
@@ -316,7 +307,7 @@ size_t mapping_template(char *dst, char *src, size_t size, char **metric_split, 
 	return ret;
 }
 
-uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
+uint8_t parse_statsd_labels(context_arg *carg, char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
@@ -344,11 +335,8 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 		multicollector_skip_spaces(i, str, size);
 		//printf("5str+i '%s'\n", str+*i);
 
-		if (ac->log_level > 3)
-		{
-			printf("label name: %s\n", label_name);
-			printf("label key: %s\n", label_key);
-		}
+		carglog(carg, L_DEBUG, "label name: %s\n", label_name);
+		carglog(carg, L_DEBUG, "label key: %s\n", label_key);
 
 		if (!*lbl)
 		{
@@ -373,10 +361,9 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 	return 1;
 }
 
-uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
+uint8_t multicollector_field_get(context_arg *carg, char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
 {
-	if (ac->log_level > 3)
-		fprintf(stdout, "multicollector: parse metric string '%s'\n", str);
+	carglog(carg, L_DEBUG, "multicollector: parse metric string '%s'\n", str);
 	r_time start_parsing = setrtime();
 	double value = 0;
 	uint64_t i = 0;
@@ -396,8 +383,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
 	{
 		labels_hash_free(lbl);
-		if (ac->log_level > 3)
-			printf("> metric name validator failed\n");
+		carglog(carg, L_DEBUG, "> metric name validator failed\n");
 		return 0;
 	}
 
@@ -415,7 +401,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		{
 			if (mm->metric_name)
 			{
-				metric_len = mapping_template(metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split, arr);
+				metric_len = mapping_template(carg, metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split, arr);
 				mapping_label *ml = mm->label_head;
 				while (ml)
 				{
@@ -433,9 +419,9 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 					mm->label_tail = ml;
 
 					// template exec
-					mapping_template(label_name, ml->name, METRIC_NAME_SIZE, metric_split, arr);
+					mapping_template(carg, label_name, ml->name, METRIC_NAME_SIZE, metric_split, arr);
 					//printf("from template '%s' rendered: '%s'\n", ml->name, label_name);
-					mapping_template(label_key, ml->key, METRIC_NAME_SIZE, metric_split, arr);
+					mapping_template(carg, label_key, ml->key, METRIC_NAME_SIZE, metric_split, arr);
 
 					// insert
 					labels_hash_insert_nocache(lbl, label_name, label_key);
@@ -450,13 +436,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		free(matchres);
 	}
 
-	if (ac->log_level > 3)
-		fprintf(stdout, "> metric name = %s\n", metric_name);
+	carglog(carg, L_DEBUG, "> metric name = %s\n", metric_name);
 	if (i == size)
 	{
-		if (ac->log_level > 3)
-			printf("%s: increment\n", metric_name);
-		//metric_increment();
+		carglog(carg, L_DEBUG, "%s: increment\n", metric_name);
 		labels_hash_free(lbl);
 		return 0;
 	}
@@ -500,17 +483,13 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			if (rc == 0)
 			{
 			//	labels_hash_free(lbl);
-			//	if (ac->log_level > 3)
-			//		fprintf(stdout, "metric '%s' has invalid label format\n", str);
+			//	carglog(carg, L_DEBUG, "metric '%s' has invalid label format\n", str);
 
 			//	return 0;
 			}
 
-			if (ac->log_level > 3)
-			{
-				fprintf(stdout, "> label_name = %s\n", label_name);
-				fprintf(stdout, "> label_key = %s\n", label_key);
-			}
+			carglog(carg, L_DEBUG, "> label_name = %s\n", label_name);
+			carglog(carg, L_DEBUG, "> label_key = %s\n", label_key);
 
 			if (metric_name_validator(label_name, label_name_size))
 			{
@@ -527,8 +506,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			else
 			{
 				labels_hash_free(lbl);
-				if (ac->log_level > 3)
-					fprintf(stdout, "metric '%s' has invalid label format: %s\n", str, label_name);
+				carglog(carg, L_DEBUG, "metric '%s' has invalid label format: %s\n", str, label_name);
 				return 0;
 			}
 			// go to next label or end '}'
@@ -553,14 +531,13 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		i += strcspn(str+i, " \t");
 		i += strspn(str+i, " \t");
 
-		if (ac->log_level > 3)
-			printf("> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carglog(carg, L_DEBUG, "> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
 		// don't need free labels
-		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
+		if (!parse_statsd_labels(carg, str, &i, size, &lbl, carg))
 			return 0;
 		// statsd
 		++i;
@@ -572,14 +549,12 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		}
 		else
 		{
-			if (ac->log_level > 3)
-				printf("> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+			carglog(carg, L_DEBUG, "> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			value = atof(str+i);
 			if (strstr(str+i, "|c"))
 			{
 				increment = 1;
-				if (ac->log_level > 3)
-					printf("> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+				carglog(carg, L_DEBUG, "> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			}
 		}
 
@@ -587,14 +562,13 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		//printf("> last parse: %s)\n", str+i);
 
 		// don't need free labels
-		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
+		if (!parse_statsd_labels(carg, str, &i, size, &lbl, carg))
 			return 0;
 	}
 	else if (isdigit(str[i]))
 	{
 		// prometheus without labels
-		if (ac->log_level > 3)
-			printf("> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carglog(carg, L_DEBUG, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else
@@ -729,16 +703,12 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (carg && http_data && http_data->expire != -1)
 			carg->curr_ttl = http_data->expire;
 
-		//if (ac->log_level > 2)
-		//	puts("skip first incomplete string for statsd/graphite proto, loose by network");
-
-		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg, counter_names);
+		uint8_t rc = multicollector_field_get(carg, tmp, tmp_len, lbl, carg, counter_names);
 		if (carg)
 			carg->parser_status = rc;
 	}
 
-	if (carg && ac->log_level > 0)
-		printf("parsed metrics multicollector: %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
+	carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
 
 	if (carg && !carg->no_metric)
 	{
