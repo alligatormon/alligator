@@ -38,6 +38,8 @@ void http_reply_data_free(http_reply_data* http)
 		free(http->headers);
 	if (http->auth_bearer)
 		free(http->auth_bearer);
+	if (http->auth_other)
+		free(http->auth_other);
 	if (http->clear_http)
 		string_free(http->clear_http);
 	if (http->auth_basic)
