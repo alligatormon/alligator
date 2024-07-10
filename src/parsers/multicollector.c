@@ -265,7 +265,8 @@ size_t mapping_template(context_arg *carg, char *dst, char *src, size_t size, ch
 			cur = updatecur;
 		else
 			cur += strlen(cur);
-			carglog(carg, L_TRACE, "<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
+
+		carglog(carg, L_TRACE, "<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
 
 		size_t copysize = cur - oldcur;
 		carglog(carg, L_TRACE, "<<<< copy non template %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
@@ -307,7 +308,7 @@ size_t mapping_template(context_arg *carg, char *dst, char *src, size_t size, ch
 	return ret;
 }
 
-uint8_t parse_statsd_labels(context_arg *carg, char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
+uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
@@ -361,7 +362,7 @@ uint8_t parse_statsd_labels(context_arg *carg, char *str, uint64_t *i, size_t si
 	return 1;
 }
 
-uint8_t multicollector_field_get(context_arg *carg, char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
+uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
 {
 	carglog(carg, L_DEBUG, "multicollector: parse metric string '%s'\n", str);
 	r_time start_parsing = setrtime();
@@ -537,7 +538,7 @@ uint8_t multicollector_field_get(context_arg *carg, char *str, size_t size, alli
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
 	{
 		// don't need free labels
-		if (!parse_statsd_labels(carg, str, &i, size, &lbl, carg))
+		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
 			return 0;
 		// statsd
 		++i;
@@ -562,7 +563,7 @@ uint8_t multicollector_field_get(context_arg *carg, char *str, size_t size, alli
 		//printf("> last parse: %s)\n", str+i);
 
 		// don't need free labels
-		if (!parse_statsd_labels(carg, str, &i, size, &lbl, carg))
+		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
 			return 0;
 	}
 	else if (isdigit(str[i]))
@@ -703,7 +704,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		if (carg && http_data && http_data->expire != -1)
 			carg->curr_ttl = http_data->expire;
 
-		uint8_t rc = multicollector_field_get(carg, tmp, tmp_len, lbl, carg, counter_names);
+		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg, counter_names);
 		if (carg)
 			carg->parser_status = rc;
 	}
