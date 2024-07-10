@@ -763,6 +763,60 @@ void string_free_callback(char *data)
 	string_free(str);
 }
 
+string_tokens *string_tokens_new()
+{
+	string_tokens *ret = calloc(1, sizeof(*ret));
+
+	return ret;
+}
+
+void string_tokens_scale(string_tokens *st)
+{
+	if (!st)
+		return;
+
+	uint64_t max = st->m ? st->m * 2 : 2;
+
+	string **new = calloc(1, sizeof(**new) * max);
+	memcpy(new, st->str, st->l * sizeof(string));
+
+	string **old = st->str;
+	st->str = new;
+
+	if (old)
+		free(old);
+
+	st->m = max;
+}
+
+uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l)
+{
+	if (!st)
+		return  0;
+
+	if (!st->m)
+		string_tokens_scale(st);
+
+	if (st->m <= st->l)
+		string_tokens_scale(st);
+
+	st->str[st->l] = string_init_add(s, l, l);
+
+	++st->l;
+
+	return 1;
+}
+
+void string_tokens_free(string_tokens *st)
+{
+	for (uint64_t i = 0; i < st->l; i++)
+	{
+		string_free(st->str[i]);
+	}
+	free(st->str);
+	free(st);
+}
+
 int match_mapper_compare(const void* arg, const void* obj)
 {
         char *s1 = (char*)arg;

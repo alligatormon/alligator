@@ -214,6 +214,7 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, "\r\n", 2);
+		http_reply_data_free(http_data);
 		return 1;
 	}
 

@@ -23,6 +23,12 @@ typedef struct string {
 	size_t m;
 } string;
 
+typedef struct string_tokens {
+	string **str;
+	uint64_t l;
+	uint64_t m;
+} string_tokens;
+
 typedef struct match_string {
 	char *s;
 	uint64_t count;
@@ -86,6 +92,11 @@ void string_double(string *str, double d);
 void string_string_cat(string *str, string *src);
 void string_string_copy(string *dst, string *src);
 void string_merge(string *str, string *src);
+
+uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l);
+string_tokens *string_tokens_new();
+void string_tokens_free(string_tokens *st);
+
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);
 char *trim(char *s);
