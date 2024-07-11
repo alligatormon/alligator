@@ -70,6 +70,8 @@ void file_stat_size_cb(uv_fs_t *req)
 	if (req->result < 0)
 	{
 		carglog(carg, L_ERROR, "error file_stat_size_cb: %s\n", req->path);
+		uv_fs_req_cleanup(req);
+		free(req);
 		return;
 	}
 

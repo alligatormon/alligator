@@ -330,6 +330,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *mapping_entrypoint = NULL;
 			json_t *api_entrypoint = NULL;
 			json_t *ttl_entrypoint = NULL;
+			json_t *log_level_entrypoint = NULL;
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
 			json_t *lang_entrypoint = NULL;
@@ -378,6 +379,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *resolver_data = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, NULL, resolver_data);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "log_level"))
+					{
+						if (!log_level_entrypoint)
+						{
+							++i;
+							log_level_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "log_level", log_level_entrypoint);
+						}
 					}
 					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir") || !strcmp(wstokens[i].token->s, "log_level"))
 					{

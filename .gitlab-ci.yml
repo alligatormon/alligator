@@ -47,31 +47,6 @@ deploy_centos7:
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
   - curl -F "package[distro_version_id]=140" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
-deploy_centos8:
-  stage: build
-  image: quay.io/centos/centos:stream8
-  only:
-  - tags
-  script:
-  - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-  - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-  - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
-
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
-  - git submodule sync --recursive
-
-  - git submodule update --init --recursive
-  - cd src
-
-  - pip3 install conan==1.64.0
-  - conan install . --build=missing
-  - conan build external/
-
-  - cmake . -DCPACK_GENERATOR=RPM
-  - make -j package
-  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
-  - curl -F "package[distro_version_id]=205" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
-
 deploy_centos9:
   stage: build
   image: quay.io/centos/centos:stream9

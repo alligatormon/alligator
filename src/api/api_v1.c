@@ -434,8 +434,26 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					carg->ttl = -1;
 					json_t *carg_ttl = json_object_get(entrypoint, "ttl");
-					if (carg_ttl)
-						carg->ttl = get_sec_from_human_range(json_string_value(carg_ttl), json_string_length(carg_ttl));
+					if (carg_ttl) {
+						int carg_ttl_type = json_typeof(carg_ttl);
+						if (carg_ttl_type == JSON_STRING)
+							carg->ttl = get_sec_from_human_range(json_string_value(carg_ttl), json_string_length(carg_ttl));
+						else if (carg_ttl_type == JSON_REAL)
+							carg->ttl = json_real_value(carg_ttl);
+						else if (carg_ttl_type == JSON_INTEGER)
+							carg->ttl = json_real_value(carg_ttl);
+					}
+
+					json_t *carg_log_level = json_object_get(entrypoint, "log_level");
+					if (carg_log_level) {
+						int carg_log_level_type = json_typeof(carg_log_level);
+						if (carg_log_level_type == JSON_STRING)
+							carg->log_level = get_log_level_by_name(json_string_value(carg_log_level), json_string_length(carg_log_level));
+						else if (carg_log_level_type == JSON_REAL)
+							carg->log_level = json_real_value(carg_log_level);
+						else if (carg_log_level_type == JSON_INTEGER)
+							carg->log_level = json_real_value(carg_log_level);
+					}
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
