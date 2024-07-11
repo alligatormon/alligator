@@ -2633,7 +2633,7 @@ void disks_info()
 {
 	struct dirent *entry;
 	DIR *dp;
-	uint64_t val;
+	uint64_t val = 1;
 
 	dp = opendir("/sys/class/block/");
 	if (!dp)
