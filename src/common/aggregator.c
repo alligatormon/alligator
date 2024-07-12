@@ -60,9 +60,10 @@ int smart_aggregator(context_arg *carg)
 	{
 		type = "resolver";
 		context_arg *new_carg = aggregator_push_addr_strtype(carg, carg->data, carg->rrtype, carg->rrclass);
+		if (!new_carg)
+			return 0;
 		carg_free(carg);
 		carg = new_carg;
-		printf("new carg is %p\n", new_carg);
 	}
 	else if (carg->transport == APROTO_UNIX)
 		type = unix_tcp_client(carg);

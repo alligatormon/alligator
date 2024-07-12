@@ -7,6 +7,7 @@
 #include "resolver/resolver.h"
 #include "resolver/getaddrinfo.h"
 #include "common/url.h"
+#include "common/logs.h"
 #include "metric/percentile_heap.h"
 
 int resolver_compare(const void* arg, const void* obj)
@@ -400,7 +401,24 @@ void resolver_carg_set_transport(context_arg *carg)
 
 context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
 {
-	if (!ac->resolver_size)
+	if ((!ac->resolver_size) && (carg->transport == APROTO_RESOLVER)) {
+		carglog(ac->system_carg, L_ERROR, "specified resolver '%s' in context %p, but there is no resolver directive, therefore alligator won't resolve this\n", carg->data, carg);
+		return NULL;
+	}
+
+	if ((!ac->resolver_size) && (carg->parser_handler != dns_handler)) {
+		resolver_getaddrinfo_get(carg);
+		return NULL;
+	}
+
+	if (
+        (!ac->resolver_size)
+        && (rrtype == DNS_TYPE_A)
+        && (rclass == DNS_CLASS_IN)
+        && (carg->transport != APROTO_RESOLVER)
+        && ((carg->parser_handler == dns_handler) && ((carg->transport == APROTO_UDP) || (carg->transport == APROTO_TCP)))
+		&& (!carg->resolver)
+        )
 	{
 		resolver_getaddrinfo_get(carg);
 		return NULL;
@@ -410,12 +428,12 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 	uint16_t transaction_id;
 	uint64_t buflen = dns_init_type(dname, buf, rrtype, &transaction_id);
 
-	srand(time(NULL));
-	uint8_t r = rand() % ac->resolver_size;
 
 	context_arg* new_carg;
 	if (carg->transport == APROTO_RESOLVER)
 	{
+		srand(time(NULL));
+		uint8_t r = rand() % ac->resolver_size;
 		new_carg = context_arg_json_fill(NULL, ac->srv_resolver[r]->hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(ac->srv_resolver[r]->labels);
 		new_carg->rd = ac->srv_resolver[r];
@@ -429,6 +447,8 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 	}
 	else
 	{
+		srand(time(NULL));
+		uint8_t r = rand() % ac->resolver_size;
 		new_carg = context_arg_json_fill(NULL, ac->srv_resolver[r]->hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(ac->srv_resolver[r]->labels);
 		new_carg->rd = ac->srv_resolver[r];
