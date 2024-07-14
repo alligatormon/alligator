@@ -355,12 +355,13 @@ void jks_push(char *name, char *path, char *match, char *password, char *passtr,
 
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = strdup(name);
-	lo->lang = "so";
-	lo->module = "parseJks";
-	lo->method = "alligator_call";
+	lo->lang = strdup("so");
+	lo->module = strdup("parseJks");
+	lo->method = strdup("alligator_call");
 	lo->hidden_arg = 1;
 	lo->carg = calloc(1, sizeof(context_arg));
 	lo->carg->log_level = ac->system_carg->log_level;
+	lo->carg->no_metric = 1;
 
 	if (!passtr)
 	{
