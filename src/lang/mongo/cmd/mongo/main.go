@@ -109,7 +109,7 @@ func MongoTopCommand(db *mongo.Database, filter bson.M, Metrics *[]string) {
 }
 
 //export alligator_call
-func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char) *C.char {
+func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char) *C.char {
 	strArg := C.GoString(arg)
 	//mstr := C.GoString(metrics)
 	//cstr := C.GoString(conf)
