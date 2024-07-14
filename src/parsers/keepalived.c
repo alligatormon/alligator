@@ -236,8 +236,8 @@ void keepalived_handler(char *metrics, size_t size, context_arg *carg)
 	uv_kill(pid, SIGUSR1);
 	uv_kill(pid, SIGUSR2);
 
-	read_from_file("/tmp/keepalived.stats", 0, keepalived_stats_parser, carg);
-	read_from_file("/tmp/keepalived.data", 0, keepalived_data_parser, carg);
+	read_from_file(strdup("/tmp/keepalived.stats"), 0, keepalived_stats_parser, carg);
+	read_from_file(strdup("/tmp/keepalived.data"), 0, keepalived_data_parser, carg);
 }
 
 void keepalived_parser_push()
