@@ -15,6 +15,7 @@ context_arg *carg_copy(context_arg *src)
 	memcpy(carg, src, carg_size);
 
 	carg->net_acl = network_range_duplicate(src->net_acl);
+	carg->net_tree_acl = patricia_tree_duplicate(src->net_tree_acl);
 	if (src->key)
 		carg->key = strdup(src->key);
 
@@ -116,6 +117,7 @@ void carg_free(context_arg *carg)
 		for(uint64_t i = 0; args[i]; ++i) {
 			free(args[i]);
 		}
+		free(carg->args);
 		carg->args = NULL;
 	}
 
@@ -192,6 +194,7 @@ void carg_free(context_arg *carg)
 	}
 
 	network_range_free(carg->net_acl);
+	patricia_free(carg->net_tree_acl);
 	labels_hash_free(carg->labels);
 	// TODO: free carg->socket
 	// TODO: free carg->mm

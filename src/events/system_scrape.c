@@ -17,6 +17,16 @@ static void system_scrape(uv_timer_t* handle)
 	alligator_ht_foreach(ac->system_aggregator, on_scrape_run);
 }
 
+void on_scrape_free(void* arg)
+{
+	system_scrape_info *ssinfo = arg;
+	free(ssinfo);
+}
+
+void system_scrape_free() {
+	alligator_ht_foreach(ac->system_aggregator, on_scrape_free);
+}
+
 void do_system_scrape(void *handler, char *name)
 {
 	extern aconf* ac;

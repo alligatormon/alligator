@@ -72,6 +72,86 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
     return node;
 }
 
+uint32_t patricia_node_free(rnode *node) {
+    if (!node)
+        return 0;
+
+    uint32_t count = 0;
+
+    if (node->right)
+        count += patricia_node_free(node->right);
+
+    if (node->left)
+        count += patricia_node_free(node->left);
+
+    if (node->data) {
+        ++count;
+        free(node->data);
+    }
+
+    free(node);
+
+    return count;
+}
+
+uint32_t patricia_free(patricia_t *tree) {
+    uint32_t count = 0;
+
+    if (!tree || !tree->root)
+        return count;
+
+    count = patricia_node_free(tree->root);
+
+    free(tree);
+    return count;
+}
+
+#define PATRICIA_RIGHT 0
+#define PATRICIA_LEFT 1
+
+void patricia_node_duplicate(rnode *snode, rnode *dnode, int branch_direction) {
+
+    rnode *branch = NULL;
+    if (branch_direction == PATRICIA_RIGHT)
+        branch = dnode->right = patricia_node_create();
+    else if (branch_direction == PATRICIA_LEFT)
+        branch = dnode->left = patricia_node_create();
+
+    if (snode->right)
+        patricia_node_duplicate(snode->right, branch, PATRICIA_RIGHT);
+    if (snode->left)
+        patricia_node_duplicate(snode->left, branch, PATRICIA_LEFT);
+
+    if (snode->data) {
+        branch->data = calloc(1, sizeof(uint8_t));
+        memcpy(branch->data, snode->data, sizeof(uint8_t));
+    }
+}
+
+patricia_t *patricia_tree_duplicate(patricia_t *src) {
+    if (!src)
+        return src;
+
+    patricia_t *dst = patricia_new();
+
+    if (!src->root)
+        return dst;
+
+    rnode *snode = src->root;
+    rnode *dnode = dst->root = patricia_node_create();
+    if (snode->right)
+        patricia_node_duplicate(snode->right, dnode, PATRICIA_RIGHT);
+    if (snode->left)
+        patricia_node_duplicate(snode->left, dnode, PATRICIA_LEFT);
+
+    if (snode->data) {
+        dnode->data = calloc(1, sizeof(uint8_t));
+        memcpy(dnode->data, snode->data, sizeof(uint8_t));
+    }
+
+    return dst;
+}
+
 void *patricia_find(patricia_t *tree, uint32_t key, uint64_t *elem)
 {
     rnode *node = tree->root;

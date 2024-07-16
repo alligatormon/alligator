@@ -394,5 +394,6 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 
 	r_time end = setrtime();
 	uint64_t expire_time = getrtime_mcs(start, end, 0);
-	metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
+	if (ac->nsdefault->metrictree->count)
+		metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
 }

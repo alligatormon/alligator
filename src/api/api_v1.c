@@ -680,18 +680,16 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						if (port)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
-							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							if (!ret)
+								printf("%p\n", ret);//carg_free(passcarg);
 							free(host);
-							//context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-							//if (!ret)
-							//	carg_free(passcarg);
 						}
 						else
 						{
-							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							//context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							//if (!ret)
-							//	carg_free(passcarg);
+							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
+							if (!ret)
+								printf("%p\n",ret);//carg_free(passcarg);
 						}
 					}
 

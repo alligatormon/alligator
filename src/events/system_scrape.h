@@ -9,3 +9,4 @@ typedef struct system_scrape_info
 } system_scrape_info;
 void do_system_scrape(void *handler, char *name);
 void system_scrape_handler();
+void system_scrape_free();
