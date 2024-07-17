@@ -9,6 +9,9 @@
 #include "patricia.h"
 #include "common/logs.h"
 
+#define PATRICIA_RIGHT 0
+#define PATRICIA_LEFT 1
+
 patricia_t *patricia_new() {
     return calloc(1, sizeof(patricia_t));
 }
@@ -72,6 +75,45 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
     return node;
 }
 
+void* patricia_delete(patricia_t *tree, uint32_t key, uint32_t mask, char *s_ip) {
+    if (!tree->root)
+        return NULL;
+
+    rnode *node = tree->root;
+    rnode *next = node;
+
+    uint32_t cursor = 0x80000000;
+
+    while (cursor & mask) {
+        if (key & cursor)
+            next = node->right;
+        else
+            next = node->left;
+
+        if (!next)
+            break;
+
+        cursor >>= 1;
+        node = next;
+
+    }
+
+    if (next) {
+        if (node->data) {
+            if ((key != 0) && (mask != 0)) {
+                return node->data;
+            }
+            else {
+                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'", s_ip);
+                return NULL;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
 uint32_t patricia_node_free(rnode *node) {
     if (!node)
         return 0;
@@ -105,9 +147,6 @@ uint32_t patricia_free(patricia_t *tree) {
     free(tree);
     return count;
 }
-
-#define PATRICIA_RIGHT 0
-#define PATRICIA_LEFT 1
 
 void patricia_node_duplicate(rnode *snode, rnode *dnode, int branch_direction) {
 
@@ -302,6 +341,13 @@ rnode* network_add_ip(patricia_t *tree, char *s_ip, void *tag) {
     uint32_t ip;
     cidr_to_ip_and_mask(s_ip, &ip, &mask);
     return patricia_insert(tree, ip, mask, tag, s_ip);
+}
+
+void* network_del_ip(patricia_t *tree, char *s_ip) {
+    uint32_t mask;
+    uint32_t ip;
+    cidr_to_ip_and_mask(s_ip, &ip, &mask);
+    return patricia_delete(tree, ip, mask, s_ip);
 }
 
 uint32_t fill_networks (patricia_t *tree, char *dir) {

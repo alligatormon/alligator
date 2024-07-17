@@ -489,7 +489,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *allow_str = (char*)json_string_value(allow_obj);
 
 							if (method == HTTP_METHOD_DELETE)
-								network_range_delete(carg->net_acl, allow_str);
+								network_range_delete(carg->net_acl, carg->net_tree_acl, allow_str);
 							else
 								network_range_push(carg->net_acl, &carg->net_tree_acl, allow_str, IPACCESS_ALLOW);
 						}
@@ -504,7 +504,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *deny_str = (char*)json_string_value(deny_obj);
 
 							if (method == HTTP_METHOD_DELETE)
-								network_range_delete(carg->net_acl, deny_str);
+								network_range_delete(carg->net_acl, carg->net_tree_acl, deny_str);
 							else
 								network_range_push(carg->net_acl, &carg->net_tree_acl, deny_str, IPACCESS_DENY);
 						}
@@ -681,15 +681,17 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
 							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-							if (!ret)
-								printf("%p\n", ret);//carg_free(passcarg);
+							(void)(ret);
+							//if (!ret)
+							//	carg_free(passcarg);
 							free(host);
 						}
 						else
 						{
 							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							if (!ret)
-								printf("%p\n",ret);//carg_free(passcarg);
+							(void)(ret);
+							//if (!ret)
+							//	carg_free(passcarg);
 						}
 					}
 

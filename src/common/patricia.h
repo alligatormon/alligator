@@ -13,6 +13,7 @@ typedef struct patricia_t {
 } patricia_t;
 
 rnode* network_add_ip(patricia_t *tree, char *s_ip, void *tag);
+void* network_del_ip(patricia_t *tree, char *s_ip);
 patricia_t *patricia_new();
 uint32_t patricia_free(patricia_t *tree);
 void *patricia_find(patricia_t *tree, uint32_t key, uint64_t *elem);

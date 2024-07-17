@@ -27,4 +27,4 @@ network_range* network_range_duplicate(network_range *nr);
 void network_range_free(network_range *nr);
 uint8_t ip_check_access(network_range *nr, patricia_t *tree, char *ip);
 void network_range_push(network_range *nr, patricia_t **tree, char *cidr, uint8_t action);
-void network_range_delete(network_range *nr, char *cidr);
+void network_range_delete(network_range *nr, patricia_t* tree, char *cidr);

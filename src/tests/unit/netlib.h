@@ -13,7 +13,7 @@ void test_ip_check_access_1()
 	network_range_push(net_acl, &tree, "0.0.0.0/5", IPACCESS_DENY);
 	network_range_push(net_acl, &tree, "10.0.0.0/8", IPACCESS_DENY);
 	network_range_push(net_acl, &tree, "128.0.0.1", IPACCESS_DENY);
-	network_range_delete(net_acl, "128.0.0.1");
+	network_range_delete(net_acl, tree, "128.0.0.1");
 
 	ip_access = ip_check_access(net_acl, tree, TEST_ADDR_1);
 	cut_assert_equal_int(ip_access, IPACCESS_ALLOW);
@@ -22,7 +22,7 @@ void test_ip_check_access_1()
 	ip_access = ip_check_access(net_acl, tree, TEST_ADDR_1);
 	cut_assert_equal_int(ip_access, IPACCESS_DENY);
 
-	network_range_delete(net_acl, "127.0.0.1");
+	network_range_delete(net_acl, tree, "127.0.0.1");
 	ip_access = ip_check_access(net_acl, tree, TEST_ADDR_1);
 	cut_assert_equal_int(ip_access, IPACCESS_ALLOW);
 }

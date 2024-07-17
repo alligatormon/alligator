@@ -218,13 +218,17 @@ void network_range_push(network_range *nr, patricia_t** tree, char *cidr, uint8_
 	network_add_ip(*tree, cidr, action_pass);
 }
 
-void network_range_delete(network_range *nr, char *cidr)
+void network_range_delete(network_range *nr, patricia_t* tree, char *cidr)
 {
 	uint64_t i = nr->cur;
 
 	network_range_node* nr_match = malloc(8*sizeof(network_range_node));
 	nr->max = 8;
 	cidr_to_network_range(nr_match, cidr);
+
+	void *action_pass = network_del_ip(tree, cidr);
+	if (action_pass)
+		free(action_pass);
 
 	while (i--)
 	{
