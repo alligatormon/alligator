@@ -25,3 +25,4 @@ void cidr_to_ip_and_mask(char *cidr, uint32_t *ip, uint32_t *mask);
 patricia_t *patricia_tree_duplicate(patricia_t *src);
 uint8_t ip_get_version(char *ip);
 char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version);
+void cidr_to_ip_and_mask128(char *cidr, uint128_t *ip, uint128_t *mask);
