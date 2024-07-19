@@ -22,6 +22,7 @@
 #include "puppeteer/puppeteer.h"
 #include "cluster/type.h"
 #include "common/logs.h"
+#include "dstructures/ht.h"
 
 aconf *ac;
 

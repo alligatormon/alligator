@@ -424,7 +424,6 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					context_arg *carg = calloc(1, sizeof(*carg)); // TODO: memory leak
 					carg->buffer_request_size = 6553500;
 					carg->buffer_response_size = 6553500;
-					carg->net_acl = calloc(1, sizeof(*carg->net_acl));
 
 					json_t *json_auth_header = json_object_get(entrypoint, "auth_header");
 					if (json_auth_header)
@@ -489,9 +488,9 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *allow_str = (char*)json_string_value(allow_obj);
 
 							if (method == HTTP_METHOD_DELETE)
-								network_range_delete(carg->net_acl, carg->net_tree_acl, allow_str);
+								network_range_delete(carg->net_tree_acl, carg->net6_tree_acl, allow_str);
 							else
-								network_range_push(carg->net_acl, &carg->net_tree_acl, allow_str, IPACCESS_ALLOW);
+								network_range_push(&carg->net_tree_acl, &carg->net6_tree_acl, allow_str, IPACCESS_ALLOW);
 						}
 					}
 					json_t *deny = json_object_get(entrypoint, "deny");
@@ -504,9 +503,9 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *deny_str = (char*)json_string_value(deny_obj);
 
 							if (method == HTTP_METHOD_DELETE)
-								network_range_delete(carg->net_acl, carg->net_tree_acl, deny_str);
+								network_range_delete(carg->net_tree_acl, carg->net6_tree_acl, deny_str);
 							else
-								network_range_push(carg->net_acl, &carg->net_tree_acl, deny_str, IPACCESS_DENY);
+								network_range_push(&carg->net_tree_acl, &carg->net6_tree_acl, deny_str, IPACCESS_DENY);
 						}
 					}
 

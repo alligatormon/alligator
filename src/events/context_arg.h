@@ -91,8 +91,8 @@ typedef struct context_arg
 	uint64_t auth_other_size;
 	char *body;
 	uint8_t body_readed;
-	network_range *net_acl;
 	patricia_t *net_tree_acl;
+	patricia_t *net6_tree_acl;
 
 	// for process spawn
 	uv_process_options_t options;

@@ -43,8 +43,6 @@ set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-
 ENDIF(${distro}.${disversion} MATCHES "centos.7")
 include_directories(/usr/include)
 include_directories(/usr/local/include)
-include_directories(/usr/include/cutter)
-include_directories(/usr/local/include/cutter)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
 include_directories(external/mruby/include/)
@@ -328,6 +326,7 @@ add_library(${COMMON_TESTS} STATIC
 	common/validator.c
 	common/url.c
 	common/netlib.c
+	common/patricia.c
 	common/pw.c
 	query/promql.c
 	dstructures/ht.c
@@ -350,12 +349,11 @@ add_library(${COMMON_TESTS} STATIC
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 IF(${distro}.${disversion} MATCHES "centos.7")
-add_library(${TESTS} SHARED tests/unit/tests.c)
+add_executable(${TESTS} tests/unit2/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} libuv_a.a cutter)
-add_test(Test1 "cutter" ".")
+target_link_libraries(${TESTS} ${COMMON_TESTS} libuv_a.a)
+add_test(Test1 "bin/alligator_tests" ".")
 ENDIF(${distro}.${disversion} MATCHES "centos.7")
-#add_custom_command(TARGET ${TESTS} POST_BUILD COMMAND cutter .)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)

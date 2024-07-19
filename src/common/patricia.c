@@ -9,6 +9,9 @@
 #include "patricia.h"
 #include "common/logs.h"
 
+#define INT128_MAX (__int128)(((unsigned __int128) 1 << ((sizeof(__int128) * __CHAR_BIT__) - 1)) - 1)
+#define UINT128_MAX ((2 * (unsigned __int128) INT128_MAX) + 1)
+
 #define PATRICIA_RIGHT 0
 #define PATRICIA_LEFT 1
 
@@ -19,6 +22,86 @@ patricia_t *patricia_new() {
 rnode *patricia_node_create() {
     return calloc(1, sizeof(rnode));
 }
+
+uint8_t ip_get_version(char *ip)
+{
+	uint64_t delim = strcspn(ip, ":.");
+	uint8_t ip_version = 0;
+	if (ip[delim] == '.')
+		ip_version = 4;
+	else if (ip[delim] == ':')
+		ip_version = 6;
+	else
+		return 0;
+
+	return ip_version;
+}
+
+char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
+{
+	char *ip = calloc(1, 40);
+	char *cur = ip;
+	if (ip_version == 4)
+	{
+		int8_t blocks = 4;
+		while (--blocks >= 0)
+		{
+			uint8_t number = 0;
+			uint128_t select_octet = grpow(256, blocks);
+			if (ipaddr >= select_octet)
+			{
+				number = ipaddr/select_octet;
+				ipaddr -= (ipaddr/select_octet)*select_octet;
+				int syms = sprintf(cur, "%"PRIu8, number);
+				if (syms>0)
+					cur += syms;
+			}
+			else
+			{
+				strcat(cur++, "0");
+			}
+
+			if (blocks != 0)
+			{
+				strcat(cur++, ".");
+			}
+		}
+	}
+	else if (ip_version == 6)
+	{
+		int8_t blocks = 8;
+		while (--blocks >= 0)
+		{
+			uint16_t number = 0;
+			uint128_t select_hextet = grpow(65536, blocks);
+			if (ipaddr >= select_hextet)
+			{
+				number = ipaddr/select_hextet;
+				ipaddr -= (ipaddr/select_hextet)*select_hextet;
+				int syms = sprintf(cur, "%"PRIu16, number);
+				if (syms>0)
+					cur += syms;
+			}
+			else
+			{
+				strcat(cur++, "0");
+			}
+
+			if (blocks != 0)
+			{
+				strcat(cur++, ":");
+			}
+		}
+	}
+	else
+	{
+		free(ip);
+		return NULL;
+	}
+
+	return ip;
+}
+
 
 rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data, char *s_ip) {
     if (!tree->root)
@@ -47,6 +130,61 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
         if (node->data) {
             if ((key != 0) && (mask != 0)) {
                 glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'", s_ip);
+            }
+            free(node->data);
+            node->data = data;
+            return node;
+        }
+
+        node->data = data;
+        return node;
+    }
+
+    while (cursor & mask) {
+        next = patricia_node_create();
+
+        if (key & cursor)
+            node->right = next;
+        else
+            node->left = next;
+
+
+        cursor >>= 1;
+        node = next;
+    }
+
+    node->data = data;
+
+    return node;
+}
+
+rnode *patricia_insert128(patricia_t *tree, uint128_t key, uint128_t mask, void *data, char *s_ip) {
+    if (!tree->root)
+        tree->root = patricia_node_create();
+
+    rnode *node = tree->root;
+    rnode *next = node;
+
+    uint128_t cursor = (__uint128_t)0x8000000000000000 << 64 | 0x0;
+
+    while (cursor & mask) {
+        if (key & cursor)
+            next = node->right;
+        else
+            next = node->left;
+
+        if (!next)
+            break;
+
+        cursor >>= 1;
+        node = next;
+
+    }
+
+    if (next) {
+        if (node->data) {
+            if ((key != 0) && (mask != 0)) {
+                glog(L_WARN, "patricia_insert128 warning: the same address already had been added to ACL: '%s'", s_ip);
             }
             free(node->data);
             node->data = data;
@@ -112,6 +250,45 @@ void* patricia_delete(patricia_t *tree, uint32_t key, uint32_t mask, char *s_ip)
 
     return NULL;
 }
+
+void* patricia_delete128(patricia_t *tree, uint128_t key, uint128_t mask, char *s_ip) {
+    if (!tree->root)
+        return NULL;
+
+    rnode *node = tree->root;
+    rnode *next = node;
+
+    uint128_t cursor = (__uint128_t)0x8000000000000000 << 64 | 0x0;
+
+    while (cursor & mask) {
+        if (key & cursor)
+            next = node->right;
+        else
+            next = node->left;
+
+        if (!next)
+            break;
+
+        cursor >>= 1;
+        node = next;
+
+    }
+
+    if (next) {
+        if (node->data) {
+            if ((key != 0) && (mask != 0)) {
+                return node->data;
+            }
+            else {
+                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'", s_ip);
+                return NULL;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 
 
 uint32_t patricia_node_free(rnode *node) {
@@ -219,6 +396,34 @@ void *patricia_find(patricia_t *tree, uint32_t key, uint64_t *elem)
     return ret;
 }
 
+void *patricia_find128(patricia_t *tree, uint128_t key, uint64_t *elem)
+{
+    rnode *node = tree->root;
+    rnode *next = node;
+    rnode *ret = NULL;
+
+    uint128_t cursor = (__uint128_t)0x8000000000000000 << 64 | 0x0;
+
+    while (next) {
+        if (node->data) {
+            ret = node;
+        }
+
+        if (key & cursor) {
+            next = node->right;
+
+        } else {
+            next = node->left;
+        }
+
+        node = next;
+        cursor >>= 1;
+        ++(*elem);
+    }
+
+    return ret;
+}
+
 //uint32_t ip_to_integer32(char *ip, char **ptr) {
 //        char *cur = ip;
 //        uint32_t ret = 0;
@@ -302,6 +507,11 @@ uint128_t ip_to_integer(char *ip, uint8_t ip_version, char **ptr)
 //        return grpow(2, (32 - prefix));
 //}
 
+uint128_t ip_get_mask128(uint8_t prefix)
+{
+        return UINT128_MAX - grpow(2, 128 - prefix) + 1;
+}
+
 uint32_t ip_get_mask(uint8_t prefix)
 {
         return UINT_MAX - grpow(2, 32 - prefix) + 1;
@@ -324,6 +534,20 @@ void cidr_to_ip_and_mask(char *cidr, uint32_t *ip, uint32_t *mask)
         //    *size = ip_get_range(prefix);
 }
 
+void cidr_to_ip_and_mask128(char *cidr, uint128_t *ip, uint128_t *mask)
+{
+		char *pref;
+		uint8_t prefix;
+		*ip = ip_to_integer(cidr, 6, &pref);
+		if (*pref == '/')
+			prefix = strtoull(++pref, NULL, 10);
+		else
+			prefix = 128;
+
+		if (mask)
+			*mask = ip_get_mask128(prefix);
+}
+
 void check_ip(patricia_t *tree, char *ip) {
     uint32_t int_ip;
 
@@ -336,53 +560,79 @@ void check_ip(patricia_t *tree, char *ip) {
         printf("can't find %s\n", ip);
 }
 
-rnode* network_add_ip(patricia_t *tree, char *s_ip, void *tag) {
-    uint32_t mask;
-    uint32_t ip;
-    cidr_to_ip_and_mask(s_ip, &ip, &mask);
-    return patricia_insert(tree, ip, mask, tag, s_ip);
-}
+rnode* network_add_ip(patricia_t *tree, patricia_t *tree6, char *s_ip, void *tag) {
+    uint8_t ip_version = ip_get_version(s_ip);
 
-void* network_del_ip(patricia_t *tree, char *s_ip) {
-    uint32_t mask;
-    uint32_t ip;
-    cidr_to_ip_and_mask(s_ip, &ip, &mask);
-    return patricia_delete(tree, ip, mask, s_ip);
-}
-
-uint32_t fill_networks (patricia_t *tree, char *dir) {
-    struct dirent *ipdirent;
-    DIR *ipdir = opendir(dir);
-    if (!ipdir) {
-        fprintf(stderr, "cannot open dir %s\n", dir);
-        return 0;
+    if (ip_version == 4) {
+        uint32_t mask;
+        uint32_t ip;
+        cidr_to_ip_and_mask(s_ip, &ip, &mask);
+        return patricia_insert(tree, ip, mask, tag, s_ip);
+    } else if (ip_version == 6) {
+        uint128_t mask;
+        uint128_t ip;
+        cidr_to_ip_and_mask128(s_ip, &ip, &mask);
+        return patricia_insert128(tree6, ip, mask, tag, s_ip);
     }
-
-    uint32_t count = 0;
-    char fname[255];
-    size_t dirlen = strlen(dir);
-    strcpy(fname, dir);
-    while ((ipdirent = readdir(ipdir))) {
-        char *countryname = strndup(ipdirent->d_name, strcspn(ipdirent->d_name, "."));
-
-        strcpy(fname+dirlen, ipdirent->d_name);
-        FILE *fd = fopen(fname, "r");
-        if (!fd) {
-            fprintf(stderr, "can't open file %s\n", fname);
-            break;
-        }
-
-        char buf[64];
-        while (fgets(buf, 63, fd)) {
-            buf[strlen(buf) - 1] = '\0';
-            //printf("add %s->%s\n", buf, countryname);
-            if(network_add_ip(tree, buf, countryname))
-                ++count;
-        }
+    else {
+        glog(L_ERROR, "network_add_ip error: unknown ip version '%PRIu8' from addr: %s\n", ip_version, s_ip);
+        return NULL;
     }
-
-    return count;
 }
+
+void* network_del_ip(patricia_t *tree, patricia_t *tree6, char *s_ip) {
+    uint8_t ip_version = ip_get_version(s_ip);
+
+    if (ip_version == 4) {
+        uint32_t mask;
+        uint32_t ip;
+        cidr_to_ip_and_mask(s_ip, &ip, &mask);
+        return patricia_delete(tree, ip, mask, s_ip);
+    } else if (ip_version == 6) {
+        uint128_t mask;
+        uint128_t ip;
+        cidr_to_ip_and_mask128(s_ip, &ip, &mask);
+        return patricia_delete128(tree6, ip, mask, s_ip);
+    }
+    else {
+        glog(L_ERROR, "network_del_ip error: unknown ip version '%PRIu8' from addr: %s\n", ip_version, s_ip);
+        return NULL;
+    }
+}
+
+//uint32_t fill_networks (patricia_t *tree, char *dir) {
+//    struct dirent *ipdirent;
+//    DIR *ipdir = opendir(dir);
+//    if (!ipdir) {
+//        fprintf(stderr, "cannot open dir %s\n", dir);
+//        return 0;
+//    }
+//
+//    uint32_t count = 0;
+//    char fname[255];
+//    size_t dirlen = strlen(dir);
+//    strcpy(fname, dir);
+//    while ((ipdirent = readdir(ipdir))) {
+//        char *countryname = strndup(ipdirent->d_name, strcspn(ipdirent->d_name, "."));
+//
+//        strcpy(fname+dirlen, ipdirent->d_name);
+//        FILE *fd = fopen(fname, "r");
+//        if (!fd) {
+//            fprintf(stderr, "can't open file %s\n", fname);
+//            break;
+//        }
+//
+//        char buf[64];
+//        while (fgets(buf, 63, fd)) {
+//            buf[strlen(buf) - 1] = '\0';
+//            //printf("add %s->%s\n", buf, countryname);
+//            if(network_add_ip(tree, buf, countryname))
+//                ++count;
+//        }
+//    }
+//
+//    return count;
+//}
 
 void print_node(rnode *node, int indent, uint32_t cursor) {
     uint32_t pass_cursor = cursor >> 1;
