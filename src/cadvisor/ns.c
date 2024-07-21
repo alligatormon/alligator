@@ -9,14 +9,14 @@
 #include <sys/types.h>
 #include <sched.h>
 #include "cadvisor/ns.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
 int net_ns_mount(int fd, char *name)
 {
 	int rc = setns(fd, CLONE_NEWNET);
-	if (ac->log_level > 0)
-		printf("setns return: %d\n", rc);
+	carglog(ac->cadvisor_carg, L_INFO, "setns return: %d\n", rc);
 
 	if (rc < 0)
 		return rc;
@@ -66,8 +66,7 @@ int mount_ns_by_pid(char *pid)
 		return 0;
 
 	int rc = setns(sfd, CLONE_NEWNET);
-	if (ac->log_level > 0)
-		printf("setns return: %d\n", rc);
+	carglog(ac->cadvisor_carg, L_INFO, "setns return: %d\n", rc);
 
 	close(sfd);
 

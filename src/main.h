@@ -209,6 +209,7 @@ typedef struct aconf
 	r_time last_time_cpu;
 	pidfile_list *system_pidfile;
 	context_arg *system_carg;
+	context_arg *cadvisor_carg;
 	system_cpu_stats *scs;
 	match_rules *process_match;
 	match_rules *packages_match;

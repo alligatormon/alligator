@@ -11,6 +11,7 @@
 #include "cadvisor/metrics.h"
 #include "cadvisor/ns.h"
 #include <sys/mount.h>
+#include "common/logs.h"
 #define PATH_SIZE 1000
 int unshare(int flags);
 
@@ -155,10 +156,9 @@ void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
 
-	if (ac->log_level > 2)
-		printf("%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", val);
+	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", val);
 
-	metric_add(mname, hash, &val, DATATYPE_UINT, ac->system_carg);
+	metric_add(mname, hash, &val, DATATYPE_UINT, ac->cadvisor_carg);
 }
 
 void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
@@ -177,10 +177,9 @@ void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, 
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
 
-	if (ac->log_level > 2)
-		printf("%s:%s:%s:%s:%s %"PRId64"\n", mname, cad_id, cntid, name1, value1, val);
+	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %"PRId64"\n", mname, cad_id, cntid, name1, value1, val);
 
-	metric_add(mname, hash, &val, DATATYPE_INT, ac->system_carg);
+	metric_add(mname, hash, &val, DATATYPE_INT, ac->cadvisor_carg);
 }
 
 void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer)
@@ -199,10 +198,9 @@ void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name
 		labels_hash_insert(hash, name1, value1);
 	labels_hash_insert(hash, "id", cad_id);
 
-	if (ac->log_level > 2)
-		printf("%s:%s:%s:%s:%s %lf\n", mname, cad_id, cntid, name1, value1, val);
+	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %lf\n", mname, cad_id, cntid, name1, value1, val);
 
-	metric_add(mname, hash, &val, DATATYPE_DOUBLE, ac->system_carg);
+	metric_add(mname, hash, &val, DATATYPE_DOUBLE, ac->cadvisor_carg);
 }
 
 void cgroup_get_netinfo(char *sysfs, char *ifname, char *stat, char *mname, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
@@ -1012,8 +1010,7 @@ void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *
 
 void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
-	if (ac->log_level > 1)
-		printf("cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 	char pidsdir[1000];
 	DIR *ethd;
 	struct dirent *ethd_entry;
@@ -1051,16 +1048,15 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 	umount("/var/lib/alligator/nsmount");
 
 	int rc = unshare(CLONE_NEWNET);
-	if (ac->log_level > 0 && rc)
-		printf("unshare %s failed: %d\n", name, rc);
+	if (rc)
+		carglog(ac->cadvisor_carg, L_ERROR, "unshare %s failed: %d\n", name, rc);
 
 	mount_ns_by_pid("1");
 }
 
 void cadvisor_scrape(char *ifname, char *slice, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
-	if (ac->log_level > 1)
-		printf("cadvisor_scrape search id in slice %s id: %s with name: %s\n", slice, cntid, name);
+	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_scrape search id in slice %s id: %s with name: %s\n", slice, cntid, name);
 	if (!ac->cadvisor_tcpudpbuf)
 		ac->cadvisor_tcpudpbuf = malloc(TCPUDP_NET_LENREAD);
 

@@ -73,7 +73,7 @@ system {
 	firewall [ipset=[entries|on]];
 	cpuavg period=5; # analog loadavg by cpu usage stat only with period in minutes
 	packages [nginx] [alligator]; # scrape packages info with timestamp installed
-	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json]; # for scrape cadvisor metrics
+	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=info] [add_labels=collector:cadvisor]; # for scrape cadvisor metrics
 	services [nginx.service]; # for systemd unit status
 
 	pidfile [tests/mock/linux/svc.pid]; # monitoring process by pidfile
@@ -86,6 +86,7 @@ system {
 	rundir /path/to/dir; # override path
 	usrdir /path/to/dir; # override path
 	etcdir /path/to/dir; # override path
+	log_level off;
 }
 
 #aggregator context (scrape from services)

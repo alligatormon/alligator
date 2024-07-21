@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include "cadvisor/ns.h"
 #include "cadvisor/metrics.h"
+#include "common/logs.h"
 #include <sys/mount.h>
 #include <sched.h>
 int unshare(int flags);
@@ -409,12 +410,10 @@ void nspawn_labels()
 
 void docker_labels(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 9)
-	{
-		puts("DOCKER scraper!");
-		puts(metrics);
-		puts("END");
-	}
+	carglog(ac->cadvisor_carg, L_TRACE, "DOCKER scraper!\n");
+	carglog(ac->cadvisor_carg, L_TRACE, "%s\n", metrics);
+	carglog(ac->cadvisor_carg, L_TRACE, "END\n");
+
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -468,8 +467,7 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 				if (json_typeof(label_value) == JSON_STRING)
 				{
 					char *str_value = (char*)json_string_value(label_value);
-					if (carg->log_level > 2)
-						printf("\tlabels: '%s': '%s'\n", label_key, str_value);
+					carglog(ac->cadvisor_carg, L_TRACE, "\tlabels: '%s': '%s'\n", label_key, str_value);
 					
 					if (!strcmp(label_key, "io.kubernetes.pod.uid"))
 					{
@@ -552,14 +550,12 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 
 			if (!is_k8s)
 			{
-				if (carg->log_level > 1)
-					printf("\tname: %s, image: %s, path: %s\n", name_str, image, id);
+				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, id);
 				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL);
 			}
 			else
 			{
-				if (carg->log_level > 1)
-					printf("\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
+				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
 				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer);
 			}
 		}

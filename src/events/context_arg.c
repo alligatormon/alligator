@@ -304,6 +304,24 @@ void env_free(alligator_ht *env)
 	free(env);
 }
 
+void parse_add_label(context_arg *carg, json_t *root) {
+	json_t *json_add_label = json_object_get(root, "add_label");
+
+	const char *name;
+	json_t *jkey;
+	json_object_foreach(json_add_label, name, jkey)
+	{
+		char *key = (char*)json_string_value(jkey);
+
+		if (!carg->labels)
+		{
+			carg->labels = alligator_ht_init(NULL);
+		}
+
+		labels_hash_insert_nocache(carg->labels, (char*)name, key);
+	}
+}
+
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
@@ -445,21 +463,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	else if (json_log_level)
 		carg->log_level = json_integer_value(json_log_level);
 
-	json_t *json_add_label = json_object_get(root, "add_label");
-
-	const char *name;
-	json_t *jkey;
-	json_object_foreach(json_add_label, name, jkey)
-	{
-		char *key = (char*)json_string_value(jkey);
-
-		if (!carg->labels)
-		{
-			carg->labels = alligator_ht_init(NULL);
-		}
-
-		labels_hash_insert_nocache(carg->labels, (char*)name, key);
-	}
+	parse_add_label(carg, root);
 
 	json_t *json_stdin = json_object_get(root, "stdin");
 	if (json_stdin)

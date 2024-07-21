@@ -915,6 +915,19 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *dockersock = cvalue ? (char*)json_string_value(cvalue) : DOCKERSOCK;
 							mkdirp("/var/lib/alligator/nsmount");
 
+							if (!ac->cadvisor_carg)
+								ac->cadvisor_carg = calloc(1, sizeof(*ac->system_carg));
+
+							parse_add_label(ac->cadvisor_carg, sys_value);
+
+							json_t *json_log_level = json_object_get(sys_value, "log_level");
+							if (json_log_level) {
+								if (json_typeof(json_log_level) == JSON_STRING)
+									ac->cadvisor_carg->log_level = get_log_level_by_name(json_string_value(json_log_level), json_string_length(json_log_level));
+								else
+									ac->cadvisor_carg->log_level = json_integer_value(json_log_level);
+							}
+
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
 
 							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", NULL, NULL, NULL);

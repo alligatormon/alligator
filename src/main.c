@@ -218,6 +218,8 @@ aconf* configuration()
 void main_free()
 {
 	free(ac->system_carg);
+	if (ac->cadvisor_carg)
+		free(ac->cadvisor_carg);
 	free(ac->log_host);
 	free(ac->log_dest);
 

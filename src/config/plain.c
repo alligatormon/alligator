@@ -399,6 +399,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						operator_json = json_object();
 
+						char *object_context = wstokens[i].token->s;
 						for (; i < token_count; i++)
 						{
 							json_t *arg_value = NULL;
@@ -414,9 +415,23 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								if (sep < wstokens[i].token->l)
 								{
 									strlcpy(arg_name, wstokens[i].token->s, sep+1);
-									arg_value = json_integer_string_set(wstokens[i].token->s+sep+1);
+									if (!strcmp(arg_name, "add_label") && !strcmp(object_context, "cadvisor")) {
+										json_t *add_label_obj = json_object();
+										json_array_object_insert(operator_json, "add_label", add_label_obj);
 
-									json_array_object_insert(operator_json, arg_name, arg_value);
+										uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
+										char kv_key[255];
+										strlcpy(kv_key, wstokens[i].token->s+sep+1, semisep-sep+1);
+
+										json_t *kv_value = json_string(wstokens[i].token->s+semisep+2);
+										arg_value = json_object();
+										json_array_object_insert(add_label_obj, kv_key, kv_value);
+									}
+									else {
+										arg_value = json_integer_string_set(wstokens[i].token->s+sep+1);
+
+										json_array_object_insert(operator_json, arg_name, arg_value);
+									}
 								}
 							}
 
