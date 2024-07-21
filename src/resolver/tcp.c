@@ -79,13 +79,11 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	{
 		if (!carg->full_body->l)
 		{
-			uint64_t ttl = dns_handler(buf->base+2, nread-2, carg);
+			dns_handler(buf->base+2, nread-2, carg);
 			if (carg->lock)
 			{
 				carg->lock = 0;
 			}
-
-			uv_timer_set_repeat(&carg->resolver_timer, ++ttl * 1000);
 		}
 		else
 			string_cat(carg->full_body, buf->base, nread);

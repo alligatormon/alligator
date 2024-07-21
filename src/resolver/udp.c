@@ -45,7 +45,7 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
-	uint64_t ttl = dns_handler(buf->base, nread, carg);
+	dns_handler(buf->base, nread, carg);
 	if (carg->lock)
 	{
 		uv_udp_recv_stop(req);
@@ -56,8 +56,6 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-
-	uv_timer_set_repeat(&carg->resolver_timer, ++ttl * 1000);
 }
 
 void resolver_send_udp(uv_udp_send_t* req, int status) {
@@ -77,12 +75,12 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 void resolver_connect_udp(void *arg)
 {
 	context_arg *carg = arg;
+	carg->count = 0;
 	carglog(carg, L_INFO, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;
 
-	carg->count = 0;
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->curr_ttl = carg->ttl;
