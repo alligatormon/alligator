@@ -917,10 +917,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 							host_aggregator_info *hi = parse_url(dockersock, strlen(dockersock));
 
-							alligator_ht *env = NULL;
-							env = alligator_ht_init(NULL);
-
-							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", env, NULL, NULL);
+							char *query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, "1.0", NULL, NULL, NULL);
 							context_arg *carg = context_arg_json_fill(cvalue, hi, docker_labels, "docker_labels", query, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
 							if (!smart_aggregator(carg))
 								carg_free(carg);

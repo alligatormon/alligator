@@ -1730,8 +1730,6 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		if (!query_struct_check_expr(mqc->op, value, mqc->opval))
 		{
 			alligator_ht_forfree(res_hash, metric_gen_foreach_free_res);
-			//alligator_ht_done(res_hash);
-			//free(res_hash);
 			labels_head_free(labels_list);
 			return;
 		}
@@ -1756,7 +1754,5 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		}
 
 		alligator_ht_forfree(res_hash, metric_gen_foreach_free_res);
-		//alligator_ht_done(res_hash);
-		//free(res_hash);
 	}
 }

@@ -1,10 +1,11 @@
 #pragma once
 #include "dstructures/tommy.h"
+#include <pthread.h>
 typedef struct alligator_ht
 {
 	tommy_hashdyn *ht;
 	uint32_t r_lock;
-	uint8_t rwlock;
+	pthread_rwlock_t rwlock;
 } alligator_ht;
 
 typedef tommy_hashdyn_node alligator_ht_node;

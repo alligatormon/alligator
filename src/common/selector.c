@@ -217,6 +217,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		return ret;
 	else
 	{
+		free(ret);
 		return NULL;
 	}
 }

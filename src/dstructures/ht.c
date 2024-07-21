@@ -11,55 +11,9 @@ void* alligator_ht_init(alligator_ht *h)
 		h->ht = calloc(1, sizeof(tommy_hashdyn));
 
 	tommy_hashdyn_init(h->ht);
+	pthread_rwlock_init(&h->rwlock, NULL);
 
 	return h;
-}
-
-int alligator_ht_r_lock(alligator_ht *h)
-{
-	uint64_t maxcnt = 65535;
-	while (maxcnt--)
-	{
-		if (!h->rwlock)
-		{
-			++(h->r_lock);
-			return 1;
-		}
-		usleep(1000);
-	}
-
-	return 0;
-}
-
-void alligator_ht_r_unlock(alligator_ht *h)
-{
-	--(h->r_lock);
-}
-
-int alligator_ht_rwlock(alligator_ht *h)
-{
-	uint64_t maxcnt = 65535;
-	while (maxcnt--)
-	{
-		if (!h->rwlock)
-		{
-			if (h->r_lock)
-			{
-				usleep(1000 * h->r_lock);
-				continue;
-			}
-		}
-
-		h->rwlock = 1;
-		return h->rwlock;
-	}
-
-	return 0;
-}
-
-void alligator_ht_rwunlock(alligator_ht *h)
-{
-	h->rwlock = 0;
 }
 
 void *alligator_ht_search(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const void *key, uint32_t sum)
@@ -71,11 +25,9 @@ void *alligator_ht_search(alligator_ht *h, int (*compare_func)(const void *arg, 
 		return NULL;
 
 	void *ret = NULL;
-	if (alligator_ht_r_lock(h))
-	{
-		ret = tommy_hashdyn_search(h->ht, compare_func, key, sum);
-		alligator_ht_r_unlock(h);
-	}
+	pthread_rwlock_rdlock(&h->rwlock);
+	ret = tommy_hashdyn_search(h->ht, compare_func, key, sum);
+	pthread_rwlock_unlock(&h->rwlock);
 	return ret;
 }
 
@@ -88,23 +40,19 @@ void *alligator_ht_remove(alligator_ht *h, int (*compare_func)(const void *arg, 
 		return NULL;
 
 	void *ret = NULL;
-	if (alligator_ht_rwlock(h))
-	{
-		ret = tommy_hashdyn_remove(h->ht, compare_func, key, sum);
-		alligator_ht_rwunlock(h);
-	}
+	pthread_rwlock_wrlock(&h->rwlock);
+	ret = tommy_hashdyn_remove(h->ht, compare_func, key, sum);
+	pthread_rwlock_unlock(&h->rwlock);
 	return ret;
 }
 
 void *alligator_ht_remove_existing(alligator_ht *h, alligator_ht_node* node)
 {
 	void *ret = NULL;
-	uint32_t rc = alligator_ht_rwlock(h);
-	if (rc)
-	{
-		ret = tommy_hashdyn_remove_existing(h->ht, node);
-		alligator_ht_rwunlock(h);
-	}
+
+	pthread_rwlock_wrlock(&h->rwlock);
+	ret = tommy_hashdyn_remove_existing(h->ht, node);
+	pthread_rwlock_unlock(&h->rwlock);
 
 	return ret;
 }
@@ -117,23 +65,16 @@ void alligator_ht_insert(alligator_ht *h, alligator_ht_node *node, void *data, u
 	if (!h->ht)
 		return;
 
-	uint32_t rc = alligator_ht_rwlock(h);
-	if (rc)
-	{
-		//tommy_hashdyn_remove_existing(h->ht, node);
-		tommy_hashdyn_insert(h->ht, node, data, sum);
-		alligator_ht_rwunlock(h);
-	}
+	pthread_rwlock_wrlock(&h->rwlock);
+	tommy_hashdyn_insert(h->ht, node, data, sum);
+	pthread_rwlock_unlock(&h->rwlock);
 }
 
 void alligator_ht_done(alligator_ht *h)
 {
-	uint32_t rc = alligator_ht_rwlock(h);
-	if (rc)
-	{
-		tommy_hashdyn_done(h->ht);
-		alligator_ht_rwunlock(h);
-	}
+	pthread_rwlock_wrlock(&h->rwlock);
+	tommy_hashdyn_done(h->ht);
+	pthread_rwlock_unlock(&h->rwlock);
 
 	free(h->ht);
 	h->ht = NULL;
@@ -156,7 +97,7 @@ size_t alligator_ht_memory_usage(alligator_ht *h)
 	return tommy_hashdyn_memory_usage(h->ht);
 }
 
-// NO RUN write/remove inside callback!!!
+// don't run write/remove inside callback!!!
 void alligator_ht_foreach_arg(alligator_ht *h, tommy_foreach_arg_func *func, void *arg)
 {
 	if (!h)
@@ -165,14 +106,12 @@ void alligator_ht_foreach_arg(alligator_ht *h, tommy_foreach_arg_func *func, voi
 	if (!h->ht)
 		return;
 
-	if (alligator_ht_r_lock(h))
-	{
-		tommy_hashdyn_foreach_arg(h->ht, func, arg);
-		alligator_ht_r_unlock(h);
-	}
+	pthread_rwlock_rdlock(&h->rwlock);
+	tommy_hashdyn_foreach_arg(h->ht, func, arg);
+	pthread_rwlock_unlock(&h->rwlock);
 }
 
-// NO RUN write/remove inside callback!!!
+// don't run write/remove inside callback!!!
 void alligator_ht_foreach(alligator_ht *h, tommy_foreach_func *func)
 {
 	if (!h)
@@ -181,11 +120,9 @@ void alligator_ht_foreach(alligator_ht *h, tommy_foreach_func *func)
 	if (!h->ht)
 		return;
 
-	if (alligator_ht_r_lock(h))
-	{
-		tommy_hashdyn_foreach(h->ht, func);
-		alligator_ht_r_unlock(h);
-	}
+	pthread_rwlock_rdlock(&h->rwlock);
+	tommy_hashdyn_foreach(h->ht, func);
+	pthread_rwlock_unlock(&h->rwlock);
 }
 
 void alligator_ht_forfree(alligator_ht *h, void *funcfree)
@@ -196,9 +133,7 @@ void alligator_ht_forfree(alligator_ht *h, void *funcfree)
 	if (!h->ht)
 		return;
 
-	if (alligator_ht_r_lock(h))
-	{
-		tommy_hash_forfree(h->ht, funcfree);
-		alligator_ht_r_unlock(h);
-	}
+	pthread_rwlock_rdlock(&h->rwlock);
+	tommy_hash_forfree(h->ht, funcfree);
+	pthread_rwlock_unlock(&h->rwlock);
 }
