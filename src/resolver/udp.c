@@ -4,13 +4,13 @@
 #include "common/entrypoint.h"
 #include "resolver/resolver.h"
 #include "events/metrics.h"
+#include "common/logs.h"
 #include "main.h"
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
 	context_arg *carg = req->data;
-	if (carg->log_level > 1)
-		printf("%"u64": udp resolver read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp resolver read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	carg->read_time_finish = setrtime();
 	uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
@@ -30,8 +30,7 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 	if (nread < 0)
 	{
-		if (carg->log_level > 1)
-			fprintf(stderr, "Read error %s\n", uv_err_name(nread));
+		carglog(carg, L_ERROR, "Read error %s\n", uv_err_name(nread));
 		free(buf->base);
 		return;
 	}
@@ -63,13 +62,11 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 void resolver_send_udp(uv_udp_send_t* req, int status) {
 	context_arg *carg = req->data;
-	if (carg->log_level > 1)
-		printf("%"u64": udp resolver send %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp resolver send %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 	carg->write_time_finish = setrtime();
 
 	if (status != 0) {
-		if (carg->log_level > 1)
-			fprintf(stderr, "send_cb error: %s\n", uv_strerror(status));
+		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
 	}
 
 	req->handle->data = req->data;
@@ -80,8 +77,7 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 void resolver_connect_udp(void *arg)
 {
 	context_arg *carg = arg;
-	if (carg->log_level > 1)
-		printf("%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;
@@ -102,8 +98,7 @@ void resolver_connect_udp(void *arg)
 
 	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, resolver_send_udp);
 	if (status)
-		if (carg->log_level > 1)
-			fprintf(stderr, "uv_udp_send error: %s\n", uv_strerror(status));
+			carglog(carg, L_ERROR, "uv_udp_send error: %s\n", uv_strerror(status));
 
 	carg->write_time = setrtime();
 }

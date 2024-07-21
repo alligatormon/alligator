@@ -46,7 +46,7 @@ int smart_aggregator(context_arg *carg)
 
 	strlcpy(key, carg->key, 512);
 
-	if (ac->log_level > 0)
+	if (ac->log_level > 1)
 		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
 
 	if (alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))

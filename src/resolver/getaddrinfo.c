@@ -1,11 +1,11 @@
 #include <uv.h>
+#include "common/logs.h"
 #include "main.h"
 
 void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
 	context_arg* carg = (context_arg*)req->data;
-	if (ac->log_level > 1)
-		printf("getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_INFO, "getaddrinfo tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 
 	char addr[17] = {'\0'};
 	if (status < 0)
@@ -27,8 +27,7 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 
 void resolver_getaddrinfo_get(context_arg* carg)
 {
-	if (ac->log_level > 1)
-		printf("resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_INFO, "resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	struct addrinfo hints;
 	uv_getaddrinfo_t* addr_info = 0;
 	addr_info = malloc(sizeof(uv_getaddrinfo_t));

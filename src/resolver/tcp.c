@@ -6,13 +6,13 @@
 #include "dstructures/uv_cache.h"
 #include "events/metrics.h"
 #include "events/client.h"
+#include "common/logs.h"
 #include "main.h"
 
 void resolver_closed_tcp(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
@@ -26,8 +26,7 @@ void resolver_closed_tcp(uv_handle_t *handle)
 void resolver_close_tcp(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	carg->tt_timer->data = NULL;
 
@@ -42,8 +41,7 @@ void resolver_close_tcp(uv_handle_t *handle)
 void resolver_shutdown_tcp(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 
@@ -62,8 +60,7 @@ void resolver_timeout_tcp(uv_timer_t *timer)
 		return;
 	}
 
-	if (carg->log_level > 1)
-		printf("%"u64": timeout tcp-resolver client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": timeout tcp-resolver client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	tcp_client_close((uv_handle_t *)&carg->client);
@@ -73,8 +70,7 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
 
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	
 	(carg->read_counter)++;
 	carg->read_time_finish = setrtime();
@@ -124,8 +120,7 @@ void resolver_writed_tcp(uv_write_t* req, int status)
 void resolver_connected_tcp(uv_connect_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	(carg->conn_counter)++;
 
 	uint64_t ok = 1;
@@ -145,16 +140,16 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 	carg->write_req.data = carg;
 
 	int read_status = uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, resolver_read_tcp);
-	if (read_status && carg->log_level > 1)
-		fprintf(stderr, "resolver_read_tcp error: %s\n", uv_strerror(read_status));
+	if (read_status)
+		carglog(carg, L_ERROR, "resolver_read_tcp error: %s\n", uv_strerror(read_status));
 
 	char *write_size_data = malloc(2);
 	write_size_data[0] = 0;
 	write_size_data[1] = carg->request_buffer.len;
 	carg->write_buffer = uv_buf_init(write_size_data, 2);
 	int write_size_status = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, resolver_writed_tcp);
-	if (write_size_status && carg->log_level > 1)
-		fprintf(stderr, "uv_write error: %s\n", uv_strerror(write_size_status));
+	if (write_size_status)
+		carglog(carg, L_ERROR, "uv_write error: %s\n", uv_strerror(write_size_status));
 
 	carg->write_bytes_counter += carg->request_buffer.len;
 	(carg->write_counter)++;
@@ -164,8 +159,7 @@ void resolver_connect_tcp(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	if (carg->log_level > 1)
-		printf("%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;
@@ -193,6 +187,5 @@ void resolver_connect_tcp(void *arg)
 	carg->connect_time = setrtime();
 	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, resolver_connected_tcp);
 	if (status)
-		if (carg->log_level > 1)
-			fprintf(stderr, "resolver_connect_tcp error: %s\n", uv_strerror(status));
+		carglog(carg, L_ERROR, "resolver_connect_tcp error: %s\n", uv_strerror(status));
 }
