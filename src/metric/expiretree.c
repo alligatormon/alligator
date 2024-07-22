@@ -388,11 +388,7 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	expire_tree *expiretree = ns->expiretree;
 
 	r_time start = setrtime();
-    int ret;
-    uint8_t i = 10;
-	while ((ret = expire_node_purge(expiretree->root, key, tree, expiretree)) && i--) {
-		printf("expire_node_purge ret %d\n", ret);
-	}
+	while (expire_node_purge(expiretree->root, key, tree, expiretree));
 
 	expire_select_delete(expiretree, key);
 
