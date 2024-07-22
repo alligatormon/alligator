@@ -55,7 +55,7 @@ void query_push(char *datasource, char *expr, char *make, char *action, char *ns
 		alligator_ht_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
 	}
 	if (ac->log_level > 0)
-		printf("create query node make %p: '%s', expr '%s'\n", qn, qn->make, qn->expr);
+		printf("create query node make %p: '%s', expr '%s', ns '%s'\n", qn, qn->make, qn->expr, qn->ns);
 	alligator_ht_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
 }
 
@@ -193,7 +193,7 @@ void internal_query_process(query_node *qn)
 {
 	metric_query_context *mqc = promql_parser(NULL, qn->expr, strlen(qn->expr));
 
-	metric_query_gen(0, mqc, qn->make, qn->action);
+	metric_query_gen(qn->ns, mqc, qn->make, qn->action);
 	query_context_free(mqc);
 }
 

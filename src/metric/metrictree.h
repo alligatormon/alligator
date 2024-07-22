@@ -154,7 +154,7 @@ typedef struct query_struct {
 
 
 //void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
-void metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
+int metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
 int64_t metric_get_double(void *value, int8_t type);
 void metrictree_get(metric_node *x, labels_t* labels, string *str);
@@ -166,7 +166,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree);
 int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2);
 void labels_print(labels_t *labels, int l);
 void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color);
-int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count);
+int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count);
 void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash);
 int metric_name_match(labels_t *labels1, labels_t *labels2);
 void labels_head_free(labels_t *labels);

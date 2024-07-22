@@ -36,7 +36,6 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 	{
 		labels_cache_fill(labels, tree);
 		rn->labels = labels;
-		//print_labels(labels);
 		rn->color = RED;
 		rn->steam[LEFT] = NULL;
 		rn->steam[RIGHT] = NULL;
@@ -94,7 +93,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	metric_node *ret = NULL;
 	if ( tree->root == NULL )
 	{
-	        tree->root = ret = make_node(tree, labels, type, value, expiretree);
+		tree->root = ret = make_node(tree, labels, type, value, expiretree);
 		tree->count++;
 		if (tree->root == NULL)
 			return NULL;
@@ -159,8 +158,9 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	return ret;
 }
 
-void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
+int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 {
+	int ret = 0;
 	if ( tree->root != NULL ) 
 	{
 		metric_node head = {{0}};
@@ -222,12 +222,15 @@ void metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree
 			f->labels = q->labels;
 			p->steam[p->steam[RIGHT] == q] = q->steam[q->steam[LEFT] == NULL];
 			free ( q );
+			ret = 1;
 		}
  
 		tree->root = head.steam[RIGHT];
 		if ( tree->root != NULL )
 			tree->root->color = BLACK;
 	}
+
+	return ret;
 }
 
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
@@ -398,7 +401,7 @@ void metric_str_build (char *namespace, string *str)
 {
 	extern aconf *ac;
 
-	namespace_struct *ns = get_namespace(namespace);
+	namespace_struct *ns = get_namespace_or_null(namespace);
 	metric_tree *tree = ns->metrictree;
 
 	if (tree && tree->root)
@@ -407,22 +410,23 @@ void metric_str_build (char *namespace, string *str)
 	}
 }
 
-void metrictree_gen_scan(metric_node *x, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
+void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
 {
 	if (!x)
 		return;
 
-	if (!labels_match(x->labels, labels, labels_count))
+	if (!labels_match(sort_plan, x->labels, labels, labels_count))
 	{
 		labels_gen_metric(x->labels, 0, x, groupkey, hash);
 	}
 
-	metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash, labels_count);
-	metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
+	metrictree_gen_scan(x->steam[LEFT], sort_plan, labels, groupkey, hash, labels_count);
+	metrictree_gen_scan(x->steam[RIGHT], sort_plan, labels, groupkey, hash, labels_count);
 }
 
-void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
+void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
 {
+	metric_node *x = tree->root;
 	while (x)
 	{
 		int rc1 = metric_name_match(x->labels, labels);
@@ -432,31 +436,32 @@ void metrictree_gen(metric_node *x, labels_t* labels, string *groupkey, alligato
 			x = x->steam[RIGHT];
 		else
 		{
-			if (!labels_match(x->labels, labels, labels_count))
+			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
 				labels_gen_metric(x->labels, 0, x, groupkey, hash);
-			metrictree_gen_scan(x->steam[LEFT], labels, groupkey, hash, labels_count);
-			metrictree_gen_scan(x->steam[RIGHT], labels, groupkey, hash, labels_count);
+			metrictree_gen_scan(x->steam[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count);
+			metrictree_gen_scan(x->steam[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count);
 			break;
 		}
 	}
 }
 
-void metrictree_serialize_query_node(metric_node *x, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
 {
 	if (!x)
 		return;
 
-	if (!labels_match(x->labels, labels, labels_count))
+	if (!labels_match(sort_plan, x->labels, labels, labels_count))
 	{
 		metric_node_serialize(x, sc);
 	}
 
-	metrictree_serialize_query_node(x->steam[LEFT], labels, groupkey, sc, labels_count);
-	metrictree_serialize_query_node(x->steam[RIGHT], labels, groupkey, sc, labels_count);
+	metrictree_serialize_query_node(x->steam[LEFT], sort_plan, labels, groupkey, sc, labels_count);
+	metrictree_serialize_query_node(x->steam[RIGHT], sort_plan, labels, groupkey, sc, labels_count);
 }
 
-void metrictree_serialize_query(metric_node *x, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
 {
+	metric_node *x = tree->root;
 	while (x)
 	{
 		int rc1 = metric_name_match(x->labels, labels);
@@ -468,8 +473,8 @@ void metrictree_serialize_query(metric_node *x, labels_t* labels, string *groupk
 		{
 			if (labels->key_len || !labels_count)
 				metric_node_serialize(x, sc);
-			metrictree_serialize_query_node(x->steam[LEFT], labels, groupkey, sc, labels_count);
-			metrictree_serialize_query_node(x->steam[RIGHT], labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->steam[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->steam[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count);
 			break;
 		}
 	}

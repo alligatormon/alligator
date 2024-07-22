@@ -28,6 +28,9 @@ context_arg *carg_copy(context_arg *src)
 	if (carg->lang)
 		carg->lang = strdup(src->lang);
 
+	if (carg->namespace && carg->namespace_allocated)
+		carg->namespace = strdup(src->namespace);
+
 	if (carg->auth_bearer)
 	{
 		carg->auth_bearer_size = src->auth_bearer_size;
@@ -150,6 +153,11 @@ void carg_free(context_arg *carg)
 
 	if (carg->stdin_s)
 		free(carg->stdin_s);
+
+	if (carg->namespace && carg->namespace_allocated) {
+		free(carg->namespace);
+		carg->namespace_allocated = 0;
+	}
 
 	if (carg->auth_header)
 		free(carg->auth_header);
@@ -492,6 +500,14 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_pquery)
 	{
 		carg->pquery = strdup(json_string_value(json_pquery));
+	}
+
+	json_t *json_namespace = json_object_get(root, "namespace");
+	if (json_namespace)
+	{
+		carg->namespace = strdup(json_string_value(json_namespace));
+        carg->namespace_allocated = 1;
+        insert_namespace(carg->namespace);
 	}
 
 	json_t *json_period = json_object_get(root, "period");

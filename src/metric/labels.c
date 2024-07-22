@@ -114,9 +114,8 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 	return 0;
 }
 
-int labels_match(labels_t *labels1, labels_t *labels2, size_t labels_count)
+int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count)
 {
-	sortplan *sort_plan = ac->nsdefault->metrictree->sort_plan;
 	if (labels_count)
 		++labels_count;
 
@@ -519,17 +518,8 @@ void labels_merge(alligator_ht *dst, alligator_ht *src)
 	alligator_ht_foreach_arg(src, labels_merge_for, dst);
 }
 
-labels_t* labels_initiate(alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
+labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
 {
-	namespace_struct *ns;
-
-	if ((!namespace) && !(arg_ns))
-		ns = ac->nsdefault;
-	else if(arg_ns)
-		ns = arg_ns;
-	else // add support namespaces
-		return NULL;
-
 	if (!hash)
 	{
 		hash = alligator_ht_init(NULL);
@@ -845,13 +835,7 @@ alligator_ht *labels_dup(alligator_ht *labels)
 
 void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
 {
-	namespace_struct *ns;
-
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 
 	if (!labels)
 	{
@@ -865,7 +849,7 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
+	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -880,16 +864,10 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 
 void metric_update_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -902,7 +880,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -917,16 +895,10 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 
 void metric_update_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -940,7 +912,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -955,16 +927,10 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 
 void metric_update_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -982,7 +948,7 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1003,10 +969,6 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 		return;
 
 	namespace_struct *ns = get_namespace_by_carg(carg);
-	if (ns)
-		if (ns->key)
-			if (!strcmp(ns->key, "replication"))
-				printf("ns '%s' (%p), metric: %s\n", ns->key, ns, name);
 
 	if (!labels)
 	{
@@ -1020,7 +982,7 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	labels_t *labels_list = labels_initiate(labels, name, NULL, ns, 0);
+	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1042,16 +1004,10 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1061,7 +1017,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
 
-	labels_t *labels_list = labels_initiate(labels, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, labels, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1076,16 +1032,10 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 
 void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1097,7 +1047,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1112,16 +1062,10 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 
 void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1134,7 +1078,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1149,16 +1093,10 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1172,7 +1110,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1187,16 +1125,10 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1211,7 +1143,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1226,16 +1158,10 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1251,7 +1177,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1266,16 +1192,10 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1292,7 +1212,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1307,16 +1227,10 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1334,7 +1248,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1349,16 +1263,10 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1377,7 +1285,7 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1392,16 +1300,10 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1421,7 +1323,7 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1436,16 +1338,10 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 
 void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9, char* name10, char* key10)
 {
-	namespace_struct *ns;
-
 	if (numbercheck(name))
 		return;
 
-	if (!carg || !carg->namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
-
+	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
@@ -1466,7 +1362,7 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 
-	labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
@@ -1610,22 +1506,18 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 
 void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_name, char *action_name)
 {
-	namespace_struct *ns;
+	namespace_struct *ns = get_namespace(namespace);
 
-	if (!namespace)
-		ns = ac->nsdefault;
-	else // add support namespaces
-		return;
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
 	size_t labels_count = alligator_ht_count(mqc->lbl);
-	labels_t *labels_list = labels_initiate(mqc->lbl, mqc->name, 0, 0, 0);
+	labels_t *labels_list = labels_initiate(ns, mqc->lbl, mqc->name, 0, 0, 0);
 
 	if ( tree && tree->root)
 	{
 		alligator_ht *res_hash = alligator_ht_init(NULL);
-		metrictree_gen(tree->root, labels_list, mqc->groupkey, res_hash, labels_count);
+		metrictree_gen(tree, labels_list, mqc->groupkey, res_hash, labels_count);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
 

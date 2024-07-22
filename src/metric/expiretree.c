@@ -345,8 +345,8 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 	{
 		if (x->metric && x->metric->labels)
 		{
-			metric_delete(tree, x->metric->labels, expiretree);
-			return ++ret;
+			ret += metric_delete(tree, x->metric->labels, expiretree);
+			return ret;
 		}
 
 		if(x->steam[LEFT])
@@ -358,8 +358,8 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 	{
 		if (x->metric && x->metric->labels)
 		{
-			metric_delete(tree, x->metric->labels, expiretree);
-			return ++ret;
+			ret += metric_delete(tree, x->metric->labels, expiretree);
+			return ret;
 		}
 
 		if(x->steam[LEFT])
@@ -375,7 +375,7 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	extern aconf *ac;
 
 	if (ac->log_level > 2)
-		printf("run expire purge\n");
+		printf("run expire purge on namespace %s/%s\n", namespace, ns->key);
 
 	if (!ns) {
 		if (!namespace)
@@ -388,7 +388,11 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	expire_tree *expiretree = ns->expiretree;
 
 	r_time start = setrtime();
-	while (expire_node_purge(expiretree->root, key, tree, expiretree));
+    int ret;
+    uint8_t i = 10;
+	while ((ret = expire_node_purge(expiretree->root, key, tree, expiretree)) && i--) {
+		printf("expire_node_purge ret %d\n", ret);
+	}
 
 	expire_select_delete(expiretree, key);
 

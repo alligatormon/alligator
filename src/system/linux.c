@@ -67,7 +67,7 @@ int fd_sock_compare(const void* arg, const void* obj)
 
 void print_mount(const struct mntent *fs)
 {
-	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strncmp(fs->mnt_dir, "/", 1))
+	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strcmp(fs->mnt_dir, "/"))
 	{
 		if (!strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_type, "overlay", 7))
 			return;

@@ -1,4 +1,5 @@
 #include "main.h"
+#include "common/logs.h"
 extern aconf *ac;
 
 int namespace_struct_compare(const void* arg, const void* obj)
@@ -36,6 +37,7 @@ namespace_struct *insert_namespace(char *key)
 	ns->expiretree = expiretree;
 	metrictree->labels_words_hash = labels_words_hash;
 	metrictree->sort_plan = sort_plan;
+	glog(L_INFO, "inserted namespace %s", key);
 
 	return ns;
 }
@@ -51,6 +53,15 @@ namespace_struct *get_namespace(char *key)
 		ns = ac->nsdefault;
 
 	return ns;
+}
+
+namespace_struct *get_namespace_or_null(char *key)
+{
+	if (!key)
+		return ac->nsdefault;
+
+	uint32_t key_hash = tommy_strhash_u32(0, key);
+	return alligator_ht_search(ac->_namespace, namespace_struct_compare, key, key_hash);
 }
 
 namespace_struct *get_namespace_by_carg(context_arg *carg)

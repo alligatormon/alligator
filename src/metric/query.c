@@ -10,7 +10,6 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 
 	if (name && !*name)
 		name = NULL;
-	//printf("namespace %s ns %p, name %s\n", namespace, ns, name);
 
 	size_t labels_count = alligator_ht_count(hash);
 	metric_tree *tree = ns->metrictree;
@@ -19,8 +18,8 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 
 	if (tree && tree->root)
 	{
-		labels_t *labels_list = labels_initiate(hash, name, 0, 0, 0);
-		metrictree_serialize_query(tree->root, labels_list, groupkey, sc, labels_count);
+		labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
+		metrictree_serialize_query(tree, labels_list, groupkey, sc, labels_count);
 		labels_head_free(labels_list);
 		serializer_do(sc, str);
 	}

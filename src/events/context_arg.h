@@ -83,6 +83,7 @@ typedef struct context_arg
 	uint64_t buffer_response_size;
 
 	char *namespace;
+	uint8_t namespace_allocated;
 	char **auth_basic;
 	uint64_t auth_basic_size;
 	char **auth_bearer;
