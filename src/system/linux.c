@@ -2007,11 +2007,6 @@ void get_uptime()
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: uptime\n");
 	r_time time1 = setrtime();
 
-	time_t t = time(NULL);
-	struct tm lt = {0};
-	localtime_r(&t, &lt);
-	time1.sec += lt.tm_gmtoff;
-
 	char firstproc[255];
 	snprintf(firstproc, 255, "%s/1", ac->system_procfs);
 	uint64_t uptime = time1.sec - get_file_atime(firstproc);
