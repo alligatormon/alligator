@@ -317,3 +317,4 @@ void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
 void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
+void parse_add_label(context_arg *carg, json_t *root);
