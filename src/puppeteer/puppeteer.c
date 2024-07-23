@@ -126,7 +126,7 @@ void puppeteer_crawl(uv_timer_t* handle) {
 		carg->timeout = 60000;
 	}
 
-	string_free(domains);
+	free(domains);
 }
 
 void puppeteer_generator()
