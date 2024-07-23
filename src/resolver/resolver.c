@@ -395,8 +395,7 @@ void resolver_stop()
 
 	if (ac->resolver_size)
 	{
-		while (ac->resolver_size != 0)
-			url_free(ac->srv_resolver[ac->resolver_size--]->hi);
-		url_free(ac->srv_resolver[0]->hi);
+		while (ac->resolver_size)
+			url_free(ac->srv_resolver[--ac->resolver_size]->hi);
 	}
 }
