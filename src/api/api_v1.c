@@ -915,8 +915,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *dockersock = cvalue ? (char*)json_string_value(cvalue) : DOCKERSOCK;
 							mkdirp("/var/lib/alligator/nsmount");
 
-							if (!ac->cadvisor_carg)
-								ac->cadvisor_carg = calloc(1, sizeof(*ac->system_carg));
+							if (!ac->cadvisor_carg) {
+								ac->cadvisor_carg = calloc(1, sizeof(*ac->cadvisor_carg));
+								ac->cadvisor_carg->ttl = 300;
+							}
 
 							parse_add_label(ac->cadvisor_carg, sys_value);
 
