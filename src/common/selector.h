@@ -96,6 +96,7 @@ void string_merge(string *str, string *src);
 uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l);
 string_tokens *string_tokens_new();
 void string_tokens_free(string_tokens *st);
+uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);

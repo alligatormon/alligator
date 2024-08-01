@@ -64,6 +64,9 @@ context_arg *carg_copy(context_arg *src)
 	if (src->env)
 		carg->env = env_struct_duplicate(src->env);
 
+	if (src->labels)
+		carg->labels = labels_dup(src->labels);
+
 	return carg;
 }
 

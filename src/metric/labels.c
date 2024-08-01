@@ -982,7 +982,7 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 	expire_tree *expiretree = ns->expiretree;
 	int64_t ttl = get_ttl(carg);
 
-	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0);
+	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0); // TODO: nodel:0 can make many new allocations in json_query
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{

@@ -538,6 +538,7 @@ string* string_init_add(char *str, size_t len, size_t max)
 	ret->m = max;
 	ret->s = str;
 	ret->l = len;
+	ret->s[len] = 0;
 
 	return ret;
 }
@@ -565,7 +566,7 @@ string* string_init_dupn(char *str, uint64_t size)
 {
 	string *ret = malloc(sizeof(*ret));
 	ret->m = ret->l = size;
-	ret->s = strdup(str);
+	ret->s = strndup(str, size);
 
 	return ret;
 }
@@ -802,6 +803,24 @@ uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l)
 		string_tokens_scale(st);
 
 	st->str[st->l] = string_init_add(s, l, l);
+
+	++st->l;
+
+	return 1;
+}
+
+uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l)
+{
+	if (!st)
+		return  0;
+
+	if (!st->m)
+		string_tokens_scale(st);
+
+	if (st->m <= st->l)
+		string_tokens_scale(st);
+
+	st->str[st->l] = string_init_dupn(s, l);
 
 	++st->l;
 
