@@ -208,6 +208,15 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_struct_conf_deserialize, ctx);
+
+	if (carg->pquery) {
+		json_t *pquery_arr = json_array();
+		json_array_object_insert(ctx, "pquery", pquery_arr);
+		for (uint8_t i = 0; i < carg->pquery_size; ++i) {
+			json_t *pquery = json_string(carg->pquery[i]);
+			json_array_object_insert(pquery_arr, "", pquery);
+		}
+	}
 }
 
 void lang_generate_conf(void *funcarg, void* arg)
