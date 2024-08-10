@@ -178,6 +178,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		string_null(response);
 		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
+		string_cat(response, "\r\n", 2);
 	}
 }
 

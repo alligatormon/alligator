@@ -427,6 +427,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = json_object();
 										json_array_object_insert(add_label_obj, kv_key, kv_value);
 									}
+									//if (!strcmp(arg_name, "pquery")) {
+									//	json_t *pquery_array = json_array();
+									//	json_array_object_insert(operator_json, "pquery", pquery_array);
+
+									//	json_t *kv_value = json_string(wstokens[i].token->s);
+									//	json_array_object_insert(pquery_array, "", kv_value);
+									//}
 									else {
 										arg_value = json_integer_string_set(wstokens[i].token->s+sep+1);
 
@@ -675,8 +682,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						operator_json = json_object();
 						json_t *env_obj = json_object();
 						json_t *add_label_obj = json_object();
+						json_t *pquery_arr = json_array();
 						json_array_object_insert(operator_json, "env", env_obj);
 						json_array_object_insert(operator_json, "add_label", add_label_obj);
+						json_array_object_insert(operator_json, "pquery", pquery_arr);
 
 						json_t *handler = json_string(wstokens[i].token->s);
 						json_array_object_insert(operator_json, "handler", handler);
@@ -734,7 +743,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									else
 										arg_value = json_string(wstokens[i].token->s+sep+1);
 
-									json_array_object_insert(operator_json, arg_name, arg_value);
+									if (!strcmp(arg_name, "pquery")) {
+										json_array_object_insert(pquery_arr, "", arg_value);
+									}
+									else
+										json_array_object_insert(operator_json, arg_name, arg_value);
 								}
 							}
 							if (wstokens[i].semicolon)

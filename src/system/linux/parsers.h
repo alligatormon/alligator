@@ -6,3 +6,4 @@ void ipset();
 void sysctl_run(alligator_ht* sysctl);
 void sysctl_free(alligator_ht* sysctl);
 void get_proc_interrupts(int extended_mode);
+void collect_power_supply();

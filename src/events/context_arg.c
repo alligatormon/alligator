@@ -142,8 +142,12 @@ void carg_free(context_arg *carg)
 	if (carg->instance)
 		free(carg->instance);
 
-	if (carg->pquery)
+	if (carg->pquery) {
+		for (uint8_t i = 0; i < carg->pquery_size; ++i)
+			free(carg->pquery[i]);
 		free(carg->pquery);
+		carg->pquery_size = 0;
+	}
 
 	if (carg->tls_ca_file)
 		free(carg->tls_ca_file);
@@ -502,7 +506,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	json_t *json_pquery = json_object_get(root, "pquery");
 	if (json_pquery)
 	{
-		carg->pquery = strdup(json_string_value(json_pquery));
+		carg->pquery_size = json_array_size(json_pquery);
+		carg->pquery = calloc(1, sizeof(char*) * carg->pquery_size);
+		for (uint8_t i = 0; i < carg->pquery_size; ++i) {
+			json_t *pquery_obj = json_array_get(json_pquery, i);
+			carg->pquery[i] = strdup(json_string_value(pquery_obj));
+		}
 	}
 
 	json_t *json_namespace = json_object_get(root, "namespace");

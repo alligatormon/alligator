@@ -1,0 +1,14 @@
+json_data_attributes_body {timestamp="12-04-92"} 1
+json_data_attributes_created {timestamp="12-04-92"} 1
+json_data_attributes_title {timestamp="12-04-92"} 1
+json_data_attributes_updated {timestamp="12-04-92"} 1
+json_data_id {timestamp="12-04-92"} 1
+json_data_relationships_author_data_id {timestamp="12-04-92"} 1
+json_data_relationships_author_data_type {timestamp="12-04-92"} 1
+json_data_type {timestamp="12-04-92"} 1
+json_included_attributes_age {timestamp="12-04-92", id="42"} 80
+json_included_attributes_gender {timestamp="12-04-92", id="42"} 1
+json_included_attributes_name {timestamp="12-04-92", id="42"} 1
+json_included_id {timestamp="12-04-92", id="42"} 1
+json_included_type {timestamp="12-04-92", id="42"} 1
+json_timestamp {timestamp="12-04-92"} 1

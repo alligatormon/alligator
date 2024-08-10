@@ -294,7 +294,8 @@ typedef struct context_arg
 	char *instance; // only for entrypoint, not aggregate!
 	uint8_t rreturn; // only for entrypoint, not aggregate!
 	uint8_t metric_aggregation; // only for entrypoint, not aggregate!
-	char *pquery; // parser query
+	char **pquery; // parser query
+    uint8_t pquery_size;
 
 	// overwrited period
 	uint64_t period;

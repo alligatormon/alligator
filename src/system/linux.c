@@ -3275,6 +3275,7 @@ void get_system_metrics()
 		get_nfs_stats();
 		get_systemd_scopes();
 		get_distribution_name();
+		collect_power_supply();
 		if ((!platform) || (platform > 4)) { // exclude containers
 			get_proc_interrupts(ac->system_interrupts);
 		}

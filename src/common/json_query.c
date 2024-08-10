@@ -107,7 +107,6 @@ void json_parse_string(context_arg *carg, json_t *element, string *prefix, allig
 	if (key)
 	{
 		uint64_t okval = 1;
-		jq_node *jqn = alligator_ht_search(carg->data, json_query_node_compare, prefix->s, tommy_strhash_u32(0, prefix->s));
 		carglog(carg, L_DEBUG, "json '%s' parsed string prefix %s with key '%s'\n", carg->key, prefix->s, key);
 		prometheus_metric_name_normalizer(prefix->s, prefix->l);
 		metric_label_value_validator_normalizer(key, strlen(key));
@@ -213,76 +212,80 @@ string_tokens *json_query_parser_object(context_arg *carg, char *obj, size_t sz,
 	return tokens;
 }
 
-alligator_ht* json_parse_query(context_arg *carg, char *queries) {
-	if (!queries)
+alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_size) {
+	if (!query)
 		return NULL;
 
-	printf("\nparse '%s'\n", queries);
 	alligator_ht *ht = alligator_ht_init(NULL);
-	string *object_key = string_new();
-	uint8_t is_object = 0;
-	string_cat(object_key, "json", 4);
-	size_t queries_len = strlen(queries);
-	for (uint64_t i = 0; i < queries_len; ++i) {
-		char *context = queries + i;
-		size_t context_size = strcspn(context, "|");
-		carglog(carg, L_DEBUG,"context '%s' size is %zu\n", context, context_size);
 
-		for (uint64_t j = 0; j < context_size; ++j) {
-			char *subctx = context + j;
-			size_t subctx_size = strcspn(subctx, ",");
-			carglog(carg, L_DEBUG,"subctx '%s' size is %zu\n", subctx, subctx_size);
+	for (uint64_t query_ind = 0; query_ind < queries_size; ++query_ind) {
+		char *queries = query[query_ind];
+		carglog(carg, L_INFO, "\njson parse query '%s'\n", queries);
+		string *object_key = string_new();
+		uint8_t is_object = 0;
+		string_cat(object_key, "json", 4);
+		size_t queries_len = strlen(queries);
+		for (uint64_t i = 0; i < queries_len; ++i) {
+			char *context = queries + i;
+			size_t context_size = strcspn(context, "|");
+			carglog(carg, L_DEBUG,"context '%s' size is %zu\n", context, context_size);
 
-			for (uint64_t k = 0; k < subctx_size; ) {
-				char *object = subctx + k;
-				size_t object_size = strcspn(object, ".");
+			for (uint64_t j = 0; j < context_size; ++j) {
+				char *subctx = context + j;
+				size_t subctx_size = strcspn(subctx, ",");
+				carglog(carg, L_DEBUG,"subctx '%s' size is %zu\n", subctx, subctx_size);
 
-				if ((!object_size) && (object[0] == '.') && (object[1] != '[')) {
-					is_object = 1;
-					object_size = strcspn(object+2, ".") + 1;
+				for (uint64_t k = 0; k < subctx_size; ) {
+					char *object = subctx + k;
+					size_t object_size = strcspn(object, ".");
+
+					if ((!object_size) && (object[0] == '.') && (object[1] != '[')) {
+						is_object = 1;
+						object_size = strcspn(object+2, ".") + 1;
+					}
+					else if (!object_size) {
+						++k;
+						continue;
+					}
+
+					int type;
+					string_tokens *tokens = json_query_parser_object(carg, object, object_size, &type);
+					carglog(carg, L_DEBUG, "object is '%s'/%zu, results: %p, object: '%c%c'\n", object, object_size, tokens, object[0], object[1]);
+					if (!tokens)
+						continue;
+
+					if (object[0] == '[') {
+						jq_node *new = calloc(1, sizeof(*new));
+						new->tokens = tokens;
+						new->key = string_new();
+						string_string_copy(new->key, object_key);
+						carglog(carg, L_TRACE, "insert array '%s' -> '%s' (", new->key->s, object_key->s);
+						for (uint64_t id = 0; id < tokens->l; carglog(carg, L_TRACE, "%s'%s'", id ? ", " : "", tokens->str[id]->s), ++id);
+						carglog(carg, L_TRACE, ")\n");
+						alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
+					}
+					else if (is_object) {
+						jq_node *new = calloc(1, sizeof(*new));
+						is_object = 0;
+						new->key = string_string_init_dup(tokens->str[0]);
+						string_cat(object_key, "_", 1);
+						string_string_cat(object_key, new->key);
+						carglog(carg, L_TRACE, "insert object '%s' -> '%s'\n", new->key->s, object_key->s);
+						alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
+						string_tokens_free(tokens);
+					}
+					else {
+						string_tokens_free(tokens);
+					}
+
+					k += object_size;
 				}
-				else if (!object_size) {
-					++k;
-					continue;
-				}
 
-				int type;
-				string_tokens *tokens = json_query_parser_object(carg, object, object_size, &type);
-				carglog(carg, L_DEBUG, "object is '%s'/%zu, results: %p, object: '%c%c'\n", object, object_size, tokens, object[0], object[1]);
-				if (!tokens)
-					continue;
-
-				if (object[0] == '[') {
-					jq_node *new = calloc(1, sizeof(*new));
-					new->tokens = tokens;
-					new->key = string_new();
-					string_string_copy(new->key, object_key);
-					printf("insert array '%s' -> '%s' (", new->key->s, object_key->s);
-					for (uint64_t id = 0; id < tokens->l; printf("%s'%s'", id ? ", " : "", tokens->str[id]->s), ++id);
-					puts(")");
-					alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
-				}
-				else if (is_object) {
-					jq_node *new = calloc(1, sizeof(*new));
-					is_object = 0;
-					new->key = string_string_init_dup(tokens->str[0]);
-					string_cat(object_key, "_", 1);
-					string_string_cat(object_key, new->key);
-					printf("insert object '%s' -> '%s'\n", new->key->s, object_key->s);
-					alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
-					string_tokens_free(tokens);
-				}
-				else {
-					string_tokens_free(tokens);
-				}
-
-				k += object_size;
+				j += subctx_size;
 			}
 
-			j += subctx_size;
+			i += context_size;
 		}
-
-		i += context_size;
 	}
 
 	return ht;
@@ -297,7 +300,7 @@ void jq_node_free_foreach(void *funcarg, void* arg)
 	free(jqn);
 }
 
-int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *queries) {
+int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char **queries, uint8_t queries_size) {
 	json_error_t error;
 	if (!root) {
 		root = json_loads(data, 0, &error);
@@ -306,7 +309,7 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 			return 0;
 	}
 
-	carg->data = json_parse_query(carg, queries);
+	carg->data = json_parse_query(carg, queries, queries_size);
 
 	string *pass = string_new();
 	alligator_ht *lbl = alligator_ht_init(NULL);

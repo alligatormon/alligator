@@ -440,19 +440,22 @@ int64_t getkvfile_ext(char *file, uint8_t *err)
 	return atoll(temp);
 }
 
-void getkvfile_str(char *file, char *str, uint64_t size)
+int getkvfile_str(char *file, char *str, uint64_t size)
 {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
-		return;
+		return 0;
 
 	if ( !fgets(str, size, fd) )
 	{
 		fclose(fd);
-		return;
+		return 0;
 	}
 
+	str[strcspn(str, "\r\n")] = 0;
+
 	fclose(fd);
+	return 1;
 }
 
 void str_tolower(char *str, size_t size)

@@ -287,3 +287,13 @@ memory_errors {type="uncorrectable", cpu="1", controller="mc2", slot="0", channe
 memory_errors {type="uncorrectable", cpu="1", controller="mc2", slot="0", channel="1"} 234
 memory_errors {type="uncorrectable", cpu="1", controller="mc3", slot="0", channel="0"} 2313
 memory_errors {type="uncorrectable", cpu="1", controller="mc3", slot="0", channel="1"} 234
+power_supply_capacity {type="Battery", device="BAT0"} 83
+power_supply_capacity_level {device="BAT0", capacity_level="Normal"} 1
+power_supply_cycle_count {type="Battery", device="BAT0"} 591
+power_supply_energy_full {type="Battery", device="BAT0"} 44220000
+power_supply_energy_full_design {type="Battery", device="BAT0"} 51000000
+power_supply_energy_now {type="Battery", device="BAT0"} 37530000
+power_supply_power_now {type="Battery", device="BAT0"} 6641000
+power_supply_status {status="Charging", device="BAT0"} 1
+power_supply_voltage_min_design {type="Battery", device="BAT0"} 11520000
+power_supply_voltage_now {type="Battery", device="BAT0"} 12234000
