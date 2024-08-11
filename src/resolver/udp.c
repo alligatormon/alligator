@@ -16,6 +16,8 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 	uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
 	uint64_t write_time = getrtime_mcs(carg->write_time, carg->write_time_finish, 0);
 	uint64_t response_time = getrtime_mcs(carg->write_time, carg->read_time_finish, 0);
+	carg->close_time = setrtime();
+	carg->close_time_finish = setrtime();
 	resolver_data *rd = carg->rd;
 
 	if (rd)
@@ -42,6 +44,7 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 	(carg->conn_counter)++;
 	(carg->read_counter)++;
+	carg->read_bytes_counter += nread;
 
 	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
@@ -98,5 +101,10 @@ void resolver_connect_udp(void *arg)
 	if (status)
 			carglog(carg, L_ERROR, "uv_udp_send error: %s\n", uv_strerror(status));
 
+	carg->write_bytes_counter += carg->request_buffer.len;
+	(carg->write_counter)++;
+
 	carg->write_time = setrtime();
+	carg->connect_time = setrtime();
+	carg->connect_time_finish = setrtime();
 }

@@ -286,6 +286,7 @@ alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_
 
 			i += context_size;
 		}
+		string_free(object_key);
 	}
 
 	return ht;
@@ -320,6 +321,7 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	string_free(pass);
 	labels_hash_free(lbl);
 	alligator_ht_forfree(carg->data, jq_node_free_foreach);
+	free(carg->data);
 
 	return 1;
 }
