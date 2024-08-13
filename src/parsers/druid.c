@@ -171,7 +171,7 @@ void druid_queries_foreach(void *funcarg, void* arg)
 	string *post_query_string = string_init_add_auto(post_query_s);
 	json_decref(post_data);
 
-	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, "/druid/v2/sql", carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, post_query_string);
+	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, "/druid/v2/sql", carg->host, "alligator", NULL, "1.0", carg->env, NULL, post_query_string);
 	string_free(post_query_string);
 
 	try_again(carg, generated_query, strlen(generated_query), druid_sql_execute_handler, "druid_custom", NULL, key, qn);
@@ -571,7 +571,7 @@ void druid_broker_handler(char *metrics, size_t size, context_arg *carg)
 
 string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string* druid_status_health_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return druid_gen_url(hi, "/status/health", env, proxy_settings); }

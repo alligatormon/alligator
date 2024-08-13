@@ -15,19 +15,6 @@
 #include "common/units.h"
 #include "api/api.h"
 
-//void http_reply_free(http_reply_data* hrdata)
-//{
-//	free(hrdata->mesg);
-//	free(hrdata->headers);
-//	if (hrdata->clear_http)
-//		string_free(hrdata->clear_http);
-//
-//	if (hrdata->location)
-//		free(hrdata->location);
-//
-//	free(hrdata);
-//}
-
 void http_reply_data_free(http_reply_data* http)
 {
 	if (http->uri)
@@ -476,29 +463,6 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 
 	return 0;
 }
-
-//
-//string* http_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
-//{
-//	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
-//}
-//
-//void http_parser_push()
-//{
-//	aggregate_context *actx = calloc(1, sizeof(*actx));
-//
-//	actx->key = strdup("http");
-//	actx->handlers = 1;
-//	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
-//
-//	actx->handler[0].name = blackbox_null;
-//	actx->handler[0].validator = NULL;
-//	actx->handler[0].mesg_func = http_mesg;
-//	actx->handler[0].headers_pass = 1;
-//	strlcpy(actx->handler[0].key,"http", 255);
-//
-//	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
-//}
 
 void env_serialize_http_answer(void *funcarg, void* arg)
 {

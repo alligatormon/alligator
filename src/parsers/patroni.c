@@ -126,7 +126,7 @@ void patroni_config_handler(char *metrics, size_t size, context_arg *carg)
 
 string *patroni_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 0, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 }
 
 string* patroni_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return patroni_gen_url(hi, "/patroni", env, proxy_settings); }

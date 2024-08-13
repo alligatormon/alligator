@@ -273,12 +273,12 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 
 string* kubernetes_ingress_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "/apis/extensions/v1beta1/ingresses", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, "/apis/extensions/v1beta1/ingresses", hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 }
 
 string* kubernetes_endpoint_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, "/api/v1/pods/", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, "/api/v1/pods/", hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 }
 
 void kubernetes_ingress_parser_push()

@@ -37,7 +37,7 @@ int8_t beanstalkd_validator(context_arg *carg, char *data, size_t size)
 
 string* beanstalkd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("stats\r\n"), 0, 0);
+	return string_init_add_auto(strdup("stats\r\n"));
 }
 
 void beanstalkd_parser_push()

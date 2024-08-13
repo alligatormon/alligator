@@ -606,7 +606,7 @@ void clickhouse_queries_foreach(void *funcarg, void* arg)
 	char cl[20];
 	snprintf(cl, 19, "%"u64, query->l);
 	env_struct_push_alloc(carg->env, "Content-Length", cl);
-	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, NULL, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, query);
+	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, NULL, carg->host, "alligator", NULL, "1.0", carg->env, NULL, query);
 	string_free(query);
 
 	//printf("try again %s/%"u64"\n", generated_query, strlen(generated_query));
@@ -632,7 +632,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 
 string *clickhouse_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string* clickhouse_system_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.metrics", env, proxy_settings); }

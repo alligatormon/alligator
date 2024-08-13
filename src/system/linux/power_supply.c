@@ -38,19 +38,19 @@ void collect_power_supply() {
 			return;
 
 		snprintf(fpath, 1023, "%s/%s/type", power_supply_dir, entry->d_name);
-	 	getkvfile_str(fpath, type, 254);
+		getkvfile_str(fpath, type, 254);
 		carglog(ac->system_carg, L_DEBUG, "\tcheck power_supply: set type to %s\n", type);
 
 		snprintf(fpath, 1023, "%s/%s/status", power_supply_dir, entry->d_name);
-	 	if (getkvfile_str(fpath, status, 254))
+		if (getkvfile_str(fpath, status, 254))
 			metric_add_labels2("power_supply_status", &okval, DATATYPE_UINT, ac->system_carg, "status", status, "device", entry->d_name);
 
 		snprintf(fpath, 1023, "%s/%s/capacity_level", power_supply_dir, entry->d_name);
-	 	if (getkvfile_str(fpath, capacity_level, 254))
+		if (getkvfile_str(fpath, capacity_level, 254))
 			metric_add_labels2("power_supply_capacity_level", &okval, DATATYPE_UINT, ac->system_carg, "capacity_level", capacity_level, "device", entry->d_name);
 
 		snprintf(fpath, 1023, "%s/%s/health", power_supply_dir, entry->d_name);
-	 	if (getkvfile_str(fpath, health, 254))
+		if (getkvfile_str(fpath, health, 254))
 			metric_add_labels2("power_supply_health", &okval, DATATYPE_UINT, ac->system_carg, "health", health, "device", entry->d_name);
 
 		while((field_entry = readdir(dp_field))) {
@@ -68,7 +68,7 @@ void collect_power_supply() {
 				strstr(fname, "_max")
 				) {
 					carglog(ac->system_carg, L_DEBUG, "\tcheck power_supply: skip filename %s\n", fname);
-	 				continue;
+					continue;
 			}
 
 			snprintf(fpath_field, 1023, "%s/%s/%s", power_supply_dir, entry->d_name, fname);

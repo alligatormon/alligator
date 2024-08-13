@@ -73,7 +73,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	context_arg *new_carg;
 	if ((pn->prober == APROTO_HTTP) || (pn->prober == APROTO_HTTPS))
 	{
-		char *http_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, pn->env, pn->http_proxy_url, NULL);
+		char *http_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, pn->env, pn->http_proxy_url, NULL);
 		new_carg = context_arg_json_fill(NULL, hi, blackbox_null, "blackbox_null", http_query, 0, pn, NULL, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
 	}
 	else

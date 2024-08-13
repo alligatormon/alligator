@@ -98,7 +98,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				char *key = malloc(256);
 				snprintf(key, 256, "%s:clickhouse_action_query:%"u64, hi->host, ms[i]->l);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, 1, "1.0", env, NULL, ms[i]);
+				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms[i]);
 				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
 				string_free(ms[i]);
@@ -123,7 +123,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				snprintf(key, 256, "%s:postgresql_action_query:%"u64, hi->host, ms[i]->l);
 				printf("ms %s: %"u64"\n", ms[i]->s, ms_size);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, 1, "1.0", env, NULL, ms[i]);
+				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms[i]);
 				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
 				string_free(ms[i]);
@@ -146,7 +146,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			if (an->content_type_json)
 				env_struct_push_alloc(env, "Content-Type", "application/json");
 
-			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, 1, "1.0", env, NULL, body);
+			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, body);
 			free(body->s);
 			aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 			alligator_ht_foreach_arg(env, env_struct_free, env);

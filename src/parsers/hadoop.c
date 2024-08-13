@@ -71,7 +71,7 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 
 string* hadoop_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 }
 
 void hadoop_parser_push()

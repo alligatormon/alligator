@@ -37,7 +37,7 @@ void cluster_recurse(void *funcarg, void* arg)
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
 		carglog(carg, L_DEBUG, "cluster sync url %s\n", url->s);
-		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
+		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, NULL, NULL, NULL);
 		context_arg *new = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, &cn->servers[i], NULL, 0, NULL, NULL);
 		if (new) {
 			new->period = ac->cluster_repeat;
@@ -76,7 +76,7 @@ void cluster_aggregate_timer_recurse(uv_timer_t *handle)
 		string_cat(url, "&replica=", 9);
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
-		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, 0, NULL, NULL, NULL, NULL);
+		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, NULL, NULL, NULL);
 		context_arg *carg = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_aggregate_sync_handler, "cluster_aggregate_sync_handler", NULL, NULL, 0, NULL, NULL, 0, NULL, NULL);
 		if (carg)
 			carg->data = cn;

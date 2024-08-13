@@ -732,7 +732,7 @@ string* redis_parser_mesg(host_aggregator_info *hi, void *arg, void *env, void *
 	else
 		snprintf(query, 1000, "INFO ALL\r\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 string* redis_parser_memory_stat_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -743,7 +743,7 @@ string* redis_parser_memory_stat_mesg(host_aggregator_info *hi, void *arg, void 
 	else
 		snprintf(query, 1000, "MEMORY STATS\r\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 string* redis_parser_latency_stat_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -754,7 +754,7 @@ string* redis_parser_latency_stat_mesg(host_aggregator_info *hi, void *arg, void
 	else
 		snprintf(query, 1000, "LATENCY LATEST\r\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -765,7 +765,7 @@ string* redis_parser_cluster_mesg(host_aggregator_info *hi, void *arg, void *env
 	else
 		snprintf(query, 1000, "CLUSTER INFO\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 string* redis_parser_ping_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -776,7 +776,7 @@ string* redis_parser_ping_mesg(host_aggregator_info *hi, void *arg, void *env, v
 	else
 		snprintf(query, 1000, "PING\r\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 void redis_parser_push()

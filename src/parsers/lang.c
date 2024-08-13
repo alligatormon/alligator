@@ -26,9 +26,9 @@ void lang_parser_handler(char *metrics, size_t size, context_arg *carg)
 string* lang_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
-		return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+		return string_init_add_auto(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 	else
-		return string_init_add(hi->query, 0, 0);
+		return string_init_add_auto(hi->query);
 }
 
 void lang_parser_push()

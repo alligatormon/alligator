@@ -292,37 +292,37 @@ void mogilefs_queue(char *metrics, size_t size, context_arg *carg)
 
 string* mogilefs_device_list_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("get_devices\r\n"), 0, 0);
+	return string_init_add_auto(strdup("get_devices\r\n"));
 }
 
 string* mogilefs_fsck_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("fsck_status\r\n"), 0, 0);
+	return string_init_add_auto(strdup("fsck_status\r\n"));
 }
 
 string* mogilefs_rebalance_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("rebalance_status\r\n"), 0, 0);
+	return string_init_add_auto(strdup("rebalance_status\r\n"));
 }
 
 string* mogilefs_host_list_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("get_hosts\r\n"), 0, 0);
+	return string_init_add_auto(strdup("get_hosts\r\n"));
 }
 
 string* mogilefs_stats_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("!stats\r\n"), 0, 0);
+	return string_init_add_auto(strdup("!stats\r\n"));
 }
 
 string* mogilefs_jobs_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("!jobs\r\n"), 0, 0);
+	return string_init_add_auto(strdup("!jobs\r\n"));
 }
 
 string* mogilefs_queue_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add(strdup("!queue\r\n"), 0, 0);
+	return string_init_add_auto(strdup("!queue\r\n"));
 }
 
 void mogilefs_parser_push()

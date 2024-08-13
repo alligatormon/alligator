@@ -98,7 +98,7 @@ string* sentinel_parser_mesg(host_aggregator_info *hi, void *arg, void *env, voi
 	else
 		snprintf(query, 1000, "INFO\n");
 
-	return string_init_add(query, 0, 0);
+	return string_init_add_auto(query);
 }
 
 void sentinel_parser_push()

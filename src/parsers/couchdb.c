@@ -293,7 +293,7 @@ void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), db_name);
 
-		char *generated_query = gen_http_query(HTTP_GET, "/", db_name, carg->host, "alligator", NULL, 1, "1.0", carg->env, NULL, NULL);
+		char *generated_query = gen_http_query(HTTP_GET, "/", db_name, carg->host, "alligator", NULL, "1.0", carg->env, NULL, NULL);
 		try_again(carg, generated_query, strlen(generated_query), couchdb_db_stats, "couchdb_db_stats", NULL, key, NULL);
 	}
 
@@ -303,7 +303,7 @@ void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
 
 string *couchdb_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 }
 
 string* couchdb_stats_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return couchdb_gen_url(hi, "/_stats", env, proxy_settings); }

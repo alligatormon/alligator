@@ -116,7 +116,6 @@ int char_fgets(char *str, char *buf, int64_t *cnt, size_t len, context_arg *carg
 
 	memcpy(buf, str+(*cnt), i);
 	buf[i] = 0;
-	//printf("buf is '%s'(%"u64")\n", buf, i);
 
 	if (carg)
 	{
@@ -726,7 +725,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
-		return string_init_add(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, 1, "1.1", env, proxy_settings, NULL), 0, 0);
+		return string_init_add_auto(gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, "1.1", env, proxy_settings, NULL));
 	else
 		return NULL;
 }

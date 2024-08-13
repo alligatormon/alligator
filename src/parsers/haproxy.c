@@ -172,15 +172,15 @@ int8_t haproxy_validator(context_arg *carg, char *data, size_t size)
 string* haproxy_stat_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
-		return string_init_add(gen_http_query(0, hi->query, ";csv", hi->host, "alligator", hi->auth, 1, NULL, env, proxy_settings, NULL), 0, 0);
+		return string_init_add_auto(gen_http_query(0, hi->query, ";csv", hi->host, "alligator", hi->auth, NULL, env, proxy_settings, NULL));
 	else
-		return string_init_add("show stat\n", 0, 0);
+		return string_init_add_auto("show stat\n");
 }
 
 string* haproxy_info_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
-		return string_init_add("show info\n", 0, 0);
+		return string_init_add_auto("show info\n");
 	else
 		return (void*)-1;
 }
@@ -188,7 +188,7 @@ string* haproxy_info_mesg(host_aggregator_info *hi, void *arg, void *env, void *
 string* haproxy_pools_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
-		return string_init_add("show pools\n", 0, 0);
+		return string_init_add_auto("show pools\n");
 	else
 		return (void*)-1;
 }
@@ -196,7 +196,7 @@ string* haproxy_pools_mesg(host_aggregator_info *hi, void *arg, void *env, void 
 string* haproxy_sess_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	if ((hi->proto != APROTO_HTTP) && (hi->proto != APROTO_HTTPS))
-		return string_init_add("show sess\n", 0, 0);
+		return string_init_add_auto("show sess\n");
 	else
 		return (void*)-1;
 }

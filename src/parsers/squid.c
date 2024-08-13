@@ -713,39 +713,39 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 }
 
 string *squid_counters_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/counters", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/counters", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_info_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/info", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/info", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 //string *squid_active_requests_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-//	return string_init_add(gen_http_query(0, "cache_object://localhost/active_requests", NULL, hi->host, "alligator", hi->auth, 1, "1.0", NULL), 0, 0);
+//	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/active_requests", NULL, hi->host, "alligator", hi->auth, "1.0", NULL));
 //}
 
 string *squid_pconn_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/pconn", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/pconn", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_mem_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/mem", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/mem", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_comm_epoll_incoming_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/comm_epoll_incoming", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/comm_epoll_incoming", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_forward_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/forward", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/forward", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_fqdncache_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/fqdncache", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/fqdncache", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string *squid_diskd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) {
-	return string_init_add(gen_http_query(0, "cache_object://localhost/diskd", NULL, hi->host, "alligator", hi->auth, 1, "1.0", env, proxy_settings, NULL), 0, 0);
+	return string_init_add_auto(gen_http_query(0, "cache_object://localhost/diskd", NULL, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 void squid_parser_push()
