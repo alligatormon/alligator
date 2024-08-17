@@ -1,6 +1,13 @@
 # Alligator
 Alligator is an aggregator for system and software metrics. It is an incredibly versatile tool, allowing anyone to effortlessly gather and aggregate metrics from a wide array of sources, including software, operating systems, and numerous other systems in infrastructure. Its capabilities empower users to comprehensively monitor and analyze the performance and behavior of servers. By seamlessly interfacing with diverse systems and platforms, Alligator enables users to gain visibility and insight into their infrastructure and applications.
 
+
+# Installation
+Alligator supports the GNU/Linux and FreeBSD systems.
+How to install this, check the [distribution](https://github.com/alligatormon/alligator/blob/master/doc/distribution.md) doc.
+
+For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
+
 # Configuration description:
 Alligator supports YAML, JSON or plain-text format. In examples we will consider only plain text format. For more information please refer to the detailed documentation or the tests.
 
@@ -113,8 +120,3 @@ Please refer to the explanation of x509 context [here](https://github.com/alliga
 
 ## Lang
 Lang is a way to run other software to collect metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is an explanation.
-
-# Installation
-See the [distribution](https://github.com/alligatormon/alligator/blob/master/doc/distribution.md) doc.
-
-For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
