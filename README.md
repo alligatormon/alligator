@@ -120,3 +120,6 @@ Please refer to the explanation of x509 context [here](https://github.com/alliga
 
 ## Lang
 Lang is a way to run other software to collect metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is an explanation.
+
+## Cluster
+Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
