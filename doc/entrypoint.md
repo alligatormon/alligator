@@ -1,16 +1,57 @@
+# Entrypoint
+The entrypoint is necessary to enable ports that allows Prometheus pull daemons to gather information.
+Alligator configuration supports a list of entrypoints, providing the capability to have many different ports for various purposes.
 
-# prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
+Entrypoint functionality includes:
+- Push data interface
+- Metric return
+- Alligator API
+- Replication log for [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) configuration.
+
+Full explain
+```
 entrypoint {
-	[return empty]; # this case for push-only interfaces without return any http bodies
-	ttl 3600;
-	tcp 1111;
-	unixgram /var/lib/alligator.unixgram;
-	unix /var/lib/alligator.unix;
-	handler prometheus;
-	metric_aggregation count; # for counting histograms and counter datatypes as aggregation gateway
+	return [empty|on]>;
+    reject <label name> <label key>;
+    auth <basic|bearer|other> <label key>;
+    auth_header <header_name;
+    header 
+	ttl <time to live>;
+	tcp <port>;
+    tcp <addr>:<port>;
+    udp <port>;
+	unixgram <path/to/socket>;
+	unix <path/to/socket>;
+    allow ;
+    deny ;
+    api ;
+	handler <handler>;
+	metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
+    cluster <cluster_name>;
+    instance <instance_name>;
+    mapping {
+        template <template>;
+        name <name>;
+        label <label_name> <label_value>;
+        buckets <buckets 1> <buckets 2> ... <buckets N>;
+        le <le 1> <le 2> ... <le N>;
+        quantiles <quantile 1> <quantile 2> ... <quantile N>;
+        match [glob];
+    }
 }
+```
+
+## return
+Default: on
+Possible values:
+- on
+- empty
+
+Enabling or disabling the response body on requests. This can be useful for Alligator ports that need to be accessed from the internet as the solution for receving Pushgateway metrics from a browser's JavaScript.
+
 
 #configuration with reject metric label http_response_code="404":
+```
 entrypoint {
 	reject http_response_code 404;
 	ttl 86400;
@@ -18,8 +59,9 @@ entrypoint {
 
 	allow 127.0.0.0/8; # support ACL mechanism
 }
+```
 
-# StatsD mapping:
+## StatsD mapping:
 ```
 entrypoint {
         udp 127.0.0.1:8125;
