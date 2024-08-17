@@ -1,4 +1,5 @@
 # Distribution
+
 ## Docker
 ```
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
@@ -47,3 +48,14 @@ echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bullseye main' | tee /
 ```
 
 ### Debian 12
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+# Build
+CMake is used as build system. Dependencies are supplied with conan and git submodules.
+To build use these commands:
+```
+cmake .
+make
+```

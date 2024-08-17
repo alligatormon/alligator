@@ -1,4 +1,4 @@
-
+# Configuration
 ## Available log levels
 - off
 - fatal
@@ -94,7 +94,7 @@ x509 {
 ```
 
 # Support environment variables
-__ is a separator of contexts
+`__` is a nesting separator of contexts
 Example:
 ```
 export ALLIGATOR__ENTRYPOINT0__TCP0=1111
@@ -104,7 +104,7 @@ export ALLIGATOR__LOG_LEVEL=0
 export ALLIGATOR__AGGREGATE0__HANDLER=tcp
 export ALLIGATOR__AGGREGATE0__URL="tcp://google.com:80"
 ```
-Converts to config:
+converts to configuration:
 ```
 {
   "entrypoint": [
