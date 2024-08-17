@@ -5,18 +5,37 @@ alligator is aggregator for system and software metrics
 - custom metrics collection
 - support prometheus
 - support scrape processes metrics
-- support GNU/Linux (TODO support FreeBSD)
-- pushgateway protocol (with TTL expire when set in config, or HTTP header X-Expire-Time in seconds)
+- support GNU/Linux and FreeBSD systems
+- extended pushgateway protocol
 - statsd protocol
+- graphite protocol
 - multiservice scrape
 
-# Services support
-- redis
-- sentinel
-- memcached
-- beanstalkd
 
-# Log levels
+# Configuration description:
+Alligator supports YAML, JSON or plain-text format. In examples we will consider only plain text format. For more information please refer to the detailed documentation or the tests.
+When alligator starts, it tries to parse the /etc/alligator.json file. If this file is not found, it then tries to parse the /etc/alligator.yaml file. Otherwise, it falls back to parsing the /etc/alligator.conf file.
+Additionally, Alligator attempts to parse the entire directory /etc/alligator/ for files with the .yaml, .json and .conf file extensions. This approach enables the use of includes. Users can combine all of these methods for representing configuration (YAML, JSON and plain text .conf).
+The configuration file path can be passed as the first argument on the command line.
+```
+alligator <path_to_conf>
+alligator <path_to_dir>
+```
+
+## Main structure
+Alligator has many contexts for describing the collection data:
+- **aggregate**: Collects metrics from software using various parsers from software
+- **query**: Generates make new metrics internally through PromQL queries or from databases queries
+- **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
+- **lang**: Runs functions and methods from subprograms
+- **x509**: Obtains metrics from PEM, JKS or PCKS certificate formats
+- **aciton**: Runs commands in response to the metrics behaviour. It allows for proactive monitoring policy.
+- **scheduler**: Configures the repeat time to run lang or actions by alligator.
+- **resolver**: Configures the DNS system of Alligator and allows to the collection of metrics from DNS servers for resolution
+- **persistence**: Saves metrics to the filesystem that enable preservation metrics between restarts.
+- **modules**: Loads dynamic C libraries (files with .so extension)
+
+## Available log levels
 - off
 - fatal
 - error
@@ -25,217 +44,141 @@ alligator is aggregator for system and software metrics
 - debug
 - trace
 
-# Log destinations
+## Log destinations
 ```
 log_dest <dest>;
 ```
 
-Dest can be:
+Destination can be standart streams of a Unix OS, a file or a UDP port. For example this directive can be set as follows:
+```
 - stdout
 - stderr
 - file:///var/log/messages
 - udp://127.0.0.1:514
-
-
-# config description:
 ```
-#/etc/alligator.conf
-log_level info;
-ttl 0; # global ttl for metrics in sec, default 300
 
-#prometheus entrypoint for metrics (additional, set ttl for this context metrics from statsd/pushgateway)
+## Available units for time data in configuration file:
+- ms
+- s
+- h
+- d
+
+
+## /etc/alligator.conf
+Bellow is an example of the structure configuration file for Alligator:
+```
+log_level <level>;
+ttl <time>;
+
 entrypoint {
-	[return empty]; # this case for push-only interfaces without return any http bodies
-	ttl 3600;
-	tcp 1111;
-	unixgram /var/lib/alligator.unixgram;
-	unix /var/lib/alligator.unix;
-	handler prometheus;
-	metric_aggregation count; # for counting histograms and counter datatypes as aggregation gateway
+    <options>;
 }
 
-#configuration with reject metric label http_response_code="404":
-entrypoint {
-	reject http_response_code 404;
-	ttl 86400;
-	tcp 1111;
-
-	allow 127.0.0.0/8; # support ACL mechanism
+resolver {
+    <server1>;
+    <server2>;
+    ...
+    <serverN>;
 }
 
-#system metrics aggregation
 system {
-	base; #cpu, memory, load avg, openfiles
-	disk; #disk usage and I/O
-	network; #network interface start
-	process [nginx] [bash] [/[bash]*/]; #scrape VSZ, RSS, CPU, Disk I/O usage from processes
-	smart; #smart disk stats
-	firewall [ipset=[entries|on]];
-	cpuavg period=5; # analog loadavg by cpu usage stat only with period in minutes
-	packages [nginx] [alligator]; # scrape packages info with timestamp installed
-	cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=info] [add_labels=collector:cadvisor]; # for scrape cadvisor metrics
-	services [nginx.service]; # for systemd unit status
-
-	pidfile [tests/mock/linux/svc.pid]; # monitoring process by pidfile
-	userprocess [root]; # monitoring process by username
-	groupprocess [root]; # monitoring process by groupname
-	cgroup [/cpu/]; # monitoring process by cgroup
-
-	sysfs  /path/to/dir; # override path
-	procfs /path/to/dir; # override path
-	rundir /path/to/dir; # override path
-	usrdir /path/to/dir; # override path
-	etcdir /path/to/dir; # override path
-	log_level off;
+    <option1>;
+    <option2>;
+    ...
+    <optionN> [<param1>] ... [<paramN>];
 }
 
-#aggregator context (scrape from services)
-#format:
-#<parser> <url>;
-#asynchronous, the crawler downloads the data from <url>, parser converts them into metrics
-aggregate_period 10000 # in milliseconds
-query_period 20000 # in milliseconds
 aggregate {
-	#REDIS and SENTINEL
-	redis tcp://localhost:6379/;
-	sentinel tcp://localhost:2/;
-	sentinel tcp://:password@localhost:2/;
-	#REDIS with password
-	redis tcp://:pass@127.0.0.1:6379;
-	redis unix://:pass@/tmp/redis.sock;
-	# REDIS only ping (or queries)
-	redis_ping tcp://localhost:2/;
-	#CKICKHOUSE (http proto support)
-	clickhouse http://localhost:8123;
-	#ZOOKEEPER
-	zookeeper http://localhost
-	#MEMCACHED
-	memcached tcp://localhost:11211;
-	memcached tls://127.0.0.1:11211 tls_certificate=/etc/memcached/server-cert.pem tls_key=/etc/memcached/server-key.pem;
-	#BEANSTALKD
-	beanstalkd tcp://localhost:11300;
-	#GEARMAND
-	gearmand tcp://localhost:4730;
-	#HAPROXY TCP or unix socket stats
-	haproxy tcp://localhost:9999;
-	haproxy unix:///var/run/haproxy;
-	#HTTP checks:
-	http  http://example.com;
-	#ICMP checks:
-	icmp icmp://example.com;
-	#BASH exec shell:
-	process exec:///bin/curl http://example.com:1111/metrics;
-	#PHP-FPM TCP socket
-	php-fpm fastcgi://127.0.0.1:9000/stats?json&full;
-	#PHP-FPM UNIX socket
-	php-fpm unixfcgi:///var/run/php5-fpm.sock:/stats?json&full;
-	#uWSGI TCP socket
-	uwsgi tcp://localhost:1717;
-	#uWSGI UNIX socket
-	uwsgi unix:///tmp/uwsgi.sock;
-	#NATS
-	nats http://localhost:8222;
-	#RIAK
-	riak http://localhost:8098;
-	#RABBITMQ
-	rabbitmq http://guest:guest@localhost:15672;
-	#EVENTSTORE
-	eventstore http://localhost:2113;
-	#FLOWER
-	flower http://localhost:5555;
-	#POWERDNS
-	powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
-	powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
-	#OPENTSDB
-	opentsdb http://localhost:4242/api/stats;
-	#ELASTICSEARCH
-	elasticsearch http://localhost:9200;
-	#AEROSPIKE
-	aerospike tcp://localhost:3000;
-	#MONIT
-	monit http://admin:admin@localhost:2812;
-	#FLOWER celery
-	flower http://localhost:5555;
-	#GDNSD
-	gdnsd unix:///usr/local/var/run/gdnsd/control.sock
-	#SYSLOG-NG
-	syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl
-	# hadoop
-	hadoop http://localhost:50075/jmx;
-	#UNBOUND over unix socket
-	unbound tls://unix:/var/run/unbound.sock tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
-	#UNBOUND over tls socket
-	unbound tls://localhost:8953 tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
-	#JMX
-	jmx service:jmx:rmi:///jndi/rmi://127.0.0.1:12345/jmxrmi;
-	# IPMI metrics
-	ipmi exec:///usr/bin/ipmitool;
-	# TFTP
-	tftp udp://localhost:69/ping;
-	# NAMED (BIND)
-	named http://localhost:8080;
-	# SQUID
-	squid http://localhost:3128;
-	# LIGHTTPD status (status.status-url  = "/server-status")
-        lighttpd_status http://localhost:8080/server-status;
-	# LIGHTTPD statistics (status.statistics-url = "/server-statistics")
-        lighttpd_statistics http://localhost:8080/server-statistics;
-	# Apache HTTPD
-        httpd http://localhost/server-status;
-	# NSD
-        nsd unix:///run/nsd/nsd.ctl;
-	# scrape prometheus format openmetrics from other exporters
-	prometheus_metrics http://localhost:9100;
-	# parse json
-	jsonparse http://localhost:9200/_stats;
+    <option1>;
+    <option2>;
+    ...
+    <optionN>;
+}
 
-	# KUBERNETES ENDPOINT SCRAPE
-	kubernetes_endpoint https://k8s.example.com 'env=Authorization:Bearer TOKEN';
-	# KUBERNETES INGRESS SCRAPE FOR HTTP BLACKBOX CHECKS
-	kubernetes_ingress https://k8s.example.com 'env=Authorization:Bearer TOKEN';
+query {
+    <query1 options>;
+}
 
-	# Consul configuration/discovery
-	consul-configuration http://localhost:8500;
-	consul-discovery http://localhost:8500;
+query {
+    <query2 options>;
+}
 
-	# Etcd configuration
-	etcd-configuration http://localhost:2379;
+action {
+    <action1 options>;
+}
 
+action {
+    <action2 options>;
+}
+
+scheduler {
+    <scheduler1 options>;
+}
+
+scheduler {
+    <scheduler2 options>;
+}
+
+x509 {
+    <certificate options>;
+}
+
+x509 {
+    <certificate options>;
+}
+```
+
+## Entrypoint context
+Please refer to the entrypoint context explanation [here](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md).
+
+Here's an example of a simple handler that can respond to Prometheus:
+```
+entrypoint {
+	handler prometheus;
+    tcp 1111;
+}
+```
+
+## System metrics collecting
+Please refer to the explanation of system context in [here](https://github.com/alligatormon/alligator/blob/master/doc/system.md).
+
+Bellow is an example of a simple configured system context in Alligator that enables the collection of CPU, baseboard, system-wide resouces, memory and network statistics:
+```
+system {
+	base;
+	disk;
+	network;
+}
+```
+
+## Aggregate context
+Aggregator makes it possible to collect metrics from other sources or software via URL.
+The aggregate context section runs periodic checks on resources and gets data, pushing it into the parser to generates metrics.
+format:
+```
+aggregate {
+<parser> <url> [<options>];
+}
+```
+
+
+Here's a simple example of the aggregate context with blackbox checking of TCP/UDP and other resources, collecting metrics from a file and even a directory containing files, and also collect metrics from the Redis server:
+```
+aggregate_period 10s;
+aggregate {
 	# Blackbox checks
 	blackbox tcp://google.com:80 add_label=url:google.com;
 	blackbox tls://www.amazon.com:443 add_label=url:www.amazon.com;
 	blackbox udp://8.8.8.8:53;
 	blackbox http://yandex.ru;
 	blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
-
-	# metrics scrape from file:
-	prometheus_metrics file:///tmp/metrics-nostate.txt [notify=true];
-
-	# file stat calc:
+	prometheus_metrics file:///tmp/metrics-nostate.txt;
 	blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
-
-	# kubeconfig scarpe certificate data
-	kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
-
-	# Druid
-	druid http://localhost:8888 name=druid;
-	druid_worker http://localhost:8091;
-	druid_historical http://localhost:8083;
-	druid_broker http://localhost:8082;
-
-	# Couchbase
-	couchbase http://user:pass@localhost:8091;
-
-	# Couchdb
-	couchdb http://user:pass@localhost:5984;
-
-	# MogileFS
-	mogilefs tcp://localhost:7001;
-
-	# MooseFS
-	moosefs exec:///app/src/tests/mock/moosefs/mfscli;
+	redis tcp://localhost:6379/;
 }
 ```
+
+More information about the aggregate directive can be found at the following [document](https://github.com/alligatormon/alligator/blob/master/doc/aggregate.md).
 
 ## persistence directory for saving metrics between restarts
 ```
@@ -267,6 +210,7 @@ x509 {
 
 ## Internal queries (example: check if port is listen)
 ```
+query_period 20s;
 query {
 	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8085"})';
 	make socket_match;
@@ -279,174 +223,11 @@ query {
 }
 ```
 
-## Monitoring rsyslog impstats:
-```
-entrypoint {
-	handler rsyslog-impstats;
-	udp 127.0.0.1:1111;
-}
-```
-
-rsyslog.conf:
-```
-module(
-	load="impstats"
-	interval="10"
-	resetCounters="off"
-	log.file="off
-	log.syslog="on"
-	ruleset="rs_impstats"
-)
-
-template(name="impformat" type="list") {
-        property(outname="message" name="msg")
-}
-
-ruleset(name="rs_impstats" queue.type="LinkedList" queue.filename="qimp" queue.size="5000" queue.saveonshutdown="off") {
-        *.* action (
-                type="omfwd"
-                target="127.0.0.1"
-                port="1111"
-                protocol="udp"
-                Template="impformat"
-        )
-}
-```
-
-Monitoring NameD stats:
-named.conf:
-```
-statistics-channels {
-    inet 127.0.0.1 port 8080 allow {any;};
-};
-```
-
-in zone context add statistics counting:
-```
-zone "localhost" IN {
-        type master;
-        file "named.localhost";
-        allow-update { none; };
-        zone-statistics yes;
-};
-```
-
-## Monitoring nginx upstream check module
-https://github.com/yaoweibin/nginx_upstream_check_module
-```
-aggregate backends {
-	nginx_upstream_check http://localhost/uc_status;
-}
-```
-
-nginx.conf:
-```
-	location /uc_status {
-		check_status;
-	}
-```
-alligator.conf:
-```
-aggregate {
-	named http://localhost:8080;
-}
-```
-
-PostgreSQL support by user queries:
-```
-modules {
-	postgresql /usr/lib64/libpq.so;
-}
-
-aggregate {
-	postgresql postgresql://postgres@localhost name=pg;
-}
-
-query {
-	expr "SELECT pg_database.datname dbname, pg_database_size(pg_database.datname) as size FROM pg_database";
-	field size;
-	datasource pg;
-	make postgresql_databases_size;
-}
-query {
-	expr "SELECT count(datname) FROM pg_database";
-	field count;
-	datasource pg;
-	make postgresql_databases_count;
-}
-query {
-	expr "SELECT now() - pg_last_xact_replay_timestamp() AS replication_delay";
-	field replication_delay;
-	datasource pg;
-	make postgresql_replication_lag;
-}
-```
-
-MySQL support by user queries:
-```
-modules {
-	mysql /usr/lib/libmysqlclient.so;
-}
-
-aggregate {
-	sphinxsearch mysql://127.0.0.1:9313;
-	mysql mysql://user:password@127.0.0.1:3306 name=mysql;
-}
-
-query {
-	expr 'SELECT table_schema "db_name", table_name "table", ROUND(SUM(data_length), 1) "mysql_table_size", ROUND(SUM(index_length), 1) "mysql_index_size", table_rows "mysql_table_rows" FROM information_schema.tables  GROUP BY table_schema';
-	field mysql_table_size mysql_index_size mysql_table_rows;
-	make mysql_db_size;
-	datasource mysql;
-}
-query {
-	expr 'SELECT command command, state state, user user, count(*) mysql_processlist_count, sum(time) mysql_processlist_sum_time FROM information_schema.processlist WHERE ID != connection_id() GROUP BY command,state, user';
-	field mysql_processlist_count mysql_processlist_sum_time;
-	make mysql_processlist_stats;
-	datasource mysql;
-}
-```
-
-MongoDB support:
-```
-modules {
-	mongodb /usr/local/lib64/libmongoc-1.0.so;
-}
-
-aggregate {
-	mongodb 'mongodb://localhost:27017/?appname=executing-example';
-}
-```
-
-# StatsD mapping:
-```
-entrypoint {
-        udp 127.0.0.1:8125;
-        tcp 8125;
-        mapping {
-                template test1.*.test2.*;
-                name "$1"_"$2";
-                label label_name_"$1" "$2"_key;
-                buckets 100 200 300;
-                match glob;
-        }
-        mapping {
-                template test2.*.test3.*;
-                name "$1"_"$2";
-                label label_name_"$1" "$2"_key;
-                le 100 200 300;
-                match glob;
-        }
-        mapping {
-                template test3.*.test4.*;
-                name "$1"_"$2";
-                label label_name_"$1" "$2"_key;
-                quantiles 0.999 0.95 0.9;
-                match glob;
-        }
-}
-```
-
+## Monitoring rsyslog explained [here](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
+## Monitoring bind (NameD server) explained [here](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
+## Monitoring nginx upstream check module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
+## Monitoring PostgreSQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
+## Monitoring MySQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
 # Call external methods in different languages (now support duktape, lua, mruby and .so files (c/rust/c++)
 ```
 lang {
@@ -496,7 +277,8 @@ Converts to config:
 # Distribution
 ## Docker
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
-## Centos 7, Centos 8
+
+## Centos 7, Centos 9
 ```
 [rpm_alligator]
 name=rpm_alligator
@@ -517,19 +299,20 @@ apt install -y curl gnupg apt-transport-https && \
 curl -L https://packagecloud.io/amoshi/alligator/gpgkey | apt-key add -
 ```
 
-Ubuntu 16.04:
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ xenial main' | tee /etc/apt/sources.list.d/alligator.list
-```
-
-Ubuntu 18.04:
-```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ bionic main' | tee /etc/apt/sources.list.d/alligator.list
-```
-
 Ubuntu 20.04:
 ```
 echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+Ubuntu 22.04:
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+Ubuntu 22.04:
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
 ## Binary
@@ -549,4 +332,4 @@ alligator: {
 }
 ```
 
-For more examples check URL with tests: https://github.com/alligatormon/alligator/tree/master/src/tests/system
+For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
