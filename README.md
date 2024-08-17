@@ -14,8 +14,11 @@ alligator is aggregator for system and software metrics
 
 # Configuration description:
 Alligator supports YAML, JSON or plain-text format. In examples we will consider only plain text format. For more information please refer to the detailed documentation or the tests.
+
 When alligator starts, it tries to parse the /etc/alligator.json file. If this file is not found, it then tries to parse the /etc/alligator.yaml file. Otherwise, it falls back to parsing the /etc/alligator.conf file.
+
 Additionally, Alligator attempts to parse the entire directory /etc/alligator/ for files with the .yaml, .json and .conf file extensions. This approach enables the use of includes. Users can combine all of these methods for representing configuration (YAML, JSON and plain text .conf).
+
 The configuration file path can be passed as the first argument on the command line.
 ```
 alligator <path_to_conf>
@@ -153,8 +156,10 @@ system {
 
 ## Aggregate context
 Aggregator makes it possible to collect metrics from other sources or software via URL.
+
 The aggregate context section runs periodic checks on resources and gets data, pushing it into the parser to generates metrics.
-format:
+
+Directive format:
 ```
 aggregate {
 <parser> <url> [<options>];
@@ -316,8 +321,16 @@ echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ jammy main' | tee /et
 echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
-## Binary
-https://dl.bintray.com/alligatormon/generic/
+## Debian
+### Debian 11
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bullseye main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
+### Debian 12
+```
+echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
+```
 
 ## FreeBSD
 port: https://github.com/alligatormon/alligator-port
