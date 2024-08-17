@@ -87,7 +87,7 @@ aggregate {
 More information about the aggregate directive can be found at the following [document](https://github.com/alligatormon/alligator/blob/master/doc/aggregate.md).
 
 
-# Examples of monitoring some software which must be tuned more carefully
+# List of software parsers
 - Monitoring rsyslog explained [here](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
 - Monitoring bind (NameD server) explained [here](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
 - Monitoring nginx upstream check module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
@@ -95,19 +95,20 @@ More information about the aggregate directive can be found at the following [do
 - Monitoring MySQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
 
 
-## persistence directory for saving metrics between restarts
+## Persistence
+It's a directive that specifies the directory for saving metrics between restarts.
 ```
 persistence {
 	directory /var/lib/alligator;
 }
 ```
 
-# Certificate monitoring
+## Certificate monitoring
 Please refer to the explanation of x509 context [here](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
 
 
-## Internal queries (example: check if port is listen)
-[here](https://github.com/alligatormon/alligator/blob/master/doc/query.md) is an explanation of query context.
+## Internal queries
+[Here](https://github.com/alligatormon/alligator/blob/master/doc/query.md) is an explanation of query context.
 
 
 ## Lang
