@@ -276,7 +276,9 @@ Converts to config:
 
 # Distribution
 ## Docker
+```
 docker run -v /app/alligator.conf:/etc/alligator.conf alligatormon/alligator
+```
 
 ## Centos 7, Centos 9
 ```
@@ -299,18 +301,17 @@ apt install -y curl gnupg apt-transport-https && \
 curl -L https://packagecloud.io/amoshi/alligator/gpgkey | apt-key add -
 ```
 
-```
-Ubuntu 20.04:
+### Ubuntu 20.04:
 ```
 echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
-Ubuntu 22.04:
+### Ubuntu 22.04:
 ```
 echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
-Ubuntu 22.04:
+### Ubuntu 22.04:
 ```
 echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
 ```
