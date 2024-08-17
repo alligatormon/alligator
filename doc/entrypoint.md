@@ -11,22 +11,22 @@ Entrypoint functionality includes:
 Full explain
 ```
 entrypoint {
-	return [empty|on]>;
+    return [empty|on]>;
     reject <label name> <label key>;
     auth <basic|bearer|other> <label key>;
     auth_header <header_name;
     header 
-	ttl <time to live>;
-	tcp <port>;
+    ttl <time to live>;
+    tcp <port>;
     tcp <addr>:<port>;
     udp <port>;
-	unixgram <path/to/socket>;
-	unix <path/to/socket>;
+    unixgram <path/to/socket>;
+    unix <path/to/socket>;
     allow ;
     deny ;
     api ;
-	handler <handler>;
-	metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
+    handler <handler>;
+    metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
     cluster <cluster_name>;
     instance <instance_name>;
     mapping {
@@ -53,11 +53,11 @@ Enabling or disabling the response body on requests. This can be useful for Alli
 #configuration with reject metric label http_response_code="404":
 ```
 entrypoint {
-	reject http_response_code 404;
-	ttl 86400;
-	tcp 1111;
+    reject http_response_code 404;
+    ttl 86400;
+    tcp 1111;
 
-	allow 127.0.0.0/8; # support ACL mechanism
+    allow 127.0.0.0/8; # support ACL mechanism
 }
 ```
 
