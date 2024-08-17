@@ -55,6 +55,16 @@ echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /
 # Build
 CMake is used as build system. Dependencies are supplied with conan and git submodules.
 To build use these commands:
+## Dependency installation:
+```
+git submodule sync --recursive
+git submodule update --init --recursive
+cd src
+conan install . --build=missing
+conan build external/
+```
+
+## Build alligator
 ```
 cmake .
 make
