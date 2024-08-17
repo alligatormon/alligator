@@ -228,11 +228,13 @@ query {
 }
 ```
 
-## Monitoring rsyslog explained [here](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
-## Monitoring bind (NameD server) explained [here](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
-## Monitoring nginx upstream check module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
-## Monitoring PostgreSQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
-## Monitoring MySQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
+# Examples of monitoring some software which must be tuned more carefully
+- Monitoring rsyslog explained [here](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
+- Monitoring bind (NameD server) explained [here](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
+- Monitoring nginx upstream check module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
+- Monitoring PostgreSQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
+- Monitoring MySQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
+
 # Call external methods in different languages (now support duktape, lua, mruby and .so files (c/rust/c++)
 ```
 lang {
