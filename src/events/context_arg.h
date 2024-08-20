@@ -84,8 +84,8 @@ typedef struct context_arg
 
 	char *namespace;
 	uint8_t namespace_allocated;
-    alligator_ht *auth_basic;
-    alligator_ht *auth_bearer;
+	alligator_ht *auth_basic;
+	alligator_ht *auth_bearer;
 	alligator_ht *auth_other;
 	char *body;
 	uint8_t body_readed;

@@ -189,7 +189,7 @@ set(STATIC_FILES
 	common/units.c
 	common/logs.c
 	common/patricia.c
-    common/auth.c
+	common/auth.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c
@@ -427,7 +427,7 @@ add_library(${COMMON_TESTS} STATIC
 	common/units.c
 	common/logs.c
 	common/patricia.c
-    common/auth.c
+	common/auth.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c

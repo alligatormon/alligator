@@ -4,9 +4,9 @@
 
 int auth_unit_compare(const void* arg, const void* obj)
 {
-        char *s1 = (char*)arg;
-        char *s2 = ((auth_unit*)obj)->k;
-        return strcmp(s1, s2);
+		char *s1 = (char*)arg;
+		char *s2 = ((auth_unit*)obj)->k;
+		return strcmp(s1, s2);
 }
 
 int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
@@ -28,8 +28,8 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 		if (carg->auth_basic) {
 			uint32_t hash = tommy_strhash_u32(0, http_data->auth_basic);
 			auth_unit *au = alligator_ht_search(carg->auth_basic, auth_unit_compare, http_data->auth_basic, hash);
-            if (au)
-                return 1;
+			if (au)
+				return 1;
 		}
 		else
 			return -1;
@@ -40,8 +40,8 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 		if (carg->auth_bearer) {
 			uint32_t hash = tommy_strhash_u32(0, http_data->auth_bearer);
 			auth_unit *au = alligator_ht_search(carg->auth_bearer, auth_unit_compare, http_data->auth_bearer, hash);
-            if (au)
-                return 1;
+			if (au)
+				return 1;
 		}
 		else
 			return -1;
@@ -52,8 +52,8 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 		if (carg->auth_other) {
 			uint32_t hash = tommy_strhash_u32(0, http_data->auth_other);
 			auth_unit *au = alligator_ht_search(carg->auth_other, auth_unit_compare, http_data->auth_other, hash);
-            if (au)
-                return 1;
+			if (au)
+				return 1;
 		}
 		else
 			return -1;
@@ -64,7 +64,7 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 
 int http_auth_push(alligator_ht *auth_context, char *key) {
 	auth_unit *au = calloc(1, sizeof(*au));
-    au->k = strdup(key);
+	au->k = strdup(key);
 	alligator_ht_insert(auth_context, &(au->node), au, tommy_strhash_u32(0, au->k));
 	return 1;
 }
@@ -91,9 +91,9 @@ int http_auth_delete(alligator_ht *auth_context, char *key) {
 	if (!au)
 		return 0;
 
-    alligator_ht_remove_existing(auth_context, &(au->node));
+	alligator_ht_remove_existing(auth_context, &(au->node));
 	free(au->k);
-    free(au);
+	free(au);
 	return 1;
 }
 
