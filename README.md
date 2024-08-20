@@ -1,5 +1,6 @@
 <h1 align="center" style="border-bottom: none">
-    <img alt="Alligator" src="/doc/images/logo.jpeg"></a><br>Alligator
+    Alligator
+    <img alt="Alligator" src="/doc/images/logo.jpeg"></a><br>
 </h1>
 
 # Alligator
