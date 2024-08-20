@@ -316,7 +316,34 @@ Specify the cluster current instance name for receiving metrics. More informatio
 
 
 # mapping
-StatsD mapping:
+Default: -\
+Plural: yes
+
+Mapping enables the support of aggregating and relabeling functions for statsd and graphite push protocols.
+Firstly, the only supported method to match is 'glob'.
+
+## template
+Specified the template.
+
+## name
+Specifies the new metric name.
+
+## label
+Specifies the new labels.
+
+## match
+Specifies options to match and split metric with the template.
+
+## bucket
+Enables the separation of input metrics into multiple buckets.
+
+## le
+Enables the separation of input metrics into multiple LE buckets.
+
+## quantile
+Enables the calculation of quantiles using the metric values.
+
+Example of using statsd mapping:
 ```
 entrypoint {
         udp 127.0.0.1:8125;
