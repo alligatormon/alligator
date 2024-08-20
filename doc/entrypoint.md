@@ -77,9 +77,9 @@ Default: -
 Plural: yes
 
 Possible values:
-- basic <user>:<password>
-- bearer <token>
-- other <secret>
+- `basic <user>:<password>`
+- `bearer <token>`
+- `other <secret>`
 
 "auth" option allows for HTTP authentication methods to access this port.
 
