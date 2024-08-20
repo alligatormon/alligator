@@ -226,6 +226,44 @@ time_now 1724141426
 $
 ```
 
+# allow, deny
+Default: -
+
+Plural: yes
+
+Possible values:
+- {IPv4 address}
+- {IPv6 address}
+- {IPv4 CIDR}
+- {IPv6 CIDR}
+
+These options control access policies for Alligator's port restrictions.
+One important thing to note is that this option has a default policy. If first argument in the configuration is "allow", then the default policy will be "deny". Conversely, if the first argument is "deny", it will allow permission to anyone not listed in the "deny" lists.
+
+The following configuration is an example of allowing access to port 80 only from localhost, allowing access to port 1111 from private networks, and implementing a more complex access policy for port 1112:
+```
+entrypoint {
+    tcp 80;
+    allow 127.0.0.1;
+}
+
+entrypoint {
+    tcp 1111;
+    allow 192.168.0.0/24;
+    allow 172.16.0.0./12;
+    allow 10.0.0.0/8;
+}
+
+entrypoint {
+    tcp 1112;
+    deny 100.64.0.0/10;
+    deny 10.15.20.30;
+    deny 127.0.0.2;
+    allow 10.0.0.0/8;
+}
+```
+
+
 ## StatsD mapping:
 ```
 entrypoint {
