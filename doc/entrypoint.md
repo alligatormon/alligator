@@ -45,7 +45,9 @@ entrypoint {
 
 ## return
 Default: on
+
 Plural: no
+
 Possible values:
 - on
 - empty
@@ -54,7 +56,9 @@ Enabling or disabling the response body on requests. This can be useful for Alli
 
 ## reject
 Default: -
+
 Plural: yes
+
 
 Enable filter drop metrics with label name and value (tags for StatsD) equal to field.
 For instance, next configuration drops all metrics with labels **http_response_code="404"**, **name="bot"**:
@@ -69,7 +73,9 @@ entrypoint {
 
 ## auth
 Default: -
+
 Plural: yes
+
 Possible values:
 - basic <user>:<password>
 - bearer <token>
@@ -108,6 +114,7 @@ $
 
 ## auth_header
 Default: Authorization
+
 Plural: no
 
 This option allows for the change of the authorization header name to other.
@@ -131,10 +138,13 @@ entrypoint {
 
 # ttl
 Default: 300
+
 Plural: no
+
 Possible values:
 - 0
 - {any_number}{any_unit}
+
 
 This options allows user to set maximum time to live metrics that have been pushed by statsd, pushgateway or graphite methods.
 TTL in alligator provides capability to remove obsolete metrics, that haven't been updated for a long time.
