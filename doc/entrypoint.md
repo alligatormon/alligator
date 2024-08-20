@@ -262,7 +262,61 @@ Possible values:
 
 Enables or disables the ability to make PUT/POST request to the Alligator API for updating the runtime configuration. The API documentation is available in the [document](https://github.com/alligatormon/alligator/blob/master/doc/api.md)
 
-## StatsD mapping:
+# handler
+Default: prometheus\
+Plural: no\
+Possible values:
+- prometheus
+- rsyslog-impstats
+- lang
+
+This option specifies the handler that processes received messages.\
+The default option 'prometheus' enables the processing of Prometheus pull queries, pushgateway, statsd and graphite push queries.\
+The option 'rsyslog-impstats' needs for receiving rsyslog metrics, and the way it works described in this [document](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md).
+The option 'lang' supports a custom function to operate with received messages. To use 'lang' the 'lang' option in the context also required. More information about [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md).
+
+
+# lang
+Default: -\
+Plural: no\
+
+The [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) option specifies the context that operates the received body with custom functions via external modules.
+
+
+# pingloop
+Default: 0\
+Plural: no\
+Possible values:
+- {number}
+
+Pingloop allows a blackbox handler to ping resource more than once.
+
+
+# metric_aggregation
+Default: off\
+Plural: no\
+Possible values:
+- off
+- count
+
+This option makes it possible to count counters and histogram metrics inside Alligator instead of replacing them when a metric is pushed with pushgateway protocol. It opens the prom-aggregation-gateway interface. Graphite and statsd cannot specify this as they already support counting metrics inside protocol.
+
+
+# cluster
+Default: -\
+Plural: no\
+
+Specify the cluster name for receiving metrics. More information about cluster can be found in the [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
+
+# instance
+Default: -\
+Plural: no\
+
+Specify the cluster current instance name for receiving metrics. More information about cluster can be found in [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
+
+
+# mapping
+StatsD mapping:
 ```
 entrypoint {
         udp 127.0.0.1:8125;
