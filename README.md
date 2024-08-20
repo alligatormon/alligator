@@ -47,7 +47,7 @@ Detailed information about the configuration file structure stored in the [confi
 
 
 ## Entrypoint context
-Please refer to the entrypoint context explanation [here](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md).
+Please refer to the entrypoint context [explanation](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md).
 
 Here's an example of a simple handler that can respond to Prometheus:
 ```
