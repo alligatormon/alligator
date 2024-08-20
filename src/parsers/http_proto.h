@@ -47,4 +47,3 @@ void env_serialize_http_answer(void *funcarg, void* arg);
 void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata);
 void http_null_metrics(context_arg *carg);
 void http_follow_redirect(context_arg *carg, http_reply_data *hrdata);
-int8_t http_check_auth(context_arg *carg, http_reply_data *http_data);

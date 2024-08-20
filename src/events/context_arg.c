@@ -6,6 +6,7 @@
 #include "common/json_parser.h"
 #include "common/units.h"
 #include "common/logs.h"
+#include "common/auth.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -31,32 +32,9 @@ context_arg *carg_copy(context_arg *src)
 	if (carg->namespace && carg->namespace_allocated)
 		carg->namespace = strdup(src->namespace);
 
-	if (carg->auth_bearer)
-	{
-		carg->auth_bearer_size = src->auth_bearer_size;
-		carg->auth_bearer = calloc(1, sizeof(void*) * carg->auth_bearer_size);
-
-		for (uint64_t i = 0; i < carg->auth_bearer_size; ++i)
-			carg->auth_bearer[i] = strdup(src->auth_bearer[i]);
-	}
-
-	if (carg->auth_basic)
-	{
-		carg->auth_basic_size = src->auth_basic_size;
-		carg->auth_basic = calloc(1, sizeof(void*) * carg->auth_basic_size);
-
-		for (uint64_t i = 0; i < carg->auth_basic_size; ++i)
-			carg->auth_basic[i] = strdup(src->auth_basic[i]);
-	}
-
-	if (carg->auth_other)
-	{
-		carg->auth_other_size = src->auth_other_size;
-		carg->auth_other = calloc(1, sizeof(void*) * carg->auth_other_size);
-
-		for (uint64_t i = 0; i < carg->auth_other_size; ++i)
-			carg->auth_other[i] = strdup(src->auth_other[i]);
-	}
+	carg->auth_bearer = http_auth_copy(src->auth_bearer);
+	carg->auth_basic = http_auth_copy(src->auth_basic);
+	carg->auth_other = http_auth_copy(src->auth_other);
 
 	if (carg->auth_header)
 		carg->auth_header = strdup(src->auth_header);
@@ -184,29 +162,9 @@ void carg_free(context_arg *carg)
 		free(carg->env);
 	}
 
-	if (carg->auth_basic)
-	{
-		for (uint64_t i = 0; i < carg->auth_basic_size; ++i)
-			if (carg->auth_basic[i])
-				free(carg->auth_basic[i]);
-		free(carg->auth_basic);
-	}
-
-	if (carg->auth_bearer)
-	{
-		for (uint64_t i = 0; i < carg->auth_bearer_size; ++i)
-			if (carg->auth_bearer[i])
-				free(carg->auth_bearer[i]);
-		free(carg->auth_bearer);
-	}
-
-	if (carg->auth_other)
-	{
-		for (uint64_t i = 0; i < carg->auth_other_size; ++i)
-			if (carg->auth_other[i])
-				free(carg->auth_other[i]);
-		free(carg->auth_other);
-	}
+	alligator_ht_forfree(carg->auth_basic, http_auth_foreach_free);
+	alligator_ht_forfree(carg->auth_bearer, http_auth_foreach_free);
+	alligator_ht_forfree(carg->auth_other, http_auth_foreach_free);
 
 	patricia_free(carg->net_tree_acl);
 	patricia_free(carg->net6_tree_acl);

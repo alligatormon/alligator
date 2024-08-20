@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
-#include "parsers/http_proto.h"
+#include "common/auth.h"
 #include "parsers/multiparser.h"
 #include "common/selector.h"
 #include "common/http.h"

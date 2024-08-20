@@ -29,6 +29,7 @@
 #include "common/logs.h"
 #include "puppeteer/puppeteer.h"
 #include "common/units.h"
+#include "common/auth.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -610,42 +611,26 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							if (!strcmp(auth_type, "basic"))
 							{
 								if (!carg->auth_basic)
-								{
-									carg->auth_basic = calloc(1, sizeof(void*) * auth_size);
-									carg->auth_basic_size = auth_size;
-								}
+									carg->auth_basic = alligator_ht_init(NULL);
 
 								uint64_t b64sz;
-								for (uint64_t i = 0; i < auth_size; ++i)
-									if (carg->auth_basic[i] == NULL)
-									{
-										carg->auth_basic[i] = base64_encode(auth_data, auth_data_len, &b64sz);
-									}
-										
+								char *b64_encoded_string = base64_encode(auth_data, auth_data_len, &b64sz);
+								http_auth_push(carg->auth_basic, b64_encoded_string);
+								free(b64_encoded_string);
 							}
 							else if (!strcmp(auth_type, "bearer"))
 							{
 								if (!carg->auth_bearer)
-								{
-									carg->auth_bearer = calloc(1, sizeof(void*) * auth_size);
-									carg->auth_bearer_size = auth_size;
-								}
+									carg->auth_bearer = alligator_ht_init(NULL);
 
-								for (uint64_t i = 0; i < auth_size; ++i)
-									if (carg->auth_bearer[i] == NULL)
-										carg->auth_bearer[i] = strndup(auth_data, auth_data_len);
+								http_auth_push(carg->auth_bearer, auth_data);
 							}
 							else if (!strcmp(auth_type, "other"))
 							{
 								if (!carg->auth_other)
-								{
-									carg->auth_other = calloc(1, sizeof(void*) * auth_size);
-									carg->auth_other_size = auth_size;
-								}
+									carg->auth_other = alligator_ht_init(NULL);
 
-								for (uint64_t i = 0; i < auth_size; ++i)
-									if (carg->auth_other[i] == NULL)
-										carg->auth_other[i] = strndup(auth_data, auth_data_len);
+								http_auth_push(carg->auth_other, auth_data);
 							}
 
 						}
