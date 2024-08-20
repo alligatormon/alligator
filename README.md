@@ -52,7 +52,7 @@ Please refer to the entrypoint context [explanation](https://github.com/alligato
 Here's an example of a simple handler that can respond to Prometheus:
 ```
 entrypoint {
-	handler prometheus;
+    handler prometheus;
     tcp 1111;
 }
 ```
@@ -63,9 +63,9 @@ Please refer to the explanation of system context [here](https://github.com/alli
 Bellow is an example of a simple configured system context in Alligator that enables the collection of CPU, baseboard, system-wide resouces, memory and network statistics:
 ```
 system {
-	base;
-	disk;
-	network;
+    base;
+    disk;
+    network;
 }
 ```
 
@@ -77,7 +77,7 @@ The aggregate context section runs periodic checks on resources and gets data, p
 Directive format:
 ```
 aggregate {
-<parser> <url> [<options>];
+    <parser> <url> [<options>];
 }
 ```
 
@@ -86,15 +86,15 @@ Here's a simple example of the aggregate context with blackbox checking of TCP/U
 ```
 aggregate_period 10s;
 aggregate {
-	# Blackbox checks
-	blackbox tcp://google.com:80 add_label=url:google.com;
-	blackbox tls://www.amazon.com:443 add_label=url:www.amazon.com;
-	blackbox udp://8.8.8.8:53;
-	blackbox http://yandex.ru;
-	blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
-	prometheus_metrics file:///tmp/metrics-nostate.txt;
-	blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
-	redis tcp://localhost:6379/;
+    # Blackbox checks
+    blackbox tcp://google.com:80 add_label=url:google.com;
+    blackbox tls://www.amazon.com:443 add_label=url:www.amazon.com;
+    blackbox udp://8.8.8.8:53;
+    blackbox http://yandex.ru;
+    blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
+    prometheus_metrics file:///tmp/metrics-nostate.txt;
+    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
+    redis tcp://localhost:6379/;
 }
 ```
 
@@ -113,7 +113,7 @@ More information about the aggregate directive can be found at the following [do
 It's a directive that specifies the directory for saving metrics between restarts.
 ```
 persistence {
-	directory /var/lib/alligator;
+    directory /var/lib/alligator;
 }
 ```
 
