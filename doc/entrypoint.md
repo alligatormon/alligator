@@ -44,10 +44,8 @@ entrypoint {
 ```
 
 ## return
-Default: on
-
-Plural: no
-
+Default: on\
+Plural: no\
 Possible values:
 - on
 - empty
@@ -55,9 +53,8 @@ Possible values:
 Enabling or disabling the response body on requests. This can be useful for Alligator ports that need to be accessed from the internet as the solution for receving Pushgateway metrics from a browser's JavaScript.
 
 ## reject
-Default: -
-
-Plural: yes
+Default: -\
+Plural: yes\
 
 
 Enable filter drop metrics with label name and value (tags for StatsD) equal to field.
@@ -72,9 +69,8 @@ entrypoint {
 ```
 
 ## auth
-Default: -
-
-Plural: yes
+Default: -\
+Plural: yes\
 
 Possible values:
 - `basic <user>:<password>`
@@ -113,15 +109,14 @@ $
 ```
 
 ## auth_header
-Default: Authorization
-
-Plural: no
+Default: Authorization\
+Plural: no\
 
 This option allows for the change of the authorization header name to other.
 
 ## header
-Default: -
-Plural: yes
+Default: -\
+Plural: yes\
 
 The header option makes it possible to respond with custom headers to clients. Custom headers work only if authorization is passed, or the request method is OPTIONS.
 
@@ -137,10 +132,8 @@ entrypoint {
 ```
 
 # ttl
-Default: 300
-
-Plural: no
-
+Default: 300\
+Plural: no\
 Possible values:
 - 0
 - {any_number}{any_unit}
@@ -171,8 +164,7 @@ More information about units that user can specify in configuratino can be obtai
 
 
 # tcp, udp, unix, unixgram
-Default: -
-
+Default: -\
 Plural: yes
 
 Configuration specifies the listen port (or socket) for income queries. This is central part of entrypoint context. Any entrypoint must have at least one of this option to run entrypoint.
@@ -227,10 +219,8 @@ $
 ```
 
 # allow, deny
-Default: -
-
-Plural: yes
-
+Default: -\
+Plural: yes\
 Possible values:
 - {IPv4 address}
 - {IPv6 address}
