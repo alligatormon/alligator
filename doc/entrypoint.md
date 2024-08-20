@@ -278,7 +278,7 @@ The option 'lang' supports a custom function to operate with received messages. 
 
 # lang
 Default: -\
-Plural: no\
+Plural: no
 
 The [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) option specifies the context that operates the received body with custom functions via external modules.
 
@@ -304,7 +304,7 @@ This option makes it possible to count counters and histogram metrics inside All
 
 # cluster
 Default: -\
-Plural: no\
+Plural: no
 
 Specify the cluster name for receiving metrics. More information about cluster can be found in the [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
 
