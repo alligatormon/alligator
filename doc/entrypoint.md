@@ -263,6 +263,14 @@ entrypoint {
 }
 ```
 
+# api
+Default: off\
+Plural: no\
+Possible values:
+- on
+- off
+
+Enables or disables the ability to make PUT/POST request to the Alligator API for updating the runtime configuration. The API documentation is available in the [document](https://github.com/alligatormon/alligator/blob/master/doc/api.md)
 
 ## StatsD mapping:
 ```
