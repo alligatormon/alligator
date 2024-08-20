@@ -12,6 +12,7 @@
 #define METHOD_NOT_ALLOWED "HTTP/1.1 405 Method Not Allowed\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define COMMON_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_FORBIDDEN "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HTTP_UNAUTHORIZED "HTTP/1.1 401 Unauthorized\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
@@ -209,9 +210,13 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	if(!http_data)
 		return 0;
 
-	if (!http_check_auth(carg, http_data) && http_data->method != HTTP_METHOD_OPTIONS)
+	int8_t auth = http_check_auth(carg, http_data);
+	if (auth < 1 && http_data->method != HTTP_METHOD_OPTIONS)
 	{
-		string_cat(response, HTTP_FORBIDDEN, strlen(HTTP_FORBIDDEN));
+		char *resp_code = HTTP_FORBIDDEN;
+		if (auth == -1)
+			resp_code = HTTP_UNAUTHORIZED;
+		string_cat(response, resp_code, strlen(resp_code));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, "\r\n", 2);

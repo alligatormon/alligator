@@ -432,7 +432,7 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 	return ret;
 }
 
-uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
+int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 {
 	extern aconf *ac;
 	if (ac->log_level > 3)
@@ -444,22 +444,41 @@ uint8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 	if (!carg->auth_basic && !carg->auth_bearer && !carg->auth_other)
 		return 1;
 
-	if (carg->auth_basic && http_data->auth_basic)
+	if (!http_data->auth_basic && !http_data->auth_bearer && !http_data->auth_other)
+		return -1;
+
+	if (http_data->auth_basic)
 	{
-		for(uint64_t i = 0; i < carg->auth_basic_size; ++i)
-			if ((carg->auth_basic[i]) && (!strcmp(carg->auth_basic[i], http_data->auth_basic)))
-				return 1;
+		if (carg->auth_basic) {
+			for(uint64_t i = 0; i < carg->auth_basic_size; ++i)
+				if ((carg->auth_basic[i]) && (!strcmp(carg->auth_basic[i], http_data->auth_basic)))
+					return 1;
+		}
+		else
+			return -1;
 	}
 
-	if (carg->auth_bearer && http_data->auth_bearer)
-		for(uint64_t i = 0; i < carg->auth_bearer_size; ++i)
-			if ((carg->auth_bearer[i]) && (!strcmp(carg->auth_bearer[i], http_data->auth_bearer)))
-				return 1;
+	if (http_data->auth_bearer)
+	{
+		if (carg->auth_bearer) {
+			for(uint64_t i = 0; i < carg->auth_bearer_size; ++i)
+				if ((carg->auth_bearer[i]) && (!strcmp(carg->auth_bearer[i], http_data->auth_bearer)))
+					return 1;
+		}
+		else
+			return -1;
+	}
 
-	if (carg->auth_other && http_data->auth_other)
-		for(uint64_t i = 0; i < carg->auth_other_size; ++i)
-			if ((carg->auth_other[i]) && (!strcmp(carg->auth_other[i], http_data->auth_other)))
-				return 1;
+	if (http_data->auth_other)
+	{
+		if (carg->auth_other) {
+			for(uint64_t i = 0; i < carg->auth_other_size; ++i)
+				if ((carg->auth_other[i]) && (!strcmp(carg->auth_other[i], http_data->auth_other)))
+					return 1;
+		}
+		else
+			return -1;
+	}
 
 	return 0;
 }
