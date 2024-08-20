@@ -1,5 +1,5 @@
 <h1 align="center" style="border-bottom: none">
-    <img alt="Alligator" src="/doc/images/logo.jpeg"></a><br>Alligator
+    <img width="100" height="100" alt="Alligator" src="/doc/images/logo.jpeg"></a><br>Alligator
 </h1>
 
 Alligator is an aggregator for system and software metrics. It is an incredibly versatile tool, allowing anyone to effortlessly gather and aggregate metrics from a wide array of sources, including software, operating systems, and numerous other systems in infrastructure. Its capabilities empower users to comprehensively monitor and analyze the performance and behavior of servers. By seamlessly interfacing with diverse systems and platforms, Alligator enables users to gain visibility and insight into their infrastructure and applications.
