@@ -170,6 +170,62 @@ entrypoint {
 More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
 
 
+# tcp, udp, unix, unixgram
+Default: -
+
+Plural: yes
+
+Configuration specifies the listen port (or socket) for income queries. This is central part of entrypoint context. Any entrypoint must have at least one of this option to run entrypoint.
+Alligator usually runs on port tcp to response with metrics to Prometheus.
+UDP configuration is usually can be used for statsd metrics because udp is one of supported protocol for statsd.
+UDP and unix socket also can be used for obtain rsyslog stats in [impstats](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md).
+
+For example, the following configuration enables the TCP and UDP ports to receive StatsD metrics in TCP and UDP mode:
+```
+entrypoint {
+    tcp 1111;
+    udp 1111;
+}
+```
+
+In the next example, alligator opens two ports on INADDR_ANY and another one on the localhost address:
+```
+entrypoint {
+    tcp 1111 80 127.0.0.1:9000;
+}
+```
+
+An additional example demonstrating the use of a Unix-socket is as follows:
+```
+entrypoint {
+        unix /tmp/alligator.sock;
+}
+
+system {
+        base;
+}
+```
+
+To test this, use the following command:
+```
+$ curl --unix-socket /tmp/alligator.sock localhost/metrics
+context_switches 339451
+cores_num 1
+cores_num_cgroup 0
+cores_num_hw 1
+cpu_usage_calc_delta_time 18446744073.591579
+cpu_usage_time {type="idle"} 2053.710000
+cpu_usage_time {type="iowait"} 16.770000
+cpu_usage_time {type="nice"} 0.000000
+cpu_usage_time {type="system"} 21.850000
+cpu_usage_time {type="user"} 83.900000
+forks 4625
+interrupts 135704
+softirq 180882
+time_now 1724141426
+$
+```
+
 ## StatsD mapping:
 ```
 entrypoint {

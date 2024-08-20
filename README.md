@@ -102,11 +102,11 @@ More information about the aggregate directive can be found at the following [do
 
 
 # List of software parsers
-- Monitoring rsyslog explained [here](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
-- Monitoring bind (NameD server) explained [here](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
-- Monitoring nginx upstream check module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
-- Monitoring PostgreSQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
-- Monitoring MySQL by queries module explained [here](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
+- [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
+- [bind (NameD server)](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
+- [nginx upstream check module](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
+- [PostgreSQL](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
+- [MySQL by queries module](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
 
 
 ## Persistence

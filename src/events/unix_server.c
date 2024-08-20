@@ -34,11 +34,12 @@ void unix_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
 		return;
 	}
 	unix_srv_data *usdata = malloc(sizeof(*usdata));
+	context_arg *carg = client->data;
 
 	uv_write_t *req = (uv_write_t*) malloc(sizeof(uv_write_t));
 
 	string *str = string_init(6553500);
-	alligator_multiparser(buf->base, nread, NULL, str, NULL);
+	alligator_multiparser(buf->base, nread, NULL, str, carg);
 	char *answ = str->s;
 	size_t answ_len = str->l;
 
