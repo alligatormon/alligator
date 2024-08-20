@@ -54,7 +54,7 @@ Enabling or disabling the response body on requests. This can be useful for Alli
 
 ## reject
 Default: -\
-Plural: yes\
+Plural: yes
 
 
 Enable filter drop metrics with label name and value (tags for StatsD) equal to field.
@@ -70,7 +70,7 @@ entrypoint {
 
 ## auth
 Default: -\
-Plural: yes\
+Plural: yes
 
 Possible values:
 - `basic <user>:<password>`
@@ -110,13 +110,13 @@ $
 
 ## auth_header
 Default: Authorization\
-Plural: no\
+Plural: no
 
 This option allows for the change of the authorization header name to other.
 
 ## header
 Default: -\
-Plural: yes\
+Plural: yes
 
 The header option makes it possible to respond with custom headers to clients. Custom headers work only if authorization is passed, or the request method is OPTIONS.
 
