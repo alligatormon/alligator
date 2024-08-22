@@ -47,7 +47,7 @@ entrypoint {
 ## log_level
 Default: off\
 Plural: no\
-Specify the level of loggin on this context. Units of this option explained on this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
+Specify of the level of logging for this context. Units for this option are explained in this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
 
 ```
 entrypoint {
