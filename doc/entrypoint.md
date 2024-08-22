@@ -11,6 +11,7 @@ Entrypoint functionality includes:
 Full explain
 ```
 entrypoint {
+    log_level <time>;
     return [empty|on]>;
     reject <label name> <label key>;
     auth <basic|bearer|other> <user:password|token|secret>;
@@ -40,6 +41,18 @@ entrypoint {
         quantiles <quantile 1> <quantile 2> ... <quantile N>;
         match [glob];
     }
+}
+```
+
+## log_level
+Default: off\
+Plural: no\
+Specify the level of loggin on this context. Units of this option explained on this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
+
+```
+entrypoint {
+    log_level debug;
+    tcp 1111;
 }
 ```
 
