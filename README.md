@@ -103,11 +103,11 @@ More information about the aggregate directive can be found at the following [do
 
 
 # List of software parsers
-- [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md)
-- [bind (NameD server)](https://github.com/alligatormon/alligator/blob/master/doc/named.md)
-- [nginx upstream check module](https://github.com/alligatormon/alligator/blob/master/doc/nginx_upstream_check.md)
-- [PostgreSQL](https://github.com/alligatormon/alligator/blob/master/doc/postgresql.md)
-- [MySQL by queries module](https://github.com/alligatormon/alligator/blob/master/doc/mysql.md)
+- [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md)
+- [bind (NameD server)](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md)
+- [nginx upstream check module](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx_upstream_check.md)
+- [PostgreSQL](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
+- [MySQL by queries module](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
 
 
 ## Persistence
@@ -128,6 +128,9 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 
 ## Lang
 Lang is a way to run other software to collect metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is an explanation.
+
+## Actions
+Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
 
 ## Cluster
 Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
