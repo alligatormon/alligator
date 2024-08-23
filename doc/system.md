@@ -6,28 +6,28 @@ Alligator supports system-wide metrics regarding OS, hardware and virtual machin
 There is quick overview of all options in this context:
 ```
 system {
-	base;
-	disk;
-	network;
-	process [nginx] [bash] [/[bash]*/];
-	services [nginx.service];
-	smart;
-	firewall [ipset=[entries|on]];
-	cpuavg period=5;
-	packages [nginx] [alligator];
-	cadvisor [option1] [option2] .. [optionN];
+    base;
+    disk;
+    network;
+    process [nginx] [bash] [/[bash]*/];
+    services [nginx.service];
+    smart;
+    firewall [ipset=[entries|on]];
+    cpuavg period=5;
+    packages [nginx] [alligator];
+    cadvisor [option1] [option2] .. [optionN];
 
-	pidfile [tests/mock/linux/svc.pid];
-	userprocess [root];
-	groupprocess [root];
-	cgroup [/cpu/];
+    pidfile /path/to/pidfile1 [/path/to/pidfile2] ... [/path/to/pidfileN];
+    userprocess user1 [user2] ... [userN];
+    groupprocess user1 [group2] ... [groupN];
+    cgroup /cgroup1/ /[cgroup2]/ ... /[cgroupN]/;
 
-	sysfs  /path/to/dir;
-	procfs /path/to/dir;
-	rundir /path/to/dir;
-	usrdir /path/to/dir;
-	etcdir /path/to/dir;
-	log_level off;
+    sysfs  /path/to/dir;
+    procfs /path/to/dir;
+    rundir /path/to/dir;
+    usrdir /path/to/dir;
+    etcdir /path/to/dir;
+    log_level off;
 }
 ```
 
@@ -86,7 +86,9 @@ Implements metrics from the well-known exporter called CAdvisor.\
 
 Example of use in the configuration file:
 ```
-cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=info] [add_labels=collector:cadvisor];
+system {
+    cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=info] [add_labels=collector:cadvisor];
+}
 ```
 
 ### log_level
@@ -106,11 +108,20 @@ system {
 Specifies the socket of the docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.
 
 
-## pidfile userprocess groupprocess cgroup
+## pidfile, userprocess, groupprocess, cgroup
 Specifies the checking of processes by pidfile, user, group, or cgroup.
 
+Example of use in the configuration file:
+```
+system {
+    pidfile /var/run/nginx.pid;
+    userprocess nginx;
+    groupprocess nobody;
+    cgroup /cpu/;
+}
+```
 
-## sysfs procfs rundir usrdir etcdir
+## sysfs, procfs, rundir, usrdir, etcdir
 Allows the redefinition of the default control directories of the OS, useful for testing and custom-built systems.
 
 
