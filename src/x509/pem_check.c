@@ -1,10 +1,8 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
-#include "mbedtls/x509_crt.h"
 #include "common/rtime.h"
-#include "lang/lang.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "common/lcrypto.h"
 #include "scheduler/type.h"
 #include "modules/modules.h"
@@ -12,13 +10,6 @@
 #include "scheduler/type.h"
 #include "common/logs.h"
 #include "main.h"
-
-int x509_fs_compare(const void* arg, const void* obj)
-{
-	char *s1 = (char*)arg;
-	char *s2 = ((x509_fs_t*)obj)->name;
-	return strcmp(s1, s2);
-}
 
 uint64_t get_timestamp_from_mbedtls(mbedtls_x509_time mbed_tm)
 {
@@ -289,113 +280,3 @@ void tls_fs_handler()
 	uv_timer_start(&ac->tls_fs_timer, tls_fs_crawl, ac->tls_fs_startup, ac->tls_fs_repeat);
 }
 
-void tls_fs_push(char *name, char *path, char *match, char *password, char *type, uint64_t period)
-{
-	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
-	tls_fs->name = strdup(name);
-	tls_fs->path = strdup(path);
-	tls_fs->match = strdup(match);
-	tls_fs->period = period;
-
-	if (password)
-		tls_fs->password = strdup(password);
-
-	if (type && !strcmp(type, "pfx"))
-		tls_fs->type = X509_TYPE_PFX;
-
-	alligator_ht_insert(ac->fs_x509, &(tls_fs->node), tls_fs, tommy_strhash_u32(0, tls_fs->name));
-
-	if (tls_fs->period) {
-		tls_fs->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
-		tls_fs->period_timer->data = tls_fs;
-		uv_timer_init(ac->loop, tls_fs->period_timer);
-		uv_timer_start(tls_fs->period_timer, for_tls_fs_recurse_repeat_period, tls_fs->period, tls_fs->period);
-	}
-}
-
-void tls_fs_del_node(x509_fs_t *tls_fs)
-{
-	free(tls_fs->name);
-	free(tls_fs->path);
-	free(tls_fs->match);
-	free(tls_fs->password);
-	free(tls_fs);
-}
-
-void tls_fs_del(char *name)
-{
-	x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, x509_fs_compare, name, tommy_strhash_u32(0, name));
-	if (tls_fs)
-	{
-		alligator_ht_remove_existing(ac->fs_x509, &(tls_fs->node));
-		tls_fs_del_node(tls_fs);
-	}
-}
-
-void tls_fs_free_foreach(void *arg)
-{
-	x509_fs_t *tls_fs = arg;
-	tls_fs_del_node(tls_fs);
-}
-
-void tls_fs_free()
-{
-	alligator_ht_foreach(ac->fs_x509, tls_fs_free_foreach);
-}
-
-void jks_push(char *name, char *path, char *match, char *password, char *passtr, uint64_t period)
-{
-	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
-
-	if (!password && !passtr)
-	{
-		printf("no set password for jks: %s\n", name);
-		return;
-	}
-
-	lang_options *lo = calloc(1, sizeof(*lo));
-	lo->key = strdup(name);
-	lo->lang = strdup("so");
-	lo->module = strdup("parseJks");
-	lo->method = strdup("alligator_call");
-	lo->hidden_arg = 1;
-	lo->carg = calloc(1, sizeof(context_arg));
-	lo->carg->log_level = ac->system_carg->log_level;
-	lo->carg->no_metric = 1;
-
-	if (!passtr)
-	{
-		size_t len = strlen(path) + strlen(match) + strlen(password) + 3;
-		passtr = malloc (len + 1);
-		snprintf(passtr, len, "%s %s %s", path, match, password);
-	}
-
-	lo->arg = passtr;
-
-	lang_push_options(lo);
-	scheduler_node* sn = scheduler_get(name);
-	if (!sn) {
-		sn = calloc(1, sizeof(*sn));
-		sn->name = strdup(name);
-		sn->period = period;
-		sn->lang = strdup(name);
-		uint32_t hash = tommy_strhash_u32(0, sn->name);
-		alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
-		scheduler_start(sn);
-	}
-
-	const char *module_key = "parseJks";
-	module_t *module = alligator_ht_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
-	if (!module)
-	{
-		module_t *module = calloc(1, sizeof(*module));
-		module->key = strdup(module_key);
-		module->path = strdup("/var/lib/alligator/parseJks.so");
-		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
-	}
-}
-
-void jks_del(char *name)
-{
-	lang_delete(name);
-}

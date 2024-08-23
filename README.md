@@ -41,6 +41,7 @@ Alligator has many contexts for describing the collection data:
 - **persistence**: Saves metrics to the filesystem that enable preservation metrics between restarts
 - **modules**: Loads dynamic C libraries (files with .so extension)
 - **cluster**: Configures the cluster using the node group
+- **puppeteer**: Configures the HTTP site stats collector using the puppeteer
 
 Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
 
@@ -118,7 +119,7 @@ persistence {
 ```
 
 ## Certificate monitoring
-Please refer to the explanation of x509 context [here](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
+Please refer to the explanation of x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
 
 
 ## Internal queries
@@ -130,3 +131,6 @@ Lang is a way to run other software to collect metrics. [Here](https://github.co
 
 ## Cluster
 Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
+
+## Puppeteer
+Puppeteer enables the collector of site load statistics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) is the more information about this.

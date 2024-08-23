@@ -4,7 +4,7 @@
 #include "config/mapping.h"
 #include "common/url.h"
 #include "common/http.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "common/selector.h"
 #include "cadvisor/run.h"
 #include "lang/lang.h"
@@ -196,75 +196,44 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				for (uint64_t i = 0; i < x509_size; i++)
 				{
 					json_t *x509 = json_array_get(value, i);
-					json_t *jname = json_object_get(x509, "name");
-					if (!jname)
-						continue;
-					char *name = (char*)json_string_value(jname);
-
-					json_t *jpath = json_object_get(x509, "path");
-					if (!jpath)
-						continue;
-					char *path = (char*)json_string_value(jpath);
-
-					json_t *jmatch = json_object_get(x509, "match");
-					if (!jmatch)
-						continue;
-					char *match = (char*)json_string_value(jmatch);
-
-					json_t *jpassword = json_object_get(x509, "password");
-					char *password = (char*)json_string_value(jpassword);
-
-					json_t *jtype = json_object_get(x509, "type");
-					char *type = (char*)json_string_value(jtype);
-
-					uint64_t period = 10000;
-					json_t *json_period = json_object_get(x509, "period");
-					if (json_period)
-						period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 
 					if (method == HTTP_METHOD_DELETE)
 					{
-						if (!strcmp(type, "jks"))
-							jks_del(name);
-						else
-							tls_fs_del(name);
+						x509_del(x509);
 						continue;
 					}
 
-					if (type && !strcmp(type, "jks"))
-						jks_push(name, path, match, password, NULL, period);
-					else
-						tls_fs_push(name, path, match, password, type, period);
+					x509_push(x509);
 				}
 			}
 			if (!strcmp(key, "query"))
 			{
-				uint64_t x509_size = json_array_size(value);
-				for (uint64_t i = 0; i < x509_size; i++)
+				uint64_t query_size = json_array_size(value);
+				for (uint64_t i = 0; i < query_size; i++)
 				{
-					json_t *x509 = json_array_get(value, i);
-					json_t *jmake = json_object_get(x509, "make");
+					json_t *query = json_array_get(value, i);
+					json_t *jmake = json_object_get(query, "make");
 					if (!jmake)
 						continue;
 					char *make = (char*)json_string_value(jmake);
 
-					json_t *jexpr = json_object_get(x509, "expr");
+					json_t *jexpr = json_object_get(query, "expr");
 					if (!jexpr)
 						continue;
 					char *expr = (char*)json_string_value(jexpr);
 
-					json_t *jaction = json_object_get(x509, "action");
+					json_t *jaction = json_object_get(query, "action");
 					char *action = (char*)json_string_value(jaction);
 
-					json_t *jdatasource = json_object_get(x509, "datasource");
+					json_t *jdatasource = json_object_get(query, "datasource");
 					if (!jdatasource)
 						continue;
 					char *datasource = (char*)json_string_value(jdatasource);
 
-					json_t *jns = json_object_get(x509, "ns");
+					json_t *jns = json_object_get(query, "ns");
 					char *ns = (char*)json_string_value(jns);
 
-					json_t *jfield = json_object_get(x509, "field");
+					json_t *jfield = json_object_get(query, "field");
 
 					if (method == HTTP_METHOD_DELETE)
 					{

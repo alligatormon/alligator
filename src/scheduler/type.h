@@ -29,3 +29,4 @@ void scheduler_push_json(json_t *scheduler);
 void influxdb_parser_push();
 void scheduler_del_json(json_t *scheduler);
 void scheduler_del_all();
+void scheduler_del(char *name);

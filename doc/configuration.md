@@ -91,6 +91,10 @@ x509 {
 x509 {
     <certificate options>;
 }
+
+puppeteer {
+    <puppeteer options>;
+}
 ```
 
 # Support environment variables

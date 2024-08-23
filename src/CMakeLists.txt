@@ -164,7 +164,6 @@ set(STATIC_FILES
 	scheduler/get.c
 	scheduler/del.c
 	common/selector.c
-	common/pem_check.c
 	common/rtime.c
 	common/validator.c
 	common/base64.c
@@ -190,6 +189,9 @@ set(STATIC_FILES
 	common/logs.c
 	common/patricia.c
 	common/auth.c
+	x509/pem_check.c
+	x509/push.c
+	x509/del.c
 	puppeteer/puppeteer.c
 	query/query.c
 	query/promql.c
@@ -402,7 +404,9 @@ add_library(${COMMON_TESTS} STATIC
 	scheduler/get.c
 	scheduler/del.c
 	common/selector.c
-	common/pem_check.c
+	x509/pem_check.c
+	x509/push.c
+	x509/del.c
 	common/rtime.c
 	common/validator.c
 	common/base64.c

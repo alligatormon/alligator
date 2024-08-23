@@ -35,6 +35,13 @@ void scheduler_del_json(json_t *scheduler)
 	scheduler_object_del(sn);
 }
 
+void scheduler_del(char *name)
+{
+	scheduler_node *sn = alligator_ht_search(ac->scheduler, scheduler_compare, name, tommy_strhash_u32(0, name));
+	alligator_ht_remove_existing(ac->scheduler, &(sn->node));
+	scheduler_object_del(sn);
+}
+
 void scheduler_foreach_del_object(void *funcarg, void* arg)
 {
 	scheduler_node *sn = arg;

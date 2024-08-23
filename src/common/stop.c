@@ -2,7 +2,7 @@
 #include "metric/expiretree.h"
 #include "metric/metric_dump.h"
 #include "common/file_stat.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "puppeteer/puppeteer.h"
 #include "common/aggregator.h"
 #include "metric/namespace.h"

@@ -10,7 +10,7 @@
 #include "events/metrics.h"
 #include "cluster/later.h"
 #include "resolver/resolver.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "common/selector.h"
 #include "parsers/multiparser.h"
 #include "common/units.h"

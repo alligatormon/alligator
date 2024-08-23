@@ -1,7 +1,7 @@
 #include "common/selector.h"
 #include "config/get.h"
 #include "lang/lang.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "common/http.h"
 #include "query/query.h"
 #include "probe/probe.h"

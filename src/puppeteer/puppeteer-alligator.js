@@ -119,8 +119,26 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 				await page.setExtraHTTPHeaders(pupValue["env"])
 			}
 
+			timeout_param = pupValue["timeout"] || 30000;
+			timeout_param = timeout_param.toString();
+			const milliseconds = timeout_param.match(/\d+\s?\w/g)
+				.reduce((acc, cur, i) => {
+					var multiplier = 1000;
+					 switch (cur.slice(-1)) {
+						case 'h':
+							multiplier *= 60;
+						case 'm':
+							multiplier *= 60;
+						case 's':
+							return ((parseInt(cur)?parseInt(cur):0) * multiplier) + acc;
+						default:
+							return ((parseInt(cur)?parseInt(cur):0) * multiplier) + acc;
+					}
+					return acc;
+				}, 0);
+
 			try {
-				await page.goto(resource, { waitUntil: 'networkidle2', timeout: Number(pupValue["timeout"]) || 30000, });
+				await page.goto(resource, { waitUntil: 'networkidle2', timeout: milliseconds, });
 			} catch (error) {
 				labelMetricsPush(ret, "ErrorFetch", resource, "error", error.message, 1, extra_labels);
 			}
@@ -162,7 +180,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			if ("screenshot" in pupValue) {
 				let necessary_code = pupValue["screenshot"]["minimum_code"] || 400;
 				let fullPage = pupValue["screenshot"]["fullPage"] || false
-				let type = pupValue["screenshot"]["png"] || "png"
+				let type = pupValue["screenshot"]["type"] || "png"
 				let dir = pupValue["screenshot"]["dir"] || "/var/lib/alligator/"
 				let utcStr = new Date().toISOString();
 				let path = dir + "/" + pupKey.replaceAll("/", "-") + "-" + utcStr + "." + type
