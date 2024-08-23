@@ -3,7 +3,7 @@
 ## Overview
 Alligator supports system-wide metrics regarding OS, hardware and virtual machines.
 
-Full explain of configuration:
+There is quick overview of all options in this context:
 ```
 system {
 	base;
