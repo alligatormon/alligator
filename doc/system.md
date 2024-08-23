@@ -84,7 +84,7 @@ package_installed {version="6.40", name="nmap-ncat", release="7.el7"} 1527797852
 ## cadvisor
 Implements metrics from the well-known exporter called CAdvisor.\
 
-Example of use in configuration file:
+Example of use in the configuration file:
 ```
 cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=info] [add_labels=collector:cadvisor];
 ```
@@ -93,9 +93,9 @@ cadvisor [docker=http://unix:/var/run/docker.sock:/containers/json] [log_level=i
 Specify of the level of logging for this context. Units for this option are explained in this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
 
 ### add_label
-This option make opportunity to manipulates extra labels.
+This option provides opportunity to manipulate extra labels.
 
-For example, this configuration make two extra labels for each metric:
+For example, this configuration adds two extra labels for each metric:
 ```
 system {
     cadvisor add_label=label1:value1 add_label=label2:value2;
@@ -103,7 +103,7 @@ system {
 ```
 
 ### docker
-Specify of the socket of docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.
+Specifies the socket of the docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.
 
 
 ## pidfile userprocess groupprocess cgroup
