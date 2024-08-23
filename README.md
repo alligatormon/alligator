@@ -133,4 +133,4 @@ Lang is a way to run other software to collect metrics. [Here](https://github.co
 Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
 
 ## Puppeteer
-Puppeteer enables the collector of site load statistics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) is the more information about this.
+Puppeteer enables the collector of site load statistics. In [this](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) document is the more information about this.
