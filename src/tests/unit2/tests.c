@@ -114,8 +114,21 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
     return 1;
 }
 
+int assert_ptr_notnull(const char *file, const char *func, int line, void *value) {
+    ++count_all;
+    if (!value) {
+        ++count_error;
+        fprintf(stderr, "%s:%d unit test function '%s' pointer is NULL\n", file, line, func);
+        fflush(stderr);
+        do_exit(1);
+    }
+
+    return 1;
+}
+
 #include "netlib.h"
 #include "http.h"
+#include "api_v1.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -131,5 +144,6 @@ int main(int argc, char **argv) {
     test_ip_get_version();
     test_http_access_1();
     test_http_access_2();
+    api_test_query_1();
     infomesg();
 }

@@ -57,8 +57,7 @@ int query_push(json_t *query) {
 		qds->datasource = qn->datasource;
 		alligator_ht_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
 	}
-	if (ac->log_level > 0)
-		printf("create query node make %p: '%s', expr '%s', ns '%s'\n", qn, qn->make, qn->expr, qn->ns);
+	glog(L_INFO, "create query node make %p: '%s', expr '%s', ns '%s'\n", qn, qn->make, qn->expr, qn->ns);
 	alligator_ht_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
 
 	return 1;
