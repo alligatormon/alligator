@@ -8,7 +8,7 @@
 #include "metric/namespace.h"
 #include "cluster/type.h"
 #include "scheduler/type.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "resolver/resolver.h"
 #include "lang/lang.h"
 #include "dstructures/uv_cache.h"

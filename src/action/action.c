@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "action/action.h"
 #include "metric/labels.h"
 #include "metric/query.h"

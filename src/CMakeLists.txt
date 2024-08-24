@@ -194,6 +194,9 @@ set(STATIC_FILES
 	x509/del.c
 	puppeteer/puppeteer.c
 	query/query.c
+	query/push.c
+	query/del.c
+	query/get.c
 	query/promql.c
 	action/action.c
 	probe/probe.c
@@ -434,6 +437,9 @@ add_library(${COMMON_TESTS} STATIC
 	common/auth.c
 	puppeteer/puppeteer.c
 	query/query.c
+	query/push.c
+	query/del.c
+	query/get.c
 	query/promql.c
 	action/action.c
 	probe/probe.c

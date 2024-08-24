@@ -8,7 +8,7 @@
 #include "common/selector.h"
 #include "cadvisor/run.h"
 #include "lang/lang.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "common/netlib.h"
 #include "probe/probe.h"
 #include "scheduler/type.h"
@@ -212,36 +212,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				for (uint64_t i = 0; i < query_size; i++)
 				{
 					json_t *query = json_array_get(value, i);
-					json_t *jmake = json_object_get(query, "make");
-					if (!jmake)
-						continue;
-					char *make = (char*)json_string_value(jmake);
-
-					json_t *jexpr = json_object_get(query, "expr");
-					if (!jexpr)
-						continue;
-					char *expr = (char*)json_string_value(jexpr);
-
-					json_t *jaction = json_object_get(query, "action");
-					char *action = (char*)json_string_value(jaction);
-
-					json_t *jdatasource = json_object_get(query, "datasource");
-					if (!jdatasource)
-						continue;
-					char *datasource = (char*)json_string_value(jdatasource);
-
-					json_t *jns = json_object_get(query, "ns");
-					char *ns = (char*)json_string_value(jns);
-
-					json_t *jfield = json_object_get(query, "field");
 
 					if (method == HTTP_METHOD_DELETE)
 					{
-						query_del(datasource, make);
+						query_del(query);
 						continue;
 					}
 
-					query_push(datasource, expr, make, action, ns, jfield);
+					query_push(query);
 				}
 			}
 			if (!strcmp(key, "action"))

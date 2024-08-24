@@ -6,7 +6,7 @@
 #include "common/aggregator.h"
 #include "common/json_parser.h"
 #include "common/http.h"
-#include <query/query.h>
+#include <query/type.h>
 #include "common/selector.h"
 #include "main.h"
 #define d64	PRId64

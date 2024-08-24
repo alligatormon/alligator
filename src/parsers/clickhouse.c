@@ -7,7 +7,7 @@
 #include "common/http.h"
 #include "common/selector.h"
 #include "common/validator.h"
-#include <query/query.h>
+#include <query/type.h>
 #include "main.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 64

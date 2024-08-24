@@ -1,6 +1,7 @@
 #pragma once
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
+#include <jansson.h>
 typedef struct query_field
 {
 	char *field;
@@ -42,7 +43,9 @@ query_field* query_field_get(alligator_ht *qf_hash, char *key);
 alligator_ht* query_get_field(json_t *jfield);
 query_node *query_get_node(query_ds *qds, char *make);
 void query_set_values(query_node *qn);
-void query_del(char *datasource, char *make);
-void query_push(char *datasource, char *expr, char *make, char *action, char *ns, json_t *jfield);
+int query_del(json_t *query);
+int query_push(json_t *query);
 void query_stop();
 void query_handler();
+int query_compare(const void* arg, const void* obj);
+int queryds_compare(const void* arg, const void* obj);

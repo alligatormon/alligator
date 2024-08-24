@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
-#include <query/query.h>
+#include <query/type.h>
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/selector.h"

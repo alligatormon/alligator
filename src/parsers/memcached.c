@@ -6,7 +6,7 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "parsers/multiparser.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "main.h"
 #define MC_NAME_SIZE 255
 

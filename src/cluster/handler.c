@@ -5,7 +5,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "common/selector.h"
 #include "common/logs.h"
 #include "parsers/metric_types.h"
