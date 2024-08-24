@@ -8,7 +8,7 @@
 #include "common/mapping.h"
 #include "query/promql.h"
 #include "common/json_parser.h"
-#include "action/action.h"
+#include "action/type.h"
 #include "main.h"
 extern aconf *ac;
 

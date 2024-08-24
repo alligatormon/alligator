@@ -464,11 +464,11 @@ void action_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "ns", ns);
 	}
 
-	if (an->datasource)
-	{
-		json_t *datasource = json_string(an->datasource);
-		json_array_object_insert(ctx, "datasource", datasource);
-	}
+	//if (an->datasource)
+	//{
+	//	json_t *datasource = json_string(an->datasource);
+	//	json_array_object_insert(ctx, "datasource", datasource);
+	//}
 
 	if (an->follow_redirects)
 	{
@@ -483,15 +483,27 @@ void action_generate_conf(void *funcarg, void* arg)
 			sertype = json_string("json");
 		else if (an->serializer == METRIC_SERIALIZER_OPENMETRICS)
 			sertype = json_string("openmetrics");
+		else if (an->serializer == METRIC_SERIALIZER_CLICKHOUSE)
+			sertype = json_string("clickhouse");
+		else if (an->serializer == METRIC_SERIALIZER_ELASTICSEARCH)
+			sertype = json_string("elasticsearch");
 		else if (an->serializer == METRIC_SERIALIZER_DSV)
 			sertype = json_string("dsv");
+		else if (an->serializer == METRIC_SERIALIZER_CARBON2)
+			sertype = json_string("carbon2");
+		else if (an->serializer == METRIC_SERIALIZER_GRAPHITE)
+			sertype = json_string("graphite");
+		else if (an->serializer == METRIC_SERIALIZER_INFLUXDB)
+			sertype = json_string("influxdb");
+		else if (an->serializer == METRIC_SERIALIZER_PG)
+			sertype = json_string("postgresql");
 		else
 			sertype = json_string("none");
 		json_array_object_insert(ctx, "serializer", sertype);
 	}
 
-	if (an->type == ACTION_TYPE_SHELL)
-		json_array_object_insert(ctx, "type", json_string("shell"));
+	//if (an->type == ACTION_TYPE_SHELL)
+	//	json_array_object_insert(ctx, "type", json_string("shell"));
 
 	if (an->labels)
 		alligator_ht_foreach_arg(an->labels, labels_kv_deserialize, ctx);

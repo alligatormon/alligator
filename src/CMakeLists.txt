@@ -199,6 +199,9 @@ set(STATIC_FILES
 	query/get.c
 	query/promql.c
 	action/action.c
+	action/push.c
+	action/del.c
+	action/get.c
 	probe/probe.c
 	cluster/type.c
 	cluster/del.c
@@ -442,6 +445,9 @@ add_library(${COMMON_TESTS} STATIC
 	query/get.c
 	query/promql.c
 	action/action.c
+	action/push.c
+	action/del.c
+	action/get.c
 	probe/probe.c
 	cluster/type.c
 	cluster/del.c

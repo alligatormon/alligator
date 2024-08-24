@@ -145,5 +145,6 @@ int main(int argc, char **argv) {
     test_http_access_1();
     test_http_access_2();
     api_test_query_1();
+    api_test_action_1();
     infomesg();
 }

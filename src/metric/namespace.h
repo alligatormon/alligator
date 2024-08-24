@@ -2,7 +2,7 @@
 #include "metric/expiretree.h"
 #include "metric/metrictree.h"
 #include "events/context_arg.h"
-#include "action/action.h"
+#include "action/type.h"
 #include "query/promql.h"
 
 #define DATATYPE_LIST_STRING 8

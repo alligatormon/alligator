@@ -12,9 +12,9 @@ typedef struct action_node
 	char *ns;
 	string *work_dir;
 	int serializer;
-	uint8_t type;
+	//uint8_t type;
 	alligator_ht *af_hash;
-	char *datasource;
+	//char *datasource;
 	context_arg *carg;
 	alligator_ht *labels;
 	uint64_t follow_redirects;
@@ -33,3 +33,4 @@ void action_del(json_t *action);
 void action_push(json_t *action);
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type);
 void action_namespaced_run(char *action_name, char *key, metric_query_context *mqc);
+int action_compare(const void* arg, const void* obj);

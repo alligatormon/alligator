@@ -35,7 +35,7 @@ Alligator has many contexts for describing the collection data:
 - **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
 - **lang**: Runs functions and methods from subprograms
 - **x509**: Obtains metrics from PEM, JKS or PCKS certificate formats
-- **aciton**: Runs commands in response to the metrics behaviour. It allows for proactive monitoring policy.
+- **action**: Runs commands in response to the metrics behaviour. It allows for proactive monitoring policy.
 - **scheduler**: Configures the repeat time to run lang or actions by alligator.
 - **resolver**: Configures the DNS system of Alligator and allows to the collection of metrics from DNS servers for resolution
 - **persistence**: Saves metrics to the filesystem that enable preservation metrics between restarts
@@ -118,19 +118,21 @@ persistence {
 }
 ```
 
-## Certificate monitoring
+## Certificates monitoring
 Please refer to the explanation of x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
 
 
-## Internal queries
+## Queries
 [Here](https://github.com/alligatormon/alligator/blob/master/doc/query.md) is an explanation of query context.
 
+## Actions
+Actions allows to run command on the system. How to use explained in the [documentation](https://github.com/alligatormon/alligator/blob/master/doc/action.md)
 
 ## Lang
 Lang is a way to run other software to collect metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is an explanation.
 
 ## Actions
-Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
+Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. It also provide capability to export data in others databases. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
 
 ## Cluster
 Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.

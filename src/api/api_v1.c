@@ -16,7 +16,7 @@
 #include "common/reject.h"
 #include "parsers/multiparser.h"
 #include "config/mapping.h"
-#include "action/action.h"
+#include "action/type.h"
 #include "events/context_arg.h"
 #include "events/server.h"
 #include "events/udp.h"
