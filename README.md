@@ -118,6 +118,10 @@ persistence {
 }
 ```
 
+## Resolver
+The resolver in Alligator provides capabilities for working with DNS flexible. It allows to use different DNS server that is configured in operating system and add functionality to resolve DNS names to the metrics. For more information, please refer to the [DNS resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) in Alligator.
+
+
 ## Certificates monitoring
 Please refer to the explanation of x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
 
