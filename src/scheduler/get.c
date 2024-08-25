@@ -1,12 +1,12 @@
 #include "scheduler/type.h"
 #include "main.h"
 
-int scheduler_compare(const void *a1, const void *a2)
+int scheduler_compare(const void* arg, const void* obj)
 {
-	scheduler_node *s1 = (scheduler_node*)a1;
-	scheduler_node *s2 = (scheduler_node*)a2;
+	char *s1 = (char*)arg;
+	char *s2 = ((scheduler_node*)obj)->name;
 
-	return strcmp(s1->name, s2->name);
+	return strcmp(s1, s2);
 }
 
 scheduler_node* scheduler_get(char *name)

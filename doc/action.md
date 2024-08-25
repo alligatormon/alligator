@@ -45,7 +45,7 @@ Another example that can repeatedly run script and give serialized metrics in js
 ```
 scheduler {
   name sched-script;
-  repeat 15s;
+  period 15s;
   datasource internal;
   action run-script;
 }
@@ -85,7 +85,7 @@ For example, next script will send all metrics to the pushgateway and statsd rep
 ```
 scheduler {
   name sched-graphite;
-  repeat 5s;
+  period 5s;
   datasource internal;
   action to-graphite;
 }
@@ -98,7 +98,7 @@ action {
 
 scheduler {
   name sched-pushgateway;
-  repeat 15s;
+  period 15s;
   datasource internal;
   action to-pushgateway;
 }

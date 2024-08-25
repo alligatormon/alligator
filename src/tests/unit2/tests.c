@@ -75,6 +75,7 @@ int assert_equal_uint(const char *file, const char *func, int line, uint128_t ex
         fprintf(stderr, "', expected: '");
         print_u128_u(expected);
         fprintf(stderr, "'\n");
+        fflush(stdout);
         fflush(stderr);
         do_exit(1);
     }
@@ -91,22 +92,7 @@ int assert_equal_int(const char *file, const char *func, int line, int128_t expe
         fprintf(stderr, "', expected: '");
         print_128_d(expected);
         fprintf(stderr, "'\n");
-        fflush(stderr);
-        do_exit(1);
-    }
-
-    return 1;
-}
-
-int assert_equal_string(const char *file, const char *func, int line, char *expected, char *value) {
-    ++count_all;
-    if (strcmp(expected, value)) {
-        ++count_error;
-        fprintf(stderr, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
-        fprintf(stderr, "%s", value);
-        fprintf(stderr, "', expected: '");
-        fprintf(stderr, "%s", expected);
-        fprintf(stderr, "'\n");
+        fflush(stdout);
         fflush(stderr);
         do_exit(1);
     }
@@ -119,6 +105,27 @@ int assert_ptr_notnull(const char *file, const char *func, int line, void *value
     if (!value) {
         ++count_error;
         fprintf(stderr, "%s:%d unit test function '%s' pointer is NULL\n", file, line, func);
+        fflush(stdout);
+        fflush(stderr);
+        do_exit(1);
+        return 0;
+    }
+
+    return 1;
+}
+
+int assert_equal_string(const char *file, const char *func, int line, char *expected, char *value) {
+    ++count_all;
+    if (!assert_ptr_notnull(file, func, line, value))
+        return 0;
+    if (strcmp(expected, value)) {
+        ++count_error;
+        fprintf(stderr, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
+        fprintf(stderr, "%s", value);
+        fprintf(stderr, "', expected: '");
+        fprintf(stderr, "%s", expected);
+        fprintf(stderr, "'\n");
+        fflush(stdout);
         fflush(stderr);
         do_exit(1);
     }
@@ -138,6 +145,10 @@ int main(int argc, char **argv) {
         exit_on_error = 0;
 
     ac = calloc(1, sizeof(*ac));
+    ac->loop = uv_default_loop();
+    ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
+    tommy_list_init(ac->uv_cache_timer);
+
     test_ip_check_access_1();
     test_ip_to_int();
     test_integer_to_ip();
@@ -146,5 +157,6 @@ int main(int argc, char **argv) {
     test_http_access_2();
     api_test_query_1();
     api_test_action_1();
+    api_test_scheduler_1();
     infomesg();
 }

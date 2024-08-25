@@ -2,6 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "common/units.h"
+#include "common/logs.h"
 #include "main.h"
 
 void scheduler_push_json(json_t *scheduler)
@@ -9,8 +10,7 @@ void scheduler_push_json(json_t *scheduler)
 	json_t *jname = json_object_get(scheduler, "name");
 	if (!jname)
 	{
-		if (ac->log_level > 0)
-			printf("no defined name for scheduler\n");
+		glog(L_ERROR, "no defined 'name' for scheduler\n");
 		return;
 	}
 	char *name = (char*)json_string_value(jname);
@@ -30,9 +30,7 @@ void scheduler_push_json(json_t *scheduler)
 	scheduler_node* sn = scheduler_get(name);
 	if (sn)
 	{
-		if (ac->log_level > 0)
-			printf("Scheduler with name %s was already create\n", name);
-
+		glog(L_ERROR, "Scheduler with name %s was already create\n", name);
 		return;
 	}
 
@@ -52,8 +50,8 @@ void scheduler_push_json(json_t *scheduler)
 	if (lang)
 		sn->lang = strdup(lang);
 
-	if (!action && !lang && ac->log_level)
-		printf("Scheduler without 'action' or 'lang' fields: %s\n", name);
+	if (!action && !lang)
+		glog(L_ERROR, "Scheduler without 'action' or 'lang' fields: %s\n", name);
 
 	if (datasource)
 	{
@@ -69,6 +67,5 @@ void scheduler_push_json(json_t *scheduler)
 	alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
 	scheduler_start(sn);
 
-	if (ac->log_level > 0)
-		printf("Scheduler with name %s created\n", name);
+	glog(L_ERROR, "Scheduler with name %s created\n", name);
 }

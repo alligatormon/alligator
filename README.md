@@ -134,6 +134,9 @@ Lang is a way to run other software to collect metrics. [Here](https://github.co
 ## Actions
 Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. It also provide capability to export data in others databases. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
 
+## Scheduler
+The [scheduler](https://github.com/alligatormon/alligator/blob/master/doc/scheduler.md) is a tool that specifies settings to repeatedly run lang and action resources.
+
 ## Cluster
 Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
 
