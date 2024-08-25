@@ -118,6 +118,17 @@ persistence {
 }
 ```
 
+## Modules
+The `modules` context allows the loadingin of .so files into memory.
+```
+modules {
+	postgresql /usr/lib64/libpq.so;
+	mysql /usr/lib/libmysqlclient.so;
+}
+```
+
+This feature is typically used in parsers or for `lang` contexts.
+
 ## Resolver
 The resolver in Alligator provides capabilities for working with DNS flexible. It allows to use different DNS server that is configured in operating system and add functionality to resolve DNS names to the metrics. For more information, please refer to the [DNS resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) in Alligator.
 
