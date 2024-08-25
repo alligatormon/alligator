@@ -7,7 +7,7 @@
 #include "x509/type.h"
 #include "common/selector.h"
 #include "cadvisor/run.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "query/type.h"
 #include "common/netlib.h"
 #include "probe/probe.h"
@@ -335,22 +335,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				{
 					json_t *lang = json_array_get(value, i);
 
-					json_t *lang_key = json_object_get(lang, "key");
-					if (!lang_key)
-					{
-						if (ac->log_level)
-							printf("no key for lang ??\n");
-						continue;
-					}
-					char *key = (char*)json_string_value(lang_key);
-
 					if (method == HTTP_METHOD_DELETE)
 					{
-						lang_delete(key);
+						lang_delete(lang);
 						continue;
 					}
 
-					lang_push(lang, key);
+					lang_push(lang);
 				}
 			}
 			if (!strcmp(key, "entrypoint"))

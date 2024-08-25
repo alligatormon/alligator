@@ -1,7 +1,9 @@
-#aggregator context (scrape from services)
-#format:
-#<parser> <url>;
-#asynchronous, the crawler downloads the data from <url>, parser converts them into metrics
+# Aggregator
+
+aggregator context (scrape from services)
+format:
+<parser> <url>;
+asynchronous, the crawler downloads the data from <url>, parser converts them into metrics
 
 ```
 aggregate_period 10000 # in milliseconds

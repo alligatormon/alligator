@@ -1,6 +1,6 @@
 #include "common/selector.h"
 #include "config/get.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "x509/type.h"
 #include "common/http.h"
 #include "query/query.h"
@@ -245,18 +245,6 @@ void lang_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "lang", lang);
 	}
 
-	if (lo->classpath)
-	{
-		json_t *classpath = json_string(lo->classpath);
-		json_array_object_insert(ctx, "classpath", classpath);
-	}
-
-	if (lo->classname)
-	{
-		json_t *classname = json_string(lo->classname);
-		json_array_object_insert(ctx, "classname", classname);
-	}
-
 	if (lo->method)
 	{
 		json_t *method = json_string(lo->method);
@@ -287,22 +275,10 @@ void lang_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "module", module);
 	}
 
-	if (lo->path)
-	{
-		json_t *path = json_string(lo->path);
-		json_array_object_insert(ctx, "path", path);
-	}
-
 	if (lo->query)
 	{
 		json_t *query = json_string(lo->query);
 		json_array_object_insert(ctx, "query", query);
-	}
-
-	if (lo->period)
-	{
-		json_t *period = json_integer(lo->period);
-		json_array_object_insert(ctx, "period", period);
 	}
 
 	if (lo->log_level)

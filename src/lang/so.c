@@ -1,9 +1,10 @@
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "events/fs_read.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
-char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, char*), char *script, char *data, char *arg, uint64_t log_level, char *key, string *metrics, string *conf, string *parser_data, string *response)
+char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, char*), lang_options *lo, char *script, char *data, char *arg, uint64_t log_level, char *key, string *metrics, string *conf, string *parser_data, string *response)
 {
 	char *ret = NULL;
 
@@ -23,13 +24,11 @@ char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, cha
 
 	if (func)
 	{
-		if (log_level)
-			printf("so module run '%s'\n", key);
+		langlog(lo, L_INFO, "so module run '%s'\n", key);
 		ret = func(script, data, arg, metrics_str, conf_str, parser_data_str, response_str);
 	}
 
-	if (log_level)
-		printf("so module with key '%s' return:\n%s\n", key, ret);
+	langlog(lo, L_INFO, "so module with key '%s' return:\n%s\n", key, ret);
 
 	return ret;
 }
@@ -67,7 +66,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 	if (lo->file && !lo->script)
 		read_from_file(strdup(file), 0, lang_load_script, lo);
 	else
-		ret = so_run_script(lo->func, lo->script, data, arg, lo->log_level, lo->key, metrics, conf, data_parser, response);
+		ret = so_run_script(lo->func, lo, lo->script, data, arg, lo->log_level, lo->key, metrics, conf, data_parser, response);
 
 	return ret;
 }

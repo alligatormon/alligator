@@ -1,7 +1,7 @@
 #include "x509/type.h"
 #include <string.h>
 #include "main.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "common/logs.h"
 #include "scheduler/type.h"
 #include "common/units.h"

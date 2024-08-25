@@ -1,5 +1,5 @@
 #include "x509/type.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "common/logs.h"
 #include "scheduler/type.h"
 #include "main.h"
@@ -46,7 +46,7 @@ void tls_fs_free()
 
 int jks_del(char *name)
 {
-	lang_delete(name);
+	lang_delete_key(name);
 	scheduler_del(name);
 	return 1;
 }

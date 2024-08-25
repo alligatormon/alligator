@@ -239,6 +239,7 @@ set(STATIC_FILES
 	lang/so.c
 	lang/duktape.c
 	lang/push.c
+	lang/del.c
 	system/common.c
 	system/freebsd.c
 	system/macosx.c
@@ -485,6 +486,7 @@ add_library(${COMMON_TESTS} STATIC
 	lang/so.c
 	lang/duktape.c
 	lang/push.c
+	lang/del.c
 	system/common.c
 	system/freebsd.c
 	system/macosx.c

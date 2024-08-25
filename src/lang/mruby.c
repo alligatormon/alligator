@@ -3,9 +3,10 @@
 #include <mruby/variable.h>
 #include <mruby/compile.h>
 #include <mruby/string.h>
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "parsers/multiparser.h"
 #include "events/fs_read.h"
+#include "common/logs.h"
 
 mrb_value call_from_ruby_handler_set_metrics(mrb_state *mrb, mrb_value self)
 {
@@ -42,8 +43,7 @@ mrb_value call_from_ruby_handler_response(mrb_state *mrb, mrb_value self)
 
 char* mruby_run_script(lang_options *lo, char *code, string* metrics, string *conf, string *parser_data, string *response)
 {
-	if (lo->log_level)
-		printf("run mruby script %s\n", lo->key);
+	langlog(lo, L_INFO, "run mruby script %s\n", lo->key);
 
 	mrb_state *mrb = mrb_open();
 	if (!mrb)
@@ -75,7 +75,7 @@ char* mruby_run_script(lang_options *lo, char *code, string* metrics, string *co
 	if (mrb->exc)
 	{
 		mrb_close(mrb);
-		printf("cannot run code\n'%s'\n", fullcode);
+		langlog(lo, L_ERROR, "cannot run code\n'%s'\n", fullcode);
 		free(fullcode);
 		return NULL;
 	}
@@ -86,8 +86,7 @@ char* mruby_run_script(lang_options *lo, char *code, string* metrics, string *co
 	mrb_value funcall_ret = mrb_funcall(mrb, obj, lo->method, 4, mrb_str_new_cstr(mrb, arg), mrb_str_new_cstr(mrb, metrics_str), mrb_str_new_cstr(mrb, conf_str), mrb_str_new_cstr(mrb, parser_data_str));
 
 	mrb_value inspect = mrb_inspect(mrb, funcall_ret);
-	if (lo->log_level)
-		puts(mrb_str_to_cstr(mrb, inspect));
+	langlog(lo, L_INFO, "%s\n", mrb_str_to_cstr(mrb, inspect));
 
 	mrb_close(mrb);
 	free(fullcode);

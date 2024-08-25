@@ -1,9 +1,18 @@
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "config/get.h"
 #include "api/api.h"
 #include "parsers/multiparser.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
+
+void langlog(lang_options *lo, int priority, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	wrlog(lo->log_level, priority, format, args);
+	va_end(args);
+}
 
 int lang_compare(const void* arg, const void* obj)
 {
@@ -12,46 +21,6 @@ int lang_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-void lang_options_free(lang_options* lo)
-{
-	if (lo->lang)
-		free(lo->lang);
-	if (lo->key)
-		free(lo->key);
-	if (lo->classpath)
-		free(lo->classpath);
-	if (lo->classname)
-		free(lo->classname);
-	if (lo->method)
-		free(lo->method);
-	if (lo->module)
-		free(lo->module);
-	if (lo->arg)
-		free(lo->arg);
-	if (lo->path)
-		free(lo->path);
-	if (lo->query)
-		free(lo->query);
-
-	free(lo);
-}
-
-void lang_options_del(lang_options* lo)
-{
-	if (!lo)
-		return;
-
-	alligator_ht_remove_existing(ac->lang_aggregator, &(lo->node));
-
-	lang_options_free(lo);
-}
-
-void lang_delete(char *key)
-{
-	lang_options* lo = alligator_ht_search(ac->lang_aggregator, lang_compare, key, tommy_strhash_u32(0, key));
-
-	lang_options_del(lo);
-}
 
 void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 {
@@ -77,7 +46,7 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 	else if (!strcmp(lo->lang, "mruby"))
 		ret = mruby_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
 	else if (!strcmp(lo->lang, "duktape"))
-		ret = duktape_run(lo, lo->script, lo->file, lo->arg, lo->path, body, conf, parser_data, response);
+		ret = duktape_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
 	else if (!strcmp(lo->lang, "so"))
 		ret = so_run(lo, lo->script, lo->file, "data_example", lo->arg, body, conf, parser_data, response);
 
@@ -112,25 +81,14 @@ void lang_run(char *key, string *body, string *parser_data, string *response)
 	lang_options* lo = alligator_ht_search(ac->lang_aggregator, lang_compare, key, tommy_strhash_u32(0, key));
 	if (lo)
 	{
-		if (ac->log_level > 0)
-			printf("lang run key %s\n", lo->key);
+		langlog(lo, L_INFO, "lang run key %s\n", lo->key);
 		lang_crawl(lo, body, parser_data, response);
 	}
 	else
-		if (ac->log_level > 0)
-			printf("lang run key %s failed: not found\n", key);
+		glog(L_INFO, "lang run key %s failed: not found\n", key);
 }
 
-void lang_foreach_del(void *funcarg, void* arg)
+lang_options* lang_get(char *key)
 {
-	lang_options *lo = arg;
-
-	lang_options_free(lo);
-}
-
-void lang_stop()
-{
-	alligator_ht_foreach_arg(ac->lang_aggregator, lang_foreach_del, NULL);
-	alligator_ht_done(ac->lang_aggregator);
-	free(ac->lang_aggregator);
+	return alligator_ht_search(ac->lang_aggregator, lang_compare, key, tommy_strhash_u32(0, key));
 }

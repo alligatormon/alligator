@@ -1,10 +1,11 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "events/fs_read.h"
+#include "common/logs.h"
 
-char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, char *arg, string* smetrics, string *conf, string *parser_data, string *response)
+char* lua_run_script(lang_options *lo, char *code, char *key, uint64_t log_level, char *method, char *arg, string* smetrics, string *conf, string *parser_data, string *response)
 {
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
@@ -33,8 +34,7 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 			//lua_pushstring(L, response_str);
 			if (lua_pcall(L, 4, 2, 0)) // L, numArgs, numRets, errFuncIndex
 			{
-				if (log_level)
-					printf("lua_pcall failed: %s\n", lua_tostring(L, -1));
+				langlog(lo, L_ERROR, "lua_pcall failed: %s\n", lua_tostring(L, -1));
 
 				lua_pop(L, 1);
 			}
@@ -46,8 +46,7 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 				string_cat(response, response_from_lua, strlen(response_from_lua));
 			lua_pop(L, 1);
 
-			if (log_level)
-				printf("Lang lua exec key '%s' response result:\n'%s'\n", key, response_from_lua);
+			langlog(lo, L_ERROR, "Lang lua exec key '%s' response result:\n'%s'\n", key, response_from_lua);
 		}
 		if (lua_isstring(L, -1)) {
 			char* metrics_from_lua = (char*)lua_tostring(L, -1);
@@ -56,8 +55,7 @@ char* lua_run_script(char *code, char *key, uint64_t log_level, char *method, ch
 				metrics = strdup(metrics_from_lua);
 			lua_pop(L, 1);
 
-			if (log_level)
-				printf("Lang lua exec key '%s' metrics result:\n'%s'\n", key, metrics);
+			langlog(lo, L_ERROR, "Lang lua exec key '%s' metrics result:\n'%s'\n", key, metrics);
 		}
 	}
 
@@ -70,13 +68,12 @@ char* lua_run(lang_options *lo, char* script, char *file, char *arg, string* sme
 {
 	char *metrics = NULL;
 	if (script)
-		metrics = lua_run_script(script, lo->key, lo->log_level, lo->method, lo->arg, smetrics, conf, parser_data, response);
+		metrics = lua_run_script(lo, script, lo->key, lo->log_level, lo->method, lo->arg, smetrics, conf, parser_data, response);
 	else if (file)
 		read_from_file(strdup(file), 0, lang_load_script, lo);
 	else
 	{
-		if (lo->log_level)
-			printf("no file or script for lua lang: %s\n", lo->key);
+		langlog(lo, L_ERROR, "no file or script for lua lang: %s\n", lo->key);
 	}
 
 	return metrics;

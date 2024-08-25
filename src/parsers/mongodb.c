@@ -7,7 +7,7 @@
 #include "parsers/elasticsearch.h"
 #include "common/aggregator.h"
 #include "common/http.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "main.h"
 
 string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

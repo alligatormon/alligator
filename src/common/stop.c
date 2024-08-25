@@ -10,7 +10,7 @@
 #include "scheduler/type.h"
 #include "query/type.h"
 #include "resolver/resolver.h"
-#include "lang/lang.h"
+#include "lang/type.h"
 #include "dstructures/uv_cache.h"
 #include "system/common.h"
 #include "events/system_scrape.h"

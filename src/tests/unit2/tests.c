@@ -158,5 +158,6 @@ int main(int argc, char **argv) {
     api_test_query_1();
     api_test_action_1();
     api_test_scheduler_1();
+    api_test_lang_1();
     infomesg();
 }
