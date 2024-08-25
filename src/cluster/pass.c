@@ -110,7 +110,6 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 			else
 				metric_add(name, hash, value, DATATYPE_DOUBLE, carg);
 			double dvalue = *(double*)value;
-			if (carg->log_level > 0)
 			carglog(carg, L_DEBUG, "\t\tcluster_pass metric add %s:%lf:%d to namespace '%s'\n", name, dvalue, type, carg->namespace);
 			carg->namespace = NULL;
 		}

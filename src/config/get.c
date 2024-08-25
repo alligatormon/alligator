@@ -674,9 +674,6 @@ void cluster_generate_conf(void *funcarg, void* arg)
 	json_t *replica_factor_ctx = json_integer(cn->replica_factor);
 	json_array_object_insert(cluster, "replica_factor", replica_factor_ctx);
 
-	json_t *timeout_ctx = json_integer(cn->timeout);
-	json_array_object_insert(cluster, "timeout", timeout_ctx);
-
 	json_t *servers_ctx = json_array();
 	json_array_object_insert(cluster, "servers", servers_ctx);
 

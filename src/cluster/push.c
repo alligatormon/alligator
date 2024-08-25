@@ -1,5 +1,6 @@
 #include "cluster/type.h"
 #include "common/json_parser.h"
+#include "common/logs.h"
 #include "metric/namespace.h"
 #include <string.h>
 #include "main.h"
@@ -64,8 +65,7 @@ void cluster_push_json(json_t *cluster)
 				rc = maglev_add_node(&cn->m_maglev_hash, cn->servers[j].name, &cn->servers[j]);
 				if (rc)
 				{
-					if (ac->log_level > 0)
-						printf("maglev_add_node error: name %s is not unique\n", data);
+					glog(L_ERROR, "maglev_add_node error: name %s is not unique\n", data);
 				}
 			}
 		}
@@ -108,14 +108,10 @@ void cluster_push_json(json_t *cluster)
 			cn->type = CLUSER_TYPE_OPLOG;
 	}
 
-	cn->timeout = 5000;
-	cn->timeout = config_get_intstr_json(cluster, "timeout");
-
 	cn->replica_factor = 0;
 	cn->replica_factor = config_get_intstr_json(cluster, "replica_factor");
 
-	if (ac->log_level > 0)
-		printf("create cluster node name '%s'\n", cn->name);
+	glog(L_INFO, "create cluster node name '%s'\n", cn->name);
 
 	alligator_ht_insert(ac->cluster, &(cn->node), cn, tommy_strhash_u32(0, cn->name));
 }

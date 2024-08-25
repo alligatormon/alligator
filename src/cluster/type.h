@@ -33,7 +33,6 @@ typedef struct cluster_node
 {
 	char *name;
 	uint64_t replica_factor;
-	uint64_t timeout;
 	uint64_t update_count;
 
 	uint64_t servers_size;
