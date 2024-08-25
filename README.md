@@ -144,7 +144,7 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 Actions allows to run command on the system. How to use explained in the [documentation](https://github.com/alligatormon/alligator/blob/master/doc/action.md)
 
 ## Lang
-[Lang]((https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is a way to run other software to collect metrics.
+[Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is a way to run other software to collect metrics.
 
 ## Actions
 Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. It also provide capability to export data in others databases. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
