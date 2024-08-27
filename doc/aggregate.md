@@ -197,7 +197,7 @@ aggregate {
 
 
 ## Available parsers
-- redis
+- [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
 - clickhouse
 - zookeeper
 - memcached
@@ -289,15 +289,6 @@ aggregate {
 ```
 aggregate_period 10s;
 aggregate {
-    #REDIS and SENTINEL
-    redis tcp://localhost:6379/;
-    sentinel tcp://localhost:2/;
-    sentinel tcp://:password@localhost:2/;
-    #REDIS with password
-    redis tcp://:pass@127.0.0.1:6379;
-    redis unix://:pass@/tmp/redis.sock;
-    # REDIS only ping (or queries)
-    redis_ping tcp://localhost:2/;
     #CKICKHOUSE (http proto support)
     clickhouse http://localhost:8123;
     #ZOOKEEPER
