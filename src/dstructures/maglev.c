@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <inttypes.h>
+#include <common/logs.h>
 
 void maglev_init(struct maglev_lookup_hash *psrv)
 {
@@ -38,17 +39,17 @@ int8_t is_maglev_prime(uint64_t n)
 {
 	if (n < MAGLEV_HASH_SIZE_MIN)
 	{
-		printf("excess MAGLEV_HASH_SIZE_MIN: %"PRId64"\n", n);
+		glog(L_DEBUG, "excess MAGLEV_HASH_SIZE_MIN: %"PRId64"\n", n);
 		return 0;
 	}
 	if (n > MAGLEV_HASH_SIZE_MAX)
 	{
-		printf("excess MAGLEV_HASH_SIZE_MAX: %"PRId64"\n", n);
+		glog(L_DEBUG, "excess MAGLEV_HASH_SIZE_MAX: %"PRId64"\n", n);
 		return 0;
 	}
 	if (n % 2 == 0)
 	{
-		//printf("is_maglev_prime error: %"PRId64"\n", n);
+		glog(L_DEBUG, "is_maglev_prime error: %"PRId64"\n", n);
 		return 0;
 	}
 
@@ -57,7 +58,7 @@ int8_t is_maglev_prime(uint64_t n)
 	for (i = 3; i <= j; i = i + 2)
 		if (n % i == 0)
 		{
-			//printf("is_maglev_prime is not prime error: %"PRIu64" %% %"PRId64" == 0\n", n, i);
+			glog(L_DEBUG, "is_maglev_prime is not prime error: %"PRIu64" %% %"PRId64" == 0\n", n, i);
 			return 0;
 		}
 	return 1;

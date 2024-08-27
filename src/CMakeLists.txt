@@ -158,6 +158,7 @@ set(STATIC_FILES
 	parsers/mongodb.c
 	parsers/keepalived.c
 	parsers/lang.c
+	parsers/nvidia-smi.c
 	scheduler/influxdb.c
 	scheduler/handler.c
 	scheduler/push.c
@@ -405,6 +406,7 @@ add_library(${COMMON_TESTS} STATIC
 	parsers/mongodb.c
 	parsers/keepalived.c
 	parsers/lang.c
+	parsers/nvidia-smi.c
 	scheduler/influxdb.c
 	scheduler/handler.c
 	scheduler/push.c

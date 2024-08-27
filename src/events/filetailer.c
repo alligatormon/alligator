@@ -146,7 +146,7 @@ void directory_crawl(void *arg)
 				uv_fs_t* req_stat = malloc(sizeof(*req_stat));
 				req_stat->data = carg;
 				char pathname[1024];
-				snprintf(pathname, 1023, "%s/%s", carg->path, dirents[i].name);
+				snprintf(pathname, 1023, "%s%s", carg->path, dirents[i].name);
 
 				carglog(carg, L_INFO, "stat open: %s\n", pathname);
 
@@ -288,7 +288,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 
 	file_handle *fh = file_handler_struct_init(carg, 65535);
 	if (carg->is_dir)
-		snprintf(fh->pathname, 1023, "%s/%s", carg->path, carg->filename);
+		snprintf(fh->pathname, 1023, "%s%s", carg->path, carg->filename);
 	else
 		snprintf(fh->pathname, 1023, "%s", carg->path);
 

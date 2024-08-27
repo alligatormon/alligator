@@ -146,3 +146,4 @@ void unbound_parser_push();
 void uwsgi_parser_push();
 void varnish_parser_push();
 void zookeeper_parser_push();
+void nvidia_smi_parser_push();

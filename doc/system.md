@@ -91,10 +91,10 @@ system {
 }
 ```
 
-### log_level
+### log\_level
 Specify of the level of logging for this context. Units for this option are explained in this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
 
-### add_label
+### add\_label
 This option provides opportunity to manipulate extra labels.
 
 For example, this configuration adds two extra labels for each metric:

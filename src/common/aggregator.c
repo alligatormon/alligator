@@ -304,6 +304,7 @@ void aggregate_ctx_init()
 	dns_parser_push();
 	influxdb_parser_push();
 	lang_parser_push();
+    nvidia_smi_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)
