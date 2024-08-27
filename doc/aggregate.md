@@ -245,8 +245,9 @@ aggregate {
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
 - [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
 - [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgesql.md)
-- [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
-- [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
+- [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer)
+- [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
+- [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
 - varnish
 
 ## Example of usage with TLS options
