@@ -242,7 +242,7 @@ aggregate {
 - nifi
 - nsd
 - ntpd
-- [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.doc)
+- [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
 - patroni
 - postgresql
 - pgbouncer
