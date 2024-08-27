@@ -1,3 +1,4 @@
+# PostgreSQL
 
 PostgreSQL support by user queries:
 ```
@@ -26,5 +27,39 @@ query {
 	field replication_delay;
 	datasource pg;
 	make postgresql_replication_lag;
+}
+```
+
+
+# PgBouncer
+```
+modules {
+	postgresql /usr/lib64/libpq.so;
+}
+
+aggregate {
+	postgresql postgresql://pgbouncer:test@localhost:6432/pgbouncer;
+}
+```
+
+# Odyssey
+```
+modules {
+	postgresql /usr/lib64/libpq.so;
+}
+
+aggregate {
+	odyssey postgresql://localhost:6432/console;
+}
+```
+
+# pgpool
+```
+modules {
+	postgresql /usr/lib64/libpq.so;
+}
+
+aggregate {
+	pgpool postgresql://postgres@localhost:9999/postgres;
 }
 ```

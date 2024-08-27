@@ -243,10 +243,10 @@ aggregate {
 - nsd
 - ntpd
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
-- patroni
-- postgresql
-- pgbouncer
-- odyssey
+- [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
+- [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgesql.md)
+- [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
+- [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
 - varnish
 
 ## Example of usage with TLS options
