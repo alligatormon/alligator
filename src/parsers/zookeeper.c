@@ -41,12 +41,18 @@ void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 	if (!strncmp(metrics, "ro", 2))
 	{
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "ro");
+		carg->parser_status = 0;
 	}
 	else if (!strncmp(metrics, "rw", 2))
 	{
 		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "rw");
+		carg->parser_status = 1;
 	}
-	carg->parser_status = 1;
+	else if (!strncmp(metrics, "null", 4))
+	{
+		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "null");
+		carg->parser_status = 0;
+	}
 }
 
 string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

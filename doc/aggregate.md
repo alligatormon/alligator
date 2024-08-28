@@ -199,11 +199,11 @@ aggregate {
 ## Available parsers
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
 - clickhouse
-- zookeeper
+- [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
 - memcached
 - beanstalkd
 - gearmand
-- haproxy
+- [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
 - blackbox
 - php-fpm
 - uwsgi
@@ -227,9 +227,9 @@ aggregate {
 - bind (nameD)
 - [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
 - tftp
-- unbound
+- [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md)
 - [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
-- elasticsearch
+- [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
 - opentsdb
 - hadoop
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
@@ -292,8 +292,6 @@ aggregate_period 10s;
 aggregate {
     #CKICKHOUSE (http proto support)
     clickhouse http://localhost:8123;
-    #ZOOKEEPER
-    zookeeper http://localhost;
     #MEMCACHED
     memcached tcp://localhost:11211;
     memcached tls://127.0.0.1:11211 tls_certificate=/etc/memcached/server-cert.pem tls_key=/etc/memcached/server-key.pem;
@@ -301,9 +299,6 @@ aggregate {
     beanstalkd tcp://localhost:11300;
     #GEARMAND
     gearmand tcp://localhost:4730;
-    #HAPROXY TCP or unix socket stats
-    haproxy tcp://localhost:9999;
-    haproxy unix:///var/run/haproxy;
     #HTTP checks:
     http  http://example.com;
     #ICMP checks:
@@ -333,16 +328,11 @@ aggregate {
     powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
     #OPENTSDB
     opentsdb http://localhost:4242/api/stats;
-    #ELASTICSEARCH
     elasticsearch http://localhost:9200;
     #FLOWER celery
     flower http://localhost:5555;
     # hadoop
     hadoop http://localhost:50075/jmx;
-    #UNBOUND over unix socket
-    unbound tls://unix:/var/run/unbound.sock tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
-    #UNBOUND over tls socket
-    unbound tls://localhost:8953 tls_certificate=/etc/unbound/unbound_control.pem tls_key=/etc/unbound/unbound_control.key tls_ca=/etc/unbound/unbound_server.pem;
     # IPMI metrics
     ipmi exec:///usr/bin/ipmitool;
     # TFTP

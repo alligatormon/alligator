@@ -119,9 +119,9 @@ Provides the capability to set the engine for creating tables in Clickhouse.
 
 ```
 action {
-    name to-elastic;
-    expr http://localhost:9200/_bulk;
-    serializer elasticsearch;
+    name to-clickhouse;
+    expr http://localhost:8123;
+    serializer clickhouse;
     engine ENGINE=MergeTree ORDER BY timestamp;
 }
 ```

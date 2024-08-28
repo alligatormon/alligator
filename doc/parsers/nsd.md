@@ -2,7 +2,7 @@
 
 To enable the collection of statistics from NSD, use the following option:
 ```
-aggregator {
+aggregate {
     nsd unix:///run/nsd/nsd.ctl;
 }
 ```

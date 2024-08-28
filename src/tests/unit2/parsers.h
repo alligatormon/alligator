@@ -124,3 +124,40 @@ void api_test_parser_syslogng() {
 
     metric_test_run(CMP_EQUAL, "syslogng_stats", "syslogng_stats", 0);
 }
+
+void api_test_parser_zookeeper_dont_work() {
+    char *isro = "null";
+    char *mntr = "This ZooKeeper instance is not currently serving requests\n";
+    char *wchs = "This ZooKeeper instance is not currently serving requests\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    zookeeper_isro_handler(isro, strlen(isro), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    carg->parser_status = 0;
+    zookeeper_mntr_handler(mntr, strlen(mntr), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    carg->parser_status = 0;
+    zookeeper_wchs_handler(wchs, strlen(wchs), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+}
+
+void api_test_parser_zookeeper() {
+    char *isro = "rw";
+    char *wchs = "2 connections watching 13 paths\nTotal watches:15\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    zookeeper_isro_handler(isro, strlen(isro), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "zk_readwrite", "zk_readwrite", 1);
+
+    //carg->parser_status = 0;
+    //zookeeper_mntr_handler(mntr, strlen(mntr), carg);
+    //assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    carg->parser_status = 0;
+    zookeeper_wchs_handler(wchs, strlen(wchs), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
+}

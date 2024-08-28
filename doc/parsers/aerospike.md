@@ -2,7 +2,7 @@
 
 To enable the collection of statistics from Aerospike, use the following option:
 ```
-aggregator {
+aggregate {
     aerospike tcp://localhost:3000;
 }
 ```
