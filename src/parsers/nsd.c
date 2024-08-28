@@ -22,7 +22,6 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 		strlcpy(tmp, metrics+i, (copysize > NSD_NAME_SIZE ? NSD_NAME_SIZE : copysize)+1);
 		i += copysize;
 		i += strspn(metrics+i, "= ");
-		//printf("==> '%s'\n", tmp);
 
 		if (!strncmp(tmp, "num.type", 8))
 		{
@@ -48,7 +47,6 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(tmp2+4, tmp, lastdot-tmp);
 			metric_name_normalizer(tmp2, lastdot-tmp+1);
 			strlcpy(tmp3, pre_lastdot, lastdot-pre_lastdot);
-			//printf("finded dot: '%s' to '%s' {'%s'='%s'}\n", tmp, tmp2, tmp3, lastdot);
 			metric_add_labels(tmp2, &val, DATATYPE_UINT, carg, tmp3, lastdot);
 		}
 

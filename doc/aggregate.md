@@ -239,8 +239,8 @@ aggregate {
 - mysql
 - monit
 - nginx\_upstream\_check module of nginx
-- nifi
-- nsd
+- [nifi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nifi.md)
+- [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
 - [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
 - [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
@@ -365,8 +365,6 @@ aggregate {
     lighttpd_statistics http://localhost:8080/server-statistics;
     # Apache HTTPD
     httpd http://localhost/server-status;
-    # NSD
-    nsd unix:///run/nsd/nsd.ctl;
     # scrape prometheus format openmetrics from other exporters
     prometheus_metrics http://localhost:9100;
     # parse json

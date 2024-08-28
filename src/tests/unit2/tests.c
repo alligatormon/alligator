@@ -23,11 +23,13 @@ void infomesg() {
     fprintf(stderr, "tests passed: %"PRIu64", failed: %"PRIu64", total: %"PRIu64"\n", count_all - count_error, count_error, count_all);
 }
 
-void do_exit(int code) {
+int do_exit(int code) {
     if (exit_on_error) {
         infomesg();
         exit(code);
     }
+
+    return 0;
 }
 
 static int print_u128_u(uint128_t uu128)
@@ -78,7 +80,7 @@ int assert_equal_uint(const char *file, const char *func, int line, uint128_t ex
         fprintf(stderr, "'\n");
         fflush(stdout);
         fflush(stderr);
-        do_exit(1);
+        return do_exit(1);
     }
 
     return 1;
@@ -95,7 +97,7 @@ int assert_equal_int(const char *file, const char *func, int line, int128_t expe
         fprintf(stderr, "'\n");
         fflush(stdout);
         fflush(stderr);
-        do_exit(1);
+        return do_exit(1);
     }
 
     return 1;
@@ -108,8 +110,7 @@ int assert_ptr_notnull(const char *file, const char *func, int line, const void 
         fprintf(stderr, "%s:%d unit test function '%s' pointer is NULL\n", file, line, func);
         fflush(stdout);
         fflush(stderr);
-        do_exit(1);
-        return 0;
+        return do_exit(1);
     }
 
     return 1;
@@ -128,7 +129,7 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
         fprintf(stderr, "'\n");
         fflush(stdout);
         fflush(stderr);
-        do_exit(1);
+        return do_exit(1);
     }
 
     return 1;
@@ -165,5 +166,6 @@ int main(int argc, char **argv) {
     api_test_lang_1();
     api_test_cluster_1();
     api_test_parser_ntp();
+    api_test_parser_nsd();
     infomesg();
 }
