@@ -167,5 +167,6 @@ int main(int argc, char **argv) {
     api_test_cluster_1();
     api_test_parser_ntp();
     api_test_parser_nsd();
+    api_test_parser_syslogng();
     infomesg();
 }

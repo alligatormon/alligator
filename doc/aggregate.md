@@ -225,19 +225,19 @@ aggregate {
 - json\_query
 - squid
 - bind (nameD)
-- gdnsd
+- [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
 - tftp
 - unbound
-- syslog-ng
+- [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
 - elasticsearch
 - opentsdb
 - hadoop
-- aerospike
+- [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
 - lighttpd
 - ipmi
 - keepalived
 - mysql
-- monit
+- [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
 - nginx\_upstream\_check module of nginx
 - [nifi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nifi.md)
 - [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
@@ -335,16 +335,8 @@ aggregate {
     opentsdb http://localhost:4242/api/stats;
     #ELASTICSEARCH
     elasticsearch http://localhost:9200;
-    #AEROSPIKE
-    aerospike tcp://localhost:3000;
-    #MONIT
-    monit http://admin:admin@localhost:2812;
     #FLOWER celery
     flower http://localhost:5555;
-    #GDNSD
-    gdnsd unix:///usr/local/var/run/gdnsd/control.sock
-    #SYSLOG-NG
-    syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl
     # hadoop
     hadoop http://localhost:50075/jmx;
     #UNBOUND over unix socket
