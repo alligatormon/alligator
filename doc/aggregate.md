@@ -241,14 +241,14 @@ aggregate {
 - nginx\_upstream\_check module of nginx
 - nifi
 - nsd
-- ntpd
+- [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
 - [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
 - [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgesql.md)
 - [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer)
 - [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
 - [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
-- varnish
+- [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
 
 ## Example of usage with TLS options
 ```

@@ -26,34 +26,6 @@
 
 aconf *ac;
 
-void ts_initialize()
-{
-	// initialize multi NS
-	extern aconf *ac;
-	ac->_namespace = calloc(1, sizeof(alligator_ht));
-	alligator_ht_init(ac->_namespace);
-
-	// initialize default NS
-	namespace_struct *ns = calloc(1, sizeof(*ns));
-	ns->key = strdup("default");
-	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
-	ac->nsdefault = ns;
-
-	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
-	expire_tree *expiretree = calloc(1, sizeof(*expiretree));
-	
-	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
-
-	sortplan *sort_plan = malloc(sizeof(*sort_plan));
-	sort_plan->plan[0] = "__name__";
-	sort_plan->size = 1;
-
-	ns->metrictree = metrictree;
-	ns->expiretree = expiretree;
-	metrictree->labels_words_hash = labels_words_hash;
-	metrictree->sort_plan = sort_plan;
-}
-
 void system_initialize()
 {
 	extern aconf *ac;

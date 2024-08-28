@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <events/context_arg.h>
 #include "main.h"
 #include "common/patricia.h"
 
@@ -100,7 +101,7 @@ int assert_equal_int(const char *file, const char *func, int line, int128_t expe
     return 1;
 }
 
-int assert_ptr_notnull(const char *file, const char *func, int line, void *value) {
+int assert_ptr_notnull(const char *file, const char *func, int line, const void *value) {
     ++count_all;
     if (!value) {
         ++count_error;
@@ -114,7 +115,7 @@ int assert_ptr_notnull(const char *file, const char *func, int line, void *value
     return 1;
 }
 
-int assert_equal_string(const char *file, const char *func, int line, char *expected, char *value) {
+int assert_equal_string(const char *file, const char *func, int line, char *expected, const char *value) {
     ++count_all;
     if (!assert_ptr_notnull(file, func, line, value))
         return 0;
@@ -136,6 +137,7 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
 #include "netlib.h"
 #include "http.h"
 #include "api_v1.h"
+#include "parsers.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -149,6 +151,8 @@ int main(int argc, char **argv) {
     ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
     tommy_list_init(ac->uv_cache_timer);
 
+    ts_initialize();
+
     test_ip_check_access_1();
     test_ip_to_int();
     test_integer_to_ip();
@@ -160,5 +164,6 @@ int main(int argc, char **argv) {
     api_test_scheduler_1();
     api_test_lang_1();
     api_test_cluster_1();
+    api_test_parser_ntp();
     infomesg();
 }

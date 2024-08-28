@@ -80,7 +80,6 @@ void serializer_do(serializer_context *sc, string *str)
 	int serializer = sc->serializer;
 	if (serializer == METRIC_SERIALIZER_JSON && sc->json)
 	{
-		printf("sc->json is %p\n", sc->json);
 		char *ret = json_dumps(sc->json, JSON_INDENT(2));
 		string_cat(str, ret, strlen(ret));
 	}
@@ -160,7 +159,6 @@ void serialize_json(metric_node *x, serializer_context *sc)
 	json_array_object_insert(sample, "value", sample_value);
 	json_array_object_insert(sample, "expire", sample_expire);
 	json_array_object_insert(samples, "", sample);
-	printf("serialize JSON!!!!: %p\n", sc->json);
 
 	json_array_object_insert(obj, "labels", jlabels);
 	json_array_object_insert(obj, "samples", samples);

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "main.h"
 
 typedef struct ntp_packet
@@ -71,8 +72,7 @@ void ntp_handler(char *ntpData, size_t size, context_arg *carg)
 	uint64_t txTm = ( time_t ) ( txTm_s - 2208988800ull );
 	double diff = nowtime - (((double)(txTm) * 1.00) + ((double)(txTm_f)/0x100000000L));
 
-	if (carg->log_level)
-		printf("txTm %"PRIu64", nowtime %lf, diff %lf\n", txTm, nowtime, diff);
+	carglog(carg, L_INFO, "txTm %"PRIu64", nowtime %lf, diff %lf\n", txTm, nowtime, diff);
 
 	metric_add_auto("ntp_drift_seconds", &diff, DATATYPE_DOUBLE, carg);
 
