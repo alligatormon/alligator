@@ -198,7 +198,7 @@ aggregate {
 
 ## Available parsers
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
-- clickhouse
+- [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md)
 - [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
 - [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md)
 - beanstalkd
@@ -290,8 +290,6 @@ aggregate {
 ```
 aggregate_period 10s;
 aggregate {
-    #CKICKHOUSE (http proto support)
-    clickhouse http://localhost:8123;
     #BEANSTALKD
     beanstalkd tcp://localhost:11300;
     #GEARMAND

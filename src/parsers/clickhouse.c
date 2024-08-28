@@ -7,6 +7,7 @@
 #include "common/http.h"
 #include "common/selector.h"
 #include "common/validator.h"
+#include "common/logs.h"
 #include <query/type.h>
 #include "main.h"
 #define d64	PRId64
@@ -483,12 +484,9 @@ void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
 			strlcpy(X_ClickHouse_Exception_Code, cur, len + 1);
 		}
 
-		if (ac->log_level > 0)
-		{
-			printf("clickhouse summary %s\n", X_ClickHouse_Summary);
-			printf("clickhouse exception code %s\n", X_ClickHouse_Exception_Code);
-			printf("clickhouse body %s\n", metrics);
-		}
+		carglog(carg, L_INFO, "clickhouse summary %s\n", X_ClickHouse_Summary);
+		carglog(carg, L_INFO, "clickhouse exception code %s\n", X_ClickHouse_Exception_Code);
+		carglog(carg, L_INFO, "clickhouse body %s\n", metrics);
 	}
 }
 
@@ -533,15 +531,13 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%s'\n", ch_field);
+					carglog(carg, L_DEBUG, "\tvalue '%s'\n", ch_field);
 					qf->d = strtod(ch_field, NULL);
 					qf->type = DATATYPE_DOUBLE;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					carglog(carg, L_DEBUG, "\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
 					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
 				}
 			}
@@ -550,15 +546,13 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%s'\n", ch_field);
+					carglog(carg, L_DEBUG, "\tvalue '%s'\n", ch_field);
 					qf->i = strtoll(ch_field, NULL, 10);
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					carglog(carg, L_DEBUG, "\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
 					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
 				}
 			}
@@ -591,11 +585,7 @@ void clickhouse_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
-	if (carg->log_level > 1)
-	{
-		puts("+-+-+-+-+-+-+-+");
-		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
-	}
+	carglog(carg, L_DEBUG, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	char *key = malloc(255);
 	snprintf(key, 255, "(tcp://%s:%u)/custom", carg->host, htons(carg->dest.sin_port));
 
@@ -618,8 +608,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, clickhouse_queries_foreach, carg);
