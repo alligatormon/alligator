@@ -29,3 +29,18 @@ query {
 }
 
 ```
+
+### Querying the memcached
+
+Alligator supports querying keys in Memcached. The following example demonstrates generating metrics by keys in Memcached:
+```
+aggregate {
+    memcached tcp://127.0.0.1:11211 name=mc;
+}
+
+query {
+    expr "get first_metric test_metric third_metric";
+    datasource mc;
+    make memcached_query;
+}
+```

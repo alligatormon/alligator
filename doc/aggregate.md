@@ -292,7 +292,6 @@ aggregate_period 10s;
 aggregate {
     #CKICKHOUSE (http proto support)
     clickhouse http://localhost:8123;
-    #MEMCACHED
     #BEANSTALKD
     beanstalkd tcp://localhost:11300;
     #GEARMAND
@@ -326,7 +325,6 @@ aggregate {
     powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
     #OPENTSDB
     opentsdb http://localhost:4242/api/stats;
-    elasticsearch http://localhost:9200;
     #FLOWER celery
     flower http://localhost:5555;
     # hadoop
