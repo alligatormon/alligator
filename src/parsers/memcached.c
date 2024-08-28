@@ -7,13 +7,13 @@
 #include "common/validator.h"
 #include "parsers/multiparser.h"
 #include "query/type.h"
+#include "common/logs.h"
 #include "main.h"
 #define MC_NAME_SIZE 255
 
 void memcached_query(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 0)
-		puts(metrics);
+	carglog(carg, L_TRACE, "memcached query result (%zu):\n'%s'\n", size, metrics);
 
 	char metricname[MC_NAME_SIZE];
 	char metricvalue[MC_NAME_SIZE];
@@ -26,15 +26,13 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		uint64_t copysize = strcspn(metrics + cur, " \n");
 		if (!copysize)
 		{
-			if (carg->log_level > 0)
-				printf("metric name size is 0, error\n");
+			carglog(carg, L_ERROR, "memcached metric name size is 0, error\n");
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 
 		strlcpy(metricname, metrics + cur, copysize + 1);
-		if (carg->log_level > 0)
-			printf("metric name is %s\n", metricname);
+		carglog(carg, L_INFO, "metric name is %s\n", metricname);
 
 		metric_name_normalizer(metricname, copysize);
 
@@ -46,14 +44,12 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		copysize = strcspn(metrics + cur, "\r");
 		if (!copysize)
 		{
-			if (carg->log_level > 0)
-				printf("metric value size is 0, error\n");
+			carglog(carg, L_INFO, "metric value size is 0, error\n");
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 		strlcpy(metricvalue, metrics + cur, copysize + 1);
-		if (carg->log_level > 0)
-			printf("metric value is %s\n", metricvalue);
+		carglog(carg, L_INFO, "metric value is %s\n", metricvalue);
 
 		if (metric_value_validator(metricvalue, copysize-1))
 		{
@@ -105,8 +101,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 		// ITEM third_metric
 		if (!strncmp(field, "ITEM", 4))
 		{
-			if (carg->log_level > 2)
-				puts("is item");
+			carglog(carg, L_INFO, "memcached_dumo is item");
 
 			copysize = strcspn(field + 5, " \t\n");
 			strlcpy(metric, field + 5, copysize + 1);
@@ -114,15 +109,13 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 			{
 				if (!fnmatch(pattern[j], metric, 0))
 				{
-					if (carg->log_level > 1)
-						printf("Matching key '%s' and pattern '%s': OK\n", metric, pattern[j]);
+					carglog(carg, L_INFO, "Matching key '%s' and pattern '%s': OK\n", metric, pattern[j]);
 					string_cat(get_query, " ", 1);
 					string_cat(get_query, field + 5, copysize);
 					break;
 				}
 				else
-					if (carg->log_level > 1)
-						printf("Matching key '%s' and pattern '%s': no match\n", metric, pattern[j]);
+					carglog(carg, L_INFO, "Matching key '%s' and pattern '%s': no match\n", metric, pattern[j]);
 			}
 		}
 
@@ -135,8 +128,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	char *key = malloc(512);
 	snprintf(key, 511, "memcached_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
 
-	if (carg->log_level > 0)
-		printf("memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
+	carglog(carg, L_INFO, "memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, memcached_query, "memcached_query", NULL, key, carg->data);
 	free(get_query);
 	carg->parser_status = 1;
@@ -173,8 +165,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 	char *key = malloc(512);
 	snprintf(key, 511, "memcached_cachedump(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
 
-	if (carg->log_level > 0)
-		printf("query is\n'%s'\nkey '%s'\n", slab_query->s, key);
+	carglog(carg, L_INFO, "query is\n'%s'\nkey '%s'\n", slab_query->s, key);
 	try_again(carg, slab_query->s, slab_query->l, memcached_cachedump, "memcached_cachedump", NULL, key, carg->data);
 	free(slab_query);
 	carg->parser_status = 1;
@@ -185,11 +176,7 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
 
-	if (carg->log_level > 1)
-	{
-		puts("+-+-+-+-+-+-+-+");
-		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
-	}
+	carglog(carg, L_INFO, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 
 	uint64_t writelen = 0;
 	char *write_comm = NULL;
@@ -270,8 +257,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, memcached_queries_foreach, carg);

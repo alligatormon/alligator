@@ -170,5 +170,6 @@ int main(int argc, char **argv) {
     api_test_parser_syslogng();
     api_test_parser_zookeeper_dont_work();
     api_test_parser_zookeeper();
+    api_test_parser_memcached();
     infomesg();
 }

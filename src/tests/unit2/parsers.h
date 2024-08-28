@@ -161,3 +161,58 @@ void api_test_parser_zookeeper() {
 
     metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
 }
+
+void api_test_parser_memcached() {
+    char *msg = "STAT pid 4875\r\nSTAT uptime 28\r\nSTAT time 1724863166\r\nSTAT version 1.4.15\r\nSTAT libevent 2.0.21-stable\r\nSTAT pointer_size 64\r\nSTAT rusage_user 0.001855\r\nSTAT rusage_system 0.001650\r\nSTAT curr_connections 10\r\nSTAT total_connections 12\r\nSTAT connection_structures 11\r\nSTAT reserved_fds 20\r\nSTAT cmd_get 0\r\nSTAT cmd_set 0\r\nSTAT cmd_flush 0\r\nSTAT cmd_touch 0\r\nSTAT get_hits 0\r\nSTAT get_misses 0\r\nSTAT delete_misses 0\r\nSTAT delete_hits 0\r\nSTAT incr_misses 0\r\nSTAT incr_hits 0\r\nSTAT decr_misses 0\r\nSTAT decr_hits 0\r\nSTAT cas_misses 0\r\nSTAT cas_hits 0\r\nSTAT cas_badval 0\r\nSTAT touch_hits 0\r\nSTAT touch_misses 0\r\nSTAT auth_cmds 0\r\nSTAT auth_errors 0\r\nSTAT bytes_read 12\r\nSTAT bytes_written 1023\r\nSTAT limit_maxbytes 67108864\r\nSTAT accepting_conns 1\r\nSTAT listen_disabled_num 0\r\nSTAT threads 4\r\nSTAT conn_yields 0\r\nSTAT hash_power_level 16\r\nSTAT hash_bytes 524288\r\nSTAT hash_is_expanding 0\r\nSTAT bytes 0\r\nSTAT curr_items 0\r\nSTAT total_items 0\r\nSTAT expired_unfetched 0\r\nSTAT evicted_unfetched 0\r\nSTAT evictions 0\r\nSTAT reclaimed 0\r\nEND\r\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    memcached_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "memcached_uptime", "memcached_uptime", 28);
+    metric_test_run(CMP_GREATER, "memcached_time", "memcached_time", 0);
+    metric_test_run(CMP_EQUAL, "memcached_version", "memcached_version", 0);
+    metric_test_run(CMP_EQUAL, "memcached_libevent", "memcached_libevent", 0);
+    metric_test_run(CMP_EQUAL, "memcached_pointer_size", "memcached_pointer_size", 64);
+    metric_test_run(CMP_EQUAL, "memcached_rusage_user", "memcached_rusage_user", 0);
+    metric_test_run(CMP_EQUAL, "memcached_rusage_system", "memcached_rusage_system", 0);
+    metric_test_run(CMP_EQUAL, "memcached_curr_connections", "memcached_curr_connections", 10);
+    metric_test_run(CMP_EQUAL, "memcached_total_connections", "memcached_total_connections", 12);
+    metric_test_run(CMP_EQUAL, "memcached_connection_structures", "memcached_connection_structures", 11);
+    metric_test_run(CMP_EQUAL, "memcached_reserved_fds", "memcached_reserved_fds", 20);
+    metric_test_run(CMP_EQUAL, "memcached_cmd_get", "memcached_cmd_get", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cmd_set", "memcached_cmd_set", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cmd_flush", "memcached_cmd_flush", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cmd_touch", "memcached_cmd_touch", 0);
+    metric_test_run(CMP_EQUAL, "memcached_get_hits", "memcached_get_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_get_misses", "memcached_get_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_delete_misses", "memcached_delete_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_delete_hits", "memcached_delete_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_incr_misses", "memcached_incr_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_incr_hits", "memcached_incr_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_decr_misses", "memcached_decr_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_decr_hits", "memcached_decr_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cas_misses", "memcached_cas_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cas_hits", "memcached_cas_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_cas_badval", "memcached_cas_badval", 0);
+    metric_test_run(CMP_EQUAL, "memcached_touch_hits", "memcached_touch_hits", 0);
+    metric_test_run(CMP_EQUAL, "memcached_touch_misses", "memcached_touch_misses", 0);
+    metric_test_run(CMP_EQUAL, "memcached_auth_cmds", "memcached_auth_cmds", 0);
+    metric_test_run(CMP_EQUAL, "memcached_auth_errors", "memcached_auth_errors", 0);
+    metric_test_run(CMP_EQUAL, "memcached_bytes_read", "memcached_bytes_read", 12);
+    metric_test_run(CMP_GREATER, "memcached_bytes_written", "memcached_bytes_written", 0);
+    metric_test_run(CMP_GREATER, "memcached_limit_maxbytes", "memcached_limit_maxbytes", 0);
+    metric_test_run(CMP_EQUAL, "memcached_accepting_conns", "memcached_accepting_conns", 1);
+    metric_test_run(CMP_EQUAL, "memcached_listen_disabled_num", "memcached_listen_disabled_num", 0);
+    metric_test_run(CMP_EQUAL, "memcached_threads", "memcached_threads", 4);
+    metric_test_run(CMP_EQUAL, "memcached_conn_yields", "memcached_conn_yields", 0);
+    metric_test_run(CMP_EQUAL, "memcached_hash_power_level", "memcached_hash_power_level", 16);
+    metric_test_run(CMP_GREATER, "memcached_hash_bytes", "memcached_hash_bytes", 0);
+    metric_test_run(CMP_EQUAL, "memcached_hash_is_expanding", "memcached_hash_is_expanding", 0);
+    metric_test_run(CMP_EQUAL, "memcached_bytes", "memcached_bytes", 0);
+    metric_test_run(CMP_EQUAL, "memcached_curr_items", "memcached_curr_items", 0);
+    metric_test_run(CMP_EQUAL, "memcached_total_items", "memcached_total_items", 0);
+    metric_test_run(CMP_EQUAL, "memcached_expired_unfetched", "memcached_expired_unfetched", 0);
+    metric_test_run(CMP_EQUAL, "memcached_evicted_unfetched", "memcached_evicted_unfetched", 0);
+    metric_test_run(CMP_EQUAL, "memcached_evictions", "memcached_evictions", 0);
+    metric_test_run(CMP_EQUAL, "memcached_reclaimed", "memcached_reclaimed", 0);
+}
