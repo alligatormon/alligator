@@ -200,7 +200,7 @@ aggregate {
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
 - clickhouse
 - [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
-- memcached
+- [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md)
 - beanstalkd
 - gearmand
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
@@ -293,8 +293,6 @@ aggregate {
     #CKICKHOUSE (http proto support)
     clickhouse http://localhost:8123;
     #MEMCACHED
-    memcached tcp://localhost:11211;
-    memcached tls://127.0.0.1:11211 tls_certificate=/etc/memcached/server-cert.pem tls_key=/etc/memcached/server-key.pem;
     #BEANSTALKD
     beanstalkd tcp://localhost:11300;
     #GEARMAND
