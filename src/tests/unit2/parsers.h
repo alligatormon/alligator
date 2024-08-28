@@ -216,3 +216,55 @@ void api_test_parser_memcached() {
     metric_test_run(CMP_EQUAL, "memcached_evictions", "memcached_evictions", 0);
     metric_test_run(CMP_EQUAL, "memcached_reclaimed", "memcached_reclaimed", 0);
 }
+
+void api_test_parser_beanstalkd() {
+    char *msg = strdup("OK 906\r\n---\ncurrent-jobs-urgent: 0\ncurrent-jobs-ready: 0\ncurrent-jobs-reserved: 0\ncurrent-jobs-delayed: 0\ncurrent-jobs-buried: 0\ncmd-put: 0\ncmd-peek: 0\ncmd-peek-ready: 0\ncmd-peek-delayed: 0\ncmd-peek-buried: 0\ncmd-reserve: 0\ncmd-reserve-with-timeout: 0\ncmd-delete: 0\ncmd-release: 0\ncmd-use: 0\ncmd-watch: 0\ncmd-ignore: 0\ncmd-bury: 0\ncmd-kick: 0\ncmd-touch: 0\ncmd-stats: 1\ncmd-stats-job: 0\ncmd-stats-tube: 0\ncmd-list-tubes: 0\ncmd-list-tube-used: 0\ncmd-list-tubes-watched: 0\ncmd-pause-tube: 0\njob-timeouts: 0\ntotal-jobs: 0\nmax-job-size: 65535\ncurrent-tubes: 1\ncurrent-connections: 1\ncurrent-producers: 0\ncurrent-workers: 0\ncurrent-waiting: 0\ntotal-connections: 1\npid: 6838\nversion: 1.10\nrusage-utime: 0.001983\nrusage-stime: 0.000000\nuptime: 395\nbinlog-oldest-index: 0\nbinlog-current-index: 0\nbinlog-records-migrated: 0\nbinlog-records-written: 0\nbinlog-max-size: 10485760\nid: 0d4f90d5687f11fb\nhostname: test\n\r\n");
+    context_arg *carg = calloc(1, sizeof(*carg));
+    beanstalkd_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_urgent:", "beanstalkd_current_jobs_urgent:", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_ready", "beanstalkd_current_jobs_ready", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_reserved", "beanstalkd_current_jobs_reserved", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_delayed", "beanstalkd_current_jobs_delayed", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_buried", "beanstalkd_current_jobs_buried", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_put", "beanstalkd_cmd_put", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek", "beanstalkd_cmd_peek", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_ready", "beanstalkd_cmd_peek_ready", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_delayed", "beanstalkd_cmd_peek_delayed", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_buried", "beanstalkd_cmd_peek_buried", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve", "beanstalkd_cmd_reserve", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve_with_timeout", "beanstalkd_cmd_reserve_with_timeout", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_delete", "beanstalkd_cmd_delete", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_release", "beanstalkd_cmd_release", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_use", "beanstalkd_cmd_use", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_watch", "beanstalkd_cmd_watch", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_ignore", "beanstalkd_cmd_ignore", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_bury", "beanstalkd_cmd_bury", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_kick", "beanstalkd_cmd_kick", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_touch", "beanstalkd_cmd_touch", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats", "beanstalkd_cmd_stats", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_job", "beanstalkd_cmd_stats_job", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_tube", "beanstalkd_cmd_stats_tube", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes", "beanstalkd_cmd_list_tubes", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tube_used", "beanstalkd_cmd_list_tube_used", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes_watched", "beanstalkd_cmd_list_tubes_watched", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_pause_tube", "beanstalkd_cmd_pause_tube", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_job_timeouts", "beanstalkd_job_timeouts", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_total_jobs", "beanstalkd_total_jobs", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_max_job_size", "beanstalkd_max_job_size", 65535);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_tubes", "beanstalkd_current_tubes", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_connections", "beanstalkd_current_connections", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_producers", "beanstalkd_current_producers", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_workers", "beanstalkd_current_workers", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_waiting", "beanstalkd_current_waiting", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_total_connections", "beanstalkd_total_connections", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_rusage_utime", "beanstalkd_rusage_utime", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_rusage_stime", "beanstalkd_rusage_stime", 0);
+    metric_test_run(CMP_GREATER, "beanstalkd_uptime", "beanstalkd_uptime", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_binlog_oldest_index", "beanstalkd_binlog_oldest_index", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_binlog_current_index", "beanstalkd_binlog_current_index", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_migrated", "beanstalkd_binlog_records_migrated", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_written", "beanstalkd_binlog_records_written", 0);
+    metric_test_run(CMP_GREATER, "beanstalkd_binlog_max_size", "beanstalkd_binlog_max_size", 0);
+}

@@ -201,8 +201,8 @@ aggregate {
 - [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md)
 - [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
 - [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md)
-- beanstalkd
-- gearmand
+- [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md)
+- [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
 - blackbox
 - php-fpm
