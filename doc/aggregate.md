@@ -232,8 +232,8 @@ aggregate {
 - [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
 - [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
-- ipmi
-- keepalived
+- [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
+- [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md)
 - mysql
 - [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
 - nginx\_upstream\_check module of nginx
