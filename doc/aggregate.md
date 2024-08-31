@@ -218,8 +218,8 @@ aggregate {
 - [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md)
 - [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md)
 - [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
-- kubeconfig
-- prometheus\_metrics
+- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
+- [prometheus\_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md)
 - json\_query
 - [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
 - [bind](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md) (nameD)
@@ -298,15 +298,8 @@ aggregate {
     ipmi exec:///usr/bin/ipmitool;
     # TFTP
     tftp udp://localhost:69/ping;
-    # scrape prometheus format openmetrics from other exporters
-    prometheus_metrics http://localhost:9100;
     # parse json
     json_query http://localhost:9200/_stats;
-
-    # KUBERNETES ENDPOINT SCRAPE
-    kubernetes_endpoint https://k8s.example.com 'env=Authorization:Bearer TOKEN';
-    # KUBERNETES INGRESS SCRAPE FOR HTTP BLACKBOX CHECKS
-    kubernetes_ingress https://k8s.example.com 'env=Authorization:Bearer TOKEN';
 
     # Consul configuration/discovery
     consul-configuration http://localhost:8500;
@@ -322,13 +315,7 @@ aggregate {
     blackbox http://yandex.ru;
     blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
 
-    # metrics scrape from file:
-    prometheus_metrics file:///tmp/metrics-nostate.txt [notify=true];
-
     # file stat calc:
     blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
-
-    # kubeconfig scarpe certificate data
-    kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
 }
 ```
