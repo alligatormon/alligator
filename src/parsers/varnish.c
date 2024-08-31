@@ -6,20 +6,20 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/logs.h"
 #include "main.h"
 #define VARNISH_METRIC_SIZE 1000
 void varnish_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_t *root;
 	json_error_t error;
-	if (carg->log_level > 0)
-		puts("run varnish_handler");
+	carglog(carg, L_DEBUG, "run varnish_handler");
 
 	root = json_loads(metrics, 0, &error);
 
 	if (!root)
 	{
-		fprintf(stderr, "varnish json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "varnish json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -30,8 +30,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *value_json1;
 	json_object_foreach(root, key1, value_json1)
 	{
-		if (carg->log_level > 1)
-			printf("key: %s\n", key1);
+		carglog(carg, L_DEBUG, "varnish key: %s\n", key1);
 		if (json_typeof(value_json1) == JSON_OBJECT)
 		{
 			size_t offset = 0;
@@ -40,8 +39,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 				offset = tmp - key1 + 1;
 
 			strlcpy(metricname+8, key1+offset, VARNISH_METRIC_SIZE-9);
-			if (carg->log_level > 1)
-				printf("metricname: %s\n", metricname);
+			carglog(carg, L_DEBUG, "varnish metricname: %s\n", metricname);
 
 			json_t *mvalue_json = json_object_get(value_json1, "value");
 			if (mvalue_json)
@@ -54,13 +52,11 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					if (json_typeof(value_json2) == JSON_STRING && strcmp(key2, "description"))
 					{
-						if (carg->log_level > 1)
-							printf("\tkey2: %s\n", key2);
+						carglog(carg, L_DEBUG, "\tvarnish key2: %s\n", key2);
 						char *value_json2_str = (char*)json_string_value(value_json2);
 						if (value_json2_str)
 						{
-							if (carg->log_level > 1)
-								printf("\t\tinsert label %s\n", value_json2_str);
+							carglog(carg, L_DEBUG, "\t\tvarnish insert label %s\n", value_json2_str);
 							labels_hash_insert_nocache(lbl, (char*)key2, value_json2_str);
 						}
 					}

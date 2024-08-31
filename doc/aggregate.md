@@ -347,11 +347,5 @@ aggregate {
 
     # kubeconfig scarpe certificate data
     kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
-
-    # MogileFS
-    mogilefs tcp://localhost:7001;
-
-    # MooseFS
-    moosefs exec:///app/src/tests/mock/moosefs/mfscli;
 }
 ```

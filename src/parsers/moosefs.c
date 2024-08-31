@@ -21,8 +21,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 		uint64_t field_len = str_get_next(metrics, field, MOOSEFS_FIELD_SIZE, "\n", &i);
 		if (!strncmp(field, "metadata servers:", 17))
 		{
-			if (carg->log_level > 1)
-				puts("metadata servers:");
+			carglog(carg, L_DEBUG, "moosefs metadata servers:\n");
 			uint64_t mname_size = strlcpy(metric_name, "moosefs_metadata_", MOOSEFS_METRIC_SIZE);
 			char *objname[] = { "field", "ip", "version", "state", "local_time", "metadata_version", "metadata_delay", "ram_used", "cpu_used", "last_meta_save", "last_save_duration", "last_save_status", "exports_checksum" };
 
@@ -36,8 +35,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(ip, token, MOOSEFS_METRIC_SIZE);
 				else if ((k == 2) || (k == 3)) // version and state
 				{
-					if (carg->log_level > 1)
-						printf("\t%s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					uint64_t val = 1;
@@ -45,8 +43,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if ((k >= 9) && (k <= 11)) //   last_meta_save:- last_save_duration:- last_save_status:-
 				{
-					if (carg->log_level > 1)
-						printf("\t%s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs2 \t%s:%s\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);
@@ -56,8 +53,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (!strncmp(field, "master info:", 12))
 		{
-			if (carg->log_level > 1)
-				puts("master info:");
+			carglog(carg, L_DEBUG, "moosefs master info:\n");
 
 			char param[MOOSEFS_METRIC_SIZE];
 			*param = 0;
@@ -73,8 +69,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k == 2)
 				{
-					if (carg->log_level > 1)
-						printf("\t%s:%s\n", param, token);
+					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", param, token);
 
 					if (!strncmp(param, "CPU_used", 8))
 						break;
@@ -87,8 +82,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (!strncmp(field, "memory usage detailed info:", 27))
 		{
-			if (carg->log_level > 1)
-				puts("memory usage detailed info:");
+			carglog(carg, L_DEBUG, "moosefs memory usage detailed info:\n");
 
 			uint64_t mname_size = strlcpy(metric_name, "moosefs_memory_info_", MOOSEFS_METRIC_SIZE);
 			char *objname[] = { "field", "object_name", "memory_used", "memory_allocated", "utilization_percent", "percent_of_total_allocated_memory" };
@@ -103,8 +97,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(param, token, MOOSEFS_METRIC_SIZE);
 				else if (k > 1)
 				{
-					if (carg->log_level > 1)
-						printf("\t%s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -114,8 +107,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (!strncmp(field, "all chunks matrix:", 18))
 		{
-			if (carg->log_level > 1)
-				puts("all chunks matrix:");
+			carglog(carg, L_DEBUG, "all chunks matrix:\n");
 
 			char param[MOOSEFS_METRIC_SIZE];
 			*param = 0;
@@ -131,8 +123,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k == 2)
 				{
-					if (carg->log_level > 1)
-						printf("\t%s:%s\n", param, token);
+					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", param, token);
 
 					strlcpy(metric_name + mname_size, param, MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -142,8 +133,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if (!strncmp(field, "chunk servers:", 14))
 		{
-			if (carg->log_level > 1)
-				puts("chunk servers:");
+			carglog(carg, L_DEBUG, "chunk servers:\n");
 
 			uint64_t mname_size = strlcpy(metric_name, "moosefs_chunk_server_", MOOSEFS_METRIC_SIZE);
 			char *objname[] = { "field", "host", "port", "id", "labels", "version", "load", "maintenance", "regular_chunks", "regular_used", "regular_total", "regular_percent_used", "removable_status", "removable_chunks", "removable_used", "removable_total", "removable_percent_used" };
@@ -163,8 +153,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(id, token, MOOSEFS_METRIC_SIZE);
 				else if ((k == 4) || (k == 5) || (k == 7)) // labels and version and maintenance
 				{
-					if (carg->log_level > 1)
-						printf("\t:(%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
+					carglog(carg, L_DEBUG, "\tmoosefs :(%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -172,8 +161,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k > 6)
 				{
-					if (carg->log_level > 1)
-						printf("\t(%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
+					carglog(carg, L_DEBUG, "\tmoosefs (%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);

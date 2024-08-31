@@ -7,14 +7,14 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
+#include "common/logs.h"
 #include "main.h"
 #define MOGILEFS_METRIC_SIZE 256
 #define MOGILEFS_FIELD_SIZE 1024
 
 void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char *name, char *itemname)
 {
-	if (carg->log_level > 0)
-		printf("mogilefs_full_item_hash '%s' get params:\n'%s'\n", name, metrics);
+	carglog(carg, L_DEBUG, "mogilefs_full_item_hash '%s' get params:\n'%s'\n", name, metrics);
 
 	uint64_t len;
 	char field[MOGILEFS_METRIC_SIZE];
@@ -32,16 +32,14 @@ void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char
 		if (itemid_offset == field_len)
 		{
 		
-			if (carg->log_level > 1)
-				printf("field is '%s', no value, continue\n", field);
+			carglog(carg, L_ERROR, "field is '%s', no value, continue\n", field);
 
 			continue;
 		}
 
 		char *param = field + itemid_offset + 1;
 
-		if (carg->log_level > 1)
-			printf("field is '%s', param '%s'\n", field, param);
+		carglog(carg, L_DEBUG, "mogilefs field is '%s', param '%s'\n", field, param);
 
 		len = strcspn(param, "=");
 		strlcpy(item, field, itemid_offset + 1);
@@ -51,8 +49,7 @@ void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char
 
 		int type = metric_value_validator(value, valsize);
 
-		if (carg->log_level > 1)
-			printf("item is '%s:%s' key is '%s' value is '%s', metric_name is '%s', type: %d\n", itemname, item, key, value, metric_name, type);
+		carglog(carg, L_DEBUG, "mogilefs item is '%s:%s' key is '%s' value is '%s', metric_name is '%s', type: %d\n", itemname, item, key, value, metric_name, type);
 		if (!type)
 		{
 			uint64_t val = 1;
@@ -76,8 +73,7 @@ void mogilefs_device_list(char *metrics, size_t size, context_arg *carg)
 {
 	// OK dev1_status=alive&dev2_utilization=-&dev1_observed_state=writeable&dev1_devid=1&devices=2&dev2_weight=100&dev1_mb_asof=&dev1_mb_free=50712&dev2_reject_bad_md5=1&dev1_reject_bad_md5=1&dev2_mb_total=56752&dev1_weight=100&dev2_mb_used=6040&dev2_mb_asof=&dev1_utilization=-&dev1_mb_total=56752&dev2_observed_state=writeable&dev1_mb_used=6040&dev2_mb_free=50712&dev2_devid=2&dev2_status=alive&dev1_hostid=1&dev2_hostid=1
 
-	if (carg->log_level > 0)
-		printf("mogilefs_device_list get params:\n'%s'\n", metrics);
+	carglog(carg, L_DEBUG, "mogilefs_device_list get params:\n'%s'\n", metrics);
 
 	if (strncmp(metrics, "OK", 2))
 	{
@@ -97,8 +93,7 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 
 	if (strncmp(metrics, "OK", 2))
 	{
-		if (carg->log_level > 0)
-			printf("fsck status return: %s, return\n", metrics);
+		carglog(carg, L_DEBUG, "mogilefs fsck status return: %s, return\n", metrics);
 
 		uint64_t val = 0;
 		metric_add_auto("mogilefs_fsck_running", &val, DATATYPE_UINT, carg);
@@ -124,22 +119,19 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 	{
 		uint64_t field_len = str_get_next(tmp, field, MOGILEFS_METRIC_SIZE, "&", &i);
 
-		if (carg->log_level > 1)
-			printf("field is '%s'\n", field);
+		carglog(carg, L_DEBUG, "mogilefs field is '%s'\n", field);
 
 		len = strcspn(field, "=");
 		strlcpy(metric_name + 14, field, len + 1);
 
-		if (carg->log_level > 1)
-			printf("metric is '%s'\n", metric_name);
+		carglog(carg, L_DEBUG, "mogilefs metric is '%s'\n", metric_name);
 
 		if (!strncmp(field, "host", 4))
 		{
 			val = 1;
 			strlcpy(host, field + len + 1, field_len - len - 1);
 
-			if (carg->log_level > 1)
-				printf("host is '%s'\n", host);
+			carglog(carg, L_DEBUG, "mogilefs host is '%s'\n", host);
 
 			if (*host)
 				metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "host", field);
@@ -157,8 +149,7 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 {
 	if (strncmp(metrics, "OK", 2))
 	{
-		if (carg->log_level > 0)
-			printf("rebalance status return: %s, return\n", metrics);
+		carglog(carg, L_DEBUG, "mogilefs rebalance status return: %s, return\n", metrics);
 
 		uint64_t val = 0;
 		metric_add_auto("mogilefs_rebalance_running", &val, DATATYPE_UINT, carg);
@@ -182,14 +173,12 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 	{
 		str_get_next(tmp, field, MOGILEFS_METRIC_SIZE, "&", &i);
 
-		if (carg->log_level > 1)
-			printf("field is '%s'\n", field);
+		carglog(carg, L_DEBUG, "mogilefs field is '%s'\n", field);
 
 		len = strcspn(field, "=");
 		strlcpy(metric_name + 14, field, len + 1);
 
-		if (carg->log_level > 1)
-			printf("metric is '%s'\n", metric_name);
+		carglog(carg, L_DEBUG, "mogilefs metric is '%s'\n", metric_name);
 
 		if (!strncmp(field, "source_devs", 11) || !strncmp(field, "sdev_limit", 10)) { }
 		else
@@ -205,8 +194,7 @@ void mogilefs_host_list(char *metrics, size_t size, context_arg *carg)
 {
 	//OK host1_altip=&host1_http_get_port=&hosts=1&host1_hostip=127.0.0.1&host1_hostname=mogilestorage&host1_http_port=7500&host1_status=alive&host1_hostid=1&host1_altmask=
 
-	if (carg->log_level > 0)
-		printf("mogilefs_host_list get params:\n'%s'\n", metrics);
+	carglog(carg, L_DEBUG, "mogilefs_host_list get params:\n'%s'\n", metrics);
 
 	if (strncmp(metrics, "OK", 2))
 	{
@@ -221,8 +209,7 @@ void mogilefs_host_list(char *metrics, size_t size, context_arg *carg)
 
 void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *name)
 {
-	if (carg->log_level > 0)
-		printf("mogilefs_cmd_items '%s' get params:\n'%s'\n", name, metrics);
+	carglog(carg, L_DEBUG, "mogilefs_cmd_items '%s' get params:\n'%s'\n", name, metrics);
 
 	char field[MOGILEFS_METRIC_SIZE];
 	char *value;
@@ -246,8 +233,7 @@ void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *nam
 
 		int type = metric_value_validator(value, strlen(value));
 
-		if (ac->log_level > 1)
-			printf("field is '%s', metric_name is '%s', val '%s', type '%d'\n", field, metric_name, value, type);
+		carglog(carg, L_DEBUG, "mogilefs field is '%s', metric_name is '%s', val '%s', type '%d'\n", field, metric_name, value, type);
 
 		if (type == DATATYPE_DOUBLE)
 		{
@@ -265,8 +251,7 @@ void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *nam
 
 void mogilefs_stats(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 0)
-		printf("mogilefs_stats get params:\n'%s'\n", metrics);
+	carglog(carg, L_DEBUG, "mogilefs_stats get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_stats_");
 	carg->parser_status = 1;
@@ -274,8 +259,7 @@ void mogilefs_stats(char *metrics, size_t size, context_arg *carg)
 
 void mogilefs_jobs(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 0)
-		printf("mogilefs_jobs get params:\n'%s'\n", metrics);
+	carglog(carg, L_DEBUG, "mogilefs_jobs get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_jobs_");
 	carg->parser_status = 1;
@@ -283,8 +267,7 @@ void mogilefs_jobs(char *metrics, size_t size, context_arg *carg)
 
 void mogilefs_queue(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 0)
-		printf("mogilefs_queue get params:\n'%s'\n", metrics);
+	carglog(carg, L_DEBUG, "mogilefs_queue get params:\n'%s'\n", metrics);
 
 	mogilefs_cmd_items(metrics, size, carg, "mogilefs_queue_");
 	carg->parser_status = 1;
