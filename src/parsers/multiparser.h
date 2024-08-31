@@ -150,3 +150,4 @@ void nvidia_smi_parser_push();
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg);
 void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg);
 void httpd_status_handler(char *metrics, size_t size, context_arg *carg);
+void flower_handler(char *metrics, size_t size, context_arg *carg);

@@ -177,5 +177,6 @@ int main(int argc, char **argv) {
     api_test_parser_lighttpd();
     api_test_parser_httpd();
     api_test_parser_nats();
+    api_test_parser_flower();
     infomesg();
 }

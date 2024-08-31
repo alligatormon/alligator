@@ -8,8 +8,7 @@
 #include "main.h"
 void riak_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "riak", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "riak", carg, carg->pquery, carg->pquery_size);
 }
 
 string* riak_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

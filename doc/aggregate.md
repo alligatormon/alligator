@@ -207,10 +207,10 @@ aggregate {
 - blackbox
 - [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
 - [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
-- riak
-- rabbitmq
-- eventstore
-- flower
+- [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md)
+- [rabbitmq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rabbitmq.md)
+- [eventstore](https://github.com/alligatormon/alligator/blob/master/doc/parsers/eventstore.md)
+- Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md)
 - powerdns
 - [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md)
 - druid
@@ -295,21 +295,11 @@ aggregate {
     icmp icmp://example.com;
     #BASH exec shell:
     process exec:///bin/curl http://example.com:1111/metrics;
-    #RIAK
-    riak http://localhost:8098;
-    #RABBITMQ
-    rabbitmq http://guest:guest@localhost:15672;
-    #EVENTSTORE
-    eventstore http://localhost:2113;
-    #FLOWER
-    flower http://localhost:5555;
     #POWERDNS
     powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
     powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
     #OPENTSDB
     opentsdb http://localhost:4242/api/stats;
-    #FLOWER celery
-    flower http://localhost:5555;
     # hadoop
     hadoop http://localhost:50075/jmx;
     # IPMI metrics
