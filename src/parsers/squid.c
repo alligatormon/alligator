@@ -5,6 +5,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "dstructures/tommy.h"
 #include "main.h"
 #define SQUID_LEN 1000
@@ -59,8 +60,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					lbl = alligator_ht_init(NULL);
 				}
-				if (carg->log_level > 2)
-					printf("'(%"u64"+%"u64"/%"u64")type:%s', ", j, dotlen, len, label_key);
+				carglog(carg, L_TRACE, "squid '(%"u64"+%"u64"/%"u64")type:%s', ", j, dotlen, len, label_key);
 				labels_hash_insert_nocache(lbl, "type", label_key);
 			}
 			else if (strstr(label_key, "ftp") || strstr(label_key, "http") || strstr(label_key, "all"))
@@ -69,8 +69,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					lbl = alligator_ht_init(NULL);
 				}
-				if (carg->log_level > 2)
-					printf("'(%"u64"+%"u64"/%"u64")proto:%s', ", j, dotlen, len, label_key);
+				carglog(carg, L_TRACE, "squid '(%"u64"+%"u64"/%"u64")proto:%s', ", j, dotlen, len, label_key);
 				labels_hash_insert_nocache(lbl, "proto", label_key);
 			}
 			else
@@ -82,11 +81,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 			i += dotlen;
 			j += dotlen;
 		}
-		if (carg->log_level > 2)
-		{
-			printf(" name:'%s', ", name);
-			printf(":");
-		}
+		carglog(carg, L_TRACE, "squid name:'%s', :", name);
 
 		i += strspn(metrics+i, " =");
 
@@ -96,15 +91,13 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		if (strstr(value, "."))
 		{
 			double vl = strtod(value, NULL);
-			if (carg->log_level > 2)
-				printf(" '%s' -> (double) '%lf'\n", value, vl);
+			carglog(carg, L_TRACE, " '%s' -> (double) '%lf'\n", value, vl);
 			metric_add(name, lbl, &vl, DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
 			uint64_t vl = strtoull(value, NULL, 10);
-			if (carg->log_level > 2)
-				printf(" '%s' -> (uint64_t) '%"u64"'\n", value, vl);
+			carglog(carg, L_TRACE, " '%s' -> (uint64_t) '%"u64"'\n", value, vl);
 			metric_add(name, lbl, &vl, DATATYPE_UINT, carg);
 		}
 		i += len;
@@ -244,7 +237,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		if (carg->log_level > 1)
 		{
 			debug_req = strndup(tmp, hash_table_offset);
-			printf("==== debug req ===\n'%s'\n", debug_req);
+			carglog(carg, L_TRACE, "==== squid debug req ===\n'%s'\n", debug_req);
 			free(debug_req);
 		}
 
@@ -260,14 +253,12 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			tmp2 += strcspn(tmp2, " \t\r\n");
 			tmp2 += strspn(tmp2, " \t\r\n");
 			requests = strtoull(tmp2, &tmp2, 10);
-			if (carg->log_level > 1)
-				printf("\tpool '%s'[%"PRIu64"] (%"PRIu64"/%"PRIu64"), requests %"PRIu64"\n", pool, i, requests_pos, hash_table_offset, requests);
+			carglog(carg, L_TRACE, "\tsquid pool '%s'[%"PRIu64"] (%"PRIu64"/%"PRIu64"), requests %"PRIu64"\n", pool, i, requests_pos, hash_table_offset, requests);
 
 			tmp2 += strcspn(tmp2, " \t\r\n");
 			tmp2 += strspn(tmp2, " \t\r\n");
 			connection_count = strtoull(tmp2, &tmp2, 10);
-			if (carg->log_level > 1)
-				printf("\tpool '%s'[%"PRIu64"], connection_count %"PRIu64"\n", pool, i, connection_count);
+			carglog(carg, L_TRACE, "\tsquid pool '%s'[%"PRIu64"], connection_count %"PRIu64"\n", pool, i, connection_count);
 
 			squid_pconn_reqconn *pconn = malloc(sizeof(*pconn));
 			pconn->requests = requests;
@@ -284,7 +275,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		if (carg->log_level > 1)
 		{
 			debug_table = strndup(tmp, hash_table_offset);
-			printf("==== debug table ===\n'%s'\n", debug_table);
+			carglog(carg, L_TRACE, "==== squid debug table ===\n'%s'\n", debug_table);
 			free(debug_table);
 		}
 
@@ -320,15 +311,13 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			squid_pconn_reqconn *pconn = alligator_ht_search(hash, squid_pconn_compare, &key, key);
 			if (pconn)
 			{
-				if (carg->log_level > 1)
-					printf("\tKEY %"PRIu64", endpoint='%s', hostname='%s', pconn: %p, requests: %"PRIu64", connection_count: %"PRIu64"\n", key, endpoint, hostname, pconn, pconn->requests, pconn->connection_count);
+				carglog(carg, L_TRACE, "\tsquid KEY %"PRIu64", endpoint='%s', hostname='%s', pconn: %p, requests: %"PRIu64", connection_count: %"PRIu64"\n", key, endpoint, hostname, pconn, pconn->requests, pconn->connection_count);
 				metric_add_labels3("squid_persistence_connections_requests_count", &pconn->requests, DATATYPE_UINT, carg, "endpoint", endpoint, "hostname", hostname, "pool", pool);
 				metric_add_labels3("squid_persistence_connections_connect_count", &pconn->connection_count, DATATYPE_UINT, carg, "endpoint", endpoint, "hostname", hostname, "pool", pool);
 			}
 			else
 			{
-				if (carg->log_level > 1)
-					printf("\tKEY %"PRIu64", endpoint='%s', hostname='%s', pconn: %p", key, endpoint, hostname, pconn);
+				carglog(carg, L_TRACE, "\tsquid KEY %"PRIu64", endpoint='%s', hostname='%s', pconn: %p", key, endpoint, hostname, pconn);
 			}
 
 			tmp2 += sep;
@@ -379,8 +368,7 @@ void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
 		obj_sz = strcspn(tmp+i, "\t");
 		strlcpy(pool, tmp+i, obj_sz+1);
 
-		if (carg->log_level > 1 )
-			printf("pool '%s'\n", pool);
+		carglog(carg, L_TRACE, "squid pool '%s'\n", pool);
 
 		obj_sz += strspn(tmp+i+obj_sz, "\t");
 
@@ -391,8 +379,7 @@ void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			obj_sz = strcspn(tmp+i+j, "\t\n");
 			strlcpy(obj, tmp+i+j, obj_sz+1);
-			if (carg->log_level > 2 )
-				printf("\tpool '%s', object: '%s'[%zu]:'%s'\n", pool, objname[k], k, obj);
+			carglog(carg, L_TRACE, "\tsquid pool '%s', object: '%s'[%zu]:'%s'\n", pool, objname[k], k, obj);
 			j += obj_sz;
 			j += strspn(tmp+i+j, "\t\n");
 		}
@@ -430,14 +417,12 @@ void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *
 			pool += strspn(pool, " \t");
 			size_t pool_size = strcspn(pool, " \t\n\r");
 			strlcpy(pool_str, pool, pool_size+1);
-			if (carg->log_level > 0)
-				printf("\tsquid_comm_epoll_incoming_loops '%s', loop %"u64"\n", pool_str, loops_uint);
+			carglog(carg, L_TRACE, "\tsquid_comm_epoll_incoming_loops '%s', loop %"u64"\n", pool_str, loops_uint);
 			metric_add_labels("squid_comm_epoll_incoming_loops", &loops_uint, DATATYPE_UINT, carg, "pool", pool_str);
 		}
 		else
 		{
-			if (carg->log_level > 1)
-				printf("squid_comm_epoll_incoming_loops %"u64"\n", loops_uint);
+			carglog(carg, L_TRACE, "squid_comm_epoll_incoming_loops %"u64"\n", loops_uint);
 			metric_add_auto("squid_comm_epoll_incoming_loops", &loops_uint, DATATYPE_UINT, carg);
 		}
 
@@ -475,8 +460,7 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		pool_size = strcspn(tmp, " \r\n\t");
 		strlcpy(pool, tmp, pool_size+1);
-		if (carg->log_level > 1)
-			printf("pool '%s'\n", pool);
+		carglog(carg, L_TRACE, "squid pool '%s'\n", pool);
 
 		tmp = strstr(tmp, "Status");
 		if (!tmp)
@@ -493,8 +477,7 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 			if (!code)
 				break;
 
-			if (carg->log_level > 1)
-				printf("\tcode: %"u64" (%"u64"/%"u64")\n", code, j, size2);
+			carglog(carg, L_TRACE, "\tsquid code: %"u64" (%"u64"/%"u64")\n", code, j, size2);
 
 			size3 = strcspn(tmp2, "\n");
 
@@ -511,8 +494,7 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 				char scode[21];
 				snprintf(try, 21, "%"u64, ind);
 				snprintf(scode, 21, "%"u64, code);
-				if (carg->log_level > 1)
-					printf("\t\tcounter[%"u64"]: %"u64"\n", ind, counter);
+				carglog(carg, L_TRACE, "\t\tsquid counter[%"u64"]: %"u64"\n", ind, counter);
 				metric_add_labels3("squid_forward_code", &counter, DATATYPE_UINT, carg, "pool", pool, "try", try, "code", scode);
 			}
 
@@ -598,8 +580,7 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += strspn(tmp, " \t");
 		misses = strtoull(tmp, &tmp, 10);
 
-		if (carg->log_level > 0)
-			printf("pool %s, in use: %"u64", cached: %"u64", requests: %"u64", hits: %"u64", negative hits: %"u64", misses: %"u64"\n", pool, inuse, cached, requests, hits, nhits, misses);
+		carglog(carg, L_TRACE, "squid pool %s, in use: %"u64", cached: %"u64", requests: %"u64", hits: %"u64", negative hits: %"u64", misses: %"u64"\n", pool, inuse, cached, requests, hits, nhits, misses);
 
 		metric_add_labels("squid_fqdn_cache_entries_in_use", &inuse, DATATYPE_UINT, carg, "pool", pool);
 		metric_add_labels("squid_fqdn_cache_entries_cached", &cached, DATATYPE_UINT, carg, "pool", pool);

@@ -301,10 +301,6 @@ aggregate {
     ipmi exec:///usr/bin/ipmitool;
     # TFTP
     tftp udp://localhost:69/ping;
-    # NAMED (BIND)
-    named http://localhost:8080;
-    # SQUID
-    squid http://localhost:3128;
     # scrape prometheus format openmetrics from other exporters
     prometheus_metrics http://localhost:9100;
     # parse json

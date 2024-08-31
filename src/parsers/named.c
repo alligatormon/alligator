@@ -5,6 +5,7 @@
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "main.h"
 
 #define NAMED_NAME_SIZE 10000
@@ -47,8 +48,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 			metric_name_normalizer(type, start_type);
 			tmp += start_type;
 
-			if (carg->log_level > 1)
-				printf("type: '%s'\n", type);
+			carglog(carg, L_DEBUG, "named type: '%s'\n", type);
 
 			char *tmp2 = strstr(tmp, "<counters ");
 			while (tmp < tmp2)
@@ -85,8 +85,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				value = strtoull(tmp, &tmp, 10);
 
 				snprintf(mname, NAMED_MNAME_SIZEE, "named_%s_%s_counter", ctx, type);
-				if (carg->log_level > 1)
-					printf("\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
+				carglog(carg, L_DEBUG, "\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
 
 				alligator_ht *lbl = alligator_ht_init(NULL);
 				if (proto)
@@ -136,8 +135,7 @@ void named_get_taskmgr_value(context_arg *carg, char *metrics, char *node_name, 
 		str += strspn(str, ">");
 		uint64_t value = strtoull(str, NULL, 10);
 
-		if (carg->log_level > 1)
-			printf("taskmgr thread-mode %s: %"u64"\n", name, value);
+		carglog(carg, L_DEBUG, "named taskmgr thread-mode %s: %"u64"\n", name, value);
 
 		char mname[255];
 		snprintf(mname, 254, "named_taskmgr_thread_model_%s", name);
@@ -156,8 +154,7 @@ void named_get_value(context_arg *carg, char *metrics, char *resource, char *nod
 
 		char mname[255];
 		snprintf(mname, 254, "%s_%s", resource, name);
-		if (carg->log_level > 1)
-			printf("%s: %"u64"\n", mname, value);
+		carglog(carg, L_DEBUG, "named %s: %"u64"\n", mname, value);
 
 		if (ctx_name && id)
 			metric_add_labels2(mname, &value, DATATYPE_UINT, carg, "name", ctx_name, "id", id);
@@ -275,8 +272,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 					continue;
 
 				serial = strtoull(tmp2, &tmp2, 10);
-				if (carg->log_level > 1)
-					printf("view name: %s, zone name: %s, type: %s: %"u64"\n", view_name, zone_name, type, serial);
+				carglog(carg, L_DEBUG, "view name: %s, zone name: %s, type: %s: %"u64"\n", view_name, zone_name, type, serial);
 				metric_add_labels3("named_view_zone_serial", &serial, DATATYPE_UINT, carg, "view", view_name, "zone", zone_name, "type", type);
 			}
 
@@ -326,8 +322,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 					tmp3 += 9;
 					uint64_t value = strtoull(tmp3, &tmp3, 10);
 
-					if (carg->log_level > 1)
-						printf("view: %s, cache: %s, rrset name: %s: %"u64"\n", view_name, cache_name, rrset_name_str, value);
+					carglog(carg, L_DEBUG, "view: %s, cache: %s, rrset name: %s: %"u64"\n", view_name, cache_name, rrset_name_str, value);
 
 					metric_add_labels3("named_cache_rrset", &value, DATATYPE_UINT, carg, "view", view_name, "cache", cache_name, "name", rrset_name_str);
 				}
@@ -384,8 +379,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 				uint64_t size = strcspn(str, "<");
 
 				strlcpy(type, str, size+1);
-				if (carg->log_level > 1)
-					printf("taskmgr thread-mode type: %s\n", type);
+				carglog(carg, L_DEBUG, "taskmgr thread-mode type: %s\n", type);
 			}
 			named_get_taskmgr_value(carg, task, "<worker-threads>", "worker_threads");
 			named_get_taskmgr_value(carg, task, "default-quantum", "default_quantum");
