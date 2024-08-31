@@ -348,14 +348,6 @@ aggregate {
     # kubeconfig scarpe certificate data
     kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
 
-    # Druid
-
-    # Couchbase
-    couchbase http://user:pass@localhost:8091;
-
-    # Couchdb
-    couchdb http://user:pass@localhost:5984;
-
     # MogileFS
     mogilefs tcp://localhost:7001;
 

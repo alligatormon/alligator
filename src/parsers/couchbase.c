@@ -10,8 +10,7 @@
 
 void couchbase_bucket_metric_get(context_arg *carg, char *metric_name, const char *bucketType, const char *name, const char *uuid, json_t *value)
 {
-	if (carg->log_level > 1)
-		printf("metric name is %s\n", metric_name);
+	carglog(carg, L_DEBUG, "couchbase metric name is %s\n", metric_name);
 
 	int type = json_typeof(value);
 	if (type == JSON_REAL)
@@ -38,8 +37,7 @@ void couchbase_bucket_metric_get(context_arg *carg, char *metric_name, const cha
 
 void couchbase_bucket_node_metric_get(context_arg *carg, char *metric_name, const char *bucketType, const char *name, const char *uuid, const char *nodeUUID, const char *hostname, json_t *value)
 {
-	if (carg->log_level > 1)
-		printf("metric name is %s\n", metric_name);
+	carglog(carg, L_DEBUG, "couchbase metric name is %s\n", metric_name);
 
 	int type = json_typeof(value);
 	if (type == JSON_REAL)
@@ -133,8 +131,7 @@ void couchbase_bucket_nodes_stats(char *metrics, size_t size, context_arg *carg)
 	}
 	else
 	{
-		if (carg->log_level > 0)
-			printf("couchbase_bucket_nodes_stats error: unknown case\n");
+		carglog(carg, L_ERROR, "couchbase_bucket_nodes_stats error: unknown case\n");
 
 		if (bucket)
 			free(bucket);
@@ -234,8 +231,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *bucket_value;
 		json_object_foreach(bucket, bucket_key, bucket_value)
 		{
-			if (carg->log_level > 0)
-				printf("bucket_key %s\n", bucket_key);
+			carglog(carg, L_DEBUG, "couchbase bucket_key %s\n", bucket_key);
 
 			uint64_t bucket_key_len = strlcpy(metric_name + 17, bucket_key, COUCHBASE_LEN - 17);
 			
@@ -245,8 +241,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *bucket_context_value;
 			json_object_foreach(bucket_value, bucket_context_key, bucket_context_value)
 			{
-				if (carg->log_level > 0)
-					printf("bucket_context_key %s\n", bucket_context_key);
+				carglog(carg, L_DEBUG, "couchbase bucket_context_key %s\n", bucket_context_key);
 
 				strlcpy(metric_name + 17 + bucket_key_len, "_", COUCHBASE_LEN - 17 - bucket_key_len);
 				strlcpy(metric_name + 18 + bucket_key_len, bucket_context_key, COUCHBASE_LEN - 18 - bucket_key_len);
@@ -294,8 +289,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *node_value;
 			json_object_foreach(node, node_key, node_value)
 			{
-				if (carg->log_level > 0)
-					printf("bucket_name %s, node %s, hostname %s, nodeUUID %s\n", name, node_key, hostname, nodeUUID);
+				carglog(carg, L_DEBUG, "couchbase bucket_name %s, node %s, hostname %s, nodeUUID %s\n", name, node_key, hostname, nodeUUID);
 
 				strlcpy(metric_name + 17, "node_", COUCHBASE_LEN - 17);
 				uint64_t node_key_len = strlcpy(metric_name + 22, node_key, COUCHBASE_LEN - 22);
@@ -306,8 +300,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 				json_t *nopts_value;
 				json_object_foreach(node_value, nopts_key, nopts_value)
 				{
-					if (carg->log_level > 0)
-						printf("\tbucket_name %s, node %s, node opts key %s, hostname %s, nodeUUID %s\n", name, node_key, nopts_key, hostname, nodeUUID);
+					carglog(carg, L_DEBUG, "\tcouchbase bucket_name %s, node %s, node opts key %s, hostname %s, nodeUUID %s\n", name, node_key, nopts_key, hostname, nodeUUID);
 
 					strlcpy(metric_name + 22 + node_key_len, "_", COUCHBASE_LEN - 22 - node_key_len);
 					strlcpy(metric_name + 23 + node_key_len, nopts_key, COUCHBASE_LEN - 23 - node_key_len);
@@ -438,7 +431,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "couchbase json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -446,8 +439,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 	if (!nodes)
 	{
 		json_decref(root);
-		if (carg->log_level > 0)
-			printf("couchbase_nodes_list error: no 'nodes'\n");
+		carglog(carg, L_ERROR, "couchbase_nodes_list error: no 'nodes'\n");
 		return;
 	}
 
@@ -463,7 +455,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 			if (carg->log_level > 0)
 			{
 				char *dvalue = json_dumps(node, JSON_INDENT(2));
-				printf("couchbase_nodes_list warning: no 'hostname' in:\n%s\n", dvalue);
+				carglog(carg, L_ERROR, "couchbase_nodes_list warning: no 'hostname' in:\n%s\n", dvalue);
 				free(dvalue);
 			}
 

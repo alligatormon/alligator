@@ -6,6 +6,7 @@
 #include "events/context_arg.h"
 #include "common/json_parser.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "main.h"
 #define COUCHDB_LEN 1000
 
@@ -27,8 +28,7 @@ void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 
 	json_object_foreach(root, db_key, db_value)
 	{
-		if (carg->log_level > 0)
-			printf("db_key %s\n", db_key);
+		carglog(carg, L_DEBUG, "couchdb db_key %s\n", db_key);
 
 		const char *metric_key;
 		json_t *metric_opts;
@@ -36,18 +36,14 @@ void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			strlcpy(metric_name+8, metric_key, COUCHDB_LEN - 8);
 
-			if (carg->log_level > 0)
-			{
-				printf("\tmetric_key %s\n", metric_key);
-				printf("\tmetric_name %s\n", metric_name);
-			}
+			carglog(carg, L_DEBUG, "\tcouchdb metric_key %s\n", metric_key);
+			carglog(carg, L_DEBUG, "\tcouchdb metric_name %s\n", metric_name);
 
 			const char *tag_key;
 			json_t *tag_value;
 			json_object_foreach(metric_opts, tag_key, tag_value)
 			{
-				if (carg->log_level > 0)
-					printf("\t\ttag %s\n", tag_key);
+				carglog(carg, L_DEBUG, "\t\tcouchdb tag %s\n", tag_key);
 
 				int type = json_typeof(tag_value);
 				if (type == JSON_REAL)
@@ -84,7 +80,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "couchdb json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -95,8 +91,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 
 	json_object_foreach(root, context_key, context_value)
 	{
-		if (carg->log_level > 0)
-			printf("context_key %s\n", context_key);
+		carglog(carg, L_DEBUG, "couchdb context_key %s\n", context_key);
 
 		const char *config_key;
 		json_t *config_opts;
@@ -104,11 +99,8 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			strlcpy(metric_name+15, config_key, COUCHDB_LEN - 8);
 
-			if (carg->log_level > 0)
-			{
-				printf("\tconfig_key %s\n", config_key);
-				printf("\tmetric_name %s\n", metric_name);
-			}
+			carglog(carg, L_DEBUG, "\tcouchdb config_key %s\n", config_key);
+			carglog(carg, L_DEBUG, "\tcouchdb metric_name %s\n", metric_name);
 
 			int type = json_typeof(config_opts);
 			if (type == JSON_STRING)
@@ -225,7 +217,7 @@ void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "couchdb json2 error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -241,11 +233,8 @@ void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
 	{
 		strlcpy(metric_name+11, metric_key, COUCHDB_LEN - 11);
 
-		if (carg->log_level > 0)
-		{
-			printf("\tmetric_key %s\n", metric_key);
-			printf("\tmetric_name %s\n", metric_name);
-		}
+		carglog(carg, L_DEBUG, "\tcouchdb metric_key %s\n", metric_key);
+		carglog(carg, L_DEBUG, "\tcouchdb metric_name %s\n", metric_name);
 
 		int type = json_typeof(metric_opts);
 		if (type == JSON_REAL)
