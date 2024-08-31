@@ -3,8 +3,7 @@
 To enable the collection of statistics from PowerDNS, use the following option:
 ```
 aggregate {
-    powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
-    powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
+    powerdns http://localhost:8081 header=X-API-Key:test;
 }
 ```
 
