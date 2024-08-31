@@ -7,6 +7,7 @@
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/aggregator.h"
+#include "common/logs.h"
 #include "main.h"
 #define MOOSEFS_METRIC_SIZE 256
 #define MOOSEFS_FIELD_SIZE 1024

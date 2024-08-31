@@ -5,6 +5,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "main.h"
 #define COUCHBASE_LEN 1000
 
