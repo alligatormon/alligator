@@ -221,15 +221,15 @@ aggregate {
 - kubeconfig
 - prometheus\_metrics
 - json\_query
-- squid
-- bind (nameD)
+- [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
+- [bind](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md) (nameD)
 - [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
 - tftp
 - [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md)
 - [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
 - [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
-- opentsdb
-- hadoop
+- [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md)
+- [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
 - [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
 - ipmi
@@ -297,10 +297,6 @@ aggregate {
     #POWERDNS
     powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
     powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
-    #OPENTSDB
-    opentsdb http://localhost:4242/api/stats;
-    # hadoop
-    hadoop http://localhost:50075/jmx;
     # IPMI metrics
     ipmi exec:///usr/bin/ipmitool;
     # TFTP
@@ -309,12 +305,6 @@ aggregate {
     named http://localhost:8080;
     # SQUID
     squid http://localhost:3128;
-    # LIGHTTPD status (status.status-url  = "/server-status")
-    lighttpd_status http://localhost:8080/server-status;
-    # LIGHTTPD statistics (status.statistics-url = "/server-statistics")
-    lighttpd_statistics http://localhost:8080/server-statistics;
-    # Apache HTTPD
-    httpd http://localhost/server-status;
     # scrape prometheus format openmetrics from other exporters
     prometheus_metrics http://localhost:9100;
     # parse json

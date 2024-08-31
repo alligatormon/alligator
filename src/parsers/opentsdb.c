@@ -6,6 +6,7 @@
 #include "common/http.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/logs.h"
 #include "main.h"
 #define OPENTSDB_METRIC_SIZE 1000
 void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
@@ -17,7 +18,7 @@ void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "opentsdb json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
