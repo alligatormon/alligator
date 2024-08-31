@@ -37,5 +37,4 @@ aggregate {
 }
 ```
 
-When checking x509 certificates on the filesystem, please refer to the explanation of the x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
-
+For checking X509 certificates on the filesystem, please refer to the explanation provided in the x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).

@@ -204,7 +204,7 @@ aggregate {
 - [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md)
 - [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
-- blackbox
+- [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md)
 - [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
 - [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
 - [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md)
@@ -220,11 +220,11 @@ aggregate {
 - [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
 - [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
 - [prometheus\_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md)
-- json\_query
+- [json\_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md)
 - [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
 - [bind](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md) (nameD)
 - [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
-- tftp
+- [tftp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/tftp.md)
 - [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md)
 - [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
 - [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
@@ -234,9 +234,9 @@ aggregate {
 - [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
 - [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
 - [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md)
-- mysql
+- [mysql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
 - [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
-- nginx\_upstream\_check module of nginx
+- [nginx](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx.md)
 - [nifi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nifi.md)
 - [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
 - [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
@@ -284,38 +284,10 @@ aggregate {
 }
 ```
 
-## Example (obsoletes)
+## Period by default
+The configuration file allows to specify the default period of time to check resources in aggregate context:
 ```
 aggregate_period 10s;
-aggregate {
-    #HTTP checks:
-    http  http://example.com;
-    #ICMP checks:
-    icmp icmp://example.com;
-    #BASH exec shell:
-    process exec:///bin/curl http://example.com:1111/metrics;
-    # IPMI metrics
-    ipmi exec:///usr/bin/ipmitool;
-    # TFTP
-    tftp udp://localhost:69/ping;
-    # parse json
-    json_query http://localhost:9200/_stats;
-
-    # Consul configuration/discovery
-    consul-configuration http://localhost:8500;
-    consul-discovery http://localhost:8500;
-
-    # Etcd configuration
-    etcd-configuration http://localhost:2379;
-
-    # Blackbox checks
-    blackbox tcp://google.com:80 add_label=url:google.com;
-    blackbox tls://www.amazon.com:443 add_label=url:www.amazon.com;
-    blackbox udp://8.8.8.8:53;
-    blackbox http://yandex.ru;
-    blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
-
-    # file stat calc:
-    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
-}
 ```
+
+* The [service\_discovery](https://github.com/alligatormon/alligator/blob/master/doc/service-discovery.md) allows for retrieving configuration from Consul or etcd instances.
