@@ -213,12 +213,11 @@ aggregate {
 - Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md)
 - powerdns
 - [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md)
-- druid
-- couchbase
-- couchdb
-- mogilefs
-- moosefs
-- druid
+- [druid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/druid.md)
+- [couchbase](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchbase.md)
+- [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md)
+- [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md)
+- [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
 - kubeconfig
 - prometheus\_metrics
 - json\_query
@@ -350,10 +349,6 @@ aggregate {
     kubeconfig file:///app/src/tests/system/kubectl/kubeconfig state=begin;
 
     # Druid
-    druid http://localhost:8888 name=druid;
-    druid_worker http://localhost:8091;
-    druid_historical http://localhost:8083;
-    druid_broker http://localhost:8082;
 
     # Couchbase
     couchbase http://user:pass@localhost:8091;

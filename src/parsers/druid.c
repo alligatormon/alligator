@@ -8,6 +8,7 @@
 #include "common/http.h"
 #include <query/type.h>
 #include "common/selector.h"
+#include "common/logs.h"
 #include "main.h"
 #define d64	PRId64
 #define DRUID_NAME_SIZE 255
@@ -20,7 +21,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -28,8 +29,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *header = json_array_get(root, 0);
 	if (!header)
 	{
-		if (carg->log_level > 0)
-			fprintf(stderr, "empty array\n");
+		carglog(carg, L_ERROR, "druid empty array\n");
 		return;
 	}
 
@@ -59,15 +59,13 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 				double val = json_real_value(colval_json);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%lf'\n", val);
+					carglog(carg, L_DEBUG,"\tdruid value '%lf'\n", val);
 					qf->d = val;
 					qf->type = DATATYPE_DOUBLE;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%lf'\n", colname, val);
+					carglog(carg, L_DEBUG, "\tdruid field '%s': '%lf'\n", colname, val);
 					char field_str_num[20];
 					snprintf(field_str_num, 19, "%lf", val);
 					labels_hash_insert_nocache(hash, colname, field_str_num);
@@ -79,15 +77,13 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 				char* sval = (char*)json_string_value(colval_json);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%s'\n", sval);
+					carglog(carg, L_DEBUG, "\tdruid value '%s'\n", sval);
 					qf->i = strtoll(sval, NULL, 10);
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%s'\n", colname, sval);
+					carglog(carg, L_DEBUG, "\tdruid field '%s': '%s'\n", colname, sval);
 					labels_hash_insert_nocache(hash, colname, sval);
 				}
 			}
@@ -97,15 +93,13 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 				int64_t val = json_boolean_value(colval_json);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%"d64"'\n", val);
+					carglog(carg, L_DEBUG, "\tdruid value '%"d64"'\n", val);
 					qf->i = val;
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%"d64"'\n", colname, val);
+					carglog(carg, L_DEBUG, "\tdruid field '%s': '%"d64"'\n", colname, val);
 					char *sval = val ? "true" : "false";
 					labels_hash_insert_nocache(hash, colname, sval);
 				}
@@ -116,15 +110,13 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 				int64_t val = json_real_value(colval_json);
 				if (qf)
 				{
-					if (carg->log_level > 2)
-						printf("\tvalue '%"d64"'\n", val);
+					carglog(carg, L_DEBUG, "\tdruid value '%"d64"'\n", val);
 					qf->i = val;
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					if (carg->log_level > 2)
-						printf("\tfield '%s': '%"d64"'\n", colname, val);
+					carglog(carg, L_DEBUG, "\tdruid field '%s': '%"d64"'\n", colname, val);
 					char field_str_num[20];
 					snprintf(field_str_num, 19, "%"d64"", val);
 					labels_hash_insert_nocache(hash, colname, field_str_num);
@@ -146,11 +138,7 @@ void druid_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
-	if (carg->log_level > 1)
-	{
-		puts("+-+-+-+-+-+-+-+");
-		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
-	}
+	carglog(carg, L_INFO, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	char *key = malloc(255);
 	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->make);
 
@@ -183,8 +171,7 @@ void druid_status_health_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, druid_queries_foreach, carg);
