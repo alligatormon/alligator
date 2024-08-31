@@ -211,7 +211,7 @@ aggregate {
 - [rabbitmq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rabbitmq.md)
 - [eventstore](https://github.com/alligatormon/alligator/blob/master/doc/parsers/eventstore.md)
 - Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md)
-- powerdns
+- [powerdns](https://github.com/alligatormon/alligator/blob/master/doc/parsers/powerdns.md)
 - [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md)
 - [druid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/druid.md)
 - [couchbase](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchbase.md)
@@ -294,9 +294,6 @@ aggregate {
     icmp icmp://example.com;
     #BASH exec shell:
     process exec:///bin/curl http://example.com:1111/metrics;
-    #POWERDNS
-    powerdns http://localhost:8081/api/v1/servers/localhost/statistics header=X-API-Key:test;
-    powerdns http://localhost:8081/servers/localhost/statistics header=X-API-Key:test;
     # IPMI metrics
     ipmi exec:///usr/bin/ipmitool;
     # TFTP
