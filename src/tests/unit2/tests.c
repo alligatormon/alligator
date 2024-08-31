@@ -151,6 +151,7 @@ int main(int argc, char **argv) {
     ac->loop = uv_default_loop();
     ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
     tommy_list_init(ac->uv_cache_timer);
+    log_default();
 
     ts_initialize();
 
@@ -172,5 +173,9 @@ int main(int argc, char **argv) {
     api_test_parser_zookeeper();
     api_test_parser_memcached();
     api_test_parser_beanstalkd();
+    api_test_parser_uwsgi();
+    api_test_parser_lighttpd();
+    api_test_parser_httpd();
+    api_test_parser_nats();
     infomesg();
 }

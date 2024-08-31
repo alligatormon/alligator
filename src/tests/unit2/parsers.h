@@ -1,3 +1,4 @@
+#include "parsers/multiparser.h"
 #define CMP_EQUAL 0
 #define CMP_GREATER 1
 #define CMP_LESSER 2
@@ -15,6 +16,7 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
         return;
     }
     //printf("body s is '%s'\n", body->s);
+    //fflush(stdout);
 
     uint64_t obj_size = json_array_size(root);
     for (uint64_t i = 0; i < obj_size; i++)
@@ -267,4 +269,151 @@ void api_test_parser_beanstalkd() {
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_migrated", "beanstalkd_binlog_records_migrated", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_written", "beanstalkd_binlog_records_written", 0);
     metric_test_run(CMP_GREATER, "beanstalkd_binlog_max_size", "beanstalkd_binlog_max_size", 0);
+}
+
+void api_test_parser_uwsgi() {
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n\r\n{\n\t\"version\":\"2.0.18\",\n\t\"listen_queue\":0,\n\t\"listen_queue_errors\":0,\n\t\"signal_queue\":0,\n\t\"load\":0,\n\t\"pid\":7739,\n\t\"uid\":994,\n\t\"gid\":992,\n\t\"cwd\":\"/\",\n\t\"locks\":[\n\t\t{\n\t\t\t\"user 0\":0\n\t\t},\n\t\t{\n\t\t\t\"signal\":0\n\t\t},\n\t\t{\n\t\t\t\"filemon\":0\n\t\t},\n\t\t{\n\t\t\t\"timer\":0\n\t\t},\n\t\t{\n\t\t\t\"rbtimer\":0\n\t\t},\n\t\t{\n\t\t\t\"cron\":0\n\t\t},\n\t\t{\n\t\t\t\"rpc\":0\n\t\t},\n\t\t{\n\t\t\t\"snmp\":0\n\t\t}\n\t],\n\t\"sockets\":[\n\n\t],\n\t\"workers\":[\n\n\t]\n}");
+    carg->parser_handler = uwsgi_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "uwsgi_listen_queue", "uwsgi_listen_queue", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_listen_queue_errors", "uwsgi_listen_queue_errors", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_signal_queue", "uwsgi_signal_queue", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_load", "uwsgi_load", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_worker_accepting", "uwsgi_worker_accepting", 0);
+}
+
+void api_test_parser_lighttpd() {
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: 145\r\nDate: Fri, 30 Aug 2024 07:13:12 GMT\r\nServer: lighttpd/1.4.54\r\n\r\n{\n\t\"RequestsTotal\": 14,\n\t\"TrafficTotal\": 9,\n\t\"Uptime\": 78,\n\t\"BusyServers\": 1,\n\t\"IdleServers\": 127,\n\t\"RequestAverage5s\":0,\n\t\"TrafficAverage5s\":0\n}");
+    carg->parser_handler = lighttpd_status_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "lighttpd_RequestsTotal", "lighttpd_RequestsTotal", 14);
+    metric_test_run(CMP_EQUAL, "lighttpd_TrafficAverage5s", "lighttpd_TrafficAverage5s", 0);
+    metric_test_run(CMP_EQUAL, "lighttpd_Uptime", "lighttpd_Uptime", 78);
+    metric_test_run(CMP_EQUAL, "lighttpd_TrafficTotal", "lighttpd_TrafficTotal", 9);
+    metric_test_run(CMP_EQUAL, "lighttpd_RequestAverage5s", "lighttpd_RequestAverage5s", 0);
+    metric_test_run(CMP_EQUAL, "lighttpd_IdleServers", "lighttpd_IdleServers", 127);
+
+    carg->full_body = string_init_dup("HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: 498\r\nDate: Fri, 30 Aug 2024 07:13:12 GMT\r\nServer: lighttpd/1.4.54\r\n\r\nfastcgi.active-requests: 0\n  fastcgi.backend.fcgi-php.0.connected: 10127\n  fastcgi.backend.fcgi-php.0.died: 0\n  fastcgi.backend.fcgi-php.0.disabled: 0\n  fastcgi.backend.fcgi-php.0.load: 0\n  fastcgi.backend.fcgi-php.0.overloaded: 0\n  fastcgi.backend.fcgi-php.1.connected: 93855\n  fastcgi.backend.fcgi-php.1.died: 0\n  fastcgi.backend.fcgi-php.1.disabled: 0\n  fastcgi.backend.fcgi-php.1.load: 0\n  fastcgi.backend.fcgi-php.1.overloaded: 0\n  fastcgi.backend.fcgi-php.load: 1\n  fastcgi.requests: 103982\n\n");
+    carg->parser_handler = lighttpd_statistics_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "lighttpd_died", "lighttpd_died", 0);
+    metric_test_run(CMP_EQUAL, "lighttpd_disabled", "lighttpd_disabled", 0);
+    metric_test_run(CMP_EQUAL, "lighttpd_load", "lighttpd_load", 1);
+    metric_test_run(CMP_GREATER, "lighttpd_connected", "lighttpd_connected", 1);
+    metric_test_run(CMP_EQUAL, "lighttpd_requests", "lighttpd_requests", 1);
+}
+
+void api_test_parser_httpd() {
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.1 200 OK\r\nDate: Fri, 30 Aug 2024 11:14:04 GMT\r\nServer: Apache/2.4.6 (CentOS)\r\nContent-Length: 405\r\nContent-Type: text/plain; charset=ISO-8859-1\r\n\r\nTotal Accesses: 3\nTotal kBytes: 6\nUptime: 361\nReqPerSec: .00831025\nBytesPerSec: 17.0194\nBytesPerReq: 2048\nBusyWorkers: 1\nIdleWorkers: 4\nScoreboard: ___W_...........................................................................................................................................................................................................................................................\n");
+    carg->parser_handler = httpd_status_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "HTTPD_Total_Accesses", "HTTPD_Total_Accesses", 3);
+    metric_test_run(CMP_EQUAL, "HTTPD_Total_kBytes", "HTTPD_Total_kBytes", 6);
+    metric_test_run(CMP_EQUAL, "HTTPD_Uptime", "HTTPD_Uptime", 361);
+    metric_test_run(CMP_EQUAL, "HTTPD_ReqPerSec", "HTTPD_ReqPerSec", 0.008310);
+    metric_test_run(CMP_EQUAL, "HTTPD_BytesPerSec", "HTTPD_BytesPerSec", 17.019400);
+    metric_test_run(CMP_EQUAL, "HTTPD_BytesPerReq", "HTTPD_BytesPerReq", 2048);
+    metric_test_run(CMP_EQUAL, "HTTPD_BusyWorkers", "HTTPD_BusyWorkers", 1);
+    metric_test_run(CMP_EQUAL, "HTTPD_IdleWorkers", "HTTPD_IdleWorkers", 4);
+}
+
+void api_test_parser_nats() {
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Thu, 29 Aug 2024 12:25:02 GMT\r\nContent-Length: 167\r\n\r\n{\n  \"num_subscriptions\": 0,\n  \"num_cache\": 0,\n  \"num_inserts\": 0,\n  \"num_removes\": 0,\n  \"num_matches\": 0,\n  \"cache_hit_rate\": 0,\n  \"max_fanout\": 0,\n  \"avg_fanout\": 0\n}");
+    carg->parser_handler = nats_subsz_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Thu, 29 Aug 2024 12:25:02 GMT\r\nContent-Length: 1221\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"server_name\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"version\": \"2.1.9\",\n  \"proto\": 1,\n  \"git_commit\": \"7c76626\",\n  \"go\": \"go1.14.10\",\n  \"host\": \"0.0.0.0\",\n  \"port\": 4222,\n  \"max_connections\": 65536,\n  \"ping_interval\": 120000000000,\n  \"ping_max\": 2,\n  \"http_host\": \"0.0.0.0\",\n  \"http_port\": 8222,\n  \"http_base_path\": \"\",\n  \"https_port\": 0,\n  \"auth_timeout\": 1,\n  \"max_control_line\": 4096,\n  \"max_payload\": 1048576,\n  \"max_pending\": 67108864,\n  \"cluster\": {},\n  \"gateway\": {},\n  \"leaf\": {},\n  \"tls_timeout\": 0.5,\n  \"write_deadline\": 2000000000,\n  \"start\": \"2024-08-29T15:24:52.528670435+03:00\",\n  \"now\": \"2024-08-29T15:25:02.275602149+03:00\",\n  \"uptime\": \"9s\",\n  \"mem\": 4251648,\n  \"cores\": 4,\n  \"gomaxprocs\": 4,\n  \"cpu\": 0,\n  \"connections\": 0,\n  \"total_connections\": 0,\n  \"routes\": 0,\n  \"remotes\": 0,\n  \"leafnodes\": 0,\n  \"in_msgs\": 0,\n  \"out_msgs\": 0,\n  \"in_bytes\": 0,\n  \"out_bytes\": 0,\n  \"slow_consumers\": 0,\n  \"subscriptions\": 0,\n  \"http_req_stats\": {\n    \"/\": 0,\n    \"/connz\": 0,\n    \"/gatewayz\": 0,\n    \"/routez\": 0,\n    \"/subsz\": 1,\n    \"/varz\": 1\n  },\n  \"config_load_time\": \"2024-08-29T15:24:52.528670435+03:00\"\n}");
+    carg->parser_handler = nats_varz_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nats_varz_server_id", "nats_varz_server_id", 1);
+    metric_test_run(CMP_EQUAL, "nats_varz_server_name", "nats_varz_server_name", 1);
+    metric_test_run(CMP_EQUAL, "nats_varz_version", "nats_varz_version", 1);
+    metric_test_run(CMP_EQUAL, "nats_varz_max_connections", "nats_varz_max_connections", 65536);
+    metric_test_run(CMP_EQUAL, "nats_varz_ping_max", "nats_varz_ping_max", 2);
+    metric_test_run(CMP_EQUAL, "nats_varz", "nats_varz", 4251648);
+    metric_test_run(CMP_EQUAL, "nats_varz_http_req_stats", "nats_varz_http_req_stats", 0);
+
+
+    carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Fri, 30 Aug 2024 13:09:07 GMT\r\nContent-Length: 160\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"now\": \"2024-08-30T16:09:07.546824709+03:00\",\n  \"num_routes\": 1,\n  \"routes\": [ { \"rid\": 1, \"remote_id\": \"de475c0041418afc799bccf0fdd61b47\", \"did_solicit\": true, \"ip\": \"127.0.0.1\", \"port\": 61791, \"pending_size\": 0, \"in_msgs\": 0, \"out_msgs\": 0, \"in_bytes\": 0, \"out_bytes\": 0, \"subscriptions\": 0 } ]\n}");
+
+    carg->parser_handler = nats_routez_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nats_routez_server_id", "nats_routez_server_id", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez", "nats_routez", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez_now", "nats_routez_now", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez_num_routes", "nats_routez_num_routes", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_remote_id", "nats_routez_routes_remote_id", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_ip", "nats_routez_routes_ip", 1);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_port", "nats_routez_routes_port", 61791);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_in_msgs", "nats_routez_routes_in_msgs", 0);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_out_msgs", "nats_routez_routes_out_msgs", 0);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_in_bytes", "nats_routez_routes_in_bytes", 0);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_out_bytes", "nats_routez_routes_out_bytes", 0);
+    metric_test_run(CMP_EQUAL, "nats_routez_routes_subscriptions", "nats_routez_routes_subscriptions", 0);
+
+
+    carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Fri, 30 Aug 2024 13:09:07 GMT\r\nContent-Length: 215\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"now\": \"2024-08-30T16:09:07.54696449+03:00\",\n  \"num_connections\": 1,\n  \"total\": 1,\n  \"offset\": 0,\n  \"limit\": 1024,\n  \"connections\": [    { \"cid\": 638, \"kind\": \"Client\", \"type\": \"nats\", \"ip\": \"35.203.112.31\", \"port\": 1539, \"start\": \"2024-08-29T22:26:57.891082495Z\", \"last_activity\": \"2024-08-29T22:26:58.036462427Z\", \"rtt\": \"41.395769ms\", \"uptime\": \"15h27m52s\", \"idle\": \"15h27m52s\", \"pending_bytes\": 0, \"in_msgs\": 0, \"out_msgs\": 0, \"in_bytes\": 0, \"out_bytes\": 0, \"subscriptions\": 1, \"lang\": \"nats.js\", \"version\": \"2.12.1\", \"tls_version\": \"1.3\", \"tls_cipher_suite\": \"TLS_AES_128_GCM_SHA256\" }]\n}");
+    carg->parser_handler = nats_connz_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_lang", "nats_connz_connections_lang", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_version", "nats_connz_connections_version", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections", "nats_connz_connections", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_tls_version", "nats_connz_connections_tls_version", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_tls_cipher_suite", "nats_connz_connections_tls_cipher_suite", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_subscriptions", "nats_connz_connections_subscriptions", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_out_bytes", "nats_connz_connections_out_bytes", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_in_bytes", "nats_connz_connections_in_bytes", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_out_msgs", "nats_connz_connections_out_msgs", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_in_msgs", "nats_connz_connections_in_msgs", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_pending_bytes", "nats_connz_connections_pending_bytes", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_idle", "nats_connz_connections_idle", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_rtt", "nats_connz_connections_rtt", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_last_activity", "nats_connz_connections_last_activity", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_connections_kind", "nats_connz_connections_kind", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz", "nats_connz", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz", "nats_connz", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_now", "nats_connz_now", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_total", "nats_connz_total", 1);
+    metric_test_run(CMP_EQUAL, "nats_connz_offset", "nats_connz_offset", 0);
+    metric_test_run(CMP_EQUAL, "nats_connz_limit", "nats_connz_limit", 1024);
+    fflush(stdout);
 }

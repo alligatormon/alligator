@@ -5,37 +5,37 @@
 #include "events/context_arg.h"
 #include "common/json_parser.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "main.h"
+// check for actual with https://docs.nats.io/running-a-nats-service/nats_admin/monitoring
 void nats_varz_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "nats_varz", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "nats_varz", carg, carg->pquery, carg->pquery_size);
 }
 
 void nats_subsz_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "nats_subsz", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "nats_subz", carg, carg->pquery, carg->pquery_size);
 }
 
 void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("sum::nats_connz_connections(cid)");
-	json_parser_entry(metrics, 1, parsestring, "nats_connz", carg);
-	free(parsestring[0]);
-	free(parsestring);
-	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".connections.[cid]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "nats_connz", carg, carg->pquery, carg->pquery_size);
 }
 
 void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("sum::nats_routez_routes(rid)");
-	json_parser_entry(metrics, 1, parsestring, "nats_routez", carg);
-	free(parsestring[0]);
-	free(parsestring);
-	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".routes.[rid]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "nats_routez", carg, carg->pquery, carg->pquery_size);
 }
 
 string *nats_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

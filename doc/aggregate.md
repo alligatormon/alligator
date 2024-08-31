@@ -205,15 +205,14 @@ aggregate {
 - [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
 - blackbox
-- php-fpm
-- uwsgi
-- nats
+- [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
+- [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
 - riak
 - rabbitmq
 - eventstore
 - flower
 - powerdns
-- apache httpd
+- [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md)
 - druid
 - couchbase
 - couchdb
@@ -233,7 +232,7 @@ aggregate {
 - opentsdb
 - hadoop
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
-- lighttpd
+- [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
 - ipmi
 - keepalived
 - mysql
@@ -290,26 +289,12 @@ aggregate {
 ```
 aggregate_period 10s;
 aggregate {
-    #BEANSTALKD
-    beanstalkd tcp://localhost:11300;
-    #GEARMAND
-    gearmand tcp://localhost:4730;
     #HTTP checks:
     http  http://example.com;
     #ICMP checks:
     icmp icmp://example.com;
     #BASH exec shell:
     process exec:///bin/curl http://example.com:1111/metrics;
-    #PHP-FPM TCP socket
-    php-fpm fastcgi://127.0.0.1:9000/stats?json&full;
-    #PHP-FPM UNIX socket
-    php-fpm unixfcgi:///var/run/php5-fpm.sock:/stats?json&full;
-    #uWSGI TCP socket
-    uwsgi tcp://localhost:1717;
-    #uWSGI UNIX socket
-    uwsgi unix:///tmp/uwsgi.sock;
-    #NATS
-    nats http://localhost:8222;
     #RIAK
     riak http://localhost:8098;
     #RABBITMQ

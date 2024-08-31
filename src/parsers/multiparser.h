@@ -147,3 +147,6 @@ void uwsgi_parser_push();
 void varnish_parser_push();
 void zookeeper_parser_push();
 void nvidia_smi_parser_push();
+void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg);
+void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg);
+void httpd_status_handler(char *metrics, size_t size, context_arg *carg);

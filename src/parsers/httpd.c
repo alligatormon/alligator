@@ -4,6 +4,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "common/validator.h"
 #include "main.h"
 #define HTTPD_LABEL_SIZE 100
@@ -14,9 +15,10 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 	char sval[HTTPD_LABEL_SIZE];
 	strlcpy(metric_name, "HTTPD_", 7);
 	uint64_t sz;
-	char *tmp = strstr(metrics, "ServerUptimeSeconds");
-	if (!tmp)
-		return;
+	//char *tmp = strstr(metrics, "IdleWorkers");
+	//if (!tmp)
+	//	return;
+	char *tmp = metrics;
 
 	for (uint64_t i = 0; i < size;)
 	{
@@ -27,8 +29,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(metric_name+6, tmp, sz+1);
 			metric_name_normalizer(metric_name, sz);
 
-			if (carg->log_level > 0)
-				printf("name '%s'\n", metric_name);
+			carglog(carg, L_INFO, "httpd metric_name '%s'\n", metric_name);
 
 			tmp += sz;
 			tmp += strcspn(tmp, " \t");
@@ -41,16 +42,14 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 				double dval = strtod(tmp, &tmp);
 				metric_add_auto(metric_name, &dval, DATATYPE_DOUBLE, carg);
 
-				if (carg->log_level > 0)
-					printf("dval %lf\n", dval);
+				carglog(carg, L_INFO, "httpd dval %lf\n", dval);
 			}
 			else
 			{
 				uint64_t val = strtoull(tmp, &tmp, 10);
 				metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 
-				if (carg->log_level > 0)
-					printf("val %"u64"\n", val);
+				carglog(carg, L_INFO, "httpd val %"u64"\n", val);
 			}
 		}
 

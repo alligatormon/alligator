@@ -6,6 +6,7 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/validator.h"
+#include "common/logs.h"
 #include "main.h"
 #define LIGHTTPD_LABEL_SIZE 100
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg)
@@ -34,7 +35,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			puts("=========");
 			strlcpy(debug_string, tmp, strcspn(tmp, "\n")+1);
-			printf("metric '%s', %p\n", debug_string, tmp);
+			printf("lighttpd metric '%s', %p\n", debug_string, tmp);
 		}
 
 		lbl = calloc(1, sizeof(*lbl));
@@ -48,25 +49,33 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		strlcpy(module, tmp, sz+1);
 		labels_hash_insert_nocache(lbl, "module", module);
 
-		if (carg->log_level > 0)
-			printf("module: '%s', %p, %"u64"\n", module, tmp, sz);
+		carglog(carg, L_INFO, "lighttpd module: '%s', %p, %"u64"\n", module, tmp, sz);
 
 		tmp += sz;
+		int is_requests = 0;
+		int is_active_requests = 0;
 		if (*tmp == '.')
 		{
 			tmp += strspn(tmp, ".:");
 			sz = strcspn(tmp, ".:");
 			strlcpy(type, tmp, sz+1);
 
-			if (carg->log_level > 0)
-				printf("type: '%s', %p, %"u64"\n", type, tmp, sz);
+			carglog(carg, L_INFO, "lighttpd type: '%s', %p, %"u64"\n", type, tmp, sz);
 
 			tmp += sz;
-			if (!strcmp(type, "requests") || !strcmp(type, "active-requests"))
+			if (!strcmp(type, "requests"))
 			{
 				type[0] = 0;
 				target[0] = 0;
 				backend[0] = 0;
+				is_requests = 1;
+			}
+			else if (!strcmp(type, "active-requests"))
+			{
+				type[0] = 0;
+				target[0] = 0;
+				backend[0] = 0;
+				is_active_requests = 1;
 			}
 			else if (*tmp == '.')
 			{
@@ -76,8 +85,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 				sz = strcspn(tmp, ".:");
 				strlcpy(target, tmp, sz+1);
 
-				if (carg->log_level > 0)
-					printf("target: '%s', %p, %"u64"\n", target, tmp, sz);
+				carglog(carg, L_INFO, "lighttpd target: '%s', %p, %"u64"\n", target, tmp, sz);
 
 				labels_hash_insert_nocache(lbl, "target", target);
 				tmp += sz;
@@ -88,8 +96,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 					sz = strcspn(tmp, ".:");
 					strlcpy(backend, tmp, sz+1);
 
-					if (carg->log_level > 0)
-						printf("backend: '%s', %p, %"u64"\n", backend, tmp, sz);
+					carglog(carg, L_INFO, "lighttpd backend: '%s', %p, %"u64"\n", backend, tmp, sz);
 
 					labels_hash_insert_nocache(lbl, "type", type);
 					if (strcmp(backend, "load"))
@@ -108,20 +115,27 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 
 		strlcpy(debug_string, tmp, strcspn(tmp, "\n"));
 
-		if (carg->log_level > 0)
-			printf("get metricname from '%s', %p\n", debug_string, tmp);
+		if (is_requests) {
+			metric_add("lighttpd_requests", lbl, &val, DATATYPE_UINT, carg);
+		}
+		else if (is_active_requests) {
+			val = strtoull(tmp, &tmp, 10);
+			metric_add("lighttpd_active_requests", lbl, &val, DATATYPE_UINT, carg);
+		}
+		else {
+			carglog(carg, L_DEBUG, "lighttpd get metricname from '%s', %p\n", debug_string, tmp);
 
-		strlcpy(metric_name+9, tmp, sz+1);
-		metric_name_normalizer(metric_name, sz);
-		if (carg->log_level > 0)
-			printf("metric_name: '%s', %p, %"u64"\n", metric_name, tmp, sz);
-		
-		tmp += strcspn(tmp, ":");
-		tmp += strspn(tmp, ":");
-		val = strtoull(tmp, &tmp, 10);
+			strlcpy(metric_name+9, tmp, sz+1);
+			metric_name_normalizer(metric_name, sz);
+			carglog(carg, L_DEBUG, "lighttpd metric_name: '%s', %p, %"u64"\n", metric_name, tmp, sz);
 
-		metric_add(metric_name, lbl, &val, DATATYPE_UINT, carg);
+			tmp += strcspn(tmp, ":");
+			tmp += strspn(tmp, ":");
+			val = strtoull(tmp, &tmp, 10);
 
+			metric_add(metric_name, lbl, &val, DATATYPE_UINT, carg);
+
+		}
 		tmp += strcspn(tmp, "\n");
 		tmp += strspn(tmp, "\n");
 		i = tmp - metrics;
