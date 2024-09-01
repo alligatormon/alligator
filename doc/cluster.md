@@ -1,7 +1,7 @@
 # Cluster
-<p align="center">
 Alligator supports two types of cluster configurations: one for receiving metrics and the other for collecting metrics.
 <br>
+<p align="center">
 <h1 align="center" style="border-bottom: none">
     <img alt="alligator-cluster-entrypoint" src="/doc/images/cluster-entr.jpeg"></a><br>
 </h1>
