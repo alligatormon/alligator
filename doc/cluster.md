@@ -1,3 +1,20 @@
+<p align="center">
+Alligator supports two types of cluster configurations: one for receiving metrics and the other for collecting metrics.
+<br>
+<h1 align="center" style="border-bottom: none">
+    <img width="640" height="360" alt="alligator-cluster-entrypoint" src="/doc/images/cluster-entr.jpeg"></a><br>Alligator
+</h1>
+<br>
+If the cluster is enabled in the aggregate context, it allows for lock-based clustering.
+<br>
+<h1 align="center" style="border-bottom: none">
+    <img width="640" height="360" alt="alligator-cluster-aggregate" src="/doc/images/cluster-aggr.jpeg"></a><br>Alligator
+</h1>
+
+<br>
+<br>
+</p>
+
 # Cluster
 The Cluster enables the multi-node capabilities and can be used in two directions - as a metric receiver or as a metric crawler.\
 To set up metric receiver cluster, each node have to be configured in the entrypoint as follows:
