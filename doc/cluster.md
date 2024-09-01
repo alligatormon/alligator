@@ -2,13 +2,13 @@
 Alligator supports two types of cluster configurations: one for receiving metrics and the other for collecting metrics.
 <br>
 <h1 align="center" style="border-bottom: none">
-    <img width="1024" height="768" alt="alligator-cluster-entrypoint" src="/doc/images/cluster-entr.jpeg"></a><br>
+    <img alt="alligator-cluster-entrypoint" src="/doc/images/cluster-entr.jpeg"></a><br>
 </h1>
 <br>
 If the cluster is enabled in the aggregate context, it allows for lock-based clustering.
 <br>
 <h1 align="center" style="border-bottom: none">
-    <img width="1024" height="768" alt="alligator-cluster-aggregate" src="/doc/images/cluster-aggr.jpeg"></a><br>
+    <img alt="alligator-cluster-aggregate" src="/doc/images/cluster-aggr.jpeg"></a><br>
 </h1>
 
 <br>
