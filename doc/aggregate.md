@@ -183,7 +183,7 @@ Specify the cluster current instance name for crawling metrics. More information
 Default: -\
 Plural: no
 
-Specifies the JSON query for the json\_query parser. More information can be found in the [json_query](https://github.com/alligatormon/alligator/blob/master/doc/json_query.md) documentation.
+Specifies the JSON query for the json\_query parser. More information can be found in the [json\_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md) documentation.
 
 ## period
 Default: -\
