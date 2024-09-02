@@ -2,6 +2,32 @@
 The aggregator feature provides the opportunity to collect metrics from other software.\
 It consists of two main parts: `aggregator` and `parser`.
 
+<br>
+<p align="center">
+<h1 align="center" style="border-bottom: none">
+    <img alt="alligator-cluster-entrypoint" src="/doc/images/entrypoint.jpeg"></a><br>
+</h1>
+<br>
+<br>
+</p>
+
+<br>
+<p align="center">
+<h1 align="center" style="border-bottom: none">
+    <img alt="alligator-cluster-entrypoint" src="/doc/images/aggregator.jpeg"></a><br>
+</h1>
+<br>
+
+Alligator eventloop provides asynchronous methods for collecting metrics from various sources and passing them to custom parsers for each software:
+<br>
+<h1 align="center" style="border-bottom: none">
+    <img alt="alligator-cluster-aggregate" src="/doc/images/parsers.jpeg"></a><br>
+</h1>
+
+<br>
+<br>
+</p>
+
 The aggregator indludes async methods to get stats using various schemas/protocols:
 - HTTP (http://) and HTTPS (https://). Enables the HTTP and HTTPS clients to get body.
 - TCP (tcp://). Enables the TCP client to get body.

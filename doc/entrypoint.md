@@ -2,6 +2,15 @@
 The entrypoint is necessary to enable ports that allows Prometheus pull daemons to gather information.
 Alligator configuration supports a list of entrypoints, providing the capability to have many different ports for various purposes.
 
+<br>
+<p align="center">
+<h1 align="center" style="border-bottom: none">
+    <img alt="alligator-cluster-entrypoint" src="/doc/images/entrypoint.jpeg"></a><br>
+</h1>
+<br>
+<br>
+</p>
+
 Entrypoint functionality includes:
 - Push data interface
 - Metric return

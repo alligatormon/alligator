@@ -3,6 +3,15 @@ This module provides the capability to run commands and export metrics to other 
 Action can be triggered by metric behavior or scheduled for running.\
 This context can be used multiple times within the configuration.
 
+<br>
+<p align="center">
+<h1 align="center" style="border-bottom: none">
+    <img alt="alligator-cluster-entrypoint" src="/doc/images/action.jpeg"></a><br>
+</h1>
+<br>
+<br>
+</p>
+
 
 ## Overview
 
@@ -12,7 +21,7 @@ action {
     expr <epression or url>;
     ns <namespace>;
     work_dir <working directory>;
-    serializer <serializaer>;
+    serializer <serializer>;
     follow_redirects <redirects>;
     engine <engine>;
     index_template <index_template>;
