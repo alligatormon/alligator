@@ -5,15 +5,6 @@ It consists of two main parts: `aggregator` and `parser`.
 <br>
 <p align="center">
 <h1 align="center" style="border-bottom: none">
-    <img alt="alligator-cluster-entrypoint" src="/doc/images/entrypoint.jpeg"></a><br>
-</h1>
-<br>
-<br>
-</p>
-
-<br>
-<p align="center">
-<h1 align="center" style="border-bottom: none">
     <img alt="alligator-cluster-entrypoint" src="/doc/images/aggregator.jpeg"></a><br>
 </h1>
 <br>
