@@ -171,7 +171,7 @@ JSON API is similar to plaintext configuration. The description of directives ca
       "instance": "srv1.example.com:1111",
       "key": "<smth>",
       "name": "<smth>",
-      "log_leve": "level",
+      "log_level": "level",
       "timeout": "10s",
       "lang": "something",
       "resolve": "<domainname>",
