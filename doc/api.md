@@ -7,7 +7,7 @@ JSON API is similar to plaintext configuration. The description of directives ca
   "ttl": "<time>",
   "entrypoint": [
     {
-      "log_level": "<time>",
+      "log_level": "<level>",
       "return": "[empty|on]>"
     },
     {
