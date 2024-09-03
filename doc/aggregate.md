@@ -33,10 +33,10 @@ The parser gets the body after the aggregator works on it and parses it into met
 ## Overview
 ```
 aggregate {
-    <parser1> <url1> [arg1] [arg2] ... [argN];'
-    <parser2> <url2> [arg1] [arg2] ... [argN];'
+    <parser1> <url1> [arg1] [arg2] ... [argN];
+    <parser2> <url2> [arg1] [arg2] ... [argN];
     ...
-    <parserM> <urlM> [arg1] [arg2] ... [argN];'
+    <parserM> <urlM> [arg1] [arg2] ... [argN];
 }
 ```
 
@@ -72,6 +72,11 @@ Plural: no
 
 The [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) option specifies the context that operates the received body with custom functions via external modules.
 
+# follow\_redirects
+Default: 0
+Plural: no
+
+The follow\_redirects option specifies the maximum number of following redirects.
 
 ## tls\_certificate
 Default: -\
