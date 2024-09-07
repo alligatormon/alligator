@@ -25,7 +25,7 @@
 #include "common/base64.h"
 #include "cluster/type.h"
 #include "system/common.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/logs.h"
 #include "puppeteer/puppeteer.h"
 #include "common/units.h"

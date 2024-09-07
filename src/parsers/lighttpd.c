@@ -2,7 +2,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/validator.h"
@@ -11,8 +11,7 @@
 #define LIGHTTPD_LABEL_SIZE 100
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "lighttpd", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "lighttpd", carg, carg->pquery, carg->pquery_size);
 }
 
 void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)

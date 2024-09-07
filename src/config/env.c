@@ -4,7 +4,7 @@
 #include "common/murmurhash.h"
 #include "api/api.h"
 #include "common/selector.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include <jansson.h>
 extern aconf *ac;
 

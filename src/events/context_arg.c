@@ -3,7 +3,7 @@
 #include "common/file_stat.h"
 #include "common/netlib.h"
 #include "resolver/resolver.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/units.h"
 #include "common/logs.h"
 #include "common/auth.h"

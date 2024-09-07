@@ -4,7 +4,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
 #include "main.h"
@@ -12,7 +12,6 @@
 
 void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//json_parser_entry(metrics, 0, NULL, "couchdb", carg);
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)

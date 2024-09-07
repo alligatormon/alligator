@@ -4,7 +4,6 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/aggregator.h"
-#include "common/json_parser.h"
 #include "common/json_query.h"
 #include "common/yaml.h"
 #include "main.h"
@@ -19,15 +18,14 @@ void json_handler(char *metrics, size_t size, context_arg *carg)
 		if (!data)
 			return;
 
-		json_parser_entry(data, 0, NULL, "json", carg);
+		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
 		free(data);
 	}
 	else
 	{
 		json_decref(root);
-		json_parser_entry(data, 0, NULL, "json", carg);
+		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
 	}
-	carg->parser_status = 1;
 }
 
 string* json_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

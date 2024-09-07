@@ -6,7 +6,7 @@
 #include "common/selector.h"
 #include "main.h"
 #include "common/url.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/logs.h"
 #include "events/context_arg.h"
 #include "parsers/multiparser.h"

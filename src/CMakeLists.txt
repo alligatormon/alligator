@@ -172,7 +172,6 @@ set(STATIC_FILES
 	common/fastcgi.c
 	common/url.c
 	common/aggregator.c
-	common/json_parser.c
 	common/json_query.c
 	common/pcre_parser.c
 	common/xml.c
@@ -417,7 +416,6 @@ add_library(${COMMON_TESTS} STATIC
 	common/fastcgi.c
 	common/url.c
 	common/aggregator.c
-	common/json_parser.c
 	common/json_query.c
 	common/pcre_parser.c
 	common/xml.c

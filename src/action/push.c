@@ -2,7 +2,7 @@
 #include "dstructures/ht.h"
 #include "action/type.h"
 #include "parsers/multiparser.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/logs.h"
 
 void action_push(json_t *action)

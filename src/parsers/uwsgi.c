@@ -5,8 +5,8 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
 #include "common/http.h"
+#include "common/json_query.h"
 #include "main.h"
 #define UWSGI_METRIC_SIZE 1000
 void uwsgi_handler(char *metrics, size_t size, context_arg *carg)

@@ -4,7 +4,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "main.h"
@@ -120,8 +120,7 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 
 void patroni_config_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "patroni_settings", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "patroni_settings", carg, carg->pquery, carg->pquery_size);
 }
 
 string *patroni_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

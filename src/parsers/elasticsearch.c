@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <jansson.h>
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
@@ -204,8 +204,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 void elasticsearch_cluster_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "elasticsearch_cluster", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "elasticsearch_cluster", carg, carg->pquery, carg->pquery_size);
 }
 
 void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)

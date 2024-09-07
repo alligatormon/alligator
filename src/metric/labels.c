@@ -7,7 +7,7 @@
 #include "metric/namespace.h"
 #include "common/mapping.h"
 #include "query/promql.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "action/type.h"
 #include "main.h"
 extern aconf *ac;

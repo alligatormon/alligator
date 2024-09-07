@@ -4,7 +4,7 @@
 #include "main.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/aggregator.h"
 typedef struct fcgi_reply_data
 {
@@ -97,12 +97,12 @@ fcgi_reply_data* fcgi_reply_parser(char *fcgi, size_t n)
 
 void php_fpm_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("print::php_fpm_processes(pid)");
-	json_parser_entry(metrics, 1, parsestring, "php_fpm", carg);
-	free(parsestring[0]);
-	free(parsestring);
-	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".processes.[pid]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "php_fpm", carg, carg->pquery, carg->pquery_size);
 }
 
 string* php_fpm_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

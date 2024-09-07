@@ -3,7 +3,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/http.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "api/api.h"
 #include "main.h"
 

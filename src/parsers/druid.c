@@ -4,7 +4,7 @@
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/http.h"
 #include <query/type.h>
 #include "common/selector.h"
@@ -546,14 +546,12 @@ void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 
 void druid_historical_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "druid_historical", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "druid_historical", carg, carg->pquery, carg->pquery_size);
 }
 
 void druid_broker_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics, 0, NULL, "druid_broker", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics, NULL, "druid_broker", carg, carg->pquery, carg->pquery_size);
 }
 
 string *druid_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

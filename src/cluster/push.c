@@ -1,5 +1,5 @@
 #include "cluster/type.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/logs.h"
 #include "metric/namespace.h"
 #include <string.h>

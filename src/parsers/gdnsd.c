@@ -2,13 +2,12 @@
 #include <jansson.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/aggregator.h"
 #include "main.h"
 void gdnsd_handler(char *metrics, size_t size, context_arg *carg)
 {
-	json_parser_entry(metrics+8, 0, NULL, "gdnsd", carg);
-	carg->parser_status = 1;
+	carg->parser_status = json_query(metrics+8, NULL, "gdnsd", carg, carg->pquery, carg->pquery_size);
 }
 
 int8_t gdnsd_validator(context_arg *carg, char *data, size_t size)

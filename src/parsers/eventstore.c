@@ -5,37 +5,38 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/aggregator.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "main.h"
 
 void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("plainprint::eventstore_es_queue(name)");
-	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
-	free(parsestring[0]);
-	free(parsestring);
-	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".es.queue.[name]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "eventstore", carg, carg->pquery, carg->pquery_size);
 }
 
 void eventstore_projections_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("print::eventstore_projections(name)");
-	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
-	free(parsestring[0]);
-	free(parsestring);
-	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".projections.[name]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "eventstore", carg, carg->pquery, carg->pquery_size);
 }
 
 void eventstore_info_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **parsestring = malloc(sizeof(char*)*1);
-	parsestring[0] = strdup("label::eventstore_state(state)");
-	json_parser_entry(metrics, 1, parsestring, "eventstore", carg);
-	free(parsestring[0]);
-	free(parsestring);
 	carg->parser_status = 1;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".state.[state]");
+		carg->pquery_size = 1;
+	}
+	carg->parser_status = json_query(metrics, NULL, "eventstore", carg, carg->pquery, carg->pquery_size);
 }
 
 string *eventstore_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)

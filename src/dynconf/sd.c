@@ -6,7 +6,7 @@
 #include "main.h"
 #include "common/base64.h"
 #include "common/selector.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/http.h"
 #include "api/api.h"
 

@@ -2,9 +2,8 @@
 #include "metric/namespace.h"
 #include "common/rtime.h"
 #include "common/selector.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include <time.h>
-#include <jansson.h>
 #define SQL_CREATE "CREATE TABLE IF NOT EXISTS "
 #define SQL_INSERT "INSERT INTO "
 #define CLICKHOUSE_ENGINE "ENGINE=MergeTree ORDER BY timestamp"

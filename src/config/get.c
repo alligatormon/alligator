@@ -8,7 +8,7 @@
 #include "puppeteer/puppeteer.h"
 #include "resolver/resolver.h"
 #include "system/linux/sysctl.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;

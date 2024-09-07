@@ -11,7 +11,7 @@
 #include "probe/probe.h"
 #include "parsers/multiparser.h"
 #include "common/selector.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/units.h"
 #include "api/api.h"
 

@@ -6,7 +6,6 @@
 #include "metric/namespace.h"
 #include "common/logs.h"
 #include "common/validator.h"
-#include "common/json_parser.h"
 #include "events/context_arg.h"
 #include "dstructures/ht.h"
 #include "metric/labels.h"
@@ -324,4 +323,66 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	free(carg->data);
 
 	return 1;
+}
+
+int8_t json_validator(context_arg *carg, char *data, size_t size)
+{
+	json_error_t error;
+	json_t *root = json_loads(data, 0, &error);
+	if (!root)
+	{
+		if (ac->log_level > 2)
+			printf("json validator: json error on line %d: %s\n", error.line, error.text);
+		return 0;
+	}
+	else if (ac->log_level > 2)
+		puts("json validator OK");
+	return 1;
+}
+
+void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json)
+{
+	int json_type = json_typeof(dst_json);
+	if (json_type == JSON_ARRAY)
+		json_array_append_new(dst_json, src_json);
+	else if (json_type == JSON_OBJECT)
+		json_object_set_new(dst_json, key, src_json);
+}
+
+json_t *json_integer_string_set(char *str)
+{
+	json_t *value;
+	if (isdigit(*str))
+	{
+		int64_t num = strtoll(str, NULL, 10);
+		value = json_integer(num);
+	}
+	else
+		value = json_string(str);
+
+	return value;
+}
+
+int64_t config_get_intstr_json(json_t *aggregate, char *key)
+{
+	int64_t strintval;
+	json_t *jstrintval = json_object_get(aggregate, key);
+	if (jstrintval && json_typeof(jstrintval) == JSON_STRING)
+		strintval = strtoull(json_string_value(jstrintval), NULL, 10);
+	else
+		strintval = json_integer_value(jstrintval);
+
+	return strintval;
+}
+
+double config_get_floatstr_json(json_t *aggregate, char *key)
+{
+	double strintval;
+	json_t *jstrintval = json_object_get(aggregate, key);
+	if (jstrintval && json_typeof(jstrintval) == JSON_STRING)
+		strintval = strtod(json_string_value(jstrintval), NULL);
+	else
+		strintval = json_real_value(jstrintval);
+
+	return strintval;
 }

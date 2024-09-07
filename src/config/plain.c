@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "config/plain.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/selector.h"
 #include "main.h"
 
