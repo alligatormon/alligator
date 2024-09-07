@@ -7,6 +7,7 @@
 #include "main.h"
 #include "common/patricia.h"
 #include "parsers/multiparser.h"
+#include "metric/query.h"
 
 /*      UINT64_MAX 18446744073709551615ULL */
 #define P10_UINT64 10000000000000000000ULL   /* 19 zeroes */
@@ -15,6 +16,9 @@
 
 #define STRINGIZER(x)   # x
 #define TO_STRING(x)    STRINGIZER(x)
+#define CMP_EQUAL 0
+#define CMP_GREATER 1
+#define CMP_LESSER 2
 
 aconf *ac;
 uint64_t count_all;
@@ -137,10 +141,91 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
     return 1;
 }
 
+void metric_test_run(int cmp_type, char *query, char *metric_name, double expected_val) {
+    metric_query_context *mqc = promql_parser(NULL, query, strlen(query));
+    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+
+    json_error_t error;
+    json_t *root = json_loads(body->s, 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    if (!root)
+    {
+        fprintf(stderr, "json error on line %d: %s\n'%s'\n", error.line, error.text, body->s);
+        return;
+    }
+    //printf("body s is '%s'\n", body->s);
+    //fflush(stdout);
+
+    uint64_t obj_size = json_array_size(root);
+    for (uint64_t i = 0; i < obj_size; i++)
+    {
+        json_t *metric = json_array_get(root, i);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, metric);
+
+        json_t *labels = json_object_get(metric, "labels");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, labels);
+        uint64_t labels_size = json_array_size(labels);
+        for (uint64_t j = 0; j < labels_size; j++)
+        {
+            json_t *label = json_array_get(labels, j);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, label);
+
+            json_t *name = json_object_get(label, "name");
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, name);
+            const char *sname = json_string_value(name);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sname);
+
+            json_t *value = json_object_get(label, "value");
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, value);
+            const char *svalue = json_string_value(value);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, svalue);
+
+            if (!strcmp(sname, "__name__")) {
+                if (strcmp(metric_name, svalue))
+                    continue;
+
+                assert_equal_string(__FILE__, __FUNCTION__, __LINE__, metric_name, svalue);
+                json_t *samples = json_object_get(metric, "samples");
+                assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, samples);
+
+                uint64_t samples_size = json_array_size(samples);
+                for (uint64_t k = 0; k < samples_size; k++)
+                {
+                    json_t *sample = json_array_get(samples, k);
+                    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sample);
+
+                    json_t *sample_value = json_object_get(sample, "value");
+                    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sample_value);
+                    double dsample_value = 0;
+                    if (json_typeof(sample_value) == JSON_INTEGER)
+                        dsample_value = json_integer_value(sample_value);
+                    else if (json_typeof(sample_value) == JSON_REAL)
+                        dsample_value = json_real_value(sample_value);
+
+                    int rc = 0;
+                    if (cmp_type == CMP_EQUAL)
+                        rc = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, expected_val, dsample_value);
+                    else if (cmp_type == CMP_GREATER)
+                        rc = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, expected_val < dsample_value);
+                    else if (cmp_type == CMP_LESSER)
+                        rc = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, expected_val > dsample_value);
+
+                    if (!rc) {
+                        printf("checked metric '%s': expected %lf, sample %lf, rc: %d\n", metric_name, expected_val, dsample_value, rc);
+                        fflush(stdout);
+                    }
+                }
+            }
+        }
+    }
+}
+
 #include "netlib.h"
 #include "http.h"
 #include "api_v1.h"
 #include "parsers.h"
+#include "system.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -180,5 +265,6 @@ int main(int argc, char **argv) {
     api_test_parser_httpd();
     api_test_parser_nats();
     api_test_parser_flower();
+    system_test(argv[0]);
     infomesg();
 }

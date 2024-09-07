@@ -23,44 +23,10 @@
 #include "cluster/type.h"
 #include "common/logs.h"
 #include "dstructures/ht.h"
+#include "system/common.h"
 
 aconf *ac;
 
-void system_initialize()
-{
-	extern aconf *ac;
-	ac->system_base = 0;
-	ac->system_interrupts = 0;
-	ac->system_network = 0;
-	ac->system_disk = 0;
-	ac->system_process = 0;
-	ac->system_cadvisor = 0;
-	ac->system_smart = 0;
-	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
-	ac->system_carg->ttl = 300;
-	ac->system_carg->curr_ttl = 0;
-	ac->scs = calloc(1, sizeof(system_cpu_stats));
-	ac->system_sysfs = strdup("/sys/");
-	ac->system_procfs = strdup("/proc/");
-	ac->system_rundir = strdup("/run/");
-	ac->system_usrdir = strdup("/usr/");
-	ac->system_etcdir = strdup("/etc/");
-	ac->system_pidfile = calloc(1, sizeof(*ac->system_pidfile));
-
-	ac->process_match = calloc(1, sizeof(match_rules));
-	ac->process_match->hash = alligator_ht_init(NULL);
-
-	ac->packages_match = calloc(1, sizeof(match_rules));
-	ac->packages_match->hash = alligator_ht_init(NULL);
-
-	ac->services_match = calloc(1, sizeof(match_rules));
-	ac->services_match->hash = alligator_ht_init(NULL);
-
-	ac->system_userprocess = alligator_ht_init(NULL);
-	ac->system_groupprocess = alligator_ht_init(NULL);
-
-	ac->system_sysctl = alligator_ht_init(NULL);
-}
 
 void system_metric_initialize()
 {

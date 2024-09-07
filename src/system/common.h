@@ -17,3 +17,4 @@ void ipaddr_info();
 void hw_cpu_info();
 void get_utsname();
 void get_smbios();
+void system_initialize();
