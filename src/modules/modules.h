@@ -1,6 +1,6 @@
 #pragma once
 #include <uv.h>
-#include "dstructures/tommyds/tommyds/tommy.h"
+#include "dstructures/tommy.h"
 typedef struct module_t {
 	char *key;
 	char *path;

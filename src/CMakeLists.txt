@@ -273,15 +273,9 @@ set(STATIC_FILES
 	dstructures/ht.c
 	dstructures/maglev.c
 	dstructures/tommy.c
-	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
-	dstructures/tommyds/tommyds/tommyhashlin.c
 	dstructures/tommyds/tommyds/tommylist.c
 	dstructures/tommyds/tommyds/tommyhash.c
-	dstructures/tommyds/tommyds/tommyarray.c
-	dstructures/tommyds/tommyds/tommytree.c
-	dstructures/tommyds/tommyds/tommytrie.c
-	dstructures/tommyds/tommyds/tommyarrayblk.c
 )
 
 message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")
@@ -521,31 +515,34 @@ add_library(${COMMON_TESTS} STATIC
 	dstructures/ht.c
 	dstructures/maglev.c
 	dstructures/tommy.c
-	dstructures/tommyds/tommyds/tommyarray.c
 	dstructures/tommyds/tommyds/tommyhashdyn.c
-	dstructures/tommyds/tommyds/tommyhashlin.c
 	dstructures/tommyds/tommyds/tommylist.c
 	dstructures/tommyds/tommyds/tommyhash.c
-	dstructures/tommyds/tommyds/tommyarray.c
-	dstructures/tommyds/tommyds/tommytree.c
-	dstructures/tommyds/tommyds/tommytrie.c
-	dstructures/tommyds/tommyds/tommyarrayblk.c
     ${SYSTEMD_FILES}
 )
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-#IF(${distro}.${disversion} MATCHES "centos.7")
 add_executable(${TESTS} tests/unit2/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} systemd dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a libmbedtls.a libmbedx509.a libmbedcrypto.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a)
 add_test(Test1 "bin/alligator_tests" ".")
-#ENDIF(${distro}.${disversion} MATCHES "centos.7")
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /var/lib/alligator/mongo.so -buildmode=c-shared cmd/mongo/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
+IF(NOT ${distro}.${disversion} MATCHES "centos.7")
+set_target_properties(${TESTS} PROPERTIES
+    COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
+    LINK_FLAGS "-fprofile-generate"
+)
+set_target_properties(${COMMON_TESTS} PROPERTIES
+    COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
+    LINK_FLAGS "-fprofile-generate"
+)
+# to check coverage report use the: ./bin/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata bin/alligator_tests
+ENDIF(NOT ${distro}.${disversion} MATCHES "centos.7")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} libuv_a.a jansson)

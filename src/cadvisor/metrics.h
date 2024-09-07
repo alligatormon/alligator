@@ -1,5 +1,5 @@
 #pragma once
-#include "dstructures/tommyds/tommyds/tommy.h"
+#include "dstructures/tommy.h"
 #include "dstructures/ht.h"
 //typedef struct ifindexnames
 //{

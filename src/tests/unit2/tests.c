@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <events/context_arg.h>
+#include "metric/namespace.h"
 #include "main.h"
 #include "common/patricia.h"
+#include "parsers/multiparser.h"
 
 /*      UINT64_MAX 18446744073709551615ULL */
 #define P10_UINT64 10000000000000000000ULL   /* 19 zeroes */

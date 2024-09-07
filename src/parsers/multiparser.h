@@ -151,3 +151,5 @@ void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg);
 void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg);
 void httpd_status_handler(char *metrics, size_t size, context_arg *carg);
 void flower_handler(char *metrics, size_t size, context_arg *carg);
+void nsd_handler(char *metrics, size_t size, context_arg *carg);
+void ntp_handler(char *ntpData, size_t size, context_arg *carg);

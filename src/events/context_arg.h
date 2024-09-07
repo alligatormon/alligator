@@ -8,7 +8,7 @@
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
 #include "metric/metrictree.h"
-#include "dstructures/tommyds/tommyds/tommy.h"
+#include "dstructures/tommy.h"
 #include "common/netlib.h"
 #include "cluster/type.h"
 

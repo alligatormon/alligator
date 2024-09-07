@@ -1,5 +1,5 @@
 #pragma once
-#include "dstructures/tommyds/tommyds/tommy.h"
+#include "dstructures/tommy.h"
 #include "events/context_arg.h"
 #include "modules/modules.h"
 #include "metric/query.h"

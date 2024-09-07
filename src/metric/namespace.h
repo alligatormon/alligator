@@ -86,3 +86,4 @@ void serializer_do(serializer_context *sc, string *str);
 void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count);
 void serializer_free(serializer_context *sc);
 void expire_purge(uint64_t key, char *namespace, namespace_struct *ns);
+void ts_initialize();

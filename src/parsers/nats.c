@@ -3,7 +3,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
-#include "common/json_parser.h"
+#include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
 #include "main.h"
