@@ -68,7 +68,8 @@ memcheck:
   except:
   - tags
   script:
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
+  - apt update
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
