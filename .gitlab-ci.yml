@@ -132,6 +132,32 @@ deploy_centos9:
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
   - curl -F "package[distro_version_id]=240" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
+deploy_ubuntu1204:
+  image: ubuntu:12.04
+  except:
+  - tags
+  stage: build
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+    TZ: Etc/UTC
+  script:
+  - apt update
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+  - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
+  - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
+  - ln -s /usr/local/go/bin/go /usr/bin/go
+
+  - cmake . -DCPACK_GENERATOR=DEB
+  - make -j package
+  - ls alligator-$CI_COMMIT_TAG-Linux.deb
+
 deploy_ubuntu2004:
   image: ubuntu:20.04
   only:
