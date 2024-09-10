@@ -142,7 +142,7 @@ deploy_ubuntu1204:
     DEBIAN_FRONTEND: noninteractive
     TZ: Etc/UTC
   script:
-  - sudo sed -i -e 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+  - sed -i -e 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
   - apt-get update
   - apt-get -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config
   - git submodule sync --recursive
