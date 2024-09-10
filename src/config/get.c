@@ -3,7 +3,7 @@
 #include "lang/type.h"
 #include "x509/type.h"
 #include "common/http.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "probe/probe.h"
 #include "puppeteer/puppeteer.h"
 #include "resolver/resolver.h"
