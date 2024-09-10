@@ -6,7 +6,7 @@
 #include "alligator_version.h"
 #include "events/a_signal.h"
 #include "x509/type.h"
-#include "query/query.h"
+#include "query/type.h"
 #include "events/system_scrape.h"
 #include "events/icmp.h"
 #include "events/udp.h"
