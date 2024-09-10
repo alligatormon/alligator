@@ -5,7 +5,7 @@
 #include "resolver/resolver.h"
 #include "alligator_version.h"
 #include "events/a_signal.h"
-#include "common/pem_check.h"
+#include "x509/type.h"
 #include "query/query.h"
 #include "events/system_scrape.h"
 #include "events/icmp.h"
