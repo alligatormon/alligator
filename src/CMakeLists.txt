@@ -169,7 +169,6 @@ set(STATIC_FILES
 	common/validator.c
 	common/base64.c
 	common/http.c
-	common/fastcgi.c
 	common/url.c
 	common/aggregator.c
 	common/json_query.c
@@ -413,7 +412,6 @@ add_library(${COMMON_TESTS} STATIC
 	common/validator.c
 	common/base64.c
 	common/http.c
-	common/fastcgi.c
 	common/url.c
 	common/aggregator.c
 	common/json_query.c
