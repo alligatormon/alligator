@@ -4,19 +4,84 @@ stages:
 
 image: centos:7.9.2009
 
-cutter_centos:
+tests:
   stage: build
+  image: quay.io/centos/centos:stream9
+  except:
+  - tags
   script:
-  - yum -y install git
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
-  - sh bootstrap.sh
-  - cmake3 . -DCPACK_GENERATOR=RPM -DCONAN_DISABLE_CHECK_COMPILER=True
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake .
   - make -j
-  - cutter .
+
+  - ./bin/alligator_tests pass
+  - llvm-profdata merge -sparse default.profraw -o default.profdata
+  - llvm-cov report -instr-profile=default.profdata bin/alligator_tests
+
+static-analyzer:
+  stage: build
+  image: quay.io/centos/centos:stream9
   except:
   - tags
+  script:
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake -DCMAKE_BUILD_TYPE=Debug .
+  - cmake --build . --target alligator_analyze
+
+static-lint:
+  stage: build
+  image: quay.io/centos/centos:stream9
+  except:
+  - tags
+  script:
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake -DCMAKE_BUILD_TYPE=Debug .
+  - cmake --build . --target alligator_lint
+
+memcheck:
+  stage: build
+  image: lazypanda07/ubuntu_cxx20:24.04
+  except:
+  - tags
+  script:
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - pip3 install conan==1.60.0
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake -DCMAKE_BUILD_TYPE=Debug .
+  - make -j
+
+  - valgrind --leak-check=full -v --track-origins=yes ./bin/alligator&
+  - sleep 120 && kill -TERM %1
 
 deploy_centos7:
   stage: build

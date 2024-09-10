@@ -226,6 +226,7 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
 #include "api_v1.h"
 #include "parsers.h"
 #include "system.h"
+#include "config.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -266,5 +267,6 @@ int main(int argc, char **argv) {
     api_test_parser_nats();
     api_test_parser_flower();
     system_test(argv[0]);
+    test_config();
     infomesg();
 }

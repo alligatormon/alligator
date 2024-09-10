@@ -555,6 +555,23 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 #add_executable(${JP} json_parser.c)
 #target_link_libraries(${JP} ${COMMON} jansson)
 
+function(add_include_flags include_flags_var)
+    set(result "")
+    foreach(dir ${ARGN})
+        if (NOT ${dir} MATCHES "libbsd")
+            list(APPEND result "-I${dir}")
+        endif()
+    endforeach()
+    set(${include_flags_var} "${result}" PARENT_SCOPE)
+endfunction()
+add_include_flags(include_flags ${CMAKE_INCLUDE_PATH})
+
+get_target_property(SRCs ${HEAD} SOURCES)
+add_custom_target(${HEAD}_analyze COMMAND clang ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv ${include_flags} --analyze;-Xanalyzer;-analyzer-output=text ${STATIC_FILES})
+
+add_custom_target(${HEAD}_lint COMMAND clang-tidy ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv ${include_flags})
+
+
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
