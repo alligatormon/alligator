@@ -60,7 +60,6 @@ static-lint:
 
   - pip3 install conan==1.60.0
   - mkdir -p ~/.conan/profiles/
-  - echo 'compiler.libcxx=libstdc++11' > ~/.conan/profiles/default
   - conan install . --build=missing
   - conan build external/
 
