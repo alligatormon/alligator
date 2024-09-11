@@ -56,6 +56,9 @@ static-lint:
   script:
   - apt update
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl clang-tidy
+
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
   - cd src
 
   - pip3 install conan==1.60.0
