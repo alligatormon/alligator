@@ -58,7 +58,8 @@ static-lint:
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl clang-tidy
 
   - pip3 install conan==1.60.0
-  - conan profile update settings.compiler.libcxx=libstdc++11 default
+  - mkdir -p ~/.conan/profiles/
+  - echo 'compiler.libcxx=libstdc++11' > ~/.conan/profiles/default
   - conan install . --build=missing
   - conan build external/
 
