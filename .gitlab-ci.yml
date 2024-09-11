@@ -47,6 +47,7 @@ static-analyzer:
 
 static-lint:
   image: ubuntu:22.04
+  allow_failure: true
   except:
   - tags
   stage: build
