@@ -10,6 +10,8 @@ tests:
   except:
   - tags
   script:
+  - dnf install 'dnf-command(config-manager)'
+  - dnf config-manager --set-enabled crb
   - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -33,6 +35,8 @@ static-analyzer:
   except:
   - tags
   script:
+  - dnf install 'dnf-command(config-manager)'
+  - dnf config-manager --set-enabled crb
   - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -56,7 +60,7 @@ static-lint:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl clang-tidy libvirt-devel
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl clang-tidy libvirt-dev
 
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -80,7 +84,7 @@ memcheck:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl valgrind libvirt-devel
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl valgrind libvirt-dev
 
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -131,6 +135,8 @@ deploy_centos9:
   only:
   - tags
   script:
+  - dnf install 'dnf-command(config-manager)'
+  - dnf config-manager --set-enabled crb
   - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel
   - git submodule sync --recursive
   - git submodule update --init --recursive
