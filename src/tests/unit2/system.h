@@ -1,17 +1,16 @@
-#include <unistd.h>
-#include <libgen.h>
 #include "system/common.h"
 extern aconf *ac;
 
 void system_test(char *binary) {
 	system_initialize();
-    char *pathbin = dirname(binary);
-    char mockpath[PATH_MAX + 1];
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);
     ac->system_rundir = malloc(PATH_MAX + 1);
     ac->system_usrdir = malloc(PATH_MAX + 1);
     ac->system_etcdir = malloc(PATH_MAX + 1);
+
+    char *pathbin = dirname(binary);
+    char mockpath[PATH_MAX + 1];
     if (*pathbin == '/') {
         snprintf(mockpath, PATH_MAX, "%s/../tests/mock/linux/", pathbin);
     }
@@ -32,12 +31,14 @@ void system_test(char *binary) {
         \"base\": {},\
         \"disk\": {},\
         \"network\": {},\
+        \"cadvisor\": {},\
         \"cpuavg\": {\
           \"period\": 5\
         },\
         \"services\": [    ],\
         \"process\": [ \"beam.smp\"  ],\
         \"auditd\": {},\
+        \"firewall\": {},\
         \"packages\": []\
       }\
     }";

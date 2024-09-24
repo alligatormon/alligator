@@ -1,7 +1,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
+#include <libgen.h>
 #include <events/context_arg.h>
 #include "metric/namespace.h"
 #include "main.h"
@@ -190,6 +192,11 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
                 assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, samples);
 
                 uint64_t samples_size = json_array_size(samples);
+                int samples_exists = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, samples_size > 0);
+                if (!samples_exists) {
+                    printf("checked metric '%s': expected %lf, error: no samples!\n", metric_name, expected_val);
+                    fflush(stdout);
+                }
                 for (uint64_t k = 0; k < samples_size; k++)
                 {
                     json_t *sample = json_array_get(samples, k);
@@ -221,6 +228,20 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
     }
 }
 
+void get_local_directory(char *mockpath, char *binary, char *extra_path) {
+    binary = strdup(binary);
+    char *pathbin = dirname(binary);
+    free(binary);
+    if (*pathbin == '/') {
+        snprintf(mockpath, PATH_MAX, "%s/../%s", pathbin, extra_path);
+    }
+    else {
+        char cwd[PATH_MAX + 1];
+        getcwd(cwd, sizeof(cwd));
+        snprintf(mockpath, PATH_MAX, "%s/%s/../%s", cwd, pathbin, extra_path);
+    }
+}
+
 #include "netlib.h"
 #include "http.h"
 #include "api_v1.h"
@@ -237,8 +258,14 @@ int main(int argc, char **argv) {
 
     ac = calloc(1, sizeof(*ac));
     ac->loop = uv_default_loop();
+    ac->process_script_dir = "/var/lib/alligator/spawner";
+
     ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
     tommy_list_init(ac->uv_cache_timer);
+
+	ac->uv_cache_fs = calloc(1, sizeof(tommy_list));
+	tommy_list_init(ac->uv_cache_fs);
+
     log_default();
 
     ts_initialize();
@@ -266,6 +293,8 @@ int main(int argc, char **argv) {
     api_test_parser_httpd();
     api_test_parser_nats();
     api_test_parser_flower();
+    api_test_parser_rabbitmq();
+    api_test_parser_elasticsearch(argv[0]);
     system_test(argv[0]);
     test_config();
     infomesg();

@@ -186,7 +186,7 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 						char cgroup_cnt_id[255];
 						snprintf(cgroup_cnt_id, 255, "libpod-%s.scope", podman_labels->id);
 
-						cadvisor_scrape(NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image, NULL, NULL, NULL);
+						cadvisor_scrape(NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image, NULL, NULL, NULL, NULL);
 
 						free(podman_labels->id);
 						free(podman_labels->name);
@@ -324,22 +324,22 @@ void openvz7_labels()
 					if (ethd_entry->d_name[0] == '.')
 						continue;
 
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
+					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
 				}
 				closedir(ethd);
 			}
 			umount("/var/lib/alligator/nsmount");
 			unshare(CLONE_NEWNET);
 
-			cadvisor_scrape(NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -370,7 +370,7 @@ void lxc_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -402,7 +402,7 @@ void nspawn_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -551,17 +551,100 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 			if (!is_k8s)
 			{
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, id);
-				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL);
+				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL, NULL);
 			}
 			else
 			{
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
-				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer);
+				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer, NULL);
 			}
 		}
 	}
 	json_decref(root);
 	carg->parser_status = 1;
+}
+
+void cgroup_v2_machines()
+{
+	char v2dir[1001];
+	char v2cgroup[1001];
+	DIR *rd;
+	struct dirent *rd_entry;
+
+	snprintf(v2dir, 1000, "%s/fs/cgroup/machine.slice/", ac->system_sysfs);
+
+	rd = opendir(v2dir);
+	if (rd)
+	{
+		while((rd_entry = readdir(rd)))
+		{
+			if (rd_entry->d_name[0] == '.')
+				continue;
+
+			snprintf(v2cgroup, 1000, "%s/%s", v2dir, rd_entry->d_name);
+
+			struct stat path_stat;
+			stat(v2cgroup, &path_stat);
+
+			if (!S_ISDIR(path_stat.st_mode))
+				continue;
+
+
+			char type[255] = { 0 };
+			char name[255] = { 0 };
+			char *contname = strdup(rd_entry->d_name);
+			int num = 0;
+			char *ptrname;
+			char *endname;
+			int j = 0;
+			int j_len = 0;
+			char libvirt_index[19] = {0};
+			int is_libvirt = 0;
+			char check_libvirt_path[1001];
+			snprintf(check_libvirt_path, 1000, "%s/libvirt", v2cgroup);
+			DIR *check_libvirt = opendir(check_libvirt_path);
+			char *pass_libvirt_id = NULL;
+			if (check_libvirt)
+			{
+				pass_libvirt_id = libvirt_index;
+				is_libvirt = 1;
+				closedir(check_libvirt);
+			}
+
+			for (int i = 0; contname[i]; ++i) {
+				if (!strncmp(contname+i, "\\x2d", 4)) {
+					++num;
+					contname[i] = '-';
+					strlcpy(contname+i+1, contname+i+4, 255);
+
+					if (num == 1) {
+						strlcpy(type, contname, i+1);
+						j = i + 1;
+						if (!is_libvirt)
+							ptrname = contname+i+1;
+					}
+					if (num == 2) {
+						j_len = i - j;
+						if (is_libvirt)
+							ptrname = contname+i+1;
+					}
+					if (num == 3) {
+						strlcpy(libvirt_index, contname + j, j_len + 1);
+					}
+				}
+
+				if (!strncmp(contname+i, ".scope", 6)) {
+					endname = contname+i;
+				}
+			}
+
+			strlcpy(name, ptrname, endname - ptrname + 1);
+			//printf("%d: '%s', contname[%s]: '%s', type: '%s', passed args: 1[%s] 2[%s]\n", is_libvirt, check_libvirt_path, libvirt_index, contname, type, rd_entry->d_name, name);
+			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
+			free(contname);
+		}
+		closedir(rd);
+	}
 }
 
 void cadvisor_metrics()
@@ -570,6 +653,8 @@ void cadvisor_metrics()
 	openvz7_labels();
 	lxc_labels();
 	nspawn_labels();
+	cgroup_v2_machines();
+	libvirt();
 }
 #endif
 

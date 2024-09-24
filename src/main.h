@@ -21,6 +21,7 @@
 #include "common/aggregator.h"
 #include "dstructures/uv_cache.h"
 #include "resolver/resolver.h"
+#include "cadvisor/libvirt.h"
 #define d8 PRId8
 #define u8 PRIu8
 #define u16 PRIu16
@@ -224,6 +225,7 @@ typedef struct aconf
 	jint (*create_jvm)(JavaVM**, void**, void*);
 	JNIEnv *env;
 
+	libvirt_library *libvirt;
 	pq_library *pqlib;
 	my_library *mylib;
 	void *pylib;

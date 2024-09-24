@@ -63,25 +63,9 @@ uint64_t count_file_lines(char *filename) {
 
 uint64_t get_file_atime(char *filename)
 {
-	struct stat st;
+	struct stat st = {0};
 	stat(filename, &st);
 	return st.st_atime;
-}
-
-uint64_t read_all_file(char *filename, char **buf) {
-	FILE *fd = fopen(filename, "rb");
-	if (!fd)
-		return 0;
-
-	uint64_t fsize = get_any_file_size(filename);
-
-	*buf = malloc(fsize + 1);
-	fread(*buf, fsize, 1, fd);
-	fclose(fd);
-
-	buf[fsize] = 0;
-
-	return fsize;
 }
 
 char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num )
@@ -285,42 +269,6 @@ void stlentext(stlen *str, char *str2)
 	size_t len = strlen(str2) +1;
 	strlcpy(str->s, str2, len);
 	str->l += len;
-}
-
-char *gettextfile(char *path, size_t *filesz)
-{
-	FILE *fd = fopen(path, "r");
-	if (!fd)
-		return NULL;
-
-	fseek(fd, 0, SEEK_END);
-	int64_t fdsize = ftell(fd)+1;
-	rewind(fd);
-
-#ifdef _WIN64
-	int32_t psize = 10000;
-#else
-	int32_t psize = 0;
-#endif
-
-	char *buf = malloc(fdsize+psize);
-	size_t rc = fread(buf, 1, fdsize, fd);
-	rc++;
-#ifndef _WIN64
-	if (rc != fdsize)
-	{
-		fprintf(stderr, "I/O err read %s\n", path);
-		free(buf);
-		fclose(fd);
-		return NULL;
-	}
-#endif
-	buf[rc] = 0;
-	if (filesz)
-		*filesz = rc-1;
-	fclose(fd);
-
-	return buf;
 }
 
 int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor)

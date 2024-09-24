@@ -8,6 +8,7 @@
 #include "parsers/elasticsearch.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "common/validator.h"
 #include "main.h"
 
@@ -220,6 +221,11 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	char* cluster_name = (char*)json_string_value(cluster_name_json);
+	if (!cluster_name)
+	{
+		carglog(carg, L_ERROR, "elasticsearch_health_handler: no field 'cluster_name':\n'%s'\n", metrics);
+		return;
+	}
 	elastic_settings *es_data = carg->data;
 	if (!es_data->cluster_name)
 		es_data->cluster_name = strdup(cluster_name);

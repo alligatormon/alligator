@@ -153,3 +153,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg);
 void flower_handler(char *metrics, size_t size, context_arg *carg);
 void nsd_handler(char *metrics, size_t size, context_arg *carg);
 void ntp_handler(char *ntpData, size_t size, context_arg *carg);
+void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *carg);

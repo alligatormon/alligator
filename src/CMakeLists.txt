@@ -267,6 +267,7 @@ set(STATIC_FILES
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
+	cadvisor/libvirt.c
 	dstructures/uv_cache.c
 	dstructures/ht.c
 	dstructures/maglev.c
@@ -507,6 +508,7 @@ add_library(${COMMON_TESTS} STATIC
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
+	cadvisor/libvirt.c
 	dstructures/uv_cache.c
 	dstructures/ht.c
 	dstructures/maglev.c

@@ -13,7 +13,6 @@
 
 size_t get_rec_dir (char *str, size_t len, uint64_t num, int *fin)
 {
-	//printf("go to %"PRIu64"\n",num);
 	char *cursor = str, *cursor_tmp;
 	uint64_t i;
 	for ( i=0; i<num; i++ )
@@ -32,9 +31,7 @@ size_t get_rec_dir (char *str, size_t len, uint64_t num, int *fin)
 			return len;
 		}
 		cursor+=1;
-		//printf("cursor(%p): %zu: %s\n",cursor,cursor-str,cursor);
 	}
-	//printf("return %zu\n", cursor-str);
 	return cursor-str;
 }
 
