@@ -1107,7 +1107,7 @@ void get_start_time(char *prefix, char *cntid, char *name, char *image, char *ca
 void cgroup_get_quotas(char *prefix, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer)
 {
 	char fpath[1000];
-	int64_t ival;
+	int64_t ival = 0;
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/cpuacct/%s/%s/cpu.shares", ac->system_sysfs, prefix, cntid);
 	int rc = get_int_file(fpath, &ival);
