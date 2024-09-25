@@ -8,6 +8,7 @@
 #include <linux/sched.h>
 #include "cadvisor/ns.h"
 #include "cadvisor/metrics.h"
+#include "cadvisor/libvirt.h"
 #include "common/logs.h"
 #include <sys/mount.h>
 #include <sched.h>

@@ -37,3 +37,5 @@ typedef struct libvirt_library {
 	uv_lib_t *virConnectClose_lib;
 	int (*virConnectClose)(virConnectPtr);
 } libvirt_library;
+
+int libvirt();

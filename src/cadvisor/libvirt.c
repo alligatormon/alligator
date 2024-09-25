@@ -8,41 +8,41 @@
 #define LIBVIRT_XML_SIZE 10240
 
 void libvirt_free(libvirt_library* libvirt) {
-	if (libvirt->virDomainGetID)
-		free(libvirt->virDomainGetID);
+	//if (libvirt->virDomainGetID)
+	//	free(libvirt->virDomainGetID);
 
-	if (libvirt->virDomainGetName)
-		free(libvirt->virDomainGetName);
+	//if (libvirt->virDomainGetName)
+	//	free(libvirt->virDomainGetName);
 
-	if (libvirt->virDomainMemoryStats)
-		free(libvirt->virDomainMemoryStats);
+	//if (libvirt->virDomainMemoryStats)
+	//	free(libvirt->virDomainMemoryStats);
 
-	if (libvirt->virDomainGetMaxMemory_lib)
-		free(libvirt->virDomainGetMaxMemory_lib);
+	//if (libvirt->virDomainGetMaxMemory_lib)
+	//	free(libvirt->virDomainGetMaxMemory_lib);
 
-	if (libvirt->virDomainGetMaxVcpus)
-		free(libvirt->virDomainGetMaxVcpus);
+	//if (libvirt->virDomainGetMaxVcpus)
+	//	free(libvirt->virDomainGetMaxVcpus);
 
-	if (libvirt->virDomainGetBlockIoTune_lib)
-		free(libvirt->virDomainGetBlockIoTune_lib);
+	//if (libvirt->virDomainGetBlockIoTune_lib)
+	//	free(libvirt->virDomainGetBlockIoTune_lib);
 
-	if (libvirt->virDomainGetXMLDesc)
-		free(libvirt->virDomainGetXMLDesc);
+	//if (libvirt->virDomainGetXMLDesc)
+	//	free(libvirt->virDomainGetXMLDesc);
 
-	if (libvirt->virDomainLookupByID)
-		free(libvirt->virDomainLookupByID);
+	//if (libvirt->virDomainLookupByID)
+	//	free(libvirt->virDomainLookupByID);
 
-	if (libvirt->virConnectOpen)
-		free(libvirt->virConnectOpen);
+	//if (libvirt->virConnectOpen)
+	//	free(libvirt->virConnectOpen);
 
-	if (libvirt->virConnectListAllDomains)
-		free(libvirt->virConnectListAllDomains);
+	//if (libvirt->virConnectListAllDomains)
+	//	free(libvirt->virConnectListAllDomains);
 
-	if (libvirt->virDomainFree)
-		free(libvirt->virDomainFree);
+	//if (libvirt->virDomainFree)
+	//	free(libvirt->virDomainFree);
 
-	if (libvirt->virConnectClose)
-		free(libvirt->virConnectClose);
+	//if (libvirt->virConnectClose)
+	//	free(libvirt->virConnectClose);
 
 	free(libvirt);
 }
@@ -310,7 +310,7 @@ void get_memory(virConnectPtr c, int i) {
 }
 
 
-int libvirt(int argc, char **argv) {
+int libvirt() {
 	if (!ac->libvirt) {
 		ac->libvirt = libvirt_init();
 		if (!ac->libvirt)
