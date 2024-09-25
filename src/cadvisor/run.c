@@ -595,8 +595,8 @@ void cgroup_v2_machines()
 			char name[255] = { 0 };
 			char *contname = strdup(rd_entry->d_name);
 			int num = 0;
-			char *ptrname;
-			char *endname;
+			char *ptrname = NULL;
+			char *endname = NULL;
 			int j = 0;
 			int j_len = 0;
 			char libvirt_index[19] = {0};
@@ -639,7 +639,10 @@ void cgroup_v2_machines()
 				}
 			}
 
-			strlcpy(name, ptrname, endname - ptrname + 1);
+			if (ptrname && endname)
+				strlcpy(name, ptrname, endname - ptrname + 1);
+			else
+				strlcpy(name, contname, 255);
 			//printf("%d: '%s', contname[%s]: '%s', type: '%s', passed args: 1[%s] 2[%s]\n", is_libvirt, check_libvirt_path, libvirt_index, contname, type, rd_entry->d_name, name);
 			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
 			free(contname);
