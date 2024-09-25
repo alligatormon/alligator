@@ -3,12 +3,12 @@
 #include "events/context_arg.h"
 #include "common/logs.h"
 #include "main.h"
+extern aconf *ac;
 
 #define SYSLOGNG_NAME_SIZE 1000
 
 void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 {
-	extern aconf *ac;
 	char *cur = metrics;
 	uint64_t msize;
 	char source_name[SYSLOGNG_NAME_SIZE];
