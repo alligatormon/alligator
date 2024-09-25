@@ -8,41 +8,41 @@
 #define LIBVIRT_XML_SIZE 10240
 
 void libvirt_free(libvirt_library* libvirt) {
-	//if (libvirt->virDomainGetID)
-	//	free(libvirt->virDomainGetID);
+	if (libvirt->virDomainGetID_lib)
+		free(libvirt->virDomainGetID_lib);
 
-	//if (libvirt->virDomainGetName)
-	//	free(libvirt->virDomainGetName);
+	if (libvirt->virDomainGetName_lib)
+		free(libvirt->virDomainGetName_lib);
 
-	//if (libvirt->virDomainMemoryStats)
-	//	free(libvirt->virDomainMemoryStats);
+	if (libvirt->virDomainMemoryStats_lib)
+		free(libvirt->virDomainMemoryStats_lib);
 
-	//if (libvirt->virDomainGetMaxMemory_lib)
-	//	free(libvirt->virDomainGetMaxMemory_lib);
+	if (libvirt->virDomainGetMaxMemory_lib)
+		free(libvirt->virDomainGetMaxMemory_lib);
 
-	//if (libvirt->virDomainGetMaxVcpus)
-	//	free(libvirt->virDomainGetMaxVcpus);
+	if (libvirt->virDomainGetMaxVcpus_lib)
+		free(libvirt->virDomainGetMaxVcpus_lib);
 
-	//if (libvirt->virDomainGetBlockIoTune_lib)
-	//	free(libvirt->virDomainGetBlockIoTune_lib);
+	if (libvirt->virDomainGetBlockIoTune_lib)
+		free(libvirt->virDomainGetBlockIoTune_lib);
 
-	//if (libvirt->virDomainGetXMLDesc)
-	//	free(libvirt->virDomainGetXMLDesc);
+	if (libvirt->virDomainGetXMLDesc_lib)
+		free(libvirt->virDomainGetXMLDesc_lib);
 
-	//if (libvirt->virDomainLookupByID)
-	//	free(libvirt->virDomainLookupByID);
+	if (libvirt->virDomainLookupByID_lib)
+		free(libvirt->virDomainLookupByID_lib);
 
-	//if (libvirt->virConnectOpen)
-	//	free(libvirt->virConnectOpen);
+	if (libvirt->virConnectOpen_lib)
+		free(libvirt->virConnectOpen_lib);
 
-	//if (libvirt->virConnectListAllDomains)
-	//	free(libvirt->virConnectListAllDomains);
+	if (libvirt->virConnectListAllDomains_lib)
+		free(libvirt->virConnectListAllDomains_lib);
 
-	//if (libvirt->virDomainFree)
-	//	free(libvirt->virDomainFree);
+	if (libvirt->virDomainFree_lib)
+		free(libvirt->virDomainFree_lib);
 
-	//if (libvirt->virConnectClose)
-	//	free(libvirt->virConnectClose);
+	if (libvirt->virConnectClose_lib)
+		free(libvirt->virConnectClose_lib);
 
 	free(libvirt);
 }
