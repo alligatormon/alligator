@@ -31,6 +31,9 @@ typedef struct libvirt_library {
 	uv_lib_t *virConnectListAllDomains_lib;
 	int (*virConnectListAllDomains)(virConnectPtr, virDomainPtr **, unsigned int);
 
+	uv_lib_t *virDomainInterfaceStats_lib;
+	int (*virDomainInterfaceStats)(virDomainPtr, char*, virDomainInterfaceStatsPtr, size_t);
+
 	uv_lib_t *virDomainFree_lib;
 	int (*virDomainFree)(virDomainPtr domain);
 

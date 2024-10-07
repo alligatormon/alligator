@@ -643,7 +643,7 @@ void cgroup_v2_machines()
 				strlcpy(name, ptrname, endname - ptrname + 1);
 			else
 				strlcpy(name, contname, 255);
-			//printf("%d: '%s', contname[%s]: '%s', type: '%s', passed args: 1[%s] 2[%s]\n", is_libvirt, check_libvirt_path, libvirt_index, contname, type, rd_entry->d_name, name);
+			carglog(ac->cadvisor_carg, L_INFO, "cgroup v2 scrape name: '%s', d_name: '%s', contname: '%s', type: '%s', libvirt index: %s/%s, check_libvirt: '%s'\n", name, rd_entry->d_name, contname, type, libvirt_index, pass_libvirt_id, check_libvirt_path);
 			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
 			free(contname);
 		}

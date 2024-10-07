@@ -38,6 +38,9 @@ void libvirt_free(libvirt_library* libvirt) {
 	if (libvirt->virConnectListAllDomains_lib)
 		free(libvirt->virConnectListAllDomains_lib);
 
+	if (libvirt->virDomainInterfaceStats_lib)
+		free(libvirt->virDomainInterfaceStats_lib);
+
 	if (libvirt->virDomainFree_lib)
 		free(libvirt->virDomainFree_lib);
 
@@ -138,6 +141,14 @@ libvirt_library* libvirt_init()
 		return NULL;
 	}
 
+	libvirt->virDomainInterfaceStats = (int (*)(virDomainPtr, char *, virDomainInterfaceStatsPtr, size_t))module_load(mod->path, "virDomainInterfaceStats", &libvirt->virDomainInterfaceStats_lib);
+	if (!libvirt->virDomainInterfaceStats)
+	{
+		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainInterfaceStats from libvirt\n");
+		libvirt_free(libvirt);
+		return NULL;
+	}
+
 	libvirt->virDomainFree = (int (*)(virDomainPtr))module_load(mod->path, "virDomainFree", &libvirt->virDomainFree_lib);
 	if (!libvirt->virDomainFree)
 	{
@@ -155,6 +166,63 @@ libvirt_library* libvirt_init()
 	}
 
 	return libvirt;
+}
+
+void libvirt_if_dev_stats(virDomainPtr d, char *id, char *name, char *ifname) {
+	virDomainInterfaceStatsStruct stats = {0};
+	if (ac->libvirt->virDomainInterfaceStats(d, ifname, &stats, sizeof(stats)) != 0)
+		return;
+
+	carglog(ac->cadvisor_carg, L_DEBUG, "libvirt_if_dev_stats '%s' '%s' '%s': rx_bytes %lld, tx_bytes %lld, rx_packets %lld, tx_packets %lld, rx_errors %lld, tx_errors %lld, rx_drop %lld, tx_drop %lld\n", name, id, ifname, stats.rx_bytes, stats.tx_bytes, stats.rx_packets, stats.tx_packets, stats.rx_errs, stats.tx_errs, stats.rx_drop, stats.tx_drop);
+	metric_add_labels4("container_network_receive_bytes_total", &stats.rx_bytes, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_transmit_bytes_total", &stats.tx_bytes, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_receive_packets_total", &stats.rx_packets, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_transmit_packets_total", &stats.tx_packets, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_receive_errors_total", &stats.rx_errs, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_transmit_errors_total", &stats.tx_errs, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_receive_packets_dropped_total", &stats.rx_drop, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+	metric_add_labels4("container_network_transmit_packets_dropped_total", &stats.tx_drop, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
+}
+
+void libvirt_ifstat(virDomainPtr d, char *id, char *name) {
+	char *xml = ac->libvirt->virDomainGetXMLDesc(d, 0);
+	char *tmp = xml;
+	size_t xml_len = strlen(xml);
+	char xmlname[LIBVIRT_XML_SIZE];
+	char xmlvalue[LIBVIRT_XML_SIZE];
+	size_t xmlname_size = LIBVIRT_XML_SIZE;
+	size_t xmlvalue_size = LIBVIRT_XML_SIZE;
+	size_t end;
+	while (tmp++ - xml < xml_len)
+	{
+		tmp = strstr(tmp, "<interface");
+
+		if (!tmp)
+			continue;
+
+		if (!get_xml_node(tmp, (xml_len - (tmp - xml)), xmlname, &xmlname_size, xmlvalue, &xmlvalue_size, &end))
+			continue;
+
+		char *nodetmp = xmlvalue;
+
+		nodetmp = strstr(nodetmp, "<target");
+		if (!nodetmp)
+			continue;
+
+		nodetmp = strstr(nodetmp, "dev=");
+		if (!nodetmp)
+			continue;
+
+		nodetmp += 5;
+		char devname[128];
+
+		strlcpy(devname, nodetmp, strcspn(nodetmp, "'\" />")+1);
+		libvirt_if_dev_stats(d, id, name, devname);
+
+		tmp += end;
+	}
+
+	free(xml);
 }
 
 void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname) {
@@ -253,8 +321,8 @@ void libvirt_cpu(virDomainPtr d, char* id, char *name) {
 
 void libvirt_blkio(virDomainPtr d, char *id, char *name) {
 	char *xml = ac->libvirt->virDomainGetXMLDesc(d, 0);
-    char *tmp = xml;
-    size_t xml_len = strlen(xml);
+	char *tmp = xml;
+	size_t xml_len = strlen(xml);
 	char xmlname[LIBVIRT_XML_SIZE];
 	char xmlvalue[LIBVIRT_XML_SIZE];
 	size_t xmlname_size = LIBVIRT_XML_SIZE;
@@ -270,26 +338,26 @@ void libvirt_blkio(virDomainPtr d, char *id, char *name) {
 		if (!get_xml_node(tmp, (xml_len - (tmp - xml)), xmlname, &xmlname_size, xmlvalue, &xmlvalue_size, &end))
 			continue;
 
-        char *nodetmp = xmlvalue;
+		char *nodetmp = xmlvalue;
 
-	    nodetmp = strstr(nodetmp, "<target");
-	    if (!nodetmp)
-	    	continue;
+		nodetmp = strstr(nodetmp, "<target");
+		if (!nodetmp)
+			continue;
 
-	    nodetmp = strstr(nodetmp, "dev=");
-	    if (!nodetmp)
-	    	continue;
+		nodetmp = strstr(nodetmp, "dev=");
+		if (!nodetmp)
+			continue;
 
-        nodetmp += 5;
-        char devname[128];
+		nodetmp += 5;
+		char devname[128];
 
-        strlcpy(devname, nodetmp, strcspn(nodetmp, "'\" />")+1);
+		strlcpy(devname, nodetmp, strcspn(nodetmp, "'\" />")+1);
 		libvirt_get_blkio_info(d, id, name, devname);
 
 		tmp += end;
-    }
+	}
 
-    free(xml);
+	free(xml);
 }
 
 void scrape_domain(virDomainPtr d) {
@@ -298,10 +366,10 @@ void scrape_domain(virDomainPtr d) {
 	snprintf(cid, 18, "%d", id);
 	char *name = (char*)ac->libvirt->virDomainGetName(d);
 
-    libvirt_memory(d, cid, name);
-    libvirt_cpu(d, cid, name);
-    libvirt_blkio(d, cid, name);
-
+	libvirt_memory(d, cid, name);
+	libvirt_cpu(d, cid, name);
+	libvirt_blkio(d, cid, name);
+	libvirt_ifstat(d, cid, name);
 }
 
 void get_memory(virConnectPtr c, int i) {
