@@ -497,7 +497,7 @@ add_library(${COMMON_TESTS} STATIC
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c
-	#metric/labels.c
+	metric/labels.c
 	metric/metrictree.c
 	metric/percentile_heap.c
 	metric/metric_dump.c
@@ -566,10 +566,33 @@ function(add_include_flags include_flags_var)
 endfunction()
 add_include_flags(include_flags ${CMAKE_INCLUDE_PATH})
 
-get_target_property(SRCs ${HEAD} SOURCES)
-add_custom_target(${HEAD}_analyze COMMAND clang ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv ${include_flags} --analyze;-Xanalyzer;-analyzer-output=text ${STATIC_FILES})
 
-add_custom_target(${HEAD}_lint COMMAND clang-tidy ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv ${include_flags})
+include_directories(/usr/include)
+include_directories(/usr/local/include)
+include_directories(/usr/include/postgresql)
+include_directories(/usr/include/mysql)
+include_directories(external/mruby/include/)
+include_directories(external/libhv/protocol/)
+
+include_directories(/usr/include/zookeeper/)
+include_directories(/usr/include/libnl3)
+include_directories(/usr/local/include/mysql)
+include_directories(/usr/local/include/hv/)
+include_directories(external/libhv/include/hv/)
+include_directories(/usr/local/include/)
+include_directories(external/picohttpparser)
+include_directories(external/mbedtls/include/)
+include_directories(external/libfyaml/include/)
+include_directories(external/libatasmart/)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(external/mruby/include)
+
+
+get_target_property(SRCs ${HEAD} SOURCES)
+#add_custom_target(${HEAD}_analyze COMMAND clang ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ ${include_flags} --analyze;-Xanalyzer;-analyzer-output=text ${STATIC_FILES})
+add_custom_target(${HEAD}_analyze COMMAND clang-tidy --config-file=.clang-tidy.analyze ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -I. -I/usr/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu/ -I/usr/include/linux/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ -Iexternal/libfyaml/include/ -Iexternal/mruby/include/ ${include_flags})
+
+add_custom_target(${HEAD}_lint COMMAND clang-tidy --config-file=.clang-tidy.lint ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -I. -I/usr/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu/ -I/usr/include/linux/ -Iexternal/mbedtls/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ -Iexternal/libfyaml/include/ -Iexternal/mruby/include/ ${include_flags})
 
 
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")

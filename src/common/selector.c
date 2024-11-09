@@ -217,13 +217,6 @@ uint64_t selector_count_field(char *str, char *pattern, uint64_t sz)
 	return cnt;
 }
 
-void stlencat(stlen *str, char *str2, size_t len)
-{
-	//printf("CONCAT '%p'(SSIZE %zu) + '%s' (SIZE %zu)\n", str->s, strlen(str->s), str2, len);
-	strncat(str->s, str2, len);
-	str->l += len;
-}
-
 int sisdigit(const char *str)
 {
 	uint8_t dot = 0;
@@ -262,13 +255,6 @@ char *trim(char *s)
 inline size_t strcspn_n(const char *s, const char *find, size_t max) {
 	size_t ret = strcspn(s, find);
 	return ret > max ? max : ret;
-}
-
-void stlentext(stlen *str, char *str2)
-{
-	size_t len = strlen(str2) +1;
-	strlcpy(str->s, str2, len);
-	str->l += len;
 }
 
 int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor)

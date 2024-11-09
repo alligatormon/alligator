@@ -7,6 +7,7 @@
 #include <string.h>
 #include <query/type.h>
 #include "common/validator.h"
+#include "common/logs.h"
 #include <main.h>
 
 #define PG_TYPE_PG 0
@@ -531,15 +532,12 @@ void postgresql_get_databases(PGconn *conn, context_arg *carg)
 
 void postgresql_queries_foreach(void *funcarg, void* arg)
 {
+    puts("postgresql_queries_foreach");
 	context_arg *carg = (context_arg*)funcarg;
 	pg_data *data = carg->data;
 	PGconn *conn = data->conn;
 	query_node *qn = arg;
-	if (carg->log_level > 1)
-	{
-		puts("+-+-+-+-+-+-+-+");
-		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
-	}
+	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\nrun datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	postgresql_query(conn, qn->expr, qn, carg, postgresql_write, "database");
 }
 
@@ -836,8 +834,7 @@ void postgresql_run(void* arg)
 	conn = ac->pqlib->PQconnectdb(carg->url);
 	if (ac->pqlib->PQstatus(conn) != CONNECTION_OK)
 	{
-		if (carg->log_level > 0)
-			fprintf(stderr, "Connection to database failed: %s", ac->pqlib->PQerrorMessage(conn));
+		carglog(carg, L_INFO, "Connection to database status: '%d' error: %s", ac->pqlib->PQstatus(conn), ac->pqlib->PQerrorMessage(conn));
 
 		char reason[255];
 		uint64_t reason_size = strlcpy(reason, ac->pqlib->PQerrorMessage(conn), 255);
@@ -845,6 +842,10 @@ void postgresql_run(void* arg)
 		//metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
 		metric_add_labels5("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
+
+        printf("reason is '%s': %d\n", ac->pqlib->PQerrorMessage(conn), strcmp(ac->pqlib->PQerrorMessage(conn), "SSL SYSCALL error: Success\n"));
+		if (!strcmp(ac->pqlib->PQerrorMessage(conn), "SSL SYSCALL error: Success\n"))
+			return;
 
 		ac->pqlib->PQfinish(conn);
 		return;
@@ -862,8 +863,7 @@ void postgresql_run(void* arg)
 		if (carg->name)
 		{
 			query_ds *qds = query_get(carg->name);
-			if (carg->log_level > 1)
-				printf("found queries for datasource: %s: %p\n", carg->name, qds);
+			carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
 			if (qds)
 			{
 				alligator_ht_foreach_arg(qds->hash, postgresql_queries_foreach, carg);

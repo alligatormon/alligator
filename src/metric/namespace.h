@@ -52,7 +52,6 @@ typedef struct query_pass {
 	uint8_t action_need_run;
 } query_pass;
 
-void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
 void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg);
 void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1);

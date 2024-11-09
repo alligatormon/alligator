@@ -492,8 +492,8 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 		strlcpy(key, tmp, i+1);
 
 		int swap = strspn(tmp+i, " \t")+i;
-		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
-		strlcpy(val, tmp+swap, i-swap+1);
+		int size = strcspn(tmp+swap, " \t");
+		strlcpy(val, tmp+swap, size+1);
 
 		ival = atoll(val);
 
@@ -531,8 +531,8 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		strlcpy(key, tmp, i+1);
 
 		int swap = strspn(tmp+i, " \t")+i;
-		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
-		strlcpy(val, tmp+swap, i-swap+1);
+		int size = strcspn(tmp+swap, " \t");
+		strlcpy(val, tmp+swap, size+1);
 
 		ival = atoll(val);
 
@@ -2515,8 +2515,8 @@ void get_alligator_info()
 		int64_t i = strcspn(tmp, " \t");
 
 		int swap = strspn(tmp+i, " \t")+i;
-		for (; tmp[i] && (tmp[i]!=' ' || tmp[i]!='\t'); i++);
-		strlcpy(val, tmp+swap, i-swap+1);
+		int size = strcspn(tmp+swap, " \t");
+		strlcpy(val, tmp+swap, size+1);
 
 		ival = atoll(val);
 

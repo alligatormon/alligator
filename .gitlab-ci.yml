@@ -1,4 +1,5 @@
 stages:
+- generate-linters
 - tests
 - build
 
@@ -99,6 +100,22 @@ memcheck:
 
   - valgrind --leak-check=full -v --track-origins=yes ./bin/alligator&
   - sleep 120 && kill -TERM %1
+
+generate-linters:
+  image: docker:24.0.5
+  when: manual
+  services:
+  - docker:24.0.5-dind
+  tags:
+  - saas-linux-medium-amd64
+  stage: generate-linters
+  interruptible: true
+  script:
+  - echo ${DOCKER_PASSWORD} | docker login --username $DOCKER_USER --password-stdin
+  - docker build -t alligatormon/clang-tidy:latest .
+  - docker tag alligatormon/clang-tidy:latest alligatormon/clang-tidy:$CI_PIPELINE_IID
+  - docker push alligatormon/clang-tidy:$CI_PIPELINE_IID
+  - docker push alligatormon/clang-tidy:latest
 
 deploy_centos7:
   stage: build

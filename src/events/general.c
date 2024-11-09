@@ -8,8 +8,6 @@ extern aconf *ac;
 
 void general_loop_cb(uv_timer_t* handle)
 {
-	extern aconf* ac;
-
 	uint64_t val = 1;
 	metric_add_labels("alligator_version", &val, DATATYPE_UINT, NULL, "version", ALLIGATOR_VERSION);
 	metric_add_auto("alligator_metric_cache_hit", &ac->metric_cache_hits, DATATYPE_UINT, NULL);
@@ -27,8 +25,6 @@ void namespaces_expire_foreach(void *funcarg, void* arg)
 
 void expire_loop(uv_timer_t* handle)
 {
-	extern aconf* ac;
-
 	alligator_ht_foreach_arg(ac->_namespace, namespaces_expire_foreach, NULL);
 }
 
@@ -40,7 +36,6 @@ void dump_loop()
 
 void general_loop()
 {
-	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
 	uv_timer_init(loop, &ac->general_timer);
