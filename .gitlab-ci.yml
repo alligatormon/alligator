@@ -1,5 +1,4 @@
 stages:
-- generate-linters
 - tests
 - build
 
@@ -51,7 +50,7 @@ static-analyzer:
   - cmake --build . --target alligator_analyze
 
 static-lint:
-  image: ubuntu:22.04
+  image: alligatormon/clang-tidy
   allow_failure: true
   except:
   - tags
@@ -61,7 +60,7 @@ static-lint:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl clang-tidy libvirt-dev
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev golang-go curl libvirt-dev
 
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -108,11 +107,11 @@ generate-linters:
   - docker:24.0.5-dind
   tags:
   - saas-linux-medium-amd64
-  stage: generate-linters
+  stage: build
   interruptible: true
   script:
   - echo ${DOCKER_PASSWORD} | docker login --username $DOCKER_USER --password-stdin
-  - docker build -t alligatormon/clang-tidy:latest .
+  - docker build -t alligatormon/clang-tidy:latest -f misc/Dockerfile.clang-tidy .
   - docker tag alligatormon/clang-tidy:latest alligatormon/clang-tidy:$CI_PIPELINE_IID
   - docker push alligatormon/clang-tidy:$CI_PIPELINE_IID
   - docker push alligatormon/clang-tidy:latest

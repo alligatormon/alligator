@@ -843,10 +843,6 @@ void postgresql_run(void* arg)
 		metric_add_labels5("alligator_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "postgresql");
 
-        printf("reason is '%s': %d\n", ac->pqlib->PQerrorMessage(conn), strcmp(ac->pqlib->PQerrorMessage(conn), "SSL SYSCALL error: Success\n"));
-		if (!strcmp(ac->pqlib->PQerrorMessage(conn), "SSL SYSCALL error: Success\n"))
-			return;
-
 		ac->pqlib->PQfinish(conn);
 		return;
 	}
