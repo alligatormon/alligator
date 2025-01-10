@@ -127,7 +127,7 @@ More information about the aggregate directive can be found at the following [do
 - [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md)
 - [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md)
 - [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
-- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
+- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/kubernetes.md)
 - [prometheus\_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md)
 - [json\_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md)
 - [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
