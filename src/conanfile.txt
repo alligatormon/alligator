@@ -7,7 +7,7 @@ libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
 pcre/8.45
-libpq/13.3
+libpq/15.5
 openssl/3.2.2
 libbsd/0.10.0
 #mbedtls/2.28.4
