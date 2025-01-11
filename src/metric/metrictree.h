@@ -145,6 +145,7 @@ typedef struct query_struct {
 	char *metric_name;
 	char *key;
 	double val;
+	double lastvar;
 	double min;
 	double max;
 	alligator_ht *lbl;

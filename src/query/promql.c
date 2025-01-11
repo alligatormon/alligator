@@ -31,7 +31,7 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 		lbl = alligator_ht_init(NULL);
 	}
 
-	mqc->func = QUERY_FUNC_COUNT;
+	mqc->func = QUERY_FUNC_NONE;
 
 	uint64_t i;
 	uint64_t cur;
@@ -204,7 +204,7 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 
 	if (str)
 	{
-		str += strcspn(str, "><=");
+		str += strcspn(str, "><=!");
 
 		if (!strncmp(str, "==", 2))
 			mqc->op = QUERY_OPERATOR_EQ;

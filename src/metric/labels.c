@@ -337,12 +337,18 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		alligator_ht_insert(res_hash, &(qs->node), qs, key_hash);
 
 		int8_t type = x->type;
-		if (type == DATATYPE_INT)
+		if (type == DATATYPE_INT) {
 			qs->val += x->i;
-		else if (type == DATATYPE_UINT)
+			qs->lastvar = x->i;
+		}
+		else if (type == DATATYPE_UINT) {
 			qs->val += x->u;
-		else if (type == DATATYPE_DOUBLE)
+			qs->lastvar = x->u;
+		}
+		else if (type == DATATYPE_DOUBLE) {
 			qs->val += x->d;
+			qs->lastvar = x->d;
+		}
 
 		qs->min = qs->val;
 		qs->max = qs->val;
@@ -356,6 +362,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		if (type == DATATYPE_INT)
 		{
 			qs->val += x->i;
+			qs->lastvar = x->i;
 			if (qs->min > x->i)
 				qs->min = x->i;
 			if (qs->max < x->i)
@@ -364,6 +371,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		else if (type == DATATYPE_UINT)
 		{
 			qs->val += x->u;
+			qs->lastvar = x->u;
 			if (qs->min > x->u)
 				qs->min = x->u;
 			if (qs->max < x->u)
@@ -372,6 +380,7 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		else if (type == DATATYPE_DOUBLE)
 		{
 			qs->val += x->d;
+			qs->lastvar = x->d;
 			if (qs->min > x->d)
 				qs->min = x->d;
 			if (qs->max < x->d)
@@ -1400,8 +1409,10 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 
 uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 {
-	if (!op)
-		return 1;
+	if (!op) {
+	    printf("query_struct_check_expr: unknown OP!!!\n");
+		return 0;
+	}
 
 	if (op == QUERY_OPERATOR_EQ)
 		return val == opval;
@@ -1416,7 +1427,6 @@ uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 	else if (op == QUERY_OPERATOR_LE)
 		return val <= opval;
 
-	printf("query_struct_check_expr: unknown OP!!!\n");
 	return 1;
 }
 
@@ -1494,6 +1504,27 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 		printf("qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->count, mqc->opval))
+	{
+		metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
+		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
+		qp->action_need_run = 1;
+	}
+
+	free(qs->key);
+	free(qs);
+}
+
+void metric_gen_foreach_none(void *funcarg, void* arg)
+{
+	query_struct *qs = arg;
+
+	query_pass *qp = funcarg;
+	metric_query_context *mqc = qp->mqc;
+	char *name = qp->new_name;
+	if (ac->log_level > 2)
+		printf("qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
+
+	if (query_struct_check_expr(mqc->op, qs->lastvar, mqc->opval))
 	{
 		metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
 		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
@@ -1610,6 +1641,21 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			qp.mqc = mqc;
 			qp.action_need_run = 0;
 			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_avg, &qp);
+			alligator_ht_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
+			if (qp.action_need_run && an)
+				action_namespaced_run(action_name, an->name, NULL);
+			return;
+		}
+		else if (res_count && (func == QUERY_FUNC_NONE))
+		{
+			query_pass qp;
+			qp.new_name = new_name;
+			qp.an = an;
+			qp.mqc = mqc;
+			qp.action_need_run = 0;
+			alligator_ht_foreach_arg(res_hash, metric_gen_foreach_none, &qp);
 			alligator_ht_done(res_hash);
 			free(res_hash);
 			labels_head_free(labels_list);
