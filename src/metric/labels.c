@@ -1410,8 +1410,7 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 {
 	if (!op) {
-	    printf("query_struct_check_expr: unknown OP!!!\n");
-		return 0;
+		return 1;
 	}
 
 	if (op == QUERY_OPERATOR_EQ)
@@ -1427,6 +1426,7 @@ uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 	else if (op == QUERY_OPERATOR_LE)
 		return val <= opval;
 
+	printf("query_struct_check_expr: unknown OP!!!\n");
 	return 1;
 }
 
