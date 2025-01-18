@@ -769,8 +769,9 @@ string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
 	string *joined = string_new();
 	for (uint64_t i = 0; i < st->l; i++)
 	{
+		if (i)
+			string_cat(joined, sepsym, seplen);
 		string_string_cat(joined, st->str[i]);
-		string_cat(joined, sepsym, seplen);
 	}
 	return joined;
 }

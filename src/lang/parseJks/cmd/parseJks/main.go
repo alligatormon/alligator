@@ -117,7 +117,6 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 
 	match_keys = strings.Split(argc[1], ",")
 	password = []byte(argc[2])
-	//keyPassword := []byte(argc[3])
 	Mstring = ""
 
 	filepath.WalkDir(argc[0], lookCerts)
