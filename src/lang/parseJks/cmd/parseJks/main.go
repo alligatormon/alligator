@@ -16,7 +16,7 @@ import (
 	"github.com/pavlo-v-chernykh/keystore-go/v4"
 )
 
-var match string
+var match_keys []string
 var password []byte
 var Mstring string
 
@@ -100,8 +100,10 @@ func lookCerts(fullpath string, d fs.DirEntry, err error) error {
 		return err
 	}
 	if !d.IsDir() {
-		if strings.Contains(d.Name(), match) {
-			readCert(fullpath)
+		for _, token := range match_keys {
+			if strings.Contains(d.Name(), token) {
+				readCert(fullpath)
+			}
 		}
 	}
 	return nil
@@ -113,7 +115,7 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 	// example of arg is '/app/src/tests/system/jks .jks password'
 	argc := strings.Split(strArg, " ")
 
-	match = argc[1]
+	match_keys = strings.Split(argc[1], ",")
 	password = []byte(argc[2])
 	//keyPassword := []byte(argc[3])
 	Mstring = ""

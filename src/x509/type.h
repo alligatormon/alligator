@@ -3,6 +3,7 @@
 #include <uv.h>
 #include <jansson.h>
 #include "mbedtls/x509_crt.h"
+#include "common/selector.h"
 #include "dstructures/ht.h"
 #define X509_TYPE_PEM 1
 #define X509_TYPE_PFX 1
@@ -10,7 +11,7 @@
 typedef struct x509_fs_t {
 	char *name;
 	char *path;
-	char *match;
+	string_tokens *match;
 	char *password;
 	uint8_t type;
 

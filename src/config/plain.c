@@ -645,7 +645,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
-								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key"))
+								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key") || !strcmp(operator_name, "match"))
 								{
 									json_t *arg_json = json_array();
 									for (; i < token_count; i++)

@@ -46,9 +46,15 @@ uint64_t getrtime_ms(r_time t1, r_time t2)
 	return ret;
 }
 
-double getrtime_sec_float(r_time t2, r_time t1)
+double getrtime_msec_float(r_time t2, r_time t1)
 {
 	double ret = ((t2.sec-t1.sec)*1000 + ((t2.nsec-t1.nsec)/1000000));
+	return ret;
+}
+
+double getrtime_sec_float(r_time t1, r_time t2)
+{
+	double ret = ((t2.sec-t1.sec)*1.0 + ((t2.nsec-t1.nsec)/1000000000.0));
 	return ret;
 }
 

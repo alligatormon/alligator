@@ -411,6 +411,7 @@ void nspawn_labels()
 
 void docker_labels(char *metrics, size_t size, context_arg *carg)
 {
+	r_time ts_start = setrtime();
 	carglog(ac->cadvisor_carg, L_TRACE, "DOCKER scraper!\n");
 	carglog(ac->cadvisor_carg, L_TRACE, "%s\n", metrics);
 	carglog(ac->cadvisor_carg, L_TRACE, "END\n");
@@ -428,6 +429,7 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 	{
 		for (uint64_t i = 0; i < cnt_size; i++)
 		{
+			r_time docker_start = setrtime();
 			json_t *obj = json_array_get(root, i);
 
 			json_t *json_id = json_object_get(obj, "Id");
@@ -559,10 +561,17 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
 				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer, NULL);
 			}
+			r_time docker_end = setrtime();
+			double scrape_total_time = getrtime_sec_float(ts_start, docker_end);
+			double docker_time = getrtime_sec_float(docker_start, docker_end);
+			carglog(ac->system_carg, L_TRACE, "cadvisor scrape metrics: docker: image:'%lf' total:'%lf' \tname: %s, image: %s, path: %s\n", docker_time, scrape_total_time, name_str, image, kubepath);
 		}
 	}
 	json_decref(root);
 	carg->parser_status = 1;
+	r_time ts_end = setrtime();
+	double scrape_time = getrtime_sec_float(ts_start, ts_end);
+	carglog(ac->system_carg, L_DEBUG, "cadvisor scrape metrics: docker: '%lf'\n", scrape_time);
 }
 
 void cgroup_v2_machines()

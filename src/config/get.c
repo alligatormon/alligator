@@ -342,8 +342,13 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 
 	if (tls_fs->match)
 	{
-		json_t *match = json_string(tls_fs->match);
+		json_t *match = json_array();
 		json_array_object_insert(ctx, "match", match);
+
+		for (uint64_t i = 0; i < tls_fs->match->l; ++i) {
+			json_t *token = json_string(tls_fs->match->str[i]->s);
+			json_array_object_insert(ctx, "", token);
+		}
 	}
 }
 

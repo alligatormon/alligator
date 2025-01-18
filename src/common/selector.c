@@ -764,6 +764,17 @@ uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l)
 	return 1;
 }
 
+string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
+{
+	string *joined = string_new();
+	for (uint64_t i = 0; i < st->l; i++)
+	{
+		string_string_cat(joined, st->str[i]);
+		string_cat(joined, sepsym, seplen);
+	}
+	return joined;
+}
+
 void string_tokens_free(string_tokens *st)
 {
 	for (uint64_t i = 0; i < st->l; i++)

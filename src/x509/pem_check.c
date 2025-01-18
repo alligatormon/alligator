@@ -171,22 +171,26 @@ void pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename
 	free(data);
 }
 
-void fs_cert_check(char *name, char *fname, char *match, char *password, uint8_t type)
+void fs_cert_check(char *name, char *fname, string_tokens *match, char *password, uint8_t type)
 {
 	void *func = pem_check_cert;
 	if (type == X509_TYPE_PFX)
 		func = libcrypto_check_cert;
-	if (strstr(fname, match))
-		read_from_file(fname, 0, func, password);
-		//read_from_file(fname, 0, pem_check_cert, NULL);
-	else
-	{
-		free(fname);
+
+	int found = 0;
+	for (uint64_t i = 0; i < match->l; ++i) {
+		if (strstr(fname, match->str[i]->s)) {
+			read_from_file(fname, 0, func, password);
+			found = 1;
+			break;
+		}
 	}
+	if (!found)
+		free(fname);
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
-int tls_fs_dir_read(char *name, char *path, char *match, char *password, uint8_t type)
+int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password, uint8_t type)
 {
 	uv_fs_t readdir_req;
 

@@ -7,12 +7,12 @@
 #include "common/units.h"
 
 
-int tls_fs_push(char *name, char *path, char *match, char *password, char *type, uint64_t period) {
-	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, match %s, and password/passtr %p\n", name, path, match, password);
+int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *type, uint64_t period) {
+	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, and password/passtr %p\n", name, path, password);
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
 	tls_fs->path = strdup(path);
-	tls_fs->match = strdup(match);
+	tls_fs->match = tokens_match;
 	tls_fs->period = period;
 
 	if (password)
@@ -35,8 +35,9 @@ int tls_fs_push(char *name, char *path, char *match, char *password, char *type,
 
 
 
-int jks_push(char *name, char *path, char *match, char *password, char *passtr, uint64_t period) {
-	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match, password, passtr);
+int jks_push(char *name, char *path, string_tokens *tokens_match, char *password, char *passtr, uint64_t period) {
+	string *match = string_tokens_join(tokens_match, ",", 1);
+	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match->s, password, passtr);
 
 	if (!password && !passtr)
 	{
@@ -56,9 +57,9 @@ int jks_push(char *name, char *path, char *match, char *password, char *passtr, 
 
 	if (!passtr)
 	{
-		size_t len = strlen(path) + strlen(match) + strlen(password) + 3;
+		size_t len = strlen(path) + match->l + strlen(password) + 3;
 		passtr = malloc (len + 1);
-		snprintf(passtr, len, "%s %s %s", path, match, password);
+		snprintf(passtr, len, "%s %s %s", path, match->s, password);
 	}
 
 	lo->arg = passtr;
@@ -85,6 +86,8 @@ int jks_push(char *name, char *path, char *match, char *password, char *passtr, 
 		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 	}
 
+	string_free(match);
+
 	return 1;
 }
 
@@ -103,13 +106,25 @@ int x509_push(json_t *x509) {
 		return 0;
 	}
 	char *path = (char*)json_string_value(jpath);
+	size_t path_len = json_string_length(jpath);
+	while (path[path_len-1] == '/') --path_len;
+	path[path_len] = 0;
 
 	json_t *jmatch = json_object_get(x509, "match");
 	if (!jmatch) {
 		glog(L_INFO, "not specified param 'match' in x509 context\n");
 		return 0;
 	}
-	char *match = (char*)json_string_value(jmatch);
+
+	uint64_t match_size = json_array_size(jmatch);
+	string_tokens *tokens_match = NULL;
+	for (uint64_t i = 0; i < match_size; i++)
+	{
+		if (!tokens_match)
+			tokens_match = string_tokens_new();
+		json_t *str = json_array_get(jmatch, i);
+		string_tokens_push_dupn(tokens_match, (char*)json_string_value(str), json_string_length(str));
+	}
 
 	json_t *jpassword = json_object_get(x509, "password");
 	char *password = (char*)json_string_value(jpassword);
@@ -123,7 +138,7 @@ int x509_push(json_t *x509) {
 		period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 
 	if (type && !strcmp(type, "jks"))
-		return jks_push(name, path, match, password, NULL, period);
+		return jks_push(name, path, tokens_match, password, NULL, period);
 	else
-		return tls_fs_push(name, path, match, password, type, period);
+		return tls_fs_push(name, path, tokens_match, password, type, period);
 }
