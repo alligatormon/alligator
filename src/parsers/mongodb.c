@@ -7,9 +7,11 @@
 #include "parsers/elasticsearch.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "scheduler/type.h"
 #include "lang/type.h"
 #include "main.h"
 
+extern aconf *ac;
 string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	aggregate_context *actx = arg;
@@ -24,7 +26,29 @@ string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy
 	printf("lo script is %s\n", lo->script);
 	lo->arg = strdup(hi->url);
 	lo->carg = context_arg_json_fill(NULL, hi, NULL, "mongodb", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
+	lo->carg->no_metric = 1;
 	lang_push_options(lo);
+
+	scheduler_node* sn = scheduler_get(lo->key);
+	if (!sn) {
+		sn = calloc(1, sizeof(*sn));
+		sn->name = strdup(lo->key);
+		sn->period = ac->aggregator_repeat;
+		sn->lang = strdup(lo->key);
+		uint32_t hash = tommy_strhash_u32(0, sn->name);
+		alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
+		scheduler_start(sn);
+	}
+
+	const char *module_key = lo->module;
+	module_t *module = alligator_ht_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
+	if (!module)
+	{
+		module_t *module = calloc(1, sizeof(*module));
+		module->key = strdup(module_key);
+		module->path = strdup("/var/lib/alligator/mongo.so");
+		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
+	}
 
 	return NULL;
 }
