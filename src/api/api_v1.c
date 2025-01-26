@@ -1124,16 +1124,30 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						if (enkey)
 						{
 							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects, NULL, 0);
-							if (!smart_aggregator(carg))
-							{
-								carg_free(carg);
-								snprintf(status, 100, "ERROR");
-								snprintf(respbody, 1000, "Error (maybe already created?)");
+							if (actx->handler[j].smart_aggregator_replace) {
+								if (!actx->handler[j].smart_aggregator_replace(carg)) {
+									carg_free(carg);
+									snprintf(status, 100, "ERROR");
+									snprintf(respbody, 1000, "Error (maybe already created?)");
+								}
+								else
+								{
+									snprintf(status, 100, "OK");
+									snprintf(respbody, 1000, "Accepted");
+								}
 							}
-							else
-							{
-								snprintf(status, 100, "OK");
-								snprintf(respbody, 1000, "Accepted");
+							else {
+								if (!smart_aggregator(carg))
+								{
+									carg_free(carg);
+									snprintf(status, 100, "ERROR");
+									snprintf(respbody, 1000, "Error (maybe already created?)");
+								}
+								else
+								{
+									snprintf(status, 100, "OK");
+									snprintf(respbody, 1000, "Accepted");
+								}
 							}
 						}
 						else

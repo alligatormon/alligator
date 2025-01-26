@@ -11,21 +11,18 @@
 #include "lang/type.h"
 #include "main.h"
 
-extern aconf *ac;
-string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
-{
-	aggregate_context *actx = arg;
+int mongodb_aggregator(context_arg *carg) {
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = malloc(1024);
 	strlcpy(lo->key, "mongodb:go:", 1024);
-	strlcpy(lo->key + 11, hi->host, 1013);
+	strlcpy(lo->key + 11, carg->host, 1013);
 	lo->lang = "so";
 	lo->method = "alligator_call";
 	lo->module = "mongodb";
-	lo->script = actx->data;
+	lo->script = carg->data;
 	printf("lo script is %s\n", lo->script);
-	lo->arg = strdup(hi->url);
-	lo->carg = context_arg_json_fill(NULL, hi, NULL, "mongodb", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
+	lo->arg = strdup(carg->url);
+	lo->carg = carg;
 	lo->carg->no_metric = 1;
 	lang_push_options(lo);
 
@@ -33,7 +30,7 @@ string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy
 	if (!sn) {
 		sn = calloc(1, sizeof(*sn));
 		sn->name = strdup(lo->key);
-		sn->period = ac->aggregator_repeat;
+		sn->period = carg->period;
 		sn->lang = strdup(lo->key);
 		uint32_t hash = tommy_strhash_u32(0, sn->name);
 		alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
@@ -49,8 +46,7 @@ string* mongodb_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy
 		module->path = strdup("/var/lib/alligator/mongo.so");
 		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 	}
-
-	return NULL;
+	return 1;
 }
 
 void* mongodb_data(host_aggregator_info *hi, void *arg, void *data)
@@ -72,7 +68,7 @@ void mongodb_parser_push()
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;
-	actx->handler[0].mesg_func = mongodb_mesg;
+	actx->handler[0].smart_aggregator_replace = mongodb_aggregator;
 	strlcpy(actx->handler[0].key, "mongodb", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));

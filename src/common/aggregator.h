@@ -5,6 +5,7 @@ typedef struct aggregate_handler {
 	void (*name)(char*, size_t, context_arg*);
 	int8_t (*validator)(context_arg*, char*, size_t);
 	string* (*mesg_func)(host_aggregator_info*, void *arg, void *env, void *proxy_settings);
+	int (*smart_aggregator_replace)(context_arg*);
 	uint8_t headers_pass;
 	char key[255];
 } aggregate_handler;
