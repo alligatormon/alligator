@@ -60,7 +60,6 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 			printf("Cannot get '%s' from '%s'\n", lo->method, lo->module);
 			return NULL;
 		}
-		return NULL;
 	}
 
 	if (lo->file && !lo->script)

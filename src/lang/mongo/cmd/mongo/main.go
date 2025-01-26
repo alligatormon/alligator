@@ -15,6 +15,48 @@ import (
 	"time"
 )
 
+var log_level = 0
+const (
+	L_OFF int = iota
+	L_FATAL
+	L_ERROR
+	L_WARN
+	L_INFO
+	L_DEBUG
+	L_TRACE
+)
+
+func logLevelFromMap(conf map[string]interface{}) int {
+	level := L_OFF
+	if conf["log_level"] != nil {
+		val := conf["log_level"].(string)
+		if val == "off" {
+			level = L_OFF
+		} else if val == "fatal" {
+			level = L_FATAL
+		} else if val == "error" {
+			level = L_ERROR
+		} else if val == "warn" {
+			level = L_WARN
+		} else if val == "info" {
+			level = L_INFO
+		} else if val == "debug" {
+			level = L_DEBUG
+		} else if val == "trace" {
+			level = L_TRACE
+		}
+	}
+	return level
+}
+
+func alligatorLog(expectedLevel int, variadic ...any) {
+	if log_level >= expectedLevel {
+		fmt.Println(variadic...)
+	}
+}
+
+var skip_db = map[string]bool{}
+
 func MongoParseMetric(Name string, StatsName string, DbName string, Params map[string]interface{}, Identificator string, Doc interface{}, Metrics *[]string) {
 
 	Labels := ""
@@ -67,10 +109,13 @@ func MongoParseMetric(Name string, StatsName string, DbName string, Params map[s
 }
 
 func MongodbStatsMetrics(Stats *mongo.SingleResult, Metrics *[]string, StatsName string, DbName string) {
+	if skip_db[DbName] {
+		return
+	}
 	var document bson.M
 	err := Stats.Decode(&document)
 	if err != nil {
-		fmt.Println("err Stats.Decode is", err)
+		alligatorLog(L_ERROR, "err Stats.Decode is", err)
 		return
 	}
 
@@ -90,7 +135,7 @@ func MongodbTopMetrics(Stats *mongo.SingleResult, Metrics *[]string) {
 	var document bson.M
 	err := Stats.Decode(&document)
 	if err != nil {
-		fmt.Println("err Stats.Decode2 is", err)
+		alligatorLog(L_TRACE, "err Stats.Decode is", err)
 		return
 	}
 
@@ -110,39 +155,65 @@ func MongoTopCommand(db *mongo.Database, filter bson.M, Metrics *[]string) {
 
 //export alligator_call
 func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char) *C.char {
+	skip_db["local"] = true
+	skip_db["config"] = true
 	strArg := C.GoString(arg)
-	//mstr := C.GoString(metrics)
-	//cstr := C.GoString(conf)
 	scriptStr := C.GoString(script)
-	//fmt.Println("hello from Go! arg is ", strArg, "metrics is", mstr, "conf is", cstr, "script is", scriptStr)
-	//var document bson.M
+	//fmt.Println("hello from Go! arg is ", strArg, "metrics is", metrics, "conf is", conf, "script is", scriptStr)
 
 	Conf := map[string]interface{}{}
 	err := json.Unmarshal([]byte(scriptStr), &Conf)
+
+	log_level = logLevelFromMap(Conf)
+
 	AllDbScrape := false
-	DbScrape := map[string]interface{}{}
+	DbScrape := map[string]bool{}
 	if Conf["dbs"] != nil {
+		alligatorLog(L_INFO, "dbs param found, check for configuration")
 		Dbs := Conf["dbs"].(string)
 		DbSplit := strings.Split(Dbs, ",")
 		for _, Name := range DbSplit {
 			if Name == "*" {
+				alligatorLog(L_INFO, "dbs param wildcard found '*', all db collectors have been enabled")
 				AllDbScrape = true
 				break
 			}
+			alligatorLog(L_INFO, "dbs add param '", Name, "'")
 			DbScrape[Name] = true
 		}
 	}
-	CollScrape := map[string]interface{}{}
+
+	CollScrape := map[string]bool{}
 	AllCollScrape := false
 	if Conf["colls"] != nil {
+		alligatorLog(L_INFO, "colls param found, check for configuration")
 		Colls := Conf["colls"].(string)
 		CollSplit := strings.Split(Colls, ",")
 		for _, Name := range CollSplit {
 			if Name == "*" {
-				AllDbScrape = true
+				AllCollScrape = true
+				alligatorLog(L_INFO, "colls param wildcard found '*', all colls collectors have been enabled")
 				break
 			}
+			alligatorLog(L_INFO, "colls add param '", Name, "'")
 			CollScrape[Name] = true
+		}
+	}
+
+	CollectorsScrape := map[string]bool{}
+	AllCollectorsScrape := false
+	if Conf["collectors"] != nil {
+		alligatorLog(L_INFO, "collectors param found, check for configuration")
+		Collectors := Conf["collectors"].(string)
+		CollectorsSplit := strings.Split(Collectors, ",")
+		for _, Name := range CollectorsSplit {
+			if Name == "*" {
+				AllCollectorsScrape = true
+				alligatorLog(L_INFO, "collectors param wildcard found '*', all collectors have been enabled")
+				break
+			}
+			alligatorLog(L_INFO, "collectors add param '", Name, "'")
+			CollectorsScrape[Name] = true
 		}
 	}
 
@@ -152,44 +223,68 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(strArg))
 	if err != nil {
-		fmt.Println("err mongo.Connect is", err)
+		alligatorLog(L_ERROR, "err mongo.Connect is", err)
 		return C.CString("")
 	}
 
 	db := client.Database("admin")
 
-	MongoTopCommand(db, bson.M{"top": ""}, &Mtree)
-	MongoRunCommand(db, bson.M{"buildInfo": ""}, &Mtree, "Build", "admin")
-	MongoRunCommand(db, bson.M{"isMaster": ""}, &Mtree, "Master", "admin")
-	MongoRunCommand(db, bson.M{"replSetGetStatus": ""}, &Mtree, "ReplicationStatus", "admin")
+	if (AllCollectorsScrape || CollectorsScrape["top"]) {
+		alligatorLog(L_TRACE, "mongodb run top")
+		MongoTopCommand(db, bson.M{"top": ""}, &Mtree)
+	}
+	if (AllCollectorsScrape || CollectorsScrape["buildInfo"]) {
+		alligatorLog(L_TRACE, "mongodb run buildInfo")
+		MongoRunCommand(db, bson.M{"buildInfo": ""}, &Mtree, "Build", "admin")
+	}
+	if (AllCollectorsScrape || CollectorsScrape["isMaster"]) {
+		alligatorLog(L_TRACE, "mongodb run isMaster")
+		MongoRunCommand(db, bson.M{"isMaster": ""}, &Mtree, "Master", "admin")
+	}
+
+	if (AllCollectorsScrape || CollectorsScrape["replSetGetStatus"]) {
+		alligatorLog(L_TRACE, "mongodb run replSetGetStatus")
+		MongoRunCommand(db, bson.M{"replSetGetStatus": ""}, &Mtree, "ReplicationStatus", "admin")
+	}
+	if (AllCollectorsScrape || CollectorsScrape["getDiagnosticData"]) {
+		alligatorLog(L_TRACE, "mongodb run getDiagnosticData")
+		MongoRunCommand(db, bson.M{"getDiagnosticData": ""}, &Mtree, "DiagnosticData", "admin")
+	}
 
 	ListDatabaseNames, err := client.ListDatabaseNames(ctx, bson.D{{}})
+	alligatorLog(L_TRACE, "list databases:", ListDatabaseNames)
 	if err != nil {
-		fmt.Println("err client.ListDatabaseNames is", err)
+		alligatorLog(L_ERROR, "err client.ListDatabaseNames is", err)
 		return C.CString("")
 	}
 	for _, DbName := range ListDatabaseNames {
-		//fmt.Println("====DB:", DbName, "===")
-		if AllDbScrape || DbScrape[DbName] != nil {
+		alligatorLog(L_INFO, "====DB:", DbName, "===")
+		if AllDbScrape || DbScrape[DbName] {
 			db := client.Database(DbName)
 
 			CollNames, err := db.ListCollectionNames(ctx, bson.D{{}})
+			alligatorLog(L_INFO, "list collections:", CollNames)
 			if err != nil {
-				//fmt.Println("====DB:", DbName, "error is", err)
+				alligatorLog(L_ERROR, "====DB:", DbName, "error is", err)
 				continue
 			}
 			for _, CollName := range CollNames {
-				//fmt.Println("====DB:", DbName, "Col:", CollName, "===")
-				if AllCollScrape || CollScrape[CollName] != nil {
-					MongoRunCommand(db, bson.M{"collStats": CollName}, &Mtree, "Collection", DbName)
-					MongoRunCommand(db, bson.M{"dataSize": CollName}, &Mtree, "DataSize", DbName)
+				alligatorLog(L_INFO, "========DB:", DbName, "Col:", CollName, "========")
+				if AllCollScrape || CollScrape[CollName] {
+					if (AllCollectorsScrape || CollectorsScrape["coll"]) {
+						MongoRunCommand(db, bson.M{"collStats": CollName}, &Mtree, "Collection", DbName)
+						MongoRunCommand(db, bson.M{"indexStats": CollName}, &Mtree, "Index", DbName)
+						MongoRunCommand(db, bson.M{"dataSize": CollName}, &Mtree, "DataSize", DbName)
+					}
 				}
 			}
 
-			MongoRunCommand(db, bson.M{"connPoolStats": ""}, &Mtree, "ConnectionPoolStatus", DbName)
-			MongoRunCommand(db, bson.M{"dbStats": ""}, &Mtree, "DBStats", DbName)
-			MongoRunCommand(db, bson.M{"features": ""}, &Mtree, "Features", DbName)
-			MongoRunCommand(db, bson.M{"serverStatus": ""}, &Mtree, "ServerStatus", DbName)
+			if (AllCollectorsScrape || CollectorsScrape["db"]) {
+				MongoRunCommand(db, bson.M{"connPoolStats": ""}, &Mtree, "ConnectionPoolStatus", DbName)
+				MongoRunCommand(db, bson.M{"dbStats": ""}, &Mtree, "DBStats", DbName)
+				MongoRunCommand(db, bson.M{"features": ""}, &Mtree, "Features", DbName)
+				MongoRunCommand(db, bson.M{"serverStatus": ""}, &Mtree, "ServerStatus", DbName)
+			}
 		}
 	}
 
