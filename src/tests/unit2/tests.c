@@ -167,19 +167,22 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
 
         json_t *labels = json_object_get(metric, "labels");
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, labels);
-        uint64_t labels_size = json_array_size(labels);
-        for (uint64_t j = 0; j < labels_size; j++)
+        //uint64_t labels_size = json_array_size(labels);
+        //for (uint64_t j = 0; j < labels_size; j++)
+        const char *sname;
+        json_t *value;
+	    json_object_foreach(labels, sname, value)
         {
-            json_t *label = json_array_get(labels, j);
-            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, label);
+            //json_t *label = json_array_get(labels, j);
+            //assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, label);
 
-            json_t *name = json_object_get(label, "name");
-            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, name);
-            const char *sname = json_string_value(name);
+            //json_t *name = json_object_get(label, "name");
+            //assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, name);
+            //const char *sname = json_string_value(name);
             assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sname);
 
-            json_t *value = json_object_get(label, "value");
-            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, value);
+            //json_t *value = json_object_get(label, "value");
+            //assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, value);
             const char *svalue = json_string_value(value);
             assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, svalue);
 

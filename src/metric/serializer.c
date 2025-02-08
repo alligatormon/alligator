@@ -132,18 +132,19 @@ void serialize_json(metric_node *x, serializer_context *sc)
 	labels_t *labels = x->labels;
 
 	json_t *obj = json_object();
-	json_t *jlabels = json_array();
+	json_t *jlabels = json_object();
 	json_t *samples = json_array();
 	while (labels)
 	{
 		if (labels->key_len)
 		{
-			json_t *label = json_object();
-			json_t *name = json_string(labels->name);
+			//json_t *label = json_object();
+			//json_t *name = json_string(labels->name);
 			json_t *value = json_string(labels->key);
-			json_array_object_insert(label, "name", name);
-			json_array_object_insert(label, "value", value);
-			json_array_object_insert(jlabels, "", label);
+			//json_array_object_insert(label, "name", name);
+			//json_array_object_insert(label, "value", value);
+			//json_array_object_insert(jlabels, "", label);
+			json_array_object_insert(jlabels, labels->name, value);
 		}
 		labels = labels->next;
 	}

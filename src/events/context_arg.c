@@ -486,6 +486,18 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 	}
 
+	json_t *json_nocollect = json_object_get(root, "no_collect");
+	if (json_nocollect)
+	{
+        if (json_typeof(json_nocollect) == JSON_TRUE)
+		    carg->no_collect = 1;
+        else if (json_typeof(json_nocollect) == JSON_STRING) {
+            const char *str_nocollect = json_string_value(json_nocollect);
+            if (!strcmp(str_nocollect, "true"))
+		        carg->no_collect = 1;
+        }
+	}
+
 	json_t *json_resolve = json_object_get(root, "resolve");
 	if (json_resolve)
 	{

@@ -3,6 +3,8 @@
 #include "api/api.h"
 #include "parsers/multiparser.h"
 #include "common/logs.h"
+#include "query/type.h"
+#include "config/get.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -27,18 +29,35 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 	lang_options *lo = arg;
 	char *ret = NULL;
 
-	string *body = NULL;
+	string *body = data;
 	string *conf = NULL;
-	if (lo->query)
+    int body_should_free = 0;
+	if (!body && lo->query)
 	{
 		metric_query_context *mqc = promql_parser(NULL, lo->query, lo->query_len);
 		body = metric_query_deserialize(1024, mqc, lo->serializer, 0, NULL, NULL, NULL, NULL, NULL);
 		query_context_free(mqc);
+        body_should_free = 1;
 	}
 
 	if (lo->conf)
 	{
 		conf = config_get_string();
+	}
+
+	char *queries = NULL;
+	if (lo->carg && lo->carg->name)
+	{
+		query_ds *qds = query_get(lo->carg->name);
+		json_t *dst = json_object();
+		carglog(lo->carg, L_INFO, "found queries for datasource: %s: %p\n", lo->carg->name, qds);
+		if (qds)
+		{
+			alligator_ht_foreach_arg(qds->hash, query_node_generate_conf, dst);
+		}
+        json_t *jqueries = json_object_get(dst, "query");
+		queries = json_dumps(jqueries, JSON_INDENT(2));
+        printf("DBG\n'%s'\n", queries);
 	}
 
 	if (!strcmp(lo->lang, "lua"))
@@ -48,12 +67,18 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 	else if (!strcmp(lo->lang, "duktape"))
 		ret = duktape_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
 	else if (!strcmp(lo->lang, "so"))
-		ret = so_run(lo, lo->script, lo->file, "data_example", lo->arg, body, conf, parser_data, response);
+		ret = so_run(lo, lo->script, lo->file, "data_example", lo->arg, body, conf, parser_data, response, queries);
 
+    printf("ret %s\n", ret);
 	if (ret) {
+        printf("conf %p %p %d\n", conf, lo->carg, lo->carg->pquery_size);
 		if (conf)
 		{
 			http_api_v1(NULL, NULL, ret);
+		}
+		else if (lo->carg->pquery_size)
+		{
+			json_query(ret, NULL, lo->module, lo->carg, lo->carg->pquery, lo->carg->pquery_size);
 		}
 		else
 		{
@@ -62,11 +87,14 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 		free(ret);
 	}
 
-	if (body)
+	if (body_should_free && body)
 		string_free(body);
 
 	if (conf)
 		string_free(conf);
+
+	if (queries)
+		free(queries);
 }
 
 void lang_load_script(char *script, size_t script_size, void *data, char *filename)
@@ -79,8 +107,10 @@ void lang_load_script(char *script, size_t script_size, void *data, char *filena
 void lang_run(char *key, string *body, string *parser_data, string *response)
 {
 	lang_options* lo = alligator_ht_search(ac->lang_aggregator, lang_compare, key, tommy_strhash_u32(0, key));
+    printf("lo? %p %s\n", lo, key);
 	if (lo)
 	{
+        puts("LO!");
 		langlog(lo, L_INFO, "lang run key %s\n", lo->key);
 		lang_crawl(lo, body, parser_data, response);
 	}

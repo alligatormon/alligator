@@ -16,7 +16,7 @@ typedef struct lang_options {
 	char *file;
 	char *module;
 	module_t *lib;
-	void* (*func)(char *script, char *data, char *arg, char *metrics, char *conf, char *parser_data, char *response);
+	void* (*func)(char *script, char *data, char *arg, char *metrics, char *conf, char *parser_data, char *response, char *queries);
 	context_arg *carg;
 	uv_thread_t *th;
 	uint64_t log_level;
@@ -41,7 +41,7 @@ char* lua_run(lang_options *lo, char* script, char *file, char *arg, string* sme
 char* mruby_run(lang_options *lo, char* script, char *file, char *arg, string* smetrics, string *conf, string *parser_data, string *response);
 char* mruby_run_script(lang_options *lo, char *code, string* metrics, string *conf, string *parser_data, string *response);
 char* python_run(lang_options *lo, char* code, char *file, char *arg, char *path, string* metrics, string *conf);
-char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, string* metrics, string *conf, string *data_parser, string *response);
+char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, string* metrics, string *conf, string *data_parser, string *response, char *queries);
 void lang_load_script(char *script, size_t script_size, void *data, char *filename);
 char* duktape_run(lang_options *lo, char *script, char *file, char *arg, string* metrics, string *conf, string *parser_data, string *response);
 void lang_run(char *key, string *body, string *parser_data, string *response);

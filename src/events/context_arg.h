@@ -133,6 +133,7 @@ typedef struct context_arg
 	uint64_t exec_time_counter;
 
 	uint8_t no_metric;
+	uint8_t no_collect;
 	r_time connect_time;
 	r_time connect_time_finish;
 	r_time write_time;

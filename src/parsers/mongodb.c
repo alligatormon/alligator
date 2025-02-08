@@ -14,17 +14,26 @@
 int mongodb_aggregator(context_arg *carg) {
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = malloc(1024);
-	strlcpy(lo->key, "mongodb:go:", 1024);
-	strlcpy(lo->key + 11, carg->host, 1013);
+	if (carg->name)
+		strcpy(lo->key, carg->name);
+	else {
+		strlcpy(lo->key, "mongodb:go:", 1024);
+		strlcpy(lo->key + 11, carg->host, 1013);
+	}
 	lo->lang = "so";
 	lo->method = "alligator_call";
 	lo->module = "mongodb";
 	lo->script = carg->data;
-	printf("lo script is %s\n", lo->script);
 	lo->arg = strdup(carg->url);
 	lo->carg = carg;
+	printf("lo script is %s, carg %p, key %s\n", lo->script, lo->carg, lo->key);
 	lo->carg->no_metric = 1;
 	lang_push_options(lo);
+
+    if (!carg->pquery_size) {
+		carg->pquery_size = 1;
+		carg->pquery[0] = strdup("");
+	}
 
 	scheduler_node* sn = scheduler_get(lo->key);
 	if (!sn) {

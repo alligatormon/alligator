@@ -110,7 +110,7 @@ func lookCerts(fullpath string, d fs.DirEntry, err error) error {
 }
 
 //export alligator_call
-func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char) *C.char {
+func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char, queries_str *C.char) *C.char {
 	strArg := C.GoString(arg)
 	// example of arg is '/app/src/tests/system/jks .jks password'
 	argc := strings.Split(strArg, " ")

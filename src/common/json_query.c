@@ -304,9 +304,10 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	json_error_t error;
 	if (!root) {
 		root = json_loads(data, 0, &error);
-		carglog(carg, L_ERROR, "json '%s' error on line %d: %s\n", carg->key, error.line, error.text);
-		if (!root)
+		if (!root) {
+			carglog(carg, L_ERROR, "json '%s' error on line %d: %s\n", carg->key, error.line, error.text);
 			return 0;
+		}
 	}
 
 	carg->data = json_parse_query(carg, queries, queries_size);

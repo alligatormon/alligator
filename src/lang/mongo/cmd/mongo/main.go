@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"strconv"
 	"strings"
+	"reflect"
 	"time"
 )
 
@@ -149,17 +150,65 @@ func MongodbTopMetrics(Stats *mongo.SingleResult, Metrics *[]string) {
 }
 
 func MongoTopCommand(db *mongo.Database, filter bson.M, Metrics *[]string) {
-	result := db.RunCommand(context.Background(), filter)
-	MongodbTopMetrics(result, Metrics)
+       result := db.RunCommand(context.Background(), filter)
+       MongodbTopMetrics(result, Metrics)
+}
+
+func queryMetricsWalk(cursor *mongo.Cursor, results []interface{}, Metrics *[]string, StatsName string, DbName string, collName string) {
+    counter := 0
+    array := 0
+    slice := 0
+    iface := 0
+    str := 0
+    mp := 0
+	for _, result := range results {
+        counter++
+		cursor.Decode(&result)
+		output, err := json.Marshal(result)
+		if err != nil {
+		    alligatorLog(L_ERROR, "query marshal cursor error:", err)
+		}
+		//fmt.Printf("%s\n", reflect.ValueOf(output))
+        Type := reflect.ValueOf(output)
+        if (Type.Kind() == reflect.Array) {
+            queryMetricsWalk(cursor, result.([]interface{}), Metrics, StatsName + "_", DbName, collName)
+            array++
+        } else if Type.Kind() == reflect.Slice {
+            queryMetricsWalk(cursor, result.([]interface{}), Metrics, StatsName + "_", DbName, collName)
+            slice++
+        } else if Type.Kind() == reflect.Interface {
+            iface++
+        } else if Type.Kind() == reflect.String {
+            str++
+        } else if Type.Kind() == reflect.Map {
+            mp++
+        }
+	}
+	fmt.Printf("count: %d, array: %d, slice: %d, iface: %d, str: %d, map: %d\n", counter, array, slice, iface, str, mp)
+}
+
+type parser_data_t struct {
+    DB string `json:"db"`
+    Type string `json:"type"`
+}
+
+type query_data_t struct {
+    NS string `json:"ns"`
+    Field string `json:"field,omitempty"`
+    Make string `json:"make"`
+    Expr string `json:"expr"`
 }
 
 //export alligator_call
-func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char) *C.char {
+func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char, queries_str *C.char) *C.char {
 	skip_db["local"] = true
 	skip_db["config"] = true
 	strArg := C.GoString(arg)
 	scriptStr := C.GoString(script)
-	//fmt.Println("hello from Go! arg is ", strArg, "metrics is", metrics, "conf is", conf, "script is", scriptStr)
+	queriesStr := C.GoString(queries_str)
+	parserDataStr := C.GoString(parser_data_str)
+	metricsStr := C.GoString(metrics)
+	//fmt.Println("hello from Go! arg is ", strArg, "metrics is", metrics, "conf is", conf, "script is", scriptStr, "query", queriesStr, "parser data", parserDataStr)
 
 	Conf := map[string]interface{}{}
 	err := json.Unmarshal([]byte(scriptStr), &Conf)
@@ -226,6 +275,116 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 		alligatorLog(L_ERROR, "err mongo.Connect is", err)
 		return C.CString("")
 	}
+
+    if parserDataStr != "" {
+	    parserDt := parser_data_t{}
+	    err := json.Unmarshal([]byte(parserDataStr), &parserDt)
+        if err != nil {
+		    alligatorLog(L_ERROR, "get parser data", parserDataStr, " error:", err)
+            return C.CString("")
+        }
+
+        if parserDt.Type == "insert" {
+            var doc []interface{}
+            bson.UnmarshalExtJSON([]byte(metricsStr), true, &doc)
+           // fmt.Println("metricsStr is", metricsStr)
+
+            if err != nil {
+		        alligatorLog(L_ERROR, "insert unmarshal error:", err)
+            }
+            DB := strings.Split(parserDt.DB, "/")
+            dbName := DB[0]
+            collName := "alligator_metrics"
+            if len(DB) == 2 {
+                if DB[1] != "" {
+                    collName = DB[1]
+                }
+            }
+	        db := client.Database(dbName).Collection(collName)
+            _, err := db.InsertMany(
+                context.TODO(),
+                doc,
+            )
+            if err != nil {
+		        alligatorLog(L_ERROR, "insertMany error:", err)
+            }
+
+            return C.CString("")
+        }
+    }
+
+    if queriesStr != "" {
+        fmt.Println("queriesStr is", queriesStr)
+	    queriesDt := []query_data_t{}
+	    err := json.Unmarshal([]byte(queriesStr), &queriesDt)
+        if err != nil {
+		    alligatorLog(L_ERROR, "get query data", queriesStr, " error:", err)
+            return C.CString("")
+        }
+
+        for _, parserDt := range queriesDt {
+            var doc interface{}
+            fmt.Println("expr is", parserDt.Expr)
+            bson.UnmarshalExtJSON([]byte(parserDt.Expr), true, &doc)
+
+            if err != nil {
+		        alligatorLog(L_ERROR, "query unmarshal error:", err)
+            }
+            DB := strings.Split(parserDt.NS, "/")
+            dbName := DB[0]
+            collName := "alligator_metrics"
+            if len(DB) == 2 {
+                if DB[1] != "" {
+                    collName = DB[1]
+                }
+            }
+	        db := client.Database(dbName).Collection(collName)
+            cursor, err := db.Find(
+                context.TODO(),
+                doc,
+            )
+            fmt.Println("RES:", cursor, err)
+            if err != nil {
+		        alligatorLog(L_ERROR, "Find error:", err)
+            }
+
+	        var results []interface{}
+	        err = cursor.All(context.TODO(), &results)
+            if err != nil {
+		        alligatorLog(L_ERROR, "query get cursor error:", err)
+	        }
+
+            outputs := []interface{}
+	        for _, result := range results {
+	        	cursor.Decode(&result)
+	        	output, err := bson.Marshal(result)
+	        	if err != nil {
+	        	    alligatorLog(L_ERROR, "query marshal cursor error:", err)
+	        	}
+                outputs = append(outputs, output)
+	        	//fmt.Printf("%s\n", output)
+	        }
+	        //output, err := json.Marshal(results)
+	        //output, err := json.MarshalIndent(results, "", " ")
+	        //output, err := bson.MarshalExtJSON(results, false, false)
+	        //if err != nil {
+	        //    alligatorLog(L_ERROR, "query marshal cursor error:", err)
+	        //}
+
+            //queryMetricsWalk(cursor, results, &Mtree, "mongodb", dbName, collName)
+
+	        return C.CString(string(output))
+
+        }
+        return C.CString("")
+    }
+
+	if Conf["no_collect"] != nil {
+        NoCollect := Conf["no_collect"].(string)
+        if NoCollect == "true" {
+            return C.CString("")
+        }
+    }
 
 	db := client.Database("admin")
 

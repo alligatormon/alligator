@@ -135,12 +135,22 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 		}
 		url_free(hi);
 	}
+	else if (!strncmp(an->expr, "mongo", 5))
+	{
+		if (an->name)
+		{
+			char pdata[255];
+			snprintf(pdata, 254, "{\"type\": \"insert\", \"db\": \"%s\"}", an->ns);
+			string *parser_data = string_init_dup(pdata);
+			lang_run(an->name, body, parser_data, NULL);
+			string_free(parser_data);
+		}
+	}
 	else
 	{
 		aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 	}
 
-	printf("run %s\n", an->expr);
 	free(body);
 }
 

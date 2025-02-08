@@ -88,6 +88,8 @@ void action_push(json_t *action)
 			an->serializer = METRIC_SERIALIZER_CLICKHOUSE;
 		else if(!strcmp(srlz, "postgresql"))
 			an->serializer = METRIC_SERIALIZER_PG;
+		else if(!strcmp(srlz, "mongodb"))
+			an->serializer = METRIC_SERIALIZER_MONGODB;
 		else if(!strcmp(srlz, "elasticsearch"))
 		{
 			an->serializer = METRIC_SERIALIZER_ELASTICSEARCH;
