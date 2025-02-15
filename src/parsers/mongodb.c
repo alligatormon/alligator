@@ -26,7 +26,6 @@ int mongodb_aggregator(context_arg *carg) {
 	lo->script = carg->data;
 	lo->arg = strdup(carg->url);
 	lo->carg = carg;
-	printf("lo script is %s, carg %p, key %s\n", lo->script, lo->carg, lo->key);
 	lo->carg->no_metric = 1;
 	lang_push_options(lo);
 

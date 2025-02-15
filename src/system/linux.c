@@ -32,6 +32,7 @@
 #include "system/fdescriptors.h"
 #include "common/rtime.h"
 #include "system/linux/systemd.h"
+#define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + ((c) > 255 ? 255 : (c)))
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -3256,7 +3257,9 @@ void get_systemd_scopes()
 void get_system_metrics()
 {
 	int8_t platform = -1;
-	//nftables_handler();
+# if LINUX_VERSION_CODE >= KERNEL_VERSION (4, 17, 0)
+	nftables_handler();
+#endif
 	if (ac->system_base)
 	{
 		get_uptime();

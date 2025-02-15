@@ -11,6 +11,7 @@
 #include "events/context_arg.h"
 #include "parsers/multiparser.h"
 #include "common/http.h"
+#include "lang/type.h"
 
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type)
 {

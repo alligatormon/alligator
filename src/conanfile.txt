@@ -11,6 +11,7 @@ libpq/15.5
 openssl/3.2.2
 libbsd/0.10.0
 #mbedtls/2.28.4
+mariadb-connector-c/3.3.3 #for compilation only
 
 [generators]
 cmake

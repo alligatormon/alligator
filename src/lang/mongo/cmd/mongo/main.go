@@ -287,7 +287,6 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
         if parserDt.Type == "insert" {
             var doc []interface{}
             bson.UnmarshalExtJSON([]byte(metricsStr), true, &doc)
-           // fmt.Println("metricsStr is", metricsStr)
 
             if err != nil {
 		        alligatorLog(L_ERROR, "insert unmarshal error:", err)
@@ -314,7 +313,7 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
     }
 
     if queriesStr != "" {
-        fmt.Println("queriesStr is", queriesStr)
+		alligatorLog(L_INFO, "mongodb queriesStr is", queriesStr)
 	    queriesDt := []query_data_t{}
 	    err := json.Unmarshal([]byte(queriesStr), &queriesDt)
         if err != nil {
@@ -324,7 +323,7 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 
         for _, parserDt := range queriesDt {
             var doc interface{}
-            fmt.Println("expr is", parserDt.Expr)
+		    alligatorLog(L_INFO, "mongodb run query:", parserDt.Expr)
             bson.UnmarshalExtJSON([]byte(parserDt.Expr), true, &doc)
 
             if err != nil {
@@ -343,37 +342,25 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
                 context.TODO(),
                 doc,
             )
-            fmt.Println("RES:", cursor, err)
             if err != nil {
 		        alligatorLog(L_ERROR, "Find error:", err)
             }
 
-	        var results []interface{}
-	        err = cursor.All(context.TODO(), &results)
+            var results []interface{}
+            err = cursor.All(context.TODO(), &results)
             if err != nil {
 		        alligatorLog(L_ERROR, "query get cursor error:", err)
-	        }
-
-            outputs := []interface{}
-	        for _, result := range results {
-	        	cursor.Decode(&result)
-	        	output, err := bson.Marshal(result)
-	        	if err != nil {
-	        	    alligatorLog(L_ERROR, "query marshal cursor error:", err)
-	        	}
-                outputs = append(outputs, output)
-	        	//fmt.Printf("%s\n", output)
-	        }
-	        //output, err := json.Marshal(results)
-	        //output, err := json.MarshalIndent(results, "", " ")
-	        //output, err := bson.MarshalExtJSON(results, false, false)
-	        //if err != nil {
-	        //    alligatorLog(L_ERROR, "query marshal cursor error:", err)
-	        //}
-
-            //queryMetricsWalk(cursor, results, &Mtree, "mongodb", dbName, collName)
-
-	        return C.CString(string(output))
+            }
+            text := "["
+            for i, result := range results {
+                if i != 0 {
+                    text += ","
+                }
+                res, _ := bson.MarshalExtJSON(result, false, false)
+                text += string(res)
+            }
+            text += "]"
+	        return C.CString(text)
 
         }
         return C.CString("")
@@ -382,6 +369,7 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 	if Conf["no_collect"] != nil {
         NoCollect := Conf["no_collect"].(string)
         if NoCollect == "true" {
+		    alligatorLog(L_INFO, "mongo skip gather db data")
             return C.CString("")
         }
     }
