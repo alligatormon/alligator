@@ -1,6 +1,5 @@
 #ifdef __linux__
 #include <linux/version.h>
-# if LINUX_VERSION_CODE >= KERNEL_VERSION (4, 17, 0)
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -745,8 +744,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 	int meta = 0;
 	int updated = 0;
 	int prevcmp = 0;
-	int counter_exists = 0;
-	uint8_t ct_direction = 0;
 	uint16_t port = 0;
 	int8_t ct_key = -1; // NFT_CT_STATE
 	int8_t states_data = -1;
@@ -802,8 +799,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		if (expr->len + i > size)
 			break;
 
-
-		uint16_t nextlen = expr->data[expr->namelen - 1];
 
 		int is_payload = 0;
 		int is_cmp = 0;
@@ -971,10 +966,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		} else if (is_lookup) {
 			size_t lookup_len = strlcpy(lookup, expr->data + expr->namelen+5, 255) +1;
 
-			size_t table_len = strlen(table) + 1;
-            char buffer[4+32+4+32];
-            memset(&buffer, 0, sizeof(buffer));
-            struct nlattr *tnlattr = buffer;
 			//struct {
 			//	struct nlattr tnlattr;
 			//	char table[NLA_ALIGN(table_len)];
@@ -983,19 +974,24 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			//} body;
 			//memset(&body, 0, sizeof(body));
 
-			tnlattr.nla_len = table_len + sizeof(struct nlattr);
-			tnlattr.nla_type = 0x1;
+			size_t table_len = strlen(table) + 1;
+            char buffer[4+32+4+32];
+            memset(&buffer, 0, sizeof(buffer));
+            struct nlattr *tnlattr = (struct nlattr*)buffer;
+
+			tnlattr->nla_len = table_len + sizeof(struct nlattr);
+			tnlattr->nla_type = 0x1;
 			memcpy(&buffer + sizeof(struct nlattr), table, table_len);
 
-            char* ptr_to_set = buf + sizeof(struct nlattr) + NLA_ALIGN(table_len);
-            struct nlattr *tnlattr = ptr_to_set;
+            char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
+            struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
 
-			snlattr.nla_len = lookup_len + sizeof(struct nlattr);
-			snlattr.nla_type = 0x2;
+			snlattr->nla_len = lookup_len + sizeof(struct nlattr);
+			snlattr->nla_type = 0x2;
 
 			memcpy(ptr_to_set, lookup, lookup_len);
 
-            size_t buffer_size = sizeof(struct nlattr) * 2 + NLA_ALIGN(table_len) + NLA_ALIGN(lookup_len)
+            size_t buffer_size = sizeof(struct nlattr) * 2 + NLA_ALIGN(table_len) + NLA_ALIGN(lookup_len);
 
 
 			set_t set = { 0 };
@@ -1006,6 +1002,9 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			set.ct_state_established = -1;
 			set.ct_state_untracked = -1;
 
+                puts("getset");
+				dump_pkt(body, buffer_size);
+                puts("end");
 			nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSET, NLM_F_REQUEST|NLM_F_ACK, getpid(), 2, NFPROTO_INET, buffer, buffer_size, &set);
 			addrsize = set.addr_size;
 			portsize = set.port_size;
@@ -1025,7 +1024,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				if (cttype == NFTA_CT_KEY) {
 					ct_key = expr->data[j+7];
 				} else if (cttype == NFTA_CT_DIRECTION) {
-					ct_direction = expr->data[j+7];
+					//ct_direction = expr->data[j+7];
 				}
 
 				j += NLA_ALIGN(ctlen);
@@ -1034,7 +1033,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			strlcpy(objref, expr->data + expr->namelen+5, 255);
 		} else if (!strncmp(expr->data, "counter", 7)) {
 			uint16_t counter_size = expr->data[expr->namelen - 4];
-                        counter_exists = 1;
 			for (uint16_t j = expr->namelen; j < counter_size; ) {
 				uint16_t counter_len = nl_get_len(expr->data + j);
 				if (!counter_len)
@@ -1065,7 +1063,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 					for (uint32_t j = 16; j < expr->len - 15; ) {
 						uint16_t type = nl_get_type(expr->data + j);
 						uint16_t len = nl_get_len(expr->data + j);
-						char *data = nl_get_data(expr->data + j);
 						if (type == 2)
 						{
 							uint16_t k = j + 4;
@@ -1090,7 +1087,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			}
 		} else if (!strncmp(expr->data, "reject", 6)) {
 			*verdict = ALLIGATOR_NFT_REJECT;
-			uint8_t im_code, im_type;
 			uint16_t im_size = to_uint16(expr->data + expr->namelen -3) + expr->namelen;
 			for (uint16_t j = expr->namelen+1; j < im_size; ) {
 				uint16_t imlen = to_uint16(expr->data + j);
@@ -1113,8 +1109,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			uint16_t bitwise_size = to_uint16(expr->data + 8);
 			for (uint16_t j = 12; j < bitwise_size - 4; ) {
 				uint16_t bitwise_len = to_uint16(expr->data + j);
-				uint16_t bitwise_type = to_uint16(expr->data + j+2);
-				uint16_t data_size = bitwise_len - 4;
 				if (!bitwise_len)
 					break;
 				uint16_t bittype = to_uint16(expr->data + j+2);
@@ -1137,7 +1131,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				j += NLA_ALIGN(bitwise_len);
 			}
 		} else if (!strncmp(expr->data, "log", 3)) {
-			uint16_t log_size = to_uint16(expr->data + 4);
 			for (uint16_t j = 8; j < expr->len - 11; ) {
 				uint16_t type = nl_get_type(expr->data + j);
 				uint16_t len = nl_get_len(expr->data + j);
@@ -1161,7 +1154,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				j += NLA_ALIGN(len);
 			}
 		} else if (!strncmp(expr->data, "limit", 5)) {
-			uint16_t limit_size = to_uint16(expr->data + 4);
 			for (uint16_t j = 12; j < expr->len - 11; ) {
 				uint16_t type = nl_get_type(expr->data + j);
 				uint16_t len = nl_get_len(expr->data + j);
@@ -1184,7 +1176,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			}
 		} else if (!strncmp(expr->data, "nat", 3)) {
 			*verdict = ALLIGATOR_NFT_NAT;
-			uint16_t limit_size = to_uint16(expr->data + 4);
 			uint16_t start_point = NLA_ALIGN(3 + 4);
 			//dump_pkt(expr->data, expr->len - (start_point - 1));
 			for (uint16_t j = start_point; j < expr->len - (start_point); ) {
@@ -1204,7 +1195,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				j += NLA_ALIGN(len);
 			}
 		} else if (!strncmp(expr->data, "numgen", 6)) {
-			uint16_t limit_size = to_uint16(expr->data + 4);
 			for (uint16_t j = 12; j < expr->len - 11; ) {
 				uint16_t type = nl_get_type(expr->data + j);
 				uint16_t len = nl_get_len(expr->data + j);
@@ -1221,7 +1211,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			}
 		} else if (!strncmp(expr->data, "connlimit", 9)) {
 			uint64_t j = NLA_ALIGN(10);
-			uint16_t type = nl_get_type(expr->data + j);
 			uint16_t len = nl_get_len(expr->data + j);
 
 			for (uint64_t k = j + 4; k < expr->len;) {
@@ -1236,7 +1225,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		} else if (!strncmp(expr->data, "masq", 4)) {
 			*verdict = ALLIGATOR_NFT_MASQUERADE;
 			uint64_t j = NLA_ALIGN(5);
-			uint16_t type = nl_get_type(expr->data + j);
 			uint16_t len = nl_get_len(expr->data + j);
 
 			for (uint64_t k = j + 4; k < len;) {
@@ -1257,8 +1245,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			*verdict = ALLIGATOR_NFT_DUP;
 		} else {
 			printf("1unknown type '%s' %ld\n", expr->data, i);
-			uint16_t unklen = expr->data[expr->namelen];
-			dump_pkt(expr->data, expr->len);
+			//dump_pkt(expr->data, expr->len);
 		}
 
 		i += NLA_ALIGN(expr->len);
@@ -1291,7 +1278,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 	struct {
 		struct nlmsghdr nlh; // 16
 		struct nfgenmsg nfg; // 4
-		char body[NLA_ALIGN(body_len)];
+		char body[72];
 	} req;
 	size_t full_len = NLA_ALIGN(sizeof(req));
 
@@ -1387,8 +1374,6 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 		}
 
 		if (h->nlmsg_type == NLMSG_ERROR) {
-			nft_genmsg *rawmsg = (nft_genmsg*)NLMSG_DATA(h);
-			char *dtchar = rawmsg->data;
 			if (!setfd)
 				close(fd);
 			return;
@@ -1410,7 +1395,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			if ((i8type & NFT_MSG_GETRULE) == i8type) {
 				char table[1024];
 				char chain[1024] = {0};
-				char set[1024] = {0};
+				//char set[1024] = {0};
 				char userdata[1024] = { 0 };
 				int8_t verdict;
 				for (uint64_t i = 0; i + 20 < dt_size;)
@@ -1471,23 +1456,23 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 						set->has_timeout = (flags & NFT_SET_TIMEOUT) != 0;
 					}
 					else if (itype == NFTA_SET_KEY_TYPE) {
-						uint32_t keytype = to_uint32_swap(nftmsg->data);
+						//uint32_t keytype = to_uint32_swap(nftmsg->data);
 					}
 					else if (itype == NFTA_SET_KEY_LEN) {
-						uint32_t keylen = to_uint32_swap(nftmsg->data);
+						//uint32_t keylen = to_uint32_swap(nftmsg->data);
 					}
 					else if (itype == NFTA_SET_DATA_TYPE) {
 						set->datatype = to_uint32_swap(nftmsg->data);
 					}
 					else if (itype == NFTA_SET_DATA_LEN) {
-						uint32_t datalen = to_uint32_swap(nftmsg->data);
+						//uint32_t datalen = to_uint32_swap(nftmsg->data);
 					}
 					else if (itype == NFTA_SET_ID) {
 					}
 					else if (itype == NFTA_SET_DESC) {
 					}
 					else if (itype == NFTA_SET_USERDATA) {
-						uint32_t userdata = to_uint32_swap(nftmsg->data);
+						//uint32_t userdata = to_uint32_swap(nftmsg->data);
 					}
 					else if (itype == NFTA_SET_HANDLE) {
 					}
@@ -1507,28 +1492,49 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 
 				size_t set_len = strlen(setname) + 1;
 				size_t table_len = strlen(table) + 1;
-				struct {
-					struct nlattr tnlattr;
-					char table[NLA_ALIGN(table_len)];
-					struct nlattr snlattr;
-					char set[NLA_ALIGN(set_len)];
-				} body;
-				memset(&body, 0, sizeof(body));
+				//struct {
+				//	struct nlattr tnlattr;
+				//	char table[NLA_ALIGN(table_len)];
+				//	struct nlattr snlattr;
+				//	char set[NLA_ALIGN(set_len)];
+				//} body;
+				//memset(&body, 0, sizeof(body));
 
-				body.tnlattr.nla_len = table_len + sizeof(struct nlattr);
-				body.tnlattr.nla_type = 0x1;
-				memcpy(&body.table, table, table_len);
-				body.snlattr.nla_len = set_len + sizeof(struct nlattr);
-				body.snlattr.nla_type = 0x2;
+                char buffer[4+32+4+32];
+                memset(&buffer, 0, sizeof(buffer));
+                struct nlattr *tnlattr = (struct nlattr*)buffer;
 
-				memcpy(&body.set, setname, set_len);
+			    tnlattr->nla_len = table_len + sizeof(struct nlattr);
+			    tnlattr->nla_type = 0x1;
+			    memcpy(&buffer + sizeof(struct nlattr), table, table_len);
 
-				nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSETELEM, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 3, NFPROTO_INET, &body, sizeof(body), set);
+                char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
+                struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
+
+			    snlattr->nla_len = set_len + sizeof(struct nlattr);
+			    snlattr->nla_type = 0x2;
+
+			    memcpy(ptr_to_set, setname, set_len);
+
+                size_t buffer_size = sizeof(struct nlattr) * 2 + NLA_ALIGN(table_len) + NLA_ALIGN(set_len);
+
+				//body.tnlattr.nla_len = table_len + sizeof(struct nlattr);
+				//body.tnlattr.nla_type = 0x1;
+				//memcpy(&body.table, table, table_len);
+				//body.snlattr.nla_len = set_len + sizeof(struct nlattr);
+				//body.snlattr.nla_type = 0x2;
+
+				//memcpy(&body.set, setname, set_len);
+
+                puts("getsetelem");
+				dump_pkt(body, buffer_size);
+                puts("end");
+				nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSETELEM, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 3, NFPROTO_INET, &body, buffer_size, set);
 
 				if (set->allsets) {
 					if (!set->is_anonymous)
 						printf("table '%s', set: '%s', constant %d anonymous %d interval %d map %d timeout %d(%u), size %d/%d/%d\n", table, setname, set->is_constant, set->is_anonymous, set->is_interval, set->is_map, set->has_timeout, set->timeout, set->addr_size, set->port_size, set->other_size);
-					memset(set, 0, sizeof(set));
+					memset(set, 0, sizeof(struct set_t));
 					set->allsets = 1;
 				}
 
@@ -1590,7 +1596,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 									++cnt_addr;
 									free(addr);
 								} else if ((list_obj->data[4] == 6) && (list_obj->data[6] == 1)) {
-									uint16_t port = to_uint16_swap(list_obj->data+8);
+									//uint16_t port = to_uint16_swap(list_obj->data+8);
 									++cnt_port;
 								}
 
@@ -1627,7 +1633,6 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
 					uint16_t itype = nftmsg->nlattr.nla_type;
-					uint16_t ilen = nftmsg->nlattr.nla_len;
 					if (itype == NFTA_OBJ_TABLE) {
 						strcpy(table, nftmsg->data);
 					} else if (itype == NFTA_OBJ_NAME) {
@@ -1675,14 +1680,17 @@ void nftables_handler()
 	pid_t pid = getpid();
 
 	// get rules
+    puts("get rules");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8|NFT_MSG_GETRULE), (NLM_F_REQUEST|NLM_F_ACK|NLM_F_ECHO|NLM_F_DUMP), pid, 1, NFPROTO_UNSPEC, NULL, 0, NULL);
 
 	// get non-anon sets
 	set_t set = { 0 };
 	set.allsets = 1;
+    puts("get set");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSET, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, &set);
 
 	// get custom counters
+    puts("get obj");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETOBJ, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, NULL);
 
 	close(fd);
@@ -1690,5 +1698,4 @@ void nftables_handler()
 //int main() {
 //	nftables_handler();
 //}
-#endif
 #endif
