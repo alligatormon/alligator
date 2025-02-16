@@ -68,8 +68,8 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 				uint64_t bytes = strtoull(field + ccur, NULL, 10);
 				ccur += strspn(field + ccur, "0123456789");
 
-				metric_add_labels3("firewall_bytes", &bytes, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
-				metric_add_labels3("firewall_packages", &packets, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
+				metric_add_labels3("firewall_bytes_total", &bytes, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
+				metric_add_labels3("firewall_packets_total", &packets, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
 			}
 
 			skip_next = 1;
@@ -148,7 +148,7 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 			//if (ac->log_level > 0)
 			//	printf("pkts is %"PRId64", bytes is %"PRId64", target is '%s', prot is '%s', opt is '%s', in is '%s', out is '%s', source is '%s', destination is '%s', comment is '%s'\n", pkts, bytes, target, prot, opt, in, out, source, destination, comment);
 			metric_add_labels10("firewall_bytes", &bytes, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
-			metric_add_labels10("firewall_packages", &pkts, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
+			metric_add_labels10("firewall_packets", &pkts, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
 		}
 
 		cur += end;

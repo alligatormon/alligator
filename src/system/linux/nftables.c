@@ -12,6 +12,8 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <stddef.h>
+#include <common/selector.h>
+#include <main.h>
 
 #include <linux/netfilter.h>
 #include <linux/netlink.h>
@@ -69,26 +71,27 @@
 #define SET_DATATYPE_BOOLEAN 39
 #define SET_DATATYPE_IFNAME 41
 #define SET_DATATYPE_IGMPTYPE 42
+extern aconf *ac;
 
 
 void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32_t pid, uint32_t seq, uint8_t, void *body, size_t body_len, void *userdata);
 
 size_t strlcpy(char *dst, const char *src, size_t dsize)
 {
-    const char *osrc = src;
-    size_t nleft = dsize;
+	const char *osrc = src;
+	size_t nleft = dsize;
 
-    if (nleft != 0) while (--nleft != 0) {
-        if ((*dst++ = *src++) == '\0')
-            break;
-    }
+	if (nleft != 0) while (--nleft != 0) {
+		if ((*dst++ = *src++) == '\0')
+			break;
+	}
 
-    if (nleft == 0) {
-        if (dsize != 0) *dst = '\0';
-        while (*src++) ;
-    }
+	if (nleft == 0) {
+		if (dsize != 0) *dst = '\0';
+		while (*src++) ;
+	}
 
-    return(src - osrc - 1);
+	return(src - osrc - 1);
 }
 
 
@@ -235,10 +238,13 @@ void dump_pkt(char *fbuf, int status) {
 
 typedef struct nft_str_expression {
 	char expression[12][255];
+	alligator_ht *label_expression;
 	uint64_t packets;
 	uint64_t bytes;
 	uint8_t len;
 	uint16_t syms;
+    uint64_t addrsize;
+    uint64_t portsize;
 } nft_str_expression;
 
 char *nft_get_verdict_by_id(int8_t verdict) {
@@ -283,14 +289,19 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 	snprintf(expression->expression[expression->len], 254, "[");
 	if (meta) {
 		strcat(expression->expression[expression->len], " meta: '");
-		if (meta == NFT_META_IIFNAME)
+		if (meta == NFT_META_IIFNAME) {
 			strcat(expression->expression[expression->len], "iifname");
-		else if (meta == NFT_META_OIFNAME)
+			labels_hash_insert_nocache(expression->label_expression, "meta", "iifname");
+		} else if (meta == NFT_META_OIFNAME) {
 			strcat(expression->expression[expression->len], "oifname");
-		else if (meta == NFT_META_NFPROTO)
+			labels_hash_insert_nocache(expression->label_expression, "meta", "oifname");
+		} else if (meta == NFT_META_NFPROTO) {
 			strcat(expression->expression[expression->len], "nfproto");
-		else if (meta == NFT_META_L4PROTO)
+			labels_hash_insert_nocache(expression->label_expression, "meta", "nfproto");
+		} else if (meta == NFT_META_L4PROTO) {
 			strcat(expression->expression[expression->len], "l4proto");
+			labels_hash_insert_nocache(expression->label_expression, "meta", "l4proto");
+		}
 		strcat(expression->expression[expression->len], "'");
 	}
 	if (cmpop > -1) {
@@ -316,15 +327,20 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " payload offset: '");
 
 		if (payload_offset == PAYLOAD_OFFSET_ADDRLEN) {
-			strcat(expression->expression[expression->len], "addren");
+			strcat(expression->expression[expression->len], "addrlen");
+			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "addrlen");
 		} else if (payload_offset == PAYLOAD_OFFSET_PORTSRC) {
 			strcat(expression->expression[expression->len], "sport");
+			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "sport");
 		} else if (payload_offset == PAYLOAD_OFFSET_PORTDST) {
 			strcat(expression->expression[expression->len], "dport");
+			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "dport");
 		} else if (payload_offset == PAYLOAD_OFFSET_ADDRSRC) {
 			strcat(expression->expression[expression->len], "saddr");
+			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "saddr");
 		} else if (payload_offset == PAYLOAD_OFFSET_ADDRDST) {
 			strcat(expression->expression[expression->len], "daddr");
+			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "daddr");
 		}
 
 		strcat(expression->expression[expression->len], "'");
@@ -333,8 +349,10 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " payload base: '");
 		if (payload_base == NFT_PAYLOAD_NETWORK_HEADER) {
 			strcat(expression->expression[expression->len], "network");
+			labels_hash_insert_nocache(expression->label_expression, "payload_base", "network");
 		} else if (payload_base == NFT_PAYLOAD_TRANSPORT_HEADER) {
 			strcat(expression->expression[expression->len], "transport");
+			labels_hash_insert_nocache(expression->label_expression, "payload_base", "transport");
 		} else {
 			printf("unknown payload base: %hhu\n", payload_base);
 		}
@@ -345,6 +363,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " lookup: '");
 		strcat(expression->expression[expression->len], lookup);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "lookup", lookup);
 	}
 	if (addrsize > -1) {
 		char setsize_str[10];
@@ -352,6 +371,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " addrsize: '");
 		strcat(expression->expression[expression->len], setsize_str);
 		strcat(expression->expression[expression->len], "'");
+        expression->addrsize += addrsize;
 	}
 	if (portsize > -1) {
 		char setsize_str[10];
@@ -359,6 +379,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " portize: '");
 		strcat(expression->expression[expression->len], setsize_str);
 		strcat(expression->expression[expression->len], "'");
+        expression->portsize += portsize;
 	}
 	if (othersize > -1) {
 		char setsize_str[10];
@@ -371,64 +392,108 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " target: '");
 		strcat(expression->expression[expression->len], target);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "target", target);
 	}
-	if (immediate_addr1) {
+	if ((immediate_addr1) && (!immediate_addr2)) {
 		strcat(expression->expression[expression->len], " immediate_addr1: '");
 		strcat(expression->expression[expression->len], immediate_addr1);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "immediate_addr", immediate_addr1);
 	}
-	if (immediate_addr2) {
+	else if ((immediate_addr2) && (!immediate_addr1)) {
 		strcat(expression->expression[expression->len], " immediate_addr2: '");
 		strcat(expression->expression[expression->len], immediate_addr2);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "immediate_addr", immediate_addr2);
 	}
-	if (immediate_port1 > -1) {
+	else if ((immediate_addr1) && (immediate_addr2)) {
+		char addrs[128];
+		snprintf(addrs, 127, "%s-%s", immediate_addr1, immediate_addr2);
+		strcat(expression->expression[expression->len], " immediate_addr: '");
+		strcat(expression->expression[expression->len], addrs);
+		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "immediate_addrs", addrs);
+	}
+	if ((immediate_port1 > -1) && (immediate_port2 < 0)) {
 		char portnum[20];
 		snprintf(portnum, 19, "%"PRId32, immediate_port1);
 		strcat(expression->expression[expression->len], " immediate_port1: '");
 		strcat(expression->expression[expression->len], portnum);
 		strcat(expression->expression[expression->len], "'");
+		if (masq_to_ports > -1) {
+			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
+		} else {
+			labels_hash_insert_nocache(expression->label_expression, "immediate_ports", portnum);
+		}
 	}
-	if (immediate_port2 > -1) {
+	else if ((immediate_port2 > -1) && (immediate_port1 < 0)) {
 		char portnum[20];
 		snprintf(portnum, 19, "%"PRId32, immediate_port2);
 		strcat(expression->expression[expression->len], " immediate_port2: '");
 		strcat(expression->expression[expression->len], portnum);
 		strcat(expression->expression[expression->len], "'");
+
+		if (masq_to_ports > -1) {
+			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
+		}
+	}
+	else if ((immediate_port1 > -1) && (immediate_port2 > -1)) {
+		char portnum[40];
+		snprintf(portnum, 39, "%"PRId32"-%"PRId32, immediate_port1, immediate_port2);
+		strcat(expression->expression[expression->len], " immediate_ports: '");
+		strcat(expression->expression[expression->len], portnum);
+		strcat(expression->expression[expression->len], "'");
+
+		if (masq_to_ports > -1) {
+			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
+		}
 	}
 	if (ct_state_related > -1) {
 		if (ct_state_related == 1) {
 			strcat(expression->expression[expression->len], " related: 'accept'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_related", "accept");
 		} else if (ct_state_related == 0) {
 			strcat(expression->expression[expression->len], " related: 'drop'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_related", "drop");
 		}
 	}
 	if (ct_state_new > -1) {
 		if (ct_state_new == 1) {
 			strcat(expression->expression[expression->len], " new: 'accept'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_new", "accept");
 		} else if (ct_state_new == 0) {
 			strcat(expression->expression[expression->len], " new: 'drop'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_new", "drop");
 		}
 	}
 	if (ct_state_invalid > -1) {
 		if (ct_state_invalid == 1) {
 			strcat(expression->expression[expression->len], " invalid: 'accept'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_invalid", "accept");
 		} else if (ct_state_invalid == 0) {
 			strcat(expression->expression[expression->len], " invalid: 'drop'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_invalid", "drop");
 		}
 	}
 	if (ct_state_established > -1) {
 		if (ct_state_established == 1) {
 			strcat(expression->expression[expression->len], " established: 'accept'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_established", "accept");
 		} else if (ct_state_established == 0) {
 			strcat(expression->expression[expression->len], " established: 'drop'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_established", "drop");
 		}
 	}
 	if (ct_state_untracked > -1) {
 		if (ct_state_untracked == 1) {
 			strcat(expression->expression[expression->len], " untracked: 'accept'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_untracked", "accept");
 		} else if (ct_state_untracked == 0) {
 			strcat(expression->expression[expression->len], " untracked: 'drop'");
+			labels_hash_insert_nocache(expression->label_expression, "ct_untracked", "drop");
 		}
 	}
 	if (ct_key > -1) {
@@ -440,46 +505,53 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 	}
 	if (states_data > -1) {
 		strcat(expression->expression[expression->len], " states: [");
+		string *states = string_init(50);
 		uint8_t opened = 0;
 		if ((states_data & CT_STATE_INVALID) > 0) {
-			strcat(expression->expression[expression->len], "RELATED");
+			string_cat(states, "INVALID", 7);
 			opened = 1;
 		}
 		if ((states_data & CT_STATE_ESTABLISHED) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "ESTABLISHED");
+				string_cat(states, ", ", 2);
+			string_cat(states, "ESTABLISHED", 11);
 			opened = 1;
 		}
 		if ((states_data & CT_STATE_RELATED) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "RELATED");
+				string_cat(states, ", ", 2);
+			string_cat(states, "RELATED", 7);
 			opened = 1;
 		}
 		if ((states_data & CT_STATE_NEW) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "NEW");
+				string_cat(states, ", ", 2);
+			string_cat(states, "NEW", 3);
 			opened = 1;
 		}
 		if ((states_data & CT_STATE_UNTRACKED) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "UNTRACKED");
+				string_cat(states, ", ", 2);
+			string_cat(states, "UNTRACKED", 9);
 			opened = 1;
 		}
+		strcat(expression->expression[expression->len], states->s);
 		strcat(expression->expression[expression->len], "]");
+
+		labels_hash_insert(expression->label_expression, "ct_states", states->s);
+        free(states);
 	}
 	if (*objref) {
 		strcat(expression->expression[expression->len], " objref: '");
 		strcat(expression->expression[expression->len], objref);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "objref", objref);
 	}
 	if (proto) {
 		strcat(expression->expression[expression->len], " proto: '");
 		strcat(expression->expression[expression->len], proto);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "proto", proto);
 	}
 	if (port) {
 		char portnum[10];
@@ -487,33 +559,46 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " port: '");
 		strcat(expression->expression[expression->len], portnum);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "port", portnum);
 	}
 	if (reject_icmp_code > -1) {
 		char type_str[8];
+        string *reject_icmp = string_init(64);
 		snprintf(type_str, 7, "%"PRId16, reject_icmp_type);
+
 		strcat(expression->expression[expression->len], " reject icmp_type: '");
 		strcat(expression->expression[expression->len], type_str);
+		labels_hash_insert_nocache(expression->label_expression, "reject_icmp_type", type_str);
+
 		strcat(expression->expression[expression->len], "', icmp_code: '");
 		if (reject_icmp_code == NFT_REJECT_ICMPX_NO_ROUTE) {
 			strcat(expression->expression[expression->len], "no route");
+            string_cat(reject_icmp, "no route", 8);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_PORT_UNREACH) {
 			strcat(expression->expression[expression->len], "port unreachable");
+            string_cat(reject_icmp, "port unreachable", 16);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_HOST_UNREACH) {
 			strcat(expression->expression[expression->len], "host unreachable");
+            string_cat(reject_icmp, "host unreachable", 16);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_ADMIN_PROHIBITED) {
 			strcat(expression->expression[expression->len], "admin prohibited");
+            string_cat(reject_icmp, "admin prohibited", 16);
 		}
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert(expression->label_expression, "reject_icmp_code", reject_icmp->s);
+        free(reject_icmp);
 	}
 	if (*goto_chain) {
 		strcat(expression->expression[expression->len], " goto: '");
 		strcat(expression->expression[expression->len], goto_chain);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "goto", goto_chain);
 	}
 	if (*log_prefix) {
 		strcat(expression->expression[expression->len], " log prefix: '");
 		strcat(expression->expression[expression->len], log_prefix);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "log_prefix", log_prefix);
 	}
 	if (log_group > -1) {
 		char str[16];
@@ -521,6 +606,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " log group: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "log_group", str);
 	}
 	if (log_snaplen > -1) {
 		char str[16];
@@ -528,6 +614,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " log snaplen: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "log_snaplen", str);
 	}
 	if (log_qtreshold > -1) {
 		char str[16];
@@ -535,6 +622,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " log qtreshold: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "log_qtreshold", str);
 	}
 	if (log_level > -1) {
 		char str[16];
@@ -542,51 +630,55 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " log_level: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "log_level", str);
 	}
 	if (log_flags > -1) {
+		string *logflags = string_init(128);
 		strcat(expression->expression[expression->len], " log_flags: [");
 		uint8_t opened = 0;
 		if ((log_flags & NF_LOG_TCPSEQ) > 0) {
-			strcat(expression->expression[expression->len], "'tcp seq'");
+			string_cat(logflags, "'tcp seq'", 9);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_TCPOPT) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'tcp opt'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'tcp opt'", 9);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_IPOPT) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'ip opt'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'ip opt'", 8);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_UID) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'uid'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'uid'", 5);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_NFLOG) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'nflog'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'nflog'", 7);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_MACDECODE) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'macdecode'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'macdecode'", 11);
 			opened = 1;
 		}
 		if ((log_flags & NF_LOG_MASK) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'mask'");
+				string_cat(logflags, ", ", 2);
+			string_cat(logflags, "'mask'", 6);
 			opened = 1;
 		}
+		strcat(expression->expression[expression->len], logflags->s);
 		strcat(expression->expression[expression->len], "]");
+		labels_hash_insert(expression->label_expression, "log_level", logflags->s);
 	}
 	if (limit_rate > -1) {
 		char str[16];
@@ -594,6 +686,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " limit_rate: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "limit_rate", str);
 	}
 	if (*limit_unit) {
 		strcat(expression->expression[expression->len], " limit_unit: '");
@@ -606,12 +699,16 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " limit_burst: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "limit_burst", str);
 	}
 	if (limit_type > -1) {
-		if (limit_type == NFT_LIMIT_PKTS)
+		if (limit_type == NFT_LIMIT_PKTS) {
 			strcat(expression->expression[expression->len], " limit_type: 'packets'");
-		else if (limit_type == NFT_LIMIT_PKT_BYTES)
+			labels_hash_insert_nocache(expression->label_expression, "limit_type", "packets");
+		} else if (limit_type == NFT_LIMIT_PKT_BYTES) {
 			strcat(expression->expression[expression->len], " limit_type: 'bytes'");
+			labels_hash_insert_nocache(expression->label_expression, "limit_burst", "bytes");
+		}
 	}
 	if (limit_flags > -1) {
 		strcat(expression->expression[expression->len], " limit_flags: [");
@@ -620,6 +717,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			if (opened)
 				strcat(expression->expression[expression->len], ", ");
 			strcat(expression->expression[expression->len], "'over'");
+			labels_hash_insert_nocache(expression->label_expression, "limit_flags", "over");
 			opened = 1;
 		}
 	}
@@ -629,14 +727,17 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " numgen mod: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "numgen_mod", str);
 	}
 
 	if (numgen_type > -1) {
 		strcat(expression->expression[expression->len], " numgen type: ");
 		if ((numgen_type & NFT_NG_INCREMENTAL) > 0) {
 			strcat(expression->expression[expression->len], "'round-robin'");
+			labels_hash_insert_nocache(expression->label_expression, "numgen_type", "round-robin");
 		} else if ((numgen_type & NFT_NG_RANDOM) > 0) {
 			strcat(expression->expression[expression->len], "'random'");
+			labels_hash_insert_nocache(expression->label_expression, "numgen_type", "random");
 		}
 	}
 
@@ -644,42 +745,48 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " nat type: ");
 		if (nat_type == NFT_NAT_SNAT) {
 			strcat(expression->expression[expression->len], "'snat'");
+			labels_hash_insert_nocache(expression->label_expression, "nat_type", "snat");
 		} else if (nat_type == NFT_NAT_DNAT) {
 			strcat(expression->expression[expression->len], "'dnat'");
+			labels_hash_insert_nocache(expression->label_expression, "nat_type", "dnat");
 		}
 	}
 	if (nat_flags > -1) {
+		string *natflags = string_init(128);
 		strcat(expression->expression[expression->len], " nat_flags: [");
 		uint8_t opened = 0;
 		if ((nat_flags & NF_NAT_RANGE_PERSISTENT) != 0) {
-			strcat(expression->expression[expression->len], "'persistent'");
+			string_cat(natflags, "'persistent'", 12);
 			opened = 1;
 		}
 		if ((nat_flags & NF_NAT_RANGE_PROTO_RANDOM) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'random'");
+				string_cat(natflags, ", ", 2);
+			string_cat(natflags, "'random'", 8);
 			opened = 1;
 		}
 		if ((nat_flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'random-fully'");
+				string_cat(natflags, ", ", 2);
+			string_cat(natflags, "'random-fully'", 14);
 			opened = 1;
 		}
 		if ((nat_flags & NF_NAT_RANGE_NETMAP) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'prefix'");
+				string_cat(natflags, ", ", 2);
+			string_cat(natflags, "'prefix'", 8);
 			opened = 1;
 		}
 		if ((nat_flags & NF_NAT_RANGE_PROTO_SPECIFIED) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'range-proto-specified'");
+				string_cat(natflags, ", ", 2);
+			string_cat(natflags, "'range-proto-specified'", 23);
 			opened = 1;
 		}
+		strcat(expression->expression[expression->len], natflags->s);
 		strcat(expression->expression[expression->len], "]");
+		labels_hash_insert(expression->label_expression, "nat_flags", natflags->s);
+		free(natflags);
 	}
 	if (connlimit > -1) {
 		char str[16];
@@ -687,40 +794,40 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		strcat(expression->expression[expression->len], " connlimit: '");
 		strcat(expression->expression[expression->len], str);
 		strcat(expression->expression[expression->len], "'");
+		labels_hash_insert_nocache(expression->label_expression, "connlimit", str);
 	}
 	if (masq_flags > -1) {
+		string *masqflags = string_init(128);
 		strcat(expression->expression[expression->len], " masquerade_flags: [");
 		uint8_t opened = 0;
 		if ((masq_flags & NF_NAT_RANGE_PERSISTENT) != 0) {
-			strcat(expression->expression[expression->len], "'persistent'");
+			string_cat(masqflags, "'persistent'", 12);
 			opened = 1;
 		}
 		if ((masq_flags & NF_NAT_RANGE_PROTO_RANDOM) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'random'");
+				string_cat(masqflags, ", ", 2);
+			string_cat(masqflags, "'random'", 8);
 			opened = 1;
 		}
 		if ((masq_flags & NF_NAT_RANGE_PROTO_RANDOM_FULLY) != 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'random-fully'");
+				string_cat(masqflags, ", ", 2);
+			string_cat(masqflags, "'random-fully'", 14);
 			opened = 1;
 		}
-		if (masq_to_ports > -1) {
-			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'to-ports'");
-			opened = 1;
-		}
+		strcat(expression->expression[expression->len], masqflags->s);
 		strcat(expression->expression[expression->len], "]");
+		labels_hash_insert_nocache(expression->label_expression, "masquerade_opt", "to-ports");
+		labels_hash_insert(expression->label_expression, "masquerade_flags", masqflags->s);
+		free(masqflags);
 	}
 
-	if (masq_to_ports > -1) {
-		strcat(expression->expression[expression->len], " masquerade [to-ports]");
-	}
 
 	strcat(expression->expression[expression->len], "]");
+	//char expr_num[63];
+	//snprintf(expr_num, 63, "expression%d", expression->len);;
+	//labels_hash_insert_nocache(expression->label_expression, expr_num, expression->expression[expression->len]);
 	expression->syms += strlen(expression->expression[expression->len]);
 	expression->len += 1;
 }
@@ -737,7 +844,7 @@ char* nft_expression_deserialize(nft_str_expression* expression) {
 	return exp;
 }
 
-nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *data, uint64_t size, int8_t *verdict) {
+nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *data, uint64_t size, int8_t *verdict, alligator_ht *label_expression) {
 	char *curdt;
 	uint64_t i = 0;
 	int8_t cmpop = -1;
@@ -766,6 +873,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 	int8_t reject_icmp_code = -1;
 	*verdict = -127;
 	nft_str_expression *expression = calloc(1, sizeof(*expression));
+	expression->label_expression = label_expression;
 	int8_t payload_base = -1; //NFT_PAYLOAD_LL_HEADER, NFT_PAYLOAD_NETWORK_HEADER, NFT_PAYLOAD_TRANSPORT_HEADER, NFT_PAYLOAD_INNER_HEADER
 	int8_t payload_offset = -1;
 	int16_t addrsize = -1;
@@ -816,23 +924,24 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 
 
 		if (prevcmp && !is_payload && !is_cmp && !is_lookup && !is_immediate) {
-		        nft_add_expr(expression, meta, cmpop, payload_offset, payload_base, lookup, addrsize, portsize, othersize, target, immediate_addr1, immediate_addr2, immediate_port1, immediate_port2, ct_key, states_data, objref, proto, port, reject_icmp_type, reject_icmp_code, goto_chain, ct_state_related, ct_state_new, ct_state_invalid, ct_state_established, ct_state_untracked, log_prefix, log_group, log_snaplen, log_qtreshold, log_level, log_flags, limit_rate, limit_unit, limit_burst, limit_type, limit_flags, numgen_mod, numgen_type, nat_type, nat_family, nat_flags, connlimit, masq_flags, masq_to_ports);
-		        prevcmp = 0;
-		        updated = 1;
-		        *lookup = 0;
-		        *objref = 0;
-		        *goto_chain = 0;
-		        proto = NULL;
-		        port = 0;
-		        meta = 0;
-		        cmpop = -1;
-		        ct_key = -1;
+				nft_add_expr(expression, meta, cmpop, payload_offset, payload_base, lookup, addrsize, portsize, othersize, target, immediate_addr1, immediate_addr2, immediate_port1, immediate_port2, ct_key, states_data, objref, proto, port, reject_icmp_type, reject_icmp_code, goto_chain, ct_state_related, ct_state_new, ct_state_invalid, ct_state_established, ct_state_untracked, log_prefix, log_group, log_snaplen, log_qtreshold, log_level, log_flags, limit_rate, limit_unit, limit_burst, limit_type, limit_flags, numgen_mod, numgen_type, nat_type, nat_family, nat_flags, connlimit, masq_flags, masq_to_ports);
+
+			prevcmp = 0;
+			updated = 1;
+			*lookup = 0;
+			*objref = 0;
+			*goto_chain = 0;
+			proto = NULL;
+			port = 0;
+			meta = 0;
+			cmpop = -1;
+			ct_key = -1;
 			states_data = -1;
-		        reject_icmp_type = -1;
-		        reject_icmp_code = -1;
-		        *verdict = -127;
-		        payload_offset = -1;
-		        payload_base = -1;
+			reject_icmp_type = -1;
+			reject_icmp_code = -1;
+			*verdict = -127;
+			payload_offset = -1;
+			payload_base = -1;
 			portsize = -1;
 			othersize = -1;
 			addrsize = -1;
@@ -860,22 +969,24 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			masq_to_ports = -1;
 			masq_flags = -1;
 			connlimit = -1;
-		        if (target)
-		                free(target);
-		        target = 0;
+			if (target)
+					free(target);
+			target = 0;
 			if (!is_immediate) {
-		        	if (immediate_addr1)
-		        	        free(immediate_addr1);
-		        	immediate_addr1 = 0;
-		        	if (immediate_addr2)
-		        	        free(immediate_addr2);
-		        	immediate_addr2 = 0;
+				if (immediate_addr1)
+						free(immediate_addr1);
+				immediate_addr1 = 0;
+
+				if (immediate_addr2)
+						free(immediate_addr2);
+
+				immediate_addr2 = 0;
 				immediate_port1 = -1;
 				immediate_port2 = -1;
 			}
-                } else {
-                       updated = 0;
-                }
+		} else {
+			   updated = 0;
+		}
 
 		// payload must be before cmp
 		if (!strncmp(expr->data, "meta", 4)) {
@@ -895,7 +1006,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				} else if (ptype == NFTA_PAYLOAD_BASE) {
 					payload_base = expr->data[j+7];
 				}
-
 
 				j += NLA_ALIGN(plen);
 			}
@@ -965,33 +1075,32 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			}
 		} else if (is_lookup) {
 			size_t lookup_len = strlcpy(lookup, expr->data + expr->namelen+5, 255) +1;
+			size_t table_len = strlen(table) + 1;
 
+			// to explain what you need to assemble:
 			//struct {
 			//	struct nlattr tnlattr;
 			//	char table[NLA_ALIGN(table_len)];
 			//	struct nlattr snlattr;
 			//	char set[NLA_ALIGN(lookup_len)];
 			//} body;
-			//memset(&body, 0, sizeof(body));
 
-			size_t table_len = strlen(table) + 1;
-            char buffer[4+32+4+32];
-            memset(&buffer, 0, sizeof(buffer));
-            struct nlattr *tnlattr = (struct nlattr*)buffer;
+			size_t buffer_size = sizeof(struct nlattr) + NLA_ALIGN(table_len) + sizeof(struct nlattr) + NLA_ALIGN(lookup_len);
+			char buffer[buffer_size];
+			memset(buffer, 0, buffer_size);
+			struct nlattr *tnlattr = (struct nlattr*)buffer;
 
 			tnlattr->nla_len = table_len + sizeof(struct nlattr);
 			tnlattr->nla_type = 0x1;
-			memcpy(&buffer + sizeof(struct nlattr), table, table_len);
+			memcpy(buffer + sizeof(struct nlattr), table, table_len);
 
-            char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
-            struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
+			char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
+			struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
 
 			snlattr->nla_len = lookup_len + sizeof(struct nlattr);
 			snlattr->nla_type = 0x2;
 
-			memcpy(ptr_to_set, lookup, lookup_len);
-
-            size_t buffer_size = sizeof(struct nlattr) * 2 + NLA_ALIGN(table_len) + NLA_ALIGN(lookup_len);
+			memcpy(ptr_to_set + sizeof(struct nlattr), lookup, lookup_len);
 
 
 			set_t set = { 0 };
@@ -1002,9 +1111,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			set.ct_state_established = -1;
 			set.ct_state_untracked = -1;
 
-                puts("getset");
-				dump_pkt(body, buffer_size);
-                puts("end");
 			nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSET, NLM_F_REQUEST|NLM_F_ACK, getpid(), 2, NFPROTO_INET, buffer, buffer_size, &set);
 			addrsize = set.addr_size;
 			portsize = set.port_size;
@@ -1393,6 +1499,8 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			uint64_t dt_size = h->nlmsg_len;
 			char *dtchar = rawmsg->data;
 			if ((i8type & NFT_MSG_GETRULE) == i8type) {
+
+				alligator_ht *label_expression = alligator_ht_init(NULL);
 				char table[1024];
 				char chain[1024] = {0};
 				//char set[1024] = {0};
@@ -1401,15 +1509,22 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				for (uint64_t i = 0; i + 20 < dt_size;)
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
+					labels_hash_insert_nocache(label_expression, "handler", "nftables");
 					uint16_t itype = nftmsg->nlattr.nla_type;
-					if (itype == NFTA_RULE_TABLE)
+					if (itype == NFTA_RULE_TABLE) {
 						strcpy(table, nftmsg->data);
-					else if (itype == NFTA_RULE_CHAIN)
+						labels_hash_insert_nocache(label_expression, "table", table);
+					}
+					else if (itype == NFTA_RULE_CHAIN) {
 						strcpy(chain, nftmsg->data);
+						labels_hash_insert_nocache(label_expression, "chain", chain);
+					}
 					else if (itype == NFTA_RULE_EXPRESSIONS)
-						expression = parse_expressions(fd, table, chain, nftmsg->data, nftmsg->nlattr.nla_len, &verdict);
-					else if (itype == NFTA_RULE_USERDATA)
+						expression = parse_expressions(fd, table, chain, nftmsg->data, nftmsg->nlattr.nla_len, &verdict, label_expression);
+					else if (itype == NFTA_RULE_USERDATA) {
 						strcpy(userdata, nftmsg->data+2);
+						labels_hash_insert_nocache(label_expression, "chain", chain);
+					}
 					else if (itype == NFTA_RULE_HANDLE) {
 					}
 					else if (itype == NFTA_RULE_POSITION) {
@@ -1424,9 +1539,22 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 						break;
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);
 				}
+
 				char *expstr = nft_expression_deserialize(expression);
 				char *verdict_str = nft_get_verdict_by_id(verdict);
+				labels_hash_insert_nocache(label_expression, "userdata", userdata);
+				labels_hash_insert_nocache(label_expression, "verdict", verdict_str);
+
+				alligator_ht *bytes_expressions = labels_dup(label_expression);
+				alligator_ht *addrsize_expressions = labels_dup(label_expression);
+				alligator_ht *port_expressions = labels_dup(label_expression);
+				metric_add("firewall_packets_total", label_expression, &expression->packets, DATATYPE_UINT, ac->cadvisor_carg);
+				metric_add("firewall_bytes_total", bytes_expressions, &expression->bytes, DATATYPE_UINT, ac->cadvisor_carg);
+				metric_add("nfset_address_total", addrsize_expressions, &expression->addrsize, DATATYPE_UINT, ac->cadvisor_carg);
+				metric_add("nfset_ports_total", port_expressions, &expression->portsize, DATATYPE_UINT, ac->cadvisor_carg);
+
 				printf("table '%s', chain: '%s', userdata: '%s', expr: '%s', packets %lu, bytes %lu, verdict '%s'\n", table, chain, userdata, expstr, expression->packets, expression->bytes, verdict_str);
+
 				if (expstr)
 					free(expstr);
 				free(expression);
@@ -1492,44 +1620,33 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 
 				size_t set_len = strlen(setname) + 1;
 				size_t table_len = strlen(table) + 1;
+
+				// to explain what you need to assemble:
 				//struct {
 				//	struct nlattr tnlattr;
 				//	char table[NLA_ALIGN(table_len)];
 				//	struct nlattr snlattr;
 				//	char set[NLA_ALIGN(set_len)];
 				//} body;
-				//memset(&body, 0, sizeof(body));
 
-                char buffer[4+32+4+32];
-                memset(&buffer, 0, sizeof(buffer));
-                struct nlattr *tnlattr = (struct nlattr*)buffer;
+				size_t buffer_size = sizeof(struct nlattr) + NLA_ALIGN(table_len) + sizeof(struct nlattr) + NLA_ALIGN(set_len);
+				char buffer[buffer_size];
+				memset(buffer, 0, buffer_size);
+				struct nlattr *tnlattr = (struct nlattr*)buffer;
 
-			    tnlattr->nla_len = table_len + sizeof(struct nlattr);
-			    tnlattr->nla_type = 0x1;
-			    memcpy(&buffer + sizeof(struct nlattr), table, table_len);
+				tnlattr->nla_len = table_len + sizeof(struct nlattr);
+				tnlattr->nla_type = 0x1;
+				memcpy(buffer + sizeof(struct nlattr), table, table_len);
 
-                char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
-                struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
+				char* ptr_to_set = buffer + sizeof(struct nlattr) + NLA_ALIGN(table_len);
+				struct nlattr *snlattr = (struct nlattr*)ptr_to_set;
 
-			    snlattr->nla_len = set_len + sizeof(struct nlattr);
-			    snlattr->nla_type = 0x2;
+				snlattr->nla_len = set_len + sizeof(struct nlattr);
+				snlattr->nla_type = 0x2;
 
-			    memcpy(ptr_to_set, setname, set_len);
+				memcpy(ptr_to_set + sizeof(struct nlattr), setname, set_len);
 
-                size_t buffer_size = sizeof(struct nlattr) * 2 + NLA_ALIGN(table_len) + NLA_ALIGN(set_len);
-
-				//body.tnlattr.nla_len = table_len + sizeof(struct nlattr);
-				//body.tnlattr.nla_type = 0x1;
-				//memcpy(&body.table, table, table_len);
-				//body.snlattr.nla_len = set_len + sizeof(struct nlattr);
-				//body.snlattr.nla_type = 0x2;
-
-				//memcpy(&body.set, setname, set_len);
-
-                puts("getsetelem");
-				dump_pkt(body, buffer_size);
-                puts("end");
-				nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSETELEM, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 3, NFPROTO_INET, &body, buffer_size, set);
+				nftables_send_query(0, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSETELEM, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 3, NFPROTO_INET, buffer, buffer_size, set);
 
 				if (set->allsets) {
 					if (!set->is_anonymous)
@@ -1671,26 +1788,26 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 		close(fd);
 }
 
-void nftables_handler()
+int nftables_handler()
 {
 	int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
 	if (fd < 0)
-		return;
+		return 0;
 
 	pid_t pid = getpid();
 
 	// get rules
-    puts("get rules");
+	puts("get rules");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8|NFT_MSG_GETRULE), (NLM_F_REQUEST|NLM_F_ACK|NLM_F_ECHO|NLM_F_DUMP), pid, 1, NFPROTO_UNSPEC, NULL, 0, NULL);
 
 	// get non-anon sets
 	set_t set = { 0 };
 	set.allsets = 1;
-    puts("get set");
+	puts("get set");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSET, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, &set);
 
 	// get custom counters
-    puts("get obj");
+	puts("get obj");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETOBJ, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, NULL);
 
 	close(fd);

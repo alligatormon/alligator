@@ -3337,20 +3337,12 @@ void get_system_metrics()
 	}
 	if (ac->system_firewall)
 	{
-		//get_iptables_info("filter", ac->system_carg);
-		//get_iptables_info("nat", ac->system_carg);
-		//get_iptables6_info("filter", ac->system_carg);
-		//get_iptables6_info("nat", ac->system_carg);
-
-		//get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t filter", "filter", ac->system_carg);
-		//get_iptables_info("exec://grep -q conntrack /proc/modules && iptables -t nat", "nat", ac->system_carg);
-		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t filter", "filter", ac->system_carg);
-		//get_iptables_info("exec://grep -q conntrack /proc/modules && ip6tables -t nat", "nat", ac->system_carg);
-
-		get_iptables_info(ac->system_procfs, "iptables", "nat", ac->system_carg);
-		get_iptables_info(ac->system_procfs, "iptables", "filter", ac->system_carg);
-		get_iptables_info(ac->system_procfs, "ip6tables", "nat", ac->system_carg);
-		get_iptables_info(ac->system_procfs, "ip6tables", "filter", ac->system_carg);
+		if (!nftables_handler()) {
+			get_iptables_info(ac->system_procfs, "iptables", "nat", ac->system_carg);
+			get_iptables_info(ac->system_procfs, "iptables", "filter", ac->system_carg);
+			get_iptables_info(ac->system_procfs, "ip6tables", "nat", ac->system_carg);
+			get_iptables_info(ac->system_procfs, "ip6tables", "filter", ac->system_carg);
+		}
 
 		if (ac->system_ipset)
 			ipset();
