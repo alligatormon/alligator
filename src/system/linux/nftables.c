@@ -1797,20 +1797,18 @@ int nftables_handler()
 	pid_t pid = getpid();
 
 	// get rules
-	puts("get rules");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8|NFT_MSG_GETRULE), (NLM_F_REQUEST|NLM_F_ACK|NLM_F_ECHO|NLM_F_DUMP), pid, 1, NFPROTO_UNSPEC, NULL, 0, NULL);
 
 	// get non-anon sets
 	set_t set = { 0 };
 	set.allsets = 1;
-	puts("get set");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETSET, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, &set);
 
 	// get custom counters
-	puts("get obj");
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETOBJ, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, NULL);
 
 	close(fd);
+    return 1;
 }
 //int main() {
 //	nftables_handler();

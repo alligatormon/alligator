@@ -253,6 +253,7 @@ typedef struct aconf
 	uint64_t metric_cache_hits;
 	uint64_t metric_allocates;
 	uint64_t metric_freed;
+	uint8_t kernel_version[3];
 } aconf;
 
 extern aconf *ac;

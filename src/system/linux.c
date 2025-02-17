@@ -2495,6 +2495,17 @@ void get_kernel_version(int8_t platform)
 	else if (platform == PLATFORM_OPENVZ)
 		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "openvz");
 
+    uint8_t i = 0;
+    char *p = version;
+	while (*p) {
+		if (isdigit(*p)) {
+			ac->kernel_version[i] = strtol(p, &p, 10);
+			i++;
+		} else {
+			p++;
+		}
+	}
+
 	fclose(fd);
 }
 
@@ -3257,7 +3268,6 @@ void get_systemd_scopes()
 void get_system_metrics()
 {
 	int8_t platform = -1;
-	nftables_handler();
 	if (ac->system_base)
 	{
 		get_uptime();
@@ -3337,7 +3347,11 @@ void get_system_metrics()
 	}
 	if (ac->system_firewall)
 	{
-		if (!nftables_handler()) {
+		printf("kernel version is %d.%d.%d\n", ac->kernel_version[0], ac->kernel_version[1], ac->kernel_version[2]);
+
+		if (ac->kernel_version[0] >= 5)
+			nftables_handler();
+		else  {
 			get_iptables_info(ac->system_procfs, "iptables", "nat", ac->system_carg);
 			get_iptables_info(ac->system_procfs, "iptables", "filter", ac->system_carg);
 			get_iptables_info(ac->system_procfs, "ip6tables", "nat", ac->system_carg);
