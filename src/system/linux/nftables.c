@@ -238,6 +238,8 @@ void dump_pkt(char *fbuf, int status) {
 
 typedef struct nft_str_expression {
 	char expression[12][255];
+    string_tokens *tokens;
+    int debug;
 	alligator_ht *label_expression;
 	uint64_t packets;
 	uint64_t bytes;
@@ -285,143 +287,150 @@ char *nft_get_verdict_by_id(int8_t verdict) {
 	}
 }
 
+void nft_add_cat(nft_str_expression *expression, char *str) {
+
+	printf("expression->tokens->l is %d, size is %zu\n", expression->tokens->str[expression->tokens->l]->l);
+	if (expression->debug)
+		string_cat(expression->tokens->str[expression->tokens->l], str, strlen(str));
+}
+
 void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, int8_t payload_offset, int8_t payload_base, char *lookup, int16_t addrsize, int16_t portsize, int16_t othersize, char *target, char *immediate_addr1, char *immediate_addr2, int32_t immediate_port1, int32_t immediate_port2, int8_t ct_key, int8_t states_data, char *objref, char *proto, uint16_t port, int8_t reject_icmp_type, int8_t reject_icmp_code, char *goto_chain, int8_t ct_state_related, int8_t ct_state_new, int8_t  ct_state_invalid, int8_t ct_state_established, int8_t ct_state_untracked, char *log_prefix, int16_t log_group, int32_t log_snaplen, int16_t log_qtreshold, int32_t log_level, int32_t log_flags, int64_t limit_rate, char* limit_unit, int32_t limit_burst, int32_t limit_type, int32_t limit_flags, int32_t numgen_mod, int32_t numgen_type, int32_t nat_type, int32_t nat_family, int32_t nat_flags, int32_t connlimit, int32_t masq_flags, int32_t masq_to_ports) {
 	snprintf(expression->expression[expression->len], 254, "[");
 	if (meta) {
-		strcat(expression->expression[expression->len], " meta: '");
+		nft_add_cat(expression, " meta: '");
 		if (meta == NFT_META_IIFNAME) {
-			strcat(expression->expression[expression->len], "iifname");
+			nft_add_cat(expression, "iifname");
 			labels_hash_insert_nocache(expression->label_expression, "meta", "iifname");
 		} else if (meta == NFT_META_OIFNAME) {
-			strcat(expression->expression[expression->len], "oifname");
+			nft_add_cat(expression, "oifname");
 			labels_hash_insert_nocache(expression->label_expression, "meta", "oifname");
 		} else if (meta == NFT_META_NFPROTO) {
-			strcat(expression->expression[expression->len], "nfproto");
+			nft_add_cat(expression, "nfproto");
 			labels_hash_insert_nocache(expression->label_expression, "meta", "nfproto");
 		} else if (meta == NFT_META_L4PROTO) {
-			strcat(expression->expression[expression->len], "l4proto");
+			nft_add_cat(expression, "l4proto");
 			labels_hash_insert_nocache(expression->label_expression, "meta", "l4proto");
 		}
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 	}
 	if (cmpop > -1) {
-		strcat(expression->expression[expression->len], " cmp: '");
+		nft_add_cat(expression, " cmp: '");
 
 		if (cmpop == NFT_CMP_EQ) {
-			strcat(expression->expression[expression->len], "==");
+			nft_add_cat(expression, "==");
 		} else if (cmpop == NFT_CMP_NEQ) {
-			strcat(expression->expression[expression->len], "!=");
+			nft_add_cat(expression, "!=");
 		} else if (cmpop == NFT_CMP_LT) {
-			strcat(expression->expression[expression->len], "<");
+			nft_add_cat(expression, "<");
 		} else if (cmpop == NFT_CMP_LTE) {
-			strcat(expression->expression[expression->len], "<=");
+			nft_add_cat(expression, "<=");
 		} else if (cmpop == NFT_CMP_GT) {
-			strcat(expression->expression[expression->len], ">");
+			nft_add_cat(expression, ">");
 		} else if (cmpop == NFT_CMP_GTE) {
-			strcat(expression->expression[expression->len], ">=");
+			nft_add_cat(expression, ">=");
 		}
 
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 	}
 	if (payload_offset > -1) {
-		strcat(expression->expression[expression->len], " payload offset: '");
+		nft_add_cat(expression, " payload offset: '");
 
 		if (payload_offset == PAYLOAD_OFFSET_ADDRLEN) {
-			strcat(expression->expression[expression->len], "addrlen");
+			nft_add_cat(expression, "addrlen");
 			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "addrlen");
 		} else if (payload_offset == PAYLOAD_OFFSET_PORTSRC) {
-			strcat(expression->expression[expression->len], "sport");
+			nft_add_cat(expression, "sport");
 			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "sport");
 		} else if (payload_offset == PAYLOAD_OFFSET_PORTDST) {
-			strcat(expression->expression[expression->len], "dport");
+			nft_add_cat(expression, "dport");
 			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "dport");
 		} else if (payload_offset == PAYLOAD_OFFSET_ADDRSRC) {
-			strcat(expression->expression[expression->len], "saddr");
+			nft_add_cat(expression, "saddr");
 			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "saddr");
 		} else if (payload_offset == PAYLOAD_OFFSET_ADDRDST) {
-			strcat(expression->expression[expression->len], "daddr");
+			nft_add_cat(expression, "daddr");
 			labels_hash_insert_nocache(expression->label_expression, "payload_offset", "daddr");
 		}
 
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 	}
 	if (payload_base > -1) {
-		strcat(expression->expression[expression->len], " payload base: '");
+		nft_add_cat(expression, " payload base: '");
 		if (payload_base == NFT_PAYLOAD_NETWORK_HEADER) {
-			strcat(expression->expression[expression->len], "network");
+			nft_add_cat(expression, "network");
 			labels_hash_insert_nocache(expression->label_expression, "payload_base", "network");
 		} else if (payload_base == NFT_PAYLOAD_TRANSPORT_HEADER) {
-			strcat(expression->expression[expression->len], "transport");
+			nft_add_cat(expression, "transport");
 			labels_hash_insert_nocache(expression->label_expression, "payload_base", "transport");
 		} else {
 			printf("unknown payload base: %hhu\n", payload_base);
 		}
 
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 	}
 	if (*lookup) {
-		strcat(expression->expression[expression->len], " lookup: '");
-		strcat(expression->expression[expression->len], lookup);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " lookup: '");
+		nft_add_cat(expression, lookup);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "lookup", lookup);
 	}
 	if (addrsize > -1) {
 		char setsize_str[10];
 		snprintf(setsize_str, 9, "%"PRId16, addrsize);
-		strcat(expression->expression[expression->len], " addrsize: '");
-		strcat(expression->expression[expression->len], setsize_str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " addrsize: '");
+		nft_add_cat(expression, setsize_str);
+		nft_add_cat(expression, "'");
         expression->addrsize += addrsize;
 	}
 	if (portsize > -1) {
 		char setsize_str[10];
 		snprintf(setsize_str, 9, "%"PRId16, portsize);
-		strcat(expression->expression[expression->len], " portize: '");
-		strcat(expression->expression[expression->len], setsize_str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " portize: '");
+		nft_add_cat(expression, setsize_str);
+		nft_add_cat(expression, "'");
         expression->portsize += portsize;
 	}
 	if (othersize > -1) {
 		char setsize_str[10];
 		snprintf(setsize_str, 9, "%"PRId16, othersize);
-		strcat(expression->expression[expression->len], " otherize: '");
-		strcat(expression->expression[expression->len], setsize_str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " otherize: '");
+		nft_add_cat(expression, setsize_str);
+		nft_add_cat(expression, "'");
 	}
 	if (target) {
-		strcat(expression->expression[expression->len], " target: '");
-		strcat(expression->expression[expression->len], target);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " target: '");
+		nft_add_cat(expression, target);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "target", target);
 	}
 	if ((immediate_addr1) && (!immediate_addr2)) {
-		strcat(expression->expression[expression->len], " immediate_addr1: '");
-		strcat(expression->expression[expression->len], immediate_addr1);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_addr1: '");
+		nft_add_cat(expression, immediate_addr1);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "immediate_addr", immediate_addr1);
 	}
 	else if ((immediate_addr2) && (!immediate_addr1)) {
-		strcat(expression->expression[expression->len], " immediate_addr2: '");
-		strcat(expression->expression[expression->len], immediate_addr2);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_addr2: '");
+		nft_add_cat(expression, immediate_addr2);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "immediate_addr", immediate_addr2);
 	}
 	else if ((immediate_addr1) && (immediate_addr2)) {
 		char addrs[128];
 		snprintf(addrs, 127, "%s-%s", immediate_addr1, immediate_addr2);
-		strcat(expression->expression[expression->len], " immediate_addr: '");
-		strcat(expression->expression[expression->len], addrs);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_addr: '");
+		nft_add_cat(expression, addrs);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "immediate_addrs", addrs);
 	}
 	if ((immediate_port1 > -1) && (immediate_port2 < 0)) {
 		char portnum[20];
 		snprintf(portnum, 19, "%"PRId32, immediate_port1);
-		strcat(expression->expression[expression->len], " immediate_port1: '");
-		strcat(expression->expression[expression->len], portnum);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_port1: '");
+		nft_add_cat(expression, portnum);
+		nft_add_cat(expression, "'");
 		if (masq_to_ports > -1) {
-			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			nft_add_cat(expression, " masquerade [to-ports]");
 			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
 		} else {
 			labels_hash_insert_nocache(expression->label_expression, "immediate_ports", portnum);
@@ -430,81 +439,81 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 	else if ((immediate_port2 > -1) && (immediate_port1 < 0)) {
 		char portnum[20];
 		snprintf(portnum, 19, "%"PRId32, immediate_port2);
-		strcat(expression->expression[expression->len], " immediate_port2: '");
-		strcat(expression->expression[expression->len], portnum);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_port2: '");
+		nft_add_cat(expression, portnum);
+		nft_add_cat(expression, "'");
 
 		if (masq_to_ports > -1) {
-			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			nft_add_cat(expression, " masquerade [to-ports]");
 			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
 		}
 	}
 	else if ((immediate_port1 > -1) && (immediate_port2 > -1)) {
 		char portnum[40];
 		snprintf(portnum, 39, "%"PRId32"-%"PRId32, immediate_port1, immediate_port2);
-		strcat(expression->expression[expression->len], " immediate_ports: '");
-		strcat(expression->expression[expression->len], portnum);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " immediate_ports: '");
+		nft_add_cat(expression, portnum);
+		nft_add_cat(expression, "'");
 
 		if (masq_to_ports > -1) {
-			strcat(expression->expression[expression->len], " masquerade [to-ports]");
+			nft_add_cat(expression, " masquerade [to-ports]");
 			labels_hash_insert_nocache(expression->label_expression, "masquerade_to_ports", portnum);
 		}
 	}
 	if (ct_state_related > -1) {
 		if (ct_state_related == 1) {
-			strcat(expression->expression[expression->len], " related: 'accept'");
+			nft_add_cat(expression, " related: 'accept'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_related", "accept");
 		} else if (ct_state_related == 0) {
-			strcat(expression->expression[expression->len], " related: 'drop'");
+			nft_add_cat(expression, " related: 'drop'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_related", "drop");
 		}
 	}
 	if (ct_state_new > -1) {
 		if (ct_state_new == 1) {
-			strcat(expression->expression[expression->len], " new: 'accept'");
+			nft_add_cat(expression, " new: 'accept'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_new", "accept");
 		} else if (ct_state_new == 0) {
-			strcat(expression->expression[expression->len], " new: 'drop'");
+			nft_add_cat(expression, " new: 'drop'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_new", "drop");
 		}
 	}
 	if (ct_state_invalid > -1) {
 		if (ct_state_invalid == 1) {
-			strcat(expression->expression[expression->len], " invalid: 'accept'");
+			nft_add_cat(expression, " invalid: 'accept'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_invalid", "accept");
 		} else if (ct_state_invalid == 0) {
-			strcat(expression->expression[expression->len], " invalid: 'drop'");
+			nft_add_cat(expression, " invalid: 'drop'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_invalid", "drop");
 		}
 	}
 	if (ct_state_established > -1) {
 		if (ct_state_established == 1) {
-			strcat(expression->expression[expression->len], " established: 'accept'");
+			nft_add_cat(expression, " established: 'accept'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_established", "accept");
 		} else if (ct_state_established == 0) {
-			strcat(expression->expression[expression->len], " established: 'drop'");
+			nft_add_cat(expression, " established: 'drop'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_established", "drop");
 		}
 	}
 	if (ct_state_untracked > -1) {
 		if (ct_state_untracked == 1) {
-			strcat(expression->expression[expression->len], " untracked: 'accept'");
+			nft_add_cat(expression, " untracked: 'accept'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_untracked", "accept");
 		} else if (ct_state_untracked == 0) {
-			strcat(expression->expression[expression->len], " untracked: 'drop'");
+			nft_add_cat(expression, " untracked: 'drop'");
 			labels_hash_insert_nocache(expression->label_expression, "ct_untracked", "drop");
 		}
 	}
 	if (ct_key > -1) {
-		strcat(expression->expression[expression->len], " ct key: '");
+		nft_add_cat(expression, " ct key: '");
 		if (ct_key == NFT_CT_STATE) {
-			strcat(expression->expression[expression->len], "state");
+			nft_add_cat(expression, "state");
 		}
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 	}
 	if (states_data > -1) {
-		strcat(expression->expression[expression->len], " states: [");
+		nft_add_cat(expression, " states: [");
 		string *states = string_init(50);
 		uint8_t opened = 0;
 		if ((states_data & CT_STATE_INVALID) > 0) {
@@ -535,30 +544,30 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			string_cat(states, "UNTRACKED", 9);
 			opened = 1;
 		}
-		strcat(expression->expression[expression->len], states->s);
-		strcat(expression->expression[expression->len], "]");
+		nft_add_cat(expression, states->s);
+		nft_add_cat(expression, "]");
 
 		labels_hash_insert(expression->label_expression, "ct_states", states->s);
         free(states);
 	}
 	if (*objref) {
-		strcat(expression->expression[expression->len], " objref: '");
-		strcat(expression->expression[expression->len], objref);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " objref: '");
+		nft_add_cat(expression, objref);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "objref", objref);
 	}
 	if (proto) {
-		strcat(expression->expression[expression->len], " proto: '");
-		strcat(expression->expression[expression->len], proto);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " proto: '");
+		nft_add_cat(expression, proto);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "proto", proto);
 	}
 	if (port) {
 		char portnum[10];
 		snprintf(portnum, 9, "%"PRIu16, port);
-		strcat(expression->expression[expression->len], " port: '");
-		strcat(expression->expression[expression->len], portnum);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " port: '");
+		nft_add_cat(expression, portnum);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "port", portnum);
 	}
 	if (reject_icmp_code > -1) {
@@ -566,75 +575,75 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
         string *reject_icmp = string_init(64);
 		snprintf(type_str, 7, "%"PRId16, reject_icmp_type);
 
-		strcat(expression->expression[expression->len], " reject icmp_type: '");
-		strcat(expression->expression[expression->len], type_str);
+		nft_add_cat(expression, " reject icmp_type: '");
+		nft_add_cat(expression, type_str);
 		labels_hash_insert_nocache(expression->label_expression, "reject_icmp_type", type_str);
 
-		strcat(expression->expression[expression->len], "', icmp_code: '");
+		nft_add_cat(expression, "', icmp_code: '");
 		if (reject_icmp_code == NFT_REJECT_ICMPX_NO_ROUTE) {
-			strcat(expression->expression[expression->len], "no route");
+			nft_add_cat(expression, "no route");
             string_cat(reject_icmp, "no route", 8);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_PORT_UNREACH) {
-			strcat(expression->expression[expression->len], "port unreachable");
+			nft_add_cat(expression, "port unreachable");
             string_cat(reject_icmp, "port unreachable", 16);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_HOST_UNREACH) {
-			strcat(expression->expression[expression->len], "host unreachable");
+			nft_add_cat(expression, "host unreachable");
             string_cat(reject_icmp, "host unreachable", 16);
 		} else if (reject_icmp_code == NFT_REJECT_ICMPX_ADMIN_PROHIBITED) {
-			strcat(expression->expression[expression->len], "admin prohibited");
+			nft_add_cat(expression, "admin prohibited");
             string_cat(reject_icmp, "admin prohibited", 16);
 		}
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, "'");
 		labels_hash_insert(expression->label_expression, "reject_icmp_code", reject_icmp->s);
         free(reject_icmp);
 	}
 	if (*goto_chain) {
-		strcat(expression->expression[expression->len], " goto: '");
-		strcat(expression->expression[expression->len], goto_chain);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " goto: '");
+		nft_add_cat(expression, goto_chain);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "goto", goto_chain);
 	}
 	if (*log_prefix) {
-		strcat(expression->expression[expression->len], " log prefix: '");
-		strcat(expression->expression[expression->len], log_prefix);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " log prefix: '");
+		nft_add_cat(expression, log_prefix);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "log_prefix", log_prefix);
 	}
 	if (log_group > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId16, log_group);
-		strcat(expression->expression[expression->len], " log group: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " log group: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "log_group", str);
 	}
 	if (log_snaplen > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, log_snaplen);
-		strcat(expression->expression[expression->len], " log snaplen: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " log snaplen: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "log_snaplen", str);
 	}
 	if (log_qtreshold > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, log_qtreshold);
-		strcat(expression->expression[expression->len], " log qtreshold: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " log qtreshold: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "log_qtreshold", str);
 	}
 	if (log_level > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, log_level);
-		strcat(expression->expression[expression->len], " log_level: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " log_level: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "log_level", str);
 	}
 	if (log_flags > -1) {
 		string *logflags = string_init(128);
-		strcat(expression->expression[expression->len], " log_flags: [");
+		nft_add_cat(expression, " log_flags: [");
 		uint8_t opened = 0;
 		if ((log_flags & NF_LOG_TCPSEQ) > 0) {
 			string_cat(logflags, "'tcp seq'", 9);
@@ -676,47 +685,47 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			string_cat(logflags, "'mask'", 6);
 			opened = 1;
 		}
-		strcat(expression->expression[expression->len], logflags->s);
-		strcat(expression->expression[expression->len], "]");
+		nft_add_cat(expression, logflags->s);
+		nft_add_cat(expression, "]");
 		labels_hash_insert(expression->label_expression, "log_level", logflags->s);
 	}
 	if (limit_rate > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId64, limit_rate);
-		strcat(expression->expression[expression->len], " limit_rate: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " limit_rate: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "limit_rate", str);
 	}
 	if (*limit_unit) {
-		strcat(expression->expression[expression->len], " limit_unit: '");
-		strcat(expression->expression[expression->len], limit_unit);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " limit_unit: '");
+		nft_add_cat(expression, limit_unit);
+		nft_add_cat(expression, "'");
 	}
 	if (limit_burst > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, limit_burst);
-		strcat(expression->expression[expression->len], " limit_burst: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " limit_burst: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "limit_burst", str);
 	}
 	if (limit_type > -1) {
 		if (limit_type == NFT_LIMIT_PKTS) {
-			strcat(expression->expression[expression->len], " limit_type: 'packets'");
+			nft_add_cat(expression, " limit_type: 'packets'");
 			labels_hash_insert_nocache(expression->label_expression, "limit_type", "packets");
 		} else if (limit_type == NFT_LIMIT_PKT_BYTES) {
-			strcat(expression->expression[expression->len], " limit_type: 'bytes'");
+			nft_add_cat(expression, " limit_type: 'bytes'");
 			labels_hash_insert_nocache(expression->label_expression, "limit_burst", "bytes");
 		}
 	}
 	if (limit_flags > -1) {
-		strcat(expression->expression[expression->len], " limit_flags: [");
+		nft_add_cat(expression, " limit_flags: [");
 		uint8_t opened = 0;
 		if ((limit_flags & NFT_LIMIT_F_INV) > 0) {
 			if (opened)
-				strcat(expression->expression[expression->len], ", ");
-			strcat(expression->expression[expression->len], "'over'");
+				nft_add_cat(expression, ", ");
+			nft_add_cat(expression, "'over'");
 			labels_hash_insert_nocache(expression->label_expression, "limit_flags", "over");
 			opened = 1;
 		}
@@ -724,36 +733,36 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 	if (numgen_mod > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, numgen_mod);
-		strcat(expression->expression[expression->len], " numgen mod: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " numgen mod: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "numgen_mod", str);
 	}
 
 	if (numgen_type > -1) {
-		strcat(expression->expression[expression->len], " numgen type: ");
+		nft_add_cat(expression, " numgen type: ");
 		if ((numgen_type & NFT_NG_INCREMENTAL) > 0) {
-			strcat(expression->expression[expression->len], "'round-robin'");
+			nft_add_cat(expression, "'round-robin'");
 			labels_hash_insert_nocache(expression->label_expression, "numgen_type", "round-robin");
 		} else if ((numgen_type & NFT_NG_RANDOM) > 0) {
-			strcat(expression->expression[expression->len], "'random'");
+			nft_add_cat(expression, "'random'");
 			labels_hash_insert_nocache(expression->label_expression, "numgen_type", "random");
 		}
 	}
 
 	if (nat_type > -1) {
-		strcat(expression->expression[expression->len], " nat type: ");
+		nft_add_cat(expression, " nat type: ");
 		if (nat_type == NFT_NAT_SNAT) {
-			strcat(expression->expression[expression->len], "'snat'");
+			nft_add_cat(expression, "'snat'");
 			labels_hash_insert_nocache(expression->label_expression, "nat_type", "snat");
 		} else if (nat_type == NFT_NAT_DNAT) {
-			strcat(expression->expression[expression->len], "'dnat'");
+			nft_add_cat(expression, "'dnat'");
 			labels_hash_insert_nocache(expression->label_expression, "nat_type", "dnat");
 		}
 	}
 	if (nat_flags > -1) {
 		string *natflags = string_init(128);
-		strcat(expression->expression[expression->len], " nat_flags: [");
+		nft_add_cat(expression, " nat_flags: [");
 		uint8_t opened = 0;
 		if ((nat_flags & NF_NAT_RANGE_PERSISTENT) != 0) {
 			string_cat(natflags, "'persistent'", 12);
@@ -783,22 +792,22 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			string_cat(natflags, "'range-proto-specified'", 23);
 			opened = 1;
 		}
-		strcat(expression->expression[expression->len], natflags->s);
-		strcat(expression->expression[expression->len], "]");
+		nft_add_cat(expression, natflags->s);
+		nft_add_cat(expression, "]");
 		labels_hash_insert(expression->label_expression, "nat_flags", natflags->s);
 		free(natflags);
 	}
 	if (connlimit > -1) {
 		char str[16];
 		snprintf(str, 15, "%"PRId32, connlimit);
-		strcat(expression->expression[expression->len], " connlimit: '");
-		strcat(expression->expression[expression->len], str);
-		strcat(expression->expression[expression->len], "'");
+		nft_add_cat(expression, " connlimit: '");
+		nft_add_cat(expression, str);
+		nft_add_cat(expression, "'");
 		labels_hash_insert_nocache(expression->label_expression, "connlimit", str);
 	}
 	if (masq_flags > -1) {
 		string *masqflags = string_init(128);
-		strcat(expression->expression[expression->len], " masquerade_flags: [");
+		nft_add_cat(expression, " masquerade_flags: [");
 		uint8_t opened = 0;
 		if ((masq_flags & NF_NAT_RANGE_PERSISTENT) != 0) {
 			string_cat(masqflags, "'persistent'", 12);
@@ -816,32 +825,35 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			string_cat(masqflags, "'random-fully'", 14);
 			opened = 1;
 		}
-		strcat(expression->expression[expression->len], masqflags->s);
-		strcat(expression->expression[expression->len], "]");
+		nft_add_cat(expression, masqflags->s);
+		nft_add_cat(expression, "]");
 		labels_hash_insert_nocache(expression->label_expression, "masquerade_opt", "to-ports");
 		labels_hash_insert(expression->label_expression, "masquerade_flags", masqflags->s);
 		free(masqflags);
 	}
 
 
-	strcat(expression->expression[expression->len], "]");
+	nft_add_cat(expression, "]");
 	//char expr_num[63];
 	//snprintf(expr_num, 63, "expression%d", expression->len);;
 	//labels_hash_insert_nocache(expression->label_expression, expr_num, expression->expression[expression->len]);
 	expression->syms += strlen(expression->expression[expression->len]);
 	expression->len += 1;
+	string_tokens_push_dupn(expression->tokens, "", 0);
 }
 
-char* nft_expression_deserialize(nft_str_expression* expression) {
+string* nft_expression_deserialize(nft_str_expression* expression) {
 	if (!expression)
 		return NULL;
 
-	char *exp = calloc(1, expression->syms + 1);
-	for (uint8_t i = 0; i < expression->len; ++i) {
-		strcat(exp, expression->expression[i]);
-	}
+	return string_tokens_join(expression->tokens, ", ", 2);
+	//char *exp = calloc(1, expression->syms + 1);
 
-	return exp;
+	//for (uint8_t i = 0; i < expression->len; ++i) {
+	//	strcat(exp, expression->expression[i]);
+	//}
+
+	//return exp;
 }
 
 nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *data, uint64_t size, int8_t *verdict, alligator_ht *label_expression) {
@@ -873,6 +885,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 	int8_t reject_icmp_code = -1;
 	*verdict = -127;
 	nft_str_expression *expression = calloc(1, sizeof(*expression));
+    expression->tokens = string_tokens_new();
 	expression->label_expression = label_expression;
 	int8_t payload_base = -1; //NFT_PAYLOAD_LL_HEADER, NFT_PAYLOAD_NETWORK_HEADER, NFT_PAYLOAD_TRANSPORT_HEADER, NFT_PAYLOAD_INNER_HEADER
 	int8_t payload_offset = -1;
@@ -1540,7 +1553,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);
 				}
 
-				char *expstr = nft_expression_deserialize(expression);
+				string *expstr = nft_expression_deserialize(expression);
 				char *verdict_str = nft_get_verdict_by_id(verdict);
 				labels_hash_insert_nocache(label_expression, "userdata", userdata);
 				labels_hash_insert_nocache(label_expression, "verdict", verdict_str);
@@ -1553,10 +1566,11 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				metric_add("nfset_address_total", addrsize_expressions, &expression->addrsize, DATATYPE_UINT, ac->cadvisor_carg);
 				metric_add("nfset_ports_total", port_expressions, &expression->portsize, DATATYPE_UINT, ac->cadvisor_carg);
 
-				printf("table '%s', chain: '%s', userdata: '%s', expr: '%s', packets %lu, bytes %lu, verdict '%s'\n", table, chain, userdata, expstr, expression->packets, expression->bytes, verdict_str);
+				printf("table '%s', chain: '%s', userdata: '%s', expr: '%s', packets %lu, bytes %lu, verdict '%s'\n", table, chain, userdata, expstr->s, expression->packets, expression->bytes, verdict_str);
 
 				if (expstr)
-					free(expstr);
+					string_free(expstr);
+                string_tokens_free(expression->tokens);
 				free(expression);
 			}
 			else if (((i8type & NFT_MSG_GETSET) == i8type) && !is_setelem) {
@@ -1616,7 +1630,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 						break;
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);
 				}
-				char *expstr = nft_expression_deserialize(expression);
+				string *expstr = nft_expression_deserialize(expression);
 
 				size_t set_len = strlen(setname) + 1;
 				size_t table_len = strlen(table) + 1;
@@ -1656,7 +1670,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				}
 
 				if (expstr)
-					free(expstr);
+					string_free(expstr);
 			}
 			else if (is_setelem) {
 				char table[1024] = { 0 };
