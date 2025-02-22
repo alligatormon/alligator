@@ -9,7 +9,6 @@ void scheduler_run(uv_timer_t* handle)
 	//scheduler_node *sn = arg;
 	scheduler_node *sn = handle->data;
 
-    printf("run %p\n", sn->lang);
 	if (sn->datasource_int == SCHEDULER_DATASOURCE_INTERNAL)
 	{
 		metric_query_context *mqc = NULL;

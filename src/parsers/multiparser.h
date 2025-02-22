@@ -157,3 +157,4 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg);
 void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg);
 void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg);
 void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *carg);
+void cassandra_parser_push();

@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <stddef.h>
 #include <common/selector.h>
+#include <common/logs.h>
 #include <main.h>
 
 #include <linux/netfilter.h>
@@ -226,25 +227,25 @@ char *get_limit_units(uint64_t units_id) {
 
 void dump_pkt(char *fbuf, int status) {
 	struct nlmsghdr *h = (struct nlmsghdr*)fbuf;
-	printf("DEBUG first len %u, status %d\n", h->nlmsg_len, status);
+	carglog(ac->system_carg, L_DEBUG, "DEBUG first len %u, status %d\n", h->nlmsg_len, status);
 	for (uint64_t i = 0; i < status; ++i) {
-		printf("DEBUG [%ld]: [%hhu]", i, fbuf[i]);
+		carglog(ac->system_carg, L_DEBUG, "DEBUG [%ld]: [%hhu]", i, fbuf[i]);
 		if (isprint(fbuf[i]))
-			printf("\t'%c'\n", fbuf[i]);
+			carglog(ac->system_carg, L_DEBUG, "\t'%c'\n", fbuf[i]);
 		else
-			puts("");
+			carglog(ac->system_carg, L_DEBUG, "\n");
 	}
 }
 
 typedef struct nft_str_expression {
-	char expression[12][255];
+	//char expression[12][255];
     string_tokens *tokens;
     int debug;
 	alligator_ht *label_expression;
 	uint64_t packets;
 	uint64_t bytes;
-	uint8_t len;
-	uint16_t syms;
+	//uint8_t len;
+	//uint16_t syms;
     uint64_t addrsize;
     uint64_t portsize;
 } nft_str_expression;
@@ -288,14 +289,13 @@ char *nft_get_verdict_by_id(int8_t verdict) {
 }
 
 void nft_add_cat(nft_str_expression *expression, char *str) {
-
-	printf("expression->tokens->l is %d, size is %zu\n", expression->tokens->str[expression->tokens->l]->l);
 	if (expression->debug)
-		string_cat(expression->tokens->str[expression->tokens->l], str, strlen(str));
+		string_cat(expression->tokens->str[expression->tokens->l-1], str, strlen(str));
 }
 
 void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, int8_t payload_offset, int8_t payload_base, char *lookup, int16_t addrsize, int16_t portsize, int16_t othersize, char *target, char *immediate_addr1, char *immediate_addr2, int32_t immediate_port1, int32_t immediate_port2, int8_t ct_key, int8_t states_data, char *objref, char *proto, uint16_t port, int8_t reject_icmp_type, int8_t reject_icmp_code, char *goto_chain, int8_t ct_state_related, int8_t ct_state_new, int8_t  ct_state_invalid, int8_t ct_state_established, int8_t ct_state_untracked, char *log_prefix, int16_t log_group, int32_t log_snaplen, int16_t log_qtreshold, int32_t log_level, int32_t log_flags, int64_t limit_rate, char* limit_unit, int32_t limit_burst, int32_t limit_type, int32_t limit_flags, int32_t numgen_mod, int32_t numgen_type, int32_t nat_type, int32_t nat_family, int32_t nat_flags, int32_t connlimit, int32_t masq_flags, int32_t masq_to_ports) {
-	snprintf(expression->expression[expression->len], 254, "[");
+	string_tokens_push_dupn(expression->tokens, "[", 1);
+	nft_add_cat(expression, "[");
 	if (meta) {
 		nft_add_cat(expression, " meta: '");
 		if (meta == NFT_META_IIFNAME) {
@@ -363,7 +363,7 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 			nft_add_cat(expression, "transport");
 			labels_hash_insert_nocache(expression->label_expression, "payload_base", "transport");
 		} else {
-			printf("unknown payload base: %hhu\n", payload_base);
+			carglog(ac->system_carg, L_ERROR, "unknown payload base: %hhu\n", payload_base);
 		}
 
 		nft_add_cat(expression, "'");
@@ -547,8 +547,8 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		nft_add_cat(expression, states->s);
 		nft_add_cat(expression, "]");
 
-		labels_hash_insert(expression->label_expression, "ct_states", states->s);
-        free(states);
+		labels_hash_insert_nocache(expression->label_expression, "ct_states", states->s);
+        string_free(states);
 	}
 	if (*objref) {
 		nft_add_cat(expression, " objref: '");
@@ -594,8 +594,8 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
             string_cat(reject_icmp, "admin prohibited", 16);
 		}
 		nft_add_cat(expression, "'");
-		labels_hash_insert(expression->label_expression, "reject_icmp_code", reject_icmp->s);
-        free(reject_icmp);
+		labels_hash_insert_nocache(expression->label_expression, "reject_icmp_code", reject_icmp->s);
+        string_free(reject_icmp);
 	}
 	if (*goto_chain) {
 		nft_add_cat(expression, " goto: '");
@@ -687,7 +687,8 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		}
 		nft_add_cat(expression, logflags->s);
 		nft_add_cat(expression, "]");
-		labels_hash_insert(expression->label_expression, "log_level", logflags->s);
+		labels_hash_insert_nocache(expression->label_expression, "log_level", logflags->s);
+        string_free(logflags);
 	}
 	if (limit_rate > -1) {
 		char str[16];
@@ -794,8 +795,8 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		}
 		nft_add_cat(expression, natflags->s);
 		nft_add_cat(expression, "]");
-		labels_hash_insert(expression->label_expression, "nat_flags", natflags->s);
-		free(natflags);
+		labels_hash_insert_nocache(expression->label_expression, "nat_flags", natflags->s);
+		string_free(natflags);
 	}
 	if (connlimit > -1) {
 		char str[16];
@@ -828,8 +829,8 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 		nft_add_cat(expression, masqflags->s);
 		nft_add_cat(expression, "]");
 		labels_hash_insert_nocache(expression->label_expression, "masquerade_opt", "to-ports");
-		labels_hash_insert(expression->label_expression, "masquerade_flags", masqflags->s);
-		free(masqflags);
+		labels_hash_insert_nocache(expression->label_expression, "masquerade_flags", masqflags->s);
+		string_free(masqflags);
 	}
 
 
@@ -837,9 +838,9 @@ void nft_add_expr(nft_str_expression *expression, uint8_t meta, int8_t cmpop, in
 	//char expr_num[63];
 	//snprintf(expr_num, 63, "expression%d", expression->len);;
 	//labels_hash_insert_nocache(expression->label_expression, expr_num, expression->expression[expression->len]);
-	expression->syms += strlen(expression->expression[expression->len]);
-	expression->len += 1;
-	string_tokens_push_dupn(expression->tokens, "", 0);
+	//expression->syms += strlen(expression->expression[expression->len]);
+	//expression->len += 1;
+	//string_tokens_push_dupn(expression->tokens, "", 0);
 }
 
 string* nft_expression_deserialize(nft_str_expression* expression) {
@@ -885,7 +886,8 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 	int8_t reject_icmp_code = -1;
 	*verdict = -127;
 	nft_str_expression *expression = calloc(1, sizeof(*expression));
-    expression->tokens = string_tokens_new();
+	expression->debug = ac->system_carg->log_level >= L_INFO;
+	expression->tokens = string_tokens_new();
 	expression->label_expression = label_expression;
 	int8_t payload_base = -1; //NFT_PAYLOAD_LL_HEADER, NFT_PAYLOAD_NETWORK_HEADER, NFT_PAYLOAD_TRANSPORT_HEADER, NFT_PAYLOAD_INNER_HEADER
 	int8_t payload_offset = -1;
@@ -1060,7 +1062,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 						else if (proto_id == IPPROTO_IGMP)
 							proto = "igmp";
 						else {
-							fprintf(stderr, "unknown proto: %d\n", proto_id);
+							carglog(ac->system_carg, L_ERROR, "unknown proto: %d\n", proto_id);
 						}
 					} else if (payload_base == NFT_PAYLOAD_NETWORK_HEADER) {
 						payload_base = -1;
@@ -1174,7 +1176,6 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 				if ((*verdict == NFT_GOTO) || (*verdict == NFT_JUMP)) {
 					int goto_size = to_uint16(expr->data + 40);
 					strlcpy(goto_chain, expr->data + 44, goto_size - 1);
-					printf("goto chain is ");
 					updated = 0;
 				}
 				//new
@@ -1363,7 +1364,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		} else if (!strncmp(expr->data, "dup", 3)) {
 			*verdict = ALLIGATOR_NFT_DUP;
 		} else {
-			printf("1unknown type '%s' %ld\n", expr->data, i);
+			carglog(ac->system_carg, L_ERROR, "1unknown type '%s' %ld\n", expr->data, i);
 			//dump_pkt(expr->data, expr->len);
 		}
 
@@ -1438,8 +1439,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 	int rep = sendmsg(fd, &msg, 0);
 	if (rep < 0)
 	{
-		//if (ac->system_carg->log_level > 1)
-			printf("sendmsg error: get_conntrack_info\n");
+		carglog(ac->system_carg, L_ERROR, "sendmsg error: get_conntrack_info\n");
 		return;
 	}
 
@@ -1468,7 +1468,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			if (errno == EINTR)
 				return;
 
-			printf("OVERRUN\n");
+			carglog(ac->system_carg, L_ERROR, "OVERRUN\n");
 			return;
 		}
 		if (status == 0) {
@@ -1503,7 +1503,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			nft_str_expression *expression = NULL;
 			nft_genmsg *rawmsg = (nft_genmsg*)NLMSG_DATA(h);
 			if (h->nlmsg_type == NLMSG_DONE) {
-				puts("");
+				carglog(ac->system_carg, L_INFO, "");
 				if (!setfd)
 					close(fd);
 				return;
@@ -1516,7 +1516,6 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				alligator_ht *label_expression = alligator_ht_init(NULL);
 				char table[1024];
 				char chain[1024] = {0};
-				//char set[1024] = {0};
 				char userdata[1024] = { 0 };
 				int8_t verdict;
 				for (uint64_t i = 0; i + 20 < dt_size;)
@@ -1543,7 +1542,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					else if (itype == NFTA_RULE_POSITION) {
 					}
 					else {
-						printf("2unknown type %d\n", itype);
+						carglog(ac->system_carg, L_ERROR, "2unknown type %d\n", itype);
 					}
 
 					if (nftmsg->nlattr.nla_len == 0)
@@ -1566,7 +1565,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				metric_add("nfset_address_total", addrsize_expressions, &expression->addrsize, DATATYPE_UINT, ac->cadvisor_carg);
 				metric_add("nfset_ports_total", port_expressions, &expression->portsize, DATATYPE_UINT, ac->cadvisor_carg);
 
-				printf("table '%s', chain: '%s', userdata: '%s', expr: '%s', packets %lu, bytes %lu, verdict '%s'\n", table, chain, userdata, expstr->s, expression->packets, expression->bytes, verdict_str);
+				carglog(ac->system_carg, L_INFO, "table '%s', chain: '%s', userdata: '%s', expr: '%s', packets %lu, bytes %lu, verdict '%s'\n", table, chain, userdata, expstr->s, expression->packets, expression->bytes, verdict_str);
 
 				if (expstr)
 					string_free(expstr);
@@ -1621,7 +1620,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					else if (itype == NFTA_SET_EXPR) {
 					}
 					else {
-						printf("3unknown type %d\n", itype);
+						carglog(ac->system_carg, L_ERROR, "3unknown type %d\n", itype);
 					}
 
 					if (nftmsg->nlattr.nla_len == 0)
@@ -1664,7 +1663,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 
 				if (set->allsets) {
 					if (!set->is_anonymous)
-						printf("table '%s', set: '%s', constant %d anonymous %d interval %d map %d timeout %d(%u), size %d/%d/%d\n", table, setname, set->is_constant, set->is_anonymous, set->is_interval, set->is_map, set->has_timeout, set->timeout, set->addr_size, set->port_size, set->other_size);
+						carglog(ac->system_carg, L_INFO, "table '%s', set: '%s', constant %d anonymous %d interval %d map %d timeout %d(%u), size %d/%d/%d\n", table, setname, set->is_constant, set->is_anonymous, set->is_interval, set->is_map, set->has_timeout, set->timeout, set->addr_size, set->port_size, set->other_size);
 					memset(set, 0, sizeof(struct set_t));
 					set->allsets = 1;
 				}
@@ -1747,7 +1746,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					} else if (itype == NFTA_SET_ELEM_EXPIRATION) {
 					} else if (itype == NFTA_SET_ELEM_EXPR) {
 					} else {
-						printf("unknown setelem type '%d'\n", itype);
+						carglog(ac->system_carg, L_ERROR, "unknown setelem type '%d'\n", itype);
 					}
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);
 				}
@@ -1792,7 +1791,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);
 				}
 
-				printf("obj: table:%s name:%s, bytes %lu, packets %lu userdata: '%s'\n", table, counter, bytes, packets, userdata);
+				carglog(ac->system_carg, L_INFO, "obj: table:%s name:%s, bytes %lu, packets %lu userdata: '%s'\n", table, counter, bytes, packets, userdata);
 			}
 			h = NLMSG_NEXT(h, status);
 		}

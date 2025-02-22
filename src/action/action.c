@@ -47,12 +47,12 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 		return;
 	}
 
-	string **ms = NULL;
-	uint64_t ms_size = 0;
+	string_tokens *ms = NULL;
 
 	if (!mqc)
 		mqc = query_context_new(NULL);
-	string *body = metric_query_deserialize(1024, mqc, an->serializer, 0, namespace, &ms, &ms_size, an->engine, an->index_template);
+
+	string *body = metric_query_deserialize(1024, mqc, an->serializer, 0, namespace, &ms, an->engine, an->index_template);
 	query_context_free(mqc);
 
 	string *work_dir = NULL;
@@ -69,52 +69,48 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 
 		if ((an->serializer == METRIC_SERIALIZER_CLICKHOUSE) && ms)
 		{
-			for (uint64_t i = 0; i < ms_size; ++i)
+			for (uint64_t i = 0; i < ms->l; ++i)
 			{
 				char cl[20];
-				snprintf(cl, 19, "%"u64, ms[i]->l);
+				snprintf(cl, 19, "%"u64, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
-				snprintf(key, 256, "%s:clickhouse_action_query:%"u64, hi->host, ms[i]->l);
+				snprintf(key, 256, "%s:clickhouse_action_query:%"u64, hi->host, ms->str[i]->l);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms[i]);
+				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
-				string_free(ms[i]);
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
 				free(env);
 			}
 
 			free(body->s);
-			free(ms);
 		}
 		else if ((an->serializer == METRIC_SERIALIZER_PG) && ms)
 		{
-			for (uint64_t i = 0; i < ms_size; ++i)
+			for (uint64_t i = 0; i < ms->l; ++i)
 			{
 				char cl[20];
-				snprintf(cl, 19, "%"u64, ms[i]->l);
+				snprintf(cl, 19, "%"u64, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
-				snprintf(key, 256, "%s:postgresql_action_query:%"u64, hi->host, ms[i]->l);
-				printf("ms %s: %"u64"\n", ms[i]->s, ms_size);
+				snprintf(key, 256, "%s:postgresql_action_query:%"u64, hi->host, ms->str[i]->l);
+				printf("ms %s: %"u64"\n", ms->str[i]->s, ms->l);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms[i]);
+				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
-				string_free(ms[i]);
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
 				free(env);
 			}
 
 			free(body->s);
-			free(ms);
 		}
 		else
 		{
@@ -147,10 +143,32 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			string_free(parser_data);
 		}
 	}
+	else if (!strncmp(an->expr, "cassandra", 5))
+	{
+		if (an->name)
+		{
+			json_t *cassandra_json = json_object();
+
+			json_t *insert = json_string("insert");
+			json_array_object_insert(cassandra_json, "type", insert);
+
+			json_t *queries = string_tokens_json(ms);
+			json_array_object_insert(cassandra_json, "queries", queries);
+
+			char *pdata = json_dumps(cassandra_json, 0);
+			string *parser_data = string_init_dup(pdata);
+
+			lang_run(an->name, NULL, parser_data, NULL);
+			string_free(parser_data);
+		}
+	}
 	else
 	{
 		aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 	}
+
+	if (ms)
+		string_tokens_free(ms);
 
 	free(body);
 }

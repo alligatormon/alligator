@@ -36,7 +36,7 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 	if (!body && lo->query)
 	{
 		metric_query_context *mqc = promql_parser(NULL, lo->query, lo->query_len);
-		body = metric_query_deserialize(1024, mqc, lo->serializer, 0, NULL, NULL, NULL, NULL, NULL);
+		body = metric_query_deserialize(1024, mqc, lo->serializer, 0, NULL, NULL, NULL, NULL);
 		query_context_free(mqc);
         body_should_free = 1;
 	}
@@ -107,7 +107,6 @@ void lang_run(char *key, string *body, string *parser_data, string *response)
 	lang_options* lo = alligator_ht_search(ac->lang_aggregator, lang_compare, key, tommy_strhash_u32(0, key));
 	if (lo)
 	{
-		langlog(lo, L_INFO, "lang run key %s\n", lo->key);
 		lang_crawl(lo, body, parser_data, response);
 	}
 	else

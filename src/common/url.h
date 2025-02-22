@@ -17,6 +17,7 @@
 #define APROTO_MONGODB 18
 #define APROTO_ZKCONF 19
 #define APROTO_RESOLVER 20
+#define APROTO_CASSANDR 21
 #include <stdio.h>
 typedef struct host_aggregator_info
 {

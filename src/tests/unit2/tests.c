@@ -145,7 +145,7 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
 
 void metric_test_run(int cmp_type, char *query, char *metric_name, double expected_val) {
     metric_query_context *mqc = promql_parser(NULL, query, strlen(query));
-    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL, NULL);
+    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
 
     json_error_t error;

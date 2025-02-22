@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <pcre.h>
 #include "dstructures/ht.h"
+#include <jansson.h>
+void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json);;
 
 typedef struct string {
 	char *s;
@@ -78,10 +80,12 @@ void string_string_copy(string *dst, string *src);
 void string_merge(string *str, string *src);
 
 uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l);
+uint8_t string_tokens_string_push(string_tokens *st, string *str);
 string_tokens *string_tokens_new();
 void string_tokens_free(string_tokens *st);
 uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen);
+json_t* string_tokens_json(string_tokens *st);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);

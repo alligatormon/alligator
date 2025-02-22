@@ -11,18 +11,18 @@
 #include "lang/type.h"
 #include "main.h"
 
-int mongodb_aggregator(context_arg *carg) {
+int cassandra_aggregator(context_arg *carg) {
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = malloc(1024);
 	if (carg->name)
 		strcpy(lo->key, carg->name);
 	else {
-		strlcpy(lo->key, "mongodb:go:", 1024);
+		strlcpy(lo->key, "cassandra:go:", 1024);
 		strlcpy(lo->key + 11, carg->host, 1013);
 	}
 	lo->lang = "so";
 	lo->method = "alligator_call";
-	lo->module = "mongodb";
+	lo->module = "cassandra";
 	lo->script = carg->data;
 	lo->arg = strdup(carg->url);
 	lo->carg = carg;
@@ -54,13 +54,13 @@ int mongodb_aggregator(context_arg *carg) {
 	{
 		module_t *module = calloc(1, sizeof(*module));
 		module->key = strdup(module_key);
-		module->path = strdup("/var/lib/alligator/mongo.so");
+		module->path = strdup("/var/lib/alligator/cassandra.so");
 		alligator_ht_insert(ac->modules, &(module->node), module, tommy_strhash_u32(0, module->key));
 	}
 	return 1;
 }
 
-void* mongodb_data(host_aggregator_info *hi, void *arg, void *data)
+void* cassandra_data(host_aggregator_info *hi, void *arg, void *data)
 {
 	json_t *aggregate = (json_t*)data;
 
@@ -68,19 +68,19 @@ void* mongodb_data(host_aggregator_info *hi, void *arg, void *data)
 	return cstr;
 }
 
-void mongodb_parser_push()
+void cassandra_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
-	actx->key = strdup("mongodb");
+	actx->key = strdup("cassandra");
 	actx->handlers = 1;
-	actx->data_func = mongodb_data;
+	actx->data_func = cassandra_data;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = NULL;
 	actx->handler[0].validator = NULL;
-	actx->handler[0].smart_aggregator_replace = mongodb_aggregator;
-	strlcpy(actx->handler[0].key, "mongodb", 255);
+	actx->handler[0].smart_aggregator_replace = cassandra_aggregator;
+	strlcpy(actx->handler[0].key, "cassandra", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

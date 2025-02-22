@@ -4,7 +4,7 @@
 #include "query/promql.h"
 extern aconf *ac;
 
-void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string ***ms, uint64_t *ms_size, string *engine, string *index_template)
+void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template)
 {
 	namespace_struct *ns = get_namespace(namespace);
 
@@ -24,18 +24,16 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 		serializer_do(sc, str);
 	}
 
-	if (ms)
-		*ms = sc->multistring;
-	if (ms_size)
-		*ms_size = sc->ms_size;
+	if (multistring)
+		*multistring = sc->multistring;
 
 	serializer_free(sc);
 }
 
-string* metric_query_deserialize(size_t init_size, metric_query_context *mqc, int serializer, char delimiter, char *namespace, string ***ms, uint64_t *ms_size, string *engine, string *index_template)
+string* metric_query_deserialize(size_t init_size, metric_query_context *mqc, int serializer, char delimiter, char *namespace, string_tokens **multistring, string *engine, string *index_template)
 {
 	string *body = string_init(init_size);
-	metric_str_build_query(namespace, body, mqc->name, mqc->lbl, mqc->func, mqc->groupkey, serializer, delimiter, ms, ms_size, engine, index_template);
+	metric_str_build_query(namespace, body, mqc->name, mqc->lbl, mqc->func, mqc->groupkey, serializer, delimiter, multistring, engine, index_template);
 
 	return body;
 }

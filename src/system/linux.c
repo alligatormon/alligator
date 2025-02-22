@@ -3347,8 +3347,6 @@ void get_system_metrics()
 	}
 	if (ac->system_firewall)
 	{
-		printf("kernel version is %d.%d.%d\n", ac->kernel_version[0], ac->kernel_version[1], ac->kernel_version[2]);
-
 		if (ac->kernel_version[0] >= 5)
 			nftables_handler();
 		else  {

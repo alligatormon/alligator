@@ -157,6 +157,7 @@ set(STATIC_FILES
 	parsers/rpm.c
 	parsers/firewall.c
 	parsers/mongodb.c
+	parsers/cassandra.c
 	parsers/keepalived.c
 	parsers/lang.c
 	parsers/nvidia-smi.c
@@ -323,6 +324,7 @@ add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligat
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/mongo COMMAND go build -o /var/lib/alligator/mongo.so -buildmode=c-shared cmd/mongo/main.go)
+add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY lang/cassandra COMMAND go build -o /var/lib/alligator/cassandra.so -buildmode=c-shared cmd/cassandra/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 IF(NOT ${distro}.${disversion} MATCHES "centos.7")
@@ -400,6 +402,7 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES bin/alligator
@@ -410,6 +413,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
+	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(FILES bin/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ

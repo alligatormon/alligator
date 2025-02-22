@@ -746,6 +746,24 @@ uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l)
 	return 1;
 }
 
+uint8_t string_tokens_string_push(string_tokens *st, string *str)
+{
+	if (!st)
+		return  0;
+
+	if (!st->m)
+		string_tokens_scale(st);
+
+	if (st->m <= st->l)
+		string_tokens_scale(st);
+
+	st->str[st->l] = str;
+
+	++st->l;
+
+	return 1;
+}
+
 uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l)
 {
 	if (!st)
@@ -774,6 +792,17 @@ string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
 		string_string_cat(joined, st->str[i]);
 	}
 	return joined;
+}
+
+json_t* string_tokens_json(string_tokens *st)
+{
+	json_t *array = json_array();
+	for (uint64_t i = 0; i < st->l; i++)
+	{
+		json_t *token = json_string(st->str[i]->s);
+		json_array_object_insert(array, "", token);
+	}
+	return array;
 }
 
 void string_tokens_free(string_tokens *st)

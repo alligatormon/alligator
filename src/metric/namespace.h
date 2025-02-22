@@ -25,6 +25,7 @@
 #define METRIC_SERIALIZER_PG 7
 #define METRIC_SERIALIZER_ELASTICSEARCH 8
 #define METRIC_SERIALIZER_MONGODB 9
+#define METRIC_SERIALIZER_CASSANDRA 10
 
 typedef struct namespace_struct
 {
@@ -39,9 +40,10 @@ typedef struct serializer_context {
 	char *last_metric; // for SQL-like databases
 	json_t *json;
 	string *str;
-	string **multistring;
+	//string **multistring;
+	string_tokens *multistring;
 	string *index_name;
-	uint64_t ms_size;
+	//uint64_t ms_size;
 	string *engine;
 	char delimiter;
 } serializer_context;

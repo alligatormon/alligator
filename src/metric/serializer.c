@@ -3,6 +3,7 @@
 #include "common/rtime.h"
 #include "common/selector.h"
 #include "common/json_query.h"
+#include <uuid/uuid.h>
 #include <time.h>
 #define SQL_CREATE "CREATE TABLE IF NOT EXISTS "
 #define SQL_INSERT "INSERT INTO "
@@ -11,6 +12,8 @@
 #define CLICKHOUSE_INSERT_FIELDS "(timestamp, value"
 #define PG_STANDARD_FIELDS "(ts tm, value double precision"
 #define PG_INSERT_FIELDS "(ts, value"
+#define CASSANDRA_STANDARD_FIELDS "(id UUID PRIMARY KEY, time TIMESTAMP, value DOUBLE"
+#define CASSANDRA_INSERT_FIELDS "(time, id, value"
 
 serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template)
 {
@@ -28,14 +31,16 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 	else if (serializer == METRIC_SERIALIZER_CLICKHOUSE)
 	{
 		sc->str = str;
-		sc->multistring = calloc(1, 1000*sizeof(void*)); // TODO: why 1000?
-		sc->ms_size = 0;
+		//sc->multistring = calloc(1, 1000*sizeof(void*)); // TODO: why 1000?
+		//sc->ms_size = 0;
+		sc->multistring = string_tokens_new();
 	}
 	else if (serializer == METRIC_SERIALIZER_PG)
 	{
 		sc->str = str;
-		sc->multistring = calloc(1, 1000*sizeof(void*)); // TODO: why 1000?
-		sc->ms_size = 0;
+		//sc->multistring = calloc(1, 1000*sizeof(void*)); // TODO: why 1000?
+		//sc->ms_size = 0;
+		sc->multistring = string_tokens_new();
 	}
 	else if (serializer == METRIC_SERIALIZER_JSON)
 		sc->json = json_array();
@@ -47,6 +52,13 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 	else if (serializer == METRIC_SERIALIZER_ELASTICSEARCH)
 	{
 		sc->str = str;
+	}
+	else if (serializer == METRIC_SERIALIZER_CASSANDRA)
+	{
+		sc->str = str;
+		//sc->multistring = calloc(1, 1000*sizeof(void*));
+		//sc->ms_size = 0;
+		sc->multistring = string_tokens_new();
 	}
 
 	if (engine)
@@ -361,20 +373,15 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 {
 	labels_t *labels = x->labels;
 
-	string *res;
-
-	if(sc->ms_size)
-		res = sc->multistring[sc->ms_size-1];
-	else
-		res = sc->multistring[sc->ms_size];
+	string *res = NULL;
 
 	string *column_names = NULL;
 	string *create_table = NULL;
 	string *data = NULL;
 	if (strcmp(sc->last_metric, labels->key))
 	{
-		++sc->ms_size;
-		res = sc->multistring[sc->ms_size-1] = string_new();
+		string *res = string_new();
+		string_tokens_string_push(sc->multistring, res);
 
 		sc->last_metric = labels->key;
 		create_table = string_new();
@@ -442,8 +449,9 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 		string_merge(res, create_table);
 
 
-		++sc->ms_size;
-		res = sc->multistring[sc->ms_size-1] = string_new();
+		string *res = string_new();
+		string_tokens_string_push(sc->multistring, res);
+
 		string_cat(res, SQL_INSERT, strlen(SQL_INSERT));
 		string_cat(res, sc->last_metric, strlen(sc->last_metric));
 
@@ -457,24 +465,125 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 	string_cat(res, "),\n", 3);
 }
 
-void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
+void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 {
 	labels_t *labels = x->labels;
 
-	string *res;
-
-	if(sc->ms_size)
-		res = sc->multistring[sc->ms_size-1];
-	else
-		res = sc->multistring[sc->ms_size];
+	string *res = NULL;
 
 	string *column_names = NULL;
 	string *create_table = NULL;
 	string *data = NULL;
 	if (strcmp(sc->last_metric, labels->key))
 	{
-		++sc->ms_size;
-		res = sc->multistring[sc->ms_size-1] = string_new();
+		res = string_new();
+		string_tokens_string_push(sc->multistring, res);
+
+		sc->last_metric = labels->key;
+		create_table = string_new();
+		string_cat(create_table, SQL_CREATE, strlen(SQL_CREATE));
+		string_cat(create_table, labels->key, labels->key_len);
+		string_cat(create_table, CASSANDRA_STANDARD_FIELDS, strlen(CASSANDRA_STANDARD_FIELDS));
+
+		column_names = string_new();
+		string_cat(column_names, CASSANDRA_INSERT_FIELDS, strlen(CASSANDRA_INSERT_FIELDS));
+
+		data = string_new();
+
+		uuid_t uuid;
+		uuid_generate_time_safe(uuid);
+		char uuid_str[37];
+		uuid_unparse_lower(uuid, uuid_str);
+
+		string_cat(data, "(", 1);
+		string_uint(data, sec);
+		string_cat(data, ",", 1);
+		string_cat(data, uuid_str, 36);
+		string_cat(data, ",", 1);
+		metric_value_serialize_string(x, data);
+	}
+	else
+	{
+		uuid_t uuid;
+		uuid_generate_time_safe(uuid);
+		char uuid_str[37];
+		uuid_unparse_lower(uuid, uuid_str);
+
+		string_cat(res, "(", 1);
+		string_uint(res, sec);
+		string_cat(res, ",", 1);
+		string_cat(res, uuid_str, 36);
+		string_cat(res, ",", 1);
+		metric_value_serialize_string(x, res);
+		string_cat(res, "),\n", 3);
+	}
+
+	labels = labels->next;
+
+	if (labels) {
+		while (labels)
+		{
+			if (labels->key_len)
+			{
+				if (data && create_table && column_names)
+				{
+					string_cat(data, ",'", 2);
+					string_cat(data, labels->key, labels->key_len);
+					string_cat(data, "'", 1);
+
+					string_cat(create_table, ", ", 1);
+					string_cat(create_table, labels->name, labels->name_len);
+					string_cat(create_table, " TEXT ", 6);
+
+					string_cat(column_names, ",", 1);
+					string_cat(column_names, labels->name, labels->name_len);
+				}
+				else
+				{
+					string_cat(res, ",'", 2);
+					string_cat(res, labels->key, labels->key_len);
+					string_cat(res, "'", 1);
+				}
+			}
+			labels = labels->next;
+		}
+	}
+
+	if (data && create_table && column_names)
+	{
+		string_cat(create_table, ");\n", 3);
+
+		string_merge(res, create_table);
+
+
+		string *res = string_new();
+		string_tokens_string_push(sc->multistring, res);
+
+		string_cat(res, SQL_INSERT, strlen(SQL_INSERT));
+		string_cat(res, sc->last_metric, strlen(sc->last_metric));
+
+		string_cat(column_names, ") VALUES", 8);
+		string_merge(res, column_names);
+		string_cat(res, "\n", 1);
+
+		string_merge(res, data);
+		string_cat(res, ");\n", 3);
+	}
+}
+
+void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
+{
+	labels_t *labels = x->labels;
+
+	string *res = NULL;
+
+	string *column_names = NULL;
+	string *create_table = NULL;
+	string *data = NULL;
+	if (strcmp(sc->last_metric, labels->key))
+	{
+		string *res = string_new();
+		string_tokens_string_push(sc->multistring, res);
 
 		sc->last_metric = labels->key;
 		create_table = string_new();
@@ -537,8 +646,9 @@ void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 		string_merge(res, create_table);
 
 
-		++sc->ms_size;
-		res = sc->multistring[sc->ms_size-1] = string_new();
+		string *res = string_new();
+		string_tokens_string_push(sc->multistring, res);
+
 		string_cat(res, SQL_INSERT, strlen(SQL_INSERT));
 		string_cat(res, sc->last_metric, strlen(sc->last_metric));
 
@@ -617,5 +727,10 @@ void metric_node_serialize(metric_node *x, serializer_context *sc)
 	else if (sc->serializer == METRIC_SERIALIZER_DSV)
 	{
 		serialize_dsv(x, sc);
+	}
+	else if (sc->serializer == METRIC_SERIALIZER_CASSANDRA)
+	{
+		r_time now = setrtime();
+		serialize_cassandra(x, sc, now.sec);
 	}
 }

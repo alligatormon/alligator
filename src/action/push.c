@@ -90,6 +90,8 @@ void action_push(json_t *action)
 			an->serializer = METRIC_SERIALIZER_PG;
 		else if(!strcmp(srlz, "mongodb"))
 			an->serializer = METRIC_SERIALIZER_MONGODB;
+		else if(!strcmp(srlz, "cassandra"))
+			an->serializer = METRIC_SERIALIZER_CASSANDRA;
 		else if(!strcmp(srlz, "elasticsearch"))
 		{
 			an->serializer = METRIC_SERIALIZER_ELASTICSEARCH;

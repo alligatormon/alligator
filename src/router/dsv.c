@@ -25,7 +25,7 @@ void dsv_router(string *response, http_reply_data* http_data, context_arg *carg)
 
 	query_context_convert_http_args_to_query(mqc, args);
 
-	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_DSV, delimiter, NULL, NULL, NULL, NULL, NULL);
+	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_DSV, delimiter, NULL, NULL, NULL, NULL);
 
 	char *content_length = malloc(255);
 	snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);

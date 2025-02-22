@@ -352,6 +352,15 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+void query_node_generate_field_conf(void *funcarg, void* arg)
+{
+	json_t *field = funcarg;
+	query_field *qf = arg;
+
+	json_t *sfield = json_string(qf->field);
+	json_array_object_insert(field, NULL, sfield);
+}
+
 void query_node_generate_conf(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -395,6 +404,13 @@ void query_node_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *datasource = json_string(qn->datasource);
 		json_array_object_insert(ctx, "datasource", datasource);
+	}
+
+	if (qn->qf_hash)
+	{
+		json_t *qf_hash = json_array();
+		alligator_ht_foreach_arg(qn->qf_hash, query_node_generate_field_conf, qf_hash);
+		json_array_object_insert(ctx, "field", qf_hash);
 	}
 }
 
@@ -478,6 +494,8 @@ void action_generate_conf(void *funcarg, void* arg)
 			sertype = json_string("influxdb");
 		else if (an->serializer == METRIC_SERIALIZER_PG)
 			sertype = json_string("postgresql");
+		else if (an->serializer == METRIC_SERIALIZER_CASSANDRA)
+			sertype = json_string("cassandra");
 		else
 			sertype = json_string("none");
 		json_array_object_insert(ctx, "serializer", sertype);

@@ -112,7 +112,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	metric_query_context *mqc = query_context_new(NULL);
 	query_context_set_label(mqc, "host", target);
-	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, NULL);
+	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL);
 	query_context_free(mqc);
 
 	char *content_length = malloc(255);
