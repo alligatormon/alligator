@@ -121,6 +121,7 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
             labelFields := map[string]string{}
 
 
+		    alligatorLog(L_ERROR, "run cassandra query:", parserDt.Expr)
             iter := session.Query(parserDt.Expr).Iter()
             defer iter.Close()
 
