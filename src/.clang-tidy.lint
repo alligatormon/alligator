@@ -1,0 +1,15 @@
+---
+Checks: >
+    -*,
+    -clang-analyzer-*,
+    -clang-diagnostic-implicit-function-declaration,
+    misc-alligatorFunctionDeprecated,
+    misc-alligatorIfStmt,
+    -bugprone-reserved-identifier,
+    -cert-dcl37-c,
+    -cert-dcl51-cpp,
+    -llvmlibc-restrict-system-libc-headers,
+    -google-readability-braces-around-statements,
+    -hicpp-braces-around-statements,
+    -readability-braces-around-statements,
+    -misc-include-cleaner
