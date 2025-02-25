@@ -50,7 +50,7 @@ static-analyzer:
   - cmake --build . --target alligator_analyze
 
 static-lint:
-  image: alligatormon/clang-tidy:2
+  image: alligatormon/clang-tidy:3
   allow_failure: true
   except:
   - tags
