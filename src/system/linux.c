@@ -3347,6 +3347,9 @@ void get_system_metrics()
 	}
 	if (ac->system_firewall)
 	{
+		if (!ac->kernel_version[0]) {
+			get_kernel_version(platform);
+		}
 		if (ac->kernel_version[0] >= 5)
 			nftables_handler();
 		else  {
