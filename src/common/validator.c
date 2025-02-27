@@ -144,6 +144,8 @@ void metric_label_value_validator_normalizer(char *str, size_t sz)
 			str[i] = '_';
 		else if (str[i] == '\'')
 			str[i] = '_';
+		else if (str[i] == '\t')
+			str[i] = ' ';
 		else
 			continue;
 }

@@ -10,7 +10,8 @@
 #include "common/logs.h"
 #include "parsers/metric_types.h"
 #include "main.h"
-#define LABEL_LEN 255
+#define ROW_LEN 8192
+#define LABEL_LEN 4096
 #define CLUSTER_HANDLER_REPLICATYPE 0
 #define CLUSTER_HANDLER_SERVER 1
 #define CLUSTER_HANDLER_DATA 2

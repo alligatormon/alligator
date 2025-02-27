@@ -137,21 +137,23 @@ void tcp_server_readed(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	http_reply_data* hrdata;
 	if (!carg->full_body || !carg->full_body->l)
 	{
-		hrdata = http_proto_get_request_data(buf->base, nread, carg->auth_header);
-		if (hrdata)
-		{
-			carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
-			carg->body = hrdata->body;
-			if (carg->body)
-				carg->body_readed = 1;
-			else
-				carg->body_readed = 0;
+		if (nread > 0) {
+			hrdata = http_proto_get_request_data(buf->base, nread, carg->auth_header);
+			if (hrdata)
+			{
+				carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
+				carg->body = hrdata->body;
+				if (carg->body)
+					carg->body_readed = 1;
+				else
+					carg->body_readed = 0;
 
-			// initial big size of answer only for GET method
-			if (!carg->full_body && hrdata->method == HTTP_METHOD_GET)
-				carg->full_body = string_init(carg->buffer_request_size);
+				// initial big size of answer only for GET method
+				if (!carg->full_body && hrdata->method == HTTP_METHOD_GET)
+					carg->full_body = string_init(carg->buffer_request_size);
 
-			http_reply_data_free(hrdata);
+				http_reply_data_free(hrdata);
+			}
 		}
 	}
 
