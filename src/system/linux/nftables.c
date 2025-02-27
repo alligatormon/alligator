@@ -1,5 +1,7 @@
 #ifdef __linux__
 #include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,0,0)
+#include <linux/version.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -1826,4 +1828,7 @@ int nftables_handler()
 //int main() {
 //	nftables_handler();
 //}
+#else
+int nftables_handler() { return 1; }
+#endif
 #endif
