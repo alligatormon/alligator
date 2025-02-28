@@ -29,6 +29,21 @@
 #define NF_NAT_RANGE_NETMAP			(1 << 6)
 #endif
 
+// for ubuntu 20.04
+#ifndef NFTA_SET_EXPR
+#define NFTA_SET_EXPR 17
+#endif
+
+// for ubuntu 20.04
+#ifndef NFTA_SET_ELEM_KEY_END
+#define NFTA_SET_ELEM_KEY_END 10
+#endif
+
+// for ubuntu 20.04
+#ifndef NFTA_OBJ_USERDATA
+#define NFTA_OBJ_USERDATA 8
+#endif
+
 #define ALLIGATOR_NFT_REJECT -10
 #define ALLIGATOR_NFT_REDIRECT -11
 #define ALLIGATOR_NFT_DUP -12
