@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "common/selector.h"
+#include "common/logs.h"
 #include "cluster/type.h"
 #include "events/context_arg.h"
 #include "metric/namespace.h"
@@ -25,7 +26,7 @@ cluster_server_oplog *get_server_oplog_by_node(cluster_node *cn, char *replica)
 			min = new + 1;
 			if (min > cn->servers_size)
 			{
-				printf("cluster not found machine: %s, latest checked machine: %s", replica, cn->servers[new].name);
+				glog(L_ERROR, "cluster not found machine: %s, latest checked machine: %s\n", replica, cn->servers[new].name);
 				return NULL;
 			}
 		}
@@ -33,7 +34,7 @@ cluster_server_oplog *get_server_oplog_by_node(cluster_node *cn, char *replica)
 		{
 			if (new == 0)
 			{
-				printf("cluster not found machine: %s, latest checked machine: %s", replica, cn->servers[new].name);
+				glog(L_ERROR, "cluster not found machine: %s, latest checked machine: %s\n", replica, cn->servers[new].name);
 				return NULL;
 			}
 			max = new - 1;
