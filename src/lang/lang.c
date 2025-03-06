@@ -50,14 +50,16 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 	if (lo->carg && lo->carg->name)
 	{
 		query_ds *qds = query_get(lo->carg->name);
-		json_t *dst = json_object();
-		carglog(lo->carg, L_INFO, "found queries for datasource: %s: %p\n", lo->carg->name, qds);
-		if (qds)
-		{
-			alligator_ht_foreach_arg(qds->hash, query_node_generate_conf, dst);
+		if (qds) {
+			json_t *dst = json_object();
+			carglog(lo->carg, L_INFO, "found queries for datasource: %s: %p\n", lo->carg->name, qds);
+			if (qds)
+			{
+				alligator_ht_foreach_arg(qds->hash, query_node_generate_conf, dst);
+			}
+			json_t *jqueries = json_object_get(dst, "query");
+			queries = json_dumps(jqueries, JSON_INDENT(2));
 		}
-        json_t *jqueries = json_object_get(dst, "query");
-		queries = json_dumps(jqueries, JSON_INDENT(2));
 	}
 
 	if (!strcmp(lo->lang, "lua"))

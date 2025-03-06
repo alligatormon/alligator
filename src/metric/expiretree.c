@@ -55,12 +55,15 @@ expire_node *expire_make_node ( int64_t key, metric_node *metric )
 
 void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 {
+	pthread_rwlock_wrlock(&tree->rwlock);
 	if ( tree->root == NULL )
 	{
 		tree->count ++ ;
-	        tree->root = expire_make_node ( key, metric );
-	        if ( tree->root == NULL )
-	       		return;
+	    tree->root = expire_make_node ( key, metric );
+	    if ( tree->root == NULL ) {
+	        pthread_rwlock_unlock(&tree->rwlock);
+			return;
+        }
 	}
 	else
 	{
@@ -81,8 +84,10 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 				flag = 1;
 				p->steam[dir] = q = expire_make_node ( key, metric );
 				tree->count ++ ;
-				if ( q == NULL )
+				if ( q == NULL ) {
+					pthread_rwlock_unlock(&tree->rwlock);
 					return;
+				}
 			}
 			else if ( expire_is_red ( q->steam[LEFT] ) && expire_is_red ( q->steam[RIGHT] ) ) 
 			{
@@ -119,12 +124,15 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 		tree->root = head.steam[RIGHT];
 	}
 	tree->root->color = BLACK;
+	pthread_rwlock_unlock(&tree->rwlock);
 }
 
 void expire_build (char *namespace);
 
 int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 {
+	if (!tree->purging)
+		pthread_rwlock_wrlock(&tree->rwlock);
 	int excode = 0;
 	if ( tree->root != NULL ) 
 	{
@@ -213,6 +221,8 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			tree->root->color = BLACK;
 	}
  
+	if (!tree->purging)
+		pthread_rwlock_unlock(&tree->rwlock);
 	return excode;
 }
 
@@ -233,8 +243,10 @@ void tree_show(expire_node *x)
 
 void expire_show ( expire_tree *tree )
 {
+	pthread_rwlock_rdlock(&tree->rwlock);
 	if ( tree && tree->root )
 		tree_show(tree->root);
+	pthread_rwlock_unlock(&tree->rwlock);
 }
 
 void tree_free(expire_node *x)
@@ -248,8 +260,10 @@ void tree_free(expire_node *x)
 
 void expire_free ( expire_tree *tree )
 {
+	pthread_rwlock_wrlock(&tree->rwlock);
 	if ( tree && tree->root )
 		tree_free(tree->root);
+	pthread_rwlock_unlock(&tree->rwlock);
 }
 
 uint64_t tree_build(expire_node *x, uint64_t l)
@@ -290,7 +304,11 @@ void expire_build (char *namespace)
 		return;
 
 	if ( tree && tree->root )
+	{
+		pthread_rwlock_rdlock(&tree->rwlock);
 		tree_build(tree->root, -1);
+		pthread_rwlock_unlock(&tree->rwlock);
+	}
 }
 
 //expire_tree* tree_get ( expire_node *x, int64_t key )
@@ -310,8 +328,11 @@ void expire_build (char *namespace)
 
 expire_node* expire_find ( expire_tree *tree, int64_t key )
 {
-	if ( !tree || !(tree->root) )
+	pthread_rwlock_rdlock(&tree->rwlock);
+	if ( !tree || !(tree->root) ) {
+		pthread_rwlock_unlock(&tree->rwlock);
 		return NULL;
+	}
 	expire_node *x = tree->root;
 	while ( x )
 	{
@@ -321,13 +342,16 @@ expire_node* expire_find ( expire_tree *tree, int64_t key )
 			x = x->steam[RIGHT];
 		else if ( x->key == key )
 		{
+			pthread_rwlock_unlock(&tree->rwlock);
 			return x;
 		}
 		else
 		{
+			pthread_rwlock_unlock(&tree->rwlock);
 			return NULL;
 		}
 	}
+	pthread_rwlock_unlock(&tree->rwlock);
 	return NULL;
 }
 
@@ -387,8 +411,14 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
+	pthread_rwlock_wrlock(&expiretree->rwlock);
+	expiretree->purging = 1;
+
 	r_time start = setrtime();
 	while (expire_node_purge(expiretree->root, key, tree, expiretree));
+
+	pthread_rwlock_unlock(&expiretree->rwlock);
+	expiretree->purging = 0;
 
 	expire_select_delete(expiretree, key);
 

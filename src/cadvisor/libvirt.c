@@ -85,6 +85,14 @@ libvirt_library* libvirt_init()
 		return NULL;
 	}
 
+	libvirt->virDomainSetMemoryStatsPeriod = (int (*)(virDomainPtr, int, unsigned int))module_load(mod->path, "virDomainSetMemoryStatsPeriod", &libvirt->virDomainSetMemoryStatsPeriod_lib);
+	if (!libvirt->virDomainSetMemoryStatsPeriod)
+	{
+		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainSetMemoryStatsPeriod from libvirt\n");
+		libvirt_free(libvirt);
+		return NULL;
+	}
+
 	libvirt->virDomainGetMaxMemory = (unsigned long (*)(virDomainPtr))module_load(mod->path, "virDomainGetMaxMemory", &libvirt->virDomainGetMaxMemory_lib);
 	if (!libvirt->virDomainGetMaxMemory_lib)
 	{
@@ -293,24 +301,28 @@ void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname)
 void libvirt_memory(virDomainPtr d, char* id, char *name) {
 	virDomainMemoryStatStruct memstats[VIR_DOMAIN_MEMORY_STAT_NR];
 	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * VIR_DOMAIN_MEMORY_STAT_NR);
+	int rc = ac->libvirt->virDomainSetMemoryStatsPeriod(d, 10, VIR_DOMAIN_AFFECT_LIVE);
+	if (rc < 0) {
+		carglog(ac->cadvisor_carg, L_OFF, "virDomainSetMemoryStatsPeriod: Unable to change balloon collection period.");
+	}
 	ac->libvirt->virDomainMemoryStats(d, (virDomainMemoryStatPtr)&memstats, VIR_DOMAIN_MEMORY_STAT_NR, 0);
 
 	uint64_t maxmemory = ac->libvirt->virDomainGetMaxMemory(d) * 1024;
 	metric_add_labels3("container_spec_memory_swap_limit_bytes", &maxmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 	metric_add_labels3("container_spec_memory_limit_bytes", &maxmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 
-	uint64_t rssmemory = memstats[VIR_DOMAIN_MEMORY_STAT_RSS].val * 1024;
+	uint64_t rssmemory = memstats[12].val * 1024;
 	metric_add_labels3("container_memory_rss", &rssmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 
-	//unsigned long availmemory = memstats[VIR_DOMAIN_MEMORY_STAT_AVAILABLE].val * 1024;
-	unsigned long freememory = memstats[VIR_DOMAIN_MEMORY_STAT_UNUSED].val * 1024;
+	//unsigned long availmemory = memstats[6].val * 1024;
+	uint64_t freememory = memstats[5].val * 1024;
 
-	uint64_t inactive_file = memstats[VIR_DOMAIN_MEMORY_STAT_DISK_CACHES].val * 1024;
+	uint64_t inactive_file = memstats[9].val * 1024;
 	metric_add_labels3("container_memory_cache", &inactive_file, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 
 	uint64_t usedmemory = maxmemory - freememory;
 	metric_add_labels3("container_memory_usage_bytes", &usedmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
-	//printf("name of domain %d is %s with memory rss %lu/used %lu/avail %lu/free %lu/ inactive %lu/max %lu\n", id, name, rssmemory/1048576, usedmemory/1048576, availmemory/1048576, freememory/1048576, inactive_file/1048576, maxmemory);
+	//printf("name of domain %s is %s with memory rss %lu/used %lu/avail %d/free %lu/ inactive %lu/max %lu\n", id, name, rssmemory/1048576, usedmemory/1048576, 0, freememory/1048576, inactive_file/1048576, maxmemory);
 }
 
 void libvirt_cpu(virDomainPtr d, char* id, char *name) {

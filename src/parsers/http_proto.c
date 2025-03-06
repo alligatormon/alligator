@@ -37,6 +37,30 @@ void http_reply_data_free(http_reply_data* http)
 	free(http);
 }
 
+//http_reply_data* http_reply_data_clone(http_reply_data* http)
+//{
+//	http_reply_data* ret = malloc(sizeof(*ret));
+//	memcpy(ret, http, sizeof(*ret));
+//	if (ret->uri)
+//		ret->uri = strdup(http->uri);
+//	if (ret->mesg)
+//		ret->mesg = strdup(http->mesg);
+//	if (ret->headers)
+//		ret->headers = strdup(http->headers);
+//	if (ret->auth_bearer)
+//		ret->auth_bearer = strdup(http->auth_bearer);
+//	if (ret->auth_other)
+//		ret->auth_other = strdup(http->auth_other);
+//	if (ret->clear_http)
+//		ret->clear_http = string_string_init_dup(http->clear_http);
+//	if (ret->auth_basic)
+//		ret->auth_basic = strdup(http->auth_basic);
+//	if (ret->location)
+//		ret->location = strdup(http->location);
+//
+//	return ret;
+//}
+
 
 http_reply_data* http_reply_parser(char *http, ssize_t n)
 {

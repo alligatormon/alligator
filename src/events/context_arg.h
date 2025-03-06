@@ -185,6 +185,7 @@ typedef struct context_arg
 	uint8_t is_dir;
 	uint64_t offset;
 	uint64_t files_count;
+    uv_stream_t *server_stream;
 
 	uint64_t file_stat;
 	char *checksum;

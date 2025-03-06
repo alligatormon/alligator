@@ -4,7 +4,7 @@
 typedef struct alligator_ht
 {
 	tommy_hashdyn *ht;
-	uint32_t r_lock;
+	//uint32_t r_lock;
 	pthread_rwlock_t rwlock;
 } alligator_ht;
 

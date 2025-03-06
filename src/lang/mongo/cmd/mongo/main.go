@@ -275,6 +275,12 @@ func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, 
 		alligatorLog(L_ERROR, "err mongo.Connect is", err)
 		return C.CString("")
 	}
+	defer func() {
+		if err = client.Disconnect(context.TODO()); err != nil {
+			alligatorLog(L_ERROR, "err client.Disconnect is", err)
+		}
+	}()
+
 
     if parserDataStr != "" {
 	    parserDt := parser_data_t{}

@@ -29,10 +29,10 @@ int mongodb_aggregator(context_arg *carg) {
 	lo->carg->no_metric = 1;
 	lang_push_options(lo);
 
-    if (!carg->pquery_size) {
-		carg->pquery_size = 1;
-		carg->pquery[0] = strdup("");
-	}
+    //if (!carg->pquery_size) {
+	//	carg->pquery_size = 1;
+	//	carg->pquery[0] = strdup("");
+	//}
 
 	scheduler_node* sn = scheduler_get(lo->key);
 	if (!sn) {

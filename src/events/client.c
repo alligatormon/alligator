@@ -755,7 +755,7 @@ void unix_tcp_client_del(context_arg *carg)
 	if (carg)
 	{
 		if (carg->remove_from_hash)
-			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+			alligator_ht_remove_existing(ac->uggregator, &(carg->context_node));
 		
 		if (carg->lock)
 		{
@@ -766,7 +766,7 @@ void unix_tcp_client_del(context_arg *carg)
 		else
 		{
 			carg->lock = 1;
-			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
+			alligator_ht_remove_existing(ac->uggregator, &(carg->node));
 			carg_free(carg);
 		}
 	}

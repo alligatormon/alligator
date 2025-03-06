@@ -10,6 +10,9 @@ typedef struct libvirt_library {
 	uv_lib_t *virDomainMemoryStats_lib;
 	int (*virDomainMemoryStats)(virDomainPtr, virDomainMemoryStatPtr, unsigned int, unsigned int);
 
+	uv_lib_t *virDomainSetMemoryStatsPeriod_lib;
+	int (*virDomainSetMemoryStatsPeriod)(virDomainPtr, int, unsigned int);
+
 	uv_lib_t *virDomainGetMaxMemory_lib;
 	unsigned long (*virDomainGetMaxMemory)(virDomainPtr domain);
 

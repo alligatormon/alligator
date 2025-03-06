@@ -244,13 +244,13 @@ char *get_limit_units(uint64_t units_id) {
 
 void dump_pkt(char *fbuf, int status) {
 	struct nlmsghdr *h = (struct nlmsghdr*)fbuf;
-	carglog(ac->system_carg, L_DEBUG, "DEBUG first len %u, status %d\n", h->nlmsg_len, status);
+	carglog(ac->system_carg, L_OFF, "DEBUG first len %u, status %d\n", h->nlmsg_len, status);
 	for (uint64_t i = 0; i < status; ++i) {
-		carglog(ac->system_carg, L_DEBUG, "DEBUG [%ld]: [%hhu]", i, fbuf[i]);
+		carglog(ac->system_carg, L_OFF, "DEBUG [%ld]: [%hhu]", i, fbuf[i]);
 		if (isprint(fbuf[i]))
-			carglog(ac->system_carg, L_DEBUG, "\t'%c'\n", fbuf[i]);
+			carglog(ac->system_carg, L_OFF, "\t'%c'\n", fbuf[i]);
 		else
-			carglog(ac->system_carg, L_DEBUG, "\n");
+			carglog(ac->system_carg, L_OFF, "\n");
 	}
 }
 
@@ -1028,10 +1028,10 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			meta = 0;
 			uint16_t payload_size = expr->data[expr->namelen - 4];
 			for (uint16_t j = expr->namelen; j < payload_size; ) {
-				uint16_t plen = to_uint16(expr->data + j);
+				uint16_t plen = nl_get_len(expr->data + j);
 				if (!plen)
 					break;
-				uint16_t ptype = to_uint16(expr->data + j+2);
+				uint16_t ptype = nl_get_type(expr->data + j);
 				if (ptype == NFTA_PAYLOAD_LEN) {
 				} else if (ptype == NFTA_PAYLOAD_OFFSET) {
 					payload_offset = expr->data[j+7];
@@ -1043,9 +1043,14 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			}
 		} else if (is_cmp) {
 			prevcmp = 1;
+			//dump_pkt(expr->data, expr->len);
 			for (uint64_t j = 0; j < expr->len; ) {
-				uint16_t cmplen = expr->data[expr->namelen+j];
-				uint16_t cmptype = expr->data[expr->namelen+j+2];
+				uint64_t jnamelen = expr->namelen+j;
+				uint16_t cmplen = nl_get_len(expr->data + jnamelen);
+				uint16_t cmptype = nl_get_type(expr->data + jnamelen);
+				if (!cmplen)
+					break;
+
 				if (cmptype == NFTA_CMP_OP) {
 					uint8_t cmpdata = expr->data[expr->namelen+j+7];
 					cmpop = cmpdata;
@@ -1155,10 +1160,10 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		} else if (!strncmp(expr->data, "ct", 2)) {
 			uint16_t ct_size = expr->data[expr->namelen - 3];
 			for (uint16_t j = expr->namelen+1; j < ct_size; ) {
-				uint16_t ctlen = to_uint16(expr->data + j);
+				uint16_t ctlen = nl_get_len(expr->data + j);
 				if (!ctlen)
 					break;
-				uint16_t cttype = to_uint16(expr->data + j+2);
+				uint16_t cttype = nl_get_type(expr->data + j);
 				if (cttype == NFTA_CT_KEY) {
 					ct_key = expr->data[j+7];
 				} else if (cttype == NFTA_CT_DIRECTION) {
@@ -1200,6 +1205,8 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 					for (uint32_t j = 16; j < expr->len - 15; ) {
 						uint16_t type = nl_get_type(expr->data + j);
 						uint16_t len = nl_get_len(expr->data + j);
+						if (!len)
+							break;
 						if (type == 2)
 						{
 							uint16_t k = j + 4;
@@ -1226,10 +1233,10 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 			*verdict = ALLIGATOR_NFT_REJECT;
 			uint16_t im_size = to_uint16(expr->data + expr->namelen -3) + expr->namelen;
 			for (uint16_t j = expr->namelen+1; j < im_size; ) {
-				uint16_t imlen = to_uint16(expr->data + j);
+				uint16_t imlen = nl_get_len(expr->data + j);
 				if (!imlen)
 					break;
-				uint16_t rejecttype = to_uint16(expr->data + j+2);
+				uint16_t rejecttype = nl_get_type(expr->data + j);
 				if (rejecttype == NFTA_REJECT_ICMP_CODE) {
 					reject_icmp_code = expr->data[j+4];
 				} else if (rejecttype == NFTA_REJECT_TYPE) {
@@ -1245,10 +1252,10 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 		} else if (!strncmp(expr->data, "bitwise", 7)) {
 			uint16_t bitwise_size = to_uint16(expr->data + 8);
 			for (uint16_t j = 12; j < bitwise_size - 4; ) {
-				uint16_t bitwise_len = to_uint16(expr->data + j);
+				uint16_t bitwise_len = nl_get_len(expr->data + j);
 				if (!bitwise_len)
 					break;
-				uint16_t bittype = to_uint16(expr->data + j+2);
+				uint16_t bittype = nl_get_type(expr->data + j);
 				if (bittype == NFTA_BITWISE_LEN) {
 				} else if (bittype == NFTA_BITWISE_MASK) {
 					uint16_t k = j + 4;
@@ -1352,6 +1359,8 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 
 			for (uint64_t k = j + 4; k < expr->len;) {
 				uint16_t nested_len = nl_get_len(expr->data + k);
+				if (!nested_len)
+					break;
 				uint16_t nested_type = nl_get_type(expr->data + k);
 				char *data = nl_get_data(expr->data + k);
 				if ((nested_type == NFTA_CONNLIMIT_COUNT) && (nested_len == 8)) {
@@ -1366,6 +1375,8 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 
 			for (uint64_t k = j + 4; k < len;) {
 				uint16_t nested_len = nl_get_len(expr->data + k);
+				if (!nested_len)
+					break;
 				uint16_t nested_type = nl_get_type(expr->data + k);
 				char *data = nl_get_data(expr->data + k);
 				if ((nested_type == NFTA_MASQ_FLAGS) && (nested_len == 8)) {
@@ -1538,6 +1549,8 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				for (uint64_t i = 0; i + 20 < dt_size;)
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
+					if (!nftmsg->nlattr.nla_len)
+						break;
 					labels_hash_insert_nocache(label_expression, "handler", "nftables");
 					uint16_t itype = nftmsg->nlattr.nla_type;
 					if (itype == NFTA_RULE_TABLE) {
@@ -1597,6 +1610,8 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
 					uint16_t itype = nftmsg->nlattr.nla_type;
+					if (!nftmsg->nlattr.nla_len)
+						break;
 					if (itype == NFTA_RULE_TABLE)
 						strcpy(table, nftmsg->data);
 					else if (itype == NFTA_RULE_CHAIN)
@@ -1697,6 +1712,8 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
 					uint16_t itype = nftmsg->nlattr.nla_type;
 					uint16_t ilen = nftmsg->nlattr.nla_len;
+					if (!ilen)
+						break;
 					if (itype == NFTA_RULE_TABLE) {
 						strcpy(table, nftmsg->data);
 					} else if (itype == 2) {
@@ -1780,6 +1797,8 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
 					uint16_t itype = nftmsg->nlattr.nla_type;
+					if (!nftmsg->nlattr.nla_len)
+						break;
 					if (itype == NFTA_OBJ_TABLE) {
 						strcpy(table, nftmsg->data);
 					} else if (itype == NFTA_OBJ_NAME) {

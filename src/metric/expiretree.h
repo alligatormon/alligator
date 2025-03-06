@@ -5,6 +5,8 @@ typedef struct expire_tree
 {
 	struct expire_node *root;
 	int64_t count;
+	pthread_rwlock_t rwlock;
+	int purging;
 } expire_tree;
 
 metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree, int64_t ttl);
