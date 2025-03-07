@@ -299,8 +299,8 @@ void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname)
 }
 
 void libvirt_memory(virDomainPtr d, char* id, char *name) {
-	virDomainMemoryStatStruct memstats[VIR_DOMAIN_MEMORY_STAT_NR];
-	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * VIR_DOMAIN_MEMORY_STAT_NR);
+	virDomainMemoryStatStruct memstats[VIR_DOMAIN_MEMORY_STAT_NR+1];
+	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * (VIR_DOMAIN_MEMORY_STAT_NR+1));
 	int rc = ac->libvirt->virDomainSetMemoryStatsPeriod(d, 10, VIR_DOMAIN_AFFECT_LIVE);
 	if (rc < 0) {
 		carglog(ac->cadvisor_carg, L_OFF, "virDomainSetMemoryStatsPeriod: Unable to change balloon collection period.");
@@ -322,6 +322,7 @@ void libvirt_memory(virDomainPtr d, char* id, char *name) {
 
 	uint64_t usedmemory = maxmemory - freememory;
 	metric_add_labels3("container_memory_usage_bytes", &usedmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
+	//printf("name of domain %s is %s with memory 0:[%llu] 1:[%llu] 2:[%llu] 3:[%llu] 4:[%llu] 5:[%llu] 6:[%llu] 7:[%llu] 8:[%llu] 9:[%llu] 10:[%llu] 11:[%llu] 12:[%llu]\n", id, name, memstats[0].val, memstats[1].val, memstats[2].val, memstats[3].val, memstats[4].val, memstats[5].val, memstats[6].val, memstats[7].val, memstats[8].val, memstats[9].val, memstats[10].val, memstats[11].val, memstats[12].val);
 	//printf("name of domain %s is %s with memory rss %lu/used %lu/avail %d/free %lu/ inactive %lu/max %lu\n", id, name, rssmemory/1048576, usedmemory/1048576, 0, freememory/1048576, inactive_file/1048576, maxmemory);
 }
 
