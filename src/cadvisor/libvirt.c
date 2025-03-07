@@ -299,8 +299,8 @@ void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname)
 }
 
 void libvirt_memory(virDomainPtr d, char* id, char *name) {
-	virDomainMemoryStatStruct memstats[VIR_DOMAIN_MEMORY_STAT_NR+1];
-	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * (VIR_DOMAIN_MEMORY_STAT_NR+1));
+	virDomainMemoryStatStruct memstats[13];
+	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * 13);
 	int rc = ac->libvirt->virDomainSetMemoryStatsPeriod(d, 10, VIR_DOMAIN_AFFECT_LIVE);
 	if (rc < 0) {
 		carglog(ac->cadvisor_carg, L_OFF, "virDomainSetMemoryStatsPeriod: Unable to change balloon collection period.");
