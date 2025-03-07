@@ -30,7 +30,7 @@ tests:
 
 static-analyzer:
   stage: build
-  image: quay.io/centos/centos:stream9
+  image: alligatormon/clang-tidy:4
   allow_failure: true
   except:
   - tags
