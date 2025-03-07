@@ -150,6 +150,8 @@ aconf* configuration()
 	ac->ttl = 300;
 	ac->persistence_period = 10000;
 
+	setenv("UV_THREADPOOL_SIZE", "4", 1);
+
 	return ac;
 }
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <uv.h>
+
 #include "mbedtls/config.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/entropy.h"
@@ -18,6 +19,12 @@
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
+
+//void server_walk_cb(uv_handle_t *handle, void *arg) {
+//	if (!uv_is_closing(handle)) {
+//		uv_close(handle, NULL);
+//	}
+//}
 
 void tcp_server_closed_client(uv_handle_t* handle)
 {
@@ -44,6 +51,16 @@ void tcp_server_closed_client(uv_handle_t* handle)
 		carg->buffer_request_size = carg->full_body->m;
 		string_free(carg->full_body);
 	}
+
+	uv_stop(carg->loop);
+	//uv_walk(carg->loop, server_walk_cb, NULL);
+	//int count = carg->loop->active_reqs.count;
+	//for (uint64_t i = 0; i < count; ++i) {
+	//	uv_run(carg->loop, UV_RUN_ONCE);
+	//}
+	uv_loop_close(carg->loop);
+
+    close(carg->loop->backend_fd);
 	free(carg);
 }
 
@@ -452,33 +469,17 @@ void tls_server_init_client(uv_loop_t* loop, context_arg* carg)
 //void tcp_server_connected(uv_stream_t* stream, int status) 
 void tcp_server_connected(uv_work_t *workload)
 {
-    printf("pid is %d, threadid is %d\n", gettid(), getpid());
-    context_arg *carg = workload->data;
-    uv_stream_t* stream = carg->server_stream;
-	//context_arg* srv_carg = stream->data;
+	context_arg *carg = workload->data;
+	uv_stream_t* stream = carg->server_stream;
 
-	//if (status != 0)
-	//	return;
-
-	//context_arg *carg = malloc(sizeof(*carg));
-	//memcpy(carg, srv_carg, sizeof(context_arg));
-	//carglog(carg, L_INFO, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
-	//(srv_carg->conn_counter)++;
-
-	//uv_tcp_init(carg->loop, &carg->client);
-
-	//carg->srv_carg = srv_carg;
-	//carg->client.data = carg;
-	//carg->curr_ttl = carg->ttl;
-
+	carglog(carg, L_INFO, "%"u64": tcp server thread %ld accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, pthread_self(), carg->srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	if (carg->tls)
 		tls_server_init_client(carg->loop, carg);
 
 	if (uv_tcp_nodelay(&carg->client, 1))
 		tcp_server_close_client(carg);
 
-	//if (uv_accept((uv_stream_t*)&carg->server, (uv_stream_t*)&carg->client))
-    if (uv_accept(stream, (uv_stream_t*)&carg->client))
+	if (uv_accept(stream, (uv_stream_t*)&carg->client))
 		tcp_server_close_client(carg);
 
 	if (!check_ip_port((uv_tcp_t*)&carg->client, carg))
@@ -497,9 +498,19 @@ void tcp_server_connected(uv_work_t *workload)
 	}
 	else
 	{
-		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_readed))
+		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_readed)) {
 			tcp_server_close_client(carg);
+		}
 	}
+	//uv_run(carg->loop, UV_RUN_NOWAIT);
+	uv_run(carg->loop, UV_RUN_ONCE);
+}
+
+void tcp_server_connected_stop(uv_work_t *workload, int status) {
+	context_arg *carg = workload->data;
+	free(carg->loop);
+
+	free(workload);
 }
 
 void tcp_server_connected_threaded(uv_stream_t* stream, int status) {
@@ -508,22 +519,24 @@ void tcp_server_connected_threaded(uv_stream_t* stream, int status) {
 	if (status != 0)
 		return;
 
-    uv_work_t *workload = calloc(1, sizeof(*workload));
+	uv_work_t *workload = calloc(1, sizeof(*workload));
 
 	context_arg *carg = malloc(sizeof(*carg));
 	memcpy(carg, srv_carg, sizeof(context_arg));
 	carglog(carg, L_INFO, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->conn_counter)++;
 
+	carg->loop = malloc(sizeof *carg->loop);
+	uv_loop_init(carg->loop);
 	uv_tcp_init(carg->loop, &carg->client);
 
 	carg->srv_carg = srv_carg;
 	carg->client.data = carg;
 	carg->curr_ttl = carg->ttl;
-    workload->data = carg;
-    carg->server_stream = stream;
+	workload->data = carg;
+	carg->server_stream = stream;
    
-    uv_queue_work(carg->loop, workload, tcp_server_connected, NULL);
+	uv_queue_work(uv_default_loop(), workload, tcp_server_connected, tcp_server_connected_stop);
 }
 
 context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)

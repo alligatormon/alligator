@@ -102,6 +102,11 @@ void config_global_get(json_t *dst)
 		json_array_object_insert(dst, "ttl", ttl);
 	}
 
+	char *workers = getenv("UV_THREADPOOL_SIZE");
+	uint64_t iworkers = strtoull(workers, NULL, 10);
+	json_t *cores = json_integer(iworkers);
+	json_array_object_insert(dst, "workers", cores);
+
 	if (ac->persistence_dir)
 	{
 		json_t *ctx = json_object();
