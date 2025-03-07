@@ -301,6 +301,10 @@ void jq_node_free_foreach(void *funcarg, void* arg)
 }
 
 int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char **queries, uint8_t queries_size) {
+	int need_free = 1;
+	if (root)
+		need_free = 0;
+
 	json_error_t error;
 	if (!root) {
 		root = json_loads(data, 0, &error);
@@ -322,6 +326,9 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	labels_hash_free(lbl);
 	alligator_ht_forfree(carg->data, jq_node_free_foreach);
 	free(carg->data);
+
+	if (need_free)
+		json_decref(root);
 
 	return 1;
 }
