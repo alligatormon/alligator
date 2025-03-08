@@ -60,7 +60,7 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	//}
 	uv_loop_close(carg->loop);
 
-    close(carg->loop->backend_fd);
+	free(carg->loop);
 	free(carg);
 }
 
@@ -503,13 +503,11 @@ void tcp_server_connected(uv_work_t *workload)
 		}
 	}
 	//uv_run(carg->loop, UV_RUN_NOWAIT);
-	uv_run(carg->loop, UV_RUN_ONCE);
+	//uv_run(carg->loop, UV_RUN_ONCE);
+	uv_run(carg->loop, UV_RUN_DEFAULT);
 }
 
 void tcp_server_connected_stop(uv_work_t *workload, int status) {
-	context_arg *carg = workload->data;
-	free(carg->loop);
-
 	free(workload);
 }
 
