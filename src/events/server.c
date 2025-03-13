@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <uv.h>
-
 #include "mbedtls/config.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/entropy.h"
@@ -19,12 +18,6 @@
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
-
-//void server_walk_cb(uv_handle_t *handle, void *arg) {
-//	if (!uv_is_closing(handle)) {
-//		uv_close(handle, NULL);
-//	}
-//}
 
 void tcp_server_closed_client(uv_handle_t* handle)
 {
@@ -51,16 +44,6 @@ void tcp_server_closed_client(uv_handle_t* handle)
 		carg->buffer_request_size = carg->full_body->m;
 		string_free(carg->full_body);
 	}
-
-	uv_stop(carg->loop);
-	//uv_walk(carg->loop, server_walk_cb, NULL);
-	//int count = carg->loop->active_reqs.count;
-	//for (uint64_t i = 0; i < count; ++i) {
-	//	uv_run(carg->loop, UV_RUN_ONCE);
-	//}
-
-	carg->workload->data = carg->loop;
-	//free(carg->loop);
 	free(carg);
 }
 
@@ -466,13 +449,24 @@ void tls_server_init_client(uv_loop_t* loop, context_arg* carg)
 	mbedtls_ssl_set_bio(&carg->tls_ctx, carg, tls_server_mbed_send, tls_server_mbed_recv, NULL);
 }
 
-//void tcp_server_connected(uv_stream_t* stream, int status) 
-void tcp_server_connected(uv_work_t *workload)
+void tcp_server_connected(uv_stream_t* stream, int status) 
 {
-	context_arg *carg = workload->data;
-	uv_stream_t* stream = carg->server_stream;
+	context_arg* srv_carg = stream->data;
 
-	carglog(carg, L_INFO, "%"u64": tcp server thread %ld accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, pthread_self(), carg->srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	if (status != 0)
+		return;
+
+	context_arg *carg = malloc(sizeof(*carg));
+	memcpy(carg, srv_carg, sizeof(context_arg));
+	carglog(carg, L_INFO, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	(srv_carg->conn_counter)++;
+
+	uv_tcp_init(carg->loop, &carg->client);
+
+	carg->srv_carg = srv_carg;
+	carg->client.data = carg;
+	carg->curr_ttl = carg->ttl;
+
 	if (carg->tls)
 		tls_server_init_client(carg->loop, carg);
 
@@ -498,45 +492,9 @@ void tcp_server_connected(uv_work_t *workload)
 	}
 	else
 	{
-		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_readed)) {
+		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_readed))
 			tcp_server_close_client(carg);
-		}
 	}
-	//uv_run(carg->loop, UV_RUN_NOWAIT);
-	//uv_run(carg->loop, UV_RUN_ONCE);
-	uv_run(carg->loop, UV_RUN_DEFAULT);
-}
-
-void tcp_server_connected_stop(uv_work_t *workload, int status) {
-	free(workload->data);
-	free(workload);
-}
-
-void tcp_server_connected_threaded(uv_stream_t* stream, int status) {
-	context_arg* srv_carg = stream->data;
-
-	if (status != 0)
-		return;
-
-	uv_work_t *workload = calloc(1, sizeof(*workload));
-
-	context_arg *carg = malloc(sizeof(*carg));
-	memcpy(carg, srv_carg, sizeof(context_arg));
-	carglog(carg, L_INFO, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
-	(srv_carg->conn_counter)++;
-
-	carg->loop = malloc(sizeof *carg->loop);
-	uv_loop_init(carg->loop);
-	uv_tcp_init(carg->loop, &carg->client);
-
-	carg->srv_carg = srv_carg;
-	carg->client.data = carg;
-	carg->curr_ttl = carg->ttl;
-	workload->data = carg;
-	carg->workload = workload;
-	carg->server_stream = stream;
-   
-	uv_queue_work(uv_default_loop(), workload, tcp_server_connected, tcp_server_connected_stop);
 }
 
 context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
@@ -572,7 +530,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	}
 
 	uv_tcp_init(srv_carg->loop, &srv_carg->server);
-	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, UV_TCP_REUSEPORT))
+	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
 	{
 		return NULL;
 	}
@@ -582,7 +540,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 		return NULL;
 	}
 
-	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected_threaded);
+	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
 	if (ret)
 	{
 		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error %s\n", srv_carg->host, port, uv_strerror(ret));
