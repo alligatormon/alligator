@@ -58,9 +58,9 @@ void tcp_server_closed_client(uv_handle_t* handle)
 	//for (uint64_t i = 0; i < count; ++i) {
 	//	uv_run(carg->loop, UV_RUN_ONCE);
 	//}
-	uv_loop_close(carg->loop);
 
-	free(carg->loop);
+	carg->workload->data = carg->loop;
+	//free(carg->loop);
 	free(carg);
 }
 
@@ -508,6 +508,7 @@ void tcp_server_connected(uv_work_t *workload)
 }
 
 void tcp_server_connected_stop(uv_work_t *workload, int status) {
+	free(workload->data);
 	free(workload);
 }
 
@@ -532,6 +533,7 @@ void tcp_server_connected_threaded(uv_stream_t* stream, int status) {
 	carg->client.data = carg;
 	carg->curr_ttl = carg->ttl;
 	workload->data = carg;
+	carg->workload = workload;
 	carg->server_stream = stream;
    
 	uv_queue_work(uv_default_loop(), workload, tcp_server_connected, tcp_server_connected_stop);
@@ -570,7 +572,7 @@ context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t 
 	}
 
 	uv_tcp_init(srv_carg->loop, &srv_carg->server);
-	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
+	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, UV_TCP_REUSEPORT))
 	{
 		return NULL;
 	}

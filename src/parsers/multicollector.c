@@ -603,6 +603,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		return 1;
 	}
 
+printf("%lu %lf '%s'\n", pthread_self(), value, str);
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	else if (data_type == METRIC_TYPE_COUNTER || data_type == METRIC_TYPE_HISTOGRAM)
