@@ -520,6 +520,8 @@ void tcp_server_run(void *passarg) {
 	}
 
 	uv_tcp_init(srv_carg->loop, &srv_carg->server);
+	int on = 1;
+	setsockopt(srv_carg->server.io_watcher.fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
 	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, UV_TCP_REUSEPORT))
 	{
 		srv_carg->running = -1;
