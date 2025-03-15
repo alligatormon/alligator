@@ -425,6 +425,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (pingloop)
 						carg->pingloop = pingloop;
 
+					carg->threads = 0;
+					json_t *carg_threads = json_object_get(entrypoint, "threads");
+					uint64_t threads = json_integer_value(carg_threads);
+					if (threads)
+						carg->threads = threads;
+
 					json_t *carg_handler = json_object_get(entrypoint, "handler");
 					char *str_handler = (char*)json_string_value(carg_handler);
 					if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
@@ -621,17 +627,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						if (port)
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
-							context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-							(void)(ret);
-							//if (!ret)
+							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
 							//	carg_free(passcarg);
 							free(host);
 						}
 						else
 						{
-							context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							(void)(ret);
-							//if (!ret)
+							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
 							//	carg_free(passcarg);
 						}
 					}

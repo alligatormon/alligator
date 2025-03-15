@@ -5,7 +5,7 @@ typedef struct expire_tree
 {
 	struct expire_node *root;
 	int64_t count;
-	pthread_rwlock_t rwlock;
+	pthread_rwlock_t *rwlock;
 	int purging;
 } expire_tree;
 

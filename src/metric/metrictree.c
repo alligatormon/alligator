@@ -90,14 +90,14 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 
 metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
-	pthread_rwlock_wrlock(&tree->rwlock);
+	pthread_rwlock_wrlock(tree->rwlock);
 	metric_node *ret = NULL;
 	if ( tree->root == NULL )
 	{
 		tree->root = ret = make_node(tree, labels, type, value, expiretree);
 		tree->count++;
 		if (tree->root == NULL) {
-			pthread_rwlock_unlock(&tree->rwlock);
+			pthread_rwlock_unlock(tree->rwlock);
 			return NULL;
 		}
 	}
@@ -121,7 +121,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 				tree->count++;
 				flag = 1;
 				if ( q == NULL ) {
-					pthread_rwlock_unlock(&tree->rwlock);
+					pthread_rwlock_unlock(tree->rwlock);
 					return NULL;
 				}
 			}
@@ -160,14 +160,16 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 
 	r_time time = setrtime();
 	expire_insert(expiretree, time.sec+ttl, ret);
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 	return ret;
 }
 
 int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 {
 	int ret = 0;
-	pthread_rwlock_wrlock(&tree->rwlock);
+	if (!tree->purging) {
+		pthread_rwlock_wrlock(tree->rwlock);
+	}
 	if ( tree->root != NULL ) 
 	{
 		metric_node head = {{0}};
@@ -237,7 +239,9 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			tree->root->color = BLACK;
 	}
 
-	pthread_rwlock_unlock(&tree->rwlock);
+	if (!tree->purging) {
+		pthread_rwlock_unlock(tree->rwlock);
+	}
 	return ret;
 }
 
@@ -314,10 +318,10 @@ void metrictree_show(metric_node *x)
 
 void metric_show ( metric_tree *tree )
 {
-	pthread_rwlock_rdlock(&tree->rwlock);
+	pthread_rwlock_rdlock(tree->rwlock);
 	if ( tree && tree->root )
 		metrictree_show(tree->root);
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 }
 
 
@@ -349,9 +353,9 @@ void metric_build (char *namespace, string *s)
 
 	if ( tree && tree->root )
 	{
-		pthread_rwlock_rdlock(&tree->rwlock);
+		pthread_rwlock_rdlock(tree->rwlock);
 		metrictree_build(tree->root, -1, s);
-		pthread_rwlock_unlock(&tree->rwlock);
+		pthread_rwlock_unlock(tree->rwlock);
 	}
 }
 
@@ -418,9 +422,9 @@ void metric_str_build (char *namespace, string *str)
 
 	if (tree && tree->root)
 	{
-		pthread_rwlock_rdlock(&tree->rwlock);
+		pthread_rwlock_rdlock(tree->rwlock);
 		metrictree_str_build(tree->root, str);
-		pthread_rwlock_unlock(&tree->rwlock);
+		pthread_rwlock_unlock(tree->rwlock);
 	}
 }
 
@@ -440,7 +444,7 @@ void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, 
 
 void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
 {
-	pthread_rwlock_rdlock(&tree->rwlock);
+	pthread_rwlock_rdlock(tree->rwlock);
 	metric_node *x = tree->root;
 	while (x)
 	{
@@ -458,7 +462,7 @@ void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, allig
 			break;
 		}
 	}
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 }
 
 void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
@@ -478,7 +482,7 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
 {
 	metric_node *x = tree->root;
-	pthread_rwlock_rdlock(&tree->rwlock);
+	pthread_rwlock_rdlock(tree->rwlock);
 	while (x)
 	{
 		int rc1 = metric_name_match(x->labels, labels);
@@ -495,7 +499,7 @@ void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *gro
 			break;
 		}
 	}
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 }
 
 metric_node* metric_find ( metric_tree *tree, labels_t* labels )
@@ -503,7 +507,7 @@ metric_node* metric_find ( metric_tree *tree, labels_t* labels )
 	if ( !tree || !(tree->root) )
 		return NULL;
 
-	pthread_rwlock_rdlock(&tree->rwlock);
+	pthread_rwlock_rdlock(tree->rwlock);
 	metric_node *x = tree->root;
 	while ( x )
 	{
@@ -514,16 +518,16 @@ metric_node* metric_find ( metric_tree *tree, labels_t* labels )
 			x = x->steam[RIGHT];
 		else if ( !rc1 )
 		{
-			pthread_rwlock_unlock(&tree->rwlock);
+			pthread_rwlock_unlock(tree->rwlock);
 			return x;
 		}
 		else
 		{
-			pthread_rwlock_unlock(&tree->rwlock);
+			pthread_rwlock_unlock(tree->rwlock);
 			return NULL;
 		}
 	}
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 	return NULL;
 }
 
@@ -538,10 +542,10 @@ void metrictree_free(metric_node *x)
 
 void metric_free ( metric_tree *tree )
 {
-	pthread_rwlock_wrlock(&tree->rwlock);
+	pthread_rwlock_wrlock(tree->rwlock);
 	if ( tree && tree->root )
 		metrictree_free(tree->root);
-	pthread_rwlock_unlock(&tree->rwlock);
+	pthread_rwlock_unlock(tree->rwlock);
 }
 
 int64_t metric_get_int(void *value, int8_t type)

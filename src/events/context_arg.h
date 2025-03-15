@@ -164,6 +164,7 @@ typedef struct context_arg
 	void *data; // for parser-data
 	char *ns; // for parsers ns
 	uint8_t parser_status;
+	int8_t running;
 
 	uv_tcp_t server;
 	uv_tcp_t client; // move only with pclient
@@ -232,6 +233,8 @@ typedef struct context_arg
 	char password[AUTH_SIZE];
 	uint64_t timeout;
 	uint64_t count;
+	uv_thread_t thread;
+	uint64_t threads;
 
 	uint64_t parsed;
 

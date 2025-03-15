@@ -747,6 +747,12 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "pingloop", pingloop);
 	}
 
+	if (carg->threads)
+	{
+		json_t *threads = json_integer(carg->threads);
+		json_array_object_insert(ctx, "threads", threads);
+	}
+
 	if (carg->api_enable)
 	{
 		json_t *api_enable = json_integer(carg->api_enable);

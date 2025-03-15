@@ -1,5 +1,5 @@
 [requires]
-libuv/1.44.2
+libuv/1.49.2
 jansson/2.13.1
 jemalloc/5.2.1
 zlib/1.2.11

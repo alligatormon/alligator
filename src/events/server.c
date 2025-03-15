@@ -497,58 +497,92 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	}
 }
 
-context_arg *tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
-{
+void tcp_server_run(void *passarg) {
+	context_arg *srv_carg = passarg;
 	struct sockaddr_in addr;
 
-	context_arg* srv_carg;
-	if (import_carg)
-		srv_carg = import_carg;
-	else
-		srv_carg = calloc(1, sizeof(context_arg));
-
-	srv_carg->key = malloc(255);
-	strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
-	snprintf(srv_carg->key, 255, "tcp:%s:%u", srv_carg->host, port);
-
-	carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
-
-	srv_carg->loop = loop;
-	srv_carg->tls = tls;
-
-	srv_carg->server.data = srv_carg;
+	if (srv_carg->threads) {
+		srv_carg->loop = malloc(sizeof *srv_carg->loop);
+		uv_loop_init(srv_carg->loop);
+	} else {
+		srv_carg->loop = uv_default_loop();
+	}
 
 	if (srv_carg->tls)
 		if (!tls_server_init(srv_carg->loop, srv_carg))
 		{
-			return NULL;
+			srv_carg->running = -1;
 		}
 
-	if(uv_ip4_addr(srv_carg->host, port, &addr))
+	if(uv_ip4_addr(srv_carg->host, srv_carg->numport, &addr))
 	{
-		return NULL;
+		srv_carg->running = -1;
 	}
 
 	uv_tcp_init(srv_carg->loop, &srv_carg->server);
-	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
+	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, UV_TCP_REUSEPORT))
 	{
-		return NULL;
+		srv_carg->running = -1;
 	}
 
 	if (uv_tcp_nodelay(&srv_carg->server, 1))
 	{
-		return NULL;
+		srv_carg->running = -1;
 	}
 
 	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
 	if (ret)
 	{
-		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error %s\n", srv_carg->host, port, uv_strerror(ret));
-		return NULL;
+		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error %s\n", srv_carg->host, srv_carg->numport, uv_strerror(ret));
+		srv_carg->running = -1;
 	}
 
-	alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
-	return srv_carg;
+	srv_carg->running = 1;
+	if (srv_carg->threads)
+		uv_run(srv_carg->loop, UV_RUN_DEFAULT);
+}
+
+int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
+{
+	for (uint64_t i = 0; i < import_carg->threads; ++i) {
+		context_arg* srv_carg = calloc(1, sizeof(context_arg));
+		if (import_carg) {
+			memcpy(srv_carg, import_carg, sizeof(context_arg));
+		}
+
+		srv_carg->key = malloc(255);
+		srv_carg->numport = port;
+		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
+
+		srv_carg->tls = tls;
+		srv_carg->server.data = srv_carg;
+
+		snprintf(srv_carg->key, 255, "tcp:%"PRIu64":%s:%u", i, srv_carg->host, port);
+		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
+
+		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
+		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+	}
+	if (!import_carg->threads) {
+		context_arg* srv_carg = calloc(1, sizeof(context_arg));
+		if (import_carg) {
+			memcpy(srv_carg, import_carg, sizeof(context_arg));
+		}
+
+		srv_carg->key = malloc(255);
+		srv_carg->numport = port;
+		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
+
+		srv_carg->tls = tls;
+		srv_carg->server.data = srv_carg;
+
+		snprintf(srv_carg->key, 255, "tcp:0:%s:%u", srv_carg->host, port);
+		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
+
+		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
+		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+	}
+	return 1;
 }
 
 void tcp_server_stop(const char* ip, int port)

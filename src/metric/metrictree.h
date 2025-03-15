@@ -110,7 +110,8 @@ typedef struct metric_tree
 	size_t str_size;
 	sortplan *sort_plan;
 	alligator_ht* labels_words_hash;
-	pthread_rwlock_t rwlock;
+	pthread_rwlock_t *rwlock;
+	int purging;
 } metric_tree;
 
 typedef struct mapping_label

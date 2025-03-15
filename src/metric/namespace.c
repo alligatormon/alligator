@@ -25,7 +25,11 @@ namespace_struct *insert_namespace(char *key)
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
+	metrictree->rwlock = calloc(1, sizeof(pthread_rwlock_t));
+	pthread_rwlock_init(metrictree->rwlock, NULL);
 	expire_tree *expiretree = calloc(1, sizeof(*expiretree));
+	expiretree->rwlock = calloc(1, sizeof(pthread_rwlock_t));
+	pthread_rwlock_init(expiretree->rwlock, NULL);
 
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
@@ -83,6 +87,8 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 {
 	namespace_struct *ns = arg;
 
+	pthread_rwlock_destroy(ns->metrictree->rwlock);
+	pthread_rwlock_destroy(ns->expiretree->rwlock);
 	free(ns->key);
 	free(ns->expiretree);
 	free(ns->metrictree->sort_plan);
@@ -114,7 +120,11 @@ void ts_initialize()
 	ac->nsdefault = ns;
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
+	metrictree->rwlock = calloc(1, sizeof(pthread_rwlock_t));
+	pthread_rwlock_init(metrictree->rwlock, NULL);
 	expire_tree *expiretree = calloc(1, sizeof(*expiretree));
+	expiretree->rwlock = calloc(1, sizeof(pthread_rwlock_t));
+	pthread_rwlock_init(expiretree->rwlock, NULL);
 	
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
