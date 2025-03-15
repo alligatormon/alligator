@@ -519,13 +519,18 @@ void tcp_server_run(void *passarg) {
 		srv_carg->running = -1;
 	}
 
-	uv_tcp_init(srv_carg->loop, &srv_carg->server);
+	//uv_tcp_init(srv_carg->loop, &srv_carg->server);
+	uv_tcp_init_ex(srv_carg->loop, &srv_carg->server, AF_INET);
+	uv_os_fd_t fd;
 	int on = 1;
-	setsockopt(srv_carg->server.io_watcher.fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
-	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, UV_TCP_REUSEPORT))
+	uv_fileno((const uv_handle_t *)&srv_carg->server, &fd);
+	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
+
+	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
 	{
 		srv_carg->running = -1;
 	}
+	//printf("setsockopt status: %d\n", setsockopt(srv_carg->server.io_watcher.fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on)));
 
 	if (uv_tcp_nodelay(&srv_carg->server, 1))
 	{
