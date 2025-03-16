@@ -420,7 +420,7 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	expiretree->purging = 1;
 	tree->purging = 1;
 
-	//r_time start = setrtime();
+	r_time start = setrtime();
 	while (expire_node_purge(expiretree->root, key, tree, expiretree));
 
 	expire_select_delete(expiretree, key);
@@ -430,8 +430,8 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	pthread_rwlock_unlock(tree->rwlock);
 	pthread_rwlock_unlock(expiretree->rwlock);
 
-	//r_time end = setrtime();
-	//uint64_t expire_time = getrtime_mcs(start, end, 0);
-	//if (ac->nsdefault->metrictree->count)
-	//	metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
+	r_time end = setrtime();
+	uint64_t expire_time = getrtime_mcs(start, end, 0);
+	if (ac->nsdefault->metrictree->count)
+		metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
 }
