@@ -20,6 +20,7 @@ oplog_record *oplog_record_init(uint64_t size)
 
 void oplog_record_free(oplog_record *oplog)
 {
+	pthread_rwlock_wrlock(&oplog->rwlock);
 	for (uint64_t i = 0; i < oplog->size; i++)
 	{
 		string *data = oplog->container[i].data;
@@ -28,10 +29,12 @@ void oplog_record_free(oplog_record *oplog)
 	}
 	free(oplog->container);
 	free(oplog);
+	pthread_rwlock_unlock(&oplog->rwlock);
 }
 
 oplog_node* oplog_record_insert(oplog_record *oplog, string *data)
 {
+	pthread_rwlock_wrlock(&oplog->rwlock);
 	oplog_node *opnode = &oplog->container[oplog->end];
 	if (!opnode->data)
 		opnode->data = string_new();
@@ -46,6 +49,7 @@ oplog_node* oplog_record_insert(oplog_record *oplog, string *data)
 	// move begin
 	if (oplog->end == oplog->begin)
 		oplog->begin = (oplog->begin + 1 ) % oplog->size;
+	pthread_rwlock_unlock(&oplog->rwlock);
 
 
 	return opnode;
@@ -53,6 +57,7 @@ oplog_node* oplog_record_insert(oplog_record *oplog, string *data)
 
 string* oplog_record_get_string(oplog_record *oplog)
 {
+	pthread_rwlock_rdlock(&oplog->rwlock);
 	string *ret = string_new();
 
 	for (uint64_t i = 0; i < oplog->size; i++)
@@ -64,12 +69,14 @@ string* oplog_record_get_string(oplog_record *oplog)
 		if (oplog->container[index].data)
 			string_string_cat(ret, oplog->container[index].data);
 	}
+	pthread_rwlock_unlock(&oplog->rwlock);
 
 	return ret;
 }
 
 string* oplog_record_shift_string(oplog_record *oplog)
 {
+	pthread_rwlock_wrlock(&oplog->rwlock);
 	string *ret = string_new();
 
 	for (uint64_t i = 0; i < oplog->size; i++)
@@ -83,6 +90,7 @@ string* oplog_record_shift_string(oplog_record *oplog)
 	}
 
 	oplog->begin = oplog->end;
+	pthread_rwlock_unlock(&oplog->rwlock);
 
 	return ret;
 }

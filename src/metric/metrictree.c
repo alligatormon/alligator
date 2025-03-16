@@ -167,8 +167,10 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 {
 	int ret = 0;
+	int lock = 0;
 	if (!tree->purging) {
 		pthread_rwlock_wrlock(tree->rwlock);
+		lock = 1;
 	}
 	if ( tree->root != NULL ) 
 	{
@@ -239,7 +241,7 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			tree->root->color = BLACK;
 	}
 
-	if (!tree->purging) {
+	if (lock) {
 		pthread_rwlock_unlock(tree->rwlock);
 	}
 	return ret;

@@ -69,26 +69,81 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	//free(req);
 }
 
-void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *carg)
-{
-	carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", NULL, 0, carg, addr, port);
+void udp_server_run(void *passarg) {
+	context_arg *carg = passarg;
 
-	carg->conn_counter = 0;
-	carg->read_counter = 0;
-	carg->curr_ttl = carg->ttl;
-	carg->key = malloc(255);
-	strlcpy(carg->host, addr, HOSTHEADER_SIZE);
-	snprintf(carg->key, 255, "udp:%s:%"PRIu16, carg->host, port);
+	if (carg->threads) {
+		carg->loop = malloc(sizeof *carg->loop);
+		uv_loop_init(carg->loop);
+	} else {
+		carg->loop = uv_default_loop();
+	}
 
-	uv_udp_t *recv_socket = &carg->udp_server;
-	uv_udp_init(loop, recv_socket);
+	// after update libuv to versions 1.49.2+ remove this block to the UV_TCP_REUSEPORT flag in uv_tcp_bind
+	uv_udp_init_ex(carg->loop, &carg->udp_server, AF_INET);
+	uv_os_fd_t fd;
+	int on = 1;
+	uv_fileno((const uv_handle_t *)&carg->udp_server, &fd);
+	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
+	//
+
 	struct sockaddr_in *recv_addr = carg->recv = calloc(1, sizeof(*recv_addr));
-	uv_ip4_addr(carg->host, port, recv_addr);
-	uv_udp_bind(recv_socket, (const struct sockaddr *)recv_addr, 0);
-	recv_socket->data = carg;
-	uv_udp_recv_start(recv_socket, alloc_buffer, udp_on_read);
+	uv_ip4_addr(carg->host, carg->numport, recv_addr);
+	int ret = uv_udp_bind(&carg->udp_server, (const struct sockaddr *)recv_addr, 0);
+    if (ret) {
+		carglog(carg, L_FATAL, "Listen udp socket '%s:%d' error %s\n", carg->host, carg->numport, uv_strerror(ret));
+		carg->running = -1;
+	}
+	carg->udp_server.data = carg;
+	uv_udp_recv_start(&carg->udp_server, alloc_buffer, udp_on_read);
 
-	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	carg->running = 1;
+	if (carg->threads)
+		uv_run(carg->loop, UV_RUN_DEFAULT);
+}
+
+void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *import_carg)
+{
+	for (uint64_t i = 0; i < import_carg->threads; ++i) {
+		context_arg* carg = calloc(1, sizeof(context_arg));
+		if (import_carg) {
+			memcpy(carg, import_carg, sizeof(context_arg));
+		}
+
+		carg->key = malloc(255);
+		carg->numport = port;
+		carg->curr_ttl = carg->ttl;
+		strlcpy(carg->host, addr, HOSTHEADER_SIZE);
+
+		carg->tls = tls;
+		carg->udp_server.data = carg;
+
+		snprintf(carg->key, 255, "udp:%"PRIu64":%s:%u", i, carg->host, port);
+		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
+
+		uv_thread_create(&carg->thread, udp_server_run, carg);
+		alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	}
+	if (!import_carg->threads) {
+		context_arg* carg = calloc(1, sizeof(context_arg));
+		if (import_carg) {
+			memcpy(carg, import_carg, sizeof(context_arg));
+		}
+
+		carg->key = malloc(255);
+		carg->numport = port;
+		carg->curr_ttl = carg->ttl;
+		strlcpy(carg->host, addr, HOSTHEADER_SIZE);
+
+		carg->tls = tls;
+		carg->udp_server.data = carg;
+
+		snprintf(carg->key, 255, "udp:0:%s:%u", carg->host, port);
+		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
+
+		udp_server_run(carg);
+		alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+	}
 }
 
 void udp_server_stop(const char* addr, uint16_t port)

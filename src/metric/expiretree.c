@@ -131,7 +131,9 @@ void expire_build (char *namespace);
 
 int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 {
+	int lock = 0;
 	if (!tree->purging) {
+		lock = 1;
 		pthread_rwlock_wrlock(tree->rwlock);
 	}
 	int excode = 0;
@@ -222,7 +224,7 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			tree->root->color = BLACK;
 	}
  
-	if (!tree->purging) {
+	if (lock) {
 		pthread_rwlock_unlock(tree->rwlock);
 	}
 	return excode;
@@ -418,18 +420,18 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	expiretree->purging = 1;
 	tree->purging = 1;
 
-	r_time start = setrtime();
+	//r_time start = setrtime();
 	while (expire_node_purge(expiretree->root, key, tree, expiretree));
+
+	expire_select_delete(expiretree, key);
 
 	expiretree->purging = 0;
 	tree->purging = 0;
 	pthread_rwlock_unlock(tree->rwlock);
 	pthread_rwlock_unlock(expiretree->rwlock);
 
-	expire_select_delete(expiretree, key);
-
-	r_time end = setrtime();
-	uint64_t expire_time = getrtime_mcs(start, end, 0);
-	if (ac->nsdefault->metrictree->count)
-		metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
+	//r_time end = setrtime();
+	//uint64_t expire_time = getrtime_mcs(start, end, 0);
+	//if (ac->nsdefault->metrictree->count)
+	//	metric_update("alligator_gc_time", NULL, &expire_time, DATATYPE_UINT, NULL);
 }

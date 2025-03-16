@@ -18,6 +18,7 @@ typedef struct oplog_record
 	uint64_t size;
 	uint64_t begin;
 	uint64_t end;
+	pthread_rwlock_t rwlock;
 } oplog_record;
 
 typedef struct cluster_server_oplog
