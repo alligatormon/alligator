@@ -170,6 +170,7 @@ typedef struct context_arg
 	uv_tcp_t client; // move only with pclient
 	uv_pipe_t pclient; // move only with client!
 	uv_loop_t* loop;
+	int loop_allocated;
 	uv_connect_t connect;
 	uv_write_t write_req;
 	uv_shutdown_t shutdown_req;

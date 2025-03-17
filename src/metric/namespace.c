@@ -90,10 +90,12 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 	pthread_rwlock_destroy(ns->metrictree->rwlock);
 	pthread_rwlock_destroy(ns->expiretree->rwlock);
 	free(ns->key);
+	free(ns->expiretree->rwlock);
 	free(ns->expiretree);
 	free(ns->metrictree->sort_plan);
 	alligator_ht_done(ns->metrictree->labels_words_hash);
 	free(ns->metrictree->labels_words_hash);
+	free(ns->metrictree->rwlock);
 	free(ns->metrictree);
 
 	free(ns);

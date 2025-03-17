@@ -94,6 +94,7 @@ void parse_configs(char *dirpath)
 				if (ac->log_level > 0)
 					printf("Use config %s\n", gendir);
 				config_parse_entry(gendir);
+				fclose(fd);
 			}
 		}
 		else
@@ -101,6 +102,7 @@ void parse_configs(char *dirpath)
 			if (ac->log_level > 0)
 				printf("Use config %s\n", gendir);
 			config_parse_entry(gendir);
+			fclose(fd);
 		}
 	}
 	else
@@ -108,6 +110,7 @@ void parse_configs(char *dirpath)
 		if (ac->log_level > 0)
 			printf("Use config %s\n", gendir);
 		config_parse_entry(gendir);
+		fclose(fd);
 	}
 
 	int rc = stat(dirpath, &path_stat);

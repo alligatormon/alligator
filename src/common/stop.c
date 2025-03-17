@@ -14,6 +14,7 @@
 #include "dstructures/uv_cache.h"
 #include "system/common.h"
 #include "events/system_scrape.h"
+#include "events/a_signal.h"
 
 void alligator_stop(char *sig, int code)
 {
@@ -41,6 +42,7 @@ void alligator_stop(char *sig, int code)
 
 	free_namespaces();
 	main_free();
+	signal_stop();
 
 	//uv_loop_close(uv_default_loop());
 

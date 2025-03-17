@@ -74,6 +74,7 @@ void udp_server_run(void *passarg) {
 
 	if (carg->threads) {
 		carg->loop = malloc(sizeof *carg->loop);
+		carg->loop_allocated = 1;
 		uv_loop_init(carg->loop);
 	} else {
 		carg->loop = uv_default_loop();
@@ -105,9 +106,11 @@ void udp_server_run(void *passarg) {
 void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *import_carg)
 {
 	for (uint64_t i = 0; i < import_carg->threads; ++i) {
-		context_arg* carg = calloc(1, sizeof(context_arg));
+		context_arg* carg = NULL;
 		if (import_carg) {
-			memcpy(carg, import_carg, sizeof(context_arg));
+			carg = carg_copy(import_carg);
+		} else {
+			carg = calloc(1, sizeof(context_arg));
 		}
 
 		carg->key = malloc(255);
@@ -125,9 +128,11 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 		alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 	}
 	if (!import_carg->threads) {
-		context_arg* carg = calloc(1, sizeof(context_arg));
+		context_arg* carg = NULL;
 		if (import_carg) {
-			memcpy(carg, import_carg, sizeof(context_arg));
+			carg = carg_copy(import_carg);
+		} else {
+			carg = calloc(1, sizeof(context_arg));
 		}
 
 		carg->key = malloc(255);

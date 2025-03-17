@@ -162,6 +162,15 @@ void carg_free(context_arg *carg)
 		free(carg->env);
 	}
 
+	if (carg->loop_allocated) {
+		uv_loop_close(carg->loop);
+		free(carg->loop);
+	}
+
+	//if (carg->threads) {
+	//	uv_thread_detach(carg->thread); //uncomment after update libuv to 1.50.0
+	//}
+
 	alligator_ht_forfree(carg->auth_basic, http_auth_foreach_free);
 	alligator_ht_forfree(carg->auth_bearer, http_auth_foreach_free);
 	alligator_ht_forfree(carg->auth_other, http_auth_foreach_free);

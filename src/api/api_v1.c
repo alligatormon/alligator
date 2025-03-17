@@ -628,13 +628,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						{
 							char *host = strndup(tcp_string, port - tcp_string);
 							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
-							//	carg_free(passcarg);
+							carg_free(passcarg);
 							free(host);
 						}
 						else
 						{
 							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tcp_string, NULL, 10), 0, passcarg);
-							//	carg_free(passcarg);
+							carg_free(passcarg);
 						}
 					}
 
@@ -669,16 +669,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							char *host = strndup(tls_string, port - tls_string);
 							tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
 							free(host);
-							//context_arg *ret = tcp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 1, passcarg);
-							//if (!ret)
-							//	carg_free(passcarg);
+							carg_free(passcarg);
 						}
 						else
 						{
 							tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
-							//context_arg *ret = tcp_server_init(ac->loop, "0.0.0.0", strtoll(tls_string, NULL, 10), 1, passcarg);
-							//if (!ret)
-							//	carg_free(passcarg);
+							carg_free(passcarg);
 						}
 					}
 
@@ -711,10 +707,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						{
 							char *host = strndup(udp_string, port - udp_string);
 							udp_server_init(ac->loop, host, strtoll(port+1, NULL, 10), 0, passcarg);
+							carg_free(passcarg);
 							free(host);
 						}
-						else
+						else {
 							udp_server_init(ac->loop, "0.0.0.0", strtoll(udp_string, NULL, 10), 0, passcarg);
+							carg_free(passcarg);
+						}
 					}
 
 					json_t *unix_json = json_object_get(entrypoint, "unix");

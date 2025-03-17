@@ -503,6 +503,7 @@ void tcp_server_run(void *passarg) {
 
 	if (srv_carg->threads) {
 		srv_carg->loop = malloc(sizeof *srv_carg->loop);
+		srv_carg->loop_allocated = 1;
 		uv_loop_init(srv_carg->loop);
 	} else {
 		srv_carg->loop = uv_default_loop();
@@ -553,9 +554,11 @@ void tcp_server_run(void *passarg) {
 int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
 {
 	for (uint64_t i = 0; i < import_carg->threads; ++i) {
-		context_arg* srv_carg = calloc(1, sizeof(context_arg));
+		context_arg* srv_carg = NULL;
 		if (import_carg) {
-			memcpy(srv_carg, import_carg, sizeof(context_arg));
+			srv_carg = carg_copy(import_carg);
+		} else {
+			srv_carg = calloc(1, sizeof(context_arg));
 		}
 
 		srv_carg->key = malloc(255);
@@ -572,9 +575,11 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
 	}
 	if (!import_carg->threads) {
-		context_arg* srv_carg = calloc(1, sizeof(context_arg));
+		context_arg* srv_carg = NULL;
 		if (import_carg) {
-			memcpy(srv_carg, import_carg, sizeof(context_arg));
+			srv_carg = carg_copy(import_carg);
+		} else {
+			srv_carg = calloc(1, sizeof(context_arg));
 		}
 
 		srv_carg->key = malloc(255);
