@@ -33,6 +33,7 @@
 #include "common/rtime.h"
 #include "system/linux/systemd.h"
 #include "system/linux/nftables.h"
+#include "system/linux/disk.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -2634,39 +2635,6 @@ void get_cpu_avg()
 {
 	double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
 	metric_add_auto("cpu_avg", &result, DATATYPE_DOUBLE, ac->system_carg);
-}
-
-void disks_info()
-{
-	struct dirent *entry;
-	DIR *dp;
-	uint64_t val = 1;
-
-	dp = opendir("/sys/class/block/");
-	if (!dp)
-		return;
-
-	uint64_t disks_num = 0;
-	while((entry = readdir(dp)))
-	{
-		if (entry->d_name[0] == '.')
-			continue;
-		if (strpbrk(entry->d_name, "0123456789"))
-			continue;
-
-		char blockpath[512];
-		snprintf(blockpath, 511, "/sys/class/block/%s/device/model", entry->d_name);
-		string *disk_model = get_file_content(blockpath, 0);
-		if (disk_model)
-		{
-			++disks_num;
-			disk_model->s[strcspn(disk_model->s, "\n\r")] = 0;
-			metric_add_labels2("disk_model", &val, DATATYPE_UINT, ac->system_carg, "model", disk_model->s, "disk", entry->d_name);
-			string_free(disk_model);
-		}
-	}
-	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
-	closedir(dp);
 }
 
 void get_activate_status_services(char *service_name)

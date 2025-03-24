@@ -18,7 +18,11 @@ extern aconf *ac;
 typedef struct cnt_labels {
 	char *id;
 	char *name;
+	char *namespace;
 	char *image;
+	char *cgroupsPath;
+	char *container;
+	char *pod;
 } cnt_labels;
 
 char *podman_get_container_json_from_bundle_path(char *bundle_path)
@@ -32,13 +36,45 @@ char *podman_get_container_json_from_bundle_path(char *bundle_path)
 		retsize = 20;
 		cntsdir = strstr(bundle_path, "/overlay-containers/");
 		if (!cntsdir)
+		{
+			cntsdir = strstr(bundle_path, "/io.containerd.runtime");
+			if (!cntsdir)
+				return NULL;
+
+			char* ret_path = malloc(255);
+			size_t last_byte = strlcpy(ret_path, bundle_path, 255);
+			strlcpy(ret_path+last_byte, "/config.json", 255 - last_byte);
+			return ret_path;
+		}
+	}
+
+	++cntsdir;
+	cntsdir += strcspn(cntsdir, "/");
+	size_t json_path_size = cntsdir - bundle_path;
+
+	char* ret_path = malloc(json_path_size+retsize+1);
+	strlcpy(ret_path, bundle_path, json_path_size+1);
+	strlcpy(ret_path+json_path_size, "/containers.json", retsize);
+
+	return ret_path;
+}
+
+char *runcv2_get_container_json_from_bundle_path(char *bundle_path)
+{
+	char *cntsdir = strstr(bundle_path, "/vfs-containers/");
+	uint64_t retsize = 16;
+	if (!cntsdir)
+	{
+		retsize = 20;
+		cntsdir = strstr(bundle_path, "/overlay-containers/");
+		if (!cntsdir)
 			return NULL;
 	}
 
 	++cntsdir;
 	cntsdir += strcspn(cntsdir, "/");
 	size_t json_path_size = cntsdir - bundle_path;
-	
+
 	char* ret_path = malloc(json_path_size+retsize+1);
 	strlcpy(ret_path, bundle_path, json_path_size+1);
 	strlcpy(ret_path+json_path_size, "/containers.json", retsize);
@@ -112,13 +148,56 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 
 			char *image_name = (char*)json_string_value(json_image_name);
 
-			cnt_labels* lbls = malloc(sizeof(*lbls));
+			cnt_labels* lbls = calloc(1, sizeof(*lbls));
 			lbls->id = strdup(id);
 			lbls->name = strdup(name);
 			lbls->image = strdup(image_name);
 
 			fclose(fd);
 			json_decref(metadata_root);
+			json_decref(root);
+			return lbls;
+		}
+	}
+	else {
+		json_t *annotations = json_object_get(root, "annotations");
+		json_t *linux_j = json_object_get(root, "linux");
+		if (annotations) {
+			json_t *type_j = json_object_get(annotations, "io.kubernetes.cri.container-type");
+			const char *type = json_string_value(type_j);
+			if (!strcmp(type, "sandbox")) {
+				fclose(fd);
+				json_decref(root);
+				return NULL;
+			}
+
+			json_t *name_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
+			const char *name = json_string_value(name_j);
+
+			json_t *image_j = json_object_get(annotations, "io.kubernetes.cri.image-name");
+			const char *image = json_string_value(image_j);
+
+			json_t *namespace_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-namespace");
+			const char *namespace = json_string_value(namespace_j);
+
+			json_t *container_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
+			const char *container = json_string_value(container_j);
+
+			json_t *pod_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-name");
+			const char *pod = json_string_value(pod_j);
+
+			json_t *cgroupsPath_j = json_object_get(linux_j, "cgroupsPath");
+			const char *cgroupsPath = json_string_value(cgroupsPath_j);
+
+			cnt_labels* lbls = calloc(1, sizeof(*lbls));
+			lbls->name = strdup(name);
+			lbls->namespace = strdup(namespace);
+			lbls->image = strdup(image);
+			lbls->container = strdup(container);
+			lbls->pod = strdup(pod);
+			lbls->cgroupsPath = strdup(cgroupsPath);
+
+			fclose(fd);
 			json_decref(root);
 			return lbls;
 		}
@@ -177,21 +256,37 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 			if (!strcmp(label_name, "bundle"))
 			{
 				char *container_json = podman_get_container_json_from_bundle_path(label_value);
+                //printf("container_json: %s\n", container_json);
 				if (container_json)
 				{
 					//printf("container json: '%s'\n", container_json);
 					cnt_labels* podman_labels = podman_get_labels(container_json, cnt_id);
 					if (podman_labels)
 					{
-						//printf("ret: %p\n", podman_labels);
 						char cgroup_cnt_id[255];
-						snprintf(cgroup_cnt_id, 255, "libpod-%s.scope", podman_labels->id);
+						if (podman_labels->id)
+							snprintf(cgroup_cnt_id, 255, "libpod-%s.scope", podman_labels->id);
+						else
+							snprintf(cgroup_cnt_id, 255, "%s", cnt_id);
 
-						cadvisor_scrape(NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image, NULL, NULL, NULL, NULL);
+						if (podman_labels->cgroupsPath) {
+							cadvisor_scrape(NULL, podman_labels->cgroupsPath, "", cgroup_cnt_id, podman_labels->name, podman_labels->image, podman_labels->namespace, podman_labels->pod, podman_labels->container, NULL);
+						} else {
+							cadvisor_scrape(NULL, NULL, "machine.slice", cgroup_cnt_id, podman_labels->name, podman_labels->image, podman_labels->namespace, NULL, NULL, NULL);
+						}
 
-						free(podman_labels->id);
 						free(podman_labels->name);
 						free(podman_labels->image);
+						if (podman_labels->id)
+							free(podman_labels->id);
+						if (podman_labels->namespace)
+							free(podman_labels->namespace);
+						if (podman_labels->cgroupsPath)
+							free(podman_labels->cgroupsPath);
+						if (podman_labels->container)
+							free(podman_labels->container);
+						if (podman_labels->pod)
+							free(podman_labels->pod);
 						free(podman_labels);
 					}
 					free(container_json);
@@ -215,7 +310,8 @@ void runc_labels(char *rundir)
 	char runcdir[255];
 	char userdir[255];
 	char statefile[255];
-	snprintf(runcdir, 255, "%s/runc", rundir);
+	//snprintf(runcdir, 255, "%s/runc", rundir);
+	snprintf(runcdir, 255, "/run/containerd/runc/k8s.io/");
 	//printf("0 opendir: %s\n", runcdir);
 	rd = opendir(runcdir);
 	if (rd)
@@ -340,7 +436,7 @@ void openvz7_labels()
 			umount("/var/lib/alligator/nsmount");
 			unshare(CLONE_NEWNET);
 
-			cadvisor_scrape(NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -371,7 +467,7 @@ void lxc_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -403,7 +499,7 @@ void nspawn_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
-			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
+			cadvisor_scrape(NULL, NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
 	}
@@ -554,12 +650,12 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 			if (!is_k8s)
 			{
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, id);
-				cadvisor_scrape(NULL, "docker", id, name_str, image, NULL, NULL, NULL, NULL);
+				cadvisor_scrape(NULL, NULL, "docker", id, name_str, image, NULL, NULL, NULL, NULL);
 			}
 			else
 			{
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, kubepath);
-				cadvisor_scrape(NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer, NULL);
+				cadvisor_scrape(NULL, NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer, NULL);
 			}
 			r_time docker_end = setrtime();
 			double scrape_total_time = getrtime_sec_float(ts_start, docker_end);
@@ -653,7 +749,7 @@ void cgroup_v2_machines()
 			else
 				strlcpy(name, contname, 255);
 			carglog(ac->cadvisor_carg, L_INFO, "cgroup v2 scrape name: '%s', d_name: '%s', contname: '%s', type: '%s', libvirt index: %s/%s, check_libvirt: '%s'\n", name, rd_entry->d_name, contname, type, libvirt_index, pass_libvirt_id, check_libvirt_path);
-			cadvisor_scrape(NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
+			cadvisor_scrape(NULL, NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
 			free(contname);
 		}
 		closedir(rd);

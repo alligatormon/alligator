@@ -18,7 +18,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "elasticsearch_nodes_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -214,7 +214,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "elasticsearch_health_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -359,7 +359,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "elasticsearch_index_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -531,7 +531,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "elasticsearch_settings_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -605,12 +605,11 @@ void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg)
 {
 	if (1)
 	{
-		puts("elasticsearch_response_catch");
 		json_error_t error;
 		json_t *root = json_loads(metrics, 0, &error);
 		if (!root)
 		{
-			fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+			carglog(carg, L_ERROR, "elasticsearch_response_catch: json error on line %d: %s\n", error.line, error.text);
 			return;
 		}
 

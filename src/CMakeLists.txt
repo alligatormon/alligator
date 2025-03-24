@@ -161,6 +161,7 @@ set(STATIC_FILES
 	parsers/keepalived.c
 	parsers/lang.c
 	parsers/nvidia-smi.c
+	parsers/auditd.c
 	scheduler/influxdb.c
 	scheduler/handler.c
 	scheduler/push.c
@@ -255,6 +256,7 @@ set(STATIC_FILES
 	system/linux/distribution_name.c
 	system/linux/interrupts.c
 	system/linux/power_supply.c
+	system/linux/disk.c
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c

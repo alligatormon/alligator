@@ -547,3 +547,14 @@ void carglog(context_arg *carg, int priority, const char *format, ...)
 	wrlog(carg->log_level, priority, format, args);
 	va_end(args);
 }
+
+void carg_or_glog(context_arg *carg, int priority, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	if (carg)
+		wrlog(carg->log_level, priority, format, args);
+	else
+		wrlog(ac->log_level, priority, format, args);
+	va_end(args);
+}

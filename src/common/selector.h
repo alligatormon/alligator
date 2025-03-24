@@ -4,6 +4,10 @@
 #include <pcre.h>
 #include "dstructures/ht.h"
 #include <jansson.h>
+#include <byteswap.h>
+typedef __int128 int128_t;
+typedef unsigned __int128 uint128_t;
+
 void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json);;
 
 typedef struct string {
@@ -101,3 +105,11 @@ void match_free(match_rules *mrules);
 uint64_t read_all_file(char *filename, char **buf);
 uint64_t count_file_lines(char *filename);
 size_t strcspn_n(const char *s, const char *find, size_t max);
+
+uint128_t to_uint128(char data[]);
+uint64_t to_uint64(char data[]);
+uint64_t to_uint64_swap(char data[]);
+uint16_t to_uint16(char data[]);
+uint16_t to_uint16_swap(char data[]);
+uint32_t to_uint32(char data[]);
+uint32_t to_uint32_swap(char data[]);

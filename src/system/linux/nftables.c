@@ -7,7 +7,6 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <errno.h>
-#include <byteswap.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -154,50 +153,6 @@ typedef struct set_t {
 	int8_t ct_state_untracked;
 } set_t;
 
-uint64_t to_uint64(char data[]) {
-	char kvalue[8] = { 0 };
-	memcpy(kvalue, data, 8);
-	uint64_t *kdvalue = (uint64_t*)kvalue;
-	return *kdvalue;
-}
-
-uint64_t to_uint64_swap(char data[]) {
-	char kvalue[8] = { 0 };
-	memcpy(kvalue, data, 8);
-	uint64_t *kdvalue = (uint64_t*)kvalue;
-	uint64_t swapvalue = bswap_64(*kdvalue);
-	return swapvalue;
-}
-
-uint16_t to_uint16(char data[]) {
-	char kvalue[2] = { 0 };
-	memcpy(kvalue, data, 2);
-	uint16_t *kdvalue = (uint16_t*)kvalue;
-	return *kdvalue;
-}
-
-uint16_t to_uint16_swap(char data[]) {
-	char kvalue[2] = { 0 };
-	memcpy(kvalue, data, 2);
-	uint16_t *kdvalue = (uint16_t*)kvalue;
-	uint16_t swapvalue = bswap_16(*kdvalue);
-	return swapvalue;
-}
-
-uint32_t to_uint32(char data[]) {
-	char kvalue[4] = { 0 };
-	memcpy(kvalue, data, 4);
-	uint32_t *kdvalue = (uint32_t*)kvalue;
-	return *kdvalue;
-}
-
-uint32_t to_uint32_swap(char data[]) {
-	char kvalue[4] = { 0 };
-	memcpy(kvalue, data, 4);
-	uint32_t *kdvalue = (uint32_t*)kvalue;
-	uint32_t swapvalue = bswap_32(*kdvalue);
-	return swapvalue;
-}
 
 uint16_t nl_get_len(char data[]) {
 	return to_uint16(data);

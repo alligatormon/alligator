@@ -363,7 +363,7 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 
 uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
 {
-	carglog(carg, L_DEBUG, "multicollector: parse metric string '%s'\n", str);
+	carg_or_glog(carg, L_DEBUG, "multicollector: parse metric string '%s'\n", str);
 	r_time start_parsing = setrtime();
 	double value = 0;
 	uint64_t i = 0;
@@ -383,7 +383,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
 	{
 		labels_hash_free(lbl);
-		carglog(carg, L_DEBUG, "> metric name validator failed\n");
+		carg_or_glog(carg, L_DEBUG, "> metric name validator failed\n");
 		return 0;
 	}
 
@@ -436,10 +436,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		free(matchres);
 	}
 
-	carglog(carg, L_DEBUG, "> metric name = %s\n", metric_name);
+	carg_or_glog(carg, L_DEBUG, "> metric name = %s\n", metric_name);
 	if (i == size)
 	{
-		carglog(carg, L_DEBUG, "%s: increment\n", metric_name);
+		carg_or_glog(carg, L_DEBUG, "%s: increment\n", metric_name);
 		labels_hash_free(lbl);
 		return 0;
 	}
@@ -488,8 +488,8 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			//	return 0;
 			}
 
-			carglog(carg, L_DEBUG, "> label_name = %s\n", label_name);
-			carglog(carg, L_DEBUG, "> label_key = %s\n", label_key);
+			carg_or_glog(carg, L_DEBUG, "> label_name = %s\n", label_name);
+			carg_or_glog(carg, L_DEBUG, "> label_key = %s\n", label_key);
 
 			if (metric_name_validator(label_name, label_name_size))
 			{
@@ -506,7 +506,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			else
 			{
 				labels_hash_free(lbl);
-				carglog(carg, L_DEBUG, "metric '%s' has invalid label format: %s\n", str, label_name);
+				carg_or_glog(carg, L_DEBUG, "metric '%s' has invalid label format: %s\n", str, label_name);
 				return 0;
 			}
 			// go to next label or end '}'
@@ -531,7 +531,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		i += strcspn(str+i, " \t");
 		i += strspn(str+i, " \t");
 
-		carglog(carg, L_DEBUG, "> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carg_or_glog(carg, L_DEBUG, "> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
@@ -549,12 +549,12 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		}
 		else
 		{
-			carglog(carg, L_DEBUG, "> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+			carg_or_glog(carg, L_DEBUG, "> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			value = atof(str+i);
 			if (strstr(str+i, "|c"))
 			{
 				increment = 1;
-				carglog(carg, L_DEBUG, "> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+				carg_or_glog(carg, L_DEBUG, "> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			}
 		}
 
@@ -568,7 +568,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	else if (isdigit(str[i]))
 	{
 		// prometheus without labels
-		carglog(carg, L_DEBUG, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carg_or_glog(carg, L_DEBUG, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else
@@ -598,12 +598,12 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE, data_type))
 	{
-		carglog(carg, L_TRACE, "metric went to the replication, don't need to make: %s\n", metric_name);
+		carg_or_glog(carg, L_TRACE, "metric went to the replication, don't need to make: %s\n", metric_name);
         labels_hash_free(lbl);
 		return 1;
 	}
 
-	carglog(carg, L_INFO, "multicollector result: %lu %lf '%s'\n", pthread_self(), value, str);
+	carg_or_glog(carg, L_INFO, "multicollector result: %lu %lf '%s'\n", pthread_self(), value, str);
 	if (increment)
 		metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	else if (data_type == METRIC_TYPE_COUNTER || data_type == METRIC_TYPE_HISTOGRAM)
