@@ -7,11 +7,6 @@
 
 void auditd_handler(char *metrics, size_t size, context_arg *carg)
 {
-    puts("auditd handler");
-	extern aconf *ac;
-	puts("===================");
-	printf("'%s'\n", metrics);
-
 	char line[2048];
 	char token[512];
 	char key[256];
@@ -28,7 +23,6 @@ void auditd_handler(char *metrics, size_t size, context_arg *carg)
 			str_get_next(token, key, 256, "=", &k);
 			k += strspn(token + k, "=\"'");
 			str_get_next(token, value, 256, "=\"", &k);
-			//strlcpy(value, token + k, 256);
             if (!strcmp(key, "type")) {
 				labels_hash_insert_nocache(lbl, key, value);
 			} else if (!strcmp(key, "SYSCALL")) {
@@ -47,7 +41,7 @@ void auditd_handler(char *metrics, size_t size, context_arg *carg)
 				labels_hash_insert_nocache(lbl, key, value);
 			}
 
-			printf("key=%s, value=%s\n", key, value);
+			//printf("key=%s, value=%s\n", key, value);
 		}
 		uint64_t okval = 1;
 		metric_update("auditd_event", lbl, &okval, DATATYPE_UINT, carg);
