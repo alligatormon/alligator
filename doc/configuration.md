@@ -26,6 +26,7 @@ Destination can be standart streams of a Unix OS, a file or a UDP port. For exam
 - s
 - h
 - d
+- w
 
 
 

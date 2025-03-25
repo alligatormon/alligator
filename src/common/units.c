@@ -26,6 +26,8 @@ int64_t from_human_get_size(const char *hrange, size_t hsize, uint64_t *cur) {
 		ret *= 3600000;
 	} else if (!strncasecmp(newptr, "d", 1)) {
 		ret *= 86400000;
+	} else if (!strncasecmp(newptr, "w", 1)) {
+		ret *= 604800000;
 	} else {
 		sz = 0;
 	}
@@ -52,7 +54,7 @@ int64_t get_ms_from_human_range(const char *hrange, size_t hsize) {
 }
 
 int64_t get_sec_from_human_range(const char *hrange, size_t hsize) {
-	if ((strcspn(hrange, "mshd")) == hsize)
+	if ((strcspn(hrange, "wmshd")) == hsize)
 		return strtoll(hrange, NULL, 10);
 	return get_ms_from_human_range(hrange, hsize) / 1000;
 }
