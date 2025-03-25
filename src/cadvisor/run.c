@@ -101,6 +101,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 
 	json_error_t error;
 	json_t *root = json_loads(buf, 0, &error);
+	free(buf);
 	if (!root)
 	{
 		fprintf(stderr, "podman_get_labels json error on line %d: %s\n", error.line, error.text);
@@ -154,7 +155,6 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 			lbls->image = strdup(image_name);
 
 			fclose(fd);
-			free(buf);
 			json_decref(metadata_root);
 			json_decref(root);
 			return lbls;
@@ -216,13 +216,11 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 			lbls->cgroupsPath = strdup(cgroupsPath);
 
 		fclose(fd);
-		free(buf);
 		json_decref(root);
 		return lbls;
 	}
 	fclose(fd);
 
-	free(buf);
 	json_decref(root);
 	return NULL;
 }
