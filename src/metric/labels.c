@@ -14,10 +14,14 @@ extern aconf *ac;
 
 int64_t get_ttl(context_arg *carg)
 {
-	if (!carg)
-		return ac->ttl;
+	if (!carg) {
+		if (!ac->ttl)
+			return INT64_MAX-UINT32_MAX;
+		else
+			return ac->ttl;
+	}
 
-	//printf("curr ttl: %d, carg->ttl %d, ttl %d\n", carg->curr_ttl, carg->ttl, ac->ttl);
+	//printf("curr ttl: %ld, carg->ttl %ld, ttl %ld\n", carg->curr_ttl, carg->ttl, ac->ttl);
 	if (carg->curr_ttl > -1)
 	{
 		if (carg->curr_ttl == 0)
