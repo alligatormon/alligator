@@ -1066,7 +1066,6 @@ char *trim_whitespaces(char *str)
 	return str;
 }
 
-
 uint128_t to_uint128(char data[]) {
 	char kvalue[16] = { 0 };
 	memcpy(kvalue, data, 16);

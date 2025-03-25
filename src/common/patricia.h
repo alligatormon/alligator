@@ -1,7 +1,8 @@
 #pragma once
 #include <inttypes.h>
-__extension__ typedef unsigned __int128 uint128_t;
-__extension__ typedef signed __int128 int128_t;
+#include "common/selector.h"
+//__extension__ typedef unsigned __int128 uint128_t;
+//__extension__ typedef signed __int128 int128_t;
 
 typedef struct rnode {
     struct rnode *left;

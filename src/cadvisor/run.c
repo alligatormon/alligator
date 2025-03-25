@@ -82,7 +82,7 @@ char *runcv2_get_container_json_from_bundle_path(char *bundle_path)
 	return ret_path;
 }
 
-cnt_labels* podman_get_labels(char *path, char *find_id)
+cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_path)
 {
 	//'.[].id,.[].names,.[].metadata'
 	FILE *fd = fopen(path, "r");
@@ -154,6 +154,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 			lbls->image = strdup(image_name);
 
 			fclose(fd);
+			free(buf);
 			json_decref(metadata_root);
 			json_decref(root);
 			return lbls;
@@ -162,48 +163,66 @@ cnt_labels* podman_get_labels(char *path, char *find_id)
 	else {
 		json_t *annotations = json_object_get(root, "annotations");
 		json_t *linux_j = json_object_get(root, "linux");
-		if (annotations) {
-			json_t *type_j = json_object_get(annotations, "io.kubernetes.cri.container-type");
-			const char *type = json_string_value(type_j);
-			if (!strcmp(type, "sandbox")) {
-				fclose(fd);
-				json_decref(root);
-				return NULL;
-			}
-
-			json_t *name_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
-			const char *name = json_string_value(name_j);
-
-			json_t *image_j = json_object_get(annotations, "io.kubernetes.cri.image-name");
-			const char *image = json_string_value(image_j);
-
-			json_t *namespace_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-namespace");
-			const char *namespace = json_string_value(namespace_j);
-
-			json_t *container_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
-			const char *container = json_string_value(container_j);
-
-			json_t *pod_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-name");
-			const char *pod = json_string_value(pod_j);
-
-			json_t *cgroupsPath_j = json_object_get(linux_j, "cgroupsPath");
-			const char *cgroupsPath = json_string_value(cgroupsPath_j);
-
-			cnt_labels* lbls = calloc(1, sizeof(*lbls));
-			lbls->name = strdup(name);
-			lbls->namespace = strdup(namespace);
-			lbls->image = strdup(image);
-			lbls->container = strdup(container);
-			lbls->pod = strdup(pod);
-			lbls->cgroupsPath = strdup(cgroupsPath);
-
+		json_t *type_j = json_object_get(annotations, "io.kubernetes.cri.container-type");
+		const char *type = json_string_value(type_j);
+		if (type && !strcmp(type, "sandbox")) {
 			fclose(fd);
 			json_decref(root);
-			return lbls;
+			return NULL;
 		}
+
+		json_t *name_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
+		const char *name = json_string_value(name_j);
+
+		json_t *image_j = json_object_get(annotations, "io.kubernetes.cri.image-name");
+		const char *image = json_string_value(image_j);
+
+		json_t *namespace_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-namespace");
+		const char *namespace = json_string_value(namespace_j);
+
+		json_t *container_j = json_object_get(annotations, "io.kubernetes.cri.container-name");
+		const char *container = json_string_value(container_j);
+
+		json_t *pod_j = json_object_get(annotations, "io.kubernetes.cri.sandbox-name");
+		const char *pod = json_string_value(pod_j);
+
+		const char *cgroupsPath = NULL;
+		json_t *cgroupsPath_j = json_object_get(linux_j, "cgroupsPath");
+		if (cgroup_main_path) {
+			cgroupsPath = json_string_value(cgroup_main_path);
+			cgroupsPath = strstr(cgroupsPath, "fs/cgroup/");
+			cgroupsPath += 10;
+		}
+		else
+			cgroupsPath = json_string_value(cgroupsPath_j);
+
+		cnt_labels* lbls = calloc(1, sizeof(*lbls));
+		if (name)
+			lbls->name = strdup(name);
+		else
+			lbls->name = strdup("");
+		if (image)
+			lbls->image = strdup(image);
+		else
+			lbls->image = strdup("");
+
+		if (namespace)
+			lbls->namespace = strdup(namespace);
+		if (container)
+			lbls->container = strdup(container);
+		if (pod)
+			lbls->pod = strdup(pod);
+		if (cgroupsPath)
+			lbls->cgroupsPath = strdup(cgroupsPath);
+
+		fclose(fd);
+		free(buf);
+		json_decref(root);
+		return lbls;
 	}
 	fclose(fd);
 
+	free(buf);
 	json_decref(root);
 	return NULL;
 }
@@ -228,6 +247,8 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 		return;
 	}
 
+	json_t *cgroup_paths = json_object_get(root, "cgroup_paths");
+	json_t *cgroup_main_path = json_object_get(cgroup_paths, "");
 	json_t *json_id = json_object_get(root, "id");
 	char *cnt_id = (char*)json_string_value(json_id);
 
@@ -260,7 +281,7 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 				if (container_json)
 				{
 					//printf("container json: '%s'\n", container_json);
-					cnt_labels* podman_labels = podman_get_labels(container_json, cnt_id);
+					cnt_labels* podman_labels = podman_get_labels(container_json, cnt_id, cgroup_main_path);
 					if (podman_labels)
 					{
 						char cgroup_cnt_id[255];
@@ -298,7 +319,7 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 	free(buf);
 }
 
-void runc_labels(char *rundir)
+void runc_labels(char *rundir, char *path_template)
 {
 	DIR *rd;
 	DIR *ud;
@@ -310,8 +331,7 @@ void runc_labels(char *rundir)
 	char runcdir[255];
 	char userdir[255];
 	char statefile[255];
-	//snprintf(runcdir, 255, "%s/runc", rundir);
-	snprintf(runcdir, 255, "/run/containerd/runc/k8s.io/");
+	snprintf(runcdir, 255, path_template, rundir);
 	//printf("0 opendir: %s\n", runcdir);
 	rd = opendir(runcdir);
 	if (rd)
@@ -651,6 +671,9 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 			{
 				carglog(ac->cadvisor_carg, L_TRACE, "\tname: %s, image: %s, path: %s\n", name_str, image, id);
 				cadvisor_scrape(NULL, NULL, "docker", id, name_str, image, NULL, NULL, NULL, NULL);
+				char cgroup_path[255];
+				snprintf(cgroup_path, 254, "system.slice/docker-%s.scope", id);
+				cadvisor_scrape(NULL, cgroup_path, "", id, name_str, image, NULL, NULL, NULL, NULL);
 			}
 			else
 			{
@@ -758,7 +781,9 @@ void cgroup_v2_machines()
 
 void cadvisor_metrics()
 {
-	runc_labels(ac->system_rundir);
+	runc_labels(ac->system_rundir, "%s/runc");
+	runc_labels(ac->system_rundir, "%s/containerd/runc/k8s.io/");
+	//runc_labels(ac->system_rundir, "%s/docker/runtime-runc/moby/");
 	openvz7_labels();
 	lxc_labels();
 	nspawn_labels();

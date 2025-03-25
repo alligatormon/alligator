@@ -250,12 +250,9 @@ uint64_t block_info()
 }
 
 void disks_info() {
-    puts("disks_info");
 	uint64_t disks_num = 0;
 	disks_num += block_info();
-    printf("disks_num is %lu\n", disks_num);
 	disks_num += nvme_info();
-    printf("disks_num is %lu\n", disks_num);
 	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
 }
 #endif
