@@ -42,6 +42,7 @@ Alligator has many contexts for describing the collection data:
 - **modules**: Loads dynamic C libraries (files with .so extension)
 - **cluster**: Configures the cluster using the node group
 - **puppeteer**: Configures the HTTP site stats collector using the puppeteer
+- **threaded_loop**: Configures thread pool with activated event loops for particular tasks
 
 Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
 
@@ -205,3 +206,6 @@ Cluster enables the multi-node capabilities to synchronize metrics. [Here](https
 
 ## Puppeteer
 Puppeteer enables the collector of site load statistics. In [this](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) document is the more information about this.
+
+## Threaded loop
+Puppeteer enables the thread pools with activated event loops for particular tasks. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/threaded-loop.md).
