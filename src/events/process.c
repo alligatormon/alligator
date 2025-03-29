@@ -13,6 +13,7 @@
 #include "parsers/multiparser.h"
 #include "common/mkdirp.h"
 #include "common/logs.h"
+extern aconf* ac;
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
@@ -221,14 +222,13 @@ void process_client_del(context_arg *carg)
 void on_process_spawn_repeat_period(uv_timer_t *timer);
 void on_process_spawn(void* arg)
 {
-	extern aconf* ac;
-	uv_loop_t *loop = ac->loop;
 	context_arg *carg = arg;
 	if (carg->lock)
 		return;
 	if (cluster_come_later(carg))
 		return;
 
+	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 	if (carg->period && !carg->read_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
@@ -246,7 +246,7 @@ void on_process_spawn(void* arg)
 
 	uv_pipe_t *channel = &carg->channel;
 	channel->data = carg;
-	uv_pipe_init(loop, channel, 1);
+	uv_pipe_init(carg->loop, channel, 1);
 	uv_stdio_container_t *child_stdio = carg->child_stdio;
 	child_stdio[ASTDIN_FILENO].flags = UV_IGNORE;
 	child_stdio[ASTDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
@@ -261,7 +261,7 @@ void on_process_spawn(void* arg)
 	options->stdio = child_stdio;
 	options->stdio_count = 3;
 
-	r = uv_spawn(loop, child_req, options);
+	r = uv_spawn(carg->loop, child_req, options);
 	if (r) {
 		carglog(carg, L_ERROR, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
 		_on_exit(child_req, 0, 0);
@@ -296,13 +296,11 @@ void on_process_spawn_repeat_period(uv_timer_t *timer)
 }
 
 static void process_spawn_cb(uv_timer_t* handle) {
-	extern aconf* ac;
 	alligator_ht_foreach(ac->process_spawner, for_on_process_spawn);
 }
 
 void process_handler()
 {
-	extern aconf* ac;
 	uv_loop_t *loop = ac->loop;
 
 	uv_timer_init(loop, &ac->process_timer);

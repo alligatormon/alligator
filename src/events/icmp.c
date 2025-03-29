@@ -306,6 +306,7 @@ void icmp_start(void *arg)
 	if (carg->lock)
 		return;
 
+	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 	if (carg->period && !carg->read_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
@@ -342,11 +343,11 @@ void icmp_start(void *arg)
 
 	carg->fd = sd;
 
-	uv_timer_init(uv_default_loop(), &carg->t_timeout);
-	uv_timer_init(uv_default_loop(), &carg->t_towrite);
-	uv_timer_init(uv_default_loop(), &carg->t_seq_timer);
+	uv_timer_init(carg->loop, &carg->t_timeout);
+	uv_timer_init(carg->loop, &carg->t_towrite);
+	uv_timer_init(carg->loop, &carg->t_seq_timer);
 
-	uv_poll_init(uv_default_loop(), &carg->poll_socket, sd);
+	uv_poll_init(carg->loop, &carg->poll_socket, sd);
 	carg->poll_socket.data = carg;
 	carg->t_towrite.data = carg;
 	carg->t_seq_timer.data = carg;
@@ -406,7 +407,7 @@ char* icmp_client(context_arg *carg)
 	uv_getaddrinfo_t *resolver = malloc(sizeof(*resolver));
 	resolver->data = carg;
 	carg->resolve_time = setrtime();
-	int r = uv_getaddrinfo(uv_default_loop(), resolver, icmp_resolved, carg->host, 0, NULL);
+	int r = uv_getaddrinfo(carg->loop, resolver, icmp_resolved, carg->host, 0, NULL);
 	if (r)
 	{
 		carglog(carg, L_ERROR, "%s\n", uv_strerror(r));

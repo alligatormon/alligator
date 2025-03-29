@@ -176,6 +176,8 @@ void udp_client_connect(void *arg)
 	if (cluster_come_later(carg))
 		return;
 
+	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
+
 	if (carg->period && !carg->conn_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
@@ -206,7 +208,7 @@ void udp_client_connect(void *arg)
 	//uv_udp_send_t *send_req = malloc(sizeof(*send_req));
 	carg->udp_send.data = carg;
 	//send_req->data = carg;
-	uv_udp_init(uv_default_loop(), &carg->udp_client);
+	uv_udp_init(carg->loop, &carg->udp_client);
 
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, udp_on_send);
 	carg->write_time = setrtime();
