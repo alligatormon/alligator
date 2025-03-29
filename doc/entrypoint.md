@@ -40,6 +40,7 @@ entrypoint {
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
     cluster <cluster_name>;
     instance <instance_name>;
+    threads <number of threads>;
     lang <lang>;
     mapping {
         template <template>;
@@ -335,6 +336,13 @@ Default: -\
 Plural: no\
 
 Specify the cluster current instance name for receiving metrics. More information about cluster can be found in [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
+
+
+# threads
+Default: 0\
+Plural: no\
+
+Specifies the number of threads working in this entrypoint.
 
 
 # mapping
