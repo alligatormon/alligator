@@ -31,6 +31,16 @@ typedef struct env_struct {
 	tommy_node node;
 } env_struct;
 
+typedef struct threaded_loops {
+	uv_loop_t **loop;
+	uint64_t cur;
+	uint64_t max;
+
+	uv_thread_t thread;
+	char *key;
+	tommy_node node;
+} threaded_loop;
+
 typedef struct context_arg
 {
 	char *name;
@@ -235,7 +245,8 @@ typedef struct context_arg
 	uint64_t timeout;
 	uint64_t count;
 	uv_thread_t thread;
-	uint64_t threads;
+	uint64_t threads; //listener
+	char* threaded_loop_name; //aggregator
 
 	uint64_t parsed;
 
@@ -322,3 +333,8 @@ void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
+void thread_loop_set(char *key, uint64_t size);
+void thread_loop_free();
+uv_loop_t *get_threaded_loop_t(char *key);
+uv_loop_t *get_threaded_loop_t_or_default(char *key);
+uint64_t get_threads_num(json_t *value);

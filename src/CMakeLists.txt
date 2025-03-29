@@ -91,6 +91,7 @@ set(STATIC_FILES
 	events/access.c
 	events/metrics.c
 	events/context_arg.c
+	events/threads.c
 	resolver/resolver.c
 	resolver/udp.c
 	resolver/tcp.c

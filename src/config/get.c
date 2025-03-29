@@ -199,6 +199,12 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "key", key);
 	}
 
+	if (carg->threaded_loop_name)
+	{
+		json_t *threaded_loop_name = json_string(carg->threaded_loop_name);
+		json_array_object_insert(ctx, "threaded_loop_name", threaded_loop_name);
+	}
+
 	if (carg->log_level)
 	{
 		char *log = get_log_level_by_id(carg->log_level);

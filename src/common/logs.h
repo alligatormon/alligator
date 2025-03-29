@@ -1,5 +1,7 @@
 #pragma once
 #include <inttypes.h>
+#include <stddef.h>
+#include <stdarg.h>
 char* get_log_level_by_id(uint64_t id);
 uint64_t get_log_level_by_name(const char *val, size_t len);
 void log_init();

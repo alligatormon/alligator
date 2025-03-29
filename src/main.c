@@ -138,6 +138,8 @@ aconf* configuration()
 
 	ac->resolver = alligator_ht_init(NULL);
 
+	ac->threads = alligator_ht_init(NULL);
+
 	ac->request_cnt = 0;
 	ts_initialize();
 	aggregate_ctx_init();
@@ -225,6 +227,10 @@ void main_free()
 
 	alligator_ht_done(ac->entrypoints);
 	free(ac->entrypoints);
+
+	thread_loop_free();
+	alligator_ht_done(ac->threads);
+	free(ac->threads);
 
 	free(ac);
 }

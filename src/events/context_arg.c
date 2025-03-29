@@ -147,6 +147,9 @@ void carg_free(context_arg *carg)
 	if (carg->auth_header)
 		free(carg->auth_header);
 
+	if (carg->threaded_loop_name)
+		free(carg->threaded_loop_name);
+
 	if (carg->q_request_time)
 		free_percentile_buffer(carg->q_request_time);
 	if (carg->q_read_time)
@@ -479,6 +482,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			json_t *pquery_obj = json_array_get(json_pquery, i);
 			carg->pquery[i] = strdup(json_string_value(pquery_obj));
 		}
+	}
+
+	json_t *json_threaded_loop_name = json_object_get(root, "threaded_loop_name");
+	if (json_threaded_loop_name)
+	{
+		carg->threaded_loop_name = strdup(json_string_value(json_threaded_loop_name));
 	}
 
 	json_t *json_namespace = json_object_get(root, "namespace");

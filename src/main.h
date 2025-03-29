@@ -171,6 +171,7 @@ typedef struct aconf
 	alligator_ht* query;
 	alligator_ht* probe;
 	alligator_ht* cluster;
+	alligator_ht* threads;
 	int64_t query_startup;
 	int64_t query_repeat;
 	uv_timer_t query_timer;

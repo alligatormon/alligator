@@ -320,6 +320,23 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					scheduler_push_json(scheduler);
 				}
 			}
+			if (!strcmp(key, "threaded_loop"))
+			{
+				uint64_t threaded_loop_size = json_array_size(value);
+				for (uint64_t i = 0; i < threaded_loop_size; i++)
+				{
+					json_t *threaded_loop = json_array_get(value, i);
+					json_t *name_j = json_object_get(threaded_loop, "name");
+					char *name = (char*)json_string_value(name_j);
+					json_t *threads_j = json_object_get(threaded_loop, "threads");
+					uint64_t threads = get_threads_num(threads_j);
+
+					if (method == HTTP_METHOD_DELETE)
+						threads = 0;
+
+					thread_loop_set(name, threads);
+				}
+			}
 			if (!strcmp(key, "persistence"))
 			{
 				if (method == HTTP_METHOD_DELETE)

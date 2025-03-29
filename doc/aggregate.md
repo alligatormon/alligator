@@ -167,6 +167,13 @@ Plural: no
 Specify of the level of logging for the aggregator. Units for this option are explained in this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
 
 
+## threaded_loop_name
+Default: -\
+Plural: no
+
+Specifies the declared name of the threaded loop. More information about the threaded loop can be found in the [threaded_loop](https://github.com/alligatormon/alligator/blob/master/doc/threaded-loop.md) documentation. This enables the thread pool for a particular aggregator and ensures that the main thread does not process it.
+
+
 ## stdin
 Specifies the body to be passed to the stdin of the called script.
 
