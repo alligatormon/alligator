@@ -22,6 +22,8 @@ typedef struct sort_order_node {
 typedef struct sortplan
 {
 	char *plan[65535];
+	uint32_t hash[65535];
+	uint64_t len[65535];
 	size_t size;
 } sortplan;
 
@@ -29,8 +31,10 @@ typedef struct labels_t
 {
 	char *name;
 	size_t name_len;
+	uint32_t name_hash;
 	char *key;
 	size_t key_len;
+	uint32_t key_hash;
 	sortplan *sort_plan;
 	uint8_t allocatedname;
 	uint8_t allocatedkey;

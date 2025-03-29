@@ -65,6 +65,18 @@ uint8_t numbercheck(char *str)
 	return 1;
 }
 
+int hash_cmp(uint32_t l, uint32_t r) {
+	if (l > r) {
+		return 1;
+	}
+	else if (l < r) {
+		return -1;
+	}
+	else {
+		return 0;
+	}
+}
+
 int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 {
 	int64_t i;
@@ -72,9 +84,13 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 	for (i=0; i<plan_size && labels1 && labels2; i++)
 	{
 		//printf("1check %s <> %s\n", sort_plan->plan[i], labels1->name);
+		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
+			return -1;
 		if (strcmp(sort_plan->plan[i], labels1->name))
 			return -1;
 		//printf("2check %s <> %s\n", sort_plan->plan[i], labels2->name);
+		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
+			return 1;
 		if (strcmp(sort_plan->plan[i], labels2->name))
 			return 1;
 
@@ -99,7 +115,12 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 		size_t str2_len = labels2->key_len;
 
 		size_t size = str1_len > str2_len ? str2_len : str1_len;
-		int ret = strncmp(str1, str2, size);
+
+		int ret = hash_cmp(labels2->key_hash, labels1->key_hash);
+		if (ret)
+			return ret;
+
+		ret = strncmp(str1, str2, size);
 		if (!ret)
 			if (str1_len == str2_len)
 			{
@@ -140,11 +161,17 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 		}
 
 		//printf("\t1check %s <> %s\n", sort_plan->plan[i], labels1->name);
+		if (hash_cmp(sort_plan->hash[i], labels1->name_hash)) {
+			return -1;
+        }
 		if (strcmp(sort_plan->plan[i], labels1->name))
 		{
 			return -1;
 		}
 		//printf("\t2check %s <> %s\n", sort_plan->plan[i], labels2->name);
+		if (hash_cmp(sort_plan->hash[i], labels2->name_hash)) {
+			return 1;
+        }
 		if (strcmp(sort_plan->plan[i], labels2->name))
 		{
 			return 1;
@@ -178,7 +205,12 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 		size_t str2_len = labels2->key_len;
 
 		size_t size = str1_len > str2_len ? str2_len : str1_len;
-		int ret = strncmp(str1, str2, size);
+
+		int ret = hash_cmp(labels2->key_hash, labels1->key_hash);
+		if (ret)
+            return ret;
+
+		ret = strncmp(str1, str2, size);
 		if (!ret)
 			if (str1_len == str2_len)
 			{
@@ -488,15 +520,20 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	cur = cur->next;
 	cur->name = strdup(labelscont->name);
 	cur->name_len = strlen(cur->name);
+	cur->name_hash = tommy_strhash_u32(0, cur->name);
 	cur->key = strdup(labelscont->key);
 	cur->key_len = strlen(cur->key);
+	cur->key_hash = tommy_strhash_u32(0, cur->key);
 	cur->next = 0;
 
 	cur->allocatedname = 1;
 	cur->allocatedkey = 1;
 
 	// add element to sortplan
-	sort_plan->plan[(sort_plan->size)++] = cur->name;
+	sort_plan->plan[sort_plan->size] = cur->name;
+	sort_plan->hash[sort_plan->size] = cur->name_hash;
+	sort_plan->len[sort_plan->size] = cur->name_len;
+	++(sort_plan->size);
 
 	free(labelscont);
 }
@@ -542,10 +579,14 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	labels->name = "__name__";
 	labels->name_len = 8;
 	labels->key = name;
-	if (name)
+	if (name) {
 		labels->key_len = strlen(name);
-	else
+		labels->key_hash = tommy_strhash_u32(0, name);
+	}
+	else {
 		labels->key_len = 0;
+		labels->key_hash = 0;
+	}
 
 	labels->allocatedname = 0;
 	labels->allocatedkey = 0;
@@ -562,14 +603,16 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 		cur = cur->next;
 		cur->sort_plan = sort_plan;
 		cur->name = sort_plan->plan[i];
-		cur->name_len = strlen(cur->name);
-		//printf ("ns %p, nskey %s, hash %p, sort_plan %p, sort_plan->size %d, i %d plan '%s'\n", ns, ns->key, hash, sort_plan, sort_plan->size, i, sort_plan->plan[i]);
-		//printf ("\tsort_plan->plan '%s' %p\n", hash, &sort_plan->plan[i], sort_plan->plan[i]);
-		labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, sort_plan->plan[i], tommy_strhash_u32(0, sort_plan->plan[i]));
+		cur->name_len = sort_plan->len[i];
+		cur->name_hash = sort_plan->hash[i];
+		//printf ("ns %p, nskey %s, hash %p, sort_plan %p, sort_plan->size %zu, i %lu plan '%s'\n", ns, ns->key, hash, sort_plan, sort_plan->size, i, sort_plan->plan[i]);
+		//printf ("\tsort_plan->plan '%s' %p\n", sort_plan->plan[i], &sort_plan->plan[i]);
+		labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, sort_plan->plan[i], sort_plan->hash[i]);
 		if (labelscont)
 		{
 			cur->key = labelscont->key;
 			cur->key_len = strlen(cur->key);
+			cur->key_hash = tommy_strhash_u32(0, cur->key);
 			cur->allocatedname = labelscont->allocatedname;
 			cur->allocatedkey = labelscont->allocatedkey;
 			if (labelscont->allocatedname)
