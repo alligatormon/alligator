@@ -137,3 +137,7 @@ void alligator_ht_forfree(alligator_ht *h, void *funcfree)
 	tommy_hash_forfree(h->ht, funcfree);
 	pthread_rwlock_unlock(&h->rwlock);
 }
+
+uint32_t alligator_ht_strhash(const char *buf, uint32_t len, uint32_t initial) {
+	return tommy_strhash_u32(initial, buf);
+}

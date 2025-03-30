@@ -152,6 +152,8 @@ aconf* configuration()
 	ac->ttl = 300;
 	ac->persistence_period = 10000;
 
+	ac->metrictree_hashfunc = alligator_ht_strhash;
+
 	setenv("UV_THREADPOOL_SIZE", "4", 1);
 
 	return ac;

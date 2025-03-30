@@ -33,9 +33,15 @@ namespace_struct *insert_namespace(char *key)
 
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
-	sortplan *sort_plan = malloc(sizeof(*sort_plan));
+	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
+
+	sort_plan->check_collissions = alligator_ht_init(NULL);
+	sortplan_collission *sp_colls = malloc(sizeof(*sp_colls));
+	sp_colls->index = 0;
+	alligator_ht_insert(sort_plan->check_collissions, &(sp_colls->node), sp_colls, sort_plan->hash[0]);
+
 	sort_plan->size = 1;
 
 	ns->metrictree = metrictree;
@@ -84,6 +90,11 @@ namespace_struct *get_namespace_by_carg(context_arg *carg)
 	return ns;
 }
 
+void sortplan_collission_foreach_free(void *funcarg, void *arg) {
+	sortplan_collission *sp_colls = arg;
+	free(sp_colls);
+}
+
 void namespaces_free_foreach(void *funcarg, void* arg)
 {
 	namespace_struct *ns = arg;
@@ -93,6 +104,11 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 	free(ns->key);
 	free(ns->expiretree->rwlock);
 	free(ns->expiretree);
+
+	alligator_ht_foreach_arg(ns->metrictree->sort_plan->check_collissions, sortplan_collission_foreach_free, NULL);
+	alligator_ht_done(ns->metrictree->sort_plan->check_collissions);
+	free(ns->metrictree->sort_plan->check_collissions);
+
 	free(ns->metrictree->sort_plan);
 	alligator_ht_done(ns->metrictree->labels_words_hash);
 	free(ns->metrictree->labels_words_hash);
@@ -131,9 +147,15 @@ void ts_initialize()
 	
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
-	sortplan *sort_plan = malloc(sizeof(*sort_plan));
+	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
+
+	sort_plan->check_collissions = alligator_ht_init(NULL);
+	sortplan_collission *sp_colls = malloc(sizeof(*sp_colls));
+	sp_colls->index = 0;
+	alligator_ht_insert(sort_plan->check_collissions, &(sp_colls->node), sp_colls, sort_plan->hash[0]);
+
 	sort_plan->size = 1;
 
 	ns->metrictree = metrictree;

@@ -250,6 +250,8 @@ typedef struct aconf
 	char* persistence_dir;
 	uint64_t persistence_period;
 
+	uint32_t (*metrictree_hashfunc)(const char*, uint32_t, uint32_t);
+
 	// metrics
 	uint64_t metric_cache_hits;
 	uint64_t metric_allocates;

@@ -13,6 +13,11 @@
 #define	RIGHT	1
 #define	LEFT	0
 
+typedef struct sortplan_collission {
+	uint64_t index;
+	tommy_node node;
+} sortplan_collission;
+
 typedef struct sort_order_node {
 	char *name;
 	tommy_node node;
@@ -24,6 +29,8 @@ typedef struct sortplan
 	char *plan[65535];
 	uint32_t hash[65535];
 	uint64_t len[65535];
+	uint8_t is_collission[65535];
+	alligator_ht* check_collissions;
 	size_t size;
 } sortplan;
 

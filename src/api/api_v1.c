@@ -30,6 +30,8 @@
 #include "puppeteer/puppeteer.h"
 #include "common/units.h"
 #include "common/auth.h"
+#include "common/crc32.h"
+#include "common/murmurhash.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -182,6 +184,23 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					snprintf(cpus, 19, "%"PRIu64, workers);
 					setenv("UV_THREADPOOL_SIZE", cpus, 1);
 				}
+			}
+			if (!strcmp(key, "metrictree_hashfunc"))
+			{
+				if (json_typeof(value) == JSON_STRING) {
+					const char *hashfunc = json_string_value(value);
+					if (!hashfunc) {
+						fprintf(stderr, "error, metrictree_hashfunc is null\n");
+					}
+					if (!strcmp(hashfunc, "lookup3"))
+						ac->metrictree_hashfunc = alligator_ht_strhash;
+					else if (!strcmp(hashfunc, "murmur"))
+						ac->metrictree_hashfunc = murmurhash;
+					else if (!strcmp(hashfunc, "crc32"))
+						ac->metrictree_hashfunc = crc32;
+				}
+				else
+					fprintf(stderr, "error, metrictree_hashfunc is not a string\n");
 			}
 			if (!strcmp(key, "modules"))
 			{

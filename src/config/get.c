@@ -10,6 +10,8 @@
 #include "system/linux/sysctl.h"
 #include "common/json_query.h"
 #include "common/logs.h"
+#include "common/crc32.h"
+#include "common/murmurhash.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -100,6 +102,19 @@ void config_global_get(json_t *dst)
 	{
 		json_t *ttl = json_integer(ac->ttl);
 		json_array_object_insert(dst, "ttl", ttl);
+	}
+
+	if (ac->metrictree_hashfunc == alligator_ht_strhash) {
+		json_t *metrictree_hashfunc = json_string("lookup3");
+		json_array_object_insert(dst, "metrictree_hashfunc", metrictree_hashfunc);
+	}
+	else if (ac->metrictree_hashfunc == murmurhash) {
+		json_t *metrictree_hashfunc = json_string("murmur");
+		json_array_object_insert(dst, "metrictree_hashfunc", metrictree_hashfunc);
+	}
+	else if (ac->metrictree_hashfunc == crc32) {
+		json_t *metrictree_hashfunc = json_string("crc32");
+		json_array_object_insert(dst, "metrictree_hashfunc", metrictree_hashfunc);
 	}
 
 	char *workers = getenv("UV_THREADPOOL_SIZE");

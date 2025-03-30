@@ -86,12 +86,12 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 		//printf("1check %s <> %s\n", sort_plan->plan[i], labels1->name);
 		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
 			return -1;
-		if (strcmp(sort_plan->plan[i], labels1->name))
+		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels1->name))
 			return -1;
 		//printf("2check %s <> %s\n", sort_plan->plan[i], labels2->name);
 		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
 			return 1;
-		if (strcmp(sort_plan->plan[i], labels2->name))
+		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels2->name))
 			return 1;
 
 		char *str1 = labels1->key;
@@ -164,7 +164,7 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 		if (hash_cmp(sort_plan->hash[i], labels1->name_hash)) {
 			return -1;
         }
-		if (strcmp(sort_plan->plan[i], labels1->name))
+		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels1->name))
 		{
 			return -1;
 		}
@@ -172,7 +172,7 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 		if (hash_cmp(sort_plan->hash[i], labels2->name_hash)) {
 			return 1;
         }
-		if (strcmp(sort_plan->plan[i], labels2->name))
+		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels2->name))
 		{
 			return 1;
 		}
@@ -505,6 +505,11 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 	}
 }
 
+int check_collissions_compare(const void* arg, const void* obj)
+{
+        return 0;
+}
+
 void labels_new_plan_node(void *funcarg, void* arg)
 {
 	labels_container *labelscont = arg;
@@ -520,10 +525,10 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	cur = cur->next;
 	cur->name = strdup(labelscont->name);
 	cur->name_len = strlen(cur->name);
-	cur->name_hash = tommy_strhash_u32(0, cur->name);
+	cur->name_hash = ac->metrictree_hashfunc(cur->name, cur->name_len, 0);
 	cur->key = strdup(labelscont->key);
 	cur->key_len = strlen(cur->key);
-	cur->key_hash = tommy_strhash_u32(0, cur->key);
+	cur->key_hash = ac->metrictree_hashfunc(cur->key, cur->key_len, 0);
 	cur->next = 0;
 
 	cur->allocatedname = 1;
@@ -533,6 +538,20 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	sort_plan->plan[sort_plan->size] = cur->name;
 	sort_plan->hash[sort_plan->size] = cur->name_hash;
 	sort_plan->len[sort_plan->size] = cur->name_len;
+
+	sortplan_collission *sp_colls = alligator_ht_search(sort_plan->check_collissions, check_collissions_compare, cur->name, cur->name_hash);
+	if (sp_colls) {
+		fprintf(stderr, "There is a collision with the label name '%s' Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name);
+		sort_plan->is_collission[sort_plan->size] = 1;
+		sort_plan->is_collission[sp_colls->index] = 1;
+	}
+	else {
+		sortplan_collission *sp_colls = malloc(sizeof(*sp_colls));
+		sp_colls->index = sort_plan->size;
+		alligator_ht_insert(sort_plan->check_collissions, &(sp_colls->node), sp_colls, sort_plan->hash[sort_plan->size]);
+	}
+
+
 	++(sort_plan->size);
 
 	free(labelscont);
@@ -579,11 +598,10 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	labels->name = MAIN_METRIC_NAME;
 	labels->name_hash = MAIN_METRIC_HASH;
 	labels->name_len = MAIN_METRIC_LEN;
-	//labels->name_hash = tommy_strhash_u32(0, labels->name);
 	labels->key = name;
 	if (name) {
 		labels->key_len = strlen(name);
-		labels->key_hash = tommy_strhash_u32(0, name);
+		labels->key_hash = ac->metrictree_hashfunc(name, labels->key_len, 0);
 	}
 	else {
 		labels->key_len = 0;
@@ -614,7 +632,7 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 		{
 			cur->key = labelscont->key;
 			cur->key_len = strlen(cur->key);
-			cur->key_hash = tommy_strhash_u32(0, cur->key);
+			cur->key_hash = ac->metrictree_hashfunc(cur->key, cur->key_len, 0);
 			cur->allocatedname = labelscont->allocatedname;
 			cur->allocatedkey = labelscont->allocatedkey;
 			if (labelscont->allocatedname)
