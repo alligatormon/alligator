@@ -90,7 +90,7 @@ void cluster_push_json(json_t *cluster)
 			char *data = (char*)json_string_value(sharding_key);
 			if (data)
 			{
-				if (!strcmp(data, "__name__"))
+				if (!strcmp(data, MAIN_METRIC_NAME))
 					cn->sharding_key[j++] = NULL;
 				else
 					cn->sharding_key[j++] = strdup(data);

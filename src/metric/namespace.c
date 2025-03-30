@@ -34,7 +34,8 @@ namespace_struct *insert_namespace(char *key)
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
 	sortplan *sort_plan = malloc(sizeof(*sort_plan));
-	sort_plan->plan[0] = "__name__";
+	sort_plan->plan[0] = MAIN_METRIC_NAME;
+	sort_plan->hash[0] = MAIN_METRIC_HASH;
 	sort_plan->size = 1;
 
 	ns->metrictree = metrictree;
@@ -131,7 +132,8 @@ void ts_initialize()
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
 	sortplan *sort_plan = malloc(sizeof(*sort_plan));
-	sort_plan->plan[0] = "__name__";
+	sort_plan->plan[0] = MAIN_METRIC_NAME;
+	sort_plan->hash[0] = MAIN_METRIC_HASH;
 	sort_plan->size = 1;
 
 	ns->metrictree = metrictree;

@@ -208,7 +208,7 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 
 		int ret = hash_cmp(labels2->key_hash, labels1->key_hash);
 		if (ret)
-            return ret;
+			return ret;
 
 		ret = strncmp(str1, str2, size);
 		if (!ret)
@@ -576,8 +576,10 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	}
 
 	labels_t *labels = malloc(sizeof(*labels));
-	labels->name = "__name__";
-	labels->name_len = 8;
+	labels->name = MAIN_METRIC_NAME;
+	labels->name_hash = MAIN_METRIC_HASH;
+	labels->name_len = MAIN_METRIC_LEN;
+	//labels->name_hash = tommy_strhash_u32(0, labels->name);
 	labels->key = name;
 	if (name) {
 		labels->key_len = strlen(name);
@@ -631,6 +633,7 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 			cur->allocatedkey = 0;
 			cur->key = 0;
 			cur->key_len = 0;
+			cur->key_hash = 0;
 		}
 
 	}
