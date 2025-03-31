@@ -192,12 +192,18 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (!hashfunc) {
 						fprintf(stderr, "error, metrictree_hashfunc is null\n");
 					}
-					if (!strcmp(hashfunc, "lookup3"))
+					if (!strcmp(hashfunc, "lookup3")) {
 						ac->metrictree_hashfunc = alligator_ht_strhash;
-					else if (!strcmp(hashfunc, "murmur"))
+						ac->metrictree_hashfunc_get = alligator_ht_strhash_get;
+					}
+					else if (!strcmp(hashfunc, "murmur")) {
 						ac->metrictree_hashfunc = murmurhash;
-					else if (!strcmp(hashfunc, "crc32"))
+						ac->metrictree_hashfunc_get = murmurhash_get;
+					}
+					else if (!strcmp(hashfunc, "crc32")) {
 						ac->metrictree_hashfunc = crc32;
+						ac->metrictree_hashfunc_get = crc32_get;
+					}
 				}
 				else
 					fprintf(stderr, "error, metrictree_hashfunc is not a string\n");

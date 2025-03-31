@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <string.h>
 static const unsigned int crc32_table[] =
 {
   0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,
@@ -80,4 +81,8 @@ unsigned int xcrc32 (const unsigned char *buf, int len, unsigned int init)
 
 uint32_t crc32(const char *buf, uint32_t len, uint32_t init) {
 	return xcrc32((const unsigned char*)buf, (int)len, (unsigned int)init);
+}
+
+uint32_t crc32_get(const char *buf) {
+	return xcrc32((const unsigned char*)buf, strlen(buf), 0);
 }

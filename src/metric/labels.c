@@ -541,7 +541,7 @@ void labels_new_plan_node(void *funcarg, void* arg)
 
 	sortplan_collission *sp_colls = alligator_ht_search(sort_plan->check_collissions, check_collissions_compare, cur->name, cur->name_hash);
 	if (sp_colls) {
-		fprintf(stderr, "There is a collision with the label name '%s' Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name);
+		fprintf(stderr, "There is a collision with the label name '%s' (%"PRIu32") and already added '%s' (%"PRIu32"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
 		sort_plan->is_collission[sort_plan->size] = 1;
 		sort_plan->is_collission[sp_colls->index] = 1;
 	}
@@ -699,7 +699,7 @@ void labels_hash_insert(alligator_ht *hash, char *name, char *key)
 	if (!name)
 		return;
 
-	uint32_t name_hash = tommy_strhash_u32(0, name);
+	uint32_t name_hash = ac->metrictree_hashfunc_get(name);
 	labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, name, name_hash);
 	if (!labelscont)
 	{
@@ -717,7 +717,7 @@ void labels_hash_insert_nocache(alligator_ht *hash, char *name, char *key)
 	if (!name)
 		return;
 
-	uint32_t name_hash = tommy_strhash_u32(0, name);
+	uint32_t name_hash = ac->metrictree_hashfunc_get(name);
 	labels_container *labelscont = alligator_ht_search(hash, labels_hash_compare, name, name_hash);
 	if (!labelscont && name && key)
 	{

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "murmurhash.h"
 
 uint32_t murmurhash (const char *key, uint32_t len, uint32_t seed) {
@@ -58,4 +59,8 @@ uint32_t murmurhash (const char *key, uint32_t len, uint32_t seed) {
   h ^= (h >> 16);
 
   return h;
+}
+
+uint32_t murmurhash_get (const char *key) {
+	return murmurhash (key, strlen(key), 0);
 }

@@ -141,3 +141,7 @@ void alligator_ht_forfree(alligator_ht *h, void *funcfree)
 uint32_t alligator_ht_strhash(const char *buf, uint32_t len, uint32_t initial) {
 	return tommy_strhash_u32(initial, buf);
 }
+
+uint32_t alligator_ht_strhash_get(const char *buf) {
+	return tommy_strhash_u32(0, buf);
+}
