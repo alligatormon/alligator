@@ -269,6 +269,9 @@ int main(int argc, char **argv) {
 	ac->uv_cache_fs = calloc(1, sizeof(tommy_list));
 	tommy_list_init(ac->uv_cache_fs);
 
+	ac->metrictree_hashfunc = alligator_ht_strhash;
+	ac->metrictree_hashfunc_get = alligator_ht_strhash_get;
+
     log_default();
 
     ts_initialize();
