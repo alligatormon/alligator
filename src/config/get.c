@@ -11,6 +11,7 @@
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "common/crc32.h"
+#include "common/xxh.h"
 #include "common/murmurhash.h"
 #include "main.h"
 extern aconf *ac;
@@ -114,6 +115,10 @@ void config_global_get(json_t *dst)
 	}
 	else if (ac->metrictree_hashfunc == crc32) {
 		json_t *metrictree_hashfunc = json_string("crc32");
+		json_array_object_insert(dst, "metrictree_hashfunc", metrictree_hashfunc);
+	}
+	else if (ac->metrictree_hashfunc == xxh3_run) {
+		json_t *metrictree_hashfunc = json_string("XXH3");
 		json_array_object_insert(dst, "metrictree_hashfunc", metrictree_hashfunc);
 	}
 

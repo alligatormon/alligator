@@ -24,6 +24,7 @@
 #include "common/logs.h"
 #include "dstructures/ht.h"
 #include "system/common.h"
+#include "common/xxh.h"
 
 aconf *ac;
 

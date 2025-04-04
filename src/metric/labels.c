@@ -65,16 +65,8 @@ uint8_t numbercheck(char *str)
 	return 1;
 }
 
-int hash_cmp(uint32_t l, uint32_t r) {
-	if (l > r) {
-		return 1;
-	}
-	else if (l < r) {
-		return -1;
-	}
-	else {
-		return 0;
-	}
+uint64_t hash_cmp(uint64_t l, uint64_t r) {
+	return l - r;
 }
 
 int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
@@ -148,7 +140,7 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 	size_t plan_size = sort_plan->size;
 	for (i=0; i<plan_size && labels_count; i++)
 	{
-		//printf("plan: %d<%d: %s: %zu\n", i, plan_size, sort_plan->plan[i], labels_count);
+		//printf("plan: %ld<%zu: %s: %zu\n", i, plan_size, sort_plan->plan[i], labels_count);
 
 		if (!labels1)
 		{
@@ -247,6 +239,9 @@ int metric_name_match(labels_t *labels1, labels_t *labels2)
 
 	char *str1 = labels1->key;
 	char *str2 = labels2->key;
+	int rc = hash_cmp(labels2->key_hash, labels1->key_hash);
+	if (rc)
+		return rc;
 	return strcmp(str1, str2);
 }
 
@@ -541,7 +536,7 @@ void labels_new_plan_node(void *funcarg, void* arg)
 
 	sortplan_collission *sp_colls = alligator_ht_search(sort_plan->check_collissions, check_collissions_compare, cur->name, cur->name_hash);
 	if (sp_colls) {
-		fprintf(stderr, "There is a collision with the label name '%s' (%"PRIu32") and already added '%s' (%"PRIu32"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
+		fprintf(stderr, "There is a collision with the label name '%s' (%"PRIu64") and already added '%s' (%"PRIu64"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
 		sort_plan->is_collission[sort_plan->size] = 1;
 		sort_plan->is_collission[sp_colls->index] = 1;
 	}

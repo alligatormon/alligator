@@ -32,6 +32,7 @@
 #include "common/auth.h"
 #include "common/crc32.h"
 #include "common/murmurhash.h"
+#include "common/xxh.h"
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)
@@ -203,6 +204,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					else if (!strcmp(hashfunc, "crc32")) {
 						ac->metrictree_hashfunc = crc32;
 						ac->metrictree_hashfunc_get = crc32_get;
+					}
+					else if (!strcmp(hashfunc, "XXH3")) {
+						ac->metrictree_hashfunc = xxh3_run;
+						ac->metrictree_hashfunc_get = xxh3_get;
 					}
 				}
 				else
