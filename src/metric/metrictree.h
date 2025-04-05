@@ -29,7 +29,6 @@ typedef struct sortplan
 	char *plan[65535];
 	uint64_t hash[65535];
 	uint64_t len[65535];
-	uint8_t is_collission[65535];
 	alligator_ht* check_collissions;
 	size_t size;
 } sortplan;
@@ -41,7 +40,6 @@ typedef struct labels_t
 	uint64_t name_hash;
 	char *key;
 	size_t key_len;
-	uint64_t key_hash;
 	sortplan *sort_plan;
 	uint8_t allocatedname;
 	uint8_t allocatedkey;
