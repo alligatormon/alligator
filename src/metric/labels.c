@@ -75,58 +75,36 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 	size_t plan_size = sort_plan->size;
 	for (i=0; i<plan_size && labels1 && labels2; i++)
 	{
-		//printf("1check %s <> %s\n", sort_plan->plan[i], labels1->name);
 		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
 			return -1;
-		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels1->name))
-			return -1;
-		//printf("2check %s <> %s\n", sort_plan->plan[i], labels2->name);
 		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
 			return 1;
-		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels2->name))
-			return 1;
 
-		char *str1 = labels1->key;
-		char *str2 = labels2->key;
-
-		if (!str1 && !str2)
+		if (!labels1->key && !labels2->key)
 		{
 			// equal
 			labels1 = labels1->next;
 			labels2 = labels2->next;
 			continue;
 		}
-		if (!str1)
+		if (!labels1->key)
 			return -1;
-		if (!str2)
+		if (!labels2->key)
 			return 1;
-		//printf("labels1->key '%s'\n", str1);
-		//printf("labels2->key '%s'\n", str2);
 
-		size_t str1_len = labels1->key_len;
-		size_t str2_len = labels2->key_len;
-
-		size_t size = str1_len > str2_len ? str2_len : str1_len;
-
-		int ret = hash_cmp(labels2->key_hash, labels1->key_hash);
+		int ret = hash_cmp(labels1->key_hash, labels2->key_hash);
 		if (ret)
 			return ret;
-
-		ret = strncmp(str1, str2, size);
-		if (!ret)
-			if (str1_len == str2_len)
-			{
-				// equal
+		else {
+			ret = strcmp(labels1->key, labels2->key);
+			if (ret)
+				return ret;
+			else {
 				labels1 = labels1->next;
 				labels2 = labels2->next;
 				continue;
 			}
-			else if (str1_len > str2_len)
-				return 1;
-			else
-				return -1;
-		else
-			return ret;
+		}
 	}
 	return 0;
 }
@@ -140,8 +118,6 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 	size_t plan_size = sort_plan->size;
 	for (i=0; i<plan_size && labels_count; i++)
 	{
-		//printf("plan: %ld<%zu: %s: %zu\n", i, plan_size, sort_plan->plan[i], labels_count);
-
 		if (!labels1)
 		{
 			return -1;
@@ -152,80 +128,44 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 			return 0;
 		}
 
-		//printf("\t1check %s <> %s\n", sort_plan->plan[i], labels1->name);
-		if (hash_cmp(sort_plan->hash[i], labels1->name_hash)) {
+		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
 			return -1;
-        }
-		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels1->name))
-		{
-			return -1;
-		}
-		//printf("\t2check %s <> %s\n", sort_plan->plan[i], labels2->name);
-		if (hash_cmp(sort_plan->hash[i], labels2->name_hash)) {
+		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
 			return 1;
-        }
-		if (sort_plan->is_collission[i] && strcmp(sort_plan->plan[i], labels2->name))
-		{
-			return 1;
-		}
 
-		char *str1 = labels1->key;
-		char *str2 = labels2->key;
-
-		if (!str1 && !str2)
+		if (!labels1->key && !labels2->key)
 		{
 			// equal
 			labels1 = labels1->next;
 			labels2 = labels2->next;
 			continue;
 		}
-		if (!str1)
+		if (!labels1->key)
 		{
 			// TODO??? maybe next???
 			continue;
 		}
-		if (!str2)
+		if (!labels2->key)
 		{
 			labels1 = labels1->next;
 			labels2 = labels2->next;
 			continue;
 		}
-		//printf("\t\tlabels1->key '%s'\n", str1);
-		//printf("\t\tlabels2->key '%s'\n", str2);
-
-		size_t str1_len = labels1->key_len;
-		size_t str2_len = labels2->key_len;
-
-		size_t size = str1_len > str2_len ? str2_len : str1_len;
-
-		int ret = hash_cmp(labels2->key_hash, labels1->key_hash);
+		int ret = hash_cmp(labels1->key_hash, labels2->key_hash);
 		if (ret)
 			return ret;
-
-		ret = strncmp(str1, str2, size);
-		if (!ret)
-			if (str1_len == str2_len)
-			{
-				// equal
+		else {
+			ret = strcmp(labels1->key, labels2->key);
+			if (ret)
+				return ret;
+			else {
 				--labels_count;
 				labels1 = labels1->next;
 				labels2 = labels2->next;
 				continue;
 			}
-			else if (str1_len > str2_len)
-			{
-				return 1;
-			}
-			else
-			{
-				return -1;
-			}
-		else
-		{
-			return ret;
 		}
 	}
-	//printf("return result labels count %zu\n", labels_count);
 	return labels_count;
 }
 
@@ -237,12 +177,12 @@ int metric_name_match(labels_t *labels1, labels_t *labels2)
 	if (!labels2->key_len)
 		return 0;
 
-	char *str1 = labels1->key;
-	char *str2 = labels2->key;
-	int rc = hash_cmp(labels2->key_hash, labels1->key_hash);
+	int rc = hash_cmp(labels1->key_hash, labels2->key_hash);
 	if (rc)
 		return rc;
-	return strcmp(str1, str2);
+	else {
+		return strcmp(labels1->key, labels2->key);
+	}
 }
 
 void labels_print(labels_t *labels, int l)
@@ -507,6 +447,7 @@ int check_collissions_compare(const void* arg, const void* obj)
 
 void labels_new_plan_node(void *funcarg, void* arg)
 {
+// TODO: theoretical due to multithreaded model it can leads to the simultaneously changing of sort_plan and it can leads to the issues
 	labels_container *labelscont = arg;
 	if (!labelscont)
 		return;
