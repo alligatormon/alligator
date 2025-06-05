@@ -42,6 +42,8 @@ include_directories(/usr/include)
 include_directories(/usr/local/include)
 include_directories(/usr/include/postgresql)
 include_directories(/usr/include/mysql)
+include_directories(/var/lib/smartmontools/drivedb/)
+include_directories(/usr/share/smartmontools/)
 include_directories(external/mruby/include/)
 include_directories(external/libhv/protocol/)
 
@@ -179,7 +181,6 @@ set(STATIC_FILES
 	common/pcre_parser.c
 	common/xml.c
 	common/mapping.c
-	common/smart.c
 	common/netlib.c
 	common/deb.c
 	common/mkdirp.c
@@ -193,6 +194,8 @@ set(STATIC_FILES
 	common/logs.c
 	common/patricia.c
 	common/auth.c
+	smart/smart.c
+	smart/drivedb.c
 	x509/pem_check.c
 	x509/push.c
 	x509/del.c
@@ -281,6 +284,7 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommyhashdyn.c
 	dstructures/tommyds/tommyds/tommylist.c
 	dstructures/tommyds/tommyds/tommyhash.c
+	dstructures/ngram/ngram.c
 )
 
 message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")

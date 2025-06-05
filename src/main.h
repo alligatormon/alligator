@@ -21,6 +21,7 @@
 #include "common/aggregator.h"
 #include "dstructures/uv_cache.h"
 #include "resolver/resolver.h"
+#include "dstructures/ngram/ngram.h"
 #include "cadvisor/libvirt.h"
 #define d8 PRId8
 #define u8 PRIu8
@@ -234,6 +235,8 @@ typedef struct aconf
 	uv_timer_t general_timer;
 	uv_timer_t expire_timer;
 	uv_timer_t dump_timer;
+
+	ngram_index_t *drivedb;
 
 	int8_t system_platform;
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity

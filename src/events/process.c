@@ -103,6 +103,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 void timeout_exec_sentinel(uv_timer_t* timer) {
 	context_arg *carg = timer->data;
+	uv_timer_stop(timer);
 
 	if (!carg)
 	{

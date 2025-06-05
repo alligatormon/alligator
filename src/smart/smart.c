@@ -3,7 +3,21 @@
 #include <string.h>
 #include <errno.h>
 #include "atasmart.h"
+#include "smart/drivedb.h"
 #include "main.h"
+
+//typedef struct drive_settings {
+//  const char * modelfamily;
+//  const char * modelregexp;
+//  const char * firmwareregexp;
+//  const char * warningmsg;
+//  const char * presets;
+//} drive_settings;
+//
+//const drive_settings builtin_knowndrives[] = {
+//#include "external/drivedb.h"
+//
+//};
 
 static char* print_name(char *s, size_t len, uint8_t id, const char *k) {
 
@@ -20,7 +34,8 @@ static char* print_name(char *s, size_t len, uint8_t id, const char *k) {
 static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a, void* userdata)
 {
 	extern aconf *ac;
-	char *device = userdata;
+	drive_settings_extended *dse = userdata;
+	char *device = dse->device;
 	char name[32];
 	char tt[32], tw[32], tc[32];
 
@@ -32,6 +47,12 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 	tc[sizeof(tc)-1] = 0;
 
 	print_name(name, sizeof(name), a->id, a->name);
+
+    if (!strncmp(name, "attribute-", 10)) {
+        char *ident = drivedb_get_identificator(dse, a->id);
+        if (ident)
+            strlcpy(name, ident, 32);
+    }
 
 	//char *good_now = a->good_now ? "yes" : "no";
 	//char *good_now_valid = a->good_now_valid ? good_now : "n/a";
@@ -192,13 +213,18 @@ void ata_smart_parsing(SkDisk *d, char *device)
 
 
 	// smart parameters
-	if ((ret = sk_disk_smart_parse_attributes(d, disk_dump_attributes, device)) < 0)
+    drive_settings_extended *dse = drivedb_search(ac->drivedb, (char*)ipd->model);
+    if (!dse)
+        dse = calloc(1, sizeof(*dse));
+    strlcpy(dse->device, device, 255);
+	if ((ret = sk_disk_smart_parse_attributes(d, disk_dump_attributes, dse)) < 0)
 		return;
 }
 
-
 void get_ata_smart_info(char *device)
 {
+    if (!ac->drivedb)
+        ac->drivedb = drivedb_load();
 	int ret;
 	SkDisk *d;
 	SkBool from_blob = FALSE;

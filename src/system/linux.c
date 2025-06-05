@@ -23,7 +23,7 @@
 #include "parsers/firewall.h"
 #include "system/linux/parsers.h"
 #include "metric/labels.h"
-#include "common/smart.h"
+#include "smart/smart.h"
 #include "dstructures/ht.h"
 #include "events/context_arg.h"
 #include "common/logs.h"
