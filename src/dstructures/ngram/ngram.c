@@ -17,10 +17,10 @@ static inline int filter_node_compare(const void* arg, const void* obj) {
 }
 
 uint64_t ngram_add(ngram_index_t *ngram_table, const char* ngram, void *data) {
-	tommy_hashdyn* hash = &ngram_table->hash;
+	alligator_ht* hash = &ngram_table->hash;
 	unsigned int hash_val = tommy_strhash_u32(0, ngram);
 
-	ngram_node_t* node = tommy_hashdyn_search(hash, ngram_cmp, (void*)ngram, hash_val);
+	ngram_node_t* node = alligator_ht_search(hash, ngram_cmp, (void*)ngram, hash_val);
 	if (node) {
 		if (node->count == ngram_table->parts_in_node) {
 			fprintf(stderr, "ngram_add error: too much parts per node: '%s'\n", ngram);
@@ -38,7 +38,7 @@ uint64_t ngram_add(ngram_index_t *ngram_table, const char* ngram, void *data) {
 		node->data = calloc(1, ngram_table->parts_in_node * sizeof(void*));
 		node->data[node->count] = data;
 		node->count = 1;
-		tommy_hashdyn_insert(hash, &node->node, node, hash_val);
+		alligator_ht_insert(hash, &node->node, node, hash_val);
 	}
 
 	return node->count;
@@ -62,19 +62,17 @@ uint64_t ngram_token_add(ngram_index_t *ngram_table, uint8_t ngram_size, const c
 }
 
 int ngram_get_count(ngram_index_t *ngram_table, const char* ngram) {
-	tommy_hashdyn* hash = &ngram_table->hash;
-	//unsigned int hash_val = ngram_hash(ngram);
+	alligator_ht* hash = &ngram_table->hash;
 	unsigned int hash_val = tommy_strhash_u32(0, ngram);
 
-	ngram_node_t* node = tommy_hashdyn_search(hash, ngram_cmp, (void*)ngram, hash_val);
+	ngram_node_t* node = alligator_ht_search(hash, ngram_cmp, (void*)ngram, hash_val);
 	return node ? node->count : 0;
 }
 
 ngram_node_t *ngram_search(ngram_index_t *ngram_table, const char* ngram) {
-	tommy_hashdyn* hash = &ngram_table->hash;
-	//unsigned int sum = ngram_hash(ngram);
+	alligator_ht* hash = &ngram_table->hash;
 	unsigned int sum = tommy_strhash_u32(0, ngram);
-	ngram_node_t *entry = tommy_hashdyn_search(hash, ngram_cmp, ngram, sum);
+	ngram_node_t *entry = alligator_ht_search(hash, ngram_cmp, ngram, sum);
 	return entry;
 }
 
@@ -101,14 +99,8 @@ uint64_t ngram_token_search(ngram_index_t *ngram_table, ngram_node_t ***ret, uin
 	return j;
 }
 
-void tommy_hash_only_free(void* arg)
-{
-	free(arg);
-}
-
 ngram_node_t* ngram_filter(ngram_node_t **results, uint64_t size) {
-	tommy_hashdyn filter;
-	tommy_hashdyn_init(&filter);
+	alligator_ht *filter = alligator_ht_init(NULL);
 
 	uint64_t sum = 0;
 	for (uint64_t i = 0; i < size; ++i) {
@@ -122,66 +114,32 @@ ngram_node_t* ngram_filter(ngram_node_t **results, uint64_t size) {
 	for (uint64_t i = 0; i < size; ++i) {
 		for (uint64_t j = 0; j < results[i]->count; ++j) {
 			uint64_t addr = (uint64_t)results[i]->data[j];
-			filter_node_t *fn = tommy_hashdyn_search(&filter, filter_node_compare, (void*)addr, addr);
+			filter_node_t *fn = alligator_ht_search(filter, filter_node_compare, (void*)addr, addr);
 			if (!fn) {
 				filter_node_t *fn = calloc(1, sizeof(*fn));
 				fn->key = addr;
-				tommy_hashdyn_insert(&filter, &fn->node, fn, addr);
+				alligator_ht_insert(filter, &fn->node, fn, addr);
 				ret->data[k++] = results[i]->data[j];
 			}
 		}
 	}
 
-	tommy_hashdyn_foreach(&filter, tommy_hash_only_free);
-	tommy_hashdyn_done(&filter);
+	alligator_ht_forfree(filter, free);
+    free(filter);
 	ret->count = k;
 	return ret;
 }
-
-
-//uint64_t ngram_foreachfree(ngram_node_t **results, uint64_t size, ngram_node_t **ret) {
-//	tommy_hashdyn filter;
-//	tommy_hashdyn_init(&filter);
-//
-//	uint64_t sum = 0;
-//	for (uint64_t i = 0; i < size; ++i) {
-//		sum += results[i]->count;
-//	}
-//
-//	ngram_node_t *new = calloc(1, sizeof(*new));
-//	new->data = calloc(1, sum * sizeof(void*));
-//
-//	uint64_t k = 0;
-//	for (uint64_t i = 0; i < size; ++i) {
-//		for (uint64_t j = 0; j < results[i]->count; ++j) {
-//			uint64_t addr = (uint64_t)results[i]->data[j];
-//			filter_node_t *fn = tommy_hashdyn_search(&filter, filter_node_compare, (void*)addr, addr);
-//			if (!fn) {
-//				filter_node_t *fn = calloc(1, sizeof(*fn));
-//				fn->key = addr;
-//				tommy_hashdyn_insert(&filter, &fn->node, fn, addr);
-//				new->data[k++] = results[i]->data[j];
-//			}
-//		}
-//	}
-//
-//	tommy_hashdyn_foreach(&filter, tommy_hash_only_free);
-//	tommy_hashdyn_done(&filter);
-//	new->count = k;
-//	*ret = new;
-//	return k;
-//}
 
 void ngram_free(void *arg, ngram_index_t *ngram_table) {
 	ngram_node_t* node = arg;
 
 	for (uint64_t i = 0; i < node->count; ++i) {
 		uint64_t addr = (uint64_t)node->data[i];
-		filter_node_t *fn = tommy_hashdyn_search(&ngram_table->deleted, filter_node_compare, (void*)addr, addr);
+		filter_node_t *fn = alligator_ht_search(&ngram_table->deleted, filter_node_compare, (void*)addr, addr);
 		if (!fn) {
 			filter_node_t *fn = calloc(1, sizeof(*fn));
 			fn->key = addr;
-			tommy_hashdyn_insert(&ngram_table->deleted, &fn->node, fn, addr);
+			alligator_ht_insert(&ngram_table->deleted, &fn->node, fn, addr);
 			if (ngram_table->data_clear_func)
 				ngram_table->data_clear_func(node->data[i]);
 		}
@@ -200,15 +158,15 @@ void ngram_hash_free_node(void *funcfree, void* arg)
 }
 
 void ngram_clear(ngram_index_t *ngram_table, void *clear_func) {
-	tommy_hashdyn* hash = &ngram_table->hash;
+	alligator_ht* hash = &ngram_table->hash;
 	ngram_table->data_clear_func = clear_func;
-	tommy_hashdyn_init(&ngram_table->deleted);
+	alligator_ht_init(&ngram_table->deleted);
 
-	tommy_hashdyn_foreach_arg(hash, ngram_hash_free_node, ngram_table);
-	tommy_hashdyn_done(hash);
+	alligator_ht_foreach_arg(hash, ngram_hash_free_node, ngram_table);
+	alligator_ht_done(hash);
 
-	tommy_hashdyn_foreach(&ngram_table->deleted, tommy_hash_only_free);
-	tommy_hashdyn_done(&ngram_table->deleted);
+	alligator_ht_forfree(&ngram_table->deleted, free);
+	alligator_ht_done(&ngram_table->deleted);
 	free(ngram_table);
 }
 
@@ -220,7 +178,7 @@ void ngram_filter_free(ngram_node_t *filtered_results) {
 ngram_index_t *ngram_index_init(uint64_t parts_in_node) {
 	ngram_index_t *ngram_table = calloc(1, sizeof(*ngram_table));
 	ngram_table->parts_in_node = parts_in_node;
-	tommy_hashdyn_init(&ngram_table->hash);
+	alligator_ht_init(&ngram_table->hash);
 
 	return ngram_table;
 }

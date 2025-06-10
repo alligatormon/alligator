@@ -14,9 +14,9 @@ typedef struct filter_node_t {
 } filter_node_t;
 
 typedef struct ngram_index_t {
-	tommy_hashdyn hash;
+	alligator_ht hash;
 	uint64_t parts_in_node;
-	tommy_hashdyn deleted;
+	alligator_ht deleted;
 	void (*data_clear_func)(void*);
 } ngram_index_t;
 
