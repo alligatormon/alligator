@@ -183,6 +183,11 @@ entrypoint {
 }
 ```
 
+Another way to specify a TTL for each pushed request is to use the X-Expire-Time header. For instance, the following command creates a metric with a TTL of 1 day:
+```
+curl -sS -d "restore_test 1" -H "X-Expire-Time: 1d" 127.0.0.1:1111
+```
+
 More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
 
 

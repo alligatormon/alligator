@@ -29,6 +29,7 @@ int64_t from_human_get_size(const char *hrange, size_t hsize, uint64_t *cur) {
 	} else if (!strncasecmp(newptr, "w", 1)) {
 		ret *= 604800000;
 	} else {
+		ret *= 1000;
 		sz = 0;
 	}
 

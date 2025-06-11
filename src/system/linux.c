@@ -476,7 +476,7 @@ ulimit_pid_stat* get_pid_ulimit_stat(char *path)
 	return ups;
 }
 
-void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid) {
+void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid, int match) {
 	FILE *fd = fopen(file, "r");
 	if (!fd)
 		return;
@@ -501,7 +501,8 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 
 		if  ( !strncmp(key, "Threads", 7) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
+			if (match)
+				metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
 			if (threads)
 				*threads += (uint64_t)ival;
 		}
@@ -681,47 +682,57 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			state = t[2];
 			if (state == 'R')
 			{
-				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				if (match) {
+					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				}
 				++states->running;
 			}
 			else if (state == 'S')
 			{
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
-				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				if (match) {
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				}
 				++states->sleeping;
 			}
 			else if (state == 'D')
 			{
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
-				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				if (match) {
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				}
 				++states->uninterruptible;
 			}
 			else if (state == 'Z')
 			{
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
-				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				if (match) {
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				}
 				++states->zombie;
 			}
 			else if (state == 'T')
 			{
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
-				metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
-				metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				if (match) {
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
+					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "zombie");
+					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "stopped");
+				}
 				++states->stopped;
 			}
 
@@ -1033,7 +1044,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 		if (!lightweight)
 		{
 			snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
-			only_calculate_threads(dir, threads, procname, pid);
+			only_calculate_threads(dir, threads, procname, pid, match);
 		}
 		return 1;
 	}
@@ -1043,7 +1054,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 		if (match)
 		{
 			snprintf(dir, FILENAME_MAX, "%s/%s/status", ac->system_procfs, pid);
-			only_calculate_threads(dir, threads, procname, pid);
+			only_calculate_threads(dir, threads, procname, pid, match);
 		}
 		return 1;
 	}
@@ -1962,8 +1973,8 @@ void get_disk_io_stat()
 
 		int64_t read_bytes = stat[5] * sectorsize;
 		int64_t write_bytes = stat[9] * sectorsize;
-		int64_t io_w = stat[3];
-		int64_t io_r = stat[7];
+		int64_t io_w = stat[7];
+		int64_t io_r = stat[3];
 		int64_t disk_busy = stat[12]/1000;
 		metric_add_labels2("disk_io", &io_r, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_read");
 		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_write");
