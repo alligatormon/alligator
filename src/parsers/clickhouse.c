@@ -492,7 +492,10 @@ void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
 
 void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *carg)
 {
-	//printf("clickhouse_custom_execute_handler runned: %zu:\n%s\n", size, metrics);
+	if (!strncmp(metrics, "Code:", 5)) {
+		carglog(carg, L_ERROR, "clickhouse_custom_execute_handler error %zu:\n%s\n", size, metrics);
+		return;
+	}
 	uint64_t cur = 0;
 	char ch_field[CH_NAME_SIZE];
 
@@ -621,7 +624,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 
 string *clickhouse_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.1", env, proxy_settings, NULL));
 }
 
 string* clickhouse_system_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.metrics", env, proxy_settings); }

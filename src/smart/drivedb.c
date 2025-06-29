@@ -4,6 +4,7 @@
 #include <regex.h>
 #include "dstructures/ngram/ngram.h"
 #include "smart/drivedb.h"
+#include "common/selector.h"
 
 drive_settings builtin_knowndrives[] = {
 #include "drivedb.h"

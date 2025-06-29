@@ -45,7 +45,7 @@ typedef struct match_rules
 } match_rules;
 
 double double_get_next(char *buf, char *sep, uint64_t *cursor);
-int64_t str_get_next(char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor);
+int64_t str_get_next(const char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor);
 int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
 int64_t uint_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
 void selector_get_plain_metrics(char *m, size_t ms, char *sep, char *msep, char *prefix, size_t prefix_size);

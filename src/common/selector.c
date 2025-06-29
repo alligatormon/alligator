@@ -285,7 +285,7 @@ double double_get_next(char *buf, char *sep, uint64_t *cursor)
 	return ret;
 }
 
-int64_t str_get_next(char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor)
+int64_t str_get_next(const char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor)
 {
 	uint64_t end = strcspn(buf + *cursor, sep);
 	//printf("end is %"u64": '%s' (buf+%"u64"), find:('%s')\n", end, buf + *cursor, *cursor, sep);

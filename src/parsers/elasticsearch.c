@@ -12,6 +12,16 @@
 #include "common/validator.h"
 #include "main.h"
 
+int elasticsearch_check_for_error(context_arg *carg, json_t *root) {
+	json_t *error_json = json_object_get(root, "error");
+	if (!error_json)
+		return 0;
+	char *dvalue = json_dumps(error_json, JSON_INDENT(2));
+	carglog(carg, L_ERROR, "elasticsearch found error in ES response:\n%s\n", dvalue);
+	free(dvalue);
+	return 1;
+}
+
 void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
@@ -19,6 +29,11 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 	if (!root)
 	{
 		carglog(carg, L_ERROR, "elasticsearch_nodes_handler: json error on line %d: %s\n", error.line, error.text);
+		return;
+	}
+
+	int err = elasticsearch_check_for_error(carg, root);
+	if (err) {
 		return;
 	}
 
@@ -218,6 +233,11 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
+	int err = elasticsearch_check_for_error(carg, root);
+	if (err) {
+		return;
+	}
+
 	// get cluster name
 	json_t *cluster_name_json = json_object_get(root, "cluster_name");
 	char* cluster_name = (char*)json_string_value(cluster_name_json);
@@ -362,6 +382,12 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_ERROR, "elasticsearch_index_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
+
+	int err = elasticsearch_check_for_error(carg, root);
+	if (err) {
+		return;
+	}
+
 
 	char* cluster_name = es_data->cluster_name;
 
@@ -525,6 +551,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 	if (!es_data->cluster_name)
 		return;
 
+
 	char* cluster_name = es_data->cluster_name;
 
 	json_error_t error;
@@ -534,6 +561,12 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 		carglog(carg, L_ERROR, "elasticsearch_settings_handler: json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
+
+	int err = elasticsearch_check_for_error(carg, root);
+	if (err) {
+		return;
+	}
+
 
 	char string2[255];
 	char string3[255];
@@ -612,6 +645,12 @@ void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_ERROR, "elasticsearch_response_catch: json error on line %d: %s\n", error.line, error.text);
 			return;
 		}
+
+		int err = elasticsearch_check_for_error(carg, root);
+		if (err) {
+			return;
+		}
+
 
 		json_t *jtook = json_object_get(root, "took");
 		int64_t took = json_integer_value(jtook);

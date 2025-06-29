@@ -12,17 +12,28 @@
 #include "common/netlib.h"
 #include "cluster/type.h"
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/bio.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/pem.h>
+#include <openssl/x509v3.h>
+
+//
 #include "mbedtls/config.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/ssl.h"
+//
 #include "common/selector.h"
 #include "common/url.h"
 #include "common/patricia.h"
 #include "picohttpparser.h"
 #define ENTRYPOINT_RETURN_EMPTY 1
 #define ENTRYPOINT_AGGREGATION_COUNT 1
+enum ssl_mode { SSLMODE_SERVER, SSLMODE_CLIENT };
 
 typedef struct env_struct {
 	char *k;
@@ -98,7 +109,7 @@ typedef struct context_arg
 	alligator_ht *auth_bearer;
 	alligator_ht *auth_other;
 	char *body;
-	uint8_t body_readed;
+	uint8_t body_read;
 	patricia_t *net_tree_acl;
 	patricia_t *net6_tree_acl;
 
@@ -183,6 +194,7 @@ typedef struct context_arg
 	int loop_allocated;
 	uv_connect_t connect;
 	uv_write_t write_req;
+	uv_write_t write_tls;
 	uv_shutdown_t shutdown_req;
 	uv_udp_t udp_server;
 	uv_poll_t *poll;
@@ -204,13 +216,14 @@ typedef struct context_arg
 	uint8_t notify;
 	uint8_t state; // stream | begin | save
 
+	uint8_t is_http_query;
+	uint8_t follow_redirects;
+	uint8_t tls;
+	//
 	char is_async_writing;
 	char is_writing;
 	char is_write_error;
 	char is_closing;
-	uint8_t is_http_query;
-	uint8_t follow_redirects;
-	uint8_t tls;
 	mbedtls_ssl_context tls_ctx;
 	mbedtls_pk_context tls_key;
 	mbedtls_x509_crt tls_cert;
@@ -218,6 +231,12 @@ typedef struct context_arg
 	mbedtls_entropy_context tls_entropy;
 	mbedtls_ctr_drbg_context tls_ctr_drbg;
 	mbedtls_ssl_config tls_conf;
+	//
+	SSL_CTX *ssl_ctx;
+	SSL *ssl;
+	BIO *rbio;
+	BIO *wbio;
+	uint8_t tls_handshake_done;
 	char *tls_ca_file;
 	char *tls_cert_file;
 	char *tls_key_file;

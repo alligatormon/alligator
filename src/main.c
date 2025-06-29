@@ -10,6 +10,7 @@
 #include "events/system_scrape.h"
 #include "events/icmp.h"
 #include "events/udp.h"
+#include "events/tls.h"
 #include "common/aggregator.h"
 #include "metric/metric_dump.h"
 #include "events/filetailer.h"
@@ -320,6 +321,7 @@ int main(int argc, char **argv, char **envp)
 	parse_env(envp);
 
 	restore_settings();
+	tls_init();
 
 	log_init();
 	glog(L_OFF, "logger started\n");

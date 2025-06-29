@@ -48,11 +48,11 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 
 	print_name(name, sizeof(name), a->id, a->name);
 
-    if (!strncmp(name, "attribute-", 10)) {
-        char *ident = drivedb_get_identificator(dse, a->id);
-        if (ident)
-            strlcpy(name, ident, 32);
-    }
+	if (!strncmp(name, "attribute-", 10)) {
+		char *ident = drivedb_get_identificator(dse, a->id);
+		if (ident)
+			strlcpy(name, ident, 32);
+	}
 
 	//char *good_now = a->good_now ? "yes" : "no";
 	//char *good_now_valid = a->good_now_valid ? good_now : "n/a";
@@ -60,17 +60,17 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 	//char *good_in_the_past_valid = a->good_in_the_past_valid ? good_in_the_past : "n/a";
 
 	//printf("field: %3u %-27s %-3s   %-3s   %-3s   %llu 0x%02x%02x%02x%02x%02x%02x %-7s %-7s %-4s %-4s\n",
-	//       a->id,
-	//       name,
-	//       a->current_value_valid ? tc : "n/a",
-	//       a->worst_value_valid ? tw : "n/a",
-	//       a->threshold_valid ? tt : "n/a",
-	//       a->pretty_value,
-	//       a->raw[0], a->raw[1], a->raw[2], a->raw[3], a->raw[4], a->raw[5],
-	//       a->prefailure ? "prefail" : "old-age",
-	//       a->online ? "online" : "offline",
-	//       good_now_valid,
-	//       good_in_the_past_valid);
+	//	   a->id,
+	//	   name,
+	//	   a->current_value_valid ? tc : "n/a",
+	//	   a->worst_value_valid ? tw : "n/a",
+	//	   a->threshold_valid ? tt : "n/a",
+	//	   a->pretty_value,
+	//	   a->raw[0], a->raw[1], a->raw[2], a->raw[3], a->raw[4], a->raw[5],
+	//	   a->prefailure ? "prefail" : "old-age",
+	//	   a->online ? "online" : "offline",
+	//	   good_now_valid,
+	//	   good_in_the_past_valid);
 
 	char aid[4];
 	snprintf(aid, 4, "%u", a->id);
@@ -201,11 +201,11 @@ void ata_smart_parsing(SkDisk *d, char *device)
 
 	// device parameters
 		//printf("Model: [%s]\n"
-		//       "Serial: [%s]\n"
-		//       "Firmware: [%s]\n",
-		//       ipd->model,
-		//       ipd->serial,
-		//       ipd->firmware);
+		//	   "Serial: [%s]\n"
+		//	   "Firmware: [%s]\n",
+		//	   ipd->model,
+		//	   ipd->serial,
+		//	   ipd->firmware);
 
 	metric_add_labels2("smart_model", &vl, DATATYPE_INT, ac->system_carg, "device", device, "model", (char*)ipd->model);
 	metric_add_labels2("smart_serial", &vl, DATATYPE_INT, ac->system_carg, "device", device, "serial", (char*)ipd->serial);
@@ -213,18 +213,18 @@ void ata_smart_parsing(SkDisk *d, char *device)
 
 
 	// smart parameters
-    drive_settings_extended *dse = drivedb_search(ac->drivedb, (char*)ipd->model);
-    if (!dse)
-        dse = calloc(1, sizeof(*dse));
-    strlcpy(dse->device, device, 255);
+	drive_settings_extended *dse = drivedb_search(ac->drivedb, (char*)ipd->model);
+	if (!dse)
+		dse = calloc(1, sizeof(*dse));
+	strlcpy(dse->device, device, 255);
 	if ((ret = sk_disk_smart_parse_attributes(d, disk_dump_attributes, dse)) < 0)
 		return;
 }
 
 void get_ata_smart_info(char *device)
 {
-    if (!ac->drivedb)
-        ac->drivedb = drivedb_load();
+	if (!ac->drivedb)
+		ac->drivedb = drivedb_load();
 	int ret;
 	SkDisk *d;
 	SkBool from_blob = FALSE;
@@ -247,7 +247,7 @@ void get_ata_smart_info(char *device)
 			{
 				fprintf(stderr, "Failed to open file: %s\n", strerror(errno));
 				if (d)
-	       				sk_disk_free(d);
+		   			sk_disk_free(d);
 				return;
 			}
 		}
@@ -261,7 +261,7 @@ void get_ata_smart_info(char *device)
 		{
 			fprintf(stderr, "File too large for buffer.\n");
 			if (d)
-	       			sk_disk_free(d);
+	   			sk_disk_free(d);
 			return;
 		}
 
@@ -269,7 +269,7 @@ void get_ata_smart_info(char *device)
 		{
 			fprintf(stderr, "Failed to set blob: %s\n", strerror(errno));
 			if (d)
-	       			sk_disk_free(d);
+	   			sk_disk_free(d);
 			return;
 		}
 
@@ -284,7 +284,7 @@ void get_ata_smart_info(char *device)
 	}
 
 	ata_smart_parsing(d, device);
-       	if (d)
+	if (d)
 		sk_disk_free(d);
 }
 #endif

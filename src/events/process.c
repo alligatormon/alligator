@@ -18,7 +18,7 @@ extern aconf* ac;
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
-	carglog(carg, L_DEBUG, "Process %p with pid %d with cmd %s readed %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
+	carglog(carg, L_DEBUG, "Process %p with pid %d with cmd %s read %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
 
 	if (nread == -1)
 	{
