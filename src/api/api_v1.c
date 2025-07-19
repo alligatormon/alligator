@@ -489,6 +489,22 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					else if (str_handler && !strcmp(str_handler, "log"))
 						carg->parser_handler =  &log_handler;
 
+					json_t *json_cert = json_object_get(entrypoint, "tls_certificate");
+					char *str_cert = (char*)json_string_value(json_cert);
+					if (str_cert)
+						carg->tls_cert_file = strdup(str_cert);
+
+					json_t *json_tls_key = json_object_get(entrypoint, "tls_key");
+					char *str_tls_key = (char*)json_string_value(json_tls_key);
+					if (str_tls_key)
+						carg->tls_key_file = strdup(str_tls_key);
+
+					json_t *json_ca = json_object_get(entrypoint, "tls_ca");
+					char *str_ca = (char*)json_string_value(json_ca);
+					if (str_ca)
+						carg->tls_ca_file = strdup(str_ca);
+
+
 					carg->env = env_struct_parser(entrypoint);
 
 					json_t *allow = json_object_get(entrypoint, "allow");

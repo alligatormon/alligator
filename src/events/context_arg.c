@@ -29,6 +29,15 @@ context_arg *carg_copy(context_arg *src)
 	if (carg->lang)
 		carg->lang = strdup(src->lang);
 
+	if (carg->tls_ca_file)
+		carg->tls_ca_file = strdup(src->tls_ca_file);
+
+	if (carg->tls_cert_file)
+		carg->tls_cert_file = strdup(src->tls_cert_file);
+
+	if (carg->tls_key_file)
+		carg->tls_key_file = strdup(src->tls_key_file);
+
 	if (carg->namespace && carg->namespace_allocated)
 		carg->namespace = strdup(src->namespace);
 

@@ -219,19 +219,6 @@ typedef struct context_arg
 	uint8_t is_http_query;
 	uint8_t follow_redirects;
 	uint8_t tls;
-	//
-	char is_async_writing;
-	char is_writing;
-	char is_write_error;
-	char is_closing;
-	mbedtls_ssl_context tls_ctx;
-	mbedtls_pk_context tls_key;
-	mbedtls_x509_crt tls_cert;
-	mbedtls_x509_crt tls_cacert;
-	mbedtls_entropy_context tls_entropy;
-	mbedtls_ctr_drbg_context tls_ctr_drbg;
-	mbedtls_ssl_config tls_conf;
-	//
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	BIO *rbio;
@@ -247,10 +234,6 @@ typedef struct context_arg
 	uv_buf_t user_read_buf;
 	char ssl_read_buffer[EVENT_BUFFER];
 	char net_buffer_in[EVENT_BUFFER]; // preallocated buffer for uv alloc
-	unsigned int ssl_read_buffer_len;
-	unsigned int ssl_read_buffer_offset;
-	unsigned int ssl_write_offset;
-	unsigned int ssl_write_buffer_len;
 	char* ssl_write_buffer;
 	uv_buf_t request_buffer;
 	uv_buf_t response_buffer;

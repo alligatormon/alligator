@@ -32,7 +32,7 @@ void tcp_client_closed(uv_handle_t *handle)
 
 	if (carg->tls)
 	{
-		tls_client_cleanup(carg);
+		tls_client_cleanup(carg, 1);
 	}
 	carg->lock = 0;
 	string_null(carg->full_body);
@@ -70,6 +70,7 @@ void tcp_client_close(uv_handle_t *handle)
 
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
+		carg->close_time = setrtime();
 		if (carg->tls)
 		{
 			int ret = SSL_get_shutdown(carg->ssl);
@@ -221,10 +222,22 @@ int do_client_tls_handshake(context_arg *carg) {
 
 			return 1;
 		}
+		else if (r < 1) {
+			int err = SSL_get_error(carg->ssl, r);
+			if (err == SSL_ERROR_WANT_READ) {
+			} else if (err == SSL_ERROR_WANT_WRITE) {
+			} else {
+				char *err = openssl_get_error_string();
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+				free(err);
+
+				return -1;
+			}
+		}
 
 		size_t bio_read;
 		carg->write_buffer = uv_buf_init(calloc(1, EVENT_BUFFER), EVENT_BUFFER);
-		BIO_read_ex(carg->wbio, carg->write_buffer.base, EVENT_BUFFER, &bio_read);
+		r = BIO_read_ex(carg->wbio, carg->write_buffer.base, EVENT_BUFFER, &bio_read);
 		carg->write_buffer.len = bio_read;
 		uv_write(&carg->write_req, carg->connect.handle, &carg->write_buffer, 1, client_tcp_write_cb);
 
@@ -233,7 +246,7 @@ int do_client_tls_handshake(context_arg *carg) {
 		} else if (err == SSL_ERROR_WANT_WRITE) {
 		} else {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake send failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
 			free(err);
 
 			return -1;
@@ -263,7 +276,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	int handshaked = do_client_tls_handshake(carg);
 	if (handshaked > 0) {
 		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
-		tls_write(carg, carg->request_buffer.base, carg->request_buffer.len, client_tcp_write_cb);
+		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, client_tcp_write_cb);
 		tcp_connected(&carg->connect, 0);
 	} else if (!handshaked) {
 		string *buffer = string_new();
@@ -297,6 +310,12 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				tcp_client_close((uv_handle_t *)&carg->client);
 			}
 		}
+	}
+	else {
+		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
+		req->data = carg;
+		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_client_shutdown);
+		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 }
 

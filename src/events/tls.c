@@ -60,7 +60,9 @@ void ssl_info_callback(const SSL *ssl, int where, int ret) {
 int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const char *ca, const char * certfile, const char* keyfile, const char *servername, const char *crl)
 {
 	carg->ssl_ctx = SSL_CTX_new(TLS_method());
-	carg->ssl = SSL_new(carg->ssl_ctx);
+	if (mode == SSLMODE_CLIENT) {
+		carg->ssl = SSL_new(carg->ssl_ctx);
+	}
 	if (!carg->ssl_ctx) {
 		char buf[256];
 		strerror_r(errno, buf, sizeof(buf));
@@ -157,17 +159,13 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	SSL_CTX_set_min_proto_version(carg->ssl_ctx, TLS1_2_VERSION);
 	SSL_CTX_set_min_proto_version(carg->ssl_ctx, TLS1_3_VERSION);
 
-	if (mode == SSLMODE_SERVER)
-		SSL_set_accept_state(carg->ssl);
-	else if (mode == SSLMODE_CLIENT) {
-		SSL_set_connect_state(carg->ssl);
-	    carg->rbio = BIO_new(BIO_s_mem());
-	    carg->wbio = BIO_new(BIO_s_mem());
-	    SSL_set_bio(carg->ssl, carg->rbio, carg->wbio);
+	if (mode == SSLMODE_CLIENT) {
+	   carg->rbio = BIO_new(BIO_s_mem());
+	   carg->wbio = BIO_new(BIO_s_mem());
+	   SSL_set_bio(carg->ssl, carg->rbio, carg->wbio);
+	   SSL_set_connect_state(carg->ssl);
     }
 
-
-	SSL_CTX_set_verify(carg->ssl_ctx, SSL_VERIFY_PEER, NULL);
 
 	if (carg->log_level >= L_TRACE) {
 		SSL_CTX_set_info_callback(carg->ssl_ctx, ssl_info_callback);
@@ -282,14 +280,14 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 	OPENSSL_free(serial_str);
 }
 
-void tls_client_cleanup(context_arg *carg)
+void tls_client_cleanup(context_arg *carg, uint8_t clean_context)
 {
 	if (carg->ssl) {
 		SSL_free(carg->ssl);
 		carg->ssl = NULL;
 	}
 
-	if (carg->ssl_ctx) {
+	if (clean_context && carg->ssl_ctx) {
 		SSL_CTX_free(carg->ssl_ctx);
 		carg->ssl_ctx = NULL;
 	}
@@ -343,7 +341,10 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 	}
 }
 
-void tls_write(context_arg *carg, char *message, uint64_t len, void *callback) {
+void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback) {
+	if (!len)
+		return;
+
 	memset(&carg->write_tls, 0, sizeof(carg->write_tls));
 	carg->write_tls.data = carg;
 
@@ -364,5 +365,5 @@ void tls_write(context_arg *carg, char *message, uint64_t len, void *callback) {
 	carg->write_buffer = uv_buf_init(calloc(1, EVENT_BUFFER), EVENT_BUFFER);
 	carg->write_buffer.len = BIO_read(carg->wbio, carg->write_buffer.base, EVENT_BUFFER);
 	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64"/tls:%d)===================\n'%s'\n======\n", len, carg->write_buffer.len, message ? message : "");
-	uv_write(&carg->write_tls, carg->connect.handle, &carg->write_buffer, 1, callback);
+	uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
 }
