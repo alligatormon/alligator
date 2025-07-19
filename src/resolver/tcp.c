@@ -31,9 +31,8 @@ void resolver_close_tcp(uv_handle_t *handle)
 	carg->tt_timer->data = NULL;
 
 	carg->close_time = setrtime();
-	if (!uv_is_closing((uv_handle_t*)&carg->client) && !carg->is_closing)
+	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
-		carg->is_closing = 1;
 		uv_close((uv_handle_t*)&carg->client, resolver_closed_tcp);
 	}
 }
@@ -164,7 +163,6 @@ void resolver_connect_tcp(void *arg)
 
 	carg->lock = 1;
 	carg->parsed = 0;
-	carg->is_closing = 0;
 	carg->curr_ttl = carg->ttl;
 
 	resolver_init_client_timer(carg, resolver_timeout_tcp);
