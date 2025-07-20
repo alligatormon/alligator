@@ -1,6 +1,4 @@
 #include "context_arg.h"
-//#include "mbedtls/certs.h"
-//#include "mbedtls/debug.h"
 #include "events/uv_alloc.h"
 #include "events/debug.h"
 #include "events/fragmentation.h"
@@ -376,13 +374,6 @@ void tcp_connected(uv_connect_t* req, int status)
 	if(carg->tls)
 	{
 		carg->tls_connect_time_finish = setrtime();
-		//carg->is_write_error = 0;
-		//carg->ssl_write_buffer_len = carg->request_buffer.len;
-		//carg->ssl_write_buffer = carg->request_buffer.base;
-		//carg->ssl_read_buffer_len = 0;
-		//carg->ssl_read_buffer_offset = 0;
-		//carg->ssl_write_offset = 0;
-		//carg->is_async_writing = 0;
 	}
 	else
 	{

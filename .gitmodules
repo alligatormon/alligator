@@ -13,6 +13,3 @@
 [submodule "src/external/picohttpparser"]
 	path = src/external/picohttpparser
 	url = https://github.com/h2o/picohttpparser.git
-[submodule "src/external/mbedtls"]
-	path = src/external/mbedtls
-	url = https://github.com/Mbed-TLS/mbedtls.git

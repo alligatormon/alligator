@@ -29,12 +29,18 @@ entrypoint {
     ttl <time to live>;
     tcp <port>;
     tcp <addr>:<port>;
+    tls <port>;
+    tls <addr>:<port>;
     udp <port>;
+    udp <addr>:<port>;
     unixgram <path/to/socket>;
     unix <path/to/socket>;
     allow <CIDR>;
     deny <CIDR>;
     api [on|off];
+    tls_certificate <path>;
+    tls_key <path>;
+    tls_ca <path>;
     handler <handler>;
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
@@ -191,7 +197,7 @@ curl -sS -d "restore_test 1" -H "X-Expire-Time: 1d" 127.0.0.1:1111
 More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
 
 
-# tcp, udp, unix, unixgram
+# tcp, tls, udp, unix, unixgram
 Default: -\
 Plural: yes
 
@@ -289,6 +295,20 @@ Possible values:
 - off
 
 Enables or disables the ability to make PUT/POST request to the Alligator API for updating the runtime configuration. The API documentation is available in the [document](https://github.com/alligatormon/alligator/blob/master/doc/api.md)
+
+
+## tls\_certificate
+Default: -\
+Plural: no
+
+Specifies the path of the server x509 certificate.
+
+## tls\_key
+Default: -\
+Plural: no
+
+Specifies the path of the server x509 key.
+
 
 # handler
 Default: prometheus\

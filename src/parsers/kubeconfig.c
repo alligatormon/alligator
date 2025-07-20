@@ -6,7 +6,8 @@
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/base64.h"
-#include "x509/type.h"
+//#include "x509/type.h"
+#include "common/lcrypto.h"
 #include "events/fs_read.h"
 #include "main.h"
 void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
@@ -47,7 +48,7 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 			size_t outlen;
 			char *cert_decoded = base64_decode(cert, json_string_length(client_certificate_data), &outlen);
 			//printf("decoded cert is %s\n", cert_decoded);
-			pem_check_cert(cert_decoded, outlen-1, NULL, (char*)carg->filename);
+			libcrypto_pem_check_cert(cert_decoded, outlen-1, NULL, (char*)carg->filename);
 
 			free(cert_decoded);
 		}
@@ -59,7 +60,7 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 			if (carg->log_level > 0)
 				printf("> found client-certificate path: %s\n", cert_path);
 			char *filename = strdup(cert_path);
-			read_from_file(filename, 0, pem_check_cert, NULL);
+			read_from_file(filename, 0, libcrypto_pem_check_cert, NULL);
 		}
 	}
 

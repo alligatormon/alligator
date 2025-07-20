@@ -20,13 +20,6 @@
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
 
-//
-#include "mbedtls/config.h"
-#include "mbedtls/platform.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/ssl.h"
-//
 #include "common/selector.h"
 #include "common/url.h"
 #include "common/patricia.h"

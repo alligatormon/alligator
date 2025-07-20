@@ -1,5 +1,6 @@
 #include "events/context_arg.h"
 #include "common/logs.h"
+#include "common/lcrypto.h"
 #include "main.h"
 
 void tls_init()
@@ -172,112 +173,6 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	}
 
 	return 1;
-}
-
-
-int asn1_time_to_uint64(const ASN1_TIME *time, uint64_t *out) {
-    struct tm tm;
-    if (!ASN1_TIME_to_tm(time, &tm)) {
-        return 0;
-    }
-
-    time_t t = timegm(&tm);  // UTC
-    if (t == (time_t)-1) {
-        return 0;
-    }
-
-    *out = (uint64_t)t;
-    return 1;
-}
-void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host) {
-	if (!cert)
-		return;
-	X509_NAME *subject = X509_get_subject_name(cert);
-	char common_name[256] = { 0 };
-	X509_NAME_get_text_by_NID(subject, NID_commonName, common_name, sizeof(common_name));
-
-	alligator_ht *lbl = calloc(1, sizeof(*lbl));
-	alligator_ht_init(lbl);
-	labels_hash_insert_nocache(lbl, "cert", cert_name);
-	if (host)
-		labels_hash_insert_nocache(lbl, "host", host);
-
-	labels_hash_insert_nocache(lbl, "common_name", common_name);
-	carg_or_glog(carg, L_INFO, "cert: %s, common_name=%s\n", cert_name, common_name);
-
-	X509_NAME *issuer = X509_get_issuer_name(cert);
-	char issuer_str[256];
-	X509_NAME_oneline(issuer, issuer_str, sizeof(issuer_str));
-	labels_hash_insert_nocache(lbl, "issuer", issuer_str);
-	carg_or_glog(carg, L_INFO, "cert: %s, issuer: %s\n", cert_name, issuer_str);
-
-	STACK_OF(GENERAL_NAME) *san_names = NULL;
-	san_names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
-	if (san_names) {
-		char san_index[20];
-		int count = sk_GENERAL_NAME_num(san_names);
-		for (int i = 0; i < count; i++) {
-			const GENERAL_NAME *name = sk_GENERAL_NAME_value(san_names, i);
-			if (name->type == GEN_DNS) {
-				snprintf(san_index, 19, "san%d", i);
-				char *dns = (char *)ASN1_STRING_get0_data(name->d.dNSName);
-				labels_hash_insert_nocache(lbl, san_index, dns);
-				carg_or_glog(carg, L_INFO, "cert: %s, san: %s\n", cert_name, dns);
-			}
-		}
-		sk_GENERAL_NAME_pop_free(san_names, GENERAL_NAME_free);
-	}
-
-	ASN1_INTEGER *serial = X509_get_serialNumber(cert);
-	BIGNUM *bn = ASN1_INTEGER_to_BN(serial, NULL);
-	char *serial_str = BN_bn2hex(bn);
-	labels_hash_insert_nocache(lbl, "serial", serial_str);
-	carg_or_glog(carg, L_INFO, "cert: %s, serial: %s\n", cert_name, serial_str);
-
-	char buffer[256];
-    *buffer = 0;
-	if (X509_NAME_get_text_by_NID(subject, NID_countryName, buffer, sizeof(buffer)) > 0) {
-		labels_hash_insert_nocache(lbl, "country", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
-	}
-    *buffer = 0;
-	if (X509_NAME_get_text_by_NID(subject, NID_stateOrProvinceName, buffer, sizeof(buffer)) > 0) {
-		labels_hash_insert_nocache(lbl, "county", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
-	}
-    *buffer = 0;
-	if (X509_NAME_get_text_by_NID(subject, NID_organizationName, buffer, sizeof(buffer)) > 0) {
-		labels_hash_insert_nocache(lbl, "organization_unit", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
-	}
-    *buffer = 0;
-	if (X509_NAME_get_text_by_NID(subject, NID_organizationalUnitName, buffer, sizeof(buffer)) > 0) {
-		labels_hash_insert_nocache(lbl, "organization_name", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
-	}
-
-	const ASN1_TIME *notBefore = X509_get0_notBefore(cert);
-	const ASN1_TIME *notAfter  = X509_get0_notAfter(cert);
-	uint64_t valid_from, valid_to;
-	if (asn1_time_to_uint64(notBefore, &valid_from) && asn1_time_to_uint64(notAfter, &valid_to)) {
-		r_time now = setrtime();
-		int64_t expdays =  (valid_to-now.sec)/86400; 
-		carg_or_glog(carg, L_INFO, "cert: %s, complete for: %u.\n", cert_name, now.sec);
-		carg_or_glog(carg, L_INFO, "cert: %s, valid from: %"d64".\n", cert_name, valid_from);
-		carg_or_glog(carg, L_INFO, "cert: %s, %"d64" exp\n", cert_name, expdays);
-		carg_or_glog(carg, L_INFO, "cert: %s, version: %d\n", cert_name, X509_get_version(cert) + 1);
-		alligator_ht *notafter_lbl = labels_dup(lbl);
-		alligator_ht *expiredays_lbl = labels_dup(lbl);
-		metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
-		metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
-		metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
-	}
-	else {
-		carg_or_glog(carg, L_ERROR, "Failed to parse ASN1_TIME in cert: %s\n", cert_name);
-	}
-
-	BN_free(bn);
-	OPENSSL_free(serial_str);
 }
 
 void tls_client_cleanup(context_arg *carg, uint8_t clean_context)
