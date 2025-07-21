@@ -305,7 +305,7 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = stream->data;
 	context_arg *srv_carg = carg->srv_carg;
-	carglog(carg, L_OFF, "%"u64": tls server read %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, is_closing: %d, handshake over: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, uv_is_closing((uv_handle_t*)&carg->client), carg->tls_handshake_done);
+	carglog(carg, L_INFO, "%"u64": tls server read %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, is_closing: %d, handshake over: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, uv_is_closing((uv_handle_t*)&carg->client), carg->tls_handshake_done);
 	(srv_carg->tls_read_counter)++;
 	carg->tls_read_time_finish = setrtime();
 
@@ -319,9 +319,7 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 
 	BIO_write(carg->rbio, buf->base, nread);
 	int handshaked = do_tls_handshake_server(carg);
-	if (handshaked > 0) {
-		// nothing to do, only wait for the client request
-	} else if (!handshaked) {
+	if (handshaked >= 0) {
 		string *buffer = string_new();
 		int read_size = 0;
 		while ( 1 ) {

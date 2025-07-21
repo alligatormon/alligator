@@ -158,7 +158,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 
 
 	SSL_CTX_set_min_proto_version(carg->ssl_ctx, TLS1_2_VERSION);
-	SSL_CTX_set_min_proto_version(carg->ssl_ctx, TLS1_3_VERSION);
+	SSL_CTX_set_max_proto_version(carg->ssl_ctx, TLS1_3_VERSION);
 
 	if (mode == SSLMODE_CLIENT) {
 	   carg->rbio = BIO_new(BIO_s_mem());
