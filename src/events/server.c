@@ -15,10 +15,10 @@ extern aconf *ac;
 
 void server_tcp_write_cb(uv_write_t* req, int status) {
 	context_arg *carg = req->data;
-	if (status) {
+	if (status)
 		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
-	}
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	else
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;
@@ -41,6 +41,7 @@ void flush_tls_write(context_arg *carg, void *cb) {
 		carg->write_req.data = carg;
 		carg->write_buffer = uv_buf_init(out, bytes);
 		uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, cb);
+		free(out);
 	}
 }
 
@@ -281,7 +282,7 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		}
 		string_null(carg->full_body);
 		carg->buffer_response_size = str->m;
-		free(str);
+		string_free(str);
 	}
 	else if (nread >= 65536)
 	{
