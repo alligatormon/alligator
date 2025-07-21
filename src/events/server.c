@@ -278,11 +278,12 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 			}
 			else {
 				tls_write(carg, (uv_stream_t*)&carg->client, str->s, str->l, server_tcp_write_cb);
+				free(str->s);
 			}
 		}
 		string_null(carg->full_body);
 		carg->buffer_response_size = str->m;
-		string_free(str);
+		free(str);
 	}
 	else if (nread >= 65536)
 	{
