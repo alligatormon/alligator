@@ -75,7 +75,7 @@ void udp_server_run(void *passarg) {
 	if (carg->threads) {
 		carg->loop = malloc(sizeof *carg->loop);
 		carg->loop_allocated = 1;
-		uv_loop_init(carg->loop);
+		uv_loop_init(carg->loop); // TODO: need to be freed in carg_free
 	} else {
 		carg->loop = uv_default_loop();
 	}

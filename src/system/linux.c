@@ -501,7 +501,7 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 
 		if  ( !strncmp(key, "Threads", 7) )
 		{
-			if (match)
+			if (match > 0)
 				metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
 			if (threads)
 				*threads += (uint64_t)ival;
@@ -682,7 +682,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			state = t[2];
 			if (state == 'R')
 			{
-				if (match) {
+				if (match > 0) {
 					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
@@ -693,7 +693,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			}
 			else if (state == 'S')
 			{
-				if (match) {
+				if (match > 0) {
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
@@ -704,7 +704,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			}
 			else if (state == 'D')
 			{
-				if (match) {
+				if (match > 0) {
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 					metric_add_labels3("process_state", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
@@ -715,7 +715,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			}
 			else if (state == 'Z')
 			{
-				if (match) {
+				if (match > 0) {
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
@@ -726,7 +726,7 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 			}
 			else if (state == 'T')
 			{
-				if (match) {
+				if (match > 0) {
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "running");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "sleeping");
 					metric_add_labels3("process_state", &unval, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "uninterruptible");
@@ -1005,7 +1005,7 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 
 	fclose(fd);
 
-	int8_t match = 1;
+	int8_t match = -1;
 	if (need_match)
 	{
 		carglog(ac->system_carg, L_DEBUG, "%s check for match: '%s' by procname", __FUNCTION__, procname);

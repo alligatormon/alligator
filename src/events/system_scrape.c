@@ -49,5 +49,5 @@ void system_scrape_handler()
 	uv_timer_start(&ac->system_scrape_timer_fast, system_fast_scrape, 500, 1000);
 
 	uv_timer_init(loop, &ac->system_scrape_timer_slow);
-	uv_timer_start(&ac->system_scrape_timer_slow, system_slow_scrape, 10000, 250000);
+	uv_timer_start(&ac->system_scrape_timer_slow, system_slow_scrape, 4000, 250000);
 }

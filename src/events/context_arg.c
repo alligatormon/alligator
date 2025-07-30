@@ -1,4 +1,5 @@
 #include "events/context_arg.h"
+#include "events/tls.h"
 #include "main.h"
 #include "common/file_stat.h"
 #include "common/netlib.h"
@@ -144,6 +145,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->tls_cert_file)
 		free(carg->tls_cert_file);
+
+	if (carg->tls)
+		tls_client_cleanup(carg, 1);
 
 	if (carg->stdin_s)
 		free(carg->stdin_s);

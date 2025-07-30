@@ -61,14 +61,15 @@ void ssl_info_callback(const SSL *ssl, int where, int ret) {
 int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const char *ca, const char * certfile, const char* keyfile, const char *servername, const char *crl)
 {
 	carg->ssl_ctx = SSL_CTX_new(TLS_method());
-	if (mode == SSLMODE_CLIENT) {
-		carg->ssl = SSL_new(carg->ssl_ctx);
-	}
 	if (!carg->ssl_ctx) {
 		char buf[256];
 		strerror_r(errno, buf, sizeof(buf));
 		carglog(carg, L_ERROR, "SSL_new failed: %s\n", buf);
 		return 0;
+	}
+
+	if (mode == SSLMODE_CLIENT) {
+		carg->ssl = SSL_new(carg->ssl_ctx);
 	}
 
 	if (certfile && keyfile) {
@@ -257,8 +258,10 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 		}
 	}
 
-	carg->write_buffer = uv_buf_init(calloc(1, EVENT_BUFFER), EVENT_BUFFER);
-	carg->write_buffer.len = BIO_read(carg->wbio, carg->write_buffer.base, EVENT_BUFFER);
+    carg->write_buffer.len = BIO_get_mem_data(carg->wbio, &carg->write_buffer.base);
+
+	//carg->write_buffer = uv_buf_init(calloc(1, len*2), len*2);
+	//carg->write_buffer.len = BIO_read(carg->wbio, carg->write_buffer.base, len*2);
 	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64"/tls:%d)===================\n'%s'\n======\n", len, carg->write_buffer.len, message ? message : "");
 	uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
 }

@@ -195,13 +195,23 @@ void tcp_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
 	tcp_client_read_data(stream, nread, buf ? buf->base : NULL);
 }
 
-void client_tcp_write_cb(uv_write_t* req, int status) {
+void tls_client_written(uv_write_t* req, int status) {
 	context_arg *carg = req->data;
 	if (status) {
 		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
 	}
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	free(carg->write_buffer.base);
+	carg->write_buffer.len = 0;
+	carg->write_buffer.base = 0;
+}
+
+void tls_client_written_nofree(uv_write_t* req, int status) {
+	context_arg *carg = req->data;
+	if (status) {
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
+	}
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;
 }
@@ -237,7 +247,7 @@ int do_client_tls_handshake(context_arg *carg) {
 		carg->write_buffer = uv_buf_init(calloc(1, EVENT_BUFFER), EVENT_BUFFER);
 		r = BIO_read_ex(carg->wbio, carg->write_buffer.base, EVENT_BUFFER, &bio_read);
 		carg->write_buffer.len = bio_read;
-		uv_write(&carg->write_req, carg->connect.handle, &carg->write_buffer, 1, client_tcp_write_cb);
+		uv_write(&carg->write_req, carg->connect.handle, &carg->write_buffer, 1, tls_client_written);
 
 		int err = SSL_get_error(carg->ssl, r);
 		if (err == SSL_ERROR_WANT_READ) {
@@ -274,7 +284,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	int handshaked = do_client_tls_handshake(carg);
 	if (handshaked > 0) {
 		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
-		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, client_tcp_write_cb);
+		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written_nofree);
 		tcp_connected(&carg->connect, 0);
 	} else if (!handshaked) {
 		string *buffer = string_new();
