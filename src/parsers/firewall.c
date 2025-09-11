@@ -138,7 +138,8 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 						data_size = end - (data + j);
 
 					strlcpy(comment, data + j, data_size);
-					prometheus_metric_name_normalizer(comment, data_size - 1);
+					if (data_size)
+					    prometheus_metric_name_normalizer(comment, data_size - 1);
 				}
 
 				j += data_size;
