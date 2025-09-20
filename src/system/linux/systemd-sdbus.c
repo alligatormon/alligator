@@ -7,14 +7,11 @@
 #include "main.h"
 extern aconf *ac;
 
-int systemd_get_property(sd_bus *bus, char *property, char *expect, char *m_unit) {
+int systemd_get_property(sd_bus *bus, char *property, char *expect, char *path) {
 	sd_bus_error err = SD_BUS_ERROR_NULL;
 	char* msg;
 	int ret = 0;
 
-	char path[255];
-	*path = 0;
-	snprintf(path, 254, "/org/freedesktop/systemd1/unit/%s", m_unit);
 	int r = sd_bus_get_property_string(bus,
 		"org.freedesktop.systemd1",
 		path,
@@ -27,7 +24,7 @@ int systemd_get_property(sd_bus *bus, char *property, char *expect, char *m_unit
 	if (r < 0)
 	{
 		sd_bus_error_free(&err);
-		carglog(ac->system_carg, L_DEBUG, "Failed to get %s for service %s. Error: '%s'\n", property, m_unit, err.message);
+		carglog(ac->system_carg, L_DEBUG, "Failed to get %s for service %s. Error: '%s'\n", property, path, err.message);
 		return ret;
 	}
 
@@ -40,30 +37,6 @@ int systemd_get_property(sd_bus *bus, char *property, char *expect, char *m_unit
 	return ret;
 }
 
-uint16_t systemd_convert_name(char *dst, char *src) {
-	uint16_t j = 0;
-	for (uint16_t i = 0; src[i]; ++i) {
-		if (src[i] == '.') {
-			dst[j++] = '_';
-			dst[j++] = '2';
-			dst[j++] = 'e';
-		}
-		else if (src[i] == '-') {
-			dst[j++] = '_';
-			dst[j++] = '2';
-			dst[j++] = 'd';
-		}
-		else {
-			dst[j++] = src[i];
-		}
-	}
-
-	dst[j] = 0;
-
-	carglog(ac->system_carg, L_DEBUG, "systemd convert name from '%s' to '%s'\n", src, dst);
-	return j;
-}
-
 int systemd_check_service(char *service) {
 	sd_bus *bus = NULL;
 	int r;
@@ -74,9 +47,12 @@ int systemd_check_service(char *service) {
 		return 0;
 	}
 
-	char buf[255];
-	systemd_convert_name(buf, service);
-	int ret = systemd_get_property(bus, "ActiveState", "active", buf);
+	char *path;
+	sd_bus_path_encode("/org/freedesktop/systemd1/unit", service, &path);
+	carglog(ac->system_carg, L_DEBUG, "systemd converted name from '%s' to path '%s'\n", service, path);
+
+	int ret = systemd_get_property(bus, "ActiveState", "active", path);
+	free(path);
 
 	sd_bus_unref(bus);
 
