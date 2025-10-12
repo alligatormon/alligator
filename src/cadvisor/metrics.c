@@ -1005,6 +1005,7 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	uint64_t val;
 	uint64_t working_set = 0;
 	uint64_t memory_usage = 0;
+	uint64_t memory_rss = 0;
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.stat", ac->system_sysfs, cad_id);
 
 	FILE *fd = fopen(fpath, "r");
@@ -1023,25 +1024,31 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 		else if (!strncmp(buf, "pgfault", 7))
 			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgfault", kubenamespace, kubepod, kubecontainer, NULL);
 		else if (!strncmp(buf, "active_anon", 11)) {
-			add_cadvisor_metric_uint("container_memory_rss", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 			working_set += val;
 			memory_usage += val;
+			memory_rss += val;
 		}
-		else if (!strncmp(buf, "inactive_file", 13))
+		else if (!strncmp(buf, "inactive_anon", 13)) {
+			memory_usage += val;
+			memory_rss += val;
+			working_set += val;
+		}
+		else if (!strncmp(buf, "inactive_file", 13)) {
 			add_cadvisor_metric_uint("container_memory_cache", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
+			memory_usage += val;
+		}
 		else if (!strncmp(buf, "active_file", 11)) {
 			working_set += val;
 			memory_usage += val;
 		}
 		else if (!strncmp(buf, "pgmajfault", 10))
 			add_cadvisor_metric_uint("container_memory_failures_total", val, cntid, name, image, cad_id, "type", "pgmajfault", kubenamespace, kubepod, kubecontainer, NULL);
-		else if (!strncmp(buf, "workingset", 10))
-			working_set += val;
 	}
 	fclose(fd);
 
 	add_cadvisor_metric_uint("container_memory_working_set_bytes", working_set, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 	add_cadvisor_metric_uint("container_memory_usage_bytes", memory_usage, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
+	add_cadvisor_metric_uint("container_memory_rss", memory_rss, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.swap.max", ac->system_sysfs, cad_id);
 	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
