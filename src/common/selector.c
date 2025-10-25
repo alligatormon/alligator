@@ -233,6 +233,10 @@ int sisdigit(const char *str)
 	return 1;
 }
 
+uint64_t uint_min(uint64_t a, uint64_t b) {
+    return a > b ? b : a;
+}
+
 char *ltrim(char *s)
 {
 	while(isspace(*s)) s++;

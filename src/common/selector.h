@@ -82,6 +82,7 @@ void string_double(string *str, double d);
 void string_string_cat(string *str, string *src);
 void string_string_copy(string *dst, string *src);
 void string_merge(string *str, string *src);
+uint64_t uint_min(uint64_t a, uint64_t b);
 
 uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l);
 uint8_t string_tokens_string_push(string_tokens *st, string *str);
