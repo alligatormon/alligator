@@ -62,6 +62,8 @@ int prometheus_metric_name_normalizer(char *str, size_t sz)
 			continue;
 		else if (isdigit(str[i]))
 			continue;
+		else if (str[i] == 0)
+			return 1;
 		else
 			str[i] = '_';
 
@@ -76,6 +78,8 @@ int metric_name_normalizer(char *str, size_t sz)
 			continue;
 		else if (isdigit(str[i]))
 			continue;
+		else if (str[i] == 0)
+			return 1;
 		else
 			str[i] = '_';
 
