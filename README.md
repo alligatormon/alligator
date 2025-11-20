@@ -1,5 +1,5 @@
 <h1 align="center" style="border-bottom: none">
-    <img width="100" height="100" alt="Alligator" src="/doc/images/logo.jpeg"></a><br>Alligator
+    <img width="100" height="100" alt="Alligator" src="/doc/images/logo.png"></a><br>Alligator
 </h1>
 
 <p align="center">
