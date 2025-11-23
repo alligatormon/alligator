@@ -59,9 +59,15 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	if (an->work_dir)
 		work_dir = string_string_init_dup(an->work_dir);
 
+	int log_level = L_INFO;
+	if (an->dry_run) {
+		log_level = L_OFF;
+	}
 	if (!strncmp(an->expr, "exec://", 7))
 	{
-		aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, work_dir, NULL); // params pass for exec in stdin
+		glog(log_level, "run action exec %s with cmd: '%s' from directory '%s'\n", name, an->expr, work_dir);
+		if (!an->dry_run)
+			aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, work_dir, NULL); // params pass for exec in stdin
 	}
 	else if (!strncmp(an->expr, "http", 4))
 	{
@@ -80,7 +86,9 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				snprintf(key, 256, "%s:clickhouse_action_query:%"u64, hi->host, ms->str[i]->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
-				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+				glog(log_level, "run action clickhouse %s\n", name);
+				if (!an->dry_run)
+					aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -103,7 +111,9 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				printf("ms %s: %"u64"\n", ms->str[i]->s, ms->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
-				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+				glog(log_level, "run action pg %s\n", name);
+				if (!an->dry_run)
+					aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -125,7 +135,9 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, body);
 			free(body->s);
-			aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+			glog(log_level, "run action http %s\n", name);
+			if (!an->dry_run)
+				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
 			free(env);
@@ -139,7 +151,9 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			char pdata[255];
 			snprintf(pdata, 254, "{\"type\": \"insert\", \"db\": \"%s\"}", an->ns);
 			string *parser_data = string_init_dup(pdata);
-			lang_run(an->name, body, parser_data, NULL);
+			glog(log_level, "run action lang %s\n", name);
+			if (!an->dry_run)
+				lang_run(an->name, body, parser_data, NULL);
 			string_free(parser_data);
 		}
 	}
@@ -158,13 +172,17 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			char *pdata = json_dumps(cassandra_json, 0);
 			string *parser_data = string_init_dup(pdata);
 
-			lang_run(an->name, NULL, parser_data, NULL);
+			glog(log_level, "run action cassandra %s\n", name);
+			if (!an->dry_run)
+				lang_run(an->name, NULL, parser_data, NULL);
 			string_free(parser_data);
 		}
 	}
 	else
 	{
-		aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
+		if (!an->dry_run)
+			aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
 	}
 
 	if (ms)

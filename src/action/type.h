@@ -12,7 +12,6 @@ typedef struct action_node
 	char *ns;
 	string *work_dir;
 	int serializer;
-	//uint8_t type;
 	alligator_ht *af_hash;
 	//char *datasource;
 	context_arg *carg;
@@ -23,6 +22,7 @@ typedef struct action_node
 	uint8_t content_type_json;
 	void *parser;
 	char *parser_name;
+	uint8_t dry_run;
 
 	tommy_node node;
 } action_node;

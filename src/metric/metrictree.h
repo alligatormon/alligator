@@ -157,6 +157,8 @@ typedef struct query_struct {
 	char *key;
 	double val;
 	double lastvar;
+	uint64_t equal_hits;
+	uint64_t unequal_hits;
 	double min;
 	double max;
 	alligator_ht *lbl;
@@ -179,6 +181,6 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2);
 void labels_print(labels_t *labels, int l);
 void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color);
 int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count);
-void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash);
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash, double opval);
 int metric_name_match(labels_t *labels1, labels_t *labels2);
 void labels_head_free(labels_t *labels);

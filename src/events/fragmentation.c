@@ -8,15 +8,15 @@ extern aconf *ac;
 uint64_t chunk_calc(context_arg* carg, char *buf, ssize_t nread, uint8_t copying)
 {
 	size_t bufsz = nread;
-	carglog(carg, L_TRACE, "\n\n\n\n========bus is=====\n'%s'\n\t=====\n", buf);
+	carglog(carg, L_TRACE, "\n\n\n\n========buf is (%s) =====\n'%s'\n\t=====\n", carg->key, buf);
 	int ret = phr_decode_chunked(&carg->chunked_dec, buf, &bufsz);
-	carglog(carg, L_TRACE, "0phr_decode_chunked return: %d/%zu: %zu\n", ret, nread, bufsz);
+	carglog(carg, L_TRACE, "0phr_decode_chunked return(%s): %d/%zu: %zu\n", carg->key, ret, nread, bufsz);
 	if (bufsz)
 	{
-		carglog(carg, L_TRACE, "\n+++++ 1decoded: ++++\n'%s'\n++++end+++++\n", buf);
+		carglog(carg, L_TRACE, "\n+++++ 1decoded(%s): ++++\n'%s'\n++++end+++++\n", carg->key, buf);
 		if (copying)
 			string_cat(carg->full_body, buf, bufsz);
-		carglog(carg, L_TRACE, "\n+++++ 2decoded: ++++\n'%s'\n=======end=======\n\n\n\n", carg->full_body->s);
+		carglog(carg, L_TRACE, "\n+++++ 2decoded(%s): ++++\n'%s'\n=======end=======\n\n\n\n", carg->key, carg->full_body->s);
 	} else {
 		if (nread > bufsz) {
 			return nread;

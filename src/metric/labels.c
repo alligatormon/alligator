@@ -273,7 +273,7 @@ alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 	return lbl;
 }
 
-void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash)
+void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash, double opval)
 {
 	if (!labels_list)
 		return;
@@ -296,14 +296,29 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 		if (type == DATATYPE_INT) {
 			qs->val += x->i;
 			qs->lastvar = x->i;
+			if (opval == x->i) {
+				qs->equal_hits += 1;
+			} else {
+				qs->unequal_hits += 1;
+			}
 		}
 		else if (type == DATATYPE_UINT) {
 			qs->val += x->u;
 			qs->lastvar = x->u;
+			if (opval == x->u) {
+				qs->equal_hits += 1;
+			} else {
+				qs->unequal_hits += 1;
+			}
 		}
 		else if (type == DATATYPE_DOUBLE) {
 			qs->val += x->d;
 			qs->lastvar = x->d;
+			if (opval == x->d) {
+				qs->equal_hits += 1;
+			} else {
+				qs->unequal_hits += 1;
+			}
 		}
 
 		qs->min = qs->val;
@@ -1375,8 +1390,7 @@ void metric_gen_foreach_avg(void *funcarg, void* arg)
 
 	query_pass *qp = funcarg;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
+	glog(L_INFO, "qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
 
 	double avg = qs->val / qs->count;
 	metric_add(name, qs->lbl, &avg, DATATYPE_DOUBLE, ac->system_carg);
@@ -1395,7 +1409,7 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 {
 	if (!op) {
-		return 1;
+		return 0;
 	}
 
 	if (op == QUERY_OPERATOR_EQ)
@@ -1411,9 +1425,33 @@ uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 	else if (op == QUERY_OPERATOR_LE)
 		return val <= opval;
 
-	printf("query_struct_check_expr: unknown OP!!!\n");
-	return 1;
+	glog(L_ERROR, "query_struct_check_expr: unknown OP!!!\n");
+	return 0;
 }
+
+int query_struct_check_expr_none(metric_query_context *mqc, query_struct *qs)
+{
+	if (!mqc->op) {
+		return 0;
+	}
+
+	if (mqc->op == QUERY_OPERATOR_EQ)
+		return qs->equal_hits > 0;
+	else if (mqc->op == QUERY_OPERATOR_NE)
+		return qs->unequal_hits > 0;
+	else if (mqc->op == QUERY_OPERATOR_GT)
+		return qs->max > mqc->opval;
+	else if (mqc->op == QUERY_OPERATOR_LT)
+		return qs->min < mqc->opval;
+	else if (mqc->op == QUERY_OPERATOR_GE)
+		return qs->max >= mqc->opval;
+	else if (mqc->op == QUERY_OPERATOR_LE)
+		return qs->min < mqc->opval;
+
+	glog(L_ERROR, "query_struct_check_expr_none: unknown OP!!!\n");
+	return 0;
+}
+
 
 void metric_gen_foreach_min(void *funcarg, void* arg)
 {
@@ -1422,8 +1460,7 @@ void metric_gen_foreach_min(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, min: %lf, op: %d, opval: %lf\n", qs->key, qs->min, mqc->op, mqc->opval);
+	glog(L_INFO, "qs->key %s, min: %lf, op: %d, opval: %lf\n", qs->key, qs->min, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->min, mqc->opval))
 	{
@@ -1443,8 +1480,7 @@ void metric_gen_foreach_max(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, max: %lf, op: %d, opval: %lf\n", qs->key, qs->max, mqc->op, mqc->opval);
+	glog(L_INFO, "qs->key %s, max: %lf, op: %d, opval: %lf\n", qs->key, qs->max, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->max, mqc->opval))
 	{
@@ -1464,8 +1500,7 @@ void metric_gen_foreach_sum(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, val: %lf, op: %d, opval: %lf\n", qs->key, qs->val, mqc->op, mqc->opval);
+	glog(L_INFO, "qs->key %s, val: %lf, op: %d, opval: %lf\n", qs->key, qs->val, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->val, mqc->opval))
 	{
@@ -1485,8 +1520,7 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
+	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->count, mqc->opval))
 	{
@@ -1506,10 +1540,9 @@ void metric_gen_foreach_none(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	if (ac->log_level > 2)
-		printf("qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
+	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, min: %lf, max: %lf, equal: %"d64", unequal: %"d64", opval: %lf\n", qs->key, qs->count, mqc->op, qs->min, qs->max, qs->equal_hits, qs->unequal_hits, mqc->opval);
 
-	if (query_struct_check_expr(mqc->op, qs->lastvar, mqc->opval))
+	if (query_struct_check_expr_none(mqc, qs))
 	{
 		metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
 		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
@@ -1533,7 +1566,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 	if ( tree && tree->root)
 	{
 		alligator_ht *res_hash = alligator_ht_init(NULL);
-		metrictree_gen(tree, labels_list, mqc->groupkey, res_hash, labels_count);
+		metrictree_gen(tree, labels_list, mqc->groupkey, res_hash, labels_count, mqc->opval);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
 

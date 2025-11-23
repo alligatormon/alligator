@@ -9,6 +9,7 @@
 #include "cadvisor/run.h"
 #include "lang/type.h"
 #include "query/type.h"
+#include "grok/type.h"
 #include "common/netlib.h"
 #include "probe/probe.h"
 #include "scheduler/type.h"
@@ -253,6 +254,38 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					x509_push(x509);
+				}
+			}
+			if (!strcmp(key, "grok_patterns"))
+			{
+				if (json_typeof(value) == JSON_ARRAY) {
+					uint64_t grok_size = json_array_size(value);
+					ac->grok_patterns_path = string_tokens_new();
+					for (uint64_t i = 0; i < grok_size; i++)
+					{
+						json_t *grok = json_array_get(value, i);
+						const char *grok_patterns = json_string_value(grok);
+						string_tokens_push(ac->grok_patterns_path, strdup(grok_patterns), json_string_length(grok));
+					}
+					grok_patterns_init();
+				}
+				else
+					fprintf(stderr, "error, grok_patterns is not an array\n");
+			}
+			if (!strcmp(key, "grok"))
+			{
+				uint64_t grok_size = json_array_size(value);
+				for (uint64_t i = 0; i < grok_size; i++)
+				{
+					json_t *grok = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						grok_del(grok);
+						continue;
+					}
+
+					grok_push(grok);
 				}
 			}
 			if (!strcmp(key, "query"))

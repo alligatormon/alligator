@@ -23,6 +23,7 @@
 #include "resolver/resolver.h"
 #include "dstructures/ngram/ngram.h"
 #include "cadvisor/libvirt.h"
+#include "grok/type.h"
 #define d8 PRId8
 #define u8 PRIu8
 #define u16 PRIu16
@@ -182,6 +183,10 @@ typedef struct aconf
 	uv_timer_t cluster_timer;
 	tommy_list *uv_cache_timer;
 	tommy_list *uv_cache_fs;
+
+	alligator_ht* grok;
+	string_tokens *grok_patterns_path;
+	grok_pattern* grok_patterns;
 
 	int system_base;
 	int system_interrupts;

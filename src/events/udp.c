@@ -60,7 +60,7 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
 	}
 	carg->write_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": udp sended %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_INFO, "%"u64": udp sent %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	req->handle->data = req->data;
 

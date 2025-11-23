@@ -199,8 +199,14 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 
 	// get expression
 	str = strstr(query, "}");
-	if (!str)
+	if (!str) {
 		str = strstr(query, ")");
+		if (!str) {
+			size_t data_s = strcspn(query, "><=!");
+			if (data_s != size)
+				str = query + data_s;
+		}
+	}
 
 	if (str)
 	{

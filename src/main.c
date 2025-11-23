@@ -26,6 +26,7 @@
 #include "dstructures/ht.h"
 #include "system/common.h"
 #include "common/xxh.h"
+#include "parsers/multiparser.h"
 
 aconf *ac;
 
@@ -110,6 +111,8 @@ aconf* configuration()
 	ac->query = alligator_ht_init(NULL);
 	ac->query_startup = 5000;
 	ac->query_repeat = 10000;
+
+	ac->grok = alligator_ht_init(NULL);
 
 	ac->cluster_startup = 1500;
 	ac->cluster_reload = 10000;

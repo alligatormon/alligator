@@ -70,6 +70,10 @@ action {
 When the database have internal namespaces (e.g., databases in a Relational DB), this field specifies the name of that namespace.
 
 
+## dry\_run
+The dry-run option helps you find the best way to work with your own commands and queries without executing them.
+
+
 ## work\_dir
 Specifies the working directory to run external software using the command line.
 

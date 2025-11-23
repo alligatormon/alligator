@@ -52,6 +52,12 @@ void action_push(json_t *action)
 		an->engine = string_init_dupn((char*)json_string_value(jengine), json_string_length(jengine));
 	}
 
+	json_t *jdry_run = json_object_get(action, "dry_run");
+	if (json_is_true(jdry_run))
+	{
+		an->dry_run = 1;
+	}
+
 	json_t *jindex_template = json_object_get(action, "index_template");
 	if (jindex_template)
 	{

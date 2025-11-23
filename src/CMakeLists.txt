@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.149)
+set(VERSION 1.14.150)
 project(alligator VERSION ${VERSION})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -203,6 +203,10 @@ set(STATIC_FILES
 	query/del.c
 	query/get.c
 	query/promql.c
+	grok/grok.c
+	grok/push.c
+	grok/del.c
+	grok/get.c
 	action/action.c
 	action/push.c
 	action/del.c
@@ -324,7 +328,7 @@ add_library(${COMMON_TESTS} STATIC ${STATIC_FILES} ${SYSTEMD_FILES})
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_executable(${TESTS} tests/unit2/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} systemd dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libssl.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a)
+target_link_libraries(${TESTS} ${COMMON_TESTS} systemd dl libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libssl.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 add_test(Test1 "bin/alligator_tests" ".")
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
@@ -346,13 +350,13 @@ set_target_properties(${COMMON_TESTS} PROPERTIES
 ENDIF(NOT ${distro}.${disversion} MATCHES "centos.7")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} libuv_a.a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv_a.a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} libuv_a.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv.a picohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a)
+	target_link_libraries(${HEAD} ${COMMON} libuv_a.a libm.a kvm util libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv.a picohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libssl.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a)
+	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd libz.a libuv_a.a libpcre.a pthread libjansson.a m libatasmart.a -ludev libjemalloc.a libfyaml.a libpcre.a liblua.a libmruby.a libmruby_core.a libduktape.a libuuid.a libcrypto.a libssl.a libz.a libbsd.a libhv.a libpicohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 #add_executable(${JP} json_parser.c)

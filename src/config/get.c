@@ -507,6 +507,11 @@ void action_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "follow_redirects", follow_redirects);
 	}
 
+	if (an->dry_run)
+	{
+		json_array_object_insert(ctx, "dry_run", json_true());
+	}
+
 	if (an->serializer)
 	{
 		json_t *sertype = NULL;

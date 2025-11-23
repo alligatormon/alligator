@@ -13,6 +13,7 @@
 #include "lang/type.h"
 #include "dstructures/uv_cache.h"
 #include "system/common.h"
+#include "grok/type.h"
 #include "events/system_scrape.h"
 #include "events/a_signal.h"
 
@@ -37,6 +38,7 @@ void alligator_stop(char *sig, int code)
 	system_scrape_free();
 	resolver_stop();
 	lang_stop();
+	grok_stop();
 	alligator_cache_full_free(ac->uv_cache_timer);
 	alligator_cache_full_free(ac->uv_cache_fs);
 

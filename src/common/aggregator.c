@@ -306,6 +306,7 @@ void aggregate_ctx_init()
 	lang_parser_push();
 	nvidia_smi_parser_push();
 	cassandra_parser_push();
+	grok_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

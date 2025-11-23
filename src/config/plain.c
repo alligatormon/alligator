@@ -307,6 +307,25 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					json_t *arg_json = json_integer(num);
 					json_object_set_new(root, operator_name, arg_json);
 				}
+				else if (!strcmp(wstokens[i-1].token->s, "grok_patterns"))
+				{
+					json_t *grok_patterns_data = json_array();
+					json_object_set_new(root, operator_name, grok_patterns_data);
+
+						for (; i < token_count; i++)
+						{
+							if (wstokens[i].argument)
+							{
+								json_t *arg_value = json_string(wstokens[i].token->s);
+								json_array_object_insert(grok_patterns_data, NULL, arg_value);
+							}
+
+							if (wstokens[i].semicolon)
+							{
+								break;
+							}
+						}
+				}
 				else
 				{
 					json_t *arg_json = json_string(wstokens[i].token->s);
@@ -352,7 +371,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -703,6 +722,54 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									}
 									json_array_object_insert(operator_json, operator_name, arg_json);
 								}
+								else if (!strcmp(operator_name, "dry_run"))
+								{
+									json_t *arg_json;
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											if (!strcmp(wstokens[i].token->s, "true")) {
+												arg_json = json_true();
+											}
+											else {
+												arg_json = json_false();
+											}
+										}
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+									json_array_object_insert(operator_json, operator_name, arg_json);
+								}
+							}
+							else if (wstokens[i].argument)
+							{
+								strlcpy(arg_name, wstokens[i].token->s, 255);
+								arg_value = json_string(wstokens[i].token->s);
+								json_array_object_insert(operator_json, operator_name, arg_value);
+							}
+
+							if (wstokens[i].end)
+							{
+								break;
+							}
+						}
+						json_array_object_insert(context_json, operator_name, operator_json);
+					}
+					else if (!strcmp(context_name, "grok"))
+					{
+						operator_json = json_object();
+						char arg_name[255];
+						char operator_name[255];
+
+						for (; i < token_count; i++)
+						{
+							json_t *arg_value = NULL;
+							if (wstokens[i].operator)
+							{
+								strlcpy(operator_name, wstokens[i].token->s, 255);
 							}
 							else if (wstokens[i].argument)
 							{

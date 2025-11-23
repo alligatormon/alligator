@@ -430,21 +430,21 @@ void metric_str_build (char *namespace, string *str)
 	}
 }
 
-void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
+void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
 {
 	if (!x)
 		return;
 
 	if (!labels_match(sort_plan, x->labels, labels, labels_count))
 	{
-		labels_gen_metric(x->labels, 0, x, groupkey, hash);
+		labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
 	}
 
-	metrictree_gen_scan(x->steam[LEFT], sort_plan, labels, groupkey, hash, labels_count);
-	metrictree_gen_scan(x->steam[RIGHT], sort_plan, labels, groupkey, hash, labels_count);
+	metrictree_gen_scan(x->steam[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
+	metrictree_gen_scan(x->steam[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
 }
 
-void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count)
+void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
 {
 	pthread_rwlock_rdlock(tree->rwlock);
 	metric_node *x = tree->root;
@@ -458,9 +458,9 @@ void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, allig
 		else
 		{
 			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
-				labels_gen_metric(x->labels, 0, x, groupkey, hash);
-			metrictree_gen_scan(x->steam[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count);
-			metrictree_gen_scan(x->steam[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count);
+				labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
+			metrictree_gen_scan(x->steam[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->steam[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
 			break;
 		}
 	}

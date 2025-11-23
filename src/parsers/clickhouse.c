@@ -12,6 +12,7 @@
 #include "main.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 64
+#define CLICKHOUSE_ASYNC_METRIC_SIZE 1024
 #define CH_OTHER 0
 #define CH_FLOAT 1
 
@@ -32,9 +33,9 @@ typedef struct ch_table_kv {
 
 int ch_table_kv_compare(const void* arg, const void* obj)
 {
-        char *s1 = (char*)arg;
-        char *s2 = ((ch_table_kv*)obj)->key;
-        return strcmp(s1, s2);
+	char *s1 = (char*)arg;
+	char *s2 = ((ch_table_kv*)obj)->key;
+	return strcmp(s1, s2);
 }
 
 void table_struct_free(void *funcarg, void* arg)
@@ -51,14 +52,123 @@ void table_struct_free(void *funcarg, void* arg)
 
 void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_", 11, (void*)carg);
+	string *str = string_new();
+	char metric_name[CLICKHOUSE_ASYNC_METRIC_SIZE];
+	strlcpy(metric_name, "Clickhouse_System_", 19);
+	for (uint64_t i = 0; i < size; )
+	{
+		uint64_t len = strcspn(metrics + i, "\r\n");
+		if (!len)
+			break;
+
+		string_copy(str, metrics + i, len);
+
+		double value;
+
+		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-20);
+		strlcpy(metric_name + 18, str->s, metric_name_size+1);
+		if (!metric_name_validator(metric_name, metric_name_size)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+
+		metric_name_size += strspn(str->s + metric_name_size, " \t");
+		value = strtod(str->s + metric_name_size, NULL);
+		carglog(carg, L_DEBUG, "Clickhouse system metric from string: '%s', metric_name: '%s', value: '%lf'\n", str->s, metric_name, value);
+		metric_add_auto(metric_name, &value, DATATYPE_DOUBLE, carg);
+
+		i += len;
+		i += strspn(metrics + i, "\r\n");
+	}
+	string_free(str);
 	carg->parser_status = 1;
 }
 
 
 void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Asynchronous_", 24, (void*)carg);
+	string *str = string_new();
+	char metric_name[CLICKHOUSE_ASYNC_METRIC_SIZE];
+	strlcpy(metric_name, "Clickhouse_Asynchronous_", 25);
+	for (uint64_t i = 0; i < size; )
+	{
+		uint64_t len = strcspn(metrics + i, "\r\n");
+		if (!len)
+			break;
+		if (!strncmp(metrics+i, "OS", 2)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics+i, "Filesystem", 10)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "CPU", 3)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "Disk", 4)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "Block", 5)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "Network", 7)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "PSI", 3)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "CGroup", 6)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "Memory", 6)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		if (!strncmp(metrics + i, "LoadAverage", 11)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+
+		string_copy(str, metrics + i, len);
+
+		double value;
+
+		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-26);
+		strlcpy(metric_name + 24, str->s, metric_name_size+1);
+		if (!metric_name_validator(metric_name, metric_name_size)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+
+		metric_name_size += strspn(str->s + metric_name_size, " \t");
+		value = strtod(str->s + metric_name_size, NULL);
+		carglog(carg, L_DEBUG, "Clickhouse asynchronous metric from string: '%s', metric_name: '%s', size: '%zu', value: '%lf'\n", str->s, metric_name, metric_name_size, value);
+		metric_add_auto(metric_name, &value, DATATYPE_DOUBLE, carg);
+
+		i += len;
+		i += strspn(metrics + i, "\r\n");
+	}
+
+	string_free(str);
 	carg->parser_status = 1;
 }
 
@@ -624,7 +734,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 
 string *clickhouse_gen_url(host_aggregator_info *hi, char *addition, void *env, void *proxy_settings)
 {
-	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.1", env, proxy_settings, NULL));
+	return string_init_add_auto(gen_http_query(0, hi->query, addition, hi->host, "alligator", hi->auth, "1.0", env, proxy_settings, NULL));
 }
 
 string* clickhouse_system_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings) { return clickhouse_gen_url(hi, "/?query=select%20metric,value\%20from\%20system.metrics", env, proxy_settings); }
