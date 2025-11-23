@@ -3,18 +3,12 @@
 #include "main.h"
 extern aconf *ac;
 
-//void grok_field_clean_foreach(void *funcarg, void* arg)
-//{
-//	grok_field *qf = arg;
-//	free(qf->field);
-//}
-
 void grok_node_del(grok_node *gn)
 {
 	if (gn->name)
 		free(gn->name);
 	if (gn->match)
-        string_free(gn->match);
+		string_free(gn->match);
 	if (gn->labels)
 		labels_hash_free(gn->labels);
 

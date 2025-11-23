@@ -4,13 +4,13 @@
 #include <jansson.h>
 
 typedef struct grok_pattern_node {
-    char name[64];
-    char regex[256];
+	char name[64];
+	char regex[256];
 } grok_pattern_node;
 
 typedef struct grok_pattern {
-    grok_pattern_node *nodes;
-    size_t count;
+	grok_pattern_node *nodes;
+	size_t count;
 } grok_pattern;
 
 typedef struct grok_node
@@ -26,7 +26,7 @@ typedef struct grok_node
 typedef struct grok_ds
 {
 	char *key;
-    uint8_t pattern_applied;
+	uint8_t pattern_applied;
 	alligator_ht *hash;
 	tommy_node node;
 } grok_ds;
