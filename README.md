@@ -43,6 +43,7 @@ Alligator has many contexts for describing the collection data:
 - **cluster**: Configures the cluster using the node group
 - **puppeteer**: Configures the HTTP site stats collector using the puppeteer
 - **threaded_loop**: Configures thread pool with activated event loops for particular tasks
+- **grok**: Parse logs in metrics like Elasticsearch’s Grok parser.
 
 Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
 
@@ -209,3 +210,6 @@ Puppeteer enables the collector of site load statistics. In [this](https://githu
 
 ## Threaded loop
 Threaded loop enables the thread pools with activated event loops for particular tasks. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/threaded-loop.md).
+
+## Grok
+Enables parsing log entries into metrics using Elasticsearch-style Grok patterns. See the [detailed explanation](https://github.com/alligatormon/alligator/blob/master/doc/grok.md)
