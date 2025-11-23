@@ -38,7 +38,7 @@ void grok_set_values(grok_node *gn);
 int grok_del(json_t *grok);
 int grok_push(json_t *grok);
 void grok_stop();
-void grok_handler();
+void grok_handler(char *metrics, size_t size, context_arg *carg);
 int grok_compare(const void* arg, const void* obj);
 int grokds_compare(const void* arg, const void* obj);
 int grok_patterns_init();
