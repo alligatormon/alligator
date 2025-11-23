@@ -9,6 +9,7 @@
 #include "query/promql.h"
 #include "common/json_query.h"
 #include "action/type.h"
+#include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
 
