@@ -190,9 +190,6 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 ## Queries
 [Here](https://github.com/alligatormon/alligator/blob/master/doc/query.md) is an explanation of query context.
 
-## Actions
-Actions allows to run command on the system. How to use explained in the [documentation](https://github.com/alligatormon/alligator/blob/master/doc/action.md)
-
 ## Lang
 [Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is a way to run other software to collect metrics.
 
