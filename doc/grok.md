@@ -38,3 +38,29 @@ grok {
   match '%{TIMESTAMP}] %{WORD:process}';
 }
 ```
+
+Alternatively, you can use this as a local UDP endpoint that parses logs into metrics:
+```
+entrypoint {
+        udp 1112;
+        handler grok;
+        grok customword;
+}
+
+grok_patterns /etc/grok-patterns/patterns.conf;
+
+grok {
+  key customword;
+  name customword;
+  match '%{WORD:word}';
+}
+```
+
+You can test it as follows:
+```bash
+$ echo something | nc -u 0.0.0.0 1112
+^C
+$ curl -s localhost:1111 | grep custom
+customword {word="something"} 1.000000
+$
+```
