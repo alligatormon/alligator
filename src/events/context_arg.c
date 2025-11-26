@@ -42,6 +42,9 @@ context_arg *carg_copy(context_arg *src)
 	if (carg->namespace && carg->namespace_allocated)
 		carg->namespace = strdup(src->namespace);
 
+	if (carg->name)
+		carg->name = strdup(src->name);
+
 	carg->auth_bearer = http_auth_copy(src->auth_bearer);
 	carg->auth_basic = http_auth_copy(src->auth_basic);
 	carg->auth_other = http_auth_copy(src->auth_other);

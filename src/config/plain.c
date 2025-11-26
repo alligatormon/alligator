@@ -357,6 +357,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *metric_aggregation_entrypoint = NULL;
 			json_t *key_entrypoint = NULL;
 			json_t *return_entrypoint = NULL;
+			json_t *grok_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
 			json_t *auth_header_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
@@ -664,6 +665,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "return", return_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "grok"))
+					{
+						if (!grok_entrypoint)
+						{
+							++i;
+							grok_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "grok", grok_entrypoint);
+						}
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "auth"))
 					{
 						if (!auth_entrypoint)
@@ -724,16 +734,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								}
 								else if (!strcmp(operator_name, "dry_run"))
 								{
-									json_t *arg_json;
 									for (; i < token_count; i++)
 									{
 										if (wstokens[i].argument)
 										{
 											if (!strcmp(wstokens[i].token->s, "true")) {
-												arg_json = json_true();
+												json_array_object_insert(operator_json, operator_name, json_true());
 											}
 											else {
-												arg_json = json_false();
+												json_array_object_insert(operator_json, operator_name, json_false());
 											}
 										}
 										if (wstokens[i].semicolon)
@@ -741,7 +750,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 											break;
 										}
 									}
-									json_array_object_insert(operator_json, operator_name, arg_json);
 								}
 							}
 							else if (wstokens[i].argument)

@@ -125,7 +125,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 
 void grok_expand(string *src, string **dst, grok_pattern *patterns) {
 	if (!patterns) {
-		glog(L_ERROR, "No loaded grok patterns");
+		glog(L_ERROR, "No loaded grok patterns\n");
 		return;
 	}
 	*dst = string_init(src->l * 2);

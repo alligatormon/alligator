@@ -521,6 +521,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						carg->parser_handler =  &lang_parser_handler;
 					else if (str_handler && !strcmp(str_handler, "log"))
 						carg->parser_handler =  &log_handler;
+					else if (str_handler && !strcmp(str_handler, "grok"))
+						carg->parser_handler =  &grok_handler;
 
 					json_t *json_cert = json_object_get(entrypoint, "tls_certificate");
 					char *str_cert = (char*)json_string_value(json_cert);
@@ -536,6 +538,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					char *str_ca = (char*)json_string_value(json_ca);
 					if (str_ca)
 						carg->tls_ca_file = strdup(str_ca);
+
+					json_t *json_grok = json_object_get(entrypoint, "grok");
+					char *str_grok = (char*)json_string_value(json_grok);
+					if (str_grok)
+						carg->name = strdup(str_grok);
 
 
 					carg->env = env_struct_parser(entrypoint);

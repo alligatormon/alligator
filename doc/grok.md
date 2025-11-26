@@ -28,6 +28,9 @@ Users can override these defaults or add their own patterns by specifying additi
 The examples of usage will be provided in the documentation, which will appear soon.
 
 ```
+aggregate {
+    grok file:///var/log/dmesg name=dmesg state=stream;
+}
 grok_patterns /etc/grok-patterns/patterns.conf;
 grok {
   key dmesg;
