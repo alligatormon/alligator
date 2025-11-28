@@ -67,7 +67,7 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 
 		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-20);
 		strlcpy(metric_name + 18, str->s, metric_name_size+1);
-		if (!metric_name_validator(metric_name, metric_name_size)) {
+		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size) + 19) {
 			i += len;
 			i += strspn(metrics + i, "\r\n");
 			continue;
@@ -153,7 +153,7 @@ void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_
 
 		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-26);
 		strlcpy(metric_name + 24, str->s, metric_name_size+1);
-		if (!metric_name_validator(metric_name, metric_name_size)) {
+		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 25)) {
 			i += len;
 			i += strspn(metrics + i, "\r\n");
 			continue;
