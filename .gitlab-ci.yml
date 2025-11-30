@@ -132,7 +132,7 @@ deploy_centos7:
 
   - yum -y install epel-release https://acc.dl.osdn.jp/storage/g/c/cu/cutter/centos/cutter-release-1.3.0-1.noarch.rpm
   - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter libvirt-devel smartmontools
-  - update-smart-drivedb
+  - update-smart-drivedb --no-verify
   - ln -s /usr/bin/cmake3 /usr/bin/cmake
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -185,7 +185,7 @@ deploy_ubuntu2004:
   script:
   - apt update
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config libvirt-dev smartmontools
-  - update-smart-drivedb
+  - update-smart-drivedb --no-verify
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
