@@ -705,18 +705,22 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 			carg->curr_ttl = http_data->expire;
 
 		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg, counter_names);
-		if (carg)
+		if (carg) {
+			carg->push_accepted_lines += rc;
 			carg->parser_status = rc;
+		}
 	}
 
 	if (carg)
-		carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
+		carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", accepted %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, carg->push_accepted_lines, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
 
 	if (carg && !carg->no_metric)
 	{
 		metric_add_labels("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
 		metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
 		metric_add_labels("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
+		metric_add_labels("alligator_push_parsed_lines", &fgets_counter, DATATYPE_UINT, carg, "key", carg->key);
+		metric_add_labels("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
 	}
 
 	alligator_ht_foreach(counter_names, metric_datatype_foreach);

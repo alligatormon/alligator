@@ -536,6 +536,43 @@ void string_cat(string *str, char *strcat, size_t len)
 	str->s[str->l] = 0;
 }
 
+void string_vprintf(string *str, const char *fmt, va_list ap)
+{
+	if (!str || !fmt)
+		return;
+
+	va_list ap_copy;
+	va_copy(ap_copy, ap);
+	int needed = vsnprintf(NULL, 0, fmt, ap_copy);
+	va_end(ap_copy);
+
+	if (needed <= 0)
+		return;
+
+	if (str->l + (size_t)needed + 1 >= str->m) {
+
+		size_t new_size = str->m ? str->m : 64;
+		while (str->l + (size_t)needed + 1 >= new_size)
+			new_size *= 2;
+
+		string_new_size(str, new_size);
+	}
+
+	vsnprintf(str->s + str->l, str->m - str->l, fmt, ap);
+
+	str->l += (size_t)needed;
+	str->s[str->l] = '\0';
+}
+
+
+void string_sprintf(string *str, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	string_vprintf(str, fmt, ap);
+	va_end(ap);
+}
+
 void string_string_cat(string *str, string *src)
 {
 	size_t str_len = str->l;

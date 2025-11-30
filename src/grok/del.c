@@ -7,8 +7,14 @@ void grok_node_del(grok_node *gn)
 {
 	if (gn->name)
 		free(gn->name);
+	if (gn->value)
+		free(gn->value);
 	if (gn->match)
 		string_free(gn->match);
+	if (gn->reg)
+		onig_free(gn->reg);
+	if (gn->expanded_match)
+		string_free(gn->expanded_match);
 	if (gn->labels)
 		labels_hash_free(gn->labels);
 
@@ -67,18 +73,17 @@ void grok_foreach_done(void *funcarg, void* arg)
 
 	alligator_ht_foreach_arg(gps->hash, grok_node_foreach_done, NULL);
 	alligator_ht_done(gps->hash);
+	free(gps->key);
 	free(gps->hash);
 
-	//alligator_ht_foreach_arg(gn->qf_hash, grok_hash_foreach_done, NULL);
-	//alligator_ht_done(gn->qf_hash);
-	//free(gn->qf_hash);
-
-	//free(gn);
 	free(gps);
 }
 
 void grok_stop()
 {
+	string_tokens_free(ac->grok_patterns_path);
+	free(ac->grok_patterns->nodes);
+	free(ac->grok_patterns);
 	alligator_ht_foreach_arg(ac->grok, grok_foreach_done, NULL);
 	alligator_ht_done(ac->grok);
 	free(ac->grok);

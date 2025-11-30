@@ -174,6 +174,7 @@ typedef struct context_arg
 	uint64_t push_parsing_time;
 	uint64_t push_metric_time;
 	uint64_t push_split_data;
+	uint64_t push_accepted_lines;
 
 	void *data; // for parser-data
 	char *ns; // for parsers ns

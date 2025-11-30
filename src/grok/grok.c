@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <oniguruma.h>
 #include "main.h"
 #include "common/aggregator.h"
 #include "dstructures/tommy.h"
@@ -25,6 +24,8 @@ typedef struct grok_ctx_cb {
 	int value_set;
 	char metric_name[255];
 	grok_ds* gds;
+	grok_node *gn;
+	context_arg *carg;
 } grok_ctx_cb;
 
 int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *count) {
@@ -46,9 +47,10 @@ int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *cou
 	return 0;
 }
 
-void expand_grok_pattern(const char *src, char *dst, grok_pattern_node *patterns, int count) {
-	const char *p = src;
-	char *out = dst;
+int expand_grok_pattern(char *src, string *dst_pass, grok_pattern_node *patterns, int count, int recursive_call) {
+	char *p = src;
+	//char *out = dst_pass->s;
+	int expanded = 0;
 	while (*p) {
 		if (strncmp(p, "%{", 2) == 0) {
 			p += 2;
@@ -74,15 +76,43 @@ void expand_grok_pattern(const char *src, char *dst, grok_pattern_node *patterns
 				}
 			}
 
-			if (strlen(field) > 0)
-				out += sprintf(out, "(?<%s>%s)", field, regex);
+			if (strlen(field) > 0 && !recursive_call)
+				string_sprintf(dst_pass, "(?<%s>%s)", field, regex);
+				//out += sprintf(out, "(?<%s>%s)", field, regex);
 			else
-				out += sprintf(out, "(?:%s)", regex);
+				string_sprintf(dst_pass, "(?:%s)", regex);
+				//out += sprintf(out, "(?:%s)", regex);
+
+			++expanded;
 		} else {
-			*out++ = *p++;
+			string_cat(dst_pass, p++, 1);
+			//*out++ = *p++;
 		}
 	}
-	*out = '\0';
+	//*out = '\0';
+	//*size = out - dst_pass->s;
+	return expanded;
+}
+
+void grok_expand(string *src, string **dst, grok_pattern *patterns) {
+	if (!patterns) {
+		glog(L_ERROR, "No loaded grok patterns\n");
+		return;
+	}
+
+	int initialized = 0;
+	string *src_pass = src;
+	string *dst_pass = *dst;
+	int expanded = 1;
+	for (uint64_t i = 0; expanded != 0; ++i) {
+		dst_pass = string_init(src_pass->l * 2);
+		expanded = expand_grok_pattern(src_pass->s, dst_pass, patterns->nodes, patterns->count, i);
+		if (initialized)
+			string_free(src_pass);
+		src_pass = dst_pass;
+		initialized = 1;
+	}
+	*dst = src_pass;
 }
 
 static int print_named_group(const UChar *name, const UChar *name_end, int ngroup_num, int *group_nums, regex_t *reg, void *arg)
@@ -100,7 +130,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 			size_t name_len = name_end - name;
 			char *mname = (char*)name;
 			strlcpy(key, (char*)line + region->beg[gnum], key_len+1);
-			if (!strncmp(mname, "value", 5)) {
+			if (ctx->gn->value && !strcmp(mname, ctx->gn->value)) {
 				ctx->value_set = 1;
 				ctx->value = strtod(key, NULL);
 				continue;
@@ -123,16 +153,6 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 	return 0;
 }
 
-void grok_expand(string *src, string **dst, grok_pattern *patterns) {
-	if (!patterns) {
-		glog(L_ERROR, "No loaded grok patterns\n");
-		return;
-	}
-	*dst = string_init(src->l * 2);
-	expand_grok_pattern(src->s, (*dst)->s, patterns->nodes, patterns->count);
-	(*dst)->l = strlen((*dst)->s);
-}
-
 void grok_expand_free(char **src, size_t count) {
 	for (int i = 0; i < count; ++i) {
 		free(src[i]);
@@ -145,31 +165,41 @@ void grok_handler_callback(void *funcarg, void* arg)
 	grok_ctx_cb *ctx = (grok_ctx_cb*)funcarg;
 	grok_node *gn = arg;
 
-	regex_t *reg;
+	//regex_t *reg;
 	OnigErrorInfo einfo;
+ 
+	if (!gn->reg) {
+		int r = onig_new(&gn->reg, (UChar *)gn->expanded_match->s, (UChar *)(gn->expanded_match->s + gn->expanded_match->l), ONIG_OPTION_NONE, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT, &einfo);
+		printf("onig new is %d, normal %d: '%s'\n", r, ONIG_NORMAL, gn->expanded_match->s);
+		if (r != ONIG_NORMAL) {
+			carglog(ctx->carg, L_ERROR, "Onig is not normal regex: '%s'\n", gn->expanded_match->s);
+			return;
+		}
+	}
 
-	int r = onig_new(&reg, (UChar *)gn->expanded_match->s, (UChar *)(gn->expanded_match->s + gn->expanded_match->l), ONIG_OPTION_NONE, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT, &einfo);
-	if (r != ONIG_NORMAL)
-		return;
+	ctx->region = onig_region_new();
+	int r = onig_search(gn->reg, (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), ctx->region, ONIG_OPTION_NONE);
+	carglog(ctx->carg, L_TRACE, "matching line (%zu) (r: %d) '%s' with pattern '%s'\n", ctx->line->l, r, ctx->line->s, gn->expanded_match->s);
 
-	OnigRegion *region = onig_region_new();
-	r = onig_search(reg, (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), region, ONIG_OPTION_NONE);
-
-	ctx->region = region;
+	ctx->gn = gn;
 
 	if (r >= 0) {
 		ctx->lbl = alligator_ht_init(NULL);
-		onig_foreach_name(reg, print_named_group, ctx);
-		onig_region_free(ctx->region, 1);
+		onig_foreach_name(gn->reg, print_named_group, ctx);
 		if (!ctx->value_set)
 			ctx->value = 1;
 		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, NULL);
-		onig_free(reg);
+		//onig_free(reg);
+	} else if (r == ONIG_MISMATCH) {
+	} else {
+		char s[ONIG_MAX_ERROR_MESSAGE_LEN];
+		onig_error_code_to_str((UChar* )s, r);
+		carglog(ctx->carg, L_TRACE, "matching line ERROR: %s\n", s);
 		return;
 	}
 
-	onig_region_free(region, 1);
-	onig_free(reg);
+	onig_region_free(ctx->region, 1);
+	//onig_free(reg);
 }
 
 void grok_handler_initial_patterns(void *funcarg, void* arg)
@@ -192,21 +222,23 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 		gds->pattern_applied = 1;
 	}
 
-	grok_ctx_cb *ctx = malloc(sizeof(*ctx));
+	grok_ctx_cb *ctx = calloc(1, sizeof(*ctx));
 	for (uint64_t i = 0; i < size; ) {
 		size_t len = strcspn(metrics+i, "\n");
-		len += strspn(metrics+i, "\n");
 		memset(ctx, 0, sizeof(*ctx));
+		ctx->gds = gds;
+		ctx->carg = carg;
 		ctx->line = line;
 		string_cat(ctx->line, metrics+i, len);
-		ctx->gds = gds;
 		alligator_ht_foreach_arg(gds->hash, grok_handler_callback, ctx);
 
 		string_null(ctx->line);
 
 		i += len;
+		i += strspn(metrics+i, "\n");
 	}
 
+	free(ctx);
 	string_free(line);
 	carg->parser_status = 1;
 }

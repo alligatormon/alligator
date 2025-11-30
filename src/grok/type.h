@@ -1,4 +1,5 @@
 #pragma once
+#include <oniguruma.h>
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
 #include <jansson.h>
@@ -16,8 +17,10 @@ typedef struct grok_pattern {
 typedef struct grok_node
 {
 	char *name;
+	char *value;
 	string *match;
 	string *expanded_match;
+	regex_t *reg;
 	alligator_ht *labels;
 
 	tommy_node node;

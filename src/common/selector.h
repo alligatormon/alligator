@@ -63,6 +63,7 @@ string* string_init(size_t max);
 void string_cat(string *str, char *strcat, size_t len);
 void string_null(string *str);
 void string_number(string *str, void* value, int8_t type);
+void string_sprintf(string *str, const char *fmt, ...);
 int string_compare(string *str, char *cmp, uint64_t len);
 string* string_init_alloc(char *str, size_t max);
 string* string_init_add(char *str, size_t len, size_t max);
@@ -82,6 +83,7 @@ void string_double(string *str, double d);
 void string_string_cat(string *str, string *src);
 void string_string_copy(string *dst, string *src);
 void string_merge(string *str, string *src);
+void string_new_size(string *str, size_t len);
 uint64_t uint_min(uint64_t a, uint64_t b);
 
 uint8_t string_tokens_push(string_tokens *st, char *s, uint64_t l);
