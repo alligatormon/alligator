@@ -11,6 +11,4 @@ Check the service port in configuration file. The service is [typically](https:/
 
 ## Dashboard
 The aerospike dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-aerospike.json)
-<h1 align="center" style="border-bottom: none">
-    <img alt="Alligator aerospike dashboard" src="/doc/images/dashboard-aerospike.jpg"></a><br>aerospike dashboard
-</h1>
+<img alt="Alligator aerospike dashboard" src="/doc/images/dashboard-aerospike.jpg">
