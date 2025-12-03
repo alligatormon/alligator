@@ -136,3 +136,12 @@ system {
     log_level debug;
 }
 ```
+
+
+# Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-system.json)
+<h1 align="center" style="border-bottom: none">
+    <img width="100" height="100" alt="Alligator system dashboard" src="/doc/images/dashboard-system.jpg"></a><br>Alligator
+</h1>
+
+Additionally, the firewall dashboard is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-firewall.json)
