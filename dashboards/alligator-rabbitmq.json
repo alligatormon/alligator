@@ -1874,7 +1874,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_object_totals_connections{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }} connections",
+          "legendFormat": "{{ instance }} connections",
           "range": true,
           "refId": "B"
         },
@@ -1886,7 +1886,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_object_totals_consumers{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }} consumers",
+          "legendFormat": "{{ instance }} consumers",
           "range": true,
           "refId": "C"
         },
@@ -1898,7 +1898,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_object_totals_exchanges{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }} exchanges",
+          "legendFormat": "{{ instance }} exchanges",
           "range": true,
           "refId": "D"
         },
@@ -1910,7 +1910,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_object_totals_queues{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }} queues",
+          "legendFormat": "{{ instance }} queues",
           "range": true,
           "refId": "E"
         }
@@ -3256,7 +3256,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_queues_durable{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }}{{vhost}} {{name }} durable",
+          "legendFormat": "{{ instance }}{{vhost}} {{name }} durable",
           "range": true,
           "refId": "A"
         },
@@ -3268,7 +3268,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_queues_exclusive{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }}{{vhost}} {{name }} exclusive",
+          "legendFormat": "{{ instance }}{{vhost}} {{name }} exclusive",
           "range": true,
           "refId": "B"
         }
@@ -3583,7 +3583,7 @@
           "editorMode": "code",
           "expr": "rabbitmq_message_stats_disk_writes{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "{{ host }} writes",
+          "legendFormat": "{{ instance }} writes",
           "range": true,
           "refId": "B"
         }

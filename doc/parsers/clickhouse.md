@@ -84,7 +84,7 @@ action {
     engine ENGINE=MergeTree ORDER BY timestamp;
 }
 ```
-```
+
 
 ## Dashboard
 The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-clickhouse.json)

@@ -711,7 +711,7 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "/Time|__name__|hostgroup|instance|job|project|Value/"
+              "options": "/Time|__name__|instance|job|Value/"
             },
             "properties": [
               {
