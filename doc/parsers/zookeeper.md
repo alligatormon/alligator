@@ -1,6 +1,6 @@
-## Name Server Daemon (NSD)
+## Zookeeper
 
-To enable the collection of statistics from NSD, use the following option:
+To enable the collection of statistics from zookeeper, use the following option:
 ```
 aggregate {
     zookeeper tcp://127.0.0.1:2181;
@@ -32,3 +32,7 @@ query {
 	datasource internal;
 }
 ```
+
+## Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-zookeeper.json)
+<img alt="Dashboard" src="/doc/images/dashboard-zookeeper.jpg"><br>

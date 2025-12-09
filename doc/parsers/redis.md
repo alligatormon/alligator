@@ -29,3 +29,7 @@ query {
     make redis_query;
 }
 ```
+
+## Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-redis.json)
+<img alt="Dashboard" src="/doc/images/dashboard-redis.jpg"><br>

@@ -85,3 +85,7 @@ action {
 }
 ```
 ```
+
+## Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-clickhouse.json)
+<img alt="Dashboard" src="/doc/images/dashboard-clickhouse.jpg"><br>

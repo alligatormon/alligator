@@ -41,3 +41,7 @@ aggregate {
     json_query 'http://localhost:9200/_search?q=something';
 }
 ```
+
+## Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-elasticsearch.json)
+<img alt="Dashboard" src="/doc/images/dashboard-elasticsearch.jpg"><br>

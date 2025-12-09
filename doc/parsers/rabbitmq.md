@@ -40,3 +40,7 @@ query {
     datasource internal;
 }
 ```
+
+## Dashboard
+The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-rabbitmq.json)
+<img alt="Dashboard" src="/doc/images/dashboard-rabbitmq.jpg"><br>
