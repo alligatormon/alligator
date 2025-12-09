@@ -339,7 +339,7 @@
             "uid": "000000007"
           },
           "editorMode": "code",
-          "expr": "sum by (exported_role)(redis_role{instance=~\"$instance\"})",
+          "expr": "sum by (role)(redis_role{instance=~\"$instance\"})",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
