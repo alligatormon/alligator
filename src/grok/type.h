@@ -5,8 +5,8 @@
 #include <jansson.h>
 
 typedef struct grok_pattern_node {
-	char name[64];
-	char regex[256];
+	char name[1024];
+	char regex[65535];
 } grok_pattern_node;
 
 typedef struct grok_pattern {

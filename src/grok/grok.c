@@ -32,12 +32,12 @@ int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *cou
 	FILE *f = fopen(filename, "r");
 	if (!f) return -1;
 
-	char line[512];
+	char line[65535];
 
 	while (fgets(line, sizeof(line), f)) {
 		if (line[0] == '#' || strlen(line) < 2) continue;
-		char key[64], val[256];
-		if (sscanf(line, "%63s %255[^\n]", key, val) == 2) {
+		char key[1024], val[65535];
+		if (sscanf(line, "%1023s %65534[^\n]", key, val) == 2) {
 			strcpy(patterns[*count].name, key);
 			strcpy(patterns[*count].regex, val);
 			(*count)++;
