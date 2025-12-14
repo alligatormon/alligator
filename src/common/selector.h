@@ -93,6 +93,7 @@ void string_tokens_free(string_tokens *st);
 uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen);
 json_t* string_tokens_json(string_tokens *st);
+uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);

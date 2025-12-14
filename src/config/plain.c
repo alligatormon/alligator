@@ -364,6 +364,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *tls_certificate_entrypoint = NULL;
 			json_t *tls_key_entrypoint = NULL;
 			json_t *tls_ca_entrypoint = NULL;
+			json_t *grok_quantiles = NULL;
+			json_t *grok_buckets = NULL;
+			json_t *grok_le = NULL;
+			json_t *grok_counter = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -781,9 +785,110 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 							else if (wstokens[i].argument)
 							{
-								strlcpy(arg_name, wstokens[i].token->s, 255);
-								arg_value = json_string(wstokens[i].token->s);
-								json_array_object_insert(operator_json, operator_name, arg_value);
+								if (!strcmp(operator_name, "quantiles"))
+								{
+									json_t *quantiles_data = json_array();
+									if (!grok_quantiles)
+									{
+										grok_quantiles = json_array();
+										json_array_object_insert(operator_json, "quantiles", grok_quantiles);
+									}
+
+									json_array_object_insert(grok_quantiles, operator_name, quantiles_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(quantiles_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "buckets"))
+								{
+									json_t *buckets_data = json_array();
+									if (!grok_buckets)
+									{
+										grok_buckets = json_array();
+										json_array_object_insert(operator_json, "buckets", grok_buckets);
+									}
+
+									json_array_object_insert(grok_buckets, operator_name, buckets_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(buckets_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "le"))
+								{
+									json_t *le_data = json_array();
+									if (!grok_le)
+									{
+										grok_le = json_array();
+										json_array_object_insert(operator_json, "le", grok_le);
+									}
+
+									json_array_object_insert(grok_le, operator_name, le_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(le_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "counter"))
+								{
+									json_t *counter_data = json_array();
+									if (!grok_counter)
+									{
+										grok_counter = json_array();
+										json_array_object_insert(operator_json, "counter", grok_counter);
+									}
+
+									json_array_object_insert(grok_counter, operator_name, counter_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(counter_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								} else {
+									strlcpy(arg_name, wstokens[i].token->s, 255);
+									arg_value = json_string(wstokens[i].token->s);
+									json_array_object_insert(operator_json, operator_name, arg_value);
+								}
 							}
 
 							if (wstokens[i].end)

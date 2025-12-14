@@ -8,7 +8,9 @@
 #include "common/validator.h"
 #include "common/logs.h"
 #include "grok/type.h"
+#include "mapping/type.h"
 #include "common/http.h"
+#include "common/selector.h"
 
 #define MAX_PATTERNS 1024
 #define MAX_LINE_LEN 1024
@@ -23,9 +25,17 @@ typedef struct grok_ctx_cb {
 	double value;
 	int value_set;
 	char metric_name[255];
+	double *quantile_values;
+	double *bucket_values;
+	double *le_values;
+	double *counter_values;
 	grok_ds* gds;
 	grok_node *gn;
 	context_arg *carg;
+	uint64_t quantile_index;
+	uint64_t bucket_index;
+	uint64_t le_index;
+	uint64_t counter_index;
 } grok_ctx_cb;
 
 int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *count) {
@@ -115,6 +125,14 @@ void grok_expand(string *src, string **dst, grok_pattern *patterns) {
 	*dst = src_pass;
 }
 
+int grok_multimetric_hash_compare(const void* arg, const void* obj)
+{
+	char *s1 = (char*)arg;
+	char *s2 = ((grok_multimetric_node*)obj)->key;
+
+	return strcmp(s1, s2);
+}
+
 static int print_named_group(const UChar *name, const UChar *name_end, int ngroup_num, int *group_nums, regex_t *reg, void *arg)
 {
 	struct grok_ctx_cb *ctx = arg;
@@ -129,7 +147,9 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 			char key[key_len+1];
 			size_t name_len = name_end - name;
 			char *mname = (char*)name;
+			grok_multimetric_node *gmm_node = NULL;
 			strlcpy(key, (char*)line + region->beg[gnum], key_len+1);
+			uint32_t hash = tommy_strhash_u32(0, mname);
 			if (ctx->gn->value && !strcmp(mname, ctx->gn->value)) {
 				ctx->value_set = 1;
 				ctx->value = strtod(key, NULL);
@@ -138,6 +158,60 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 			else if (!strncmp(mname, "__name__", 5)) {
 				ctx->value_set = 1;
 				strlcpy(ctx->metric_name, key, 255);
+				continue;
+			}
+			else if (ctx->gds->gmm_quantile && (gmm_node = alligator_ht_search(ctx->gds->gmm_quantile, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->quantile_names)
+					ctx->gds->quantile_names = string_tokens_new();
+				if (!ctx->quantile_values)
+					ctx->quantile_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_quantile));
+				if ((index = string_tokens_check_or_add(ctx->gds->quantile_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
+					ctx->quantile_values[index-1] = strtod(key, NULL);
+				else
+					ctx->quantile_values[ctx->quantile_index] = strtod(key, NULL);
+				ctx->quantile_index++;
+				continue;
+			}
+			else if (ctx->gds->gmm_bucket && (gmm_node = alligator_ht_search(ctx->gds->gmm_bucket, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->bucket_names)
+					ctx->gds->bucket_names = string_tokens_new();
+				if (!ctx->bucket_values)
+					ctx->bucket_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_bucket));
+				if ((index = string_tokens_check_or_add(ctx->gds->bucket_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
+					ctx->bucket_values[index-1] = strtod(key, NULL);
+				else
+					ctx->bucket_values[ctx->bucket_index] = strtod(key, NULL);
+				ctx->bucket_index++;
+				continue;
+			}
+			else if (ctx->gds->gmm_le && (gmm_node = alligator_ht_search(ctx->gds->gmm_le, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->le_names)
+					ctx->gds->le_names = string_tokens_new();
+				if (!ctx->le_values)
+					ctx->le_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_le));
+				if ((index = string_tokens_check_or_add(ctx->gds->le_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
+					ctx->le_values[index-1] = strtod(key, NULL);
+				else
+					ctx->le_values[ctx->le_index] = strtod(key, NULL);
+				ctx->le_index++;
+				continue;
+			}
+			else if (ctx->gds->gmm_counter && (gmm_node = alligator_ht_search(ctx->gds->gmm_counter, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->counter_names)
+					ctx->gds->counter_names = string_tokens_new();
+				if (!ctx->counter_values)
+					ctx->counter_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_counter));
+				if ((index = string_tokens_check_or_add(ctx->gds->counter_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
+				{
+					ctx->counter_values[index-1] = strtod(key, NULL);
+				} else {
+					ctx->counter_values[ctx->counter_index] = strtod(key, NULL);
+				}
+				ctx->counter_index++;
 				continue;
 			}
 			metric_label_value_validator_normalizer(key, key_len);
@@ -170,7 +244,6 @@ void grok_handler_callback(void *funcarg, void* arg)
  
 	if (!gn->reg) {
 		int r = onig_new(&gn->reg, (UChar *)gn->expanded_match->s, (UChar *)(gn->expanded_match->s + gn->expanded_match->l), ONIG_OPTION_NONE, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT, &einfo);
-		printf("onig new is %d, normal %d: '%s'\n", r, ONIG_NORMAL, gn->expanded_match->s);
 		if (r != ONIG_NORMAL) {
 			carglog(ctx->carg, L_ERROR, "Onig is not normal regex: '%s'\n", gn->expanded_match->s);
 			return;
@@ -185,11 +258,30 @@ void grok_handler_callback(void *funcarg, void* arg)
 
 	if (r >= 0) {
 		ctx->lbl = alligator_ht_init(NULL);
+		ctx->quantile_index = 0;
+		ctx->bucket_index = 0;
+		ctx->counter_index = 0;
 		onig_foreach_name(gn->reg, print_named_group, ctx);
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_quantile); ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->quantile_names->str[i]->s, hash, &ctx->quantile_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_bucket); ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->bucket_names->str[i]->s, hash, &ctx->bucket_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_le); ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->le_names->str[i]->s, hash, &ctx->le_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_counter); ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->counter_names->str[i]->s, hash, &ctx->counter_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+
 		if (!ctx->value_set)
 			ctx->value = 1;
-		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, NULL);
-		//onig_free(reg);
+		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
 	} else if (r == ONIG_MISMATCH) {
 	} else {
 		char s[ONIG_MAX_ERROR_MESSAGE_LEN];
@@ -198,8 +290,43 @@ void grok_handler_callback(void *funcarg, void* arg)
 		return;
 	}
 
+	if (ctx->le_values) {
+		free(ctx->le_values);
+		ctx->le_values = NULL;
+	}
+	if (ctx->gds->le_names) {
+		string_tokens_free(ctx->gds->le_names);
+		ctx->gds->le_names = NULL;
+	}
+
+	if (ctx->bucket_values) {
+		free(ctx->bucket_values);
+		ctx->bucket_values = NULL;
+	}
+	if (ctx->gds->bucket_names) {
+		string_tokens_free(ctx->gds->bucket_names);
+		ctx->gds->bucket_names = NULL;
+	}
+
+	if (ctx->quantile_values) {
+		free(ctx->quantile_values);
+		ctx->quantile_values = NULL;
+	}
+	if (ctx->gds->quantile_names) {
+		string_tokens_free(ctx->gds->quantile_names);
+		ctx->gds->quantile_names = NULL;
+	}
+
+	if (ctx->counter_values) {
+		free(ctx->counter_values);
+		ctx->counter_values = NULL;
+	}
+	if (ctx->gds->counter_names) {
+		string_tokens_free(ctx->gds->counter_names);
+		ctx->gds->counter_names = NULL;
+	}
+
 	onig_region_free(ctx->region, 1);
-	//onig_free(reg);
 }
 
 void grok_handler_initial_patterns(void *funcarg, void* arg)
@@ -219,6 +346,7 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!gds->pattern_applied) {
 		alligator_ht_foreach_arg(gds->hash, grok_handler_initial_patterns, NULL);
+		carg->mm = mapping_copy(gds->mm);
 		gds->pattern_applied = 1;
 	}
 

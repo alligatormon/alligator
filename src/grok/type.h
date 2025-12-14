@@ -4,6 +4,13 @@
 #include "events/context_arg.h"
 #include <jansson.h>
 
+typedef struct grok_multimetric_node {
+	char *key;
+	string *metric_name;
+
+	tommy_node node;
+} grok_multimetric_node;
+
 typedef struct grok_pattern_node {
 	char name[1024];
 	char regex[65535];
@@ -30,7 +37,16 @@ typedef struct grok_ds
 {
 	char *key;
 	uint8_t pattern_applied;
+	mapping_metric *mm;
 	alligator_ht *hash;
+    alligator_ht *gmm_quantile;
+    string_tokens *quantile_names;
+    alligator_ht *gmm_bucket;
+    string_tokens *bucket_names;
+    alligator_ht *gmm_le;
+    string_tokens *le_names;
+    alligator_ht *gmm_counter;
+    string_tokens *counter_names;
 	tommy_node node;
 } grok_ds;
 

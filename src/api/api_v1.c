@@ -1,7 +1,6 @@
 #include <jansson.h>
 #include "main.h"
 #include "parsers/http_proto.h"
-#include "config/mapping.h"
 #include "common/url.h"
 #include "common/http.h"
 #include "x509/type.h"
@@ -16,7 +15,7 @@
 #include "common/mkdirp.h"
 #include "common/reject.h"
 #include "parsers/multiparser.h"
-#include "config/mapping.h"
+#include "mapping/type.h"
 #include "action/type.h"
 #include "events/context_arg.h"
 #include "events/server.h"

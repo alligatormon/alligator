@@ -23,6 +23,7 @@
 #include "common/selector.h"
 #include "common/url.h"
 #include "common/patricia.h"
+#include "mapping/type.h"
 #include "picohttpparser.h"
 #define ENTRYPOINT_RETURN_EMPTY 1
 #define ENTRYPOINT_AGGREGATION_COUNT 1

@@ -5,7 +5,7 @@
 #include "metric/expiretree.h"
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
-#include "common/mapping.h"
+#include "mapping/mapping.h"
 #include "query/promql.h"
 #include "common/json_query.h"
 #include "action/type.h"
@@ -870,6 +870,8 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 	{
 		mnode = metric_insert(tree, labels_list, type, value, expiretree, ttl);
 	}
+
+	mapping_processing(carg, mnode, metric_get_double(value, type));
 }
 
 void metric_update_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)

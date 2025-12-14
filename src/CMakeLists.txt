@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.153)
+set(VERSION 1.14.154)
 project(alligator VERSION ${VERSION})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -178,7 +178,7 @@ set(STATIC_FILES
 	common/json_query.c
 	common/pcre_parser.c
 	common/xml.c
-	common/mapping.c
+	mapping/mapping.c
 	common/netlib.c
 	common/deb.c
 	common/mkdirp.c
@@ -239,7 +239,7 @@ set(STATIC_FILES
 	config/env.c
 	config/parser.c
 	config/plain.c
-	config/mapping.c
+	mapping/type.c
 	config/get.c
 	dynconf/sd.c
 	lang/lang.c

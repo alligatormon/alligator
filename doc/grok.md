@@ -64,3 +64,19 @@ $ curl -s localhost:1111 | grep custom
 customword {word="something"} 1.000000
 $
 ```
+
+## Example with nginx:
+```
+aggregate {
+    grok file:///var/log/nginx-access.log name=nginx log_level=off;
+}
+
+grok {
+  key mf;
+  name nginx_log;
+  match '%{IPORHOST:client_ip} - %{DATA} \[%{HTTPDATE}\] "%{DATA:request}" %{NUMBER:status} %{NUMBER:bytes} "%{DATA}" "%{DATA}" utadr="%{DATA:upstream}" rt=%{DATA:response_time} ut="%{NUMBER:upstream_time}"';
+  counter nginx_log_response_bytes bytes;
+  quantiles nginx_log_response_time response_time 0.999 0.95 0.9;
+  le nginx_log_upstream_time upstream_time 500 1000 10000;
+}
+```

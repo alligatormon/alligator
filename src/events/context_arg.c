@@ -198,7 +198,7 @@ void carg_free(context_arg *carg)
 	patricia_free(carg->net6_tree_acl);
 	labels_hash_free(carg->labels);
 	// TODO: free carg->socket
-	// TODO: free carg->mm
+	mapping_free_recurse(carg->mm);
 
 	free(carg);
 }

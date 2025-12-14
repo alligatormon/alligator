@@ -1,6 +1,6 @@
 #include "common/selector.h"
 #include <string.h>
-#include "config/mapping.h"
+#include "mapping/type.h"
 
 int mapping_bucket_compare(const void *i, const void *j)
 {
@@ -139,4 +139,95 @@ void push_mapping_metric(mapping_metric *dest, mapping_metric *source)
 	for (; dest->next; dest = dest->next);
 	dest->next = source;
 	source->next = 0;
+}
+
+void mm_list(mapping_metric *dest)
+{
+	for (; dest; dest = dest->next) {
+		printf("mm(%p)->%p mm_list %s %s\n", dest, dest->next, dest->metric_name, dest->template);
+	}
+}
+
+mapping_metric* mapping_copy(mapping_metric *src)
+{
+	if (!src)
+		return NULL;
+
+	mapping_metric *mm = calloc(1, sizeof(*mm)), *ret_mm = mm;
+
+	for (; src; ) {
+		mm->metric_name = strdup(src->metric_name);
+		mm->template = strdup(src->template);
+
+		if (src->percentile_size)
+		{
+			mm->percentile_size = src->percentile_size;
+			mm->percentile = calloc(1, sizeof(int64_t) * src->percentile_size);
+			memcpy(mm->percentile, src->percentile, sizeof(int64_t) * src->percentile_size);
+		}
+
+		if (src->bucket_size)
+		{
+			mm->bucket_size = src->bucket_size;
+			mm->bucket = calloc(1, sizeof(int64_t) * src->bucket_size);
+			memcpy(mm->bucket, src->bucket, sizeof(int64_t) * src->bucket_size);
+		}
+
+		if (src->le_size)
+		{
+			mm->le_size = src->le_size;
+			mm->le = calloc(1, sizeof(int64_t) * src->le_size);
+			memcpy(mm->le, src->le, sizeof(int64_t) * src->le_size);
+		}
+
+		if (!src->next) {
+			break;
+		}
+
+		mm->next = calloc(1, sizeof(*mm));
+		mm = mm->next;
+		src = src->next;
+	}
+
+	return ret_mm;
+}
+
+void mapping_free(mapping_metric *src)
+{
+	if (!src)
+		return;
+
+	free(src->metric_name);
+	free(src->template);
+
+	if (src->percentile_size)
+	{
+		free(src->percentile);
+	}
+
+	if (src->bucket_size)
+	{
+		free(src->bucket);
+	}
+
+	if (src->le_size)
+	{
+		free(src->le);
+	}
+}
+
+void mapping_free_recurse(mapping_metric *src) {
+	if (!src)
+		return;
+
+	for (; src; ) {
+		mapping_metric *prev = src;
+		mapping_free(src);
+		if (!src->next) {
+			free(prev);
+			break;
+		}
+		src = src->next;
+		free(prev);
+	}
 }

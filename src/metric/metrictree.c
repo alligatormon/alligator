@@ -539,6 +539,9 @@ void metrictree_free(metric_node *x)
 		metrictree_free(x->steam[LEFT]);
 	if ( x->steam[RIGHT] )
 		metrictree_free(x->steam[RIGHT]);
+	if ( x->pb ) {
+        free_percentile_buffer(x->pb);
+    }
 	free (x);
 }
 

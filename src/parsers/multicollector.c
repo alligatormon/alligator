@@ -5,7 +5,7 @@
 #include "parsers/pushgateway.h"
 #include "parsers/http_proto.h"
 #include "common/reject.h"
-#include "config/mapping.h"
+#include "mapping/type.h"
 #include "common/http.h"
 #include "common/aggregator.h"
 #include "common/validator.h"

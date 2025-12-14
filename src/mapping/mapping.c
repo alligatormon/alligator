@@ -22,7 +22,7 @@ void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, dou
 			labels_hash_insert(hash, labels->name, labels->key);
 		}
 
-		if (dval < mm->bucket[i] && dval > pre_key)
+		if (dval < mm->bucket[i] && dval >= pre_key)
 		{
 			snprintf(bucketkey, 30, "%lg", mm->bucket[i]);
 			labels_hash_insert(hash, "bucket", bucketkey);
@@ -97,18 +97,28 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		return;
 
 	mapping_metric *mm = carg->mm;
+	for (; mm; ) {
+		if (strcmp(mnode->labels->key, mm->metric_name))
+		{
+			mm = mm->next;
+			continue;
+		}
 
-	if (mm->percentile)
-	{
-		if (!mnode->pb)
-			mnode->pb = init_percentile_buffer(mm->percentile, mm->percentile_size);
+		if (mm->percentile)
+		{
+			if (!mnode->pb)
+				mnode->pb = init_percentile_buffer(mm->percentile, mm->percentile_size);
 
-		heap_insert(mnode->pb, dval);
-		calc_percentiles(carg, mnode->pb, mnode, NULL, NULL);
+			//printf("inserted heap %p with dval %f\n", mnode->pb, dval);
+			heap_insert(mnode->pb, dval);
+			calc_percentiles(carg, mnode->pb, mnode, NULL, NULL);
+		}
+		else if (mm->le)
+			calc_buckets_cumulative(carg, mm, mnode, dval);
+		else if (mm->bucket)
+			calc_buckets(carg, mm, mnode, dval);
+
+		mm = mm->next;
 	}
-	else if (mm->le)
-		calc_buckets_cumulative(carg, mm, mnode, dval);
-	else if (mm->bucket)
-		calc_buckets(carg, mm, mnode, dval);
 }
 

@@ -823,6 +823,33 @@ uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l)
 	return 1;
 }
 
+uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l)
+{
+	if (!st)
+		return 0;
+
+	int found = 0;
+	for (uint64_t i = 0; i < st->l; ++i) {
+		if (!strncmp(st->str[i]->s, s, l))
+			found = 1;
+	}
+
+	if (found)
+		return 0;
+
+	if (!st->m)
+		string_tokens_scale(st);
+
+	if (st->m <= st->l)
+		string_tokens_scale(st);
+
+	st->str[st->l] = string_init_dupn(s, l);
+
+	++st->l;
+
+	return st->l;
+}
+
 string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
 {
 	string *joined = string_new();
