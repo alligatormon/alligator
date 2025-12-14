@@ -72,7 +72,7 @@ aggregate {
 }
 
 grok {
-  key mf;
+  key nginx;
   name nginx_log;
   match '%{IPORHOST:client_ip} - %{DATA} \[%{HTTPDATE}\] "%{DATA:request}" %{NUMBER:status} %{NUMBER:bytes} "%{DATA}" "%{DATA}" utadr="%{DATA:upstream}" rt=%{DATA:response_time} ut="%{NUMBER:upstream_time}"';
   counter nginx_log_response_bytes bytes;
