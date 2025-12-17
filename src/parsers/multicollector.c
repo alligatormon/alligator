@@ -4,6 +4,7 @@
 #include "main.h"
 #include "parsers/pushgateway.h"
 #include "parsers/http_proto.h"
+#include "events/context_arg.h"
 #include "common/reject.h"
 #include "mapping/type.h"
 #include "common/http.h"
@@ -15,20 +16,6 @@
 #include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
-
-typedef struct metric_datatypes {
-	char *key;
-	uint8_t type;
-
-	tommy_node node;
-} metric_datatypes;
-
-void metric_datatype_foreach(void *arg)
-{
-	metric_datatypes *dt = arg;
-	free(dt->key);
-	free(dt);
-}
 
 int metric_datatypes_compare(const void* arg, const void* obj)
 {
@@ -599,7 +586,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (cluster_pass(carg, metric_name, lbl, &value, DATATYPE_DOUBLE, data_type))
 	{
 		carg_or_glog(carg, L_TRACE, "metric went to the replication, don't need to make: %s\n", metric_name);
-        labels_hash_free(lbl);
+		labels_hash_free(lbl);
 		return 1;
 	}
 
@@ -633,7 +620,16 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		size = http_data->body_size;
 	}
 
-	alligator_ht *counter_names = alligator_ht_init(NULL);
+	alligator_ht *counter_names = NULL;
+	if (carg) {
+		counter_names = carg->counter_names;
+		if (!counter_names) {
+			counter_names = carg->counter_names = alligator_ht_init(NULL);
+		}
+	}
+	else {
+		counter_names = alligator_ht_init(NULL);
+	}
 	uint64_t fgets_counter = 0;
 
 	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, carg)) )
@@ -675,12 +671,38 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 					}
 					else if (!strncmp(tmp + cursor, "histogram", 9))
 					{
-						uint32_t key_hash = tommy_strhash_u32(0, metric_name);
-						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
+						char bucket_name[1024];
+						snprintf(bucket_name, 1023, "%s_bucket", metric_name);
+						uint32_t key_hash = tommy_strhash_u32(0, bucket_name);
+						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, bucket_name, key_hash);
 						if (!dt)
 						{
 							dt = calloc(1, sizeof(*dt));
-							dt->key = strdup(metric_name);
+							dt->key = strdup(bucket_name);
+							dt->type = METRIC_TYPE_HISTOGRAM;
+							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
+						}
+
+						char sum_name[1024];
+						snprintf(sum_name, 1023, "%s_sum", metric_name);
+						key_hash = tommy_strhash_u32(0, sum_name);
+						dt = alligator_ht_search(counter_names, metric_datatypes_compare, sum_name, key_hash);
+						if (!dt)
+						{
+							dt = calloc(1, sizeof(*dt));
+							dt->key = strdup(sum_name);
+							dt->type = METRIC_TYPE_HISTOGRAM;
+							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
+						}
+
+						char count_name[1024];
+						snprintf(count_name, 1023, "%s_count", metric_name);
+						key_hash = tommy_strhash_u32(0, count_name);
+						dt = alligator_ht_search(counter_names, metric_datatypes_compare, count_name, key_hash);
+						if (!dt)
+						{
+							dt = calloc(1, sizeof(*dt));
+							dt->key = strdup(count_name);
 							dt->type = METRIC_TYPE_HISTOGRAM;
 							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
 						}
@@ -723,9 +745,11 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		metric_add_labels("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
 	}
 
-	alligator_ht_foreach(counter_names, metric_datatype_foreach);
-	alligator_ht_done(counter_names);
-	free(counter_names);
+	if (!carg) {
+		alligator_ht_foreach(counter_names, metric_datatype_foreach);
+		alligator_ht_done(counter_names);
+		free(counter_names);
+	}
 }
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

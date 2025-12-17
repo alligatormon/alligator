@@ -30,13 +30,6 @@ Plural: yes
 Enables the separation of input metrics into multiple buckets.
 
 
-## le
-Default: -\
-Plural: yes
-
-Enables the separation of input metrics into multiple LE buckets.
-
-
 ## quantile
 Default: -\
 Plural: yes
@@ -49,6 +42,66 @@ Default: -\
 Plural: yes
 
 Adds additional metric counters for each log line.
+
+## splited_tags
+Default: -\
+Plural: no
+
+Specifies the splited labels (actual for nginx array-variables like $upstream_addr, $upstream_response_time and i.e)
+
+Format:
+```
+splited_tags <separator> [label1] [label2] ... [labelN];
+```
+
+
+## splited_inherit_tag
+Default: -\
+Plural: no
+
+Specifies the inherited labels from common level tags.
+
+Format:
+```
+splited_inherit_tag [label1] [label2] ... [labelN];
+```
+
+
+## splited_counter
+Default: -\
+Plural: yes
+
+Adds additional metric counters for each log line. It specially works for array-variables with separator specified by third argument.
+
+Format:
+```
+splited_counter <metric name> <label name> <separator>
+```
+
+
+## splited_quantiles
+Default: -\
+Plural: yes
+
+Enables the calculation of quantiles using the metric values. It specially works for array-variables with separator specified by third argument.
+
+Format:
+```
+splited_quantiles <metric name> <label name> <separator> [quantile1] [quantile2] ... [quantileN];
+```
+
+
+## splited_bucket
+Default: -\
+Plural: yes
+
+Enables the separation of input metrics into multiple buckets. It specially works for array-variables with separator specified by third argument.
+
+Format:
+```
+splited_bucket <metric name> <label name> <separator> [bucket1] [bucket2] ... [bucketN];
+```
+
 
 
 This context should be used together with the global grok\_patterns option:
@@ -111,9 +164,12 @@ aggregate {
 grok {
   key nginx;
   name nginx_log;
-  match '%{IPORHOST:client_ip} - %{DATA} \[%{HTTPDATE}\] "%{DATA:request}" %{NUMBER:status} %{NUMBER:bytes} "%{DATA}" "%{DATA}" utadr="%{DATA:upstream}" rt=%{DATA:response_time} ut="%{NUMBER:upstream_time}"';
+  match '%{IPORHOST:client_ip} - %{DATA} \[%{HTTPDATE}\] "%{DATA:request}" %{NUMBER:status} %{NUMBER:bytes} "%{DATA}" "%{DATA}" utadr="%{DATA:upstream_addr}" rt=%{DATA:response_time} ut="%{DATA:upstream_time}" us="%{WORD:upstream_status}';
   counter nginx_log_response_bytes bytes;
   quantiles nginx_log_response_time response_time 0.999 0.95 0.9;
-  le nginx_log_upstream_time upstream_time 500 1000 10000;
+
+  splited_tags ", " upstream_status upstream_addr;
+  splited_inherit_tag server_name;
+  splited_quantiles nginx_portal_upstream_response_time upstream_time ", " 0.5 0.75 0.9;
 }
 ```

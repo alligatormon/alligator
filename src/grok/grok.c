@@ -22,20 +22,27 @@ typedef struct grok_ctx_cb {
 	string *line;
 	OnigRegion *region;
 	alligator_ht *lbl;
+	alligator_ht *splited_lbl_inherited;
+	alligator_ht **splited_lbl;
+	uint64_t splited_lbl_size;
 	double value;
 	int value_set;
 	char metric_name[255];
 	double *quantile_values;
-	double *bucket_values;
 	double *le_values;
 	double *counter_values;
+	double *splited_quantile_values;
+	double *splited_le_values;
+	int64_t *splited_counter_values;
 	grok_ds* gds;
 	grok_node *gn;
 	context_arg *carg;
 	uint64_t quantile_index;
-	uint64_t bucket_index;
 	uint64_t le_index;
 	uint64_t counter_index;
+	uint64_t splited_quantile_index;
+	uint64_t splited_le_index;
+	uint64_t splited_counter_index;
 } grok_ctx_cb;
 
 int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *count) {
@@ -149,7 +156,20 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 			char *mname = (char*)name;
 			grok_multimetric_node *gmm_node = NULL;
 			strlcpy(key, (char*)line + region->beg[gnum], key_len+1);
+
 			uint32_t hash = tommy_strhash_u32(0, mname);
+
+			// splited inherit tags
+			if (ctx->gds->gmm_splited_inherit_tag && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_inherit_tag, grok_multimetric_hash_compare, mname, hash))) {
+				if (!ctx->gds->splited_inherit_tag_names)
+					ctx->gds->splited_inherit_tag_names = string_tokens_new();
+				if (!ctx->splited_lbl_inherited) {
+					ctx->splited_lbl_inherited = alligator_ht_init(NULL);
+				}
+
+				labels_hash_insert_nocache(ctx->splited_lbl_inherited, mname, key);
+			}
+
 			if (ctx->gn->value && !strcmp(mname, ctx->gn->value)) {
 				ctx->value_set = 1;
 				ctx->value = strtod(key, NULL);
@@ -160,6 +180,121 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 				strlcpy(ctx->metric_name, key, 255);
 				continue;
 			}
+			// splited tags
+			else if (ctx->gds->gmm_splited_tags && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_tags, grok_multimetric_hash_compare, mname, hash))) {
+				if (!ctx->gds->splited_tags_names)
+					ctx->gds->splited_tags_names = string_tokens_new();
+				int64_t index;
+				if ((index = string_tokens_check_or_add(ctx->gds->splited_tags_names, gmm_node->metric_name->s, gmm_node->metric_name->l))) {
+					string *skey = string_init_dupn(key, key_len);
+					string_tokens* st = string_tokens_split_any(skey, ctx->gds->separator->s);
+					if (st) {
+						if (!ctx->splited_lbl) {
+							ctx->splited_lbl = calloc(1, sizeof(alligator_ht*)*st->l);
+							ctx->splited_lbl_size = st->l;
+						}
+						for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+							if (ctx->splited_lbl[k] == NULL)
+								ctx->splited_lbl[k] = alligator_ht_init(NULL);
+							labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
+							carglog(ctx->carg, L_INFO, "add splited tag[%lu]: %s = %s\n", k, mname, st->str[k]->s);
+						}
+					}
+					string_tokens_free(st);
+					string_free(skey);
+				}
+				continue;
+			}
+			// splited quantile
+			else if (ctx->gds->gmm_splited_quantile && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_quantile, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->splited_quantile_names)
+					ctx->gds->splited_quantile_names = string_tokens_new();
+				if (!ctx->splited_quantile_values)
+					ctx->splited_quantile_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_splited_quantile));
+				if ((index = string_tokens_check_or_add(ctx->gds->splited_quantile_names, gmm_node->metric_name->s, gmm_node->metric_name->l))) {
+					ctx->splited_quantile_values[index-1] = strtod(key, NULL);
+					string *skey = string_init_dupn(key, key_len);
+					string_tokens* st = string_tokens_split_any(skey, ctx->gds->separator->s);
+					if (st) {
+						if (!ctx->splited_lbl) {
+							ctx->splited_lbl = calloc(1, sizeof(alligator_ht*)*st->l);
+							ctx->splited_lbl_size = st->l;
+						}
+						for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+							if (ctx->splited_lbl[k] == NULL)
+								ctx->splited_lbl[k] = alligator_ht_init(NULL);
+							//labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
+						}
+					}
+					string_tokens_free(st);
+					string_free(skey);
+				}
+				else
+					ctx->splited_quantile_values[ctx->splited_quantile_index] = strtod(key, NULL);
+				ctx->splited_quantile_index++;
+				continue;
+			}
+			// splited counter
+			else if (ctx->gds->gmm_splited_counter && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_counter, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->splited_counter_names)
+					ctx->gds->splited_counter_names = string_tokens_new();
+				if (!ctx->splited_counter_values)
+					ctx->splited_counter_values = calloc(1, sizeof(int64_t) * alligator_ht_count(ctx->gds->gmm_splited_counter));
+				if ((index = string_tokens_check_or_add(ctx->gds->splited_counter_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
+				{
+					ctx->splited_counter_values[index-1] = strtoll(key, NULL, 10);
+					string *skey = string_init_dupn(key, key_len);
+					string_tokens* st = string_tokens_split_any(skey, ctx->gds->separator->s);
+					if (st) {
+						if (!ctx->splited_lbl) {
+							ctx->splited_lbl = calloc(1, sizeof(alligator_ht*)*st->l);
+							ctx->splited_lbl_size = st->l;
+						}
+						for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+							if (ctx->splited_lbl[k] == NULL)
+								ctx->splited_lbl[k] = alligator_ht_init(NULL);
+							printf("\t1add label> '%s' = '%s'\n", mname, st->str[k]->s);
+							labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
+						}
+					}
+				} else {
+					ctx->counter_values[ctx->counter_index] = strtod(key, NULL);
+				}
+				ctx->counter_index++;
+				continue;
+			} // splited bucket
+			else if (ctx->gds->gmm_splited_le && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_le, grok_multimetric_hash_compare, mname, hash))) {
+				int64_t index;
+				if (!ctx->gds->splited_le_names)
+					ctx->gds->splited_le_names = string_tokens_new();
+				if (!ctx->splited_le_values)
+					ctx->splited_le_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_splited_le));
+				if ((index = string_tokens_check_or_add(ctx->gds->splited_le_names, gmm_node->metric_name->s, gmm_node->metric_name->l))) {
+					//ctx->splited_le_values[index-1] = strtod(key, NULL);
+					string *skey = string_init_dupn(key, key_len);
+					string_tokens* st = string_tokens_split_any(skey, ctx->gds->separator->s);
+					if (st) {
+						if (!ctx->splited_lbl) {
+							ctx->splited_lbl = calloc(1, sizeof(alligator_ht*)*st->l);
+							ctx->splited_lbl_size = st->l;
+						}
+						printf("mname %s = '%s'\n", mname, key);
+						//ctx->splited_lbl[k];
+						for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+							if (ctx->splited_lbl[k] == NULL)
+								ctx->splited_lbl[k] = alligator_ht_init(NULL);
+							//labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
+						}
+					}
+				}
+				else
+					ctx->splited_le_values[ctx->splited_le_index] = strtod(key, NULL);
+				ctx->splited_le_index++;
+				continue;
+			}
+			// quantile
 			else if (ctx->gds->gmm_quantile && (gmm_node = alligator_ht_search(ctx->gds->gmm_quantile, grok_multimetric_hash_compare, mname, hash))) {
 				int64_t index;
 				if (!ctx->gds->quantile_names)
@@ -173,19 +308,8 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 				ctx->quantile_index++;
 				continue;
 			}
-			else if (ctx->gds->gmm_bucket && (gmm_node = alligator_ht_search(ctx->gds->gmm_bucket, grok_multimetric_hash_compare, mname, hash))) {
-				int64_t index;
-				if (!ctx->gds->bucket_names)
-					ctx->gds->bucket_names = string_tokens_new();
-				if (!ctx->bucket_values)
-					ctx->bucket_values = calloc(1, sizeof(double) * alligator_ht_count(ctx->gds->gmm_bucket));
-				if ((index = string_tokens_check_or_add(ctx->gds->bucket_names, gmm_node->metric_name->s, gmm_node->metric_name->l)))
-					ctx->bucket_values[index-1] = strtod(key, NULL);
-				else
-					ctx->bucket_values[ctx->bucket_index] = strtod(key, NULL);
-				ctx->bucket_index++;
-				continue;
-			}
+
+			// simple bucket
 			else if (ctx->gds->gmm_le && (gmm_node = alligator_ht_search(ctx->gds->gmm_le, grok_multimetric_hash_compare, mname, hash))) {
 				int64_t index;
 				if (!ctx->gds->le_names)
@@ -199,6 +323,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 				ctx->le_index++;
 				continue;
 			}
+			// simple counter
 			else if (ctx->gds->gmm_counter && (gmm_node = alligator_ht_search(ctx->gds->gmm_counter, grok_multimetric_hash_compare, mname, hash))) {
 				int64_t index;
 				if (!ctx->gds->counter_names)
@@ -257,19 +382,15 @@ void grok_handler_callback(void *funcarg, void* arg)
 	ctx->gn = gn;
 
 	if (r >= 0) {
+		carglog(ctx->carg, L_INFO, "++++ grok_handler_callback loop ++++\n");
 		ctx->lbl = alligator_ht_init(NULL);
 		ctx->quantile_index = 0;
-		ctx->bucket_index = 0;
 		ctx->counter_index = 0;
+		ctx->le_index = 0;
+		ctx->splited_quantile_index = 0;
+		ctx->splited_counter_index = 0;
+		ctx->splited_le_index = 0;
 		onig_foreach_name(gn->reg, print_named_group, ctx);
-		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_quantile); ++i) {
-			alligator_ht *hash = labels_dup(ctx->lbl);
-			metric_update(ctx->gds->quantile_names->str[i]->s, hash, &ctx->quantile_values[i], DATATYPE_DOUBLE, ctx->carg);
-		}
-		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_bucket); ++i) {
-			alligator_ht *hash = labels_dup(ctx->lbl);
-			metric_update(ctx->gds->bucket_names->str[i]->s, hash, &ctx->bucket_values[i], DATATYPE_DOUBLE, ctx->carg);
-		}
 		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_le); ++i) {
 			alligator_ht *hash = labels_dup(ctx->lbl);
 			metric_update(ctx->gds->le_names->str[i]->s, hash, &ctx->le_values[i], DATATYPE_DOUBLE, ctx->carg);
@@ -278,9 +399,38 @@ void grok_handler_callback(void *funcarg, void* arg)
 			alligator_ht *hash = labels_dup(ctx->lbl);
 			metric_update(ctx->gds->counter_names->str[i]->s, hash, &ctx->counter_values[i], DATATYPE_DOUBLE, ctx->carg);
 		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_quantile); ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->quantile_names->str[i]->s, hash, &ctx->quantile_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_splited_counter); ++i) {
+			for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+				alligator_ht *hash = labels_dup(ctx->splited_lbl[k]);
+				labels_merge(hash, ctx->splited_lbl_inherited);
+				metric_update(ctx->gds->splited_counter_names->str[i]->s, hash, &ctx->splited_counter_values[i], DATATYPE_INT, ctx->carg);
+			}
+
+			char count_name[1024];
+			snprintf(count_name, 1023, "%s_count", ctx->gds->splited_counter_names->str[i]->s);
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(count_name, hash, &ctx->splited_lbl_size, DATATYPE_UINT, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_splited_le) && ctx->gds->splited_le_names; ++i) {
+			alligator_ht *hash = labels_dup(ctx->lbl);
+			metric_update(ctx->gds->splited_le_names->str[i]->s, hash, &ctx->splited_le_values[i], DATATYPE_DOUBLE, ctx->carg);
+		}
+		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_splited_quantile) && ctx->gds->splited_quantile_names; ++i) {
+			//alligator_ht *hash = labels_dup(ctx->lbl);
+			for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+				alligator_ht *hash = labels_dup(ctx->splited_lbl[k]);
+				labels_merge(hash, ctx->splited_lbl_inherited);
+				metric_add(ctx->gds->splited_quantile_names->str[i]->s, hash, &ctx->splited_quantile_values[i], DATATYPE_DOUBLE, ctx->carg);
+			}
+		}
 
 		if (!ctx->value_set)
 			ctx->value = 1;
+		carglog(ctx->carg, L_INFO, "add metric %s = %f\n", gn->name, ctx->value);
 		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
 	} else if (r == ONIG_MISMATCH) {
 	} else {
@@ -288,6 +438,14 @@ void grok_handler_callback(void *funcarg, void* arg)
 		onig_error_code_to_str((UChar* )s, r);
 		carglog(ctx->carg, L_TRACE, "matching line ERROR: %s\n", s);
 		return;
+	}
+
+	if (ctx->splited_lbl_size) {
+		for (uint64_t k = 0; k < ctx->splited_lbl_size; ++k) {
+			labels_hash_free(ctx->splited_lbl[k]);
+		}
+		ctx->splited_lbl_size = 0;
+		free(ctx->splited_lbl);
 	}
 
 	if (ctx->le_values) {
@@ -299,14 +457,23 @@ void grok_handler_callback(void *funcarg, void* arg)
 		ctx->gds->le_names = NULL;
 	}
 
-	if (ctx->bucket_values) {
-		free(ctx->bucket_values);
-		ctx->bucket_values = NULL;
+	if (ctx->splited_le_values) {
+		free(ctx->splited_le_values);
+		ctx->splited_le_values = NULL;
 	}
-	if (ctx->gds->bucket_names) {
-		string_tokens_free(ctx->gds->bucket_names);
-		ctx->gds->bucket_names = NULL;
+	if (ctx->gds->splited_le_names) {
+		string_tokens_free(ctx->gds->splited_le_names);
+		ctx->gds->splited_le_names = NULL;
 	}
+
+	//if (ctx->bucket_values) {
+	//	free(ctx->bucket_values);
+	//	ctx->bucket_values = NULL;
+	//}
+	//if (ctx->gds->bucket_names) {
+	//	string_tokens_free(ctx->gds->bucket_names);
+	//	ctx->gds->bucket_names = NULL;
+	//}
 
 	if (ctx->quantile_values) {
 		free(ctx->quantile_values);
@@ -317,6 +484,15 @@ void grok_handler_callback(void *funcarg, void* arg)
 		ctx->gds->quantile_names = NULL;
 	}
 
+	if (ctx->splited_quantile_values) {
+		free(ctx->splited_quantile_values);
+		ctx->splited_quantile_values = NULL;
+	}
+	if (ctx->gds->splited_quantile_names) {
+		string_tokens_free(ctx->gds->splited_quantile_names);
+		ctx->gds->splited_quantile_names = NULL;
+	}
+
 	if (ctx->counter_values) {
 		free(ctx->counter_values);
 		ctx->counter_values = NULL;
@@ -324,6 +500,19 @@ void grok_handler_callback(void *funcarg, void* arg)
 	if (ctx->gds->counter_names) {
 		string_tokens_free(ctx->gds->counter_names);
 		ctx->gds->counter_names = NULL;
+	}
+
+	if (ctx->splited_counter_values) {
+		free(ctx->splited_counter_values);
+		ctx->splited_counter_values = NULL;
+	}
+	if (ctx->gds->splited_counter_names) {
+		string_tokens_free(ctx->gds->splited_counter_names);
+		ctx->gds->splited_counter_names = NULL;
+	}
+	if (ctx->splited_lbl_inherited) {
+		labels_hash_free(ctx->splited_lbl_inherited);
+		ctx->splited_lbl_inherited = NULL;
 	}
 
 	onig_region_free(ctx->region, 1);

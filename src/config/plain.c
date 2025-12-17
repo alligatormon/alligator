@@ -365,9 +365,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *tls_key_entrypoint = NULL;
 			json_t *tls_ca_entrypoint = NULL;
 			json_t *grok_quantiles = NULL;
-			json_t *grok_buckets = NULL;
 			json_t *grok_le = NULL;
 			json_t *grok_counter = NULL;
+			json_t *grok_splited_quantiles = NULL;
+			json_t *grok_splited_le = NULL;
+			json_t *grok_splited_counter = NULL;
+			json_t *grok_splited_tags = NULL;
+			json_t *grok_splited_inherit_tag = NULL;
 
 			if (ac->log_level > 0)
 				printf("context: '%s'\n", wstokens[i].token->s);
@@ -810,38 +814,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										}
 									}
 								}
-								else if (!strcmp(operator_name, "buckets"))
-								{
-									json_t *buckets_data = json_array();
-									if (!grok_buckets)
-									{
-										grok_buckets = json_array();
-										json_array_object_insert(operator_json, "buckets", grok_buckets);
-									}
-
-									json_array_object_insert(grok_buckets, operator_name, buckets_data);
-
-									for (; i < token_count; i++)
-									{
-										if (wstokens[i].argument)
-										{
-											json_t *arg_value = json_string(wstokens[i].token->s);
-											json_array_object_insert(buckets_data, NULL, arg_value);
-										}
-
-										if (wstokens[i].semicolon)
-										{
-											break;
-										}
-									}
-								}
-								else if (!strcmp(operator_name, "le"))
+								else if (!strcmp(operator_name, "bucket"))
 								{
 									json_t *le_data = json_array();
 									if (!grok_le)
 									{
 										grok_le = json_array();
-										json_array_object_insert(operator_json, "le", grok_le);
+										json_array_object_insert(operator_json, "bucket", grok_le);
 									}
 
 									json_array_object_insert(grok_le, operator_name, le_data);
@@ -877,6 +856,131 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										{
 											json_t *arg_value = json_string(wstokens[i].token->s);
 											json_array_object_insert(counter_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "splited_quantiles"))
+								{
+									json_t *splited_quantiles_data = json_array();
+									if (!grok_splited_quantiles)
+									{
+										grok_splited_quantiles = json_array();
+										json_array_object_insert(operator_json, "splited_quantiles", grok_splited_quantiles);
+									}
+
+									json_array_object_insert(grok_splited_quantiles, operator_name, splited_quantiles_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(splited_quantiles_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "splited_bucket"))
+								{
+									json_t *splited_le_data = json_array();
+									if (!grok_splited_le)
+									{
+										grok_splited_le = json_array();
+										json_array_object_insert(operator_json, "splited_bucket", grok_splited_le);
+									}
+
+									json_array_object_insert(grok_splited_le, operator_name, splited_le_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(splited_le_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "splited_counter"))
+								{
+									json_t *splited_counter_data = json_array();
+									if (!grok_splited_counter)
+									{
+										grok_splited_counter = json_array();
+										json_array_object_insert(operator_json, "splited_counter", grok_splited_counter);
+									}
+
+									json_array_object_insert(grok_splited_counter, operator_name, splited_counter_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(splited_counter_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "splited_tags"))
+								{
+									json_t *splited_tags_data = json_array();
+									if (!grok_splited_tags)
+									{
+										grok_splited_tags = json_array();
+										json_array_object_insert(operator_json, "splited_tags", grok_splited_tags);
+									}
+
+									json_array_object_insert(grok_splited_tags, operator_name, splited_tags_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(splited_tags_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "splited_inherit_tag"))
+								{
+									json_t *splited_inherit_tag_data = json_array();
+									if (!grok_splited_inherit_tag)
+									{
+										grok_splited_inherit_tag = json_array();
+										json_array_object_insert(operator_json, "splited_inherit_tag", grok_splited_inherit_tag);
+									}
+
+									json_array_object_insert(grok_splited_inherit_tag, operator_name, splited_inherit_tag_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(splited_inherit_tag_data, NULL, arg_value);
 										}
 
 										if (wstokens[i].semicolon)

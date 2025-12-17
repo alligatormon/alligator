@@ -115,50 +115,7 @@ int grok_push(json_t *grok) {
 			}
 		}
 
-		json_t *buckets = json_object_get(grok, "buckets");
-		uint64_t buckets_size = json_array_size(buckets);
-		for (uint64_t j = 0; j < buckets_size; j++)
-		{
-			json_t *bucket = json_array_get(buckets, j);
-			if (bucket) {
-				uint64_t buckets_size = json_array_size(bucket);
-				if (buckets_size > 2) {
-					mm = calloc(1, sizeof(*mm));
-
-					json_t *jname = json_array_get(bucket, 0);
-					mm->metric_name = strdup((char*)json_string_value(jname));
-					json_t *jtemplate = json_array_get(bucket, 1);
-					mm->template = strdup((char*)json_string_value(jtemplate));
-					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
-					gmm_node->key = strdup((char*)json_string_value(jtemplate));
-					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
-					if (!gps->gmm_bucket)
-						gps->gmm_bucket = alligator_ht_init(NULL);
-					alligator_ht_insert(gps->gmm_bucket, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
-
-					double *buckets = calloc(buckets_size - 2, sizeof(int64_t));
-					for (uint64_t i = 2; i < buckets_size; i++)
-					{
-						json_t *bucket_obj = json_array_get(bucket, i);
-						char *bucket_str = (char*)json_string_value(bucket_obj);
-						double bucket_int = strtod(bucket_str, NULL);
-						buckets[i-2] = bucket_int;
-					}
-
-					mm->bucket = buckets;
-					mm->bucket_size = buckets_size - 2;
-				}
-			}
-
-			if (mm) {
-				if (!gps->mm)
-					gps->mm = mm;
-				else
-					push_mapping_metric(gps->mm, mm);
-			}
-		}
-
-		json_t *les = json_object_get(grok, "le");
+		json_t *les = json_object_get(grok, "bucket");
 		uint64_t les_size = json_array_size(les);
 		for (uint64_t j = 0; j < les_size; j++)
 		{
@@ -190,6 +147,178 @@ int grok_push(json_t *grok) {
 
 					mm->le = les;
 					mm->le_size = les_size - 2;
+				}
+			}
+
+			if (mm) {
+				if (!gps->mm)
+					gps->mm = mm;
+				else
+					push_mapping_metric(gps->mm, mm);
+			}
+		}
+
+
+		json_t *_splited_tags = json_object_get(grok, "splited_tags");
+		uint64_t splited_tags_size = json_array_size(_splited_tags);
+		for (uint64_t j = 0; j < splited_tags_size; j++)
+		{
+			json_t *splited_tags = json_array_get(_splited_tags, j);
+			if (splited_tags) {
+				uint64_t splited_tags_size = json_array_size(splited_tags);
+				if (splited_tags_size > 1) {
+					if (!gps->gmm_splited_tags)
+						gps->gmm_splited_tags = alligator_ht_init(NULL);
+					for (uint64_t i = 1; i < splited_tags_size; i++)
+					{
+						grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
+						json_t *jseparator = json_array_get(splited_tags, 0);
+						gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
+
+						json_t *splited_tags_obj = json_array_get(splited_tags, i);
+						char *splited_tags_str = (char*)json_string_value(splited_tags_obj);
+						gmm_node->key = strdup(splited_tags_str);
+						gmm_node->metric_name = string_init_dupn((char*)json_string_value(splited_tags_obj), json_string_length(splited_tags_obj));
+						alligator_ht_insert(gps->gmm_splited_tags, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
+					}
+				}
+			}
+		}
+
+
+		json_t *_splited_inherit_tag = json_object_get(grok, "splited_inherit_tag");
+		uint64_t splited_inherit_tag_size = json_array_size(_splited_inherit_tag);
+		for (uint64_t j = 0; j < splited_inherit_tag_size; j++)
+		{
+			json_t *splited_inherit_tag = json_array_get(_splited_inherit_tag, j);
+			if (splited_inherit_tag) {
+				uint64_t splited_inherit_tag_size = json_array_size(splited_inherit_tag);
+				if (splited_inherit_tag_size > 0) {
+					if (!gps->gmm_splited_inherit_tag)
+						gps->gmm_splited_inherit_tag = alligator_ht_init(NULL);
+					for (uint64_t i = 0; i < splited_inherit_tag_size; i++)
+					{
+						grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
+						json_t *jseparator = json_array_get(splited_inherit_tag, 0);
+						gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
+
+						json_t *splited_inherit_tag_obj = json_array_get(splited_inherit_tag, i);
+						char *splited_inherit_tag_str = (char*)json_string_value(splited_inherit_tag_obj);
+						gmm_node->key = strdup(splited_inherit_tag_str);
+						gmm_node->metric_name = string_init_dupn((char*)json_string_value(splited_inherit_tag_obj), json_string_length(splited_inherit_tag_obj));
+						alligator_ht_insert(gps->gmm_splited_inherit_tag, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
+					}
+				}
+			}
+		}
+
+
+		json_t *splited_counters = json_object_get(grok, "splited_counter");
+		uint64_t splited_counters_size = json_array_size(splited_counters);
+		for (uint64_t j = 0; j < splited_counters_size; j++)
+		{
+			json_t *splited_counter = json_array_get(splited_counters, j);
+			if (splited_counter) {
+				uint64_t splited_counter_size = json_array_size(splited_counter);
+				if (splited_counter_size > 1) {
+					json_t *jname = json_array_get(splited_counter, 0);
+					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
+					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
+					json_t *jkey = json_array_get(splited_counter, 1);
+					gmm_node->key = strdup((char*)json_string_value(jkey));
+					json_t *jseparator = json_array_get(splited_counter, 2);
+					gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
+					if (!gps->gmm_splited_counter)
+						gps->gmm_splited_counter = alligator_ht_init(NULL);
+					alligator_ht_insert(gps->gmm_splited_counter, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
+				}
+			}
+		}
+
+		json_t *splited_quantiles = json_object_get(grok, "splited_quantiles");
+		uint64_t splited_quantiles_size = json_array_size(splited_quantiles);
+		for (uint64_t j = 0; j < splited_quantiles_size; j++)
+		{
+			json_t *splited_quantile = json_array_get(splited_quantiles, j);
+			if (splited_quantile) {
+				uint64_t splited_percentiles_size = json_array_size(splited_quantile);
+				if (splited_percentiles_size > 2) {
+					mm = calloc(1, sizeof(*mm));
+
+					json_t *jname = json_array_get(splited_quantile, 0);
+					mm->metric_name = strdup((char*)json_string_value(jname));
+					json_t *jtemplate = json_array_get(splited_quantile, 1);
+					mm->template = strdup((char*)json_string_value(jtemplate));
+					json_t *jseparator = json_array_get(splited_quantile, 2);
+					gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
+					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
+					gmm_node->key = strdup((char*)json_string_value(jtemplate));
+					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
+					if (!gps->gmm_splited_quantile)
+						gps->gmm_splited_quantile = alligator_ht_init(NULL);
+					alligator_ht_insert(gps->gmm_splited_quantile, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
+
+					int64_t *splited_percentiles = calloc(splited_percentiles_size - 3, sizeof(int64_t));
+					for (uint64_t i = 3; i < splited_percentiles_size; i++)
+					{
+						json_t *splited_percentile_obj = json_array_get(splited_quantile, i);
+						char *splited_percentile_str = (char*)json_string_value(splited_percentile_obj);
+						int64_t splited_percentile_int;
+						if (splited_percentile_str[0] > '0')
+							splited_percentile_int = -1;
+						else
+							splited_percentile_int = strtoll(splited_percentile_str+2, NULL, 10);
+						splited_percentiles[i-3] = splited_percentile_int;
+					}
+
+					mm->percentile = splited_percentiles;
+					mm->percentile_size = splited_percentiles_size - 3;
+				}
+			}
+
+			if (mm) {
+				if (!gps->mm)
+					gps->mm = mm;
+				else
+					push_mapping_metric(gps->mm, mm);
+			}
+		}
+
+		json_t *splited_les = json_object_get(grok, "splited_bucket");
+		uint64_t splited_les_size = json_array_size(splited_les);
+		for (uint64_t j = 0; j < splited_les_size; j++)
+		{
+			json_t *splited_le = json_array_get(splited_les, j);
+			if (splited_le) {
+				uint64_t splited_les_size = json_array_size(splited_le);
+				if (splited_les_size > 2) {
+					mm = calloc(1, sizeof(*mm));
+
+					json_t *jname = json_array_get(splited_le, 0);
+					mm->metric_name = strdup((char*)json_string_value(jname));
+					json_t *jtemplate = json_array_get(splited_le, 1);
+					mm->template = strdup((char*)json_string_value(jtemplate));
+					json_t *jseparator = json_array_get(splited_le, 2);
+					gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
+					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
+					gmm_node->key = strdup((char*)json_string_value(jtemplate));
+					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
+
+					if (!gps->gmm_splited_le)
+						gps->gmm_splited_le = alligator_ht_init(NULL);
+					alligator_ht_insert(gps->gmm_splited_le, &(gmm_node->node), gmm_node, tommy_strhash_u32(0, gmm_node->key));
+
+					double *splited_les = calloc(splited_les_size - 3, sizeof(int64_t));
+					for (uint64_t i = 3; i < splited_les_size; i++)
+					{
+						json_t *splited_le_obj = json_array_get(splited_le, i);
+						char *splited_le_str = (char*)json_string_value(splited_le_obj);
+						double splited_le_int = strtod(splited_le_str, NULL);
+						splited_les[i-3] = splited_le_int;
+					}
+
+					mm->le = splited_les;
+					mm->le_size = splited_les_size - 3;
 				}
 			}
 

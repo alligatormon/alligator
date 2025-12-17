@@ -54,6 +54,9 @@ int grok_del(json_t *grok)
 			grok_node_del(gn);
 		}
 
+		if (gps->separator)
+			string_free(gps->separator);
+
 		uint64_t count = alligator_ht_count(gps->hash);
 		if (!count)
 		{

@@ -94,6 +94,7 @@ uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen);
 json_t* string_tokens_json(string_tokens *st);
 uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l);
+string_tokens* string_tokens_split_any(string *s, char *sepsym);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);

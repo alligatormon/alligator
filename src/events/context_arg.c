@@ -10,6 +10,14 @@
 #include "common/auth.h"
 extern aconf *ac;
 
+void metric_datatype_foreach(void *arg)
+{
+	metric_datatypes *dt = arg;
+	free(dt->key);
+	free(dt);
+}
+
+
 context_arg *carg_copy(context_arg *src)
 {
 	size_t carg_size = sizeof(context_arg);
@@ -199,6 +207,12 @@ void carg_free(context_arg *carg)
 	labels_hash_free(carg->labels);
 	// TODO: free carg->socket
 	mapping_free_recurse(carg->mm);
+
+	if (carg->counter_names) {
+		alligator_ht_foreach(carg->counter_names, metric_datatype_foreach);
+		alligator_ht_done(carg->counter_names);
+		free(carg->counter_names);
+	}
 
 	free(carg);
 }

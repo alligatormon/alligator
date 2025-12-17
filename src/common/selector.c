@@ -835,7 +835,7 @@ uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l)
 	}
 
 	if (found)
-		return 0;
+		return found;
 
 	if (!st->m)
 		string_tokens_scale(st);
@@ -860,6 +860,22 @@ string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
 		string_string_cat(joined, st->str[i]);
 	}
 	return joined;
+}
+
+string_tokens* string_tokens_split_any(string *s, char *sepsym)
+{
+	if (strcspn(s->s, sepsym) == s->l)
+		return NULL;
+
+	string_tokens *splited = string_tokens_new();
+	for (uint64_t i = 0; i < s->l;)
+	{
+		uint64_t size = strcspn(s->s + i, sepsym);
+		string_tokens_push_dupn(splited, s->s + i, size);
+		i += size;
+		i += strspn(s->s + i, sepsym);
+	}
+	return splited;
 }
 
 json_t* string_tokens_json(string_tokens *st)
