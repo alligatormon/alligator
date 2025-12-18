@@ -163,6 +163,7 @@ set(STATIC_FILES
 	parsers/lang.c
 	parsers/nvidia-smi.c
 	parsers/auditd.c
+	parsers/wazuh.c
 	scheduler/influxdb.c
 	scheduler/handler.c
 	scheduler/push.c

@@ -160,3 +160,4 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 void cassandra_parser_push();
 void auditd_handler(char *metrics, size_t size, context_arg *carg);
 void grok_parser_push();
+void wazuh_parser_push();

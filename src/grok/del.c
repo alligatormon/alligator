@@ -84,9 +84,12 @@ void grok_foreach_done(void *funcarg, void* arg)
 
 void grok_stop()
 {
-	string_tokens_free(ac->grok_patterns_path);
-	free(ac->grok_patterns->nodes);
-	free(ac->grok_patterns);
+	if (ac->grok_patterns_path)
+		string_tokens_free(ac->grok_patterns_path);
+	if (ac->grok_patterns && ac->grok_patterns->nodes)
+		free(ac->grok_patterns->nodes);
+	if (ac->grok_patterns)
+		free(ac->grok_patterns);
 	alligator_ht_foreach_arg(ac->grok, grok_foreach_done, NULL);
 	alligator_ht_done(ac->grok);
 	free(ac->grok);
