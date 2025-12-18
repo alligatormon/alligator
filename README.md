@@ -158,6 +158,7 @@ More information about the aggregate directive can be found at the following [do
 - [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
 - [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
 - [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
+- [wazuh](https://github.com/alligatormon/alligator/blob/master/doc/parsers/wazuh.md)
 
 
 ## Persistence
