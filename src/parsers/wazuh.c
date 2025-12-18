@@ -104,6 +104,19 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 	carg->parser_status = 1;
 }
 
+void wazuh_logcollector_parser_json(char *metrics, size_t size, void *data, char *filename)
+{
+	context_arg *carg = data;
+	if (!carg->pquery) {
+		carg->pquery = calloc(1, sizeof(void*));
+		carg->pquery[0] = strdup(".global.files.[location]");
+		carg->pquery_size = 1;
+	}
+	carg->log_level=1000;
+	carg->parser_status = json_query(metrics, NULL, "wazuh_logcollector", carg, carg->pquery, carg->pquery_size);
+	carg->log_level=0;
+}
+
 void wazuh_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *filename = strdup(carg->host);
@@ -121,9 +134,10 @@ void wazuh_handler(char *metrics, size_t size, context_arg *carg)
 	snprintf(analysisd_path, 254, "%s/wazuh-analysisd.state", dir_name);
 	read_from_file(analysisd_path, 0, wazuh_stats_parser, carg);
 
-	//char *logcollector_path = malloc(255);
-	//snprintf(logcollector_path, 254, "%s/wazuh-logcollector.state", carg->host);
-	//read_from_file(logcollector_path, 0, wazuh_logcollector_parser, carg);
+	char *logcollector_path = malloc(255);
+	snprintf(logcollector_path, 254, "%s/wazuh-logcollector.state", dir_name);
+	read_from_file(logcollector_path, 0, wazuh_logcollector_parser_json, carg);
+	free(filename);
 }
 
 void wazuh_parser_push()

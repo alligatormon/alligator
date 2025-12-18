@@ -507,10 +507,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_pquery)
 	{
 		carg->pquery_size = json_array_size(json_pquery);
-		carg->pquery = calloc(1, sizeof(char*) * carg->pquery_size);
-		for (uint8_t i = 0; i < carg->pquery_size; ++i) {
-			json_t *pquery_obj = json_array_get(json_pquery, i);
-			carg->pquery[i] = strdup(json_string_value(pquery_obj));
+		if (carg->pquery_size) {
+			carg->pquery = calloc(1, sizeof(char*) * carg->pquery_size);
+			for (uint8_t i = 0; i < carg->pquery_size; ++i) {
+				json_t *pquery_obj = json_array_get(json_pquery, i);
+				carg->pquery[i] = strdup(json_string_value(pquery_obj));
+			}
 		}
 	}
 

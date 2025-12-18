@@ -211,7 +211,7 @@ string_tokens *json_query_parser_object(context_arg *carg, char *obj, size_t sz,
 	return tokens;
 }
 
-alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_size) {
+alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_size, char *prefix, uint64_t prefix_len) {
 	if (!query)
 		return NULL;
 
@@ -222,7 +222,10 @@ alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_
 		carglog(carg, L_INFO, "\njson parse query '%s'\n", queries);
 		string *object_key = string_new();
 		uint8_t is_object = 0;
-		string_cat(object_key, "json", 4);
+		if (prefix)
+			string_cat(object_key, prefix, prefix_len);
+		else
+			string_cat(object_key, "json", 4);
 		size_t queries_len = strlen(queries);
 		for (uint64_t i = 0; i < queries_len; ++i) {
 			char *context = queries + i;
@@ -314,7 +317,7 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 		}
 	}
 
-	carg->data = json_parse_query(carg, queries, queries_size);
+	carg->data = json_parse_query(carg, queries, queries_size, prefix, strlen(prefix));
 
 	string *pass = string_new();
 	alligator_ht *lbl = alligator_ht_init(NULL);
