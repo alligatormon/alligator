@@ -76,7 +76,7 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 		} else if (isdigit(*metric_value)) {
 			uint64_t val = strtoull(metric_value, NULL, 10);
 			carglog(carg, L_INFO, "\tvalue is digit: %"PRIu64"\n", val);
-			metric_add_auto(metric_value, &val, DATATYPE_UINT, carg);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "connected")) {
 			uint64_t val = 1;
 			carglog(carg, L_INFO, "\tvalue is conn: %"PRIu64"\n", val);
