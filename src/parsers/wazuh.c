@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
+#include <time.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "events/fs_read.h"
 #include "main.h"
 #define WAZUH_SIZE 1000
 
