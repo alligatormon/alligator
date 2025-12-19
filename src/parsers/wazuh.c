@@ -113,9 +113,7 @@ void wazuh_logcollector_parser_json(char *metrics, size_t size, void *data, char
 		carg->pquery[0] = strdup(".global.files.[location]");
 		carg->pquery_size = 1;
 	}
-	carg->log_level=1000;
 	carg->parser_status = json_query(metrics, NULL, "wazuh_logcollector", carg, carg->pquery, carg->pquery_size);
-	carg->log_level=0;
 }
 
 void wazuh_handler(char *metrics, size_t size, context_arg *carg)
