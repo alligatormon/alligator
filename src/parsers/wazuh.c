@@ -9,6 +9,7 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "events/fs_read.h"
+#include "common/json_query.h"
 #include "main.h"
 #define WAZUH_SIZE 1000
 
