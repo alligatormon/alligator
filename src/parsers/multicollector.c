@@ -17,6 +17,13 @@
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
 
+void metric_datatype_foreach(void *arg)
+{
+	metric_datatypes *dt = arg;
+	free(dt->key);
+	free(dt);
+}
+
 int metric_datatypes_compare(const void* arg, const void* obj)
 {
 	char* s1 = (char*)arg;
@@ -620,16 +627,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		size = http_data->body_size;
 	}
 
-	alligator_ht *counter_names = NULL;
-	if (carg) {
-		counter_names = carg->counter_names;
-		if (!counter_names) {
-			counter_names = carg->counter_names = alligator_ht_init(NULL);
-		}
-	}
-	else {
-		counter_names = alligator_ht_init(NULL);
-	}
+	alligator_ht *counter_names = alligator_ht_init(NULL);
 	uint64_t fgets_counter = 0;
 
 	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, carg)) )
@@ -745,7 +743,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		metric_add_labels("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
 	}
 
-	if (!carg) {
+	if (counter_names) {
 		alligator_ht_foreach(counter_names, metric_datatype_foreach);
 		alligator_ht_done(counter_names);
 		free(counter_names);

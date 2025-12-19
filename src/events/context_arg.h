@@ -268,7 +268,6 @@ typedef struct context_arg
 	alligator_ht* reject;
 	void *srv_carg;
 
-	alligator_ht* counter_names;;
 
 	// unixgram info
 	struct sockaddr_un *local;
@@ -345,4 +344,3 @@ void thread_loop_free();
 uv_loop_t *get_threaded_loop_t(char *key);
 uv_loop_t *get_threaded_loop_t_or_default(char *key);
 uint64_t get_threads_num(json_t *value);
-void metric_datatype_foreach(void *arg);
