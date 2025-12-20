@@ -30,7 +30,7 @@ Plural: yes
 Enables the separation of input metrics into multiple buckets.
 
 
-## quantile
+## quantiles
 Default: -\
 Plural: yes
 
