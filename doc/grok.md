@@ -170,6 +170,6 @@ grok {
 
   splited_tags ", " upstream_status upstream_addr;
   splited_inherit_tag server_name;
-  splited_quantiles nginx_portal_upstream_response_time upstream_time ", " 0.5 0.75 0.9;
+  splited_quantiles nginx_upstream_response_time upstream_time ", " 0.5 0.75 0.9;
 }
 ```
