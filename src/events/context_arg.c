@@ -435,10 +435,13 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 
 	json_t *json_notify = json_object_get(root, "notify");
-	carg->notify = json_boolean_value(json_notify);
 	char *ntf = (char*)json_string_value(json_notify);
-	if (ntf && !strcmp(ntf, "true"))
-		carg->notify = 1;
+	if (ntf) {
+		if (!strcmp(ntf, "true"))
+			carg->notify = 1;
+		else if (!strcmp(ntf, "only"))
+			carg->notify = 2;
+	 }
 
 	carg->pingloop = 1;
 	json_t *json_pingloop = json_object_get(root, "pingloop");

@@ -132,9 +132,13 @@ Enables the calculation of checksums for files within the directory.
 
 ## notify
 Default: false\
-Plural: no
+Plural: no\
+Available values:
+- true
+- false
+- only
 
-Enables the inotify mechanisms to check for updates of files within the directory.
+Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the scheduler.
 
 
 ## state

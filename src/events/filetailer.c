@@ -57,6 +57,7 @@ void filetailer_close(uv_fs_t *req) {
 	metric_add_labels4("alligator_open", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
 	metric_add_labels4("alligator_close", &carg->close_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
 	metric_add_labels4("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_read_bytes", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
 
 
 	if (carg->period)
@@ -269,6 +270,7 @@ void filetailer_on_read(uv_fs_t *req) {
 	}
 	else {
 		uint64_t str_len = req->result;
+		carg->read_bytes_counter += str_len;
 		fh->buffer.base[str_len] = 0;
 
 		carglog(carg, L_INFO, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, str_len);
@@ -321,7 +323,7 @@ char* filetailer_handler(context_arg *carg)
 		free(carg->key);
 	carg->key = strdup(carg->host);
 
-	if (carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler || carg->parser_name)
+	if ((carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler || carg->parser_name) && carg->notify != 2)
 	{
 		carglog(carg, L_INFO, "create file handler with carg->path %s\n", carg->path);
 		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
