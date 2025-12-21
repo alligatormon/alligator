@@ -161,7 +161,7 @@ char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, c
 		cur += sep_sz;
 		//cur++;
 		int rc = metric_value_validator(cur, n);
-		if      (rc == DATATYPE_INT)
+		if (rc == DATATYPE_INT)
 		{
 			int64_t pvalue = atoll(cur);
 
@@ -234,7 +234,7 @@ int sisdigit(const char *str)
 }
 
 uint64_t uint_min(uint64_t a, uint64_t b) {
-    return a > b ? b : a;
+	return a > b ? b : a;
 }
 
 char *ltrim(char *s)
@@ -862,10 +862,26 @@ string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen)
 	return joined;
 }
 
+string_tokens* string_tokens_char_split_any(char *s, uint64_t l, char *sepsym)
+{
+	//if (strcspn(s, sepsym) == l)
+	//	return NULL;
+
+	string_tokens *splited = string_tokens_new();
+	for (uint64_t i = 0; i < l;)
+	{
+		uint64_t size = strcspn(s + i, sepsym);
+		string_tokens_push_dupn(splited, s + i, size);
+		i += size;
+		i += strspn(s + i, sepsym);
+	}
+	return splited;
+}
+
 string_tokens* string_tokens_split_any(string *s, char *sepsym)
 {
-	if (strcspn(s->s, sepsym) == s->l)
-		return NULL;
+	//if (strcspn(s->s, sepsym) == s->l)
+	//	return NULL;
 
 	string_tokens *splited = string_tokens_new();
 	for (uint64_t i = 0; i < s->l;)
@@ -901,9 +917,9 @@ void string_tokens_free(string_tokens *st)
 
 int match_mapper_compare(const void* arg, const void* obj)
 {
-        char *s1 = (char*)arg;
-        char *s2 = ((match_string*)obj)->s;
-        return strcmp(s1, s2);
+		char *s1 = (char*)arg;
+		char *s2 = ((match_string*)obj)->s;
+		return strcmp(s1, s2);
 }
 
 // return 0 if not matched

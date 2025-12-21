@@ -4,7 +4,15 @@
 #include <pcre.h>
 #include "dstructures/ht.h"
 #include <jansson.h>
-#include <byteswap.h>
+//#include <byteswap.h>
+#if defined(__APPLE__)
+    #include <libkern/OSByteOrder.h>
+    #define bswap_16(x) OSSwapInt16(x)
+    #define bswap_32(x) OSSwapInt32(x)
+    #define bswap_64(x) OSSwapInt64(x)
+#else
+    #include <byteswap.h>
+#endif
 typedef __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 
@@ -95,6 +103,7 @@ string* string_tokens_join(string_tokens *st, char *sepsym, uint64_t seplen);
 json_t* string_tokens_json(string_tokens *st);
 uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l);
 string_tokens* string_tokens_split_any(string *s, char *sepsym);
+string_tokens* string_tokens_char_split_any(char *s, uint64_t l, char *sepsym);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);

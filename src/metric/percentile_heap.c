@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "common/logs.h"
 #include "metric/percentile_heap.h"
 #include "main.h"
 
-void maxheapify(int64_t *arr, int64_t i, int64_t heapsize)
+void maxheapify(double *arr, int64_t i, int64_t heapsize)
 {
 	int64_t temp, largest, left, right;
 	left = (2*i+1);
@@ -29,7 +30,7 @@ void maxheapify(int64_t *arr, int64_t i, int64_t heapsize)
 	}
 }
 
-void buildmaxheap(int64_t *arr, int64_t n)
+void buildmaxheap(double *arr, int64_t n)
 {
 	int64_t heapsize = n;
 	int64_t j;
@@ -37,7 +38,7 @@ void buildmaxheap(int64_t *arr, int64_t n)
 		maxheapify(arr, j, heapsize);
 }
 
-void heapify(int64_t* arr, int64_t n, int64_t i) 
+void heapify(double* arr, int64_t n, int64_t i)
 { 
 	int64_t smallest = i;
 	int64_t l = 2 * i + 1;
@@ -51,15 +52,15 @@ void heapify(int64_t* arr, int64_t n, int64_t i)
   
 	if (smallest != i)
 	{ 
-		arr[i] = arr[i] ^ arr[smallest];
-		arr[smallest] = arr[i] ^ arr[smallest];
-		arr[i] = arr[smallest] ^ arr[i];
+		double tmp = arr[i];
+		arr[i] = arr[smallest];
+		arr[smallest] = tmp;
   
 		heapify(arr, n, smallest); 
 	} 
 } 
 
-void heapSort(int64_t *arr, int64_t n) 
+void heapSort(double *arr, int64_t n) 
 { 
 	for (int64_t i = n / 2 - 1; i >= 0; i--) 
 		heapify(arr, n, i); 
@@ -68,9 +69,9 @@ void heapSort(int64_t *arr, int64_t n)
 	{ 
 		if (i)
 		{
-			arr[0] = arr[0] ^ arr[i];
-			arr[i] = arr[0] ^ arr[i];
-			arr[0] = arr[i] ^ arr[0];
+			double tmp = arr[0];
+			arr[0] = arr[i];
+			arr[i] = tmp;
 		}
   
 		heapify(arr, i, 0); 
@@ -82,7 +83,7 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 	metric_node *mnode = node;
 	context_arg *carg = arg;
 	int64_t i;
-	int64_t *arr = pb->arr;
+	double *arr = pb->arr;
 	size_t n = pb->n;
 
 	buildmaxheap(arr, n);
@@ -126,21 +127,21 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 
 		if ( pb->percentile[i] == -1 )
 		{
-			//printf("p1.0[%"d64"]   %"d64"\n", pb->ipercentile[i], arr[pb->ipercentile[i]]);
+			//printf("p1.0[%"d64"]   %f\n", pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			labels_hash_insert(hash, "quantile", "1.0");
-			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, carg);
+			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
-			//printf("p0.%"d64"[%"d64"]   %"d64"\n", pb->percentile[i], pb->ipercentile[i], arr[pb->ipercentile[i]]);
+			//printf("p0.%"d64"[%"d64"]   %f\n", pb->percentile[i], pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			snprintf(quantilekey, 30, "0.%"d64"", pb->percentile[i]);
 			labels_hash_insert(hash, "quantile", quantilekey);
-			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_INT, carg);
+			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_DOUBLE, carg);
 		}
 	}
 }
 
-void heap_insert(percentile_buffer *pb, int64_t key)
+void heap_insert(percentile_buffer *pb, double key)
 {
 	if (pb->cur >= pb->n)
 		pb->cur = 0;
@@ -213,8 +214,7 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 		pb->sortsize = i;
 
 	extern aconf* ac;
-	if (ac->log_level > 3)
-		printf("sortsize %"d64" for diff %"d64"\n", pb->sortsize, percentilemax);
+	glog(L_TRACE, "init_percentile_buffer: sortsize %"d64" for diff %"d64"\n", pb->sortsize, percentilemax);
 
 	pb->arr = calloc(pb->n, sizeof(int64_t));
 

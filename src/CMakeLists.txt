@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.158)
+set(VERSION 1.14.159)
 project(alligator VERSION ${VERSION})
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -410,7 +410,7 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns/patterns.conf)
+	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
