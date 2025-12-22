@@ -95,7 +95,7 @@ void plain_get_word(char *str, config_parser_stat *ret)
 			if (ac->log_level > 3)
 				printf("quotas2 parser1 selected\n");
 
-			sq2 += strcspn(str+sq2+1, "'");
+			sq2 += strcspn(str+sq2+1, "\"");
 			sm = strcspn(str+sq2, ";");
 			st = strcspn(str+sq2, "{");
 		}
