@@ -210,7 +210,7 @@ typedef struct context_arg
 	const char *filename;
 	char *path;
 	uint8_t is_dir;
-	uint64_t offset;
+	//uint64_t offset;
 	uint64_t files_count;
 
 	uint64_t file_stat;

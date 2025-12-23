@@ -457,6 +457,9 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			carg->state = FILESTAT_STATE_BEGIN;
 		else if (!strcmp(state, "save"))
 			carg->state = FILESTAT_STATE_SAVE;
+		else if (!strcmp(state, "stream")) {
+			carg->state = FILESTAT_STATE_STREAM;
+        }
 		if (!strcmp(state, "forget"))
 			carg->state = FILESTAT_STATE_FORGET;
 	}

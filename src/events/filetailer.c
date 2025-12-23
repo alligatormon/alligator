@@ -21,7 +21,6 @@ typedef struct file_handle {
 	uv_fs_t close;
 	char pathname[1024];
 	uv_buf_t buffer;
-	size_t offset;
 	context_arg *carg;
 } file_handle;
 
@@ -235,7 +234,7 @@ void file_on_open(uv_fs_t *req)
 	uv_fs_req_cleanup(req);
 	context_arg *carg = fh->carg;
 	(carg->open_counter)++;
-	uint64_t offset = file_stat_get_offset(ac->file_stat, req->path, carg->state);
+	uint64_t offset = file_stat_get_offset(ac->file_stat, fh->pathname, carg->state);
 	if (req->result != -1)
 	{
 		if (carg->checksum || carg->calc_lines)
@@ -244,8 +243,7 @@ void file_on_open(uv_fs_t *req)
 		}
 		else if (carg->parser_name)
 		{
-			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", req->path, offset);
-			fh->offset = offset;
+			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", fh->pathname, offset);
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
 		}
 	}
@@ -266,7 +264,8 @@ void filetailer_on_read(uv_fs_t *req) {
 	}
 	else if (req->result == 0) {
 		carglog(carg, L_ERROR, "filetailer_on_read: No result read: %s\n", fh->pathname);
-		file_stat_add_offset(ac->file_stat, fh->pathname, carg, fh->offset);
+		file_stat *fstat = file_stat_add_offset(ac->file_stat, fh->pathname, carg, 0);
+		fstat->offset = 0;
 	}
 	else {
 		uint64_t str_len = req->result;
@@ -286,7 +285,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 {
 	context_arg *carg = handle->data;
 	carg->filename = filename;
-	carglog(carg, L_INFO, "Change detected in '%s'\n", carg->filename);
+	carglog(carg, L_INFO, "Change detected in '%s': %d\n", carg->filename, events);
 
 	file_handle *fh = file_handler_struct_init(carg, 65535);
 	if (carg->is_dir)
@@ -313,7 +312,6 @@ char* filetailer_handler(context_arg *carg)
 
 	carg->path = carg->host;
 
-	carg->offset = 0;
 	if (carg->path[strlen(carg->path)-1] == '/')
 		carg->is_dir = 1;
 

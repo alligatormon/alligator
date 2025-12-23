@@ -1,9 +1,10 @@
 #include "common/file_stat.h"
+#include "common/logs.h"
 
 void strfmode(mode_t mode, char * buf) {
   const char chars[] = "rwxrwxrwx";
   for (size_t i = 0; i < 9; i++) {
-    buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
+	buf[i] = (mode & (1 << (8-i))) ? chars[i] : '-';
   }
   buf[9] = '\0';
 }
@@ -11,8 +12,7 @@ void strfmode(mode_t mode, char * buf) {
 void file_stat_cb(uv_fs_t *req) {
 	if (req->result < 0)
 		return;
-	if (ac->log_level > 1)
-		printf("file_stat_cb run on path: %s\n", req->path);
+	glog(L_INFO, "file_stat_cb run on path: %s\n", req->path);
 
 	context_arg *carg = req->data;
 	char *path = (char*)req->path;
@@ -108,8 +108,10 @@ file_stat* file_stat_add_offset(alligator_ht *hash, const char *path, context_ar
 		alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
 	}
 
-	if (ac->log_level > 1)
-		printf("file_stat_add_offset: set %s offset +%"u64"\n", path, add_offset);
+	if (carg)
+		carglog(carg, L_INFO, "file_stat_add_offset: set %s offset +%"u64"\n", path, add_offset);
+	else
+		glog(L_INFO, "file_stat_add_offset: set %s offset +%"u64"\n", path, add_offset);
 	fstat->modify++;
 	fstat->offset += add_offset;
 
@@ -128,41 +130,34 @@ uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t stat
 	file_stat *fstat = alligator_ht_search(hash, file_stat_compare, path, key_hash);
 	if (!fstat)
 	{
+		fstat = calloc(1, sizeof(*fstat));
+		fstat->key = strdup(path);
+		alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
 		if (state == FILESTAT_STATE_BEGIN)
 		{
-			if (ac->log_level > 1)
-				printf("file_stat_get_offset: %s BEGIN CASE\n", path);
-			return 0;
+			glog(L_INFO, "file_stat_get_offset: %s BEGIN CASE\n", path);
+			fstat->offset = 0;
 		}
 		else if (state == FILESTAT_STATE_STREAM)
 		{
-			if (ac->log_level > 1)
-				printf("file_stat_get_offset: %s STREAM CASE: %zu\n", path, get_file_size(path));
-			return get_file_size(path);
+			glog(L_INFO, "file_stat_get_offset: %s STREAM CASE: %zu\n", path, get_file_size(path));
+			fstat->offset = get_file_size(path);
 		}
-		//fstat = calloc(1, sizeof(*fstat));
-		//fstat->key = strdup(path);
-		//alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
+		return fstat->offset;
 	}
 	else
 	{
 		if (state == FILESTAT_STATE_FORGET)
 		{
-			if (ac->log_level > 1)
-				printf("file_stat_get_offset: %s FORGET CASE: %d\n", path, 0);
+			glog(L_INFO, "file_stat_get_offset: %s FORGET CASE: %d\n", path, 0);
 			return 0;
 		}
 		else
 		{
-			if (ac->log_level > 1)
-				printf("file_stat_get_offset: %s SAVE CASE: %"u64"\n", path, fstat->offset);
+			glog(L_INFO, "file_stat_get_offset: %s SAVE CASE: %"u64"\n", path, fstat->offset);
 			return fstat->offset;
 		}
 	}
-
-	if (ac->log_level > 1)
-		printf("file_stat_get_offset: %s UNKNOWN CASE: 0\n", path);
-	return 0;
 }
 
 void file_stat_free_foreach(void *arg)
