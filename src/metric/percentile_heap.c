@@ -213,7 +213,6 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 	else
 		pb->sortsize = i;
 
-	extern aconf* ac;
 	glog(L_TRACE, "init_percentile_buffer: sortsize %"d64" for diff %"d64"\n", pb->sortsize, percentilemax);
 
 	pb->arr = calloc(pb->n, sizeof(int64_t));
