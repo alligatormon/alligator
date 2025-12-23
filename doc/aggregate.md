@@ -150,11 +150,11 @@ Possible values:
 - stream
 - forget
 
-Enables different read initiation between the Alligator's restarts and during work:
-- begin: Reads the file from the start.
-- save: Saves the offset of the file between Alligator restarts.
-- stream: Reads from the current end of the file.
-- forget: Every time read the file from the start.
+Enables different read initiation modes for Alligator, both on restart and during runtime:
+- **begin**: On startup, reads the file from the beginning, then reads only appended data.
+- **save**: Saves the file offset between Alligator restarts and reads only appended data.
+- **stream**: Starts reading from the current end of the file and reads only appended data.
+- **forget**: Always reads the file from the beginning.
 
 
 ## pingloop
