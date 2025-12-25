@@ -413,9 +413,12 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->timeout = int_timeout;
 
 	json_t *json_ttl = json_object_get(root, "ttl");
-	int64_t int_ttl = json_integer_value(json_ttl);
-	if (json_ttl)
-		carg->ttl = int_ttl;
+	if (json_ttl) {
+		if (json_typeof(json_ttl) == JSON_STRING)
+			carg->ttl = get_sec_from_human_range(json_string_value(json_ttl), json_string_length(json_ttl));
+		else
+			carg->ttl = json_integer_value(json_ttl);
+	}
 
 	json_t *json_file_stat = json_object_get(root, "file_stat");
 	carg->file_stat = json_boolean_value(json_file_stat);

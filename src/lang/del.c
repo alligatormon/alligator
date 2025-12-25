@@ -22,6 +22,10 @@ void lang_options_free(lang_options* lo)
 	//	free(lo->path);
 	if (lo->query)
 		free(lo->query);
+	if (lo->carg_allocated) {
+		carg_free(lo->carg);
+		lo->carg_allocated = 0;
+	}
 
 	free(lo);
 }

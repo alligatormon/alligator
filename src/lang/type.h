@@ -18,6 +18,7 @@ typedef struct lang_options {
 	module_t *lib;
 	void* (*func)(char *script, char *data, char *arg, char *metrics, char *conf, char *parser_data, char *response, char *queries);
 	context_arg *carg;
+	uint8_t carg_allocated;
 	uv_thread_t *th;
 	uint64_t log_level;
 	int serializer;

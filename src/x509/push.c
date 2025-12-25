@@ -52,6 +52,7 @@ int jks_push(char *name, char *path, string_tokens *tokens_match, char *password
 	lo->method = strdup("alligator_call");
 	lo->hidden_arg = 1;
 	lo->carg = calloc(1, sizeof(context_arg));
+	lo->carg_allocated = 1;
 	lo->carg->log_level = ac->system_carg->log_level;
 	lo->carg->no_metric = 1;
 
@@ -137,8 +138,12 @@ int x509_push(json_t *x509) {
 	if (json_period)
 		period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 
-	if (type && !strcmp(type, "jks"))
-		return jks_push(name, path, tokens_match, password, NULL, period);
+	if (type && !strcmp(type, "jks")) {
+		int ret = jks_push(name, path, tokens_match, password, NULL, period);
+		if (tokens_match)
+			string_tokens_free(tokens_match);
+		return ret;
+	}
 	else
 		return tls_fs_push(name, path, tokens_match, password, type, period);
 }
