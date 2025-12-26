@@ -58,6 +58,9 @@ context_arg *carg_copy(context_arg *src)
 	if (src->labels)
 		carg->labels = labels_dup(src->labels);
 
+	if (src->mm)
+		carg->mm = mapping_copy(src->mm);
+
 	return carg;
 }
 
