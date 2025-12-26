@@ -113,7 +113,7 @@ int expand_grok_pattern(char *src, string *dst_pass, grok_pattern_node *patterns
 
 void grok_expand(string *src, string **dst, grok_pattern *patterns) {
 	if (!patterns) {
-		glog(L_ERROR, "No loaded grok patterns\n");
+		glog(L_ERROR, "Don't loaded grok patterns\n");
 		return;
 	}
 
@@ -392,6 +392,10 @@ void grok_handler_callback(void *funcarg, void* arg)
 	OnigErrorInfo einfo;
  
 	if (!gn->reg) {
+		if (!gn->expanded_match) {
+			glog(L_ERROR, "Don't loaded grok patterns\n");
+			return;
+		}
 		int r = onig_new(&gn->reg, (UChar *)gn->expanded_match->s, (UChar *)(gn->expanded_match->s + gn->expanded_match->l), ONIG_OPTION_NONE, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT, &einfo);
 		if (r != ONIG_NORMAL) {
 			carglog(ctx->carg, L_ERROR, "Onig is not normal regex: '%s'\n", gn->expanded_match->s);
