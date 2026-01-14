@@ -67,6 +67,18 @@ int fd_sock_compare(const void* arg, const void* obj)
 		return strcmp(s1, s2);
 }
 
+int is_baremetal_or_vm(int8_t platform) {
+	return (!platform) || (platform > 4);
+}
+
+int is_baremetal(int8_t platform) {
+	return (!platform);
+}
+
+int is_container(int8_t platform) {
+	return (!platform) || (platform > 4) ? 0 : 1;
+}
+
 void print_mount(const struct mntent *fs)
 {
 	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strcmp(fs->mnt_dir, "/"))
@@ -156,7 +168,7 @@ void cpu_avg_push(double now)
 
 void get_cpu(int8_t platform)
 {
-	platform = (!platform) || (platform > 4) ? 0 : 1; // exclude baremetal and virt
+	int is_cgroup = is_container(platform); // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "fast scrape metrics: base: cpu\n");
 	r_time ts_start = setrtime();
 
@@ -191,7 +203,7 @@ void get_cpu(int8_t platform)
 	char cpu_usage_core_name[30];
 	char cpu_usage_time_name[30];
 
-	if (!platform)
+	if (!is_cgroup)
 	{
 		strlcpy(cpu_usage_name, "cpu_usage", 10);
 		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
@@ -283,7 +295,7 @@ void get_cpu(int8_t platform)
 				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 				metric_add_labels(cpu_usage_time_name, &tidle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 				metric_add_labels(cpu_usage_time_name, &tiowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
-				if (!platform && ac->system_cpuavg)
+				if (!is_cgroup && ac->system_cpuavg)
 				{
 					cpu_avg_push(usage);
 				}
@@ -329,7 +341,7 @@ void get_cpu(int8_t platform)
 	fclose(fd);
 
 	// cgroup stats
-	if (platform)
+	if (is_cgroup)
 	{
 		sccs = &ac->scs->cgroup;
 
@@ -1365,7 +1377,8 @@ void find_pid(int8_t lightweight)
 
 void get_mem(int8_t platform)
 {
-	platform = (!platform) || (platform > 4) ? 0 : 1; // exclude baremetal and virt
+	int is_cgroup = is_container(platform); // exclude baremetal and virt
+	int is_bm_vm = is_baremetal_or_vm(platform); // exclude baremetal and virt
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: mem\n");
 
 	char pathbuf[255];
@@ -1521,17 +1534,17 @@ void get_mem(int8_t platform)
 			pgfault = ival;
 		else if (!strcmp(key, "oom_kill"))
 			oom_kill = ival;
-		else if (!platform && !strcmp(key, "pswpin"))
+		else if (is_bm_vm && !strcmp(key, "pswpin"))
 			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpin");
-		else if (!platform && !strcmp(key, "pswpout"))
+		else if (is_bm_vm && !strcmp(key, "pswpout"))
 			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpout");
-		else if (!platform && !strncmp(key, "numa_", 5))
+		else if (is_bm_vm && !strncmp(key, "numa_", 5))
 			metric_add_labels("numa_stat", &ival, DATATYPE_INT, ac->system_carg, "type", key+5);
-		else if (!platform && !strncmp(key, "pgscan_", 7))
+		else if (is_bm_vm && !strncmp(key, "pgscan_", 7))
 			metric_add_labels("pgscan", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
-		else if (!platform && !strncmp(key, "pgsteal_", 8))
+		else if (is_bm_vm && !strncmp(key, "pgsteal_", 8))
 			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+8);
-		else if (!platform && !strncmp(key, "kswapd_", 7))
+		else if (is_bm_vm && !strncmp(key, "kswapd_", 7))
 			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
 	}
 	fclose(fd);
@@ -1562,58 +1575,57 @@ void get_mem(int8_t platform)
 		strlcpy(val, tmp+swap, i-swap+1);
 
 		ival = atoll(val);
-		int8_t cgroup = platform;
 
 		if	(!strcmp(key, "total_cache")) {
 			strlcpy(key_map, "cache", 6);
-			cache = cgroup ? ival : cache;
+			cache = is_cgroup ? ival : cache;
 		}
 		else if (!strcmp(key, "total_mapped_file")) {
 			strlcpy(key_map, "mapped", 7);
-			mapped = cgroup ? ival : mapped;
+			mapped = is_cgroup ? ival : mapped;
 		}
 		else if (!strcmp(key, "total_dirty")) {
 			strlcpy(key_map, "dirty", 6);
-			dirty = cgroup ? ival : dirty;
+			dirty = is_cgroup ? ival : dirty;
 			container_memory_usage += dirty;
 		}
 		else if (!strcmp(key, "total_unevictable")) {
 			strlcpy(key_map, "unevictable", 12);
-			unevictable = cgroup ? ival : unevictable;
+			unevictable = is_cgroup ? ival : unevictable;
 		}
 		else if (!strcmp(key, "total_active_anon")) {
 			strlcpy(key_map, "active_anon", 12);
-			active_anon = cgroup ? ival : active_anon;
+			active_anon = is_cgroup ? ival : active_anon;
 			container_memory_usage += active_anon;
 		}
 		else if (!strcmp(key, "total_inactive_anon")) {
 			strlcpy(key_map, "inactive_anon", 14);
-			inactive_anon = cgroup ? ival : inactive_anon;
+			inactive_anon = is_cgroup ? ival : inactive_anon;
 			container_memory_usage += inactive_anon;
 		}
 		else if (!strcmp(key, "total_active_file")) {
 			strlcpy(key_map, "active_file", 12);
-			active_file = cgroup ? ival : active_file;
+			active_file = is_cgroup ? ival : active_file;
 		}
 		else if (!strcmp(key, "total_inactive_file")) {
 			strlcpy(key_map, "inactive_file", 14);
-			inactive_file = cgroup ? ival : inactive_file;
+			inactive_file = is_cgroup ? ival : inactive_file;
 		}
 		else if (!strcmp(key, "total_pgpgin")) {
 			strlcpy(key_map, "pgpgin", 7);
-			pgpgin = cgroup ? ival : pgpgin;
+			pgpgin = is_cgroup ? ival : pgpgin;
 		}
 		else if (!strcmp(key, "total_pgpgout")) {
 			strlcpy(key_map, "pgpgout", 8);
-			pgpgout = cgroup ? ival : pgpgout;
+			pgpgout = is_cgroup ? ival : pgpgout;
 		}
 		else if (!strcmp(key, "total_pgfault")) {
 			strlcpy(key_map, "pgfault", 8);
-			pgfault = cgroup ? ival : pgfault;
+			pgfault = is_cgroup ? ival : pgfault;
 		}
 		else if (!strcmp(key, "total_pgmajfault")) {
 			strlcpy(key_map, "pgmajfault", 11);
-			pgmajfault = cgroup ? ival : pgmajfault;
+			pgmajfault = is_cgroup ? ival : pgmajfault;
 		}
 		else if (!strcmp(key, "hierarchical_memory_limit")) {
 			strlcpy(key_map, "total", 6);
@@ -1621,7 +1633,7 @@ void get_mem(int8_t platform)
 		}
 		else if (!strcmp(key, "total_shmem")) {
 			strlcpy(key_map, "shmem", 6);
-			shmem = cgroup ? ival : shmem;
+			shmem = is_cgroup ? ival : shmem;
 			container_memory_usage += shmem;
 		}
 		else	continue;
@@ -1649,7 +1661,7 @@ void get_mem(int8_t platform)
 	metric_add_labels("memory_usage", &active, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
 
-	usagemem = platform ? container_memory_usage : usagemem;
+	usagemem = is_cgroup ? container_memory_usage : usagemem;
 	double percentused = (double)usagemem*100/(double)memtotal;
 	double percentfree = 100 - percentused;
 	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
@@ -2506,6 +2518,12 @@ void get_kernel_version(int8_t platform)
 		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "docker");
 	else if (platform == PLATFORM_OPENVZ)
 		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "openvz");
+	else if (platform == PLATFORM_KVM)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "kvm");
+	else if (platform == PLATFORM_OPENSTACK)
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "openstack");
+	else
+		metric_add_labels2("kernel_version", &vl, DATATYPE_INT, ac->system_carg, "version", version, "platform", "unknown");
 
     uint8_t i = 0;
     char *p = version;
@@ -3266,10 +3284,10 @@ void get_system_metrics()
 		get_systemd_scopes();
 		get_distribution_name();
 		collect_power_supply();
-		if ((!platform) || (platform > 4)) { // exclude containers
+		if (is_baremetal_or_vm(platform)) { // exclude containers
 			get_proc_interrupts(ac->system_interrupts);
 		}
-		if (!platform)
+		if (is_baremetal(platform))
 		{
 			memory_errors_by_controller();
 			get_thermal();
@@ -3314,7 +3332,7 @@ void get_system_metrics()
 		get_disk();
 		if (platform == -1)
 			platform = get_platform(0);
-		if (!platform)
+		if (is_baremetal_or_vm(!platform))
 			get_mdadm();
 	}
 

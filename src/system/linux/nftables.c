@@ -16,6 +16,7 @@
 #include <common/selector.h>
 #include <common/logs.h>
 #include <main.h>
+#include <common/validator.h>
 
 #include <linux/netfilter.h>
 #include <linux/netlink.h>
@@ -1539,6 +1540,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 
 				string *expstr = nft_expression_deserialize(expression);
 				char *verdict_str = nft_get_verdict_by_id(verdict);
+				metric_label_value_validator_normalizer(userdata, strlen(userdata));
 				labels_hash_insert_nocache(label_expression, "userdata", userdata);
 				labels_hash_insert_nocache(label_expression, "verdict", verdict_str);
 

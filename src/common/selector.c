@@ -905,6 +905,14 @@ json_t* string_tokens_json(string_tokens *st)
 	return array;
 }
 
+void string_tokens_print(string_tokens *st)
+{
+	for (uint64_t i = 0; i < st->l; i++)
+	{
+		printf("token[%"PRIu64"]: '%s'\n", i, st->str[i]->s);
+	}
+}
+
 void string_tokens_free(string_tokens *st)
 {
 	for (uint64_t i = 0; i < st->l; i++)

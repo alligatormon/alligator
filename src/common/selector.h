@@ -104,6 +104,7 @@ json_t* string_tokens_json(string_tokens *st);
 uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l);
 string_tokens* string_tokens_split_any(string *s, char *sepsym);
 string_tokens* string_tokens_char_split_any(char *s, uint64_t l, char *sepsym);
+void string_tokens_print(string_tokens *st);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);
