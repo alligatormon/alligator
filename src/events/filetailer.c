@@ -334,6 +334,10 @@ char* filetailer_handler(context_arg *carg)
 		uv_fs_event_start(&carg->fs_handle, on_file_change, carg->path, UV_FS_EVENT_WATCH_ENTRY);
 	}
 
+	if (carg->state == FILESTAT_STATE_STREAM) {
+		file_stat_get_offset(ac->file_stat, carg->path, carg->state);
+	}
+
 	return "file";
 }
 

@@ -147,6 +147,7 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 		qn->carg = carg;
 		query_set_values(qn);
 		labels_hash_free(hash);
+		qn->labels = NULL;
 
 		cur += end;
 	}

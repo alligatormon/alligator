@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "modules/modules.h"
+#include <query/type.h>
 char* postgresql_client(context_arg* carg);
 
 typedef struct pq_library {
@@ -120,6 +121,14 @@ typedef struct pq_library {
 	uv_lib_t *PQexec_lib;
 	PGresult *(*PQexec)(PGconn *conn, const char *query);
 } pq_library;
+
+typedef struct postgresql_query_ctx {
+	void (*callback)(PGresult*, query_node*, context_arg*, char*);
+	char *query;
+	context_arg *carg;
+	query_node *qn;
+	char *database_class;
+} postgresql_query_ctx;
 
 void postgresql_client_del(context_arg* carg);
 void postgresql_client_handler();

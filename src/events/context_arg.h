@@ -19,6 +19,7 @@
 #include <openssl/x509_vfy.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
+#include "dstructures/queue.h"
 
 #include "common/selector.h"
 #include "common/url.h"
@@ -72,9 +73,10 @@ typedef struct context_arg
 	char *stdin_s;
 	size_t stdin_l;
 	char *auth_header;
+	queue *pg_queue;
 	char *query_url;
 	//char *port;
-	uint8_t lock; // lock for aggregator scrape
+	uint16_t lock; // lock for aggregator scrape
 	uint8_t data_lock; // lock for parser scrape
 	uint8_t proto;
 	uint8_t transport;
@@ -200,8 +202,6 @@ typedef struct context_arg
 	uv_write_t write_tls;
 	uv_shutdown_t shutdown_req;
 	uv_udp_t udp_server;
-	uv_poll_t *poll;
-	uv_poll_t poll2;
 	uv_pipe_t *pipe;
 	uv_udp_t udp_client;
 	uv_udp_send_t udp_send;
@@ -291,6 +291,7 @@ typedef struct context_arg
 	uint8_t check_receive;
 
 	uv_poll_t poll_socket;
+	uv_poll_t *dynamic_socket;
 	uv_timer_t t_timeout;
 	uv_timer_t t_towrite;
 	uv_timer_t t_seq_timer;
@@ -319,6 +320,8 @@ typedef struct context_arg
 	// overwrited period
 	uint64_t period;
 	uv_timer_t *period_timer;
+
+	struct context_arg *parental_carg;
 
 	tommy_node node;
 	tommy_node context_node;

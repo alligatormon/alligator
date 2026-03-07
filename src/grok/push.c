@@ -81,7 +81,7 @@ int grok_push(json_t *grok) {
 					json_t *jname = json_array_get(quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
 					json_t *jtemplate = json_array_get(quantile, 1);
-					mm->template = strdup((char*)json_string_value(jtemplate));
+					mm->template = strdup((char*)json_string_value(jname));
 					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
 					gmm_node->key = strdup((char*)json_string_value(jtemplate));
 					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
@@ -128,7 +128,7 @@ int grok_push(json_t *grok) {
 					json_t *jname = json_array_get(le, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
 					json_t *jtemplate = json_array_get(le, 1);
-					mm->template = strdup((char*)json_string_value(jtemplate));
+					mm->template = strdup((char*)json_string_value(jname));
 					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
 					gmm_node->key = strdup((char*)json_string_value(jtemplate));
 					gmm_node->metric_name = string_init_dupn((char*)json_string_value(jname), json_string_length(jname));
@@ -248,7 +248,7 @@ int grok_push(json_t *grok) {
 					json_t *jname = json_array_get(splited_quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
 					json_t *jtemplate = json_array_get(splited_quantile, 1);
-					mm->template = strdup((char*)json_string_value(jtemplate));
+					mm->template = strdup((char*)json_string_value(jname));
 					json_t *jseparator = json_array_get(splited_quantile, 2);
 					gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
 					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));
@@ -297,7 +297,7 @@ int grok_push(json_t *grok) {
 					json_t *jname = json_array_get(splited_le, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
 					json_t *jtemplate = json_array_get(splited_le, 1);
-					mm->template = strdup((char*)json_string_value(jtemplate));
+					mm->template = strdup((char*)json_string_value(jname));
 					json_t *jseparator = json_array_get(splited_le, 2);
 					gps->separator = string_init_dupn((char*)json_string_value(jseparator), json_string_length(jseparator));
 					grok_multimetric_node *gmm_node = calloc(1, sizeof(*gmm_node));

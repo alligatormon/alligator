@@ -1,4 +1,5 @@
 #include "main.h"
+#include "mapping/mapping.h"
 
 void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, double dval)
 {
@@ -89,6 +90,93 @@ void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node 
 	}
 }
 
+int match_and_extract(const char *pattern, const char *str, char *fields[], int *field_count)
+{
+    char pat[1024];
+    char txt[1024];
+
+    strncpy(pat, pattern, sizeof(pat));
+    strncpy(txt, str, sizeof(txt));
+
+    char *pat_ctx;
+    char *str_ctx;
+
+    char *p = strtok_r(pat, ".", &pat_ctx);
+    char *s = strtok_r(txt, ".", &str_ctx);
+
+    *field_count = 0;
+
+    while (p && s)
+    {
+        if (strcmp(p, "*") == 0)
+        {
+            fields[*field_count] = s;
+            (*field_count)++;
+        }
+        else if (strcmp(p, s) != 0)
+        {
+            return 0;
+        }
+
+
+        p = strtok_r(NULL, ".", &pat_ctx);
+        s = strtok_r(NULL, ".", &str_ctx);
+    }
+
+    return (!p && !s);
+}
+
+void template_render(const char *template, char *fields[], int field_count, char *output)
+{
+    const char *t = template;
+    char *o = output;
+
+    while (*t)
+    {
+        if (*t == '$')
+        {
+            t++;
+
+            int index = -1;
+
+            if (*t == '{')
+            {
+                t++;
+
+                index = 0;
+                while (isdigit(*t))
+                {
+                    index = index * 10 + (*t - '0');
+                    t++;
+                }
+
+                if (*t == '}')
+                    t++;
+            }
+            else if (isdigit(*t))
+            {
+                index = *t - '0';
+                t++;
+            }
+
+            index--; // convert to 0-based
+
+            if (index >= 0 && index < field_count)
+            {
+                const char *f = fields[index];
+                while (*f)
+                    *o++ = *f++;
+            }
+        }
+        else
+        {
+            *o++ = *t++;
+        }
+    }
+
+    *o = 0;
+}
+
 void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 {
 	if (!carg)
@@ -98,12 +186,17 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 
 	mapping_metric *mm = carg->mm;
 	for (; mm; ) {
-		if (strcmp(mnode->labels->key, mm->metric_name))
+		char *fields[MAPPING_MAX_EXTRACT_FIELDS];
+		int num_fields;
+		if (!match_and_extract(mm->template, mnode->labels->key, fields, &num_fields))
 		{
+			//printf("not matched: template %s, labels->key %s\n", mm->template, mnode->labels->key);
 			mm = mm->next;
 			continue;
 		}
 
+
+		//printf("matched mapping processing: %p, next %p, metric_name %s, labels->key %s\n", mm, mm->next, mm->template, mnode->labels->key);
 		if (mm->percentile)
 		{
 			if (!mnode->pb)
@@ -121,4 +214,3 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		mm = mm->next;
 	}
 }
-

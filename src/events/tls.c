@@ -64,7 +64,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	if (!carg->ssl_ctx) {
 		char buf[256];
 		strerror_r(errno, buf, sizeof(buf));
-		carglog(carg, L_ERROR, "SSL_new failed: %s\n", buf);
+		carglog(carg, L_ERROR, "context %p  SSL_new failed: %s\n", carg, buf);
 		return 0;
 	}
 
@@ -73,32 +73,39 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	}
 
 	if (certfile && keyfile) {
-		if (SSL_CTX_use_certificate_file(carg->ssl_ctx, certfile,	SSL_FILETYPE_PEM) != 1) {
+		if (SSL_CTX_use_certificate_file(carg->ssl_ctx, certfile, SSL_FILETYPE_PEM) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "SSL_CTX_use_certificate_file failed: %s\n", err);
+			carglog(carg, L_ERROR, "context %p SSL_CTX_use_certificate_file '%s' failed: %s\n", carg, certfile, err);
 			free(err);
 			return 0;
 		}
 
 		if (SSL_CTX_use_PrivateKey_file(carg->ssl_ctx, keyfile, SSL_FILETYPE_PEM) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "SSL_CTX_use_PrivateKey_file failed: %s\n", err);
+			carglog(carg, L_ERROR, "context %p SSL_CTX_use_PrivateKey_file '%s' failed: %s\n", carg, keyfile, err);
 			free(err);
 			return 0;
 		}
 
 		if (SSL_CTX_check_private_key(carg->ssl_ctx) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "SSL_CTX_check_private_key failed: %s\n", err);
+			carglog(carg, L_ERROR, "context %p SSL_CTX_check_private_key '%s' failed: %s\n", carg, keyfile, err);
 			free(err);
 			return 0;
 		}
 		else
-			carglog(carg, L_INFO,"certificate and private key loaded and verified\n");
+			carglog(carg, L_INFO, "context %p certificate and private key loaded and verified: cert:%s, key:%s\n", carg, certfile, keyfile);
 	}
 
 	if (ca) {
-		SSL_CTX_load_verify_locations(carg->ssl_ctx, ca, NULL);
+		if (SSL_CTX_load_verify_locations(carg->ssl_ctx, ca, NULL)) {
+			carglog(carg, L_INFO, "context %p Successfully loaded CA file: %s\n", carg, ca);
+		}
+		else {
+			char *err = openssl_get_error_string();
+			carglog(carg, L_ERROR, "context %p Failed loading CA file: %s: %s\n", carg, ca, err);
+			free(err);
+		}
 	}
 
 	if (crl) {
@@ -108,7 +115,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		if (!crl_fp) {
 			char buf[256];
 			strerror_r(errno, buf, sizeof(buf));
-			carglog(carg, L_ERROR, "SSL_CTX_get_cert_store open() failed: %s\n", buf);
+			carglog(carg, L_ERROR, "context %p SSL_CTX_get_cert_store open('%s') failed: %s\n", carg, carg->ssl_ctx, buf);
 			return 0;
 		}
 		
@@ -117,18 +124,24 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		
 		if (!crl) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "Failed to read CRL: %s\n", err);
+			carglog(carg, L_ERROR, "context %p Failed to read CRL: %s\n", carg, carg->ssl_ctx, err);
 			free(err);
 
 			return 0;
 		}
+		else {
+			carglog(carg, L_INFO, "context %p Successfully parsed CRL file '%s': %s\n", carg, carg->ssl_ctx, ca);
+		}
 		
 		if (!X509_STORE_add_crl(store, crl)) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "Failed to add CRL to store: %s\n", err);
+			carglog(carg, L_ERROR, "context %p Failed to add CRL '%s' to store: %s\n", carg, carg->ssl_ctx, err);
 			free(err);
 
 			return 0;
+		}
+		else {
+			carglog(carg, L_INFO, "context %p Successfully loaded CRL file: %s\n", carg, ca);
 		}
 
 		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
@@ -147,7 +160,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	if (servername) {
 		if (!SSL_set_tlsext_host_name(carg->ssl, servername)) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "Failed to set SNI: %s\n", err);
+			carglog(carg, L_ERROR, "context %p Failed to set SNI '%s': %s\n", carg, servername, err);
 			free(err);
 		}
 	}
@@ -263,5 +276,6 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 	//carg->write_buffer = uv_buf_init(calloc(1, len*2), len*2);
 	//carg->write_buffer.len = BIO_read(carg->wbio, carg->write_buffer.base, len*2);
 	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64"/tls:%d)===================\n'%s'\n======\n", len, carg->write_buffer.len, message ? message : "");
-	uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
+	int ret = uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
 }

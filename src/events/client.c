@@ -285,6 +285,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	if (handshaked > 0) {
 		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
 		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written_nofree);
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshaked! go tcp_connected %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 		tcp_connected(&carg->connect, 0);
 	} else if (!handshaked) {
 		string *buffer = string_new();
@@ -371,7 +372,7 @@ void tcp_connected(uv_connect_t* req, int status)
 	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->read_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client stream established %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	if (!carg->tls)
 	{
 		carg->connect_time_finish = setrtime();
@@ -388,7 +389,8 @@ void tcp_connected(uv_connect_t* req, int status)
 	else
 	{
 		carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64")===================\n'%s'\n======\n", carg->write_buffer.len, carg->request_buffer.base ? carg->request_buffer.base : "");
-		uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
+		int ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
 		carg->write_bytes_counter += carg->request_buffer.len;
 		(carg->write_counter)++;
 	}

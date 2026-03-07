@@ -172,18 +172,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				if (json_typeof(value) == JSON_STRING) {
 					const char *data = json_string_value(value);
 					if (!strcmp(data, "auto")) {
-						char cpus[20];
-						snprintf(cpus, 19, "%ld", sysconf(_SC_NPROCESSORS_ONLN));
-						setenv("UV_THREADPOOL_SIZE", cpus, 1);
+						ac->workers = _SC_NPROCESSORS_ONLN;
 					}
 					else
-						setenv("UV_THREADPOOL_SIZE", data, 1);
+						ac->workers = strtoull(data, NULL, 10);
 				}
 				else {
 					uint64_t workers = json_integer_value(value);
-					char cpus[20];
-					snprintf(cpus, 19, "%"PRIu64, workers);
-					setenv("UV_THREADPOOL_SIZE", cpus, 1);
+					ac->workers = workers;
 				}
 			}
 			if (!strcmp(key, "metrictree_hashfunc"))

@@ -76,11 +76,6 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 	size_t plan_size = sort_plan->size;
 	for (i=0; i<plan_size && labels1 && labels2; i++)
 	{
-		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
-			return -1;
-		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
-			return 1;
-
 		if (!labels1->key && !labels2->key)
 		{
 			// equal
@@ -88,6 +83,12 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 			labels2 = labels2->next;
 			continue;
 		}
+
+		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
+			return -1;
+		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
+			return 1;
+
 		if (!labels1->key)
 			return -1;
 		if (!labels2->key)

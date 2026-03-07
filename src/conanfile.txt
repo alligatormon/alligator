@@ -1,5 +1,5 @@
 [requires]
-libuv/1.44.2 # don't update until centos 7 is supported
+libuv/1.51.0
 jansson/2.13.1
 jemalloc/5.2.1
 zlib/1.2.11
@@ -7,22 +7,22 @@ libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
 pcre/8.45
-libpq/15.5
+libpq/17.7
 openssl/3.2.2
 libbsd/0.10.0
 xxhash/0.8.2
-mariadb-connector-c/3.3.3 #for compilation only
+mariadb-connector-c/3.3.3
 oniguruma/6.9.9
 
 [generators]
-cmake
 CMakeDeps
 CMakeToolchain
 
-
 [options]
-pcre:with_jit=True
+pcre/*:with_jit=True
+libpq/*:with_openssl=True
+libpq/*:shared=False
+openssl/*:shared=False
 
 [layout]
 cmake_layout
-

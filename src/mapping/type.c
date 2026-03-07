@@ -1,4 +1,5 @@
 #include "common/selector.h"
+#include "common/logs.h"
 #include <string.h>
 #include "mapping/type.h"
 
@@ -129,8 +130,10 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 		ml->name = strdup(label_key);
 		ml->key = strdup(label_value_str);
 		ml->next = 0;
+		glog(L_INFO, "\tcreated label [%p] for template '%s': '%s'='%s', next is %p\n", ml, mm->template, ml->name, ml->key, ml->next);
 	}
 
+	glog(L_INFO, "created mapping %p from template '%s' with ml %p\n", mm, mm->template, mm->label_head);
 	return mm;
 }
 
@@ -180,6 +183,31 @@ mapping_metric* mapping_copy(mapping_metric *src)
 			memcpy(mm->le, src->le, sizeof(int64_t) * src->le_size);
 		}
 
+		if (src->label_head)
+		{
+			mapping_label *srcml = src->label_head;
+			mm->label_head = malloc(sizeof(mapping_label));
+			mapping_label *dstml = mm->label_head;
+			mapping_label *tail = NULL;
+			while (srcml) {
+				tail = dstml;
+				dstml->name = strdup(srcml->name);
+				dstml->key = strdup(srcml->key);
+
+				if (srcml->next)
+					dstml->next = malloc(sizeof(mapping_label));
+				else {
+					dstml->next = NULL;
+					break;
+				}
+
+				srcml = srcml->next;
+				dstml = dstml->next;
+			}
+
+			mm->label_tail = tail;
+		}
+
 		if (!src->next) {
 			break;
 		}
@@ -203,16 +231,33 @@ void mapping_free(mapping_metric *src)
 	if (src->percentile_size)
 	{
 		free(src->percentile);
+		src->percentile = NULL;
 	}
 
 	if (src->bucket_size)
 	{
 		free(src->bucket);
+		src->bucket = NULL;
 	}
 
 	if (src->le_size)
 	{
 		free(src->le);
+		src->le = NULL;
+	}
+
+	if (src->label_head)
+	{
+		mapping_label *ml = src->label_head;
+		while (ml) {
+			free(ml->name);
+			free(ml->key);
+			mapping_label *prev = ml;
+			ml = ml->next;
+			free(prev);
+		}
+		src->label_head = NULL;
+		src->label_tail = NULL;
 	}
 }
 

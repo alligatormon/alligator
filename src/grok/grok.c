@@ -232,11 +232,6 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 						}
 						string_tokens_free(st);
 					}
-					//else {
-					//	ctx->splited_quantile_values[ctx->splited_quantile_index] = strtod(key, NULL);
-					//	carglog(ctx->carg, L_TRACE,"\t\t>splited_quantile simple: %f\n", ctx->splited_quantile_values[ctx->splited_quantile_index]);
-					//	ctx->splited_lbl_size = 1;
-					//}
 					ctx->splited_quantile_index++;
 				}
 				continue;
@@ -264,12 +259,8 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 								ctx->splited_lbl[k] = alligator_ht_init(NULL);
 							labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
 						}
+						string_tokens_free(st);
 					}
-					//else {
-					//	ctx->splited_counter_values[ctx->splited_counter_index] = strtod(key, NULL);
-					//	carglog(ctx->carg, L_TRACE,"\t\t>splited_counter simple: %f\n", ctx->splited_counter_values[ctx->splited_counter_index]);
-					//	ctx->splited_lbl_size = 1;
-					//}
 					ctx->splited_counter_index++;
 				}
 				continue;
@@ -295,12 +286,8 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 								ctx->splited_lbl[k] = alligator_ht_init(NULL);
 							//labels_hash_insert_nocache(ctx->splited_lbl[k], mname, st->str[k]->s);
 						}
+						string_tokens_free(st);
 					}
-					//else {
-					//	ctx->splited_le_values[ctx->splited_le_index] = strtod(key, NULL);
-					//	carglog(ctx->carg, L_TRACE,"\t\t>splited_le simple: %f\n", ctx->splited_le_values[ctx->splited_le_index]);
-					//	ctx->splited_lbl_size = 1;
-					//}
 					ctx->splited_le_index++;
 				}
 				continue;

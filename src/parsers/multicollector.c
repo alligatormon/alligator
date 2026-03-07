@@ -3,6 +3,7 @@
 #include <string.h>
 #include "main.h"
 #include "parsers/pushgateway.h"
+#include "mapping/mapping.h"
 #include "parsers/http_proto.h"
 #include "events/context_arg.h"
 #include "common/reject.h"
@@ -131,176 +132,6 @@ int8_t aglob(char *cmp1, char *cmp2)
 		return 0;
 }
 
-void free_mapping_split_free(char **split, size_t len)
-{
-	uint64_t k;
-	for (k=0; k<len; free(split[k++]));
-	//for (k=0; k<len; printf("free %p (%"d64"/%zu)\n", split[k], k, len), free(split[k++])); #TODO: fix mapping statsd
-	free(split);
-}
-
-char** mapping_str_split(char *str, size_t len, size_t *out_len, char **template_split, size_t template_split_size, uint64_t *arr)
-{
-	uint64_t k;
-	uint64_t d = 0;
-	size_t globs = 1;
-	uint64_t offset = 0;
-	size_t glob_size;
-	*out_len = 0;
-
-	for (k=0; k<len; ++k)
-	{
-		if (str[k] == '.')
-			++globs;
-	}
-
-	if (!globs)
-		return NULL;
-
-	if (template_split && template_split_size < globs)
-		return NULL;
-
-
-	char **ret = malloc((globs+1)*sizeof(char*));
-
-	uint64_t arr_i = 0;
-	for (k=0; k<globs; ++k)
-	{
-		glob_size = strcspn(str+offset, ".");
-		char *tmpret = strndup(str+offset, glob_size);
-		
-		//ret[k] = strndup(str+offset, glob_size);
-		if (template_split)
-		{
-			//if (template_split[k][0] != '*')
-			//{
-				ret[d++] = tmpret;
-			//}
-			if (arr && template_split[k][0] == '*')
-			{
-				arr[arr_i++] = k;
-			}
-		}
-		else
-		{
-			ret[k] = tmpret;
-		}
-		offset += glob_size+1;
-	}
-	ret[k] = NULL;
-	if (d)
-		*out_len = d;
-	else
-		*out_len = k;
-
-	return ret;
-}
-
-char** mapping_match(mapping_metric *mm, char *str, size_t size, size_t *split_size, uint64_t *arr)
-{
-	char **split = 0;
-	if (mm->match == MAPPING_MATCH_GLOB)
-	{
-		uint8_t i;
-		size_t str_splits;
-		size_t template_splitsize;
-
-		char **template_split = mapping_str_split(mm->template, mm->template_len, &template_splitsize, NULL, 0, NULL);
-		split = mapping_str_split(str, size, &str_splits, template_split, template_splitsize, arr);
-		if (!split)
-		{
-			free_mapping_split_free(template_split, template_splitsize);
-			return 0;
-		}
-		if (str_splits != mm->glob_size)
-		{
-			free_mapping_split_free(template_split, template_splitsize);
-			free_mapping_split_free(split, str_splits);
-			return 0;
-		}
-
-		//for (i=0; i<mm->glob_size; ++i)
-		for (i=0; i<str_splits; ++i)
-		{
-			int8_t selector = aglob(split[i], mm->glob[i]);
-			if (!selector)
-			{
-				free_mapping_split_free(template_split, template_splitsize);
-				free_mapping_split_free(split, str_splits);
-				return 0;
-			}
-		}
-		*split_size = str_splits;
-		free_mapping_split_free(template_split, template_splitsize);
-	}
-	else if (mm->match == MAPPING_MATCH_PCRE)
-	{
-	}
-
-	return split;
-}
-
-size_t mapping_template(context_arg *carg, char *dst, char *src, size_t size, char **metric_split, uint64_t *arr)
-{
-	size_t ret = 0;
-
-	//printf("<<<<<< %s, maxsize %zu\n", src, size);
-	char *cur = src;
-	char *oldcur = cur;
-	char *updatecur;
-	uint64_t index;
-	uint64_t csym = 0;
-	*dst = 0;
-	while (cur)
-	{
-		updatecur = strstr(cur, "$");
-		if (updatecur)
-			cur = updatecur;
-		else
-			cur += strlen(cur);
-
-		carglog(carg, L_TRACE, "<<<<< found (non template data) \"$ '%s' (%p)\n", cur, cur);
-
-		size_t copysize = cur - oldcur;
-		carglog(carg, L_TRACE, "<<<< copy non template %s with %zu syms to %"u64" ptr\n", oldcur, copysize, csym);
-		strncpy(dst+csym, oldcur, copysize);
-		csym += copysize;
-
-		if (!updatecur)
-			break;
-
-		cur += 1;
-		index = strtoll(cur, &cur, 10);
-		carglog(carg, L_TRACE, "<<<get index of template '%s': %"u64"\n", cur, index);
-		if (index < 1)
-			break;
-		
-		index--; // index decrement because take from null
-
-		index = arr[index];
-		carglog(carg, L_TRACE, "<<<templating element '%s': with [%"u64"] element\n", cur, index);
-
-		carglog(carg, L_TRACE, "<<<<<1 dst %s\n", dst);
-
-		oldcur = cur;
-		carglog(carg, L_TRACE, "<<<<< metric_split %s\n", metric_split[index]);
-
-		if (!metric_split[index])
-			break;
-
-		copysize = strlen(metric_split[index]);
-		strlcpy(dst+csym, metric_split[index], copysize+1);
-		carglog(carg, L_TRACE, "<<<< 2copy %s with %zu syms to %"u64" ptr\n", metric_split[index], copysize, csym);
-
-		csym += copysize;
-		carglog(carg, L_TRACE, "<<<<<%"u64" dst %s\n", index, dst);
-	}
-	dst[csym] = 0;
-	
-
-	return ret;
-}
-
 uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
 	if ((str[*i] == '#') || (str[*i] == ','))
@@ -386,48 +217,44 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 	for (; mm; mm = mm->next)
 	{
-		uint64_t input_name_size = strcspn(str, ": \t\n");
-		size_t metric_split_size = 0;
-		char *matchres = strndup(str, input_name_size);
-		uint64_t arr[255];
-		char **metric_split = mapping_match(mm, matchres, input_name_size, &metric_split_size, arr);
-		if (metric_split)
-		{
-			if (mm->metric_name)
-			{
-				metric_len = mapping_template(carg, metric_name, mm->metric_name, METRIC_NAME_SIZE, metric_split, arr);
-				mapping_label *ml = mm->label_head;
-				while (ml)
-				{
-					// graphite/statsd labels parse
-
-					// init labels
-					if (!lbl)
-					{
-						lbl = alligator_ht_init(NULL);
-					}
-
-					// init vars
-					char label_name[METRIC_NAME_SIZE];
-					char label_key[METRIC_NAME_SIZE];
-					mm->label_tail = ml;
-
-					// template exec
-					mapping_template(carg, label_name, ml->name, METRIC_NAME_SIZE, metric_split, arr);
-					//printf("from template '%s' rendered: '%s'\n", ml->name, label_name);
-					mapping_template(carg, label_key, ml->key, METRIC_NAME_SIZE, metric_split, arr);
-
-					// insert
-					labels_hash_insert_nocache(lbl, label_name, label_key);
-
-					ml = ml->next;
-				}
-			}
-			free_mapping_split_free(metric_split, metric_split_size);
-			free(matchres);
+		if (!mm)
 			break;
+
+		if (mm->metric_name)
+		{
+			char *fields[MAPPING_MAX_EXTRACT_FIELDS];
+			int num_fields;
+
+			if (!match_and_extract(mm->template, metric_name, fields, &num_fields))
+			{
+				carg_or_glog(carg, L_TRACE, "> mapping not matched: template %s, metric_name is %s, skip\n", mm->template, metric_name);
+				continue;
+			}
+
+			carg_or_glog(carg, L_DEBUG, "> mapping matched: mapping %p template %s, metric name is '%s'\n", mm, mm->template, metric_name);
+			template_render(mm->metric_name, fields, num_fields, metric_name);
+
+
+			mapping_label *ml = mm->label_head;
+			carg_or_glog(carg, L_DEBUG, "> mapping matched: mapping %p template %s, metric name updated to '%s'\n", mm, mm->template, metric_name);
+
+			while (ml)
+			{
+				if (!lbl)
+					lbl = alligator_ht_init(NULL);
+
+				char label_name[METRIC_NAME_SIZE];
+				char label_key[METRIC_NAME_SIZE];
+
+				template_render(ml->name, fields, num_fields, label_name);
+				template_render(ml->key, fields, num_fields, label_key);
+
+				carg_or_glog(carg, L_DEBUG, "\t> mapping %p for template '%s' generated label '%s'='%s'\n", mm, mm->template, label_name, label_key);
+				labels_hash_insert_nocache(lbl, label_name, label_key);
+				ml = ml->next;
+			}
 		}
-		free(matchres);
+
 	}
 
 	carg_or_glog(carg, L_DEBUG, "> metric name = %s\n", metric_name);

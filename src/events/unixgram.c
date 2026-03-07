@@ -130,10 +130,9 @@ void do_unixgram(void *arg)
 	if (carg->log_level > 0)
 		printf("sent %zu bytes\n", strlen(carg->mesg));
 
-	uv_poll_t *poll_handler = calloc(1, sizeof(*poll_handler));
-	poll_handler->data = carg;
-	uv_poll_init_socket(uv_default_loop(), poll_handler, s);
-	uv_poll_start(poll_handler, UV_READABLE, unixgram_cb);
+	carg->poll_socket.data = carg;
+	uv_poll_init_socket(uv_default_loop(), &carg->poll_socket, s);
+	uv_poll_start(&carg->poll_socket, UV_READABLE, unixgram_cb);
 
 	uv_run(uv_default_loop(), 0);
 }
@@ -224,10 +223,9 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	carg->local = 0;
 	carg->fd = s;
 
-	uv_poll_t *poll_handler = carg->poll = calloc(1, sizeof(*poll_handler));
-	poll_handler->data = carg;
-	uv_poll_init_socket(loop, poll_handler, s);
-	uv_poll_start(poll_handler, UV_READABLE, unixgram_serve_cb);
+	carg->poll_socket.data = carg;
+	uv_poll_init_socket(loop, &carg->poll_socket, s);
+	uv_poll_start(&carg->poll_socket, UV_READABLE, unixgram_serve_cb);
 
 	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 }
@@ -239,7 +237,7 @@ void unixgram_server_stop(const char* addr)
 	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		uv_poll_stop(carg->poll);
+		uv_poll_stop(&carg->poll_socket);
 		unlink(addr);
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 	}

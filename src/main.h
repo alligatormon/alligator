@@ -266,6 +266,7 @@ typedef struct aconf
 	uint64_t metric_allocates;
 	uint64_t metric_freed;
 	uint8_t kernel_version[3];
+	uint64_t workers;
 } aconf;
 
 extern aconf *ac;

@@ -128,6 +128,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 		qn->carg = carg;
 		query_set_values(qn);
 		labels_hash_free(hash);
+		qn->labels = NULL;
 	}
 
 	json_decref(root);

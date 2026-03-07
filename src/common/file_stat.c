@@ -109,9 +109,9 @@ file_stat* file_stat_add_offset(alligator_ht *hash, const char *path, context_ar
 	}
 
 	if (carg)
-		carglog(carg, L_INFO, "file_stat_add_offset: set %s offset +%"u64"\n", path, add_offset);
+		carglog(carg, L_INFO, "file_stat_add_offset: set %s offset %"u64"+%"u64"\n", path, fstat->offset, add_offset);
 	else
-		glog(L_INFO, "file_stat_add_offset: set %s offset +%"u64"\n", path, add_offset);
+		glog(L_INFO, "file_stat_add_offset: set %s offset %"u64"+%"u64"\n", path, fstat->offset, add_offset);
 	fstat->modify++;
 	fstat->offset += add_offset;
 

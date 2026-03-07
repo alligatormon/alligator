@@ -248,6 +248,7 @@ void mysql_execution(context_arg *carg, MYSQL *con, query_node *qn)
 		qn->carg = carg;
 		query_set_values(qn);
 		labels_hash_free(hash);
+		qn->labels = NULL;
 	}
 	ac->mylib->mysql_free_result(result);
 }

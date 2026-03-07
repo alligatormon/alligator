@@ -688,6 +688,7 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 			qn->carg = carg;
 			query_set_values(qn);
 			labels_hash_free(hash);
+			qn->labels = NULL;
 		}
 	}
 	ch_columns_types_free(column_types, columns_count);

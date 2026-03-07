@@ -160,8 +160,6 @@ aconf* configuration()
 	ac->metrictree_hashfunc = xxh3_run;
 	ac->metrictree_hashfunc_get = xxh3_get;
 
-	setenv("UV_THREADPOOL_SIZE", "4", 1);
-
 	return ac;
 }
 
@@ -308,6 +306,15 @@ int parse_args(int argc, char **argv)
 	return ret;
 }
 
+void set_workers(uint64_t workers) {
+	if (!workers)
+		return;
+
+	char cpus[20];
+	snprintf(cpus, 19, "%"PRIu64, workers);
+	setenv("UV_THREADPOOL_SIZE", cpus, 1);
+}
+
 int main(int argc, char **argv, char **envp)
 {
 	ac = configuration();
@@ -322,6 +329,7 @@ int main(int argc, char **argv, char **envp)
 		parse_configs(DEFAULT_CONF_PATH);
 
 	parse_env(envp);
+	set_workers(ac->workers);
 
 	restore_settings();
 	tls_init();
