@@ -362,4 +362,4 @@
       executable: pip-3.8
       name:
       - statsd
-      - conan==1.60.0
+      - conan==2.26.1

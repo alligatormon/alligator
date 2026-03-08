@@ -18,7 +18,7 @@ tests:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
@@ -95,7 +95,7 @@ memcheck:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
@@ -142,7 +142,7 @@ deploy_centos7:
   - git checkout v0.7.12
   - cd -
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
@@ -165,7 +165,7 @@ deploy_centos9:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
@@ -190,7 +190,7 @@ deploy_ubuntu2004:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
   - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
@@ -218,7 +218,7 @@ deploy_ubuntu2204:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install conan==1.60.0
+  - pip3 install conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
@@ -296,7 +296,7 @@ deploy_debian12:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install --break-system-packages conan==1.60.0
+  - pip3 install --break-system-packages conan==2.26.1
   - conan install . --build=missing
   - conan build external/
 
