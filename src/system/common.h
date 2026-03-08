@@ -18,3 +18,4 @@ void hw_cpu_info();
 void get_utsname();
 void get_smbios();
 void system_initialize();
+int is_container(int8_t platform);

@@ -103,3 +103,8 @@ void system_initialize()
 
 	ac->system_sysctl = alligator_ht_init(NULL);
 }
+
+
+int is_container(int8_t platform) {
+	return (!platform) || (platform > 4) ? 0 : 1;
+}
