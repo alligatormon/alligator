@@ -18,3 +18,4 @@ void  queue_push(queue *q, void *ptr);
 void *queue_front(queue *q);
 void *queue_pop(queue *q);
 int   queue_empty(queue *q);
+void queue_free(queue *q, void (*free_fn)(void *));

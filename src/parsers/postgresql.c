@@ -56,7 +56,9 @@ void postgresql_error_metric(PGconn *conn, context_arg *carg)
 void on_handle_closed(uv_handle_t* handle) {
     context_arg *carg = handle->data;
 
-    pg_data *data = carg->data;
+	pg_data *data = carg->data;
+	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
+
     if (data && data->conn) {
 		if (carg->data_lock) {
 			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
@@ -65,8 +67,6 @@ void on_handle_closed(uv_handle_t* handle) {
 		}
     }
 
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
-
 	if (carg->parental_carg) {
 		if (carg->parental_carg->lock) {
 			--carg->parental_carg->lock;
@@ -74,10 +74,14 @@ void on_handle_closed(uv_handle_t* handle) {
 
 	}
 
+	queue_free(carg->pg_queue, free);
+	carg->pg_queue = NULL;
+
     if (carg->data_lock) {
         free(carg->url);
         free(carg->ns);
         free(carg->name);
+		free(carg->data);
         free(carg);
     }
 
@@ -286,6 +290,22 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
     }
 }
 
+context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargname, char *url, char *ns) {
+	context_arg *db_carg = calloc(1, sizeof(*db_carg));
+
+	db_carg->parental_carg = carg;
+	db_carg->data = NULL;
+	db_carg->url = strdup(url);
+	db_carg->key = carg->key;
+	db_carg->name = strdup(cargname);
+	db_carg->ns = strdup(ns);
+	db_carg->log_level = carg->log_level;
+	db_carg->data_lock = 1;
+	db_carg->pg_queue = NULL;
+	db_carg->threaded_loop_name = carg->threaded_loop_name;
+	return db_carg;
+}
+
 void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *carg, char *database_class)
 {
 	pg_data *data = carg->data;
@@ -305,58 +325,49 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 		uint64_t i;
 
 		uint64_t children = 0;
+		uint64_t cargnamelen = strlen(carg->name);
+		uint64_t urlnamelen = strlen(carg->url);
 		for (i=0; i<PQntuples(res); ++i)
 		{
-			context_arg *db_carg = calloc(1, sizeof(*db_carg));
-			size_t url_len = strlen(carg->url) + 1024;
-			char *url = malloc(url_len);
-			size_t name_len = strlen(carg->name) + 1024;
-			char *name = malloc(name_len);
-			char *ns = malloc(1024);
 
-			db_carg->parental_carg = carg;
-			db_carg->data = NULL;
-			db_carg->url = url;
-			db_carg->key = carg->key;
-			db_carg->name = name;
-			db_carg->ns = ns;
-			db_carg->log_level = carg->log_level;
-			db_carg->data_lock = 1;
-			db_carg->pg_queue = NULL;
-			db_carg->threaded_loop_name = carg->threaded_loop_name;
 
 			int wildcard = 0;
-			snprintf(name, name_len - 1, "%s/*", carg->name);
-			if (query_get(name))
+			char namefind[cargnamelen + 3];
+			snprintf(namefind, cargnamelen + 3, "%s/*", carg->name);
+			if (query_get(namefind))
 				wildcard = 1;
 
 			int column_number = PQfnumber(res, "datname");
 			if (column_number != -1) {
 				char *resp = PQgetvalue(res, i, column_number);
-				snprintf(db_carg->url, url_len - 1, "%s/%s", carg->url, resp);
-				strlcpy(db_carg->ns, resp, 1024);
+				uint64_t url_len = urlnamelen + PQgetlength(res, i, column_number) + 3;
+				char db_carg_url[url_len];
+				char db_carg_ns[url_len];
+				snprintf(db_carg_url, url_len - 1, "%s/%s", carg->url, resp);
+				strlcpy(db_carg_ns, resp, url_len);
 
-				snprintf(db_carg->name, name_len - 1, "%s/*", carg->name);
+				uint64_t resultnamelen = cargnamelen + strlen(resp) + 2;
+				char dbcargname[resultnamelen];
+
+				snprintf(dbcargname, resultnamelen - 1, "%s/*", carg->name);
 				if (wildcard)
 				{
-					carglog(carg, L_INFO, "run wildcard queries %s\n", resp);
+					context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
+					carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run wildcard queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
 
 					++children;
 					postgresql_run(db_carg);
 				}
 				else {
-					snprintf(db_carg->name, name_len - 1, "%s/%s", carg->name, resp);
-					if (query_get(db_carg->name)) {
-						carglog(carg, L_INFO, "exec queries database %s\n", db_carg->name);
+					snprintf(dbcargname, resultnamelen, "%s/%s", carg->name, resp);
+					if (query_get(dbcargname)) {
+						context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
+						carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"exec queries database\", \"database\": \"%s\"}\n", carg->fd, carg->key, db_carg->name);
 						++children;
 						postgresql_run(db_carg);
 					}
 					else {
-						carglog(carg, L_INFO, "database %s not found in queries\n", db_carg->name);
-						free(db_carg);
-						free(url);
-						free(name);
-						free(ns);
+						carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"database not found in queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, dbcargname);
 						continue;
 					}
 				}
@@ -405,7 +416,7 @@ void postgresql_queries_foreach(void *funcarg, void* arg)
 	pg_data *data = carg->data;
 
 	query_node *qn = arg;
-	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\nrun datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	postgresql_query_init(data->conn, qn->expr, qn, carg, postgresql_write, "database");
 }
 

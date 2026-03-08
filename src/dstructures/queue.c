@@ -52,3 +52,26 @@ int queue_empty(queue *q)
 {
     return q->head == NULL;
 }
+
+void queue_free(queue *q, void (*free_fn)(void *))
+{
+	if (!q)
+		return;
+
+    qnode *node = q->head;
+
+    while (node) {
+        qnode *next = node->next;
+
+        if (free_fn && node->data)
+            free_fn(node->data);
+
+        free(node);
+        node = next;
+    }
+
+    q->head = NULL;
+    q->tail = NULL;
+    q->size = 0;
+	free(q);
+}
