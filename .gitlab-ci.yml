@@ -12,7 +12,7 @@ tests:
   script:
   - dnf install -y 'dnf-command(config-manager)'
   - dnf config-manager --set-enabled crb
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools llvm perl-FindBin
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools llvm perl-FindBin  perl-Digest-SHA perl-IPC-Cmd
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -144,7 +144,7 @@ deploy_centos9:
   script:
   - dnf install -y 'dnf-command(config-manager)'
   - dnf config-manager --set-enabled crb
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin perl-Digest-SHA perl-IPC-Cmd
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -173,7 +173,7 @@ deploy_centos10:
   script:
   - dnf install -y 'dnf-command(config-manager)'
   - dnf config-manager --set-enabled crb
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin gnupg2
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
