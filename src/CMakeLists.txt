@@ -344,7 +344,7 @@ set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_executable(${TESTS} tests/unit2/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${TESTS} ${COMMON_TESTS} -Wl,--no-as-needed dl systemd jansson::jansson libpq::libpq)
-add_test(Test1 "bin/alligator_tests" ".")
+add_test(Test1 "build/alligator_tests" ".")
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp ../puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
@@ -361,7 +361,7 @@ set_target_properties(${COMMON_TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
     LINK_FLAGS "-fprofile-generate"
 )
-# to check coverage report use the: ./bin/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata bin/alligator_tests
+# to check coverage report use the: ./build/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata build/alligator_tests
 ENDIF(NOT ${distro}.${disversion} MATCHES "centos.7")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -421,7 +421,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
-	install(FILES bin/alligator
+	install(FILES build/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/local/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -432,7 +432,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
-	install(FILES bin/alligator
+	install(FILES build/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
 		DESTINATION /usr/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")

@@ -22,6 +22,7 @@ CMakeToolchain
 pcre/*:with_jit=True
 libpq/*:with_openssl=True
 libpq/*:shared=False
+mariadb-connector-c/*:with_curl=False
 openssl/*:shared=False
 
 [layout]
