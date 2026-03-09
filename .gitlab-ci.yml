@@ -12,7 +12,7 @@ tests:
   script:
   - dnf install -y 'dnf-command(config-manager)'
   - dnf config-manager --set-enabled crb
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools llvm
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools llvm perl-FindBin
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -45,7 +45,7 @@ static-analyzer:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install --break-system-packages conan==1.64.0
+  - pip3 install --break-system-packages conan==2.26.1
   - mkdir -p ~/.conan/profiles/
   - conan profile detect --force
   - conan install . --build=missing  -s build_type=Debug
@@ -72,7 +72,7 @@ static-lint:
   - git submodule update --init --recursive
   - cd src
 
-  - pip3 install --break-system-packages conan==1.64.0
+  - pip3 install --break-system-packages conan==2.26.1
   - mkdir -p ~/.conan/profiles/
   - conan profile detect --force
   - conan install . --build=missing -s build_type=Debug
@@ -126,6 +126,16 @@ generate-linters:
   - docker push alligatormon/clang-tidy:latest
 
 
+list_all_distributions:
+  stage: build
+  image: quay.io/centos/centos:stream9
+  except:
+  - tags
+  script:
+  - yum -y install jq
+  - curl https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/distributions | jq
+
+
 deploy_centos9:
   stage: build
   image: quay.io/centos/centos:stream9
@@ -134,7 +144,36 @@ deploy_centos9:
   script:
   - dnf install -y 'dnf-command(config-manager)'
   - dnf config-manager --set-enabled crb
-  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin
+  - update-smart-drivedb
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - pip3 install conan==2.26.1
+  - conan profile detect --force
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM
+  - cmake --build build  --parallel 3
+  - cd build
+  - cpack -G RPM
+
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
+  - curl -F "package[distro_version_id]=308" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+
+
+
+deploy_centos10:
+  stage: build
+  image: quay.io/centos/centos:stream10
+  only:
+  - tags
+  script:
+  - dnf install -y 'dnf-command(config-manager)'
+  - dnf config-manager --set-enabled crb
+  - yum -y install git cmake make libtool rake python3-pip gcc gcc-c++ systemd-devel clang go rpm-build libvirt-devel smartmontools perl-FindBin
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -152,6 +191,7 @@ deploy_centos9:
 
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
   - curl -F "package[distro_version_id]=240" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
+
 
 deploy_ubuntu2004:
   image: ubuntu:20.04
