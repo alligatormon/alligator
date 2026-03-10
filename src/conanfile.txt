@@ -11,7 +11,7 @@ libpq/17.7
 openssl/3.2.2
 libbsd/0.10.0
 xxhash/0.8.2
-mariadb-connector-c/3.3.3
+libmysqlclient/8.1.0
 oniguruma/6.9.9
 
 [generators]
