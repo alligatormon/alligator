@@ -20,8 +20,7 @@ tests:
 
   - pip3 install conan==2.26.1
   - conan profile detect --force
-  - conan install . --build=missing  -s build_type=Debug || true
-  - conan cache path mariadb-connector-c/3.3.3
+  - conan install . --build=missing  -s build_type=Debug
   - conan build external/
 
   - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
