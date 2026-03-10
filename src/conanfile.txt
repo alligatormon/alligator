@@ -2,7 +2,6 @@
 libuv/1.51.0
 jansson/2.13.1
 jemalloc/5.2.1
-zlib/1.2.11
 libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
