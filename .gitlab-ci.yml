@@ -23,7 +23,8 @@ tests:
   - conan install . --build=missing  -s build_type=Debug
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
+  - find . -name conan_toolchain.cmake
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
   - cmake --build build --parallel 3
 
   - ./bin/alligator_tests pass
