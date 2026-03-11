@@ -27,9 +27,9 @@ tests:
   - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
   - cmake --build build --parallel 3
 
-  - ./bin/alligator_tests pass
+  - ./build/alligator_tests pass
   - llvm-profdata merge -sparse default.profraw -o default.profdata
-  - llvm-cov report -instr-profile=default.profdata bin/alligator_tests
+  - llvm-cov report -instr-profile=default.profdata build/alligator_tests
 
 static-analyzer:
   stage: build
@@ -107,7 +107,7 @@ memcheck:
   - cmake -S . -B build   -DCMAKE_TOOLCHAIN_FILE=build/build/Debug/generators/conan_toolchain.cmake   -DCMAKE_BUILD_TYPE=Debug
   - cmake --build build  --parallel 3
 
-  - valgrind --leak-check=full -v --track-origins=yes ./bin/alligator&
+  - valgrind --leak-check=full -v --track-origins=yes .build/alligator&
   - sleep 120 && kill -TERM %1
 
 generate-linters:
@@ -136,6 +136,41 @@ list_all_distributions:
   - yum -y install jq
   - curl https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/distributions | jq
 
+deploy_centos7:
+  stage: build
+  only:
+  - tags
+  script:
+  - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+  - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+  - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
+  - yum -y install epel-release https://acc.dl.osdn.jp/storage/g/c/cu/cutter/centos/cutter-release-1.3.0-1.noarch.rpm
+  - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter libvirt-devel smartmontools
+  - cp misc/centos7/CMakeLists.txt src/CMakeLists.txt
+  - cp misc/centos7/conanfile.py src/external/conanfile.py
+  - cp misc/centos7/conanfile.txt src/conanfile.txt
+  - update-smart-drivedb --no-verify
+  - ln -s /usr/bin/cmake3 /usr/bin/cmake
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - cd src
+
+  - cd external/libfyaml
+  - git checkout v0.7.12
+  - cd -
+
+  - pip3 install conan==1.64.0
+  - conan install . --build=missing
+  - conan build external/
+
+  - cmake3 --build build  --parallel 3
+  - cd build
+  - cpack -G RPM
+  - make -j package
+
+  - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
+  - curl -F "package[distro_version_id]=140" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json
 
 deploy_centos9:
   stage: build
