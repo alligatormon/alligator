@@ -234,7 +234,6 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
 void get_local_directory(char *mockpath, char *binary, char *extra_path) {
     binary = strdup(binary);
     char *pathbin = dirname(binary);
-    free(binary);
     if (*pathbin == '/') {
         snprintf(mockpath, PATH_MAX, "%s/../%s", pathbin, extra_path);
     }
@@ -243,6 +242,7 @@ void get_local_directory(char *mockpath, char *binary, char *extra_path) {
         getcwd(cwd, sizeof(cwd));
         snprintf(mockpath, PATH_MAX, "%s/%s/../%s", cwd, pathbin, extra_path);
     }
+    free(binary);
 }
 
 #include "netlib.h"
