@@ -191,7 +191,7 @@ deploy_centos9:
   - conan install . --build=missing
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G RPM
@@ -220,7 +220,7 @@ deploy_centos10:
   - conan install . --build=missing
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G RPM
@@ -253,7 +253,7 @@ deploy_ubuntu2004:
   - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
   - ln -s /usr/local/go/bin/go /usr/bin/go
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G DEB
@@ -282,7 +282,7 @@ deploy_ubuntu2204:
   - conan install . --build=missing
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G DEB
@@ -311,7 +311,7 @@ deploy_ubuntu2404:
   - conan install . --build=missing
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G DEB
@@ -343,7 +343,7 @@ deploy_debian11:
   - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
   - ln -s /usr/local/go/bin/go /usr/bin/go
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G DEB
@@ -372,7 +372,7 @@ deploy_debian12:
   - conan install . --build=missing
   - conan build external/
 
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
   - cmake --build build  --parallel 3
   - cd build
   - cpack -G DEB
