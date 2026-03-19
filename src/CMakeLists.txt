@@ -402,9 +402,19 @@ include_directories(external/mruby/include)
 
 get_target_property(SRCs ${HEAD} SOURCES)
 #add_custom_target(${HEAD}_analyze COMMAND clang ${CMAKE_C_FLAGS} -I. -I/usr/include/x86_64-linux-gnu/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ ${include_flags} --analyze;-Xanalyzer;-analyzer-output=text ${STATIC_FILES})
-add_custom_target(${HEAD}_analyze COMMAND clang-tidy --config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.analyze ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -Wno-implicit-function-declaration -I. -I/usr/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ -Iexternal/libfyaml/include/ -Iexternal/mruby/include/ ${include_flags})
+add_custom_target(${HEAD}_analyze
+	COMMAND clang-tidy
+		-p=${CMAKE_BINARY_DIR}
+		--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.analyze
+		${SRCs} ${STATIC_FILES}
+)
 
-add_custom_target(${HEAD}_lint COMMAND clang-tidy --config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.lint ${SRCs} ${STATIC_FILES} -- ${CMAKE_C_FLAGS} -Wno-implicit-function-declaration -I. -I/usr/include/ -Iexternal/picohttpparser -Iexternal/libhv/protocol/ -Iexternal/libhv/include/hv -Iexternal/libatasmart/ -Iexternal/libfyaml/include/ -Iexternal/mruby/include/ ${include_flags})
+add_custom_target(${HEAD}_lint
+	COMMAND clang-tidy
+		-p=${CMAKE_BINARY_DIR}
+		--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.lint
+		${SRCs} ${STATIC_FILES}
+)
 
 
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
