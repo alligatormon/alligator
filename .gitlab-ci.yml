@@ -107,7 +107,7 @@ memcheck:
   - cmake -S . -B build   -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake   -DCMAKE_BUILD_TYPE=Debug
   - cmake --build build  --parallel 3
 
-  - valgrind --leak-check=full -v --track-origins=yes .build/alligator&
+  - valgrind --leak-check=full -v --track-origins=yes ./build/alligator&
   - sleep 120 && kill -TERM %1
 
 generate-linters:
