@@ -149,6 +149,7 @@ deploy_centos7:
   - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter libvirt-devel smartmontools
   - cp misc/centos7/conanfile.py src/external/conanfile.py
   - cp misc/centos7/conanfile.txt src/conanfile.txt
+  - cp misc/centos7/CMakeLists.txt src/CMakeLists.txt
   - update-smart-drivedb --no-verify
   - ln -s /usr/bin/cmake3 /usr/bin/cmake
   - git submodule sync --recursive
@@ -237,6 +238,8 @@ deploy_ubuntu2004:
   script:
   - apt update
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config libvirt-dev smartmontools
+  - apt -y install --only-upgrade m4
+  - m4 --version
   - update-smart-drivedb --no-verify
   - git submodule sync --recursive
   - git submodule update --init --recursive
@@ -328,6 +331,9 @@ deploy_debian11:
   script:
   - apt update
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config libvirt-dev smartmontools
+  - #apt -y install --only-upgrade m4
+  - apt -y install -t bookworm-backports m4
+  - m4 --version
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
