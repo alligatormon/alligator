@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 
 set(VERSION 1.14.165)
 project(alligator VERSION ${VERSION})
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FindPkgConfig)
 set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/generators" ${CMAKE_PREFIX_PATH})
@@ -16,6 +17,25 @@ find_package(xxHash REQUIRED)
 find_package(lua REQUIRED)
 find_package(duktape REQUIRED)
 find_package(oniguruma REQUIRED)
+
+set(LIBUV_INCLUDE_HINTS "")
+if(TARGET libuv::uv_a)
+	get_target_property(LIBUV_INCLUDE_HINTS libuv::uv_a INTERFACE_INCLUDE_DIRECTORIES)
+elseif(TARGET libuv::uv)
+	get_target_property(LIBUV_INCLUDE_HINTS libuv::uv INTERFACE_INCLUDE_DIRECTORIES)
+elseif(DEFINED libuv_INCLUDE_DIRS)
+	set(LIBUV_INCLUDE_HINTS ${libuv_INCLUDE_DIRS})
+elseif(DEFINED LIBUV_INCLUDE_DIRS)
+	set(LIBUV_INCLUDE_HINTS ${LIBUV_INCLUDE_DIRS})
+else()
+	pkg_check_modules(LIBUV_PC libuv)
+	if(LIBUV_PC_FOUND)
+		set(LIBUV_INCLUDE_HINTS ${LIBUV_PC_INCLUDE_DIRS})
+	endif()
+endif()
+if(LIBUV_INCLUDE_HINTS)
+	include_directories(${LIBUV_INCLUDE_HINTS})
+endif()
 
 set(CMAKE_BUILD_TYPE Debug)
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
@@ -407,6 +427,7 @@ add_custom_target(${HEAD}_analyze
 		-p=${CMAKE_BINARY_DIR}
 		--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.analyze
 		${SRCs} ${STATIC_FILES}
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_custom_target(${HEAD}_lint
@@ -414,6 +435,7 @@ add_custom_target(${HEAD}_lint
 		-p=${CMAKE_BINARY_DIR}
 		--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.clang-tidy.lint
 		${SRCs} ${STATIC_FILES}
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 
