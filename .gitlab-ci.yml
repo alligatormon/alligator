@@ -331,7 +331,7 @@ deploy_debian11:
   script:
   - apt update
   - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config libvirt-dev smartmontools
-  - apt -y install -t bookworm-backports m4
+  - apt -y install --only-upgrade m4
   - m4 --version
   - update-smart-drivedb
   - git submodule sync --recursive
