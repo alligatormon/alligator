@@ -538,6 +538,74 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
+void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *carg)
+{
+	uint8_t newind;
+	uint64_t val = 1;
+	char name[IPMI_METRIC_SIZE];
+	char state[IPMI_METRIC_SIZE];
+
+	for (uint64_t i = 0; i < size; i++)
+	{
+		// name
+		newind = strcspn(metrics+i, ":\n\r");
+		if ((metrics[i] == '\n') || (metrics[i] == '\r') || (metrics[i] == '\0'))
+		{
+			i += strcspn(metrics+i, "\n");
+			continue;
+		}
+
+		i += strspn(metrics + i, " \t");
+
+		strlcpy(name, metrics+i, newind+1);
+		ipmi_set_null_sep(name, newind);
+		i += newind;
+		i += strspn(metrics+i, " :\t");
+
+		if (carg->log_level > 1)
+			printf("name is '%s'\n", name);
+
+
+		// state
+		newind = strcspn(metrics+i, "\n\r");
+		if ((metrics[i] == '\n') || (metrics[i] == '\r') || (metrics[i] == '\0'))
+		{
+			i += strcspn(metrics+i, "\n");
+			continue;
+		}
+
+		strlcpy(state, metrics+i, newind+1);
+		ipmi_set_null_sep(state, newind);
+		if (carg->log_level > 1)
+			printf("\tstate is '%s'\n", state);
+
+
+		double dval = strtod(state, NULL);
+
+		if (!strcmp(name, "Instantaneous power reading:"))
+			metric_add_auto("IPMI_dcmi_power_reading_instantaneous", &dval, DATATYPE_DOUBLE, carg);
+		else if (!strcmp(name, "Minimum during sampling period:"))
+			metric_add_auto("IPMI_dcmi_power_reading_minimum", &dval, DATATYPE_DOUBLE, carg);
+		else if (!strcmp(name, "Maximum during sampling period:"))
+			metric_add_auto("IPMI_dcmi_power_reading_maximum", &dval, DATATYPE_DOUBLE, carg);
+		else if (!strcmp(name, "Average power reading over sample period:"))
+			metric_add_auto("IPMI_dcmi_power_reading_average_over_sample_period", &dval, DATATYPE_DOUBLE, carg);
+		else if (!strcmp(name, "Sampling period:"))
+			metric_add_auto("IPMI_dcmi_power_reading_sampling_period", &dval, DATATYPE_DOUBLE, carg);
+		else if (!strcmp(name, "Power reading state is:")) {
+			metric_add_auto("IPMI_dcmi_power_reading_state", &dval, DATATYPE_DOUBLE, carg);
+			if (!strcmp(state, "activated"))
+				val = 1;
+			else
+				val = 0;
+			metric_add_auto("IPMI_dcmi_power_reading_state", &val, DATATYPE_UINT, carg);
+		}
+
+		i += strcspn(metrics+i, "\n");
+	}
+	carg->parser_status = 1;
+}
+
 string* ipmi_sensor_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
 	return string_init_alloc("sensor list", 0);
@@ -563,13 +631,18 @@ string* ipmi_lan_print_mesg(host_aggregator_info *hi, void *arg, void *env, void
 	return string_init_alloc("lan print", 0);
 }
 
+string* ipmi_dcmi_power_reading_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+{
+	return string_init_alloc("dcmi power reading", 0);
+}
+
 void ipmi_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
 	actx->key = strdup("ipmi");
 	actx->data = calloc(1, sizeof(ipmi_data));
-	actx->handlers = 5;
+	actx->handlers = 6;
 	actx->handler = calloc(1, sizeof(*actx->handler)*actx->handlers);
 
 	actx->handler[0].name = ipmi_sensor_handler;
@@ -596,6 +669,11 @@ void ipmi_parser_push()
 	actx->handler[4].validator = NULL;
 	actx->handler[4].mesg_func = ipmi_lan_print_mesg;
 	strlcpy(actx->handler[4].key,"ipmi_lan_print", 255);
+
+	actx->handler[5].name = ipmi_dcmi_power_reading_handler;
+	actx->handler[5].validator = NULL;
+	actx->handler[5].mesg_func = ipmi_dcmi_power_reading_mesg;
+	strlcpy(actx->handler[5].key,"ipmi_dcmi_power_reading", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }

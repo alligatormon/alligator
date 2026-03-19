@@ -17,7 +17,6 @@
 #include "events/filetailer.h"
 #include "metric/namespace.h"
 #include "parsers/postgresql.h"
-#include "parsers/alligator_mysql.h"
 #include "common/aggregator.h"
 #include "dstructures/uv_cache.h"
 #include "resolver/resolver.h"
@@ -234,7 +233,6 @@ typedef struct aconf
 
 	libvirt_library *libvirt;
 	pq_library *pqlib;
-	my_library *mylib;
 	void *pylib;
 
 	uv_timer_t general_timer;

@@ -5,7 +5,6 @@
 #include "main.h"
 #include "parsers/multiparser.h"
 #include "parsers/elasticsearch.h"
-#include "parsers/alligator_mysql.h"
 #include "parsers/postgresql.h"
 #include "events/filetailer.h"
 #include "events/udp.h"

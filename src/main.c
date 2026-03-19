@@ -18,7 +18,6 @@
 #include "config/env.h"
 #include "events/client.h"
 #include "parsers/postgresql.h"
-#include "parsers/alligator_mysql.h"
 #include "events/filetailer.h"
 #include "puppeteer/puppeteer.h"
 #include "cluster/type.h"
