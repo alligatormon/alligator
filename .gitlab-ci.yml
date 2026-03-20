@@ -147,11 +147,10 @@ deploy_centos7:
 
   - yum -y install epel-release https://acc.dl.osdn.jp/storage/g/c/cu/cutter/centos/cutter-release-1.3.0-1.noarch.rpm
   - yum -y install git cmake3 make libtool rake python3-pip gcc gcc-c++ systemd-devel clang golang rpm-build perl-Digest-SHA perl-IPC-Cmd cutter libvirt-devel smartmontools
-  - cp misc/centos7/conanfile.py src/external/conanfile.py
   - cp misc/centos7/conanfile.txt src/conanfile.txt
-  - cp misc/centos7/CMakeLists.txt src/CMakeLists.txt
   - update-smart-drivedb --no-verify
   - ln -s /usr/bin/cmake3 /usr/bin/cmake
+  - ln -s /usr/bin/cpack3 /usr/bin/cpack
   - git submodule sync --recursive
   - git submodule update --init --recursive
   - cd src
@@ -160,12 +159,20 @@ deploy_centos7:
   - git checkout v0.7.12
   - cd -
 
-  - pip3 install conan==1.64.0
+  - pip3 install conan==2.19.1
+  - conan profile detect --force
+
+  - conan install . --build=missing || exit 0
+  - mkdir -p /root/.conan2/p/m45ae2df3e318db/p/bin
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
+
   - conan build external/
 
-  - cmake . -DCPACK_GENERATOR=RPM
-  - make -j package
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=RPM -DCMAKE_BUILD_TYPE=Release
+  - cmake --build build  --parallel 3
+  - cd build
+  - cpack -G RPM
 
   - PKGNAME=`ls alligator-$CI_COMMIT_TAG-Linux.rpm`
   - curl -F "package[distro_version_id]=140" -F "package[package_file]=@$PKGNAME" https://$PKGCLOUD_TOKEN:@packagecloud.io/api/v1/repos/amoshi/alligator/packages.json

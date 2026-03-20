@@ -6,7 +6,7 @@ libuuid/1.0.3
 lua/5.4.1
 duktape/2.5.0
 pcre/8.45
-libpq/15.5
+libpq/16.13
 openssl/3.2.2
 libbsd/0.10.0
 xxhash/0.8.2
