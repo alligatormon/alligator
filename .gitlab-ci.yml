@@ -162,8 +162,7 @@ deploy_centos7:
   - pip3 install conan==2.19.1
   - conan profile detect --force
 
-  - conan install . --build=missing || exit 0
-  - mkdir -p /root/.conan2/p/m45ae2df3e318db/p/bin
+  - conan install . --build=missing || true
   - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
 
@@ -256,8 +255,7 @@ deploy_ubuntu2004:
   - sed -i -e 's$libpq/17.7$libpq/15.5$g' conanfile.txt
   - conan profile detect --force
 
-  - conan install . --build=missing || exit 0
-  - mkdir /root/.conan2/p/m45ae2df3e318db/p/bin
+  - conan install . --build=missing || true
   - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
 
@@ -354,8 +352,7 @@ deploy_debian11:
   - sed -i -e 's$libpq/17.7$libpq/15.5$g' conanfile.txt
   - conan profile detect --force
 
-  - conan install . --build=missing || exit 0
-  - mkdir /root/.conan2/p/m45ae2df3e318db/p/bin
+  - conan install . --build=missing || true
   - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
 
