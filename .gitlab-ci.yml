@@ -248,7 +248,12 @@ deploy_ubuntu2004:
   - pip3 install conan==2.26.1
   - sed -i -e 's$libpq/17.7$libpq/15.5$g' conanfile.txt
   - conan profile detect --force
+
+  - conan install . --build=missing || exit 0
+  - mkdir /root/.conan2/p/m45ae2df3e318db/p/bin
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
+
   - conan build external/
   - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
   - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
@@ -341,7 +346,12 @@ deploy_debian11:
   - pip3 install conan==2.26.1
   - sed -i -e 's$libpq/17.7$libpq/15.5$g' conanfile.txt
   - conan profile detect --force
+
+  - conan install . --build=missing || exit 0
+  - mkdir /root/.conan2/p/m45ae2df3e318db/p/bin
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m45ae2df3e318db/p/bin/m4
   - conan install . --build=missing
+
   - conan build external/
   - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
   - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz

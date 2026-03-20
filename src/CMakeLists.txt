@@ -408,6 +408,20 @@ add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/mongo C
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/cassandra COMMAND go build -o /var/lib/alligator/cassandra.so -buildmode=c-shared cmd/cassandra/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
+# RPM checks reject absolute/build/local RUNPATH values in installed binaries.
+# Keep runtime lookup clean for packaged artifacts.
+set_target_properties(${HEAD} PROPERTIES
+	SKIP_BUILD_RPATH TRUE
+	BUILD_WITH_INSTALL_RPATH FALSE
+	INSTALL_RPATH ""
+	INSTALL_RPATH_USE_LINK_PATH FALSE
+)
+set_target_properties(${TESTS} PROPERTIES
+	SKIP_BUILD_RPATH TRUE
+	BUILD_WITH_INSTALL_RPATH FALSE
+	INSTALL_RPATH ""
+	INSTALL_RPATH_USE_LINK_PATH FALSE
+)
 IF(NOT ${distro}.${disversion} MATCHES "centos.7")
 set_target_properties(${TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
