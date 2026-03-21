@@ -508,16 +508,21 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					json_t *carg_handler = json_object_get(entrypoint, "handler");
 					char *str_handler = (char*)json_string_value(carg_handler);
-					if (str_handler && !strcmp(str_handler, "rsyslog-impstats"))
-						carg->parser_handler =  &rsyslog_impstats_handler;
-					else if (str_handler && !strcmp(str_handler, "auditd"))
-						carg->parser_handler =  &auditd_handler;
-					else if (str_handler && !strcmp(str_handler, "lang"))
-						carg->parser_handler =  &lang_parser_handler;
-					else if (str_handler && !strcmp(str_handler, "log"))
-						carg->parser_handler =  &log_handler;
-					else if (str_handler && !strcmp(str_handler, "grok"))
-						carg->parser_handler =  &grok_handler;
+					if (str_handler) {
+						printf("str handler %s\n", str_handler);
+						if (!strcmp(str_handler, "rsyslog-impstats"))
+							carg->parser_handler =  &rsyslog_impstats_handler;
+						else if (!strcmp(str_handler, "auditd"))
+							carg->parser_handler =  &auditd_handler;
+						else if (!strcmp(str_handler, "lang"))
+							carg->parser_handler =  &lang_parser_handler;
+						else if (!strcmp(str_handler, "log"))
+							carg->parser_handler =  &log_handler;
+						else if (!strcmp(str_handler, "grok"))
+							carg->parser_handler =  &grok_handler;
+						else
+							glog(L_FATAL, "Don't know entrypoint handler '%s', alligator will be automatically reconfigured to simple prometheus handler\n", str_handler);
+					}
 
 					json_t *json_cert = json_object_get(entrypoint, "tls_certificate");
 					char *str_cert = (char*)json_string_value(json_cert);
