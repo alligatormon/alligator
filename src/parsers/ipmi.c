@@ -590,10 +590,7 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 			metric_add_auto("IPMI_dcmi_power_reading_maximum", &dval, DATATYPE_DOUBLE, carg);
 		else if (!strcmp(name, "Average power reading over sample period:"))
 			metric_add_auto("IPMI_dcmi_power_reading_average_over_sample_period", &dval, DATATYPE_DOUBLE, carg);
-		else if (!strcmp(name, "Sampling period:"))
-			metric_add_auto("IPMI_dcmi_power_reading_sampling_period", &dval, DATATYPE_DOUBLE, carg);
 		else if (!strcmp(name, "Power reading state is:")) {
-			metric_add_auto("IPMI_dcmi_power_reading_state", &dval, DATATYPE_DOUBLE, carg);
 			if (!strcmp(state, "activated"))
 				val = 1;
 			else

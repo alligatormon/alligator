@@ -4,6 +4,7 @@
 #include "common/logs.h"
 #include "main.h"
 #include "parsers/mysql2.h"
+#include <pthread.h>
 #define MY_TYPE_MYSQL 0
 #define MY_TYPE_SPHINXSEARCH 1
 
@@ -175,14 +176,16 @@ static void mysql_exec_cb(mysql_row_t *row, void *ud)
 					break;
 
 				default:
+					metric_label_value_validator_normalizer(res, row->lengths[i]);
 					labels_hash_insert_nocache(hash, colname, res);
 					break;
 			}
 		} else {
+			metric_label_value_validator_normalizer(res, row->lengths[i]);
 			labels_hash_insert_nocache(hash, colname, res);
 		}
 		if (carg->log_level > 2)
-			printf("\tfield '%s': '%s'\n", colname, res);
+			carglog(carg, L_INFO, "\tmysql: '%s' field '%s': '%s'\n", carg->host, colname, res);
 		free(res);
 	}
 
@@ -221,7 +224,7 @@ void mysql_run_all_await(context_arg *carg)
 		query_ds *qds = query_get(carg->name);
 		if (qds) {
 			if (carg->log_level > 1)
-				printf("run queries for namespace '%s'\n", carg->name);
+				carglog(carg, L_INFO, "mysql: '%s' run queries for namespace '%s'\n", carg->host, carg->name);
 		
 			alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, carg);
 		}
@@ -254,7 +257,7 @@ void mysql_run_all_await(context_arg *carg)
 		query_ds *qds = query_get(name);
 		if (qds) {
 			if (carg->log_level > 1)
-				printf("run wildcard queries for namespace '%s'\n", name);
+				carglog(carg, L_INFO, "mysql: '%s' run wildcard queries for namespace '%s'\n", carg->host, name);
 
 			alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, &db_carg);
 		}
@@ -265,7 +268,7 @@ void mysql_run_all_await(context_arg *carg)
 			qds = query_get(db_carg.name);
 			if (qds) {
 				if (carg->log_level > 1)
-					printf("exec queries for namespace '%s'\n", db_carg.name);
+					carglog(carg, L_INFO, "mysql: '%s' exec queries for namespace '%s'\n", carg->host, db_carg.name);
 
 				alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, &db_carg);
 			}
@@ -394,7 +397,12 @@ void mysql_run(void* arg)
 	wa->carg = carg;
 	wa->data = data;
 	uv_thread_t th;
-	uv_thread_create(&th, mysql_worker_thread, wa);
+	if (uv_thread_create(&th, mysql_worker_thread, wa)) {
+		carg->running = 0;
+		free(wa);
+		return;
+	}
+	pthread_detach(th);
 
 	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
 }

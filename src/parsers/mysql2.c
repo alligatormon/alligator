@@ -178,20 +178,21 @@ void mysql2_on_connect(uv_connect_t *req, int status) {
 	mysql_conn_t *conn = (mysql_conn_t*)req->data;
 
 	uv_timer_stop(&conn->connect_timer);
+	context_arg *carg = conn->carg;
 
 	if (status < 0) {
 		conn->state = STATE_CONNECT_FAILED;
 		if (status == UV_ECANCELED)
-			fprintf(stderr, "Connection timeout\n");
+			carglog(conn->carg, L_ERROR, "mysql: '%s' Connection timeout\n", conn->carg->host);
 		else
-			fprintf(stderr, "Connect error: %s\n", uv_err_name(status));
+			carglog(conn->carg, L_ERROR, "mysql: '%s' Connect error: %s\n", conn->carg->host, uv_err_name(status));
 		uv_close((uv_handle_t *)&conn->connect_timer, NULL);
 		uv_close((uv_handle_t *)&conn->query_timer, NULL);
 		uv_close((uv_handle_t *)&conn->async_query_trigger, NULL);
 		return;
 	}
 
-	printf("TCP Connected to MySQL. Initializing Handshake...\n");
+	carglog(carg, L_INFO, "TCP Connected to MySQL. Initializing Handshake: '%s'\n", conn->carg->host);
 	conn->state = STATE_HANDSHAKE;
 	conn->seq_id = 0;
 
@@ -558,54 +559,6 @@ void send_query(mysql_conn_t *conn, const char *sql, mysql_row_cb cb, void *user
 	uv_write(req, (uv_stream_t*)&conn->handle, &buf, 1, mysql2_on_write_completed);
 }
 
-
-void my_display_row(mysql_row_t *row, void *user_data) {
-	printf(">>> Row received: ");
-	for (int i = 0; i < row->column_count; i++) {
-		if (row->fields[i] == NULL) {
-			printf("NULL\t");
-		} else {
-			printf("%.*s\t", (int)row->lengths[i], row->fields[i]);
-		}
-	}
-	printf("\n");
-}
-
-void count_databases(mysql_row_t *row, void *user_data) {
-	if (!row || !user_data || row->column_count < 1) return;
-
-	int64_t *count_ptr = (int64_t *)user_data;
-
-	if (row->fields[0] == NULL) {
-		*count_ptr = 0;
-		return;
-	}
-
-	char buf[32];
-	uint64_t len = row->lengths[0];
-	if (len >= sizeof(buf)) len = sizeof(buf) - 1;
-
-	memcpy(buf, row->fields[0], len);
-	buf[len] = '\0';
-
-	*count_ptr = strtoll(buf, NULL, 10);
-}
-
-void list_databases(mysql_row_t *row, void *user_data) {
-	if (!row || !user_data) return;
-
-	char **databases = (char **)user_data;
-
-	if (row->column_count > 0) {
-		if (row->fields[0] == NULL) {
-			databases[row->row_no] = strdup("NULL"); 
-		} else {
-			databases[row->row_no] = strndup((const char*)row->fields[0], row->lengths[0]);
-		}
-	}
-}
-
-
 void mysql2_await_query_context(mysql_conn_t *conn, const char *sql, mysql_row_cb cb, void *user_data) {
 	query_context_t *ctx = calloc(1, sizeof(query_context_t));
 	uv_mutex_init(&ctx->mutex);
@@ -770,7 +723,7 @@ void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
 
 	int r = uv_write(req, (uv_stream_t*)&conn->handle, &buf, 1, mysql2_on_write_completed);
 	if (r < 0) {
-		fprintf(stderr, "Write error: %s\n", uv_strerror(r));
+		carglog(conn->carg, L_ERROR, "mysql: '%s' Write error: %s\n", conn->carg->host, uv_strerror(r));
 	}
 }
 
@@ -911,7 +864,7 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 			uint16_t err_code = payload[1] | (payload[2] << 8);
 			char *msg = (char *)(payload + 9);
 			int msg_len = pkt_len - 9;
-			fprintf(stderr, ">>> MySQL ERROR %d: %.*s\n", err_code, msg_len, msg);
+			carglog(conn->carg, L_ERROR, "mysql: '%s' >>> MySQL ERROR %d: %.*s\n", conn->carg->host, err_code, msg_len, msg);
 
 			if (ctx) {
 				mysql2_free_metadata(conn);
@@ -1103,14 +1056,14 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 							conn->auth_waiting_rsa_key = 0;
 					}
 				} else if (payload[0] == 0x00) {
-					printf("Auth Successful!\n");
+					carglog(conn->carg, L_INFO, "mysql: '%s' Auth Successful!\n", conn->carg->host);
 					conn->state = STATE_QUERY;
 					auth_just_finished = 1;
 					p += 4 + pkt_len;
 					left -= 4 + pkt_len;
 					break;
 				} else if (payload[0] == 0xFF) {
-					printf("Auth Failed! Error: %s\n", (char *)(payload + 9));
+					carglog(conn->carg, L_ERROR, "mysql: '%s' Auth Failed! Error: %s\n", conn->carg->host, (char *)(payload + 9));
 					uv_close((uv_handle_t*)stream, NULL);
 					if (buf->base) free(buf->base);
 					return;
