@@ -12,6 +12,7 @@ system {
     process [nginx] [bash] [/[bash]*/];
     services [nginx.service];
     smart;
+    ipmi;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -56,6 +57,10 @@ Checks whether the service is running and enabled, and obtains the process stati
 
 ## smart
 Enables the collection of S.M.A.R.T. metrics.
+
+
+## ipmi
+Enables the collection of IPMI metrics using native ioctl() calls. For integration with ipmitool, see this [documentation](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
 
 
 ## firewall

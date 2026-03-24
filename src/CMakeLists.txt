@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.165)
+set(VERSION 1.14.166)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -321,6 +321,7 @@ set(STATIC_FILES
 	system/macosx.c
 	system/smbios.c
 	system/linux.c
+	system/linux/ipmi.c
 	system/linux/ipset.c
 	system/linux/cpu.c
 	system/linux/sysctl.c

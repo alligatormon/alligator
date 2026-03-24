@@ -199,6 +199,7 @@ typedef struct aconf
 	int system_ipset_entries;
 	int system_cadvisor;
 	int system_services;
+	int system_ipmi;
 	char *system_procfs;
 	char *system_sysfs;
 	char *system_rundir;

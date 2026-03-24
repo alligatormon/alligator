@@ -2,9 +2,6 @@
 
 MySQL support by user queries:
 ```
-modules {
-	mysql /usr/lib64/mysql/libmysqlclient.so
-}
 
 aggregate {
 	mysql mysql://user:password@localhost name=mysql;

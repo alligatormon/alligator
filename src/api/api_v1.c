@@ -509,7 +509,6 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					json_t *carg_handler = json_object_get(entrypoint, "handler");
 					char *str_handler = (char*)json_string_value(carg_handler);
 					if (str_handler) {
-						printf("str handler %s\n", str_handler);
 						if (!strcmp(str_handler, "rsyslog-impstats"))
 							carg->parser_handler =  &rsyslog_impstats_handler;
 						else if (!strcmp(str_handler, "auditd"))
@@ -956,6 +955,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								ac->system_etcdir = strdup(etcdir);
 							}
 						}
+						else if (!strcmp(system_key, "ipmi"))
+						{
+							ac->system_ipmi = 1;
+						}
 						else if (!strcmp(system_key, "cadvisor"))
 						{
 							ac->system_cadvisor = enkey;
@@ -1249,6 +1252,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						if (enkey)
 						{
 							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects, NULL, 0);
+							carg->no_exit_status = actx->handler[j].no_exit_status;
 							if (actx->handler[j].smart_aggregator_replace) {
 								if (!actx->handler[j].smart_aggregator_replace(carg)) {
 									carg_free(carg);

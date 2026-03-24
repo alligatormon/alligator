@@ -7,6 +7,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
+#include "parsers/ipmi.h"
 #include "main.h"
 #define IPMI_METRIC_SIZE 256
 
@@ -14,16 +15,6 @@ typedef struct ipmi_data
 {
 	alligator_ht *event_log;
 } ipmi_data;
-
-typedef struct eventlog_node
-{
-	char key[256];
-	char resource[256];
-	char state[256];
-	uint64_t val;
-
-	tommy_node node;
-} eventlog_node;
 
 uint8_t ipmi_set_null_sep(char *name, size_t size)
 {
@@ -645,31 +636,37 @@ void ipmi_parser_push()
 	actx->handler[0].name = ipmi_sensor_handler;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = ipmi_sensor_mesg;
+	actx->handler[0].no_exit_status = 1;
 	strlcpy(actx->handler[0].key,"ipmi_sensor", 255);
 
 	actx->handler[1].name = ipmi_elist_handler;
 	actx->handler[1].validator = NULL;
 	actx->handler[1].mesg_func = ipmi_sel_elist_mesg;
+	actx->handler[1].no_exit_status = 1;
 	strlcpy(actx->handler[1].key,"ipmi_elist", 255);
 
 	actx->handler[2].name = ipmi_chassis_status_handler;
 	actx->handler[2].validator = NULL;
 	actx->handler[2].mesg_func = ipmi_chassis_status_mesg;
+	actx->handler[2].no_exit_status = 1;
 	strlcpy(actx->handler[2].key,"ipmi_chassis", 255);
 
 	actx->handler[3].name = ipmi_sel_info_handler;
 	actx->handler[3].validator = NULL;
 	actx->handler[3].mesg_func = ipmi_sel_info_mesg;
+	actx->handler[3].no_exit_status = 1;
 	strlcpy(actx->handler[3].key,"ipmi_sel_info", 255);
 
 	actx->handler[4].name = ipmi_lan_print_handler;
 	actx->handler[4].validator = NULL;
 	actx->handler[4].mesg_func = ipmi_lan_print_mesg;
+	actx->handler[4].no_exit_status = 1;
 	strlcpy(actx->handler[4].key,"ipmi_lan_print", 255);
 
 	actx->handler[5].name = ipmi_dcmi_power_reading_handler;
 	actx->handler[5].validator = NULL;
 	actx->handler[5].mesg_func = ipmi_dcmi_power_reading_mesg;
+	actx->handler[5].no_exit_status = 1;
 	strlcpy(actx->handler[5].key,"ipmi_dcmi_power_reading", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));

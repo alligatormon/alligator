@@ -8,6 +8,7 @@ typedef struct aggregate_handler {
 	int (*smart_aggregator_replace)(context_arg*);
 	uint8_t headers_pass;
 	char key[255];
+	int no_exit_status;
 } aggregate_handler;
 
 typedef struct aggregate_context
