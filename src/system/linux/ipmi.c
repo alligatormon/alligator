@@ -116,32 +116,55 @@ void do_chassis_status(struct ipmi_ctx *ctx) {
         val = (rsp[3] & 0x08) ? 1 : 0;
         metric_add_auto("IPMI_Cooling_Fan_Fault", &val, DATATYPE_UINT, ac->system_carg);
         
-        const char *last_event = "none";
+        char *last_event = "none";
         if      (rsp[2] & 0x01) last_event = "ac-failed";
         else if (rsp[2] & 0x02) last_event = "overload";
         else if (rsp[2] & 0x04) last_event = "interlock";
         else if (rsp[2] & 0x08) last_event = "fault";
         else if (rsp[2] & 0x10) last_event = "command-via-ipmi";
-        //printf("IPMI_Last_Power_Event {state=\"%s\"} 1\n", last_event);
-        metric_add_auto("IPMI_Last_Power_Event", &last_event, DATATYPE_STRING, ac->system_carg);
 
         uint8_t policy_bits = (rsp[1] >> 5) & 0x03;
-        const char *policy_str = "unknown";
+        char *policy_str = "unknown";
 
         switch (policy_bits) {
             case 0: policy_str = "always-off"; break;
             case 1: policy_str = "previous";   break;
             case 2: policy_str = "always-on";   break;
         }
-        //printf("IPMI_Power_Restore_Policy {state=\"%s\"} 1\n", policy_str);
-        metric_add_auto("IPMI_Power_Restore_Policy", &policy_str, DATATYPE_STRING, ac->system_carg);
+
+        uint64_t info_one = 1;
+        metric_add_labels("IPMI_Last_Power_Event", &info_one, DATATYPE_UINT, ac->system_carg, "state", last_event);
+        metric_add_labels("IPMI_Power_Restore_Policy", &info_one, DATATYPE_UINT, ac->system_carg, "state", policy_str);
     }
 }
 
 double scale_power(uint16_t raw, uint8_t unit_byte) {
-    if (unit_byte == 0x40) return (double)raw / 1000.0;      // Милливатты -> Ватты
-    if (unit_byte == 0x02) return (double)raw / 1000000.0;   // Микроватты -> Ватты
-    return (double)raw;                                      // По умолчанию Ватты (0x01)
+    if (unit_byte == 0x40) return (double)raw / 1000.0;
+    if (unit_byte == 0x02) return (double)raw / 1000000.0;
+    return (double)raw;
+}
+
+static int dcmi_power_values_look_sane(double current, double min, double max, double avg) {
+    if (current < 0.0 || min < 0.0 || max < 0.0 || avg < 0.0)
+        return 0;
+    if (min > max)
+        return 0;
+    if (avg < min || avg > max)
+        return 0;
+    if (current > (max * 4.0))
+        return 0;
+    return 1;
+}
+
+static int dcmi_power_min_max_look_broken(double min, double max) {
+    if (min < 0.0 || max < 0.0)
+        return 1;
+    if (min > max)
+        return 1;
+
+    if (max > 5000.0)
+        return 1;
+    return 0;
 }
 
 void get_dcmi_power_metrics(struct ipmi_ctx *ctx) {
@@ -149,17 +172,25 @@ void get_dcmi_power_metrics(struct ipmi_ctx *ctx) {
     uint8_t rsp[32] = {0};
     size_t rlen = sizeof(rsp);
 
-    /* We read up to rsp[17], so require at least 18 bytes in the response. */
     if (ipmi_cmd(ctx, 0x2C, 0x02, req, 4, rsp, &rlen) == 0 && rlen >= 18 && rsp[1] == 0xDC) {
-
-        uint8_t unit = rsp[17];
-
-        double current = scale_power(rsp[4]  | (rsp[5] << 8),  unit);
-        double min     = scale_power(rsp[6]  | (rsp[7] << 8),  unit);
-        double max     = scale_power(rsp[8]  | (rsp[9] << 8),  unit);
-        double avg     = scale_power(rsp[10] | (rsp[11] << 8), unit) / 100;
-
+        double current = (double)(rsp[4]  | (rsp[5] << 8));
+        double min     = (double)(rsp[6]  | (rsp[7] << 8));
+        double max     = (double)(rsp[8]  | (rsp[9] << 8));
+        double avg     = (double)(rsp[10] | (rsp[11] << 8));
         uint64_t state = (rsp[16] != 0) ? 1 : 0;
+
+        if (!dcmi_power_values_look_sane(current, min, max, avg) && rlen >= 19) {
+            current = (double)(rsp[2] | (rsp[3] << 8));
+            min     = (double)(rsp[4] | (rsp[5] << 8));
+            max     = (double)(rsp[6] | (rsp[7] << 8));
+            avg     = (double)(rsp[8] | (rsp[9] << 8));
+            state   = (rsp[18] != 0) ? 1 : 0;
+        }
+
+        if (dcmi_power_min_max_look_broken(min, max)) {
+            min = (current < avg) ? current : avg;
+            max = (current > avg) ? current : avg;
+        }
 
         metric_add_auto("IPMI_dcmi_power_reading_instantaneous", &current, DATATYPE_DOUBLE, ac->system_carg);
         metric_add_auto("IPMI_dcmi_power_reading_minimum", &min, DATATYPE_DOUBLE, ac->system_carg);
@@ -174,7 +205,6 @@ void do_prom_lan_print(struct ipmi_ctx *ctx) {
     uint8_t params[] = {3, 6, 12, 13, 14, 15, 4, 5};
     char *labels[] = { "ip", "mask", "default_gateway_ip", "default_gateway_mac", "backup_gateway_ip", "backup_gateway_mac", "source", "mac" };
 
-    // printf("IPMI_Lan {");
     alligator_ht *hash = alligator_ht_init(NULL);
 
     for (int i = 0; i < 8; i++) {

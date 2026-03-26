@@ -292,6 +292,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 
 context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargname, char *url, char *ns) {
 	context_arg *db_carg = calloc(1, sizeof(*db_carg));
+	db_carg->ttl = carg->ttl;
 
 	db_carg->parental_carg = carg;
 	db_carg->data = NULL;

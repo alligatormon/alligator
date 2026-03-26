@@ -54,7 +54,7 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 				rn->d = *(double*)value;
 		}
 		else if (type == DATATYPE_STRING)
-			rn->s = value;
+			rn->s = *(char **)value;
 		else if (type == DATATYPE_LIST_UINT)
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
@@ -76,7 +76,7 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 		else if (type == DATATYPE_LIST_STRING)
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-			rn->list[0].s = value;
+			rn->list[0].s = *(char **)value;
 			rn->index_element_list = 1;
 		}
 		else
@@ -281,7 +281,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 			mnode->d = *(double*)value;
 	}
 	else if (type == DATATYPE_STRING)
-		mnode->s = value;
+		mnode->s = *(char **)value;
 	else if (type == DATATYPE_LIST_UINT)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
@@ -300,7 +300,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 	else if (type == DATATYPE_LIST_STRING)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->index_element_list++].s = value;
+		mnode->list[mnode->index_element_list++].s = *(char **)value;
 	}
 
 	r_time time = setrtime();
