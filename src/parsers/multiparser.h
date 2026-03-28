@@ -164,3 +164,6 @@ void wazuh_parser_push();
 char* mysql_client(context_arg* carg);
 void mysql_client_del(context_arg* carg);
 void mysql_client_handler();
+char* cassandra_client(context_arg* carg);
+void cassandra_client_del(context_arg* carg);
+void cassandra_client_handler();

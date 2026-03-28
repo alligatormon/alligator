@@ -84,6 +84,8 @@ int smart_aggregator(context_arg *carg)
 		type = postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)
 		type = mysql_client(carg);
+	else if (carg->transport == APROTO_CASSANDR)
+		type = cassandra_client(carg);
 
 	if (type && !carg->key)
 	{
@@ -124,6 +126,8 @@ void smart_aggregator_del(context_arg *carg)
 		postgresql_client_del(carg);
 	else if (carg->transport == APROTO_MY)
 		mysql_client_del(carg);
+	else if (carg->transport == APROTO_CASSANDR)
+		cassandra_client_del(carg);
 }
 
 void smart_aggregator_del_key(char *key)

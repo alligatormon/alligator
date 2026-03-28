@@ -30,13 +30,20 @@ action {
 Cassandra module in Alligator supports by user queries:
 ```
 aggregate {
-        cassandra cassandra://user:password@127.0.0.1/app_data name=from-cassandra;
+        cassandra cassandra://user:password@127.0.0.1:9042 name=from-cassandra;
 }
 
 query {
        name cassandra;
        expr 'SELECT value, name FROM metric';
        field value;
+       datasource from-cassandra;
+}
+
+query {
+       expr "SELECT keyspace_name, table_name, bloom_filter_fp_chance, gc_grace_seconds, compaction FROM system_schema.tables";
+       field bloom_filter_fp_chance gc_grace_seconds;
+       make cas_db_size;
        datasource from-cassandra;
 }
 ```

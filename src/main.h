@@ -87,6 +87,7 @@ typedef struct aconf
 	alligator_ht* aggregator;
 	alligator_ht* file_aggregator;
 	alligator_ht* pg_aggregator;
+	alligator_ht* cass_aggregator;
 	alligator_ht* zk_aggregator;
 	alligator_ht* my_aggregator;
 	alligator_ht* scheduler;
@@ -96,6 +97,7 @@ typedef struct aconf
 	int64_t scheduler_startup;
 	uv_timer_t tcp_client_timer;
 	uv_timer_t pg_timer;
+	uv_timer_t cass_timer;
 	uv_timer_t my_timer;
 	uv_timer_t zk_timer;
 

@@ -88,6 +88,7 @@ endif()
 if("${LIBUV_DRIVER}" STREQUAL "")
 	message(FATAL_ERROR "libuv target/library was not detected. Checked: libuv::uv_a, libuv::uv, uv_a, uv, libuv_LIBRARIES, pkg-config(libuv).")
 endif()
+
 IF(${distro}.${disversion} MATCHES "centos.7")
 #set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -fstack-protector-all -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wunreachable-code -O3 -std=gnu11 -pthread")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wunreachable-code -O3 -std=gnu99 -pthread")
@@ -225,6 +226,7 @@ set(STATIC_FILES
 	parsers/firewall.c
 	parsers/mongodb.c
 	parsers/cassandra.c
+	parsers/cassandra2.c
 	parsers/keepalived.c
 	parsers/lang.c
 	parsers/nvidia-smi.c
@@ -406,7 +408,6 @@ add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligat
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp ../puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/mongo COMMAND go build -o /var/lib/alligator/mongo.so -buildmode=c-shared cmd/mongo/main.go)
-add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/cassandra COMMAND go build -o /var/lib/alligator/cassandra.so -buildmode=c-shared cmd/cassandra/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 # RPM checks reject absolute/build/local RUNPATH values in installed binaries.
@@ -501,7 +502,6 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES build/alligator
@@ -513,7 +513,6 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/cassandra.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(FILES build/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ

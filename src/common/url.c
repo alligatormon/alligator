@@ -227,6 +227,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, "file", 0);
 	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, "postgresql", 0);
 	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, "mysql", 0);
+	url_set_proto(hi, &tmp, "cassandra://", 12, APROTO_CASSANDR, APROTO_CASSANDR, "cassandra", 0);
 	url_set_proto(hi, &tmp, "zookeeper://", 12, APROTO_ZKCONF, APROTO_ZKCONF, "zookeeper", 0);
 	url_set_proto(hi, &tmp, "resolver://", 11, APROTO_RESOLVER, APROTO_RESOLVER, "resolver", 0);
 
