@@ -32,14 +32,16 @@ void url_get_auth_data(host_aggregator_info *hi, char **tmp)
 		return;
 
 	char *delim = strstr(*tmp, ":");
-	if (delim > end)
-		return;
-
-	size_t sz;
-	hi->user = strndup(*tmp, (delim-*tmp));
-	if (delim)
-		hi->pass = strndup(delim+1, end-delim-1);
-	hi->auth = base64_encode(*tmp, end-*tmp, &sz);
+	if (delim > end) {
+		hi->user = strndup(*tmp, (end-*tmp));
+	}
+	else {
+		size_t sz;
+		hi->user = strndup(*tmp, (delim-*tmp));
+		if (delim)
+			hi->pass = strndup(delim+1, end-delim-1);
+		hi->auth = base64_encode(*tmp, end-*tmp, &sz);
+	}
 
 	*tmp = end+1;
 }
@@ -200,6 +202,7 @@ void url_dump(host_aggregator_info *hi)
 // http://unix:/var/run/run.sock:example.com/
 // https://user:password@example.com:443/testr?12=sdcsa:av
 // tcp://:password@example.com
+// tcp://user@example.com
 host_aggregator_info *parse_url(char *str, size_t len)
 {
 	host_aggregator_info *hi = calloc(1, sizeof(*hi));

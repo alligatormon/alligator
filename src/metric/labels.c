@@ -772,6 +772,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		}
 
 		labels->name = labels_cache->w;
+		labels->name_len = labels_cache->l;
 
 		if(!labels->key)
 		{
@@ -802,6 +803,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		}
 
 		labels->key = labels_cache->w;
+		labels->key_len = labels_cache->l;
 
 		labels = labels->next;
 	}

@@ -205,6 +205,8 @@ set(STATIC_FILES
 	parsers/solr.c
 	parsers/ntpd.c
 	parsers/ipmi.c
+	parsers/snmp.c
+	parsers/snmp_mib.c
 	parsers/mysql.c
 	parsers/mysql2.c
 	parsers/tftp.c

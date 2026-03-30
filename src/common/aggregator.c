@@ -269,6 +269,7 @@ void aggregate_ctx_init()
 	zookeeper_parser_push();
 	ntp_parser_push();
 	ipmi_parser_push();
+	snmp_parser_push();
 	pg_parser_push();
 	pgbouncer_parser_push();
 	odyssey_parser_push();

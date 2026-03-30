@@ -96,7 +96,7 @@ aggregate {
     blackbox http://yandex.ru;
     blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
     prometheus_metrics file:///tmp/metrics-nostate.txt;
-    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
+    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true;
     redis tcp://localhost:6379/;
 }
 ```
