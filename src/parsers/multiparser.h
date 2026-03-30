@@ -139,6 +139,7 @@ void redis_parser_push();
 void redis_parser_ping_push();
 void riak_parser_push();
 void sentinel_parser_push();
+void snmp_parser_push();
 void squid_parser_push();
 void syslog_ng_parser_push();
 void tftp_parser_push();

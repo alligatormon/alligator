@@ -18,7 +18,7 @@ aggregate {
     blackbox https://nova.rambler.ru/search 'env=User-agent:googlebot';
 
     # file stat calc:
-    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true
+    blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true;
 }
 ```
 
