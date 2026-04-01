@@ -22,6 +22,9 @@ extern aconf *ac;
 #define IPMI_NETFN_TRANSPORT  0x0c
 #define IPMI_NETFN_DCMI       0x2c
 
+#define IPMI_RECV_TIMEOUT_MS 2000ULL
+#define IPMI_RECV_TICK_MS    1000
+
 struct ipmi_ctx {
     int fd;
 };
@@ -30,6 +33,13 @@ typedef struct sensor_map {
 	uint8_t num;
 	char name[32];
 } sensor_map;
+
+static uint64_t ipmi_mono_ms(void) {
+	struct timespec ts;
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+		return 0;
+	return (uint64_t)ts.tv_sec * 1000ull + (uint64_t)ts.tv_nsec / 1000000ull;
+}
 
 int ipmi_cmd(struct ipmi_ctx *ctx, uint8_t netfn, uint8_t cmd, uint8_t *data, size_t dlen, uint8_t *rsp, size_t *rlen) {
     struct ipmi_system_interface_addr addr = {0};
@@ -46,37 +56,74 @@ int ipmi_cmd(struct ipmi_ctx *ctx, uint8_t netfn, uint8_t cmd, uint8_t *data, si
     req.msgid = 0;
     req.msg = msg;
 
-    if (ioctl(ctx->fd, IPMICTL_SEND_COMMAND, &req) < 0) return -1;
-
+    r_time ts_start = setrtime();
+    int rc = ioctl(ctx->fd, IPMICTL_SEND_COMMAND, &req);
+    r_time ts_end = setrtime();
+    int64_t scrape_time = getrtime_ns(ts_start, ts_end);
+    metric_update_labels2("IPMI_send_command_time", &scrape_time, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_SEND_COMMAND");
+    carglog(ac->system_carg, L_TRACE, "IPMI send command time: %"d64"ms\n", scrape_time);
+    if (rc < 0) {
+        carglog(ac->system_carg, L_ERROR, "IPMI send command error: %s\n", strerror(errno));
+        return -1;
+    }
     struct ipmi_recv recv = {0};
     struct ipmi_addr raddr = {0};
     recv.addr = (unsigned char*)&raddr;
     recv.addr_len = sizeof(raddr);
     recv.msg.data = rsp;
     recv.msg.data_len = *rlen;
-    uv_loop_t *loop = uv_default_loop();
-    uv_update_time(loop);
-    uint64_t start_ms = uv_now(loop);
-    const uint64_t timeout_ms = 2000;
 
-    while (1) {
-        if (ioctl(ctx->fd, IPMICTL_RECEIVE_MSG_TRUNC, &recv) == 0)
-            break;
+    r_time ts0 = setrtime();
+    rc = ioctl(ctx->fd, IPMICTL_RECEIVE_MSG_TRUNC, &recv);
+    r_time ts1 = setrtime();
+    int64_t scrape0 = getrtime_ns(ts0, ts1);
+    metric_update_labels2("IPMI_receive_message_time", &scrape0, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
+    carglog(ac->system_carg, L_TRACE, "IPMI receive message time: %"d64"ms\n", scrape0);
+    if (rc == 0) {
+        carglog(ac->system_carg, L_TRACE, "IPMI receive message success: %"d64"ms\n", scrape0);
+        *rlen = recv.msg.data_len;
+        return rsp[0];
+    }
+    carglog(ac->system_carg, L_TRACE, "IPMI receive message error: %s\n", strerror(errno));
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+        return -1;
 
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
+    uint64_t deadline = ipmi_mono_ms() + IPMI_RECV_TIMEOUT_MS;
+    for (;;) {
+        uint64_t now = ipmi_mono_ms();
+        if (now >= deadline) {
+            carglog(ac->system_carg, L_TRACE, "IPMI receive timeout\n");
             return -1;
+        }
+        uint64_t remain = deadline - now;
+        int wait_ms = remain > (uint64_t)IPMI_RECV_TICK_MS ? IPMI_RECV_TICK_MS : (int)remain;
+        if (wait_ms < 1)
+            wait_ms = 1;
 
-        uv_update_time(loop);
-        if ((uv_now(loop) - start_ms) >= timeout_ms) {
-            carglog(ac->system_carg, L_ERROR, "IPMI receive timeout");
+        struct pollfd pfd = { .fd = ctx->fd, .events = POLLIN };
+        int pr = poll(&pfd, 1, wait_ms);
+        if (pr < 0) {
+            if (errno == EINTR)
+                continue;
+            carglog(ac->system_carg, L_TRACE, "IPMI receive poll: %s\n", strerror(errno));
             return -1;
         }
 
-        uv_sleep(5);
+        r_time ts_a = setrtime();
+        rc = ioctl(ctx->fd, IPMICTL_RECEIVE_MSG_TRUNC, &recv);
+        r_time ts_b = setrtime();
+        int64_t scrape1 = getrtime_ns(ts_a, ts_b);
+        metric_update_labels2("IPMI_receive_message_time", &scrape1, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
+        carglog(ac->system_carg, L_TRACE, "IPMI receive message time: %"d64"ms\n", scrape1);
+        if (rc == 0) {
+            carglog(ac->system_carg, L_TRACE, "IPMI receive message success: %"d64"ms\n", scrape1);
+            *rlen = recv.msg.data_len;
+            return rsp[0];
+        }
+        carglog(ac->system_carg, L_TRACE, "IPMI receive message error: %s\n", strerror(errno));
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+            return -1;
     }
-
-    *rlen = recv.msg.data_len;
-    return rsp[0];
 }
 
 void do_chassis_status(struct ipmi_ctx *ctx) {
@@ -531,7 +578,7 @@ static int ipmi_get_status_sync(void) {
     struct ipmi_ctx ctx;
     ctx.fd = open("/dev/ipmi0", O_RDONLY | O_NONBLOCK);
     if (ctx.fd < 0) {
-        perror("open /dev/ipmi0");
+        carglog(ac->system_carg, L_ERROR, "open /dev/ipmi0 error: %s\n", strerror(errno));
         return 1;
     }
 

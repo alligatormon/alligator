@@ -278,15 +278,22 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
             postgresql_query_ctx *pqctx = queue_front(carg->pg_queue);
             if (pqctx && pqctx->callback) {
                 pqctx->callback(res, pqctx->qn, carg, pqctx->database_class);
-				PQclear(res);
             } else {
 				carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event NO CALLBACK\", \"function\": \"%s\"}\n", carg->fd, carg->key, "");
+				PQclear(res);
 				run_close(carg);
+				return;
 			}
         } else if (res_status == PGRES_FATAL_ERROR) {
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PGRES_FATAL_ERROR\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQresultErrorMessage(res));
+			PQclear(res);
 			run_close(carg);
+			return;
         }
+		else {
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected PGresult status\", \"status\": %d}\n", carg->fd, carg->key, res_status);
+		}
+		PQclear(res);
     }
 }
 
@@ -407,6 +414,7 @@ void postgresql_query_run(context_arg *carg)
     } else {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"PQsendQuery error\", \"message\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
 		postgresql_error_metric(data->conn, carg);
+		run_close(carg);
     }
 }
 
@@ -747,6 +755,12 @@ void postgresql_run(void* arg)
 	{
 		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_error_metric(conn, carg);
+		PQfinish(conn);
+		conn = NULL;
+		if (carg->dynamic_socket) {
+			free(carg->dynamic_socket);
+			carg->dynamic_socket = NULL;
+		}
 		return;
 	}
 
