@@ -141,6 +141,7 @@ More information about the aggregate directive can be found at the following [do
 - [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
 - [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md)
 - [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
+- [snmp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/snmp.md)
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
 - [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
 - [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
