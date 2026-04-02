@@ -9,6 +9,7 @@
 #include "common/validator.h"
 #include "common/logs.h"
 #include "dstructures/queue.h"
+#include "events/context_arg.h"
 #include <main.h>
 
 
@@ -47,10 +48,12 @@ void postgresql_query_init(PGconn *conn, char *query, query_node *qn, context_ar
 void postgresql_error_metric(PGconn *conn, context_arg *carg)
 {
 	char reason[255];
-	uint64_t reason_size = strlcpy(reason, PQerrorMessage(conn), 255);
+	const char *errmsg = (conn && PQerrorMessage(conn)) ? PQerrorMessage(conn) : "unknown_error";
+	const char *carg_name = (carg && carg->name) ? carg->name : "unknown";
+	uint64_t reason_size = strlcpy(reason, errmsg, 255);
 	uint64_t val = 1;
 	prometheus_metric_name_normalizer(reason, reason_size);
-	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  carg->name, "reason", reason);
+	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  (char*)carg_name, "reason", reason);
 }
 
 void on_handle_closed(uv_handle_t* handle) {
@@ -60,11 +63,9 @@ void on_handle_closed(uv_handle_t* handle) {
 	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
 
     if (data && data->conn) {
-		if (carg->data_lock) {
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
-			PQfinish(data->conn);
-			data->conn = NULL;
-		}
+		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
+		PQfinish(data->conn);
+		data->conn = NULL;
     }
 
 	if (carg->parental_carg) {
@@ -76,6 +77,15 @@ void on_handle_closed(uv_handle_t* handle) {
 
 	queue_free(carg->pg_queue, free);
 	carg->pg_queue = NULL;
+	carg->dynamic_socket = NULL;
+
+	if (carg->remove_from_hash && !carg->data_lock) {
+		free(carg->data);
+		carg->data = NULL;
+		carg_free(carg);
+		free(handle);
+		return;
+	}
 
     if (carg->data_lock) {
         free(carg->url);
@@ -88,13 +98,31 @@ void on_handle_closed(uv_handle_t* handle) {
     free(handle);
 }
 
-void run_close(context_arg *carg) {
+static void run_close_internal(void *arg) {
+	context_arg *carg = arg;
+
+	if (!carg || !carg->dynamic_socket)
+		return;
+
 	if (uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run close\", \"function\": \"%s\"}\n", carg->fd, carg->key, "alreading closing");
+		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run close\", \"function\": \"%s\"}\n", carg->fd, carg->key, "already closing");
 		return;
 	}
 
+	uv_poll_stop(carg->dynamic_socket);
 	uv_close((uv_handle_t*)carg->dynamic_socket, on_handle_closed);
+}
+
+void run_close(context_arg *carg) {
+	if (!carg || !carg->dynamic_socket)
+		return;
+
+	if (threaded_loop_is_worker(carg->loop)) {
+		if (threaded_loop_queue_work(carg->loop, run_close_internal, carg) == 0)
+			return;
+	}
+
+	run_close_internal(carg);
 }
 
 void postgresql_run(void* arg);
@@ -310,7 +338,11 @@ context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargnam
 	db_carg->log_level = carg->log_level;
 	db_carg->data_lock = 1;
 	db_carg->pg_queue = NULL;
+	db_carg->labels = carg->labels;
 	db_carg->threaded_loop_name = carg->threaded_loop_name;
+	/* libuv handles for this connection must live on the same loop as the code that calls
+	 * postgresql_run (parent poll callback / main timer). */
+	db_carg->loop = carg->loop;
 	return db_carg;
 }
 
@@ -715,6 +747,11 @@ void postgresql_run(void* arg)
 {
 	context_arg *carg = arg;
 
+	if (carg->dynamic_socket) {
+		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"skip run\", \"reason\": \"dynamic socket exists\"}\n", carg->fd, carg->key);
+		return;
+	}
+
     if (carg->lock) {
 		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg locked!\"}\n", carg->fd, carg->key);
 		return;
@@ -731,14 +768,13 @@ void postgresql_run(void* arg)
 
 
 	carg->timeout = 1000;
-	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
+	if (!carg->loop)
+		carg->loop = ac->loop;
 
 	pg_data *data = carg->data;
 	if (!data) {
 		carg->data = data = calloc(1, sizeof(*data));
 		data->type = PG_TYPE_PG;
-	} else {
-		PQfinish(data->conn);
 	}
 
 
@@ -799,10 +835,49 @@ void postgresql_run(void* arg)
 	uv_poll_start(carg->dynamic_socket, UV_WRITABLE, pg_poll_event);
 }
 
+static void postgresql_run_by_key(void *arg)
+{
+	char *queued_key = arg;
+	uint32_t hash = 0;
+	context_arg *lookup = NULL;
+
+	if (!queued_key)
+		return;
+
+	hash = tommy_strhash_u32(0, queued_key);
+	lookup = alligator_ht_search(ac->pg_aggregator, aggregator_compare, queued_key, hash);
+	free(queued_key);
+	if (lookup)
+		postgresql_run(lookup);
+}
+
+static void postgresql_timer_item(void *carg_p)
+{
+	context_arg *carg = carg_p;
+	char *queued_key = NULL;
+
+	if (!carg || !carg->key)
+		return;
+
+	queued_key = strdup(carg->key);
+	if (!queued_key)
+		return;
+
+	if (threaded_loop_is_worker(carg->loop)) {
+		if (threaded_loop_queue_work(carg->loop, postgresql_run_by_key, queued_key) != 0) {
+			glog(L_ERROR, "{\"action\": \"postgresql timer\", \"err\": \"threaded_loop_queue_work failed\", \"key\": \"%s\"}\n", queued_key);
+			free(queued_key);
+		}
+		return;
+	}
+
+	postgresql_run_by_key(queued_key);
+}
+
 void postgresql_timer(uv_timer_t* handle) {
 	(void)handle;
 	glog(L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run timer\", \"count\": %zu}\n", 0, "", alligator_ht_count(ac->pg_aggregator));
-	alligator_ht_foreach(ac->pg_aggregator, postgresql_run);
+	alligator_ht_foreach(ac->pg_aggregator, postgresql_timer_item);
 }
 
 void postgresql_client_handler()
@@ -816,10 +891,30 @@ char* postgresql_client(context_arg* carg)
 	if (!carg)
 		return NULL;
 
-	carg->key = malloc(255);
-	snprintf(carg->key, 255, "%s", carg->host);
+	if (!carg->key && *carg->host)
+		carg->key = strdup(carg->host);
+
+	{
+		pg_data *shared = carg->data;
+		pg_data *own = calloc(1, sizeof(*own));
+		if (own) {
+			own->type = shared ? shared->type : PG_TYPE_PG;
+			carg->data = own;
+		}
+	}
 
 	alligator_ht_insert(ac->pg_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	if (carg->threaded_loop_name) {
+		threaded_loop *thl = get_threaded_loop(carg->threaded_loop_name);
+		if (thl) {
+			uv_loop_t *L = threaded_loop_pin_loop(thl, carg->key);
+			carg->loop = L ? L : ac->loop;
+		} else {
+			carg->loop = ac->loop;
+		}
+	} else {
+		carg->loop = ac->loop;
+	}
 	return "postgresql";
 }
 
@@ -829,6 +924,13 @@ void postgresql_client_del(context_arg* carg)
 		return;
 
 	alligator_ht_remove_existing(ac->pg_aggregator, &(carg->node));
+	carg->remove_from_hash = 1;
+	if (carg->dynamic_socket) {
+		run_close(carg);
+		return;
+	}
+	free(carg->data);
+	carg->data = NULL;
 	carg_free(carg);
 }
 

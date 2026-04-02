@@ -144,6 +144,33 @@ void config_global_get(json_t *dst)
 	}
 }
 
+char *mask_password(const char *url) {
+	const char *scheme_end = strstr(url, "//");
+	if (!scheme_end)
+		return strdup(url);
+
+	const char *colon = strchr(scheme_end + 2, ':');
+	const char *at = strchr(scheme_end + 2, '@');
+
+	if (!colon || !at || colon > at)
+		return strdup(url);
+
+	const char *mask = "*******";
+
+	size_t prefix_len = colon - url + 1;
+	size_t suffix_len = strlen(at);
+
+	char *result = malloc(prefix_len + strlen(mask) + suffix_len + 1);
+
+	memcpy(result, url, prefix_len);
+	memcpy(result + prefix_len, mask, strlen(mask));
+	memcpy(result + prefix_len + strlen(mask), at, suffix_len);
+
+	result[prefix_len + strlen(mask) + suffix_len] = '\0';
+
+	return result;
+}
+
 void aggregator_generate_conf(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -161,8 +188,10 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 
 	if (carg->url)
 	{
-		json_t *url = json_string(carg->url);
+		char *strurl = mask_password(carg->url);
+		json_t *url = json_string(strurl);
 		json_array_object_insert(ctx, "url", url);
+		free(strurl);
 	}
 
 	if (carg->tls_ca_file)

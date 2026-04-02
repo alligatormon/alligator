@@ -37,12 +37,20 @@ typedef struct env_struct {
 	tommy_node node;
 } env_struct;
 
+typedef struct threaded_loop_slot {
+	uv_loop_t *loop;
+	uv_async_t async;
+	uv_mutex_t work_lock;
+	tommy_list work_list;
+	int work_lock_ready;
+} threaded_loop_slot;
+
 typedef struct threaded_loops {
 	uv_loop_t **loop;
+	threaded_loop_slot *slot;
 	uint64_t cur;
 	uint64_t max;
-
-	uv_thread_t thread;
+	uv_thread_t *threads;
 	char *key;
 	tommy_node node;
 } threaded_loop;
@@ -343,7 +351,11 @@ void carglog(context_arg *carg, int priority, const char *format, ...);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
 void thread_loop_set(char *key, uint64_t size);
-void thread_loop_free();
+void thread_loop_free(void);
+threaded_loop *get_threaded_loop(char *key);
 uv_loop_t *get_threaded_loop_t(char *key);
 uv_loop_t *get_threaded_loop_t_or_default(char *key);
+uv_loop_t *threaded_loop_pin_loop(threaded_loop *thl, const char *pin_key);
+int threaded_loop_queue_work(uv_loop_t *loop, void (*fn)(void *), void *arg);
+int threaded_loop_is_worker(uv_loop_t *loop);
 uint64_t get_threads_num(json_t *value);
