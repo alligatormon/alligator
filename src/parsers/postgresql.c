@@ -327,7 +327,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 
 context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargname, char *url, char *ns) {
 	context_arg *db_carg = calloc(1, sizeof(*db_carg));
-	db_carg->ttl = carg->ttl;
+	db_carg->ttl = db_carg->curr_ttl = carg->ttl;
 
 	db_carg->parental_carg = carg;
 	db_carg->data = NULL;
@@ -340,8 +340,6 @@ context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargnam
 	db_carg->pg_queue = NULL;
 	db_carg->labels = carg->labels;
 	db_carg->threaded_loop_name = carg->threaded_loop_name;
-	/* libuv handles for this connection must live on the same loop as the code that calls
-	 * postgresql_run (parent poll callback / main timer). */
 	db_carg->loop = carg->loop;
 	return db_carg;
 }
