@@ -192,6 +192,44 @@ void api_test_parser_beanstalkd() {
     metric_test_run(CMP_GREATER, "beanstalkd_binlog_max_size", "beanstalkd_binlog_max_size", 0);
 }
 
+void api_test_parser_beanstalkd_stats_tube() {
+    char *msg = strdup(
+        "OK 323\r\n"
+        "---\n"
+        "name: default\n"
+        "current-jobs-urgent: 2\n"
+        "current-jobs-ready: 5\n"
+        "current-jobs-reserved: 1\n"
+        "current-jobs-delayed: 0\n"
+        "current-jobs-buried: 10\n"
+        "total-jobs: 100\n"
+        "current-using: 3\n"
+        "current-watching: 4\n"
+        "current-waiting: 0\n"
+        "cmd-delete: 99\n"
+        "cmd-pause-tube: 0\n"
+        "pause: 0\n"
+        "pause-time-left: 0\n"
+        "\r\n");
+    context_arg *carg = calloc(1, sizeof(*carg));
+    beanstalkd_stats_tube(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_urgent", "beanstalkd_stats_tube_current_jobs_urgent", 2);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_ready", "beanstalkd_stats_tube_current_jobs_ready", 5);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_reserved", "beanstalkd_stats_tube_current_jobs_reserved", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_delayed", "beanstalkd_stats_tube_current_jobs_delayed", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_buried", "beanstalkd_stats_tube_current_jobs_buried", 10);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_total_jobs", "beanstalkd_stats_tube_total_jobs", 100);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_using", "beanstalkd_stats_tube_current_using", 3);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_watching", "beanstalkd_stats_tube_current_watching", 4);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_waiting", "beanstalkd_stats_tube_current_waiting", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_delete", "beanstalkd_stats_tube_cmd_delete", 99);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_pause_tube", "beanstalkd_stats_tube_cmd_pause_tube", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause", "beanstalkd_stats_tube_pause", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause_time_left", "beanstalkd_stats_tube_pause_time_left", 0);
+}
+
 void api_test_parser_uwsgi() {
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->is_http_query = 1;

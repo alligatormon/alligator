@@ -294,6 +294,7 @@ int main(int argc, char **argv) {
     api_test_parser_zookeeper();
     api_test_parser_memcached();
     api_test_parser_beanstalkd();
+    api_test_parser_beanstalkd_stats_tube();
     api_test_parser_uwsgi();
     api_test_parser_lighttpd();
     api_test_parser_httpd();

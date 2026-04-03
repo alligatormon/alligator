@@ -24,6 +24,7 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg);
 void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg);
 void beanstalkd_handler(char *metrics, size_t size, context_arg *carg);
+void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg);
 void memcached_handler(char *metrics, size_t size, context_arg *carg);
 void gearmand_handler(char *metrics, size_t size, context_arg *carg);
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg);

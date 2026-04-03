@@ -77,9 +77,10 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 		uint64_t metric_name_len = strcspn(tmp, " :\t");
 		strlcpy(metric_name + 22, tmp, metric_name_len + 1);
 		metric_name_normalizer(metric_name, metric_name_len + 21);
+		tmp += metric_name_len;
+		tmp += strspn(tmp, " :\t");
 		val = strtoull(tmp, NULL, 10);
 		metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "tube_name", tube_name);
-		tmp += metric_name_len;
 		tmp += strcspn(tmp, "\r\n");
 		tmp += strspn(tmp, "\r\n");
 	}
