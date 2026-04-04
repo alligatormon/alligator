@@ -1,26 +1,6 @@
 #include <string.h>
 #include "common/validator.h"
 
-void test_metric_name_normalizer_statsd() {
-	char buf[256];
-
-	strcpy(buf, "foo.bar-baz_0");
-	metric_name_normalizer_statsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo.bar-baz_0", buf);
-
-	strcpy(buf, "foo:bar/baz");
-	metric_name_normalizer_statsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo_bar_baz", buf);
-
-	strcpy(buf, "a,b#c");
-	metric_name_normalizer_statsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a_b_c", buf);
-
-	strcpy(buf, "");
-	metric_name_normalizer_statsd(buf, 0);
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", buf);
-}
-
 void test_tag_normalizer_statsd() {
 	char buf[256];
 

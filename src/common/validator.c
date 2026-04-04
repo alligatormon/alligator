@@ -124,19 +124,6 @@ int metric_name_validator_promstatsd(char *str, size_t sz)
 	return 1;
 }
 
-void metric_name_normalizer_statsd(char *str, size_t sz)
-{
-	uint64_t i;
-
-	for (i=0; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
-			continue;
-		else if (isdigit(str[i]))
-			continue;
-		else
-			str[i] = '_';
-}
-
 void tag_normalizer_statsd(char *str, size_t sz)
 {
 	uint64_t i;

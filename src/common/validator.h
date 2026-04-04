@@ -9,6 +9,5 @@ int metric_name_normalizer(char *str, size_t sz);
 int prometheus_metric_name_normalizer(char *str, size_t sz);
 int metric_label_validator(char *str, size_t sz);
 void metric_label_value_validator_normalizer(char *str, size_t sz);
-void metric_name_normalizer_statsd(char *str, size_t sz);
 void tags_normalizer_dogstatsd(char *str, size_t sz);
 void tag_normalizer_statsd(char *str, size_t sz);

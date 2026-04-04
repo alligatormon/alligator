@@ -739,7 +739,7 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc)
 	uint64_t metric_str_start_position = res->l;
 	string_cat(res, labels->key, labels->key_len);
 
-	metric_name_normalizer_statsd(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
+	tag_normalizer_statsd(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
 
 	string_cat(res, ":", 1);
 	metric_value_serialize_string(x, res);

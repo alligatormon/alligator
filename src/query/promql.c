@@ -114,7 +114,8 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 			str += k;
 			j += k;
 		}
-		groupkey->s[groupkey->l - 1] = 0;
+		if (groupkey->l)
+			groupkey->s[groupkey->l - 1] = 0;
 		//printf("group_key '%s'\n", groupkey->s);
 
 		str += strspn(str, " \t\r\n()");
@@ -169,7 +170,11 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 
 	if (!groupkey->l)
 	{
-		str = strstr(query, "by");
+		str = strstr(query, " by(");
+		if (!str)
+			str = strstr(query, "\tby(");
+		if (!str)
+			str = strstr(query, "by(");
 		if (str)
 		{
 			i = strcspn(str, "(");
@@ -190,7 +195,8 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 				str += k;
 				j += k;
 			}
-			groupkey->s[groupkey->l - 1] = 0;
+			if (groupkey->l)
+				groupkey->s[groupkey->l - 1] = 0;
 			//printf("group_key '%s'\n", groupkey->s);
 
 			str += strspn(str, " \t\r\n()");

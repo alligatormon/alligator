@@ -281,7 +281,6 @@ int main(int argc, char **argv) {
     test_ip_to_int();
     test_integer_to_ip();
     test_ip_get_version();
-    test_metric_name_normalizer_statsd();
     test_tag_normalizer_statsd();
     test_tags_normalizer_dogstatsd();
     test_http_access_1();
