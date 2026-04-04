@@ -61,7 +61,9 @@ int smart_aggregator(context_arg *carg)
 		type = "resolver";
 		context_arg *new_carg = aggregator_push_addr_strtype(carg, carg->data, carg->rrtype, carg->rrclass);
 		if (!new_carg)
+		{
 			return 0;
+		}
 		carg_free(carg);
 		carg = new_carg;
 	}

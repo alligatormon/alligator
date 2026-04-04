@@ -178,6 +178,16 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			string_free(parser_data);
 		}
 	}
+	else if (!strncmp(an->expr, "udp", 3))
+	{
+		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
+		if (!an->dry_run) {
+			context_arg *carg = aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+			if (carg) {
+				carg->timeout = 1000;
+			}
+		}
+	}
 	else
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
