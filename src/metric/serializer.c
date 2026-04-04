@@ -24,6 +24,12 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_GRAPHITE)
 		sc->str = str;
+	else if (serializer == METRIC_SERIALIZER_STATSD)
+		sc->str = str;
+	else if (serializer == METRIC_SERIALIZER_DOGSTATSD)
+		sc->str = str;
+	else if (serializer == METRIC_SERIALIZER_DYNATRACE)
+		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_CARBON2)
 		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_INFLUXDB)
@@ -684,6 +690,120 @@ void serialize_dsv(metric_node *x, serializer_context *sc)
 	string_cat(res, "\n", 1);
 }
 
+void serialize_statsd(metric_node *x, serializer_context *sc)
+{
+	labels_t *labels = x->labels;
+
+	string *res = sc->str;
+	uint64_t metric_str_start_position = res->l;
+	string_cat(res, labels->key, labels->key_len);
+	tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+	labels = labels->next;
+
+	while (labels)
+	{
+		if (labels->key_len)
+		{
+			string_cat(res, ".", 1);
+
+			metric_str_start_position = res->l;
+			string_cat(res, labels->name, labels->name_len);
+			tag_normalizer_statsd(res->s + metric_str_start_position, labels->name_len);
+
+			string_cat(res, ".", 1);
+
+			metric_str_start_position = res->l;
+			string_cat(res, labels->key, labels->key_len);
+			tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+		}
+		labels = labels->next;
+	}
+
+	string_cat(res, ":", 1);
+	metric_value_serialize_string(x, res);
+	string_cat(res, "|", 1);
+	if (x->type == DATATYPE_INT)
+		string_cat(res, "g", 1);
+	else if (x->type == DATATYPE_UINT)
+		string_cat(res, "g", 1);
+	else if (x->type == DATATYPE_DOUBLE)
+		string_cat(res, "g", 1);
+	string_cat(res, "\n", 1);
+}
+
+void serialize_dogstatsd(metric_node *x, serializer_context *sc)
+{
+	labels_t *labels = x->labels;
+
+	string *res = sc->str;
+	uint64_t metric_str_start_position = res->l;
+	string_cat(res, labels->key, labels->key_len);
+
+	metric_name_normalizer_statsd(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
+
+	string_cat(res, ":", 1);
+	metric_value_serialize_string(x, res);
+	string_cat(res, "|", 1);
+	if (x->type == DATATYPE_INT)
+		string_cat(res, "g", 1);
+	else if (x->type == DATATYPE_UINT)
+		string_cat(res, "g", 1);
+	else if (x->type == DATATYPE_DOUBLE)
+		string_cat(res, "g", 1);
+
+	labels = labels->next;
+
+	int tags_start = 1;
+	while (labels)
+	{
+		if (labels->key_len)
+		{
+			if (tags_start) {
+				tags_start = 0;
+				string_cat(res, "|#", 2);
+			}
+			else
+				string_cat(res, ",", 1);
+
+			metric_str_start_position = res->l;
+			string_cat(res, labels->name, labels->name_len);
+			tags_normalizer_dogstatsd(res->s + metric_str_start_position, labels->name_len);
+
+			string_cat(res, ":", 1);
+
+			metric_str_start_position = res->l;
+			string_cat(res, labels->key, labels->key_len);
+			tags_normalizer_dogstatsd(res->s + metric_str_start_position, labels->key_len);
+
+		}
+		labels = labels->next;
+	}
+	string_cat(res, "\n", 1);
+
+}
+
+void serialize_dynatrace(metric_node *x, serializer_context *sc)
+{
+	labels_t *labels = x->labels;
+	string *res = sc->str;
+	string_cat(res, labels->key, labels->key_len);
+
+	labels = labels->next;
+
+	while (labels)
+	{
+		string_cat(res, ",", 1);
+		string_cat(res, labels->name, labels->name_len);
+		string_cat(res, "=", 1);
+		string_cat(res, labels->key, labels->key_len);
+		labels = labels->next;
+		if (labels)
+			string_cat(res, " ", 1);
+	}
+	metric_value_serialize_string(x, res);
+	string_cat(res, "\n", 1);
+}
+
 void metric_node_serialize(metric_node *x, serializer_context *sc)
 {
 	if (sc->serializer == METRIC_SERIALIZER_OPENMETRICS)
@@ -694,6 +814,18 @@ void metric_node_serialize(metric_node *x, serializer_context *sc)
 	{
 		r_time now = setrtime();
 		serialize_graphite(x, sc, now.sec);
+	}
+	else if (sc->serializer == METRIC_SERIALIZER_STATSD)
+	{
+		serialize_statsd(x, sc);
+	}
+	else if (sc->serializer == METRIC_SERIALIZER_DOGSTATSD)
+	{
+		serialize_dogstatsd(x, sc);
+	}
+	else if (sc->serializer == METRIC_SERIALIZER_DYNATRACE)
+	{
+		serialize_dynatrace(x, sc);
 	}
 	else if (sc->serializer == METRIC_SERIALIZER_CARBON2)
 	{

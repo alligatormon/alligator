@@ -14,6 +14,9 @@
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
 #include "scheduler/type.h"
+#include "common/logs.h"
+extern aconf *ac;
+
 char* icmp_client(context_arg *carg);
 
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
@@ -45,13 +48,11 @@ int smart_aggregator(context_arg *carg)
 
 	strlcpy(key, carg->key, 512);
 
-	if (ac->log_level > 1)
-		printf("smart_aggregator key: '%s'/%d\n", key, carg->transport);
+	carglog(carg, L_INFO, "smart_aggregator key: '%s'/%d\n", key, carg->transport);
 
 	if (alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
 	{
-		if (ac->log_level > 2)
-			printf("smart_aggregator: key '%s' already in use\n", key);
+		carglog(carg, L_INFO, "smart_aggregator: key '%s' already in use\n", key);
 		return 0; // err, need for carg_free
 	}
 

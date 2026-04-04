@@ -67,5 +67,5 @@ void scheduler_push_json(json_t *scheduler)
 	alligator_ht_insert(ac->scheduler, &(sn->node), sn, hash);
 	scheduler_start(sn);
 
-	glog(L_ERROR, "Scheduler with name %s created\n", name);
+	glog(L_INFO, "Scheduler with name %s created\n", name);
 }

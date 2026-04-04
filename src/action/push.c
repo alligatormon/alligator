@@ -32,6 +32,9 @@ void action_push(json_t *action)
 		an->expr = strdup(expr);
 		an->expr_len = json_string_length(jexpr);
 	}
+	else {
+		glog(L_ERROR, "not found specified 'expr' for action: '%s'\n", name);
+	}
 
 	json_t *jns = json_object_get(action, "ns");
 	if (jns)
@@ -86,6 +89,12 @@ void action_push(json_t *action)
 			an->serializer = METRIC_SERIALIZER_DSV;
 		else if(!strcmp(srlz, "graphite"))
 			an->serializer = METRIC_SERIALIZER_GRAPHITE;
+		else if(!strcmp(srlz, "statsd"))
+			an->serializer = METRIC_SERIALIZER_STATSD;
+		else if(!strcmp(srlz, "dogstatsd"))
+			an->serializer = METRIC_SERIALIZER_DOGSTATSD;
+		else if(!strcmp(srlz, "dynatrace"))
+			an->serializer = METRIC_SERIALIZER_DYNATRACE;
 		else if(!strcmp(srlz, "carbon2"))
 			an->serializer = METRIC_SERIALIZER_CARBON2;
 		else if(!strcmp(srlz, "influxdb"))
@@ -114,7 +123,7 @@ void action_push(json_t *action)
 	an->name = strdup(name);
 	//an->datasource = strdup(datasource);
 
-	glog(L_ERROR, "create action node %p name '%s', expr '%s'\n", an, an->name, an->expr);
+	glog(L_INFO, "create action node %p name '%s', expr '%s'\n", an, an->name, an->expr);
 
 	alligator_ht_insert(ac->action, &(an->node), an, tommy_strhash_u32(0, an->name));
 }

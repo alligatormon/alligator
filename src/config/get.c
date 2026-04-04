@@ -558,6 +558,12 @@ void action_generate_conf(void *funcarg, void* arg)
 			sertype = json_string("carbon2");
 		else if (an->serializer == METRIC_SERIALIZER_GRAPHITE)
 			sertype = json_string("graphite");
+		else if (an->serializer == METRIC_SERIALIZER_STATSD)
+			sertype = json_string("statsd");
+		else if (an->serializer == METRIC_SERIALIZER_DOGSTATSD)
+			sertype = json_string("dogstatsd");
+		else if (an->serializer == METRIC_SERIALIZER_DYNATRACE)
+			sertype = json_string("dynatrace");
 		else if (an->serializer == METRIC_SERIALIZER_INFLUXDB)
 			sertype = json_string("influxdb");
 		else if (an->serializer == METRIC_SERIALIZER_PG)

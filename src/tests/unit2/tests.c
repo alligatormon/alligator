@@ -249,6 +249,7 @@ void get_local_directory(char *mockpath, char *binary, char *extra_path) {
 #include "http.h"
 #include "api_v1.h"
 #include "parsers.h"
+#include "validator.h"
 #include "system.h"
 #include "config.h"
 
@@ -280,6 +281,9 @@ int main(int argc, char **argv) {
     test_ip_to_int();
     test_integer_to_ip();
     test_ip_get_version();
+    test_metric_name_normalizer_statsd();
+    test_tag_normalizer_statsd();
+    test_tags_normalizer_dogstatsd();
     test_http_access_1();
     test_http_access_2();
     api_test_query_1();
