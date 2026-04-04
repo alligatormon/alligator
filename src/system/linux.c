@@ -2169,7 +2169,7 @@ void get_buddyinfo()
 
 		char *cur = buf + 5;
 		char *tmp;
-		size_t node_size = strcspn(cur, " \t");
+		size_t node_size = strcspn(cur, " ,\t");
 		strlcpy(node, cur, node_size+1);
 
 		tmp = strstr(cur, "zone");
