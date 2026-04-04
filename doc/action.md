@@ -84,6 +84,8 @@ Available serializers include:
 - json
 - dsv
 - graphite
+- statsd
+- dogstatsd
 - carbon2
 - influxdb
 - clickhouse
@@ -120,6 +122,32 @@ action {
   name to-pushgateway;
   serializer openmetrics;
   expr tcp://localhost:9091/metrics;
+}
+
+scheduler {
+  name sched-statsd;
+  period 5s;
+  datasource internal;
+  action to-statsd;
+}
+
+action {
+  name to-statsd;
+  serializer statsd;
+  expr udp://localhost:1112;
+}
+
+scheduler {
+  name sched-dogstatsd;
+  period 5s;
+  datasource internal;
+  action to-dogstatsd;
+}
+
+action {
+  name to-dogstatsd;
+  serializer dogstatsd;
+  expr udp://localhost:1113;
 }
 ```
 
