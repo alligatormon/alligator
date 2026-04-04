@@ -56,3 +56,35 @@ void test_tags_normalizer_dogstatsd() {
 	tags_normalizer_dogstatsd(buf, 0);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", buf);
 }
+
+void test_tag_normalizer_dynatrace() {
+	char buf[256];
+
+	strcpy(buf, "env");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "env", buf);
+
+	strcpy(buf, "foo-bar_baz0");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo-bar_baz0", buf);
+
+	strcpy(buf, "foo.bar-baz_0");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo.bar-baz_0", buf);
+
+	strcpy(buf, "foo.bar");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo.bar", buf);
+
+	strcpy(buf, "foo:bar/baz");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo_bar_baz", buf);
+
+	strcpy(buf, "a,b#c");
+	tag_normalizer_dynatrace(buf, strlen(buf));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a_b_c", buf);
+
+	strcpy(buf, "");
+	tag_normalizer_dynatrace(buf, 0);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", buf);
+}

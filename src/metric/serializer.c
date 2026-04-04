@@ -3,6 +3,7 @@
 #include "common/rtime.h"
 #include "common/selector.h"
 #include "common/json_query.h"
+#include "common/validator.h"
 #include <uuid/uuid.h>
 #include <time.h>
 #define SQL_CREATE "CREATE TABLE IF NOT EXISTS "
@@ -786,20 +787,31 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc)
 {
 	labels_t *labels = x->labels;
 	string *res = sc->str;
-	string_cat(res, labels->key, labels->key_len);
 
+	uint64_t metric_str_start_position = res->l;
+	string_cat(res, labels->key, labels->key_len);
+	tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
 	labels = labels->next;
 
 	while (labels)
 	{
-		string_cat(res, ",", 1);
-		string_cat(res, labels->name, labels->name_len);
-		string_cat(res, "=", 1);
-		string_cat(res, labels->key, labels->key_len);
+		if (labels->key_len) {
+			string_cat(res, ",", 1);
+			metric_str_start_position = res->l;
+			string_cat(res, labels->name, labels->name_len);
+			tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->name_len);
+
+			string_cat(res, "=", 1);
+
+			string_cat(res, "\"", 1);
+			metric_str_start_position = res->l;
+			string_cat(res, labels->key, labels->key_len);
+			tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
+			string_cat(res, "\"", 1);
+		}
 		labels = labels->next;
-		if (labels)
-			string_cat(res, " ", 1);
 	}
+	string_cat(res, " ", 1);
 	metric_value_serialize_string(x, res);
 	string_cat(res, "\n", 1);
 }

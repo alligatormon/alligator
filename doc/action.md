@@ -91,6 +91,7 @@ Available serializers include:
 - clickhouse
 - postgresql
 - elasticsearch
+- dynatrace
 
 In case of a simple HTTP request, the body will be passed in the HTTP POST body.
 This option also specifies the database connector that will be used for connection.
@@ -148,6 +149,19 @@ action {
   name to-dogstatsd;
   serializer dogstatsd;
   expr udp://localhost:1113;
+}
+
+scheduler {
+  name sched-dynatrace;
+  period 15s;
+  datasource internal;
+  action to-dynatrace;
+}
+
+action {
+  name to-dynatrace;
+  serializer dynatrace;
+  expr https://localhost/api/v2/metrics/ingest;
 }
 ```
 
