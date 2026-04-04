@@ -161,7 +161,7 @@ scheduler {
 action {
   name to-dynatrace;
   serializer dynatrace;
-  expr https://localhost/api/v2/metrics/ingest;
+  expr http://localhost:14499/metrics/ingest;
 }
 ```
 
