@@ -128,7 +128,6 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			snprintf(cl, 19, "%"u64, body->l);
 			alligator_ht *env = alligator_ht_init(NULL);
 			env_struct_push_alloc(env, "Content-Length", cl);
-			printf("elasticsearch parser name is %s/%p\n", an->parser_name, an->parser);
 
 			if (an->content_type_json)
 				env_struct_push_alloc(env, "Content-Type", "application/json");

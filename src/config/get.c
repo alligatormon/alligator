@@ -546,6 +546,8 @@ void action_generate_conf(void *funcarg, void* arg)
 		json_t *sertype = NULL;
 		if (an->serializer == METRIC_SERIALIZER_JSON)
 			sertype = json_string("json");
+		else if (an->serializer == METRIC_SERIALIZER_OTLP)
+			sertype = json_string("otlp");
 		else if (an->serializer == METRIC_SERIALIZER_OPENMETRICS)
 			sertype = json_string("openmetrics");
 		else if (an->serializer == METRIC_SERIALIZER_CLICKHOUSE)

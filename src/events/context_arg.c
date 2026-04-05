@@ -245,8 +245,9 @@ void env_struct_push_alloc(alligator_ht* hash, char *k, char *v)
 		es->k = strdup(k);
 		es->v = strdup(v);
 		alligator_ht_insert(hash, &(es->node), es, key_hash);
+	} else {
+		glog(L_ERROR, "duplicate header key %s: %u\n", k, key_hash);
 	}
-	glog(L_ERROR, "duplicate header key %s\n", k);
 }
 
 alligator_ht *env_struct_parser(json_t *root)

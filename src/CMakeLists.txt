@@ -190,6 +190,8 @@ set(STATIC_FILES
 	parsers/powerdns.c
 	parsers/log.c
 	parsers/elasticsearch.c
+	parsers/dynatrace.c
+	parsers/otlp.c
 	parsers/nginx_upstream_check.c
 	parsers/monit.c
 	parsers/rsyslog_impstats.c

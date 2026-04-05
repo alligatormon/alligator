@@ -85,6 +85,14 @@ void action_push(json_t *action)
 		char *srlz = (char*)json_string_value(jserializer);
 		if(!strcmp(srlz, "json"))
 			an->serializer = METRIC_SERIALIZER_JSON;
+		else if(!strcmp(srlz, "otlp"))
+		{
+			an->serializer = METRIC_SERIALIZER_OTLP;
+			an->content_type_json = 1;
+			an->parser = otlp_response_catch;
+			an->parser_name = strdup("otlp_response_catch");
+			printf("an %p serializer is '%s', %p, '%s'\n", an, srlz, an->parser, an->parser_name);
+		}
 		else if(!strcmp(srlz, "dsv"))
 			an->serializer = METRIC_SERIALIZER_DSV;
 		else if(!strcmp(srlz, "graphite"))
@@ -93,8 +101,13 @@ void action_push(json_t *action)
 			an->serializer = METRIC_SERIALIZER_STATSD;
 		else if(!strcmp(srlz, "dogstatsd"))
 			an->serializer = METRIC_SERIALIZER_DOGSTATSD;
-		else if(!strcmp(srlz, "dynatrace"))
+		else if(!strcmp(srlz, "dynatrace")) {
 			an->serializer = METRIC_SERIALIZER_DYNATRACE;
+			an->content_type_json = 1;
+			an->parser = dynatrace_response_catch;
+			an->parser_name = strdup("dynatrace_response_catch");
+			printf("an %p serializer is '%s', %p, '%s'\n", an, srlz, an->parser, an->parser_name);
+		}
 		else if(!strcmp(srlz, "carbon2"))
 			an->serializer = METRIC_SERIALIZER_CARBON2;
 		else if(!strcmp(srlz, "influxdb"))
