@@ -7,7 +7,9 @@
 #define API_DISABLED_MESG "\r\n{\"error\": \"api disabled\"}\n"
 void api_router(string *response, http_reply_data* http_data, context_arg *carg)
 {
-	if (carg && !carg->api_enable)
+	if (!strncmp(http_data->uri, "/api/v2/metrics/ingest", 22))
+		dynatrace_metrics_ingest_handler(response, http_data, NULL, carg);
+	else if (carg && !carg->api_enable)
 	{
 		if (ac->log_level > 0)
 			puts("API request error: api disabled");
