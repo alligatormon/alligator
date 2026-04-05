@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "config/plain.h"
 #include "common/json_query.h"
 #include "common/selector.h"
@@ -288,6 +289,53 @@ uint64_t plain_count_get(string *context)
 	}
 
 	return j;
+}
+
+static void plain_context_env_line(json_t *env_obj, string *tok)
+{
+	const char *s;
+	size_t len;
+
+	if (!env_obj || !tok)
+		return;
+	s = tok->s;
+	len = tok->l;
+	if (!s || !len)
+		return;
+	if (len >= 2 && s[0] == '\'' && s[len - 1] == '\'') {
+		s++;
+		len -= 2;
+	} else if (len >= 2 && s[0] == '"' && s[len - 1] == '"') {
+		s++;
+		len -= 2;
+	}
+	const char *colon = memchr(s, ':', len);
+	if (!colon || colon == s)
+		return;
+	size_t key_len = (size_t)(colon - s);
+	while (key_len > 0 && isspace((unsigned char)s[key_len - 1]))
+		key_len--;
+	if (!key_len)
+		return;
+	const char *v = colon + 1;
+	size_t vlen = len - (size_t)(v - s);
+	while (vlen > 0 && isspace((unsigned char)v[0])) {
+		v++;
+		vlen--;
+	}
+	while (vlen > 0 && isspace((unsigned char)v[vlen - 1]))
+		vlen--;
+	char kbuf[256];
+	if (key_len >= sizeof(kbuf))
+		key_len = sizeof(kbuf) - 1;
+	memcpy(kbuf, s, key_len);
+	kbuf[key_len] = '\0';
+	char *vbuf = calloc(1, vlen + 1);
+	if (!vbuf)
+		return;
+	memcpy(vbuf, v, vlen);
+	json_array_object_insert(env_obj, kbuf, json_string(vbuf));
+	free(vbuf);
 }
 
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
@@ -757,6 +805,25 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										{
 											break;
 										}
+									}
+								}
+								else if (!strcmp(operator_name, "env") || !strcmp(operator_name, "header"))
+								{
+									json_t *env_obj = json_object_get(operator_json, "env");
+									if (!env_obj)
+									{
+										env_obj = json_object();
+										json_array_object_insert(operator_json, "env", env_obj);
+									}
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											plain_context_env_line(env_obj, wstokens[i].token);
+											break;
+										}
+										if (wstokens[i].semicolon)
+											break;
 									}
 								}
 							}

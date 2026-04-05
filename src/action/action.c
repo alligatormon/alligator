@@ -13,6 +13,12 @@
 #include "common/http.h"
 #include "lang/type.h"
 
+static void action_merge_action_env(alligator_ht *dst, action_node *an)
+{
+	if (an->env)
+		alligator_ht_foreach_arg(an->env, env_struct_duplicate_foreach, dst);
+}
+
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type)
 {
 	glog(L_INFO, "an %p: qs %p: qs->key %s, count: %"u64"\n", an, qs, qs->key, qs->count);
@@ -59,6 +65,15 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	if (an->work_dir)
 		work_dir = string_string_init_dup(an->work_dir);
 
+	context_arg carg_hint = {0};
+	context_arg *oneshot_carg = NULL;
+	if (an->log_level_defined)
+	{
+		carg_hint.log_level = an->log_level;
+		carg_hint.ttl = ac->ttl;
+		oneshot_carg = &carg_hint;
+	}
+
 	int log_level = L_INFO;
 	if (an->dry_run) {
 		log_level = L_OFF;
@@ -67,7 +82,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	{
 		glog(log_level, "run action exec %s with cmd: '%s' from directory '%s'\n", name, an->expr, work_dir);
 		if (!an->dry_run)
-			aggregator_oneshot(NULL, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, work_dir, NULL); // params pass for exec in stdin
+			aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, work_dir, an->env); // params pass for exec in stdin
 	}
 	else if (!strncmp(an->expr, "http", 4))
 	{
@@ -80,6 +95,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				char cl[20];
 				snprintf(cl, 19, "%"u64, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
+				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
@@ -88,7 +104,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				glog(log_level, "run action clickhouse %s\n", name);
 				if (!an->dry_run)
-					aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+					aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -104,6 +120,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				char cl[20];
 				snprintf(cl, 19, "%"u64, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
+				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
@@ -113,7 +130,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				glog(log_level, "run action pg %s\n", name);
 				if (!an->dry_run)
-					aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+					aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -127,6 +144,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			char cl[20];
 			snprintf(cl, 19, "%"u64, body->l);
 			alligator_ht *env = alligator_ht_init(NULL);
+			action_merge_action_env(env, an);
 			env_struct_push_alloc(env, "Content-Length", cl);
 
 			if (an->content_type_json)
@@ -136,7 +154,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			free(body->s);
 			glog(log_level, "run action http %s\n", name);
 			if (!an->dry_run)
-				aggregator_oneshot(NULL, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+				aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
 			free(env);
@@ -181,7 +199,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
 		if (!an->dry_run) {
-			context_arg *carg = aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+			context_arg *carg = aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, an->env); // params pass for other in body
 			if (carg) {
 				carg->timeout = 1000;
 			}
@@ -191,7 +209,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
 		if (!an->dry_run)
-			aggregator_oneshot(NULL, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, NULL); // params pass for other in body
+			aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, an->env); // params pass for other in body
 	}
 
 	if (ms)

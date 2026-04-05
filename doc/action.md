@@ -193,3 +193,45 @@ action {
     index_template alligator-%Y-%m-%d;
 }
 ```
+
+## env
+Adds HTTP headers for `http`/`https` actions (they are merged into the outgoing request). For `exec://` actions, the same entries are supplied as environment variables for the subprocess.
+
+In plain configuration, each line is `env 'Header-Name:value';` (or `header …`, which is an alias). The header name and value are separated by the **first** colon; repeat `env` for multiple headers. In JSON, use an object, for example `"env": { "Authorization": "Api-Token …" }`.
+
+For example:
+
+```
+scheduler {
+  name sched-dynatrace;
+  period 15s;
+  datasource internal;
+  action to-dynatrace;
+}
+
+action {
+  name to-dynatrace;
+  serializer dynatrace;
+  expr https://xxxx.live.dynatrace.com/api/v2/metrics/ingest;
+  env 'Authorization:Api-Token XXXXXXXXX';
+  env 'Content-Type: text/plain; charset=utf-8';
+}
+```
+
+## log_level
+Optional. When set, it becomes the `log_level` on the oneshot `context_arg` for this action (client and parser logging for that run). When omitted, the oneshot context uses the server-wide `log_level` from the main configuration.
+
+Allowed values are the same as for the rest of Alligator; see [Available log levels](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels).
+
+For example:
+
+```
+action {
+  name to-dynatrace;
+  serializer dynatrace;
+  expr https://xxxx.live.dynatrace.com/api/v2/metrics/ingest;
+  env 'Authorization:Api-Token XXXXXXXXX';
+  env 'Content-Type: text/plain; charset=utf-8';
+  log_level trace;
+}
+```

@@ -61,6 +61,16 @@ void action_push(json_t *action)
 		an->dry_run = 1;
 	}
 
+	json_t *jlog_level = json_object_get(action, "log_level");
+	if (jlog_level)
+	{
+		an->log_level_defined = 1;
+		if (json_typeof(jlog_level) == JSON_STRING)
+			an->log_level = (int)get_log_level_by_name(json_string_value(jlog_level), json_string_length(jlog_level));
+		else
+			an->log_level = (int)json_integer_value(jlog_level);
+	}
+
 	json_t *jindex_template = json_object_get(action, "index_template");
 	if (jindex_template)
 	{
@@ -69,6 +79,10 @@ void action_push(json_t *action)
 
 
 	an->follow_redirects = config_get_intstr_json(action, "follow_redirects");
+
+	json_t *jenv = json_object_get(action, "env");
+	if (jenv && json_is_object(jenv))
+		an->env = env_struct_parser(action);
 
 	//json_t *jtype = json_object_get(action, "type");
 	//if (jtype)

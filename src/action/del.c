@@ -2,6 +2,7 @@
 #include "dstructures/ht.h"
 #include "action/type.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 
 void action_del(json_t *action)
 {
@@ -34,6 +35,8 @@ void action_del(json_t *action)
 			string_free(an->index_template);
 		if (an->parser_name)
 			free(an->parser_name);
+		if (an->env)
+			env_free(an->env);
 		//if (an->datasource)
 		//	free(an->datasource);
 		free(an);

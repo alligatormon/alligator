@@ -16,6 +16,7 @@ typedef struct action_node
 	//char *datasource;
 	context_arg *carg;
 	alligator_ht *labels;
+	alligator_ht *env;
 	uint64_t follow_redirects;
 	string *engine;
 	string *index_template;
@@ -23,6 +24,8 @@ typedef struct action_node
 	void *parser;
 	char *parser_name;
 	uint8_t dry_run;
+	uint8_t log_level_defined;
+	int log_level;
 
 	tommy_node node;
 } action_node;
