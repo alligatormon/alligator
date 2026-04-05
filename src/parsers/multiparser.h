@@ -171,3 +171,4 @@ void cassandra_client_del(context_arg* carg);
 void cassandra_client_handler();
 void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg);
 void otlp_response_catch(char *metrics, size_t size, context_arg *carg);
+void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
