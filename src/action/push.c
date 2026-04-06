@@ -107,6 +107,13 @@ void action_push(json_t *action)
 			an->parser_name = strdup("otlp_response_catch");
 			printf("an %p serializer is '%s', %p, '%s'\n", an, srlz, an->parser, an->parser_name);
 		}
+		else if(!strcmp(srlz, "otlp_protobuf"))
+		{
+			an->serializer = METRIC_SERIALIZER_OTLP_PROTOBUF;
+			an->content_type_protobuf = 1;
+			an->parser = otlp_response_catch;
+			an->parser_name = strdup("otlp_response_catch");
+		}
 		else if(!strcmp(srlz, "dsv"))
 			an->serializer = METRIC_SERIALIZER_DSV;
 		else if(!strcmp(srlz, "graphite"))

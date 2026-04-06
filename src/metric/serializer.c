@@ -18,6 +18,8 @@
 #define CASSANDRA_STANDARD_FIELDS "(id UUID PRIMARY KEY, time TIMESTAMP, value DOUBLE"
 #define CASSANDRA_INSERT_FIELDS "(time, id, value"
 
+void otlp_protobuf_serialize(metric_node *x, serializer_context *sc);
+
 static json_t *otlp_export_metrics_root_new(void)
 {
 	json_t *root = json_object();
@@ -134,6 +136,8 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 		sc->json = json_array();
 	else if (serializer == METRIC_SERIALIZER_OTLP)
 		sc->json = otlp_export_metrics_root_new();
+	else if (serializer == METRIC_SERIALIZER_OTLP_PROTOBUF)
+		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_DSV)
 	{
 		sc->str = str;
@@ -1008,6 +1012,10 @@ void metric_node_serialize(metric_node *x, serializer_context *sc)
 	else if (sc->serializer == METRIC_SERIALIZER_OTLP)
 	{
 		serialize_otlp(x, sc);
+	}
+	else if (sc->serializer == METRIC_SERIALIZER_OTLP_PROTOBUF)
+	{
+		otlp_protobuf_serialize(x, sc);
 	}
 	else if (sc->serializer == METRIC_SERIALIZER_ELASTICSEARCH)
 	{

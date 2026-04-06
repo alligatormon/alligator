@@ -858,6 +858,166 @@ static int otlp_body_looks_json(const char *body, size_t body_size)
 	return body[i] == '{' || body[i] == '[';
 }
 
+static void otlp_pbw_varint(string *dst, uint64_t v)
+{
+	uint8_t b[10];
+	size_t n = 0;
+	do {
+		b[n] = (uint8_t)(v & 0x7f);
+		v >>= 7;
+		if (v)
+			b[n] |= 0x80;
+		n++;
+	} while (v && n < sizeof(b));
+	string_cat(dst, (char *)b, n);
+}
+
+static void otlp_pbw_tag(string *dst, uint32_t field, uint8_t wire)
+{
+	otlp_pbw_varint(dst, ((uint64_t)field << 3) | (uint64_t)(wire & 0x7));
+}
+
+static void otlp_pbw_len(string *dst, char *data, size_t len)
+{
+	otlp_pbw_varint(dst, len);
+	if (len)
+		string_cat(dst, data, len);
+}
+
+static void otlp_pbw_field_lenmsg(string *dst, uint32_t field, string *msg)
+{
+	otlp_pbw_tag(dst, field, 2);
+	otlp_pbw_len(dst, msg->s, msg->l);
+}
+
+static void otlp_pbw_field_fixed64(string *dst, uint32_t field, uint64_t raw)
+{
+	uint8_t b[8];
+	for (int i = 0; i < 8; i++)
+		b[i] = (uint8_t)((raw >> (8 * i)) & 0xff);
+	otlp_pbw_tag(dst, field, 1);
+	string_cat(dst, (char *)b, 8);
+}
+
+static string *otlp_pbw_any_string(char *s, size_t len)
+{
+	string *msg = string_init(len + 8);
+	otlp_pbw_tag(msg, 1, 2);
+	otlp_pbw_len(msg, s, len);
+	return msg;
+}
+
+static string *otlp_pbw_key_value_string(char *k, size_t klen, char *v, size_t vlen)
+{
+	string *kv = string_init(klen + vlen + 32);
+	string *any = otlp_pbw_any_string(v, vlen);
+	otlp_pbw_tag(kv, 1, 2);
+	otlp_pbw_len(kv, k, klen);
+	otlp_pbw_field_lenmsg(kv, 2, any);
+	string_free(any);
+	return kv;
+}
+
+static int otlp_metric_to_pb_value(metric_node *x, uint8_t *field, uint64_t *raw)
+{
+	double d = 0.0;
+	int64_t i = 0;
+
+	if (x->type == DATATYPE_INT)
+	{
+		i = x->i;
+		*field = 6;
+		memcpy(raw, &i, sizeof(i));
+		return 1;
+	}
+	if (x->type == DATATYPE_UINT)
+	{
+		if (x->u <= (uint64_t)INT64_MAX)
+		{
+			i = (int64_t)x->u;
+			*field = 6;
+			memcpy(raw, &i, sizeof(i));
+			return 1;
+		}
+		d = (double)x->u;
+		*field = 4;
+		memcpy(raw, &d, sizeof(d));
+		return 1;
+	}
+	if (x->type == DATATYPE_DOUBLE)
+	{
+		d = x->d;
+		*field = 4;
+		memcpy(raw, &d, sizeof(d));
+		return 1;
+	}
+	if (x->type == DATATYPE_STRING && x->s)
+	{
+		char *end = NULL;
+		d = strtod(x->s, &end);
+		if (end != x->s && end && *end == '\0')
+		{
+			*field = 4;
+			memcpy(raw, &d, sizeof(d));
+			return 1;
+		}
+	}
+	*field = 4;
+	d = 0.0;
+	memcpy(raw, &d, sizeof(d));
+	return 1;
+}
+
+void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
+{
+	labels_t *labels = x ? x->labels : NULL;
+	string *req, *rm, *sm, *metric, *gauge, *dp;
+	uint8_t value_field = 0;
+	uint64_t value_raw = 0;
+
+	if (!sc || !sc->str || !labels || !labels->key || !labels->key_len)
+		return;
+	if (!otlp_metric_to_pb_value(x, &value_field, &value_raw))
+		return;
+
+	req = string_init(256);
+	rm = string_init(256);
+	sm = string_init(256);
+	metric = string_init(256);
+	gauge = string_init(128);
+	dp = string_init(256);
+
+	for (labels_t *it = labels->next; it; it = it->next)
+	{
+		if (it->name_len && it->key_len)
+		{
+			string *kv = otlp_pbw_key_value_string(it->name, it->name_len, it->key, it->key_len);
+			otlp_pbw_field_lenmsg(dp, 7, kv);
+			string_free(kv);
+		}
+	}
+
+	otlp_pbw_field_fixed64(dp, value_field, value_raw);
+	otlp_pbw_field_lenmsg(gauge, 1, dp);
+
+	otlp_pbw_tag(metric, 1, 2);
+	otlp_pbw_len(metric, labels->key, labels->key_len);
+	otlp_pbw_field_lenmsg(metric, 5, gauge);
+
+	otlp_pbw_field_lenmsg(sm, 2, metric);
+	otlp_pbw_field_lenmsg(rm, 2, sm);
+	otlp_pbw_field_lenmsg(req, 1, rm);
+
+	string_cat(sc->str, req->s, req->l);
+
+	string_free(dp);
+	string_free(gauge);
+	string_free(metric);
+	string_free(sm);
+	string_free(rm);
+	string_free(req);
+}
+
 void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg)
 {
 	const char *body = http_data ? http_data->body : configbody;

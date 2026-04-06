@@ -19,6 +19,23 @@ static void action_merge_action_env(alligator_ht *dst, action_node *an)
 		alligator_ht_foreach_arg(an->env, env_struct_duplicate_foreach, dst);
 }
 
+static size_t action_http_query_size_with_body(char *http_data, size_t body_size)
+{
+	char *headers_end;
+	if (!http_data)
+		return 0;
+
+	headers_end = strstr(http_data, "\r\n\r\n");
+	if (headers_end)
+		return (size_t)(headers_end - http_data) + 4 + body_size;
+
+	headers_end = strstr(http_data, "\n\n");
+	if (headers_end)
+		return (size_t)(headers_end - http_data) + 2 + body_size;
+
+	return strlen(http_data);
+}
+
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type)
 {
 	glog(L_INFO, "an %p: qs %p: qs->key %s, count: %"u64"\n", an, qs, qs->key, qs->count);
@@ -149,12 +166,15 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 
 			if (an->content_type_json)
 				env_struct_push_alloc(env, "Content-Type", "application/json");
+			else if (an->content_type_protobuf)
+				env_struct_push_alloc(env, "Content-Type", "application/x-protobuf");
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, body);
+			size_t http_data_size = action_http_query_size_with_body(http_data, body->l);
 			free(body->s);
 			glog(log_level, "run action http %s\n", name);
 			if (!an->dry_run)
-				aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
+				aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
 			free(env);

@@ -21,6 +21,7 @@ typedef struct action_node
 	string *engine;
 	string *index_template;
 	uint8_t content_type_json;
+	uint8_t content_type_protobuf;
 	void *parser;
 	char *parser_name;
 	uint8_t dry_run;
