@@ -11,6 +11,7 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "common/protobuf_wire.h"
 #include "common/validator.h"
 #include "common/reject.h"
 #include "cluster/pass.h"
@@ -309,69 +310,22 @@ static void otlp_ingest_resource_metrics_json(json_t *root, context_arg *carg, u
 
 static int otlp_pb_read_varint(const uint8_t **p, const uint8_t *end, uint64_t *out)
 {
-	uint64_t v = 0;
-	unsigned shift = 0;
-	while (*p < end && shift < 64)
-	{
-		uint8_t b = *(*p)++;
-		v |= (uint64_t)(b & 0x7f) << shift;
-		if (!(b & 0x80))
-		{
-			*out = v;
-			return 1;
-		}
-		shift += 7;
-	}
-	return 0;
+	return pbwire_read_varint(p, end, out);
 }
 
 static int otlp_pb_read_fixed64(const uint8_t **p, const uint8_t *end, uint64_t *out)
 {
-	uint64_t v = 0;
-	if ((size_t)(end - *p) < 8)
-		return 0;
-	for (int i = 0; i < 8; i++)
-		v |= ((uint64_t)(*p)[i]) << (8 * i);
-	*p += 8;
-	*out = v;
-	return 1;
+	return pbwire_read_fixed64(p, end, out);
 }
 
 static int otlp_pb_read_len(const uint8_t **p, const uint8_t *end, const uint8_t **start, size_t *len)
 {
-	uint64_t l;
-	if (!otlp_pb_read_varint(p, end, &l))
-		return 0;
-	if (l > (uint64_t)(end - *p))
-		return 0;
-	*start = *p;
-	*len = (size_t)l;
-	*p += l;
-	return 1;
+	return pbwire_read_len(p, end, start, len);
 }
 
 static int otlp_pb_skip_field(const uint8_t **p, const uint8_t *end, uint8_t wire)
 {
-	uint64_t t;
-	const uint8_t *s;
-	size_t l;
-
-	switch (wire)
-	{
-	case 0:
-		return otlp_pb_read_varint(p, end, &t);
-	case 1:
-		return otlp_pb_read_fixed64(p, end, &t);
-	case 2:
-		return otlp_pb_read_len(p, end, &s, &l);
-	case 5:
-		if ((size_t)(end - *p) < 4)
-			return 0;
-		*p += 4;
-		return 1;
-	default:
-		return 0;
-	}
+	return pbwire_skip_field(p, end, wire);
 }
 
 static int otlp_pb_anyvalue_to_buf(const uint8_t *p, size_t len, char *buf, size_t bufsz)
@@ -858,45 +812,24 @@ static int otlp_body_looks_json(const char *body, size_t body_size)
 	return body[i] == '{' || body[i] == '[';
 }
 
-static void otlp_pbw_varint(string *dst, uint64_t v)
-{
-	uint8_t b[10];
-	size_t n = 0;
-	do {
-		b[n] = (uint8_t)(v & 0x7f);
-		v >>= 7;
-		if (v)
-			b[n] |= 0x80;
-		n++;
-	} while (v && n < sizeof(b));
-	string_cat(dst, (char *)b, n);
-}
-
 static void otlp_pbw_tag(string *dst, uint32_t field, uint8_t wire)
 {
-	otlp_pbw_varint(dst, ((uint64_t)field << 3) | (uint64_t)(wire & 0x7));
+	pbwire_write_tag(dst, field, wire);
 }
 
 static void otlp_pbw_len(string *dst, char *data, size_t len)
 {
-	otlp_pbw_varint(dst, len);
-	if (len)
-		string_cat(dst, data, len);
+	pbwire_write_len(dst, data, len);
 }
 
 static void otlp_pbw_field_lenmsg(string *dst, uint32_t field, string *msg)
 {
-	otlp_pbw_tag(dst, field, 2);
-	otlp_pbw_len(dst, msg->s, msg->l);
+	pbwire_write_field_lenmsg(dst, field, msg);
 }
 
 static void otlp_pbw_field_fixed64(string *dst, uint32_t field, uint64_t raw)
 {
-	uint8_t b[8];
-	for (int i = 0; i < 8; i++)
-		b[i] = (uint8_t)((raw >> (8 * i)) & 0xff);
-	otlp_pbw_tag(dst, field, 1);
-	string_cat(dst, (char *)b, 8);
+	pbwire_write_field_fixed64(dst, field, raw);
 }
 
 static string *otlp_pbw_any_string(char *s, size_t len)

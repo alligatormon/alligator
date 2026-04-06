@@ -92,9 +92,13 @@ Available serializers include:
 - postgresql
 - elasticsearch
 - dynatrace
+- otlp
+- otlp\_protobuf
 
 In case of a simple HTTP request, the body will be passed in the HTTP POST body.
 This option also specifies the database connector that will be used for connection.
+
+OTLP implementation supported only HTTP protocol with json and protobuf encoding.
 
 
 For example, next script will send all metrics to the pushgateway and statsd repeatedly:
@@ -162,6 +166,19 @@ action {
   name to-dynatrace;
   serializer dynatrace;
   expr http://localhost:14499/metrics/ingest;
+}
+
+scheduler {
+  name sched-otlp;
+  period 15s;
+  datasource internal;
+  action to-otlp;
+}
+
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
 }
 ```
 

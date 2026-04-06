@@ -246,6 +246,7 @@ set(STATIC_FILES
 	common/validator.c
 	common/base64.c
 	common/http.c
+	common/protobuf_wire.c
 	common/url.c
 	common/aggregator.c
 	common/json_query.c
