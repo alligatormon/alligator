@@ -788,16 +788,41 @@ static int otlp_ingest_resource_metrics_protobuf(const char *body, size_t body_s
 	return parsed_any;
 }
 
+/* strcasestr is not ISO C99; avoid _GNU_SOURCE and implicit declarations. */
+static char *otlp_strcasestr(char *haystack, char *needle)
+{
+	size_t i, j;
+	size_t hlen, nlen;
+
+	if (!haystack || !needle)
+		return NULL;
+	hlen = strlen(haystack);
+	nlen = strlen(needle);
+	if (!nlen)
+		return haystack;
+	for (i = 0; i + nlen <= hlen; i++)
+	{
+		for (j = 0; j < nlen; j++)
+		{
+			if (tolower((unsigned char)haystack[i + j]) != tolower((unsigned char)needle[j]))
+				break;
+		}
+		if (j == nlen)
+			return haystack + i;
+	}
+	return NULL;
+}
+
 static int otlp_headers_have_protobuf(http_reply_data *http_data)
 {
-	const char *h;
+	char *h;
 	if (!http_data || !http_data->headers)
 		return 0;
 	h = http_data->headers;
-	if (strcasestr(h, "content-type:") &&
-		(strcasestr(h, "application/x-protobuf") ||
-		 strcasestr(h, "application/protobuf") ||
-		 strcasestr(h, "application/octet-stream")))
+	if (otlp_strcasestr(h, "content-type:") &&
+		(otlp_strcasestr(h, "application/x-protobuf") ||
+		 otlp_strcasestr(h, "application/protobuf") ||
+		 otlp_strcasestr(h, "application/octet-stream")))
 		return 1;
 	return 0;
 }
