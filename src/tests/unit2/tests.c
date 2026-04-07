@@ -249,6 +249,7 @@ void get_local_directory(char *mockpath, char *binary, char *extra_path) {
 #include "http.h"
 #include "api_v1.h"
 #include "parsers.h"
+#include "json_query.h"
 #include "validator.h"
 #include "protobuf_wire.h"
 #include "system.h"
@@ -308,6 +309,11 @@ int main(int argc, char **argv) {
     api_test_parser_flower();
     api_test_parser_rabbitmq();
     api_test_parser_elasticsearch(argv[0]);
+    test_json_query_labels_and_int();
+    test_json_query_pipe_stages();
+    test_json_query_label_alias();
+    test_json_query_comma_branches();
+    test_json_query_merge_two_pquery();
     system_test(argv[0]);
     test_config();
     infomesg();

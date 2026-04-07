@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <jansson.h>
 #include <string.h>
+#include <ctype.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "metric/namespace.h"
 #include "common/logs.h"
@@ -14,7 +15,8 @@ extern aconf* ac;
 void json_parse_level(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl);
 
 typedef struct jq_node {
-	string_tokens *tokens;
+	string_tokens *label_fields;
+	string_tokens *label_names;
 
 	string *key;
 	alligator_ht_node node;
@@ -61,32 +63,33 @@ void json_parse_array(context_arg *carg, json_t *element, string *prefix, alliga
 			new_lbl = alligator_ht_init(NULL);
 		}
 
-		for (uint64_t tkidx = 0; jqn && (tkidx < jqn->tokens->l); ++tkidx) {
-			char *metric_key = jqn->tokens->str[tkidx]->s;
+		for (uint64_t tkidx = 0; jqn && jqn->label_fields && jqn->label_names && (tkidx < jqn->label_fields->l) && (tkidx < jqn->label_names->l); ++tkidx) {
+			char *metric_key = jqn->label_fields->str[tkidx]->s;
+			char *label_name = jqn->label_names->str[tkidx]->s;
 			json_t *metric_obj = json_object_get(value, metric_key);
 			if (metric_obj) {
 				int metric_type = json_typeof(metric_obj);
 				if (metric_type == JSON_STRING) {
 					char *metric_value = (char*)json_string_value(metric_obj);
-					labels_hash_insert_nocache(new_lbl, metric_key, metric_value);
+					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
 				}
 				else if (metric_type == JSON_INTEGER) {
 					int64_t metric_ivalue = json_integer_value(metric_obj);
 					char metric_value[21];
 					snprintf(metric_value, 20, "%"PRId64, metric_ivalue);
-					labels_hash_insert_nocache(new_lbl, metric_key, metric_value);
+					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
 				}
 				else if (metric_type == JSON_REAL) {
 					double metric_dvalue = json_real_value(metric_obj);
 					char metric_value[21];
 					snprintf(metric_value, 20, "%lf", metric_dvalue);
-					labels_hash_insert_nocache(new_lbl, metric_key, metric_value);
+					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
 				}
 				else if (metric_type == JSON_TRUE) {
-					labels_hash_insert_nocache(new_lbl, metric_key, "true");
+					labels_hash_insert_nocache(new_lbl, label_name, "true");
 				}
 				else if (metric_type == JSON_FALSE) {
-					labels_hash_insert_nocache(new_lbl, metric_key, "false");
+					labels_hash_insert_nocache(new_lbl, label_name, "false");
 				}
 				else {
 					carglog(carg, L_DEBUG, "json '%s' error during parsing the metric key '%s': unknown type, this label will be skipped\n", carg->key, metric_key);
@@ -163,52 +166,136 @@ void json_parse_level(context_arg *carg, json_t *element, string *prefix, alliga
 	}
 }
 
-string_tokens *json_query_parser_object(context_arg *carg, char *obj, size_t sz, int *type) {
-	string_tokens *tokens = string_tokens_new();
-	uint8_t is_array = 0;
-	uint8_t is_object = 0;
-	uint64_t i = 0;
-	char *key = NULL;
-	uint64_t skips = 0;
-	for (; i < sz; ++i) {
-		if (obj[i] == '[') {
-			*type = JSON_ARRAY;
-			key = obj + i + 1;
-			is_array = 1;
+static void json_query_trim_range(char *src, size_t *start, size_t *end)
+{
+	while ((*start) < (*end) && isspace((unsigned char)src[*start]))
+		++(*start);
+	while ((*end) > (*start) && isspace((unsigned char)src[*end - 1]))
+		--(*end);
+}
+
+static size_t json_query_find_delim(char *src, size_t start, size_t end, char delim)
+{
+	size_t bracket_level = 0;
+	for (size_t i = start; i < end; ++i) {
+		if (src[i] == '[')
+			++bracket_level;
+		else if (src[i] == ']' && bracket_level)
+			--bracket_level;
+		else if (src[i] == delim && !bracket_level)
+			return i;
+	}
+	return end;
+}
+
+static int json_query_labels_contains(jq_node *node, char *field, size_t field_len, char *name, size_t name_len)
+{
+	if (!node || !node->label_fields || !node->label_names)
+		return 0;
+
+	for (uint64_t i = 0; i < node->label_fields->l && i < node->label_names->l; ++i) {
+		if ((node->label_fields->str[i]->l == field_len) &&
+		    (node->label_names->str[i]->l == name_len) &&
+		    !strncmp(node->label_fields->str[i]->s, field, field_len) &&
+		    !strncmp(node->label_names->str[i]->s, name, name_len))
+			return 1;
+	}
+
+	return 0;
+}
+
+static jq_node *json_query_get_or_create_node(alligator_ht *ht, char *prefix)
+{
+	jq_node *node = alligator_ht_search(ht, json_query_node_compare, prefix, tommy_strhash_u32(0, prefix));
+	if (node)
+		return node;
+
+	node = calloc(1, sizeof(*node));
+	node->key = string_init_dup(prefix);
+	node->label_fields = string_tokens_new();
+	node->label_names = string_tokens_new();
+	alligator_ht_insert(ht, &(node->node), node, tommy_strhash_u32(0, node->key->s));
+	return node;
+}
+
+static void json_query_add_label_pair(alligator_ht *ht, char *prefix, char *field, size_t field_len, char *name, size_t name_len)
+{
+	if (!field_len || !name_len)
+		return;
+
+	jq_node *node = json_query_get_or_create_node(ht, prefix);
+	if (json_query_labels_contains(node, field, field_len, name, name_len))
+		return;
+
+	string_tokens_push_dupn(node->label_fields, field, field_len);
+	string_tokens_push_dupn(node->label_names, name, name_len);
+}
+
+static void json_query_parse_label_block(alligator_ht *ht, char *prefix, char *src, size_t start, size_t end)
+{
+	size_t i = start;
+	while (i < end) {
+		while (i < end && (isspace((unsigned char)src[i]) || src[i] == ','))
+			++i;
+		if (i >= end)
+			break;
+
+		size_t tok_start = i;
+		while (i < end && !isspace((unsigned char)src[i]) && src[i] != ',')
+			++i;
+		size_t tok_end = i;
+
+		if (tok_end <= tok_start)
+			continue;
+
+		size_t map_pos = tok_start;
+		while (map_pos < tok_end && src[map_pos] != ':' && src[map_pos] != '=')
+			++map_pos;
+
+		if (map_pos < tok_end) {
+			json_query_add_label_pair(ht, prefix, src + tok_start, map_pos - tok_start, src + map_pos + 1, tok_end - map_pos - 1);
+		} else {
+			json_query_add_label_pair(ht, prefix, src + tok_start, tok_end - tok_start, src + tok_start, tok_end - tok_start);
 		}
-		else if (obj[i] == ' ' && is_array) {
-			carglog(carg, L_DEBUG, "\t1push token %s(%zu)\n", key, skips);
-			string_tokens_push_dupn(tokens, key, skips);
-			key = obj + i + 1;
+	}
+}
+
+static void json_query_apply_expr(alligator_ht *ht, char *in_prefix, char *expr, size_t expr_start, size_t expr_end, string_tokens *out_prefixes)
+{
+	string *current = string_init_dup(in_prefix);
+	size_t i = expr_start;
+
+	while (i < expr_end) {
+		while (i < expr_end && (isspace((unsigned char)expr[i]) || expr[i] == '.'))
+			++i;
+		if (i >= expr_end)
+			break;
+
+		if (expr[i] == '[') {
+			size_t block_start = i + 1;
+			size_t block_end = block_start;
+			while (block_end < expr_end && expr[block_end] != ']')
+				++block_end;
+			if (block_end <= expr_end)
+				json_query_parse_label_block(ht, current->s, expr, block_start, block_end);
+			i = block_end < expr_end ? block_end + 1 : expr_end;
+			continue;
 		}
-		else if (obj[i] == ']') {
-			is_array = 0;
-			size_t key_len = obj + i - key;
-			carglog(carg, L_DEBUG, "\t2push token %s(%zu)\n", key, key_len);
-			string_tokens_push_dupn(tokens, key, key_len);
-			i += skips;
-			skips = 0;
-		}
-		else if (obj[i] == '.' ) {
-			carglog(carg, L_DEBUG, "\t\tis object: %c type %d is_object %d is array %d\n", obj[i], *type, is_object, is_array);
-			*type = JSON_OBJECT;
-			is_object = 1;
-			key = obj + i + 1;
-		}
-		else {
-			++skips;
-			carglog(carg, L_DEBUG, "\t\tprocessing: %c type %d is_object %d is array %d\n", obj[i], *type, is_object, is_array);
+
+		size_t key_start = i;
+		while (i < expr_end && expr[i] != '.' && expr[i] != '[')
+			++i;
+		size_t key_end = i;
+		json_query_trim_range(expr, &key_start, &key_end);
+
+		if (key_end > key_start) {
+			string_cat(current, "_", 1);
+			string_cat(current, expr + key_start, key_end - key_start);
 		}
 	}
 
-	if (is_object) {
-		size_t key_len = obj + i - key + 1;
-		is_object = 0;
-		carglog(carg, L_DEBUG, "\t3push token %s(%zu)\n", key, key_len);
-		string_tokens_push_dupn(tokens, key, key_len);
-	}
-
-	return tokens;
+	string_tokens_push_dupn(out_prefixes, current->s, current->l);
+	string_free(current);
 }
 
 alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_size, char *prefix, uint64_t prefix_len) {
@@ -219,76 +306,45 @@ alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_
 
 	for (uint64_t query_ind = 0; query_ind < queries_size; ++query_ind) {
 		char *queries = query[query_ind];
+		if (!queries)
+			continue;
+
 		carglog(carg, L_INFO, "\njson parse query '%s'\n", queries);
-		string *object_key = string_new();
-		uint8_t is_object = 0;
+
+		string_tokens *branches = string_tokens_new();
 		if (prefix)
-			string_cat(object_key, prefix, prefix_len);
+			string_tokens_push_dupn(branches, prefix, prefix_len);
 		else
-			string_cat(object_key, "json", 4);
+			string_tokens_push_dupn(branches, "json", 4);
+
 		size_t queries_len = strlen(queries);
-		for (uint64_t i = 0; i < queries_len; ++i) {
-			char *context = queries + i;
-			size_t context_size = strcspn(context, "|");
-			carglog(carg, L_DEBUG,"context '%s' size is %zu\n", context, context_size);
+		size_t stage_start = 0;
+		while (stage_start < queries_len) {
+			size_t stage_end = json_query_find_delim(queries, stage_start, queries_len, '|');
+			string_tokens *next_branches = string_tokens_new();
 
-			for (uint64_t j = 0; j < context_size; ++j) {
-				char *subctx = context + j;
-				size_t subctx_size = strcspn(subctx, ",");
-				carglog(carg, L_DEBUG,"subctx '%s' size is %zu\n", subctx, subctx_size);
+			for (uint64_t b = 0; b < branches->l; ++b) {
+				size_t expr_start = stage_start;
+				while (expr_start < stage_end) {
+					size_t expr_end = json_query_find_delim(queries, expr_start, stage_end, ',');
+					size_t tstart = expr_start;
+					size_t tend = expr_end;
+					json_query_trim_range(queries, &tstart, &tend);
+					if (tend > tstart)
+						json_query_apply_expr(ht, branches->str[b]->s, queries, tstart, tend, next_branches);
 
-				for (uint64_t k = 0; k < subctx_size; ) {
-					char *object = subctx + k;
-					size_t object_size = strcspn(object, ".");
-
-					if ((!object_size) && (object[0] == '.') && (object[1] != '[')) {
-						is_object = 1;
-						object_size = strcspn(object+2, ".") + 1;
-					}
-					else if (!object_size) {
-						++k;
-						continue;
-					}
-
-					int type;
-					string_tokens *tokens = json_query_parser_object(carg, object, object_size, &type);
-					carglog(carg, L_DEBUG, "object is '%s'/%zu, results: %p, object: '%c%c'\n", object, object_size, tokens, object[0], object[1]);
-					if (!tokens)
-						continue;
-
-					if (object[0] == '[') {
-						jq_node *new = calloc(1, sizeof(*new));
-						new->tokens = tokens;
-						new->key = string_new();
-						string_string_copy(new->key, object_key);
-						carglog(carg, L_TRACE, "insert array '%s' -> '%s' (", new->key->s, object_key->s);
-						for (uint64_t id = 0; id < tokens->l; carglog(carg, L_TRACE, "%s'%s'", id ? ", " : "", tokens->str[id]->s), ++id);
-						carglog(carg, L_TRACE, ")\n");
-						alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
-					}
-					else if (is_object) {
-						jq_node *new = calloc(1, sizeof(*new));
-						is_object = 0;
-						new->key = string_string_init_dup(tokens->str[0]);
-						string_cat(object_key, "_", 1);
-						string_string_cat(object_key, new->key);
-						carglog(carg, L_TRACE, "insert object '%s' -> '%s'\n", new->key->s, object_key->s);
-						alligator_ht_insert(ht, &(new->node), new, tommy_strhash_u32(0, new->key->s));
-						string_tokens_free(tokens);
-					}
-					else {
-						string_tokens_free(tokens);
-					}
-
-					k += object_size;
+					if (expr_end == stage_end)
+						break;
+					expr_start = expr_end + 1;
 				}
-
-				j += subctx_size;
 			}
 
-			i += context_size;
+			string_tokens_free(branches);
+			branches = next_branches;
+			stage_start = stage_end < queries_len ? stage_end + 1 : queries_len;
 		}
-		string_free(object_key);
+
+		string_tokens_free(branches);
 	}
 
 	return ht;
@@ -297,8 +353,10 @@ alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_
 void jq_node_free_foreach(void *funcarg, void* arg)
 {
 	jq_node *jqn = arg;
-	if (jqn->tokens)
-		string_tokens_free(jqn->tokens);
+	if (jqn->label_fields)
+		string_tokens_free(jqn->label_fields);
+	if (jqn->label_names)
+		string_tokens_free(jqn->label_names);
 	string_free(jqn->key);
 	free(jqn);
 }
