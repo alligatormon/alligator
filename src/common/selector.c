@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "common/validator.h"
 //#include "platform/platform.h"
@@ -46,7 +47,7 @@ uint64_t count_nl(char *buffer, uint64_t size) {
 uint64_t count_file_lines(char *filename) {
 	uint64_t charcount = 0;
 	int fd = open(filename, O_RDONLY);
-	if (!fd)
+	if (fd < 0)
 		return 0;
 
 	char buffer[65535];
@@ -91,6 +92,8 @@ char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, cha
 {
 	uint64_t i;
 	char *fld = malloc(str_n+1);
+	if (!fld)
+		return NULL;
 	for ( i=0; selector_getline(str, str_n, fld, str_n, i) ; i++ )
 	{
 		if ( strstr(fld, sub) )
@@ -105,7 +108,7 @@ char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, cha
 					crsr += strcspn(fld+crsr, ssep)+1;
 				}
 				frstchr = crsr;
-				ndchr = strcspn(fld+crsr+frstchr, ssep) + frstchr;
+				ndchr = strcspn(fld + crsr, ssep);
 				for ( y=0; y < ndchr; y++ )
 				{
 					fld[y]=fld[y+frstchr];
@@ -1134,13 +1137,29 @@ string* get_file_content(char *file, uint8_t error_logging)
 
 	fseek(fd, 0, SEEK_END);
 	int64_t fdsize = ftell(fd);
+	if (fdsize < 0)
+	{
+		fclose(fd);
+		return 0;
+	}
 	rewind(fd);
 
-	char *buf = malloc(fdsize+1);
-	size_t rc = fread(buf, 1, fdsize, fd);
+	char *buf = malloc((size_t)fdsize + 1);
+	if (!buf)
+	{
+		fclose(fd);
+		return 0;
+	}
+	size_t rc = fread(buf, 1, (size_t)fdsize, fd);
 	buf[rc] = 0;
 
-	string *str = string_init_add(buf, rc, fdsize);
+	string *str = string_init_add(buf, rc, (size_t)fdsize);
+	if (!str)
+	{
+		free(buf);
+		fclose(fd);
+		return 0;
+	}
 
 	fclose(fd);
 

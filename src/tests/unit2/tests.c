@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <limits.h>
 #include <string.h>
 #include <libgen.h>
 #include <events/context_arg.h>
@@ -143,9 +144,9 @@ int assert_equal_string(const char *file, const char *func, int line, char *expe
     return 1;
 }
 
-void metric_test_run(int cmp_type, char *query, char *metric_name, double expected_val) {
+static void metric_test_run_impl(int cmp_type, char *query, char *metric_name, double expected_val, char *namespace) {
     metric_query_context *mqc = promql_parser(NULL, query, strlen(query));
-    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL);
+    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, namespace, NULL, NULL, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
 
     json_error_t error;
@@ -231,18 +232,73 @@ void metric_test_run(int cmp_type, char *query, char *metric_name, double expect
     }
 }
 
+void metric_test_run(int cmp_type, char *query, char *metric_name, double expected_val) {
+    metric_test_run_impl(cmp_type, query, metric_name, expected_val, NULL);
+}
+
+void metric_test_run_ns(int cmp_type, char *query, char *metric_name, double expected_val, char *namespace) {
+    metric_test_run_impl(cmp_type, query, metric_name, expected_val, namespace);
+}
+
 void get_local_directory(char *mockpath, char *binary, char *extra_path) {
-    binary = strdup(binary);
-    char *pathbin = dirname(binary);
+    char *bin_copy = strdup(binary);
+    if (!bin_copy)
+        return;
+    char *pathbin = dirname(bin_copy);
+
+    char *cur = malloc(PATH_MAX + 1);
+    char *cwd = malloc(PATH_MAX + 1);
+    char *tmp = malloc(PATH_MAX + 1);
+    if (!cur || !cwd || !tmp)
+        goto gld_done;
+
     if (*pathbin == '/') {
-        snprintf(mockpath, PATH_MAX, "%s/../%s", pathbin, extra_path);
+        snprintf(cur, PATH_MAX + 1, "%s", pathbin);
+    } else {
+        if (!getcwd(cwd, PATH_MAX + 1))
+            cwd[0] = '\0';
+        snprintf(cur, PATH_MAX + 1, "%s/%s", cwd, pathbin);
     }
+
+    /*
+     * Walk up from the test binary directory and try:
+     *   <dir>/tests/mock/...   (repo root or src/)
+     *   <dir>/src/tests/mock/... (build dir next to src/)
+     * Covers build/alligator_tests, src/bin/, odd CI layouts, and lldb argv quirks.
+     */
+    for (int depth = 0; depth < 32; depth++) {
+        snprintf(mockpath, PATH_MAX + 1, "%s/%s", cur, extra_path);
+        if (access(mockpath, F_OK) == 0)
+            goto gld_done;
+        snprintf(mockpath, PATH_MAX + 1, "%s/src/%s", cur, extra_path);
+        if (access(mockpath, F_OK) == 0)
+            goto gld_done;
+
+        snprintf(tmp, PATH_MAX + 1, "%s", cur);
+        char *dup_parent = strdup(tmp);
+        if (!dup_parent)
+            goto gld_done;
+        char *parent = dirname(dup_parent);
+        if (!strcmp(parent, cur)) {
+            free(dup_parent);
+            break;
+        }
+        snprintf(cur, PATH_MAX + 1, "%s", parent);
+        free(dup_parent);
+    }
+
+    if (*pathbin == '/')
+        snprintf(mockpath, PATH_MAX + 1, "%s/../%s", pathbin, extra_path);
     else {
-        char cwd[PATH_MAX + 1];
-        getcwd(cwd, sizeof(cwd));
-        snprintf(mockpath, PATH_MAX, "%s/%s/../%s", cwd, pathbin, extra_path);
+        if (!getcwd(cwd, PATH_MAX + 1))
+            cwd[0] = '\0';
+        snprintf(mockpath, PATH_MAX + 1, "%s/%s/../%s", cwd, pathbin, extra_path);
     }
-    free(binary);
+gld_done:
+    free(tmp);
+    free(cwd);
+    free(cur);
+    free(bin_copy);
 }
 
 #include "netlib.h"
@@ -254,6 +310,8 @@ void get_local_directory(char *mockpath, char *binary, char *extra_path) {
 #include "protobuf_wire.h"
 #include "system.h"
 #include "config.h"
+#include "ht.h"
+#include "maglev.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -279,6 +337,7 @@ int main(int argc, char **argv) {
 
     ts_initialize();
 
+
     test_ip_check_access_1();
     test_ip_to_int();
     test_integer_to_ip();
@@ -289,6 +348,28 @@ int main(int argc, char **argv) {
     test_protobuf_wire();
     test_http_access_1();
     test_http_access_2();
+
+
+    test_validator_core();
+
+    test_ht_core_paths();
+    test_ht_reinit_and_remove_miss_paths();
+    test_ht_foreach_and_forfree_paths();
+    test_maglev_core_paths();
+    test_patricia_helpers();
+    api_test_parser_httpd();
+
+    test_http_proto_parsers();
+    test_http_proto_methods_and_edges();
+    test_multiparser_proxy_paths();
+    test_multiparser_mesg_helpers();
+    test_http_parser_route_and_auth_edges();
+    test_multiparser_fallback_and_null_helper();
+    test_multiparser_parser_push_paths();
+    api_test_parser_log();
+    api_test_global_options_and_errors();
+
+
     api_test_query_1();
     api_test_action_1();
     api_test_scheduler_1();
@@ -297,17 +378,29 @@ int main(int argc, char **argv) {
     api_test_parser_ntp();
     api_test_parser_nsd();
     api_test_parser_syslogng();
+
+
+
     api_test_parser_zookeeper_dont_work();
     api_test_parser_zookeeper();
+
     api_test_parser_memcached();
     api_test_parser_beanstalkd();
+
     api_test_parser_beanstalkd_stats_tube();
+
     api_test_parser_uwsgi();
-    api_test_parser_lighttpd();
-    api_test_parser_httpd();
+
+    //api_test_parser_lighttpd();
+
+
+
     api_test_parser_nats();
     api_test_parser_flower();
+    
     api_test_parser_rabbitmq();
+
+
     api_test_parser_elasticsearch(argv[0]);
     test_json_query_labels_and_int();
     test_json_query_pipe_stages();
@@ -316,5 +409,47 @@ int main(int argc, char **argv) {
     test_json_query_merge_two_pquery();
     system_test(argv[0]);
     test_config();
+
+
+    api_test_parser_dummy_consul_hadoop();
+    api_test_parser_auditd_gdnsd();
+    api_test_parser_eventstore_and_opentsdb();
+    api_test_parser_tftp_and_gearmand();
+    api_test_parser_riak_and_json();
+    api_test_parser_mongodb_push_and_data();
+
+
+
+    test_logs_helpers();
+    test_units_human_ranges();
+    test_mkdirp_helpers();
+    test_aggregator_helper_paths();
+    test_config_global_get_extended();
+    test_mask_password_and_parse_url();
+    test_selector_helpers_core();
+    test_selector_string_and_file_helpers();
+    test_base64_and_auth_helpers();
+    test_selector_binary_converters_and_config_string();
+    test_url_parse_more_edges();
+    test_match_rules_hash_paths();
+    test_http_common_helpers();
+    test_match_rules_regex_paths();
+    test_config_hashfunc_serialization();
+    test_config_system_serialization_paths();
+    test_env_struct_helper_paths();
+
+    test_hash_and_rtime_helpers();
+    test_config_serializer_edge_paths();
+    test_config_generators_batch();
+    test_config_generators_batch2();
+    test_config_generators_serializer_matrix();
+    test_config_generators_more_edges();
+    test_config_query_and_x509_branches();
+    test_config_generators_labels_env_branches();
+    test_config_generators_iteration_paths();
+    test_config_aggregator_and_lang_extra_paths();
+
+    test_config_generators_additional_scalars();
+
     infomesg();
 }

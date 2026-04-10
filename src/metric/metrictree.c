@@ -2,6 +2,7 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
+#include <stdlib.h>
 //#define EXPIRE_DEFAULT_SECONDS 300
 
 int is_red ( metric_node *node )
@@ -30,17 +31,14 @@ metric_node *metric_double ( metric_node *root, int dir )
 
 metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *value, expire_tree *expiretree)
 {
-	metric_node *rn = malloc ( sizeof *rn );
-  
+	metric_node *rn = calloc(1, sizeof *rn);
+
 	if ( rn != NULL )
 	{
 		labels_cache_fill(labels, tree);
 		rn->labels = labels;
 		rn->color = RED;
-		rn->steam[LEFT] = NULL;
-		rn->steam[RIGHT] = NULL;
 		rn->type = type;
-		rn->pb = 0;
 
 		if (type == DATATYPE_INT)
 			rn->i = *(int64_t*)value;
@@ -79,10 +77,6 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 			rn->list[0].s = *(char **)value;
 			rn->index_element_list = 1;
 		}
-		else
-		{
-			bzero(rn->list, sizeof(*rn->list));
-		}
 	}
 	return rn;
 }
@@ -103,12 +97,17 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	}
 	else
 	{
-		metric_node head = {{0}};
+		/* RB sentinel: heap avoids stack faults when caller stack is already deep (e.g. unit tests). */
+		metric_node *head = calloc(1, sizeof(*head));
+		if (!head) {
+			pthread_rwlock_unlock(tree->rwlock);
+			return NULL;
+		}
 		metric_node *g, *t;
 		metric_node *p, *q;
 		int dir = 0, last = 0;
 	
-		t = &head;
+		t = head;
 		g = p = NULL;
 		q = t->steam[RIGHT] = tree->root;
 		int flag = 0;
@@ -121,6 +120,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 				tree->count++;
 				flag = 1;
 				if ( q == NULL ) {
+					free(head);
 					pthread_rwlock_unlock(tree->rwlock);
 					return NULL;
 				}
@@ -154,7 +154,8 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 			g = p, p = q;
 			q = q->steam[dir];
 		}
-		tree->root = head.steam[RIGHT];
+		tree->root = head->steam[RIGHT];
+		free(head);
 	}
 	tree->root->color = BLACK;
 
@@ -174,12 +175,17 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 	}
 	if ( tree->root != NULL ) 
 	{
-		metric_node head = {{0}};
+		metric_node *head = calloc(1, sizeof(*head));
+		if (!head) {
+			if (lock)
+				pthread_rwlock_unlock(tree->rwlock);
+			return 0;
+		}
 		metric_node *q, *p, *g;
 		metric_node *f = NULL;
 		int dir = 1;
  
-		q = &head;
+		q = head;
 		g = p = NULL;
 		q->steam[RIGHT] = tree->root;
  
@@ -236,7 +242,8 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			ret = 1;
 		}
  
-		tree->root = head.steam[RIGHT];
+		tree->root = head->steam[RIGHT];
+		free(head);
 		if ( tree->root != NULL )
 			tree->root->color = BLACK;
 	}
@@ -472,13 +479,49 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 	if (!x)
 		return;
 
-	if (!labels_match(sort_plan, x->labels, labels, labels_count))
-	{
-		metric_node_serialize(x, sc);
+	size_t cap = 32;
+	size_t sp = 0;
+	metric_node **stack = malloc(cap * sizeof(*stack));
+	if (!stack)
+		return;
+
+	stack[sp++] = x;
+
+	while (sp > 0) {
+		metric_node *n = stack[--sp];
+
+		if (!labels_match(sort_plan, n->labels, labels, labels_count))
+			metric_node_serialize(n, sc);
+
+		if (n->steam[RIGHT]) {
+			if (sp >= cap) {
+				size_t ncap = cap * 2;
+				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
+				if (!ns) {
+					free(stack);
+					return;
+				}
+				stack = ns;
+				cap = ncap;
+			}
+			stack[sp++] = n->steam[RIGHT];
+		}
+		if (n->steam[LEFT]) {
+			if (sp >= cap) {
+				size_t ncap = cap * 2;
+				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
+				if (!ns) {
+					free(stack);
+					return;
+				}
+				stack = ns;
+				cap = ncap;
+			}
+			stack[sp++] = n->steam[LEFT];
+		}
 	}
 
-	metrictree_serialize_query_node(x->steam[LEFT], sort_plan, labels, groupkey, sc, labels_count);
-	metrictree_serialize_query_node(x->steam[RIGHT], sort_plan, labels, groupkey, sc, labels_count);
+	free(stack);
 }
 
 void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)

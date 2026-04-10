@@ -15,6 +15,18 @@ How to install this, check the [distribution](https://github.com/alligatormon/al
 
 For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
 
+# Unit tests and coverage
+The `src/tests/unit2/` suite is organized by feature headers (for example `netlib.h`, `http.h`, `parsers.h`) and is intended to keep test coverage close to the related production code.
+
+Coverage build/run flow:
+```
+./build/alligator_tests pass
+llvm-profdata merge -sparse default.profraw -o default.profdata
+llvm-cov report -instr-profile=default.profdata build/alligator_tests
+```
+
+> Note: building tests requires project dependencies (for example `jansson`) and initialized external sources/submodules.
+
 # Configuration description:
 Alligator supports YAML, JSON or plain-text format. In examples we will consider only plain text format. For more information please refer to the detailed documentation or the tests.
 
@@ -129,7 +141,7 @@ More information about the aggregate directive can be found at the following [do
 - [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md)
 - [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md)
 - [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
-- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
+- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/kubernetes.md)
 - [prometheus\_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md)
 - [json\_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md)
 - [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
@@ -149,12 +161,11 @@ More information about the aggregate directive can be found at the following [do
 - [mysql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
 - [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
 - [nginx](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx.md)
-- [nifi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nifi.md)
 - [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
 - [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
 - [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
-- [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgesql.md)
+- [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
 - [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer)
 - [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
 - [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)

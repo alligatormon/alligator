@@ -98,28 +98,40 @@ int multicollector_skip_spaces(uint64_t *cur, const char *str, const size_t size
 
 extern uint64_t fgets_counter;
 
-int char_fgets(char *str, char *buf, int64_t *cnt, size_t len, context_arg *carg)
+int char_fgets(char *str, char *buf, size_t bufsize, int64_t *cnt, size_t len, context_arg *carg)
 {
-	if (*cnt >= len)
+	if (!buf || bufsize == 0)
+		return 0;
+	if (*cnt < 0 || *cnt >= (int64_t)len)
 	{
-		strncpy(buf, "\0", 1);
+		buf[0] = '\0';
 		return 0;
 	}
-	int64_t i = strcspn(str+(*cnt), "\n");
+
+	/* Bounded scan: str is not necessarily NUL-terminated within len. */
+	int64_t line = 0;
+	while (*cnt + line < (int64_t)len && str[*cnt + line] != '\n')
+		line++;
+
+	size_t copy = (size_t)line;
+	if (copy >= bufsize)
+		copy = bufsize - 1;
 
 	r_time start_split_data = setrtime();
 
-	memcpy(buf, str+(*cnt), i);
-	buf[i] = 0;
+	memcpy(buf, str + *cnt, copy);
+	buf[copy] = '\0';
 
 	if (carg)
 	{
 		r_time end_split_data = setrtime();
 		carg->push_split_data += getrtime_ns(start_split_data, end_split_data);
 	}
-	i++;
-	*cnt += i;
-	return i;
+
+	int has_nl = (*cnt + line < (int64_t)len && str[*cnt + line] == '\n');
+	int64_t adv = line + (has_nl ? 1 : 0);
+	*cnt += adv;
+	return adv > 0 ? (int)adv : 0;
 }
 
 int8_t aglob(char *cmp1, char *cmp2)
@@ -457,7 +469,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 	alligator_ht *counter_names = alligator_ht_init(NULL);
 	uint64_t fgets_counter = 0;
 
-	while ( (tmp_len = char_fgets(str, tmp, &cnt, size, carg)) )
+	while ( (tmp_len = char_fgets(str, tmp, sizeof(tmp), &cnt, size, carg)) )
 	{
 		++fgets_counter;
 

@@ -162,4 +162,8 @@ void ts_initialize()
 	ns->expiretree = expiretree;
 	metrictree->labels_words_hash = labels_words_hash;
 	metrictree->sort_plan = sort_plan;
+
+	/* Daemon sets this in aggregate_ctx_init(); tests need it before parser_push(). */
+	if (!ac->aggregate_ctx)
+		ac->aggregate_ctx = alligator_ht_init(NULL);
 }

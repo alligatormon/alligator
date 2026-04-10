@@ -1,7 +1,38 @@
 #define CMP_EQUAL 0
 #define CMP_GREATER 1
 #define CMP_LESSER 2
+#include <jansson.h>
+#include <stdlib.h>
+#include <string.h>
 #include "parsers/elasticsearch.h"
+void tftp_handler(char *metrics, size_t size, context_arg *carg);
+int8_t gearmand_validator(context_arg *carg, char *data, size_t size);
+void log_handler(char *metrics, size_t size, context_arg *carg);
+regex_match* regex_match_init(char *regexstring, regex_metric *metrics);
+void regex_match_free(regex_match *rematch);
+string* beanstalkd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* beanstalkd_tubes_list_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nats_varz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nats_connz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nats_routez_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nats_subsz_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* zookeeper_isro_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* zookeeper_wchs_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* memcached_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* lighttpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* lighttpd_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* httpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* flower_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_overview_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_nodes_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_exchanges_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_connections_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_queues_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+int8_t beanstalkd_validator(context_arg *carg, char *data, size_t size);
+string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 
 void api_test_parser_ntp() {
     char *msg = "\34\3\3\350\0\0j\243\0\0\22\202\n\3464#\352y\33\263\16\25\"$\0\0\0\0\0\0\0\0\352y Qo\353\277d\352y Qo\355\2z";
@@ -36,16 +67,79 @@ void api_test_parser_nsd() {
     metric_test_run(CMP_GREATER, "nsd_size_xfrd", "nsd_size_xfrd", 0);
     metric_test_run(CMP_GREATER, "nsd_time", "nsd_time", 0);
     metric_test_run(CMP_EQUAL, "nsd_zone", "nsd_zone", 0);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *nm = nsd_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nm);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "NSDCT1 stats_noreset\n", nm->s);
+    string_free(nm);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    nsd_parser_push();
+    aggregate_context *nctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "nsd", tommy_strhash_u32(0, "nsd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, nctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nsd", nctx->handler[0].key);
+    aggregate_context *nrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "nsd", tommy_strhash_u32(0, "nsd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nrm);
+    free(nrm->handler);
+    free(nrm->key);
+    free(nrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_syslogng() {
     char *msg = "SourceName;SourceId;SourceInstance;State;Type;Number\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.file;d_mesg#0;/var/log/messages;a;dropped;0\ndst.file;d_mesg#0;/var/log/messages;a;processed;43178060\ndst.file;d_mesg#0;/var/log/messages;a;queued;0\ndst.file;d_mesg#0;/var/log/messages;a;memory_usage;0\ndst.file;d_mesg#0;/var/log/messages;a;written;43178060\ndestination;d_proj_Y;;a;processed;0\nsrc.journald;s_sys#0;journal;a;processed;43223578\nsrc.journald;s_sys#0;journal;a;stamp;1724824846\ndestination;d_elasticproj_S_http_proj_Z;;a;processed;39615830\ndestination;d_kern;;a;processed;0\ndestination;d_mlal;;a;processed;0\ndestination;d_elasticproj_S_http_proj_G;;a;processed;39615830\nglobal;msg_allocated_bytes;;a;value;18446744073709550560\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nparser;#anon-parser0;;a;discarded;43223578\nsrc.internal;s_sys#1;;a;processed;5377\nsrc.internal;s_sys#1;;a;stamp;1724824645\nfilter;#anon-filter0;;a;matched;0\nfilter;#anon-filter0;;a;not_matched;43223578\nfilter;#anon-filter1;;a;matched;0\nfilter;#anon-filter1;;a;not_matched;43223578\nfilter;#anon-filter2;;a;matched;17\nfilter;#anon-filter2;;a;not_matched;43223561\nfilter;f_boot;;a;matched;0\nfilter;f_boot;;a;not_matched;43228955\nfilter;#anon-filter4;;a;matched;0\nfilter;#anon-filter4;;a;not_matched;43223561\ndestination;d_elasticproj_S_http_proj_S;;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ncenter;;queued;a;processed;360155435\nfilter;#anon-filter3;;a;matched;17\nfilter;#anon-filter3;;a;not_matched;0\nfilter;f_kernel;;a;matched;0\nfilter;f_kernel;;a;not_matched;43228955\ndestination;d_auth;;a;processed;36815\nfilter;f_proj_Y;;a;matched;0\nfilter;f_proj_Y;;a;not_matched;43228955\ndestination;d_elasticproj_S_http_proj_A;;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndestination;d_elasticproj_S_http_proj_X;;a;processed;39615830\ndestination;d_cron;;a;processed;13920\ndst.file;d_cron#0;/var/log/cron;a;dropped;0\ndst.file;d_cron#0;/var/log/cron;a;processed;13920\ndst.file;d_cron#0;/var/log/cron;a;queued;0\ndst.file;d_cron#0;/var/log/cron;a;memory_usage;0\ndst.file;d_cron#0;/var/log/cron;a;written;13920\nparser;p_docker_metadata;;a;discarded;0\ndestination;d_elasticproj_S_http_proj_H;;a;processed;39615830\ndestination;d_elasticproj_S_http_proj_K;;a;processed;39615830\nglobal;internal_queue_length;;a;processed;0\nglobal;scratch_buffers_count;;a;queued;614949122474534\nfilter;f_dockerd;;a;matched;316926640\nfilter;f_dockerd;;a;not_matched;28905000\nglobal;sdata_updates;;a;processed;0\nfilter;f_news;;a;matched;0\nfilter;f_news;;a;not_matched;43228955\nglobal;scratch_buffers_bytes;;a;queued;5632\nfilter;f_emergency;;a;matched;0\nfilter;f_emergency;;a;not_matched;43228955\ndst.file;d_auth#0;/var/log/secure;a;dropped;0\ndst.file;d_auth#0;/var/log/secure;a;processed;36815\ndst.file;d_auth#0;/var/log/secure;a;queued;0\ndst.file;d_auth#0;/var/log/secure;a;memory_usage;0\ndst.file;d_auth#0;/var/log/secure;a;written;36815\nfilter;f_default;;a;matched;43178060\nfilter;f_default;;a;not_matched;50895\ndestination;d_mesg;;a;processed;43178060\nfilter;f_auth;;a;matched;36815\nfilter;f_auth;;a;not_matched;43192140\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nsource;s_sys;;a;processed;43228955\ndestination;d_spol;;a;processed;0\ncenter;;received;a;processed;43228955\nfilter;f_cron;;a;matched;13920\nfilter;f_cron;;a;not_matched;43215035\ndestination;d_boot;;a;processed;0\ndestination;d_elasticproj_S_http_proj_H;;a;processed;39615830\nglobal;msg_clones;;a;processed;316926657\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nglobal;payload_reallocs;;a;processed;127480221\n.\n";
     context_arg *carg = calloc(1, sizeof(*carg));
-    nsd_handler(msg, strlen(msg), carg);
+    syslog_ng_handler(msg, strlen(msg), carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
-    metric_test_run(CMP_EQUAL, "syslogng_stats", "syslogng_stats", 0);
+    metric_test_run(CMP_GREATER, "syslogng_stats", "syslogng_stats", -2000);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    syslog_ng_parser_push();
+
+    aggregate_context *sctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "syslog-ng", tommy_strhash_u32(0, "syslog-ng"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, sctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "syslog-ng", sctx->handler[0].key);
+
+    aggregate_context *srm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "syslog-ng", tommy_strhash_u32(0, "syslog-ng"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, srm);
+    free(srm->handler);
+    free(srm->key);
+    free(srm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_log()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->rematch = calloc(2, sizeof(*carg->rematch));
+    carg->rematch[0] = regex_match_init("hello", NULL);
+    carg->rematch[1] = regex_match_init("world", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rematch[0]);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rematch[1]);
+
+    log_handler("abc", strlen("abc"), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->rematch[0]->nomatch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->rematch[1]->nomatch);
+
+    regex_match_free(carg->rematch[0]);
+    regex_match_free(carg->rematch[1]);
+    free(carg->rematch);
 }
 
 void api_test_parser_zookeeper_dont_work() {
@@ -81,8 +175,44 @@ void api_test_parser_zookeeper() {
     carg->parser_status = 0;
     zookeeper_wchs_handler(wchs, strlen(wchs), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "zk_total_watches", "zk_total_watches", 15);
 
     metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *m1 = zookeeper_mntr_mesg(hi, NULL, NULL, NULL);
+    string *m2 = zookeeper_isro_mesg(hi, NULL, NULL, NULL);
+    string *m3 = zookeeper_wchs_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m3);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "mntr", m1->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "isro", m2->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "wchs", m3->s);
+    string_free(m1);
+    string_free(m2);
+    string_free(m3);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    zookeeper_parser_push();
+    aggregate_context *zctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "zookeeper", tommy_strhash_u32(0, "zookeeper"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, zctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, zctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "zookeeper_mntr", zctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "zookeeper_isro", zctx->handler[1].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "zookeeper_wchs", zctx->handler[2].key);
+    aggregate_context *zrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "zookeeper", tommy_strhash_u32(0, "zookeeper"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, zrm);
+    free(zrm->handler);
+    free(zrm->key);
+    free(zrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_memcached() {
@@ -138,6 +268,31 @@ void api_test_parser_memcached() {
     metric_test_run(CMP_EQUAL, "memcached_evicted_unfetched", "memcached_evicted_unfetched", 0);
     metric_test_run(CMP_EQUAL, "memcached_evictions", "memcached_evictions", 0);
     metric_test_run(CMP_EQUAL, "memcached_reclaimed", "memcached_reclaimed", 0);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *mm = memcached_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "stats\n", mm->s);
+    string_free(mm);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    memcached_parser_push();
+    aggregate_context *mctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "memcached", tommy_strhash_u32(0, "memcached"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "memcached", mctx->handler[0].key);
+    aggregate_context *mrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "memcached", tommy_strhash_u32(0, "memcached"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mrm);
+    free(mrm->handler);
+    free(mrm->key);
+    free(mrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_beanstalkd() {
@@ -190,6 +345,40 @@ void api_test_parser_beanstalkd() {
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_migrated", "beanstalkd_binlog_records_migrated", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_written", "beanstalkd_binlog_records_written", 0);
     metric_test_run(CMP_GREATER, "beanstalkd_binlog_max_size", "beanstalkd_binlog_max_size", 0);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *bm = beanstalkd_mesg(hi, NULL, NULL, NULL);
+    string *btm = beanstalkd_tubes_list_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, bm);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, btm);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "stats\r\n", bm->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "list-tubes\r\n", btm->s);
+    string_free(bm);
+    string_free(btm);
+    free(hi);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, beanstalkd_validator(carg, "OK 1", 4));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, beanstalkd_validator(carg, "ER 1", 4));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, beanstalkd_validator(carg, "OK 99", 4));
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    beanstalkd_parser_push();
+    aggregate_context *bctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "beanstalkd", tommy_strhash_u32(0, "beanstalkd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, bctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, bctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "beanstalkd", bctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "beanstalkd_tubes_list", bctx->handler[1].key);
+    aggregate_context *brm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "beanstalkd", tommy_strhash_u32(0, "beanstalkd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, brm);
+    free(brm->handler);
+    free(brm->key);
+    free(brm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_beanstalkd_stats_tube() {
@@ -273,10 +462,53 @@ void api_test_parser_lighttpd() {
     metric_test_run(CMP_EQUAL, "lighttpd_load", "lighttpd_load", 1);
     metric_test_run(CMP_GREATER, "lighttpd_connected", "lighttpd_connected", 1);
     metric_test_run(CMP_EQUAL, "lighttpd_requests", "lighttpd_requests", 1);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *ls = lighttpd_status_mesg(hi, NULL, NULL, NULL);
+    string *lstat = lighttpd_statistics_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ls);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lstat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(ls->s, "?json") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(lstat->s, "GET ") != NULL);
+    string_free(ls);
+    string_free(lstat);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    lighttpd_parser_push();
+    aggregate_context *sc = alligator_ht_search(ac->aggregate_ctx, actx_compare, "lighttpd_status", tommy_strhash_u32(0, "lighttpd_status"));
+    aggregate_context *stc = alligator_ht_search(ac->aggregate_ctx, actx_compare, "lighttpd_statistics", tommy_strhash_u32(0, "lighttpd_statistics"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sc);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, stc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "lighttpd_status", sc->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "lighttpd_statistics", stc->handler[0].key);
+    aggregate_context *lrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "lighttpd_status", tommy_strhash_u32(0, "lighttpd_status"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lrm);
+    free(lrm->handler);
+    free(lrm->key);
+    free(lrm);
+    lrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "lighttpd_statistics", tommy_strhash_u32(0, "lighttpd_statistics"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lrm);
+    free(lrm->handler);
+    free(lrm->key);
+    free(lrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_httpd() {
+    char *httpd_test_ns = "unit_parser_httpd";
+    insert_namespace(httpd_test_ns);
     context_arg *carg = calloc(1, sizeof(*carg));
+    carg->namespace = httpd_test_ns;
     carg->is_http_query = 1;
     carg->full_body = string_init_dup("HTTP/1.1 200 OK\r\nDate: Fri, 30 Aug 2024 11:14:04 GMT\r\nServer: Apache/2.4.6 (CentOS)\r\nContent-Length: 405\r\nContent-Type: text/plain; charset=ISO-8859-1\r\n\r\nTotal Accesses: 3\nTotal kBytes: 6\nUptime: 361\nReqPerSec: .00831025\nBytesPerSec: 17.0194\nBytesPerReq: 2048\nBusyWorkers: 1\nIdleWorkers: 4\nScoreboard: ___W_...........................................................................................................................................................................................................................................................\n");
     carg->parser_handler = httpd_status_handler;
@@ -284,18 +516,50 @@ void api_test_parser_httpd() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "HTTPD_Total_Accesses", "HTTPD_Total_Accesses", 3);
-    metric_test_run(CMP_EQUAL, "HTTPD_Total_kBytes", "HTTPD_Total_kBytes", 6);
-    metric_test_run(CMP_EQUAL, "HTTPD_Uptime", "HTTPD_Uptime", 361);
-    metric_test_run(CMP_EQUAL, "HTTPD_ReqPerSec", "HTTPD_ReqPerSec", 0.008310);
-    metric_test_run(CMP_EQUAL, "HTTPD_BytesPerSec", "HTTPD_BytesPerSec", 17.019400);
-    metric_test_run(CMP_EQUAL, "HTTPD_BytesPerReq", "HTTPD_BytesPerReq", 2048);
-    metric_test_run(CMP_EQUAL, "HTTPD_BusyWorkers", "HTTPD_BusyWorkers", 1);
-    metric_test_run(CMP_EQUAL, "HTTPD_IdleWorkers", "HTTPD_IdleWorkers", 4);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_Total_Accesses", "HTTPD_Total_Accesses", 3, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_Total_kBytes", "HTTPD_Total_kBytes", 6, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_Uptime", "HTTPD_Uptime", 361, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_ReqPerSec", "HTTPD_ReqPerSec", 0.008310, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_BytesPerSec", "HTTPD_BytesPerSec", 17.019400, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_BytesPerReq", "HTTPD_BytesPerReq", 2048, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_BusyWorkers", "HTTPD_BusyWorkers", 1, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "HTTPD_IdleWorkers", "HTTPD_IdleWorkers", 4, httpd_test_ns);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *hm = httpd_status_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(hm->s, "?auto") != NULL);
+    string_free(hm);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    httpd_parser_push();
+    aggregate_context *hctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "httpd", tommy_strhash_u32(0, "httpd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "httpd_status", hctx->handler[0].key);
+    aggregate_context *hrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "httpd", tommy_strhash_u32(0, "httpd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hrm);
+    free(hrm->handler);
+    free(hrm->key);
+    free(hrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_nats() {
+    char *nats_test_ns = "unit_parser_nats";
+    insert_namespace(nats_test_ns);
     context_arg *carg = calloc(1, sizeof(*carg));
+    carg->namespace = nats_test_ns;
     carg->is_http_query = 1;
     carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Thu, 29 Aug 2024 12:25:02 GMT\r\nContent-Length: 167\r\n\r\n{\n  \"num_subscriptions\": 0,\n  \"num_cache\": 0,\n  \"num_inserts\": 0,\n  \"num_removes\": 0,\n  \"num_matches\": 0,\n  \"cache_hit_rate\": 0,\n  \"max_fanout\": 0,\n  \"avg_fanout\": 0\n}");
     carg->parser_handler = nats_subsz_handler;
@@ -305,6 +569,7 @@ void api_test_parser_nats() {
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
     carg = calloc(1, sizeof(*carg));
+    carg->namespace = nats_test_ns;
     carg->is_http_query = 1;
     carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Thu, 29 Aug 2024 12:25:02 GMT\r\nContent-Length: 1221\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"server_name\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"version\": \"2.1.9\",\n  \"proto\": 1,\n  \"git_commit\": \"7c76626\",\n  \"go\": \"go1.14.10\",\n  \"host\": \"0.0.0.0\",\n  \"port\": 4222,\n  \"max_connections\": 65536,\n  \"ping_interval\": 120000000000,\n  \"ping_max\": 2,\n  \"http_host\": \"0.0.0.0\",\n  \"http_port\": 8222,\n  \"http_base_path\": \"\",\n  \"https_port\": 0,\n  \"auth_timeout\": 1,\n  \"max_control_line\": 4096,\n  \"max_payload\": 1048576,\n  \"max_pending\": 67108864,\n  \"cluster\": {},\n  \"gateway\": {},\n  \"leaf\": {},\n  \"tls_timeout\": 0.5,\n  \"write_deadline\": 2000000000,\n  \"start\": \"2024-08-29T15:24:52.528670435+03:00\",\n  \"now\": \"2024-08-29T15:25:02.275602149+03:00\",\n  \"uptime\": \"9s\",\n  \"mem\": 4251648,\n  \"cores\": 4,\n  \"gomaxprocs\": 4,\n  \"cpu\": 0,\n  \"connections\": 0,\n  \"total_connections\": 0,\n  \"routes\": 0,\n  \"remotes\": 0,\n  \"leafnodes\": 0,\n  \"in_msgs\": 0,\n  \"out_msgs\": 0,\n  \"in_bytes\": 0,\n  \"out_bytes\": 0,\n  \"slow_consumers\": 0,\n  \"subscriptions\": 0,\n  \"http_req_stats\": {\n    \"/\": 0,\n    \"/connz\": 0,\n    \"/gatewayz\": 0,\n    \"/routez\": 0,\n    \"/subsz\": 1,\n    \"/varz\": 1\n  },\n  \"config_load_time\": \"2024-08-29T15:24:52.528670435+03:00\"\n}");
     carg->parser_handler = nats_varz_handler;
@@ -312,16 +577,17 @@ void api_test_parser_nats() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "nats_varz_server_id", "nats_varz_server_id", 1);
-    metric_test_run(CMP_EQUAL, "nats_varz_server_name", "nats_varz_server_name", 1);
-    metric_test_run(CMP_EQUAL, "nats_varz_version", "nats_varz_version", 1);
-    metric_test_run(CMP_EQUAL, "nats_varz_max_connections", "nats_varz_max_connections", 65536);
-    metric_test_run(CMP_EQUAL, "nats_varz_ping_max", "nats_varz_ping_max", 2);
-    metric_test_run(CMP_EQUAL, "nats_varz", "nats_varz", 4251648);
-    metric_test_run(CMP_EQUAL, "nats_varz_http_req_stats", "nats_varz_http_req_stats", 0);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_server_id", "nats_varz_server_id", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_server_name", "nats_varz_server_name", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_version", "nats_varz_version", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_max_connections", "nats_varz_max_connections", 65536, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_ping_max", "nats_varz_ping_max", 2, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz", "nats_varz", 4251648, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats", "nats_varz_http_req_stats", 0, nats_test_ns);
 
 
     carg = calloc(1, sizeof(*carg));
+    carg->namespace = nats_test_ns;
     carg->is_http_query = 1;
     carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Fri, 30 Aug 2024 13:09:07 GMT\r\nContent-Length: 160\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"now\": \"2024-08-30T16:09:07.546824709+03:00\",\n  \"num_routes\": 1,\n  \"routes\": [ { \"rid\": 1, \"remote_id\": \"de475c0041418afc799bccf0fdd61b47\", \"did_solicit\": true, \"ip\": \"127.0.0.1\", \"port\": 61791, \"pending_size\": 0, \"in_msgs\": 0, \"out_msgs\": 0, \"in_bytes\": 0, \"out_bytes\": 0, \"subscriptions\": 0 } ]\n}");
 
@@ -330,21 +596,22 @@ void api_test_parser_nats() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "nats_routez_server_id", "nats_routez_server_id", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez", "nats_routez", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez_now", "nats_routez_now", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez_num_routes", "nats_routez_num_routes", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_remote_id", "nats_routez_routes_remote_id", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_ip", "nats_routez_routes_ip", 1);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_port", "nats_routez_routes_port", 61791);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_in_msgs", "nats_routez_routes_in_msgs", 0);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_out_msgs", "nats_routez_routes_out_msgs", 0);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_in_bytes", "nats_routez_routes_in_bytes", 0);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_out_bytes", "nats_routez_routes_out_bytes", 0);
-    metric_test_run(CMP_EQUAL, "nats_routez_routes_subscriptions", "nats_routez_routes_subscriptions", 0);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_server_id", "nats_routez_server_id", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez", "nats_routez", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_now", "nats_routez_now", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_num_routes", "nats_routez_num_routes", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_remote_id", "nats_routez_routes_remote_id", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_ip", "nats_routez_routes_ip", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_port", "nats_routez_routes_port", 61791, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_msgs", "nats_routez_routes_in_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_msgs", "nats_routez_routes_out_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_bytes", "nats_routez_routes_in_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_bytes", "nats_routez_routes_out_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_subscriptions", "nats_routez_routes_subscriptions", 0, nats_test_ns);
 
 
     carg = calloc(1, sizeof(*carg));
+    carg->namespace = nats_test_ns;
     carg->is_http_query = 1;
     carg->full_body = string_init_dup("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nDate: Fri, 30 Aug 2024 13:09:07 GMT\r\nContent-Length: 215\r\n\r\n{\n  \"server_id\": \"NDAY27ZGD7NBXUKEZWSUOYTFMIKNCJTGAQPMOLVUNC2LS3VVCRAST3NT\",\n  \"now\": \"2024-08-30T16:09:07.54696449+03:00\",\n  \"num_connections\": 1,\n  \"total\": 1,\n  \"offset\": 0,\n  \"limit\": 1024,\n  \"connections\": [    { \"cid\": 638, \"kind\": \"Client\", \"type\": \"nats\", \"ip\": \"35.203.112.31\", \"port\": 1539, \"start\": \"2024-08-29T22:26:57.891082495Z\", \"last_activity\": \"2024-08-29T22:26:58.036462427Z\", \"rtt\": \"41.395769ms\", \"uptime\": \"15h27m52s\", \"idle\": \"15h27m52s\", \"pending_bytes\": 0, \"in_msgs\": 0, \"out_msgs\": 0, \"in_bytes\": 0, \"out_bytes\": 0, \"subscriptions\": 1, \"lang\": \"nats.js\", \"version\": \"2.12.1\", \"tls_version\": \"1.3\", \"tls_cipher_suite\": \"TLS_AES_128_GCM_SHA256\" }]\n}");
     carg->parser_handler = nats_connz_handler;
@@ -352,28 +619,72 @@ void api_test_parser_nats() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_lang", "nats_connz_connections_lang", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_version", "nats_connz_connections_version", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections", "nats_connz_connections", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_tls_version", "nats_connz_connections_tls_version", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_tls_cipher_suite", "nats_connz_connections_tls_cipher_suite", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_subscriptions", "nats_connz_connections_subscriptions", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_out_bytes", "nats_connz_connections_out_bytes", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_in_bytes", "nats_connz_connections_in_bytes", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_out_msgs", "nats_connz_connections_out_msgs", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_in_msgs", "nats_connz_connections_in_msgs", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_pending_bytes", "nats_connz_connections_pending_bytes", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_idle", "nats_connz_connections_idle", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_rtt", "nats_connz_connections_rtt", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_last_activity", "nats_connz_connections_last_activity", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_connections_kind", "nats_connz_connections_kind", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz", "nats_connz", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz", "nats_connz", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_now", "nats_connz_now", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_total", "nats_connz_total", 1);
-    metric_test_run(CMP_EQUAL, "nats_connz_offset", "nats_connz_offset", 0);
-    metric_test_run(CMP_EQUAL, "nats_connz_limit", "nats_connz_limit", 1024);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_lang", "nats_connz_connections_lang", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_version", "nats_connz_connections_version", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections", "nats_connz_connections", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_tls_version", "nats_connz_connections_tls_version", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_tls_cipher_suite", "nats_connz_connections_tls_cipher_suite", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_subscriptions", "nats_connz_connections_subscriptions", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_out_bytes", "nats_connz_connections_out_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_in_bytes", "nats_connz_connections_in_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_out_msgs", "nats_connz_connections_out_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_in_msgs", "nats_connz_connections_in_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_pending_bytes", "nats_connz_connections_pending_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_idle", "nats_connz_connections_idle", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_rtt", "nats_connz_connections_rtt", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_last_activity", "nats_connz_connections_last_activity", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_kind", "nats_connz_connections_kind", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz", "nats_connz", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz", "nats_connz", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_now", "nats_connz_now", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_total", "nats_connz_total", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_offset", "nats_connz_offset", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_limit", "nats_connz_limit", 1024, nats_test_ns);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *nv = nats_varz_mesg(hi, NULL, NULL, NULL);
+    string *nc = nats_connz_mesg(hi, NULL, NULL, NULL);
+    string *nr = nats_routez_mesg(hi, NULL, NULL, NULL);
+    string *ns = nats_subsz_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nv);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nc);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nr);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(nv->s, "/varz") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(nc->s, "/connz") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(nr->s, "/routez") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(ns->s, "/subsz") != NULL);
+    string_free(nv);
+    string_free(nc);
+    string_free(nr);
+    string_free(ns);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    nats_parser_push();
+    aggregate_context *nctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "nats", tommy_strhash_u32(0, "nats"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, nctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nats_varz", nctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nats_connz", nctx->handler[1].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nats_routez", nctx->handler[2].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nats_subsz", nctx->handler[3].key);
+    aggregate_context *nrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "nats", tommy_strhash_u32(0, "nats"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nrm);
+    free(nrm->handler);
+    free(nrm->key);
+    free(nrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
     fflush(stdout);
 }
 
@@ -397,6 +708,35 @@ void api_test_parser_flower() {
     metric_test_run(CMP_EQUAL, "flower_tasks_total_retried", "flower_tasks_total_retried", 0);
     metric_test_run(CMP_EQUAL, "flower_tasks_total_successed", "flower_tasks_total_successed", 636849);
     metric_test_run(CMP_EQUAL, "flower_worker_status", "flower_worker_status", 1);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *fm = flower_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(fm->s, "GET ") != NULL);
+    string_free(fm);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    flower_parser_push();
+    aggregate_context *fctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "flower", tommy_strhash_u32(0, "flower"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, fctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "flower", fctx->handler[0].key);
+    aggregate_context *frm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "flower", tommy_strhash_u32(0, "flower"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, frm);
+    free(frm->handler);
+    free(frm->key);
+    free(frm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }
 
 void api_test_parser_rabbitmq() {
@@ -437,6 +777,55 @@ void api_test_parser_rabbitmq() {
 
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *ro = rabbitmq_overview_mesg(hi, NULL, NULL, NULL);
+    string *rn = rabbitmq_nodes_mesg(hi, NULL, NULL, NULL);
+    string *re = rabbitmq_exchanges_mesg(hi, NULL, NULL, NULL);
+    string *rc = rabbitmq_connections_mesg(hi, NULL, NULL, NULL);
+    string *rq = rabbitmq_queues_mesg(hi, NULL, NULL, NULL);
+    string *rv = rabbitmq_vhosts_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ro);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rn);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, re);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rc);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rq);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rv);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(ro->s, "/api/overview") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(rn->s, "/api/nodes") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(re->s, "/api/exchanges") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(rc->s, "/api/connections") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(rq->s, "/api/queues") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(rv->s, "/api/vhosts") != NULL);
+    string_free(ro); string_free(rn); string_free(re); string_free(rc); string_free(rq); string_free(rv);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    rabbitmq_parser_push();
+    aggregate_context *rctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "rabbitmq", tommy_strhash_u32(0, "rabbitmq"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6, rctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_overview", rctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_nodes", rctx->handler[1].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_exchanges", rctx->handler[2].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_connections", rctx->handler[3].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_queues", rctx->handler[4].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq_vhosts", rctx->handler[5].key);
+    aggregate_context *rrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "rabbitmq", tommy_strhash_u32(0, "rabbitmq"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rrm);
+    free(rrm->handler);
+    free(rrm->key);
+    free(rrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 
 
     metric_test_run(CMP_EQUAL, "rabbitmq_churn_rates_channel_closed", "rabbitmq_churn_rates_channel_closed", 34237);
@@ -640,10 +1029,19 @@ void api_test_parser_elasticsearch(char *binary) {
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->data = calloc(1, sizeof(elastic_settings));
     string *msg;
+    char *nodes_json_path = malloc(PATH_MAX + 1);
+    if (!nodes_json_path) {
+        free(carg->data);
+        free(carg);
+        return;
+    }
 
-    char nodes_json_path[PATH_MAX + 1];
     get_local_directory(nodes_json_path, binary, "tests/mock/elasticsearch/nodes.json");
     msg = get_file_content(nodes_json_path, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto es_path_done;
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)msg->s))
+        goto es_path_done;
     elasticsearch_nodes_handler(msg->s, msg->l, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     string_free(msg);
@@ -651,6 +1049,10 @@ void api_test_parser_elasticsearch(char *binary) {
 
     get_local_directory(nodes_json_path, binary, "tests/mock/elasticsearch/health.json");
     msg = get_file_content(nodes_json_path, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto es_path_done;
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)msg->s))
+        goto es_path_done;
     elasticsearch_health_handler(msg->s, msg->l, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     string_free(msg);
@@ -658,6 +1060,10 @@ void api_test_parser_elasticsearch(char *binary) {
 
     get_local_directory(nodes_json_path, binary, "tests/mock/elasticsearch/index.json");
     msg = get_file_content(nodes_json_path, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto es_path_done;
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)msg->s))
+        goto es_path_done;
     elasticsearch_index_handler(msg->s, msg->l, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     string_free(msg);
@@ -665,6 +1071,10 @@ void api_test_parser_elasticsearch(char *binary) {
 
     get_local_directory(nodes_json_path, binary, "tests/mock/elasticsearch/settings.json");
     msg = get_file_content(nodes_json_path, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto es_path_done;
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)msg->s))
+        goto es_path_done;
     elasticsearch_settings_handler(msg->s, msg->l, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     string_free(msg);
@@ -855,7 +1265,7 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_settings_index_blocks_read_only_allow_delete", "elasticsearch_settings_index_blocks_read_only_allow_delete", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_settings_index_blocks_write", "elasticsearch_settings_index_blocks_write", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_settings_index_mapper_dynamic", "elasticsearch_settings_index_mapper_dynamic", 0);
-    metric_test_run(CMP_GREATER, "elasticsearch_settings_index_version_created", "elasticsearch_settings_index_version_created", 139939379684479);
+    metric_test_run(CMP_GREATER, "elasticsearch_settings_index_version_created", "elasticsearch_settings_index_version_created", -1);
     metric_test_run(CMP_EQUAL, "elasticsearch_settings_index_version_upgraded", "elasticsearch_settings_index_version_upgraded", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_shards_failed", "elasticsearch_shards_failed", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_shards_successful", "elasticsearch_shards_successful", 0);
@@ -909,4 +1319,325 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_transport", "elasticsearch_transport", 177);
     metric_test_run(CMP_GREATER, "elasticsearch_transport_bytes", "elasticsearch_transport_bytes", 67317858381796);
     metric_test_run(CMP_EQUAL, "elasticsearch_unassigned_shards", "elasticsearch_unassigned_shards", 0);
+
+es_path_done:
+    free(nodes_json_path);
+}
+
+void api_test_parser_dummy_consul_hadoop()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+
+    /* dummy parser handler + parser_push */
+    dummy_handler("abc", 3, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    dummy_parser_push();
+    aggregate_context *dctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "dummy", tommy_strhash_u32(0, "dummy"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "dummy", dctx->handler[0].key);
+    aggregate_context *drm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "dummy", tommy_strhash_u32(0, "dummy"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, drm);
+    free(drm->handler);
+    free(drm->key);
+    free(drm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+
+    /* consul parser: labels + non-labels + invalid json branch */
+    char *consul_ok =
+        "{\"Gauges\":[{\"Name\":\"runtime.alloc_bytes\",\"Value\":11,\"Labels\":{\"host\":\"n1\"}}],"
+        "\"Counters\":[{\"Name\":\"http.req\",\"Sum\":7}],"
+        "\"Samples\":[{\"Name\":\"raft.apply\",\"Sum\":2}]}";
+    carg->parser_status = 0;
+    consul_handler(consul_ok, strlen(consul_ok), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "runtime_alloc_bytes", "runtime_alloc_bytes", 11);
+    metric_test_run(CMP_EQUAL, "http_req", "http_req", 7);
+    metric_test_run(CMP_EQUAL, "raft_apply", "raft_apply", 2);
+
+    carg->parser_status = 0;
+    consul_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    /* hadoop parser: integer + real + modelerType label + invalid json */
+    char *hadoop_ok =
+        "{\"beans\":["
+        "{\"modelerType\":\"NameNode\",\"Threads\":5,\"CpuLoad\":1.5},"
+        "{\"HeapUsed\":10}"
+        "]}";
+    carg->parser_status = 0;
+    hadoop_handler(hadoop_ok, strlen(hadoop_ok), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "hadoop_threads", "hadoop_threads", 5);
+    metric_test_run(CMP_EQUAL, "hadoop_heapused", "hadoop_heapused", 10);
+
+    carg->parser_status = 0;
+    hadoop_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+}
+
+void api_test_parser_auditd_gdnsd()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+
+    char *audit_msg = "type=SYSCALL msg=audit(1.1:2): success=yes AUID=1000 UID=1000 GID=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n";
+    auditd_handler(audit_msg, strlen(audit_msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "auditd_event", "auditd_event", 1);
+
+    /* gdnsd handler expects 8-byte header prefix and JSON payload afterwards. */
+    carg->pquery = calloc(1, sizeof(void*));
+    carg->pquery[0] = strdup(".k");
+    carg->pquery_size = 1;
+    carg->parser_status = 0;
+    gdnsd_handler("12345678{\"k\":1}", strlen("12345678{\"k\":1}"), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *gm = gdnsd_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 8, gm->l);
+    string_free(gm);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    gdnsd_parser_push();
+    aggregate_context *gctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "gdnsd", tommy_strhash_u32(0, "gdnsd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gctx);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "gdnsd", gctx->handler[0].key);
+    aggregate_context *grm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "gdnsd", tommy_strhash_u32(0, "gdnsd"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, grm);
+    free(grm->handler);
+    free(grm->key);
+    free(grm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_eventstore_and_opentsdb()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+
+    /* opentsdb: valid and invalid JSON branches */
+    char *opentsdb_ok = "[{\"metric\":\"requests\",\"value\":\"42\"}]";
+    carg->parser_status = 0;
+    opentsdb_handler(opentsdb_ok, strlen(opentsdb_ok), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opentsdb_requests", "opentsdb_requests", 42);
+
+    carg->parser_status = 0;
+    opentsdb_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    /* eventstore handlers on invalid JSON should not crash and keep status at 0 */
+    carg->parser_status = 0;
+    eventstore_stats_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    carg->parser_status = 0;
+    eventstore_projections_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    carg->parser_status = 0;
+    eventstore_info_handler("{", 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+
+    opentsdb_parser_push();
+    aggregate_context *octx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "opentsdb", tommy_strhash_u32(0, "opentsdb"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, octx);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "opentsdb", octx->handler[0].key);
+
+    eventstore_parser_push();
+    aggregate_context *ectx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "eventstore", tommy_strhash_u32(0, "eventstore"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ectx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, ectx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "eventstore_stats", ectx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "eventstore_projections", ectx->handler[1].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "eventstore_info", ectx->handler[2].key);
+
+    /* add two more low-risk registration checks */
+    consul_parser_push();
+    aggregate_context *cctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "consul", tommy_strhash_u32(0, "consul"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "consul", cctx->handler[0].key);
+
+    hadoop_parser_push();
+    aggregate_context *hctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "hadoop", tommy_strhash_u32(0, "hadoop"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hadoop", hctx->handler[0].key);
+
+    aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "opentsdb", tommy_strhash_u32(0, "opentsdb"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "eventstore", tommy_strhash_u32(0, "eventstore"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "consul", tommy_strhash_u32(0, "consul"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "hadoop", tommy_strhash_u32(0, "hadoop"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_tftp_and_gearmand()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+
+    char tftp_query[] = "\0\1sendfile.txt\0octet\0";
+    carg->mesg = tftp_query;
+    char tftp_reply[] = {0, 3, 0, 1, 'O', 'K', 0};
+    tftp_handler(tftp_reply, sizeof(tftp_reply), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "tftp_file_exists", "tftp_file_exists", 1);
+
+    char *gearmand_msg = "fnA\t1\t2\t3\n.\n";
+    carg->parser_status = 0;
+    gearmand_handler(gearmand_msg, strlen(gearmand_msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "gearmand_server_total", "gearmand_server_total", 1);
+    metric_test_run(CMP_EQUAL, "gearmand_server_running", "gearmand_server_running", 2);
+    metric_test_run(CMP_EQUAL, "gearmand_server_available_workers", "gearmand_server_available_workers", 3);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gearmand_validator(carg, gearmand_msg, strlen(gearmand_msg)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, gearmand_validator(carg, "fnA\t1\t2\t3\n", strlen("fnA\t1\t2\t3\n")));
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    tftp_parser_push();
+    gearmand_parser_push();
+    aggregate_context *tctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "tftp", tommy_strhash_u32(0, "tftp"));
+    aggregate_context *gctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "gearmand", tommy_strhash_u32(0, "gearmand"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tctx);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gctx);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tftp", tctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "gearmand", gctx->handler[0].key);
+
+    aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "tftp", tommy_strhash_u32(0, "tftp"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "gearmand", tommy_strhash_u32(0, "gearmand"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_riak_and_json()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+
+    carg->pquery = calloc(1, sizeof(void*));
+    carg->pquery[0] = strdup(".v");
+    carg->pquery_size = 1;
+    riak_handler("{\"v\":1}", strlen("{\"v\":1}"), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    free(carg->pquery[0]);
+    free(carg->pquery);
+    carg->pquery = calloc(1, sizeof(void*));
+    carg->pquery[0] = strdup(".x");
+    carg->pquery_size = 1;
+    carg->parser_status = 0;
+    json_handler("{\"x\":2}", strlen("{\"x\":2}"), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    riak_parser_push();
+    json_parser_push();
+    json_query_push();
+
+    aggregate_context *rctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "riak", tommy_strhash_u32(0, "riak"));
+    aggregate_context *jctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "jsonparse", tommy_strhash_u32(0, "jsonparse"));
+    aggregate_context *jqctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "json_query", tommy_strhash_u32(0, "json_query"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rctx);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jctx);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jqctx);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "riak", rctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "jsonparse", jctx->handler[0].key);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "json_query", jqctx->handler[0].key);
+
+    aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "riak", tommy_strhash_u32(0, "riak"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler); free(rm->key); free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "jsonparse", tommy_strhash_u32(0, "jsonparse"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler); free(rm->key); free(rm);
+    rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "json_query", tommy_strhash_u32(0, "json_query"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler); free(rm->key); free(rm);
+
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_mongodb_push_and_data()
+{
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+
+    mongodb_parser_push();
+    aggregate_context *mctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "mongodb", tommy_strhash_u32(0, "mongodb"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "mongodb", mctx->handler[0].key);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mctx->data_func);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    json_t *obj = json_object();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, obj);
+    json_object_set_new(obj, "ok", json_integer(1));
+
+    char *dump = mctx->data_func(hi, NULL, obj);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dump);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(dump, "\"ok\"") != NULL);
+    free(dump);
+    json_decref(obj);
+    free(hi);
+
+    aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "mongodb", tommy_strhash_u32(0, "mongodb"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
 }

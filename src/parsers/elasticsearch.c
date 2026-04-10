@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <jansson.h>
 #include "common/json_query.h"
@@ -617,14 +619,33 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 					char* val = (char*)json_string_value(node_value3);
 					if (val)
 					{
-						int64_t vl;
-						//printf("\t\t\t%s:%s:%s\n", node_key3, string4, val);
-						if (!strncmp(val, "true", 4))
-							vl = 1;
-						else if (!strncmp(val, "false", 5))
-							vl = 0;
+						int64_t vl = 0;
+						int emit = 0;
 
-						metric_add_labels2(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key);
+						if (!strncmp(val, "true", 4))
+						{
+							vl = 1;
+							emit = 1;
+						}
+						else if (!strncmp(val, "false", 5))
+						{
+							vl = 0;
+							emit = 1;
+						}
+						else
+						{
+							char *end = NULL;
+							errno = 0;
+							long long ll = strtoll(val, &end, 10);
+							if (end != val && *end == '\0' && errno != ERANGE)
+							{
+								vl = (int64_t)ll;
+								emit = 1;
+							}
+						}
+
+						if (emit)
+							metric_add_labels2(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key);
 					}
 				}
 			}

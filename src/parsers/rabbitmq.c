@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <jansson.h>
 #include "common/selector.h"
@@ -7,6 +8,7 @@
 #include "common/json_query.h"
 #include "common/http.h"
 #include "main.h"
+/* Scratch for dynamic metric names; allocated on heap so handlers stay shallow on the stack. */
 #define RABBITMQ_LEN 1000
 
 void rabbitmq_overview_handler(char *metrics, size_t size, context_arg *carg)
@@ -23,15 +25,19 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	size_t i;
-	size_t node_size = json_array_size(root);
-
-	char node_str_prefix[RABBITMQ_LEN];
-	char node_str1[RABBITMQ_LEN];
-	char node_str2[RABBITMQ_LEN];
-	strlcpy(node_str_prefix, "rabbitmq_nodes_", 16);
+	char *node_str1 = malloc(RABBITMQ_LEN);
+	char *node_str2 = malloc(RABBITMQ_LEN);
+	if (!node_str1 || !node_str2) {
+		free(node_str1);
+		free(node_str2);
+		json_decref(root);
+		return;
+	}
 	strlcpy(node_str1, "rabbitmq_nodes_", 16);
 	strlcpy(node_str2, "rabbitmq_nodes_gc_queue_length_", 32);
+
+	size_t i;
+	size_t node_size = json_array_size(root);
 	int64_t ival;
 	double dval;
 
@@ -129,6 +135,8 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	free(node_str1);
+	free(node_str2);
 	json_decref(root);
 	carg->parser_status = 1;
 }
@@ -142,7 +150,11 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	char string1[RABBITMQ_LEN];
+	char *string1 = malloc(RABBITMQ_LEN);
+	if (!string1) {
+		json_decref(root);
+		return;
+	}
 	strlcpy(string1, "rabbitmq_exchanges_", 20);
 	int64_t ival;
 
@@ -199,6 +211,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	free(string1);
 	json_decref(root);
 	carg->parser_status = 1;
 }
@@ -212,8 +225,14 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	char string1[RABBITMQ_LEN];
-	char string2[RABBITMQ_LEN];
+	char *string1 = malloc(RABBITMQ_LEN);
+	char *string2 = malloc(RABBITMQ_LEN);
+	if (!string1 || !string2) {
+		free(string1);
+		free(string2);
+		json_decref(root);
+		return;
+	}
 	strlcpy(string1, "rabbitmq_connections_", 22);
 	strlcpy(string2, "rabbitmq_connections_gc_", 25);
 	int64_t ival;
@@ -339,6 +358,8 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	free(string1);
+	free(string2);
 	json_decref(root);
 	carg->parser_status = 1;
 }
@@ -353,10 +374,18 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	char string1[RABBITMQ_LEN];
-	char string2[RABBITMQ_LEN];
-	char string3[RABBITMQ_LEN];
-	char string4[RABBITMQ_LEN];
+	char *string1 = malloc(RABBITMQ_LEN);
+	char *string2 = malloc(RABBITMQ_LEN);
+	char *string3 = malloc(RABBITMQ_LEN);
+	char *string4 = malloc(RABBITMQ_LEN);
+	if (!string1 || !string2 || !string3 || !string4) {
+		free(string1);
+		free(string2);
+		free(string3);
+		free(string4);
+		json_decref(root);
+		return;
+	}
 	strlcpy(string1, "rabbitmq_queues_", 17);
 	strlcpy(string2, "rabbitmq_queues_message_stats_", 31);
 	strlcpy(string3, "rabbitmq_queues_backing_queue_status_", 38);
@@ -569,6 +598,10 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels2("rabbitmq_queues_slave_nodes_size", &slave_nodes_size, DATATYPE_UINT, carg, "name", queues_name, "vhost", queues_vhost);
 	}
 
+	free(string1);
+	free(string2);
+	free(string3);
+	free(string4);
 	json_decref(root);
 	carg->parser_status = 1;
 }
@@ -582,8 +615,14 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	}
 
-	char string1[RABBITMQ_LEN];
-	char string2[RABBITMQ_LEN];
+	char *string1 = malloc(RABBITMQ_LEN);
+	char *string2 = malloc(RABBITMQ_LEN);
+	if (!string1 || !string2) {
+		free(string1);
+		free(string2);
+		json_decref(root);
+		return;
+	}
 	strlcpy(string1, "rabbitmq_vhosts_", 17);
 	strlcpy(string2, "rabbitmq_vhosts_message_stats_", 31);
 	int64_t ival;
@@ -687,6 +726,8 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
+	free(string1);
+	free(string2);
 	json_decref(root);
 	carg->parser_status = 1;
 }

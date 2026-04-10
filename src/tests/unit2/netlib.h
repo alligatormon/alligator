@@ -72,3 +72,53 @@ void test_ip_get_version()
 	assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, ip_get_version("0.0.0.0/0"), 4);
 	assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, ip_get_version("2001:0db8:0000:0000:0000:8a2e:0370:7334/64"), 6);
 }
+
+void test_patricia_helpers()
+{
+    uint32_t ip4 = 0;
+    uint32_t mask4 = 0;
+    uint128_t ip6 = 0;
+    uint128_t mask6 = 0;
+    uint64_t elem = 0;
+
+    assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 1, grpow(10, 0));
+    assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 1024, grpow(2, 10));
+
+    cidr_to_ip_and_mask("192.168.10.2/24", &ip4, &mask4);
+    assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, (uint32_t)3232238082U, ip4);
+    assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, (uint32_t)4294967040U, mask4);
+
+    cidr_to_ip_and_mask128("2001:db8::1/64", &ip6, &mask6);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ip6 > 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mask6 > 0);
+
+    patricia_t *tree = patricia_new();
+    patricia_t *tree6 = patricia_new();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tree);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tree6);
+
+    uint8_t *tag = calloc(1, sizeof(*tag));
+    *tag = 7;
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, network_add_ip(tree, tree6, "192.168.0.0/16", tag));
+
+    uint32_t lookup = (uint32_t)ip_to_integer("192.168.10.10", 4, NULL);
+    rnode *n = patricia_find(tree, lookup, &elem);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, n);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, n->data);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, *(uint8_t*)n->data);
+
+    patricia_t *dup = patricia_tree_duplicate(tree);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dup);
+    elem = 0;
+    rnode *ndup = patricia_find(dup, lookup, &elem);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ndup);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ndup->data);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, *(uint8_t*)ndup->data);
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, network_del_ip(tree, tree6, "192.168.0.0/16"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, network_del_ip(tree, tree6, "not-an-ip") != NULL);
+
+    patricia_free(dup);
+    patricia_free(tree);
+    patricia_free(tree6);
+}

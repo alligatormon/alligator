@@ -72,6 +72,9 @@ void alligator_ht_insert(alligator_ht *h, alligator_ht_node *node, void *data, u
 
 void alligator_ht_done(alligator_ht *h)
 {
+	if (!h)
+		return;
+
 	pthread_rwlock_wrlock(&h->rwlock);
 	tommy_hashdyn_done(h->ht);
 	pthread_rwlock_unlock(&h->rwlock);

@@ -582,19 +582,22 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 void carglog(context_arg *carg, int priority, const char *format, ...)
 {
+	int level = carg ? carg->log_level : ac->log_level;
+	if (level < priority)
+		return;
 	va_list args;
 	va_start(args, format);
-	wrlog(carg->log_level, priority, format, args);
+	wrlog(level, priority, format, args);
 	va_end(args);
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)
 {
+	int level = carg ? carg->log_level : ac->log_level;
+	if (level < priority)
+		return;
 	va_list args;
 	va_start(args, format);
-	if (carg)
-		wrlog(carg->log_level, priority, format, args);
-	else
-		wrlog(ac->log_level, priority, format, args);
+	wrlog(level, priority, format, args);
 	va_end(args);
 }

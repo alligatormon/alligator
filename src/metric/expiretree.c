@@ -67,12 +67,16 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 	}
 	else
 	{
-		expire_node head = {0};
+		expire_node *head = calloc(1, sizeof(*head));
+		if (!head) {
+			pthread_rwlock_unlock(tree->rwlock);
+			return;
+		}
 		expire_node *g, *t;
 		expire_node *p, *q;
 		int dir = 0, last = 0;
 
-		t = &head;
+		t = head;
 		g = p = NULL;
 		q = t->steam[RIGHT] = tree->root;
 
@@ -85,6 +89,7 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 				p->steam[dir] = q = expire_make_node ( key, metric );
 				tree->count ++ ;
 				if ( q == NULL ) {
+					free(head);
 					pthread_rwlock_unlock(tree->rwlock);
 					return;
 				}
@@ -121,7 +126,8 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 			g = p, p = q;
 			q = q->steam[dir];
 		}
-		tree->root = head.steam[RIGHT];
+		tree->root = head->steam[RIGHT];
+		free(head);
 	}
 	tree->root->color = BLACK;
 	pthread_rwlock_unlock(tree->rwlock);
@@ -139,12 +145,17 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 	int excode = 0;
 	if ( tree->root != NULL ) 
 	{
-		expire_node head = {0};
+		expire_node *head = calloc(1, sizeof(*head));
+		if (!head) {
+			if (lock)
+				pthread_rwlock_unlock(tree->rwlock);
+			return 0;
+		}
 		expire_node *q, *p, *g;
 		expire_node *f = NULL;
 		int dir = 1;
  
-		q = &head;
+		q = head;
 		g = p = NULL;
 		q->steam[RIGHT] = tree->root;
 		int last = dir;
@@ -219,7 +230,8 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			excode = 1;
 		}
  
-		tree->root = head.steam[RIGHT];
+		tree->root = head->steam[RIGHT];
+		free(head);
 		if ( tree->root != NULL )
 			tree->root->color = BLACK;
 	}

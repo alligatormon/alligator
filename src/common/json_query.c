@@ -12,6 +12,28 @@
 #include "metric/labels.h"
 #include "main.h"
 extern aconf* ac;
+
+static const char *json_carg_key(const context_arg *carg)
+{
+	return (carg && carg->key) ? carg->key : "";
+}
+
+static const char *json_prefix_s(const string *prefix)
+{
+	return (prefix && prefix->s) ? prefix->s : "";
+}
+
+/* Avoid calling carglog when the line would be dropped: a variadic call costs a stack frame;
+ * unit tests use a very deep main() and calloc'd cargs at L_OFF — entering carglog can SIGSEGV
+ * before carglog's own early return runs. */
+#define json_carglog_if(carg_, pri_, ...)					\
+	do {									\
+		context_arg *_json_c = (carg_);					\
+		int _json_lv = _json_c ? _json_c->log_level : ac->log_level;	\
+		if (_json_lv >= (pri_))						\
+			carglog(_json_c, (pri_), __VA_ARGS__);			\
+	} while (0)
+
 void json_parse_level(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl);
 
 typedef struct jq_node {
@@ -34,7 +56,7 @@ void json_parse_object(context_arg *carg, json_t *element, string *prefix, allig
 	json_t *value;
 
 	json_object_foreach(element, key, value) {
-		carglog(carg, L_DEBUG, "json '%s' parsed object prefix %s with key '%s'\n", carg->key, prefix->s, key);
+		json_carglog_if(carg, L_DEBUG, "json '%s' parsed object prefix %s with key '%s'\n", json_carg_key(carg), json_prefix_s(prefix), key);
 		string *new_key = string_new();
 
 		string_string_cat(new_key, prefix);
@@ -92,7 +114,7 @@ void json_parse_array(context_arg *carg, json_t *element, string *prefix, alliga
 					labels_hash_insert_nocache(new_lbl, label_name, "false");
 				}
 				else {
-					carglog(carg, L_DEBUG, "json '%s' error during parsing the metric key '%s': unknown type, this label will be skipped\n", carg->key, metric_key);
+					json_carglog_if(carg, L_DEBUG, "json '%s' error during parsing the metric key '%s': unknown type, this label will be skipped\n", json_carg_key(carg), metric_key);
 				}
 			}
 		}
@@ -109,7 +131,7 @@ void json_parse_string(context_arg *carg, json_t *element, string *prefix, allig
 	if (key)
 	{
 		uint64_t okval = 1;
-		carglog(carg, L_DEBUG, "json '%s' parsed string prefix %s with key '%s'\n", carg->key, prefix->s, key);
+		json_carglog_if(carg, L_DEBUG, "json '%s' parsed string prefix %s with key '%s'\n", json_carg_key(carg), json_prefix_s(prefix), key);
 		prometheus_metric_name_normalizer(prefix->s, prefix->l);
 		metric_label_value_validator_normalizer(key, strlen(key));
 		alligator_ht *pass_lbl = labels_dup(lbl);
@@ -119,7 +141,7 @@ void json_parse_string(context_arg *carg, json_t *element, string *prefix, allig
 
 void json_parse_integer(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl) {
 	int64_t val = json_integer_value(element);
-	carglog(carg, L_DEBUG, "json '%s' parsed int key '%s' %"PRId64"\n", carg->key, prefix->s, val);
+	json_carglog_if(carg, L_DEBUG, "json '%s' parsed int key '%s' %"PRId64"\n", json_carg_key(carg), json_prefix_s(prefix), val);
 	prometheus_metric_name_normalizer(prefix->s, prefix->l);
 	alligator_ht *pass_lbl = labels_dup(lbl);
 	metric_add(prefix->s, pass_lbl, &val, DATATYPE_INT, carg);
@@ -127,14 +149,14 @@ void json_parse_integer(context_arg *carg, json_t *element, string *prefix, alli
 
 void json_parse_real(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl) {
 	double val = json_real_value(element);
-	carglog(carg, L_DEBUG, "json '%s' parsed real key '%s' %lf\n", carg->key, prefix->s, val);
+	json_carglog_if(carg, L_DEBUG, "json '%s' parsed real key '%s' %lf\n", json_carg_key(carg), json_prefix_s(prefix), val);
 	prometheus_metric_name_normalizer(prefix->s, prefix->l);
 	alligator_ht *pass_lbl = labels_dup(lbl);
 	metric_add(prefix->s, pass_lbl, &val, DATATYPE_DOUBLE, carg);
 }
 
 void json_parse_bool(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl, uint64_t okval) {
-	carglog(carg, L_DEBUG, "json '%s' parsed bool key %s %"PRIu64"\n", carg->key, prefix->s, okval);
+	json_carglog_if(carg, L_DEBUG, "json '%s' parsed bool key %s %"PRIu64"\n", json_carg_key(carg), json_prefix_s(prefix), okval);
 	prometheus_metric_name_normalizer(prefix->s, prefix->l);
 	alligator_ht *pass_lbl = labels_dup(lbl);
 	metric_add(prefix->s, pass_lbl, &okval, DATATYPE_UINT, carg);
@@ -309,7 +331,7 @@ alligator_ht* json_parse_query(context_arg *carg, char **query, uint8_t queries_
 		if (!queries)
 			continue;
 
-		carglog(carg, L_INFO, "\njson parse query '%s'\n", queries);
+		json_carglog_if(carg, L_INFO, "\njson parse query '%s'\n", queries);
 
 		string_tokens *branches = string_tokens_new();
 		if (prefix)
@@ -363,15 +385,25 @@ void jq_node_free_foreach(void *funcarg, void* arg)
 
 int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char **queries, uint8_t queries_size) {
 	int need_free = 1;
+	int rc = 0;
+	char *jq_key_owned = NULL;
+
 	if (root)
 		need_free = 0;
+
+	/* Logger context: handlers often omit carg->key; use metric prefix for all json_query carglog lines. */
+	if (carg && prefix && prefix[0] && !carg->key) {
+		jq_key_owned = strdup(prefix);
+		if (jq_key_owned)
+			carg->key = jq_key_owned;
+	}
 
 	json_error_t error;
 	if (!root) {
 		root = json_loads(data, 0, &error);
 		if (!root) {
-			carglog(carg, L_ERROR, "json '%s' error on line %d: %s\n", carg->key, error.line, error.text);
-			return 0;
+			json_carglog_if(carg, L_ERROR, "json '%s' error on line %d: %s\n", json_carg_key(carg), error.line, error.text);
+			goto out;
 		}
 	}
 
@@ -391,7 +423,14 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	if (need_free)
 		json_decref(root);
 
-	return 1;
+	rc = 1;
+out:
+	if (jq_key_owned) {
+		if (carg && carg->key == jq_key_owned)
+			carg->key = NULL;
+		free(jq_key_owned);
+	}
+	return rc;
 }
 
 int8_t json_validator(context_arg *carg, char *data, size_t size)

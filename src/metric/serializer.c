@@ -8,6 +8,7 @@
 #include <time.h>
 #include <inttypes.h>
 #include <stdlib.h>
+#include <math.h>
 #define SQL_CREATE "CREATE TABLE IF NOT EXISTS "
 #define SQL_INSERT "INSERT INTO "
 #define CLICKHOUSE_ENGINE "ENGINE=MergeTree ORDER BY timestamp"
@@ -102,6 +103,8 @@ static void otlp_data_point_set_value(json_t *dp, metric_node *x)
 serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template)
 {
 	serializer_context *sc = calloc(1, sizeof(*sc));
+	if (!sc)
+		return NULL;
 
 	sc->serializer = serializer;
 	if (serializer == METRIC_SERIALIZER_OPENMETRICS)
@@ -182,23 +185,35 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 
 void serializer_do(serializer_context *sc, string *str)
 {
+	if (!sc || !str)
+		return;
+
 	int serializer = sc->serializer;
 	if (serializer == METRIC_SERIALIZER_JSON && sc->json)
 	{
 		char *ret = json_dumps(sc->json, JSON_INDENT(2));
-		string_cat(str, ret, strlen(ret));
-		free(ret);
+		if (ret)
+		{
+			string_cat(str, ret, strlen(ret));
+			free(ret);
+		}
 	}
 	else if (serializer == METRIC_SERIALIZER_OTLP && sc->json)
 	{
 		char *ret = json_dumps(sc->json, JSON_INDENT(2));
-		string_cat(str, ret, strlen(ret));
-		free(ret);
+		if (ret)
+		{
+			string_cat(str, ret, strlen(ret));
+			free(ret);
+		}
 	}
 }
 
 void serializer_free(serializer_context *sc)
 {
+	if (!sc)
+		return;
+
 	int serializer = sc->serializer;
 	if (serializer == METRIC_SERIALIZER_JSON || serializer == METRIC_SERIALIZER_OTLP)
 		json_decref(sc->json);
@@ -231,11 +246,19 @@ json_t *metric_value_serialize_json(metric_node *x)
 	if (type == DATATYPE_INT)
 		return json_integer(x->i);
 	else if (type == DATATYPE_UINT)
-		return json_integer(x->u);
+	{
+		if (x->u <= (uint64_t)INT64_MAX)
+			return json_integer((json_int_t)x->u);
+		return json_real((double)x->u);
+	}
 	else if (type == DATATYPE_DOUBLE)
+	{
+		if (isnan(x->d) || isinf(x->d))
+			return json_real(0.0);
 		return json_real(x->d);
+	}
 	else if (type == DATATYPE_STRING)
-		return json_string(x->s);
+		return json_string(x->s ? x->s : "");
 
 	return json_integer(0);
 }
@@ -249,7 +272,7 @@ void serialize_json(metric_node *x, serializer_context *sc)
 	json_t *samples = json_array();
 	while (labels)
 	{
-		if (labels->key_len)
+		if (labels->key_len && labels->name)
 		{
 			//json_t *label = json_object();
 			//json_t *name = json_string(labels->name);
@@ -263,7 +286,7 @@ void serialize_json(metric_node *x, serializer_context *sc)
 	}
 
 	json_t *sample_value = metric_value_serialize_json(x);
-	json_t *sample_expire = json_integer(x->expire_node->key);
+	json_t *sample_expire = json_integer(x->expire_node ? x->expire_node->key : 0);
 	r_time time = setrtime();
 	json_t *sample_timestamp = json_integer(time.sec * 1000 + time.nsec / 1000000);
 
@@ -341,7 +364,7 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	labels = labels->next;
 	while (labels)
 	{
-		if (labels->key_len)
+		if (labels->key_len && labels->name)
 		{
 			json_t *label = json_object();
 			json_t *name = json_string(labels->name);
@@ -354,7 +377,7 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	}
 
 	json_t *sample_value = metric_value_serialize_json(x);
-	json_t *sample_expire = json_integer(x->expire_node->key);
+	json_t *sample_expire = json_integer(x->expire_node ? x->expire_node->key : 0);
 
 	//r_time time = setrtime();
 	char buff[20];
@@ -366,8 +389,11 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	json_t *batch_index = json_object();
 	json_t *batch__index = json_object();
 	json_array_object_insert(batch_index, "index", batch__index);
-	json_t *jindex_name = json_string(sc->index_name->s);
-	json_array_object_insert(batch__index, "_index", jindex_name);
+	if (sc->index_name && sc->index_name->s)
+	{
+		json_t *jindex_name = json_string(sc->index_name->s);
+		json_array_object_insert(batch__index, "_index", jindex_name);
+	}
 
 	//json_t *sample = json_object();
 	//json_array_object_insert(sample, "metric_name", metric_name);
@@ -387,14 +413,20 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	string *res = sc->str;
 
 	char *string_index = json_dumps(batch_index, 0);
-	string_cat(res, string_index, strlen(string_index));
-	string_cat(res, "\n", 1);
-	free(string_index);
+	if (string_index)
+	{
+		string_cat(res, string_index, strlen(string_index));
+		string_cat(res, "\n", 1);
+		free(string_index);
+	}
 
 	char *string_obj = json_dumps(obj, 0);
-	string_cat(res, string_obj, strlen(string_obj));
-	string_cat(res, "\n", 1);
-	free(string_obj);
+	if (string_obj)
+	{
+		string_cat(res, string_obj, strlen(string_obj));
+		string_cat(res, "\n", 1);
+		free(string_obj);
+	}
 	json_decref(obj);
 	json_decref(batch_index);
 }

@@ -53,4 +53,48 @@ void test_protobuf_wire() {
 
 	string_free(inner);
 	string_free(s);
+
+    {
+        const uint8_t bad_varint[] = { 0x80 };
+        const uint8_t *bad_p = bad_varint;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            pbwire_read_varint(&bad_p, bad_varint + sizeof(bad_varint), &v));
+    }
+
+    {
+        const uint8_t short_fixed[] = { 1, 2, 3, 4, 5, 6, 7 };
+        const uint8_t *short_p = short_fixed;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            pbwire_read_fixed64(&short_p, short_fixed + sizeof(short_fixed), &raw));
+    }
+
+    {
+        const uint8_t bad_len[] = { 0x05, 'a', 'b' };
+        const uint8_t *bad_p = bad_len;
+        const uint8_t *msg_start = NULL;
+        size_t msg_len = 0;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            pbwire_read_len(&bad_p, bad_len + sizeof(bad_len), &msg_start, &msg_len));
+    }
+
+    {
+        const uint8_t fixed32[] = { 0xde, 0xad, 0xbe, 0xef };
+        const uint8_t *p32 = fixed32;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            pbwire_skip_field(&p32, fixed32 + sizeof(fixed32), 5));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (fixed32 + sizeof(fixed32)) - p32);
+    }
+
+    {
+        const uint8_t empty[] = {};
+        const uint8_t *ep = empty;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            pbwire_skip_field(&ep, empty + sizeof(empty), 9));
+    }
+
+    s = string_init(16);
+    pbwire_write_len(s, "", 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, s->l);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (uint8_t)s->s[0]);
+    string_free(s);
 }

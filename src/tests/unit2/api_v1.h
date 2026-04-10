@@ -179,3 +179,51 @@ void api_test_cluster_1() {
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "srv10.example.com:1111", cn->servers[0].name);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "srv12.example.com:1111", cn->servers[1].name);
 }
+
+void api_test_global_options_and_errors() {
+    if (!ac->system_carg)
+        ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+
+    string *resp = string_init(4096);
+
+    /* Same hash as tests.c startup: switching to e.g. XXH3 here would desync existing metric hashes. */
+    char *cfg = "{\
+      \"log_level\": \"debug\",\
+      \"log_form\": \"syslog\",\
+      \"aggregate_period\": \"3s\",\
+      \"system_collect_period\": 7000,\
+      \"tls_collect_period\": \"2s\",\
+      \"query_period\": \"4s\",\
+      \"synchronization_period\": 9000,\
+      \"ttl\": \"11s\",\
+      \"workers\": \"auto\",\
+      \"metrictree_hashfunc\": \"lookup3\",\
+      \"persistence\": {\"directory\": \"/tmp/alligator-ut\", \"period\": 7}\
+    }";
+    http_api_v1(resp, NULL, cfg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, L_DEBUG, ac->log_level);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, FORM_SYSLOG, ac->log_form);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3000, ac->aggregator_repeat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7000, ac->system_aggregator_repeat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2000, ac->tls_fs_repeat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4000, ac->query_repeat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 9000, ac->cluster_repeat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 11, ac->ttl);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->workers > 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->persistence_dir);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator-ut", ac->persistence_dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7000, ac->persistence_period);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "HTTP/1.1 200 OK") != NULL);
+    string_free(resp);
+
+    resp = string_init(2048);
+    http_api_v1(resp, NULL, "{\"system\": []}");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "HTTP/1.1 400 Bad Request") != NULL);
+    string_free(resp);
+
+    resp = string_init(2048);
+    http_api_v1(resp, NULL, "{");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "HTTP/1.1 400 Bad Request") != NULL);
+    string_free(resp);
+}

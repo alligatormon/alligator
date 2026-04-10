@@ -64,7 +64,7 @@ uint64_t nvme_ioctl_stat(char *dev, char *controller, char *disk) {
 int nvme_smart_get(char *dev, char *controller, char *disk) {
 	int fd;
 	fd = open(dev, O_RDONLY);
-	if (!fd) {
+	if (fd < 0) {
 	    carglog(ac->system_carg, L_ERROR, "%s path open error: %s: %s\n", __FUNCTION__, dev, strerror(errno));
 		return 0;
 	}

@@ -13,3 +13,6 @@
 [submodule "src/external/picohttpparser"]
 	path = src/external/picohttpparser
 	url = https://github.com/h2o/picohttpparser.git
+[submodule "src/external/amtail"]
+	path = src/external/amtail
+	url = git@github.com:alligatormon/amtail.git
