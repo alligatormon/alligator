@@ -144,6 +144,7 @@ void udp_server_run(void *passarg) {
     if (ret) {
 		carglog(carg, L_FATAL, "Listen udp socket '%s:%d' error %s\n", carg->host, carg->numport, uv_strerror(ret));
 		carg->running = -1;
+		return;
 	}
 	carg->udp_server.data = carg;
 	uv_udp_recv_start(&carg->udp_server, alloc_buffer, udp_on_read);

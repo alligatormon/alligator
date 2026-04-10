@@ -321,6 +321,11 @@ int aggregator_compare(const void* arg, const void* obj)
 {
 	char *s1 = (char*)arg;
 	char *s2 = ((context_arg*)obj)->key;
+	/* Be defensive against corrupted/stale hash entries. */
+	if (!s1 || !s2)
+		return 1;
+	if ((uintptr_t)s1 < 4096 || (uintptr_t)s2 < 4096)
+		return 1;
 	return strcmp(s1, s2);
 }
 

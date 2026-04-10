@@ -19,13 +19,21 @@ uv_buf_t* gen_fcgi_query(char *method_query, char *host, char *useragent, char *
 {
 	*num=5;
 
-	uint8_t filename_size = strcspn(method_query, "?");
+	size_t filename_size = strcspn(method_query, "?");
 	char* filename_query = strndup(method_query, filename_size);
-	char* query_string = method_query+filename_size+1;
+	char* query_string = method_query + filename_size;
+	if (method_query[filename_size] == '?')
+		++query_string;
 
 	uint16_t size_payload, size_method_query;
 	size_method_query = strlen(method_query);
-	uint8_t query_string_size = size_method_query-filename_size-1;
+	size_t query_string_size = (size_method_query > filename_size && method_query[filename_size] == '?')
+		? size_method_query - filename_size - 1
+		: 0;
+	if (query_string_size > 255)
+		query_string_size = 255;
+	if (filename_size > 255)
+		filename_size = 255;
 	size_payload = 84 + filename_size*2 + query_string_size;
 
 	uint8_t offset = 8 - (size_payload%8);
@@ -49,7 +57,7 @@ uv_buf_t* gen_fcgi_query(char *method_query, char *host, char *useragent, char *
 	buffer[2] = uv_buf_init(gen_headers, 8);
 
 	char *gen_query = malloc(size_payload);
-	uint8_t size_dir = 21 + filename_size;
+	uint8_t size_dir = 21 + (uint8_t)filename_size;
 	int16_t cur = 0;
 	gen_query[cur++] = '\16';
 	gen_query[cur++] = '\3';
@@ -77,8 +85,8 @@ uv_buf_t* gen_fcgi_query(char *method_query, char *host, char *useragent, char *
 	memcpy(gen_query+cur, query_string, query_string_size);
 	cur+=query_string_size;
 
-	for (; cur < total_size;)
-		gen_query[++cur] = '\0';
+	for (; cur < total_size; cur++)
+		gen_query[cur] = '\0';
 
 	buffer[3] = uv_buf_init(gen_query, total_size);
 	buffer[4] = uv_buf_init("\1\4\0\1\0\0\0\0", 8);

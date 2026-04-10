@@ -45,7 +45,7 @@ typedef struct grok_ctx_cb {
 	uint64_t splited_counter_index;
 } grok_ctx_cb;
 
-int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *count) {
+int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *count, size_t max_count) {
 	FILE *f = fopen(filename, "r");
 	if (!f) return -1;
 
@@ -55,6 +55,8 @@ int load_patterns(const char *filename, grok_pattern_node *patterns, size_t *cou
 		if (line[0] == '#' || strlen(line) < 2) continue;
 		char key[1024], val[65535];
 		if (sscanf(line, "%1023s %65534[^\n]", key, val) == 2) {
+			if (*count >= max_count)
+				break;
 			strcpy(patterns[*count].name, key);
 			strcpy(patterns[*count].regex, val);
 			(*count)++;
@@ -73,13 +75,21 @@ int expand_grok_pattern(char *src, string *dst_pass, grok_pattern_node *patterns
 			p += 2;
 			char key[64] = {0}, field[64] = {0};
 			int i = 0;
-			while (*p && *p != '}' && *p != ':') key[i++] = *p++;
+			while (*p && *p != '}' && *p != ':') {
+				if (i < (int)sizeof(key) - 1)
+					key[i++] = *p;
+				++p;
+			}
 			key[i] = '\0';
 
 			if (*p == ':') {
 				p++;
 				i = 0;
-				while (*p && *p != '}') field[i++] = *p++;
+				while (*p && *p != '}') {
+					if (i < (int)sizeof(field) - 1)
+						field[i++] = *p;
+					++p;
+				}
 				field[i] = '\0';
 			}
 
@@ -589,7 +599,7 @@ int grok_patterns_init() {
 	grok_pattern_node *patterns = calloc(1, sizeof(*patterns) * pat_count);
 	size_t loaded = 0;
 	for (uint64_t i = 0; i < ac->grok_patterns_path->l; ++i) {
-		if (load_patterns(ac->grok_patterns_path->str[i]->s, patterns, &loaded)) {
+		if (load_patterns(ac->grok_patterns_path->str[i]->s, patterns, &loaded, pat_count)) {
 			glog(L_ERROR, "Failed to load patterns.conf\n");
 			return 1;
 		}

@@ -152,6 +152,8 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 		else
 		{
 			char *scrape = (char*)json_string_value(alligator);
+			if (!scrape)
+				continue;
 			if (!strcmp(scrape, "false"))
 			{
 				if (carg->log_level > 1)
@@ -166,18 +168,26 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (!strcmp(annotation_key, "alligator/scrape"))
 				continue;
+			if (strncmp(annotation_key, "alligator/", 10))
+				continue;
 
 			char *annotation = (char*)json_string_value(annotation_value);
+			if (!annotation)
+				continue;
 			char metric_port_name[255];
 			char type[255];
 
 			char *ptr = (char*)annotation_key+10;
-			uint64_t metric_port_size = strcspn(ptr, "-");
+			char *type_sep = strchr(ptr, '-');
+			if (!type_sep)
+				continue;
+			uint64_t metric_port_size = type_sep - ptr;
 			// alligator/<name>-(handler|proto|path)
-			strlcpy(metric_port_name, ptr, metric_port_size+1);
+			size_t metric_port_copy = metric_port_size < (sizeof(metric_port_name) - 1) ? metric_port_size : (sizeof(metric_port_name) - 1);
+			strlcpy(metric_port_name, ptr, metric_port_copy + 1);
 
 			ptr += metric_port_size+1;
-			strlcpy(type, ptr, 254);
+			strlcpy(type, ptr, sizeof(type));
 
 			if (carg->log_level > 0)
 				printf("\tkey: %s, metric_port_name: %s, type: %s, value: %s \n", annotation_key, metric_port_name, type, annotation);
@@ -214,6 +224,8 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				json_t *port = json_array_get(ports, k);
 				json_t *port_name_json = json_object_get(port, "name");
 				char *port_name = (char*)json_string_value(port_name_json);
+				if (!port_name)
+					continue;
 				
 				uint32_t port_hash = tommy_strhash_u32(0, port_name);
 				kubernetes_endpoint_port *kubeport = alligator_ht_search(hash, kubernetes_endpoint_port_compare, port_name, port_hash);
@@ -254,10 +266,11 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 				json_array_object_insert(aggregate_add_label, "kubernetes_namespace", json_string(namespace));
 				json_array_object_insert(aggregate_add_label, "kubernetes_pod_name", json_string(pod_name));
 				json_array_object_insert(aggregate_add_label, "kubernetes_container_name", json_string(name));
-				const char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+				char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 				if (carg->log_level > 1)
 					puts(dvalue);
 				http_api_v1(NULL, NULL, dvalue);
+				free(dvalue);
 				json_decref(aggregate_root);
 			}
 		}

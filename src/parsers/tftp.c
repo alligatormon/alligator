@@ -5,6 +5,8 @@
 #include "main.h"
 void tftp_handler(char *metrics, size_t size, context_arg *carg)
 {
+	if (!metrics || size < 4)
+		return;
 	uint64_t val = 0;
 	if ((metrics[0] == '\0') && (metrics[1] == '\3'))
 	{
@@ -19,7 +21,8 @@ void tftp_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	if (carg->log_level > 2)
 		printf("id: %d:%d %"u64"\n", metrics[2], metrics[3], val);
-	metric_add_labels("tftp_file_exists", &val, DATATYPE_UINT, carg, "name", carg->mesg+2);
+	const char *fname = (carg && carg->mesg && strlen(carg->mesg) > 2) ? (carg->mesg + 2) : "";
+	metric_add_labels("tftp_file_exists", &val, DATATYPE_UINT, carg, "name", (char*)fname);
 	carg->parser_status = 1;
 
 	//char *mesg = malloc(sizeof(mesg));

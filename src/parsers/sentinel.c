@@ -38,7 +38,8 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	tmp = tmp2;
 	end = strcspn(tmp+5, ",");
-	strlcpy(name, tmp+5, end+1);
+	size_t name_copy = end < (sizeof(name) - 1) ? end : (sizeof(name) - 1);
+	strlcpy(name, tmp+5, name_copy + 1);
 	tmp += end;
 
 	if(strstr(tmp, "status=ok"))
@@ -60,7 +61,8 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	tmp = tmp2;
 	end = strcspn(tmp+8, ",");
-	strlcpy(address, tmp+8, end+1);
+	size_t address_copy = end < (sizeof(address) - 1) ? end : (sizeof(address) - 1);
+	strlcpy(address, tmp+8, address_copy + 1);
 	tmp += end;
 
 	tmp2 = strstr(tmp, "slaves=");

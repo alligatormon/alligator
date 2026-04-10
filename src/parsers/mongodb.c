@@ -15,16 +15,16 @@ int mongodb_aggregator(context_arg *carg) {
 	lang_options *lo = calloc(1, sizeof(*lo));
 	lo->key = malloc(1024);
 	if (carg->name)
-		strcpy(lo->key, carg->name);
+		strlcpy(lo->key, carg->name, 1024);
 	else {
 		strlcpy(lo->key, "mongodb:go:", 1024);
-		strlcpy(lo->key + 11, carg->host, 1013);
+		strlcpy(lo->key + 11, carg->host[0] ? carg->host : "", 1013);
 	}
 	lo->lang = "so";
 	lo->method = "alligator_call";
 	lo->module = "mongodb";
 	lo->script = carg->data;
-	lo->arg = strdup(carg->url);
+	lo->arg = strdup(carg->url ? carg->url : "");
 	lo->carg = carg;
 	lo->carg->no_metric = 1;
 	lang_push_options(lo);

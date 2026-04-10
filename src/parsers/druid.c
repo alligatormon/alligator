@@ -30,6 +30,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 	if (!header)
 	{
 		carglog(carg, L_ERROR, "druid empty array\n");
+		json_decref(root);
 		return;
 	}
 
@@ -50,6 +51,8 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 
 			json_t *colname_json = json_array_get(header, j);
 			char *colname = (char*)json_string_value(colname_json);
+			if (!colname)
+				continue;
 			int type = json_typeof(colval_json);
 
 			//printf("type is %d/%d/%d/%d/\n", type, JSON_REAL, JSON_STRING, JSON_INTEGER);
@@ -75,6 +78,8 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				query_field *qf = query_field_get(qn->qf_hash, colname);
 				char* sval = (char*)json_string_value(colval_json);
+				if (!sval)
+					continue;
 				if (qf)
 				{
 					carglog(carg, L_DEBUG, "\tdruid value '%s'\n", sval);
@@ -107,7 +112,7 @@ void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 			else if (type == JSON_INTEGER)
 			{
 				query_field *qf = query_field_get(qn->qf_hash, colname);
-				int64_t val = json_real_value(colval_json);
+				int64_t val = json_integer_value(colval_json);
 				if (qf)
 				{
 					carglog(carg, L_DEBUG, "\tdruid value '%"d64"'\n", val);
@@ -251,8 +256,12 @@ void druid_coordinator_loadstatus_handler(char *metrics, size_t size, context_ar
 	json_t *loadstatus_opt;
 	json_object_foreach(root, loadstatus_key, loadstatus_opt)
 	{
-		double metric_value = json_real_value(loadstatus_opt);
-		metric_add_labels("druid_coordinator_loadstatus", &metric_value, DATATYPE_DOUBLE, carg, "loadstatus", (char*)loadstatus_key);
+		int type = json_typeof(loadstatus_opt);
+		if (type == JSON_REAL || type == JSON_INTEGER)
+		{
+			double metric_value = (type == JSON_REAL) ? json_real_value(loadstatus_opt) : (double)json_integer_value(loadstatus_opt);
+			metric_add_labels("druid_coordinator_loadstatus", &metric_value, DATATYPE_DOUBLE, carg, "loadstatus", (char*)loadstatus_key);
+		}
 	}
 
 	json_decref(root);
@@ -332,6 +341,8 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 
 		json_t *scheduleStatus_json = json_object_get(status, "scheduleStatus");
 		char *scheduleStatus = (char*)json_string_value(scheduleStatus_json);
+		if (!scheduleStatus)
+			continue;
 		uint64_t schedstat = 0;
 		if (!strcmp(scheduleStatus, "RUNNING"))
 			schedstat = 1;
@@ -346,7 +357,7 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 			if (type == JSON_INTEGER)
 			{
 				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
-				int64_t metric_value = json_real_value(status_opt);
+				int64_t metric_value = json_integer_value(status_opt);
 				metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "dataSource", dataSource);
 			}
 			else if (type == JSON_REAL)

@@ -5,7 +5,7 @@
 #include "common/selector.h"
 #include "dstructures/ht.h"
 #define X509_TYPE_PEM 1
-#define X509_TYPE_PFX 1
+#define X509_TYPE_PFX 2
 
 typedef struct x509_fs_t {
 	char *name;

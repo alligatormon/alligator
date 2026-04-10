@@ -19,11 +19,11 @@ int validate_domainname(char *domainname, size_t len)
 				return 0;
 			point = i;
 		}
-		else if ( isdigit(domainname[i]) )
+		else if ( isdigit((unsigned char)domainname[i]) )
 			{}
 		else if ( domainname[i] == '-' )
 			{}
-		else if ( !isalpha(domainname[i]) )
+		else if ( !isalpha((unsigned char)domainname[i]) )
 			return 0;
 	}
 	if ( point == 0 )
@@ -58,9 +58,9 @@ int prometheus_metric_name_normalizer(char *str, size_t sz)
 {
 	int64_t i;
 	for (i=0; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == ':')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == ':')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else if (str[i] == 0)
 			return 1;
@@ -74,9 +74,9 @@ int metric_name_normalizer(char *str, size_t sz)
 {
 	int64_t i;
 	for (i=0; i<sz; i++)
-		if ( isalpha(str[i]) || str[i] == '_' )
+		if ( isalpha((unsigned char)str[i]) || str[i] == '_' )
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else if (str[i] == 0)
 			return 1;
@@ -89,14 +89,14 @@ int metric_name_normalizer(char *str, size_t sz)
 int metric_name_validator(char *str, size_t sz)
 {
 	int64_t i;
-	if (isalpha(str[0]) || str[0] == '_' || str[0] == ':') {}
+	if (isalpha((unsigned char)str[0]) || str[0] == '_' || str[0] == ':') {}
 	else
 		return 0;
 
 	for (i=1; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 		{
@@ -109,14 +109,14 @@ int metric_name_validator(char *str, size_t sz)
 int metric_name_validator_promstatsd(char *str, size_t sz)
 {
 	int64_t i;
-	if (isalpha(str[0]) || str[0] == '_' || str[0] == ':') {}
+	if (isalpha((unsigned char)str[0]) || str[0] == '_' || str[0] == ':') {}
 	else
 		return 0;
 
 	for (i=1; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == ',' || str[i] == ':' || str[i] == '-')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == '.' || str[i] == ',' || str[i] == ':' || str[i] == '-')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 			return 0;
@@ -129,9 +129,9 @@ void tag_normalizer_statsd(char *str, size_t sz)
 	uint64_t i;
 
 	for (i=0; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '-')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == '-')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 			str[i] = '_';
@@ -142,9 +142,9 @@ void tag_normalizer_dynatrace(char *str, size_t sz)
 	uint64_t i;
 
 	for (i=0; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 			str[i] = '_';
@@ -154,9 +154,9 @@ void tags_normalizer_dogstatsd(char *str, size_t sz)
 {
 	uint64_t i;
 	for (i=0; i<sz; i++)
-		if (isalpha(str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
+		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 			str[i] = '_';
@@ -166,9 +166,9 @@ int metric_label_validator(char *str, size_t sz)
 {
 	int64_t i;
 	for (i=0; i<sz; i++)
-		if ( isalpha(str[i]) || str[i] == '_' || str[i] == ':' || str[i] == '.' || str[i] == '-')
+		if ( isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == ':' || str[i] == '.' || str[i] == '-')
 			continue;
-		else if (isdigit(str[i]))
+		else if (isdigit((unsigned char)str[i]))
 			continue;
 		else
 			return 0;
@@ -204,11 +204,11 @@ int metric_value_validator(char *str, size_t sz)
 
 	for (; i<sz; i++)
 	{
-		if ( isdigit(str[i]) || str[i] == '.' )
+		if ( isdigit((unsigned char)str[i]) || str[i] == '.' )
 		{
-			if ( isdigit(str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
+			if ( isdigit((unsigned char)str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
 				type = DATATYPE_INT;
-			else if ( isdigit(str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
+			else if ( isdigit((unsigned char)str[i]) && type != DATATYPE_INT && type != DATATYPE_UINT && type != DATATYPE_DOUBLE)
 				type = DATATYPE_INT;
 			else if (str[i] == '.' && type != DATATYPE_DOUBLE)
 				type = DATATYPE_DOUBLE;

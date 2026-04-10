@@ -135,7 +135,8 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		}
 	}
 
-	strlcpy(tmp, str, ret->fact_length+1);
+	size_t tmp_copy = ret->fact_length < (sizeof(tmp) - 1) ? ret->fact_length : (sizeof(tmp) - 1);
+	strlcpy(tmp, str, tmp_copy + 1);
 
 	if (ac->log_level > 3)
 		printf("ret->length: %"u64", ret->fact_length: %"u64"\n", ret->length, ret->fact_length);
@@ -189,7 +190,7 @@ string *plain_get_quotas_word(char *str, uint64_t len, config_parser_stat *wstat
 	char quotas_sym = 0;
 	for (i = 0; i < len; i++)
 	{
-		if ((str[i-1] != '\\') && ((str[i] == '\'') || (str[i] == '"')))
+		if (((i == 0) || (str[i-1] != '\\')) && ((str[i] == '\'') || (str[i] == '"')))
 		{
 			if (!quotas_sym)
 			{

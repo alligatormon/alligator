@@ -190,11 +190,15 @@ char* process_client(context_arg *carg)
 
 	unlink(fname);
 
-	mkdirp(ac->process_script_dir);
-	write_to_file(fname, stemplate->s, stemplate->l, process_insert, carg);
-	carglog(carg, L_DEBUG, "Saved command %zu\n'%s'\n", stemplate->l, stemplate->s);
+	/* write_to_file() owns and frees buffer.base in fs_write_exit() */
+	char *script_body = stemplate->s;
+	size_t script_len = stemplate->l;
+	stemplate->s = NULL;
+	string_free(stemplate);
 
-	free(stemplate);
+	mkdirp(ac->process_script_dir);
+	write_to_file(fname, script_body, script_len, process_insert, carg);
+	carglog(carg, L_DEBUG, "Saved command %zu\n'%s'\n", script_len, script_body);
 
 	char **args = calloc(2, sizeof(char*));
 	args[0] = fname;
@@ -216,7 +220,8 @@ void process_client_del(context_arg *carg)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
 	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
-	unlink(carg->args[0]);
+	if (carg->args && carg->args[0])
+		unlink(carg->args[0]);
 	carg_free(carg);
 }
 

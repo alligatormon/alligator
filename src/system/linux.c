@@ -585,9 +585,10 @@ void get_proc_socket_number(char *path, char *procname, alligator_ht *files, int
 
 int64_t get_fd_info_process(char *fddir, char *procname, alligator_ht *files, int64_t *sockets, int64_t *pipes)
 {
-	char buf[255];
-	size_t buf_size = strlcpy(buf, fddir, 255);
-	char *bufcur = buf+buf_size;
+	char buf[PATH_MAX];
+	size_t fddir_len = strlcpy(buf, fddir, sizeof(buf));
+	if (fddir_len >= sizeof(buf))
+		return 0;
 
 	struct dirent *entry;
 	DIR *dp;
@@ -608,7 +609,7 @@ int64_t get_fd_info_process(char *fddir, char *procname, alligator_ht *files, in
 
 		if (ac->system_network)
 		{
-			strcpy(bufcur, entry->d_name);
+			strlcpy(buf + fddir_len, entry->d_name, sizeof(buf) - fddir_len);
 			get_proc_socket_number(buf, procname, files, sockets, pipes);
 		}
 
@@ -630,7 +631,14 @@ void get_process_io_stat(char *file, char *command, char *pid)
 	int64_t val;
 	while (fgets(buf, LINUXFS_LINE_LENGTH, fd))
 	{
-		sscanf(buf, "%[^:]: %"d64"", buf2, &val);
+		char *sep = strchr(buf, ':');
+		if (!sep)
+			continue;
+		size_t key_len = (size_t)(sep - buf);
+		size_t key_copy = key_len < (sizeof(buf2) - 1) ? key_len : (sizeof(buf2) - 1);
+		memcpy(buf2, buf, key_copy);
+		buf2[key_copy] = 0;
+		val = strtoll(sep + 1, NULL, 10);
 		metric_add_labels3("process_io", &val, DATATYPE_INT, ac->system_carg, "name", command, "type", buf2, "pid", pid);
 	}
 	fclose(fd);
@@ -1738,7 +1746,10 @@ void get_loadavg()
 		return;
 	}
 	double load1, load5, load15;
-	sscanf(str, "%lf %lf %lf", &load1, &load5, &load15);
+	if (sscanf(str, "%lf %lf %lf", &load1, &load5, &load15) != 3) {
+		fclose(fd);
+		return;
+	}
 	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1");
 	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5");
 	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");

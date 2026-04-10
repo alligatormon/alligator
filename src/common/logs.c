@@ -72,11 +72,16 @@ void log_init() {
 		ac->log_socket = fileno(stderr);
 	else if (!strncmp(ac->log_dest, "udp://", 6)) {
 		host_aggregator_info *hi = parse_url(ac->log_dest, strlen(ac->log_dest));
+		if (!hi) {
+			ac->log_socket = fileno(stdout);
+			return;
+		}
 
 		if (ac->log_host)
 			free(ac->log_host);
 
 		ac->log_host = strdup(hi->host);
+		ac->log_port = strtoull(hi->port, NULL, 10);
 		//string *data = aggregator_get_addr(NULL, ac->log_host, DNS_TYPE_A, DNS_CLASS_IN);
 		bzero(&ac->logsoaddr, sizeof(ac->logsoaddr)); 
 		ac->logsoaddr.sin_addr.s_addr = inet_addr(ac->log_host);
@@ -94,6 +99,10 @@ void log_init() {
 	}
 	else if (!strncmp(ac->log_dest, "file://", 7)) {
 		host_aggregator_info *hi = parse_url(ac->log_dest, strlen(ac->log_dest));
+		if (!hi) {
+			ac->log_socket = fileno(stdout);
+			return;
+		}
 
 		if (ac->log_host)
 			free(ac->log_host);

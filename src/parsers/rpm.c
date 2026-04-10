@@ -11,10 +11,12 @@
 void rpm_handler(char *metrics, size_t size, context_arg *carg)
 {
 	uint64_t failedval = 0;
-	if (!size)
+	if (!metrics || !size)
 		failedval = 1;
 
 	metric_add_auto("rpmdb_load_failed", &failedval, DATATYPE_UINT, ac->system_carg);
+	if (!metrics || !size)
+		return;
 
 	char field[RPMLEN];
 	char version[RPMLEN];
@@ -22,7 +24,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 	char release[RPMLEN];
 	uint64_t pkgs = 0;
 
-	if (!isdigit(*metrics))
+	if (!isdigit((unsigned char)*metrics))
 	{
 		if (ac->log_level > 2)
 		{

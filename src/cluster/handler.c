@@ -66,8 +66,14 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 
 				if (!is_primary) {
 					uint16_t cur = strlcpy(namespacename, cn->name, 255);
-					strlcpy(namespacename + cur, ":", 255);
-					strlcpy(namespacename + cur + 1, replica, 255);
+					size_t remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+					if (remain > 0) {
+						strlcpy(namespacename + cur, ":", remain);
+						cur = strnlen(namespacename, sizeof(namespacename));
+						remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+						if (remain > 0)
+							strlcpy(namespacename + cur, replica, remain);
+					}
 					carg->namespace = namespacename;
 				}
 			}
@@ -109,7 +115,7 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *carg)
 {
 	uint8_t locked = 0;
-	char instance[size];
+	char instance[ROW_LEN];
 	uint64_t settime;
 	uint64_t ttl;
 	char *tmp = metrics;
@@ -125,7 +131,8 @@ void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *car
 	if (!tmp)
 		return;
 	instance_size = strcspn(tmp + 9, "\t");
-	strlcpy(instance, tmp + 9, instance_size + 1);
+	size_t copy_size = instance_size < (sizeof(instance) - 1) ? instance_size : (sizeof(instance) - 1);
+	strlcpy(instance, tmp + 9, copy_size + 1);
 	tmp += 9 + instance_size;
 
 	tmp = strstr(tmp, "settime:");

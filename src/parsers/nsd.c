@@ -19,7 +19,8 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 	for (; i < size; i++)
 	{
 		copysize = strcspn(metrics+i, " =");
-		strlcpy(tmp, metrics+i, (copysize > NSD_NAME_SIZE ? NSD_NAME_SIZE : copysize)+1);
+		size_t tmp_copy = copysize < (sizeof(tmp) - 1) ? copysize : (sizeof(tmp) - 1);
+		strlcpy(tmp, metrics+i, tmp_copy + 1);
 		i += copysize;
 		i += strspn(metrics+i, "= ");
 

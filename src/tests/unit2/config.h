@@ -62,6 +62,7 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 void aggregate_free_foreach(void *funcarg, void* arg);
 size_t get_rec_dir (char *str, size_t len, uint64_t num, int *fin);
 char * get_dir (char *str, uint64_t num, int *fin);
+void dpkg_list(char *str, size_t len);
 
 void test_config()
 {
@@ -172,6 +173,52 @@ void test_mkdirp_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, d1);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator/", d1);
     free(d1);
+}
+
+void test_dpkg_list_helpers()
+{
+    context_arg *saved_system_carg = ac->system_carg;
+    match_rules *saved_packages_match = ac->packages_match;
+
+    ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+    ac->packages_match = calloc(1, sizeof(*ac->packages_match));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->system_carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->packages_match);
+    ac->packages_match->hash = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->packages_match->hash);
+
+    char long_pkg[400];
+    char long_ver[420];
+    memset(long_pkg, 'p', sizeof(long_pkg) - 1);
+    memset(long_ver, 'v', sizeof(long_ver) - 1);
+    long_pkg[sizeof(long_pkg) - 1] = 0;
+    long_ver[sizeof(long_ver) - 1] = 0;
+
+    size_t payload_sz = 4096;
+    char *payload = calloc(1, payload_sz);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, payload);
+    snprintf(payload, payload_sz,
+             "Package: %s\n"
+             "Version: %s-1ubuntu1\n"
+             "\n"
+             "Package: shortpkg\n"
+             "Version: 2.3.4-5\n"
+             "\n",
+             long_pkg, long_ver);
+
+    dpkg_list(payload, strlen(payload));
+    free(payload);
+
+    metric_test_run(CMP_GREATER, "package_total", "package_total", 0);
+    metric_test_run(CMP_GREATER, "package_installed", "package_installed", 0);
+
+    alligator_ht_done(ac->packages_match->hash);
+    free(ac->packages_match->hash);
+    free(ac->packages_match);
+    free(ac->system_carg);
+
+    ac->packages_match = saved_packages_match;
+    ac->system_carg = saved_system_carg;
 }
 
 void test_aggregator_helper_paths()
@@ -1073,7 +1120,8 @@ void test_config_generators_batch2()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(aggregate));
     json_t *agg0 = json_array_get(aggregate, 0);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://user:*******@example.org/metrics", json_string_value(json_object_get(agg0, "url")));
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, json_integer_value(json_object_get(agg0, "follow_redirects")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_integer_value(json_object_get(agg0, "follow_redirects")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, json_integer_value(json_object_get(agg0, "period")));
     json_t *pquery = json_object_get(agg0, "pquery");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pquery);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(pquery));
@@ -1097,7 +1145,7 @@ void test_config_generators_batch2()
     json_decref(dst);
 
     dst = json_object();
-    cluster_server_oplog servers[2] = {0};
+    cluster_server_oplog servers[2] = {{0}};
     servers[0].name = "srv-a";
     servers[0].is_me = 1;
     servers[1].name = "srv-b";
@@ -1607,7 +1655,7 @@ void test_config_generators_additional_scalars()
 {
     json_t *dst = json_object();
 
-    cluster_server_oplog servers[2] = {0};
+    cluster_server_oplog servers[2] = {{0}};
     servers[0].name = "node-1";
     servers[0].is_me = 1;
     servers[1].name = "node-2";

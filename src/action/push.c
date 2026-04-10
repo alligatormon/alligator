@@ -14,6 +14,11 @@ void action_push(json_t *action)
 		return;
 	}
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+	{
+		glog(L_ERROR, "create action failed, 'name' is not a string\n");
+		return;
+	}
 
 	//json_t *jdatasource = json_object_get(action, "datasource");
 	//if (!jdatasource)
@@ -29,8 +34,10 @@ void action_push(json_t *action)
 	if (jexpr)
 	{
 		char *expr = (char*)json_string_value(jexpr);
-		an->expr = strdup(expr);
-		an->expr_len = json_string_length(jexpr);
+		if (expr) {
+			an->expr = strdup(expr);
+			an->expr_len = json_string_length(jexpr);
+		}
 	}
 	else {
 		glog(L_ERROR, "not found specified 'expr' for action: '%s'\n", name);
@@ -97,6 +104,11 @@ void action_push(json_t *action)
 	if (jserializer)
 	{
 		char *srlz = (char*)json_string_value(jserializer);
+		if (!srlz)
+		{
+			glog(L_ERROR, "action %s error: serializer is not a string, use openmetrics by default\n", name);
+			srlz = "openmetrics";
+		}
 		if(!strcmp(srlz, "json"))
 			an->serializer = METRIC_SERIALIZER_JSON;
 		else if(!strcmp(srlz, "otlp"))

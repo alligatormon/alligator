@@ -210,8 +210,9 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *uuid_json = json_object_get(bucket, "uuid");
 		char *uuid = (char*)json_string_value(uuid_json);
 
-		// generate subquery to bucket stats
-		char name_encoded[name_length + 256];
+		// URL encoding can expand each source byte to 3 bytes ("%XX").
+		size_t name_encoded_cap = name_length * 3 + 1;
+		char *name_encoded = malloc(name_encoded_cap);
 		uint64_t name_encoded_length = urlencode(name_encoded, name, name_length);
 
 		string *bucket_nodes_query_uri = string_new();
@@ -224,6 +225,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), bucket_nodes_query_uri->s);
 		string_free(bucket_nodes_query_uri);
+		free(name_encoded);
 
 		try_again(carg, generated_query, strlen(generated_query), couchbase_bucket_nodes_stats, "couchbase_bucket_nodes_stats", NULL, key, strdup(name));
 		// end
@@ -263,11 +265,13 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			char *hostname = (char*)json_string_value(hostname_json);
 			size_t hostname_length = json_string_length(hostname_json);
 
-			// generate subquery to bucket nodes
-			char name_encoded[name_length + 256];
+			// URL encoding can expand each source byte to 3 bytes ("%XX").
+			size_t name_encoded_cap = name_length * 3 + 1;
+			char *name_encoded = malloc(name_encoded_cap);
 			uint64_t name_encoded_length = urlencode(name_encoded, name, name_length);
 
-			char hostname_encoded[hostname_length + 256];
+			size_t hostname_encoded_cap = hostname_length * 3 + 1;
+			char *hostname_encoded = malloc(hostname_encoded_cap);
 			uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname, hostname_length);
 
 			string *bucket_nodes_query_uri = string_new();
@@ -282,6 +286,8 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			char *key = malloc(255);
 			snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), bucket_nodes_query_uri->s);
 			string_free(bucket_nodes_query_uri);
+			free(name_encoded);
+			free(hostname_encoded);
 
 			try_again(carg, generated_query, strlen(generated_query), couchbase_bucket_nodes_stats, "couchbase_bucket_nodes_stats", NULL, key, strdup(name));
 			// end
@@ -463,7 +469,8 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		char hostname_encoded[hostname_length + 256];
+		size_t hostname_encoded_cap = hostname_length * 3 + 1;
+		char *hostname_encoded = malloc(hostname_encoded_cap);
 		uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname, hostname_length);
 
 		char *subqueries[] = { "@index", "@query", "@fts" };
@@ -488,6 +495,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 			// end
 			string_free(query_string);
 		}
+		free(hostname_encoded);
 	}
 
 	json_decref(root);

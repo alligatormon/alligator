@@ -31,7 +31,7 @@ void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 	char *cur = strstr(metrics, "Total watches:");
 	if (!cur)
 		return;
-	int64_t pvalue = atoi(cur+14);
+	int64_t pvalue = strtoll(cur + 14, NULL, 10);
 	metric_add_auto("zk_total_watches", &pvalue, DATATYPE_INT, carg);
 	carg->parser_status = 1;
 }

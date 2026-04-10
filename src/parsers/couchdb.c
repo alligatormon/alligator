@@ -96,7 +96,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *config_opts;
 		json_object_foreach(context_value, config_key, config_opts)
 		{
-			strlcpy(metric_name+15, config_key, COUCHDB_LEN - 8);
+			strlcpy(metric_name+15, config_key, COUCHDB_LEN - 15);
 
 			carglog(carg, L_DEBUG, "\tcouchdb config_key %s\n", config_key);
 			carglog(carg, L_DEBUG, "\tcouchdb metric_name %s\n", metric_name);
@@ -105,7 +105,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 			if (type == JSON_STRING)
 			{
 				char* metric_value_string = (char*)json_string_value(config_opts);
-				if (isdigit(*metric_value_string))
+				if (metric_value_string && isdigit((unsigned char)*metric_value_string))
 				{
 					int64_t metric_value = strtoll(metric_value_string, NULL, 10);
 					metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "context", (char*)context_key);
@@ -227,6 +227,11 @@ void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
 
 	json_t *db_name = json_object_get(root, "db_name");
 	char *db_name_string = (char*)json_string_value(db_name);
+	if (!db_name_string)
+	{
+		json_decref(root);
+		return;
+	}
 
 	json_object_foreach(root, metric_key, metric_opts)
 	{
@@ -277,6 +282,8 @@ void couchdb_all_dbs_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		json_t *db = json_array_get(root, i);
 		char *db_name = (char*)json_string_value(db);
+		if (!db_name)
+			continue;
 
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), db_name);

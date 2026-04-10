@@ -56,7 +56,8 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
-		strlcpy(metricvalue, metrics + cur, copysize + 1);
+		size_t metricvalue_copy = copysize < (sizeof(metricvalue) - 1) ? copysize : (sizeof(metricvalue) - 1);
+		strlcpy(metricvalue, metrics + cur, metricvalue_copy + 1);
 		if (carg->log_level > 0)
 			printf("metric value is %s\n", metricvalue);
 
@@ -101,7 +102,8 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 		uint64_t endline = strcspn(metrics + i, "\r\n");
 		uint64_t cur = i;
 
-		strlcpy(field, metrics + cur, endline + 1);
+		size_t field_copy = endline < (sizeof(field) - 1) ? endline : (sizeof(field) - 1);
+		strlcpy(field, metrics + cur, field_copy + 1);
 		// ITEM third_metric
 		if ((*field != '$') && (*field != '*'))
 		{
@@ -162,7 +164,9 @@ void redis_queries_foreach(void *funcarg, void* arg)
 
 			char *key = malloc(512);
 			snprintf(key, 511, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
-			key[strlen(key) - 1] = 0;
+			size_t key_len = strlen(key);
+			if (key_len)
+				key[key_len - 1] = 0;
 
 			try_again(carg, pattern_query->s, pattern_query->l, redis_keysdump, "redis_keysdump", NULL, key, qn);
 			free(pattern_query);
@@ -192,7 +196,9 @@ void redis_queries_foreach(void *funcarg, void* arg)
 
 		char *key = malloc(255);
 		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
-		key[strlen(key) - 1] = 0;
+		size_t key_len = strlen(key);
+		if (key_len)
+			key[key_len - 1] = 0;
 
 		try_again(carg, write_comm, writelen, redis_query, "redis_query", NULL, key, redis_keys);
 	}
@@ -294,9 +300,9 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					i += 17;
 					char policy[64];
-					uint8_t size = strcspn(tmp+i, "\r\n");
-					size = ++size > 64 ? 64 : size;
-					strlcpy(policy, tmp+i, size);
+					size_t psize = strcspn(tmp+i, "\r\n");
+					size_t policy_copy = psize < (sizeof(policy) - 1) ? psize : (sizeof(policy) - 1);
+					strlcpy(policy, tmp+i, policy_copy + 1);
 					uint64_t okval = 1;
 					metric_add_labels("redis_maxmemory_policy", &okval, DATATYPE_UINT, carg, "policy", policy);
 					i += strcspn(tmp+i, "\n");
@@ -353,7 +359,8 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 
 					uint64_t size_counter = strcspn(tmp + i_pre, "=");
 					i += size_counter + 1;
-					strlcpy(label, tmp + i_pre, size_counter + 1);
+					size_t label_copy = size_counter < (sizeof(label) - 1) ? size_counter : (sizeof(label) - 1);
+					strlcpy(label, tmp + i_pre, label_copy + 1);
 
 					double dl = atof(tmp+i);
 					metric_add_labels("redis_error_stat", &dl, DATATYPE_DOUBLE, carg, "stat", label);
@@ -374,7 +381,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 
 				tmp2 += 8;
 				tmp3 = strstr(tmp2, ":");
-				strlcpy(cmdname, tmp2, tmp3-tmp2+1);
+				if (!tmp3)
+					break;
+				size_t cmd_copy = (size_t)(tmp3 - tmp2);
+				if (cmd_copy > sizeof(cmdname) - 1)
+					cmd_copy = sizeof(cmdname) - 1;
+				strlcpy(cmdname, tmp2, cmd_copy + 1);
 				tmp2 = strstr(tmp2, "calls=");
 				if(!tmp2)
 					break;
@@ -420,7 +432,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					break;
 
 				tmp3 = strstr(tmp2, ":");
-				strlcpy(dbname, tmp2, tmp3-tmp2+1);
+				if (!tmp3)
+					break;
+				size_t db_copy = (size_t)(tmp3 - tmp2);
+				if (db_copy > sizeof(dbname) - 1)
+					db_copy = sizeof(dbname) - 1;
+				strlcpy(dbname, tmp2, db_copy + 1);
 
 				tmp2 = strstr(tmp2, "keys=");
 				if(!tmp2)
@@ -460,7 +477,8 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				if (!is)
 					return;
 
-				strlcpy(mname+6, tmp+i, is+1);
+				size_t metric_copy = is < (REDIS_NAME_SIZE - 7) ? is : (REDIS_NAME_SIZE - 7);
+				strlcpy(mname+6, tmp+i, metric_copy + 1);
 				if (!metric_name_validator(mname, is))
 				{
 					is = strcspn(tmp+i, "\n");
@@ -470,7 +488,8 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				i += is + 1;
 
 				is = strcspn(tmp+i, "\r\n");
-				strlcpy(mval, tmp+i, is+1);
+				size_t mval_copy = is < (sizeof(mval) - 1) ? is : (sizeof(mval) - 1);
+				strlcpy(mval, tmp+i, mval_copy + 1);
 				type = DATATYPE_UINT;
 				
 				for (ys=0; ys<is; ys++)
@@ -522,8 +541,9 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 
 				i += is;
-				is = strspn(tmp+i, "\r\n \t")-1;
-				i += is;
+				size_t skip = strspn(tmp+i, "\r\n \t");
+				if (skip)
+					i += skip - 1;
 
 				if (type == -1)
 					continue;
@@ -535,7 +555,7 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (type == DATATYPE_DOUBLE)
 				{
-					double dl = atoll(mval);
+					double dl = strtod(mval, NULL);
 					metric_add_auto(mname, &dl, DATATYPE_DOUBLE, carg);
 				}
 			}

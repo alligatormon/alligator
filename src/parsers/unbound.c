@@ -22,7 +22,8 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 	for (; i < size; i++)
 	{
 		copysize = strcspn(metrics+i, " =");
-		strlcpy(tmp, metrics+i, (copysize > UNBOUND_NAME_SIZE ? UNBOUND_NAME_SIZE : copysize)+1);
+		size_t tmp_copy = copysize < (sizeof(tmp) - 1) ? copysize : (sizeof(tmp) - 1);
+		strlcpy(tmp, metrics+i, tmp_copy + 1);
 		i += copysize;
 		i += strspn(metrics+i, "= ");
 		//printf("==> '%s'\n", tmp);
@@ -44,7 +45,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				val = strtoull(metrics+i, NULL, 10);
 				strlcpy(tmp4, "unbound_thread_", UNBOUND_NAME_SIZE);
-				strcat(tmp4, tmp3);
+				strlcpy(tmp4 + strlen(tmp4), tmp3, UNBOUND_NAME_SIZE - strlen(tmp4));
 				metric_name_normalizer(tmp4, strlen(tmp4));
 				metric_add_labels(tmp4, &val, DATATYPE_UINT, carg, "thread", tmp2);
 			}
@@ -60,6 +61,8 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 			val = strtoull(metrics+i, NULL, 10);
 
 			argindex = strstr(tmp+10, ".to.");
+			if (!argindex)
+				continue;
 			argindex += 4;
 
 			double dtmp = strtof(argindex, NULL);

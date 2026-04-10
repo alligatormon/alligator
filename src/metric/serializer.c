@@ -237,7 +237,10 @@ void metric_value_serialize_string(metric_node *x, string *str)
 	else if (type == DATATYPE_DOUBLE)
 		string_double(str, x->d);
 	else if (type == DATATYPE_STRING)
-		string_cat(str, x->s, strlen(x->s));
+	{
+		if (x->s)
+			string_cat(str, x->s, strlen(x->s));
+	}
 }
 
 json_t *metric_value_serialize_json(metric_node *x)

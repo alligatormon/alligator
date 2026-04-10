@@ -25,7 +25,10 @@ int8_t gdnsd_validator(context_arg *carg, char *data, size_t size)
 
 string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_alloc("S\0\0\0\0\0\0\0", 8);
+	string *msg = string_init(8);
+	char hdr[8] = {'S', 0, 0, 0, 0, 0, 0, 0};
+	string_cat(msg, hdr, sizeof(hdr));
+	return msg;
 }
 
 void gdnsd_parser_push()

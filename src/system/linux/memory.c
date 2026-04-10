@@ -4,7 +4,7 @@
 #include "main.h"
 extern aconf *ac;
 
-int parse_mem_field(char* label, char *id, char *find)
+int parse_mem_field(char* label, char *id, size_t id_size, char *find)
 {
 	char *ptr = strstr(label, find);
 	if (!ptr)
@@ -13,19 +13,20 @@ int parse_mem_field(char* label, char *id, char *find)
 	ptr += strcspn(ptr, "#");
 	ptr += strspn(ptr, "#");
 	size = strspn(ptr, "0123456789");
-	return strlcpy(id, ptr, size+1);
+	size_t copy_size = size < (id_size - 1) ? size : (id_size - 1);
+	return strlcpy(id, ptr, copy_size + 1);
 }
 
 void parse_mem_label(char* label, char* cpuid, char* channelid, char* slotid, char *branchid)
 {
 	str_tolower(label, 255);
 
-	parse_mem_field(label, cpuid, "cpu");
-	parse_mem_field(label, channelid, "chan");
-	parse_mem_field(label, branchid, "branch");
+	parse_mem_field(label, cpuid, 3, "cpu");
+	parse_mem_field(label, channelid, 3, "chan");
+	parse_mem_field(label, branchid, 3, "branch");
 
-	if (!parse_mem_field(label, slotid, "dimm"))
-		parse_mem_field(label, slotid, "slot");
+	if (!parse_mem_field(label, slotid, 3, "dimm"))
+		parse_mem_field(label, slotid, 3, "slot");
 }
 
 void get_memory_errors(char *edac, char* controller)

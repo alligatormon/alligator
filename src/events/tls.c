@@ -271,11 +271,20 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 		}
 	}
 
-    carg->write_buffer.len = BIO_get_mem_data(carg->wbio, &carg->write_buffer.base);
+	size_t tls_bytes = 0;
+	size_t pending = BIO_ctrl_pending(carg->wbio);
+	if (!pending)
+		return;
+	carg->write_buffer = uv_buf_init(calloc(1, pending), pending);
+	BIO_read_ex(carg->wbio, carg->write_buffer.base, pending, &tls_bytes);
+	carg->write_buffer.len = tls_bytes;
 
-	//carg->write_buffer = uv_buf_init(calloc(1, len*2), len*2);
-	//carg->write_buffer.len = BIO_read(carg->wbio, carg->write_buffer.base, len*2);
 	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64"/tls:%d)===================\n'%s'\n======\n", len, carg->write_buffer.len, message ? message : "");
 	int ret = uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
+	if (ret < 0) {
+		free(carg->write_buffer.base);
+		carg->write_buffer.base = 0;
+		carg->write_buffer.len = 0;
+	}
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
 }

@@ -36,6 +36,11 @@ int metric_datatypes_compare(const void* arg, const void* obj)
 // metric name is a label value
 int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
+	if (!str || !s2 || *cur >= size) {
+		if (s2)
+			*s2 = 0;
+		return 0;
+	}
 	char *ptr_to_start = strstr(str+*cur, "{");
 	uint64_t syms = 0;
 	if (ptr_to_start)
@@ -47,7 +52,8 @@ int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t 
 		syms = strcspn(str+*cur, "\t\r=:{},# ");
 	}
 
-	strlcpy(s2, str+*cur, syms + 1);
+	size_t copy_size = syms < (METRIC_NAME_SIZE - 1) ? syms : (METRIC_NAME_SIZE - 1);
+	strlcpy(s2, str+*cur, copy_size + 1);
 	*cur = *cur + syms;
 
 	return syms;
@@ -56,8 +62,14 @@ int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t 
 // label name
 uint64_t multicollector_get_name(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
+	if (!str || !s2 || *cur >= size) {
+		if (s2)
+			*s2 = 0;
+		return 0;
+	}
 	uint64_t syms = strcspn(str+*cur, "\t\r:={},# ");
-	strlcpy(s2, str+*cur, syms + 1);
+	size_t copy_size = syms < (METRIC_NAME_SIZE - 1) ? syms : (METRIC_NAME_SIZE - 1);
+	strlcpy(s2, str+*cur, copy_size + 1);
 	*cur = *cur + syms;
 
 	return syms;
@@ -66,8 +78,14 @@ uint64_t multicollector_get_name(uint64_t *cur, const char *str, const size_t si
 // label value
 int multicollector_get_value(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
+	if (!str || !s2 || *cur >= size) {
+		if (s2)
+			*s2 = 0;
+		return 0;
+	}
 	uint64_t syms = strcspn(str+*cur, "\t\r{},# ");
-	strlcpy(s2, str+*cur, syms + 1);
+	size_t copy_size = syms < (METRIC_NAME_SIZE - 1) ? syms : (METRIC_NAME_SIZE - 1);
+	strlcpy(s2, str+*cur, copy_size + 1);
 	*cur = *cur + syms;
 
 	return syms;
@@ -75,13 +93,19 @@ int multicollector_get_value(uint64_t *cur, const char *str, const size_t size, 
 
 int multicollector_get_quotes(uint64_t *cur, const char *str, const size_t size, char *s2)
 {
+	if (s2)
+		*s2 = 0;
+	if (!str || !s2 || *cur >= size)
+		return 0;
 	if (str[*cur] != '"')
 		return 0;
 
 	++*cur;
 	uint64_t syms = strcspn(str+*cur, "\"");
-	uint64_t copy_size = syms > METRIC_NAME_SIZE ? METRIC_NAME_SIZE : syms + 1;
-	strlcpy(s2, str+*cur, copy_size);
+	if ((*cur + syms) >= size || str[*cur + syms] != '"')
+		return 0;
+	size_t copy_size = syms < (METRIC_NAME_SIZE - 1) ? syms : (METRIC_NAME_SIZE - 1);
+	strlcpy(s2, str+*cur, copy_size + 1);
 	*cur = *cur + syms + 1;
 
 	return syms;
@@ -146,6 +170,8 @@ int8_t aglob(char *cmp1, char *cmp2)
 
 uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **lbl, context_arg *carg)
 {
+	if (!str || !i || *i >= size)
+		return 0;
 	if ((str[*i] == '#') || (str[*i] == ','))
 		++*i;
 
@@ -153,16 +179,18 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 	char label_key[METRIC_NAME_SIZE];
 
 	int n=MAX_LABEL_COUNT;
-	while ((str[*i] != ':') && (str[*i] != '\0') && n--)
+	while (*i < size && (str[*i] != ':') && (str[*i] != '\0') && n--)
 	{
 		//printf("str[*i] != '%c'\n", str[*i]);
-		if ((str[*i] == '#') || (str[*i] == ','))
+		if (*i < size && ((str[*i] == '#') || (str[*i] == ',')))
 			++*i;
 
 		//printf("1str+i '%s'\n", str+*i);
 		uint64_t label_name_size = multicollector_get_name(i, str, size, label_name);
 		//printf("2str+i '%s'\n", str+*i);
 		multicollector_skip_spaces(i, str, size);
+		if (*i >= size)
+			break;
 
 		++*i;
 
@@ -244,7 +272,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			}
 
 			carg_or_glog(carg, L_DEBUG, "> mapping matched: mapping %p template %s, metric name is '%s'\n", mm, mm->template, metric_name);
-			template_render(mm->metric_name, fields, num_fields, metric_name);
+			template_render(mm->metric_name, fields, num_fields, metric_name, METRIC_NAME_SIZE);
 
 
 			mapping_label *ml = mm->label_head;
@@ -258,8 +286,8 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 				char label_name[METRIC_NAME_SIZE];
 				char label_key[METRIC_NAME_SIZE];
 
-				template_render(ml->name, fields, num_fields, label_name);
-				template_render(ml->key, fields, num_fields, label_key);
+				template_render(ml->name, fields, num_fields, label_name, METRIC_NAME_SIZE);
+				template_render(ml->key, fields, num_fields, label_key, METRIC_NAME_SIZE);
 
 				carg_or_glog(carg, L_DEBUG, "\t> mapping %p for template '%s' generated label '%s'='%s'\n", mm, mm->template, label_name, label_key);
 				labels_hash_insert_nocache(lbl, label_name, label_key);
@@ -278,6 +306,11 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	}
 
 	multicollector_skip_spaces(&i, str, size);
+	if (i >= size)
+	{
+		labels_hash_free(lbl);
+		return 0;
+	}
 
 	if (str[i] == '{')
 	{
@@ -298,6 +331,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			multicollector_skip_spaces(&i, str, size);
 			uint64_t label_name_size =  multicollector_get_name(&i, str, size, label_name);
 			multicollector_skip_spaces(&i, str, size);
+			if (i >= size) {
+				labels_hash_free(lbl);
+				return 0;
+			}
 			if (str[i] != '=')
 			{
 				labels_hash_free(lbl);
@@ -344,10 +381,20 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			}
 			// go to next label or end '}'
 			multicollector_skip_spaces(&i, str, size);
+			if (i >= size)
+			{
+				labels_hash_free(lbl);
+				return 0;
+			}
 			if (str[i] == ',')
 			{
 				++i;
 				multicollector_skip_spaces(&i, str, size);
+				if (i >= size)
+				{
+					labels_hash_free(lbl);
+					return 0;
+				}
 				if (str[i] == '}')
 					break;
 				//printf("2i=%"u64"\n", i);
@@ -374,6 +421,11 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			return 0;
 		// statsd
 		++i;
+		if (i >= size)
+		{
+			labels_hash_free(lbl);
+			return 0;
+		}
 		//printf("3i=%"u64"\n", i);
 		if ((str[i] == '+') || (str[i] == '-'))
 		{
@@ -398,7 +450,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
 			return 0;
 	}
-	else if (isdigit(str[i]))
+	else if (isdigit((unsigned char)str[i]))
 	{
 		// prometheus without labels
 		carg_or_glog(carg, L_DEBUG, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);

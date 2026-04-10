@@ -44,7 +44,7 @@ void dns_record_rule_push(char *dname, uint16_t rtype, void *data, uint64_t data
 		}
 		else
 		{
-			if (dns_rr->rr[i].ttl <= ttl)
+			if (dns_rr->rr[i].ttl <= time.sec)
 			{
 				string_free(dns_rr->rr[i].data);
 				for (uint64_t j = i + 1; j < dns_rr->size; ++j)
@@ -321,6 +321,8 @@ string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uin
 	dns_resource_records *dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
 	if (dns_rr)
 	{
+		if (!dns_rr->size)
+			return NULL;
 		srand(time(NULL));
 		uint8_t r = rand() % dns_rr->size;
 		return dns_rr->rr[r].data;
@@ -348,6 +350,9 @@ context_arg* aggregator_push_addr_strtype(context_arg *carg, char *dname, char* 
 
 void resolver_push_json(json_t *resolver)
 {
+	if (ac->resolver_size >= 255)
+		return;
+
 	char *host = (char*)json_string_value(resolver);
 	size_t size = json_string_length(resolver);
 	//ac->hi_resolver[ac->resolver_size] = parse_url(host, size);
@@ -395,7 +400,16 @@ void resolver_stop()
 
 	if (ac->resolver_size)
 	{
-		while (ac->resolver_size)
-			url_free(ac->srv_resolver[--ac->resolver_size]->hi);
+		while (ac->resolver_size) {
+			resolver_data *rd = ac->srv_resolver[--ac->resolver_size];
+			if (!rd)
+				continue;
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
 	}
 }

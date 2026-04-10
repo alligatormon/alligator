@@ -479,7 +479,7 @@ const char* get_sname(uint8_t type, uint8_t num, char *buf, sensor_map *smap, in
             return smap[i].name;
         }
     }
-    sprintf(buf, "Unknown #0x%02x", num);
+    snprintf(buf, 32, "Unknown #0x%02x", num);
     return buf;
 }
 
@@ -529,7 +529,7 @@ void do_sel_elist(struct ipmi_ctx *ctx) {
                 else if (off == 0x08) trig = "Upper Critical high";
                 else if (off == 0x09) trig = "Upper Non-recoverable high";
 
-                sprintf(desc, "%s", trig);
+                strlcpy(desc, trig, sizeof(desc));
             }
             else if (s_type == 0x07) { // Processor
                 if ((d1 & 0x0F) == 0x00) strcpy(desc, "IERR (Internal Error)");
@@ -541,11 +541,11 @@ void do_sel_elist(struct ipmi_ctx *ctx) {
                 else if (d1 == 0x07) strcpy(desc, "Installation started");
                 else if (d1 == 0x08) strcpy(desc, "Installation completed");
                 else {
-			        sprintf(desc, "OS Event");
+			        strlcpy(desc, "OS Event", sizeof(desc));
 			        //printf("DEBUG: OS Event [0x%02x]", d1);
 		        }
             } else {
-                sprintf(desc, "Sensor-specific");
+                strlcpy(desc, "Sensor-specific", sizeof(desc));
 		        //printf("DEBUG: Sensor-specific [0x%02x]", d1);
             }
 

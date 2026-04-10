@@ -67,7 +67,7 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 
 		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-20);
 		strlcpy(metric_name + 18, str->s, metric_name_size+1);
-		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size) + 19) {
+		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 19)) {
 			i += len;
 			i += strspn(metrics + i, "\r\n");
 			continue;
@@ -580,7 +580,10 @@ void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
 			cur += strcspn(cur, ":");
 			cur += strspn(cur, ": \t");
 			size_t len = strcspn(cur, "\r\n");
-			strlcpy(X_ClickHouse_Summary, cur, len + 1);
+			size_t copy_len = len + 1;
+			if (copy_len > sizeof(X_ClickHouse_Summary))
+				copy_len = sizeof(X_ClickHouse_Summary);
+			strlcpy(X_ClickHouse_Summary, cur, copy_len);
 		}
 
 		char X_ClickHouse_Exception_Code[255];
@@ -591,7 +594,10 @@ void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
 			cur += strcspn(cur, ":");
 			cur += strspn(cur, ": \t");
 			size_t len = strcspn(cur, "\r\n");
-			strlcpy(X_ClickHouse_Exception_Code, cur, len + 1);
+			size_t copy_len = len + 1;
+			if (copy_len > sizeof(X_ClickHouse_Exception_Code))
+				copy_len = sizeof(X_ClickHouse_Exception_Code);
+			strlcpy(X_ClickHouse_Exception_Code, cur, copy_len);
 		}
 
 		carglog(carg, L_INFO, "clickhouse summary %s\n", X_ClickHouse_Summary);

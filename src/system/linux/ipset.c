@@ -40,7 +40,10 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 		uint16_t ktype = ((uint16_t)*(kdt + k + 2));
 		carglog(ac->system_carg, L_INFO, "\t\t\t3[%"PRIu64"/%u] internal name: %s, type: %d/%d, size: %d: %u %u %u %u\n", k, dsize - 4, name, ktype, IPSET_ATTR_COMMENT, ksize, kdt[k+4], kdt[k+5], kdt[k+6], kdt[k+7]);
 
-		memcpy(kvalue, kdt + k + 4, ksize - 4);
+		size_t payload_size = (ksize > 4) ? (ksize - 4) : 0;
+		size_t payload_copy = payload_size < (sizeof(kvalue) - 1) ? payload_size : (sizeof(kvalue) - 1);
+		memcpy(kvalue, kdt + k + 4, payload_copy);
+		kvalue[payload_copy] = 0;
 		if (ktype == IPSET_ATTR_HASHSIZE && ksize == 8)
 		{
 			uint32_t *kdvalue = (uint32_t*)kvalue;
@@ -118,10 +121,10 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 				char hextet[5];
 				for (uint64_t h = 4; h < ksize; h++)
 				{
-					snprintf(hextet, 4, "%X", kvalue[4]);
+					snprintf(hextet, sizeof(hextet), "%X", (unsigned char)kvalue[h]);
 					if (*ipaddr)
-						strcat(ipaddr, ":");
-					strcat(ipaddr, hextet);
+						strlcat(ipaddr, ":", sizeof(ipaddr));
+					strlcat(ipaddr, hextet, sizeof(ipaddr));
 				}
 			}
 		}
@@ -138,10 +141,10 @@ void ipset_entry_data(char *kdt, uint16_t dsize, char *name)
 				char hextet[5];
 				for (uint64_t h = 4; h < ksize; h++)
 				{
-					snprintf(hextet, 4, "%X", kvalue[4]);
+					snprintf(hextet, sizeof(hextet), "%X", (unsigned char)kvalue[h]);
 					if (*ipaddr_to)
-						strcat(ipaddr_to, ":");
-					strcat(ipaddr_to, hextet);
+						strlcat(ipaddr_to, ":", sizeof(ipaddr_to));
+					strlcat(ipaddr_to, hextet, sizeof(ipaddr_to));
 				}
 			}
 		}
@@ -320,7 +323,10 @@ void ipset()
 					break;
 				}
 
-				memcpy(value, dt + i + 4, size - 3);
+				size_t value_payload = (size > 4) ? (size - 4) : 0;
+				size_t value_copy = value_payload < (sizeof(value) - 1) ? value_payload : (sizeof(value) - 1);
+				memcpy(value, dt + i + 4, value_copy);
+				value[value_copy] = 0;
 				if (type == IPSET_ATTR_PROTOCOL)
 				{
 					//metric_add("ipset_attr_protocol", lbl, &vl, DATATYPE_UINT, ac->system_carg);
@@ -372,7 +378,10 @@ void ipset()
 						uint16_t dtype = ((uint16_t)*(ddt + j + 2));
 						carglog(ac->system_carg, L_INFO, "\t\t2[%"PRIu64"/%u] ADT type: '%s' %d, size: %d: %u %u %u %u\n", j, size - 4, typename, dtype, dsize, ddt[j+4], ddt[j+5], ddt[j+6], ddt[j+7]);
 
-						memcpy(dvalue, ddt + j + 4, dsize - 4);
+						size_t dvalue_payload = (dsize > 4) ? (dsize - 4) : 0;
+						size_t dvalue_copy = dvalue_payload < (sizeof(dvalue) - 1) ? dvalue_payload : (sizeof(dvalue) - 1);
+						memcpy(dvalue, ddt + j + 4, dvalue_copy);
+						dvalue[dvalue_copy] = 0;
 						if (dtype == IPSET_ATTR_DATA)
 						{
 							char *kdt = ddt + j;

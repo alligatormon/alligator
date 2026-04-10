@@ -18,7 +18,7 @@ char *read_file(char *name)
 	if (!fd)
 		return 0;
 
-	char *pem_cert = malloc(2048);
+	char *pem_cert = malloc(2049);
 	size_t rc = fread(pem_cert, 1, 2048, fd);
 	fclose(fd);
 	if (!rc)
@@ -26,6 +26,7 @@ char *read_file(char *name)
 		free(pem_cert);
 		return NULL;
 	}
+	pem_cert[rc] = 0;
 
 	return pem_cert;
 }
@@ -67,9 +68,13 @@ int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password
 	int acc = 0;
 
 	char fullname[1024];
-	strcpy(fullname, path);
-	char * filebase = fullname+strlen(path)+1;
-	*(filebase-1)='/';
+	size_t path_len = strnlen(path, sizeof(fullname) - 1);
+	strlcpy(fullname, path, path_len + 1);
+	if (path_len + 1 >= sizeof(fullname))
+		return 0;
+
+	char * filebase = fullname + path_len + 1;
+	*(filebase - 1) = '/';
 
 	for(;;)
 	{
@@ -81,8 +86,11 @@ int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password
 		{
 			if (dirents[i].type == UV_DIRENT_DIR)
 			{
-				strcpy(filebase, dirents[i].name);
-				acc += tls_fs_dir_read(name, fullname, match, password, type);
+				size_t remain = sizeof(fullname) - (size_t)(filebase - fullname);
+				if (remain > 1) {
+					strlcpy(filebase, dirents[i].name, remain);
+					acc += tls_fs_dir_read(name, fullname, match, password, type);
+				}
 			}
 			else if (dirents[i].type == UV_DIRENT_FILE || dirents[i].type == UV_DIRENT_LINK)
 			{

@@ -76,6 +76,8 @@ void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 	carg->shutdown_time_finish = setrtime();
 
 	tcp_server_close_client(carg);
+	if (req != &carg->shutdown_req)
+		free(req);
 }
 
 
@@ -116,16 +118,6 @@ void tls_server_written(uv_write_t* req, int status) {
 	carg->write_buffer.base = 0;
 }
 
-void tls_server_written_nofree(uv_write_t* req, int status) {
-	context_arg *carg = req->data;
-	if (status)
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
-	else
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
-	carg->write_buffer.len = 0;
-	carg->write_buffer.base = 0;
-}
-
 void server_tcp_create_tls_client(context_arg *carg) {
 	carg->ssl = SSL_new(carg->ssl_ctx);
 	SSL_set_accept_state(carg->ssl);
@@ -134,24 +126,38 @@ void server_tcp_create_tls_client(context_arg *carg) {
 	SSL_set_bio(carg->ssl, carg->rbio, carg->wbio);
 }
 
+typedef struct tls_flush_req {
+	uv_write_t req;
+	uv_buf_t buf;
+} tls_flush_req;
+
+static void tls_flush_written(uv_write_t* req, int status)
+{
+	tls_flush_req *fr = (tls_flush_req*)req;
+	if (fr->buf.base)
+		free(fr->buf.base);
+	free(fr);
+}
+
 void flush_tls_write(context_arg *carg, void *cb) {
+	(void)cb;
 	char buffer[EVENT_BUFFER];
 	int bytes;
 	while ((bytes = BIO_read(carg->wbio, buffer, sizeof(buffer))) > 0) {
+		tls_flush_req *fr = calloc(1, sizeof(*fr));
 		char *out = malloc(bytes);
 		memcpy(out, buffer, bytes);
-		carg->write_req.data = carg;
-		carg->write_buffer = uv_buf_init(out, bytes);
-		uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->write_buffer, 1, cb);
-		free(out);
+		fr->req.data = carg;
+		fr->buf = uv_buf_init(out, bytes);
+		uv_write(&fr->req, (uv_stream_t*)&carg->client, &fr->buf, 1, tls_flush_written);
 	}
 }
 
 int do_tls_handshake_server(context_arg *carg) {
 	if (!carg->tls_handshake_done) {
-		int r = SSL_accept(carg->ssl);
+		int hs_ret = SSL_accept(carg->ssl);
 
-		if (r == 1) {
+		if (hs_ret == 1) {
 			carg->tls_handshake_done = 1;
 
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
@@ -162,40 +168,20 @@ int do_tls_handshake_server(context_arg *carg) {
 
 			return 1;
 		}
-		else if (r < 1) {
-			int err = SSL_get_error(carg->ssl, r);
+		else if (hs_ret < 1) {
+			int err = SSL_get_error(carg->ssl, hs_ret);
 			if (err == SSL_ERROR_WANT_READ) {
-				flush_tls_write(carg, tls_server_written);
+				flush_tls_write(carg, NULL);
 			} else if (err == SSL_ERROR_WANT_WRITE) {
-				flush_tls_write(carg, tls_server_written);
+				flush_tls_write(carg, NULL);
 			} else {
 				char *err = openssl_get_error_string();
 				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
 				free(err);
 
-				return 0;
+				return -1;
 			}
-		}
-
-		size_t bio_read = 0;
-		carg->write_buffer = uv_buf_init(calloc(1, EVENT_BUFFER), EVENT_BUFFER);
-		carg->write_req.data = carg;
-		BIO_read_ex(carg->wbio, carg->write_buffer.base, EVENT_BUFFER, &bio_read);
-		carg->write_buffer.len = bio_read;
-
-		if (bio_read > 0) {
-			uv_write(&carg->write_req, (uv_stream_t *)&carg->client, &carg->write_buffer, 1, tls_server_written);
-		}
-
-		int err = SSL_get_error(carg->ssl, r);
-		if (err == SSL_ERROR_WANT_READ) {
-		} else if (err == SSL_ERROR_WANT_WRITE) {
-		} else {
-			char *err = openssl_get_error_string();
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake send failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
-			free(err);
-
-			return -1;
+			return 0;
 		}
 	}
 
@@ -292,7 +278,7 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_written);
 			}
 			else {
-				tls_write(carg, (uv_stream_t*)&carg->client, str->s, str->l, tls_server_written_nofree);
+				tls_write(carg, (uv_stream_t*)&carg->client, str->s, str->l, tls_server_written);
 				free(str->s);
 			}
 		}
@@ -357,13 +343,19 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				do_tls_shutdown(carg->ssl);
 				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 				req->data = carg;
-				uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
-				tcp_server_close_client(carg);
+				if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
+				{
+					free(req);
+					tcp_server_close_client(carg);
+				}
 			} else if (need_shutdown == -1) {
 				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 				req->data = carg;
-				uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
-				tcp_server_close_client(carg);
+				if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
+				{
+					free(req);
+					tcp_server_close_client(carg);
+				}
 			}
 		}
 		string_free(buffer);
@@ -371,8 +363,11 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	else {
 		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 		req->data = carg;
-		uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
-		tcp_server_close_client(carg);
+		if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
+		{
+			free(req);
+			tcp_server_close_client(carg);
+		}
 	}
 }
 

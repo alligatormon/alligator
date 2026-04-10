@@ -268,14 +268,17 @@ void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_da
 
 	while (cnt < (int64_t)body_size)
 	{
-		int64_t k = strcspn(body + cnt, "\n");
-		if (k >= DT_LINE_BUF)
-			k = DT_LINE_BUF - 1;
-		memcpy(line, body + cnt, (size_t)k);
-		line[k] = '\0';
-		cnt += k + 1;
+		size_t left = body_size - (size_t)cnt;
+		const char *nl = memchr(body + cnt, '\n', left);
+		size_t raw_len = nl ? (size_t)(nl - (body + cnt)) : left;
+		size_t ksz = raw_len;
+		if (ksz >= DT_LINE_BUF)
+			ksz = DT_LINE_BUF - 1;
+		memcpy(line, body + cnt, ksz);
+		line[ksz] = '\0';
+		cnt += (int64_t)(nl ? (raw_len + 1) : raw_len);
 
-		size_t linelen = (size_t)k;
+		size_t linelen = ksz;
 		dt_rtrim(line, &linelen);
 		if (!linelen || line[0] == '#')
 			continue;

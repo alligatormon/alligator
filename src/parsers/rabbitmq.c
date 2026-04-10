@@ -98,7 +98,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 					//printf("%s: %"d64"\n", node_str2, ival);
 					metric_add_labels(node_str2, &ival, DATATYPE_INT, carg, "node", node_name);
 				}
-				else if (gc_type == JSON_INTEGER)
+				else if (gc_type == JSON_REAL)
 				{
 					strlcpy(node_str2+31, key_gc, RABBITMQ_LEN-31);
 					dval = json_real_value(value_gc);
@@ -115,7 +115,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			uint64_t j;
 			for (j = 0; j < cluster_size; j++)
 			{
-				json_t *cluster_obj = json_array_get(cluster_links_json, i);
+				json_t *cluster_obj = json_array_get(cluster_links_json, j);
 
 				json_t *cluster_name_json = json_object_get(cluster_obj, "name");
 				if (!cluster_name_json)
@@ -166,14 +166,20 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *exc_name_json = json_object_get(exc_obj, "name");
 		char *exc_name = (char*)json_string_value(exc_name_json);
+		if (!exc_name)
+			continue;
 		if (strlen(exc_name) == 0)
 			continue;
 
 		json_t *exc_type_json = json_object_get(exc_obj, "type");
 		char *exc_type = (char*)json_string_value(exc_type_json);
+		if (!exc_type)
+			continue;
 
 		json_t *exc_vhost_json = json_object_get(exc_obj, "vhost");
 		char *exc_vhost = (char*)json_string_value(exc_vhost_json);
+		if (!exc_vhost)
+			continue;
 
 		const char *key;
 		json_t *value;
@@ -201,7 +207,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 		if (message_stats_json)
 		{
 			json_t *publish_in_json = json_object_get(message_stats_json, "publish_in");
-			json_t *publish_out_json = json_object_get(message_stats_json, "publish_in");
+			json_t *publish_out_json = json_object_get(message_stats_json, "publish_out");
 			int64_t publish_in = json_integer_value(publish_in_json);
 			int64_t publish_out = json_integer_value(publish_out_json);
 			metric_add_labels3("rabbitmq_exchanges_publish_in", &publish_in, DATATYPE_INT, carg, "name", exc_name, "type", exc_type, "vhost", exc_vhost);
@@ -402,11 +408,15 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *queues_name_json = json_object_get(queues_obj, "name");
 		char *queues_name = (char*)json_string_value(queues_name_json);
+		if (!queues_name)
+			continue;
 		if (strlen(queues_name) == 0)
 			continue;
 
 		json_t *queues_vhost_json = json_object_get(queues_obj, "vhost");
 		char *queues_vhost = (char*)json_string_value(queues_vhost_json);
+		if (!queues_vhost)
+			continue;
 
 		json_t *queues_state_json = json_object_get(queues_obj, "state");
 		char *queues_state = (char*)json_string_value(queues_state_json);
@@ -639,6 +649,8 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *vhosts_name_json = json_object_get(vhosts_obj, "name");
 		char *vhosts_name = (char*)json_string_value(vhosts_name_json);
+		if (!vhosts_name)
+			continue;
 		if (strlen(vhosts_name) == 0)
 			continue;
 

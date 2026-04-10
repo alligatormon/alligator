@@ -32,12 +32,15 @@ void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		json_t *arr_obj = json_array_get(root, i);
 		if ( json_typeof(arr_obj) != JSON_OBJECT )
-			return;
+			continue;
 
 		json_t *jsonname = json_object_get(arr_obj, "name");
 		char *tname = (char*)json_string_value(jsonname);
 		json_t *jsonvalue = json_object_get(arr_obj, "value");
-		int64_t tvalue = atoll(json_string_value(jsonvalue));
+		const char *tvalue_str = json_string_value(jsonvalue);
+		if (!tname || !tvalue_str)
+			continue;
+		int64_t tvalue = atoll(tvalue_str);
 
 		strlcpy(metricname+9, tname, POWERDNS_METRIC_SIZE-10);
 		metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);

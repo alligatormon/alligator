@@ -65,7 +65,7 @@ get_monotonic_time () {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
-	return (ts.tv_sec / 1000 + ts.tv_nsec / 1000000);
+	return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
 static uint32_t
@@ -332,11 +332,13 @@ void icmp_start(void *arg)
 	}
 	if ( setsockopt(sd, SOL_IP, IP_TTL, &ttl_val, sizeof(ttl_val)) != 0) {
 		carglog(carg, L_ERROR, "set TTL option error\n");
+		close(sd);
 		carg->lock = 0;
 		return;
 	}
 	if ( fcntl(sd, F_SETFL, O_NONBLOCK) != 0 ) {
 		carglog(carg, L_ERROR, "sequest nonblocking I/O error\n");
+		close(sd);
 		carg->lock = 0;
 		return;
 	}
@@ -394,6 +396,7 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	snprintf(carg->key, 64, "%s:%u:%d", addr, carg->dest.sin_port, carg->dest.sin_family);
 
 	alligator_ht_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	uv_freeaddrinfo(res);
 }
 
 char* icmp_client(context_arg *carg)

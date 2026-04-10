@@ -47,28 +47,39 @@ void regex_match_free(regex_match *rematch)
 
 char *regex_get(pcre *regex_compiled, int *str_vector, int pcreExecRet, const char *regex_match_string, char *pre_key, char *fallback)
 {
-	int64_t i, j;
+	int64_t i;
 	char *key = malloc(255);
-	*key = 0;
-	for (i=0, j=0; pre_key[i]; ++i, ++j)
+	key[0] = 0;
+	for (i = 0; pre_key && pre_key[i]; ++i)
 	{
 		if(pre_key[i] == '$')
 		{
 			char match[255];
-			strlcpy(match, pre_key+i+1, strcspn(pre_key+i, "}"));
+			size_t match_len = strcspn(pre_key + i + 1, "}");
+			size_t match_copy = match_len < (sizeof(match) - 1) ? match_len : (sizeof(match) - 1);
+			strlcpy(match, pre_key + i + 1, match_copy + 1);
 			int num = pcre_get_stringnumber(regex_compiled, match);
-			if (num < 1)
-				return fallback;
+			if (num < 1) {
+				strlcpy(key, fallback ? fallback : "", 255);
+				return key;
+			}
 
-			const char *matched_string;
-			pcre_get_substring(regex_match_string, str_vector, pcreExecRet, num, &(matched_string));
-			strcat(key, matched_string);
-			j += strlen(matched_string);
+			const char *matched_string = NULL;
+			int rc = pcre_get_substring(regex_match_string, str_vector, pcreExecRet, num, &(matched_string));
+			if (rc < 0 || !matched_string) {
+				strlcat(key, fallback ? fallback : "", 255);
+			}
+			else {
+				strlcat(key, matched_string, 255);
+				pcre_free_substring(matched_string);
+			}
 		}
 		else
-			key[j] = pre_key[i];
+		{
+			char c[2] = {pre_key[i], 0};
+			strlcat(key, c, 255);
+		}
 	}
-	key[j] = 0;
 
 	return key;
 }
@@ -108,24 +119,26 @@ void pcre_match(regex_match *rematch, const char *regex_match_string)
 		for(; metrics; metrics = metrics->next)
 		{
 			char metric_v[255];
-			strcpy(metric_v, metrics->metric_name);
+			strlcpy(metric_v, metrics->metric_name, sizeof(metric_v));
 
 			regex_labels_node *label = metrics->labels->head;
-			strcat(metric_v, " {");
+			strlcat(metric_v, " {", sizeof(metric_v));
 			for(; label; label = label->next)
 			{
 				char *key = regex_get(regex_compiled, str_vector, pcreExecRet, regex_match_string, label->name, label->name);
-				strcat(metric_v, key);
-				strcat(metric_v, "=\"");
+				strlcat(metric_v, key, sizeof(metric_v));
+				strlcat(metric_v, "=\"", sizeof(metric_v));
+				free(key);
 				key = regex_get(regex_compiled, str_vector, pcreExecRet, regex_match_string, label->key, label->key);
-				strcat(metric_v, key);
+				strlcat(metric_v, key, sizeof(metric_v));
+				free(key);
 
 				if (label->next)
-					strcat(metric_v, "\", ");
+					strlcat(metric_v, "\", ", sizeof(metric_v));
 				else
-					strcat(metric_v, "\"");
+					strlcat(metric_v, "\"", sizeof(metric_v));
 			}
-			strcat(metric_v, "} ");
+			strlcat(metric_v, "} ", sizeof(metric_v));
 
 			//uint64_t val = atoll(regex_get(regex_compiled, str_vector, pcreExecRet, metrics->from, "1");
 			char *val;
@@ -138,8 +151,9 @@ void pcre_match(regex_match *rematch, const char *regex_match_string)
 			else
 				val = strdup("1");
 
-			strcat(metric_v, val);
+			strlcat(metric_v, val, sizeof(metric_v));
 			printf("%s\n", metric_v);
+			free(val);
 
 			//if (
 				//metric_increase

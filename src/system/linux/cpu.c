@@ -23,12 +23,12 @@ int get_scaling_current_cpu_freq() {
     while (fgets(line, sizeof(line), f)) {
 
         if (strncmp(line, "processor", 9) == 0) {
-            sscanf(line, "processor : %s", cpu);
+			sscanf(line, "processor : %9s", cpu);
         }
 
         if (strncmp(line, "cpu MHz", 7) == 0) {
             sscanf(line, "cpu MHz : %lf", &mhz);
-            if (cpu >= 0) {
+			if (cpu[0]) {
                 metric_add_labels("cpu_current_frequency", &mhz, DATATYPE_DOUBLE, ac->system_carg, "core", cpu);
             }
         }
@@ -123,7 +123,7 @@ void get_cpu(int8_t platform)
 			int64_t t1, t2, t3, t4, t5;
 			char cpuname[6];
 
-			sscanf(temp, "%s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
+			sscanf(temp, "%5s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
 			core_num = atoll(cpuname+3);
 			if (!strcmp(cpuname, "cpu"))
 				sccs = &ac->scs->hw;
@@ -145,6 +145,8 @@ void get_cpu(int8_t platform)
 
 			uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
 			sccs->total += t12345;
+			if (!t12345)
+				continue;
 
 			t1 -= sccs->user;
 			sccs->user += t1;
@@ -240,12 +242,18 @@ void get_cpu(int8_t platform)
 
 		snprintf(syspath, 255, "%s/fs/cgroup/cpu/cpu.cfs_period_us", ac->system_sysfs);
 		int64_t cfs_period = getkvfile(syspath);
+		if (cfs_period <= 0)
+			cfs_period = 100000;
 
 		snprintf(syspath, 255, "%s/fs/cgroup/cpu/cpu.cfs_quota_us", ac->system_sysfs);
 		int64_t cfs_quota = getkvfile(syspath);
 		if ( cfs_quota < 0 )
 		{
 			cfs_quota = cfs_period*dividecpu;
+		}
+		else if (!cfs_quota)
+		{
+			cfs_quota = cfs_period;
 		}
 
 		snprintf(syspath, 255, "%s/fs/cgroup/cpuacct/cpuacct.stat", ac->system_sysfs);
@@ -287,6 +295,8 @@ void get_cpu(int8_t platform)
 		sccs->user += cgroup_user_ticks;
 
 		dividecpu = (cfs_quota*1.0/cfs_period);
+		if (dividecpu <= 0)
+			dividecpu = 1;
 		double cgroup_system_usage = cgroup_system_ticks*1.0/dividecpu;
 		double cgroup_user_usage = cgroup_user_ticks*1.0/dividecpu;
 		double cgroup_total_usage = cgroup_system_usage + cgroup_user_usage;

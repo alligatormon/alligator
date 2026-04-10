@@ -6,5 +6,5 @@
 
 void mapping_processing(context_arg *carg, metric_node *mnode, double dval);
 void mapping_processing_foreach(context_arg *carg, metric_node *mnode, double dval);
-void template_render(const char *template, char *fields[], int field_count, char *output);
+void template_render(const char *template, char *fields[], int field_count, char *output, size_t output_size);
 int match_and_extract(const char *pattern, const char *str, char *fields[], int *num_fields);

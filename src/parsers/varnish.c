@@ -68,7 +68,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (json_typeof(mvalue_json) == JSON_REAL)
 				{
-					double mvalue = json_integer_value(mvalue_json);
+					double mvalue = json_real_value(mvalue_json);
 					metric_add(metricname, lbl, &mvalue, DATATYPE_DOUBLE, carg);
 				}
 			}

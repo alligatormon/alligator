@@ -20,6 +20,12 @@ void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t siz
 void url_get_unix_path(host_aggregator_info *hi, char **tmp)
 {
 	char *end = strstr(*tmp, ":");
+	if (!end)
+	{
+		hi->host = strdup(*tmp);
+		*tmp = (void*)1;
+		return;
+	}
 	hi->host = strndup(*tmp, end-*tmp);
 
 	*tmp = end+1;
@@ -27,23 +33,22 @@ void url_get_unix_path(host_aggregator_info *hi, char **tmp)
 
 void url_get_auth_data(host_aggregator_info *hi, char **tmp)
 {
-	char *end = strstr(*tmp, "@");
+	char *end = strrchr(*tmp, '@');
 	if (!end)
 		return;
 
-	char *delim = strstr(*tmp, ":");
-	if (delim > end) {
-		hi->user = strndup(*tmp, (end-*tmp));
+	char *delim = memchr(*tmp, ':', end - *tmp);
+	if (!delim) {
+		hi->user = strdup(*tmp);
 	}
 	else {
 		size_t sz;
-		hi->user = strndup(*tmp, (delim-*tmp));
-		if (delim)
-			hi->pass = strndup(delim+1, end-delim-1);
-		hi->auth = base64_encode(*tmp, end-*tmp, &sz);
+		hi->user = strndup(*tmp, (delim - *tmp));
+		hi->pass = strndup(delim + 1, end - delim - 1);
+		hi->auth = base64_encode(*tmp, end - *tmp, &sz);
 	}
 
-	*tmp = end+1;
+	*tmp = end + 1;
 }
 
 // return symbol indicator after *tmp
@@ -116,7 +121,8 @@ void url_set_default_port(host_aggregator_info *hi)
 void url_get_port(host_aggregator_info *hi, char **tmp)
 {
 	int8_t portlen = strspn(*tmp, "1234567890");
-	strlcpy(hi->port, *tmp, portlen+1);
+	size_t copy_len = portlen < (sizeof(hi->port) - 1) ? portlen : (sizeof(hi->port) - 1);
+	strlcpy(hi->port, *tmp, copy_len + 1);
 	*tmp += portlen;
 }
 

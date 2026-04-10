@@ -21,36 +21,62 @@ context_arg *carg_copy(context_arg *src)
 	if (src->key)
 		carg->key = strdup(src->key);
 
-	if (carg->cluster)
+	if (src->cluster)
 		carg->cluster = strdup(src->cluster);
 
-	if (carg->instance)
+	if (src->instance)
 		carg->instance = strdup(src->instance);
 
-	if (carg->lang)
+	if (src->lang)
 		carg->lang = strdup(src->lang);
 
-	if (carg->tls_ca_file)
+	if (src->tls_ca_file)
 		carg->tls_ca_file = strdup(src->tls_ca_file);
 
-	if (carg->tls_cert_file)
+	if (src->tls_cert_file)
 		carg->tls_cert_file = strdup(src->tls_cert_file);
 
-	if (carg->tls_key_file)
+	if (src->tls_key_file)
 		carg->tls_key_file = strdup(src->tls_key_file);
 
-	if (carg->namespace && carg->namespace_allocated)
+	if (src->namespace && src->namespace_allocated)
 		carg->namespace = strdup(src->namespace);
+	else
+		carg->namespace = src->namespace;
 
-	if (carg->name)
+	if (src->name)
 		carg->name = strdup(src->name);
+
+	if (src->url)
+		carg->url = strdup(src->url);
+
+	if (src->query_url)
+		carg->query_url = strdup(src->query_url);
+
+	if (src->stdin_s) {
+		carg->stdin_s = strdup(src->stdin_s);
+		carg->stdin_l = src->stdin_l;
+	}
+
+	if (src->auth_header)
+		carg->auth_header = strdup(src->auth_header);
+
+	if (src->threaded_loop_name)
+		carg->threaded_loop_name = strdup(src->threaded_loop_name);
+
+	if (src->checksum)
+		carg->checksum = strdup(src->checksum);
+
+	if (src->pquery_size && src->pquery) {
+		carg->pquery_size = src->pquery_size;
+		carg->pquery = calloc(1, sizeof(char*) * carg->pquery_size);
+		for (uint8_t i = 0; i < carg->pquery_size; ++i)
+			carg->pquery[i] = strdup(src->pquery[i]);
+	}
 
 	carg->auth_bearer = http_auth_copy(src->auth_bearer);
 	carg->auth_basic = http_auth_copy(src->auth_basic);
 	carg->auth_other = http_auth_copy(src->auth_other);
-
-	if (carg->auth_header)
-		carg->auth_header = strdup(src->auth_header);
 
 	if (src->env)
 		carg->env = env_struct_duplicate(src->env);
@@ -151,6 +177,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->tls_cert_file)
 		free(carg->tls_cert_file);
+
+	if (carg->tls_server_name)
+		free(carg->tls_server_name);
 
 	if (carg->tls)
 		tls_client_cleanup(carg, 1);
@@ -253,6 +282,8 @@ void env_struct_push_alloc(alligator_ht* hash, char *k, char *v)
 alligator_ht *env_struct_parser(json_t *root)
 {
 	json_t *json_env = json_object_get(root, "env");
+	if (!json_env || json_typeof(json_env) != JSON_OBJECT)
+		return NULL;
 
 	const char *env_name;
 	json_t *env_jkey;

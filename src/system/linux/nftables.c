@@ -154,6 +154,24 @@ typedef struct set_t {
 	int8_t ct_state_untracked;
 } set_t;
 
+static void nla_copy_string(char *dst, size_t dst_size, nftable_struct *nftmsg, size_t skip)
+{
+	if (!dst || !dst_size || !nftmsg)
+		return;
+
+	size_t nla_size = nftmsg->nlattr.nla_len;
+	size_t header_size = sizeof(struct nlattr);
+	if (nla_size <= header_size + skip) {
+		dst[0] = 0;
+		return;
+	}
+
+	size_t payload = nla_size - header_size - skip;
+	size_t copy_size = payload < (dst_size - 1) ? payload : (dst_size - 1);
+	memcpy(dst, nftmsg->data + skip, copy_size);
+	dst[copy_size] = 0;
+}
+
 
 uint16_t nl_get_len(char data[]) {
 	return to_uint16(data);
@@ -1510,17 +1528,17 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					labels_hash_insert_nocache(label_expression, "handler", "nftables");
 					uint16_t itype = nftmsg->nlattr.nla_type;
 					if (itype == NFTA_RULE_TABLE) {
-						strcpy(table, nftmsg->data);
+						nla_copy_string(table, sizeof(table), nftmsg, 0);
 						labels_hash_insert_nocache(label_expression, "table", table);
 					}
 					else if (itype == NFTA_RULE_CHAIN) {
-						strcpy(chain, nftmsg->data);
+						nla_copy_string(chain, sizeof(chain), nftmsg, 0);
 						labels_hash_insert_nocache(label_expression, "chain", chain);
 					}
 					else if (itype == NFTA_RULE_EXPRESSIONS)
 						expression = parse_expressions(fd, table, chain, nftmsg->data, nftmsg->nlattr.nla_len, &verdict, label_expression);
 					else if (itype == NFTA_RULE_USERDATA) {
-						strcpy(userdata, nftmsg->data+2);
+						nla_copy_string(userdata, sizeof(userdata), nftmsg, 2);
 						labels_hash_insert_nocache(label_expression, "chain", chain);
 					}
 					else if (itype == NFTA_RULE_HANDLE) {
@@ -1570,9 +1588,9 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					if (!nftmsg->nlattr.nla_len)
 						break;
 					if (itype == NFTA_RULE_TABLE)
-						strcpy(table, nftmsg->data);
+						nla_copy_string(table, sizeof(table), nftmsg, 0);
 					else if (itype == NFTA_RULE_CHAIN)
-						strcpy(setname, nftmsg->data);
+						nla_copy_string(setname, sizeof(setname), nftmsg, 0);
 					else if (itype == NFTA_SET_TIMEOUT) {
 						set->timeout = to_uint16(nftmsg->data);
 					}
@@ -1672,9 +1690,9 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					if (!ilen)
 						break;
 					if (itype == NFTA_RULE_TABLE) {
-						strcpy(table, nftmsg->data);
+						nla_copy_string(table, sizeof(table), nftmsg, 0);
 					} else if (itype == 2) {
-						strcpy(setname, nftmsg->data);
+						nla_copy_string(setname, sizeof(setname), nftmsg, 0);
 					} else if ((itype == NLMSG_DONE) && (ilen == 4)) {
 						break;
 					} else if (itype == NFTA_SET_ELEM_KEY) {
@@ -1757,9 +1775,9 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 					if (!nftmsg->nlattr.nla_len)
 						break;
 					if (itype == NFTA_OBJ_TABLE) {
-						strcpy(table, nftmsg->data);
+						nla_copy_string(table, sizeof(table), nftmsg, 0);
 					} else if (itype == NFTA_OBJ_NAME) {
-						strcpy(counter, nftmsg->data);
+						nla_copy_string(counter, sizeof(counter), nftmsg, 0);
 					} else if (itype == NFTA_OBJ_DATA) {
 						for (uint16_t j = 0; j < nftmsg->nlattr.nla_len; ) {
 							uint16_t type = nl_get_type(nftmsg->data + j);
@@ -1778,7 +1796,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 							j += NLA_ALIGN(len);
 						}
 					} else if (itype == NFTA_OBJ_USERDATA) {
-						strcpy(userdata, nftmsg->data + 2);
+						nla_copy_string(userdata, sizeof(userdata), nftmsg, 2);
 					}
 
 					i += NLA_ALIGN(nftmsg->nlattr.nla_len);

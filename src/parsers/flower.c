@@ -51,6 +51,10 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		cur += 8;
 		n = strcspn(cur, "\">");
+		if (!n)
+		{
+			continue;
+		}
 		int64_t label_size = FLOWER_LABEL_SIZE > n+1 ? n+1 : FLOWER_LABEL_SIZE;
 		int64_t i, j;
 		for (i=0, j=0; i<label_size && j<label_size; ++j, ++i)
@@ -63,7 +67,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			else
 				label[i] = cur[j];
 		}
-		label[i-1] = 0;
+		label[i ? i - 1 : 0] = 0;
 
 		cur = strstr(cur, "<td>");
 		if (!cur)

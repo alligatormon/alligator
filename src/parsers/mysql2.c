@@ -106,7 +106,11 @@ static int mysql2_port_from_carg(context_arg *carg)
 
 
 void parse_mysql_uri(const char *uri, mysql_uri_t *out) {
-	sscanf(uri, "mysql://%[^:]:%[^@]@%[^:]:%d", out->user, out->pass, out->host, &out->port);
+	out->user[0] = 0;
+	out->pass[0] = 0;
+	out->host[0] = 0;
+	out->port = 3306;
+	sscanf(uri, "mysql://%63[^:]:%63[^@]@%255[^:]:%d", out->user, out->pass, out->host, &out->port);
 }
 
 void mysql2_on_write_completed(uv_write_t *req, int status) {
@@ -176,6 +180,7 @@ static mysql_conn_t *mysql2_get_conn(context_arg *carg, int create_if_null)
 
 void mysql2_on_connect(uv_connect_t *req, int status) {
 	mysql_conn_t *conn = (mysql_conn_t*)req->data;
+	free(req);
 
 	uv_timer_stop(&conn->connect_timer);
 	context_arg *carg = conn->carg;
@@ -267,8 +272,10 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 	uv_timer_start(&conn->connect_timer, mysql2_on_connect_timeout, CONNECT_TIMEOUT_MS, 0);
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
-	if (r < 0)
+	if (r < 0) {
+		free(connect_req);
 		return 0;
+	}
 
 	while (conn->state != STATE_QUERY && conn->state != STATE_CONNECT_FAILED)
 		uv_sleep(10);
@@ -366,8 +373,10 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	uv_timer_start(&conn->connect_timer, mysql2_on_connect_timeout, CONNECT_TIMEOUT_MS, 0);
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
-	if (r < 0)
+	if (r < 0) {
+		free(connect_req);
 		return 0;
+	}
 
 	return 1;
 }
@@ -403,8 +412,10 @@ int mysql2_connect_context(context_arg *carg)
 	uv_timer_start(&conn->connect_timer, mysql2_on_connect_timeout, CONNECT_TIMEOUT_MS, 0);
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
-	if (r < 0)
+	if (r < 0) {
+		free(connect_req);
 		return 0;
+	}
 
 	while (conn->state != STATE_QUERY && conn->state != STATE_CONNECT_FAILED)
 		uv_sleep(10);
@@ -426,6 +437,10 @@ static void mysql2_send_mysql_packet(mysql_conn_t *conn, const uint8_t *payload,
 	memcpy(pkt + 4, payload, payload_len);
 	uv_buf_t buf = uv_buf_init((char *)pkt, total_len);
 	uv_write_t *req = malloc(sizeof(uv_write_t));
+	if (!req) {
+		free(pkt);
+		return;
+	}
 	req->data = pkt;
 	uv_write(req, (uv_stream_t *)&conn->handle, &buf, 1, mysql2_on_write_completed);
 }
@@ -453,6 +468,10 @@ void send_mysql_packet_immediate(mysql_conn_t *conn, const uint8_t *payload, siz
 			memcpy(pkt, buf, total_len);
 			uv_buf_t wb = uv_buf_init((char *)pkt, total_len);
 			uv_write_t *req = malloc(sizeof(uv_write_t));
+			if (!req) {
+				free(pkt);
+				return;
+			}
 			req->data = pkt;
 			uv_write(req, (uv_stream_t *)&conn->handle, &wb, 1, mysql2_on_write_completed);
 		}
@@ -554,6 +573,10 @@ void send_query(mysql_conn_t *conn, const char *sql, mysql_row_cb cb, void *user
 
 	uv_buf_t buf = uv_buf_init((char*)pkt, total_len);
 	uv_write_t *req = malloc(sizeof(uv_write_t));
+	if (!req) {
+		free(pkt);
+		return;
+	}
 	req->data = pkt;
 
 	uv_write(req, (uv_stream_t*)&conn->handle, &buf, 1, mysql2_on_write_completed);
@@ -655,7 +678,16 @@ static void mysql2_caching_sha2_password_hash(const char *password, const uint8_
 }
 
 void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
-	uint8_t payload[1024] = {0};
+	size_t user_len = strlen(conn->user);
+	size_t plugin_len = 0;
+	const char *plugin_name = (strcmp(conn->auth_plugin, "caching_sha2_password") == 0)
+		? "caching_sha2_password" : "mysql_native_password";
+	plugin_len = strlen(plugin_name);
+	size_t auth_len = (conn->password && strlen(conn->password) > 0)
+		? ((strcmp(conn->auth_plugin, "caching_sha2_password") == 0) ? 1 + 32 : 1 + 20)
+		: 1;
+	size_t payload_len = 4 + 4 + 1 + 23 + user_len + 1 + auth_len + plugin_len + 1;
+	uint8_t *payload = malloc(payload_len);
 	uint8_t *ptr = payload;
 
 	// CLIENT_LONG_PASSWORD | CLIENT_PROTOCOL_41 | CLIENT_SECURE_CONNECTION | CLIENT_PLUGIN_AUTH
@@ -670,8 +702,9 @@ void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
 
 	memset(ptr, 0, 23); ptr += 23;
 
-	strcpy((char*)ptr, conn->user);
-	ptr += strlen(conn->user) + 1;
+	memcpy(ptr, conn->user, user_len);
+	ptr += user_len;
+	*ptr++ = 0;
 
 	if (conn->password && strlen(conn->password) > 0) {
 		int use_caching_sha2 = (strcmp(conn->auth_plugin, "caching_sha2_password") == 0);
@@ -695,15 +728,13 @@ void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
 		ptr++;
 	}
 
-	const char *plugin_name = (strcmp(conn->auth_plugin, "caching_sha2_password") == 0)
-		? "caching_sha2_password" : "mysql_native_password";
-	strcpy((char*)ptr, plugin_name);
-	ptr += strlen(plugin_name) + 1;
+	memcpy(ptr, plugin_name, plugin_len);
+	ptr += plugin_len;
+	*ptr++ = 0;
 
-	size_t payload_len = ptr - payload;
+	payload_len = (size_t)(ptr - payload);
 	size_t total_len = payload_len + 4;
 	uint8_t *full_pkt = malloc(total_len);
-	if (!full_pkt) return;
 
 	conn->seq_id++;
 	full_pkt[0] = (uint8_t)(payload_len & 0xFF);
@@ -712,6 +743,7 @@ void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
 	full_pkt[3] = conn->seq_id;
 
 	memcpy(full_pkt + 4, payload, payload_len);
+	free(payload);
 
 	uv_buf_t buf = uv_buf_init((char*)full_pkt, total_len);
 	uv_write_t *req = malloc(sizeof(uv_write_t));
@@ -911,8 +943,18 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 				} else if (disp)
 					free(disp);
 			} else {
-				uint8_t *fields[conn->col_count];
-				uint64_t lengths[conn->col_count];
+				if (conn->col_count <= 0 || conn->col_count > 1024) {
+					p += pkt_len + 4;
+					continue;
+				}
+				uint8_t **fields = calloc((size_t)conn->col_count, sizeof(*fields));
+				uint64_t *lengths = calloc((size_t)conn->col_count, sizeof(*lengths));
+				if (!fields || !lengths) {
+					free(fields);
+					free(lengths);
+					p += pkt_len + 4;
+					continue;
+				}
 				uint8_t *f_ptr = payload;
 				uint8_t *r_end = payload + pkt_len;
 				int ok = conn->col_count > 0;
@@ -931,6 +973,8 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 										conn->col_flags };
 					ctx->user_cb(&row, ctx->user_data);
 				}
+				free(fields);
+				free(lengths);
 			}
 		}
 
@@ -1023,9 +1067,11 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 				if (pos >= p + 4 + pkt_len) break;
 				pos++;
 				pos += 4;
+				if (pos + 8 > p + 4 + pkt_len) break;
 
 				memcpy(scramble, pos, 8);
 				pos += 8 + 1 + 2 + 1 + 2 + 2 + 1 + 10;
+				if (pos + 12 > p + 4 + pkt_len) break;
 				memcpy(scramble + 8, pos, 12);
 				memcpy(conn->scramble, scramble, 20);
 				pos += 12;

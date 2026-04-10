@@ -54,7 +54,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 			if (carg->log_level > 1)
 				printf("\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
-			if (isdigit(*ptrtoval))
+			if (isdigit((unsigned char)*ptrtoval))
 			{
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
@@ -78,7 +78,7 @@ int keepalived_isdigit(char *val)
 	size_t to_len = len > 3 ? 3 : len;
 	for (uint64_t i = 0; i < to_len; i++)
 	{
-		if (!isdigit(val[i]) && val[i] != ' ' && val[i] != 's')
+		if (!isdigit((unsigned char)val[i]) && val[i] != ' ' && val[i] != 's')
 			return 0;
 	}
 
@@ -126,6 +126,8 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 
 		uint64_t j = 0;
 		uint64_t name_size = str_get_next(field, name, KEEPALIVEDLEN, "=", &j);
+		if (!name_size)
+			continue;
 		name[--name_size] = 0;
 		++j;
 		if (*field != '-')
@@ -155,7 +157,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 			if (strstr(name, "weight"))
 				continue;
 
-			if (isdigit(name[cur_indent]))
+			if (isdigit((unsigned char)name[cur_indent]))
 				continue;
 
 			if (!strcmp(context, "VRRP Sockpool"))
@@ -207,8 +209,8 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 		{
 			uint16_t start_sym_context = strcspn(name, "<") + 2;
 			uint16_t stop_sym_context = strcspn(name + start_sym_context, ">");
-			uint16_t copy_size = stop_sym_context > KEEPALIVEDLEN ? KEEPALIVEDLEN : stop_sym_context;
-			strlcpy(context, name + start_sym_context, copy_size);
+			uint16_t copy_size = stop_sym_context > (KEEPALIVEDLEN - 1) ? (KEEPALIVEDLEN - 1) : stop_sym_context;
+			strlcpy(context, name + start_sym_context, copy_size + 1);
 		}
 	}
 	carg->parser_status = 1;

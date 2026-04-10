@@ -154,7 +154,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				if (qf)
 				{
 					carglog(carg, L_INFO, "\tcolname: '%s', value '%s'\n", colname, res);
-					if (!strncmp(res, "t", 0))
+					if (res && res[0] == 't')
 						qf->i = 1;
 					else
 						qf->i = 0;

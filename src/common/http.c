@@ -37,11 +37,11 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	char *query = malloc(method_query_size + append_query_size + 2);
 	*query = 0;
 	if (method_query && method_query_size > 1)
-		strcat(query, method_query);
+		strlcat(query, method_query, method_query_size + append_query_size + 2);
 	else if (method_query && method_query_size == 1 && append_query && *append_query != '/')
-		strcat(query, method_query);
+		strlcat(query, method_query, method_query_size + append_query_size + 2);
 	if (append_query)
-		strcat(query, append_query);
+		strlcat(query, append_query, method_query_size + append_query_size + 2);
 
 	size_t size_query = strlen(query);
 	if ( !size_query )
@@ -77,10 +77,10 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	string_cat(sret, "\r\n", 2);
 
 	env_struct_push_alloc(env, "User-Agent", useragent);
-	if (*host == '/')
+	if (host && *host == '/')
 		env_struct_push_alloc(env, "Host", "localhost");
 	else
-		env_struct_push_alloc(env, "Host", host);
+		env_struct_push_alloc(env, "Host", host ? host : "localhost");
 
 	if (auth)
 	{
@@ -160,7 +160,7 @@ uint64_t urldecode(char* dest, char *src, size_t len) {
             i = i + 2;
         }
     }
-    dest[j--] = 0;
+    dest[j] = 0;
     return j;
 }
 
@@ -185,19 +185,34 @@ alligator_ht* http_get_args(char *str, size_t size)
 	++start;
 
 	uint64_t args_size = size - (start - str);
-	char token[args_size];
-	char decodeurl[args_size + 1024];
+	if (!args_size)
+		return args;
+
+	char *token = malloc(args_size + 1);
+	char *decodeurl = malloc(args_size + 1);
+	if (!token || !decodeurl) {
+		free(token);
+		free(decodeurl);
+		return args;
+	}
 
 	for (uint64_t i = 0; i < args_size; i++)
 	{
 	        uint64_t token_size = str_get_next(start, token, args_size + 1, "&", &i);
+		if (!token_size)
+			continue;
 		//printf("token '%s'/%"u64" from '%s'\n", token, token_size, start);
 
 		uint64_t j = 0;
-		char key[token_size];
-		char value[token_size];
+		char *key = malloc(token_size + 1);
+		char *value = malloc(token_size + 1);
+		if (!key || !value) {
+			free(key);
+			free(value);
+			continue;
+		}
 
-	        uint64_t key_size = str_get_next(token, key, token_size, "=", &j);
+	        uint64_t key_size = str_get_next(token, key, token_size + 1, "=", &j);
 
 		uint32_t key_hash = tommy_strhash_u32(0, key);
 		if (!alligator_ht_search(args, http_arg_compare, key, key_hash))
@@ -205,16 +220,24 @@ alligator_ht* http_get_args(char *str, size_t size)
 			http_arg *ha = malloc(sizeof(*ha));
 			ha->key = strdup(key);
 
-			strlcpy(value, token + key_size + 1, token_size - key_size + 1);
+			if (key_size < token_size)
+				strlcpy(value, token + key_size + 1, token_size - key_size + 1);
+			else
+				value[0] = 0;
 			//urldecode(decodeurl, value, args_size);
-			urldecode(decodeurl, value, token_size - key_size);
+			urldecode(decodeurl, value, strlen(value));
 			//printf("decoded is '%s'\n", decodeurl);
 			ha->value = strdup(decodeurl);
 
 			alligator_ht_insert(args, &(ha->node), ha, key_hash);
 			//printf("key '%s', value '%s'\n", ha->key, ha->value);
 		}
+
+		free(key);
+		free(value);
 	}
+	free(token);
+	free(decodeurl);
 
 	return args;
 }

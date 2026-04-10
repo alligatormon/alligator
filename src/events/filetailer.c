@@ -432,6 +432,7 @@ void filetailer_write_state(alligator_ht *hash)
 
 void filestat_restore_v1(char *buf, size_t len)
 {
+	const size_t FILETAILER_RESTORE_FIELD_MAX = 1024;
 	buf += 25;
 	len -= 25;
 
@@ -449,8 +450,9 @@ void filestat_restore_v1(char *buf, size_t len)
 			uint64_t size = strtoull(buf+cur, &tmp, 10);
 			uint64_t t_end = strcspn(buf+cur, "\t") + cur;
 
-			char object[size+1];
-			strlcpy(object, tmp, size+1);
+			char object[FILETAILER_RESTORE_FIELD_MAX];
+			size_t object_copy = size < (sizeof(object) - 1) ? size : (sizeof(object) - 1);
+			strlcpy(object, tmp, object_copy + 1);
 			tmp += size;
 
 			uint64_t valsize = strtoull(tmp, &tmp, 10);
@@ -464,13 +466,14 @@ void filestat_restore_v1(char *buf, size_t len)
 			}
 			else
 			{
-				char value[valsize+1];
-				strlcpy(value, tmp, valsize+1);
+				char value[FILETAILER_RESTORE_FIELD_MAX];
+				size_t value_copy = valsize < (sizeof(value) - 1) ? valsize : (sizeof(value) - 1);
+				strlcpy(value, tmp, value_copy + 1);
 				glog(L_INFO, "filestat_restore_v1:: '%s': '%s'\n", object, value);
 
 				if (!strcmp(object, "key"))
 				{
-					strlcpy(key, value, valsize+1);
+					strlcpy(key, value, sizeof(key));
 				}
 			}
 

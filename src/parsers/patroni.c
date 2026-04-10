@@ -80,10 +80,15 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 		int jsontype = json_typeof(jcluster_unlocked);
 		uint64_t vl;
 		if (jsontype == JSON_TRUE)
+		{
 			vl = 1;
+			metric_add_auto("patroni_cluster_unlocked", &vl, DATATYPE_UINT, carg);
+		}
 		else if (jsontype == JSON_FALSE)
+		{
 			vl = 0;
-		metric_add_auto("patroni_cluster_unlocked", &vl, DATATYPE_UINT, carg);
+			metric_add_auto("patroni_cluster_unlocked", &vl, DATATYPE_UINT, carg);
+		}
 	}
 
 	json_t *jxlog = json_object_get(root, "xlog");
@@ -100,11 +105,9 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *name = json_object_get(jpatroni, "name");
 
 		char *node_name = (char*)json_string_value(name);
-
 		patroni_settings *pset = carg->data;
-		if (!pset || !pset->node_name) {
-			if (!pset->node_name)
-				pset->node_name = strdup(node_name);
+		if (node_name && pset && !pset->node_name) {
+			pset->node_name = strdup(node_name);
 		}
 	}
 
@@ -171,6 +174,8 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *jname = json_object_get(replicate, "name");
 		char *name = (char*)json_string_value(jname);
+		if (!name)
+			continue;
 
 		if (strcmp(name, pset->node_name)) {
 			continue;
@@ -178,6 +183,8 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *jrole = json_object_get(replicate, "role");
 		char *role = (char*)json_string_value(jrole);
+		if (!role)
+			continue;
 		if (!strcmp(role, "leader")) {
 			continue;
 		}
@@ -185,9 +192,13 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *jstate= json_object_get(replicate, "state");
 		char *state = (char*)json_string_value(jstate);
+		if (!state)
+			continue;
 
 		json_t *jhost = json_object_get(replicate, "host");
 		char *host = (char*)json_string_value(jhost);
+		if (!host)
+			continue;
 
 		json_t *jport = json_object_get(replicate, "port");
 		int64_t intport = json_integer_value(jport);

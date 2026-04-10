@@ -38,9 +38,8 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 		cursor = 0;
 		tmp+=10;
 		to = strcspn(tmp, "(");
-		name_size = HAPROXY_NAME_SIZE > to ? to : HAPROXY_NAME_SIZE;
-			strlcpy(name, tmp, name_size);
-		name[name_size] = 0;
+		name_size = HAPROXY_NAME_SIZE > (size_t)to ? (size_t)to : (HAPROXY_NAME_SIZE - 1);
+		strlcpy(name, tmp, name_size + 1);
 
 		to = strcspn(tmp, ":");
 		tmp += to;
@@ -67,7 +66,7 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	
 	cursor = 0;
-	sz = size - (total-tmp);
+	sz = size - (size_t)(total - metrics);
 	
 	allocated = int_get_next(total, sz, ' ', &cursor);
 	metric_add_auto("haproxy_pool_allocated_total", &allocated, DATATYPE_INT, carg);
@@ -98,15 +97,13 @@ void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 	for (i=strcspn(metrics, "\n")+1; i<size; ++i)
 	{
 		to = strcspn(metrics+i, ",") +1;
-		name_size = HAPROXY_NAME_SIZE > to ? to : HAPROXY_NAME_SIZE;
-			strlcpy(name, metrics+i, name_size);
-		name[name_size] = 0;
+		name_size = HAPROXY_NAME_SIZE > (size_t)to ? (size_t)to : (HAPROXY_NAME_SIZE - 1);
+		strlcpy(name, metrics+i, name_size + 1);
 
 		i += to;
 		to = strcspn(metrics+i, ",") +1;
-		svname_size = HAPROXY_NAME_SIZE > to ? to : HAPROXY_NAME_SIZE;
-			strlcpy(svname, metrics+i, svname_size);
-		svname[svname_size] = 0;
+		svname_size = HAPROXY_NAME_SIZE > (size_t)to ? (size_t)to : (HAPROXY_NAME_SIZE - 1);
+		strlcpy(svname, metrics+i, svname_size + 1);
 
 		for (j=0; j<pointer_size; ++j)
 		{

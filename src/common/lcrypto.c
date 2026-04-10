@@ -31,7 +31,8 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			i += strcspn(dn_subject+i, "= ");
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", /");
-			strlcpy(country_name, dn_subject+i, size+1);
+			size_t copy_size = size < (sizeof(country_name) - 1) ? size : (sizeof(country_name) - 1);
+			strlcpy(country_name, dn_subject+i, copy_size + 1);
 			if (ac->log_level > 2)
 				printf("cert: %s, country=%s\n", cert, country_name);
 			labels_hash_insert_nocache(lbl, "country", country_name);
@@ -42,7 +43,8 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			i += strcspn(dn_subject+i, "= ");
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", /");
-			strlcpy(county, dn_subject+i, size+1);
+			size_t copy_size = size < (sizeof(county) - 1) ? size : (sizeof(county) - 1);
+			strlcpy(county, dn_subject+i, copy_size + 1);
 			if (ac->log_level > 2)
 				printf("cert: %s, county=%s\n", cert, county);
 			labels_hash_insert_nocache(lbl, "county", county);
@@ -53,7 +55,8 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			i += strcspn(dn_subject+i, "= ");
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", /");
-			strlcpy(organization_name, dn_subject+i, size+1);
+			size_t copy_size = size < (sizeof(organization_name) - 1) ? size : (sizeof(organization_name) - 1);
+			strlcpy(organization_name, dn_subject+i, copy_size + 1);
 			if (ac->log_level > 2)
 				printf("cert: %s, organization_name=%s\n", cert, organization_name);
 			labels_hash_insert_nocache(lbl, "organization_name", organization_name);
@@ -64,7 +67,8 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			i += strcspn(dn_subject+i, "= ");
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", /");
-			strlcpy(organization_unit, dn_subject+i, size+1);
+			size_t copy_size = size < (sizeof(organization_unit) - 1) ? size : (sizeof(organization_unit) - 1);
+			strlcpy(organization_unit, dn_subject+i, copy_size + 1);
 			if (ac->log_level > 2)
 				printf("cert: %s, organization_unit=%s\n", cert, organization_unit);
 			labels_hash_insert_nocache(lbl, "organization_unit", organization_unit);
@@ -75,7 +79,8 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			i += strcspn(dn_subject+i, "= ");
 			i += strspn(dn_subject+i, "= ");
 			int size = strcspn(dn_subject+i, ", /");
-			strlcpy(common_name, dn_subject+i, size+1);
+			size_t copy_size = size < (sizeof(common_name) - 1) ? size : (sizeof(common_name) - 1);
+			strlcpy(common_name, dn_subject+i, copy_size + 1);
 			if (ac->log_level > 2)
 				printf("cert: %s, common_name=%s\n", cert, common_name);
 			labels_hash_insert_nocache(lbl, "common_name", common_name);

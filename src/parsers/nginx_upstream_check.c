@@ -30,7 +30,10 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		if (carg->log_level > 2)
 		{
 			char str[255];
-			strlcpy(str, metrics+i, strcspn(metrics+i, "\n")+1);
+			size_t n = strcspn(metrics+i, "\n");
+			if (n >= sizeof(str))
+				n = sizeof(str) - 1;
+			strlcpy(str, metrics+i, n + 1);
 			printf("nginx processing string: %"d64" < %zu: '%s'\n", i, size, str);
 		}
 		//++i;
@@ -181,8 +184,13 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 			}
 			else
 			{
-				double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
-				double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
+				double percent_live = 0;
+				double percent_dead = 0;
+				uint64_t total = upstream_counter_live + upstream_counter_dead;
+				if (total) {
+					percent_live = (100.0 * upstream_counter_live) / total;
+					percent_dead = (100.0 * upstream_counter_dead) / total;
+				}
 
 				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
 				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);
@@ -205,8 +213,13 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 			}
 			else
 			{
-				double percent_live = (100.0 * upstream_counter_live) / (upstream_counter_live + upstream_counter_dead);
-				double percent_dead = (100.0 * upstream_counter_dead) / (upstream_counter_live + upstream_counter_dead);
+				double percent_live = 0;
+				double percent_dead = 0;
+				uint64_t total = upstream_counter_live + upstream_counter_dead;
+				if (total) {
+					percent_live = (100.0 * upstream_counter_live) / total;
+					percent_dead = (100.0 * upstream_counter_dead) / total;
+				}
 
 				metric_add_labels("nginx_upstream_upstream_live_count", &upstream_counter_live, DATATYPE_UINT, carg, "upstream", upstream_counter);
 				metric_add_labels("nginx_upstream_upstream_dead_count", &upstream_counter_dead, DATATYPE_UINT, carg, "upstream", upstream_counter);

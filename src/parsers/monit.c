@@ -32,6 +32,8 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 
 	while (tmp++ - metrics < size )
 	{
+		name_size = MONIT_NAME_SIZE;
+		value_size = MONIT_NAME_SIZE;
 		tmp = strstr(tmp, "<name");
 		if (!tmp)
 			return;
@@ -44,13 +46,13 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += end;
 
 		char mname[MONIT_NAME_SIZE];
-		strcpy(mname, "monit_");
+		strlcpy(mname, "monit_", sizeof(mname));
 		while (tmp++ < tmp2)
 		{
 			char node_name[MONIT_NAME_SIZE];
 			char node_value[MONIT_NAME_SIZE];
-			size_t node_name_size;
-			size_t node_value_size;
+			size_t node_name_size = MONIT_NAME_SIZE;
+			size_t node_value_size = MONIT_NAME_SIZE;
 			if (!get_xml_node(tmp, (size - (tmp - metrics)), node_name, &node_name_size, node_value, &node_value_size, &end))
 				return;
 
@@ -96,7 +98,12 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 				if (!get_xml_node(porttmp, (size - (porttmp - metrics)), rawrequest_name, &portsize_1, rawrequest_value, &portsize_2, &portsize_3))
 					return;
-				strlcpy(request, rawrequest_value+9, strcspn(rawrequest_value+9, "]")+1);
+				char *request_ptr = rawrequest_value;
+				if (!strncmp(rawrequest_value, "<![CDATA[", 9))
+					request_ptr = rawrequest_value + 9;
+				size_t request_size = strcspn(request_ptr, "]");
+				size_t request_copy = request_size < (sizeof(request) - 1) ? request_size : (sizeof(request) - 1);
+				strlcpy(request, request_ptr, request_copy + 1);
 
 				porttmp = strstr(tmp, "<protocol>");
 				if (!porttmp)
@@ -178,7 +185,9 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 				metric_add_labels("monit_timestamps_modify", &modify, DATATYPE_UINT, carg, "name", value);
 			}
 
-			strlcpy(mname+6, node_name, node_name_size+1);
+			size_t mname_rem = sizeof(mname) - 6;
+			size_t mname_copy = node_name_size < (mname_rem - 1) ? node_name_size : (mname_rem - 1);
+			strlcpy(mname+6, node_name, mname_copy + 1);
 
 			int rc = metric_value_validator(node_value, node_value_size);
 			if (rc == DATATYPE_INT)

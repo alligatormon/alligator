@@ -25,6 +25,8 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 	if (tmp)
 	{
 		context_end = strstr(tmp, ctx_end);
+		if (!context_end)
+			return;
 		while (tmp++ < context_end)
 		{
 			tmp = strstr(tmp, "<counters");
@@ -44,7 +46,8 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 			tmp += start_type;
 
 			start_type = strcspn(tmp, "\"");
-			strlcpy(type, tmp, start_type+1);
+			size_t type_copy = start_type < (sizeof(type) - 1) ? start_type : (sizeof(type) - 1);
+			strlcpy(type, tmp, type_copy + 1);
 			metric_name_normalizer(type, start_type);
 			tmp += start_type;
 
@@ -61,7 +64,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				//printf("check_counter OK\n");
 
 				//printf("%p < %p: %d\n", check_counters, check_counter, (check_counters < check_counter));
-				if (check_counters < check_counter)
+				if (check_counters && check_counters < check_counter)
 					break;
 				//printf("%d: OK\n", check_counters < check_counter);
 
@@ -76,7 +79,8 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				start_type += strspn(tmp + start_type, "\"");
 				tmp += start_type;
 				start_type = strcspn(tmp, "\"");
-				strlcpy(name, tmp, start_type+1);
+				size_t name_copy = start_type < (sizeof(name) - 1) ? start_type : (sizeof(name) - 1);
+				strlcpy(name, tmp, name_copy + 1);
 				tmp += start_type;
 
 				tmp += strcspn(tmp, "\">");
@@ -146,7 +150,7 @@ void named_get_taskmgr_value(context_arg *carg, char *metrics, char *node_name, 
 void named_get_value(context_arg *carg, char *metrics, char *resource, char *node_name, char *name, char *id, char *ctx_name, char *ctx_end)
 {
 	char *str = strstr(metrics, node_name);
-	if (str)
+	if (str && (!ctx_end || str < ctx_end))
 	{
 		str += strcspn(str, ">");
 		str += strspn(str, ">");
@@ -188,9 +192,14 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 
 			named_counter_metrics(carg, "<udp>", "</udp>", tmp, NULL, "traffic", "udp", ipv, NULL, NULL);
 			named_counter_metrics(carg, "<tcp>", "</tcp>", tmp, &tmp, "traffic", "tcp", ipv, NULL, NULL);
+			free(ipv);
 
-			named_get_object(tmp, &tmp);
-			named_get_object(tmp, &tmp);
+			char *skip1 = named_get_object(tmp, &tmp);
+			if (skip1)
+				free(skip1);
+			char *skip2 = named_get_object(tmp, &tmp);
+			if (skip2)
+				free(skip2);
 		}
 	}
 
@@ -219,7 +228,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 
 			tmp += 6;
 			uint64_t view_name_size = strcspn(tmp, "\"");
-			strlcpy(view_name, tmp, view_name_size+1);
+			size_t view_copy = view_name_size < (sizeof(view_name) - 1) ? view_name_size : (sizeof(view_name) - 1);
+			strlcpy(view_name, tmp, view_copy + 1);
 
 			tmp = strstr(tmp, "<zones>");
 			if (!tmp)
@@ -241,7 +251,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 
 				tmp2 += 6;
 				uint64_t zone_name_size = strcspn(tmp2, "\"");
-				strlcpy(zone_name, tmp2, zone_name_size+1);
+				size_t zone_copy = zone_name_size < (sizeof(zone_name) - 1) ? zone_name_size : (sizeof(zone_name) - 1);
+				strlcpy(zone_name, tmp2, zone_copy + 1);
 
 				named_counter_metrics(carg, "<zone", "</zone>", zone_start, NULL, "zone", NULL, NULL, NULL, zone_name);
 
@@ -259,7 +270,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 					continue;
 
 				uint64_t type_size = strcspn(tmp2, "<");
-				strlcpy(type, tmp2, type_size+1);
+				size_t type_copy = type_size < (sizeof(type) - 1) ? type_size : (sizeof(type) - 1);
+				strlcpy(type, tmp2, type_copy + 1);
 
 				tmp2 = strstr(tmp2, "<serial>");
 				if (!tmp2)
@@ -277,7 +289,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 			}
 
 			char *tmp3 = strstr(view, "<cache");
-			char* cache_end = strstr(tmp3, "</cache>");
+			char* cache_end = tmp3 ? strstr(tmp3, "</cache>") : NULL;
 			if (tmp3 && cache_end)
 			{
 				char cache_name[255];
@@ -292,7 +304,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 					break;
 
 				uint64_t cache_size = strcspn(tmp3, "\"");
-				strlcpy(cache_name, tmp3, cache_size+1);
+				size_t cache_copy = cache_size < (sizeof(cache_name) - 1) ? cache_size : (sizeof(cache_name) - 1);
+				strlcpy(cache_name, tmp3, cache_copy + 1);
 
 				while (tmp3 < cache_end)
 				{
@@ -313,7 +326,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 					}
 
 					uint64_t rrset_size = strcspn(tmp3, "<");
-					strlcpy(rrset_name_str, tmp3, rrset_size+1);
+					size_t rrset_copy = rrset_size < (sizeof(rrset_name_str) - 1) ? rrset_size : (sizeof(rrset_name_str) - 1);
+					strlcpy(rrset_name_str, tmp3, rrset_copy + 1);
 
 					char *rrset_counter = strstr(rrset, "<counter>");
 					if (!rrset_counter)
@@ -413,7 +427,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 				name_ptr += strcspn(name_ptr, ">");
 				name_ptr += strspn(name_ptr, ">");
 				size = strcspn(name_ptr, "<");
-				strlcpy(name, name_ptr, size+1);
+				size_t name_copy = size < (sizeof(name) - 1) ? size : (sizeof(name) - 1);
+				strlcpy(name, name_ptr, name_copy + 1);
 
 				char *id_ptr = strstr(tmp, "<id>");
 				if (!id_ptr)
@@ -421,7 +436,8 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 				id_ptr += strcspn(id_ptr, ">");
 				id_ptr += strspn(id_ptr, ">");
 				size = strcspn(id_ptr, "<");
-				strlcpy(id, id_ptr, size+1);
+				size_t id_copy = size < (sizeof(id) - 1) ? size : (sizeof(id) - 1);
+				strlcpy(id, id_ptr, id_copy + 1);
 
 				named_get_value(carg, tmp, "named_memory_context", "<total>", "total", id, name, ctx_end);
 				named_get_value(carg, tmp, "named_memory_context", "<inuse>", "inuse", id, name, ctx_end);

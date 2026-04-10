@@ -27,11 +27,17 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 
 	json_t *system_diagnostics = json_object_get(root, "systemDiagnostics");
 	if (!system_diagnostics)
+	{
+		json_decref(root);
 		return;
+	}
 
 	json_t *aggregate_snapshot = json_object_get(system_diagnostics, "aggregateSnapshot");
 	if (!aggregate_snapshot)
+	{
+		json_decref(root);
 		return;
+	}
 
 
 	const char *key1;
@@ -53,6 +59,8 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		else if ( json_typeof(value_json1) == JSON_OBJECT )
 		{
 			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
+			if (size1 >= NIFI_METRIC_SIZE - 1)
+				size1 = NIFI_METRIC_SIZE - 2;
 			metricname2[size1++] = '_';
 			const char *key2;
 			json_t *value_json2;
@@ -74,7 +82,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 				if ( json_typeof(value_json2) == JSON_STRING )
 				{
 					char *customkey = (char*)json_string_value(value_json2);
-					if (!strcmp(key2, "utilization"))
+					if (customkey && !strcmp(key2, "utilization"))
 					{
 						double dvalue = atof(customkey);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
@@ -88,6 +96,8 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			size_t arr_sz = json_array_size(value_json1);
 			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
+			if (size1 >= NIFI_METRIC_SIZE - 1)
+				size1 = NIFI_METRIC_SIZE - 2;
 			metricname2[size1++] = '_';
 
 			const char *key2;
@@ -103,6 +113,8 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					continue;
 
 				char *identifier = (char*)json_string_value(identifier_json);
+				if (!identifier)
+					continue;
 
 				json_object_foreach(arr_obj, key2, value_json2)
 				{
@@ -121,7 +133,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					if ( json_typeof(value_json2) == JSON_STRING )
 					{
 						char *customkey = (char*)json_string_value(value_json2);
-						if (!strcmp(key2, "utilization"))
+						if (customkey && !strcmp(key2, "utilization"))
 						{
 							double dvalue = atof(customkey);
 							strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
@@ -135,7 +147,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		if ( json_typeof(value_json1) == JSON_STRING )
 		{
 			char *customkey = (char*)json_string_value(value_json1);
-			if ((!strcmp(key1, "heapUtilization")) || (!strcmp(key1,"nonHeapUtilization")))
+			if (customkey && ((!strcmp(key1, "heapUtilization")) || (!strcmp(key1,"nonHeapUtilization"))))
 			{
 				double dvalue = atof(customkey);
 				if (dvalue < 0)

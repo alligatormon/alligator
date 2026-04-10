@@ -23,7 +23,7 @@ void ipaddr_info() {
 		phys_addr[4] = interface.phys_addr[4];
 		phys_addr[5] = interface.phys_addr[5];
 
-		sprintf(phys, "%02X:%02X:%02X:%02X:%02X:%02X", phys_addr[0], phys_addr[1], phys_addr[2], phys_addr[3], phys_addr[4], phys_addr[5]);
+		snprintf(phys, sizeof(phys), "%02X:%02X:%02X:%02X:%02X:%02X", phys_addr[0], phys_addr[1], phys_addr[2], phys_addr[3], phys_addr[4], phys_addr[5]);
 		//printf("1 %02X:%02X:%02X:%02X:%02X:%02X\n", phys_addr[0], phys_addr[1], phys_addr[2], phys_addr[3], phys_addr[4], phys_addr[5]);
 		//printf("2 %u:%u:%u:%u:%u:%u\n", phys_addr[0], phys_addr[1], phys_addr[2], phys_addr[3], phys_addr[4], phys_addr[5]);
 
@@ -53,7 +53,7 @@ void hw_cpu_info()
 	while (i--)
 	{
 		char socket_num[3];
-		snprintf(socket_num, 2, "%d", i);
+		snprintf(socket_num, sizeof(socket_num), "%d", i);
 		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", cinfo[i].model, "socket", socket_num);
 	}
 	uv_free_cpu_info(cinfo, count);

@@ -403,7 +403,12 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 		root = json_loads(data, 0, &error);
 		if (!root) {
 			json_carglog_if(carg, L_ERROR, "json '%s' error on line %d: %s\n", json_carg_key(carg), error.line, error.text);
-			goto out;
+			if (jq_key_owned) {
+				if (carg && carg->key == jq_key_owned)
+					carg->key = NULL;
+				free(jq_key_owned);
+			}
+			return 0;
 		}
 	}
 
@@ -424,7 +429,6 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 		json_decref(root);
 
 	rc = 1;
-out:
 	if (jq_key_owned) {
 		if (carg && carg->key == jq_key_owned)
 			carg->key = NULL;

@@ -233,7 +233,7 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 	if (carg->period)
 	{
 		json_t *period = json_integer(carg->period);
-		json_array_object_insert(ctx, "follow_redirects", period);
+		json_array_object_insert(ctx, "period", period);
 	}
 
 	if (carg->parser_handler == dns_handler)
@@ -1169,7 +1169,7 @@ void resolver_generate_conf(json_t *dst)
 		json_t *url = json_string(ac->srv_resolver[i]->hi->url);
 		json_array_object_insert(json_data, "url", url);
 
-		json_t *user = json_string(ac->srv_resolver[i]->hi->user);
+		json_t *user = json_string(ac->srv_resolver[i]->hi->user ? ac->srv_resolver[i]->hi->user : "");
 		json_array_object_insert(json_data, "user", user);
 
 		json_t *transport_string = json_string(ac->srv_resolver[i]->hi->transport_string);

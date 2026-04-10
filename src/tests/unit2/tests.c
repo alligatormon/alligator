@@ -423,6 +423,7 @@ int main(int argc, char **argv) {
     test_logs_helpers();
     test_units_human_ranges();
     test_mkdirp_helpers();
+    test_dpkg_list_helpers();
     test_aggregator_helper_paths();
     test_config_global_get_extended();
     test_mask_password_and_parse_url();

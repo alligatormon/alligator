@@ -33,7 +33,9 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		if (carg->log_level > 0)
 		{
 			puts("=========");
-			strlcpy(debug_string, tmp, strcspn(tmp, "\n")+1);
+			size_t dbg_sz = strcspn(tmp, "\n");
+			size_t dbg_copy = dbg_sz < (sizeof(debug_string) - 1) ? dbg_sz : (sizeof(debug_string) - 1);
+			strlcpy(debug_string, tmp, dbg_copy + 1);
 			printf("lighttpd metric '%s', %p\n", debug_string, tmp);
 		}
 
@@ -45,7 +47,8 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		backend[0] = 0;
 
 		sz = strcspn(tmp, ".:");
-		strlcpy(module, tmp, sz+1);
+		size_t module_copy = sz < (sizeof(module) - 1) ? sz : (sizeof(module) - 1);
+		strlcpy(module, tmp, module_copy + 1);
 		labels_hash_insert_nocache(lbl, "module", module);
 
 		carglog(carg, L_INFO, "lighttpd module: '%s', %p, %"u64"\n", module, tmp, sz);
@@ -57,7 +60,8 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			tmp += strspn(tmp, ".:");
 			sz = strcspn(tmp, ".:");
-			strlcpy(type, tmp, sz+1);
+			size_t type_copy = sz < (sizeof(type) - 1) ? sz : (sizeof(type) - 1);
+			strlcpy(type, tmp, type_copy + 1);
 
 			carglog(carg, L_INFO, "lighttpd type: '%s', %p, %"u64"\n", type, tmp, sz);
 
@@ -82,7 +86,8 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 				labels_hash_insert_nocache(lbl, "type", type);
 				tmp += strspn(tmp, ".:");
 				sz = strcspn(tmp, ".:");
-				strlcpy(target, tmp, sz+1);
+				size_t target_copy = sz < (sizeof(target) - 1) ? sz : (sizeof(target) - 1);
+				strlcpy(target, tmp, target_copy + 1);
 
 				carglog(carg, L_INFO, "lighttpd target: '%s', %p, %"u64"\n", target, tmp, sz);
 
@@ -93,7 +98,8 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					tmp += strspn(tmp, ".:");
 					sz = strcspn(tmp, ".:");
-					strlcpy(backend, tmp, sz+1);
+					size_t backend_copy = sz < (sizeof(backend) - 1) ? sz : (sizeof(backend) - 1);
+					strlcpy(backend, tmp, backend_copy + 1);
 
 					carglog(carg, L_INFO, "lighttpd backend: '%s', %p, %"u64"\n", backend, tmp, sz);
 
@@ -112,9 +118,12 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += strspn(tmp, ".:");
 		sz = strcspn(tmp, ".:");
 
-		strlcpy(debug_string, tmp, strcspn(tmp, "\n"));
+		size_t line_dbg_sz = strcspn(tmp, "\n");
+		size_t line_dbg_copy = line_dbg_sz < (sizeof(debug_string) - 1) ? line_dbg_sz : (sizeof(debug_string) - 1);
+		strlcpy(debug_string, tmp, line_dbg_copy + 1);
 
 		if (is_requests) {
+			val = 0;
 			metric_add("lighttpd_requests", lbl, &val, DATATYPE_UINT, carg);
 		}
 		else if (is_active_requests) {
@@ -124,7 +133,9 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		else {
 			carglog(carg, L_DEBUG, "lighttpd get metricname from '%s', %p\n", debug_string, tmp);
 
-			strlcpy(metric_name+9, tmp, sz+1);
+			size_t metric_name_rem = sizeof(metric_name) - 9;
+			size_t metric_copy = sz < (metric_name_rem - 1) ? sz : (metric_name_rem - 1);
+			strlcpy(metric_name+9, tmp, metric_copy + 1);
 			metric_name_normalizer(metric_name, sz);
 			carglog(carg, L_DEBUG, "lighttpd metric_name: '%s', %p, %"u64"\n", metric_name, tmp, sz);
 

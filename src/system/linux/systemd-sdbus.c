@@ -19,14 +19,14 @@ int systemd_get_property(sd_bus *bus, char *property, char *expect, char *path) 
 		property,
 		&err,
 		&msg);
-
-	carglog(ac->system_carg, L_DEBUG, "systemd status returned: '%s', expected: '%s'\n", msg, expect);
 	if (r < 0)
 	{
+		carglog(ac->system_carg, L_DEBUG, "Failed to get %s for service %s. Error: '%s'\n", property, path, err.message ? err.message : "unknown");
 		sd_bus_error_free(&err);
-		carglog(ac->system_carg, L_DEBUG, "Failed to get %s for service %s. Error: '%s'\n", property, path, err.message);
 		return ret;
 	}
+
+	carglog(ac->system_carg, L_DEBUG, "systemd status returned: '%s', expected: '%s'\n", msg, expect);
 
 	sd_bus_error_free(&err);
 

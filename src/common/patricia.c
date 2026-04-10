@@ -41,6 +41,7 @@ char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
 {
 	char *ip = calloc(1, 40);
 	char *cur = ip;
+	size_t remain = 40;
 	if (ip_version == 4)
 	{
 		int8_t blocks = 4;
@@ -52,18 +53,31 @@ char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
 			{
 				number = ipaddr/select_octet;
 				ipaddr -= (ipaddr/select_octet)*select_octet;
-				int syms = sprintf(cur, "%"PRIu8, number);
+				int syms = snprintf(cur, remain, "%"PRIu8, number);
 				if (syms>0)
+				{
 					cur += syms;
+					remain = (remain > (size_t)syms) ? (remain - (size_t)syms) : 1;
+				}
 			}
 			else
 			{
-				strcat(cur++, "0");
+				if (remain > 1)
+				{
+					*cur++ = '0';
+					*cur = 0;
+					--remain;
+				}
 			}
 
 			if (blocks != 0)
 			{
-				strcat(cur++, ".");
+				if (remain > 1)
+				{
+					*cur++ = '.';
+					*cur = 0;
+					--remain;
+				}
 			}
 		}
 	}
@@ -78,18 +92,31 @@ char* integer_to_ip(uint128_t ipaddr, uint8_t ip_version)
 			{
 				number = ipaddr/select_hextet;
 				ipaddr -= (ipaddr/select_hextet)*select_hextet;
-				int syms = sprintf(cur, "%"PRIu16, number);
+				int syms = snprintf(cur, remain, "%"PRIu16, number);
 				if (syms>0)
+				{
 					cur += syms;
+					remain = (remain > (size_t)syms) ? (remain - (size_t)syms) : 1;
+				}
 			}
 			else
 			{
-				strcat(cur++, "0");
+				if (remain > 1)
+				{
+					*cur++ = '0';
+					*cur = 0;
+					--remain;
+				}
 			}
 
 			if (blocks != 0)
 			{
-				strcat(cur++, ":");
+				if (remain > 1)
+				{
+					*cur++ = ':';
+					*cur = 0;
+					--remain;
+				}
 			}
 		}
 	}

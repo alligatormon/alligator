@@ -29,7 +29,8 @@ void dpkg_list(char *str, size_t len)
 		package += strcspn(package, " :");
 		package += strspn(package, " :");
 		sz = strcspn(package, "\n");
-		strlcpy(pkgname, package, sz+1);
+		size_t pkg_copy = sz < (sizeof(pkgname) - 1) ? sz : (sizeof(pkgname) - 1);
+		strlcpy(pkgname, package, pkg_copy + 1);
 
 		int8_t match = 1;
 		if (!match_mapper(ac->packages_match, pkgname, sz, pkgname))
@@ -46,15 +47,18 @@ void dpkg_list(char *str, size_t len)
 
 		if (releasesz > sz)
 		{
-			strlcpy(versionname, version, sz+1);
+			size_t ver_copy = sz < (sizeof(versionname) - 1) ? sz : (sizeof(versionname) - 1);
+			strlcpy(versionname, version, ver_copy + 1);
 			version += strcspn(version, "-");
 			version += strspn(version, "-");
 			sz = strcspn(version, "\n");
-			strlcpy(releasename, version, sz+1);
+			size_t rel_copy = sz < (sizeof(releasename) - 1) ? sz : (sizeof(releasename) - 1);
+			strlcpy(releasename, version, rel_copy + 1);
 		}
 		else
 		{
-			strlcpy(versionname, version, releasesz+1);
+			size_t ver_copy = releasesz < (sizeof(versionname) - 1) ? releasesz : (sizeof(versionname) - 1);
+			strlcpy(versionname, version, ver_copy + 1);
 			*releasename = 0;
 		}
 

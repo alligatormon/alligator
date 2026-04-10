@@ -16,18 +16,30 @@ typedef struct ipmi_data
 	alligator_ht *event_log;
 } ipmi_data;
 
-uint8_t ipmi_set_null_sep(char *name, size_t size)
+static inline void ipmi_copy_field(char *dst, size_t dst_size, const char *src, size_t src_len)
 {
-	uint8_t i = size;
-	while (i--)
-	{
-		if (isspace(name[i]))
-			name[i] = 0;
-		else
-			break;
-	}
+	if (!dst_size)
+		return;
+	if (src_len >= dst_size)
+		src_len = dst_size - 1;
+	memcpy(dst, src, src_len);
+	dst[src_len] = 0;
+}
 
-	return i;
+size_t ipmi_set_null_sep(char *name, size_t size)
+{
+	size_t i = size;
+	while (i > 0)
+	{
+		size_t pos = i - 1;
+		if (isspace((unsigned char)name[pos])) {
+			name[pos] = 0;
+			i = pos;
+			continue;
+		}
+		return pos;
+	}
+	return 0;
 }
 
 int eventlog_node_compare(const void* arg, const void* obj)
@@ -49,7 +61,7 @@ void event_log_for(void *funcarg, void* arg)
 
 // return 0 if success
 // or value for next newline
-uint64_t ipmi_get_double(char *str, uint8_t *retind, double *ret)
+uint64_t ipmi_get_double(char *str, size_t *retind, double *ret)
 {
 	*retind = strcspn(str, "|\n\r");
 	if ((str[0] == '\n') || (str[1] == '\r') || (str[0] == '\0'))
@@ -70,7 +82,7 @@ uint64_t ipmi_get_double(char *str, uint8_t *retind, double *ret)
 
 void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 {
-	uint8_t newind;
+	size_t newind;
 	double cur;
 	double lower_non_recoverable;
 	double lower_critical;
@@ -92,8 +104,8 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(name, metrics+i, newind+1);
-		ipmi_set_null_sep(name, newind);
+		ipmi_copy_field(name, sizeof(name), metrics+i, newind);
+		ipmi_set_null_sep(name, newind < sizeof(name) ? newind : sizeof(name) - 1);
 		if (carg->log_level > 1)
 			printf("name is '%s'\n", name);
 
@@ -101,7 +113,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		i += strspn(metrics+i, " |\t");
 
 		// current
-		uint8_t newline = ipmi_get_double(metrics+i, &newind, &cur);
+		size_t newline = ipmi_get_double(metrics+i, &newind, &cur);
 		if (newline)
 		{
 			i += newline;
@@ -121,8 +133,8 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(measure, metrics+i, newind+1);
-		ipmi_set_null_sep(measure, newind);
+		ipmi_copy_field(measure, sizeof(measure), metrics+i, newind);
+		ipmi_set_null_sep(measure, newind < sizeof(measure) ? newind : sizeof(measure) - 1);
 		if (carg->log_level > 1)
 			printf("\tmeasure is '%s'\n", measure);
 
@@ -138,8 +150,8 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(state, metrics+i, newind+1);
-		ipmi_set_null_sep(state, newind);
+		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
+		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
 		if (carg->log_level > 1)
 			printf("\tstate is '%s'\n", state);
 		uint64_t state_int = 0;
@@ -232,7 +244,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	alligator_ht_init(idata->event_log);
 	
-	uint8_t newind;
+	size_t newind;
 	uint64_t num;
 	char key[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
@@ -267,8 +279,8 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(resource, metrics+i, newind+1);
-		ipmi_set_null_sep(resource, newind);
+		ipmi_copy_field(resource, sizeof(resource), metrics+i, newind);
+		ipmi_set_null_sep(resource, newind < sizeof(resource) ? newind : sizeof(resource) - 1);
 		if (carg->log_level > 1)
 			printf("\tresource is '%s'\n", resource);
 
@@ -283,8 +295,8 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(key, metrics+i, newind+1);
-		ipmi_set_null_sep(key, newind);
+		ipmi_copy_field(key, sizeof(key), metrics+i, newind);
+		ipmi_set_null_sep(key, newind < sizeof(key) ? newind : sizeof(key) - 1);
 		if (carg->log_level > 1)
 			printf("\tkey is '%s'\n", key);
 
@@ -299,8 +311,8 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(state, metrics+i, newind+1);
-		ipmi_set_null_sep(state, newind);
+		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
+		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
 		if (carg->log_level > 1)
 			printf("\tstate is '%s'\n", state);
 
@@ -332,7 +344,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 
 void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 {
-	uint8_t newind;
+	size_t newind;
 	uint64_t val;
 	char name[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
@@ -347,8 +359,8 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(name+5, metrics+i, newind+1);
-		uint8_t newsize = ipmi_set_null_sep(name+5, newind);
+		ipmi_copy_field(name + 5, sizeof(name) - 5, metrics+i, newind);
+		size_t newsize = ipmi_set_null_sep(name + 5, newind < (sizeof(name) - 5) ? newind : (sizeof(name) - 6));
 		metric_name_normalizer(name+5, newsize);
 		if (carg->log_level > 1)
 			printf("name is '%s'\n", name);
@@ -364,8 +376,8 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(state, metrics+i, newind+1);
-		ipmi_set_null_sep(state, newind);
+		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
+		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
 		if (carg->log_level > 1)
 			printf("\tstate is '%s'\n", state);
 		if (!strcmp(state, "on") || !strcmp(state, "true"))
@@ -391,7 +403,7 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 
 void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 {
-	uint8_t newind;
+	size_t newind;
 	double dval;
 	uint64_t val;
 	char name[IPMI_METRIC_SIZE];
@@ -417,8 +429,8 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 			i += 2;
 		}
 
-		strlcpy(name+5, metrics+i, newind+1);
-		uint8_t newsize = ipmi_set_null_sep(name+5, newind);
+		ipmi_copy_field(name + 5, sizeof(name) - 5, metrics+i, newind);
+		size_t newsize = ipmi_set_null_sep(name + 5, newind < (sizeof(name) - 5) ? newind : (sizeof(name) - 6));
 		metric_name_normalizer(name+5, newsize);
 		if (carg->log_level > 1)
 			printf("name is '%s'\n", name);
@@ -468,7 +480,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 
 void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 {
-	uint8_t newind;
+	size_t newind;
 	uint64_t val = 1;
 	char name[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
@@ -485,8 +497,8 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(name, metrics+i, newind+1);
-		ipmi_set_null_sep(name, newind);
+		ipmi_copy_field(name, sizeof(name), metrics+i, newind);
+		ipmi_set_null_sep(name, newind < sizeof(name) ? newind : sizeof(name) - 1);
 		i += newind;
 		i += strspn(metrics+i, " :\t");
 
@@ -501,8 +513,8 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		strlcpy(state, metrics+i, newind+1);
-		ipmi_set_null_sep(state, newind);
+		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
+		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
 		if (carg->log_level > 1)
 			printf("\tstate is '%s'\n", state);
 
@@ -531,7 +543,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 
 void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *carg)
 {
-	uint8_t newind;
+	size_t newind;
 	uint64_t val = 1;
 	char name[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
@@ -548,8 +560,8 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 
 		i += strspn(metrics + i, " \t");
 
-		strlcpy(name, metrics+i, newind+1);
-		ipmi_set_null_sep(name, newind);
+		ipmi_copy_field(name, sizeof(name), metrics+i, newind);
+		ipmi_set_null_sep(name, newind < sizeof(name) ? newind : sizeof(name) - 1);
 		i += newind;
 		i += strspn(metrics+i, " :\t");
 
@@ -565,8 +577,8 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 			continue;
 		}
 
-		strlcpy(state, metrics+i, newind+1);
-		ipmi_set_null_sep(state, newind);
+		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
+		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
 		if (carg->log_level > 1)
 			printf("\tstate is '%s'\n", state);
 

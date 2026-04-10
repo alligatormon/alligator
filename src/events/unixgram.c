@@ -82,7 +82,7 @@ void do_unixgram(void *arg)
 	socklen_t remote_len = sizeof(struct sockaddr_un);
 	struct sockaddr_un *remote = calloc(1, remote_len);
 	remote->sun_family = AF_UNIX;
-	strcpy(remote->sun_path, carg->key);
+	strlcpy(remote->sun_path, carg->key, sizeof(remote->sun_path));
 	carg->remote_len = remote_len;
 	carg->remote = remote;
 
@@ -212,7 +212,7 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	size_t local_len = sizeof(struct sockaddr_un);
 	struct sockaddr_un *local = calloc(1, local_len);
 	local->sun_family = AF_UNIX;
-	strcpy(local->sun_path, addr);
+	strlcpy(local->sun_path, addr, sizeof(local->sun_path));
 	unlink(local->sun_path);
 	if (bind(s, (struct sockaddr *)local, local_len) == -1)
 	{

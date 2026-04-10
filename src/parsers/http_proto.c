@@ -64,6 +64,9 @@ void http_reply_data_free(http_reply_data* http)
 
 http_reply_data* http_reply_parser(char *http, ssize_t n)
 {
+	if (!http || n <= 0)
+		return NULL;
+
 	//printf("============== parse body(%zd) ==============\n'%s'\n", n, http);
 	int http_version;
 	int http_code;
@@ -103,25 +106,31 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	while ( cur && ((*cur == ' ') || (*cur == '\t')) )
 		cur++;
 
-	sz = strcspn(cur, "\r\n\0");
+	size_t rem = (size_t)n - (size_t)(cur - http);
+	char *line_end = memchr(cur, '\n', rem);
+	sz = line_end ? (size_t)(line_end - cur) : rem;
+	if (sz && cur[sz - 1] == '\r')
+		sz--;
 	mesg = strndup(cur, sz);
 
-	cur += sz+1;
+	cur += sz;
+	if (cur < http + n && *cur == '\r')
+		cur++;
 	if (cur && *cur == '\n')
 		cur++;
 
 	char *tmp;
-	tmp = strstr(cur, "\r\n\r\n");
+	rem = (size_t)n - (size_t)(cur - http);
+	tmp = memmem(cur, rem, "\r\n\r\n", 4);
 	old_style_newline = 4;
 	if (!tmp)
 	{
-		tmp = strstr(cur, "\n\n");
+		tmp = memmem(cur, rem, "\n\n", 2);
 		old_style_newline = 2;
 		if (!tmp)
 		{
-			//printf("3DO NOT HTTP RESPONSE: '%s'\nCUR\n'%s'\n", http, cur);
-			//return NULL;
-			tmp = http + n - 4;
+			tmp = http + n;
+			old_style_newline = 0;
 		}
 	}
 
@@ -251,19 +260,19 @@ void http_get_auth_data(http_reply_data *hr_data, char *auth_header)
 		{
 			ptr += strcspn(ptr, " \t");
 			ptr += strspn(ptr, " \t");
-			uint8_t size = strcspn(ptr, "\r\n");
+			size_t size = strcspn(ptr, "\r\n");
 			hr_data->auth_basic = strndup(ptr, size);
 		}
 		else if (!strncasecmp(ptr, "Bearer", 6))
 		{
 			ptr += strcspn(ptr, " \t");
 			ptr += strspn(ptr, " \t");
-			uint8_t size = strcspn(ptr, "\r\n");
+			size_t size = strcspn(ptr, "\r\n");
 			hr_data->auth_bearer = strndup(ptr, size);
 		}
 		else
 		{
-			uint8_t size = strcspn(ptr, "\r\n");
+			size_t size = strcspn(ptr, "\r\n");
 			hr_data->auth_other = strndup(ptr, size);
 		}
 	}
@@ -288,10 +297,12 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		if (*hrdata->location == '/')
 		{
 			char *tmp = strstr(carg->url, "://");
+			if (!tmp)
+				return;
 			tmp += strspn(tmp, "/");
 			tmp += strcspn(tmp, "/");
 			size_t url_len = tmp - carg->url;
-			size_t location_len = url_len + strlen(hrdata->location + 1);
+			size_t location_len = url_len + strlen(hrdata->location) + 1;
 			location = malloc(location_len);
 			strlcpy(location, carg->host, url_len + 1);
 			strlcpy(location + url_len, hrdata->location, location_len - url_len);
@@ -397,7 +408,11 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 
 	for (i=skip; i<size && buf[i]==' '; i++); // skip spaces after GET
 
-	size_t uri_size = ret->uri_size = strcspn(buf+i, " \t\r\n");
+	size_t uri_size = 0;
+	while ((i + uri_size) < size && buf[i + uri_size] != ' ' && buf[i + uri_size] != '\t' &&
+	       buf[i + uri_size] != '\r' && buf[i + uri_size] != '\n')
+		uri_size++;
+	ret->uri_size = uri_size;
 	ret->uri = strndup(buf+i, uri_size);
 
 	for (i = i + uri_size + 1; i<size && buf[i]==' '; i++); // skip spaces after URI
@@ -417,11 +432,12 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 
 	i+= skip;
 	uint8_t nn_size = 4;
-	ret->body = strstr(buf+i, "\r\n\r\n");
+	size_t hdr_rem = (size_t)(size - i);
+	ret->body = memmem(buf + i, hdr_rem, "\r\n\r\n", 4);
 	if (!ret->body)
 	{
 		nn_size = 2;
-		ret->body = strstr(buf+i, "\n\n");
+		ret->body = memmem(buf + i, hdr_rem, "\n\n", 2);
 	}
 
 	if (!ret->body)

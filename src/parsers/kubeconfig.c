@@ -48,7 +48,8 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 			size_t outlen;
 			char *cert_decoded = base64_decode(cert, json_string_length(client_certificate_data), &outlen);
 			//printf("decoded cert is %s\n", cert_decoded);
-			libcrypto_pem_check_cert(cert_decoded, outlen-1, NULL, (char*)carg->filename);
+			if (outlen)
+				libcrypto_pem_check_cert(cert_decoded, outlen - 1, NULL, (char*)carg->filename);
 
 			free(cert_decoded);
 		}
@@ -61,6 +62,7 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 				printf("> found client-certificate path: %s\n", cert_path);
 			char *filename = strdup(cert_path);
 			read_from_file(filename, 0, libcrypto_pem_check_cert, NULL);
+			free(filename);
 		}
 	}
 

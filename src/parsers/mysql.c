@@ -106,7 +106,8 @@ static void mysql_db_list_cb(mysql_row_t *row, void *ud)
 
 	if (st->count == st->cap) {
 		st->cap = st->cap ? st->cap * 2 : 8;
-		st->dbs = realloc(st->dbs, st->cap * sizeof(char*));
+		char **dbs = realloc(st->dbs, st->cap * sizeof(char*));
+		st->dbs = dbs;
 	}
 
 	uint64_t len = row->lengths[0];

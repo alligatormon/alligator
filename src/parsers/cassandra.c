@@ -236,7 +236,8 @@ static void cassandra_db_list_cb(cassandra_row_t *row, void *ud) {
 		return;
 	if (st->count == st->cap) {
 		st->cap = st->cap ? st->cap * 2 : 8;
-		st->dbs = realloc(st->dbs, st->cap * sizeof(char*));
+		char **dbs = realloc(st->dbs, st->cap * sizeof(char*));
+		st->dbs = dbs;
 	}
 	st->dbs[st->count++] = strndup((const char*)row->fields[0], row->lengths[0]);
 }

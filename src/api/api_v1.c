@@ -1288,7 +1288,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					//free env
-					env_free(env);
+					if (env)
+						env_free(env);
 
 					//free hi
 					url_free(hi);

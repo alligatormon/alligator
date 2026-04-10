@@ -33,7 +33,9 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		len = strcspn(metrics+i, " =");
 		dotlen = strcspn(metrics+i, ". =");
 
-		strlcpy(name+6, metrics+i, dotlen+1);
+		size_t name_rem = sizeof(name) - 6;
+		size_t name_copy = dotlen < (name_rem - 1) ? dotlen : (name_rem - 1);
+		strlcpy(name+6, metrics+i, name_copy + 1);
 		//size_t name_len = 6 + dotlen;
 		i += dotlen;
 
@@ -53,7 +55,8 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 				break;
 			}
 
-			strlcpy(label_key, metrics+i, dotlen+1);
+			size_t key_copy = dotlen < (sizeof(label_key) - 1) ? dotlen : (sizeof(label_key) - 1);
+			strlcpy(label_key, metrics+i, key_copy + 1);
 			if (strstr(label_key, "bytes") || strstr(label_key, "sent") || strstr(label_key, "recv") || strstr(label_key, "errors") || strstr(label_key, "requests") || strstr(label_key, "hits"))
 			{
 				if (!lbl)
@@ -74,8 +77,15 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 			}
 			else
 			{
-				strcat(name, "_");
-				strcat(name, label_key);
+				size_t used = strlen(name);
+				if (used < sizeof(name) - 1)
+				{
+					name[used++] = '_';
+					name[used] = 0;
+				}
+				size_t rem = sizeof(name) - used;
+				if (rem > 1)
+					strlcpy(name + used, label_key, rem);
 				//printf("NO:'(%"u64"+%"u64"/%"u64")%s', ", j, dotlen, len, label_key);
 			}
 			i += dotlen;
@@ -86,7 +96,8 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		i += strspn(metrics+i, " =");
 
 		len = strcspn(metrics+i, "\n");
-		strlcpy(value, metrics+i, len+1);
+		size_t value_copy = len < (sizeof(value) - 1) ? len : (sizeof(value) - 1);
+		strlcpy(value, metrics+i, value_copy + 1);
 
 		if (strstr(value, "."))
 		{
@@ -221,7 +232,8 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		tmp += 3;
 		tmp += strspn(tmp, " \t\r\n");
 		copy_size = strcspn(tmp, " \t\r\n");
-		strlcpy(pool, tmp, copy_size+1);
+		size_t pool_copy = copy_size < (sizeof(pool) - 1) ? copy_size : (sizeof(pool) - 1);
+		strlcpy(pool, tmp, pool_copy + 1);
 
 		//printf("kid: %s/%"PRIu64": %p\n", pool, copy_size, tmp);
 
@@ -300,12 +312,14 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			tmp2 += strspn(tmp2, " \t:");
 
 			uint64_t sep = strcspn(tmp2, "/");
-			strlcpy(endpoint, tmp2, sep+1);
+			size_t endpoint_copy = sep < (sizeof(endpoint) - 1) ? sep : (sizeof(endpoint) - 1);
+			strlcpy(endpoint, tmp2, endpoint_copy + 1);
 			sep += strspn(tmp2+sep, "/");
 
 			tmp2 += sep;
 			sep = strcspn(tmp2, "\r\n \t");
-			strlcpy(hostname, tmp2, sep+1);
+			size_t hostname_copy = sep < (sizeof(hostname) - 1) ? sep : (sizeof(hostname) - 1);
+			strlcpy(hostname, tmp2, hostname_copy + 1);
 			sep = strspn(tmp2+sep, "\r\n \t");
 
 			squid_pconn_reqconn *pconn = alligator_ht_search(hash, squid_pconn_compare, &key, key);
@@ -366,7 +380,8 @@ void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		str_sz = strcspn(tmp+i, "\n");
 		obj_sz = strcspn(tmp+i, "\t");
-		strlcpy(pool, tmp+i, obj_sz+1);
+		size_t pool_copy = obj_sz < (sizeof(pool) - 1) ? obj_sz : (sizeof(pool) - 1);
+		strlcpy(pool, tmp+i, pool_copy + 1);
 
 		carglog(carg, L_TRACE, "squid pool '%s'\n", pool);
 
@@ -378,7 +393,8 @@ void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
 		for (k = 0, j = obj_sz; j < str_sz; j++, k++)
 		{
 			obj_sz = strcspn(tmp+i+j, "\t\n");
-			strlcpy(obj, tmp+i+j, obj_sz+1);
+			size_t obj_copy = obj_sz < (sizeof(obj) - 1) ? obj_sz : (sizeof(obj) - 1);
+			strlcpy(obj, tmp+i+j, obj_copy + 1);
 			carglog(carg, L_TRACE, "\tsquid pool '%s', object: '%s'[%zu]:'%s'\n", pool, objname[k], k, obj);
 			j += obj_sz;
 			j += strspn(tmp+i+j, "\t\n");
@@ -416,7 +432,8 @@ void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *
 			pool += strcspn(pool, " \t");
 			pool += strspn(pool, " \t");
 			size_t pool_size = strcspn(pool, " \t\n\r");
-			strlcpy(pool_str, pool, pool_size+1);
+			size_t pool_copy = pool_size < (sizeof(pool_str) - 1) ? pool_size : (sizeof(pool_str) - 1);
+			strlcpy(pool_str, pool, pool_copy + 1);
 			carglog(carg, L_TRACE, "\tsquid_comm_epoll_incoming_loops '%s', loop %"u64"\n", pool_str, loops_uint);
 			metric_add_labels("squid_comm_epoll_incoming_loops", &loops_uint, DATATYPE_UINT, carg, "pool", pool_str);
 		}
@@ -459,7 +476,8 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 	for (i = 0; i < size; i++)
 	{
 		pool_size = strcspn(tmp, " \r\n\t");
-		strlcpy(pool, tmp, pool_size+1);
+		size_t pool_copy = pool_size < (sizeof(pool) - 1) ? pool_size : (sizeof(pool) - 1);
+		strlcpy(pool, tmp, pool_copy + 1);
 		carglog(carg, L_TRACE, "squid pool '%s'\n", pool);
 
 		tmp = strstr(tmp, "Status");
@@ -530,7 +548,8 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += strcspn(tmp, " \t");
 		tmp += strspn(tmp, " \t");
 		tmp_size = strcspn(tmp, " \t\r\n{");
-		strlcpy(pool, tmp, tmp_size+1);
+		size_t pool_copy = tmp_size < (sizeof(pool) - 1) ? tmp_size : (sizeof(pool) - 1);
+		strlcpy(pool, tmp, pool_copy + 1);
 
 		tmp = strstr(tmp, "FQDNcache Entries In Use:");
 		if (!tmp)

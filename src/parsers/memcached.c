@@ -31,7 +31,8 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 
-		strlcpy(metricname, metrics + cur, copysize + 1);
+		size_t metricname_copy = copysize < (sizeof(metricname) - 1) ? copysize : (sizeof(metricname) - 1);
+		strlcpy(metricname, metrics + cur, metricname_copy + 1);
 		carglog(carg, L_INFO, "metric name is %s\n", metricname);
 
 		metric_name_normalizer(metricname, copysize);
@@ -48,7 +49,8 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
-		strlcpy(metricvalue, metrics + cur, copysize + 1);
+		size_t metricvalue_copy = copysize < (sizeof(metricvalue) - 1) ? copysize : (sizeof(metricvalue) - 1);
+		strlcpy(metricvalue, metrics + cur, metricvalue_copy + 1);
 		carglog(carg, L_INFO, "metric value is %s\n", metricvalue);
 
 		if (metric_value_validator(metricvalue, copysize-1))
@@ -84,7 +86,8 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	{
 		i += strspn(qn->expr + i, " \t");
 		uint64_t endfield = strcspn(qn->expr + i, " \t");
-		strlcpy(pattern[j], qn->expr + i, endfield + 1);
+		size_t pattern_copy = endfield < (sizeof(pattern[j]) - 1) ? endfield : (sizeof(pattern[j]) - 1);
+		strlcpy(pattern[j], qn->expr + i, pattern_copy + 1);
 
 		i += endfield;
 		i += strspn(qn->expr + i, " \t");
@@ -97,14 +100,16 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 		uint64_t endline = strcspn(metrics + i, "\r\n");
 		uint64_t cur = i;
 
-		strlcpy(field, metrics + cur, endline + 1);
+		size_t field_copy = endline < (sizeof(field) - 1) ? endline : (sizeof(field) - 1);
+		strlcpy(field, metrics + cur, field_copy + 1);
 		// ITEM third_metric
 		if (!strncmp(field, "ITEM", 4))
 		{
 			carglog(carg, L_INFO, "memcached_dumo is item");
 
 			copysize = strcspn(field + 5, " \t\n");
-			strlcpy(metric, field + 5, copysize + 1);
+			size_t metric_copy = copysize < (sizeof(metric) - 1) ? copysize : (sizeof(metric) - 1);
+			strlcpy(metric, field + 5, metric_copy + 1);
 			for (uint64_t j = 0; j < pattern_size; j++)
 			{
 				if (!fnmatch(pattern[j], metric, 0))
@@ -145,7 +150,8 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 		uint64_t endline = strcspn(metrics + i, "\r\n");
 		uint64_t cur = i;
 
-		strlcpy(field, metrics + cur, endline + 1);
+		size_t field_copy = endline < (sizeof(field) - 1) ? endline : (sizeof(field) - 1);
+		strlcpy(field, metrics + cur, field_copy + 1);
 		char *number_str = NULL;
 		if ((number_str = strstr(field, ":number")))
 		{
@@ -205,7 +211,9 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 
 	char *key = malloc(255);
 	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
-	key[strlen(key) - 1] = 0;
+	size_t key_len = strlen(key);
+	if (key_len)
+		key[key_len - 1] = 0;
 
 	try_again(carg, write_comm, writelen, func, funcname, NULL, key, data);
 }
@@ -214,7 +222,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *cur = metrics;
 	char name[MC_NAME_SIZE+10];
-	strcpy(name, "memcached_");
+	strlcpy(name, "memcached_", sizeof(name));
 	uint64_t name_size;
 	uint64_t msize;
 

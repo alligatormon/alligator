@@ -41,7 +41,10 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 		if (carg->log_level > 3)
 		{
 			char str[255];
-			strlcpy(str, metrics+i, strcspn(metrics+i, "\n")+1);
+			size_t n = strcspn(metrics+i, "\n");
+			if (n >= sizeof(str))
+				n = sizeof(str) - 1;
+			strlcpy(str, metrics+i, n + 1);
 			printf("wazuh processing string: %"d64" < %zu: '%s'\n", i, size, str);
 		}
 
@@ -60,13 +63,16 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 		}
 
 		size_t metric_size = strcspn(metrics+i, "=' ");
-		strlcpy(metric_name + metric_len, metrics+i, metric_size+1);
+		size_t metric_name_rem = sizeof(metric_name) - metric_len;
+		size_t metric_copy = metric_size < (metric_name_rem - 1) ? metric_size : (metric_name_rem - 1);
+		strlcpy(metric_name + metric_len, metrics+i, metric_copy + 1);
 
 		i += metric_size;
 		i += strspn(metrics+i, "=' ");
 		char metric_value[WAZUH_SIZE];
 		size_t value_size = strcspn(metrics+i, "\n");
-		strlcpy(metric_value, metrics+i, value_size+1);
+		size_t value_copy = value_size < (sizeof(metric_value) - 1) ? value_size : (sizeof(metric_value) - 1);
+		strlcpy(metric_value, metrics+i, value_copy + 1);
 		carglog(carg, L_INFO, "got metric name '%s' = '%s'\n", metric_name, metric_value);
 
 		struct tm tm = {0};

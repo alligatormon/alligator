@@ -19,35 +19,37 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 	char metric_name[NVIDIA_SMI_MAX_LEN];
 	size_t metric_prefix_len = strlen(NVIDIA_SMI_METRIC_PREFIX);
 	strcpy(metric_name, NVIDIA_SMI_METRIC_PREFIX);
-	char columns[255][NVIDIA_SMI_MAX_LEN];
+	char columns[255][NVIDIA_SMI_MAX_LEN] = {{0}};
 	for (uint64_t i = 0; row - metrics < size; ++i) {
 		char gpu_name[NVIDIA_SMI_MAX_LEN] = {0};
 		char gpu_uuid[NVIDIA_SMI_MAX_LEN] = {0};
 		char gpu_serial[NVIDIA_SMI_MAX_LEN] = {0};
 		char dict[NVIDIA_SMI_WIDE_LEN];
 
-		int row_size = strcspn(row, "\n");
-		strlcpy(dict, row, row_size+1);
+		size_t row_size = strcspn(row, "\n");
+		size_t row_copy = row_size < (sizeof(dict) - 1) ? row_size : (sizeof(dict) - 1);
+		strlcpy(dict, row, row_copy + 1);
 		carglog(carg, L_INFO, "nvidia-smi row is '%s'(%zu)\n", dict, row_size);
 		char *field = dict;
-		for (uint64_t j = 0; (field - dict < row_size) && (row_size != 0); ++j) {
+		for (uint64_t j = 0; (field - dict < row_copy) && (row_copy != 0) && (j < 255); ++j) {
 			char str[NVIDIA_SMI_MAX_LEN];
-			int field_size = strcspn(field, ",");
-			strlcpy(str, field, field_size+1);
+			size_t field_size = strcspn(field, ",");
+			size_t field_copy = field_size < (sizeof(str) - 1) ? field_size : (sizeof(str) - 1);
+			strlcpy(str, field, field_copy + 1);
 			carglog(carg, L_DEBUG, "parsed str is '%s' (%zu)\n", str, field_size);
 			if (!i) {
 				char *extrasym = strstr(str, " [");
 				if (extrasym)
 					extrasym[0] = 0;
-				strcpy(columns[j], str);
+				strlcpy(columns[j], str, sizeof(columns[j]));
 			}
 			else if (strcmp(str, "[N/A]") && strcmp(str, "N/A")) {
 				if (!strcmp(columns[j], "uuid"))
-					strcpy(gpu_uuid, str);
+					strlcpy(gpu_uuid, str, sizeof(gpu_uuid));
 				else if (!strcmp(columns[j], "name"))
-					strcpy(gpu_name, str);
+					strlcpy(gpu_name, str, sizeof(gpu_name));
 				else if (!strcmp(columns[j], "serial"))
-					strcpy(gpu_serial, str);
+					strlcpy(gpu_serial, str, sizeof(gpu_serial));
 				else if (!strcmp(columns[j], "timestamp")) {}
 				else if (!strcmp(columns[j], "pci.device_id")) {}
 				else if (!strcmp(columns[j], "pci.device")) {}
@@ -58,35 +60,35 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 				else if (!strcmp(columns[j], "pci.bus")) {}
 				else if (strstr(columns[j], "reasons")) {}
 				else if (!strcmp(columns[j], "vbios_version")) {
-					strcpy(metric_name + metric_prefix_len, columns[j]);
+					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
 					metric_add_labels4(metric_name, &val, DATATYPE_UINT, carg, "name", gpu_name, "uuid", gpu_uuid, "serial", gpu_serial, "version", str);
 				}
 				else if (!strcmp(columns[j], "driver_version")) {
-					strcpy(metric_name + metric_prefix_len, columns[j]);
+					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
 					metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "version", str);
 				}
 				else if (!strcmp(columns[j], "pstate")) {
-					strcpy(metric_name + metric_prefix_len, columns[j]);
+					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
 					metric_add_labels4(metric_name, &val, DATATYPE_UINT, carg, "name", gpu_name, "uuid", gpu_uuid, "serial", gpu_serial, "pstate", str);
 				}
 				else if (!strcmp(columns[j], "count")) {
-					strcpy(metric_name + metric_prefix_len, columns[j]);
+					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					uint64_t val = strtoull(str, NULL, 10);
 					metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 				}
 				else {
 					carglog(carg, L_DEBUG, "[%lu/%lu/%s]: '%s'\n", i, j, columns[j], str);
-					strcpy(metric_name + metric_prefix_len, columns[j]);
+					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					double value;
 					if (strstr(str, "Disabled"))
@@ -100,24 +102,24 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 
 					if (strstr(str, "KiB")) {
 						value *= 1024;
-						strcat(metric_name, "_bytes");
+						strlcat(metric_name, "_bytes", sizeof(metric_name));
 					}
 					else if (strstr(str, "MiB")) {
 						value *= 1024 * 1024;
-						strcat(metric_name, "_bytes");
+						strlcat(metric_name, "_bytes", sizeof(metric_name));
 					}
 					else if (strstr(str, "GiB")) {
 						value *= 1024 * 1024 * 1024;
-						strcat(metric_name, "_bytes");
+						strlcat(metric_name, "_bytes", sizeof(metric_name));
 					}
 					else if (strstr(str, " W")) {
-						strcat(metric_name, "_watt");
+						strlcat(metric_name, "_watt", sizeof(metric_name));
 					}
 					else if (strstr(str, " %")) {
-						strcat(metric_name, "_percent");
+						strlcat(metric_name, "_percent", sizeof(metric_name));
 					}
 					else if (strstr(str, " MHz")) {
-						strcat(metric_name, "_mhz");
+						strlcat(metric_name, "_mhz", sizeof(metric_name));
 					}
 
 					//printf("metric '%s' value is '%s' -> %lf\n", metric_name, str, value);

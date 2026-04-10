@@ -18,7 +18,8 @@ void beanstalkd_handler(char *metrics, size_t size, context_arg *carg)
 	tmp += strcspn(tmp, "\n");
 	tmp += strspn(tmp, "\n");
 	
-	plain_parse(tmp, size, ": ", "\n", "beanstalkd_", 11, carg);
+	size_t parsed_size = size > (size_t)(tmp - metrics) ? size - (size_t)(tmp - metrics) : 0;
+	plain_parse(tmp, parsed_size, ": ", "\n", "beanstalkd_", 11, carg);
 	carg->parser_status = 1;
 }
 
@@ -65,7 +66,9 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	tmp += strspn(tmp, " :");
 	char tube_name[255];
 	uint64_t tube_name_len = strcspn(tmp, "\r\n");
-	strlcpy(tube_name, tmp, tube_name_len + 1);
+	size_t tube_copy = tube_name_len < sizeof(tube_name) ? tube_name_len : sizeof(tube_name) - 1;
+	memcpy(tube_name, tmp, tube_copy);
+	tube_name[tube_copy] = 0;
 	metric_label_value_validator_normalizer(tube_name, tube_name_len);
 	tmp += tube_name_len;
 	tmp += strcspn(tmp, "\r\n");
@@ -75,7 +78,10 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	strlcpy(metric_name, "beanstalkd_stats_tube_", 254);
 	while (*tmp) {
 		uint64_t metric_name_len = strcspn(tmp, " :\t");
-		strlcpy(metric_name + 22, tmp, metric_name_len + 1);
+		size_t tail_cap = sizeof(metric_name) - 22;
+		size_t metric_copy = metric_name_len < tail_cap ? metric_name_len : tail_cap - 1;
+		memcpy(metric_name + 22, tmp, metric_copy);
+		metric_name[22 + metric_copy] = 0;
 		metric_name_normalizer(metric_name, metric_name_len + 21);
 		tmp += metric_name_len;
 		tmp += strspn(tmp, " :\t");
@@ -124,7 +130,9 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 		}
 		char tube_name[255];
 		uint64_t tube_name_len = strcspn(tmp, "\r\n");
-		strlcpy(tube_name, tmp, tube_name_len + 1);
+		size_t tube_copy = tube_name_len < sizeof(tube_name) ? tube_name_len : sizeof(tube_name) - 1;
+		memcpy(tube_name, tmp, tube_copy);
+		tube_name[tube_copy] = 0;
 		tmp += tube_name_len;
 		tmp += strspn(tmp, "\r\n");
 

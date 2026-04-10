@@ -97,6 +97,8 @@ int match_and_extract(const char *pattern, const char *str, char *fields[], int 
 
     strncpy(pat, pattern, sizeof(pat));
     strncpy(txt, str, sizeof(txt));
+    pat[sizeof(pat) - 1] = 0;
+    txt[sizeof(txt) - 1] = 0;
 
     char *pat_ctx;
     char *str_ctx;
@@ -110,6 +112,8 @@ int match_and_extract(const char *pattern, const char *str, char *fields[], int 
     {
         if (strcmp(p, "*") == 0)
         {
+            if (*field_count >= MAPPING_MAX_EXTRACT_FIELDS)
+                return 0;
             fields[*field_count] = s;
             (*field_count)++;
         }
@@ -126,12 +130,17 @@ int match_and_extract(const char *pattern, const char *str, char *fields[], int 
     return (!p && !s);
 }
 
-void template_render(const char *template, char *fields[], int field_count, char *output)
+void template_render(const char *template, char *fields[], int field_count, char *output, size_t output_size)
 {
+	if (!output || !output_size) {
+		return;
+	}
+
     const char *t = template;
     char *o = output;
+    char *oend = output + output_size - 1;
 
-    while (*t)
+    while (*t && o < oend)
     {
         if (*t == '$')
         {
@@ -164,12 +173,14 @@ void template_render(const char *template, char *fields[], int field_count, char
             if (index >= 0 && index < field_count)
             {
                 const char *f = fields[index];
-                while (*f)
+                while (*f && o < oend)
                     *o++ = *f++;
             }
         }
         else
         {
+            if (o >= oend)
+                break;
             *o++ = *t++;
         }
     }

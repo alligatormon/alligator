@@ -24,6 +24,15 @@ int elasticsearch_check_for_error(context_arg *carg, json_t *root) {
 	return 1;
 }
 
+static inline size_t es_copy_bytes(size_t buf_size, size_t offset, size_t src_len)
+{
+	if (offset >= buf_size)
+		return 0;
+	size_t rem = buf_size - offset;
+	size_t copy = src_len < (rem - 1) ? src_len : (rem - 1);
+	return copy + 1;
+}
+
 void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_error_t error;
@@ -36,6 +45,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 	int err = elasticsearch_check_for_error(carg, root);
 	if (err) {
+		json_decref(root);
 		return;
 	}
 
@@ -90,10 +100,14 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(copy_key, node_key, 255);
 			metric_name_normalizer(copy_key, stringlen2);
 
-			strlcpy(string2+14, copy_key, stringlen2+1);
-			strlcpy(string3+14, copy_key, stringlen2+1);
-			strlcpy(string4+14, copy_key, stringlen2+1);
-			strlcpy(string5+14, copy_key, stringlen2+1);
+			size_t copy2 = es_copy_bytes(sizeof(string2), 14, stringlen2);
+			size_t copy3 = es_copy_bytes(sizeof(string3), 14, stringlen2);
+			size_t copy4 = es_copy_bytes(sizeof(string4), 14, stringlen2);
+			size_t copy5 = es_copy_bytes(sizeof(string5), 14, stringlen2);
+			if (copy2) strlcpy(string2+14, copy_key, copy2);
+			if (copy3) strlcpy(string3+14, copy_key, copy3);
+			if (copy4) strlcpy(string4+14, copy_key, copy4);
+			if (copy5) strlcpy(string5+14, copy_key, copy5);
 
 			int type = json_typeof(node_value);
 			if (type == JSON_OBJECT)
@@ -111,23 +125,30 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 					string3[stringlen2+14] = '_';
 					string4[stringlen2+14] = '_';
 					string5[stringlen2+14] = '_';
-					strlcpy(string3+stringlen2+1+14, copy_key1, stringlen3+1);
-					strlcpy(string4+stringlen2+1+14, copy_key1, stringlen3+1);
-					strlcpy(string5+stringlen2+1+14, copy_key1, stringlen3+1);
+					size_t off = stringlen2 + 1 + 14;
+					size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
+					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
+					size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen3);
+					if (c3) strlcpy(string3 + off, copy_key1, c3);
+					if (c4) strlcpy(string4 + off, copy_key1, c4);
+					if (c5) strlcpy(string5 + off, copy_key1, c5);
 
 					int type1 = json_typeof(node_value1);
 					if (type1 == JSON_INTEGER)
 					{
 						vl = json_integer_value(node_value1);
 						int8_t bytes = 0;
-						char *tmp;
-						if ((tmp = strstr(node_key1, "_in_bytes")))
+						const char *bytes_suffix = strstr(node_key1, "_in_bytes");
+						if (bytes_suffix)
 						{
 							strlcpy(string2+stringlen2+14, "_bytes", 7);
 							bytes = 1;
-							*tmp = 0;
 						}
-						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key1);
+						size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key1) : strlen(node_key1);
+						char key_buf[255];
+						size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+						strlcpy(key_buf, node_key1, key_copy + 1);
+						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 						if (bytes)
 							string2[stringlen2+14] = 0;
@@ -149,15 +170,18 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 							{
 								vl = json_integer_value(node_value2);
 								int8_t bytes = 0;
-								char *tmp;
-								if ((tmp = strstr(node_key2, "_in_bytes")))
+								const char *bytes_suffix = strstr(node_key2, "_in_bytes");
+								if (bytes_suffix)
 								{
 									strlcpy(string3+stringlen3+stringlen2+1+14, "_bytes", 7);
 									bytes = 1;
-									*tmp = 0;
 								}
 								//metric_name_normalizer(string3, strlen(string3));
-								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key2);
+								size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key2) : strlen(node_key2);
+								char key_buf[255];
+								size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+								strlcpy(key_buf, node_key2, key_copy + 1);
+								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 								if (bytes)
 									string3[stringlen3+stringlen2+1+14] = 0;
@@ -178,8 +202,11 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 								string4[stringlen2+stringlen3+14] = '_';
 								string5[stringlen2+stringlen3+14] = '_';
-								strlcpy(string4+stringlen3+stringlen2+1+14, copy_key2, stringlen4+1);
-								strlcpy(string5+stringlen3+stringlen2+1+14, copy_key2, stringlen4+1);
+								size_t off = stringlen3 + stringlen2 + 1 + 14;
+								size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
+								size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen4);
+								if (c4) strlcpy(string4 + off, copy_key2, c4);
+								if (c5) strlcpy(string5 + off, copy_key2, c5);
 
 								json_t *node_value3;
 								const char *node_key3;
@@ -190,14 +217,17 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 									{
 										vl = json_integer_value(node_value3);
 										int8_t bytes = 0;
-										char *tmp;
-										if ((tmp = strstr(node_key3, "_in_bytes")))
+										const char *bytes_suffix = strstr(node_key3, "_in_bytes");
+										if (bytes_suffix)
 										{
 											strlcpy(string4+stringlen4+stringlen3+stringlen2+1+14, "_bytes", 7);
 											bytes = 1;
-											*tmp = 0;
 										}
-										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key3);
+										size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key3) : strlen(node_key3);
+										char key_buf[255];
+										size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+										strlcpy(key_buf, node_key3, key_copy + 1);
+										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 										if (bytes)
 											string4[stringlen4+stringlen3+stringlen2+1+14] = 0;
@@ -237,6 +267,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 
 	int err = elasticsearch_check_for_error(carg, root);
 	if (err) {
+		json_decref(root);
 		return;
 	}
 
@@ -246,6 +277,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	if (!cluster_name)
 	{
 		carglog(carg, L_ERROR, "elasticsearch_health_handler: no field 'cluster_name':\n'%s'\n", metrics);
+		json_decref(root);
 		return;
 	}
 	elastic_settings *es_data = carg->data;
@@ -263,11 +295,11 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t yellow = 0;
 	json_t *cluster_status_json = json_object_get(root, "status");
 	char* cluster_status = (char*)json_string_value(cluster_status_json);
-	if (!strcmp(cluster_status, "green"))
+	if (cluster_status && !strcmp(cluster_status, "green"))
 		green = 1;
-	else if (!strcmp(cluster_status, "yellow"))
+	else if (cluster_status && !strcmp(cluster_status, "yellow"))
 		yellow = 1;
-	else if (!strcmp(cluster_status, "red"))
+	else if (cluster_status && !strcmp(cluster_status, "red"))
 		red = 1;
 
 	metric_add_labels2("elasticsearch_cluster_status", &green, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "green");
@@ -285,7 +317,9 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	json_object_foreach(root, key, value)
 	{
 		size_t stringlen = strlen(key);
-		strlcpy(string+14, key, stringlen+1);
+		size_t copy = es_copy_bytes(sizeof(string), 14, stringlen);
+		if (copy)
+			strlcpy(string+14, key, copy);
 		int type = json_typeof(value);
 		if (type == JSON_INTEGER)
 		{
@@ -312,7 +346,9 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			// indices status
 			stringlen2 = strlen(key2);
-			strlcpy(string2+21, key2, stringlen2+1);
+			size_t copy = es_copy_bytes(sizeof(string2), 21, stringlen2);
+			if (copy)
+				strlcpy(string2+21, key2, copy);
 			int type = json_typeof(value2);
 			if (type == JSON_INTEGER)
 			{
@@ -345,7 +381,9 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 				json_object_foreach(value3, key4, value4)
 				{
 					stringlen = strlen(key4);
-					strlcpy(string+27, key4, stringlen+1);
+					size_t copy = es_copy_bytes(sizeof(string), 27, stringlen);
+					if (copy)
+						strlcpy(string+27, key4, copy);
 
 					int type = json_typeof(value4);
 					if (type == JSON_INTEGER)
@@ -387,6 +425,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 
 	int err = elasticsearch_check_for_error(carg, root);
 	if (err) {
+		json_decref(root);
 		return;
 	}
 
@@ -429,10 +468,14 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 			if (!strcmp(node_key, "adaptive_selection"))
 				continue;
 			stringlen2 = strlen(node_key);
-			strlcpy(string2+14, node_key, stringlen2+1);
-			strlcpy(string3+14, node_key, stringlen2+1);
-			strlcpy(string4+14, node_key, stringlen2+1);
-			strlcpy(string5+14, node_key, stringlen2+1);
+			size_t c2 = es_copy_bytes(sizeof(string2), 14, stringlen2);
+			size_t c3 = es_copy_bytes(sizeof(string3), 14, stringlen2);
+			size_t c4 = es_copy_bytes(sizeof(string4), 14, stringlen2);
+			size_t c5 = es_copy_bytes(sizeof(string5), 14, stringlen2);
+			if (c2) strlcpy(string2+14, node_key, c2);
+			if (c3) strlcpy(string3+14, node_key, c3);
+			if (c4) strlcpy(string4+14, node_key, c4);
+			if (c5) strlcpy(string5+14, node_key, c5);
 
 			int type = json_typeof(node_value);
 			if (type == JSON_OBJECT)
@@ -445,23 +488,30 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 					string3[stringlen2+14] = '_';
 					string4[stringlen2+14] = '_';
 					string5[stringlen2+14] = '_';
-					strlcpy(string3+stringlen2+1+14, node_key1, stringlen3+1);
-					strlcpy(string4+stringlen2+1+14, node_key1, stringlen3+1);
-					strlcpy(string5+stringlen2+1+14, node_key1, stringlen3+1);
+					size_t off = stringlen2 + 1 + 14;
+					size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
+					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
+					size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen3);
+					if (c3) strlcpy(string3 + off, node_key1, c3);
+					if (c4) strlcpy(string4 + off, node_key1, c4);
+					if (c5) strlcpy(string5 + off, node_key1, c5);
 
 					int type1 = json_typeof(node_value1);
 					if (type1 == JSON_INTEGER)
 					{
 						vl = json_integer_value(node_value1);
 						int8_t bytes = 0;
-						char *tmp;
-						if ((tmp = strstr(node_key1, "_in_bytes")))
+						const char *bytes_suffix = strstr(node_key1, "_in_bytes");
+						if (bytes_suffix)
 						{
 							strlcpy(string2+stringlen2+14, "_bytes", 7);
 							bytes = 1;
-							*tmp = 0;
 						}
-						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key1);
+						size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key1) : strlen(node_key1);
+						char key_buf[255];
+						size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+						strlcpy(key_buf, node_key1, key_copy + 1);
+						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 						if (bytes)
 							string2[stringlen2+14] = 0;
@@ -483,14 +533,17 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 							{
 								vl = json_integer_value(node_value2);
 								int8_t bytes = 0;
-								char *tmp;
-								if ((tmp = strstr(node_key2, "_in_bytes")))
+								const char *bytes_suffix = strstr(node_key2, "_in_bytes");
+								if (bytes_suffix)
 								{
 									strlcpy(string3+stringlen3+stringlen2+1+14, "_bytes", 7);
 									bytes = 1;
-									*tmp = 0;
 								}
-								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key2);
+								size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key2) : strlen(node_key2);
+								char key_buf[255];
+								size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+								strlcpy(key_buf, node_key2, key_copy + 1);
+								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 								if (bytes)
 									string3[stringlen3+stringlen2+1+14] = 0;
@@ -505,8 +558,11 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 								stringlen4 = strlen(node_key2);
 								string4[stringlen2+stringlen3+14] = '_';
 								string5[stringlen2+stringlen3+14] = '_';
-								strlcpy(string4+stringlen3+stringlen2+1+14, node_key2, stringlen4+1);
-								strlcpy(string5+stringlen3+stringlen2+1+14, node_key2, stringlen4+1);
+								size_t off = stringlen3 + stringlen2 + 1 + 14;
+								size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
+								size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen4);
+								if (c4) strlcpy(string4 + off, node_key2, c4);
+								if (c5) strlcpy(string5 + off, node_key2, c5);
 
 								json_t *node_value3;
 								const char *node_key3;
@@ -517,14 +573,17 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 									{
 										vl = json_integer_value(node_value3);
 										int8_t bytes = 0;
-										char *tmp;
-										if ((tmp = strstr(node_key3, "_in_bytes")))
+										const char *bytes_suffix = strstr(node_key3, "_in_bytes");
+										if (bytes_suffix)
 										{
 											strlcpy(string4+stringlen4+stringlen3+stringlen2+1+14, "_bytes", 7);
 											bytes = 1;
-											*tmp = 0;
 										}
-										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key3);
+										size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key3) : strlen(node_key3);
+										char key_buf[255];
+										size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
+										strlcpy(key_buf, node_key3, key_copy + 1);
+										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 										if (bytes)
 											string4[stringlen4+stringlen3+stringlen2+1+14] = 0;
@@ -566,6 +625,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 
 	int err = elasticsearch_check_for_error(carg, root);
 	if (err) {
+		json_decref(root);
 		return;
 	}
 
@@ -591,9 +651,12 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 		json_object_foreach(nodes, node_key, node_value)
 		{
 			stringlen2 = strlen(node_key);
-			strlcpy(string2+23, node_key, stringlen2+1);
-			strlcpy(string3+23, node_key, stringlen2+1);
-			strlcpy(string4+23, node_key, stringlen2+1);
+			size_t c2 = es_copy_bytes(sizeof(string2), 23, stringlen2);
+			size_t c3 = es_copy_bytes(sizeof(string3), 23, stringlen2);
+			size_t c4 = es_copy_bytes(sizeof(string4), 23, stringlen2);
+			if (c2) strlcpy(string2+23, node_key, c2);
+			if (c3) strlcpy(string3+23, node_key, c3);
+			if (c4) strlcpy(string4+23, node_key, c4);
 			//printf("\t\t%s:%s\n", node_key, string2);
 
 			json_t *node_value2;
@@ -603,8 +666,11 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 				stringlen3 = strlen(node_key2);
 				string3[stringlen2+23] = '_';
 				string4[stringlen2+23] = '_';
-				strlcpy(string3+stringlen2+1+23, node_key2, stringlen3+1);
-				strlcpy(string4+stringlen2+1+23, node_key2, stringlen3+1);
+				size_t off = stringlen2 + 1 + 23;
+				size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
+				size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
+				if (c3) strlcpy(string3 + off, node_key2, c3);
+				if (c4) strlcpy(string4 + off, node_key2, c4);
 
 				//printf("\t\t%s:%s\n", node_key2, string3);
 				json_t *node_value3;
@@ -613,7 +679,9 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 				{
 					stringlen4 = strlen(node_key3);
 					string4[stringlen2+stringlen3+24] = '_';
-					strlcpy(string4+stringlen2+stringlen3+1+24, node_key3, stringlen4+1);
+					size_t off = stringlen2 + stringlen3 + 1 + 24;
+					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
+					if (c4) strlcpy(string4 + off, node_key3, c4);
 
 					//json_t *val_json = json_object_get(node_value3, "cluster_name");
 					char* val = (char*)json_string_value(node_value3);
@@ -669,6 +737,7 @@ void elasticsearch_response_catch(char *metrics, size_t size, context_arg *carg)
 
 		int err = elasticsearch_check_for_error(carg, root);
 		if (err) {
+			json_decref(root);
 			return;
 		}
 

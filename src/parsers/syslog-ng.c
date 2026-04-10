@@ -20,32 +20,41 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 	while (cur-metrics < size)
 	{
 		cur += strcspn(cur, "\n");
+		if (cur - metrics >= size)
+			break;
 		++cur;
+		if (cur - metrics >= size)
+			break;
 
 		msize = strcspn(cur, ";");
-		strlcpy(source_name, cur, msize+1);
+		size_t source_name_copy = msize < (sizeof(source_name) - 1) ? msize : (sizeof(source_name) - 1);
+		strlcpy(source_name, cur, source_name_copy + 1);
 		if (strstr(source_name, ".\n"))
 			break;
 		cur += msize;
 		++cur;
 
 		msize = strcspn(cur, ";");
-		strlcpy(source_id, cur, msize+1);
+		size_t source_id_copy = msize < (sizeof(source_id) - 1) ? msize : (sizeof(source_id) - 1);
+		strlcpy(source_id, cur, source_id_copy + 1);
 		cur += msize;
 		++cur;
 
 		msize = strcspn(cur, ";");
-		strlcpy(source_instance, cur, msize+1);
+		size_t source_instance_copy = msize < (sizeof(source_instance) - 1) ? msize : (sizeof(source_instance) - 1);
+		strlcpy(source_instance, cur, source_instance_copy + 1);
 		cur += msize;
 		++cur;
 
 		msize = strcspn(cur, ";");
-		strlcpy(state, cur, msize+1);
+		size_t state_copy = msize < (sizeof(state) - 1) ? msize : (sizeof(state) - 1);
+		strlcpy(state, cur, state_copy + 1);
 		cur += msize;
 		++cur;
 
 		msize = strcspn(cur, ";");
-		strlcpy(type, cur, msize+1);
+		size_t type_copy = msize < (sizeof(type) - 1) ? msize : (sizeof(type) - 1);
+		strlcpy(type, cur, type_copy + 1);
 		cur += msize;
 		++cur;
 

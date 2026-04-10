@@ -38,11 +38,14 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 
 	uint64_t end = strcspn(metrics + cur, "\n") + cur;
 	//printf("cur: %"PRIu64", end: %"PRIu64", metrics: '%s'\n", cur, end, metrics);
-	char colstring[end + 1];
-	strlcpy(colstring, metrics + cur, end + 1);
+	size_t colstring_size = end - cur;
+	if (colstring_size > 4095)
+		colstring_size = 4095;
+	char colstring[4096];
+	strlcpy(colstring, metrics + cur, colstring_size + 1);
 
 	uint64_t i;
-	for (i = 0; cur < end; cur++, i++)
+	for (i = 0; cur < end && i < 1000; cur++, i++)
 	{
 		uint64_t endfield;
 		uint64_t copysize;
@@ -50,6 +53,8 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 		cur += strspn(metrics + cur, "\t |");
 		endfield = strcspn(metrics + cur, "|\n");
 		copysize = strcspn(metrics + cur, "\t |\n");
+		if (copysize > 30)
+			copysize = 30;
 		strlcpy(colname[i], metrics + cur, copysize + 1);
 
 		if (carg->log_level > 0)
@@ -81,7 +86,7 @@ void oracle_query_run(char *metrics, size_t size, context_arg *carg)
 		if (carg->ns)
 			labels_hash_insert_nocache(hash, "dbname", carg->ns);
 
-		for (uint64_t i = 0; ccur < endcur; ccur++, i++)
+		for (uint64_t i = 0; ccur < endcur && i < 1000; ccur++, i++)
 		{
 			uint64_t endfield;
 			uint64_t copysize;

@@ -106,9 +106,11 @@ int x509_push(json_t *x509) {
 		glog(L_INFO, "not specified param 'path' in x509 context\n");
 		return 0;
 	}
-	char *path = (char*)json_string_value(jpath);
+	char *path_data = (char*)json_string_value(jpath);
 	size_t path_len = json_string_length(jpath);
-	while (path[path_len-1] == '/') --path_len;
+	char *path = strndup(path_data, path_len);
+	while (path_len && path[path_len-1] == '/')
+		--path_len;
 	path[path_len] = 0;
 
 	json_t *jmatch = json_object_get(x509, "match");
@@ -140,10 +142,15 @@ int x509_push(json_t *x509) {
 
 	if (type && !strcmp(type, "jks")) {
 		int ret = jks_push(name, path, tokens_match, password, NULL, period);
+		free(path);
 		if (tokens_match)
 			string_tokens_free(tokens_match);
 		return ret;
 	}
 	else
-		return tls_fs_push(name, path, tokens_match, password, type, period);
+	{
+		int ret = tls_fs_push(name, path, tokens_match, password, type, period);
+		free(path);
+		return ret;
+	}
 }

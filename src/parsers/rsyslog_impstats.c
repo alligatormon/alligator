@@ -28,13 +28,15 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 
 	size_t headerend = 0;
 	size_t field_size1 = strcspn(metrics, ":");
-	strlcpy(field1, metrics, field_size1+1);
+	size_t f1_copy = field_size1 < (sizeof(field1) - 1) ? field_size1 : (sizeof(field1) - 1);
+	strlcpy(field1, metrics, f1_copy + 1);
 
 	char *tmp  = strstr(metrics+field_size1+1, ":");
 	if (tmp)
 	{
 		size_t field_size2 = tmp - (metrics+field_size1+1);
-		strlcpy(field2, metrics+field_size1+1, field_size2+1);
+		size_t f2_copy = field_size2 < (sizeof(field2) - 1) ? field_size2 : (sizeof(field2) - 1);
+		strlcpy(field2, metrics+field_size1+1, f2_copy + 1);
 	}
 
 	tmp = strstr(metrics, "origin=");
@@ -42,25 +44,26 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		size_t n;
 		n = strcspn(tmp+7, " ");
-		strlcpy(field3, tmp+7, n+1);
+		size_t f3_copy = n < (sizeof(field3) - 1) ? n : (sizeof(field3) - 1);
+		strlcpy(field3, tmp+7, f3_copy + 1);
 		headerend = tmp - metrics + n + 8;
 	}
 
 	if (*field1 && *field2 && *field3)
 	{
-		strcpy(action, field1);
-		strcpy(module, field2);
-		strcpy(origin, field3);
+		strlcpy(action, field1, sizeof(action));
+		strlcpy(module, field2, sizeof(module));
+		strlcpy(origin, field3, sizeof(origin));
 	}
 	else if (*field2)
 	{
-		strcpy(module, field2);
-		strcpy(origin, field3);
+		strlcpy(module, field2, sizeof(module));
+		strlcpy(origin, field3, sizeof(origin));
 	}
 	else if (*field1)
 	{
-		strcpy(module, field1);
-		strcpy(origin, field3);
+		strlcpy(module, field1, sizeof(module));
+		strlcpy(origin, field3, sizeof(origin));
 	}
 	else
 	{
@@ -80,11 +83,13 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 		size_t len;
 		len = strcspn(metrics+headerend, "=");
 		char key[255];
-		strlcpy(key, metrics+headerend, len+1);
+		size_t key_copy = len < (sizeof(key) - 1) ? len : (sizeof(key) - 1);
+		strlcpy(key, metrics+headerend, key_copy + 1);
 		headerend += len + 1;
 		len = strcspn(metrics+headerend, " ");
 		char name[255];
-		strlcpy(name, metrics+headerend, len+1);
+		size_t name_copy = len < (sizeof(name) - 1) ? len : (sizeof(name) - 1);
+		strlcpy(name, metrics+headerend, name_copy + 1);
 		headerend += len + 1;
 		if (ac->log_level > 3)
 			printf("key: %s, name: %s\n", key, name);

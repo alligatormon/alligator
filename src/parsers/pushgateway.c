@@ -33,7 +33,7 @@ alligator_ht *get_labels_from_url_pushgateway_format(char *uri, size_t uri_size,
 
 		//prev_get = index_get;
 		for (; index_get < uri_size && uri[index_get]=='/' && uri[index_get]!=0; ++index_get);
-		if (index_get < uri_size && uri[index_get+1] == 0)
+		if (index_get >= uri_size || uri[index_get] == 0)
 			break;
 
 		prev_get = index_get;

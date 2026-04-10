@@ -26,8 +26,10 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 		else
 		{
 			sz = strcspn(tmp, ":");
-			strlcpy(metric_name+6, tmp, sz+1);
-			metric_name_normalizer(metric_name, sz);
+			size_t metric_rem = sizeof(metric_name) - 6;
+			size_t metric_copy = sz < (metric_rem - 1) ? sz : (metric_rem - 1);
+			strlcpy(metric_name+6, tmp, metric_copy + 1);
+			metric_name_normalizer(metric_name, metric_copy);
 
 			carglog(carg, L_INFO, "httpd metric_name '%s'\n", metric_name);
 
@@ -35,7 +37,8 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 			tmp += strcspn(tmp, " \t");
 			tmp += strspn(tmp, " \t");
 			sz = strcspn(tmp, "\n");
-			strlcpy(sval, tmp, sz+1);
+			size_t sval_copy = sz < (sizeof(sval) - 1) ? sz : (sizeof(sval) - 1);
+			strlcpy(sval, tmp, sval_copy + 1);
 
 			if (strstr(sval, "."))
 			{

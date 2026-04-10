@@ -163,6 +163,11 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 	else {
 		json_t *annotations = json_object_get(root, "annotations");
 		json_t *linux_j = json_object_get(root, "linux");
+		if (!annotations || !linux_j) {
+			fclose(fd);
+			json_decref(root);
+			return NULL;
+		}
 		json_t *type_j = json_object_get(annotations, "io.kubernetes.cri.container-type");
 		const char *type = json_string_value(type_j);
 		if (type && !strcmp(type, "sandbox")) {
@@ -191,7 +196,8 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 		if (cgroup_main_path) {
 			cgroupsPath = json_string_value(cgroup_main_path);
 			cgroupsPath = strstr(cgroupsPath, "fs/cgroup/");
-			cgroupsPath += 10;
+			if (cgroupsPath)
+				cgroupsPath += 10;
 		}
 		else
 			cgroupsPath = json_string_value(cgroupsPath_j);
@@ -249,6 +255,11 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 	json_t *cgroup_main_path = json_object_get(cgroup_paths, "");
 	json_t *json_id = json_object_get(root, "id");
 	char *cnt_id = (char*)json_string_value(json_id);
+	if (!cnt_id) {
+		json_decref(root);
+		free(buf);
+		return;
+	}
 
 	json_t *config = json_object_get(root, "config");
 	json_t *labels = json_object_get(config, "labels");
@@ -574,10 +585,10 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 			json_t *label_value;
 
 			int is_k8s = 0;
-			char kubepath[255];
-			char kubenamespace[255];
-			char kubepod[255];
-			char kubecontainer[255];
+			char kubepath[255] = {0};
+			char kubenamespace[255] = {0};
+			char kubepod[255] = {0};
+			char kubecontainer[255] = {0};
 
 			json_object_foreach(json_labels, label_key, label_value)
 			{
@@ -592,8 +603,9 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 
 						size_t str_value_len = json_string_length(label_value);
 
-						char underscore_value[255];
-						for (uint64_t i = 0; i < str_value_len; i++)
+						char underscore_value[255] = {0};
+						size_t ulen = str_value_len < sizeof(underscore_value) - 1 ? str_value_len : sizeof(underscore_value) - 1;
+						for (size_t i = 0; i < ulen; i++)
 							if (str_value[i] == '-')
 								underscore_value[i] = '_';
 							else

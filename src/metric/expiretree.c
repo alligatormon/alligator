@@ -58,12 +58,12 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 	pthread_rwlock_wrlock(tree->rwlock);
 	if ( tree->root == NULL )
 	{
-		tree->count ++ ;
 	    tree->root = expire_make_node ( key, metric );
 	    if ( tree->root == NULL ) {
 	        pthread_rwlock_unlock(tree->rwlock);
 			return;
         }
+		tree->count ++ ;
 	}
 	else
 	{
