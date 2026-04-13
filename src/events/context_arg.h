@@ -66,8 +66,8 @@ typedef struct metric_datatypes {
 typedef struct context_arg
 {
 	char *name;
-	struct sockaddr_in dest;
-	struct sockaddr_in *recv;
+	struct sockaddr_in remote_addr;
+	struct sockaddr_in *local_addr;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
 	uv_timer_t *tt_timer;
@@ -98,6 +98,8 @@ typedef struct context_arg
 	regex_match **rematch;
 	mapping_metric *mm;
 	struct phr_chunked_decoder chunked_dec;
+	char *bind_address;
+	uint16_t bind_port;
 
 	// chunk body read
 	string *full_body;
@@ -223,6 +225,7 @@ typedef struct context_arg
 
 	uint64_t file_stat;
 	char *checksum;
+	char *script;
 	uint8_t calc_lines;
 	uint8_t notify;
 	uint8_t state; // stream | begin | save
@@ -359,3 +362,4 @@ uv_loop_t *threaded_loop_pin_loop(threaded_loop *thl, const char *pin_key);
 int threaded_loop_queue_work(uv_loop_t *loop, void (*fn)(void *), void *arg);
 int threaded_loop_is_worker(uv_loop_t *loop);
 uint64_t get_threads_num(json_t *value);
+int carg_set_socket_addr(struct sockaddr_in **addr, char *address, uint16_t port);

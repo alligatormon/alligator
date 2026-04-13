@@ -315,6 +315,7 @@ void aggregate_ctx_init()
 	cassandra_parser_push();
 	grok_parser_push();
 	wazuh_parser_push();
+	amtail_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

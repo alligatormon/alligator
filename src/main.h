@@ -155,6 +155,7 @@ typedef struct aconf
 	// config parser handlers
 	alligator_ht* config_ctx;
 	alligator_ht* aggregate_ctx;
+	alligator_ht* amtail;
 
 	// filetailer file list
 	alligator_ht* file_stat;

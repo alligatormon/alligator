@@ -138,13 +138,11 @@ void udp_server_run(void *passarg) {
 	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
 	//
 
-	struct sockaddr_in *recv_addr = carg->recv = calloc(1, sizeof(*recv_addr));
+	struct sockaddr_in *recv_addr = carg->local_addr = calloc(1, sizeof(*recv_addr));
 	uv_ip4_addr(carg->host, carg->numport, recv_addr);
-	int ret = uv_udp_bind(&carg->udp_server, (const struct sockaddr *)recv_addr, 0);
+	int ret = uv_udp_bind(&carg->udp_server, (const struct sockaddr *)carg->local_addr, 0);
     if (ret) {
 		carglog(carg, L_FATAL, "Listen udp socket '%s:%d' error %s\n", carg->host, carg->numport, uv_strerror(ret));
-		carg->running = -1;
-		return;
 	}
 	carg->udp_server.data = carg;
 	uv_udp_recv_start(&carg->udp_server, alloc_buffer, udp_on_read);
@@ -248,7 +246,7 @@ void udp_client_connect(void *arg)
 		return;
 	}
 
-	uv_ip4_addr(data->s, carg->numport, &carg->dest);
+	uv_ip4_addr(data->s, carg->numport, &carg->remote_addr);
 
 	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 	carg->tt_timer->data = carg;
@@ -259,7 +257,18 @@ void udp_client_connect(void *arg)
 	carg->udp_send.data = carg;
 	uv_udp_init(carg->loop, &carg->udp_client);
 
-	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, udp_on_send);
+	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
+	if (addr_ret) {
+		int bind_ret = uv_udp_bind(&carg->udp_client, (const struct sockaddr *)carg->local_addr, 0);
+		if (bind_ret) {
+			carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
+			carg->lock = 0;
+			return;
+		}
+	}
+
+
+	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->remote_addr, udp_on_send);
 	carg->write_time = setrtime();
 }
 

@@ -458,17 +458,27 @@ void tcp_client_connect(void *arg)
 	if (!data)
 		return;
 
-	uv_ip4_addr(data->s, carg->numport, &carg->dest);
+	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
+	if (addr_ret) {
+		int bind_ret = uv_tcp_bind(&carg->client, (const struct sockaddr *)carg->local_addr, 0);
+		if (bind_ret) {
+			carglog(carg, L_FATAL, "Bind tcp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
+			carg->lock = 0;
+			return;
+		}
+	}
+
+	uv_ip4_addr(data->s, carg->numport, &carg->remote_addr);
 
 	carg->connect_time = setrtime();
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/0] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 	if (carg->tls)
 	{
 		carg->tls_connect_time = setrtime();
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, tls_connected);
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tls_connected);
 	}
 	else
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, tcp_connected);
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tcp_connected);
 }
 
 void for_tcp_client_connect(void *arg)

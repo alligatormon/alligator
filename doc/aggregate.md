@@ -59,6 +59,27 @@ Plural: no
 Resets the key, a unique variable that usually generates automatically and is used as a primary key in the metrics connected to the aggregator's or API's working.
 
 
+## bind\_address
+Default: 0.0.0.0:{random port}, where random port is generated automatically by OS
+Plural: no
+
+Makes outgoing connections to the target server originate from a specific local address.
+Supported formats are:
+- `bind_address=<port>` or `bind_address=:<port>` - bind only by local port (IP defaults to `0.0.0.0`)
+- `bind_address=<ip>` - bind only by local IP (port is chosen by OS)
+- `bind_address=<ip>:<port>` - bind by both local IP and local port
+
+For instance:
+
+```
+aggregate {
+    blackbox https://example.com bind_address=1234;
+    blackbox https://example.com bind_address=:1234;
+    dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=0.0.0.0;
+    dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=192.0.2.1:1234;
+}
+```
+
 ## name
 Default: -\
 Plural: no

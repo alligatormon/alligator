@@ -248,6 +248,20 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "key", key);
 	}
 
+	if (carg->bind_address)
+	{
+		char bind_address[255];
+		snprintf(bind_address, 254, "%s:%d", carg->bind_address, carg->bind_port);
+		json_t *jbind_address = json_string(carg->bind_address);
+		json_array_object_insert(ctx, "bind_address", jbind_address);
+	}
+
+	if (carg->script)
+	{
+		json_t *script = json_string(carg->script);
+		json_array_object_insert(ctx, "script", script);
+	}
+
 	if (carg->threaded_loop_name)
 	{
 		json_t *threaded_loop_name = json_string(carg->threaded_loop_name);

@@ -178,10 +178,10 @@ void resolver_connect_tcp(void *arg)
 	if (!addr)
 		return;
 
-	uv_ip4_addr(addr, carg->numport, &carg->dest);
+	uv_ip4_addr(addr, carg->numport, &carg->remote_addr);
 
 	carg->connect_time = setrtime();
-	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->dest, resolver_connected_tcp);
+	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, resolver_connected_tcp);
 	if (status)
 		carglog(carg, L_ERROR, "resolver_connect_tcp error: %s\n", uv_strerror(status));
 }

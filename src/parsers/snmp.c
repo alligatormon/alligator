@@ -2175,7 +2175,7 @@ static void snmp_walk_continue(context_arg *carg, const char *subtree, char *nex
 		size_t pktlen = 0;
 		if (snmp_build_v2c_get(comm, next_oid, 1, pkt, sizeof pkt, &pktlen) < 0)
 			break;
-		if (sendto(fd, pkt, pktlen, 0, (struct sockaddr *)&carg->dest, sizeof carg->dest) < 0) {
+		if (sendto(fd, pkt, pktlen, 0, (struct sockaddr *)&carg->remote_addr, sizeof carg->remote_addr) < 0) {
 			carglog(carg, L_ERROR, "snmp walk: sendto: %s\n", strerror(errno));
 			break;
 		}

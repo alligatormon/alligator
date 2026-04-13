@@ -131,7 +131,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	string_cat(get_query, "\r\n", 2);
 
 	char *key = malloc(512);
-	snprintf(key, 511, "memcached_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+	snprintf(key, 511, "memcached_query(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
 	carglog(carg, L_INFO, "memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, memcached_query, "memcached_query", NULL, key, carg->data);
@@ -169,7 +169,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 	}
 
 	char *key = malloc(512);
-	snprintf(key, 511, "memcached_cachedump(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+	snprintf(key, 511, "memcached_cachedump(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
 	carglog(carg, L_INFO, "query is\n'%s'\nkey '%s'\n", slab_query->s, key);
 	try_again(carg, slab_query->s, slab_query->l, memcached_cachedump, "memcached_cachedump", NULL, key, carg->data);
@@ -210,7 +210,7 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 	}
 
 	char *key = malloc(255);
-	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 	size_t key_len = strlen(key);
 	if (key_len)
 		key[key_len - 1] = 0;

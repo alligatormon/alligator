@@ -1100,7 +1100,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									printf("\taggregate arg_name '%s'\n", arg_name);
 
 								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
-								if (!strcmp(arg_name, "instance"))
+								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address"))
 									semisep = wstokens[i].token->l;
 
 								json_t *arg_value = NULL;

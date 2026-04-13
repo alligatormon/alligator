@@ -66,6 +66,12 @@ context_arg *carg_copy(context_arg *src)
 
 	if (src->checksum)
 		carg->checksum = strdup(src->checksum);
+	if (src->script)
+		carg->script = strdup(src->script);
+
+	if (src->bind_address)
+		carg->bind_address = strdup(src->bind_address);
+	carg->bind_port = src->bind_port;
 
 	if (src->pquery_size && src->pquery) {
 		carg->pquery_size = src->pquery_size;
@@ -133,6 +139,8 @@ void carg_free(context_arg *carg)
 
 	if (carg->checksum)
 		free(carg->checksum);
+	if (carg->script)
+		free(carg->script);
 
 	if (carg->full_body)
 		string_free(carg->full_body);
@@ -150,11 +158,16 @@ void carg_free(context_arg *carg)
 	if (carg->work_dir)
 		string_free(carg->work_dir);
 
-	//if (carg->dest)
-	//	free(carg->dest);
 
-	if (carg->recv)
-		free(carg->recv);
+	if (carg->local_addr)
+	{
+		free(carg->local_addr);
+		carg->local_addr = NULL;
+	}
+
+	carg->remote_addr.sin_addr.s_addr = 0;
+	carg->remote_addr.sin_port = 0;
+	carg->remote_addr.sin_family = 0;
 
 	if (carg->cluster)
 		free(carg->cluster);
@@ -358,6 +371,23 @@ void parse_add_label(context_arg *carg, json_t *root) {
 	}
 }
 
+int carg_set_socket_addr(struct sockaddr_in **addr, char *address, uint16_t port)
+{
+	if (!addr)
+		return 0;
+
+	if (!*addr)
+	{
+		*addr = calloc(1, sizeof(**addr));
+		if (!*addr)
+			return 0;
+	}
+
+	const char *bind_address = address ? address : "0.0.0.0";
+	uv_ip4_addr(bind_address, port, *addr);
+	return 1;
+}
+
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l)
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
@@ -465,6 +495,13 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_checksum)
 		carg->checksum = strdup((char*)json_string_value(json_checksum));
 
+	json_t *json_script = json_object_get(root, "script");
+	if (json_script) {
+		char *script = (char*)json_string_value(json_script);
+		if (script)
+			carg->script = strdup(script);
+	}
+
 	json_t *json_calc_lines = json_object_get(root, "calc_lines");
 	carg->calc_lines = json_boolean_value(json_calc_lines);
 	char *clc = (char*)json_string_value(json_calc_lines);
@@ -564,6 +601,31 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_period)
 	{
 		carg->period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
+	}
+
+	json_t *json_bind_address = json_object_get(root, "bind_address"); // format: 0.0.0.0:1234, [::]:1234, :1234, 0.0.0.0
+	if (json_bind_address)
+	{
+		char *bind_address = (char*)json_string_value(json_bind_address);
+		if (bind_address) {
+			printf("bind address %s\n", bind_address);
+			char *colon = strchr(bind_address, ':');
+			if (colon)
+			{
+				carg->bind_port = strtoull(colon + 1, NULL, 10);
+				if (colon - bind_address > 0)
+				{
+					carg->bind_address = strdup(strndup(bind_address, colon - bind_address));
+				}
+			}
+			else
+			{
+				carg->bind_address = strdup(bind_address);
+				carg->bind_port = 0;
+			}
+		} else {
+			carg->bind_port = json_integer_value(json_bind_address);
+		}
 	}
 
 	json_t *json_nocollect = json_object_get(root, "no_collect");

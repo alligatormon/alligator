@@ -146,7 +146,7 @@ void druid_queries_foreach(void *funcarg, void* arg)
 	query_node *qn = arg;
 	carglog(carg, L_INFO, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	char *key = malloc(255);
-	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->make);
+	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->make);
 
 	env_struct_push_alloc(carg->env, "Content-Length", "0");
 	env_struct_push_alloc(carg->env, "Content-Type", "application/json");

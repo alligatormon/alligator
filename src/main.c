@@ -26,6 +26,7 @@
 #include "system/common.h"
 #include "common/xxh.h"
 #include "parsers/multiparser.h"
+#include "amtail/type.h"
 
 aconf *ac;
 
@@ -145,6 +146,7 @@ aconf* configuration()
 	ac->resolver = alligator_ht_init(NULL);
 
 	ac->threads = alligator_ht_init(NULL);
+	amtail_init();
 
 	ac->request_cnt = 0;
 	ts_initialize();
@@ -241,6 +243,8 @@ void main_free()
 	thread_loop_free();
 	alligator_ht_done(ac->threads);
 	free(ac->threads);
+
+	amtail_free();
 
 	free(ac);
 }

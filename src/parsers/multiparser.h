@@ -160,6 +160,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg);
 void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *carg);
 void cassandra_parser_push();
+void amtail_parser_push();
 void auditd_handler(char *metrics, size_t size, context_arg *carg);
 void grok_parser_push();
 void wazuh_parser_push();

@@ -236,6 +236,17 @@ set(STATIC_FILES
 	parsers/nvidia-smi.c
 	parsers/auditd.c
 	parsers/wazuh.c
+	amtail/amtail.c
+	amtail/push.c
+	amtail/del.c
+	external/amtail/amtail_pcre.c
+	external/amtail/compile.c
+	external/amtail/file.c
+	external/amtail/generator.c
+	external/amtail/lex.c
+	external/amtail/parser.c
+	external/amtail/variables.c
+	external/amtail/vm.c
 	scheduler/influxdb.c
 	scheduler/handler.c
 	scheduler/push.c

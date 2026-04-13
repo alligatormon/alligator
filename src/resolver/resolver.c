@@ -272,6 +272,9 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 		new_carg = context_arg_json_fill(NULL, ac->srv_resolver[r]->hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(ac->srv_resolver[r]->labels);
 		new_carg->rd = ac->srv_resolver[r];
+		if (carg->bind_address)
+			new_carg->bind_address = strdup(carg->bind_address);
+		new_carg->bind_port = carg->bind_port;
 	}
 	else if (carg->parser_handler == dns_handler)
 	{
@@ -279,6 +282,9 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 		new_carg = context_arg_json_fill(NULL, hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(carg->labels);
 		url_free(hi);
+		if (carg->bind_address)
+			new_carg->bind_address = strdup(carg->bind_address);
+		new_carg->bind_port = carg->bind_port;
 	}
 	else
 	{

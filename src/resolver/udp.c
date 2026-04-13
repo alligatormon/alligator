@@ -6,6 +6,7 @@
 #include "events/metrics.h"
 #include "common/logs.h"
 #include "main.h"
+#include <arpa/inet.h>
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
@@ -56,6 +57,8 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 		carg->lock = 0;
 	}
 	free(buf->base);
+	free(carg->local_addr);
+	carg->local_addr = NULL;
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
@@ -69,7 +72,6 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 	if (status != 0) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
 	}
-
 	req->handle->data = req->data;
 	uv_udp_recv_start(req->handle, alloc_buffer, resolver_read_udp);
 	carg->read_time = setrtime();
@@ -92,12 +94,22 @@ void resolver_connect_udp(void *arg)
 	if (!addr)
 		return;
 
-	uv_ip4_addr(addr, carg->numport, &carg->dest);
+	uv_ip4_addr(addr, carg->numport, &carg->remote_addr);
 
 	carg->udp_send.data = carg;
 	uv_udp_init(uv_default_loop(), &carg->udp_client);
 
-	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->dest, resolver_send_udp);
+	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
+	if (addr_ret) {
+		int bind_ret = uv_udp_bind(&carg->udp_client, (const struct sockaddr *)carg->local_addr, 0);
+		if (bind_ret) {
+			carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
+			carg->lock = 0;
+			return;
+		}
+	}
+
+	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->remote_addr, resolver_send_udp);
 	if (status)
 			carglog(carg, L_ERROR, "uv_udp_send error: %s\n", uv_strerror(status));
 

@@ -125,7 +125,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	string_cat(get_query, "\r\n", 2);
 
 	char *key = malloc(512);
-	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
 	if (carg->log_level > 0)
 		printf("redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
@@ -163,7 +163,7 @@ void redis_queries_foreach(void *funcarg, void* arg)
 			string_cat(pattern_query, "\r\n", 2);
 
 			char *key = malloc(512);
-			snprintf(key, 511, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+			snprintf(key, 511, "redis_keysdump(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 			size_t key_len = strlen(key);
 			if (key_len)
 				key[key_len - 1] = 0;
@@ -195,7 +195,7 @@ void redis_queries_foreach(void *funcarg, void* arg)
 		strcat(write_comm, "\r\n");
 
 		char *key = malloc(255);
-		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->dest.sin_port), qn->expr);
+		snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 		size_t key_len = strlen(key);
 		if (key_len)
 			key[key_len - 1] = 0;
