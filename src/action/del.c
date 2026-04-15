@@ -39,6 +39,12 @@ void action_del(json_t *action)
 			env_free(an->env);
 		//if (an->datasource)
 		//	free(an->datasource);
+		if (an->metric_name_transform_pattern)
+			free(an->metric_name_transform_pattern);
+		if (an->metric_name_transform_replacement)
+			free(an->metric_name_transform_replacement);
+		if (an->metric_name_transform_compiled)
+			pcre_free(an->metric_name_transform_compiled);
 		free(an);
 	}
 

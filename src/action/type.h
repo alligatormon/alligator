@@ -2,6 +2,7 @@
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
 #include "query/promql.h"
+#include "pcre.h"
 #define ACTION_TYPE_SHELL 0
 
 typedef struct action_node
@@ -26,6 +27,9 @@ typedef struct action_node
 	char *parser_name;
 	uint8_t dry_run;
 	uint8_t log_level_defined;
+	char *metric_name_transform_pattern;
+	char *metric_name_transform_replacement;
+	pcre *metric_name_transform_compiled;
 	int log_level;
 
 	tommy_node node;

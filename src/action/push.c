@@ -68,6 +68,18 @@ void action_push(json_t *action)
 		an->dry_run = 1;
 	}
 
+	json_t *jmetric_name_transform_pattern = json_object_get(action, "metric_name_transform_pattern");
+	if (jmetric_name_transform_pattern)
+	{
+		an->metric_name_transform_pattern = strdup(json_string_value(jmetric_name_transform_pattern));
+	}
+
+	json_t *jmetric_name_transform_replacement = json_object_get(action, "metric_name_transform_replacement");
+	if (jmetric_name_transform_replacement)
+	{
+		an->metric_name_transform_replacement = strdup(json_string_value(jmetric_name_transform_replacement));
+	}
+
 	json_t *jlog_level = json_object_get(action, "log_level");
 	if (jlog_level)
 	{

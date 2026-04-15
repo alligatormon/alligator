@@ -361,6 +361,7 @@ set(STATIC_FILES
 	metric/query.c
 	metric/namespace.c
 	metric/serializer.c
+	metric/transform.c
 	#metric/influxdb.c
 	cadvisor/run.c
 	cadvisor/ns.c

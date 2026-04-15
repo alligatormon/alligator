@@ -5,7 +5,7 @@
 #include "query/promql.h"
 extern aconf *ac;
 
-void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template)
+void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template, void *an)
 {
 	if (!ac)
 		return;
@@ -22,7 +22,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	size_t labels_count = alligator_ht_count(hash_work);
 	metric_tree *tree = ns->metrictree;
 
-	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template);
+	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an);
 	if (!sc)
 	{
 		if (multistring)
@@ -47,12 +47,12 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	serializer_free(sc);
 }
 
-string* metric_query_deserialize(size_t init_size, metric_query_context *mqc, int serializer, char delimiter, char *namespace, string_tokens **multistring, string *engine, string *index_template)
+string* metric_query_deserialize(size_t init_size, metric_query_context *mqc, int serializer, char delimiter, char *namespace, string_tokens **multistring, string *engine, string *index_template, void *an)
 {
 	string *body = string_init(init_size);
 	if (!mqc)
 		return body;
-	metric_str_build_query(namespace, body, mqc->name, mqc->lbl, mqc->func, mqc->groupkey, serializer, delimiter, multistring, engine, index_template);
+	metric_str_build_query(namespace, body, mqc->name, mqc->lbl, mqc->func, mqc->groupkey, serializer, delimiter, multistring, engine, index_template, an);
 
 	return body;
 }

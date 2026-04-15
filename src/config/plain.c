@@ -429,7 +429,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "mtail") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -759,7 +759,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "auth_header", auth_header_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop"))
 					{
 						operator_json = json_object();
 						char arg_name[255];

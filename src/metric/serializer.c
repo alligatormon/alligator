@@ -100,13 +100,14 @@ static void otlp_data_point_set_value(json_t *dp, metric_node *x)
 		json_object_set_new(dp, "asDouble", json_real(0.0));
 }
 
-serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template)
+serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an)
 {
 	serializer_context *sc = calloc(1, sizeof(*sc));
 	if (!sc)
 		return NULL;
 
 	sc->serializer = serializer;
+	sc->an = an;
 	if (serializer == METRIC_SERIALIZER_OPENMETRICS)
 		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_GRAPHITE)
@@ -321,7 +322,16 @@ void serialize_otlp(metric_node *x, serializer_context *sc)
 		return;
 
 	metric = json_object();
-	json_object_set_new(metric, "name", json_stringn(labels->key, labels->key_len));
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	if (new_name)
+	{
+		json_object_set_new(metric, "name", json_stringn(new_name, strlen(new_name)));
+		free(new_name);
+	}
+	else
+	{
+		json_object_set_new(metric, "name", json_stringn(labels->key, labels->key_len));
+	}
 
 	attrs = json_array();
 	for (labels = labels->next; labels; labels = labels->next)
@@ -876,7 +886,16 @@ void serialize_statsd(metric_node *x, serializer_context *sc)
 
 	string *res = sc->str;
 	uint64_t metric_str_start_position = res->l;
-	string_cat(res, labels->key, labels->key_len);
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	if (new_name)
+	{
+		string_cat(res, new_name, strlen(new_name));
+		free(new_name);
+	}
+	else
+	{
+		string_cat(res, labels->key, labels->key_len);
+	}
 	tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
 	labels = labels->next;
 
@@ -917,7 +936,17 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc)
 
 	string *res = sc->str;
 	uint64_t metric_str_start_position = res->l;
-	string_cat(res, labels->key, labels->key_len);
+
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	if (new_name)
+	{
+		string_cat(res, new_name, strlen(new_name));
+		free(new_name);
+	}
+	else
+	{
+		string_cat(res, labels->key, labels->key_len);
+	}
 
 	tag_normalizer_statsd(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
 
@@ -968,7 +997,16 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc)
 	string *res = sc->str;
 
 	uint64_t metric_str_start_position = res->l;
-	string_cat(res, labels->key, labels->key_len);
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	if (new_name)
+	{
+		string_cat(res, new_name, strlen(new_name));
+		free(new_name);
+	}
+	else
+	{
+		string_cat(res, labels->key, labels->key_len);
+	}
 	tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
 	labels = labels->next;
 

@@ -75,7 +75,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	if (!mqc)
 		mqc = query_context_new(NULL);
 
-	string *body = metric_query_deserialize(1024, mqc, an->serializer, 0, namespace, &ms, an->engine, an->index_template);
+	string *body = metric_query_deserialize(1024, mqc, an->serializer, 0, namespace, &ms, an->engine, an->index_template, an);
 	query_context_free(mqc);
 
 	string *work_dir = NULL;

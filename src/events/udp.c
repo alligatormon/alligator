@@ -22,6 +22,8 @@ void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 		carg->tt_timer = NULL;
 	}
 
+	carg->lock = 0;
+
 	if (carg->context_ttl)
 	{
 		r_time time = setrtime();
@@ -42,7 +44,6 @@ void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 	if (buf && buf->base)
 		free(buf->base);
 
-	carg->lock = 0;
 	if (carg->key)
 		alligator_ht_remove(ac->udpaggregator, aggregator_compare, carg->key, tommy_strhash_u32(0, carg->key));
 }
@@ -98,10 +99,10 @@ void udp_timeout_timer(uv_timer_t *timer)
 	if (!carg)
 		return;
 
-	udp_close_client(carg, NULL);
-
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(setrtime()), getrtime_sec_float(setrtime(), carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
+
+	udp_close_client(carg, NULL);
 }
 
 void udp_on_send(uv_udp_send_t* req, int status) {

@@ -45,6 +45,7 @@ typedef struct namespace_struct
 
 typedef struct serializer_context {
 	int serializer;
+	action_node *an;
 	char *last_metric; // for SQL-like databases
 	json_t *json;
 	string *str;
@@ -81,7 +82,8 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 void metric_update_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7);
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl);
 labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del);
-serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template);
+serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an);
+char* metric_transform_name(char *name, action_node *an);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 namespace_struct *insert_namespace(char *key);
