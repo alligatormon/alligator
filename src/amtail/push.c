@@ -15,7 +15,7 @@ int amtail_push(json_t *amtail)
 
 	json_t *jname = json_object_get(amtail, "name");
 	if (!jname) {
-		glog(L_INFO, "amtail_push: not specified 'name' option\n");
+		glog(L_ERROR, "amtail_push: not specified 'name' option\n");
 		return 0;
 	}
 	char *name = (char*)json_string_value(jname);
@@ -26,7 +26,7 @@ int amtail_push(json_t *amtail)
 	char *script_path = (char*)json_string_value(jscript);
 	if (!script_path || !*script_path)
 	{
-		glog(L_INFO, "amtail_push: not specified 'script' option in '%s'\n", name);
+		glog(L_ERROR, "amtail_push: not specified 'script' option in '%s'\n", name);
 		return 0;
 	}
 

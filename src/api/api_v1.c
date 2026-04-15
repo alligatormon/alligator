@@ -9,6 +9,7 @@
 #include "lang/type.h"
 #include "query/type.h"
 #include "grok/type.h"
+#include "amtail/type.h"
 #include "common/netlib.h"
 #include "probe/probe.h"
 #include "scheduler/type.h"
@@ -281,6 +282,24 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					grok_push(grok);
+				}
+			}
+			if (!strcmp(key, "mtail"))
+			{
+				uint64_t mtail_size = json_array_size(value);
+				for (uint64_t i = 0; i < mtail_size; i++)
+				{
+					json_t *mtail = json_array_get(value, i);
+
+					if (method == HTTP_METHOD_DELETE)
+					{
+						char *name = (char*)json_string_value(json_object_get(mtail, "name"));
+						if (name)
+							amtail_del(name);
+						continue;
+					}
+
+					amtail_push(mtail);
 				}
 			}
 			if (!strcmp(key, "query"))

@@ -216,14 +216,14 @@ void amtail_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
 
-	actx->key = strdup("amtail");
+	actx->key = strdup("mtail");
 	actx->handlers = 1;
 	actx->handler = calloc(1, sizeof(*actx->handler) * actx->handlers);
 
 	actx->handler[0].name = amtail_handler;
 	actx->handler[0].validator = NULL;
 	actx->handler[0].mesg_func = amtail_mesg;
-	strlcpy(actx->handler[0].key, "amtail", 255);
+	strlcpy(actx->handler[0].key, "mtail", 255);
 
 	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
 }
