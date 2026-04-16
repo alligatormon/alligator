@@ -10,6 +10,7 @@ regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
 {
 	regex_match *rematch = calloc(1, sizeof(*rematch));
 	rematch->jstack = pcre_jit_stack_alloc(1000,10000);
+	rematch->pattern = strdup(regexstring ? regexstring : "");
 
 	int pcreErrorOffset;
 	const char *pcreErrorStr;
@@ -39,6 +40,8 @@ regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
 
 void regex_match_free(regex_match *rematch)
 {
+	if (rematch->pattern)
+		free(rematch->pattern);
 	pcre_jit_stack_free(rematch->jstack);
 	pcre_free(rematch->regex_compiled);
 	pcre_free_study(rematch->pcreExtra);

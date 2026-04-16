@@ -13,6 +13,7 @@ typedef struct amtail_node {
     string *tail;
     alligator_ht *variables;
     alligator_ht *labels;
+	amtail_log_level amtail_ll;
     uv_mutex_t lock;
     tommy_node node;
 } amtail_node;

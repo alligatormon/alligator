@@ -5,8 +5,12 @@
 #include "common/http.h"
 #include "external/amtail/compile.h"
 #include "external/amtail/parser.h"
+#include "external/amtail/variables.h"
 #include "external/amtail/vm.h"
+#include "metric/labels.h"
+#include "metric/namespace.h"
 #include "main.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -140,6 +144,174 @@ string* amtail_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_
         return NULL;
 }
 
+typedef struct amtail_metric_ctx {
+	context_arg *carg;
+} amtail_metric_ctx;
+
+static alligator_ht *amtail_labels_dup_or_new(alligator_ht *labels)
+{
+	if (labels)
+		return labels_dup(labels);
+	return alligator_ht_init(NULL);
+}
+
+static void amtail_histogram_emit(amtail_variable *var, alligator_ht *base_labels, context_arg *carg)
+{
+	if (!var || !var->export_name || !var->export_name->s || !carg || !var->bucket_hits)
+		return;
+
+	char metric_name[512];
+	char le_buf[128];
+
+	for (uint8_t i = 0; i < var->bucket_count; ++i)
+	{
+		if (!var->bucket || !var->bucket[i] || !var->bucket[i]->s)
+			continue;
+
+		const char *le_value = var->bucket[i]->s;
+		char *end = NULL;
+		double bound = strtod(le_value, &end);
+		if (end && *end == '\0' && fabs(bound) >= 1000000.0)
+		{
+			snprintf(le_buf, sizeof(le_buf), "%.6e", bound);
+			le_value = le_buf;
+		}
+
+		alligator_ht *bucket_labels = amtail_labels_dup_or_new(base_labels);
+		labels_hash_insert_nocache(bucket_labels, "le", (char*)le_value);
+
+		snprintf(metric_name, sizeof(metric_name), "%s_bucket", var->export_name->s);
+		uint64_t bucket_value = var->bucket_hits[i];
+		metric_add(metric_name, bucket_labels, &bucket_value, DATATYPE_UINT, carg);
+	}
+
+	alligator_ht *inf_labels = amtail_labels_dup_or_new(base_labels);
+	labels_hash_insert_nocache(inf_labels, "le", "+Inf");
+	snprintf(metric_name, sizeof(metric_name), "%s_bucket", var->export_name->s);
+	uint64_t inf_value = var->bucket_hits[var->bucket_count];
+	metric_add(metric_name, inf_labels, &inf_value, DATATYPE_UINT, carg);
+
+	snprintf(metric_name, sizeof(metric_name), "%s_sum", var->export_name->s);
+	metric_add(metric_name, base_labels ? labels_dup(base_labels) : NULL, &var->histogram_sum, DATATYPE_DOUBLE, carg);
+
+	snprintf(metric_name, sizeof(metric_name), "%s_count", var->export_name->s);
+	metric_add(metric_name, base_labels ? labels_dup(base_labels) : NULL, &var->histogram_count, DATATYPE_UINT, carg);
+}
+
+static alligator_ht *amtail_variable_make_labels(amtail_variable *var)
+{
+	if (!var || !var->by || !var->by_count || !var->by_positions || !var->key)
+		return NULL;
+
+	alligator_ht *labels = NULL;
+	size_t key_len = strlen(var->key);
+	for (uint8_t i = 0; i < var->by_count; ++i)
+	{
+		if (!var->by[i] || !var->by[i]->s)
+			continue;
+
+		size_t start = var->by_positions[i];
+		size_t next = var->by_positions[i + 1];
+		if (start >= key_len || next <= start + 2)
+			continue;
+		if (next > key_len + 1)
+			next = key_len + 1;
+
+		size_t value_len = next - start - 2;
+		if (!value_len)
+			continue;
+
+		if (!labels)
+			labels = alligator_ht_init(NULL);
+
+		string *value = string_init_alloc(var->key + start, value_len);
+		labels_hash_insert_nocache(labels, var->by[i]->s, value->s);
+		string_free(value);
+	}
+
+	return labels;
+}
+
+static void amtail_variable_metric_add(void *funcarg, void *arg)
+{
+	amtail_metric_ctx *ctx = funcarg;
+	amtail_variable *var = arg;
+
+	if (!ctx || !ctx->carg || !var || !var->export_name || !var->export_name->s || var->is_template)
+		return;
+
+	alligator_ht *labels = amtail_variable_make_labels(var);
+	int8_t dtype = DATATYPE_NONE;
+	void *metric_value = NULL;
+
+	int64_t i_value = 0;
+	double d_value = 0;
+	char *s_value = NULL;
+
+	if (var->type == ALLIGATOR_VARTYPE_COUNTER)
+	{
+		i_value = var->i;
+		dtype = DATATYPE_INT;
+		metric_value = &i_value;
+	}
+	else if (var->type == ALLIGATOR_VARTYPE_GAUGE || var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
+	{
+		d_value = var->d;
+		dtype = DATATYPE_DOUBLE;
+		metric_value = &d_value;
+	}
+	else if (var->type == ALLIGATOR_VARTYPE_TEXT)
+	{
+		if (var->s && var->s->s)
+		{
+			s_value = var->s->s;
+			dtype = DATATYPE_STRING;
+			metric_value = &s_value;
+		}
+	}
+	else if (var->type == ALLIGATOR_VARTYPE_CONST)
+	{
+		if (var->facttype == ALLIGATOR_FACTTYPE_INT)
+		{
+			i_value = var->i;
+			dtype = DATATYPE_INT;
+			metric_value = &i_value;
+		}
+		else if (var->facttype == ALLIGATOR_FACTTYPE_DOUBLE)
+		{
+			d_value = var->d;
+			dtype = DATATYPE_DOUBLE;
+			metric_value = &d_value;
+		}
+		else if (var->facttype == ALLIGATOR_FACTTYPE_TEXT && var->s && var->s->s)
+		{
+			s_value = var->s->s;
+			dtype = DATATYPE_STRING;
+			metric_value = &s_value;
+		}
+	}
+
+	if (var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
+	{
+		amtail_histogram_emit(var, labels, ctx->carg);
+		if (labels)
+			labels_hash_free(labels);
+	}
+	else if (metric_value && dtype != DATATYPE_NONE)
+		metric_add(var->export_name->s, labels, metric_value, dtype, ctx->carg);
+	else if (labels)
+		labels_hash_free(labels);
+}
+
+static void amtail_variables_to_metrics(alligator_ht *variables, context_arg *carg)
+{
+	if (!variables || !carg)
+		return;
+
+	amtail_metric_ctx ctx = { .carg = carg };
+	alligator_ht_foreach_arg(variables, amtail_variable_metric_add, &ctx);
+}
+
 void amtail_handler(char *metrics, size_t size, context_arg *carg)
 {
 	amtail_node *an = NULL;
@@ -192,7 +364,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		if (line_len)
 		{
 			string *line = string_init_alloc(buf + start, line_len);
-			if (!amtail_run(an->bytecode, line))
+			if (!amtail_run(an->bytecode, line, an->amtail_ll))
 				rc = 0;
 			string_free(line);
 		}
@@ -206,6 +378,8 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	if (start < total)
 		an->tail = string_init_alloc(buf + start, total - start);
+
+	amtail_variables_to_metrics(an->bytecode->variables, carg);
 
 	free(buf);
 	uv_mutex_unlock(&an->lock);

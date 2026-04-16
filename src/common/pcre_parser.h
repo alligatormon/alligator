@@ -48,6 +48,7 @@ typedef struct regex_match
 	uint64_t unknown_node;
 	uint64_t nomemory;
 	uint64_t unknown_error;
+	char *pattern;
 
 	pcre_jit_stack* jstack;
 	pcre *regex_compiled;
