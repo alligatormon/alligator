@@ -21,6 +21,7 @@ typedef struct file_handle {
 	uv_fs_t close;
 	char pathname[1024];
 	uv_buf_t buffer;
+	uint64_t read_offset;
 	context_arg *carg;
 } file_handle;
 
@@ -244,6 +245,7 @@ void file_on_open(uv_fs_t *req)
 		else if (carg->parser_name)
 		{
 			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", fh->pathname, offset);
+			fh->read_offset = offset;
 			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
 		}
 	}
@@ -263,9 +265,16 @@ void filetailer_on_read(uv_fs_t *req) {
 		carglog(carg, L_ERROR, "filetailer_on_read: Read error: %s\n", fh->pathname);
 	}
 	else if (req->result == 0) {
-		carglog(carg, L_ERROR, "filetailer_on_read: No result read: %s\n", fh->pathname);
-		file_stat *fstat = file_stat_add_offset(ac->file_stat, fh->pathname, carg, 0);
-		fstat->offset = 0;
+		uint64_t filesize = get_file_size(fh->pathname);
+		if (fh->read_offset > filesize) {
+			carglog(carg, L_INFO, "filetailer_on_read: File truncated: %s, offset %"u64" > size %"u64". Reset to beginning\n",
+					fh->pathname, fh->read_offset, filesize);
+			file_stat *fstat = file_stat_add_offset(ac->file_stat, fh->pathname, carg, 0);
+			fstat->offset = 0;
+		} else {
+			carglog(carg, L_INFO, "filetailer_on_read: EOF reached: %s, offset %"u64", size %"u64"\n",
+					fh->pathname, fh->read_offset, filesize);
+		}
 	}
 	else {
 		uint64_t str_len = req->result;

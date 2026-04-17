@@ -10,6 +10,8 @@
 #include "metric/labels.h"
 #include "metric/namespace.h"
 #include "main.h"
+#include <ctype.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -146,6 +148,7 @@ string* amtail_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_
 
 typedef struct amtail_metric_ctx {
 	context_arg *carg;
+	alligator_ht *variables;
 } amtail_metric_ctx;
 
 static alligator_ht *amtail_labels_dup_or_new(alligator_ht *labels)
@@ -198,7 +201,99 @@ static void amtail_histogram_emit(amtail_variable *var, alligator_ht *base_label
 	metric_add(metric_name, base_labels ? labels_dup(base_labels) : NULL, &var->histogram_count, DATATYPE_UINT, carg);
 }
 
-static alligator_ht *amtail_variable_make_labels(amtail_variable *var)
+static char *amtail_value_from_variable(amtail_variable *value_var)
+{
+	if (!value_var)
+		return NULL;
+
+	if (value_var->type == ALLIGATOR_VARTYPE_TEXT && value_var->s && value_var->s->s)
+		return strdup(value_var->s->s);
+	if (value_var->type == ALLIGATOR_VARTYPE_CONST)
+	{
+		if (value_var->facttype == ALLIGATOR_FACTTYPE_TEXT && value_var->s && value_var->s->s)
+			return strdup(value_var->s->s);
+		if (value_var->facttype == ALLIGATOR_FACTTYPE_INT)
+		{
+			char tmp[64];
+			snprintf(tmp, sizeof(tmp), "%"PRId64, value_var->i);
+			return strdup(tmp);
+		}
+		if (value_var->facttype == ALLIGATOR_FACTTYPE_DOUBLE)
+		{
+			char tmp[64];
+			snprintf(tmp, sizeof(tmp), "%.17g", value_var->d);
+			return strdup(tmp);
+		}
+	}
+	if (value_var->type == ALLIGATOR_VARTYPE_COUNTER)
+	{
+		char tmp[64];
+		snprintf(tmp, sizeof(tmp), "%"PRId64, value_var->i);
+		return strdup(tmp);
+	}
+	if (value_var->type == ALLIGATOR_VARTYPE_GAUGE)
+	{
+		char tmp[64];
+		snprintf(tmp, sizeof(tmp), "%.17g", value_var->d);
+		return strdup(tmp);
+	}
+
+	return NULL;
+}
+
+static char *amtail_lookup_label_variable(const char *name, alligator_ht *variables)
+{
+	if (!name || !*name || !variables)
+		return NULL;
+
+	size_t name_len = strlen(name);
+	amtail_variable *resolved = alligator_ht_search(variables, amtail_variable_compare, (void*)name, amtail_hash((char*)name, name_len));
+	if (!resolved && name[0] == '$' && name[1])
+	{
+		const char *trimmed = name + 1;
+		size_t trimmed_len = strlen(trimmed);
+		resolved = alligator_ht_search(variables, amtail_variable_compare, (void*)trimmed, amtail_hash((char*)trimmed, trimmed_len));
+	}
+
+	return amtail_value_from_variable(resolved);
+}
+
+static char *amtail_resolve_label_value(const char *raw, size_t raw_len, alligator_ht *variables)
+{
+	if (!raw || !raw_len)
+		return NULL;
+
+	string *tmp = string_init_alloc((char*)raw, raw_len);
+	if (!tmp || !tmp->s)
+		return NULL;
+
+	char *start = tmp->s;
+	while (*start && isspace((unsigned char)*start))
+		++start;
+
+	char *end = tmp->s + strlen(tmp->s);
+	while (end > start && isspace((unsigned char)*(end - 1)))
+		--end;
+	*end = '\0';
+
+	size_t len = strlen(start);
+	if (len >= 2 && ((start[0] == '"' && start[len - 1] == '"') || (start[0] == '\'' && start[len - 1] == '\'')))
+	{
+		start[len - 1] = '\0';
+		++start;
+	}
+
+	char *resolved = NULL;
+	if (*start == '$' && variables)
+		resolved = amtail_lookup_label_variable(start, variables);
+	if (!resolved)
+		resolved = strdup(start);
+
+	string_free(tmp);
+	return resolved;
+}
+
+static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator_ht *variables)
 {
 	if (!var || !var->by || !var->by_count || !var->by_positions || !var->key)
 		return NULL;
@@ -224,9 +319,11 @@ static alligator_ht *amtail_variable_make_labels(amtail_variable *var)
 		if (!labels)
 			labels = alligator_ht_init(NULL);
 
-		string *value = string_init_alloc(var->key + start, value_len);
-		labels_hash_insert_nocache(labels, var->by[i]->s, value->s);
-		string_free(value);
+		char *value = amtail_resolve_label_value(var->key + start, value_len, variables);
+		if (!value)
+			continue;
+		labels_hash_insert_nocache(labels, var->by[i]->s, value);
+		free(value);
 	}
 
 	return labels;
@@ -240,7 +337,7 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 	if (!ctx || !ctx->carg || !var || !var->export_name || !var->export_name->s || var->is_template)
 		return;
 
-	alligator_ht *labels = amtail_variable_make_labels(var);
+	alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);
 	int8_t dtype = DATATYPE_NONE;
 	void *metric_value = NULL;
 
@@ -308,7 +405,7 @@ static void amtail_variables_to_metrics(alligator_ht *variables, context_arg *ca
 	if (!variables || !carg)
 		return;
 
-	amtail_metric_ctx ctx = { .carg = carg };
+	amtail_metric_ctx ctx = { .carg = carg, .variables = variables };
 	alligator_ht_foreach_arg(variables, amtail_variable_metric_add, &ctx);
 }
 

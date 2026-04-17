@@ -13,6 +13,7 @@
 #include "common/crc32.h"
 #include "common/xxh.h"
 #include "common/murmurhash.h"
+#include "common/file_stat.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -277,6 +278,36 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		else
 			log_level = json_string(log);
 		json_array_object_insert(ctx, "log_level", log_level);
+	}
+
+	if (!strncmp(carg->url, "file://", 7))
+	{
+		if (carg->state == FILESTAT_STATE_BEGIN)
+		{
+			json_t *state = json_string("begin");
+			json_array_object_insert(ctx, "state", state);
+		}
+		else if (carg->state == FILESTAT_STATE_SAVE)
+		{
+			json_t *state = json_string("save");
+			json_array_object_insert(ctx, "state", state);
+		}
+		else if (carg->state == FILESTAT_STATE_STREAM)
+		{
+			json_t *state = json_string("stream");
+			json_array_object_insert(ctx, "state", state);
+		}
+
+		if (carg->notify == 1)
+		{
+			json_t *notify = json_string("true");
+			json_array_object_insert(ctx, "notify", notify);
+		}
+		else if (carg->notify == 2)
+		{
+			json_t *notify = json_string("only");
+			json_array_object_insert(ctx, "notify", notify);
+		}
 	}
 
 	if (carg->labels)

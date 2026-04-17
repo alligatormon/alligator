@@ -1007,6 +1007,15 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc)
 	{
 		string_cat(res, labels->key, labels->key_len);
 	}
+	if (x->type == DATATYPE_INT)
+	{
+		string_cat(res, ".count", 6);
+	}
+	else if (x->type == DATATYPE_UINT)
+	{
+		string_cat(res, ".count", 6);
+	}
+
 	tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
 	labels = labels->next;
 
