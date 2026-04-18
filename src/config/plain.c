@@ -292,6 +292,114 @@ uint64_t plain_count_get(string *context)
 	return j;
 }
 
+static string *plain_strip_comments(string *context)
+{
+	if (!context || !context->s)
+		return NULL;
+
+	string *clean = string_init(context->l + 1);
+	if (!clean)
+		return NULL;
+
+	uint8_t in_single_quote = 0;
+	uint8_t in_double_quote = 0;
+	uint8_t escaped = 0;
+	uint8_t in_line_comment = 0;
+	uint8_t in_block_comment = 0;
+
+	for (size_t i = 0; i < context->l; ++i)
+	{
+		char ch = context->s[i];
+		char next = (i + 1 < context->l) ? context->s[i + 1] : '\0';
+
+		if (in_line_comment)
+		{
+			if (ch == '\n')
+			{
+				in_line_comment = 0;
+				string_cat(clean, &ch, 1);
+			}
+			else
+			{
+				char space = ' ';
+				string_cat(clean, &space, 1);
+			}
+			continue;
+		}
+
+		if (in_block_comment)
+		{
+			if (ch == '*' && next == '/')
+			{
+				char space = ' ';
+				string_cat(clean, &space, 1);
+				string_cat(clean, &space, 1);
+				in_block_comment = 0;
+				++i;
+			}
+			else if (ch == '\n')
+			{
+				string_cat(clean, &ch, 1);
+			}
+			else
+			{
+				char space = ' ';
+				string_cat(clean, &space, 1);
+			}
+			continue;
+		}
+
+		if (in_single_quote || in_double_quote)
+		{
+			string_cat(clean, &ch, 1);
+			if (escaped)
+			{
+				escaped = 0;
+			}
+			else if (ch == '\\')
+			{
+				escaped = 1;
+			}
+			else if (in_single_quote && ch == '\'')
+			{
+				in_single_quote = 0;
+			}
+			else if (in_double_quote && ch == '"')
+			{
+				in_double_quote = 0;
+			}
+			continue;
+		}
+
+		if (ch == '#')
+		{
+			char space = ' ';
+			string_cat(clean, &space, 1);
+			in_line_comment = 1;
+			continue;
+		}
+
+		if (ch == '/' && next == '*')
+		{
+			char space = ' ';
+			string_cat(clean, &space, 1);
+			string_cat(clean, &space, 1);
+			in_block_comment = 1;
+			++i;
+			continue;
+		}
+
+		if (ch == '\'')
+			in_single_quote = 1;
+		else if (ch == '"')
+			in_double_quote = 1;
+
+		string_cat(clean, &ch, 1);
+	}
+
+	return clean;
+}
+
 static void plain_context_env_line(json_t *env_obj, string *tok)
 {
 	const char *s;
@@ -1322,9 +1430,14 @@ void config_parser_stat_free(config_parser_stat *wstokens, uint64_t token_count)
 
 char* config_plain_to_json(string *context)
 {
-	uint64_t token_count = plain_count_get(context);
-	config_parser_stat *wstokens = string_tokenizer(context, &token_count);
+	string *clean_context = plain_strip_comments(context);
+	if (!clean_context)
+		return strdup("{}");
+
+	uint64_t token_count = plain_count_get(clean_context);
+	config_parser_stat *wstokens = string_tokenizer(clean_context, &token_count);
 	char *ret = build_json_from_tokens(wstokens, token_count);
 	config_parser_stat_free(wstokens, token_count);
+	string_free(clean_context);
 	return ret;
 }

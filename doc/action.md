@@ -211,6 +211,37 @@ action {
 }
 ```
 
+
+## metric_name_transform_pattern
+/**
+`metric_name_transform_pattern` and `metric_name_transform_replacement` define rules for transforming metric names before metrics are exported via an action.
+
+- `metric_name_transform_pattern`: Specifies a regular expression (PCRE syntax) that matches metric names. It is used to identify all or part of metric names that should be rewritten or normalized. Only the **first** match in each name is used.
+
+- `metric_name_transform_replacement`: Specifies a replacement string for renaming metric names. It can use `$1`, `$2`, ... to insert text from the corresponding capturing groups in the `metric_name_transform_pattern`.
+
+**Example:**
+```
+action {
+  name to-elastic;
+  expr http://localhost:9200/_bulk;
+  serializer elasticsearch;
+  metric_name_transform_pattern ^stats\.(.*)$;
+  metric_name_transform_replacement custom.$1;
+}
+```
+In this example, any metric name starting with `stats.` will be rewritten to start with `custom.` (e.g., `stats.http.requests` → `custom.http.requests`).
+
+**Notes:**
+- If `metric_name_transform_pattern` and `metric_name_transform_replacement` are not set, metric names are kept as-is.
+- Only one pair of pattern and replacement can be used per action.
+- Setting only `metric_name_transform_pattern` without a corresponding replacement will result in no transformation.
+- Patterns are case-sensitive.
+
+See also: [src/metric/transform.c](https://github.com/alligatormon/alligator/blob/master/src/metric/transform.c) for implementation details.
+*/
+
+
 ## env
 Adds HTTP headers for `http`/`https` actions (they are merged into the outgoing request). For `exec://` actions, the same entries are supplied as environment variables for the subprocess.
 

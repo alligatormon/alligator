@@ -30,6 +30,14 @@ Destination can be standart streams of a Unix OS, a file or a UDP port. For exam
 
 
 
+
+
+## Comments in plain config
+The plain configuration parser supports both single-line and multiline comments:
+- `# comment text` for single-line comments.
+- `/* comment text */` for multiline comments.
+
+
 ## /etc/alligator.conf
 Bellow is an example of the structure configuration file for Alligator:
 ```
