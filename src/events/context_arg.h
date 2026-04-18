@@ -272,6 +272,7 @@ typedef struct context_arg
 	uint64_t headers_size;
 	uint8_t api_enable;
 
+	alligator_ht *amtail_variables;
 	uint8_t remove_from_hash; // enable if deleting 1 object
 
 	char *url;

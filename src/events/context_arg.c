@@ -8,6 +8,7 @@
 #include "common/units.h"
 #include "common/logs.h"
 #include "common/auth.h"
+#include "external/amtail/variables.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -163,6 +164,10 @@ void carg_free(context_arg *carg)
 	{
 		free(carg->local_addr);
 		carg->local_addr = NULL;
+	}
+
+	if (carg->amtail_variables) {
+		amtail_variables_free(carg->amtail_variables);
 	}
 
 	carg->remote_addr.sin_addr.s_addr = 0;

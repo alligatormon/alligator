@@ -427,7 +427,10 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 
 	size_t start = 0;
 	int rc = 1;
+	if (!carg->amtail_variables)
+		carg->amtail_variables = amtail_variables_init();
 	string *line = string_new();
+
 	for (size_t i = 0; i < total; ++i)
 	{
 		if (buf[i] != '\n')
@@ -439,12 +442,13 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		if (line_len)
 		{
 			string_cat(line, buf + start, line_len);
-			if (!amtail_run(an->bytecode, line, an->amtail_ll))
+			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll))
 				rc = 0;
 			string_null(line);
 		}
 		start = i + 1;
 	}
+	amtail_variables_dump(carg->amtail_variables);
 
 	if (an->tail)
 	{
@@ -454,7 +458,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	if (start < total)
 		an->tail = string_init_alloc(buf + start, total - start);
 
-	amtail_variables_to_metrics(an->bytecode->variables, carg);
+	amtail_variables_to_metrics(carg->amtail_variables, carg);
 
 	free(buf);
 	uv_mutex_unlock(&an->lock);
