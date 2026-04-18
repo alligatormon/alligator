@@ -343,7 +343,6 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 
 	int64_t i_value = 0;
 	double d_value = 0;
-	char *s_value = NULL;
 
 	if (var->type == ALLIGATOR_VARTYPE_COUNTER)
 	{
@@ -357,36 +356,6 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 		dtype = DATATYPE_DOUBLE;
 		metric_value = &d_value;
 	}
-	else if (var->type == ALLIGATOR_VARTYPE_TEXT)
-	{
-		if (var->s && var->s->s)
-		{
-			s_value = var->s->s;
-			dtype = DATATYPE_STRING;
-			metric_value = &s_value;
-		}
-	}
-	else if (var->type == ALLIGATOR_VARTYPE_CONST)
-	{
-		if (var->facttype == ALLIGATOR_FACTTYPE_INT)
-		{
-			i_value = var->i;
-			dtype = DATATYPE_INT;
-			metric_value = &i_value;
-		}
-		else if (var->facttype == ALLIGATOR_FACTTYPE_DOUBLE)
-		{
-			d_value = var->d;
-			dtype = DATATYPE_DOUBLE;
-			metric_value = &d_value;
-		}
-		else if (var->facttype == ALLIGATOR_FACTTYPE_TEXT && var->s && var->s->s)
-		{
-			s_value = var->s->s;
-			dtype = DATATYPE_STRING;
-			metric_value = &s_value;
-		}
-	}
 
 	if (var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
 	{
@@ -394,8 +363,15 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 		if (labels)
 			labels_hash_free(labels);
 	}
-	else if (metric_value && dtype != DATATYPE_NONE)
+	else if (metric_value && dtype != DATATYPE_NONE && dtype != DATATYPE_STRING) {
+		if (dtype == DATATYPE_INT)
+			printf("metric_add int: %s, %"PRId64", %d, %p\n", var->export_name->s, *((int64_t*)metric_value), dtype, ctx->carg);
+		else if (dtype == DATATYPE_UINT)
+			printf("metric_add uint: %s, %"PRIu64", %d, %p\n", var->export_name->s, *((uint64_t*)metric_value), dtype, ctx->carg);
+		else if (dtype == DATATYPE_DOUBLE)
+			printf("metric_add double: %s, %.17g, %d, %p\n", var->export_name->s, *((double*)metric_value), dtype, ctx->carg);
 		metric_add(var->export_name->s, labels, metric_value, dtype, ctx->carg);
+	}
 	else if (labels)
 		labels_hash_free(labels);
 }
@@ -450,6 +426,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 
 	size_t start = 0;
 	int rc = 1;
+	string *line = string_new();
 	for (size_t i = 0; i < total; ++i)
 	{
 		if (buf[i] != '\n')
@@ -460,10 +437,10 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 			--line_len;
 		if (line_len)
 		{
-			string *line = string_init_alloc(buf + start, line_len);
+			string_cat(line, buf + start, line_len);
 			if (!amtail_run(an->bytecode, line, an->amtail_ll))
 				rc = 0;
-			string_free(line);
+			string_null(line);
 		}
 		start = i + 1;
 	}
