@@ -433,6 +433,9 @@ void metric_str_build (char *namespace, string *str)
 	{
 		pthread_rwlock_rdlock(tree->rwlock);
 		metrictree_str_build(tree->root, str);
+		string_cat(str, "alligator_metrics_exposed_total ", 32);
+		string_int(str, (tree->count + 1));
+		string_cat(str, "\n ", 1);
 		pthread_rwlock_unlock(tree->rwlock);
 	}
 }
