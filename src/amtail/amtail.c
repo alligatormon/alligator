@@ -333,8 +333,9 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 {
 	amtail_metric_ctx *ctx = funcarg;
 	amtail_variable *var = arg;
+	context_arg *carg = ctx->carg;
 
-	if (!ctx || !ctx->carg || !var || !var->export_name || !var->export_name->s || var->is_template)
+	if (!ctx || !carg || !var || !var->export_name || !var->export_name->s || var->is_template)
 		return;
 
 	alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);
@@ -365,11 +366,11 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 	}
 	else if (metric_value && dtype != DATATYPE_NONE && dtype != DATATYPE_STRING) {
 		if (dtype == DATATYPE_INT)
-			printf("metric_add int: %s, %"PRId64", %d, %p\n", var->export_name->s, *((int64_t*)metric_value), dtype, ctx->carg);
+			carglog(carg, L_DEBUG, "mtail metric_add int: %s, %"PRId64", %d, %p\n", var->export_name->s, *((int64_t*)metric_value), dtype, carg);
 		else if (dtype == DATATYPE_UINT)
-			printf("metric_add uint: %s, %"PRIu64", %d, %p\n", var->export_name->s, *((uint64_t*)metric_value), dtype, ctx->carg);
+			carglog(carg, L_DEBUG, "mtail metric_add uint: %s, %"PRIu64", %d, %p\n", var->export_name->s, *((uint64_t*)metric_value), dtype, carg);
 		else if (dtype == DATATYPE_DOUBLE)
-			printf("metric_add double: %s, %.17g, %d, %p\n", var->export_name->s, *((double*)metric_value), dtype, ctx->carg);
+			carglog(carg, L_DEBUG, "mtail metric_add double: %s, %.17g, %d, %p\n", var->export_name->s, *((double*)metric_value), dtype, carg);
 		metric_add(var->export_name->s, labels, metric_value, dtype, ctx->carg);
 	}
 	else if (labels)
