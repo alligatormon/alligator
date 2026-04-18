@@ -4,6 +4,7 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <jansson.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
@@ -927,13 +928,26 @@ static int otlp_metric_to_pb_value(metric_node *x, uint8_t *field, uint64_t *raw
 	return 1;
 }
 
+static uint64_t otlp_safe_unix_nano_now(void)
+{
+	r_time now = setrtime();
+	uint64_t sec;
+
+	if (now.sec > 0 && now.nsec >= 0 && now.nsec < 1000000000)
+		return (uint64_t)now.sec * 1000000000ULL + (uint64_t)now.nsec;
+
+	sec = (uint64_t)time(NULL);
+	if (sec == 0)
+		sec = 1;
+	return sec * 1000000000ULL;
+}
+
 void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
 {
 	labels_t *labels = x ? x->labels : NULL;
 	string *req, *rm, *sm, *metric, *gauge, *dp;
 	uint8_t value_field = 0;
 	uint64_t value_raw = 0;
-	r_time now;
 	uint64_t time_unix_nano;
 
 	if (!sc || !sc->str || !labels || !labels->key || !labels->key_len)
@@ -958,8 +972,7 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
 		}
 	}
 
-	now = setrtime();
-	time_unix_nano = (uint64_t)now.sec * 1000000000ULL + (uint64_t)now.nsec;
+	time_unix_nano = otlp_safe_unix_nano_now();
 	otlp_pbw_field_fixed64(dp, 3, time_unix_nano);
 
 	otlp_pbw_field_fixed64(dp, value_field, value_raw);
