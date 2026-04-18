@@ -12,6 +12,7 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "common/protobuf_wire.h"
+#include "common/rtime.h"
 #include "common/validator.h"
 #include "common/reject.h"
 #include "cluster/pass.h"
@@ -932,6 +933,8 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
 	string *req, *rm, *sm, *metric, *gauge, *dp;
 	uint8_t value_field = 0;
 	uint64_t value_raw = 0;
+	r_time now;
+	uint64_t time_unix_nano;
 
 	if (!sc || !sc->str || !labels || !labels->key || !labels->key_len)
 		return;
@@ -954,6 +957,10 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
 			string_free(kv);
 		}
 	}
+
+	now = setrtime();
+	time_unix_nano = (uint64_t)now.sec * 1000000000ULL + (uint64_t)now.nsec;
+	otlp_pbw_field_fixed64(dp, 3, time_unix_nano);
 
 	otlp_pbw_field_fixed64(dp, value_field, value_raw);
 	otlp_pbw_field_lenmsg(gauge, 1, dp);
