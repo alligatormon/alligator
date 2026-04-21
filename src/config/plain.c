@@ -935,6 +935,25 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 											break;
 									}
 								}
+								else if (!strcmp(operator_name, "add_label"))
+								{
+									json_t *add_label_obj = json_object_get(operator_json, "add_label");
+									if (!add_label_obj)
+									{
+										add_label_obj = json_object();
+										json_array_object_insert(operator_json, "add_label", add_label_obj);
+									}
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											plain_context_env_line(add_label_obj, wstokens[i].token);
+											break;
+										}
+										if (wstokens[i].semicolon)
+											break;
+									}
+								}
 							}
 							else if (wstokens[i].argument)
 							{

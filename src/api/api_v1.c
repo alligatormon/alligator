@@ -183,7 +183,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					ac->workers = workers;
 				}
 			}
-			if (!strcmp(key, "metrictree_hashfunc"))
+			if (!strcmp(key, "metrictree_hashfunc")) // TODO: it can cause race condition if some hashes had been calculated before and after the change with new hash function
 			{
 				if (json_typeof(value) == JSON_STRING) {
 					const char *hashfunc = json_string_value(value);

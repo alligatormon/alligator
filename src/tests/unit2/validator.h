@@ -32,35 +32,6 @@ void test_tag_normalizer_statsd() {
 	free(buf);
 }
 
-void test_tags_normalizer_dogstatsd() {
-	char *buf = malloc(256);
-	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, buf);
-
-	strcpy(buf, "env");
-	tags_normalizer_dogstatsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "env", buf);
-
-	strcpy(buf, "production");
-	tags_normalizer_dogstatsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "production", buf);
-
-	strcpy(buf, "foo.bar-baz_0");
-	tags_normalizer_dogstatsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo.bar-baz_0", buf);
-
-	strcpy(buf, "foo:bar/baz");
-	tags_normalizer_dogstatsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo_bar_baz", buf);
-
-	strcpy(buf, "a,b#c");
-	tags_normalizer_dogstatsd(buf, strlen(buf));
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a_b_c", buf);
-
-	strcpy(buf, "");
-	tags_normalizer_dogstatsd(buf, 0);
-	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", buf);
-	free(buf);
-}
 
 void test_tag_normalizer_dynatrace() {
 	char *buf = malloc(256);

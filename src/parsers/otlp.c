@@ -19,6 +19,7 @@
 #include "cluster/pass.h"
 #include "parsers/metric_types.h"
 #include "parsers/http_proto.h"
+#include "metric/labels.h"
 #include "main.h"
 
 #define OTLP_KEY_MAX 256
@@ -942,7 +943,16 @@ static uint64_t otlp_safe_unix_nano_now(void)
 	return sec * 1000000000ULL;
 }
 
-void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
+void otlp_protobuf_add_labels_foreach(void *funcarg, void* arg)
+{
+	labels_container *labelscont = (labels_container*)arg;
+	string *dp = (string*)funcarg;
+	string *kv = otlp_pbw_key_value_string(labelscont->name, strlen(labelscont->name), labelscont->key, strlen(labelscont->key));
+	otlp_pbw_field_lenmsg(dp, 7, kv);
+	string_free(kv);
+}
+
+void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x ? x->labels : NULL;
 	string *req, *rm, *sm, *metric, *gauge, *dp;
@@ -962,10 +972,18 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc)
 	gauge = string_init(128);
 	dp = string_init(256);
 
+	if (add_labels)
+	{
+		alligator_ht_foreach_arg(add_labels, otlp_protobuf_add_labels_foreach, dp);
+	}
+
 	for (labels_t *it = labels->next; it; it = it->next)
 	{
 		if (it->name_len && it->key_len)
 		{
+			if (alligator_ht_search(add_labels, labels_hash_compare, it->name, ac->metrictree_hashfunc_get(it->name)))
+				continue;
+
 			string *kv = otlp_pbw_key_value_string(it->name, it->name_len, it->key, it->key_len);
 			otlp_pbw_field_lenmsg(dp, 7, kv);
 			string_free(kv);

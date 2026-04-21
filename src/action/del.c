@@ -37,6 +37,8 @@ void action_del(json_t *action)
 			free(an->parser_name);
 		if (an->env)
 			env_free(an->env);
+		if (an->labels)
+			labels_hash_free(an->labels);
 		//if (an->datasource)
 		//	free(an->datasource);
 		if (an->metric_name_transform_pattern)

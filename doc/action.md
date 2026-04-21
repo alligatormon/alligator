@@ -22,6 +22,7 @@ action {
     ns <namespace>;
     work_dir <working directory>;
     serializer <serializer>;
+    add_label <key:value>;
     follow_redirects <redirects>;
     engine <engine>;
     index_template <index_template>;
@@ -263,6 +264,37 @@ action {
   expr https://xxxx.live.dynatrace.com/api/v2/metrics/ingest;
   env 'Authorization:Api-Token XXXXXXXXX';
   env 'Content-Type: text/plain; charset=utf-8';
+}
+```
+
+## add_label
+Adds static labels to every exported metric in the action.
+
+In plain configuration, each line is `add_label key:value;`. Repeat `add_label` for multiple labels.
+
+In JSON configuration, labels are represented as an object:
+
+```
+action {
+  name to-dynatrace;
+  serializer dynatrace;
+  add_label labelname:labelvalue;
+  add_label second_label:value;
+  expr https://xxxx.live.dynatrace.com/api/v2/metrics/ingest;
+  env 'Authorization:Api-Token XXXXXXXXX';
+  env 'Content-Type: text/plain; charset=utf-8';
+}
+```
+
+For example:
+
+```
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
+  add_label dcwq:sdc;
+  add_label adcwwdc:dcedc;
 }
 ```
 

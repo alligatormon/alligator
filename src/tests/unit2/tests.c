@@ -343,7 +343,6 @@ int main(int argc, char **argv) {
     test_integer_to_ip();
     test_ip_get_version();
     test_tag_normalizer_statsd();
-    test_tags_normalizer_dogstatsd();
     test_tag_normalizer_dynatrace();
     test_protobuf_wire();
     test_http_access_1();

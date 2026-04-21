@@ -5,6 +5,24 @@
 #include "common/json_query.h"
 #include "common/logs.h"
 
+void action_parse_add_label(action_node *an, json_t *root) {
+    json_t *json_add_label = json_object_get(root, "add_label");
+
+    const char *name;
+    json_t *jkey;
+    json_object_foreach(json_add_label, name, jkey)
+    {
+        char *key = (char*)json_string_value(jkey);
+
+        if (!an->labels)
+        {
+            an->labels = alligator_ht_init(NULL);
+        }
+
+        labels_hash_insert_nocache(an->labels, (char*)name, key);
+    }
+}
+
 void action_push(json_t *action)
 {
 	json_t *jname = json_object_get(action, "name");
@@ -96,6 +114,8 @@ void action_push(json_t *action)
 		an->index_template = string_init_dupn((char*)json_string_value(jindex_template), json_string_length(jindex_template));
 	}
 
+
+	action_parse_add_label(an, action);
 
 	an->follow_redirects = config_get_intstr_json(action, "follow_redirects");
 

@@ -150,16 +150,34 @@ void tag_normalizer_dynatrace(char *str, size_t sz)
 			str[i] = '_';
 }
 
-void tags_normalizer_dogstatsd(char *str, size_t sz)
+void tag_normalizer_graphite(char *str, size_t sz)
 {
-	uint64_t i;
+	int64_t i;
 	for (i=0; i<sz; i++)
 		if (isalpha((unsigned char)str[i]) || str[i] == '_' || str[i] == '.' || str[i] == '-')
 			continue;
 		else if (isdigit((unsigned char)str[i]))
 			continue;
+		else if (str[i] == 0)
+			break;
+		else if (str[i] == ' ')
+			str[i] = '_';
 		else
 			str[i] = '_';
+
+	return;
+}
+
+void tag_normalizer_influxdb(char *str, size_t sz)
+{
+	uint64_t i;
+	for (i=0; i<sz; i++)
+		if (isalnum(str[i]) || str[i]=='_' || str[i]=='-' || str[i]=='.')
+			continue;
+		else
+			str[i] = '_';
+
+	return;
 }
 
 int metric_label_validator(char *str, size_t sz)
