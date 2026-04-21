@@ -3,6 +3,7 @@
 #include "metric/labels.h"
 #include "metric/namespace.h"
 #include "query/promql.h"
+#include "common/logs.h"
 extern aconf *ac;
 
 void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template, void *an)
@@ -21,6 +22,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	alligator_ht *hash_work = hash ? labels_dup(hash) : alligator_ht_init(NULL);
 	size_t labels_count = alligator_ht_count(hash_work);
 	metric_tree *tree = ns->metrictree;
+	glog(L_DEBUG, "metric_str_build_query: ns='%s' name='%s' func=%d labels=%zu groupby='%s' serializer=%d\n", namespace ? namespace : "", name ? name : "", func, labels_count, (groupkey && groupkey->s) ? groupkey->s : "", serializer);
 
 	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an);
 	if (!sc)
@@ -37,6 +39,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 		metrictree_serialize_query(tree, labels_list, groupkey, sc, labels_count);
 		labels_head_free(labels_list);
 		serializer_do(sc, str);
+		glog(L_DEBUG, "metric_str_build_query: serialized_len=%zu\n", str ? str->l : 0);
 	}
 	else
 		labels_hash_free(hash_work);

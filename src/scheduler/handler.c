@@ -19,6 +19,8 @@ void scheduler_run(uv_timer_t* handle)
 		{
 			// TODO: fix sn->name
 			action_run_process(sn->action, NULL, mqc);
+			/* action_run_process() consumes and frees mqc */
+			mqc = NULL;
 		}
 		if (sn->lang)
 		{

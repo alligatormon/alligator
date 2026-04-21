@@ -108,7 +108,7 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 
 int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count)
 {
-	if (labels_count)
+	if (labels_count && labels2 && labels2->key_len)
 		++labels_count;
 
 	int64_t i;

@@ -38,6 +38,25 @@
 #define QUERY_EXPECT_TEST_9 "network_stat"
 #define QUERY_FUNC_TEST_9 QUERY_FUNC_COUNT
 
+#define QUERY_STR_TEST_10 "network_stat{proto=\"tcp\"} > 10"
+#define QUERY_EXPECT_TEST_10 "network_stat"
+#define QUERY_FUNC_TEST_10 QUERY_FUNC_NONE
+
+#define QUERY_STR_TEST_11 "sum by (proto, src_port) (network_stat{state=\"listen\"} > 0)"
+#define QUERY_EXPECT_TEST_11 "network_stat"
+#define QUERY_FUNC_TEST_11 QUERY_FUNC_SUM
+
+#define QUERY_STR_TEST_12 "sum (network_stat{state=\"listen\"} > 0) by (proto)"
+#define QUERY_EXPECT_TEST_12 "network_stat"
+#define QUERY_FUNC_TEST_12 QUERY_FUNC_SUM
+
+#define QUERY_STR_TEST_13 "network_stat{state=\"listen\"} by (proto)"
+#define QUERY_EXPECT_TEST_13 "network_stat"
+#define QUERY_FUNC_TEST_13 QUERY_FUNC_NONE
+
+#define QUERY_STR_TEST_14 "{type=\"pseudo-terminal\"}"
+#define QUERY_FUNC_TEST_14 QUERY_FUNC_NONE
+
 
 void test_query()
 {
@@ -104,5 +123,41 @@ void test_query()
 	cut_assert_equal_int(6, mqc->groupkey->l);
 	cut_assert_equal_string("proto", mqc->groupkey->s);
 	cut_assert_equal_int(QUERY_FUNC_TEST_9, mqc->func);
+	string_null(mqc->groupkey);
+
+	mqc = promql_parser(NULL, QUERY_STR_TEST_10, strlen(QUERY_STR_TEST_10));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_10, mqc->name);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_10, mqc->func);
+	cut_assert_equal_int(QUERY_OPERATOR_GT, mqc->op);
+	string_null(mqc->groupkey);
+
+	mqc = promql_parser(NULL, QUERY_STR_TEST_11, strlen(QUERY_STR_TEST_11));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_11, mqc->name);
+	cut_assert_equal_int(14, mqc->groupkey->l);
+	cut_assert_equal_string("proto,src_port", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_11, mqc->func);
+	cut_assert_equal_int(QUERY_OPERATOR_GT, mqc->op);
+	string_null(mqc->groupkey);
+
+	mqc = promql_parser(NULL, QUERY_STR_TEST_12, strlen(QUERY_STR_TEST_12));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_12, mqc->name);
+	cut_assert_equal_int(6, mqc->groupkey->l);
+	cut_assert_equal_string("proto", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_12, mqc->func);
+	cut_assert_equal_int(QUERY_OPERATOR_GT, mqc->op);
+	string_null(mqc->groupkey);
+
+	mqc = promql_parser(NULL, QUERY_STR_TEST_13, strlen(QUERY_STR_TEST_13));
+	cut_assert_equal_string(QUERY_EXPECT_TEST_13, mqc->name);
+	cut_assert_equal_int(6, mqc->groupkey->l);
+	cut_assert_equal_string("proto", mqc->groupkey->s);
+	cut_assert_equal_int(QUERY_FUNC_TEST_13, mqc->func);
+	string_null(mqc->groupkey);
+
+	mqc = promql_parser(NULL, QUERY_STR_TEST_14, strlen(QUERY_STR_TEST_14));
+	cut_assert_equal_int(1, mqc->name == NULL);
+	cut_assert_equal_int(0, mqc->groupkey->l);
+	cut_assert_equal_int(QUERY_FUNC_TEST_14, mqc->func);
 	string_null(mqc->groupkey);
 }
