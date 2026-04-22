@@ -538,6 +538,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							carg->parser_handler =  &log_handler;
 						else if (!strcmp(str_handler, "grok"))
 							carg->parser_handler =  &grok_handler;
+						else if (!strcmp(str_handler, "mtail"))
+							carg->parser_handler =  &amtail_handler;
 						else
 							glog(L_FATAL, "Don't know entrypoint handler '%s', alligator will be automatically reconfigured to simple prometheus handler\n", str_handler);
 					}
@@ -562,6 +564,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (str_grok)
 						carg->name = strdup(str_grok);
 
+					json_t *json_mtail = json_object_get(entrypoint, "mtail");
+					char *str_mtail = (char*)json_string_value(json_mtail);
+					if (str_mtail)
+						carg->name = strdup(str_mtail);
 
 					carg->env = env_struct_parser(entrypoint);
 

@@ -558,6 +558,7 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 	grok_ds* gds = grok_get(carg->name);
 	if (!gds) {
 		carglog(carg, L_ERROR, "not found grok keys with key '%s' for '%s'\n", carg->name, carg->key);
+		carg->parser_status = 0;
 		return;
 	}
 	string *line = string_new();

@@ -2,6 +2,7 @@
 
 #include "dstructures/ht.h"
 #include "jansson.h"
+#include "events/context_arg.h"
 #include "external/amtail/generator.h"
 #include <uv.h>
 
@@ -27,3 +28,4 @@ void amtail_free();
 void amtail_parser_push();
 int amtail_del(char *name);
 int amtail_push(json_t *amtail);
+void amtail_handler(char *metrics, size_t size, context_arg *carg);

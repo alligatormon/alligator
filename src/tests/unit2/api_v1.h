@@ -203,6 +203,7 @@ void api_test_global_options_and_errors() {
     http_api_v1(resp, NULL, cfg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, L_DEBUG, ac->log_level);
+    ac->log_level = L_OFF;
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, FORM_SYSLOG, ac->log_form);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3000, ac->aggregator_repeat);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7000, ac->system_aggregator_repeat);

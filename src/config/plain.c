@@ -515,6 +515,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *key_entrypoint = NULL;
 			json_t *return_entrypoint = NULL;
 			json_t *grok_entrypoint = NULL;
+			json_t *mtail_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
 			json_t *auth_header_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
@@ -837,6 +838,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							++i;
 							grok_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "grok", grok_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "mtail"))
+					{
+						if (!mtail_entrypoint)
+						{
+							++i;
+							mtail_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "mtail", mtail_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "auth"))

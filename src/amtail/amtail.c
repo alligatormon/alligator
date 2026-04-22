@@ -405,7 +405,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!an || !an->bytecode)
 	{
-		carglog(carg, L_ERROR, "amtail: no compiled script loaded (set name=... and push script first)\n");
+		carglog(carg, L_ERROR, "amtail: no compiled script loaded (set name=... (for aggregate) or mtail=... (for entrypoint) and push script first)\n");
 		carg->parser_status = 0;
 		return;
 	}
