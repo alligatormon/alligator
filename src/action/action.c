@@ -44,7 +44,7 @@ void action_query_foreach_process(query_struct *qs, action_node *an, void *val, 
 
 	char key[255];
 	snprintf(key, 254, "action:%s", an->name);
-	namespace_struct *ns = insert_namespace(key);
+	namespace_struct *ns = insert_namespace(key, 0);
 	if (!ns)
 		return;
 

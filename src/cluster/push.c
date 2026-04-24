@@ -58,7 +58,7 @@ void cluster_push_json(json_t *cluster)
 				uint16_t cur = strlcpy(namespacename, name, 255);
 				strlcpy(namespacename + cur, ":", 255);
 				strlcpy(namespacename + cur + 1, data, 255);
-				insert_namespace(namespacename);
+				insert_namespace(namespacename, 0);
 
 				cn->servers[j].oprec = oplog_record_init(cn->size);
 				cn->servers[j].index = j;

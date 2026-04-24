@@ -19,6 +19,7 @@
 #include "mapping/type.h"
 #include "action/type.h"
 #include "events/context_arg.h"
+#include "metric/namespace.h"
 #include "events/server.h"
 #include "events/udp.h"
 #include "events/unix_server.h"
@@ -302,6 +303,36 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					amtail_push(mtail);
 				}
 			}
+			if (!strcmp(key, "namespace"))
+			{
+				uint64_t namespace_size = json_array_size(value);
+				for (uint64_t i = 0; i < namespace_size; i++)
+				{
+					json_t *namespace = json_array_get(value, i);
+					if (method == HTTP_METHOD_DELETE)
+					{
+						// TODO: implement namespace deletion
+						//namespace_del(namespace);
+						continue;
+					}
+
+					char *name = (char*)json_string_value(json_object_get(namespace, "name"));
+					if (!name)
+					{
+						glog(L_ERROR, "error, namespace name is not a string\n");
+						continue;
+					}
+
+					json_t *max_emit = json_object_get(namespace, "max_emit");
+					uint64_t max_emit_value = 0;
+					if (max_emit)
+					{
+						max_emit_value = json_integer_value(max_emit);
+					}
+
+					insert_namespace(name, max_emit_value);
+				}
+			}
 			if (!strcmp(key, "query"))
 			{
 				uint64_t query_size = json_array_size(value);
@@ -543,6 +574,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else
 							glog(L_FATAL, "Don't know entrypoint handler '%s', alligator will be automatically reconfigured to simple prometheus handler\n", str_handler);
 					}
+
+					json_t *json_namespace = json_object_get(entrypoint, "namespace");
+					if (json_namespace)
+					{   
+						carg->namespace = strdup(json_string_value(json_namespace));
+						carg->namespace_allocated = 1;
+						insert_namespace(carg->namespace, 0);
+					}   
 
 					json_t *json_cert = json_object_get(entrypoint, "tls_certificate");
 					char *str_cert = (char*)json_string_value(json_cert);
@@ -1077,6 +1116,29 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 										match_push(ac->services_match, obj_str, obj_len);
 									else
 										match_del(ac->services_match, obj_str, obj_len);
+								}
+							}
+						}
+						else if (!strcmp(system_key, "services_process"))
+						{
+							ac->system_services_process = enkey;
+							uint64_t service_process_size = json_array_size(sys_value);
+
+							if (enkey || (!enkey && !service_process_size))
+								ac->system_services_process = enkey;
+
+							for (uint64_t i = 0; i < service_process_size; i++)
+							{
+								json_t *service_process_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(service_process_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(service_process_obj);
+									uint64_t obj_len = json_string_length(service_process_obj);
+									if (enkey)
+										match_push(ac->services_process_match, obj_str, obj_len);
+									else
+										match_del(ac->services_process_match, obj_str, obj_len);
 								}
 							}
 						}

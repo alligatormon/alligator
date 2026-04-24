@@ -599,7 +599,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	{
 		carg->namespace = strdup(json_string_value(json_namespace));
         carg->namespace_allocated = 1;
-        insert_namespace(carg->namespace);
+        insert_namespace(carg->namespace, 0);
 	}
 
 	json_t *json_period = json_object_get(root, "period");

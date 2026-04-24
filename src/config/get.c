@@ -14,6 +14,7 @@
 #include "common/xxh.h"
 #include "common/murmurhash.h"
 #include "common/file_stat.h"
+#include "scheduler/type.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -457,6 +458,58 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 			json_t *token = json_string(tls_fs->match->str[i]->s);
 			json_array_object_insert(ctx, "", token);
 		}
+	}
+}
+
+void scheduler_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	scheduler_node *sn = arg;
+
+	json_t *scheduler = json_object_get(dst, "scheduler");
+	if (!scheduler)
+	{
+		scheduler = json_array();
+		json_array_object_insert(dst, "scheduler", scheduler);
+	}
+
+	json_t *ctx = json_object();
+	json_array_object_insert(scheduler, NULL, ctx);
+
+	if (sn->name)
+	{
+		json_t *name = json_string(sn->name);
+		json_array_object_insert(ctx, "name", name);
+	}
+
+	if (sn->period)
+	{
+		json_t *period = json_integer(sn->period);
+		json_array_object_insert(ctx, "period", period);
+	}
+
+	if (sn->datasource)
+	{
+		json_t *datasource = json_string(sn->datasource);
+		json_array_object_insert(ctx, "datasource", datasource);
+	}
+
+	if (sn->action)
+	{
+		json_t *action = json_string(sn->action);
+		json_array_object_insert(ctx, "action", action);
+	}
+
+	if (sn->lang)
+	{
+		json_t *lang = json_string(sn->lang);
+		json_array_object_insert(ctx, "lang", lang);
+	}
+
+	if (sn->expr)
+	{
+		json_t *expr = json_string(sn->expr->s);
+		json_array_object_insert(ctx, "expr", expr);
 	}
 }
 
@@ -984,6 +1037,11 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "services", ctxsys);
 	}
 
+	if (ac->system_services_process) {
+		json_t *ctxsys = json_array();
+		json_array_object_insert(system, "services_process", ctxsys);
+	}
+
 	if (ac->system_process) {
 		json_t *ctxsys = json_array();
 		json_array_object_insert(system, "process", ctxsys);
@@ -1236,6 +1294,7 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->aggregators, aggregator_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->lang_aggregator, lang_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->fs_x509, fs_x509_generate_conf, dst);
+	alligator_ht_foreach_arg(ac->scheduler, scheduler_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->query, query_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->action, action_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->probe, probe_generate_conf, dst);
@@ -1258,6 +1317,9 @@ json_t *config_get()
 
 	cgarg.arg = "services";
 	alligator_ht_foreach_arg(ac->services_match->hash, system_mapper_generate_conf, &cgarg);
+
+	cgarg.arg = "services_process";
+	alligator_ht_foreach_arg(ac->services_process_match->hash, system_mapper_generate_conf, &cgarg);
 
 	return dst;
 }

@@ -39,6 +39,7 @@ typedef struct namespace_struct
 {
 	tommy_node node;
 	char *key;
+	uint64_t max_emit;
 	expire_tree *expiretree;
 	metric_tree *metrictree;
 } namespace_struct;
@@ -86,7 +87,7 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 char* metric_transform_name(char *name, action_node *an);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
-namespace_struct *insert_namespace(char *key);
+namespace_struct *insert_namespace(char *key, uint64_t max_emit);
 namespace_struct *get_namespace_or_null(char *key);
 string* namespace_print(char *namespace, namespace_struct *arg_ns);
 void free_namespaces();

@@ -311,6 +311,15 @@ static string *plain_strip_comments(string *context)
 	{
 		char ch = context->s[i];
 		char next = (i + 1 < context->l) ? context->s[i + 1] : '\0';
+		char prev_nonspace = '\0';
+		for (int64_t p = (int64_t)i - 1; p >= 0; --p)
+		{
+			if (!isspace((unsigned char)context->s[p]))
+			{
+				prev_nonspace = context->s[p];
+				break;
+			}
+		}
 
 		if (in_line_comment)
 		{
@@ -379,7 +388,8 @@ static string *plain_strip_comments(string *context)
 			continue;
 		}
 
-		if (ch == '/' && next == '*')
+		if (ch == '/' && next == '*'
+			&& (!prev_nonspace || prev_nonspace == ';' || prev_nonspace == '{' || prev_nonspace == '}'))
 		{
 			char space = ' ';
 			string_cat(clean, &space, 1);
@@ -516,6 +526,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *return_entrypoint = NULL;
 			json_t *grok_entrypoint = NULL;
 			json_t *mtail_entrypoint = NULL;
+			json_t *namespace_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
 			json_t *auth_header_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
@@ -538,7 +549,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "mtail") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "mtail") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca") || !strcmp(wstokens[i].token->s, "namespace"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -560,7 +571,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
-					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
+					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
 					{
 						operator_json = json_array();
 						json_array_object_insert(context_json, operator_name, operator_json);
@@ -849,6 +860,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "mtail", mtail_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "namespace"))
+					{
+						if (!namespace_entrypoint)
+						{
+							++i;
+							namespace_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "namespace", namespace_entrypoint);
+						}
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "auth"))
 					{
 						if (!auth_entrypoint)
@@ -877,7 +897,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "auth_header", auth_header_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop") || !strcmp(context_name, "namespace"))
 					{
 						operator_json = json_object();
 						char arg_name[255];

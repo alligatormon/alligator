@@ -202,6 +202,7 @@ typedef struct aconf
 	int system_ipset_entries;
 	int system_cadvisor;
 	int system_services;
+	int system_services_process;
 	int system_ipmi;
 	char *system_procfs;
 	char *system_sysfs;
@@ -225,6 +226,7 @@ typedef struct aconf
 	match_rules *process_match;
 	match_rules *packages_match;
 	match_rules *services_match;
+	match_rules *services_process_match;
 	alligator_ht* fdesc;
 	alligator_ht* ping_hash;
 

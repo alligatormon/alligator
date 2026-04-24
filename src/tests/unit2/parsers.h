@@ -506,7 +506,7 @@ void api_test_parser_lighttpd() {
 
 void api_test_parser_httpd() {
     char *httpd_test_ns = "unit_parser_httpd";
-    insert_namespace(httpd_test_ns);
+    insert_namespace(httpd_test_ns, 0);
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->namespace = httpd_test_ns;
     carg->is_http_query = 1;
@@ -557,7 +557,7 @@ void api_test_parser_httpd() {
 
 void api_test_parser_nats() {
     char *nats_test_ns = "unit_parser_nats";
-    insert_namespace(nats_test_ns);
+    insert_namespace(nats_test_ns, 0);
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->namespace = nats_test_ns;
     carg->is_http_query = 1;

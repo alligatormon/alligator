@@ -9,19 +9,20 @@ int namespace_struct_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-namespace_struct *insert_namespace(char *key)
+namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 {
 	if (!key)
 		return NULL;
 
 	uint32_t key_hash = tommy_strhash_u32(0, key);
 	namespace_struct *ns = alligator_ht_search(ac->_namespace, namespace_struct_compare, key, key_hash);
+	if (max_emit)
+		ns->max_emit = max_emit;
 	if (ns)
 		return ns;
 
 	ns = calloc(1, sizeof(*ns));
 	ns->key = strdup(key);
-
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));

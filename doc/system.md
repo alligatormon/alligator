@@ -11,6 +11,7 @@ system {
     network;
     process [nginx] [bash] [/[bash]*/];
     services [nginx.service];
+    services_process [php-fpm.service];
     smart;
     ipmi;
     firewall [ipset=[entries|on]];
@@ -51,8 +52,17 @@ This includes metrics like memory usage, CPU usage, disk I/O, open files, thread
 
 
 ## services
-Similar to process, but for services (on Linux systems systemd services).\
-Checks whether the service is running and enabled, and obtains the process statistics associated with this service.
+Collects service-level metrics for Linux systemd units.\
+Checks whether the service is running and enabled, and reports service task counters.
+
+
+## services_process
+Extended service scraping mode for Linux systemd units.\
+Includes all metrics from `services` and additionally scrapes process-level metrics from the service cgroup.
+
+Use this mode only where needed (for selected services), because on heavily forking services it can generate a large amount of process metrics.
+
+Note: historically, `services` also included process scraping. That behavior is now moved to `services_process`.
 
 
 ## smart

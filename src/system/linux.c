@@ -2453,8 +2453,10 @@ void get_service_tasks_status(char *servicename, char *fname, char *type)
 
 void service_running_status(char *name)
 {
-	int match = match_mapper(ac->services_match, name, strlen(name), name);
-	if (!match)
+	int has_services = match_mapper(ac->services_match, name, strlen(name), name);
+	int has_services_process = match_mapper(ac->services_process_match, name, strlen(name), name);
+
+	if (!has_services && !has_services_process)
 		return;
 
 	uint64_t val = systemd_check_service(name);
@@ -2465,9 +2467,13 @@ void service_running_status(char *name)
 	get_service_tasks_status(name, "cgroup.procs", "processes");
 	get_service_tasks_status(name, "tasks", "threads");
 
-	if (match == 1)
+	if (has_services == 1 || has_services_process == 1)
 	{
 		metric_add_labels("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name);
+	}
+
+	if (has_services_process == 1)
+	{
 		char cgrouppath[1024];
 		snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
 		struct stat path_stat;
@@ -3089,7 +3095,7 @@ void get_system_metrics()
 	if (ac->system_cadvisor)
 		cadvisor_metrics();
 
-	if (ac->system_services)
+	if (ac->system_services || ac->system_services_process)
 		get_services();
 
 	if (ac->system_ipmi)
@@ -3140,6 +3146,8 @@ void system_free()
 	match_free(ac->packages_match);
 
 	match_free(ac->services_match);
+
+	match_free(ac->services_process_match);
 
 	userprocess_free(ac->system_userprocess);
 

@@ -344,6 +344,27 @@ context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargnam
 	return db_carg;
 }
 
+static void postgresql_build_db_url(char *dst, size_t dst_len, const char *base_url, const char *db_name)
+{
+	const char *slash = NULL;
+
+	if (!dst || !dst_len)
+		return;
+	dst[0] = '\0';
+
+	if (!base_url || !db_name)
+		return;
+
+	slash = strrchr(base_url, '/');
+	if (!slash)
+	{
+		snprintf(dst, dst_len, "%s/%s", base_url, db_name);
+		return;
+	}
+
+	snprintf(dst, dst_len, "%.*s/%s", (int)(slash - base_url), base_url, db_name);
+}
+
 void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *carg, char *database_class)
 {
 	pg_data *data = carg->data;
@@ -375,13 +396,18 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 			if (query_get(namefind))
 				wildcard = 1;
 
+
+			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"finding wildcard queries\", \"name\": \"%s\", \"result\": \"%d\"}\n", carg->fd, carg->key, namefind, wildcard);
+
+
+
 			int column_number = PQfnumber(res, "datname");
 			if (column_number != -1) {
 				char *resp = PQgetvalue(res, i, column_number);
 				uint64_t url_len = urlnamelen + PQgetlength(res, i, column_number) + 3;
 				char db_carg_url[url_len];
 				char db_carg_ns[url_len];
-				snprintf(db_carg_url, url_len - 1, "%s/%s", carg->url, resp);
+				postgresql_build_db_url(db_carg_url, url_len, carg->url, resp);
 				strlcpy(db_carg_ns, resp, url_len);
 
 				uint64_t resultnamelen = cargnamelen + strlen(resp) + 2;

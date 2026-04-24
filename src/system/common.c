@@ -77,6 +77,7 @@ void system_initialize()
 	ac->system_disk = 0;
 	ac->system_process = 0;
 	ac->system_cadvisor = 0;
+	ac->system_services_process = 0;
 	ac->system_smart = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->system_carg->ttl = 300;
@@ -97,6 +98,9 @@ void system_initialize()
 
 	ac->services_match = calloc(1, sizeof(match_rules));
 	ac->services_match->hash = alligator_ht_init(NULL);
+
+	ac->services_process_match = calloc(1, sizeof(match_rules));
+	ac->services_process_match->hash = alligator_ht_init(NULL);
 
 	ac->system_userprocess = alligator_ht_init(NULL);
 	ac->system_groupprocess = alligator_ht_init(NULL);
