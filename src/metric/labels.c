@@ -1415,7 +1415,7 @@ void metric_gen_foreach_free_res(void *funcarg, void* arg)
 uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 {
 	if (!op) {
-		return 0;
+		return 1;
 	}
 
 	if (op == QUERY_OPERATOR_EQ)
@@ -1438,7 +1438,7 @@ uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 int query_struct_check_expr_none(metric_query_context *mqc, query_struct *qs)
 {
 	if (!mqc->op) {
-		return 0;
+		return 1;
 	}
 
 	if (mqc->op == QUERY_OPERATOR_EQ)
@@ -1530,6 +1530,13 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 
 	if (query_struct_check_expr(mqc->op, qs->count, mqc->opval))
 	{
+		// Important! If count by(...) produced an empty label set (for zero matches),  preserve selector labels from the original query expression.
+		if ((!qs->lbl || !alligator_ht_count(qs->lbl)) && mqc->lbl && alligator_ht_count(mqc->lbl))
+		{
+			if (!qs->lbl)
+				qs->lbl = alligator_ht_init(NULL);
+			labels_merge(qs->lbl, mqc->lbl);
+		}
 		metric_add(name, qs->lbl, &qs->count, DATATYPE_UINT, ac->system_carg);
 		action_query_foreach_process(qs, qp->an, &qs->count, DATATYPE_UINT);
 		qp->action_need_run = 1;
@@ -1566,8 +1573,12 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
 
-	size_t labels_count = alligator_ht_count(mqc->lbl);
-	labels_t *labels_list = labels_initiate(ns, mqc->lbl, mqc->name, 0, 0, 0);
+	//size_t labels_count = alligator_ht_count(mqc->lbl);
+	//labels_t *labels_list = labels_initiate(ns, mqc->lbl, mqc->name, 0, 0, 0);
+	// Important! labels_initiate() consumes and frees the input hash when no_del == 0. Keep mqc->lbl alive for later branches in this function.
+	alligator_ht *hash_work = mqc->lbl ? labels_dup(mqc->lbl) : alligator_ht_init(NULL);
+	size_t labels_count = alligator_ht_count(hash_work);
+	labels_t *labels_list = labels_initiate(ns, hash_work, mqc->name, 0, 0, 0);
 
 	if ( tree && tree->root)
 	{
@@ -1685,6 +1696,16 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 			labels_head_free(labels_list);
 			if (qp.action_need_run && an)
 				action_namespaced_run(action_name, an->name, NULL);
+			return;
+		}
+		else if (!res_count && (func == QUERY_FUNC_COUNT))
+		{
+			// Important! For query{} internal count() requests we should still materialize the target metric with original selector labels when nothing matched.
+			alligator_ht *duplabels = labels_dup(mqc->lbl);
+			metric_add(new_name, duplabels, &value, DATATYPE_UINT, ac->system_carg);
+			alligator_ht_done(res_hash);
+			free(res_hash);
+			labels_head_free(labels_list);
 			return;
 		}
 

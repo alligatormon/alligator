@@ -951,6 +951,12 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "lang", lang);
 	}
 
+	if (carg->name)
+	{
+		json_t *name = json_string(carg->name);
+		json_array_object_insert(ctx, "name", name);
+	}
+
 	if (carg->metric_aggregation)
 	{
 		if (carg->metric_aggregation == ENTRYPOINT_AGGREGATION_COUNT)

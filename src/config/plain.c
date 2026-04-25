@@ -530,6 +530,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *auth_entrypoint = NULL;
 			json_t *auth_header_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
+			json_t *add_label_entrypoint = NULL;
 			json_t *tls_certificate_entrypoint = NULL;
 			json_t *tls_key_entrypoint = NULL;
 			json_t *tls_ca_entrypoint = NULL;
@@ -674,6 +675,14 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						{
 							env_entrypoint = json_object();
 							json_array_object_insert(operator_json, "env", env_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "add_label"))
+					{
+						if (!add_label_entrypoint)
+						{
+							add_label_entrypoint = json_object();
+							json_array_object_insert(operator_json, "add_label", add_label_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
@@ -1330,6 +1339,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *value_json = json_string(wstokens[++i].token->s);
 						json_array_object_insert(env_entrypoint, wstokens[i-1].token->s, value_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "add_label"))
+					{
+						plain_context_env_line(add_label_entrypoint, wstokens[i].token);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
 					{

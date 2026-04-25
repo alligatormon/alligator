@@ -7,7 +7,7 @@ modules {
 }
 
 aggregate {
-	postgresql postgresql://postgres@localhost name=pg;
+	postgresql postgresql://postgres@localhost/postgres name=pg;
 }
 
 query {

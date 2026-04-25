@@ -723,6 +723,20 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						}
 					}
 
+					json_t *json_add_label = json_object_get(entrypoint, "add_label");
+					if (json_add_label)
+					{
+						if (!carg->labels)
+							carg->labels = alligator_ht_init(NULL);
+						const char *name;
+						json_t *jkey;
+						json_object_foreach(json_add_label, name, jkey)
+						{
+							char *key = (char*)json_string_value(jkey);
+							labels_hash_insert_nocache(carg->labels, (char*)name, key);
+						}
+					}
+
 					json_t *json_auth = json_object_get(entrypoint, "auth");
 					if (json_auth)
 					{

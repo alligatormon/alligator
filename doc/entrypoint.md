@@ -85,7 +85,6 @@ Enabling or disabling the response body on requests. This can be useful for Alli
 Default: -\
 Plural: yes
 
-
 Enable filter drop metrics with label name and value (tags for StatsD) equal to field.
 For instance, next configuration drops all metrics with labels **http_response_code="404"**, **name="bot"**:
 
@@ -368,6 +367,24 @@ Default: 0\
 Plural: no\
 
 Specifies the number of threads working in this entrypoint.
+
+# add_labels
+Default: -\
+Plural: yes
+
+Use `add_label <name>:<value>;` inside `entrypoint` to append exported labels to all metrics from that endpoint (for example, `add_label exported_application:myapp;`).
+Multiple `add_label` directives are merged into a single object in JSON config output.
+
+The following configuration is an example of adding labels for metrics received on port 80:
+```
+entrypoint {
+    tcp 80;
+    allow 127.0.0.1;
+    add_label received:statsd;
+    add_label server:alligator;
+}
+```
+
 
 
 # mapping

@@ -448,7 +448,10 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		start = i + 1;
 	}
-	amtail_variables_dump(carg->amtail_variables);
+	if (carg->log_level >= L_DEBUG)
+	{
+		amtail_variables_dump(carg->amtail_variables);
+	}
 
 	if (an->tail)
 	{

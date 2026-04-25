@@ -11,6 +11,13 @@ The query that is relevant to the specified database.\
 For instance, it can be in promql format for internal Alligator metric storage. Alternatively, it can be an [SQL](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md) query.
 
 
+
+
+Note: For `internal` datasource queries, `count()` uses PromQL syntax and returns the number of matched time series.
+Unlike PromQL behavior, this implementation still returns a result even when no metrics match the filter.
+Use `count by (<label>, ...) (...)` to keep grouping labels in the output instead of a single total value.
+
+
 ## action
 Specifies the action context to run when expr is triggered. This is working only for 'internal' datasource.\
 Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md) of action context.
