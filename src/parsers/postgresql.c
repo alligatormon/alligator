@@ -384,6 +384,11 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 		uint64_t i;
 
 		uint64_t children = 0;
+		if (!carg->name)
+		{
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql_received_databases: PANIC: carg->name is NULL, nothing to do, exit\"}\n", carg->fd, carg->key);
+			return;
+		}
 		uint64_t cargnamelen = strlen(carg->name);
 		uint64_t urlnamelen = strlen(carg->url);
 		for (i=0; i<PQntuples(res); ++i)
