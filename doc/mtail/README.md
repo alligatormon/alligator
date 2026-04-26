@@ -63,6 +63,6 @@ Additionally, if entrypoint log level is debug, Alligator can dump mtail VM vari
 
 ## Related Documents
 
-- `doc/mtail/configuration.md` - full configuration reference
-- `doc/mtail/examples.md` - practical end-to-end examples
+- [mtail configuration](https://github.com/alligatormon/alligator/blob/master/doc/mtail/configuration.md) - full configuration reference
+- [mtail examples](https://github.com/alligatormon/alligator/blob/master/doc/mtail/examples.md) - practical end-to-end examples
 - [Google mtail language reference](https://google.github.io/mtail/Language.html) - syntax and semantics of mtail programs

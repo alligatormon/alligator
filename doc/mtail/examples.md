@@ -126,3 +126,23 @@ The mtail handler processes text streams line by line (`\n` separated):
 - buffered tail is prepended to the next incoming chunk
 
 This behavior is important for TCP/HTTP chunked log delivery where records can split across packets.
+
+## 7) Upstream Google mtail Script Examples
+
+For ready-to-use mtail programs, see the official examples directory:
+
+- https://github.com/google/mtail/tree/main/examples
+
+Useful starter scripts:
+
+- postfix: https://github.com/google/mtail/blob/main/examples/postfix.mtail
+- linecount: https://github.com/google/mtail/blob/main/examples/linecount.mtail
+- histogram: https://github.com/google/mtail/blob/main/examples/histogram.mtail
+- mysql slow queries: https://github.com/google/mtail/blob/main/examples/mysql_slowqueries.mtail
+- apache combined: https://github.com/google/mtail/blob/main/examples/apache_combined.mtail
+
+Recommended workflow:
+
+1. Copy one script into `/etc/alligator/mtail/`.
+2. Adapt regexes and metric names to your log format.
+3. Register it in Alligator via `mtail { name ...; script ...; }`.
