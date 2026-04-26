@@ -56,6 +56,7 @@ Alligator has many contexts for describing the collection data:
 - **puppeteer**: Configures the HTTP site stats collector using the puppeteer
 - **threaded_loop**: Configures thread pool with activated event loops for particular tasks
 - **grok**: Parse logs in metrics like Elasticsearch’s Grok parser.
+- **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
 
 Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
 
@@ -223,3 +224,6 @@ Threaded loop enables the thread pools with activated event loops for particular
 
 ## Grok
 Enables parsing log entries into metrics using Elasticsearch-style Grok patterns. See the [detailed explanation](https://github.com/alligatormon/alligator/blob/master/doc/grok.md)
+
+## Mtail
+Enables parsing log entries into metrics with mtail-compatible programs in the C runtime. See the [detailed explanation](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md)
