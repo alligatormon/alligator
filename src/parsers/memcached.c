@@ -276,7 +276,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 
 string* memcached_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
 {
-	return string_init_add_auto(strdup("stats\n"));
+	return string_init_add_auto(strdup("stats\r\n"));
 }
 
 void memcached_parser_push()

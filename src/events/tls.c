@@ -68,10 +68,6 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		return 0;
 	}
 
-	if (mode == SSLMODE_CLIENT) {
-		carg->ssl = SSL_new(carg->ssl_ctx);
-	}
-
 	if (certfile && keyfile) {
 		if (SSL_CTX_use_certificate_file(carg->ssl_ctx, certfile, SSL_FILETYPE_PEM) != 1) {
 			char *err = openssl_get_error_string();
@@ -157,7 +153,17 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		SSL_CTX_set_verify(carg->ssl_ctx, verify, verify_callback);
 	}
 
-	if (servername) {
+	if (mode == SSLMODE_CLIENT) {
+		carg->ssl = SSL_new(carg->ssl_ctx);
+		if (!carg->ssl) {
+			char *err = openssl_get_error_string();
+			carglog(carg, L_ERROR, "context %p SSL_new (client) failed: %s\n", carg, err);
+			free(err);
+			return 0;
+		}
+	}
+
+	if (servername && mode == SSLMODE_CLIENT) {
 		if (!SSL_set_tlsext_host_name(carg->ssl, servername)) {
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "context %p Failed to set SNI '%s': %s\n", carg, servername, err);
@@ -240,7 +246,14 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 			}
 			return -1;
 		case SSL_ERROR_SSL: {
-			char *msg = ERR_error_string(err, NULL);
+			unsigned long e = ERR_peek_error();
+			if (!e) {
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read state %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_ERROR_SSL without OpenSSL queue entry, wait for more data");
+				return 0;
+			}
+
+			char msg[256];
+			ERR_error_string_n(e, msg, sizeof(msg));
 			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL protocol error", msg);
 			return -1;
 		}

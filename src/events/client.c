@@ -213,18 +213,18 @@ void tls_client_written(uv_write_t* req, int status) {
 }
 
 int do_client_tls_handshake(context_arg *carg) {
+	int handshake_done_now = 0;
 	if (!carg->tls_handshake_done) {
 		int hs_ret = SSL_do_handshake(carg->ssl);
 		if (hs_ret == 1) {
 			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake complete %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 			carg->tls_handshake_done = 1;
+			handshake_done_now = 1;
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
 				x509_parse_cert(carg, cert, carg->host, carg->host);
 				X509_free(cert);
 			}
-
-			return 1;
 		}
 		else if (hs_ret < 1) {
 			int err = SSL_get_error(carg->ssl, hs_ret);
@@ -249,7 +249,7 @@ int do_client_tls_handshake(context_arg *carg) {
 			uv_write(&carg->write_req, carg->connect.handle, &carg->write_buffer, 1, tls_client_written);
 		}
 	}
-	return 0;
+	return handshake_done_now ? 1 : 0;
 }
 
 
@@ -273,8 +273,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	if (handshaked > 0) {
 		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
 		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written);
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshaked! go tcp_connected %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
-		tcp_connected(&carg->connect, 0);
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshaked! request sent over tls %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	} else if (!handshaked) {
 		string *buffer = string_new();
 		int read_size = 0;
@@ -348,8 +347,6 @@ void tls_connected(uv_connect_t* req, int status)
 
 	carg->tls_read_time = setrtime();
 	uv_read_start((uv_stream_t*)&carg->client, tls_client_alloc, tls_client_read);
-
-	tcp_connected(&carg->connect,  1);
 	do_client_tls_handshake(carg);
 }
 
