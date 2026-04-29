@@ -919,9 +919,14 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
-								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key") || !strcmp(operator_name, "match"))
+								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "jpath") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key") || !strcmp(operator_name, "match"))
 								{
-									json_t *arg_json = json_array();
+									json_t *arg_json = json_object_get(operator_json, operator_name);
+									if (!arg_json)
+									{
+										arg_json = json_array();
+										json_array_object_insert(operator_json, operator_name, arg_json);
+									}
 									for (; i < token_count; i++)
 									{
 										if (wstokens[i].argument)
@@ -934,7 +939,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 											break;
 										}
 									}
-									json_array_object_insert(operator_json, operator_name, arg_json);
 								}
 								else if (!strcmp(operator_name, "dry_run"))
 								{

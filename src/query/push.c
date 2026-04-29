@@ -32,6 +32,7 @@ int query_push(json_t *query) {
 	char *ns = (char*)json_string_value(jns);
 
 	json_t *jfield = json_object_get(query, "field");
+	json_t *jpquery = json_object_get(query, "jpath");
 
 	query_node *qn = calloc(1, sizeof(*qn));
 
@@ -44,6 +45,32 @@ int query_push(json_t *query) {
 	if (ns)
 		qn->ns = strdup(ns);
 	qn->qf_hash = qf_hash;
+
+	if (jpquery) {
+		if (json_is_array(jpquery)) {
+			size_t psz = json_array_size(jpquery);
+			if (psz > UINT8_MAX)
+				psz = UINT8_MAX;
+			if (psz) {
+				qn->pquery = calloc(psz, sizeof(char*));
+				qn->pquery_size = (uint8_t)psz;
+				for (size_t i = 0; i < psz; i++) {
+					json_t *jitem = json_array_get(jpquery, i);
+					const char *item = json_string_value(jitem);
+					if (item)
+						qn->pquery[i] = strdup(item);
+				}
+			}
+		}
+		else if (json_is_string(jpquery)) {
+			const char *item = json_string_value(jpquery);
+			if (item) {
+				qn->pquery = calloc(1, sizeof(char*));
+				qn->pquery[0] = strdup(item);
+				qn->pquery_size = 1;
+			}
+		}
+	}
 
 	qn->make = strdup(make);
 	qn->datasource = strdup(datasource); // part of query ds

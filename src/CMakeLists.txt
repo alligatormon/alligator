@@ -229,6 +229,9 @@ set(STATIC_FILES
 	parsers/rpm.c
 	parsers/firewall.c
 	parsers/mongodb.c
+	parsers/mongodb_wire_client.c
+	parsers/mongodb_wire_bson.c
+	parsers/bson.c
 	parsers/cassandra.c
 	parsers/cassandra2.c
 	parsers/keepalived.c
@@ -432,7 +435,6 @@ add_test(Test1 "build/alligator_tests" ".")
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
 add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp ../puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
 add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
-add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/mongo COMMAND go build -o /var/lib/alligator/mongo.so -buildmode=c-shared cmd/mongo/main.go)
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 # RPM checks reject absolute/build/local RUNPATH values in installed binaries.
@@ -526,7 +528,6 @@ set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
 	install(FILES build/alligator
@@ -537,7 +538,6 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
 	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
 	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/mongo.so DESTINATION /var/lib/alligator)
 	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
 	install(FILES build/alligator
 		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ

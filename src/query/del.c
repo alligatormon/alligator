@@ -32,6 +32,13 @@ void query_node_del(query_node *qn)
 		alligator_ht_done(qn->qf_hash);
 		free(qn->qf_hash);
 	}
+	if (qn->pquery) {
+		for (uint8_t i = 0; i < qn->pquery_size; i++) {
+			if (qn->pquery[i])
+				free(qn->pquery[i]);
+		}
+		free(qn->pquery);
+	}
 	free(qn);
 }
 

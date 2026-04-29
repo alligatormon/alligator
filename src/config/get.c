@@ -522,6 +522,17 @@ void query_node_generate_field_conf(void *funcarg, void* arg)
 	json_array_object_insert(field, NULL, sfield);
 }
 
+void query_node_generate_pquery_conf(void *funcarg, void* arg)
+{
+	json_t *pquery = funcarg;
+	char *item = arg;
+	if (!item)
+		return;
+
+	json_t *spquery = json_string(item);
+	json_array_object_insert(pquery, NULL, spquery);
+}
+
 void query_node_generate_conf(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -572,6 +583,18 @@ void query_node_generate_conf(void *funcarg, void* arg)
 		json_t *qf_hash = json_array();
 		alligator_ht_foreach_arg(qn->qf_hash, query_node_generate_field_conf, qf_hash);
 		json_array_object_insert(ctx, "field", qf_hash);
+	}
+
+	if (qn->pquery && qn->pquery_size)
+	{
+		json_t *pquery = json_array();
+		for (uint8_t i = 0; i < qn->pquery_size; i++)
+		{
+			if (!qn->pquery[i])
+				continue;
+			query_node_generate_pquery_conf(pquery, qn->pquery[i]);
+		}
+		json_array_object_insert(ctx, "jpath", pquery);
 	}
 }
 

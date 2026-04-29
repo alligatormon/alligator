@@ -24,6 +24,8 @@ typedef struct query_node
 	char *action;
 	char *ns;
 	alligator_ht *qf_hash;
+	char **pquery;
+	uint8_t pquery_size;
 	char *datasource;
 	context_arg *carg;
 	alligator_ht *labels;
