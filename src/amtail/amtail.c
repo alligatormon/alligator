@@ -463,6 +463,8 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 
 	amtail_variables_to_metrics(carg->amtail_variables, carg);
 
+	string_free(line);
+
 	free(buf);
 	uv_mutex_unlock(&an->lock);
 	carg->parser_status = rc ? 1 : 0;
