@@ -273,7 +273,7 @@ void api_test_parser_memcached() {
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
     string *mm = memcached_mesg(hi, NULL, NULL, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "stats\n", mm->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "stats\r\n", mm->s);
     string_free(mm);
     free(hi);
 

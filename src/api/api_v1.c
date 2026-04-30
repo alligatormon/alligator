@@ -169,6 +169,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				else
 					ac->ttl = json_integer_value(value);
 			}
+			if (!strcmp(key, "process_script_dir"))
+			{
+				if (json_typeof(value) == JSON_STRING)
+					ac->process_script_dir = strdup(json_string_value(value));
+				else
+					glog(L_ERROR, "error, process_script_dir is not a string\n");
+			}
 			if (!strcmp(key, "workers"))
 			{
 				if (json_typeof(value) == JSON_STRING) {

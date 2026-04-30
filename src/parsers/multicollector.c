@@ -18,6 +18,43 @@
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
 
+static uint8_t multicollector_is_http_header_line(const char *line)
+{
+	if (!line)
+		return 0;
+
+	const char *p = line + strspn(line, " \t");
+	size_t key_len = strcspn(p, ":");
+	if (!key_len || p[key_len] != ':')
+		return 0;
+
+	/* Header keys are token-like (letters/digits/dash). */
+	for (size_t i = 0; i < key_len; ++i)
+	{
+		char c = p[i];
+		if (!((c >= 'a' && c <= 'z') ||
+		      (c >= 'A' && c <= 'Z') ||
+		      (c >= '0' && c <= '9') ||
+		       c == '-'))
+			return 0;
+	}
+
+	const char *value = p + key_len + 1;
+	value += strspn(value, " \t");
+	if (!*value)
+		return 1;
+
+	/* StatsD-style lines usually contain type delimiter ("|"). */
+	if (strchr(value, '|'))
+		return 0;
+
+	/* Prom/StatsD values are numeric at this position. */
+	if ((*value >= '0' && *value <= '9') || *value == '+' || *value == '-' || *value == '.')
+		return 0;
+
+	return 1;
+}
+
 void metric_datatype_foreach(void *arg)
 {
 	metric_datatypes *dt = arg;
@@ -520,10 +557,34 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 	alligator_ht *counter_names = alligator_ht_init(NULL);
 	uint64_t fgets_counter = 0;
+	uint8_t skip_http_headers = 0;
 
 	while ( (tmp_len = char_fgets(str, tmp, sizeof(tmp), &cnt, size, carg)) )
 	{
 		++fgets_counter;
+
+		/* Generic HTTP preamble filter for handler paths where http_data is NULL. */
+		if (!skip_http_headers)
+		{
+			char *line = tmp + strspn(tmp, " \t");
+			if (!strncasecmp(line, "HTTP/", 5))
+			{
+				carglog(carg, L_DEBUG, "detected HTTP response preamble, skip headers\n");
+				skip_http_headers = 1;
+				continue;
+			}
+		}
+
+		if (skip_http_headers)
+		{
+			char *line = tmp + strspn(tmp, " \t\r");
+			if (!*line)
+			{
+				skip_http_headers = 0;
+				carglog(carg, L_DEBUG, "HTTP header block skipped, continue with body\n");
+			}
+			continue;
+		}
 
 		if (tmp[0] == '#')
 		{
@@ -603,6 +664,13 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 		if (tmp[0] == 0)
 			continue;
+
+
+		if (http_data && multicollector_is_http_header_line(tmp))
+		{
+			carglog(carg, L_DEBUG, "skip header-like line in metrics payload: '%s'\n", tmp);
+			continue;
+		}
 
 		alligator_ht *lbl = NULL;
 		if (http_data)

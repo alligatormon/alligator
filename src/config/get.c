@@ -100,6 +100,11 @@ void config_global_get(json_t *dst)
 		json_t *aggregate_period = json_integer(ac->cluster_repeat);
 		json_array_object_insert(dst, "synchronization_period", aggregate_period);
 	}
+	if (ac->process_script_dir)
+	{
+		json_t *process_script_dir = json_string(ac->process_script_dir);
+		json_array_object_insert(dst, "process_script_dir", process_script_dir);
+	}
 
 	if (ac->ttl)
 	{

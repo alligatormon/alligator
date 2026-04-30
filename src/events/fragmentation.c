@@ -5,33 +5,31 @@
 #include "main.h"
 extern aconf *ac;
 
-uint64_t chunk_calc(context_arg* carg, char *buf, ssize_t nread, uint8_t copying)
+int64_t chunk_calc(context_arg* carg, char *buf, ssize_t nread, uint8_t copying, uint64_t *decoded_size)
 {
 	size_t bufsz = nread;
 	carglog(carg, L_TRACE, "\n\n\n\n========buf is (%s) =====\n'%s'\n\t=====\n", carg->key, buf);
 	int ret = phr_decode_chunked(&carg->chunked_dec, buf, &bufsz);
 	carglog(carg, L_TRACE, "0phr_decode_chunked return(%s): %d/%zu: %zu\n", carg->key, ret, nread, bufsz);
+	if (decoded_size)
+		*decoded_size = bufsz;
 	if (bufsz)
 	{
 		carglog(carg, L_TRACE, "\n+++++ 1decoded(%s): ++++\n'%s'\n++++end+++++\n", carg->key, buf);
 		if (copying)
 			string_cat(carg->full_body, buf, bufsz);
 		carglog(carg, L_TRACE, "\n+++++ 2decoded(%s): ++++\n'%s'\n=======end=======\n\n\n\n", carg->key, carg->full_body->s);
-	} else {
-		if (nread > bufsz) {
-			return nread;
-		}
 	}
 
-	return bufsz;
+	return ret;
 }
 
-int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread, uint64_t chunksize)
+int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread, int64_t chunk_ret)
 {
 	
 	carglog(carg, L_TRACE, "check body full: length (%"u64"/%zu), chunk (X/%"d64"), count (%"PRIu8"/%"PRIu8"), function: %p\n", carg->full_body->l - carg->headers_size, carg->expect_body_length, carg->chunked_expect, carg->read_count, carg->expect_count, carg->expect_function);
 
-	carglog(carg, L_TRACE, "expect %"d64": %"u64"\n", carg->chunked_expect, chunksize);
+	carglog(carg, L_TRACE, "expect %"d64": %"d64"\n", carg->chunked_expect, chunk_ret);
 	if (carg->expect_body_length && carg->expect_body_length <= carg->full_body->l - carg->headers_size)
 	{
 		carglog(carg, L_TRACE, "check body full: length match\n");
@@ -39,9 +37,14 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread, uint64_t chunk
 	}
 
 	//// check chunk http validator
-	else if (carg->chunked_expect && !chunksize)
+	else if (carg->chunked_expect && chunk_ret >= 0)
 	{
 		carglog(carg, L_TRACE, "check body full: chunk match\n");
+		return 1;
+	}
+	else if (carg->chunked_expect && chunk_ret == -1)
+	{
+		carglog(carg, L_TRACE, "check body full: chunk decode error, stop waiting\n");
 		return 1;
 	}
 

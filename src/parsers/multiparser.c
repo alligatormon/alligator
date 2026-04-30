@@ -14,6 +14,21 @@
 #define HTTP_FORBIDDEN "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_UNAUTHORIZED "HTTP/1.1 401 Unauthorized\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
+static char* find_sep(const char *buf, size_t len, const char *sep, size_t sep_len)
+{
+	if (!buf || !sep || !sep_len || len < sep_len)
+		return NULL;
+
+	size_t last = len - sep_len;
+	for (size_t i = 0; i <= last; ++i)
+	{
+		if (!memcmp(buf + i, sep, sep_len))
+			return (char*)(buf + i);
+	}
+
+	return NULL;
+}
+
 void do_http_post(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	char *body = http_data->body;
@@ -196,11 +211,20 @@ void do_http_put(char *buf, size_t len, string *response, http_reply_data* http_
 void do_http_response(char *buf, size_t len, string *response, context_arg *carg, http_reply_data* http_data)
 {
 	(void)response;
-	char *tmp;
-	if ( (tmp = strstr(buf, "\n\n")) )
-		multicollector(http_data, tmp+2, len - (tmp-buf) - 2, carg);
-	else if ( (tmp = strstr(buf, "\r\n\r\n")) )
-		multicollector(http_data, tmp+4, len - (tmp-buf) - 4, carg);
+	char *tmp = find_sep(buf, len, "\r\n\r\n", 4);
+	size_t off = 4;
+	if (!tmp)
+	{
+		tmp = find_sep(buf, len, "\n\n", 2);
+		off = 2;
+	}
+
+	if (tmp)
+	{
+		size_t hdr = (size_t)(tmp - buf);
+		if (hdr + off <= len)
+			multicollector(http_data, tmp + off, len - hdr - off, carg);
+	}
 }
 
 int http_parser(char *buf, size_t len, string *response, context_arg *carg)
@@ -209,6 +233,11 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		return 0;
 
 	int ret = 1;
+	size_t shift = strspn(buf, "\r\n \t");
+	buf += shift;
+	len -= shift;
+	if (!len)
+		return 0;
 
 	http_reply_data* http_data = http_proto_get_request_data(buf, len, carg->auth_header);
 	if(!http_data)

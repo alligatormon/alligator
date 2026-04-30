@@ -108,6 +108,7 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 	if (nread > 0)
 	{
 		uint64_t chunksize = 0;
+		int64_t chunk_ret = -2;
 		if (base)
 			base[nread] = 0;
 		carglog(carg, L_TRACE, "\n==================BASE===================\n'%s'\n======\n", base? base : "");
@@ -133,7 +134,7 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 					if (carg->chunked_expect)
 					{
 						memset(&carg->chunked_dec, 0, sizeof(carg->chunked_dec));
-						chunksize = chunk_calc(carg, carg->body, body_size, 0);
+						chunk_ret = chunk_calc(carg, carg->body, body_size, 0, &chunksize);
 						carg->body[chunksize + 1] = 0;
 						string_break(carg->full_body, 0, carg->full_body->l - (body_size - chunksize));
 					}
@@ -147,14 +148,14 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 			}
 			else if (carg->chunked_expect) // maybe chunked_expect?
 			{
-				chunksize = chunk_calc(carg, base, nread, 1);
+				chunk_ret = chunk_calc(carg, base, nread, 1, &chunksize);
 			}
 			else
 			{
 				string_cat(carg->full_body, base, nread);
 			}
 
-			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l, chunksize);
+			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l, chunk_ret);
 			if (rc)
 			{
 				alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);

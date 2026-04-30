@@ -335,7 +335,7 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 	amtail_variable *var = arg;
 	context_arg *carg = ctx->carg;
 
-	if (!ctx || !carg || !var || !var->export_name || !var->export_name->s || var->is_template)
+	if (!ctx || !carg || !var || !var->export_name || !var->export_name->s || var->is_template || var->hidden)
 		return;
 
 	alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);

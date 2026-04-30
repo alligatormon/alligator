@@ -1,6 +1,7 @@
 #ifdef __linux__
 #include <limits.h>
 #include <unistd.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -2390,22 +2391,16 @@ void fill_counts_process()
 	}
 }
 
-void get_activate_status_services(char *service_name)
+static uint64_t systemd_unit_is_enabled_in_dir(char *svcdir, char *service_name)
 {
-	if (strstr(service_name, ".mount"))
-		return;
-
-	char svcdir[1000];
 	char pathsystemd[1280];
-	snprintf(svcdir, 999, "%s/systemd/system/", ac->system_etcdir);
-
 	struct dirent *entry;
 	DIR *dp;
 
 	dp = opendir(svcdir);
 	if (!dp)
 	{
-		return;
+		return 0;
 	}
 
 	uint64_t enabled = 0;
@@ -2426,50 +2421,121 @@ void get_activate_status_services(char *service_name)
 		}
 	}
 	closedir(dp);
-	metric_add_labels("service_enabled", &enabled, DATATYPE_UINT, ac->system_carg, "service", service_name);
+	return enabled;
 }
 
-void get_service_tasks_status(char *servicename, char *fname, char *type)
+void get_activate_status_services(char *service_name, char *username)
+{
+	char svcdir[1000];
+	uint64_t enabled = 0;
+
+	if (strstr(service_name, ".mount"))
+		return;
+
+	if (!username || !strcmp(username, "system"))
+	{
+		snprintf(svcdir, 999, "%s/systemd/system/", ac->system_etcdir);
+		enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+	}
+	else if (!strcmp(username, "user"))
+	{
+		snprintf(svcdir, 999, "%s/systemd/user/", ac->system_etcdir);
+		enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+		if (!enabled)
+		{
+			snprintf(svcdir, 999, "%s/lib/systemd/user/", ac->system_usrdir);
+			enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+		}
+	}
+	else
+	{
+		struct passwd *pwd = getpwnam(username);
+		if (pwd && pwd->pw_dir)
+		{
+			snprintf(svcdir, 999, "%s/.config/systemd/user/", pwd->pw_dir);
+			enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+		}
+		if (!enabled)
+		{
+			snprintf(svcdir, 999, "%s/systemd/user/", ac->system_etcdir);
+			enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+		}
+		if (!enabled)
+		{
+			snprintf(svcdir, 999, "%s/lib/systemd/user/", ac->system_usrdir);
+			enabled = systemd_unit_is_enabled_in_dir(svcdir, service_name);
+		}
+	}
+
+	metric_add_labels2("service_enabled", &enabled, DATATYPE_UINT, ac->system_carg, "service", service_name, "username", username ? username : "system");
+}
+
+void get_service_tasks_status(char *servicename, char *fname, char *type, char *username)
 {
 	char systemdpath[1000];
 	struct stat path_stat;
+	FILE *fd = NULL;
+	char buf[100];
+	uint64_t cnt = 0;
+	char *metric_username = username ? username : "system";
 
-	snprintf(systemdpath, 999, "%s/fs/cgroup/systemd/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
-	if (stat(systemdpath, &path_stat))
-		snprintf(systemdpath, 999, "%s/fs/cgroup/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+	if (!username || !strcmp(username, "system"))
+	{
+		snprintf(systemdpath, 999, "%s/fs/cgroup/systemd/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+		if (stat(systemdpath, &path_stat))
+			snprintf(systemdpath, 999, "%s/fs/cgroup/system.slice/%s/%s", ac->system_sysfs, servicename, fname);
+		fd = fopen(systemdpath, "r");
+	}
+	else
+	{
+		struct passwd *pwd = getpwnam(username);
+		if (!pwd)
+			return;
 
-	uint64_t cnt;
+		snprintf(systemdpath, 999, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/app.slice/%s/%s", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, servicename, fname);
+		fd = fopen(systemdpath, "r");
+		if (!fd)
+		{
+			snprintf(systemdpath, 999, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/session.slice/%s/%s", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, servicename, fname);
+			fd = fopen(systemdpath, "r");
+		}
+		if (!fd)
+		{
+			snprintf(systemdpath, 999, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/%s/%s", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, servicename, fname);
+			fd = fopen(systemdpath, "r");
+		}
+	}
 
-	FILE *fd = fopen(systemdpath, "r");
 	if (!fd)
 		return;
 
-	char buf[100];
 	for (cnt = 1; fgets(buf, 100, fd); ++cnt);
 	fclose(fd);
 
-	metric_add_labels2("service_tasks_count", &cnt, DATATYPE_UINT, ac->system_carg, "service", servicename, "type", type);
+	metric_add_labels3("service_tasks_count", &cnt, DATATYPE_UINT, ac->system_carg, "service", servicename, "type", type, "username", metric_username);
 }
 
-void service_running_status(char *name)
+void service_running_status(char *name, char *username)
 {
-	int has_services = match_mapper(ac->services_match, name, strlen(name), name);
-	int has_services_process = match_mapper(ac->services_process_match, name, strlen(name), name);
+	int has_services = (match_mapper(ac->services_match, name, strlen(name), name) == 1);
+	int has_services_process = (match_mapper(ac->services_process_match, name, strlen(name), name) == 1);
 
 	if (!has_services && !has_services_process)
 		return;
 
-	uint64_t val = systemd_check_service(name);
+	int check_ready = 0;
+	uint64_t val = systemd_check_service(name, username, &check_ready);
 
-	metric_add_labels("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name);
+	metric_add_labels2("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", username ? username : "system");
 
-	get_activate_status_services(name);
-	get_service_tasks_status(name, "cgroup.procs", "processes");
-	get_service_tasks_status(name, "tasks", "threads");
+	get_activate_status_services(name, username);
+	get_service_tasks_status(name, "cgroup.procs", "processes", username);
+	get_service_tasks_status(name, "tasks", "threads", username);
 
 	if (has_services == 1 || has_services_process == 1)
 	{
-		metric_add_labels("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name);
+		if (check_ready)
+			metric_add_labels2("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", username ? username : "system");
 	}
 
 	if (has_services_process == 1)
@@ -2483,60 +2549,228 @@ void service_running_status(char *name)
 	}
 }
 
+static int service_name_seen(char **seen, size_t seen_count, const char *name, char *username)
+{
+	char key[2048];
+	size_t i;
+
+	snprintf(key, sizeof(key), "%s|%s", username ? username : "system", name ? name : "");
+	for (i = 0; i < seen_count; ++i)
+	{
+		if (!strcmp(seen[i], key))
+			return 1;
+	}
+	return 0;
+}
+
+static int service_name_seen_any_user(char **seen, size_t seen_count, const char *name)
+{
+	size_t i;
+	size_t name_len;
+
+	if (!name)
+		return 0;
+
+	name_len = strlen(name);
+	for (i = 0; i < seen_count; ++i)
+	{
+		size_t seen_len = strlen(seen[i]);
+		if (seen_len > name_len + 1 && !strcmp(seen[i] + seen_len - name_len, name) && seen[i][seen_len - name_len - 1] == '|')
+			return 1;
+	}
+
+	return 0;
+}
+
+static int is_systemd_unit_name(const char *name)
+{
+	const char *suffixes[] = {
+		".service", ".socket", ".target", ".timer",
+		".mount", ".slice", ".scope", ".path", ".swap"
+	};
+	size_t i;
+	size_t name_len;
+
+	if (!name)
+		return 0;
+
+	name_len = strlen(name);
+	if (!name_len)
+		return 0;
+
+	for (i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i)
+	{
+		size_t suffix_len = strlen(suffixes[i]);
+		if (name_len >= suffix_len && !strcmp(name + name_len - suffix_len, suffixes[i]))
+			return 1;
+	}
+
+	return 0;
+}
+
+static void service_name_add(char ***seen, size_t *seen_count, size_t *seen_cap, const char *name, char *username)
+{
+	char key[2048];
+
+	snprintf(key, sizeof(key), "%s|%s", username ? username : "system", name ? name : "");
+
+	if (*seen_count == *seen_cap)
+	{
+		size_t new_cap = (*seen_cap == 0) ? 64 : (*seen_cap * 2);
+		char **new_seen = realloc(*seen, new_cap * sizeof(*new_seen));
+		if (!new_seen)
+			return;
+		*seen = new_seen;
+		*seen_cap = new_cap;
+	}
+
+	(*seen)[*seen_count] = strdup(key);
+	if (!(*seen)[*seen_count])
+		return;
+	++(*seen_count);
+}
+
+static void scan_services_dir_unique(const char *path, char *username, char ***seen, size_t *seen_count, size_t *seen_cap)
+{
+	DIR *dp = opendir(path);
+	struct dirent *entry;
+
+	if (!dp)
+		return;
+
+	while ((entry = readdir(dp)))
+	{
+		if (entry->d_name[0] == '.')
+			continue;
+
+		if (!is_systemd_unit_name(entry->d_name))
+			continue;
+
+		if (service_name_seen(*seen, *seen_count, entry->d_name, username))
+			continue;
+
+		service_running_status(entry->d_name, username);
+		service_name_add(seen, seen_count, seen_cap, entry->d_name, username);
+	}
+
+	closedir(dp);
+}
+
+typedef struct service_not_found_emit_ctx {
+	char ***seen;
+	size_t *seen_count;
+	size_t *seen_cap;
+} service_not_found_emit_ctx;
+
+static void emit_not_found_service_match_cb(void *arg, void *obj)
+{
+	service_not_found_emit_ctx *ctx = arg;
+	match_string *ms = obj;
+	uint64_t val = 2;
+
+	if (!ctx || !ms || !ms->s || !ms->s[0])
+		return;
+
+	if (!service_name_seen_any_user(*ctx->seen, *ctx->seen_count, ms->s))
+	{
+		metric_add_labels2("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", ms->s, "username", "not_found");
+		service_name_add(ctx->seen, ctx->seen_count, ctx->seen_cap, ms->s, "not_found");
+	}
+}
+
+static void emit_not_found_service_match(alligator_ht *hash, char ***seen, size_t *seen_count, size_t *seen_cap)
+{
+	service_not_found_emit_ctx ctx = {seen, seen_count, seen_cap};
+
+	if (!hash)
+		return;
+
+	alligator_ht_foreach_arg(hash, emit_not_found_service_match_cb, &ctx);
+}
+
 void get_services()
 {
 	char svcdir[1000];
-	char svcdir_r[1000];
+	char userdir[1000];
 	struct dirent *entry;
-	struct dirent *entry_r;
+	char **seen_services = NULL;
+	size_t seen_count = 0;
+	size_t seen_cap = 0;
+	size_t i;
 	DIR *dp;
-	DIR *dp_r;
 
 	snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
-	dp = opendir(svcdir);
-	if (!dp)
-	{
-		return;
-	}
-
-	while((entry = readdir(dp)))
-	{
-		if ( entry->d_name[0] == '.' )
-			continue;
-
-		service_running_status(entry->d_name);
-	}
-	closedir(dp);
+	scan_services_dir_unique(svcdir, "system", &seen_services, &seen_count, &seen_cap);
 
 	snprintf(svcdir, 999, "%s/systemd/", ac->system_rundir);
 	dp = opendir(svcdir);
-	if (!dp)
+	if (dp)
 	{
-		return;
-	}
-
-	while((entry = readdir(dp)))
-	{
-		if (strncmp(entry->d_name, "generator", 9))
-			continue;
-
-		snprintf(svcdir_r, 999, "%s/systemd/%s", ac->system_rundir, entry->d_name);
-		dp_r = opendir(svcdir_r);
-		if (!dp_r)
+		while((entry = readdir(dp)))
 		{
-			continue;
-		}
-
-		while((entry_r = readdir(dp_r)))
-		{
-			if ( entry_r->d_name[0] == '.' )
+			if (strncmp(entry->d_name, "generator", 9))
 				continue;
 
-			service_running_status(entry_r->d_name);
+			snprintf(userdir, 999, "%s/systemd/%s", ac->system_rundir, entry->d_name);
+			scan_services_dir_unique(userdir, "system", &seen_services, &seen_count, &seen_cap);
 		}
-		closedir(dp_r);
+		closedir(dp);
 	}
-	closedir(dp);
+
+	snprintf(svcdir, 999, "%s/lib/systemd/user/", ac->system_usrdir);
+	scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
+
+	snprintf(svcdir, 999, "%s/systemd/user/", ac->system_etcdir);
+	scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
+
+	dp = opendir("/run/user");
+	if (dp)
+	{
+		while ((entry = readdir(dp)))
+		{
+			long uid;
+			struct passwd *pwd;
+			int n;
+
+			if (entry->d_name[0] == '.')
+				continue;
+
+			for (n = 0; entry->d_name[n]; ++n)
+			{
+				if (entry->d_name[n] < '0' || entry->d_name[n] > '9') {
+					break;
+				}
+			}
+
+			if (entry->d_name[n] != '\0')
+				continue;
+
+			uid = strtol(entry->d_name, NULL, 10);
+			if (uid <= 0)
+				continue;
+
+			pwd = getpwuid((uid_t) uid);
+			if (!pwd || !pwd->pw_name)
+				continue;
+
+			snprintf(userdir, 999, "/run/user/%s/systemd/user/", entry->d_name);
+			scan_services_dir_unique(userdir, pwd->pw_name, &seen_services, &seen_count, &seen_cap);
+
+			if (pwd->pw_dir)
+			{
+				snprintf(userdir, 999, "%s/.config/systemd/user/", pwd->pw_dir);
+				scan_services_dir_unique(userdir, pwd->pw_name, &seen_services, &seen_count, &seen_cap);
+			}
+		}
+		closedir(dp);
+	}
+
+	emit_not_found_service_match(ac->services_match ? ac->services_match->hash : NULL, &seen_services, &seen_count, &seen_cap);
+	emit_not_found_service_match(ac->services_process_match ? ac->services_process_match->hash : NULL, &seen_services, &seen_count, &seen_cap);
+
+	for (i = 0; i < seen_count; ++i)
+		free(seen_services[i]);
+	free(seen_services);
 }
 
 
