@@ -10,6 +10,7 @@
 #include "metric/labels.h"
 #include "metric/namespace.h"
 #include "main.h"
+#include "common/rtime.h"
 #include <ctype.h>
 #include <inttypes.h>
 #include <math.h>
@@ -17,6 +18,9 @@
 #include <string.h>
 
 extern aconf *ac;
+
+/* Default full-export interval (seconds) when carg->amtail_full_export_ttl_interval_sec == 0. */
+enum { AMTAIL_FULL_EXPORT_TTL_INTERVAL_DEFAULT_SEC = 10 };
 
 int amtail_node_compare(const void* arg, const void* obj)
 {
@@ -93,6 +97,11 @@ void amtail_node_free(amtail_node *an)
 		free(an->key);
 	if (an->script)
 		free(an->script);
+	if (an->vm_thread)
+	{
+		amtail_thread_free(an->vm_thread);
+		an->vm_thread = NULL;
+	}
 	uv_mutex_destroy(&an->lock);
 	free(an);
 }
@@ -329,10 +338,8 @@ static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator
 	return labels;
 }
 
-static void amtail_variable_metric_add(void *funcarg, void *arg)
+static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_variable *var)
 {
-	amtail_metric_ctx *ctx = funcarg;
-	amtail_variable *var = arg;
 	context_arg *carg = ctx->carg;
 
 	if (!ctx || !carg || !var || !var->export_name || !var->export_name->s || var->is_template || var->hidden)
@@ -377,13 +384,29 @@ static void amtail_variable_metric_add(void *funcarg, void *arg)
 		labels_hash_free(labels);
 }
 
-static void amtail_variables_to_metrics(alligator_ht *variables, context_arg *carg)
+static void amtail_variables_export_touched(context_arg *carg)
 {
-	if (!variables || !carg)
+	if (!carg || !carg->amtail_variables)
 		return;
 
-	amtail_metric_ctx ctx = { .carg = carg, .variables = variables };
-	alligator_ht_foreach_arg(variables, amtail_variable_metric_add, &ctx);
+	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables };
+	for (size_t i = 0; i < carg->amtail_touch_n; ++i)
+		amtail_variable_metric_emit_one(&ctx, carg->amtail_touch_buf[i]);
+}
+
+static void amtail_variable_metric_add_foreach(void *funcarg, void *arg)
+{
+	amtail_metric_ctx *ctx = funcarg;
+	amtail_variable *var = arg;
+	amtail_variable_metric_emit_one(ctx, var);
+}
+
+static void amtail_variables_export_all(context_arg *carg)
+{
+	if (!carg || !carg->amtail_variables)
+		return;
+	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables };
+	alligator_ht_foreach_arg(carg->amtail_variables, amtail_variable_metric_add_foreach, &ctx);
 }
 
 void amtail_handler(char *metrics, size_t size, context_arg *carg)
@@ -411,9 +434,12 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	uv_mutex_lock(&an->lock);
+	if (!an->vm_thread)
+		an->vm_thread = amtail_thread_init();
+	amtail_touch_begin(carg);
 	size_t tail_len = an->tail ? an->tail->l : 0;
 	size_t total = tail_len + size;
-	char *buf = calloc(1, total + 1);
+	char *buf = malloc(total ? total : 1);
 	if (!buf)
 	{
 		uv_mutex_unlock(&an->lock);
@@ -442,7 +468,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		if (line_len)
 		{
 			string_cat(line, buf + start, line_len);
-			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll))
+			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll, carg, an->vm_thread))
 				rc = 0;
 			string_null(line);
 		}
@@ -461,7 +487,21 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	if (start < total)
 		an->tail = string_init_alloc(buf + start, total - start);
 
-	amtail_variables_to_metrics(carg->amtail_variables, carg);
+	{
+		r_time now = setrtime();
+		int64_t full_iv = carg->amtail_full_export_ttl_interval_sec
+			? (int64_t)carg->amtail_full_export_ttl_interval_sec
+			: (int64_t)AMTAIL_FULL_EXPORT_TTL_INTERVAL_DEFAULT_SEC;
+		int need_full = (carg->amtail_last_ttl_refresh_sec == 0) ||
+			((int64_t)now.sec - carg->amtail_last_ttl_refresh_sec >= full_iv);
+		if (need_full)
+		{
+			amtail_variables_export_all(carg);
+			carg->amtail_last_ttl_refresh_sec = (int64_t)now.sec;
+		}
+		else
+			amtail_variables_export_touched(carg);
+	}
 
 	string_free(line);
 

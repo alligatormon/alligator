@@ -62,6 +62,7 @@ typedef struct metric_datatypes {
 	tommy_node node;
 } metric_datatypes;
 
+typedef struct amtail_variable amtail_variable;
 
 typedef struct context_arg
 {
@@ -274,6 +275,15 @@ typedef struct context_arg
 	uint8_t api_enable;
 
 	alligator_ht *amtail_variables;
+	/* Mtail: variables touched in the current handler pass (export + TTL refresh). */
+	uint32_t amtail_touch_seq;
+	amtail_variable **amtail_touch_buf;
+	size_t amtail_touch_n;
+	size_t amtail_touch_cap;
+	/* Wall-clock second of last full mtail export (TTL refresh for idle series). */
+	int64_t amtail_last_ttl_refresh_sec;
+	/* Seconds between full mtail variable exports (idle-series TTL refresh). 0 = default 10. */
+	uint32_t amtail_full_export_ttl_interval_sec;
 	uint8_t remove_from_hash; // enable if deleting 1 object
 
 	char *url;

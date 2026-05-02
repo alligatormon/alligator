@@ -55,6 +55,10 @@ typedef struct regex_match
 	pcre_extra *pcreExtra;
 
 	regex_metric *metrics;
+	/* Filled once in amtail_regex_compile; avoids pcre_fullinfo on every match. */
+	int pcre_name_count;
+	int pcre_name_entry_size;
+	const unsigned char *pcre_name_table;
 } regex_match;
 
 void pcre_match_multi(regex_match **rematch, size_t rematch_size, const char *regex_match_string);

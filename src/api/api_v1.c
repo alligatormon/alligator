@@ -14,6 +14,7 @@
 #include "probe/probe.h"
 #include "scheduler/type.h"
 #include "common/mkdirp.h"
+#include "common/json_query.h"
 #include "common/reject.h"
 #include "parsers/multiparser.h"
 #include "mapping/type.h"
@@ -531,6 +532,20 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							carg->ttl = json_real_value(carg_ttl);
 						else if (carg_ttl_type == JSON_INTEGER)
 							carg->ttl = json_real_value(carg_ttl);
+					}
+
+					json_t *carg_mtail_full_export = json_object_get(entrypoint, "mtail_full_export_interval");
+					if (carg_mtail_full_export) {
+						int carg_mfe_type = json_typeof(carg_mtail_full_export);
+						int64_t v = 0;
+						if (carg_mfe_type == JSON_STRING)
+							v = get_sec_from_human_range(json_string_value(carg_mtail_full_export), json_string_length(carg_mtail_full_export));
+						else if (carg_mfe_type == JSON_REAL)
+							v = (int64_t)json_real_value(carg_mtail_full_export);
+						else if (carg_mfe_type == JSON_INTEGER)
+							v = (int64_t)json_real_value(carg_mtail_full_export);
+						if (v > 0 && v <= 86400000)
+							carg->amtail_full_export_ttl_interval_sec = (uint32_t)v;
 					}
 
 					json_t *carg_log_level = json_object_get(entrypoint, "log_level");

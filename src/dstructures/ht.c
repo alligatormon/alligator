@@ -31,6 +31,20 @@ void *alligator_ht_search(alligator_ht *h, int (*compare_func)(const void *arg, 
 	return ret;
 }
 
+void *alligator_ht_search_nolock(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const void *key, uint32_t sum)
+{
+	if (!h || !h->ht)
+		return NULL;
+	return tommy_hashdyn_search(h->ht, compare_func, key, sum);
+}
+
+void alligator_ht_insert_nolock(alligator_ht *h, alligator_ht_node *node, void *data, uint32_t sum)
+{
+	if (!h || !h->ht)
+		return;
+	tommy_hashdyn_insert(h->ht, node, data, sum);
+}
+
 void *alligator_ht_remove(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const char *key, uint32_t sum)
 {
 	if (!h)

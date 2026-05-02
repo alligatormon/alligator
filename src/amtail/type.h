@@ -6,6 +6,8 @@
 #include "external/amtail/generator.h"
 #include <uv.h>
 
+typedef struct amtail_thread amtail_thread;
+
 typedef struct amtail_node {
     char *name;
     char *key;
@@ -16,6 +18,8 @@ typedef struct amtail_node {
     alligator_ht *labels;
 	amtail_log_level amtail_ll;
     uv_mutex_t lock;
+    /* One VM thread per compiled script — reused across UDP lines (avoids huge calloc/memset per line). */
+    amtail_thread *vm_thread;
     tommy_node node;
 } amtail_node;
 

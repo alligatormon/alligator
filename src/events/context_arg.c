@@ -17,6 +17,12 @@ context_arg *carg_copy(context_arg *src)
 	context_arg *carg = malloc(carg_size);
 	memcpy(carg, src, carg_size);
 
+	carg->amtail_touch_buf = NULL;
+	carg->amtail_touch_n = 0;
+	carg->amtail_touch_cap = 0;
+	carg->amtail_touch_seq = 0;
+	carg->amtail_last_ttl_refresh_sec = 0;
+
 	carg->net_tree_acl = patricia_tree_duplicate(src->net_tree_acl);
 	carg->net6_tree_acl = patricia_tree_duplicate(src->net6_tree_acl);
 	if (src->key)
@@ -165,6 +171,9 @@ void carg_free(context_arg *carg)
 		free(carg->local_addr);
 		carg->local_addr = NULL;
 	}
+
+	if (carg->amtail_touch_buf)
+		free(carg->amtail_touch_buf);
 
 	if (carg->amtail_variables) {
 		amtail_variables_free(carg->amtail_variables);
@@ -488,6 +497,19 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			carg->ttl = get_sec_from_human_range(json_string_value(json_ttl), json_string_length(json_ttl));
 		else
 			carg->ttl = json_integer_value(json_ttl);
+	}
+
+	json_t *json_mtail_full_export = json_object_get(root, "mtail_full_export_interval");
+	if (json_mtail_full_export) {
+		int64_t v = 0;
+		if (json_typeof(json_mtail_full_export) == JSON_STRING)
+			v = get_sec_from_human_range(json_string_value(json_mtail_full_export), json_string_length(json_mtail_full_export));
+		else if (json_typeof(json_mtail_full_export) == JSON_REAL)
+			v = (int64_t)json_real_value(json_mtail_full_export);
+		else
+			v = json_integer_value(json_mtail_full_export);
+		if (v > 0 && v <= 86400000)
+			carg->amtail_full_export_ttl_interval_sec = (uint32_t)v;
 	}
 
 	json_t *json_file_stat = json_object_get(root, "file_stat");

@@ -11,6 +11,9 @@ typedef struct alligator_ht
 typedef tommy_hashdyn_node alligator_ht_node;
 
 void *alligator_ht_search(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const void *key, uint32_t sum);
+/* No rwlock; caller must exclude concurrent access (mtail variables under amtail_node lock). */
+void *alligator_ht_search_nolock(alligator_ht *h, int (*compare_func)(const void *arg, const void *arg2), const void *key, uint32_t sum);
+void alligator_ht_insert_nolock(alligator_ht *h, alligator_ht_node *node, void *data, uint32_t sum);
 void alligator_ht_done(alligator_ht *h);
 void alligator_ht_insert(alligator_ht *h, alligator_ht_node *node, void *data, uint32_t sum);
 void *alligator_ht_remove_existing(alligator_ht *h, alligator_ht_node* node);

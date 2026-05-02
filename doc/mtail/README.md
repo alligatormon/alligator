@@ -22,6 +22,7 @@ There are two main parts:
    - Each complete line is executed in the VM
    - Incomplete line tails are buffered and prepended to the next chunk
    - VM variables are converted to Alligator metrics
+   - Full variable export (for metric **TTL** refresh on idle series) runs on the first chunk and then at least every **`mtail_full_export_interval`** seconds; between those, only touched variables are exported (see [configuration](configuration.md#mtail_full_export_interval))
 
 ## How Script Selection Works
 

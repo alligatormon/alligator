@@ -68,6 +68,66 @@ Commonly useful with mtail pipelines:
 - `env` - pass environment values used in request generation
 - `allow` / `deny` - network ACLs
 - `tls_certificate` / `tls_key` / `tls_ca` - TLS listener settings
+- `mtail_full_export_interval` - how often to run a full mtail variable export for **metric TTL refresh** (see below)
+
+## `mtail_full_export_interval`
+
+After each ingest chunk, Alligator exports mtail VM variables to metrics. For performance it usually exports only variables **touched** in that chunk. Idle label series still need an occasional **full** export so `metric_add` runs for every variable and refreshes the expire-tree TTL (same idea as global `ttl`).
+
+This parameter sets the **minimum wall-clock interval in seconds** between those full exports.
+
+### Behaviour
+
+- **Default:** if the option is omitted or set to an invalid value, the interval is **10 seconds** (same as omitting the field in JSON / plain config).
+- **Valid range:** `1` … `86400000` seconds (values outside this range are ignored; default applies).
+- **Accepted forms** (same as entrypoint `ttl`):
+  - JSON **integer** or **real** (seconds).
+  - JSON **string** with human duration units, for example `"120s"`, `"2m"`, `"1h"` (parsed via `get_sec_from_human_range`).
+
+### Where to set it
+
+| Source | How |
+|--------|-----|
+| Plain **entrypoint** | `mtail_full_export_interval 120;` (numeric token, seconds) |
+| Plain **aggregate** | `mtail_full_export_interval=120` inside the aggregate line (same `key=value` style as `ttl=`) |
+| API **entrypoint** JSON | `"mtail_full_export_interval": 120` or `"mtail_full_export_interval": "2m"` |
+| API **aggregate** JSON | same key on the aggregate object passed to `context_arg_json_fill` |
+
+The value is stored on the parser **`context_arg`** for that entrypoint or aggregate, so each stream can use its own interval.
+
+### Plain entrypoint example
+
+```
+entrypoint {
+    udp 0.0.0.0:5140;
+    handler mtail;
+    mtail myscript;
+    mtail_full_export_interval 120;
+}
+```
+
+### API entrypoint example
+
+```
+{
+  "entrypoint": [
+    {
+      "udp": ["0.0.0.0:5140"],
+      "handler": "mtail",
+      "mtail": "myscript",
+      "mtail_full_export_interval": "2m"
+    }
+  ]
+}
+```
+
+### Aggregate example (plain)
+
+```
+aggregate {
+    mtail udp://127.0.0.1:5140 mtail_full_export_interval=90 name=myscript;
+}
+```
 
 ## API Configuration
 

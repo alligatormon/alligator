@@ -8,6 +8,7 @@
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
 #include "common/logs.h"
+#include "metric/namespace.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -66,9 +67,6 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-	(carg->conn_counter)++;
-	(carg->read_counter)++;
-
 	if (!check_udp_ip_port(addr, carg))
 	{
 		carglog(carg, L_ERROR, "no access!\n");
@@ -76,12 +74,24 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
+	if (nread > 0)
+	{
+		(carg->conn_counter)++;
+		(carg->read_counter)++;
+		carg->read_bytes_counter += (uint64_t)nread;
+		if (!carg->no_metric)
+		{
+			metric_add_labels4("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "udp", "type", "entrypoint", "host", carg->key);
+			metric_add_labels4("alligator_read_bytes", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "udp", "type", "entrypoint", "host", carg->key);
+		}
+	}
+
 	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
 	if (carg->lock)
 	{
 		uv_udp_recv_stop(req);
 		uv_close((uv_handle_t*) req, NULL);
-		aggregator_events_metric_add(carg, carg, NULL, "entrypoint", "aggregator", carg->host);
+		aggregator_events_metric_add(carg, carg, NULL, "udp", "entrypoint", carg->key);
 	}
 
 	udp_close_client(carg, buf);
