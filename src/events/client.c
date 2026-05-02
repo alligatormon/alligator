@@ -121,6 +121,7 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 				if (hr_data)
 				{
 					http_hrdata_metrics(carg, hr_data);
+					carg->last_http_code = hr_data->http_code;
 					http_follow_redirect(carg, hr_data);
 					string_string_cat(carg->full_body, hr_data->clear_http);
 
@@ -436,6 +437,7 @@ void tcp_client_connect(void *arg)
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->parser_status = 0;
+	carg->last_http_code = 0;
 	carg->curr_ttl = carg->ttl;
 
 	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
@@ -518,6 +520,7 @@ void unix_client_connect(void *arg)
 	carg->lock = 1;
 	carg->parsed = 0;
 	carg->parser_status = 0;
+	carg->last_http_code = 0;
 	carg->curr_ttl = carg->ttl;
 
 	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));

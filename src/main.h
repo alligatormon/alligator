@@ -79,6 +79,11 @@ typedef struct userprocess_node {
 	tommy_node node;
 } userprocess_node;
 
+typedef struct system_string_node {
+	char *name;
+	tommy_node node;
+} system_string_node;
+
 typedef struct aconf
 {
 	namespace_struct *nsdefault;
@@ -212,6 +217,7 @@ typedef struct aconf
 	char *cadvisor_tcpudpbuf;
 	alligator_ht* system_userprocess;
 	alligator_ht* system_groupprocess;
+	alligator_ht* system_services_checking_users;
 	alligator_ht* system_sysctl;
 	uint64_t system_cpuavg_period;
 	double system_cpuavg_sum;
