@@ -200,6 +200,7 @@ typedef struct context_arg
 	void *data; // for parser-data
 	char *ns; // for parsers ns
 	uint8_t parser_status;
+	uint16_t last_http_code;
 	int8_t running;
 
 	uv_tcp_t server;
