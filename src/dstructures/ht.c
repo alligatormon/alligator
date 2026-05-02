@@ -83,13 +83,32 @@ void alligator_ht_done(alligator_ht *h)
 	h->ht = NULL;
 }
 
+void alligator_ht_clear(alligator_ht *h, tommy_foreach_func *func)
+{
+	if (!h || !h->ht)
+		return;
+
+	pthread_rwlock_wrlock(&h->rwlock);
+	if (func)
+		tommy_hashdyn_foreach(h->ht, func);
+	tommy_hashdyn_done(h->ht);
+	tommy_hashdyn_init(h->ht);
+	pthread_rwlock_unlock(&h->rwlock);
+}
+
 
 size_t alligator_ht_count(alligator_ht *h)
 {
-	if (!h)
+	size_t ret = 0;
+
+	if (!h || !h->ht)
 		return 0;
 
-	return tommy_hashdyn_count(h->ht);
+	pthread_rwlock_rdlock(&h->rwlock);
+	ret = tommy_hashdyn_count(h->ht);
+	pthread_rwlock_unlock(&h->rwlock);
+
+	return ret;
 }
 
 size_t alligator_ht_memory_usage(alligator_ht *h)

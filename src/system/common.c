@@ -104,6 +104,7 @@ void system_initialize()
 
 	ac->system_userprocess = alligator_ht_init(NULL);
 	ac->system_groupprocess = alligator_ht_init(NULL);
+	ac->system_services_checking_users = alligator_ht_init(NULL);
 
 	ac->system_sysctl = alligator_ht_init(NULL);
 }

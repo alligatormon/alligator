@@ -14,6 +14,7 @@ void *alligator_ht_search(alligator_ht *h, int (*compare_func)(const void *arg, 
 void alligator_ht_done(alligator_ht *h);
 void alligator_ht_insert(alligator_ht *h, alligator_ht_node *node, void *data, uint32_t sum);
 void *alligator_ht_remove_existing(alligator_ht *h, alligator_ht_node* node);
+void alligator_ht_clear(alligator_ht *h, tommy_foreach_func *func);
 size_t alligator_ht_count(alligator_ht *h);
 void alligator_ht_foreach_arg(alligator_ht *h, tommy_foreach_arg_func *func, void *arg);
 void* alligator_ht_init(alligator_ht *h);

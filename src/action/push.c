@@ -155,8 +155,8 @@ void action_push(json_t *action)
 		{
 			an->serializer = METRIC_SERIALIZER_OTLP_PROTOBUF;
 			an->content_type_protobuf = 1;
-			an->parser = otlp_response_catch;
-			an->parser_name = strdup("otlp_response_catch");
+			an->parser = otlp_protobuf_response_catch;
+			an->parser_name = strdup("otlp_protobuf_response_catch");
 		}
 		else if(!strcmp(srlz, "dsv"))
 			an->serializer = METRIC_SERIALIZER_DSV;

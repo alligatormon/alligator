@@ -12,6 +12,7 @@ system {
     process [nginx] [bash] [/[bash]*/];
     services [nginx.service];
     services_process [php-fpm.service];
+    services_checking_users [system] [user] [login1] [login2];
     smart;
     ipmi;
     firewall [ipset=[entries|on]];
@@ -63,6 +64,39 @@ Includes all metrics from `services` and additionally scrapes process-level metr
 Use this mode only where needed (for selected services), because on heavily forking services it can generate a large amount of process metrics.
 
 Note: historically, `services` also included process scraping. That behavior is now moved to `services_process`.
+
+
+## services_checking_users
+Restricts **which systemd scopes** Alligator walks when collecting `services` / `services_process` metrics (`service_enabled`, `service_running`, `service_tasks_count`, `service_match`).\
+When this list is **non-empty**, only the listed scopes are scanned; when it is **empty or unset**, behavior is unchanged (all usual locations, including every active login under `/run/user/*`).
+
+Entries are string tokens:
+
+- **`system`** — system unit directories (`/usr/lib/systemd/system/`, generator trees under `/run/systemd/`, etc.). Metrics for these units use the label `username="system"`.
+- **`user`** — shared user-unit trees (`/usr/lib/systemd/user/`, `/etc/systemd/user/`, …). Metrics use the label `username="user"`.
+- **Any other token** — treated as a **login name** (`getpwnam`). Alligator scans that user’s units under `/run/user/<uid>/systemd/user/` and `$HOME/.config/systemd/user/`. Metrics use `username="<login>"`.
+
+Plain config lists tokens after the operator, like other system arrays:
+
+```
+system {
+    services_process [httpd.service];
+    services_checking_users [nobody] [system];
+}
+```
+
+JSON (API or `.json` config) uses an array under `system.services_checking_users`:
+
+```json
+"system": {
+  "services_process": ["httpd.service"],
+  "services_checking_users": ["nobody", "system"]
+}
+```
+
+On each normal configuration apply, the list is **replaced** in full (not merged incrementally with stale users left over).
+
+**Tip:** combine `services_checking_users` with `services` / `services_process` so only the units you care about are matched inside the reduced scan set.
 
 
 ## smart

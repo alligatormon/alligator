@@ -1126,3 +1126,170 @@ void otlp_response_catch(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_ERROR, "otlp_response_catch: wrong answer: '%s'\n", metrics);
 	json_decref(root);
 }
+
+static int otlp_parse_export_response_protobuf(const uint8_t *buf, size_t size, uint8_t *has_partial, uint64_t *rejected_data_points, char *error_message, size_t error_message_size)
+{
+	const uint8_t *p = buf;
+	const uint8_t *end = buf + size;
+
+	*has_partial = 0;
+	*rejected_data_points = 0;
+	if (error_message_size)
+		error_message[0] = '\0';
+
+	while (p < end)
+	{
+		uint64_t tag = 0;
+		uint32_t field = 0;
+		uint8_t wire = 0;
+
+		if (!pbwire_read_varint(&p, end, &tag))
+			return 0;
+		field = (uint32_t)(tag >> 3);
+		wire = (uint8_t)(tag & 0x7);
+
+		if (field == 1 && wire == 2)
+		{
+			const uint8_t *ps = NULL;
+			size_t plen = 0;
+			const uint8_t *pp = NULL;
+			const uint8_t *pend = NULL;
+
+			if (!pbwire_read_len(&p, end, &ps, &plen))
+				return 0;
+
+			pp = ps;
+			pend = ps + plen;
+			*has_partial = 1;
+
+			while (pp < pend)
+			{
+				uint64_t ptag = 0;
+				uint32_t pfield = 0;
+				uint8_t pwire = 0;
+
+				if (!pbwire_read_varint(&pp, pend, &ptag))
+					return 0;
+				pfield = (uint32_t)(ptag >> 3);
+				pwire = (uint8_t)(ptag & 0x7);
+
+				if (pfield == 1 && pwire == 0)
+				{
+					uint64_t rejected = 0;
+					if (!pbwire_read_varint(&pp, pend, &rejected))
+						return 0;
+					*rejected_data_points = rejected;
+				}
+				else if (pfield == 2 && pwire == 2)
+				{
+					const uint8_t *msg = NULL;
+					size_t mlen = 0;
+					size_t copy_len = 0;
+					if (!pbwire_read_len(&pp, pend, &msg, &mlen))
+						return 0;
+
+					if (error_message_size)
+					{
+						copy_len = mlen < (error_message_size - 1) ? mlen : (error_message_size - 1);
+						memcpy(error_message, msg, copy_len);
+						error_message[copy_len] = '\0';
+					}
+				}
+				else if (!pbwire_skip_field(&pp, pend, pwire))
+				{
+					return 0;
+				}
+			}
+		}
+		else if (!pbwire_skip_field(&p, end, wire))
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+void otlp_protobuf_response_catch(char *metrics, size_t size, context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	if (carg->last_http_code && (carg->last_http_code < 200 || carg->last_http_code > 299))
+	{
+		carglog(carg, L_ERROR, "otlp_protobuf_response_catch: HTTP status %"u16" indicates failure\n", carg->last_http_code);
+		return;
+	}
+
+	if (size == 0)
+	{
+		/* Empty ExportMetricsServiceResponse is a valid protobuf success case. */
+		carg->parser_status = 1;
+		return;
+	}
+
+	if (!metrics)
+	{
+		carglog(carg, L_ERROR, "otlp_protobuf_response_catch: response size is %zu, but body pointer is NULL\n", size);
+		return;
+	}
+
+	/*
+	 * Some OTLP/HTTP endpoints may still return JSON (for example "{}" or
+	 * {"partialSuccess": ...}) even when request payload is protobuf.
+	 */
+	size_t i = 0;
+	while (i < size && (metrics[i] == ' ' || metrics[i] == '\t' || metrics[i] == '\r' || metrics[i] == '\n'))
+		++i;
+
+	if (i < size && (metrics[i] == '{' || metrics[i] == '['))
+	{
+		json_error_t error;
+		json_t *root = json_loadb(metrics, size, 0, &error);
+		if (!root)
+		{
+			carglog(carg, L_ERROR, "otlp_protobuf_response_catch: json error on line %d: %s\n", error.line, error.text);
+			return;
+		}
+
+		if (!json_is_object(root))
+		{
+			carglog(carg, L_ERROR, "otlp_protobuf_response_catch: unexpected json response type\n");
+			json_decref(root);
+			return;
+		}
+
+		json_t *jpartialSuccess = json_object_get(root, "partialSuccess");
+		if (jpartialSuccess || json_object_size(root) == 0)
+			carg->parser_status = 1;
+		else
+			carglog(carg, L_ERROR, "otlp_protobuf_response_catch: unexpected json response body\n");
+
+		json_decref(root);
+		return;
+	}
+
+	{
+		uint8_t has_partial = 0;
+		uint64_t rejected_data_points = 0;
+		char error_message[512];
+		int ok = otlp_parse_export_response_protobuf((const uint8_t*)metrics, size, &has_partial, &rejected_data_points, error_message, sizeof(error_message));
+
+		if (!ok)
+		{
+			carglog(carg, L_ERROR, "otlp_protobuf_response_catch: malformed protobuf ExportMetricsServiceResponse\n");
+			return;
+		}
+
+		if (has_partial && (rejected_data_points > 0 || *error_message))
+		{
+			if (*error_message)
+				carglog(carg, L_ERROR, "otlp_protobuf_response_catch: partial success rejected_data_points=%" u64 ", error=\"%s\"\n", rejected_data_points, error_message);
+			else
+				carglog(carg, L_ERROR, "otlp_protobuf_response_catch: partial success rejected_data_points=%" u64 "\n", rejected_data_points);
+			return;
+		}
+
+		carg->parser_status = 1;
+	}
+}

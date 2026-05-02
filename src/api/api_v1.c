@@ -1163,6 +1163,26 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								}
 							}
 						}
+						else if (!strcmp(system_key, "services_checking_users"))
+						{
+							uint64_t users_size = json_array_size(sys_value);
+							if (enkey)
+								service_user_clear(ac->system_services_checking_users);
+
+							for (uint64_t i = 0; i < users_size; i++)
+							{
+								json_t *user_obj = json_array_get(sys_value, i);
+								int obj_type = json_typeof(user_obj);
+								if (obj_type == JSON_STRING)
+								{
+									char *obj_str = (char*)json_string_value(user_obj);
+									if (enkey)
+										service_user_push(ac->system_services_checking_users, obj_str);
+									else
+										service_user_del(ac->system_services_checking_users, obj_str);
+								}
+							}
+						}
 						else if (!strcmp(system_key, "process"))
 						{
 							uint64_t process_size = json_array_size(sys_value);

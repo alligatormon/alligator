@@ -769,6 +769,18 @@ void userprocess_del(alligator_ht* userprocess, char *user)
 {
 }
 
+void service_user_push(alligator_ht *service_users, char *user)
+{
+}
+
+void service_user_del(alligator_ht *service_users, char *user)
+{
+}
+
+void service_user_clear(alligator_ht *service_users)
+{
+}
+
 void pidfile_push(char *file, int type)
 {
 }

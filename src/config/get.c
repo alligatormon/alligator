@@ -1190,6 +1190,32 @@ void sysctl_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+void services_checking_users_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	system_string_node *node = arg;
+
+	json_t *system = json_object_get(dst, "system");
+	if (!system)
+	{
+		system = json_object();
+		json_array_object_insert(dst, "system", system);
+	}
+
+	json_t *users = json_object_get(system, "services_checking_users");
+	if (!users)
+	{
+		users = json_array();
+		json_array_object_insert(system, "services_checking_users", users);
+	}
+
+	if (node->name)
+	{
+		json_t *name = json_string(node->name);
+		json_array_object_insert(users, NULL, name);
+	}
+}
+
 void system_mapper_generate_conf(void *funcarg, void* arg)
 {
 	config_get_arg *cgarg = funcarg;
@@ -1338,6 +1364,7 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->cluster, cluster_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_userprocess,  userprocess_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_groupprocess, groupprocess_generate_conf, dst);
+	alligator_ht_foreach_arg(ac->system_services_checking_users, services_checking_users_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_sysctl, sysctl_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->modules, modules_generate_conf, dst);
 	system_pidfile_generate_conf(dst);

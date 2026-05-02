@@ -516,6 +516,13 @@ int userprocess_compare(const void* arg, const void* obj)
 	return s1 != s2;
 }
 
+int system_string_compare(const void* arg, const void* obj)
+{
+	char *s1 = (char*)arg;
+	char *s2 = ((system_string_node*)obj)->name;
+	return strcmp(s1, s2);
+}
+
 void get_proc_socket_number(char *path, char *procname, alligator_ht *files, int64_t *sockets, int64_t *pipes)
 {
 	char buf[255];
@@ -1004,6 +1011,59 @@ void userprocess_free(alligator_ht* userprocess)
 	alligator_ht_foreach(userprocess, userprocess_free_foreach);
 	alligator_ht_done(userprocess);
 	free(userprocess);
+}
+
+void service_user_push(alligator_ht *service_users, char *user)
+{
+	if (!service_users || !user)
+		return;
+
+	uint32_t hash = tommy_strhash_u32(0, user);
+	system_string_node *node = alligator_ht_search(service_users, system_string_compare, user, hash);
+	if (node)
+		return;
+
+	node = calloc(1, sizeof(*node));
+	node->name = strdup(user);
+
+	alligator_ht_insert(service_users, &(node->node), node, hash);
+}
+
+void service_user_del(alligator_ht *service_users, char *user)
+{
+	if (!service_users || !user)
+		return;
+
+	uint32_t hash = tommy_strhash_u32(0, user);
+	system_string_node *node = alligator_ht_search(service_users, system_string_compare, user, hash);
+	if (!node)
+		return;
+
+	alligator_ht_remove_existing(service_users, &(node->node));
+	free(node->name);
+	free(node);
+}
+
+void service_user_free_foreach(void *arg)
+{
+	system_string_node *node = arg;
+	free(node->name);
+	free(node);
+}
+
+void service_user_free(alligator_ht *service_users)
+{
+	alligator_ht_foreach(service_users, service_user_free_foreach);
+	alligator_ht_done(service_users);
+	free(service_users);
+}
+
+void service_user_clear(alligator_ht *service_users)
+{
+	if (!service_users)
+		return;
+
+	alligator_ht_clear(service_users, service_user_free_foreach);
 }
 
 void files_fd_free(void *funcarg, void* arg)
@@ -2688,6 +2748,58 @@ static void emit_not_found_service_match(alligator_ht *hash, char ***seen, size_
 	alligator_ht_foreach_arg(hash, emit_not_found_service_match_cb, &ctx);
 }
 
+static int service_user_allowed(const char *username)
+{
+	uint32_t hash;
+
+	if (!ac->system_services_checking_users || !alligator_ht_count(ac->system_services_checking_users))
+		return 1;
+
+	if (!username)
+		return 0;
+
+	hash = tommy_strhash_u32(0, username);
+	return alligator_ht_search(ac->system_services_checking_users, system_string_compare, (void*)username, hash) != NULL;
+}
+
+typedef struct configured_service_scan_ctx {
+	char ***seen_services;
+	size_t *seen_count;
+	size_t *seen_cap;
+} configured_service_scan_ctx;
+
+static void scan_configured_service_user_cb(void *arg, void *obj)
+{
+	configured_service_scan_ctx *ctx = arg;
+	system_string_node *user = obj;
+	struct passwd *pwd;
+	char userdir[1000];
+	uid_t uid;
+	char pwname[256];
+
+	if (!ctx || !user || !user->name)
+		return;
+
+	if (!strcmp(user->name, "system") || !strcmp(user->name, "user"))
+		return;
+
+	pwd = getpwnam(user->name);
+	if (!pwd)
+		return;
+
+	uid = pwd->pw_uid;
+	strlcpy(pwname, pwd->pw_name, sizeof(pwname));
+
+	snprintf(userdir, 999, "/run/user/%u/systemd/user/", uid);
+	scan_services_dir_unique(userdir, pwname, ctx->seen_services, ctx->seen_count, ctx->seen_cap);
+
+	if (pwd->pw_dir)
+	{
+		snprintf(userdir, 999, "%s/.config/systemd/user/", pwd->pw_dir);
+		scan_services_dir_unique(userdir, pwname, ctx->seen_services, ctx->seen_count, ctx->seen_cap);
+	}
+}
+
 void get_services()
 {
 	char svcdir[1000];
@@ -2696,73 +2808,93 @@ void get_services()
 	char **seen_services = NULL;
 	size_t seen_count = 0;
 	size_t seen_cap = 0;
+	uint8_t has_service_user_filter = (ac->system_services_checking_users && alligator_ht_count(ac->system_services_checking_users));
 	size_t i;
 	DIR *dp;
 
-	snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
-	scan_services_dir_unique(svcdir, "system", &seen_services, &seen_count, &seen_cap);
-
-	snprintf(svcdir, 999, "%s/systemd/", ac->system_rundir);
-	dp = opendir(svcdir);
-	if (dp)
+	if (!has_service_user_filter || service_user_allowed("system"))
 	{
-		while((entry = readdir(dp)))
-		{
-			if (strncmp(entry->d_name, "generator", 9))
-				continue;
+		snprintf(svcdir, 999, "%s/lib/systemd/system/", ac->system_usrdir);
+		scan_services_dir_unique(svcdir, "system", &seen_services, &seen_count, &seen_cap);
 
-			snprintf(userdir, 999, "%s/systemd/%s", ac->system_rundir, entry->d_name);
-			scan_services_dir_unique(userdir, "system", &seen_services, &seen_count, &seen_cap);
+		snprintf(svcdir, 999, "%s/systemd/", ac->system_rundir);
+		dp = opendir(svcdir);
+		if (dp)
+		{
+			while((entry = readdir(dp)))
+			{
+				if (strncmp(entry->d_name, "generator", 9))
+					continue;
+
+				snprintf(userdir, 999, "%s/systemd/%s", ac->system_rundir, entry->d_name);
+				scan_services_dir_unique(userdir, "system", &seen_services, &seen_count, &seen_cap);
+			}
+			closedir(dp);
 		}
-		closedir(dp);
 	}
 
-	snprintf(svcdir, 999, "%s/lib/systemd/user/", ac->system_usrdir);
-	scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
-
-	snprintf(svcdir, 999, "%s/systemd/user/", ac->system_etcdir);
-	scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
-
-	dp = opendir("/run/user");
-	if (dp)
+	if (!has_service_user_filter || service_user_allowed("user"))
 	{
-		while ((entry = readdir(dp)))
+		snprintf(svcdir, 999, "%s/lib/systemd/user/", ac->system_usrdir);
+		scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
+
+		snprintf(svcdir, 999, "%s/systemd/user/", ac->system_etcdir);
+		scan_services_dir_unique(svcdir, "user", &seen_services, &seen_count, &seen_cap);
+	}
+
+	if (has_service_user_filter)
+	{
+		configured_service_scan_ctx ctx = {&seen_services, &seen_count, &seen_cap};
+		alligator_ht_foreach_arg(ac->system_services_checking_users, scan_configured_service_user_cb, &ctx);
+	}
+	else
+	{
+		dp = opendir("/run/user");
+		if (dp)
 		{
-			long uid;
-			struct passwd *pwd;
-			int n;
-
-			if (entry->d_name[0] == '.')
-				continue;
-
-			for (n = 0; entry->d_name[n]; ++n)
+			while ((entry = readdir(dp)))
 			{
-				if (entry->d_name[n] < '0' || entry->d_name[n] > '9') {
-					break;
+				long uid;
+				struct passwd *pwd;
+				int n;
+
+				if (entry->d_name[0] == '.')
+					continue;
+
+				for (n = 0; entry->d_name[n]; ++n)
+				{
+					if (entry->d_name[n] < '0' || entry->d_name[n] > '9') {
+						break;
+					}
+				}
+
+				if (entry->d_name[n] != '\0')
+					continue;
+
+				uid = strtol(entry->d_name, NULL, 10);
+				if (uid <= 0)
+					continue;
+
+				pwd = getpwuid((uid_t) uid);
+				if (!pwd || !pwd->pw_name)
+					continue;
+
+				{
+					char pwname[256];
+					strlcpy(pwname, pwd->pw_name, sizeof(pwname));
+
+					snprintf(userdir, 999, "/run/user/%s/systemd/user/", entry->d_name);
+					scan_services_dir_unique(userdir, pwname, &seen_services, &seen_count, &seen_cap);
+
+					if (pwd->pw_dir)
+					{
+						snprintf(userdir, 999, "%s/.config/systemd/user/", pwd->pw_dir);
+						scan_services_dir_unique(userdir, pwname, &seen_services, &seen_count, &seen_cap);
+					}
 				}
 			}
-
-			if (entry->d_name[n] != '\0')
-				continue;
-
-			uid = strtol(entry->d_name, NULL, 10);
-			if (uid <= 0)
-				continue;
-
-			pwd = getpwuid((uid_t) uid);
-			if (!pwd || !pwd->pw_name)
-				continue;
-
-			snprintf(userdir, 999, "/run/user/%s/systemd/user/", entry->d_name);
-			scan_services_dir_unique(userdir, pwd->pw_name, &seen_services, &seen_count, &seen_cap);
-
-			if (pwd->pw_dir)
-			{
-				snprintf(userdir, 999, "%s/.config/systemd/user/", pwd->pw_dir);
-				scan_services_dir_unique(userdir, pwd->pw_name, &seen_services, &seen_count, &seen_cap);
-			}
+			closedir(dp);
 		}
-		closedir(dp);
 	}
 
 	emit_not_found_service_match(ac->services_match ? ac->services_match->hash : NULL, &seen_services, &seen_count, &seen_cap);
@@ -3386,6 +3518,7 @@ void system_free()
 	userprocess_free(ac->system_userprocess);
 
 	userprocess_free(ac->system_groupprocess);
+	service_user_free(ac->system_services_checking_users);
 	sysctl_free(ac->system_sysctl);
 }
 
