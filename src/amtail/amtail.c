@@ -411,6 +411,36 @@ static void amtail_variables_export_all(context_arg *carg)
 	alligator_ht_foreach_arg(carg->amtail_variables, amtail_variable_metric_add_foreach, &ctx);
 }
 
+static void amtail_carg_touch_begin(context_arg *carg)
+{
+	if (!carg)
+		return;
+	++carg->amtail_touch_seq;
+	if (carg->amtail_touch_seq == 0)
+		carg->amtail_touch_seq = 1;
+	carg->amtail_touch_n = 0;
+}
+
+static void amtail_carg_var_touched(void *userdata, amtail_variable *v)
+{
+	context_arg *carg = userdata;
+	if (!carg || !v)
+		return;
+	if (v->touch_seq == carg->amtail_touch_seq)
+		return;
+	v->touch_seq = carg->amtail_touch_seq;
+	if (carg->amtail_touch_n >= carg->amtail_touch_cap)
+	{
+		size_t ncap = carg->amtail_touch_cap ? carg->amtail_touch_cap * 2 : 64;
+		amtail_variable **nb = realloc(carg->amtail_touch_buf, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		carg->amtail_touch_buf = nb;
+		carg->amtail_touch_cap = ncap;
+	}
+	carg->amtail_touch_buf[carg->amtail_touch_n++] = v;
+}
+
 void amtail_handler(char *metrics, size_t size, context_arg *carg)
 {
 	amtail_node *an = NULL;
@@ -438,7 +468,11 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	uv_mutex_lock(&an->lock);
 	if (!an->vm_thread)
 		an->vm_thread = amtail_thread_init();
-	amtail_touch_begin(carg);
+	amtail_touch_callbacks touch_cb = {
+		.userdata = carg,
+		.on_var_touched = amtail_carg_var_touched,
+	};
+	amtail_carg_touch_begin(carg);
 	size_t tail_len = an->tail ? an->tail->l : 0;
 	size_t total = tail_len + size;
 	char *buf = malloc(total ? total : 1);
@@ -470,7 +504,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		if (line_len)
 		{
 			string_cat(line, buf + start, line_len);
-			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll, carg, an->vm_thread))
+			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll, &touch_cb, an->vm_thread))
 				rc = 0;
 			string_null(line);
 		}
