@@ -254,6 +254,18 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 	return ret;
 }
 
+static void metric_refresh_expire(metric_node *mnode, expire_tree *expiretree, int64_t ttl)
+{
+	r_time time = setrtime();
+	int64_t new_key = time.sec + ttl;
+	/* Expiry uses second resolution; delete+insert in the RB-tree is redundant if the key is unchanged. */
+	if (mnode->expire_node && mnode->expire_node->key == new_key)
+		return;
+	if (mnode->expire_node)
+		expire_delete(expiretree, mnode->expire_node->key, mnode);
+	expire_insert(expiretree, new_key, mnode);
+}
+
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
 	if (type == DATATYPE_INT)
@@ -268,9 +280,7 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 			mnode->d += *(double*)value;
 	}
 
-	r_time time = setrtime();
-	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+ttl, mnode);
+	metric_refresh_expire(mnode, expiretree, ttl);
 }
 
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
@@ -310,9 +320,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 		mnode->list[mnode->index_element_list++].s = *(char **)value;
 	}
 
-	r_time time = setrtime();
-	expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, time.sec+ttl, mnode);
+	metric_refresh_expire(mnode, expiretree, ttl);
 }
 
 void metrictree_show(metric_node *x)

@@ -43,6 +43,9 @@ typedef struct labels_t
 	sortplan *sort_plan;
 	uint8_t allocatedname;
 	uint8_t allocatedkey;
+	/* If set on the first node, the first slab_nnodes labels_t are one calloc; do not free() individually. */
+	void *slab_alloc;
+	uint32_t slab_nnodes;
 
 	struct labels_t *next;
 } labels_t;

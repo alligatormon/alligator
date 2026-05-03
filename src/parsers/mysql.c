@@ -376,7 +376,7 @@ void mysql_run(void* arg)
 	/* Start connect on loop thread, run await in worker thread */
 	if (!mysql2_start_connect(&data->conn, carg)) {
 		puts("go away from mysql_run");
-		metric_add_labels5("alligator_connect_ok", &unval, DATATYPE_UINT, carg,
+		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg,
 						   "proto", "tcp", "type", "aggregator",
 						   "host", carg->host, "key", carg->key, "parser", "mysql");
 		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg,
@@ -385,7 +385,7 @@ void mysql_run(void* arg)
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok", &val, DATATYPE_UINT, carg,
+	metric_add_labels5("alligator_connect_ok_total", &val, DATATYPE_UINT, carg,
 					   "proto", "tcp", "type", "aggregator",
 					   "host", carg->host, "key", carg->key, "parser", "mysql");
 	carg->parser_status = 1;

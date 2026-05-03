@@ -10,6 +10,7 @@
 #include "common/logs.h"
 #include "metric/namespace.h"
 #include "main.h"
+
 extern aconf *ac;
 
 void udp_close_client(context_arg *carg, const uv_buf_t *buf)
@@ -79,14 +80,12 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		(carg->conn_counter)++;
 		(carg->read_counter)++;
 		carg->read_bytes_counter += (uint64_t)nread;
-		if (!carg->no_metric)
-		{
-			metric_add_labels4("alligator_read", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "udp", "type", "entrypoint", "host", carg->key);
-			metric_add_labels4("alligator_read_bytes", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "udp", "type", "entrypoint", "host", carg->key);
-		}
 	}
 
 	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
+
+	if (nread > 0 && !carg->no_metric && !carg->lock)
+		entrypoint_read_metrics_throttled_push(carg, carg, "udp", 1, carg->key);
 	if (carg->lock)
 	{
 		uv_udp_recv_stop(req);

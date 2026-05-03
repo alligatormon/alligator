@@ -27,6 +27,7 @@ entrypoint {
     auth_header <header_name>;
     header <name> <value>;
     ttl <time to live>;
+    read_metric_interval <seconds>;
     tcp <port>;
     tcp <addr>:<port>;
     tls <port>;
@@ -194,6 +195,23 @@ curl -sS -d "restore_test 1" -H "X-Expire-Time: 1d" 127.0.0.1:1111
 ```
 
 More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
+
+## read_metric_interval
+Default: 10 (seconds)\
+Plural: no
+
+Minimum wall-clock interval between updates to `alligator_read_total` and `alligator_read_bytes_total` for stream entrypoints (TCP, TLS, and Unix stream servers) while connections are active, and for UDP entrypoints **without** metric aggregation lock. Counters still increase on every read or datagram; this option only limits how often those series are written to the metric tree. Omitted or zero in JSON uses the default of 10 seconds. UDP listeners with lock continue to flush through `aggregator_events_metric_add` on each datagram as before.
+
+Plain configuration accepts an integer number of seconds. JSON entrypoints also accept a string or real value parsed like other duration fields (see `mtail_full_export_interval`).
+
+
+```
+entrypoint {
+    read_metric_interval 30;
+    tcp 1111;
+    udp 1111;
+}
+```
 
 
 # tcp, tls, udp, unix, unixgram

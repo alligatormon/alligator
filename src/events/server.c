@@ -195,6 +195,8 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 	carglog(carg, L_INFO, "%"u64": tcp server read %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, EOF: %d, ECONNRESET: %d, ECONNABORTED: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, (nread == UV_EOF), (nread == UV_ECONNRESET), (nread == UV_ECONNABORTED));
 	(srv_carg->read_counter)++;
 	carg->read_time_finish = setrtime();
+	if (!carg->no_metric)
+		entrypoint_read_metrics_throttled_push(srv_carg, carg, "tcp", 1, srv_carg->key);
 
 	if (nread == 0)
 		return;

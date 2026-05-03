@@ -256,12 +256,14 @@ static char *amtail_lookup_label_variable(const char *name, alligator_ht *variab
 		return NULL;
 
 	size_t name_len = strlen(name);
-	amtail_variable *resolved = alligator_ht_search(variables, amtail_variable_compare, (void*)name, amtail_hash((char*)name, name_len));
+	amtail_lookup_key lk = { name, name_len };
+	amtail_variable *resolved = alligator_ht_search(variables, amtail_variable_compare, &lk, amtail_hash((char*)name, name_len));
 	if (!resolved && name[0] == '$' && name[1])
 	{
 		const char *trimmed = name + 1;
 		size_t trimmed_len = strlen(trimmed);
-		resolved = alligator_ht_search(variables, amtail_variable_compare, (void*)trimmed, amtail_hash((char*)trimmed, trimmed_len));
+		amtail_lookup_key lk2 = { trimmed, trimmed_len };
+		resolved = alligator_ht_search(variables, amtail_variable_compare, &lk2, amtail_hash((char*)trimmed, trimmed_len));
 	}
 
 	return amtail_value_from_variable(resolved);
@@ -304,11 +306,11 @@ static char *amtail_resolve_label_value(const char *raw, size_t raw_len, alligat
 
 static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator_ht *variables)
 {
-	if (!var || !var->by || !var->by_count || !var->by_positions || !var->key)
+	if (!var || !var->by || !var->by_count || !var->by_positions || !var->key || !var->key->s)
 		return NULL;
 
 	alligator_ht *labels = NULL;
-	size_t key_len = strlen(var->key);
+	size_t key_len = var->key->l;
 	for (uint8_t i = 0; i < var->by_count; ++i)
 	{
 		if (!var->by[i] || !var->by[i]->s)
@@ -328,7 +330,7 @@ static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator
 		if (!labels)
 			labels = alligator_ht_init(NULL);
 
-		char *value = amtail_resolve_label_value(var->key + start, value_len, variables);
+		char *value = amtail_resolve_label_value(var->key->s + start, value_len, variables);
 		if (!value)
 			continue;
 		labels_hash_insert_nocache(labels, var->by[i]->s, value);

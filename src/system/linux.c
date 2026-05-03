@@ -378,6 +378,16 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 	fclose(fd);
 }
 
+static long linux_user_hz(void)
+{
+	static long hz;
+	if (hz == 0)
+	{
+		long c = sysconf(_SC_CLK_TCK);
+		hz = (c > 0) ? c : 100;
+	}
+	return hz;
+}
 
 void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t lightweight, process_states *states, int8_t match)
 {
@@ -500,13 +510,17 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 
 	fclose (fp);
 
-	int64_t stotal_time = stime + cstime;
-	int64_t utotal_time = utime + cutime;
-	int64_t total_time = stotal_time + utotal_time;
+	{
+		long hz = linux_user_hz();
+		double inv = 1.0 / (double)hz;
+		double stotal_time = (double)(stime + cstime) * inv;
+		double utotal_time = (double)(utime + cutime) * inv;
+		double total_time = stotal_time + utotal_time;
 
-	metric_add_labels3("process_cpu", &stotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "system");
-	metric_add_labels3("process_cpu", &utotal_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "user");
-	metric_add_labels3("process_cpu", &total_time, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "total");
+		metric_add_labels3("process_cpu_seconds_total", &stotal_time, DATATYPE_DOUBLE, ac->system_carg, "name", exName, "pid", pid_number, "mode", "system");
+		metric_add_labels3("process_cpu_seconds_total", &utotal_time, DATATYPE_DOUBLE, ac->system_carg, "name", exName, "pid", pid_number, "mode", "user");
+		metric_add_labels3("process_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "name", exName, "pid", pid_number, "mode", "total");
+	}
 }
 
 int userprocess_compare(const void* arg, const void* obj)
@@ -2389,13 +2403,14 @@ void get_alligator_info()
 		int64_t cutime = int_get_next(t+4, sz, ' ', &cursor);
 		int64_t cstime = int_get_next(t+4, sz, ' ', &cursor);
 
-		double stotal_time = (stime + cstime) / 100.0;
-		double utotal_time = (utime + cutime) / 100.0;
-		int64_t total_time = stotal_time + utotal_time;
+		double inv = 1.0 / (double)linux_user_hz();
+		double stotal_time = (double)(stime + cstime) * inv;
+		double utotal_time = (double)(utime + cutime) * inv;
+		double total_time = stotal_time + utotal_time;
 
-		metric_add_labels("alligator_cpu_usage_time", &stotal_time, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-		metric_add_labels("alligator_cpu_usage_time", &utotal_time, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-		metric_add_labels("alligator_cpu_usage_time", &total_time, DATATYPE_DOUBLE, ac->system_carg, "type", "total");
+		metric_add_labels("alligator_cpu_seconds_total", &stotal_time, DATATYPE_DOUBLE, ac->system_carg, "mode", "system");
+		metric_add_labels("alligator_cpu_seconds_total", &utotal_time, DATATYPE_DOUBLE, ac->system_carg, "mode", "user");
+		metric_add_labels("alligator_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "mode", "total");
 	}
 	fclose (fd);
 }
@@ -2601,11 +2616,30 @@ void service_running_status(char *name, char *username)
 	if (has_services_process == 1)
 	{
 		char cgrouppath[1024];
-		snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
 		struct stat path_stat;
-		if (stat(cgrouppath, &path_stat))
-			snprintf(cgrouppath, 1023, "%s/fs/cgroup/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
-		cgroup_procs_scrape(cgrouppath);
+
+		if (!username || !strcmp(username, "system"))
+		{
+			snprintf(cgrouppath, 1023, "%s/fs/cgroup/systemd/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
+			if (stat(cgrouppath, &path_stat))
+				snprintf(cgrouppath, 1023, "%s/fs/cgroup/system.slice/%s/cgroup.procs", ac->system_sysfs, name);
+			cgroup_procs_scrape(cgrouppath);
+		}
+		else
+		{
+			struct passwd *pwd = getpwnam(username);
+			if (pwd)
+			{
+				snprintf(cgrouppath, 1023, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/app.slice/%s/cgroup.procs", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, name);
+				if (stat(cgrouppath, &path_stat))
+				{
+					snprintf(cgrouppath, 1023, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/session.slice/%s/cgroup.procs", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, name);
+					if (stat(cgrouppath, &path_stat))
+						snprintf(cgrouppath, 1023, "%s/fs/cgroup/user.slice/user-%u.slice/user@%u.service/%s/cgroup.procs", ac->system_sysfs, pwd->pw_uid, pwd->pw_uid, name);
+				}
+				cgroup_procs_scrape(cgrouppath);
+			}
+		}
 	}
 }
 

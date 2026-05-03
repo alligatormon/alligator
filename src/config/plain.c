@@ -517,6 +517,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *api_entrypoint = NULL;
 			json_t *ttl_entrypoint = NULL;
 			json_t *mtail_full_export_interval_entrypoint = NULL;
+			json_t *read_metric_interval_entrypoint = NULL;
 			json_t *log_level_entrypoint = NULL;
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
@@ -768,6 +769,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							++i;
 							mtail_full_export_interval_entrypoint = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
 							json_array_object_insert(operator_json, "mtail_full_export_interval", mtail_full_export_interval_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && (!strcmp(operator_name, "read_metric_interval")))
+					{
+						if (!read_metric_interval_entrypoint)
+						{
+							++i;
+							read_metric_interval_entrypoint = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
+							json_array_object_insert(operator_json, "read_metric_interval", read_metric_interval_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "cluster"))

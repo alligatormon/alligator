@@ -1,8 +1,8 @@
 alligator_process_exit_status
 alligator_process_term_signal
-alligator_read
-alligator_read_time
-alligator_read_total_time
+alligator_read_total
+alligator_read_duration_microseconds
+alligator_read_duration_microseconds_total
 puppeteer_AdSubframes
 puppeteer_ArrayBufferContents
 puppeteer_AudioHandlers

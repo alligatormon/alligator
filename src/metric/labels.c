@@ -378,11 +378,33 @@ int labels_word_hash_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
+static int labels_ptr_in_slab(labels_t *p, void *slab_base, uint32_t slab_n)
+{
+	if (!slab_base || !slab_n || !p)
+		return 0;
+	return (char *)p >= (char *)slab_base
+	    && (char *)p < (char *)slab_base + (size_t)slab_n * sizeof(labels_t);
+}
+
+static void labels_free_chain_struct(labels_t *p, void **slab_base, uint32_t *slab_n)
+{
+	if (labels_ptr_in_slab(p, *slab_base, *slab_n)) {
+		if (p == (labels_t *)*slab_base + (size_t)*slab_n - 1) {
+			free(*slab_base);
+			*slab_base = NULL;
+			*slab_n = 0;
+		}
+	} else
+		free(p);
+}
+
 void labels_free(labels_t *labels, metric_tree *metrictree)
 {
 	if (!labels)
 		return;
 
+	void *slab_base = labels->slab_alloc;
+	uint32_t slab_n = labels->slab_nnodes;
 
 	labels_words_cache *labels_cache;
 	alligator_ht *labels_words_hash = metrictree ? metrictree->labels_words_hash : NULL;
@@ -408,12 +430,9 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 		if (!labels->key)
 		{
-			// unfreeed exit
-			//return;
 			labels_t *labels_old = labels;
 			labels = labels->next;
-			// freed exit
-			free(labels_old);
+			labels_free_chain_struct(labels_old, &slab_base, &slab_n);
 
 			continue;
 		}
@@ -437,8 +456,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 		labels_t *labels_old = labels;
 		labels = labels->next;
-		// freed exit
-		free(labels_old);
+		labels_free_chain_struct(labels_old, &slab_base, &slab_n);
 	}
 }
 
@@ -461,6 +479,7 @@ void labels_new_plan_node(void *funcarg, void* arg)
 		cur = cur->next;
 	cur->next = malloc(sizeof(labels_t));
 	cur = cur->next;
+	memset(cur, 0, sizeof(*cur));
 	cur->name = strdup(labelscont->name);
 	cur->name_len = strlen(cur->name);
 	cur->name_hash = ac->metrictree_hashfunc(cur->name, cur->name_len, 0);
@@ -495,19 +514,16 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	free(labelscont);
 }
 
-
 void labels_head_free(labels_t *labels)
 {
-	labels_t *new;
-	while (labels)
-	{
-		new = labels->next;
-		if(labels->allocatedkey)
-		{
-			//printf("DEBUG1: free key %p (%s)\n", labels->key, labels->key);
+	void *slab_base = labels && labels->slab_alloc ? labels->slab_alloc : NULL;
+	uint32_t slab_n = labels && labels->slab_alloc ? labels->slab_nnodes : 0;
+
+	while (labels) {
+		labels_t *new = labels->next;
+		if (labels->allocatedkey)
 			free(labels->key);
-		}
-		free(labels);
+		labels_free_chain_struct(labels, &slab_base, &slab_n);
 		labels = new;
 	}
 }
@@ -532,7 +548,19 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 		hash = alligator_ht_init(NULL);
 	}
 
-	labels_t *labels = malloc(sizeof(*labels));
+	sortplan *sort_plan = ns->metrictree->sort_plan;
+	size_t chain_len = sort_plan->size;
+	if (chain_len == 0)
+		chain_len = 1;
+
+	labels_t *block = calloc(chain_len, sizeof(labels_t));
+	if (!block)
+		return NULL;
+
+	labels_t *labels = block;
+	labels->slab_alloc = block;
+	labels->slab_nnodes = (uint32_t)chain_len;
+
 	labels->name = MAIN_METRIC_NAME;
 	labels->name_hash = MAIN_METRIC_HASH;
 	labels->name_len = MAIN_METRIC_LEN;
@@ -547,15 +575,14 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	labels->allocatedname = 0;
 	labels->allocatedkey = 0;
 
-	labels->sort_plan = ns->metrictree->sort_plan;
-	sortplan *sort_plan = ns->metrictree->sort_plan;
+	labels->sort_plan = sort_plan;
 
 	labels_t *cur = labels;
 
 	uint64_t i;
 	for (i=1; i<sort_plan->size; i++)
 	{
-		cur->next = calloc(1, sizeof(labels_t));
+		cur->next = cur + 1;
 		cur = cur->next;
 		cur->sort_plan = sort_plan;
 		cur->name = sort_plan->plan[i];

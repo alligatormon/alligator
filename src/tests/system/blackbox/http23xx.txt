@@ -3,33 +3,33 @@ aggregator_http_request {host="r0.ru", code="301", port="80}
 aggregator_http_headers_size {host="r0.ru", port="80} 
 aggregator_http_body_size {host="r0.ru", port="80} 
 alligator_aggregator_http_code {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_close {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect_ok {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_connect_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_execute_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_execute_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_close_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_connect_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_connect_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_connect_ok_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
+alligator_connect_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_execute_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_execute_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_parser_status {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_read {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_shutdown {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_timeout {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_connect_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_connect_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_init {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_bytes {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_total_time {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_read_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_read_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_read_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_read_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_shutdown_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_timeout_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_connect_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_connect_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_init_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_read_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_read_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_read_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_read_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_write_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_write_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_write_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_tls_write_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_write_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_write_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_write_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_write_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 probe_success {host="r0.ru", proto="http", key="tcp:blackbox_null:r0.ru:80/", type="blackbox", module="http_23xx", prober="http} 1

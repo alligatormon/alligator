@@ -1,19 +1,19 @@
 open_files_process 0
-process_cpu {type="system", name="beam.smp", pid="1342"} 20275
-process_cpu {type="system", name="clickhouse-serv", pid="2134"} 20275
-process_cpu {type="system", name="pgbouncer", pid="3736"} 4559860
-process_cpu {type="system", name="postmaster", pid="2562"} 45197014
-process_cpu {type="system", name="tail", pid="1"} 63
-process_cpu {type="total", name="beam.smp", pid="1342"} 32961
-process_cpu {type="total", name="clickhouse-serv", pid="2134"} 32961
-process_cpu {type="total", name="pgbouncer", pid="3736"} 5547439
-process_cpu {type="total", name="postmaster", pid="2562"} 271927562
-process_cpu {type="total", name="tail", pid="1"} 98
-process_cpu {type="user", name="beam.smp", pid="1342"} 12686
-process_cpu {type="user", name="clickhouse-serv", pid="2134"} 12686
-process_cpu {type="user", name="pgbouncer", pid="3736"} 987579
-process_cpu {type="user", name="postmaster", pid="2562"} 226730548
-process_cpu {type="user", name="tail", pid="1"} 35
+process_cpu_seconds_total {name="beam.smp", mode="system", pid="1342"
+process_cpu_seconds_total {name="clickhouse-serv", mode="system", pid="2134"
+process_cpu_seconds_total {name="pgbouncer", mode="system", pid="3736"
+process_cpu_seconds_total {name="postmaster", mode="system", pid="2562"
+process_cpu_seconds_total {name="tail", mode="system", pid="1"
+process_cpu_seconds_total {name="beam.smp", mode="total", pid="1342"
+process_cpu_seconds_total {name="clickhouse-serv", mode="total", pid="2134"
+process_cpu_seconds_total {name="pgbouncer", mode="total", pid="3736"
+process_cpu_seconds_total {name="postmaster", mode="total", pid="2562"
+process_cpu_seconds_total {name="tail", mode="total", pid="1"
+process_cpu_seconds_total {name="beam.smp", mode="user", pid="1342"
+process_cpu_seconds_total {name="clickhouse-serv", mode="user", pid="2134"
+process_cpu_seconds_total {name="pgbouncer", mode="user", pid="3736"
+process_cpu_seconds_total {name="postmaster", mode="user", pid="2562"
+process_cpu_seconds_total {name="tail", mode="user", pid="1"
 process_io {type="cancelled_write_bytes", name="beam.smp", pid="1342"} 24576
 process_io {type="cancelled_write_bytes", name="clickhouse-serv", pid="2134"} 24576
 process_io {type="cancelled_write_bytes", name="pgbouncer", pid="3736"} 0

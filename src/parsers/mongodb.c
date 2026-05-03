@@ -187,15 +187,15 @@ static void mongodb_run_single(context_arg *carg)
 
 	if (!mongodb_wire_client_open(&client, carg->url, err, sizeof(err))) {
 		carglog(carg, L_ERROR, "mongodb connect failed: %s\n", err);
-		metric_add_labels5("alligator_connect_ok", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 	if (!client) {
-		metric_add_labels5("alligator_connect_ok", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 
 	char **dbs = NULL, **cols = NULL;
 	size_t db_count = 0, coll_count = 0;

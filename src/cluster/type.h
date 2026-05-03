@@ -49,7 +49,7 @@ typedef struct cluster_node
 	string *shared_lock_instance;
 	uint64_t ttl;
 	uint64_t shared_lock_set_time;
-	uint8_t parser_status;
+	uint64_t parser_status;
 
 	tommy_node node;
 } cluster_node;

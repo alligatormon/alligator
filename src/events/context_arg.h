@@ -167,6 +167,9 @@ typedef struct context_arg
 	uint64_t shutdown_time_counter;
 	uint64_t close_time_counter;
 	uint64_t exec_time_counter;
+	/* Minimum seconds between alligator_read_total / alligator_read_bytes_total pushes; 0 = default 10. */
+	uint32_t read_metric_interval_sec;
+	uint64_t entrypoint_read_metric_last_push_sec;
 
 	uint8_t no_metric;
 	uint8_t no_collect;
@@ -200,7 +203,7 @@ typedef struct context_arg
 
 	void *data; // for parser-data
 	char *ns; // for parsers ns
-	uint8_t parser_status;
+	uint64_t parser_status;
 	uint16_t last_http_code;
 	int8_t running;
 

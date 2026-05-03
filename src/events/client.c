@@ -361,11 +361,11 @@ void tcp_connected(uv_connect_t* req, int status)
 	if (status < 0)
 	{
 		ok = 0;
-		metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->read_time = setrtime();
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client stream established %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);

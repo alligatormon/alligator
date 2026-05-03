@@ -519,10 +519,21 @@ string* string_init_dupn(char *str, uint64_t size)
 
 string* string_string_init_dup(string *str)
 {
+	if (!str || !str->s)
+		return NULL;
 	string *ret = malloc(sizeof(*ret));
-	ret->m = ret->l = str->l;
-	ret->s = strdup(str->s);
-
+	if (!ret)
+		return NULL;
+	ret->l = str->l;
+	ret->m = str->l + 1;
+	ret->s = malloc(ret->m);
+	if (!ret->s)
+	{
+		free(ret);
+		return NULL;
+	}
+	memcpy(ret->s, str->s, str->l);
+	ret->s[str->l] = '\0';
 	return ret;
 }
 

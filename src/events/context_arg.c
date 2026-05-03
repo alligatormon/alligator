@@ -22,6 +22,7 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_touch_cap = 0;
 	carg->amtail_touch_seq = 0;
 	carg->amtail_last_ttl_refresh_sec = 0;
+	carg->entrypoint_read_metric_last_push_sec = 0;
 
 	carg->net_tree_acl = patricia_tree_duplicate(src->net_tree_acl);
 	carg->net6_tree_acl = patricia_tree_duplicate(src->net6_tree_acl);
@@ -510,6 +511,19 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			v = json_integer_value(json_mtail_full_export);
 		if (v > 0 && v <= 86400000)
 			carg->amtail_full_export_ttl_interval_sec = (uint32_t)v;
+	}
+
+	json_t *json_read_metric_iv = json_object_get(root, "read_metric_interval");
+	if (json_read_metric_iv) {
+		int64_t v = 0;
+		if (json_typeof(json_read_metric_iv) == JSON_STRING)
+			v = get_sec_from_human_range(json_string_value(json_read_metric_iv), json_string_length(json_read_metric_iv));
+		else if (json_typeof(json_read_metric_iv) == JSON_REAL)
+			v = (int64_t)json_real_value(json_read_metric_iv);
+		else
+			v = json_integer_value(json_read_metric_iv);
+		if (v > 0 && v <= 86400000)
+			carg->read_metric_interval_sec = (uint32_t)v;
 	}
 
 	json_t *json_file_stat = json_object_get(root, "file_stat");

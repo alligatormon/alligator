@@ -124,11 +124,11 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 	if (status < 0)
 	{
 		ok = 0;
-		metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->read_time = setrtime();
 

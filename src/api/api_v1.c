@@ -548,6 +548,20 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							carg->amtail_full_export_ttl_interval_sec = (uint32_t)v;
 					}
 
+					json_t *carg_read_metric_iv = json_object_get(entrypoint, "read_metric_interval");
+					if (carg_read_metric_iv) {
+						int t = json_typeof(carg_read_metric_iv);
+						int64_t v = 0;
+						if (t == JSON_STRING)
+							v = get_sec_from_human_range(json_string_value(carg_read_metric_iv), json_string_length(carg_read_metric_iv));
+						else if (t == JSON_REAL)
+							v = (int64_t)json_real_value(carg_read_metric_iv);
+						else if (t == JSON_INTEGER)
+							v = json_integer_value(carg_read_metric_iv);
+						if (v > 0 && v <= 86400000)
+							carg->read_metric_interval_sec = (uint32_t)v;
+					}
+
 					json_t *carg_log_level = json_object_get(entrypoint, "log_level");
 					if (carg_log_level) {
 						int carg_log_level_type = json_typeof(carg_log_level);
