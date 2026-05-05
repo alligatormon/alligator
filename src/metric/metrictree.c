@@ -38,6 +38,7 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 		labels_cache_fill(labels, tree);
 		rn->labels = labels;
 		rn->color = RED;
+		rn->type = type;
 
 		if (type == DATATYPE_INT)
 			rn->i = *(int64_t*)value;
@@ -76,12 +77,6 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 			rn->list[0].s = *(char **)value;
 			rn->index_element_list = 1;
 		}
-		else
-		{
-			free(rn);
-			return NULL;
-		}
-		rn->type = type;
 	}
 	return rn;
 }
@@ -94,11 +89,11 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	if ( tree->root == NULL )
 	{
 		tree->root = ret = make_node(tree, labels, type, value, expiretree);
+		tree->count++;
 		if (tree->root == NULL) {
 			pthread_rwlock_unlock(tree->rwlock);
 			return NULL;
 		}
-		tree->count++;
 	}
 	else
 	{
@@ -121,15 +116,14 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 		{
 			if ( q == NULL )
 			{
-				ret = make_node(tree, labels, type, value, expiretree);
-				if (ret == NULL) {
+				p->steam[dir] = q = ret = make_node(tree, labels, type, value, expiretree);
+				tree->count++;
+				flag = 1;
+				if ( q == NULL ) {
 					free(head);
 					pthread_rwlock_unlock(tree->rwlock);
 					return NULL;
 				}
-				p->steam[dir] = q = ret;
-				tree->count++;
-				flag = 1;
 			}
 			else if ( is_red ( q->steam[LEFT] ) && is_red ( q->steam[RIGHT] ) ) 
 			{
@@ -274,47 +268,16 @@ static void metric_refresh_expire(metric_node *mnode, expire_tree *expiretree, i
 
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
-
-	int8_t stored = mnode->type;
-
-	if (stored == DATATYPE_INT)
+	if (type == DATATYPE_INT)
+		mnode->i += *(int64_t*)value;
+	else if (type == DATATYPE_UINT)
+		mnode->u += *(uint64_t*)value;
+	else if (type == DATATYPE_DOUBLE)
 	{
-		if (type == DATATYPE_INT)
-			mnode->i += *(int64_t*)value;
-		else if (type == DATATYPE_UINT)
-			mnode->i += (int64_t)*(uint64_t*)value;
-		else if (type == DATATYPE_DOUBLE)
-		{
-			double v = *(double*)value;
-			if (!isnan(v) && !isinf(v))
-				mnode->i += (int64_t)v;
-		}
-	}
-	else if (stored == DATATYPE_UINT)
-	{
-		if (type == DATATYPE_INT)
-			mnode->u += (uint64_t)*(int64_t*)value;
-		else if (type == DATATYPE_UINT)
-			mnode->u += *(uint64_t*)value;
-		else if (type == DATATYPE_DOUBLE)
-		{
-			double v = *(double*)value;
-			if (!isnan(v) && !isinf(v))
-				mnode->u += (uint64_t)v;
-		}
-	}
-	else if (stored == DATATYPE_DOUBLE)
-	{
-		if (type == DATATYPE_INT)
-			mnode->d += (double)*(int64_t*)value;
-		else if (type == DATATYPE_UINT)
-			mnode->d += (double)*(uint64_t*)value;
-		else if (type == DATATYPE_DOUBLE)
-		{
-			double v = *(double*)value;
-			if (!isnan(v) && !isinf(v))
-				mnode->d += v;
-		}
+		if (isnan(*(double*)value) || isinf(*(double*)value))
+			{}
+		else
+			mnode->d += *(double*)value;
 	}
 
 	metric_refresh_expire(mnode, expiretree, ttl);
@@ -322,6 +285,7 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
 {
+	mnode->type = type;
 	if (type == DATATYPE_INT)
 		mnode->i = *(int64_t*)value;
 	else if (type == DATATYPE_UINT)
@@ -355,10 +319,6 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
 		mnode->list[mnode->index_element_list++].s = *(char **)value;
 	}
-	else
-		return;
-
-	mnode->type = type;
 
 	metric_refresh_expire(mnode, expiretree, ttl);
 }
@@ -475,9 +435,6 @@ void metric_str_build (char *namespace, string *str)
 	extern aconf *ac;
 
 	namespace_struct *ns = get_namespace_or_null(namespace);
-	if (!ns)
-		return;
-
 	metric_tree *tree = ns->metrictree;
 
 	if (tree && tree->root)

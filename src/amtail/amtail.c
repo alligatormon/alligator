@@ -177,6 +177,7 @@ string* amtail_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_
 typedef struct amtail_metric_ctx {
 	context_arg *carg;
 	alligator_ht *variables;
+	uint8_t force_emit;
 } amtail_metric_ctx;
 
 static alligator_ht *amtail_labels_dup_or_new(alligator_ht *labels)
@@ -366,9 +367,9 @@ static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_varia
 	if (!ctx || !carg || !var || !var->export_name || !var->export_name->s || var->is_template || var->hidden)
 		return;
 
-	alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);
 	int8_t dtype = DATATYPE_NONE;
 	void *metric_value = NULL;
+	uint8_t skip_emit = 0;
 
 	int64_t i_value = 0;
 	double d_value = 0;
@@ -378,21 +379,38 @@ static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_varia
 		i_value = var->i;
 		dtype = DATATYPE_INT;
 		metric_value = &i_value;
+		if (!ctx->force_emit && var->emit_initialized && var->last_emit_i == i_value)
+			skip_emit = 1;
 	}
 	else if (var->type == ALLIGATOR_VARTYPE_GAUGE || var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
 	{
 		d_value = var->d;
 		dtype = DATATYPE_DOUBLE;
 		metric_value = &d_value;
+		if (var->type == ALLIGATOR_VARTYPE_GAUGE &&
+		    !ctx->force_emit && var->emit_initialized && var->last_emit_d == d_value)
+			skip_emit = 1;
 	}
 
 	if (var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
 	{
+		if (!ctx->force_emit && var->emit_initialized &&
+		    var->last_emit_hist_count == var->histogram_count &&
+		    var->last_emit_hist_sum == var->histogram_sum)
+			return;
+
+		alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);
 		amtail_histogram_emit(var, labels, ctx->carg);
 		if (labels)
 			labels_hash_free(labels);
+		var->emit_initialized = 1;
+		var->last_emit_hist_count = var->histogram_count;
+		var->last_emit_hist_sum = var->histogram_sum;
 	}
 	else if (metric_value && dtype != DATATYPE_NONE && dtype != DATATYPE_STRING) {
+		if (skip_emit)
+			return;
+		alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);
 		if (dtype == DATATYPE_INT)
 			carglog(carg, L_DEBUG, "mtail metric_add int: %s, %"PRId64", %d, %p\n", var->export_name->s, *((int64_t*)metric_value), dtype, carg);
 		else if (dtype == DATATYPE_UINT)
@@ -400,9 +418,12 @@ static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_varia
 		else if (dtype == DATATYPE_DOUBLE)
 			carglog(carg, L_DEBUG, "mtail metric_add double: %s, %.17g, %d, %p\n", var->export_name->s, *((double*)metric_value), dtype, carg);
 		metric_add(var->export_name->s, labels, metric_value, dtype, ctx->carg);
+		var->emit_initialized = 1;
+		if (dtype == DATATYPE_INT)
+			var->last_emit_i = i_value;
+		else if (dtype == DATATYPE_DOUBLE)
+			var->last_emit_d = d_value;
 	}
-	else if (labels)
-		labels_hash_free(labels);
 }
 
 static void amtail_variables_export_touched(context_arg *carg)
@@ -410,7 +431,7 @@ static void amtail_variables_export_touched(context_arg *carg)
 	if (!carg || !carg->amtail_variables)
 		return;
 
-	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables };
+	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables, .force_emit = 0 };
 	for (size_t i = 0; i < carg->amtail_touch_n; ++i)
 		amtail_variable_metric_emit_one(&ctx, carg->amtail_touch_buf[i]);
 }
@@ -426,7 +447,7 @@ static void amtail_variables_export_all(context_arg *carg)
 {
 	if (!carg || !carg->amtail_variables)
 		return;
-	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables };
+	amtail_metric_ctx ctx = { .carg = carg, .variables = carg->amtail_variables, .force_emit = 1 };
 	alligator_ht_foreach_arg(carg->amtail_variables, amtail_variable_metric_add_foreach, &ctx);
 }
 
@@ -523,6 +544,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		if (line_len)
 		{
 			string_cat(line, buf + start, line_len);
+			carglog(carg, L_DEBUG, "amtail process string with size %zu: '%s'\n", line_len, line->s);
 			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll, &touch_cb, an->vm_thread))
 				rc = 0;
 			string_null(line);
