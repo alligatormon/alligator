@@ -54,7 +54,7 @@ void tcp_server_close_client(context_arg* carg)
 				int ret = SSL_get_shutdown(carg->ssl);
 				if (!ret)
 				{
-					do_tls_shutdown(carg->ssl);
+					do_tls_shutdown(carg, carg->ssl);
 				}
 			}
 			uv_close((uv_handle_t*)&carg->client, tcp_server_closed_client);
@@ -342,7 +342,7 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			int err = SSL_get_error(carg->ssl, read_size);
 			int need_shutdown = tls_io_check_shutdown_need(carg, err, read_size);
 			if (need_shutdown == 1) {
-				do_tls_shutdown(carg->ssl);
+				do_tls_shutdown(carg, carg->ssl);
 				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
 				req->data = carg;
 				if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))

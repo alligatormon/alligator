@@ -4,6 +4,7 @@
 #include "config/plain.h"
 #include "common/json_query.h"
 #include "common/selector.h"
+#include "common/logs.h"
 #include "main.h"
 
 typedef struct config_parser_stat {
@@ -64,8 +65,8 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		ret->end = 0;
 	}
 
-	if (ac->log_level > 2)
-		printf("2 %d:%d:%d:%d:%d:%d:%d:%d\n", ret->operator, ret->argument, ret->context, ret->start, ret->semicolon,ret->quotas1, ret->quotas2, ret->end);
+	glog(L_TRACE, "token state: operator=%d argument=%d context=%d start=%d semicolon=%d single_quote=%d double_quote=%d end=%d\n",
+		ret->operator, ret->argument, ret->context, ret->start, ret->semicolon, ret->quotas1, ret->quotas2, ret->end);
 
 	if (!ret->operator && !ret->argument && !ret->context && !ret->start && !ret->semicolon && !ret->quotas1 && !ret->quotas2 && !ret->end)
 	{
@@ -75,17 +76,13 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		uint64_t sm = strcspn(str, ";");
 		uint64_t st = strcspn(str, "{");
 
-		if (ac->log_level > 3)
-		{
-			printf("OP CTX parser: %"u64" ({) < %"u64" (;)\n", st, sm);
-			printf("quotas1 parser: %"u64" < %"u64" || %"u64" < %"u64"\n", sq1, sm, sq1, st);
-			printf("quotas2 parser: %"u64" < %"u64" || %"u64" < %"u64"\n", sq2, sm, sq2, st);
-		}
+		glog(L_TRACE, "context/operator split check: '{' at %"u64", ';' at %"u64"\n", st, sm);
+		glog(L_TRACE, "single-quote scan: qpos=%"u64", semicolon=%"u64", context-start=%"u64"\n", sq1, sm, st);
+		glog(L_TRACE, "double-quote scan: qpos=%"u64", semicolon=%"u64", context-start=%"u64"\n", sq2, sm, st);
 
 		if ((sq1 < sm) && (sq1 < st))
 		{
-			if (ac->log_level > 3)
-				printf("quotas1 parser1 selected\n");
+			glog(L_TRACE, "single-quoted token selected\n");
 
 			sq1 += strcspn(str+sq1+1, "'");
 			sm = strcspn(str+sq1, ";");
@@ -93,8 +90,7 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		}
 		if ((sq2 < sm) && (sq2 < st))
 		{
-			if (ac->log_level > 3)
-				printf("quotas2 parser1 selected\n");
+			glog(L_TRACE, "double-quoted token selected\n");
 
 			sq2 += strcspn(str+sq2+1, "\"");
 			sm = strcspn(str+sq2, ";");
@@ -102,16 +98,14 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		}
 
 		if (st < sm) {
-			if (ac->log_level > 3)
-				printf("config parser plain CTX: %"u64" < %"u64"\n", st, sm);
+			glog(L_TRACE, "detected context opener before semicolon (%"u64" < %"u64")\n", st, sm);
 
 			ret->context = 1;
 			ret->operator = 0;
 		}
 		else
 		{
-			if (ac->log_level > 3)
-				printf("config parser plain OP: %"u64" < %"u64"\n", st, sm);
+			glog(L_TRACE, "detected operator before context opener (%"u64" >= %"u64")\n", st, sm);
 			ret->context = 0;
 			ret->operator = 1;
 		}
@@ -138,14 +132,12 @@ void plain_get_word(char *str, config_parser_stat *ret)
 	size_t tmp_copy = ret->fact_length < (sizeof(tmp) - 1) ? ret->fact_length : (sizeof(tmp) - 1);
 	strlcpy(tmp, str, tmp_copy + 1);
 
-	if (ac->log_level > 3)
-		printf("ret->length: %"u64", ret->fact_length: %"u64"\n", ret->length, ret->fact_length);
+	glog(L_TRACE, "token lengths: parsed=%"u64", raw=%"u64"\n", ret->length, ret->fact_length);
 
 	for (uint64_t trigger = 0; trigger < ret->fact_length; trigger++)
 	{
 		trigger += strcspn(tmp+trigger, "'\"{};");
-		if (ac->log_level > 3)
-			printf("%"u64"/%"u64": {%c} '%s'\n", trigger, ret->length, tmp[trigger], tmp);
+		glog(L_TRACE, "token scan: pos=%"u64"/%"u64", char='%c', token='%s'\n", trigger, ret->length, tmp[trigger], tmp);
 
 		if (tmp[trigger] == '\'')
 		{
@@ -240,8 +232,7 @@ config_parser_stat* string_tokenizer(string *context, uint64_t *token_count)
 	uint64_t i;
 	for (i = 0; (tmp - context->s) < context->l; i++)
 	{
-		if (ac->log_level > 3)
-			puts("=======================");
+		glog(L_TRACE, "---- next token ----\n");
 
 		char *start = plain_skip_spaces(tmp, " \n\r\t");
 		if (!start)
@@ -270,8 +261,8 @@ config_parser_stat* string_tokenizer(string *context, uint64_t *token_count)
 		else
 			string_cat(elem, tmp, retws[i].length);
 
-		if (ac->log_level > 0)
-			printf("'%s', (%zu) '=%d, \"=%d ;=%d start=%d end=%d op=%d arg=%d ctx=%d\n", elem->s, elem->l, retws[i].quotas1, retws[i].quotas2, retws[i].semicolon, retws[i].start, retws[i].end, retws[i].operator, retws[i].argument, retws[i].context);
+		glog(L_DEBUG, "token='%s' len=%zu flags: single_quote=%d double_quote=%d semicolon=%d start=%d end=%d operator=%d argument=%d context=%d\n",
+			elem->s, elem->l, retws[i].quotas1, retws[i].quotas2, retws[i].semicolon, retws[i].start, retws[i].end, retws[i].operator, retws[i].argument, retws[i].context);
 
 		tmp = tmp + retws[i].fact_length;
 		retws[i].token = elem;
@@ -545,8 +536,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *grok_splited_tags = NULL;
 			json_t *grok_splited_inherit_tag = NULL;
 
-			if (ac->log_level > 0)
-				printf("context: '%s'\n", wstokens[i].token->s);
+			glog(L_DEBUG, "parsing context '%s'\n", wstokens[i].token->s);
 
 			json_t *context_json = NULL;
 			context_json = json_object_get(root, wstokens[i].token->s);
@@ -570,8 +560,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			{
 				if (wstokens[i].operator)
 				{
-					if (ac->log_level > 0)
-						printf("\tcontext_name: %s, operator: '%s'\n", context_name, wstokens[i].token->s);
+					glog(L_DEBUG, "context='%s' operator='%s'\n", context_name, wstokens[i].token->s);
 
 					operator_name = wstokens[i].token->s;
 					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "services_checking_users") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
@@ -1282,12 +1271,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							uint64_t sep = strcspn(wstokens[i].token->s, "=");
 							if (sep < wstokens[i].token->l)
 							{
-								if (ac->log_level > 1)
-									printf("aggregate token '%s'\n", wstokens[i].token->s);
+								glog(L_TRACE, "aggregate option token='%s'\n", wstokens[i].token->s);
 								char arg_name[255];
 								strlcpy(arg_name, wstokens[i].token->s, sep+1);
-								if (ac->log_level > 1)
-									printf("\taggregate arg_name '%s'\n", arg_name);
+								glog(L_TRACE, "aggregate option key='%s'\n", arg_name);
 
 								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
 								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address"))
@@ -1298,8 +1285,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								{
 									char kv_key[255];
 									strlcpy(kv_key, wstokens[i].token->s+sep+1, semisep-sep+1);
-									if (ac->log_level > 1)
-										printf("\taggregate kv_key '%s'\n", kv_key);
+									glog(L_TRACE, "aggregate key/value key='%s'\n", kv_key);
 
 									if (!strcmp(arg_name, "env"))
 									{
@@ -1351,8 +1337,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					if (!operator_json || !operator_name)
 						continue;
 
-					if (ac->log_level > 0)
-						printf("\t\tcontext_name: %s, operator: '%s', argument: '%s'\n", context_name, operator_name, wstokens[i].token->s);
+					glog(L_DEBUG, "context='%s' operator='%s' argument='%s'\n", context_name, operator_name, wstokens[i].token->s);
 
 					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{
@@ -1416,8 +1401,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 				else if (wstokens[i].context)
 				{
-					if (ac->log_level > 0)
-						printf("\t\t\tcontext_name: %s, argument: '%s'\n", context_name, wstokens[i].token->s);
+					glog(L_DEBUG, "nested context='%s' argument='%s'\n", context_name, wstokens[i].token->s);
 
 					if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "mapping"))
 					{
@@ -1445,14 +1429,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									json_t *arg_json = NULL;
 									if (!strcmp(mapping_name, "le") || !strcmp(mapping_name, "buckets") || !strcmp(mapping_name, "quantiles"))
 									{
-										if (ac->log_level > 1)
-											printf("aggregate %s\n", mapping_name);
+										glog(L_TRACE, "mapping aggregate field='%s'\n", mapping_name);
 										arg_json = json_array();
 
 										for (; i < token_count; i++)
 										{
-											if (ac->log_level > 1)
-												printf("quantile/bucket %s\n", wstokens[i].token->s);
+											glog(L_TRACE, "mapping quantile/bucket value='%s'\n", wstokens[i].token->s);
 											if (wstokens[i].token->l)
 											{
 												json_t *str_json = json_real(strtod(wstokens[i].token->s, NULL));

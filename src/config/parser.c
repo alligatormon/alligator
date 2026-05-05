@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "common/yaml.h"
 #include "config/plain.h"
+#include "common/logs.h"
 #include "api/api.h"
 #include "main.h"
 
@@ -56,8 +57,8 @@ void config_parse_entry(char *filepath)
 	}
 
 	json = config_plain_to_json(context);
-	if (ac->log_level > 0)
-		printf("config_plain_to_json return:\n'%s'\n", json);
+
+	glog(L_ERROR, "config_plain_to_json returned json:\n'%s'\n", json);
 	config_json(json);
 	free(json);
 	string_free(context);

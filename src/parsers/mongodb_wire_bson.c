@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -186,6 +187,117 @@ int mongodb_json_to_bson_document(const char *json, uint8_t **raw, uint32_t *raw
 	return ok;
 }
 
+static int parse_db_server_status(const char *rest, mongodb_query_expr_t *out)
+{
+	const char *after;
+	const char *lpar;
+	const char *rpar;
+	const char *inner;
+	size_t inner_len;
+	json_error_t jerr;
+	json_t *opts = NULL;
+	json_t *cmd = NULL;
+	char *dump = NULL;
+
+	if (strncmp(rest, "serverStatus", 12))
+		return 0;
+	after = rest + 12;
+	while (*after == ' ' || *after == '\t' || *after == '\n')
+		after++;
+	if (*after != '(')
+		return 0;
+	lpar = after;
+	rpar = strrchr(after, ')');
+	if (!rpar || rpar <= lpar)
+		return 0;
+	inner = lpar + 1;
+	inner_len = (size_t)(rpar - inner);
+	while (inner_len > 0 && isspace((unsigned char)inner[0])) {
+		inner++;
+		inner_len--;
+	}
+	while (inner_len > 0 && isspace((unsigned char)inner[inner_len - 1]))
+		inner_len--;
+
+	out->kind = MONGODB_Q_RUN_COMMAND;
+	strlcpy(out->cmd_db, "admin", sizeof(out->cmd_db));
+
+	if (inner_len == 0) {
+		strlcpy(out->filter_json, "{\"serverStatus\":1}", sizeof(out->filter_json));
+		return 1;
+	}
+
+	opts = json_loadb(inner, inner_len, 0, &jerr);
+	if (!opts || !json_is_object(opts)) {
+		if (opts)
+			json_decref(opts);
+		return 0;
+	}
+	cmd = json_deep_copy(opts);
+	json_decref(opts);
+	if (!cmd)
+		return 0;
+	if (!json_object_get(cmd, "serverStatus"))
+		json_object_set_new(cmd, "serverStatus", json_integer(1));
+	dump = json_dumps(cmd, JSON_COMPACT);
+	json_decref(cmd);
+	if (!dump || strlen(dump) >= sizeof(out->filter_json)) {
+		free(dump);
+		return 0;
+	}
+	strlcpy(out->filter_json, dump, sizeof(out->filter_json));
+	free(dump);
+	return 1;
+}
+
+static int parse_db_run_command(const char *rest, mongodb_query_expr_t *out)
+{
+	const char *after;
+	const char *json_start;
+	const char *q;
+	const char *end_obj;
+	size_t json_len;
+	int depth;
+
+	if (strncmp(rest, "runCommand", 10))
+		return 0;
+	after = rest + 10;
+	while (*after == ' ' || *after == '\t' || *after == '\n')
+		after++;
+	if (*after != '(')
+		return 0;
+	json_start = strchr(after, '{');
+	if (!json_start)
+		return 0;
+	depth = 0;
+	for (q = json_start; *q; q++) {
+		if (*q == '{')
+			depth++;
+		else if (*q == '}') {
+			depth--;
+			if (depth == 0)
+				break;
+		}
+	}
+	if (depth != 0)
+		return 0;
+	end_obj = q;
+	q++;
+	while (*q == ' ' || *q == '\t' || *q == '\n')
+		q++;
+	if (*q != ')')
+		return 0;
+
+	out->kind = MONGODB_Q_RUN_COMMAND;
+	out->cmd_db[0] = '\0';
+	json_len = (size_t)(end_obj - json_start + 1);
+	if (!json_len || json_len >= sizeof(out->filter_json))
+		return 0;
+	memcpy(out->filter_json, json_start, json_len);
+	out->filter_json[json_len] = '\0';
+	return 1;
+}
+
 int mongodb_parse_find_expr(const char *expr, mongodb_query_expr_t *out)
 {
 	const char *p, *dot, *lpar, *rpar;
@@ -197,6 +309,14 @@ int mongodb_parse_find_expr(const char *expr, mongodb_query_expr_t *out)
 	p = expr;
 	while (*p == ' ' || *p == '\t' || *p == '\n')
 		p++;
+
+	/* db.serverStatus() — shell helper → { serverStatus: 1 } on admin */
+	if (!strncmp(p, "db.", 3)) {
+		if (parse_db_server_status(p + 3, out))
+			return 1;
+		if (parse_db_run_command(p + 3, out))
+			return 1;
+	}
 
 	/* db.<collection>.find({...}) */
 	if (!strncmp(p, "db.", 3)) {

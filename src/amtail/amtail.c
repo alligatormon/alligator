@@ -84,8 +84,8 @@ void amtail_node_free(amtail_node *an)
 	if (an->bytecode)
 		amtail_code_free(an->bytecode);
 	if (an->variables) {
-		alligator_ht_done(an->variables);
-		free(an->variables);
+		amtail_variables_free(an->variables);
+		an->variables = NULL;
 	}
 	if (an->labels) {
 		alligator_ht_done(an->labels);
@@ -106,11 +106,24 @@ void amtail_node_free(amtail_node *an)
 	free(an);
 }
 
-static void amtail_free_foreach(void *funcarg, void *arg)
+struct amtail_collect_ctx {
+	amtail_node **buf;
+	size_t n;
+	size_t cap;
+};
+
+static void amtail_collect_ptr(void *funcarg, void *arg)
 {
-	(void)funcarg;
-	amtail_node *an = arg;
-	amtail_node_free(an);
+	struct amtail_collect_ctx *ctx = funcarg;
+	if (ctx->n >= ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		amtail_node **nb = realloc(ctx->buf, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		ctx->buf = nb;
+		ctx->cap = ncap;
+	}
+	ctx->buf[ctx->n++] = arg;
 }
 
 int amtail_init()
@@ -139,7 +152,13 @@ void amtail_free()
 {
 	if (!ac || !ac->amtail)
 		return;
-	alligator_ht_foreach_arg(ac->amtail, amtail_free_foreach, NULL);
+	struct amtail_collect_ctx ctx = { NULL, 0, 0 };
+	alligator_ht_foreach_arg(ac->amtail, amtail_collect_ptr, &ctx);
+	for (size_t i = 0; i < ctx.n; ++i) {
+		alligator_ht_remove_existing(ac->amtail, &(ctx.buf[i]->node));
+		amtail_node_free(ctx.buf[i]);
+	}
+	free(ctx.buf);
 	alligator_ht_done(ac->amtail);
 	free(ac->amtail);
 	ac->amtail = NULL;

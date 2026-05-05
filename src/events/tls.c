@@ -209,7 +209,8 @@ void tls_client_cleanup(context_arg *carg, uint8_t clean_context)
 	carg->tls_handshake_done = 0;
 }
 
-int do_tls_shutdown(SSL *ssl) {
+int do_tls_shutdown(context_arg *carg, SSL *ssl) {
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls call shutdown %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	int ret = SSL_shutdown(ssl);
 	if (ret == 1) {
 		return 1;
@@ -218,7 +219,7 @@ int do_tls_shutdown(SSL *ssl) {
 		return (ret == 1) ? 1 : -1;
 	} else {
 		int err = SSL_get_error(ssl, ret);
-		fprintf(stderr, "SSL_shutdown failed: %d\n", err);
+		carglog(carg, L_ERROR, "%"u64": tls call shutdown %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, error: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
 		return -1;
 	}
 }

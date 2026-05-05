@@ -97,7 +97,7 @@ static int mongodb_emit_query_doc(json_t *doc, void *arg)
 
 static void mongodb_run_query(mongodb_query_ctx_t *ctx, const char *expr)
 {
-	mongodb_query_expr_t parsed = {{0}};
+	mongodb_query_expr_t parsed = {0};
 	char err[256] = {0};
 	const char *target_coll = ctx->collname;
 
@@ -105,6 +105,18 @@ static void mongodb_run_query(mongodb_query_ctx_t *ctx, const char *expr)
 		carglog(ctx->carg, L_ERROR, "mongodb query parse failed: unsupported expr '%s'\n", expr);
 		return;
 	}
+
+	if (parsed.kind == MONGODB_Q_RUN_COMMAND) {
+		const char *cmd_db = parsed.cmd_db[0] ? parsed.cmd_db : ctx->dbname;
+
+		carglog(ctx->carg, L_DEBUG, "mongodb query start: runCommand db='%s' expr='%s'\n", cmd_db, expr);
+		if (!mongodb_wire_run_command(ctx->client, cmd_db, parsed.filter_json, mongodb_emit_query_doc, ctx, err, sizeof(err)))
+			carglog(ctx->carg, L_ERROR, "mongodb runCommand failed (%s): %s\n", cmd_db, err);
+		else
+			carglog(ctx->carg, L_DEBUG, "mongodb query done: runCommand db='%s' docs=%"u64"\n", cmd_db, ctx->docs_emitted);
+		return;
+	}
+
 	if (parsed.has_collection && parsed.collection[0])
 		target_coll = parsed.collection;
 

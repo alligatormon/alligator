@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <jansson.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -58,6 +59,44 @@ static int mongo_write_full(int fd, const void *buf, size_t len)
 			return 0;
 		off += (size_t)w;
 	}
+	return 1;
+}
+
+static int mongo_send_prebuilt_bson(struct mongodb_wire_client *client, const uint8_t *raw, uint32_t raw_len, char *err, size_t errsz)
+{
+	uint8_t *pkt;
+	uint32_t total_len;
+	int32_t header[4];
+	uint32_t flags = 0;
+	uint8_t kind = 0;
+
+	if (!raw || raw_len < 5) {
+		mongo_set_err(err, errsz, "invalid prebuilt bson");
+		return 0;
+	}
+
+	total_len = 16 + 4 + 1 + raw_len;
+	pkt = malloc(total_len);
+	if (!pkt) {
+		mongo_set_err(err, errsz, "oom while building mongodb packet");
+		return 0;
+	}
+
+	header[0] = (int32_t)total_len;
+	header[1] = ++client->req_id;
+	header[2] = 0;
+	header[3] = MONGO_OP_MSG;
+	memcpy(pkt, header, 16);
+	memcpy(pkt + 16, &flags, 4);
+	memcpy(pkt + 20, &kind, 1);
+	memcpy(pkt + 21, raw, raw_len);
+
+	if (!mongo_write_full(client->fd, pkt, total_len)) {
+		free(pkt);
+		mongo_set_err(err, errsz, "socket write failed");
+		return 0;
+	}
+	free(pkt);
 	return 1;
 }
 
@@ -722,6 +761,73 @@ out:
 	if (doc)
 		json_decref(doc);
 	return rc;
+}
+
+int mongodb_wire_run_command(mongodb_wire_client *client, const char *dbname, const char *cmd_json, mongodb_wire_doc_cb cb, void *arg, char *err, size_t errsz)
+{
+	json_error_t jerr;
+	json_t *cmd = NULL;
+	char *dump = NULL;
+	uint8_t *raw = NULL;
+	uint32_t raw_len = 0;
+	uint8_t *msg = NULL;
+	uint32_t msg_len = 0;
+	json_t *doc = NULL;
+
+	if (!client || !dbname || !cmd_json || !cb) {
+		mongo_set_err(err, errsz, "invalid runCommand arguments");
+		return 0;
+	}
+
+	cmd = json_loads(cmd_json, 0, &jerr);
+	if (!cmd || !json_is_object(cmd)) {
+		mongo_set_err(err, errsz, "command must be a JSON object");
+		if (cmd)
+			json_decref(cmd);
+		return 0;
+	}
+	if (!json_object_get(cmd, "$db"))
+		json_object_set_new(cmd, "$db", json_string(dbname));
+	dump = json_dumps(cmd, JSON_COMPACT);
+	json_decref(cmd);
+	cmd = NULL;
+	if (!dump) {
+		mongo_set_err(err, errsz, "oom serializing command");
+		return 0;
+	}
+	if (!mongodb_json_to_bson_document(dump, &raw, &raw_len)) {
+		free(dump);
+		mongo_set_err(err, errsz, "command bson encode failed");
+		return 0;
+	}
+	free(dump);
+
+	if (!mongo_send_prebuilt_bson(client, raw, raw_len, err, errsz)) {
+		free(raw);
+		return 0;
+	}
+	free(raw);
+
+	if (!mongo_recv_reply(client, &msg, &msg_len, err, errsz))
+		return 0;
+	if (!mongo_decode_document_from_msg(msg, msg_len, &doc)) {
+		free(msg);
+		mongo_set_err(err, errsz, "invalid runCommand reply");
+		return 0;
+	}
+	free(msg);
+
+	if (!mongo_reply_ok(doc, err, errsz)) {
+		json_decref(doc);
+		return 0;
+	}
+	if (cb(doc, arg) == 0) {
+		json_decref(doc);
+		mongo_set_err(err, errsz, "runCommand callback failed");
+		return 0;
+	}
+	json_decref(doc);
+	return 1;
 }
 
 void mongodb_wire_free_string_list(char **names, size_t count)

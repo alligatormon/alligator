@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include "metric/labels.h"
 #include "metric/expiretree.h"
 #include "dstructures/ht.h"
@@ -12,6 +13,24 @@
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
+
+static void metric_set_holding_tree(metric_tree *tree, metric_node *mnode, int8_t type, void *value, expire_tree *expiretree, int64_t ttl)
+{
+	if (!tree || !mnode)
+		return;
+	pthread_rwlock_wrlock(tree->rwlock);
+	metric_set(mnode, type, value, expiretree, ttl);
+	pthread_rwlock_unlock(tree->rwlock);
+}
+
+static void metric_gset_holding_tree(metric_tree *tree, metric_node *mnode, int8_t type, void *value, expire_tree *expiretree, int64_t ttl)
+{
+	if (!tree || !mnode)
+		return;
+	pthread_rwlock_wrlock(tree->rwlock);
+	metric_gset(mnode, type, value, expiretree, ttl);
+	pthread_rwlock_unlock(tree->rwlock);
+}
 
 int64_t get_ttl(context_arg *carg)
 {
@@ -893,7 +912,7 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_gset(mnode, type, value, expiretree, ttl);
+		metric_gset_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -926,7 +945,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_gset(mnode, type, value, expiretree, ttl);
+		metric_gset_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -958,7 +977,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_gset(mnode, type, value, expiretree, ttl);
+		metric_gset_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -994,7 +1013,7 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_gset(mnode, type, value, expiretree, ttl);
+		metric_gset_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1028,7 +1047,7 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1063,7 +1082,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1093,7 +1112,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1124,7 +1143,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1156,7 +1175,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1189,7 +1208,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1223,7 +1242,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1258,7 +1277,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1294,7 +1313,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1331,7 +1350,7 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1369,7 +1388,7 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1408,7 +1427,7 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 	metric_node* mnode = metric_find(tree, labels_list);
 	if (mnode)
 	{
-		metric_set(mnode, type, value, expiretree, ttl);
+		metric_set_holding_tree(tree, mnode, type, value, expiretree, ttl);
 		labels_head_free(labels_list);
 	}
 	else
@@ -1749,9 +1768,9 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		{
 			labels_head_free(labels_list);
 			if (type == DATATYPE_UINT)
-				metric_set(mnode, type, &value, expiretree, ttl);
+				metric_set_holding_tree(tree, mnode, type, &value, expiretree, ttl);
 			else if (type == DATATYPE_DOUBLE)
-				metric_set(mnode, type, &dvalue, expiretree, ttl);
+				metric_set_holding_tree(tree, mnode, type, &dvalue, expiretree, ttl);
 		}
 		else
 		{

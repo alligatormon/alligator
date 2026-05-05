@@ -9,6 +9,7 @@ typedef struct aggregate_handler {
 	uint8_t headers_pass;
 	char key[255];
 	int no_exit_status;
+	int no_metric;
 } aggregate_handler;
 
 typedef struct aggregate_context

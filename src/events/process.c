@@ -137,6 +137,7 @@ void process_insert(void *arg)
 {
 	context_arg *carg = arg;
 	alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	carg->process_spawner_registered = 1;
 }
 
 char* process_client(context_arg *carg)
@@ -219,7 +220,8 @@ void process_client_del(context_arg *carg)
 	if (carg->remove_from_hash)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
-	alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
+	if (carg->process_spawner_registered)
+		alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
 	if (carg->args && carg->args[0])
 		unlink(carg->args[0]);
 	carg_free(carg);

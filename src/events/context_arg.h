@@ -135,6 +135,8 @@ typedef struct context_arg
 	uv_process_t child_req;
 	char** args;
 	string *work_dir;
+	/* Set when process_insert() has linked carg->node into ac->process_spawner. */
+	uint8_t process_spawner_registered;
 
 	char *lang;
 

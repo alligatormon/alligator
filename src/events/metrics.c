@@ -47,15 +47,18 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	metric_add_labels4("alligator_read_total", &srv_carg->read_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write_total", &srv_carg->write_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_timeout_total", &srv_carg->timeout_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_write_total", &srv_carg->tls_write_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_read_total", &srv_carg->tls_read_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_init_total", &srv_carg->tls_init_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_close_total", &srv_carg->close_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_shutdown_total", &srv_carg->shutdown_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write_bytes_total", &srv_carg->write_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_read_bytes_total", &srv_carg->read_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_write_bytes_total", &srv_carg->tls_write_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_read_bytes_total", &srv_carg->tls_read_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	if (carg->tls)
+	{
+		metric_add_labels4("alligator_tls_write_total", &srv_carg->tls_write_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_read_total", &srv_carg->tls_read_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_init_total", &srv_carg->tls_init_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_write_bytes_total", &srv_carg->tls_write_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_read_bytes_total", &srv_carg->tls_read_bytes_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	}
 
 	if (!strcmp(type, "entrypoint"))
 		srv_carg->entrypoint_read_metric_last_push_sec = (uint64_t)setrtime().sec;
@@ -81,20 +84,26 @@ void aggregator_events_metric_add(context_arg *srv_carg, context_arg *carg, char
 	uint64_t request_time = getrtime_mcs(carg->connect_time, carg->close_time, 0);
 
 	metric_add_labels4("alligator_connect_duration_microseconds", &connect_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_connect_duration_microseconds", &tls_connect_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write_duration_microseconds", &write_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_write_duration_microseconds", &tls_write_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_read_duration_microseconds", &read_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_read_duration_microseconds", &tls_read_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	if (carg->tls == 1)
+	{
+		metric_add_labels4("alligator_tls_connect_duration_microseconds", &tls_connect_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_write_duration_microseconds", &tls_write_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_read_duration_microseconds", &tls_read_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	}
 	metric_add_labels4("alligator_execute_duration_microseconds", &exec_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_request_duration_microseconds", &request_time, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 
 	metric_add_labels4("alligator_connect_duration_microseconds_total", &srv_carg->connect_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_connect_duration_microseconds_total", &srv_carg->tls_connect_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_write_duration_microseconds_total", &srv_carg->write_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_write_duration_microseconds_total", &srv_carg->tls_write_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 	metric_add_labels4("alligator_read_duration_microseconds_total", &srv_carg->read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
-	metric_add_labels4("alligator_tls_read_duration_microseconds_total", &srv_carg->tls_read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	if (carg->tls == 1)
+	{
+		metric_add_labels4("alligator_tls_connect_duration_microseconds_total", &srv_carg->tls_connect_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_write_duration_microseconds_total", &srv_carg->tls_write_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+		metric_add_labels4("alligator_tls_read_duration_microseconds_total", &srv_carg->tls_read_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
+	}
 	metric_add_labels4("alligator_execute_duration_microseconds_total", &srv_carg->exec_time_counter, DATATYPE_UINT, carg, "key", key, "proto", proto, "type", type, "host", host);
 
 

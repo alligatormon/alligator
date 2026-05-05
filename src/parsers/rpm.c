@@ -76,6 +76,7 @@ void scrape_rpm_info(uv_fs_t *req)
 	if (carg)
 	{
 		carg->no_exit_status = 1;
+		carg->no_metric = 1;
 	}
 }
 

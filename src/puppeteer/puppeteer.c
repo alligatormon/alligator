@@ -123,6 +123,7 @@ void puppeteer_crawl(uv_timer_t* handle) {
 	{
 		carg->no_metric = 1;
 		carg->no_exit_status = 1;
+		carg->no_metric = 1;
 		carg->timeout = 60000;
 	}
 

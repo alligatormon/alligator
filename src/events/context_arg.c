@@ -1,6 +1,7 @@
 #include "events/context_arg.h"
 #include "events/tls.h"
 #include "main.h"
+#include <stdlib.h>
 #include "common/file_stat.h"
 #include "common/netlib.h"
 #include "resolver/resolver.h"
@@ -16,6 +17,7 @@ context_arg *carg_copy(context_arg *src)
 	size_t carg_size = sizeof(context_arg);
 	context_arg *carg = malloc(carg_size);
 	memcpy(carg, src, carg_size);
+	carg->process_spawner_registered = 0;
 
 	carg->amtail_touch_buf = NULL;
 	carg->amtail_touch_n = 0;
@@ -107,11 +109,30 @@ context_arg *carg_copy(context_arg *src)
 void env_struct_free(void *funcarg, void* arg)
 {
 	env_struct *es = arg;
-	//alligator_ht *hash = funcarg;
-	//alligator_ht_remove_existing(hash, &(es->node));
+	(void)funcarg;
 	free(es->k);
 	free(es->v);
 	free(es);
+}
+
+struct env_collect_ctx {
+	env_struct **buf;
+	size_t n;
+	size_t cap;
+};
+
+static void env_collect_ptr(void *funcarg, void *arg)
+{
+	struct env_collect_ctx *ctx = funcarg;
+	if (ctx->n >= ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		env_struct **nb = realloc(ctx->buf, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		ctx->buf = nb;
+		ctx->cap = ncap;
+	}
+	ctx->buf[ctx->n++] = arg;
 }
 
 void carg_free(context_arg *carg)
@@ -236,9 +257,18 @@ void carg_free(context_arg *carg)
 
 	if (carg->env)
 	{
-		alligator_ht_foreach_arg(carg->env, env_struct_free, carg->env);
+		struct env_collect_ctx ctx = { NULL, 0, 0 };
+		alligator_ht_foreach_arg(carg->env, env_collect_ptr, &ctx);
+		for (size_t i = 0; i < ctx.n; ++i) {
+			alligator_ht_remove_existing(carg->env, &(ctx.buf[i]->node));
+			free(ctx.buf[i]->k);
+			free(ctx.buf[i]->v);
+			free(ctx.buf[i]);
+		}
+		free(ctx.buf);
 		alligator_ht_done(carg->env);
 		free(carg->env);
+		carg->env = NULL;
 	}
 
 	if (carg->loop_allocated) {

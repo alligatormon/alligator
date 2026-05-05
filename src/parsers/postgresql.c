@@ -56,6 +56,13 @@ void postgresql_error_metric(PGconn *conn, context_arg *carg)
 	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  (char*)carg_name, "reason", reason);
 }
 
+static inline void postgresql_connect_ok_total(context_arg *carg, uint64_t ok)
+{
+	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg,
+		"proto", "tcp", "type", "aggregator",
+		"host", carg->host, "key", carg->key, "parser", "postgresql");
+}
+
 void on_handle_closed(uv_handle_t* handle) {
     context_arg *carg = handle->data;
 
@@ -219,7 +226,7 @@ void postgresql_query_run(context_arg *carg);
 
 
 void update_poll_state(context_arg *carg) {
-    if (uv_is_closing((uv_handle_t*)carg->dynamic_socket)) return;
+    if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) return;
 
     pg_data *data = carg->data;
     PostgresPollingStatusType poll_status = PQconnectPoll(data->conn);
@@ -245,6 +252,7 @@ void update_poll_state(context_arg *carg) {
         case PGRES_POLLING_OK:
             PQsetnonblocking(data->conn, 1);
 			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
+			postgresql_connect_ok_total(carg, 1);
 
             carg->parser_status = 1;
             postgresql_query_run(carg);
@@ -253,11 +261,14 @@ void update_poll_state(context_arg *carg) {
         case PGRES_POLLING_FAILED:
             carg->parser_status = 0;
 			char *errmsg = PQerrorMessage(data->conn);
+			postgresql_connect_ok_total(carg, 0);
 			postgresql_error_metric(data->conn, carg);
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update poll state PGRES_POLLING_FAILED\", \"function\": \"%s\"}\n", carg->fd, carg->key, errmsg);
 			run_close(carg);
             return;
     }
+    if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket))
+		return;
     uv_poll_start(carg->dynamic_socket, uv_events, pg_poll_event);
 }
 
@@ -460,7 +471,7 @@ void postgresql_get_databases(PGconn *conn, context_arg *carg)
 
 void postgresql_query_run(context_arg *carg)
 {
-    if (uv_is_closing((uv_handle_t*)carg->dynamic_socket))
+    if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket))
 		return;
 
     postgresql_query_ctx *pqctx = queue_front(carg->pg_queue);
@@ -470,6 +481,10 @@ void postgresql_query_run(context_arg *carg)
 	pg_data *data = carg->data;
 
     if (PQsendQuery(data->conn, pqctx->query)) {
+		if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
+			run_close(carg);
+			return;
+		}
         uv_poll_start(carg->dynamic_socket, UV_READABLE, pg_poll_event);
 		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query sent\"}\n", carg->fd, carg->key);
     } else {
@@ -812,6 +827,7 @@ void postgresql_run(void* arg)
 
 	if (!conn) {
 		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
+		postgresql_connect_ok_total(carg, 0);
 		postgresql_error_metric(conn, carg);
 		return;
 	}
@@ -819,6 +835,7 @@ void postgresql_run(void* arg)
 	if (!postgresql_set_params(conn, carg))
 	{
 		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
+		postgresql_connect_ok_total(carg, 0);
 		postgresql_error_metric(conn, carg);
 		PQfinish(conn);
 		conn = NULL;
@@ -860,6 +877,10 @@ void postgresql_run(void* arg)
 		pgpool_queries(carg);
 	}
 
+	if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
+		run_close(carg);
+		return;
+	}
 	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start\"}\n", carg->fd, carg->key);
 	uv_poll_start(carg->dynamic_socket, UV_WRITABLE, pg_poll_event);
 }

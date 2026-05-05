@@ -120,7 +120,7 @@ More information about the aggregate directive can be found at the following [do
 # List of software parsers
 - [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md)
 - [PostgreSQL](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
-- [MySQL by queries module](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
+- [MongoDB](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mongodb.md)
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
 - [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md)
 - [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)

@@ -289,6 +289,10 @@ int parse_args(int argc, char **argv)
 		else if (!strncmp(argv[i], "-l", 2))
 		{
 			++i;
+			if (i >= (uint64_t)argc || !argv[i]) {
+				glog(L_ERROR, "Option -l requires a value (numeric level or name)\n");
+				break;
+			}
 			if (sisdigit(argv[i]))
 				ac->log_level = strtoll(argv[i], NULL, 10);
 			else

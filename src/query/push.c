@@ -84,6 +84,12 @@ int query_push(json_t *query) {
 		qds->datasource = qn->datasource;
 		alligator_ht_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
 	}
+	else if (query_get_node(qds, qn->make))
+	{
+		glog(L_FATAL, "query_push config error: duplicate query for datasource='%s' make='%s'. One datasource+make pair must be unique; duplicate query entry is ignored.\n", qn->datasource, qn->make);
+		query_node_del(qn);
+		return 0;
+	}
 	glog(L_INFO, "create query node make %p: '%s', expr '%s', ns '%s'\n", qn, qn->make, qn->expr, qn->ns);
 	alligator_ht_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
 

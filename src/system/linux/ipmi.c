@@ -606,6 +606,17 @@ static void ipmi_after_work_cb(uv_work_t *req, int status) {
     ipmi_work_pending = 0;
 }
 
+void ipmi_wait_idle(void) {
+    uv_loop_t *loop = uv_default_loop();
+    if (!loop)
+        return;
+    /* Work runs on the thread pool; completion is delivered on this loop. Drain until
+     * after_work_cb clears ipmi_work_pending so teardown does not free ac while IPMI
+     * code still uses ac->system_carg (e.g. under alligator_stop). */
+    while (ipmi_work_pending)
+        uv_run(loop, UV_RUN_ONCE);
+}
+
 void ipmi_schedule_get_status(void) {
     uv_loop_t *loop = uv_default_loop();
     if (!loop)

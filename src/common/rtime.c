@@ -20,42 +20,57 @@ r_time setrtime()
 	return rt;
 }
 
+static int64_t rtime_delta_ns_signed(r_time t1, r_time t2)
+{
+	if ((!t1.sec && !t1.nsec) || (!t2.sec && !t2.nsec))
+		return 0;
+
+	int64_t sec_delta = (int64_t)t2.sec - (int64_t)t1.sec;
+	int64_t nsec_delta = (int64_t)t2.nsec - (int64_t)t1.nsec;
+	return sec_delta * 1000000000LL + nsec_delta;
+}
+
 void getrtime(r_time t1, r_time t2)
 {
-	printf("complete for: %u.%09d sec\n",t2.sec-t1.sec,t2.nsec-t1.nsec);
+	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
+	double delta_sec = (double)delta_ns / 1000000000.0;
+	printf("complete for: %.09f sec\n", delta_sec);
 }
 
 uint64_t getrtime_ns(r_time t1, r_time t2)
 {
-	uint64_t ret = (t2.sec-t1.sec)*1000000000 + ((t2.nsec-t1.nsec));
-	return ret;
+	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
+	if (delta_ns <= 0)
+		return 0;
+	return (uint64_t)delta_ns;
 }
 
 uint64_t getrtime_mcs(r_time t1, r_time t2, int debug)
 {
-	uint64_t ret = ((t2.sec-t1.sec)*1000000 + ((t2.nsec-t1.nsec)/1000));
+	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
+	uint64_t ret = (delta_ns <= 0) ? 0 : (uint64_t)(delta_ns / 1000);
 	if (debug)
-		printf("complete for: %u.%09d sec (%d - %d sec, %d - %d nsec), ret: %"u64"\n",t2.sec-t1.sec,t2.nsec-t1.nsec, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
+		printf("complete for: %.09f sec (%d - %d sec, %d - %d nsec), ret: %"u64"\n",
+			   (double)delta_ns / 1000000000.0, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
 	return ret;
 }
 
 uint64_t getrtime_ms(r_time t1, r_time t2)
 {
-	uint64_t ret = ((t2.sec-t1.sec)*1000.0 + ((t2.nsec-t1.nsec)/1000000.0));
-	//printf("complete for: %u.%09d sec, ret: %llu\n",t2.sec-t1.sec,t2.nsec-t1.nsec, ret);
-	return ret;
+	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
+	if (delta_ns <= 0)
+		return 0;
+	return (uint64_t)(delta_ns / 1000000);
 }
 
 double getrtime_msec_float(r_time t2, r_time t1)
 {
-	double ret = ((t2.sec-t1.sec)*1000 + ((t2.nsec-t1.nsec)/1000000));
-	return ret;
+	return (double)rtime_delta_ns_signed(t1, t2) / 1000000.0;
 }
 
 double getrtime_sec_float(r_time t1, r_time t2)
 {
-	double ret = ((t2.sec-t1.sec)*1.0 + ((t2.nsec-t1.nsec)/1000000000.0));
-	return ret;
+	return (double)rtime_delta_ns_signed(t1, t2) / 1000000000.0;
 }
 
 uint64_t getrtime_now_ms(r_time t1)

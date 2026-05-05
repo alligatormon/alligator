@@ -44,6 +44,7 @@ query_ds* query_get(char *datasource);
 query_field* query_field_get(alligator_ht *qf_hash, char *key);
 alligator_ht* query_get_field(json_t *jfield);
 query_node *query_get_node(query_ds *qds, char *make);
+void query_node_del(query_node *qn);
 void query_set_values(query_node *qn);
 int query_del(json_t *query);
 int query_push(json_t *query);

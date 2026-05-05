@@ -16,12 +16,14 @@
 #include "grok/type.h"
 #include "events/system_scrape.h"
 #include "events/a_signal.h"
+#include "system/linux/ipmi.h"
 
 void alligator_stop(char *sig, int code)
 {
 	printf("Stop signal received: %d: '%s'\n", code, sig);
 	printf("Don't forget to start me again, otherwise the alligator will bite you :)\n");
 	fflush(stdout);
+	ipmi_wait_idle();
 	metric_dump(1);
 	file_stat_free(ac->file_stat);
 	tls_fs_free();
@@ -31,8 +33,8 @@ void alligator_stop(char *sig, int code)
 	entrypoints_free();
 	namespace_free(0, NULL);
 	cluster_del_all();
-	cluster_handler_stop();
 	scheduler_del_all();
+	cluster_handler_stop();
 	query_stop();
 	system_free();
 	system_scrape_free();

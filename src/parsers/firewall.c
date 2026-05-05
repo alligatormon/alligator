@@ -168,5 +168,6 @@ void get_iptables_info(char *procfs, char *binarytable, char *table, context_arg
 	{
 		new->data = table;
 		new->no_exit_status = 1;
+		new->no_metric = 1;
 	}
 }

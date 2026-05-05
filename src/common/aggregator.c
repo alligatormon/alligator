@@ -19,6 +19,22 @@ extern aconf *ac;
 
 char* icmp_client(context_arg *carg);
 
+typedef struct duplicate_name_check_ctx {
+	const char *name;
+	int found;
+} duplicate_name_check_ctx;
+
+static void duplicate_name_check_foreach(void *funcarg, void *arg)
+{
+	duplicate_name_check_ctx *ctx = funcarg;
+	context_arg *existing = arg;
+
+	if (ctx->found || !ctx->name || !existing || !existing->name)
+		return;
+	if (!strcmp(existing->name, ctx->name))
+		ctx->found = 1;
+}
+
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
 	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
@@ -50,9 +66,30 @@ int smart_aggregator(context_arg *carg)
 
 	carglog(carg, L_INFO, "smart_aggregator key: '%s'/%d\n", key, carg->transport);
 
+	if (carg->name) {
+		duplicate_name_check_ctx nctx = { .name = carg->name, .found = 0 };
+		alligator_ht_foreach_arg(ac->aggregators, duplicate_name_check_foreach, &nctx);
+		if (nctx.found) {
+			carglog(carg, L_ERROR,
+				"smart_aggregator config error: duplicate datasource name '%s' (parser='%s', host='%s', key='%s'). "
+				"Datasource names must be unique; this aggregate entry is ignored.\n",
+				carg->name,
+				carg->parser_name ? carg->parser_name : "unknown",
+				carg->host[0] ? carg->host : "unknown",
+				key);
+			return 0; // err, need for carg_free
+		}
+	}
+
 	if (alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
 	{
-		carglog(carg, L_INFO, "smart_aggregator: key '%s' already in use\n", key);
+		carglog(carg, L_ERROR,
+			"smart_aggregator config error: duplicate datasource key '%s' (parser='%s', host='%s', name='%s'). "
+			"Datasource names/keys must be unique; this aggregate entry is ignored.\n",
+			key,
+			carg->parser_name ? carg->parser_name : "unknown",
+			carg->host[0] ? carg->host : "unknown",
+			carg->name ? carg->name : "unknown");
 		return 0; // err, need for carg_free
 	}
 

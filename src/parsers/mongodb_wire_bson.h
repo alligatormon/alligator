@@ -3,9 +3,17 @@
 #include <stdint.h>
 #include <jansson.h>
 
+typedef enum mongodb_q_kind {
+	MONGODB_Q_FIND = 0,
+	MONGODB_Q_RUN_COMMAND = 1,
+} mongodb_q_kind_t;
+
 typedef struct mongodb_query_expr_t {
+	mongodb_q_kind_t kind;
 	char collection[256];
 	char filter_json[4096];
+	/* RUN_COMMAND: database for $db when not present in the command document */
+	char cmd_db[256];
 	int has_collection;
 } mongodb_query_expr_t;
 

@@ -222,14 +222,17 @@ uint64_t selector_count_field(char *str, char *pattern, uint64_t sz)
 
 int sisdigit(const char *str)
 {
+	if (!str || !*str)
+		return 0;
+
 	uint8_t dot = 0;
 	for (uint64_t i = 0; str[i] != 0; ++i)
 	{
-		if (!isdigit((unsigned char)str[i]))
-			return 0;
-		else if ((str[i] == '.') && (!dot))
+		if ((str[i] == '.') && (!dot))
 			dot = 1;
 		else if ((str[i] == '.') && (dot))
+			return 0;
+		else if (!isdigit((unsigned char)str[i]))
 			return 0;
 	}
 

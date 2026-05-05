@@ -2,6 +2,26 @@
 #include <stdlib.h>
 #include "main.h"
 
+struct cluster_collect_ctx {
+	cluster_node **buf;
+	size_t n;
+	size_t cap;
+};
+
+static void cluster_collect_ptr(void *funcarg, void *arg)
+{
+	struct cluster_collect_ctx *ctx = funcarg;
+	if (ctx->n >= ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		cluster_node **nb = realloc(ctx->buf, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		ctx->buf = nb;
+		ctx->cap = ncap;
+	}
+	ctx->buf[ctx->n++] = arg;
+}
+
 void cluster_object_del(cluster_node *cn)
 {
 	if (!cn)
@@ -52,16 +72,20 @@ void cluster_del_json(json_t *cluster)
 	cluster_object_del(cn);
 }
 
-void cluster_foreach_del_object(void *funcarg, void* arg)
-{
-	cluster_node *cn = arg;
-
-	cluster_object_del(cn);
-}
-
 void cluster_del_all()
 {
-	alligator_ht_foreach_arg(ac->cluster, cluster_foreach_del_object, NULL);
+	if (!ac->cluster)
+		return;
+
+	struct cluster_collect_ctx ctx = { NULL, 0, 0 };
+	alligator_ht_foreach_arg(ac->cluster, cluster_collect_ptr, &ctx);
+	for (size_t i = 0; i < ctx.n; ++i) {
+		alligator_ht_remove_existing(ac->cluster, &(ctx.buf[i]->node));
+		cluster_object_del(ctx.buf[i]);
+	}
+	free(ctx.buf);
+
 	alligator_ht_done(ac->cluster);
 	free(ac->cluster);
+	ac->cluster = NULL;
 }
