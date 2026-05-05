@@ -342,7 +342,7 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename) {
 	BIO *bio = BIO_new_mem_buf(pem_cert, -1);
 	if (!bio) {
-		fprintf(stderr, "BIO_new_mem_buf failed\n");
+		glog(L_DEBUG, "filename: %s, BIO_new_mem_buf failed\n", filename);
 		return 0;
 	}
 
@@ -350,7 +350,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
 	BIO_free(bio);
 
 	if (!cert) {
-		fprintf(stderr, "PEM_read_bio_X509 failed\n");
+		glog(L_DEBUG, "filename: %s, PEM_read_bio_X509 failed\n", filename);
         return 0;
 	}
 

@@ -2,7 +2,7 @@
 #include "main.h"
 #include "puppeteer/puppeteer.h"
 #include "common/json_query.h"
-#define PUPPETEER_CMD "exec:///bin/node /var/lib/alligator/puppeteer-alligator.js"
+#define PUPPETEER_CMD "exec://node /var/lib/alligator/puppeteer-alligator.js"
 
 int puppeteer_compare(const void* arg, const void* obj)
 {
