@@ -119,7 +119,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 				await page.setExtraHTTPHeaders(pupValue["env"])
 			}
 
-			timeout_param = pupValue["timeout"] || 30000;
+			timeout_param = pupValue["timeout"] || 10;
 			timeout_param = timeout_param.toString();
 			const milliseconds = timeout_param.match(/\d+\s?\w/g)
 				.reduce((acc, cur, i) => {
@@ -127,8 +127,10 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 					 switch (cur.slice(-1)) {
 						case 'h':
 							multiplier *= 60;
+							break;
 						case 'm':
 							multiplier *= 60;
+							break;
 						case 's':
 							return ((parseInt(cur)?parseInt(cur):0) * multiplier) + acc;
 						default:

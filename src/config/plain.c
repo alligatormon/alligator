@@ -448,6 +448,101 @@ static void plain_context_env_line(json_t *env_obj, string *tok)
 	free(vbuf);
 }
 
+static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
+{
+	const char *token;
+	const char *sep;
+	const char *value;
+	const char *colon;
+	size_t key_len;
+	size_t value_len;
+	size_t nested_key_len;
+	char key[256];
+	char nested_key[256];
+	char *value_copy;
+	json_t *nested_obj;
+	json_t *final_value;
+
+	if (!dst_obj || !wstokens || !idx || *idx >= token_count)
+		return 0;
+
+	token = wstokens[*idx].token->s;
+	if (!token)
+		return 0;
+
+	sep = strchr(token, '=');
+	if (!sep || sep == token)
+		return 0;
+
+	key_len = (size_t)(sep - token);
+	if (key_len >= sizeof(key))
+		key_len = sizeof(key) - 1;
+
+	memcpy(key, token, key_len);
+	key[key_len] = '\0';
+
+	value = sep + 1;
+	value_len = strlen(value);
+	if (!value_len && (*idx + 1 < token_count) && wstokens[*idx + 1].argument)
+	{
+		++(*idx);
+		value = wstokens[*idx].token->s;
+		value_len = strlen(value);
+	}
+
+	if (!strcmp(key, "headers") || !strcmp(key, "env") || !strcmp(key, "add_label") || !strcmp(key, "screenshot"))
+	{
+		colon = strchr(value, ':');
+		if (!colon || colon == value)
+			return 0;
+
+		nested_key_len = (size_t)(colon - value);
+		if (nested_key_len >= sizeof(nested_key))
+			nested_key_len = sizeof(nested_key) - 1;
+		memcpy(nested_key, value, nested_key_len);
+		nested_key[nested_key_len] = '\0';
+
+		nested_obj = json_object_get(dst_obj, key);
+		if (!nested_obj || json_typeof(nested_obj) != JSON_OBJECT)
+		{
+			nested_obj = json_object();
+			json_array_object_insert(dst_obj, key, nested_obj);
+		}
+
+		value_copy = strdup(colon + 1);
+		if (!value_copy)
+			return 0;
+
+		if (!strcmp(key, "screenshot") && !strcmp(nested_key, "fullPage"))
+		{
+			if (!strcmp(value_copy, "true"))
+				final_value = json_true();
+			else if (!strcmp(value_copy, "false"))
+				final_value = json_false();
+			else
+				final_value = json_string(value_copy);
+		}
+		else if (!strcmp(key, "screenshot") && !strcmp(nested_key, "minimum_code"))
+		{
+			if (sisdigit(value_copy))
+				final_value = json_integer(strtoll(value_copy, NULL, 10));
+			else
+				final_value = json_string(value_copy);
+		}
+		else
+		{
+			final_value = json_string(value_copy);
+		}
+
+		json_array_object_insert(nested_obj, nested_key, final_value);
+		free(value_copy);
+		return 1;
+	}
+
+	json_array_object_insert(dst_obj, key, json_string(value));
+	return 1;
+}
+
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 {
 	json_t *root = json_object();
@@ -1392,6 +1487,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
 						json_array_object_insert(operator_json, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "puppeteer") && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
+					{
+						/* parsed key=value inline option for puppeteer */
 					}
 					else
 					{
