@@ -23,6 +23,9 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 
 	ns = calloc(1, sizeof(*ns));
 	ns->key = strdup(key);
+	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
+	if (ns->max_emit_lock)
+		pthread_mutex_init(ns->max_emit_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
@@ -103,6 +106,10 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 
 	pthread_rwlock_destroy(ns->metrictree->rwlock);
 	pthread_rwlock_destroy(ns->expiretree->rwlock);
+	if (ns->max_emit_lock) {
+		pthread_mutex_destroy(ns->max_emit_lock);
+		free(ns->max_emit_lock);
+	}
 	free(ns->key);
 	free(ns->expiretree->rwlock);
 	free(ns->expiretree);
@@ -137,6 +144,9 @@ void ts_initialize()
 	// initialize default NS
 	namespace_struct *ns = calloc(1, sizeof(*ns));
 	ns->key = strdup("default");
+	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
+	if (ns->max_emit_lock)
+		pthread_mutex_init(ns->max_emit_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 	ac->nsdefault = ns;
 

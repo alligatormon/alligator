@@ -44,6 +44,7 @@ alligator <path_to_dir>
 Alligator has many contexts for describing the collection data:
 - **aggregate**: Collects metrics from software using various parsers from software
 - **query**: Generates make new metrics internally through PromQL queries or from databases queries
+- **namespace**: Configures metric namespaces and optional emission limits (`max_emit`)
 - **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
 - **lang**: Runs functions and methods from subprograms
 - **x509**: Obtains metrics from PEM, JKS or PCKS certificate formats
@@ -203,6 +204,9 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 
 ## Queries
 [Here](https://github.com/alligatormon/alligator/blob/master/doc/query.md) is an explanation of query context.
+
+## Namespace
+[Here](https://github.com/alligatormon/alligator/blob/master/doc/namespace.md) is an explanation of namespace context and `max_emit`.
 
 ## Lang
 [Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is a way to run other software to collect metrics.

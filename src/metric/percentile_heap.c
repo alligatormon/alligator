@@ -176,16 +176,37 @@ void free_percentile_buffer(percentile_buffer *pb)
 percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 {
 	percentile_buffer *pb = calloc(1, sizeof(*pb));
+	int default_percentile = 0;
+	if (!pb)
+		return NULL;
+	if (!percentile || n == 0) {
+		default_percentile = 1;
+		n = 1;
+		percentile = calloc(1, sizeof(*percentile));
+		if (!percentile) {
+			free(pb);
+			return NULL;
+		}
+		percentile[0] = -1;
+	}
 	pb->percentile_size = n;
 	uint64_t i;
 
 	pb->ipercentile = calloc(n, sizeof(int64_t));
+	if (!pb->ipercentile) {
+		if (default_percentile)
+			free(percentile);
+		free(pb);
+		return NULL;
+	}
 	pb->percentile = percentile;
 
 	int64_t percentilelong = percentile[0];
 	for (i=0; i<n; i++)
 		if (percentilelong < percentile[i])
 			percentilelong = percentile[i];
+	if (percentilelong <= 0)
+		percentilelong = 1;
 
 	int8_t digits = (int64_t)log10(percentilelong) + 1;
 	pb->n = pow(10, digits);
@@ -193,7 +214,7 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 	int64_t percentilemax = 0;
 	for (i=0; i<n; i++)
 	{
-		if (pb->percentile[i] == -1)
+		if (pb->percentile[i] <= 0)
 			pb->ipercentile[i] = 0;
 		else
 		{
@@ -216,6 +237,12 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 	glog(L_TRACE, "init_percentile_buffer: sortsize %"d64" for diff %"d64"\n", pb->sortsize, percentilemax);
 
 	pb->arr = calloc(pb->n, sizeof(int64_t));
+	if (!pb->arr) {
+		free(pb->ipercentile);
+		free(pb->percentile);
+		free(pb);
+		return NULL;
+	}
 
 	return pb;
 }

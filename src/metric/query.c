@@ -22,6 +22,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	alligator_ht *hash_work = hash ? labels_dup(hash) : alligator_ht_init(NULL);
 	size_t labels_count = alligator_ht_count(hash_work);
 	metric_tree *tree = ns->metrictree;
+	size_t serialized_before = str ? str->l : 0;
 	glog(L_DEBUG, "metric_str_build_query: ns='%s' name='%s' func=%d labels=%zu groupby='%s' serializer=%d\n", namespace ? namespace : "", name ? name : "", func, labels_count, (groupkey && groupkey->s) ? groupkey->s : "", serializer);
 
 	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an);
@@ -46,6 +47,21 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 
 	if (multistring)
 		*multistring = sc->multistring;
+
+	if (str && str->l > serialized_before) {
+		int should_purge = 0;
+		if (ns->max_emit_lock)
+			pthread_mutex_lock(ns->max_emit_lock);
+		if (ns->max_emit > 0) {
+			ns->max_emit--;
+			if (!ns->max_emit)
+				should_purge = 1;
+		}
+		if (ns->max_emit_lock)
+			pthread_mutex_unlock(ns->max_emit_lock);
+		if (should_purge)
+			expire_purge(INT64_MAX, namespace, ns);
+	}
 
 	serializer_free(sc);
 }

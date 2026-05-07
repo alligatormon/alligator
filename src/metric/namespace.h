@@ -40,6 +40,7 @@ typedef struct namespace_struct
 	tommy_node node;
 	char *key;
 	uint64_t max_emit;
+	pthread_mutex_t *max_emit_lock;
 	expire_tree *expiretree;
 	metric_tree *metrictree;
 } namespace_struct;

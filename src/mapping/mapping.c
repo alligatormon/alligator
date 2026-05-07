@@ -213,9 +213,11 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 			if (!mnode->percentile_buf)
 				mnode->percentile_buf = init_percentile_buffer(mm->percentile, mm->percentile_size);
 
-			//printf("inserted heap %p with dval %f\n", mnode->percentile_buf, dval);
-			heap_insert(mnode->percentile_buf, dval);
-			calc_percentiles(carg, mnode->percentile_buf, mnode, NULL, NULL);
+			if (mnode->percentile_buf) {
+				//printf("inserted heap %p with dval %f\n", mnode->percentile_buf, dval);
+				heap_insert(mnode->percentile_buf, dval);
+				calc_percentiles(carg, mnode->percentile_buf, mnode, NULL, NULL);
+			}
 		}
 		else if (mm->le)
 			calc_buckets_cumulative(carg, mm, mnode, dval);
