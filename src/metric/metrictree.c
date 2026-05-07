@@ -57,25 +57,25 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
 			rn->list[0].u = *(uint64_t*)value;
-			rn->index_element_list = 1;
+			rn->list_len = 1;
 		}
 		else if (type == DATATYPE_LIST_INT)
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
 			rn->list[0].i = *(int64_t*)value;
-			rn->index_element_list = 1;
+			rn->list_len = 1;
 		}
 		else if (type == DATATYPE_LIST_DOUBLE)
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
 			rn->list[0].d = *(double*)value;
-			rn->index_element_list = 1;
+			rn->list_len = 1;
 		}
 		else if (type == DATATYPE_LIST_STRING)
 		{
 			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
 			rn->list[0].s = *(char **)value;
-			rn->index_element_list = 1;
+			rn->list_len = 1;
 		}
 	}
 	return rn;
@@ -302,22 +302,22 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 	else if (type == DATATYPE_LIST_UINT)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->index_element_list++].u = *(uint64_t*)value;
+		mnode->list[mnode->list_len++].u = *(uint64_t*)value;
 	}
 	else if (type == DATATYPE_LIST_INT)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->index_element_list++].i = *(int64_t*)value;
+		mnode->list[mnode->list_len++].i = *(int64_t*)value;
 	}
 	else if (type == DATATYPE_LIST_DOUBLE)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->index_element_list++].d = *(double*)value;
+		mnode->list[mnode->list_len++].d = *(double*)value;
 	}
 	else if (type == DATATYPE_LIST_STRING)
 	{
 		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->index_element_list++].s = *(char **)value;
+		mnode->list[mnode->list_len++].s = *(char **)value;
 	}
 
 	metric_refresh_expire(mnode, expiretree, ttl);
@@ -593,8 +593,8 @@ void metrictree_free(metric_node *x)
 		metrictree_free(x->child[LEFT]);
 	if ( x->child[RIGHT] )
 		metrictree_free(x->child[RIGHT]);
-	if ( x->pb ) {
-        free_percentile_buffer(x->pb);
+	if ( x->percentile_buf ) {
+        free_percentile_buffer(x->percentile_buf);
     }
 	free (x);
 }

@@ -210,12 +210,12 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		//printf("matched mapping processing: %p, next %p, metric_name %s, labels->key %s\n", mm, mm->next, mm->template, mnode->labels->key);
 		if (mm->percentile)
 		{
-			if (!mnode->pb)
-				mnode->pb = init_percentile_buffer(mm->percentile, mm->percentile_size);
+			if (!mnode->percentile_buf)
+				mnode->percentile_buf = init_percentile_buffer(mm->percentile, mm->percentile_size);
 
-			//printf("inserted heap %p with dval %f\n", mnode->pb, dval);
-			heap_insert(mnode->pb, dval);
-			calc_percentiles(carg, mnode->pb, mnode, NULL, NULL);
+			//printf("inserted heap %p with dval %f\n", mnode->percentile_buf, dval);
+			heap_insert(mnode->percentile_buf, dval);
+			calc_percentiles(carg, mnode->percentile_buf, mnode, NULL, NULL);
 		}
 		else if (mm->le)
 			calc_buckets_cumulative(carg, mm, mnode, dval);

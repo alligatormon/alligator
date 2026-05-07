@@ -95,11 +95,11 @@ typedef struct metric_node
 		char *index; // index file
 		metric_list *list;
 	};
-	int16_t index_element_list;
+	int16_t list_len;
 	int8_t type;
-	percentile_buffer *pb;
+	percentile_buffer *percentile_buf;
 
-	int8_t en;
+	int8_t enabled;
 	struct metric_node *child[2];
 	//struct metric_tree *stree;
 	labels_t *labels;
