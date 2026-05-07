@@ -41,6 +41,7 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	sort_plan->check_collisions = alligator_ht_init(NULL);
 	sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
 	sp_colls->index = 0;
+	sp_colls->name = sort_plan->plan[0];
 	alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[0]);
 
 	sort_plan->size = 1;
@@ -155,6 +156,7 @@ void ts_initialize()
 	sort_plan->check_collisions = alligator_ht_init(NULL);
 	sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
 	sp_colls->index = 0;
+	sp_colls->name = sort_plan->plan[0];
 	alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[0]);
 
 	sort_plan->size = 1;

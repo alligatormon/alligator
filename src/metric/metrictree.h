@@ -15,6 +15,7 @@
 
 typedef struct sortplan_collision {
 	uint64_t index;
+	const char *name;
 	tommy_node node;
 } sortplan_collision;
 

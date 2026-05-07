@@ -301,23 +301,43 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 		mnode->s = *(char **)value;
 	else if (type == DATATYPE_LIST_UINT)
 	{
-		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->list_len++].u = *(uint64_t*)value;
+		if (!mnode->list)
+			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
+		if (mnode->list) {
+			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
+				mnode->list_len = 0;
+			mnode->list[mnode->list_len++].u = *(uint64_t*)value;
+		}
 	}
 	else if (type == DATATYPE_LIST_INT)
 	{
-		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->list_len++].i = *(int64_t*)value;
+		if (!mnode->list)
+			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
+		if (mnode->list) {
+			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
+				mnode->list_len = 0;
+			mnode->list[mnode->list_len++].i = *(int64_t*)value;
+		}
 	}
 	else if (type == DATATYPE_LIST_DOUBLE)
 	{
-		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->list_len++].d = *(double*)value;
+		if (!mnode->list)
+			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
+		if (mnode->list) {
+			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
+				mnode->list_len = 0;
+			mnode->list[mnode->list_len++].d = *(double*)value;
+		}
 	}
 	else if (type == DATATYPE_LIST_STRING)
 	{
-		mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		mnode->list[mnode->list_len++].s = *(char **)value;
+		if (!mnode->list)
+			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
+		if (mnode->list) {
+			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
+				mnode->list_len = 0;
+			mnode->list[mnode->list_len++].s = *(char **)value;
+		}
 	}
 
 	metric_refresh_expire(mnode, expiretree, ttl);

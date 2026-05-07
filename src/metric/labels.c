@@ -462,7 +462,11 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 int check_collisions_compare(const void* arg, const void* obj)
 {
-        return 0;
+	const char *name = arg;
+	const sortplan_collision *sp_colls = obj;
+	if (!name || !sp_colls || !sp_colls->name)
+		return 1;
+	return strcmp(name, sp_colls->name);
 }
 
 void labels_new_plan_node(void *funcarg, void* arg)
@@ -505,6 +509,7 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	else {
 		sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
 		sp_colls->index = sort_plan->size;
+		sp_colls->name = cur->name;
 		alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[sort_plan->size]);
 	}
 
