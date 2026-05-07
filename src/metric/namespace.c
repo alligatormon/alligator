@@ -1,6 +1,72 @@
 #include "main.h"
 #include "common/logs.h"
+#include "parsers/metric_types.h"
 extern aconf *ac;
+
+int metric_family_metadata_compare(const void *arg, const void *obj)
+{
+	const char *s1 = arg;
+	const char *s2 = ((metric_family_metadata *)obj)->key;
+	return strcmp(s1, s2);
+}
+
+void metric_family_metadata_free_foreach(void *funcarg, void *arg)
+{
+	(void)funcarg;
+	metric_family_metadata *meta = arg;
+	free(meta->key);
+	if (meta->help)
+		free(meta->help);
+	free(meta);
+}
+
+metric_family_metadata *namespace_metric_family_get(namespace_struct *ns, const char *metric_name)
+{
+	if (!ns || !ns->metric_families || !metric_name)
+		return NULL;
+
+	uint32_t key_hash = tommy_strhash_u32(0, metric_name);
+	return alligator_ht_search_nolock(ns->metric_families, metric_family_metadata_compare, metric_name, key_hash);
+}
+
+void namespace_metric_family_set(char *namespace, context_arg *carg, const char *metric_name, uint8_t type, const char *help)
+{
+	if (!metric_name || !metric_name[0])
+		return;
+
+	namespace_struct *ns = namespace ? get_namespace_or_null(namespace) : get_namespace_by_carg(carg);
+	if (!ns || !ns->metric_families || !ns->metrictree || !ns->metrictree->rwlock)
+		return;
+
+	pthread_rwlock_wrlock(ns->metrictree->rwlock);
+	uint32_t key_hash = tommy_strhash_u32(0, metric_name);
+	metric_family_metadata *meta = alligator_ht_search_nolock(ns->metric_families, metric_family_metadata_compare, metric_name, key_hash);
+	if (!meta)
+	{
+		meta = calloc(1, sizeof(*meta));
+		meta->key = strdup(metric_name);
+		meta->type = METRIC_TYPE_UNTYPED;
+		alligator_ht_insert_nolock(ns->metric_families, &(meta->node), meta, key_hash);
+	}
+
+	if (meta)
+	{
+		if (type != UINT8_MAX)
+			meta->type = type;
+
+		if (help)
+		{
+			char *new_help = strdup(help);
+			if (new_help)
+			{
+				if (meta->help)
+					free(meta->help);
+				meta->help = new_help;
+			}
+		}
+	}
+	pthread_rwlock_unlock(ns->metrictree->rwlock);
+}
 
 int namespace_struct_compare(const void* arg, const void* obj)
 {
@@ -24,6 +90,7 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	ns = calloc(1, sizeof(*ns));
 	ns->key = strdup(key);
 	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
+	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)
 		pthread_mutex_init(ns->max_emit_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
@@ -114,6 +181,13 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 	free(ns->expiretree->rwlock);
 	free(ns->expiretree);
 
+	if (ns->metric_families)
+	{
+		alligator_ht_foreach_arg(ns->metric_families, metric_family_metadata_free_foreach, NULL);
+		alligator_ht_done(ns->metric_families);
+		free(ns->metric_families);
+	}
+
 	alligator_ht_foreach_arg(ns->metrictree->sort_plan->check_collisions, sortplan_collision_foreach_free, NULL);
 	alligator_ht_done(ns->metrictree->sort_plan->check_collisions);
 	free(ns->metrictree->sort_plan->check_collisions);
@@ -145,6 +219,7 @@ void ts_initialize()
 	namespace_struct *ns = calloc(1, sizeof(*ns));
 	ns->key = strdup("default");
 	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
+	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)
 		pthread_mutex_init(ns->max_emit_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));

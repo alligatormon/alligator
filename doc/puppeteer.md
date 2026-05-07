@@ -74,7 +74,7 @@ Below is an extended JSON example with all commonly used options:
 }
 ```
 
-## Example in plain format (matching JSON options)
+## Example in plain format
 Plain config can use inline `key=value` options for each URL:
 
 ```

@@ -69,6 +69,43 @@ int metric_datatypes_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
+static uint8_t metric_type_from_string(const char *type)
+{
+	if (!type)
+		return METRIC_TYPE_UNTYPED;
+
+	if (!strncmp(type, "counter", 7))
+		return METRIC_TYPE_COUNTER;
+	if (!strncmp(type, "histogram", 9))
+		return METRIC_TYPE_HISTOGRAM;
+	if (!strncmp(type, "gauge", 5))
+		return METRIC_TYPE_GAUGE;
+	if (!strncmp(type, "summary", 7))
+		return METRIC_TYPE_SUMMARY;
+
+	return METRIC_TYPE_UNTYPED;
+}
+
+static void set_metric_family_type_with_suffixes(context_arg *carg, const char *metric_name, uint8_t metric_type)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, metric_type, NULL);
+
+	if (metric_type == METRIC_TYPE_HISTOGRAM || metric_type == METRIC_TYPE_SUMMARY)
+	{
+		char bucket_name[1024];
+		snprintf(bucket_name, sizeof(bucket_name), "%s_bucket", metric_name);
+		namespace_metric_family_set(NULL, carg, bucket_name, metric_type, NULL);
+
+		char sum_name[1024];
+		snprintf(sum_name, sizeof(sum_name), "%s_sum", metric_name);
+		namespace_metric_family_set(NULL, carg, sum_name, metric_type, NULL);
+
+		char count_name[1024];
+		snprintf(count_name, sizeof(count_name), "%s_count", metric_name);
+		namespace_metric_family_set(NULL, carg, count_name, metric_type, NULL);
+	}
+}
+
 
 // metric name is a label value
 int multicollector_get_metric_name(uint64_t *cur, const char *str, const size_t size, char *s2)
@@ -588,26 +625,30 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 		if (tmp[0] == '#')
 		{
-			if (carg->metric_aggregation)
+			uint16_t cursor = 1;
+			cursor += strspn(tmp + cursor, " \t");
+
+			if (!strncmp(tmp + cursor, "TYPE", 4))
 			{
-				uint16_t cursor = 1;
+				size_t metric_size;
+				char metric_name[255];
+				cursor += strcspn(tmp + cursor, " \t");
 				cursor += strspn(tmp + cursor, " \t");
-				if (!strncmp(tmp + cursor, "TYPE", 4))
+				metric_size = strcspn(tmp + cursor, " \t");
+				if (metric_size >= sizeof(metric_name))
+					continue;
+
+				strlcpy(metric_name, tmp + cursor, metric_size + 1);
+				prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
+				cursor += metric_size;
+				cursor += strspn(tmp + cursor, " \t");
+				uint8_t metric_type = metric_type_from_string(tmp + cursor);
+
+				set_metric_family_type_with_suffixes(carg, metric_name, metric_type);
+
+				if (carg->metric_aggregation)
 				{
-					size_t size;
-					char metric_name[255];
-					cursor += strcspn(tmp + cursor, " \t");
-					cursor += strspn(tmp + cursor, " \t");
-					size = strcspn(tmp + cursor, " \t");
-					if (size > 255)
-						continue;
-
-					strlcpy(metric_name, tmp + cursor, size + 1);
-
-					cursor += size;
-					cursor += strspn(tmp + cursor, " \t");
-
-					if (!strncmp(tmp + cursor, "counter", 7))
+					if (metric_type == METRIC_TYPE_COUNTER)
 					{
 						uint32_t key_hash = tommy_strhash_u32(0, metric_name);
 						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, metric_name, key_hash);
@@ -619,7 +660,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
 						}
 					}
-					else if (!strncmp(tmp + cursor, "histogram", 9))
+					else if (metric_type == METRIC_TYPE_HISTOGRAM)
 					{
 						char bucket_name[1024];
 						snprintf(bucket_name, 1023, "%s_bucket", metric_name);
@@ -658,6 +699,29 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 						}
 					}
 				}
+			}
+			else if (!strncmp(tmp + cursor, "HELP", 4))
+			{
+				size_t metric_size;
+				char metric_name[255];
+				cursor += strcspn(tmp + cursor, " \t");
+				cursor += strspn(tmp + cursor, " \t");
+				metric_size = strcspn(tmp + cursor, " \t");
+				if (metric_size >= sizeof(metric_name))
+					continue;
+				strlcpy(metric_name, tmp + cursor, metric_size + 1);
+				prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
+				cursor += metric_size;
+				cursor += strspn(tmp + cursor, " \t");
+
+				size_t help_size = strcspn(tmp + cursor, "\r\n");
+				char help[2048];
+				if (help_size >= sizeof(help))
+					help_size = sizeof(help) - 1;
+				memcpy(help, tmp + cursor, help_size);
+				help[help_size] = 0;
+
+				namespace_metric_family_set(NULL, carg, metric_name, UINT8_MAX, help);
 			}
 			continue;
 		}

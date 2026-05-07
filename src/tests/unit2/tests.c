@@ -416,6 +416,9 @@ int main(int argc, char **argv) {
     api_test_parser_tftp_and_gearmand();
     api_test_parser_riak_and_json();
     api_test_parser_mongodb_push_and_data();
+    api_test_openmetrics_help_type_ordering();
+    api_test_openmetrics_type_suffix_and_normalization();
+    api_test_openmetrics_metadata_overwrite();
 
 
 

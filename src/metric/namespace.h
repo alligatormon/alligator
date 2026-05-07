@@ -43,6 +43,7 @@ typedef struct namespace_struct
 	pthread_mutex_t *max_emit_lock;
 	expire_tree *expiretree;
 	metric_tree *metrictree;
+	alligator_ht *metric_families;
 } namespace_struct;
 
 typedef struct serializer_context {
@@ -101,3 +102,5 @@ void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *gro
 void serializer_free(serializer_context *sc);
 void expire_purge(uint64_t key, char *namespace, namespace_struct *ns);
 void ts_initialize();
+void namespace_metric_family_set(char *namespace, context_arg *carg, const char *metric_name, uint8_t type, const char *help);
+metric_family_metadata *namespace_metric_family_get(namespace_struct *ns, const char *metric_name);

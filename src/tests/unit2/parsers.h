@@ -126,7 +126,7 @@ void api_test_parser_syslogng() {
 void api_test_parser_log()
 {
     context_arg *carg = calloc(1, sizeof(*carg));
-    carg->rematch = calloc(2, sizeof(*carg->rematch));
+    carg->rematch = calloc(3, sizeof(*carg->rematch));
     carg->rematch[0] = regex_match_init("hello", NULL);
     carg->rematch[1] = regex_match_init("world", NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rematch[0]);
@@ -1640,4 +1640,102 @@ void api_test_parser_mongodb_push_and_data()
     alligator_ht_done(ac->aggregate_ctx);
     free(ac->aggregate_ctx);
     ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_openmetrics_help_type_ordering()
+{
+    char *msg =
+        "# HELP ut_order_metric_total test help text\n"
+        "# TYPE ut_order_metric_total counter\n"
+        "ut_order_metric_total 1\n"
+        "ut_order_metric_total{state=\"ok\"} 2\n"
+        "ut_order_fallback_metric 5\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    multicollector(NULL, msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(1024);
+    metric_str_build(NULL, out);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+
+    char *help_counter = strstr(out->s, "# HELP ut_order_metric_total test help text\n");
+    char *type_counter = strstr(out->s, "# TYPE ut_order_metric_total counter\n");
+    char *sample_counter = strstr(out->s, "\nut_order_metric_total ");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, help_counter);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, type_counter);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sample_counter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, help_counter < type_counter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, type_counter < sample_counter);
+
+    char *help_fallback = strstr(out->s, "# HELP ut_order_fallback_metric ut_order_fallback_metric\n");
+    char *type_fallback = strstr(out->s, "# TYPE ut_order_fallback_metric untyped\n");
+    char *sample_fallback = strstr(out->s, "\nut_order_fallback_metric 5\n");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, help_fallback);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, type_fallback);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sample_fallback);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, help_fallback < type_fallback);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, type_fallback < sample_fallback);
+
+    string_free(out);
+}
+
+void api_test_openmetrics_type_suffix_and_normalization()
+{
+    char *msg =
+        "# HELP ut-hist histogram help\n"
+        "# TYPE ut-hist histogram\n"
+        "ut-hist_bucket{le=\"1\"} 1\n"
+        "ut-hist_sum 2\n"
+        "ut-hist_count 3\n"
+        "# TYPE ut-summary summary\n"
+        "ut-summary_sum 4\n"
+        "ut-summary_count 5\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    multicollector(NULL, msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(2048);
+    metric_str_build(NULL, out);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+
+    /* Names are normalized from '-' to '_'. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_bucket histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_sum histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_count histogram\n") != NULL);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_summary_sum summary\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_summary_count summary\n") != NULL);
+
+    string_free(out);
+}
+
+void api_test_openmetrics_metadata_overwrite()
+{
+    char *msg1 =
+        "# HELP ut_overwrite_metric first help\n"
+        "# TYPE ut_overwrite_metric gauge\n"
+        "ut_overwrite_metric 1\n";
+    char *msg2 =
+        "# HELP ut_overwrite_metric second help\n"
+        "# TYPE ut_overwrite_metric counter\n"
+        "ut_overwrite_metric 2\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    multicollector(NULL, msg1, strlen(msg1), carg);
+    multicollector(NULL, msg2, strlen(msg2), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(1024);
+    metric_str_build(NULL, out);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP ut_overwrite_metric second help\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_overwrite_metric counter\n") != NULL);
+
+    string_free(out);
 }

@@ -11,6 +11,7 @@
 #define OPTIONS_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nAllow: OPTIONS, GET, PUT, POST\r\n"
 #define METHOD_NOT_ALLOWED "HTTP/1.1 405 Method Not Allowed\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define COMMON_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define OPENMETRICS_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/openmetrics-text; version=1.0.0; charset=utf-8\r\nConnection: close\r\n"
 #define HTTP_FORBIDDEN "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_UNAUTHORIZED "HTTP/1.1 401 Unauthorized\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
@@ -179,11 +180,12 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 			alligator_ht_foreach_arg(ac->cluster, prometheus_response_cluster_namespaces, body);
 
 		metric_str_build(namespace, body);
+		string_cat(body, "# EOF\n", 6);
 
 		char *content_length = malloc(255);
 		snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
 
-		string_cat(response, COMMON_ANSWER, strlen(COMMON_ANSWER));
+		string_cat(response, OPENMETRICS_ANSWER, strlen(OPENMETRICS_ANSWER));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, content_length, strlen(content_length));

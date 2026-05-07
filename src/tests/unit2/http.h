@@ -292,6 +292,13 @@ void test_http_parser_route_and_auth_edges()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_ready, strlen(req_ready), response, carg));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "200 OK") != NULL);
 
+    /* GET / should return OpenMetrics content type and EOF marker */
+    string_null(response);
+    char *req_metrics = "GET / HTTP/1.1\r\n\r\n";
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_metrics, strlen(req_metrics), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Type: application/openmetrics-text; version=1.0.0; charset=utf-8\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "# EOF\n") != NULL);
+
     /* unauthorized (auth required header missing) */
     string_null(response);
     carg->auth_basic = alligator_ht_init(NULL);

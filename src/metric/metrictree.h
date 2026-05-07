@@ -70,6 +70,15 @@ typedef struct labels_words_cache
 	tommy_node node;
 } labels_words_cache;
 
+typedef struct metric_family_metadata
+{
+	char *key;
+	char *help;
+	uint8_t type;
+
+	tommy_node node;
+} metric_family_metadata;
+
 typedef struct metric_list {
 	union
 	{
