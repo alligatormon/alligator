@@ -21,10 +21,10 @@ int expire_is_red ( expire_node *node )
 
 expire_node *expire_single ( expire_node *root, int dir )
 {
-	expire_node *save = root->steam[!dir];
+	expire_node *save = root->child[!dir];
  
-	root->steam[!dir] = save->steam[dir];
-	save->steam[dir] = root;
+	root->child[!dir] = save->child[dir];
+	save->child[dir] = root;
  
 	root->color = RED;
 	save->color = BLACK;
@@ -34,7 +34,7 @@ expire_node *expire_single ( expire_node *root, int dir )
  
 expire_node *expire_double ( expire_node *root, int dir )
 {
-	root->steam[!dir] = expire_single ( root->steam[!dir], !dir );
+	root->child[!dir] = expire_single ( root->child[!dir], !dir );
 	return expire_single ( root, dir );
 }
 
@@ -45,8 +45,8 @@ expire_node *expire_make_node ( int64_t key, metric_node *metric )
 	if ( rn != NULL ) {
 		rn->key = key;
 		rn->color = RED;
-		rn->steam[LEFT] = NULL;
-		rn->steam[RIGHT] = NULL;
+		rn->child[LEFT] = NULL;
+		rn->child[RIGHT] = NULL;
 		rn->metric = metric;
 		metric->expire_node = rn;
 	}
@@ -78,7 +78,7 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 
 		t = head;
 		g = p = NULL;
-		q = t->steam[RIGHT] = tree->root;
+		q = t->child[RIGHT] = tree->root;
 
 		for (;;) 
 		{
@@ -86,7 +86,7 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 			if ( q == NULL )
 			{
 				flag = 1;
-				p->steam[dir] = q = expire_make_node ( key, metric );
+				p->child[dir] = q = expire_make_node ( key, metric );
 				tree->count ++ ;
 				if ( q == NULL ) {
 					free(head);
@@ -94,20 +94,20 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 					return;
 				}
 			}
-			else if ( expire_is_red ( q->steam[LEFT] ) && expire_is_red ( q->steam[RIGHT] ) ) 
+			else if ( expire_is_red ( q->child[LEFT] ) && expire_is_red ( q->child[RIGHT] ) ) 
 			{
 				q->color = RED;
-				q->steam[LEFT]->color = BLACK;
-				q->steam[RIGHT]->color = BLACK;
+				q->child[LEFT]->color = BLACK;
+				q->child[RIGHT]->color = BLACK;
 			}
 
 			if ( expire_is_red ( q ) && expire_is_red ( p ) ) 
 			{
-				int dir2 = t->steam[RIGHT] == g;
-				if ( q == p->steam[last] )
-					t->steam[dir2] = expire_single ( g, !last );
+				int dir2 = t->child[RIGHT] == g;
+				if ( q == p->child[last] )
+					t->child[dir2] = expire_single ( g, !last );
 				else
-					t->steam[dir2] = expire_double ( g, !last );
+					t->child[dir2] = expire_double ( g, !last );
 			}
 
 			if (flag)
@@ -124,9 +124,9 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 			if ( g != NULL )
 				t = g;
 			g = p, p = q;
-			q = q->steam[dir];
+			q = q->child[dir];
 		}
-		tree->root = head->steam[RIGHT];
+		tree->root = head->child[RIGHT];
 		free(head);
 	}
 	tree->root->color = BLACK;
@@ -157,15 +157,15 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
  
 		q = head;
 		g = p = NULL;
-		q->steam[RIGHT] = tree->root;
+		q->child[RIGHT] = tree->root;
 		int last = dir;
  
-		while ( q->steam[dir] != NULL )
+		while ( q->child[dir] != NULL )
 		{
 			last = dir;
  
 			g = p, p = q;
-			q = q->steam[dir];
+			q = q->child[dir];
 
 			if (metric && q->key == key)
 			{
@@ -185,17 +185,17 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 				f = q;
 			}
  
-			if ( !expire_is_red ( q ) && !expire_is_red ( q->steam[dir] ) )
+			if ( !expire_is_red ( q ) && !expire_is_red ( q->child[dir] ) )
 			{
-				if ( expire_is_red ( q->steam[!dir] ) )
-					p = p->steam[last] = expire_single ( q, dir );
-				else if ( !expire_is_red ( q->steam[!dir] ) )
+				if ( expire_is_red ( q->child[!dir] ) )
+					p = p->child[last] = expire_single ( q, dir );
+				else if ( !expire_is_red ( q->child[!dir] ) )
 				{
-					expire_node *s = p->steam[!last];
+					expire_node *s = p->child[!last];
 
 					if ( s != NULL )
 					{
-						if ( !expire_is_red ( s->steam[!last] ) && !expire_is_red ( s->steam[last] ) )
+						if ( !expire_is_red ( s->child[!last] ) && !expire_is_red ( s->child[last] ) )
 						{
 							p->color = BLACK;
 							s->color = RED;
@@ -203,16 +203,16 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 						}
 						else
 						{
-							int dir2 = g->steam[RIGHT] == p;
+							int dir2 = g->child[RIGHT] == p;
  
-							if ( expire_is_red ( s->steam[last] ) )
-								g->steam[dir2] = expire_double ( p, last );
-							else if ( expire_is_red ( s->steam[!last] ) )
-								g->steam[dir2] = expire_single ( p, last );
+							if ( expire_is_red ( s->child[last] ) )
+								g->child[dir2] = expire_double ( p, last );
+							else if ( expire_is_red ( s->child[!last] ) )
+								g->child[dir2] = expire_single ( p, last );
  
-							q->color = g->steam[dir2]->color = RED;
-							g->steam[dir2]->steam[LEFT]->color = BLACK;
-							g->steam[dir2]->steam[RIGHT]->color = BLACK;
+							q->color = g->child[dir2]->color = RED;
+							g->child[dir2]->child[LEFT]->color = BLACK;
+							g->child[dir2]->child[RIGHT]->color = BLACK;
 						}
 					}
 				}
@@ -224,13 +224,13 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			f->key = q->key;
 			f->metric = q->metric;
 			f->metric->expire_node = f;
-			p->steam[p->steam[RIGHT] == q] = q->steam[q->steam[LEFT] == NULL];
-			//p->steam[last] = NULL;
+			p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
+			//p->child[last] = NULL;
 			free ( q );
 			excode = 1;
 		}
  
-		tree->root = head->steam[RIGHT];
+		tree->root = head->child[RIGHT];
 		free(head);
 		if ( tree->root != NULL )
 			tree->root->color = BLACK;
@@ -251,10 +251,10 @@ void tree_show(expire_node *x)
 {
 	char *color = x->color ? "red" : "black";
 	printf("%"u64": '%p' (%s)\n",x->key, x->metric, color);
-	if ( x->steam[LEFT] )
-		tree_show(x->steam[LEFT]);
-	if ( x->steam[RIGHT] )
-		tree_show(x->steam[RIGHT]);
+	if ( x->child[LEFT] )
+		tree_show(x->child[LEFT]);
+	if ( x->child[RIGHT] )
+		tree_show(x->child[RIGHT]);
 }
 
 void expire_show ( expire_tree *tree )
@@ -267,10 +267,10 @@ void expire_show ( expire_tree *tree )
 
 void tree_free(expire_node *x)
 {
-	if ( x->steam[LEFT] )
-		tree_free(x->steam[LEFT]);
-	if ( x->steam[RIGHT] )
-		tree_free(x->steam[RIGHT]);
+	if ( x->child[LEFT] )
+		tree_free(x->child[LEFT]);
+	if ( x->child[RIGHT] )
+		tree_free(x->child[RIGHT]);
 	free (x);
 }
 
@@ -287,8 +287,8 @@ uint64_t tree_build(expire_node *x, uint64_t l)
 	l++;
 
 	char *color = x->color ? "red" : "black";
-	if ( x->steam[LEFT] )
-		l = tree_build(x->steam[LEFT], l++);
+	if ( x->child[LEFT] )
+		l = tree_build(x->child[LEFT], l++);
 
 	uint64_t i;
 	for ( i=0; i<l; i++)
@@ -303,8 +303,8 @@ uint64_t tree_build(expire_node *x, uint64_t l)
 
 	puts("");
 
-	if ( x->steam[RIGHT] )
-		l = tree_build(x->steam[RIGHT], l++);
+	if ( x->child[RIGHT] )
+		l = tree_build(x->child[RIGHT], l++);
 	l--;
 
 	return l;
@@ -330,13 +330,13 @@ void expire_build (char *namespace)
 //expire_tree* tree_get ( expire_node *x, int64_t key )
 //{
 //	if (  x && x->key < key )
-//		return tree_get(x->steam[LEFT], key);
+//		return tree_get(x->child[LEFT], key);
 //	else if ( x && x->key > key )
-//		return tree_get(x->steam[RIGHT], key);
+//		return tree_get(x->child[RIGHT], key);
 //	else if ( x && x->key == key )
 //	{
-//		printf("finded: %"u64"\n", x->steam[LEFT]->key);
-//		return tree_get(x->steam[RIGHT], key);
+//		printf("finded: %"u64"\n", x->child[LEFT]->key);
+//		return tree_get(x->child[RIGHT], key);
 //	}
 //	else
 //		return NULL;
@@ -353,9 +353,9 @@ expire_node* expire_find ( expire_tree *tree, int64_t key )
 	while ( x )
 	{
 		if ( x->key > key )
-			x = x->steam[LEFT];
+			x = x->child[LEFT];
 		else if ( x->key < key )
-			x = x->steam[RIGHT];
+			x = x->child[RIGHT];
 		else if ( x->key == key )
 		{
 			pthread_rwlock_unlock(tree->rwlock);
@@ -378,8 +378,8 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 		return 0;
 	if ( key < x->key )
 	{
-		if(x->steam[LEFT])
-			ret += expire_node_purge(x->steam[LEFT], key, tree, expiretree);
+		if(x->child[LEFT])
+			ret += expire_node_purge(x->child[LEFT], key, tree, expiretree);
 	}
 	else if ( key == x->key )
 	{
@@ -389,10 +389,10 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 			return ret;
 		}
 
-		if(x->steam[LEFT])
-			ret += expire_node_purge(x->steam[LEFT], key, tree, expiretree);
-		if(x->steam[RIGHT])
-			ret += expire_node_purge(x->steam[RIGHT], key, tree, expiretree);
+		if(x->child[LEFT])
+			ret += expire_node_purge(x->child[LEFT], key, tree, expiretree);
+		if(x->child[RIGHT])
+			ret += expire_node_purge(x->child[RIGHT], key, tree, expiretree);
 	}
 	else
 	{
@@ -402,10 +402,10 @@ uint64_t expire_node_purge(expire_node *x, uint64_t key, metric_tree *tree, expi
 			return ret;
 		}
 
-		if(x->steam[LEFT])
-			ret += expire_node_purge(x->steam[LEFT], key, tree, expiretree);
-		if(x->steam[RIGHT])
-			ret += expire_node_purge(x->steam[RIGHT], key, tree, expiretree);
+		if(x->child[LEFT])
+			ret += expire_node_purge(x->child[LEFT], key, tree, expiretree);
+		if(x->child[RIGHT])
+			ret += expire_node_purge(x->child[RIGHT], key, tree, expiretree);
 	}
 	return ret;
 }

@@ -13,10 +13,10 @@
 #define	RIGHT	1
 #define	LEFT	0
 
-typedef struct sortplan_collission {
+typedef struct sortplan_collision {
 	uint64_t index;
 	tommy_node node;
-} sortplan_collission;
+} sortplan_collision;
 
 typedef struct sort_order_node {
 	char *name;
@@ -29,7 +29,7 @@ typedef struct sortplan
 	char *plan[65535];
 	uint64_t hash[65535];
 	uint64_t len[65535];
-	alligator_ht* check_collissions;
+	alligator_ht* check_collisions;
 	size_t size;
 } sortplan;
 
@@ -100,7 +100,7 @@ typedef struct metric_node
 	percentile_buffer *pb;
 
 	int8_t en;
-	struct metric_node *steam[2];
+	struct metric_node *child[2];
 	//struct metric_tree *stree;
 	labels_t *labels;
 	int color;
@@ -112,7 +112,7 @@ typedef struct expire_node
 	int color;
 	int64_t key;
 	metric_node *metric;
-	struct expire_node *steam[2];
+	struct expire_node *child[2];
 } expire_node;
 
 typedef struct metric_tree 

@@ -12,10 +12,10 @@ int is_red ( metric_node *node )
 
 metric_node *metric_single ( metric_node *root, int dir )
 {
-	metric_node *save = root->steam[!dir];
+	metric_node *save = root->child[!dir];
  
-	root->steam[!dir] = save->steam[dir];
-	save->steam[dir] = root;
+	root->child[!dir] = save->child[dir];
+	save->child[dir] = root;
  
 	root->color = RED;
 	save->color = BLACK;
@@ -25,7 +25,7 @@ metric_node *metric_single ( metric_node *root, int dir )
  
 metric_node *metric_double ( metric_node *root, int dir )
 {
-	root->steam[!dir] = metric_single ( root->steam[!dir], !dir );
+	root->child[!dir] = metric_single ( root->child[!dir], !dir );
 	return metric_single ( root, dir );
 }
 
@@ -109,14 +109,14 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	
 		t = head;
 		g = p = NULL;
-		q = t->steam[RIGHT] = tree->root;
+		q = t->child[RIGHT] = tree->root;
 		int flag = 0;
 	
 		for (;;) 
 		{
 			if ( q == NULL )
 			{
-				p->steam[dir] = q = ret = make_node(tree, labels, type, value, expiretree);
+				p->child[dir] = q = ret = make_node(tree, labels, type, value, expiretree);
 				tree->count++;
 				flag = 1;
 				if ( q == NULL ) {
@@ -125,23 +125,23 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 					return NULL;
 				}
 			}
-			else if ( is_red ( q->steam[LEFT] ) && is_red ( q->steam[RIGHT] ) ) 
+			else if ( is_red ( q->child[LEFT] ) && is_red ( q->child[RIGHT] ) ) 
 			{
 				q->color = RED;
-				q->steam[LEFT]->color = BLACK;
-				q->steam[RIGHT]->color = BLACK;
+				q->child[LEFT]->color = BLACK;
+				q->child[RIGHT]->color = BLACK;
 			}
 			else
 			{
 			}
 			if ( is_red ( q ) && is_red ( p ) ) 
 			{
-				int dir2 = t->steam[RIGHT] == g;
+				int dir2 = t->child[RIGHT] == g;
 	
-				if ( q == p->steam[last] )
-			       		t->steam[dir2] = metric_single ( g, !last );
+				if ( q == p->child[last] )
+					t->child[dir2] = metric_single ( g, !last );
 				else
-			       		t->steam[dir2] = metric_double ( g, !last );
+					t->child[dir2] = metric_double ( g, !last );
 			}
 			if (flag)
 				break;
@@ -152,9 +152,9 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 			if ( g != NULL )
 				t = g;
 			g = p, p = q;
-			q = q->steam[dir];
+			q = q->child[dir];
 		}
-		tree->root = head->steam[RIGHT];
+		tree->root = head->child[RIGHT];
 		free(head);
 	}
 	tree->root->color = BLACK;
@@ -187,43 +187,43 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
  
 		q = head;
 		g = p = NULL;
-		q->steam[RIGHT] = tree->root;
+		q->child[RIGHT] = tree->root;
  
-		while ( q->steam[dir] != NULL )
+		while ( q->child[dir] != NULL )
 		{
 			int last = dir;
  
 			g = p, p = q;
-			q = q->steam[dir];
+			q = q->child[dir];
 			dir = labels_cmp(tree->sort_plan, labels, q->labels) > 0;
 
 			if ( !labels_cmp(tree->sort_plan, q->labels, labels) )
 				f = q;
  
-			if ( !is_red ( q ) && !is_red ( q->steam[dir] ) ) {
-				if ( is_red ( q->steam[!dir] ) )
-					p = p->steam[last] = metric_single ( q, dir );
-				else if ( !is_red ( q->steam[!dir] ) ) {
-					metric_node *s = p->steam[!last];
+			if ( !is_red ( q ) && !is_red ( q->child[dir] ) ) {
+				if ( is_red ( q->child[!dir] ) )
+					p = p->child[last] = metric_single ( q, dir );
+				else if ( !is_red ( q->child[!dir] ) ) {
+					metric_node *s = p->child[!last];
  
 
 					if ( s != NULL ) {
-						if ( !is_red ( s->steam[!last] ) && !is_red ( s->steam[last] ) ) {
+						if ( !is_red ( s->child[!last] ) && !is_red ( s->child[last] ) ) {
 							p->color = BLACK;
 							s->color = RED;
 							q->color = RED;
 						}
 						else {
-							int dir2 = g->steam[RIGHT] == p;
+							int dir2 = g->child[RIGHT] == p;
  
-							if ( is_red ( s->steam[last] ) )
-								g->steam[dir2] = metric_double ( p, last );
-							else if ( is_red ( s->steam[!last] ) )
-								g->steam[dir2] = metric_single ( p, last );
+							if ( is_red ( s->child[last] ) )
+								g->child[dir2] = metric_double ( p, last );
+							else if ( is_red ( s->child[!last] ) )
+								g->child[dir2] = metric_single ( p, last );
  
-							q->color = g->steam[dir2]->color = RED;
-							g->steam[dir2]->steam[LEFT]->color = BLACK;
-							g->steam[dir2]->steam[RIGHT]->color = BLACK;
+							q->color = g->child[dir2]->color = RED;
+							g->child[dir2]->child[LEFT]->color = BLACK;
+							g->child[dir2]->child[RIGHT]->color = BLACK;
 						}
 					}
 				}
@@ -237,12 +237,12 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			labels_free(f->labels, tree);
 			//free(f->labels);
 			f->labels = q->labels;
-			p->steam[p->steam[RIGHT] == q] = q->steam[q->steam[LEFT] == NULL];
+			p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
 			free ( q );
 			ret = 1;
 		}
  
-		tree->root = head->steam[RIGHT];
+		tree->root = head->child[RIGHT];
 		free(head);
 		if ( tree->root != NULL )
 			tree->root->color = BLACK;
@@ -327,10 +327,10 @@ void metrictree_show(metric_node *x)
 {
 	labels_print(x->labels, 0);
 	puts("");
-	if ( x->steam[LEFT] )
-		metrictree_show(x->steam[LEFT]);
-	if ( x->steam[RIGHT] )
-		metrictree_show(x->steam[RIGHT]);
+	if ( x->child[LEFT] )
+		metrictree_show(x->child[LEFT]);
+	if ( x->child[RIGHT] )
+		metrictree_show(x->child[RIGHT]);
 }
 
 void metric_show ( metric_tree *tree )
@@ -346,14 +346,14 @@ uint64_t metrictree_build(metric_node *x, uint64_t l, string *s)
 {
 	l++;
 
-	if ( x->steam[LEFT] )
-		l = metrictree_build(x->steam[LEFT], l++, s);
+	if ( x->child[LEFT] )
+		l = metrictree_build(x->child[LEFT], l++, s);
 
 	//labels_print(x->labels, l);
 	labels_cat(x->labels, l, s, x->expire_node->key, x->color);
 
-	if ( x->steam[RIGHT] )
-		l = metrictree_build(x->steam[RIGHT], l++, s);
+	if ( x->child[RIGHT] )
+		l = metrictree_build(x->child[RIGHT], l++, s);
 	l--;
 
 	return l;
@@ -378,8 +378,8 @@ void metric_build (char *namespace, string *s)
 
 void metrictree_str_build(metric_node *x, string *str)
 {
-	if ( x->steam[LEFT] )
-		metrictree_str_build(x->steam[LEFT], str);
+	if ( x->child[LEFT] )
+		metrictree_str_build(x->child[LEFT], str);
 
 	labels_t *labels = x->labels;
 	string_cat(str, labels->key, labels->key_len);
@@ -426,8 +426,8 @@ void metrictree_str_build(metric_node *x, string *str)
 		string_cat(str, x->s, strlen(x->s));
 	string_cat(str, "\n", 1);
 
-	if ( x->steam[RIGHT] )
-		metrictree_str_build(x->steam[RIGHT], str);
+	if ( x->child[RIGHT] )
+		metrictree_str_build(x->child[RIGHT], str);
 }
 
 void metric_str_build (char *namespace, string *str)
@@ -458,8 +458,8 @@ void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, 
 		labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
 	}
 
-	metrictree_gen_scan(x->steam[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
-	metrictree_gen_scan(x->steam[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+	metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
+	metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
 }
 
 void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
@@ -470,15 +470,15 @@ void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, allig
 	{
 		int rc1 = metric_name_match(x->labels, labels);
 		if ( rc1 > 0 )
-			x = x->steam[LEFT];
+			x = x->child[LEFT];
 		else if ( rc1 < 0 )
-			x = x->steam[RIGHT];
+			x = x->child[RIGHT];
 		else
 		{
 			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
 				labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
-			metrictree_gen_scan(x->steam[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
-			metrictree_gen_scan(x->steam[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
 			break;
 		}
 	}
@@ -504,7 +504,7 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 		if (!labels_match(sort_plan, n->labels, labels, labels_count))
 			metric_node_serialize(n, sc);
 
-		if (n->steam[RIGHT]) {
+		if (n->child[RIGHT]) {
 			if (sp >= cap) {
 				size_t ncap = cap * 2;
 				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
@@ -515,9 +515,9 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 				stack = ns;
 				cap = ncap;
 			}
-			stack[sp++] = n->steam[RIGHT];
+			stack[sp++] = n->child[RIGHT];
 		}
-		if (n->steam[LEFT]) {
+		if (n->child[LEFT]) {
 			if (sp >= cap) {
 				size_t ncap = cap * 2;
 				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
@@ -528,7 +528,7 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 				stack = ns;
 				cap = ncap;
 			}
-			stack[sp++] = n->steam[LEFT];
+			stack[sp++] = n->child[LEFT];
 		}
 	}
 
@@ -543,15 +543,15 @@ void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *gro
 	{
 		int rc1 = metric_name_match(x->labels, labels);
 		if ( rc1 > 0 )
-			x = x->steam[LEFT];
+			x = x->child[LEFT];
 		else if ( rc1 < 0 )
-			x = x->steam[RIGHT];
+			x = x->child[RIGHT];
 		else
 		{
 			if (labels->key_len || !labels_count)
 				metric_node_serialize(x, sc);
-			metrictree_serialize_query_node(x->steam[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count);
-			metrictree_serialize_query_node(x->steam[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->child[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->child[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count);
 			break;
 		}
 	}
@@ -569,9 +569,9 @@ metric_node* metric_find ( metric_tree *tree, labels_t* labels )
 	{
 		int rc1 = labels_cmp(tree->sort_plan, x->labels, labels);
 		if ( rc1 > 0 )
-			x = x->steam[LEFT];
+			x = x->child[LEFT];
 		else if ( rc1 < 0 )
-			x = x->steam[RIGHT];
+			x = x->child[RIGHT];
 		else if ( !rc1 )
 		{
 			pthread_rwlock_unlock(tree->rwlock);
@@ -589,10 +589,10 @@ metric_node* metric_find ( metric_tree *tree, labels_t* labels )
 
 void metrictree_free(metric_node *x)
 {
-	if ( x->steam[LEFT] )
-		metrictree_free(x->steam[LEFT]);
-	if ( x->steam[RIGHT] )
-		metrictree_free(x->steam[RIGHT]);
+	if ( x->child[LEFT] )
+		metrictree_free(x->child[LEFT]);
+	if ( x->child[RIGHT] )
+		metrictree_free(x->child[RIGHT]);
 	if ( x->pb ) {
         free_percentile_buffer(x->pb);
     }

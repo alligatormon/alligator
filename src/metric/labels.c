@@ -460,7 +460,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 	}
 }
 
-int check_collissions_compare(const void* arg, const void* obj)
+int check_collisions_compare(const void* arg, const void* obj)
 {
         return 0;
 }
@@ -496,16 +496,16 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	sort_plan->hash[sort_plan->size] = cur->name_hash;
 	sort_plan->len[sort_plan->size] = cur->name_len;
 
-	sortplan_collission *sp_colls = alligator_ht_search(sort_plan->check_collissions, check_collissions_compare, cur->name, cur->name_hash);
+	sortplan_collision *sp_colls = alligator_ht_search(sort_plan->check_collisions, check_collisions_compare, cur->name, cur->name_hash);
 	if (sp_colls) {
 		fprintf(stderr, "There is a collision with the label name '%s' (%"PRIu64") and already added '%s' (%"PRIu64"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
-		//sort_plan->is_collission[sort_plan->size] = 1;
-		//sort_plan->is_collission[sp_colls->index] = 1;
+		//sort_plan->is_collision[sort_plan->size] = 1;
+		//sort_plan->is_collision[sp_colls->index] = 1;
 	}
 	else {
-		sortplan_collission *sp_colls = malloc(sizeof(*sp_colls));
+		sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
 		sp_colls->index = sort_plan->size;
-		alligator_ht_insert(sort_plan->check_collissions, &(sp_colls->node), sp_colls, sort_plan->hash[sort_plan->size]);
+		alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[sort_plan->size]);
 	}
 
 
