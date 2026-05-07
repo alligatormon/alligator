@@ -80,6 +80,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			}
 
 			let resource = pupKey
+			const emitConsoleEvents = pupValue["console_events"] === true || pupValue["console_events"] === "true" || pupValue["console_events"] === 1;
 			resourceMetricsPush(ret, "Info", resource, 1, extra_labels);
 			//console.log("fetch:", resource);
 			let resp_code = 0;
@@ -87,7 +88,9 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			page
 			.on('console', consoleObj => {
 					//console.log("console is", consoleObj.text()))
-					labelMetricsPush(ret, "eventConsole", resource, "text", consoleObj.text(), 1, extra_labels);
+					if (emitConsoleEvents) {
+						labelMetricsPush(ret, "eventConsole", resource, "text", consoleObj.text(), 1, extra_labels);
+					}
 			})
 			.on('pageerror', ({ message }) => {
 					//console.log(message)

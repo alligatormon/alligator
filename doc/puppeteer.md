@@ -62,6 +62,7 @@ Below is an extended JSON example with all commonly used options:
             "X-Debug": "1"
         },
         "post_data": "body request",
+        "console_events": true,
         "timeout": "5s",
         "screenshot": {
             "minimum_code": 400,
@@ -80,6 +81,7 @@ Plain config can use inline `key=value` options for each URL:
 puppeteer {
   https://google.com \
     timeout=5s \
+    console_events=true \
     post_data='{"ping":"ok"}' \
     headers=Connection:close \
     headers=Host:google.com \
@@ -98,6 +100,16 @@ Sets HTTP POST request body.
 
 ## timeout
 Sets timeout for page loading. Supports duration suffixes (for example `5s`, `1m`, `2m30s`).
+
+## console_events
+Controls exporting `eventConsole` metrics from browser console messages.
+
+Enabled only when value is one of:
+- `true`
+- `"true"`
+- `1`
+
+Any other value (or missing option) disables `eventConsole` metric export.
 
 ## headers, env
 Sets extra request headers.
