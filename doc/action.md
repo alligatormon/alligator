@@ -298,6 +298,23 @@ action {
 }
 ```
 
+## metricstransform
+Rewrites label values during serialization for this action.
+
+Use it to normalize outgoing labels before sending to external systems (for example, OTLP, OpenMetrics, JSON, ElasticSearch).
+
+In plain config, pass the transform as JSON string:
+```
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
+  metricstransform '{"transforms":[{"include":"^.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
+}
+```
+
+Rule structure is OTel-style (`transforms`, `operations`, `value_actions`) and supports regex capture groups in replacements (`$1`, `$2`, ...).
+
 ## log_level
 Optional. When set, it becomes the `log_level` on the oneshot `context_arg` for this action (client and parser logging for that run). When omitted, the oneshot context uses the server-wide `log_level` from the main configuration.
 

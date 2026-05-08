@@ -773,6 +773,24 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						}
 					}
 
+					json_t *json_metricstransform = json_object_get(entrypoint, "metricstransform");
+					if (json_metricstransform && (json_is_object(json_metricstransform) || json_is_array(json_metricstransform)))
+					{
+						carg->metricstransform = json_incref(json_metricstransform);
+					}
+					else if (json_metricstransform && json_is_string(json_metricstransform))
+					{
+						const char *mtx_str = json_string_value(json_metricstransform);
+						json_error_t mtx_error;
+						json_t *mtx_obj = mtx_str ? json_loads(mtx_str, 0, &mtx_error) : NULL;
+						if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
+						{
+							carg->metricstransform = mtx_obj;
+						}
+						else if (mtx_obj)
+							json_decref(mtx_obj);
+					}
+
 					json_t *json_auth = json_object_get(entrypoint, "auth");
 					if (json_auth)
 					{

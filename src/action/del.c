@@ -47,6 +47,8 @@ void action_del(json_t *action)
 			free(an->metric_name_transform_replacement);
 		if (an->metric_name_transform_compiled)
 			pcre_free(an->metric_name_transform_compiled);
+		if (an->metricstransform)
+			json_decref(an->metricstransform);
 		free(an);
 	}
 

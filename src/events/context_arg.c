@@ -100,6 +100,9 @@ context_arg *carg_copy(context_arg *src)
 	if (src->labels)
 		carg->labels = labels_dup(src->labels);
 
+	if (src->metricstransform)
+		carg->metricstransform = json_incref(src->metricstransform);
+
 	if (src->mm)
 		carg->mm = mapping_copy(src->mm);
 
@@ -269,6 +272,12 @@ void carg_free(context_arg *carg)
 		alligator_ht_done(carg->env);
 		free(carg->env);
 		carg->env = NULL;
+	}
+
+	if (carg->metricstransform)
+	{
+		json_decref(carg->metricstransform);
+		carg->metricstransform = NULL;
 	}
 
 	if (carg->loop_allocated) {
@@ -617,6 +626,36 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->log_level = json_integer_value(json_log_level);
 
 	parse_add_label(carg, root);
+
+	json_t *json_metricstransform = root ? json_object_get(root, "metricstransform") : NULL;
+	if (json_metricstransform && (json_is_object(json_metricstransform) || json_is_array(json_metricstransform)))
+	{
+		carg->metricstransform = json_incref(json_metricstransform);
+	}
+	else if (json_metricstransform && json_is_string(json_metricstransform))
+	{
+		const char *mtx_str = json_string_value(json_metricstransform);
+		json_error_t error;
+		json_t *mtx_obj = mtx_str ? json_loads(mtx_str, 0, &error) : NULL;
+		if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
+		{
+			carg->metricstransform = mtx_obj;
+		}
+		else
+		{
+			if (mtx_obj)
+				json_decref(mtx_obj);
+			carglog(carg, L_WARN, "context '%s': metricstransform string parse failed: %s\n",
+				carg->key ? carg->key : "unknown",
+				error.text[0] ? error.text : "unknown");
+		}
+	}
+	else if (json_metricstransform)
+	{
+		carglog(carg, L_WARN, "context '%s': metricstransform exists but has unsupported type=%d\n",
+			carg->key ? carg->key : "unknown",
+			json_typeof(json_metricstransform));
+	}
 
 	json_t *json_stdin = json_object_get(root, "stdin");
 	if (json_stdin)

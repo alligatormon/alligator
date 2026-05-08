@@ -98,6 +98,22 @@ void action_push(json_t *action)
 		an->metric_name_transform_replacement = strdup(json_string_value(jmetric_name_transform_replacement));
 	}
 
+	json_t *jmetricstransform = json_object_get(action, "metricstransform");
+	if (jmetricstransform && (json_is_object(jmetricstransform) || json_is_array(jmetricstransform)))
+	{
+		an->metricstransform = json_incref(jmetricstransform);
+	}
+	else if (jmetricstransform && json_is_string(jmetricstransform))
+	{
+		const char *mtx_str = json_string_value(jmetricstransform);
+		json_error_t error;
+		json_t *mtx_obj = mtx_str ? json_loads(mtx_str, 0, &error) : NULL;
+		if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
+			an->metricstransform = mtx_obj;
+		else if (mtx_obj)
+			json_decref(mtx_obj);
+	}
+
 	json_t *jlog_level = json_object_get(action, "log_level");
 	if (jlog_level)
 	{

@@ -331,6 +331,13 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(pquery_arr, "", pquery);
 		}
 	}
+
+	if (carg->metricstransform)
+	{
+		json_t *metricstransform = json_deep_copy(carg->metricstransform);
+		if (metricstransform)
+			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
 }
 
 void lang_generate_conf(void *funcarg, void* arg)
@@ -710,6 +717,13 @@ void action_generate_conf(void *funcarg, void* arg)
 
 	if (an->labels)
 		alligator_ht_foreach_arg(an->labels, labels_kv_deserialize, ctx);
+
+	if (an->metricstransform)
+	{
+		json_t *metricstransform = json_deep_copy(an->metricstransform);
+		if (metricstransform)
+			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
 }
 
 void probe_generate_conf(void *funcarg, void* arg)
@@ -1000,6 +1014,13 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_struct_conf_deserialize, ctx);
+
+	if (carg->metricstransform)
+	{
+		json_t *metricstransform = json_deep_copy(carg->metricstransform);
+		if (metricstransform)
+			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
 }
 
 void system_config_get(json_t *dst)

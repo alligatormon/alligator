@@ -144,6 +144,7 @@ typedef struct context_arg
 
 	alligator_ht *labels;
 	alligator_ht *env;
+	json_t *metricstransform;
 
 	// counters
 	uint64_t open_counter;

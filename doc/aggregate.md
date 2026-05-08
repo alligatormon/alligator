@@ -251,6 +251,22 @@ aggregate {
 }
 ```
 
+## metricstransform
+Default: -\
+Plural: no
+
+`metricstransform` rewrites label values for metrics produced by this aggregate item.
+The rule format is the same OTel-style JSON used in other contexts (`transforms` -> `operations` -> `value_actions`).
+
+In plain config, pass it as inline JSON:
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metricstransform='{"transforms":[{"include":"^node_.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
+}
+```
+
+This is useful for cardinality cleanup before storage and before exporting through actions/serializers.
+
 
 ## Available parsers
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)

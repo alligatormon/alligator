@@ -13,6 +13,28 @@
 #include "main.h"
 extern aconf *ac;
 
+static inline void metric_apply_context_transform(char *name, alligator_ht *labels, context_arg *carg)
+{
+	if (!name || !labels)
+		return;
+
+	if (!carg)
+		return;
+
+	context_arg *transform_carg = carg;
+	if (!transform_carg->metricstransform && carg->srv_carg)
+	{
+		context_arg *srv_carg = (context_arg*)carg->srv_carg;
+		if (srv_carg && srv_carg->metricstransform)
+			transform_carg = srv_carg;
+	}
+
+	if (!transform_carg->metricstransform)
+		return;
+
+	metric_transform_labels(name, labels, transform_carg->metricstransform);
+}
+
 int64_t get_ttl(context_arg *carg)
 {
 	if (!carg) {
@@ -889,6 +911,7 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
+	metric_apply_context_transform(name, labels, carg);
 
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
@@ -926,6 +949,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -958,6 +982,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -994,6 +1019,7 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1024,6 +1050,7 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
+	metric_apply_context_transform(name, labels, carg);
 
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
@@ -1063,6 +1090,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 
 	if (carg && carg->labels)
 		labels_merge(labels, carg->labels);
+	metric_apply_context_transform(name, labels, carg);
 
 	labels_t *labels_list = labels_initiate(ns, labels, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1093,6 +1121,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1124,6 +1153,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1156,6 +1186,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1189,6 +1220,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1223,6 +1255,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1258,6 +1291,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1294,6 +1328,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1331,6 +1366,7 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1369,6 +1405,7 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1408,6 +1445,7 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
+	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
 	metric_node* mnode = metric_find(tree, labels_list);

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "config/get.h"
+#include "config/plain.h"
 #include "common/url.h"
 #include "common/selector.h"
 #include "common/base64.h"
@@ -1757,6 +1758,80 @@ void test_config_generators_additional_scalars()
     free(hi->transport_string);
     free(hi);
     json_decref(dst);
+}
+
+void test_metricstransform_plain_and_ingest()
+{
+    string *plain = string_new();
+    string_cat(plain,
+        "entrypoint { tcp 19101 metricstransform='{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "aggregate { json http://127.0.0.1:18080/metrics metricstransform='{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "action { name t1 expr exec://true metricstransform '{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "puppeteer { https://example.org metricstransform='{\"transforms\":[{\"include\":\"puppeteer_eventSourceResponseStatus\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n",
+        strlen(
+        "entrypoint { tcp 19101 metricstransform='{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "aggregate { json http://127.0.0.1:18080/metrics metricstransform='{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "action { name t1 expr exec://true metricstransform '{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        "puppeteer { https://example.org metricstransform='{\"transforms\":[{\"include\":\"puppeteer_eventSourceResponseStatus\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}' ; }\n"
+        ));
+
+    char *json_s = config_plain_to_json(plain);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(ep0, "metricstransform"));
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    json_t *agg0 = json_array_get(aggregate, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(agg0, "metricstransform"));
+
+    json_t *action = json_object_get(root, "action");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, action);
+    json_t *act0 = json_array_get(action, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(act0, "metricstransform"));
+
+    json_t *puppeteer = json_object_get(root, "puppeteer");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, puppeteer);
+    json_t *pup0 = json_object_get(puppeteer, "https://example.org");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(pup0, "metricstransform"));
+
+    context_arg carg = {0};
+    carg.metricstransform = json_incref(json_object_get(ep0, "metricstransform"));
+    carg.namespace = strdup("ut_metricstransform_plain_ns");
+    carg.namespace_allocated = 1;
+    insert_namespace(carg.namespace, 0);
+
+    int64_t val = 1;
+    metric_add_labels("ut_metric_transform_total", &val, DATATYPE_INT, &carg, "source", "https://example.org/path?id=11");
+
+    metric_query_context *mqc = promql_parser(NULL, "ut_metric_transform_total", strlen("ut_metric_transform_total"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, carg.namespace, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+
+    json_t *metrics = json_loads(body->s, 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, metrics);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(metrics) > 0);
+    json_t *m0 = json_array_get(metrics, 0);
+    json_t *labels = json_object_get(m0, "labels");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, labels);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "example.org", json_string_value(json_object_get(labels, "source")));
+
+    json_decref(metrics);
+    string_free(body);
+    query_context_free(mqc);
+
+    free(carg.namespace);
+    json_decref(carg.metricstransform);
+    free(json_s);
+    json_decref(root);
+    string_free(plain);
 }
 
 void test_match_rules_regex_paths()

@@ -279,6 +279,7 @@ void json_add_label_foreach(void *funcarg, void *arg)
 void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 
 	json_t *obj = json_object();
@@ -301,8 +302,12 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 				continue;
 			}
 
-			json_t *value = json_string(labels->key);
+			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			const char *label_value = transformed ? transformed : labels->key;
+			json_t *value = json_string(label_value);
 			json_array_object_insert(jlabels, labels->name, value);
+			if (transformed)
+				free(transformed);
 		}
 		labels = labels->next;
 	}
@@ -334,6 +339,7 @@ void otlp_add_label_foreach(void *funcarg, void* arg)
 void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 	json_t *metrics = otlp_metrics_array_from_root(sc->json);
 	json_t *metric;
 	json_t *attrs;
@@ -366,7 +372,14 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 			continue;
 
 		if (labels->key_len)
-			json_array_append_new(attrs, otlp_key_value_string(labels->name, labels->name_len, labels->key, labels->key_len));
+		{
+			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			const char *label_value = transformed ? transformed : labels->key;
+			size_t label_value_len = transformed ? strlen(transformed) : labels->key_len;
+			json_array_append_new(attrs, otlp_key_value_string(labels->name, labels->name_len, label_value, label_value_len));
+			if (transformed)
+				free(transformed);
+		}
 	}
 
 	if (add_labels)
@@ -503,6 +516,7 @@ void openmetrics_add_label_foreach(void *funcarg, void* arg)
 void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 	char *new_name = metric_transform_name(labels->key, sc->an);
@@ -549,7 +563,14 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 
 			string_cat(res, labels->name, labels->name_len);
 			string_cat(res, "=\"", 2);
-			string_cat(res, labels->key, labels->key_len);
+			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				free(transformed);
+			}
+			else
+				string_cat(res, labels->key, labels->key_len);
 			string_cat(res, "\"", 1);
 		}
 		labels = labels->next;

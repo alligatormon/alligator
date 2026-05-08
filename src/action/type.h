@@ -18,6 +18,7 @@ typedef struct action_node
 	context_arg *carg;
 	alligator_ht *labels;
 	alligator_ht *env;
+	json_t *metricstransform;
 	uint64_t follow_redirects;
 	string *engine;
 	string *index_template;

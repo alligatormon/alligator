@@ -87,6 +87,8 @@ void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expi
 labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del);
 serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an);
 char* metric_transform_name(char *name, action_node *an);
+void metric_transform_labels(char *metric_name, alligator_ht *labels, json_t *metricstransform);
+char* metric_transform_label_value(char *metric_name, char *label_name, char *label_value, json_t *metricstransform);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 namespace_struct *insert_namespace(char *key, uint64_t max_emit);

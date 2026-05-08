@@ -155,7 +155,7 @@ If `true`, captures full page screenshot.
 
 ## metricstransform
 `metricstransform` rewrites label values before exporting metrics.
-Use JSON configuration format for this option.
+It is supported in both JSON and plain configuration formats.
 
 Use it when you want to:
 - normalize noisy label values (URLs, paths, IDs)
@@ -287,3 +287,11 @@ The implementation supports an OTel-collector-like structure:
 ```
 
 This rule applies to all puppeteer metrics, but updates only series that already have the `source` label.
+
+### metricstransform example in plain config
+In plain config, pass the same JSON rule as a string:
+```
+puppeteer {
+  https://example.org metricstransform='{"transforms":[{"include":"^puppeteer_.*$","match_type":"regexp","operations":[{"action":"update_label","label":"source","value_actions":[{"regex":"^https?://([^/]+).*$","replacement":"$1"}]}]}]}';
+}
+```

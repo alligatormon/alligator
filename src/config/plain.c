@@ -539,8 +539,29 @@ static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat
 		return 1;
 	}
 
+	if (!strcmp(key, "metricstransform"))
+	{
+		json_error_t error;
+		json_t *parsed = json_loads(value, 0, &error);
+		if (!parsed)
+			return 0;
+		json_array_object_insert(dst_obj, key, parsed);
+		return 1;
+	}
+
 	json_array_object_insert(dst_obj, key, json_string(value));
 	return 1;
+}
+
+static json_t* plain_json_or_string(const char *value)
+{
+	if (!value)
+		return NULL;
+	json_error_t error;
+	json_t *parsed = json_loads(value, 0, &error);
+	if (parsed)
+		return parsed;
+	return json_string(value);
 }
 
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
@@ -770,6 +791,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							add_label_entrypoint = json_object();
 							json_array_object_insert(operator_json, "add_label", add_label_entrypoint);
 						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metricstransform"))
+					{
+						/* keep parsing in the same entrypoint object */
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
 					{
@@ -1105,7 +1130,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							else if (wstokens[i].argument)
 							{
 								strlcpy(arg_name, wstokens[i].token->s, 255);
-								arg_value = json_string(wstokens[i].token->s);
+								if (!strcmp(operator_name, "metricstransform"))
+									arg_value = plain_json_or_string(wstokens[i].token->s);
+								else
+									arg_value = json_string(wstokens[i].token->s);
 								json_array_object_insert(operator_json, operator_name, arg_value);
 							}
 
@@ -1374,6 +1402,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
 								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address"))
 									semisep = wstokens[i].token->l;
+								if (!strcmp(arg_name, "metricstransform"))
+									semisep = wstokens[i].token->l;
 
 								json_t *arg_value = NULL;
 								if (semisep+1 < wstokens[i].token->l)
@@ -1405,7 +1435,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = json_integer(num);
 									}
 									else
-										arg_value = json_string(wstokens[i].token->s+sep+1);
+									{
+										if (!strcmp(arg_name, "metricstransform"))
+											arg_value = plain_json_or_string(wstokens[i].token->s+sep+1);
+										else
+											arg_value = json_string(wstokens[i].token->s+sep+1);
+									}
 
 									if (!strcmp(arg_name, "pquery")) {
 										json_array_object_insert(pquery_arr, "", arg_value);
@@ -1447,6 +1482,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "add_label"))
 					{
 						plain_context_env_line(add_label_entrypoint, wstokens[i].token);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metricstransform"))
+					{
+						json_t *arg_json = plain_json_or_string(wstokens[i].token->s);
+						if (arg_json)
+							json_array_object_insert(operator_json, operator_name, arg_json);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
 					{
