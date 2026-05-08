@@ -759,11 +759,22 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 	if (carg && !carg->no_metric)
 	{
-		metric_add_labels("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
-		metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
-		metric_add_labels("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
-		metric_add_labels("alligator_push_parsed_lines", &fgets_counter, DATATYPE_UINT, carg, "key", carg->key);
-		metric_add_labels("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
+		if (carg->key)
+		{
+			metric_add_labels("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
+			metric_add_labels("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
+			metric_add_labels("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
+			metric_add_labels("alligator_push_parsed_lines", &fgets_counter, DATATYPE_UINT, carg, "key", carg->key);
+			metric_add_labels("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
+		}
+		else
+		{
+			metric_add_auto("alligator_push_parsing_time_ns", &carg->push_parsing_time, DATATYPE_UINT, carg);
+			metric_add_auto("alligator_push_metrictree_time_ns", &carg->push_metric_time, DATATYPE_UINT, carg);
+			metric_add_auto("alligator_push_split_time_ns", &carg->push_split_data, DATATYPE_UINT, carg);
+			metric_add_auto("alligator_push_parsed_lines", &fgets_counter, DATATYPE_UINT, carg);
+			metric_add_auto("alligator_push_accepted_lines", &carg->push_accepted_lines, DATATYPE_UINT, carg);
+		}
 	}
 
 	if (counter_names) {
