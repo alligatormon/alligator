@@ -2,6 +2,7 @@
 #include "common/validator.h"
 #include "events/context_arg.h"
 #include "common/logs.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #include "parsers/mysql2.h"
 #include <pthread.h>
@@ -310,9 +311,11 @@ static void sphinxsearch_row_cb(mysql_row_t *row, void *ud)
 		if (isdigit((unsigned char)*Value)) {
 			if (strstr(Value, ".")) {
 				double val = strtod(Value, NULL);
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_DOUBLE, carg);
 			} else {
 				int64_t val = strtoll(Value, NULL, 10);
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_INT, carg);
 			}
 		}
@@ -329,15 +332,19 @@ static void sphinxsearch_row_cb(mysql_row_t *row, void *ud)
 		if (isdigit((unsigned char)*res)) {
 			if (strstr(res, ".")) {
 				double val = strtod(res, NULL);
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_DOUBLE, carg);
 			} else if (strstr(res, "ms")) {
 				double val = strtod(res, NULL) / 1000;
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_DOUBLE, carg);
 			} else if (strstr(res, "us")) {
 				double val = strtod(res, NULL) / 1000000;
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_DOUBLE, carg);
 			} else {
 				int64_t val = strtoll(res, NULL, 10);
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Sphinxsearch exported metric value.");
 				metric_add_auto(mname, &val, DATATYPE_INT, carg);
 			}
 		}
@@ -376,6 +383,8 @@ void mysql_run(void* arg)
 	/* Start connect on loop thread, run await in worker thread */
 	if (!mysql2_start_connect(&data->conn, carg)) {
 		puts("go away from mysql_run");
+		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
+		namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status flag.");
 		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg,
 						   "proto", "tcp", "type", "aggregator",
 						   "host", carg->host, "key", carg->key, "parser", "mysql");
@@ -385,6 +394,7 @@ void mysql_run(void* arg)
 		return;
 	}
 
+	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
 	metric_add_labels5("alligator_connect_ok_total", &val, DATATYPE_UINT, carg,
 					   "proto", "tcp", "type", "aggregator",
 					   "host", carg->host, "key", carg->key, "parser", "mysql");
@@ -405,6 +415,7 @@ void mysql_run(void* arg)
 	}
 	pthread_detach(th);
 
+	namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status flag.");
 	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
 }
 

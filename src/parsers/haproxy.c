@@ -5,6 +5,7 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "main.h"
+#include "metric/metric_types.h"
 #define HAPROXY_NAME_SIZE 1000
 
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
@@ -15,6 +16,14 @@ void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
 
 void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_allocated", METRIC_TYPE_GAUGE, "Allocated entries in HAProxy memory pool.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_bytes", METRIC_TYPE_GAUGE, "Bytes allocated in HAProxy memory pool.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_used", METRIC_TYPE_GAUGE, "Used entries in HAProxy memory pool.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_users", METRIC_TYPE_GAUGE, "Pool users count in HAProxy memory pool.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_allocated_total", METRIC_TYPE_GAUGE, "Total allocated entries in HAProxy memory pools.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_bytes_total", METRIC_TYPE_GAUGE, "Total allocated bytes in HAProxy memory pools.");
+	namespace_metric_family_set(NULL, carg, "haproxy_pool_used_total", METRIC_TYPE_GAUGE, "Total used entries in HAProxy memory pools.");
+
 	char name[HAPROXY_NAME_SIZE];
 	size_t name_size;
 	int64_t i;
@@ -81,6 +90,8 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 
 void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "haproxy_stat", METRIC_TYPE_GAUGE, "HAProxy statistics with metric dimension labels.");
+
 	char name[HAPROXY_NAME_SIZE];
 	size_t name_size;
 
@@ -142,6 +153,8 @@ void haproxy_stat_handler(char *metrics, size_t size, context_arg *carg)
 
 void haproxy_sess_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "haproxy_sess_count", METRIC_TYPE_GAUGE, "Current number of HAProxy sessions.");
+
 	//puts(metrics);
 	int64_t i;
 	int64_t cnt;

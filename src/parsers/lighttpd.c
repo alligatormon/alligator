@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "common/json_query.h"
 #include "events/context_arg.h"
 #include "common/http.h"
@@ -9,8 +10,15 @@
 #include "common/logs.h"
 #include "main.h"
 #define LIGHTTPD_LABEL_SIZE 100
+
+static inline void lighttpd_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Lighttpd server-status exported metric value.");
+}
+
 void lighttpd_status_handler(char *metrics, size_t size, context_arg *carg)
 {
+	lighttpd_metric_set(carg, "lighttpd");
 	carg->parser_status = json_query(metrics, NULL, "lighttpd", carg, carg->pquery, carg->pquery_size);
 }
 
@@ -124,10 +132,12 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 
 		if (is_requests) {
 			val = 0;
+			lighttpd_metric_set(carg, "lighttpd_requests");
 			metric_add("lighttpd_requests", lbl, &val, DATATYPE_UINT, carg);
 		}
 		else if (is_active_requests) {
 			val = strtoull(tmp, &tmp, 10);
+			lighttpd_metric_set(carg, "lighttpd_active_requests");
 			metric_add("lighttpd_active_requests", lbl, &val, DATATYPE_UINT, carg);
 		}
 		else {
@@ -143,6 +153,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 			tmp += strspn(tmp, ":");
 			val = strtoull(tmp, &tmp, 10);
 
+			lighttpd_metric_set(carg, metric_name);
 			metric_add(metric_name, lbl, &val, DATATYPE_UINT, carg);
 
 		}

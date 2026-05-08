@@ -1,6 +1,6 @@
 #include "main.h"
 #include "common/logs.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 extern aconf *ac;
 
 int metric_family_metadata_compare(const void *arg, const void *obj)

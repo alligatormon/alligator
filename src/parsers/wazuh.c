@@ -4,6 +4,7 @@
 #include <libgen.h>
 #include <time.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/http.h"
@@ -12,6 +13,11 @@
 #include "common/json_query.h"
 #include "main.h"
 #define WAZUH_SIZE 1000
+
+static inline void wazuh_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Wazuh API exported metric value.");
+}
 
 void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 {
@@ -79,26 +85,32 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 		if (strptime(metric_value, "%Y-%m-%d %H:%M:%S", &tm)) {
 			uint64_t val = mktime(&tm);
 			carglog(carg, L_INFO, "\tvalue is timestamp: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (isdigit(*metric_value)) {
 			uint64_t val = strtoull(metric_value, NULL, 10);
 			carglog(carg, L_INFO, "\tvalue is digit: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "connected")) {
 			uint64_t val = 1;
 			carglog(carg, L_INFO, "\tvalue is conn: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "pending")) {
 			uint64_t val = 2;
 			carglog(carg, L_INFO, "\tvalue is pend: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "disconnected")) {
 			uint64_t val = 0;
 			carglog(carg, L_INFO, "\tvalue is disc: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else {
 			uint64_t val = 1;
 			carglog(carg, L_INFO, "\tvalue is label: %"PRIu64"\n", val);
+			wazuh_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "type", metric_value);
 		}
 

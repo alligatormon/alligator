@@ -2,6 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "common/validator.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
@@ -25,6 +26,11 @@ typedef struct aerospike_data
 	host_aggregator_info *hi;
 	aggregate_context *actx;
 } aerospike_data;
+
+static inline void aerospike_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Aerospike exported metric value.");
+}
 
 void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -125,65 +131,80 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 		if (!strncmp(key+10, "client", 6))
 		{
 			typekey = key+17;
+			aerospike_metric_set(carg, "aerospike_client");
 			metric_add_labels2("aerospike_client", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "udf_sub", 7))
 		{
 			typekey = key+18;
+			aerospike_metric_set(carg, "aerospike_udf_sub");
 			metric_add_labels2("aerospike_udf_sub", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "query", 5))
 		{
 			typekey = key+16;
+			aerospike_metric_set(carg, "aerospike_query");
 			metric_add_labels2("aerospike_query", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "migrate", 7))
 		{
 			typekey = key+18;
+			aerospike_metric_set(carg, "aerospike_migrate");
 			metric_add_labels2("aerospike_migrate", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "batch", 5))
 		{
 			typekey = key+16;
+			aerospike_metric_set(carg, "aerospike_batch");
 			metric_add_labels2("aerospike_batch", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "retransmit", 10))
 		{
 			typekey = key+21;
+			aerospike_metric_set(carg, "aerospike_retransmit");
 			metric_add_labels2("aerospike_retransmit", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "scan", 4))
 		{
 			typekey = key+15;
+			aerospike_metric_set(carg, "aerospike_scan");
 			metric_add_labels2("aerospike_scan", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "memory", 6))
 		{
 			typekey = key+17;
+			aerospike_metric_set(carg, "aerospike_memory");
 			metric_add_labels2("aerospike_memory", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "enable_benchmarks", 17))
 		{
 			typekey = key+28;
+			aerospike_metric_set(carg, "aerospike_enable_benchmarks");
 			metric_add_labels2("aerospike_enable_benchmarks", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "fail", 4))
 		{
 			typekey = key+15;
+			aerospike_metric_set(carg, "aerospike_fail");
 			metric_add_labels2("aerospike_fail", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "geo2dsphere_within", 8))
 		{
 			typekey = key+29;
+			aerospike_metric_set(carg, "aerospike_geo2dsphere");
 			metric_add_labels2("aerospike_geo2dsphere", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else if (!strncmp(key+10, "geo_region_query", 16))
 		{
 			typekey = key+27;
+			aerospike_metric_set(carg, "aerospike_geo_region_query");
 			metric_add_labels2("aerospike_geo_region_query", &vl, DATATYPE_UINT, carg, "namespace", namespace, "type", typekey);
 		}
 		else
+		{
+			aerospike_metric_set(carg, key);
 			metric_add_labels(key, &vl, DATATYPE_UINT, carg, "namespace", namespace);
+		}
 	}
 	carg->parser_status = 1;
 }
@@ -195,6 +216,7 @@ void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 	tmp += strspn(tmp, "\t");
 	tmp[size - (tmp-metrics) - 1] = 0;
 	uint64_t vl = 1;
+	aerospike_metric_set(carg, "aerospike_status");
 	metric_add_labels("aerospike_status", &vl, DATATYPE_UINT, carg, "status", tmp);
 	carg->parser_status = 1;
 }

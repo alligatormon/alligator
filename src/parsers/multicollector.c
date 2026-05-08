@@ -12,7 +12,7 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "cluster/pass.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "common/logs.h"
 #include "main.h"
 #define METRIC_NAME_SIZE 255

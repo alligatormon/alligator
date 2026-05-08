@@ -8,6 +8,7 @@
 #include <query/type.h>
 #include "common/validator.h"
 #include "common/logs.h"
+#include "metric/metric_types.h"
 #include "dstructures/queue.h"
 #include "events/context_arg.h"
 #include <main.h>
@@ -47,6 +48,8 @@ void postgresql_query_init(PGconn *conn, char *query, query_node *qn, context_ar
 
 void postgresql_error_metric(PGconn *conn, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "postgresql_error", METRIC_TYPE_COUNTER, "PostgreSQL error counter by reason.");
+
 	char reason[255];
 	const char *errmsg = (conn && PQerrorMessage(conn)) ? PQerrorMessage(conn) : "unknown_error";
 	const char *carg_name = (carg && carg->name) ? carg->name : "unknown";
@@ -58,6 +61,8 @@ void postgresql_error_metric(PGconn *conn, context_arg *carg)
 
 static inline void postgresql_connect_ok_total(context_arg *carg, uint64_t ok)
 {
+	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
+
 	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg,
 		"proto", "tcp", "type", "aggregator",
 		"host", carg->host, "key", carg->key, "parser", "postgresql");
@@ -602,6 +607,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					snprintf(metric_name, 254, "%s_%s_%s", pooler_name, prefix, colname);
 				else
 					snprintf(metric_name, 254, "%s_%s", pooler_name, colname);
+				namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey/Pgpool metric exported from SHOW output.");
 
 				alligator_ht *hash = alligator_ht_init(NULL);
 				if (*dbname)
@@ -703,6 +709,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					if (*tls)
 						labels_hash_insert_nocache(hash, "tls", tls);
 
+					namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey/Pgpool wait time metric in microseconds.");
 					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
 				}
 				else
@@ -738,11 +745,17 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					{
 						labels_hash_insert_nocache(hash, "percentile", metric_name+19);
 						metric_name[18] = 0;
+						namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey query latency percentile.");
 					}
 					else if (!strncmp(colname, "transaction_0", 13))
 					{
 						labels_hash_insert_nocache(hash, "percentile", metric_name+25);
 						metric_name[24] = 0;
+						namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey transaction latency percentile.");
+					}
+					else
+					{
+						namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey/Pgpool metric exported from SHOW output.");
 					}
 					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
 				}

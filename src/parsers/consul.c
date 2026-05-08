@@ -7,6 +7,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define CONSUL_METRIC_SIZE 1000
 void consul_handler(char *metrics, size_t size, context_arg *carg)
@@ -57,6 +58,7 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 
 			size_t sz = strlcpy(metricname, tname, CONSUL_METRIC_SIZE);
 			metric_name_normalizer(metricname, sz);
+			namespace_metric_family_set(NULL, carg, metricname, (j == 0) ? METRIC_TYPE_GAUGE : METRIC_TYPE_COUNTER, "Consul telemetry metric exported from /v1/agent/metrics.");
 
 			json_t *labels = json_object_get(arr_obj, "Labels");
 			if (labels)

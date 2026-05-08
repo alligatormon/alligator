@@ -14,7 +14,7 @@
 #include "common/validator.h"
 #include "common/reject.h"
 #include "cluster/pass.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "parsers/http_proto.h"
 #include "api/api.h"
 #include "main.h"
@@ -208,6 +208,7 @@ static uint8_t dynatrace_ingest_parse_line(char *line, size_t len, context_arg *
 		labels_hash_free(lbl);
 		return 1;
 	}
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Dynatrace API metric value.");
 	metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	return 1;
 }

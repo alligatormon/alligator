@@ -3,6 +3,7 @@
 #include <jansson.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/aggregator.h"
@@ -50,6 +51,11 @@ typedef struct patroni_settings
     char *node_name;
 } patroni_settings;
 
+static inline void patroni_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Patroni REST API exported cluster metric value.");
+}
+
 void patroni_string_to_label(json_t *root, char *str, context_arg *carg)
 {
 	json_t *jstr = json_object_get(root, str);
@@ -58,7 +64,10 @@ void patroni_string_to_label(json_t *root, char *str, context_arg *carg)
 	char metric_name[255];
 	snprintf(metric_name, 254, "patroni_%s", str);
 	if (stat_str)
+	{
+		patroni_metric_set(carg, metric_name);
 		metric_add_labels(metric_name, &vl, DATATYPE_UINT, carg, str, stat_str);
+	}
 	carg->parser_status = 1;
 }
 
@@ -82,11 +91,13 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 		if (jsontype == JSON_TRUE)
 		{
 			vl = 1;
+			patroni_metric_set(carg, "patroni_cluster_unlocked");
 			metric_add_auto("patroni_cluster_unlocked", &vl, DATATYPE_UINT, carg);
 		}
 		else if (jsontype == JSON_FALSE)
 		{
 			vl = 0;
+			patroni_metric_set(carg, "patroni_cluster_unlocked");
 			metric_add_auto("patroni_cluster_unlocked", &vl, DATATYPE_UINT, carg);
 		}
 	}
@@ -96,6 +107,7 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		json_t *jlocation = json_object_get(jxlog, "location");
 		int64_t location = json_integer_value(jlocation);
+		patroni_metric_set(carg, "patroni_xlog_location");
 		metric_add_auto("patroni_xlog_location", &location, DATATYPE_INT, carg);
 	}
 
@@ -136,6 +148,7 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *jsync_priority = json_object_get(replicate, "sync_priority");
 		int64_t sync_priority = json_integer_value(jsync_priority);
 
+		patroni_metric_set(carg, "patroni_replication_sync_priority");
 		metric_add_labels5("patroni_replication_sync_priority", &sync_priority, DATATYPE_INT, carg, "sync_state", sync_state, "state", state, "usename", usename, "client_addr", client_addr, "application_name", application_name);
 	}
 
@@ -166,6 +179,7 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 	uint64_t patroni_members_size = json_array_size(members);
 
+	patroni_metric_set(carg, "patroni_cluster_members");
 	metric_add_auto("patroni_cluster_members", &patroni_members_size, DATATYPE_UINT, carg);
 
 	for (uint64_t i = 0; i < patroni_members_size; i++)
@@ -207,15 +221,18 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *jreceive_lag = json_object_get(replicate, "receive_lag");
 		int64_t receive_lag = json_integer_value(jreceive_lag);
+		patroni_metric_set(carg, "patroni_cluster_receive_lag");
 		metric_add_labels4("patroni_cluster_receive_lag", &receive_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 
 
 		json_t *jreplay_lag = json_object_get(replicate, "replay_lag");
 		int64_t replay_lag = json_integer_value(jreplay_lag);
+		patroni_metric_set(carg, "patroni_cluster_replay_lag");
 		metric_add_labels4("patroni_cluster_replay_lag", &replay_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 
 		json_t *jlag = json_object_get(replicate, "lag");
 		int64_t lag = json_integer_value(jlag);
+		patroni_metric_set(carg, "patroni_cluster_lag");
 		metric_add_labels4("patroni_cluster_lag", &lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 	}
 

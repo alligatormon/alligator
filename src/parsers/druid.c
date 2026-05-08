@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/json_query.h"
@@ -14,6 +15,11 @@
 #define DRUID_NAME_SIZE 255
 #define DRUID_OTHER 0
 #define DRUID_FLOAT 1
+
+static inline void druid_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache Druid exported metric value.");
+}
 
 void druid_sql_execute_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -189,6 +195,7 @@ void druid_status_health_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		health = 1;
 	}
+	druid_metric_set(carg, "druid_status_health");
 	metric_add_auto("druid_status_health", &health, DATATYPE_UINT, carg);
 	carg->parser_status = 1;
 }
@@ -208,6 +215,7 @@ void druid_selfDiscovered_status_handler(char *metrics, size_t size, context_arg
 	if (json_typeof(selfDiscovered_json) == JSON_TRUE)
 		selfDiscovered = 1;
 
+	druid_metric_set(carg, "druid_selfDiscovered_status");
 	metric_add_auto("druid_selfDiscovered_status", &selfDiscovered, DATATYPE_UINT, carg);
 
 	json_decref(root);
@@ -229,6 +237,7 @@ void druid_coordinator_isleader_handler(char *metrics, size_t size, context_arg 
 	if (json_typeof(leader_json) == JSON_TRUE)
 		leader = 1;
 
+	druid_metric_set(carg, "druid_coordinator_isLeader");
 	metric_add_auto("druid_coordinator_isLeader", &leader, DATATYPE_UINT, carg);
 
 	json_decref(root);
@@ -239,6 +248,7 @@ void druid_coordinator_leader_handler(char *metrics, size_t size, context_arg *c
 {
 	trim(metrics);
 	uint64_t leader = 1;
+	druid_metric_set(carg, "druid_coordinator_leader");
 	metric_add_labels("druid_coordinator_leader", &leader, DATATYPE_UINT, carg, "leader", metrics);
 }
 
@@ -260,6 +270,7 @@ void druid_coordinator_loadstatus_handler(char *metrics, size_t size, context_ar
 		if (type == JSON_REAL || type == JSON_INTEGER)
 		{
 			double metric_value = (type == JSON_REAL) ? json_real_value(loadstatus_opt) : (double)json_integer_value(loadstatus_opt);
+			druid_metric_set(carg, "druid_coordinator_loadstatus");
 			metric_add_labels("druid_coordinator_loadstatus", &metric_value, DATATYPE_DOUBLE, carg, "loadstatus", (char*)loadstatus_key);
 		}
 	}
@@ -300,14 +311,17 @@ void druid_coordinator_servers_handler(char *metrics, size_t size, context_arg *
 
 		json_t *priority_json = json_object_get(srv, "priority");
 		int64_t priority = json_integer_value(priority_json);
+		druid_metric_set(carg, "druid_coordinator_servers_priority");
 		metric_add_labels3("druid_coordinator_servers_priority", &priority, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
 
 		json_t *currSize_json = json_object_get(srv, "currSize");
 		int64_t currSize = json_integer_value(currSize_json);
+		druid_metric_set(carg, "druid_coordinator_servers_currSize");
 		metric_add_labels3("druid_coordinator_servers_currSize", &currSize, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
 
 		json_t *maxSize_json = json_object_get(srv, "maxSize");
 		int64_t maxSize = json_integer_value(maxSize_json);
+		druid_metric_set(carg, "druid_coordinator_servers_maxSize");
 		metric_add_labels3("druid_coordinator_servers_maxSize", &maxSize, DATATYPE_INT, carg, "host", host, "tier", tier, "type", type);
 	}
 
@@ -347,6 +361,7 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 		if (!strcmp(scheduleStatus, "RUNNING"))
 			schedstat = 1;
 
+		druid_metric_set(carg, "druid_coordinator_compaction_latest_status_running");
 		metric_add_labels("druid_coordinator_compaction_latest_status_running", &schedstat, DATATYPE_UINT, carg, "dataSource", dataSource);
 
 		const char *status_key;
@@ -358,12 +373,14 @@ void druid_coordinator_compaction_status_handler(char *metrics, size_t size, con
 			{
 				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
 				int64_t metric_value = json_integer_value(status_opt);
+				druid_metric_set(carg, metric_name);
 				metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "dataSource", dataSource);
 			}
 			else if (type == JSON_REAL)
 			{
 				strlcpy(metric_name+43, status_key, DRUID_NAME_SIZE - 43);
 				double metric_value = json_real_value(status_opt);
+				druid_metric_set(carg, metric_name);
 				metric_add_labels(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "dataSource", dataSource);
 			}
 		}
@@ -407,6 +424,7 @@ void druid_coordinator_metadata_datasources_handler(char *metrics, size_t size, 
 			int64_t val = 1;
 			if (dimensions)
 			{
+				druid_metric_set(carg, "druid_coordinator_metadata_datasources_dimensions");
 				metric_add_labels3("druid_coordinator_metadata_datasources_dimensions", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "dimensions", dimensions);
 			}
 
@@ -414,28 +432,38 @@ void druid_coordinator_metadata_datasources_handler(char *metrics, size_t size, 
 			json_t *loadSpec_type_json = json_object_get(loadSpec, "type");
 			char *loadSpec_type = (char*)json_string_value(loadSpec_type_json);
 			if (loadSpec_type)
+			{
+				druid_metric_set(carg, "druid_coordinator_metadata_datasources_loadSpec_type");
 				metric_add_labels3("druid_coordinator_metadata_datasources_loadSpec_type", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "type", loadSpec_type);
+			}
 
 			json_t *shardSpec = json_object_get(segment, "shardSpec");
 			json_t *shardSpec_type_json = json_object_get(shardSpec, "type");
 			char *shardSpec_type = (char*)json_string_value(shardSpec_type_json);
 			if (shardSpec_type)
+			{
+				druid_metric_set(carg, "druid_coordinator_metadata_datasources_shardSpec_type");
 				metric_add_labels3("druid_coordinator_metadata_datasources_shardSpec_type", &val, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier, "type", shardSpec_type);
+			}
 
 			json_t *shardSpec_partitionNum = json_object_get(shardSpec, "partitionNum");
 			int64_t partitionNum = json_integer_value(shardSpec_partitionNum);
+			druid_metric_set(carg, "druid_coordinator_metadata_datasources_partitionNum");
 			metric_add_labels2("druid_coordinator_metadata_datasources_partitionNum", &partitionNum, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
 
 			json_t *shardSpec_partitions = json_object_get(shardSpec, "partitions");
 			uint64_t partitions = json_integer_value(shardSpec_partitions);
+			druid_metric_set(carg, "druid_coordinator_metadata_datasources_partitions");
 			metric_add_labels2("druid_coordinator_metadata_datasources_partitions", &partitions, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
 
 			json_t *size_json = json_object_get(segment, "size");
 			uint64_t size = json_integer_value(size_json);
+			druid_metric_set(carg, "druid_coordinator_metadata_datasources_size");
 			metric_add_labels2("druid_coordinator_metadata_datasources_size", &size, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
 
 			json_t *binaryVersion_json = json_object_get(segment, "binaryVersion");
 			uint64_t binaryVersion = json_integer_value(binaryVersion_json);
+			druid_metric_set(carg, "druid_coordinator_metadata_datasources_binaryVersion");
 			metric_add_labels2("druid_coordinator_metadata_datasources_binaryVersion", &binaryVersion, DATATYPE_INT, carg, "dataSource", name, "identifier", identifier);
 		}
 	}
@@ -487,6 +515,7 @@ void druid_indexer_tasks_handler(char *metrics, size_t size, context_arg *carg)
 		json_t *duration_json = json_object_get(task, "duration");
 		double duration = json_real_value(duration_json);
 
+		druid_metric_set(carg, "druid_indexer_tasks_duration");
 		metric_add_labels5("druid_indexer_tasks_duration", &duration, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "id", id, "groupId", groupId, "type", type, "status", status);
 	}
 
@@ -524,6 +553,7 @@ void druid_indexer_supervisor_handler(char *metrics, size_t size, context_arg *c
 		if (json_typeof(healthy_json) == JSON_TRUE)
 			healthy = 1;
 
+		druid_metric_set(carg, "druid_indexer_supervisor_healthy");
 		metric_add_labels2("druid_indexer_supervisor_healthy", &healthy, DATATYPE_UINT, carg, "spec", spec, "detailedState", detailedState);
 	}
 
@@ -549,6 +579,7 @@ void druid_worker_handler(char *metrics, size_t size, context_arg *carg)
 		if (json_typeof(status_opt) == JSON_TRUE)
 			enabled = 1;
 
+		druid_metric_set(carg, "druid_worker_enabled");
 		metric_add_labels("druid_worker_enabled", &enabled, DATATYPE_INT, carg, "host", (char*)host);
 	}
 

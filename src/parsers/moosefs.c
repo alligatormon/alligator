@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/validator.h"
 #include "common/aggregator.h"
@@ -11,6 +12,11 @@
 #include "main.h"
 #define MOOSEFS_METRIC_SIZE 256
 #define MOOSEFS_FIELD_SIZE 1024
+
+static inline void moosefs_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "MooseFS exported metric value.");
+}
 
 void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -40,6 +46,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					uint64_t val = 1;
+					moosefs_metric_set(carg, metric_name);
 					metric_add_labels2(metric_name, &val, DATATYPE_UINT, carg, "ip",  ip, objname[k], token);
 				}
 				else if ((k >= 9) && (k <= 11)) //   last_meta_save:- last_save_duration:- last_save_status:-
@@ -48,6 +55,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_labels(metric_name, &val, DATATYPE_DOUBLE, carg, "ip",  ip);
 				}
 			}
@@ -77,6 +85,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, param, MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_auto(metric_name, &val, DATATYPE_INT, carg);
 				}
 			}
@@ -102,6 +111,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_labels(metric_name, &val, DATATYPE_INT, carg, "param",  param);
 				}
 			}
@@ -128,6 +138,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, param, MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_auto(metric_name, &val, DATATYPE_INT, carg);
 				}
 			}
@@ -158,6 +169,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_labels(metric_name, &val, DATATYPE_INT, carg, objname[k], token);
 				}
 				else if (k > 6)
@@ -166,6 +178,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);
+					moosefs_metric_set(carg, metric_name);
 					metric_add_labels3(metric_name, &val, DATATYPE_DOUBLE, carg, "host", host, "port", port, "id", id);
 				}
 			}

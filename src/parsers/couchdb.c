@@ -3,12 +3,18 @@
 #include <jansson.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
 #include "main.h"
 #define COUCHDB_LEN 1000
+
+static inline void couchdb_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "CouchDB exported metric value.");
+}
 
 void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -48,21 +54,25 @@ void couchdb_stats_handler(char *metrics, size_t size, context_arg *carg)
 				if (type == JSON_REAL)
 				{
 					double metric_value = json_real_value(tag_value);
+					couchdb_metric_set(carg, metric_name);
 					metric_add_labels2(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "type", (char*)tag_key, "db", (char*)db_key);
 				}
 				else if (type == JSON_INTEGER)
 				{
 					int64_t metric_value = json_integer_value(tag_value);
+					couchdb_metric_set(carg, metric_name);
 					metric_add_labels2(metric_name, &metric_value, DATATYPE_INT, carg, "type", (char*)tag_key, "db", (char*)db_key);
 				}
 				else if (type == JSON_TRUE)
 				{
 					int64_t metric_value = 1;
+					couchdb_metric_set(carg, metric_name);
 					metric_add_labels2(metric_name, &metric_value, DATATYPE_INT, carg, "type", (char*)tag_key, "db", (char*)db_key);
 				}
 				else if (type == JSON_FALSE)
 				{
 					int64_t metric_value = 0;
+					couchdb_metric_set(carg, metric_name);
 					metric_add_labels2(metric_name, &metric_value, DATATYPE_INT, carg, "type", (char*)tag_key, "db", (char*)db_key);
 				}
 			}
@@ -108,6 +118,7 @@ void couchdb_config_handler(char *metrics, size_t size, context_arg *carg)
 				if (metric_value_string && isdigit((unsigned char)*metric_value_string))
 				{
 					int64_t metric_value = strtoll(metric_value_string, NULL, 10);
+					couchdb_metric_set(carg, metric_name);
 					metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "context", (char*)context_key);
 				}
 			}
@@ -179,21 +190,25 @@ void couchdb_active_tasks_handler(char *metrics, size_t size, context_arg *carg)
 			if (type == JSON_REAL)
 			{
 				double metric_value = json_real_value(context_value);
+				couchdb_metric_set(carg, metric_name);
 				metric_add(metric_name, hash, &metric_value, DATATYPE_DOUBLE, carg);
 			}
 			else if (type == JSON_INTEGER)
 			{
 				int64_t metric_value = json_integer_value(context_value);
+				couchdb_metric_set(carg, metric_name);
 				metric_add(metric_name, hash, &metric_value, DATATYPE_INT, carg);
 			}
 			else if (type == JSON_TRUE)
 			{
 				int64_t metric_value = 1;
+				couchdb_metric_set(carg, metric_name);
 				metric_add(metric_name, hash, &metric_value, DATATYPE_INT, carg);
 			}
 			else if (type == JSON_FALSE)
 			{
 				int64_t metric_value = 0;
+				couchdb_metric_set(carg, metric_name);
 				metric_add(metric_name, hash, &metric_value, DATATYPE_INT, carg);
 			}
 		}
@@ -244,21 +259,25 @@ void couchdb_db_stats(char *metrics, size_t size, context_arg *carg)
 		if (type == JSON_REAL)
 		{
 			double metric_value = json_real_value(metric_opts);
+			couchdb_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "db", (char*)db_name_string);
 		}
 		else if (type == JSON_INTEGER)
 		{
 			int64_t metric_value = json_integer_value(metric_opts);
+			couchdb_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "db", (char*)db_name_string);
 		}
 		else if (type == JSON_TRUE)
 		{
 			int64_t metric_value = 1;
+			couchdb_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "db", (char*)db_name_string);
 		}
 		else if (type == JSON_FALSE)
 		{
 			int64_t metric_value = 0;
+			couchdb_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &metric_value, DATATYPE_INT, carg, "db", (char*)db_name_string);
 		}
 	}

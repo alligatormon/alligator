@@ -8,6 +8,7 @@
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define POWERDNS_METRIC_SIZE 1000
 void powerdns_handler(char *metrics, size_t size, context_arg *carg)
@@ -43,6 +44,7 @@ void powerdns_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t tvalue = atoll(tvalue_str);
 
 		strlcpy(metricname+9, tname, POWERDNS_METRIC_SIZE-10);
+		namespace_metric_family_set(NULL, carg, metricname, METRIC_TYPE_GAUGE, "PowerDNS exported metric value.");
 		metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 	}
 	json_decref(root);

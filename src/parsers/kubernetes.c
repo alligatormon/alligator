@@ -4,6 +4,7 @@
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/json_query.h"
+#include "metric/metric_types.h"
 #include "api/api.h"
 #include "main.h"
 
@@ -43,6 +44,8 @@ int kubernetes_endpoint_port_compare(const void* arg, const void* obj)
 
 void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "kubernetes", METRIC_TYPE_GAUGE, "Kubernetes-discovered metrics.");
+
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -110,6 +113,8 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 
 void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "kubernetes", METRIC_TYPE_GAUGE, "Kubernetes-discovered metrics.");
+
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)

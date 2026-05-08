@@ -3,11 +3,22 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define UNBOUND_NAME_SIZE 1024
 
 void unbound_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "unbound_recursion_time_avg", METRIC_TYPE_GAUGE, "Unbound recursion average time.");
+	namespace_metric_family_set(NULL, carg, "unbound_duration_microseconds", METRIC_TYPE_HISTOGRAM, "Unbound recursion duration buckets.");
+	namespace_metric_family_set(NULL, carg, "unbound_uptime", METRIC_TYPE_GAUGE, "Unbound uptime.");
+	namespace_metric_family_set(NULL, carg, "unbound_total_tcpusage", METRIC_TYPE_GAUGE, "Unbound total TCP usage.");
+	namespace_metric_family_set(NULL, carg, "unbound_total_recursion_time_median", METRIC_TYPE_GAUGE, "Unbound median recursion time.");
+	namespace_metric_family_set(NULL, carg, "unbound_num_rrset_bogus", METRIC_TYPE_COUNTER, "Unbound bogus rrset counters.");
+	namespace_metric_family_set(NULL, carg, "unbound_unwanted_queries", METRIC_TYPE_COUNTER, "Unbound unwanted query counters.");
+	namespace_metric_family_set(NULL, carg, "unbound_unwanted_replies", METRIC_TYPE_COUNTER, "Unbound unwanted reply counters.");
+	namespace_metric_family_set(NULL, carg, "unbound_cache_count", METRIC_TYPE_GAUGE, "Unbound cache object counts.");
+
 	uint64_t i = 0;
 	char tmp[UNBOUND_NAME_SIZE];
 	char tmp2[UNBOUND_NAME_SIZE];
@@ -47,6 +58,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 				strlcpy(tmp4, "unbound_thread_", UNBOUND_NAME_SIZE);
 				strlcpy(tmp4 + strlen(tmp4), tmp3, UNBOUND_NAME_SIZE - strlen(tmp4));
 				metric_name_normalizer(tmp4, strlen(tmp4));
+				namespace_metric_family_set(NULL, carg, tmp4, METRIC_TYPE_GAUGE, "Unbound per-thread exported metric value.");
 				metric_add_labels(tmp4, &val, DATATYPE_UINT, carg, "thread", tmp2);
 			}
 		}
@@ -140,6 +152,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(tmp2+8, tmp, lastdot-tmp);
 			metric_name_normalizer(tmp2, lastdot-tmp+7);
 			strlcpy(tmp3, pre_lastdot, lastdot-pre_lastdot);
+			namespace_metric_family_set(NULL, carg, tmp2, METRIC_TYPE_GAUGE, "Unbound exported metric value.");
 			//printf("finded dot: '%s' to '%s' {'%s'='%s'}\n", tmp, tmp2, tmp3, lastdot);
 			metric_add_labels(tmp2, &val, DATATYPE_UINT, carg, tmp3, lastdot);
 		}

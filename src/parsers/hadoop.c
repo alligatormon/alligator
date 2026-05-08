@@ -4,12 +4,19 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
 #include "main.h"
 #define HADOOP_METRIC_SIZE 1000
+
+static inline void hadoop_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Hadoop JMX exported metric value.");
+}
+
 void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_t *root;
@@ -49,6 +56,7 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				strlcpy(metricname+7, val, HADOOP_METRIC_SIZE-8);
 				double tvalue = json_real_value(jobj);
+				hadoop_metric_set(carg, metricname);
 				if (modelerType)
 					metric_add_labels(metricname, &tvalue, DATATYPE_DOUBLE, carg, "modelerType", modelerType);
 				else
@@ -58,6 +66,7 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				strlcpy(metricname+7, val, HADOOP_METRIC_SIZE-8);
 				int64_t tvalue = json_integer_value(jobj);
+				hadoop_metric_set(carg, metricname);
 				if (modelerType)
 					metric_add_labels(metricname, &tvalue, DATATYPE_INT, carg, "modelerType", modelerType);
 				else

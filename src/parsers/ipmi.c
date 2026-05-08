@@ -4,12 +4,59 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "parsers/ipmi.h"
 #include "main.h"
 #define IPMI_METRIC_SIZE 256
+
+static const char* ipmi_metric_help(const char *metric_name)
+{
+	if (!metric_name)
+		return "IPMI metric value.";
+	if (!strcmp(metric_name, "ipmi_eventlog_key"))
+		return "Count of IPMI SEL events grouped by event key, state, and resource.";
+	if (!strcmp(metric_name, "ipmi_eventlog_size"))
+		return "Total number of IPMI SEL entries.";
+	if (!strcmp(metric_name, "ipmi_sensor_stat"))
+		return "Current IPMI sensor reading grouped by sensor name and measurement unit.";
+	if (!strcmp(metric_name, "ipmi_sensor_status"))
+		return "IPMI sensor health status where 1 means ok.";
+	if (!strcmp(metric_name, "ipmi_sensor_lower_non_recoverable"))
+		return "IPMI sensor lower non-recoverable threshold.";
+	if (!strcmp(metric_name, "ipmi_sensor_lower_critical"))
+		return "IPMI sensor lower critical threshold.";
+	if (!strcmp(metric_name, "ipmi_sensor_lower_non_critical"))
+		return "IPMI sensor lower non-critical threshold.";
+	if (!strcmp(metric_name, "ipmi_sensor_non_recoverable"))
+		return "IPMI sensor upper non-recoverable threshold.";
+	if (!strcmp(metric_name, "ipmi_sensor_upper_critical"))
+		return "IPMI sensor upper critical threshold.";
+	if (!strcmp(metric_name, "ipmi_sensor_upper_non_critical"))
+		return "IPMI sensor upper non-critical threshold.";
+	if (!strcmp(metric_name, "IPMI_Lan"))
+		return "IPMI LAN configuration presence and attributes.";
+	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_instantaneous"))
+		return "IPMI DCMI instantaneous power reading in watts.";
+	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_minimum"))
+		return "IPMI DCMI minimum power reading during the sampling period.";
+	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_maximum"))
+		return "IPMI DCMI maximum power reading during the sampling period.";
+	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_average_over_sample_period"))
+		return "IPMI DCMI average power reading over the sampling period.";
+	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_state"))
+		return "IPMI DCMI power reading state where 1 means activated.";
+	if (!strncmp(metric_name, "IPMI_", 5))
+		return "IPMI chassis or SEL information field converted to a numeric value.";
+	return "IPMI metric value.";
+}
+
+static inline void ipmi_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, ipmi_metric_help(metric_name));
+}
 
 typedef struct ipmi_data
 {
@@ -54,6 +101,7 @@ void event_log_for(void *funcarg, void* arg)
 	eventlog_node *eventnode = arg;
 	context_arg *carg = funcarg;
 
+	ipmi_metric_set(carg, "ipmi_eventlog_key");
 	metric_add_labels3("ipmi_eventlog_key", &eventnode->val, DATATYPE_UINT, carg, "key",  eventnode->key, "state", eventnode->state, "resource", eventnode->resource);
 	free(eventnode);
 	carg->parser_status = 1;
@@ -140,6 +188,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
+		ipmi_metric_set(carg, "ipmi_sensor_stat");
 		metric_add_labels2("ipmi_sensor_stat", &cur, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 
 		// state
@@ -157,6 +206,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		uint64_t state_int = 0;
 		if ((state[0] == 'o') && (state[1] == 'k'))
 			state_int = 1;
+		ipmi_metric_set(carg, "ipmi_sensor_status");
 		metric_add_labels2("ipmi_sensor_status", &state_int, DATATYPE_UINT, carg, "name",  name, "measure", measure);
 
 		i += newind;
@@ -168,6 +218,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tlower_non_recoverable is '%lf'\n", lower_non_recoverable);
+			ipmi_metric_set(carg, "ipmi_sensor_lower_non_recoverable");
 			metric_add_labels2("ipmi_sensor_lower_non_recoverable", &lower_non_recoverable, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -179,6 +230,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tlower_critical is '%lf'\n", lower_critical);
+			ipmi_metric_set(carg, "ipmi_sensor_lower_critical");
 			metric_add_labels2("ipmi_sensor_lower_critical", &lower_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -190,6 +242,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tlower_non_critical is '%lf'\n", lower_non_critical);
+			ipmi_metric_set(carg, "ipmi_sensor_lower_non_critical");
 			metric_add_labels2("ipmi_sensor_lower_non_critical", &lower_non_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -201,6 +254,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tupper_non_recoverable is '%lf'\n", upper_non_recoverable);
+			ipmi_metric_set(carg, "ipmi_sensor_non_recoverable");
 			metric_add_labels2("ipmi_sensor_non_recoverable", &upper_non_recoverable, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -212,6 +266,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tupper_critical is '%lf'\n", upper_critical);
+			ipmi_metric_set(carg, "ipmi_sensor_upper_critical");
 			metric_add_labels2("ipmi_sensor_upper_critical", &upper_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -223,6 +278,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (carg->log_level > 1)
 				printf("\tupper_non_critical is '%lf'\n", upper_non_critical);
+			ipmi_metric_set(carg, "ipmi_sensor_upper_non_critical");
 			metric_add_labels2("ipmi_sensor_upper_non_critical", &upper_non_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
 		i += newind;
@@ -338,6 +394,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 
 	alligator_ht_foreach_arg(idata->event_log, event_log_for, carg);
 	alligator_ht_done(idata->event_log);
+	ipmi_metric_set(carg, "ipmi_eventlog_size");
 	metric_add_auto("ipmi_eventlog_size", &num, DATATYPE_UINT, carg);
 	carg->parser_status = 1;
 }
@@ -383,16 +440,19 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 		if (!strcmp(state, "on") || !strcmp(state, "true"))
 		{
 			val = 1;
+			ipmi_metric_set(carg, name);
 			metric_add_auto(name, &val, DATATYPE_UINT, carg);
 		}
 		else if (!strcmp(state, "inactive") || !strcmp(state, "false") || !strcmp(state, "none"))
 		{
 			val = 0;
+			ipmi_metric_set(carg, name);
 			metric_add_auto(name, &val, DATATYPE_UINT, carg);
 		}
 		else
 		{
 			val = 1;
+			ipmi_metric_set(carg, name);
 			metric_add_labels(name, &val, DATATYPE_UINT, carg, "state", state);
 		}
 
@@ -466,10 +526,12 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 
 		if (!strcmp(name, "IPMI_Version"))
 		{
+			ipmi_metric_set(carg, name);
 			metric_add_auto(name, &dval, DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
+			ipmi_metric_set(carg, name);
 			metric_add_auto(name, &val, DATATYPE_UINT, carg);
 		}
 
@@ -537,6 +599,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
+	ipmi_metric_set(carg, "IPMI_Lan");
 	metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
 	carg->parser_status = 1;
 }
@@ -586,18 +649,31 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 		double dval = strtod(state, NULL);
 
 		if (!strcmp(name, "Instantaneous power reading:"))
+		{
+			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_instantaneous");
 			metric_add_auto("IPMI_dcmi_power_reading_instantaneous", &dval, DATATYPE_DOUBLE, carg);
+		}
 		else if (!strcmp(name, "Minimum during sampling period:"))
+		{
+			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_minimum");
 			metric_add_auto("IPMI_dcmi_power_reading_minimum", &dval, DATATYPE_DOUBLE, carg);
+		}
 		else if (!strcmp(name, "Maximum during sampling period:"))
+		{
+			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_maximum");
 			metric_add_auto("IPMI_dcmi_power_reading_maximum", &dval, DATATYPE_DOUBLE, carg);
+		}
 		else if (!strcmp(name, "Average power reading over sample period:"))
+		{
+			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_average_over_sample_period");
 			metric_add_auto("IPMI_dcmi_power_reading_average_over_sample_period", &dval, DATATYPE_DOUBLE, carg);
+		}
 		else if (!strcmp(name, "Power reading state is:")) {
 			if (!strcmp(state, "activated"))
 				val = 1;
 			else
 				val = 0;
+			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_state");
 			metric_add_auto("IPMI_dcmi_power_reading_state", &val, DATATYPE_UINT, carg);
 		}
 

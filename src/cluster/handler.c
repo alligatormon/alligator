@@ -8,7 +8,7 @@
 #include "query/type.h"
 #include "common/selector.h"
 #include "common/logs.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define ROW_LEN 8192
 #define LABEL_LEN 4096

@@ -4,8 +4,15 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #define NIFI_METRIC_SIZE 1000
+
+static inline void nifi_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache NiFi exported metric value.");
+}
+
 void nifi_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_t *root;
@@ -48,12 +55,14 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			int64_t tvalue = json_integer_value(value_json1);
 			strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
+			nifi_metric_set(carg, metricname);
 			metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 		}
 		if ( json_typeof(value_json1) == JSON_REAL )
 		{
 			double dvalue = json_real_value(value_json1);
 			strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
+			nifi_metric_set(carg, metricname);
 			metric_add_auto(metricname, &dvalue, DATATYPE_DOUBLE, carg);
 		}
 		else if ( json_typeof(value_json1) == JSON_OBJECT )
@@ -71,12 +80,14 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					int64_t tvalue = json_integer_value(value_json2);
 					strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+					nifi_metric_set(carg, metricname2);
 					metric_add_auto(metricname2, &tvalue, DATATYPE_INT, carg);
 				}
 				if ( json_typeof(value_json2) == JSON_REAL )
 				{
 					double dvalue = json_real_value(value_json2);
 					strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+					nifi_metric_set(carg, metricname2);
 					metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 				}
 				if ( json_typeof(value_json2) == JSON_STRING )
@@ -87,6 +98,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 						double dvalue = atof(customkey);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
 
+						nifi_metric_set(carg, metricname2);
 						metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 					}
 				}
@@ -122,12 +134,14 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					{
 						int64_t tvalue = json_integer_value(value_json2);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+						nifi_metric_set(carg, metricname2);
 						metric_add_labels(metricname2, &tvalue, DATATYPE_INT, carg, "identifier", identifier);
 					}
 					if ( json_typeof(value_json2) == JSON_REAL )
 					{
 						double dvalue = json_real_value(value_json2);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+						nifi_metric_set(carg, metricname2);
 						metric_add_labels(metricname2, &dvalue, DATATYPE_DOUBLE, carg, "identifier", identifier);
 					}
 					if ( json_typeof(value_json2) == JSON_STRING )
@@ -138,6 +152,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 							double dvalue = atof(customkey);
 							strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
 
+							nifi_metric_set(carg, metricname2);
 							metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 						}
 					}
@@ -155,6 +170,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 
 				strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
 
+				nifi_metric_set(carg, metricname);
 				metric_add_auto(metricname, &dvalue, DATATYPE_DOUBLE, carg);
 			}
 		}

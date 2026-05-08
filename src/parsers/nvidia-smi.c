@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
@@ -11,6 +12,11 @@
 #define NVIDIA_SMI_MAX_LEN 255
 #define NVIDIA_SMI_WIDE_LEN 8192
 #define NVIDIA_SMI_METRIC_PREFIX "nvidia_smi_"
+
+static inline void nvidia_smi_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "NVIDIA SMI exported GPU metric value.");
+}
 
 void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -64,6 +70,7 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
+					nvidia_smi_metric_set(carg, metric_name);
 					metric_add_labels4(metric_name, &val, DATATYPE_UINT, carg, "name", gpu_name, "uuid", gpu_uuid, "serial", gpu_serial, "version", str);
 				}
 				else if (!strcmp(columns[j], "driver_version")) {
@@ -71,6 +78,7 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
+					nvidia_smi_metric_set(carg, metric_name);
 					metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "version", str);
 				}
 				else if (!strcmp(columns[j], "pstate")) {
@@ -78,12 +86,14 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					metric_label_value_validator_normalizer(str, strlen(str));
 					uint64_t val = 1;
+					nvidia_smi_metric_set(carg, metric_name);
 					metric_add_labels4(metric_name, &val, DATATYPE_UINT, carg, "name", gpu_name, "uuid", gpu_uuid, "serial", gpu_serial, "pstate", str);
 				}
 				else if (!strcmp(columns[j], "count")) {
 					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					uint64_t val = strtoull(str, NULL, 10);
+					nvidia_smi_metric_set(carg, metric_name);
 					metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 				}
 				else {
@@ -123,6 +133,7 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 					}
 
 					//printf("metric '%s' value is '%s' -> %lf\n", metric_name, str, value);
+					nvidia_smi_metric_set(carg, metric_name);
 					metric_add_labels3(metric_name, &value, DATATYPE_DOUBLE, carg, "name", gpu_name, "uuid", gpu_uuid, "serial", gpu_serial);
 				}
 			}

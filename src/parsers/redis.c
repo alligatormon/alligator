@@ -6,6 +6,7 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "parsers/multiparser.h"
+#include "metric/metric_types.h"
 #include "query/type.h"
 #include "main.h"
 
@@ -226,6 +227,22 @@ void redis_queries(char *metrics, size_t size, context_arg *carg)
 
 void redis_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "redis_used_memory", METRIC_TYPE_GAUGE, "Redis memory usage statistics.");
+	namespace_metric_family_set(NULL, carg, "redis_total_system_memory", METRIC_TYPE_GAUGE, "Total system memory as reported by Redis.");
+	namespace_metric_family_set(NULL, carg, "redis_maxmemory", METRIC_TYPE_GAUGE, "Configured Redis maxmemory.");
+	namespace_metric_family_set(NULL, carg, "redis_mem_fragmentation_ratio", METRIC_TYPE_GAUGE, "Redis memory fragmentation ratio.");
+	namespace_metric_family_set(NULL, carg, "redis_maxmemory_policy", METRIC_TYPE_GAUGE, "Redis maxmemory policy state.");
+	namespace_metric_family_set(NULL, carg, "redis_used_cpu", METRIC_TYPE_COUNTER, "Redis consumed CPU time by source.");
+	namespace_metric_family_set(NULL, carg, "redis_error_stat", METRIC_TYPE_COUNTER, "Redis error counters by stat label.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_calls", METRIC_TYPE_COUNTER, "Redis command call counters.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_usec", METRIC_TYPE_COUNTER, "Redis command time counters in microseconds.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_usec_per_call", METRIC_TYPE_GAUGE, "Redis average microseconds per command call.");
+	namespace_metric_family_set(NULL, carg, "redis_keys", METRIC_TYPE_GAUGE, "Redis keys per logical database.");
+	namespace_metric_family_set(NULL, carg, "redis_expires", METRIC_TYPE_GAUGE, "Redis expiring keys per logical database.");
+	namespace_metric_family_set(NULL, carg, "redis_avg_ttl", METRIC_TYPE_GAUGE, "Redis average TTL per logical database.");
+	namespace_metric_family_set(NULL, carg, "redis_role", METRIC_TYPE_GAUGE, "Redis role state encoded as labels.");
+	namespace_metric_family_set(NULL, carg, "redis_master_link_status", METRIC_TYPE_GAUGE, "Redis master link status encoded as labels.");
+
 	char *tmp = strstr(metrics, "# Server");
 	if (!tmp)
 		return;
@@ -551,11 +568,13 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				if (type == DATATYPE_UINT)
 				{
 					uint64_t vl = atoll(mval);
+					namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Redis INFO field exported as a numeric value.");
 					metric_add_auto(mname, &vl, DATATYPE_UINT, carg);
 				}
 				else if (type == DATATYPE_DOUBLE)
 				{
 					double dl = strtod(mval, NULL);
+					namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Redis INFO field exported as a numeric value.");
 					metric_add_auto(mname, &dl, DATATYPE_DOUBLE, carg);
 				}
 			}
@@ -578,6 +597,8 @@ int8_t redis_validator(context_arg *carg, char *data, size_t size)
 
 void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "redis_cluster_state", METRIC_TYPE_GAUGE, "Redis cluster state flag.");
+
 	char *tmp;
 	tmp = strstr(metrics, "cluster_state");
 	if (!tmp)
@@ -611,6 +632,7 @@ void redis_cluster_handler(char *metrics, size_t size, context_arg *carg)
 		tmp += strspn(tmp, ": ");
 		mval = strtoll(tmp, &tmp, 10);
 
+		namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "Redis CLUSTER INFO field exported as a numeric value.");
 		metric_add_auto(mname, &mval, DATATYPE_INT, carg);
 		//printf("%s(%u),%s: %d\n", mname, fsize, mname, mval);
 	}
@@ -664,6 +686,7 @@ void redis_memory_stat_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			metric_data = strtoll(field + 1, NULL, 10);
 			//printf("metric: '%s', data: %u\n", metric_name, metric_data);
+			namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Redis MEMORY STATS field exported as a numeric value.");
 			metric_add_auto(metric_name, &metric_data, DATATYPE_INT, carg);
 		}
 		else
@@ -687,6 +710,8 @@ int8_t redis_memory_stat_validator(context_arg *carg, char *data, size_t size)
 
 void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "redis_latency_stat_ms", METRIC_TYPE_GAUGE, "Redis latency statistic in milliseconds.");
+
 	char field[REDIS_NAME_SIZE];
 	char indicator[REDIS_NAME_SIZE];
 	char metric_name[REDIS_NAME_SIZE];

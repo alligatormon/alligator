@@ -6,20 +6,24 @@
 #include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "metric/metric_types.h"
 #include "main.h"
 // check for actual with https://docs.nats.io/running-a-nats-service/nats_admin/monitoring
 void nats_varz_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nats_varz", METRIC_TYPE_GAUGE, "NATS varz metrics.");
 	carg->parser_status = json_query(metrics, NULL, "nats_varz", carg, carg->pquery, carg->pquery_size);
 }
 
 void nats_subsz_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nats_subz", METRIC_TYPE_GAUGE, "NATS subsz metrics.");
 	carg->parser_status = json_query(metrics, NULL, "nats_subz", carg, carg->pquery, carg->pquery_size);
 }
 
 void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nats_connz", METRIC_TYPE_GAUGE, "NATS connz metrics.");
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));
 		carg->pquery[0] = strdup(".connections.[cid]");
@@ -30,6 +34,7 @@ void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
 
 void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nats_routez", METRIC_TYPE_GAUGE, "NATS routez metrics.");
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));
 		carg->pquery[0] = strdup(".routes.[rid]");

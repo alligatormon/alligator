@@ -4,12 +4,18 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "main.h"
 #define IPTABLES_LEN 1024
 #define IPTABLES_ARGS " -L -v -x -n"
+
+static inline void firewall_metric_set(context_arg *carg, const char *metric_name, uint8_t type)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, type, "Firewall rule or traffic counter exported from iptables.");
+}
 
 void firewall_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -68,7 +74,9 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 				uint64_t bytes = strtoull(field + ccur, NULL, 10);
 				ccur += strspn(field + ccur, "0123456789");
 
+				firewall_metric_set(carg, "firewall_bytes_total", METRIC_TYPE_COUNTER);
 				metric_add_labels3("firewall_bytes_total", &bytes, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
+				firewall_metric_set(carg, "firewall_packets_total", METRIC_TYPE_COUNTER);
 				metric_add_labels3("firewall_packets_total", &packets, DATATYPE_UINT, carg, "policy", policy, "chain", chain, "table", table);
 			}
 
@@ -148,7 +156,9 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 			//
 			//if (ac->log_level > 0)
 			//	printf("pkts is %"PRId64", bytes is %"PRId64", target is '%s', prot is '%s', opt is '%s', in is '%s', out is '%s', source is '%s', destination is '%s', comment is '%s'\n", pkts, bytes, target, prot, opt, in, out, source, destination, comment);
+			firewall_metric_set(carg, "firewall_bytes", METRIC_TYPE_COUNTER);
 			metric_add_labels10("firewall_bytes", &bytes, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
+			firewall_metric_set(carg, "firewall_packets", METRIC_TYPE_COUNTER);
 			metric_add_labels10("firewall_packets", &pkts, DATATYPE_UINT, carg, "target", target, "chain", chain, "proto", prot, "opt", opt, "dst", destination, "src", source, "table", table, "comment", comment, "match_set", match_set, "dport", dports);
 		}
 

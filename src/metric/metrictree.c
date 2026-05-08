@@ -1,5 +1,5 @@
 #include "main.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"

@@ -64,6 +64,26 @@ Below is an extended JSON example with all commonly used options:
         "post_data": "body request",
         "console_events": true,
         "timeout": "5s",
+        "metricstransform": {
+            "transforms": [
+                {
+                    "include": "puppeteer_eventSourceResponseStatus",
+                    "match_type": "strict",
+                    "operations": [
+                        {
+                            "action": "update_label",
+                            "label": "source",
+                            "value_actions": [
+                                {
+                                    "regex": "^https?://([^/]+).*$",
+                                    "replacement": "$1"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
         "screenshot": {
             "minimum_code": 400,
             "type": "png",
@@ -132,3 +152,138 @@ Directory where screenshots are saved.
 
 ### fullPage
 If `true`, captures full page screenshot.
+
+## metricstransform
+`metricstransform` rewrites label values before exporting metrics.
+Use JSON configuration format for this option.
+
+Use it when you want to:
+- normalize noisy label values (URLs, paths, IDs)
+- extract a portion of label value via regex capture groups
+- reduce high-cardinality labels
+
+The implementation supports an OTel-collector-like structure:
+- `transforms[].include` - target metric name
+- `transforms[].match_type` - `strict` or `regexp`
+- `transforms[].operations[].action` - use `update_label`
+- `transforms[].operations[].label` - label name to update
+- `transforms[].operations[].value_actions[]`:
+  - `regex` - regex pattern for current label value
+  - `replacement` (or `new_value`) - replacement string; supports `$1`, `$2`, ... capture groups
+  - optional `flags` (for example `i`)
+  - optional `replace_all: true`
+
+### metricstransform example: extract host from URL
+```
+"puppeteer": {
+  "https://example.org": {
+    "metricstransform": {
+      "transforms": [
+        {
+          "include": "puppeteer_eventSourceResponseStatus",
+          "match_type": "strict",
+          "operations": [
+            {
+              "action": "update_label",
+              "label": "source",
+              "value_actions": [
+                {
+                  "regex": "^https?://([^/]+).*$",
+                  "replacement": "$1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+### metricstransform example: keep path template only
+```
+"puppeteer": {
+  "https://api.example.org/orders/12345": {
+    "metricstransform": {
+      "transforms": [
+        {
+          "include": "puppeteer_eventRequestFailed",
+          "match_type": "strict",
+          "operations": [
+            {
+              "action": "update_label",
+              "label": "source",
+              "value_actions": [
+                {
+                  "regex": "(^https?://[^/]+/orders/)[0-9]+(.*$)",
+                  "replacement": "$1{id}$2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+### metricstransform example: regexp metric matching
+```
+"puppeteer": {
+  "https://example.org": {
+    "metricstransform": {
+      "transforms": [
+        {
+          "include": "^puppeteer_event.*$",
+          "match_type": "regexp",
+          "operations": [
+            {
+              "action": "update_label",
+              "label": "source",
+              "value_actions": [
+                {
+                  "regex": "(\\?.*)$",
+                  "replacement": "",
+                  "replace_all": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+### metricstransform example: rewrite `source` in all puppeteer metrics
+```
+"puppeteer": {
+  "https://example.org": {
+    "metricstransform": {
+      "transforms": [
+        {
+          "include": "^puppeteer_.*$",
+          "match_type": "regexp",
+          "operations": [
+            {
+              "action": "update_label",
+              "label": "source",
+              "value_actions": [
+                {
+                  "regex": "^https?://([^/]+).*$",
+                  "replacement": "$1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+This rule applies to all puppeteer metrics, but updates only series that already have the `source` label.

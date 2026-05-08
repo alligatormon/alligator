@@ -2,12 +2,18 @@
 #include <string.h>
 #include "common/selector_split_metric.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "parsers/multiparser.h"
 #include "main.h"
 
 #define SENTINEL_SIZE 1000
+
+static inline void sentinel_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Redis Sentinel exported metric value.");
+}
 
 void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -44,11 +50,13 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 
 	if(strstr(tmp, "status=ok"))
 	{
+		sentinel_metric_set(carg, "sentinel_status");
 		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, carg, "status", "ok");
 		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, carg, "status", "fail");
 	}
 	else
 	{
+		sentinel_metric_set(carg, "sentinel_status");
 		metric_add_labels("sentinel_status", &nval, DATATYPE_UINT, carg, "status", "ok");
 		metric_add_labels("sentinel_status", &val, DATATYPE_UINT, carg, "status", "fail");
 	}
@@ -85,7 +93,9 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	tmp = tmp2;
 	sentinels = atoll(tmp+10);
 
+	sentinel_metric_set(carg, "sentinel_slaves");
 	metric_add_labels2("sentinel_slaves", &slaves, DATATYPE_UINT, carg, "name", name, "address", address);
+	sentinel_metric_set(carg, "sentinel_sentinels");
 	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, carg, "name", name, "address", address);
 
 	free(res);

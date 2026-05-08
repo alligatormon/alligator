@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
@@ -11,6 +12,11 @@
 #include "main.h"
 #define MOGILEFS_METRIC_SIZE 256
 #define MOGILEFS_FIELD_SIZE 1024
+
+static inline void mogilefs_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "MogileFS exported metric value.");
+}
 
 void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char *name, char *itemname)
 {
@@ -50,6 +56,7 @@ void mogilefs_full_item_hash(char *metrics, size_t size, context_arg *carg, char
 		int type = metric_value_validator(value, valsize);
 
 		carglog(carg, L_DEBUG, "mogilefs item is '%s:%s' key is '%s' value is '%s', metric_name is '%s', type: %d\n", itemname, item, key, value, metric_name, type);
+		mogilefs_metric_set(carg, metric_name);
 		if (!type)
 		{
 			uint64_t val = 1;
@@ -78,6 +85,7 @@ void mogilefs_device_list(char *metrics, size_t size, context_arg *carg)
 	if (strncmp(metrics, "OK", 2))
 	{
 		uint64_t val = 0;
+		mogilefs_metric_set(carg, "mogilefs_device_list_success");
 		metric_add_auto("mogilefs_device_list_success", &val, DATATYPE_UINT, carg);
 		return;
 	}
@@ -96,11 +104,13 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_DEBUG, "mogilefs fsck status return: %s, return\n", metrics);
 
 		uint64_t val = 0;
+		mogilefs_metric_set(carg, "mogilefs_fsck_running");
 		metric_add_auto("mogilefs_fsck_running", &val, DATATYPE_UINT, carg);
 		return;
 	}
 
 	uint64_t val = 1;
+	mogilefs_metric_set(carg, "mogilefs_fsck_running");
 	metric_add_auto("mogilefs_fsck_running", &val, DATATYPE_UINT, carg);
 
 	char field[MOGILEFS_METRIC_SIZE];
@@ -134,11 +144,15 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_DEBUG, "mogilefs host is '%s'\n", host);
 
 			if (*host)
+			{
+				mogilefs_metric_set(carg, metric_name);
 				metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "host", field);
+			}
 		}
 		else
 		{
 			val = strtoull(field + len, NULL, 10);
+			mogilefs_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		}
 	}
@@ -152,11 +166,13 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_DEBUG, "mogilefs rebalance status return: %s, return\n", metrics);
 
 		uint64_t val = 0;
+		mogilefs_metric_set(carg, "mogilefs_rebalance_running");
 		metric_add_auto("mogilefs_rebalance_running", &val, DATATYPE_UINT, carg);
 		return;
 	}
 
 	uint64_t val = 1;
+	mogilefs_metric_set(carg, "mogilefs_rebalance_running");
 	metric_add_auto("mogilefs_rebalance_running", &val, DATATYPE_UINT, carg);
 
 	char field[MOGILEFS_METRIC_SIZE];
@@ -184,6 +200,7 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 		else
 		{
 			val = strtoull(field + len, NULL, 10);
+			mogilefs_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		}
 	}
@@ -199,6 +216,7 @@ void mogilefs_host_list(char *metrics, size_t size, context_arg *carg)
 	if (strncmp(metrics, "OK", 2))
 	{
 		uint64_t val = 0;
+		mogilefs_metric_set(carg, "mogilefs_host_list_success");
 		metric_add_auto("mogilefs_host_list_success", &val, DATATYPE_UINT, carg);
 		return;
 	}
@@ -234,6 +252,7 @@ void mogilefs_cmd_items(char *metrics, size_t size, context_arg *carg, char *nam
 		int type = metric_value_validator(value, strlen(value));
 
 		carglog(carg, L_DEBUG, "mogilefs field is '%s', metric_name is '%s', val '%s', type '%d'\n", field, metric_name, value, type);
+		mogilefs_metric_set(carg, metric_name);
 
 		if (type == DATATYPE_DOUBLE)
 		{

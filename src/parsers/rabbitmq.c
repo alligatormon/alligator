@@ -7,16 +7,25 @@
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/http.h"
+#include "metric/metric_types.h"
 #include "main.h"
 /* Scratch for dynamic metric names; allocated on heap so handlers stay shallow on the stack. */
 #define RABBITMQ_LEN 1000
 
+static inline void rabbitmq_metric_set(context_arg *carg, const char *name, uint8_t type, const char *help)
+{
+	namespace_metric_family_set(NULL, carg, name, type, help);
+}
+
 void rabbitmq_overview_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq", METRIC_TYPE_GAUGE, "RabbitMQ overview metrics.");
 	carg->parser_status = json_query(metrics, NULL, "rabbitmq", carg, carg->pquery, carg->pquery_size);
 }
 void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq_nodes_cluster_links", METRIC_TYPE_COUNTER, "RabbitMQ cluster link traffic counters.");
+
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -56,6 +65,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			if (node_type == JSON_INTEGER)
 			{
 				strlcpy(node_str1+15, key, RABBITMQ_LEN-15);
+				rabbitmq_metric_set(carg, node_str1, METRIC_TYPE_GAUGE, "RabbitMQ node field exported from the RabbitMQ Management API /api/nodes.");
 				ival = json_integer_value(value);
 				//printf("%s: %"d64"\n", node_str1, ival);
 				metric_add_labels(node_str1, &ival, DATATYPE_INT, carg, "node", node_name);
@@ -63,6 +73,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			else if (node_type == JSON_REAL)
 			{
 				strlcpy(node_str1+15, key, RABBITMQ_LEN-15);
+				rabbitmq_metric_set(carg, node_str1, METRIC_TYPE_GAUGE, "RabbitMQ node field exported from the RabbitMQ Management API /api/nodes.");
 				dval = json_real_value(value);
 				//printf("%s: %lf\n", node_str1, dval);
 				metric_add_labels(node_str1, &dval, DATATYPE_DOUBLE, carg, "node", node_name);
@@ -70,6 +81,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			else if (node_type == JSON_TRUE)
 			{
 				strlcpy(node_str1+15, key, RABBITMQ_LEN-15);
+				rabbitmq_metric_set(carg, node_str1, METRIC_TYPE_GAUGE, "RabbitMQ node field exported from the RabbitMQ Management API /api/nodes.");
 				ival = 1;
 				//printf("%s: %"d64"\n", node_str1, ival);
 				metric_add_labels(node_str1, &ival, DATATYPE_INT, carg, "node", node_name);
@@ -77,6 +89,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 			else if (node_type == JSON_FALSE)
 			{
 				strlcpy(node_str1+15, key, RABBITMQ_LEN-15);
+				rabbitmq_metric_set(carg, node_str1, METRIC_TYPE_GAUGE, "RabbitMQ node field exported from the RabbitMQ Management API /api/nodes.");
 				ival = 0;
 				//printf("%s: %"d64"\n", node_str1, ival);
 				metric_add_labels(node_str1, &ival, DATATYPE_INT, carg, "node", node_name);
@@ -94,6 +107,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 				if (gc_type == JSON_INTEGER)
 				{
 					strlcpy(node_str2+31, key_gc, RABBITMQ_LEN-31);
+					rabbitmq_metric_set(carg, node_str2, METRIC_TYPE_GAUGE, "RabbitMQ per-node garbage collection queue length field exported from /api/nodes.");
 					ival = json_integer_value(value_gc);
 					//printf("%s: %"d64"\n", node_str2, ival);
 					metric_add_labels(node_str2, &ival, DATATYPE_INT, carg, "node", node_name);
@@ -101,6 +115,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 				else if (gc_type == JSON_REAL)
 				{
 					strlcpy(node_str2+31, key_gc, RABBITMQ_LEN-31);
+					rabbitmq_metric_set(carg, node_str2, METRIC_TYPE_GAUGE, "RabbitMQ per-node garbage collection queue length field exported from /api/nodes.");
 					dval = json_real_value(value_gc);
 					//printf("%s: %lf\n", node_str2, dval);
 					metric_add_labels(node_str2, &dval, DATATYPE_DOUBLE, carg, "node", node_name);
@@ -142,6 +157,8 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 }
 void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq_exchanges_publish_in", METRIC_TYPE_COUNTER, "RabbitMQ exchange publish_in counters.");
+	rabbitmq_metric_set(carg, "rabbitmq_exchanges_publish_out", METRIC_TYPE_COUNTER, "RabbitMQ exchange publish_out counters.");
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -190,6 +207,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 1;
 				strlcpy(string1+19, key, RABBITMQ_LEN-19);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ exchange boolean field exported from the Management API /api/exchanges.");
 				//printf("%s: %"d64"\n", string1, ival);
 				metric_add_labels3(string1, &ival, DATATYPE_INT, carg, "name", exc_name, "type", exc_type, "vhost", exc_vhost);
 			}
@@ -197,6 +215,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 0;
 				strlcpy(string1+19, key, RABBITMQ_LEN-19);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ exchange boolean field exported from the Management API /api/exchanges.");
 				//printf("%s: %"d64"\n", string1, ival);
 				metric_add_labels3(string1, &ival, DATATYPE_INT, carg, "name", exc_name, "type", exc_type, "vhost", exc_vhost);
 			}
@@ -223,6 +242,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 }
 void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq_connections_state", METRIC_TYPE_GAUGE, "RabbitMQ connection running state derived from /api/connections (1 means running).");
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -306,24 +326,28 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 1;
 				strlcpy(string1+21, key, RABBITMQ_LEN-21);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ connection field exported from the Management API /api/connections.");
 				metric_add_labels7(string1, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 			}
 			else if (node_type == JSON_FALSE)
 			{
 				ival = 0;
 				strlcpy(string1+21, key, RABBITMQ_LEN-21);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ connection field exported from the Management API /api/connections.");
 				metric_add_labels7(string1, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 			}
 			else if (node_type == JSON_REAL)
 			{
 				dval = json_real_value(value);
 				strlcpy(string1+21, key, RABBITMQ_LEN-21);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ connection field exported from the Management API /api/connections.");
 				metric_add_labels7(string1, &dval, DATATYPE_DOUBLE, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 			}
 			else if (node_type == JSON_INTEGER)
 			{
 				ival = json_integer_value(value);
 				strlcpy(string1+21, key, RABBITMQ_LEN-21);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ connection field exported from the Management API /api/connections.");
 				metric_add_labels7(string1, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 			}
 		}
@@ -340,24 +364,28 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					ival = 1;
 					strlcpy(string2+24, gc_key, RABBITMQ_LEN-24);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ connection garbage_collection field exported from /api/connections.");
 					metric_add_labels7(string2, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 				}
 				else if (gc_type == JSON_FALSE)
 				{
 					ival = 0;
 					strlcpy(string2+24, gc_key, RABBITMQ_LEN-24);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ connection garbage_collection field exported from /api/connections.");
 					metric_add_labels7(string2, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 				}
 				else if (gc_type == JSON_REAL)
 				{
 					dval = json_real_value(gc_value);
 					strlcpy(string2+24, gc_key, RABBITMQ_LEN-24);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ connection garbage_collection field exported from /api/connections.");
 					metric_add_labels7(string2, &dval, DATATYPE_DOUBLE, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 				}
 				else if (gc_type == JSON_INTEGER)
 				{
 					ival = json_integer_value(gc_value);
 					strlcpy(string2+24, gc_key, RABBITMQ_LEN-24);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ connection garbage_collection field exported from /api/connections.");
 					metric_add_labels7(string2, &ival, DATATYPE_INT, carg, "host", connections_host, "peer", connections_peer_host, "type", connections_type, "vhost", connections_vhost, "user", connections_user, "protocol", connections_protocol, "auth_mechanism", connections_auth_mechanism);
 				}
 			}
@@ -372,6 +400,13 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 
 void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq_queues_state", METRIC_TYPE_GAUGE, "RabbitMQ queue running state derived from /api/queues (1 means running).");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_recoverable_slaves_node", METRIC_TYPE_GAUGE, "RabbitMQ queue recoverable slave presence.");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_recoverable_slaves_size", METRIC_TYPE_GAUGE, "RabbitMQ queue recoverable slaves count.");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_synchronised_slave_nodes_node", METRIC_TYPE_GAUGE, "RabbitMQ queue synchronised slave presence.");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_synchronised_slave_nodes_size", METRIC_TYPE_GAUGE, "RabbitMQ queue synchronised slave count.");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_slave_nodes_node", METRIC_TYPE_GAUGE, "RabbitMQ queue slave node presence.");
+	rabbitmq_metric_set(carg, "rabbitmq_queues_slave_nodes_size", METRIC_TYPE_GAUGE, "RabbitMQ queue slave nodes count.");
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -439,6 +474,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 1;
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ queue field exported from the Management API /api/queues.");
 				//printf("%s: %"d64"\n", string1, ival);
 				metric_add_labels2(string1, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 			}
@@ -446,6 +482,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 0;
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ queue field exported from the Management API /api/queues.");
 				//printf("%s: %"d64"\n", string1, ival);
 				metric_add_labels2(string1, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 			}
@@ -453,12 +490,14 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				dval = json_real_value(value);
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ queue field exported from the Management API /api/queues.");
 				metric_add_labels2(string1, &dval, DATATYPE_DOUBLE, carg, "name", queues_name, "vhost", queues_vhost);
 			}
 			else if (node_type == JSON_INTEGER)
 			{
 				ival = json_integer_value(value);
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ queue field exported from the Management API /api/queues.");
 				metric_add_labels2(string1, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 			}
 		}
@@ -475,24 +514,28 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					ival = 1;
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ queue message_stats field exported from /api/queues.");
 					metric_add_labels2(string2, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_FALSE)
 				{
 					ival = 0;
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ queue message_stats field exported from /api/queues.");
 					metric_add_labels2(string2, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_REAL)
 				{
 					dval = json_real_value(ms_value);
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ queue message_stats field exported from /api/queues.");
 					metric_add_labels2(string2, &dval, DATATYPE_DOUBLE, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_INTEGER)
 				{
 					ival = json_integer_value(ms_value);
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ queue message_stats field exported from /api/queues.");
 					metric_add_labels2(string2, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 			}
@@ -510,24 +553,28 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					ival = 1;
 					strlcpy(string3+37, ms_key, RABBITMQ_LEN-37);
+					rabbitmq_metric_set(carg, string3, METRIC_TYPE_GAUGE, "RabbitMQ queue backing_queue_status field exported from /api/queues.");
 					metric_add_labels2(string3, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_FALSE)
 				{
 					ival = 0;
 					strlcpy(string3+37, ms_key, RABBITMQ_LEN-37);
+					rabbitmq_metric_set(carg, string3, METRIC_TYPE_GAUGE, "RabbitMQ queue backing_queue_status field exported from /api/queues.");
 					metric_add_labels2(string3, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_REAL)
 				{
 					dval = json_real_value(ms_value);
 					strlcpy(string3+37, ms_key, RABBITMQ_LEN-37);
+					rabbitmq_metric_set(carg, string3, METRIC_TYPE_GAUGE, "RabbitMQ queue backing_queue_status field exported from /api/queues.");
 					metric_add_labels2(string3, &dval, DATATYPE_DOUBLE, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_INTEGER)
 				{
 					ival = json_integer_value(ms_value);
 					strlcpy(string3+37, ms_key, RABBITMQ_LEN-37);
+					rabbitmq_metric_set(carg, string3, METRIC_TYPE_GAUGE, "RabbitMQ queue backing_queue_status field exported from /api/queues.");
 					metric_add_labels2(string3, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 			}
@@ -545,24 +592,28 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					ival = 1;
 					strlcpy(string4+35, ms_key, RABBITMQ_LEN-35);
+					rabbitmq_metric_set(carg, string4, METRIC_TYPE_GAUGE, "RabbitMQ queue garbage_collection field exported from /api/queues.");
 					metric_add_labels2(string4, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_FALSE)
 				{
 					ival = 0;
 					strlcpy(string4+35, ms_key, RABBITMQ_LEN-35);
+					rabbitmq_metric_set(carg, string4, METRIC_TYPE_GAUGE, "RabbitMQ queue garbage_collection field exported from /api/queues.");
 					metric_add_labels2(string4, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_REAL)
 				{
 					dval = json_real_value(ms_value);
 					strlcpy(string4+35, ms_key, RABBITMQ_LEN-35);
+					rabbitmq_metric_set(carg, string4, METRIC_TYPE_GAUGE, "RabbitMQ queue garbage_collection field exported from /api/queues.");
 					metric_add_labels2(string4, &dval, DATATYPE_DOUBLE, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 				else if (node_type == JSON_INTEGER)
 				{
 					ival = json_integer_value(ms_value);
 					strlcpy(string4+35, ms_key, RABBITMQ_LEN-35);
+					rabbitmq_metric_set(carg, string4, METRIC_TYPE_GAUGE, "RabbitMQ queue garbage_collection field exported from /api/queues.");
 					metric_add_labels2(string4, &ival, DATATYPE_INT, carg, "name", queues_name, "vhost", queues_vhost);
 				}
 			}
@@ -617,6 +668,8 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 }
 void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 {
+	rabbitmq_metric_set(carg, "rabbitmq_vhosts_cluster_state", METRIC_TYPE_GAUGE, "RabbitMQ vhost cluster state by node.");
+	rabbitmq_metric_set(carg, "rabbitmq_vhosts_cluster_size", METRIC_TYPE_GAUGE, "RabbitMQ vhost cluster size.");
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
@@ -680,24 +733,28 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				ival = 1;
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ vhost field exported from the Management API /api/vhosts.");
 				metric_add_labels(string1, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 			}
 			else if (node_type == JSON_FALSE)
 			{
 				ival = 0;
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ vhost field exported from the Management API /api/vhosts.");
 				metric_add_labels(string1, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 			}
 			else if (node_type == JSON_REAL)
 			{
 				dval = json_real_value(value);
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ vhost field exported from the Management API /api/vhosts.");
 				metric_add_labels(string1, &dval, DATATYPE_DOUBLE, carg, "name", vhosts_name);
 			}
 			else if (node_type == JSON_INTEGER)
 			{
 				ival = json_integer_value(value);
 				strlcpy(string1+16, key, RABBITMQ_LEN-16);
+				rabbitmq_metric_set(carg, string1, METRIC_TYPE_GAUGE, "RabbitMQ vhost field exported from the Management API /api/vhosts.");
 				metric_add_labels(string1, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 			}
 		}
@@ -714,24 +771,28 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					ival = 1;
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ vhost message_stats field exported from /api/vhosts.");
 					metric_add_labels(string2, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 				}
 				else if (node_type == JSON_FALSE)
 				{
 					ival = 0;
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ vhost message_stats field exported from /api/vhosts.");
 					metric_add_labels(string2, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 				}
 				else if (node_type == JSON_REAL)
 				{
 					dval = json_real_value(ms_value);
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ vhost message_stats field exported from /api/vhosts.");
 					metric_add_labels(string2, &dval, DATATYPE_DOUBLE, carg, "name", vhosts_name);
 				}
 				else if (node_type == JSON_INTEGER)
 				{
 					ival = json_integer_value(ms_value);
 					strlcpy(string2+30, ms_key, RABBITMQ_LEN-30);
+					rabbitmq_metric_set(carg, string2, METRIC_TYPE_GAUGE, "RabbitMQ vhost message_stats field exported from /api/vhosts.");
 					metric_add_labels(string2, &ival, DATATYPE_INT, carg, "name", vhosts_name);
 				}
 			}

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
@@ -7,6 +8,11 @@
 #include "main.h"
 #define KEEPALIVEDLEN_BIG 2048
 #define KEEPALIVEDLEN 1024
+
+static inline void keepalived_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Keepalived exported VRRP/health metric value.");
+}
 
 void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t indent)
 {
@@ -57,6 +63,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 			if (isdigit((unsigned char)*ptrtoval))
 			{
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
+				keepalived_metric_set(carg, metric_name);
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 
@@ -179,6 +186,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
 				//if (!strstr(ptrtoval, "usecs"))
 				//	val_data /= 1000000;
+				keepalived_metric_set(carg, metric_name);
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 			else if ((ptrtocnt = strstr(field, "counter")))
@@ -190,6 +198,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 					printf("\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
+				keepalived_metric_set(carg, metric_name);
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 			else if (!strstr(field, "="))
@@ -202,6 +211,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 					printf("\t\t'%s {context=\"%s\", instance=\"%s\", key=\"%s\"{from '%s'} 1\n", metric_name, context, instance, ptrtoval, name);
 
 				int64_t val_data = 1;
+				keepalived_metric_set(carg, metric_name);
 				metric_add_labels3(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance, "key", ptrtoval);
 			}
 		}

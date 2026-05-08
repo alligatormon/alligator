@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
+
 void tftp_handler(char *metrics, size_t size, context_arg *carg)
 {
 	if (!metrics || size < 4)
@@ -22,6 +24,7 @@ void tftp_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->log_level > 2)
 		printf("id: %d:%d %"u64"\n", metrics[2], metrics[3], val);
 	const char *fname = (carg && carg->mesg && strlen(carg->mesg) > 2) ? (carg->mesg + 2) : "";
+	namespace_metric_family_set(NULL, carg, "tftp_file_exists", METRIC_TYPE_GAUGE, "TFTP file presence probe result.");
 	metric_add_labels("tftp_file_exists", &val, DATATYPE_UINT, carg, "name", (char*)fname);
 	carg->parser_status = 1;
 

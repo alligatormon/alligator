@@ -5,6 +5,8 @@
 #include "common/selector.h"
 #include "common/validator.h"
 #include "common/json_query.h"
+#include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "query/type.h"
 #include "parsers/mongodb_wire_bson.h"
@@ -199,14 +201,17 @@ static void mongodb_run_single(context_arg *carg)
 
 	if (!mongodb_wire_client_open(&client, carg->url, err, sizeof(err))) {
 		carglog(carg, L_ERROR, "mongodb connect failed: %s\n", err);
+		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
 		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 	if (!client) {
+		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
 		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 
+	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
 	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 
 	char **dbs = NULL, **cols = NULL;

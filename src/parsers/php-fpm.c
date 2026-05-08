@@ -3,6 +3,7 @@
 #include "common/selector.h"
 #include "main.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/aggregator.h"
@@ -105,6 +106,8 @@ fcgi_reply_data* fcgi_reply_parser(char *fcgi, size_t n)
 
 void php_fpm_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "php_fpm", METRIC_TYPE_GAUGE, "PHP-FPM exported metrics.");
+
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));
 		carg->pquery[0] = strdup(".processes.[pid]");

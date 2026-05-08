@@ -1,8 +1,14 @@
 #include <stdio.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/logs.h"
 #include "main.h"
+
+static inline void ntp_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "NTP daemon exported metric value.");
+}
 
 typedef struct ntp_packet
 {
@@ -74,33 +80,42 @@ void ntp_handler(char *ntpData, size_t size, context_arg *carg)
 
 	carglog(carg, L_INFO, "txTm %"PRIu64", nowtime %lf, diff %lf\n", txTm, nowtime, diff);
 
+	ntp_metric_set(carg, "ntp_drift_seconds");
 	metric_add_auto("ntp_drift_seconds", &diff, DATATYPE_DOUBLE, carg);
 
 	uint64_t stratum = ntpp->stratum;
+	ntp_metric_set(carg, "ntp_stratum");
 	metric_add_auto("ntp_stratum", &stratum, DATATYPE_UINT, carg);
 
 	uint64_t leap = ntpp->li_vn_mode & (1<<0);
+	ntp_metric_set(carg, "ntp_leap");
 	metric_add_auto("ntp_leap", &leap, DATATYPE_UINT, carg);
 
 	double rootDispersion = ntp_short_duration(ntohl(ntpp->rootDispersion));
+	ntp_metric_set(carg, "ntp_root_dispersion_seconds");
 	metric_add_auto("ntp_root_dispersion_seconds", &rootDispersion, DATATYPE_DOUBLE, carg);
 
 	double rootDelay = ntp_short_duration(ntohl(ntpp->rootDelay));
+	ntp_metric_set(carg, "ntp_root_delay_seconds");
 	metric_add_auto("ntp_root_delay_seconds", &rootDelay, DATATYPE_DOUBLE, carg);
 
 	int8_t precision = ntpp->precision;
 	double degreePrecision = ((long double)powl(2, precision) * (long double)1000.0);
 	
+	ntp_metric_set(carg, "ntp_precision_miliseconds");
 	metric_add_auto("ntp_precision_miliseconds", &degreePrecision, DATATYPE_DOUBLE, carg);
 
 	double refTm_s = ntohl(ntpp->refTm_s) + ((double)ntohl(ntpp->refTm_f)/0x100000000L);
+	ntp_metric_set(carg, "ntp_reference_timestamp_seconds");
 	metric_add_auto("ntp_reference_timestamp_seconds", &refTm_s, DATATYPE_DOUBLE, carg);
 
 	double origin_time = (carg->write_time_finish.sec * 1.0) + ((double)(carg->write_time_finish.nsec) * 1.0 / 1000000000);
 	double rtt = ntp_rtt(origin_time, ntpp->rxTm_s, ntpp->rxTm_f, ntpp->txTm_s, ntpp->txTm_f, nowtime);
+	ntp_metric_set(carg, "ntp_rtt_seconds");
 	metric_add_auto("ntp_rtt_seconds", &rtt, DATATYPE_DOUBLE, carg);
 
 	double root_distance = ntp_rootDistance(rtt, rootDelay, rootDispersion);
+	ntp_metric_set(carg, "ntp_root_distance_seconds");
 	metric_add_auto("ntp_root_distance_seconds", &root_distance, DATATYPE_DOUBLE, carg);
 
 	carg->parser_status = 1;

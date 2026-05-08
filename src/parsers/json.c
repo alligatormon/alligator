@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/aggregator.h"
@@ -9,6 +10,7 @@
 #include "main.h"
 void json_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "json", METRIC_TYPE_GAUGE, "JSON parser extracted numeric value.");
 	json_error_t error;
 	char *data = metrics;
 	json_t *root = json_loads(metrics, 0, &error);
@@ -51,6 +53,7 @@ void json_parser_push()
 
 void json_query_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "json", METRIC_TYPE_GAUGE, "JSON parser extracted numeric value.");
 	json_error_t error;
 	char *data = metrics;
 	json_t *root = json_loads(metrics, 0, &error);

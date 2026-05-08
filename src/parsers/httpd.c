@@ -6,6 +6,7 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "common/validator.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define HTTPD_LABEL_SIZE 100
 
@@ -43,6 +44,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 			if (strstr(sval, "."))
 			{
 				double dval = strtod(tmp, &tmp);
+				namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache HTTPD mod_status field exported from ?auto.");
 				metric_add_auto(metric_name, &dval, DATATYPE_DOUBLE, carg);
 
 				carglog(carg, L_INFO, "httpd dval %lf\n", dval);
@@ -50,6 +52,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 			else
 			{
 				uint64_t val = strtoull(tmp, &tmp, 10);
+				namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache HTTPD mod_status field exported from ?auto.");
 				metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 
 				carglog(carg, L_INFO, "httpd val %"u64"\n", val);

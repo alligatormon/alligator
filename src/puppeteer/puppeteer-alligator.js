@@ -3,28 +3,184 @@ const f = require('/var/lib/alligator/argOptions.js')
 
 process.setMaxListeners(0);
 
-function perfMetricsPush(ret, name, resource, source, entryType, initiatorType, nextHopProtocol, val, extra_labels)
-{
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", source="' + source.substring(0, 128) + extra_labels + '", entryType="' + entryType + '", initiatorType="' + initiatorType + '", nextHopProtocol="' + nextHopProtocol + '"} ' + val);
+function valueToString(value) {
+	if (value === undefined || value === null) {
+		return "";
+	}
+	return String(value);
 }
 
-function resourceMetricsPush(ret, name, resource, val, extra_labels)
-{
-	ret.push('puppeteer_' + name + ' {' + extra_labels + 'resource="' + resource + '"} ' + val);
+function sanitizeLabelValue(value) {
+	return valueToString(value).replace(/"/g, "_").replace(/(\r\n|\n|\r)/gm, "");
 }
 
-function labelMetricsPush(ret, name, resource, label, value, val, extra_labels)
-{
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + extra_labels + label + '="' + value.replace(/"/g, '_') + '"} ' + val);
+function metricHelp(metricName) {
+	const helpByMetric = {
+		puppeteer_Info: "Puppeteer target availability marker.",
+		puppeteer_totalSize: "Total transferred response size collected by Performance entries.",
+		puppeteer_ErrorFetch: "Fetch/navigation errors while loading the target page.",
+		puppeteer_eventConsole: "Console events captured from the target page.",
+		puppeteer_eventPageError: "Page runtime errors captured from the target page.",
+		puppeteer_eventSourceResponseStatus: "HTTP response status values captured for requested sources.",
+		puppeteer_eventRequestFailed: "Failed network requests captured from the target page.",
+	};
+	return helpByMetric[metricName] || "Puppeteer exported metric value.";
 }
 
-function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, val, extra_labels)
-{
-	ret.push('puppeteer_' + name + ' {resource="' + resource + '", ' + extra_labels + label1 + '="' + value1.replace(/"/g, '_') + '", ' + label2 + '="' + value2.replace(/"/g, '_').substring(0,128) + '"} ' + val);
+function normalizeTransformRules(metricstransform) {
+	if (!metricstransform) {
+		return [];
+	}
+
+	if (Array.isArray(metricstransform)) {
+		// Simple rule list format.
+		return metricstransform;
+	}
+
+	const collected = [];
+	const transforms = Array.isArray(metricstransform.transforms) ? metricstransform.transforms : [];
+	transforms.forEach((transform) => {
+		if (!transform || !Array.isArray(transform.operations)) {
+			return;
+		}
+
+		transform.operations.forEach((operation) => {
+			if (!operation || operation.action !== "update_label" || !operation.label) {
+				return;
+			}
+			const valueActions = Array.isArray(operation.value_actions) ? operation.value_actions : [];
+			valueActions.forEach((valueAction) => {
+				if (!valueAction || !valueAction.regex) {
+					return;
+				}
+				collected.push({
+					metric: transform.include,
+					match_type: transform.match_type,
+					label: operation.label,
+					value_regex: valueAction.regex,
+					replacement: valueAction.replacement || valueAction.new_value || "",
+					flags: valueAction.flags || "",
+					replace_all: valueAction.replace_all === true,
+				});
+			});
+		});
+	});
+
+	return collected;
+}
+
+function matchesPattern(value, pattern, useRegex, flags) {
+	if (!pattern) {
+		return true;
+	}
+	const input = valueToString(value);
+	if (useRegex) {
+		try {
+			const re = new RegExp(pattern, flags || "");
+			return re.test(input);
+		} catch (err) {
+			return false;
+		}
+	}
+	return input === pattern;
+}
+
+function applyLabelTransforms(metricName, labels, metricstransform) {
+	const rules = normalizeTransformRules(metricstransform);
+	if (!rules.length) {
+		return labels;
+	}
+
+	const output = { ...labels };
+	rules.forEach((rule) => {
+		if (!rule || !rule.label || !rule.value_regex) {
+			return;
+		}
+
+		const useMetricRegex = rule.match_type === "regexp" || !!rule.metric_regex;
+		const metricPattern = rule.metric_regex || rule.metric || "";
+		if (!matchesPattern(metricName, metricPattern, useMetricRegex, rule.metric_flags)) {
+			return;
+		}
+
+		const useLabelRegex = !!rule.label_regex;
+		Object.keys(output).forEach((labelName) => {
+			if (!matchesPattern(labelName, rule.label_regex || rule.label, useLabelRegex, rule.label_flags)) {
+				return;
+			}
+
+			const originalValue = valueToString(output[labelName]);
+			try {
+				const regexFlags = rule.replace_all ? (rule.flags || "") + "g" : (rule.flags || "");
+				const regex = new RegExp(rule.value_regex, regexFlags);
+				const replacement = rule.replacement || "";
+				output[labelName] = originalValue.replace(regex, replacement);
+			} catch (err) {
+				// Ignore malformed regex in config and keep original value.
+			}
+		});
+	});
+
+	return output;
+}
+
+function pushMetric(ret, metricFamilies, name, labels, val, metricstransform) {
+	const metricName = "puppeteer_" + name;
+	if (!metricFamilies.has(metricName)) {
+		ret.push(`# HELP ${metricName} ${metricHelp(metricName)}`);
+		ret.push(`# TYPE ${metricName} gauge`);
+		metricFamilies.add(metricName);
+	}
+	const transformedLabels = applyLabelTransforms(metricName, labels, metricstransform);
+	const serialized = Object.entries(transformedLabels)
+		.map(([label, value]) => `${label}="${sanitizeLabelValue(value)}"`)
+		.join(", ");
+	ret.push(`${metricName} {${serialized}} ${val}`);
+}
+
+function createMetricPushers(ret, metricFamilies, extra_labels, metricstransform) {
+	return {
+		perfMetricsPush: function(name, resource, source, entryType, initiatorType, nextHopProtocol, val) {
+			const labels = {
+				resource: resource,
+				source: source.substring(0, 128),
+				entryType: entryType,
+				initiatorType: initiatorType,
+				nextHopProtocol: nextHopProtocol,
+				...extra_labels,
+			};
+			pushMetric(ret, metricFamilies, name, labels, val, metricstransform);
+		},
+		resourceMetricsPush: function(name, resource, val) {
+			const labels = {
+				...extra_labels,
+				resource: resource,
+			};
+			pushMetric(ret, metricFamilies, name, labels, val, metricstransform);
+		},
+		labelMetricsPush: function(name, resource, label, value, val) {
+			const labels = {
+				resource: resource,
+				...extra_labels,
+			};
+			labels[label] = value;
+			pushMetric(ret, metricFamilies, name, labels, val, metricstransform);
+		},
+		label2MetricsPush: function(name, resource, label1, value1, label2, value2, val) {
+			const labels = {
+				resource: resource,
+				...extra_labels,
+			};
+			labels[label1] = value1;
+			labels[label2] = value2.substring(0, 128);
+			pushMetric(ret, metricFamilies, name, labels, val, metricstransform);
+		},
+	};
 }
 
 (async () => {
 	ret = []
+	metricFamilies = new Set()
 	process.argv.forEach(async function (val, index, array) {
 		if (index < 2)
 			return;
@@ -53,14 +209,16 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 
 		await Promise.all(Object.entries(jsonVal).map(async ([pupKey, pupValue]) => {
 
-			let extra_labels = ""
+			let extra_labels = {}
 			if ("add_label" in pupValue)
 			{
 				labels = pupValue["add_label"]
 				Object.entries(labels).forEach(([label_name, label_key]) => {
-					extra_labels += label_name + '="' + label_key + '", '
+					extra_labels[label_name] = label_key
 				})
 			}
+			const metricstransform = pupValue["metricstransform"] || null;
+			const pushers = createMetricPushers(ret, metricFamilies, extra_labels, metricstransform);
 			const page = await context.newPage();
 
 			await page.setCacheEnabled(false);
@@ -81,7 +239,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 
 			let resource = pupKey
 			const emitConsoleEvents = pupValue["console_events"] === true || pupValue["console_events"] === "true" || pupValue["console_events"] === 1;
-			resourceMetricsPush(ret, "Info", resource, 1, extra_labels);
+			pushers.resourceMetricsPush("Info", resource, 1);
 			//console.log("fetch:", resource);
 			let resp_code = 0;
 
@@ -89,21 +247,21 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			.on('console', consoleObj => {
 					//console.log("console is", consoleObj.text()))
 					if (emitConsoleEvents) {
-						labelMetricsPush(ret, "eventConsole", resource, "text", consoleObj.text(), 1, extra_labels);
+						pushers.labelMetricsPush("eventConsole", resource, "text", consoleObj.text(), 1);
 					}
 			})
 			.on('pageerror', ({ message }) => {
 					//console.log(message)
-					labelMetricsPush(ret, "eventPageError", resource, "text", message.replace(/(\r\n|\n|\r)/gm, ""), 1, extra_labels);
+					pushers.labelMetricsPush("eventPageError", resource, "text", message.replace(/(\r\n|\n|\r)/gm, ""), 1);
 			})
 			.on('response', response => {
 					//console.log(`${response.status()} ${response.url()}`)
 					resp_code = response.status()
-					labelMetricsPush(ret, "eventSourceResponseStatus", resource, "source", response.url().substring(0, 128), response.status(), extra_labels);
+					pushers.labelMetricsPush("eventSourceResponseStatus", resource, "source", response.url().substring(0, 128), response.status());
 			})
 			.on('requestfailed', request => {
 					//console.log(`${request.failure().errorText} ${request.url()}`)
-					labelMetricsPush(ret, "eventRequestFailed", resource, "source", request.url(), 1, extra_labels);
+					pushers.labelMetricsPush("eventRequestFailed", resource, "source", request.url(), 1);
 			})
 			//.on('response', response => { console.log(response) })
 
@@ -145,7 +303,7 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 			try {
 				await page.goto(resource, { waitUntil: 'networkidle2', timeout: milliseconds, });
 			} catch (error) {
-				labelMetricsPush(ret, "ErrorFetch", resource, "error", error.message, 1, extra_labels);
+				pushers.labelMetricsPush("ErrorFetch", resource, "error", error.message, 1);
 			}
 
 			const perfEntries = []
@@ -167,17 +325,17 @@ function label2MetricsPush(ret, name, resource, label1, value1, label2, value2, 
 				perfEntries.forEach(entry => {
 					if (entry.transferSize > 0) {
 						totalSize += entry.transferSize;
-						[ "startTime", "duration", "workerStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "secureConnectionStart", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"].forEach(metric => perfMetricsPush(ret, metric, resource, entry.name, entry.entryType, entry.initiatorType, entry.nextHopProtocol, entry[metric], extra_labels))
+						[ "startTime", "duration", "workerStart", "redirectStart", "redirectEnd", "fetchStart", "domainLookupStart", "domainLookupEnd", "secureConnectionStart", "connectStart", "connectEnd", "requestStart", "responseStart", "responseEnd", "transferSize", "encodedBodySize", "decodedBodySize"].forEach(metric => pushers.perfMetricsPush(metric, resource, entry.name, entry.entryType, entry.initiatorType, entry.nextHopProtocol, entry[metric]))
 					}
 				});
 				return totalSize;
 			}
 
-			resourceMetricsPush(ret, "totalSize", resource, totalSize(), extra_labels);
+			pushers.resourceMetricsPush("totalSize", resource, totalSize());
 
 			let performanceMetrics = await page._client.send('Performance.getMetrics');
 			performanceMetrics.metrics.forEach(entry => {
-				resourceMetricsPush(ret, entry.name, resource, entry.value, extra_labels);
+				pushers.resourceMetricsPush(entry.name, resource, entry.value);
 			});
 
 			console.log(ret.join("\n"));

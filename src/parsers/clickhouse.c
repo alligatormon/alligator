@@ -10,6 +10,7 @@
 #include "common/logs.h"
 #include <query/type.h>
 #include "main.h"
+#include "metric/metric_types.h"
 #define d64	PRId64
 #define CH_NAME_SIZE 64
 #define CLICKHOUSE_ASYNC_METRIC_SIZE 1024
@@ -42,6 +43,7 @@ void table_struct_free(void *funcarg, void* arg)
 {
 	ch_table_kv *chtable = arg;
 	context_arg *carg = funcarg;
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Table_Stats", METRIC_TYPE_GAUGE, "ClickHouse aggregated table storage statistics.");
 	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_compressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_compressed_bytes");
 	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_uncompressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_uncompressed_bytes");
 	metric_add_labels3("Clickhouse_Table_Stats", &chtable->marks_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "marks_bytes");
@@ -76,6 +78,7 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 		metric_name_size += strspn(str->s + metric_name_size, " \t");
 		value = strtod(str->s + metric_name_size, NULL);
 		carglog(carg, L_DEBUG, "Clickhouse system metric from string: '%s', metric_name: '%s', value: '%lf'\n", str->s, metric_name, value);
+		namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "ClickHouse system.metrics value.");
 		metric_add_auto(metric_name, &value, DATATYPE_DOUBLE, carg);
 
 		i += len;
@@ -162,6 +165,7 @@ void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_
 		metric_name_size += strspn(str->s + metric_name_size, " \t");
 		value = strtod(str->s + metric_name_size, NULL);
 		carglog(carg, L_DEBUG, "Clickhouse asynchronous metric from string: '%s', metric_name: '%s', size: '%zu', value: '%lf'\n", str->s, metric_name, metric_name_size, value);
+		namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "ClickHouse system.asynchronous_metrics value.");
 		metric_add_auto(metric_name, &value, DATATYPE_DOUBLE, carg);
 
 		i += len;
@@ -180,6 +184,8 @@ void clickhouse_system_events_handler(char *metrics, size_t size, context_arg *c
 
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Column_Stats", METRIC_TYPE_GAUGE, "ClickHouse per-column storage statistics.");
+
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
 	char *table = malloc(CH_NAME_SIZE);
@@ -293,6 +299,8 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 
 void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Merges_Stats", METRIC_TYPE_GAUGE, "ClickHouse merge and mutation progress statistics.");
+
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
 	char *table = malloc(CH_NAME_SIZE);
@@ -393,6 +401,9 @@ void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 
 void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Dictionary_Count", METRIC_TYPE_COUNTER, "ClickHouse dictionary counters.");
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Dictionary_Stats", METRIC_TYPE_GAUGE, "ClickHouse dictionary gauges.");
+
 	int64_t i = 0;
 	char *name = malloc(CH_NAME_SIZE);
 	size_t name_size;
@@ -451,6 +462,8 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 
 void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "Clickhouse_Replicas_Stats", METRIC_TYPE_GAUGE, "ClickHouse replica health and queue statistics.");
+
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
 	char *table = malloc(CH_NAME_SIZE);

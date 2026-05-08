@@ -3,11 +3,14 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #define NSD_NAME_SIZE 1024
 
 void nsd_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nsd_queries", METRIC_TYPE_COUNTER, "NSD query counters by type.");
+
 	uint64_t i = 0;
 	char tmp[NSD_NAME_SIZE];
 	char tmp2[NSD_NAME_SIZE];
@@ -48,6 +51,7 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(tmp2+4, tmp, lastdot-tmp);
 			metric_name_normalizer(tmp2, lastdot-tmp+1);
 			strlcpy(tmp3, pre_lastdot, lastdot-pre_lastdot);
+			namespace_metric_family_set(NULL, carg, tmp2, METRIC_TYPE_GAUGE, "NSD exported metric value.");
 			metric_add_labels(tmp2, &val, DATATYPE_UINT, carg, tmp3, lastdot);
 		}
 

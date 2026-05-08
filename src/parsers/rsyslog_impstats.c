@@ -2,6 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "main.h"
 
@@ -94,6 +95,7 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 		if (ac->log_level > 3)
 			printf("key: %s, name: %s\n", key, name);
 		int64_t vl = atoll(name);
+		namespace_metric_family_set(NULL, carg, "rsyslog_stats", METRIC_TYPE_GAUGE, "Rsyslog impstats value by module, origin, action, and key.");
 		if (*action)
 			metric_add_labels4("rsyslog_stats", &vl, DATATYPE_INT, carg, "module", module, "origin", origin, "action", action, "key", key);
 		else

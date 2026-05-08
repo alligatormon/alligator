@@ -2,10 +2,16 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
 #define GEARMAND_NAME_SIZE 1000
+
+static inline void gearmand_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Gearmand exported metric value.");
+}
 
 void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -32,12 +38,15 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 
 
 		ctx_total = int_get_next(metrics+i, size, '\t', &cursor);
+		gearmand_metric_set(carg, "gearmand_total");
 		metric_add_labels("gearmand_total", &ctx_total, DATATYPE_INT, carg, "function", cdc);
 
 		ctx_running = int_get_next(metrics+i, size, '\t', &cursor);
+		gearmand_metric_set(carg, "gearmand_running");
 		metric_add_labels("gearmand_running", &ctx_running, DATATYPE_INT, carg, "function", cdc);
 
 		ctx_available_workers = int_get_next(metrics+i, size, '\t', &cursor);
+		gearmand_metric_set(carg, "gearmand_available_workers");
 		metric_add_labels("gearmand_available_workers", &ctx_available_workers, DATATYPE_INT, carg, "function", cdc);
 
 		total += ctx_total;
@@ -47,8 +56,11 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 		i += cursor;
 	}
 
+	gearmand_metric_set(carg, "gearmand_server_total");
 	metric_add_auto("gearmand_server_total", &total, DATATYPE_INT, carg);
+	gearmand_metric_set(carg, "gearmand_server_running");
 	metric_add_auto("gearmand_server_running", &running, DATATYPE_INT, carg);
+	gearmand_metric_set(carg, "gearmand_server_available_workers");
 	metric_add_auto("gearmand_server_available_workers", &available_workers, DATATYPE_INT, carg);
 	carg->parser_status = 1;
 }

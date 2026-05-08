@@ -6,6 +6,7 @@
 #include "common/json_query.h"
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "parsers/elasticsearch.h"
 #include "common/aggregator.h"
@@ -31,6 +32,11 @@ static inline size_t es_copy_bytes(size_t buf_size, size_t offset, size_t src_le
 	size_t rem = buf_size - offset;
 	size_t copy = src_len < (rem - 1) ? src_len : (rem - 1);
 	return copy + 1;
+}
+
+static inline void elasticsearch_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Elasticsearch exported metric value.");
 }
 
 void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
@@ -60,10 +66,13 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 	int64_t _nodes_attr;
 	json_t *_nodes = json_object_get(root, "_nodes");
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "total"));
+	elasticsearch_metric_set(carg, "elasticsearch_nodes_total");
 	metric_add_labels("elasticsearch_nodes_total", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "successful"));
+	elasticsearch_metric_set(carg, "elasticsearch_nodes_successful");
 	metric_add_labels("elasticsearch_nodes_successful", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "failed"));
+	elasticsearch_metric_set(carg, "elasticsearch_nodes_failed");
 	metric_add_labels("elasticsearch_nodes_failed", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 
 	// get nodes
@@ -148,6 +157,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 						char key_buf[255];
 						size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 						strlcpy(key_buf, node_key1, key_copy + 1);
+						elasticsearch_metric_set(carg, string2);
 						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 						if (bytes)
@@ -156,6 +166,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 					else if (type1 == JSON_REAL)
 					{
 						dl = json_real_value(node_value1);
+						elasticsearch_metric_set(carg, string2);
 						metric_add_labels3(string2, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key1);
 					}
 					else if (type1 == JSON_OBJECT)
@@ -181,6 +192,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 								char key_buf[255];
 								size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 								strlcpy(key_buf, node_key2, key_copy + 1);
+								elasticsearch_metric_set(carg, string3);
 								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 								if (bytes)
@@ -190,6 +202,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 							{
 								dl = json_real_value(node_value2);
 								//metric_name_normalizer(string3, strlen(string3));
+								elasticsearch_metric_set(carg, string3);
 								metric_add_labels3(string3, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key2);
 							}
 							else if (type2 == JSON_OBJECT)
@@ -227,6 +240,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 										char key_buf[255];
 										size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 										strlcpy(key_buf, node_key3, key_copy + 1);
+										elasticsearch_metric_set(carg, string4);
 										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 										if (bytes)
@@ -235,6 +249,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 									if (type3 == JSON_REAL)
 									{
 										dl = json_real_value(node_value3);
+										elasticsearch_metric_set(carg, string4);
 										metric_add_labels3(string4, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "name", name, "key", (char*)node_key3);
 									}
 								}
@@ -302,6 +317,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	else if (cluster_status && !strcmp(cluster_status, "red"))
 		red = 1;
 
+	elasticsearch_metric_set(carg, "elasticsearch_cluster_status");
 	metric_add_labels2("elasticsearch_cluster_status", &green, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "green");
 	metric_add_labels2("elasticsearch_cluster_status", &yellow, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "yellow");
 	metric_add_labels2("elasticsearch_cluster_status", &red, DATATYPE_UINT, carg, "cluster", cluster_name, "status", "red");
@@ -324,11 +340,13 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		if (type == JSON_INTEGER)
 		{
 			vl = json_integer_value(value);
+			elasticsearch_metric_set(carg, string);
 			metric_add_labels(string, &vl, DATATYPE_INT, carg, "cluster", cluster_name);
 		}
 		else if (type == JSON_REAL)
 		{
 			dl = json_real_value(value);
+			elasticsearch_metric_set(carg, string);
 			metric_add_labels(string, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name);
 		}
 	}
@@ -340,6 +358,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		uint64_t clst = 1;
 		json_t *indice_status_json = json_object_get(value, "status");
 		char* indice_status = (char*)json_string_value(indice_status_json);
+		elasticsearch_metric_set(carg, "elasticsearch_indice_status");
 		metric_add_labels3("elasticsearch_indice_status", &clst, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "status", indice_status);
 
 		json_object_foreach(value, key2, value2)
@@ -353,11 +372,13 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 			if (type == JSON_INTEGER)
 			{
 				vl = json_integer_value(value2);
+				elasticsearch_metric_set(carg, string2);
 				metric_add_labels2(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "indice", (char*)key);
 			}
 			else if (type == JSON_REAL)
 			{
 				dl = json_real_value(value2);
+				elasticsearch_metric_set(carg, string2);
 				metric_add_labels2(string2, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "indice", (char*)key);
 			}
 			json_object_foreach(value2, key3, value3)
@@ -369,12 +390,16 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 				if (shard_status)
 				{
 					//printf("elasticsearch_indice_shard_status cluster:'%s', indice:'%s', shard:'%s', status:'%s'\n", cluster_name, key, key3, shard_status);
+					elasticsearch_metric_set(carg, "elasticsearch_indice_shard_status");
 					metric_add_labels4("elasticsearch_indice_shard_status", &clst, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3, "status", shard_status);
 				}
 
 				json_t *shard_active_json = json_object_get(value3, "primary_active");
 				if (json_typeof(shard_active_json) == JSON_TRUE)
+				{
+					elasticsearch_metric_set(carg, "elasticsearch_indice_shard_active");
 					metric_add_labels3("elasticsearch_indice_shard_active", &clst, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+				}
 				else if (json_typeof(shard_active_json) == JSON_FALSE)
 					metric_add_labels3("elasticsearch_indice_shard_active", &clfls, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
 
@@ -389,11 +414,13 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 					if (type == JSON_INTEGER)
 					{
 						vl = json_integer_value(value4);
+						elasticsearch_metric_set(carg, string);
 						metric_add_labels3(string, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
 					}
 					else if (type == JSON_REAL)
 					{
 						dl = json_real_value(value4);
+						elasticsearch_metric_set(carg, string);
 						metric_add_labels3(string, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
 					}
 				}
@@ -436,10 +463,13 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 	int64_t _nodes_attr;
 	json_t *_nodes = json_object_get(root, "_nodes");
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "total"));
+	elasticsearch_metric_set(carg, "elasticsearch_shards_total");
 	metric_add_labels("elasticsearch_shards_total", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "successful"));
+	elasticsearch_metric_set(carg, "elasticsearch_shards_successful");
 	metric_add_labels("elasticsearch_shards_successful", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 	_nodes_attr = json_integer_value(json_object_get(_nodes, "failed"));
+	elasticsearch_metric_set(carg, "elasticsearch_shards_failed");
 	metric_add_labels("elasticsearch_shards_failed", &_nodes_attr, DATATYPE_INT, carg, "cluster", cluster_name);
 
 	// get nodes
@@ -511,6 +541,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 						char key_buf[255];
 						size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 						strlcpy(key_buf, node_key1, key_copy + 1);
+						elasticsearch_metric_set(carg, string2);
 						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 						if (bytes)
@@ -519,6 +550,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 					else if (type1 == JSON_REAL)
 					{
 						dl = json_real_value(node_value1);
+						elasticsearch_metric_set(carg, string2);
 						metric_add_labels3(string2, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key1);
 					}
 					else if (type1 == JSON_OBJECT)
@@ -543,6 +575,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 								char key_buf[255];
 								size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 								strlcpy(key_buf, node_key2, key_copy + 1);
+								elasticsearch_metric_set(carg, string3);
 								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 								if (bytes)
@@ -551,6 +584,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 							else if (type2 == JSON_REAL)
 							{
 								dl = json_real_value(node_value2);
+								elasticsearch_metric_set(carg, string3);
 								metric_add_labels3(string3, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key2);
 							}
 							else if (type2 == JSON_OBJECT)
@@ -583,6 +617,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 										char key_buf[255];
 										size_t key_copy = key_size < (sizeof(key_buf) - 1) ? key_size : (sizeof(key_buf) - 1);
 										strlcpy(key_buf, node_key3, key_copy + 1);
+										elasticsearch_metric_set(carg, string4);
 										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 										if (bytes)
@@ -591,6 +626,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 									if (type3 == JSON_REAL)
 									{
 										dl = json_real_value(node_value3);
+										elasticsearch_metric_set(carg, string4);
 										metric_add_labels3(string4, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "index", (char*)key, "key", (char*)node_key3);
 									}
 								}
@@ -713,7 +749,10 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 						}
 
 						if (emit)
+						{
+							elasticsearch_metric_set(carg, string4);
 							metric_add_labels2(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key);
+						}
 					}
 				}
 			}

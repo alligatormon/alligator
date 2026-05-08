@@ -17,7 +17,7 @@
 #include "common/validator.h"
 #include "common/reject.h"
 #include "cluster/pass.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "parsers/http_proto.h"
 #include "metric/labels.h"
 #include "main.h"
@@ -56,6 +56,7 @@ static int otlp_ingest_value_labels(char *metric_name, double value, alligator_h
 		labels_hash_free(lbl);
 		return 1;
 	}
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "OTLP exported metric value.");
 	metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	return 1;
 }

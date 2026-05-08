@@ -2,6 +2,7 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/xml.h"
@@ -10,6 +11,11 @@
 
 #define MONIT_NAME_SIZE 10000
 #define MONIT_SLIM_SIZE 1000
+
+static inline void monit_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Monit exported service/system metric value.");
+}
 
 void monit_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -124,6 +130,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 
 				double mval = atof(responsetime_value);
+				monit_metric_set(carg, "monit_service_responsetime");
 				metric_add_labels6("monit_service_responsetime", &mval, DATATYPE_DOUBLE, carg, "name", value, hostname_name, hostname_value, portnumber_name, portnumber_value, rawrequest_name, request, protocol_name, protocol_value, type_name, type_value);
 
 				continue;
@@ -145,6 +152,7 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 
 				uint64_t mval = atof(started_value);
+				monit_metric_set(carg, "monit_program_start");
 				metric_add_labels("monit_program_start", &mval, DATATYPE_UINT, carg, "name", value);
 			}
 			else if (node_name_size == 10 && !strncmp(node_name, "timestamps", 10))
@@ -180,8 +188,11 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 				modify = atoll(timestamps_value);
 
+				monit_metric_set(carg, "monit_timestamps_access");
 				metric_add_labels("monit_timestamps_access", &access, DATATYPE_UINT, carg, "name", value);
+				monit_metric_set(carg, "monit_timestamps_change");
 				metric_add_labels("monit_timestamps_change", &change, DATATYPE_UINT, carg, "name", value);
+				monit_metric_set(carg, "monit_timestamps_modify");
 				metric_add_labels("monit_timestamps_modify", &modify, DATATYPE_UINT, carg, "name", value);
 			}
 
@@ -193,16 +204,19 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 			if (rc == DATATYPE_INT)
 			{
 				int64_t mval = atoll(node_value);
+				monit_metric_set(carg, mname);
 				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 			else if (rc == DATATYPE_UINT)
 			{
 				uint64_t mval = atoll(node_value);
+				monit_metric_set(carg, mname);
 				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 			else if (rc == DATATYPE_DOUBLE)
 			{
 				double mval = atof(node_value);
+				monit_metric_set(carg, mname);
 				metric_add_labels(mname, &mval, rc, carg, name, value);
 			}
 

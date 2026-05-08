@@ -5,10 +5,19 @@
 #include "common/validator.h"
 #include "common/http.h"
 #include "main.h"
+#include "metric/metric_types.h"
 #define NGINX_UPSTREAM_CHECK_SIZE 1000
 
 void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_check_status", METRIC_TYPE_GAUGE, "Nginx upstream check status by upstream/server/type.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_upstream_live_count", METRIC_TYPE_GAUGE, "Count of live upstream servers.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_upstream_dead_count", METRIC_TYPE_GAUGE, "Count of dead upstream servers.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_upstream_live_percent", METRIC_TYPE_GAUGE, "Percent of live upstream servers.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_upstream_dead_percent", METRIC_TYPE_GAUGE, "Percent of dead upstream servers.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_check_rise_count", METRIC_TYPE_GAUGE, "Rise threshold value from nginx upstream check.");
+	namespace_metric_family_set(NULL, carg, "nginx_upstream_check_fall_count", METRIC_TYPE_GAUGE, "Fall threshold value from nginx upstream check.");
+
 	int64_t cur;
 	int64_t i = 0;
 	size_t name_size;

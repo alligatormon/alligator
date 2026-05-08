@@ -4,9 +4,11 @@
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/aggregator.h"
+#include "metric/metric_types.h"
 #include "main.h"
 void gdnsd_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "gdnsd", METRIC_TYPE_GAUGE, "gdnsd exported metrics.");
 	carg->parser_status = json_query(metrics+8, NULL, "gdnsd", carg, carg->pquery, carg->pquery_size);
 }
 

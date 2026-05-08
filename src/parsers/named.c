@@ -6,6 +6,7 @@
 #include "common/validator.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "metric/metric_types.h"
 #include "main.h"
 
 #define NAMED_NAME_SIZE 10000
@@ -90,6 +91,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 
 				snprintf(mname, NAMED_MNAME_SIZEE, "named_%s_%s_counter", ctx, type);
 				carglog(carg, L_DEBUG, "\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
+				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_COUNTER, "BIND named XML statistics counter grouped by context and labels.");
 
 				alligator_ht *lbl = alligator_ht_init(NULL);
 				if (proto)
@@ -143,6 +145,7 @@ void named_get_taskmgr_value(context_arg *carg, char *metrics, char *node_name, 
 
 		char mname[255];
 		snprintf(mname, 254, "named_taskmgr_thread_model_%s", name);
+		namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "BIND named task manager XML statistic.");
 		metric_add_auto(mname, &value, DATATYPE_UINT, carg);
 	}
 }
@@ -159,6 +162,7 @@ void named_get_value(context_arg *carg, char *metrics, char *resource, char *nod
 		char mname[255];
 		snprintf(mname, 254, "%s_%s", resource, name);
 		carglog(carg, L_DEBUG, "named %s: %"u64"\n", mname, value);
+		namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "BIND named XML statistics gauge value.");
 
 		if (ctx_name && id)
 			metric_add_labels2(mname, &value, DATATYPE_UINT, carg, "name", ctx_name, "id", id);
@@ -285,6 +289,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 
 				serial = strtoull(tmp2, &tmp2, 10);
 				carglog(carg, L_DEBUG, "view name: %s, zone name: %s, type: %s: %"u64"\n", view_name, zone_name, type, serial);
+				namespace_metric_family_set(NULL, carg, "named_view_zone_serial", METRIC_TYPE_GAUGE, "BIND named DNS zone serial number by view and zone.");
 				metric_add_labels3("named_view_zone_serial", &serial, DATATYPE_UINT, carg, "view", view_name, "zone", zone_name, "type", type);
 			}
 
@@ -338,6 +343,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 
 					carglog(carg, L_DEBUG, "view: %s, cache: %s, rrset name: %s: %"u64"\n", view_name, cache_name, rrset_name_str, value);
 
+					namespace_metric_family_set(NULL, carg, "named_cache_rrset", METRIC_TYPE_GAUGE, "BIND named cache rrset counter by view and cache.");
 					metric_add_labels3("named_cache_rrset", &value, DATATYPE_UINT, carg, "view", view_name, "cache", cache_name, "name", rrset_name_str);
 				}
 			}
@@ -374,6 +380,7 @@ void named_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels("named_sockets_count", &tcp, DATATYPE_UINT, carg, "proto", "tcp");
 		metric_add_labels("named_sockets_count", &udp, DATATYPE_UINT, carg, "proto", "udp");
 		metric_add_labels("named_sockets_count", &other, DATATYPE_UINT, carg, "proto", "other");
+		namespace_metric_family_set(NULL, carg, "named_sockets_count", METRIC_TYPE_GAUGE, "BIND named sockets count by protocol.");
 	}
 
 	tmp = strstr(metrics, "<taskmgr>");

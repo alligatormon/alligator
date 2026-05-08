@@ -2,12 +2,15 @@
 #include <string.h>
 #include "common/selector_split_metric.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
 
 void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "zk_mode", METRIC_TYPE_GAUGE, "ZooKeeper node mode state.");
+
 	char **maps = malloc(sizeof(char*)*1);
 	maps[0] = strdup("zk_server_state");
 	char *res = selector_split_metric(metrics, size, "\n", 1, "\t", 1, "", 0, maps, 1, carg);
@@ -28,6 +31,8 @@ void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "zk_total_watches", METRIC_TYPE_GAUGE, "ZooKeeper total watches.");
+
 	char *cur = strstr(metrics, "Total watches:");
 	if (!cur)
 		return;
@@ -37,6 +42,8 @@ void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 }
 void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "zk_readwrite", METRIC_TYPE_GAUGE, "ZooKeeper read/write mode state.");
+
 	int64_t val = 1;
 	if (!strncmp(metrics, "ro", 2))
 	{

@@ -2,10 +2,17 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "main.h"
 #define FLOWER_LABEL_SIZE 1000
+
+static inline void flower_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Flower (Celery) exported metric value.");
+}
+
 void flower_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *cur = metrics;
@@ -17,6 +24,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	cur += 8;
 	int64_t total_active = atoll(cur);
+	flower_metric_set(carg, "flower_tasks_total_active");
 	metric_add_auto("flower_tasks_total_active", &total_active, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Processed:");
@@ -24,6 +32,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	cur += 11;
 	int64_t total_processed = atoll(cur);
+	flower_metric_set(carg, "flower_tasks_total_processed");
 	metric_add_auto("flower_tasks_total_processed", &total_processed, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Failed:");
@@ -31,6 +40,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	cur += 8;
 	int64_t total_failed = atoll(cur);
+	flower_metric_set(carg, "flower_tasks_total_failed");
 	metric_add_auto("flower_tasks_total_failed", &total_failed, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Succeeded:");
@@ -38,6 +48,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	cur += 11;
 	int64_t total_successed = atoll(cur);
+	flower_metric_set(carg, "flower_tasks_total_successed");
 	metric_add_auto("flower_tasks_total_successed", &total_successed, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Retried:");
@@ -45,6 +56,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 	cur += 9;
 	int64_t total_retried = atoll(cur);
+	flower_metric_set(carg, "flower_tasks_total_retried");
 	metric_add_auto("flower_tasks_total_retried", &total_retried, DATATYPE_INT, carg);
 
 	while ((cur = strstr(cur, "<tr id=")))
@@ -81,6 +93,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t status = 0;
 		if(!strncmp(cur, "True", 4))
 			status = 1;
+		flower_metric_set(carg, "flower_worker_status");
 		metric_add_labels("flower_worker_status", &status, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -88,6 +101,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_active = atoll(cur);
+			flower_metric_set(carg, "flower_tasks_active");
 			metric_add_labels("flower_tasks_active", &task_active, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -95,6 +109,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_processed = atoll(cur);
+			flower_metric_set(carg, "flower_tasks_processed");
 			metric_add_labels("flower_tasks_processed", &task_processed, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -102,6 +117,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_failed = atoll(cur);
+			flower_metric_set(carg, "flower_tasks_failed");
 			metric_add_labels("flower_tasks_failed", &task_failed, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -109,6 +125,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_successed = atoll(cur);
+			flower_metric_set(carg, "flower_tasks_successed");
 			metric_add_labels("flower_tasks_successed", &task_successed, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -116,6 +133,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_retried = atoll(cur);
+			flower_metric_set(carg, "flower_tasks_retried");
 			metric_add_labels("flower_tasks_retried", &task_retried, DATATYPE_INT, carg, "worker",  label);
 	}
 	carg->parser_status = 1;

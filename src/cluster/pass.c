@@ -5,7 +5,7 @@
 #include "metric/metrictree.h"
 #include "metric/labels.h"
 #include "common/logs.h"
-#include "parsers/metric_types.h"
+#include "metric/metric_types.h"
 #include "cluster/get.h"
 void cluster_replica_handler(char *data, size_t size, context_arg *carg);
 

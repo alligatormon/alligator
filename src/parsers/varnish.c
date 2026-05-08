@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/logs.h"
@@ -64,11 +65,13 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 				if (json_typeof(mvalue_json) == JSON_INTEGER)
 				{
 					int64_t mvalue = json_integer_value(mvalue_json);
+					namespace_metric_family_set(NULL, carg, metricname, METRIC_TYPE_GAUGE, "Varnish exported metric value.");
 					metric_add(metricname, lbl, &mvalue, DATATYPE_INT, carg);
 				}
 				else if (json_typeof(mvalue_json) == JSON_REAL)
 				{
 					double mvalue = json_real_value(mvalue_json);
+					namespace_metric_family_set(NULL, carg, metricname, METRIC_TYPE_GAUGE, "Varnish exported metric value.");
 					metric_add(metricname, lbl, &mvalue, DATATYPE_DOUBLE, carg);
 				}
 			}

@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <math.h>
 #include <pthread.h>
+#include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "query/type.h"
 #include "common/validator.h"
 #include "common/logs.h"
@@ -378,6 +380,9 @@ void cassandra_run(void* arg) {
 	uint64_t val = 1;
 	context_arg *carg = arg;
 	cassandra_data *data = carg->data;
+
+	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
+	namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status.");
 
 	if (!cassandra2_start_connect(&data->conn, carg)) {
 		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");

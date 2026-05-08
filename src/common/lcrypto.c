@@ -7,12 +7,21 @@
 #include "common/selector.h"
 #include "dstructures/ht.h"
 #include "metric/labels.h"
+#include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "common/logs.h"
 #include "main.h"
 #define SERIAL_NUM_LEN 255
 //#define	 X509_get_notBefore(x) ((x)->cert_info->validity->notBefore)
 //#define	 X509_get_notAfter(x) ((x)->cert_info->validity->notAfter)
 extern aconf *ac;
+
+static inline void x509_metric_families_set(context_arg *carg)
+{
+	namespace_metric_family_set(NULL, carg, "x509_cert_not_before", METRIC_TYPE_GAUGE, "X.509 certificate notBefore timestamp (Unix seconds).");
+	namespace_metric_family_set(NULL, carg, "x509_cert_not_after", METRIC_TYPE_GAUGE, "X.509 certificate notAfter timestamp (Unix seconds).");
+	namespace_metric_family_set(NULL, carg, "x509_cert_expire_days", METRIC_TYPE_GAUGE, "Whole days until X.509 certificate expiration.");
+}
 
 alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 {
@@ -156,6 +165,8 @@ static time_t ASN1_GetTimeT(ASN1_TIME* time){
 
 void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn_issuer, char *serial, int64_t valid_from, int64_t valid_to)
 {
+	x509_metric_families_set(NULL);
+
 	labels_hash_insert_nocache(lbl, "issuer", dn_issuer);
 	if (ac->log_level > 2)
 		printf("cert: %s, issuer: %s\n", cert, dn_issuer);
@@ -319,6 +330,8 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 	const ASN1_TIME *notAfter  = X509_get0_notAfter(cert);
 	uint64_t valid_from, valid_to;
 	if (asn1_time_to_uint64(notBefore, &valid_from) && asn1_time_to_uint64(notAfter, &valid_to)) {
+		x509_metric_families_set(carg);
+
 		r_time now = setrtime();
 		int64_t expdays =  (valid_to-now.sec)/86400;
 		carg_or_glog(carg, L_INFO, "cert: %s, complete for: %u.\n", cert_name, now.sec);

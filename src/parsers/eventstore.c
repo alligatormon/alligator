@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/aggregator.h"
@@ -10,6 +11,7 @@
 
 void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "eventstore", METRIC_TYPE_GAUGE, "EventStore exported metric value.");
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));
 		carg->pquery[0] = strdup(".es.queue.[name]");
@@ -20,6 +22,7 @@ void eventstore_stats_handler(char *metrics, size_t size, context_arg *carg)
 
 void eventstore_projections_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "eventstore", METRIC_TYPE_GAUGE, "EventStore exported metric value.");
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));
 		carg->pquery[0] = strdup(".projections.[name]");
@@ -30,6 +33,7 @@ void eventstore_projections_handler(char *metrics, size_t size, context_arg *car
 
 void eventstore_info_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "eventstore", METRIC_TYPE_GAUGE, "EventStore exported metric value.");
 	carg->parser_status = 1;
 	if (!carg->pquery) {
 		carg->pquery = calloc(1, sizeof(void*));

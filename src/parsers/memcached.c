@@ -6,6 +6,7 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "parsers/multiparser.h"
+#include "metric/metric_types.h"
 #include "query/type.h"
 #include "common/logs.h"
 #include "main.h"
@@ -56,6 +57,7 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		if (metric_value_validator(metricvalue, copysize-1))
 		{
 			double mval = strtod(metricvalue, NULL);
+			namespace_metric_family_set(NULL, carg, metricname, METRIC_TYPE_GAUGE, "Memcached query-derived numeric value.");
 			metric_add_auto(metricname, &mval, DATATYPE_DOUBLE, carg);
 		}
 		else
@@ -248,16 +250,19 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 		if (rc == DATATYPE_INT)
 		{
 			int64_t mval = strtoll(cur, &cur, 10);
+			namespace_metric_family_set(NULL, carg, name, METRIC_TYPE_GAUGE, "Memcached STAT field exported from the text protocol.");
 			metric_add_auto(name, &mval, rc, carg);
 		}
 		else if (rc == DATATYPE_UINT)
 		{
 			uint64_t mval = strtoll(cur, &cur, 10);
+			namespace_metric_family_set(NULL, carg, name, METRIC_TYPE_GAUGE, "Memcached STAT field exported from the text protocol.");
 			metric_add_auto(name, &mval, rc, carg);
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
 			double mval = strtod(cur, &cur);
+			namespace_metric_family_set(NULL, carg, name, METRIC_TYPE_GAUGE, "Memcached STAT field exported from the text protocol.");
 			metric_add_auto(name, &mval, rc, carg);
 		}
 	}

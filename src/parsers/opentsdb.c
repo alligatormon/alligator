@@ -3,12 +3,19 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "common/http.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/logs.h"
 #include "main.h"
 #define OPENTSDB_METRIC_SIZE 1000
+
+static inline void opentsdb_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "OpenTSDB exported metric value.");
+}
+
 void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_t *root;
@@ -45,12 +52,14 @@ void opentsdb_handler(char *metrics, size_t size, context_arg *carg)
 			//snprintf(metricname, latency - tname + 9, "opentsdb_%s", tname);
 			strlcpy(metricname+9, tname, latency - tname);
 			char *latencyname = latency+8;
+			opentsdb_metric_set(carg, metricname);
 			metric_add_labels(metricname, &tvalue, DATATYPE_INT, carg, "latency", latencyname);
 		}
 		else
 		{
 			size_t tname_size = strlen(tname);
 			strlcpy(metricname+9, tname, tname_size + 1);
+			opentsdb_metric_set(carg, metricname);
 			metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 		}
 	}

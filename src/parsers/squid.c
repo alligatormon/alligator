@@ -3,12 +3,18 @@
 #include <jansson.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/logs.h"
 #include "dstructures/tommy.h"
 #include "main.h"
 #define SQUID_LEN 1000
+
+static inline void squid_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Squid cache manager exported metric value.");
+}
 
 void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -103,12 +109,14 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			double vl = strtod(value, NULL);
 			carglog(carg, L_TRACE, " '%s' -> (double) '%lf'\n", value, vl);
+			squid_metric_set(carg, name);
 			metric_add(name, lbl, &vl, DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
 			uint64_t vl = strtoull(value, NULL, 10);
 			carglog(carg, L_TRACE, " '%s' -> (uint64_t) '%"u64"'\n", value, vl);
+			squid_metric_set(carg, name);
 			metric_add(name, lbl, &vl, DATATYPE_UINT, carg);
 		}
 		i += len;
@@ -130,6 +138,7 @@ char* squid_info_5min_parser(context_arg *carg, char *field, char *metric, char 
 	tmp += 5;
 	tmp += strcspn(tmp, "0123456789");
 	dval = strtod(tmp, &tmp);
+	squid_metric_set(carg, metric);
 	metric_add_auto(metric, &dval, DATATYPE_DOUBLE, carg);
 	return tmp;
 }
@@ -145,16 +154,19 @@ char* squid_info_counter_parser(context_arg *carg, char *field, char *metric, ch
 	if (type == DATATYPE_UINT)
 	{
 		uint64_t val = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, metric);
 		metric_add_auto(metric, &val, type, carg);
 	}
 	else if (type == DATATYPE_INT)
 	{
 		int64_t val = strtoll(tmp, &tmp, 10);
+		squid_metric_set(carg, metric);
 		metric_add_auto(metric, &val, type, carg);
 	}
 	else if (type == DATATYPE_DOUBLE)
 	{
 		double val = strtod(tmp, &tmp);
+		squid_metric_set(carg, metric);
 		metric_add_auto(metric, &val, type, carg);
 	}
 
@@ -326,7 +338,9 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 			if (pconn)
 			{
 				carglog(carg, L_TRACE, "\tsquid KEY %"PRIu64", endpoint='%s', hostname='%s', pconn: %p, requests: %"PRIu64", connection_count: %"PRIu64"\n", key, endpoint, hostname, pconn, pconn->requests, pconn->connection_count);
+				squid_metric_set(carg, "squid_persistence_connections_requests_count");
 				metric_add_labels3("squid_persistence_connections_requests_count", &pconn->requests, DATATYPE_UINT, carg, "endpoint", endpoint, "hostname", hostname, "pool", pool);
+				squid_metric_set(carg, "squid_persistence_connections_connect_count");
 				metric_add_labels3("squid_persistence_connections_connect_count", &pconn->connection_count, DATATYPE_UINT, carg, "endpoint", endpoint, "hostname", hostname, "pool", pool);
 			}
 			else
@@ -435,11 +449,13 @@ void squid_comm_epoll_incoming_handler(char *metrics, size_t size, context_arg *
 			size_t pool_copy = pool_size < (sizeof(pool_str) - 1) ? pool_size : (sizeof(pool_str) - 1);
 			strlcpy(pool_str, pool, pool_copy + 1);
 			carglog(carg, L_TRACE, "\tsquid_comm_epoll_incoming_loops '%s', loop %"u64"\n", pool_str, loops_uint);
+			squid_metric_set(carg, "squid_comm_epoll_incoming_loops");
 			metric_add_labels("squid_comm_epoll_incoming_loops", &loops_uint, DATATYPE_UINT, carg, "pool", pool_str);
 		}
 		else
 		{
 			carglog(carg, L_TRACE, "squid_comm_epoll_incoming_loops %"u64"\n", loops_uint);
+			squid_metric_set(carg, "squid_comm_epoll_incoming_loops");
 			metric_add_auto("squid_comm_epoll_incoming_loops", &loops_uint, DATATYPE_UINT, carg);
 		}
 
@@ -513,6 +529,7 @@ void squid_forward_handler(char *metrics, size_t size, context_arg *carg)
 				snprintf(try, 21, "%"u64, ind);
 				snprintf(scode, 21, "%"u64, code);
 				carglog(carg, L_TRACE, "\t\tsquid counter[%"u64"]: %"u64"\n", ind, counter);
+				squid_metric_set(carg, "squid_forward_code");
 				metric_add_labels3("squid_forward_code", &counter, DATATYPE_UINT, carg, "pool", pool, "try", try, "code", scode);
 			}
 
@@ -601,11 +618,17 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
 
 		carglog(carg, L_TRACE, "squid pool %s, in use: %"u64", cached: %"u64", requests: %"u64", hits: %"u64", negative hits: %"u64", misses: %"u64"\n", pool, inuse, cached, requests, hits, nhits, misses);
 
+		squid_metric_set(carg, "squid_fqdn_cache_entries_in_use");
 		metric_add_labels("squid_fqdn_cache_entries_in_use", &inuse, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_cache_entries_cached");
 		metric_add_labels("squid_fqdn_cache_entries_cached", &cached, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_cache_requests");
 		metric_add_labels("squid_fqdn_cache_requests", &requests, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_hits");
 		metric_add_labels("squid_fqdn_hits", &hits, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_negative_hits");
 		metric_add_labels("squid_fqdn_negative_hits", &nhits, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_misses");
 		metric_add_labels("squid_fqdn_misses", &misses, DATATYPE_UINT, carg, "pool", pool);
 
 		tmp = strstr(tmp, "by");
@@ -633,6 +656,7 @@ void squid_diskd_stats(char *str, char **ret, char *stat, context_arg *carg)
 	tmp += strspn(tmp, " \t");
 	
 	uint64_t cnt = strtoull(tmp, &tmp, 10);
+	squid_metric_set(carg, metric_name);
 	metric_add_labels(metric_name, &cnt, DATATYPE_UINT, carg, "type", "ops");
 
 	cnt = strtoull(tmp, &tmp, 10);
@@ -653,6 +677,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_sent_count");
 		metric_add_auto("squid_disk_sent_count", &cnt, DATATYPE_UINT, carg);
 	}
 	else
@@ -662,6 +687,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_recv_count");
 		metric_add_auto("squid_disk_recv_count", &cnt, DATATYPE_UINT, carg);
 	}
 	else
@@ -671,6 +697,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_max_away");
 		metric_add_auto("squid_disk_max_away", &cnt, DATATYPE_UINT, carg);
 	}
 	else
@@ -680,6 +707,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_max_shmuse");
 		metric_add_auto("squid_disk_max_shmuse", &cnt, DATATYPE_UINT, carg);
 	}
 	else
@@ -689,6 +717,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_open_fail_queue_len");
 		metric_add_auto("squid_disk_open_fail_queue_len", &cnt, DATATYPE_UINT, carg);
 	}
 	else
@@ -698,6 +727,7 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
+		squid_metric_set(carg, "squid_disk_block_queue_len");
 		metric_add_auto("squid_disk_block_queue_len", &cnt, DATATYPE_UINT, carg);
 	}
 	else

@@ -2,12 +2,14 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/json_query.h"
 #include "common/http.h"
 #include "main.h"
 void riak_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "riak", METRIC_TYPE_GAUGE, "Riak exported metric value.");
 	carg->parser_status = json_query(metrics, NULL, "riak", carg, carg->pquery, carg->pquery_size);
 }
 

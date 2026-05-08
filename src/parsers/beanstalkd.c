@@ -3,10 +3,16 @@
 #include "common/logs.h"
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "main.h"
+
+static inline void beanstalkd_metric_set(context_arg *carg, const char *metric_name, uint8_t type)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, type, "Beanstalkd exported queue/statistic value.");
+}
 
 void beanstalkd_handler(char *metrics, size_t size, context_arg *carg)
 {
@@ -38,6 +44,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	if (strncmp(tmp, "OK", 2)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
+		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
 		return;
 	}
@@ -48,6 +55,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	if (strncmp(tmp, "---", 3)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
+		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
 		return;
 	}
@@ -58,6 +66,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	if (strncmp(tmp, "name:", 5)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
+		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
 		return;
 	}
@@ -86,6 +95,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 		tmp += metric_name_len;
 		tmp += strspn(tmp, " :\t");
 		val = strtoull(tmp, NULL, 10);
+		beanstalkd_metric_set(carg, metric_name, METRIC_TYPE_GAUGE);
 		metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "tube_name", tube_name);
 		tmp += strcspn(tmp, "\r\n");
 		tmp += strspn(tmp, "\r\n");
@@ -104,6 +114,7 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 	if (strncmp(tmp, "OK", 2)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd tubes list response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
+		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_tubes_list", "reason", "unexpected response");
 		return;
 	}
@@ -115,6 +126,7 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 	if (strncmp(tmp, "---\n", 4)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd tubes list response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
+		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_tubes_list", "reason", "unexpected response");
 		return;
 	}
