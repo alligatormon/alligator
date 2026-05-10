@@ -1671,12 +1671,14 @@ void api_test_openmetrics_help_type_ordering()
 
     char *help_fallback = strstr(out->s, "# HELP ut_order_fallback_metric ut_order_fallback_metric\n");
     char *type_fallback = strstr(out->s, "# TYPE ut_order_fallback_metric untyped\n");
-    char *sample_fallback = strstr(out->s, "\nut_order_fallback_metric 5\n");
+    char *sample_fallback = strstr(out->s, "\nut_order_fallback_metric ");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, help_fallback);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, type_fallback);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sample_fallback);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, help_fallback < type_fallback);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, type_fallback < sample_fallback);
+    /* Value may be serialized as int or float depending on parser storage. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, sample_fallback[strlen("\nut_order_fallback_metric ")] == '5');
 
     string_free(out);
 }

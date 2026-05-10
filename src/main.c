@@ -22,6 +22,7 @@
 #include "puppeteer/puppeteer.h"
 #include "cluster/type.h"
 #include "common/logs.h"
+#include "common/stop.h"
 #include "dstructures/ht.h"
 #include "system/common.h"
 #include "common/xxh.h"
@@ -372,5 +373,7 @@ int main(int argc, char **argv, char **envp)
 
 	//openssl_r("../trash/pfx/domain.name.pfx", "123456");
 
-	return uv_run(loop, UV_RUN_DEFAULT);
+	uv_run(loop, UV_RUN_DEFAULT);
+	alligator_shutdown_after_loop();
+	return 0;
 }

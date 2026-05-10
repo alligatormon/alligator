@@ -505,6 +505,8 @@ void metric_str_build (char *namespace, string *str)
 	extern aconf *ac;
 
 	namespace_struct *ns = get_namespace_or_null(namespace);
+	if (!ns)
+		return;
 	metric_tree *tree = ns->metrictree;
 
 	if (tree && tree->root)
@@ -514,7 +516,7 @@ void metric_str_build (char *namespace, string *str)
 		metrictree_str_build(tree->root, str, ns, &last_metric);
 		string_cat(str, "alligator_metrics_exposed_total ", 32);
 		string_int(str, (tree->count + 1));
-		string_cat(str, "\n ", 1);
+		string_cat(str, "\n", 1);
 		pthread_rwlock_unlock(tree->rwlock);
 	}
 }

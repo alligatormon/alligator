@@ -1,7 +1,27 @@
 #include "metric/namespace.h"
 #include "action/type.h"
+#include "main.h"
+#include "common/logs.h"
 #include <ctype.h>
+#include <stdarg.h>
 #include <strings.h>
+
+static void metric_transform_info(context_arg *carg, action_node *an, const char *fmt, ...)
+{
+	int level;
+	if (carg)
+		level = carg->log_level;
+	else if (an)
+		level = an->log_level;
+	else
+		return;
+	if (level < L_INFO)
+		return;
+	va_list ap;
+	va_start(ap, fmt);
+	wrlog(level, L_INFO, fmt, ap);
+	va_end(ap);
+}
 
 static int metric_transform_append(char **dst, size_t *len, size_t *cap, const char *src, size_t src_len)
 {
@@ -113,8 +133,17 @@ char* metric_transform_name(char *name, action_node *an)
         }
     }
 
+    if (strcmp(name, result) != 0)
+        metric_transform_info(NULL, an, "metricstransform: metric name '%s' -> '%s'\n", name, result);
     free(new_name);
     return result;
+}
+
+char *metric_transform_alt_for_include(const char *export_name, const char *tree_metric_key)
+{
+    if (!export_name || !tree_metric_key)
+        return NULL;
+    return strcmp(export_name, tree_metric_key) ? (char *)tree_metric_key : NULL;
 }
 
 static int metric_transform_json_bool(json_t *val)
@@ -286,6 +315,8 @@ typedef struct metric_transform_update_ctx
     json_t *operation;
     int metric_regexp;
     const char *metric_pattern;
+    context_arg *carg;
+    action_node *an;
 } metric_transform_update_ctx;
 
 static void metric_transform_apply_operation(void *funcarg, void *arg)
@@ -316,9 +347,15 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
     if (!value_actions || !json_is_array(value_actions))
         return;
 
-    char *curr = strdup(labelscont->key ? labelscont->key : "");
-    if (!curr)
+    char *orig_val = strdup(labelscont->key ? labelscont->key : "");
+    if (!orig_val)
         return;
+    char *curr = strdup(orig_val);
+    if (!curr)
+    {
+        free(orig_val);
+        return;
+    }
 
     size_t value_actions_size = json_array_size(value_actions);
     for (size_t i = 0; i < value_actions_size; ++i)
@@ -343,12 +380,21 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
         curr = new_value;
     }
 
-    free(labelscont->key);
+    if (strcmp(orig_val, curr) != 0)
+        metric_transform_info(ctx->carg, ctx->an,
+            "metricstransform: metric '%s' label '%s' value '%s' -> '%s'\n",
+            ctx->metric_name ? ctx->metric_name : "?",
+            labelscont->name ? labelscont->name : "?",
+            orig_val, curr);
+    free(orig_val);
+
+    if (labelscont->allocatedkey)
+        free(labelscont->key);
     labelscont->key = curr;
     labelscont->allocatedkey = 1;
 }
 
-void metric_transform_labels(char *metric_name, alligator_ht *labels, json_t *metricstransform)
+void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an)
 {
     if (!metric_name || !labels || !metricstransform)
         return;
@@ -380,7 +426,10 @@ void metric_transform_labels(char *metric_name, alligator_ht *labels, json_t *me
             metric_regexp = 1;
         }
 
-        if (!metric_transform_match_pattern(metric_name, metric_pattern, metric_regexp))
+        int matched = metric_transform_match_pattern(metric_name, metric_pattern, metric_regexp);
+        if (!matched && metric_name_alt && *metric_name_alt)
+            matched = metric_transform_match_pattern(metric_name_alt, metric_pattern, metric_regexp);
+        if (!matched)
             continue;
 
         json_t *operations = json_object_get(transform, "operations");
@@ -399,14 +448,16 @@ void metric_transform_labels(char *metric_name, alligator_ht *labels, json_t *me
                 .metric_name = metric_name,
                 .operation = operation,
                 .metric_regexp = metric_regexp,
-                .metric_pattern = metric_pattern
+                .metric_pattern = metric_pattern,
+                .carg = carg,
+                .an = an
             };
             alligator_ht_foreach_arg(labels, metric_transform_apply_operation, &ctx);
         }
     }
 }
 
-char* metric_transform_label_value(char *metric_name, char *label_name, char *label_value, json_t *metricstransform)
+char* metric_transform_label_value(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an)
 {
     if (!metric_name || !label_name || !label_value || !metricstransform)
         return NULL;
@@ -416,10 +467,14 @@ char* metric_transform_label_value(char *metric_name, char *label_name, char *la
         return NULL;
 
     labels_hash_insert_nocache(labels, label_name, label_value);
-    metric_transform_labels(metric_name, labels, metricstransform);
+    metric_transform_labels(metric_name, metric_name_alt, labels, metricstransform, carg, an);
 
+    /* Must use the same hash as labels_hash_insert_nocache (metrictree_hashfunc_get). */
+    uint32_t label_hash = ac && ac->metrictree_hashfunc_get
+        ? ac->metrictree_hashfunc_get(label_name)
+        : tommy_strhash_u32(0, label_name);
     labels_container *labelscont = alligator_ht_search(
-        labels, labels_hash_compare, label_name, tommy_strhash_u32(0, label_name)
+        labels, labels_hash_compare, label_name, label_hash
     );
     char *ret = NULL;
     if (labelscont && labelscont->key)

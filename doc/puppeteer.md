@@ -163,7 +163,7 @@ Use it when you want to:
 - reduce high-cardinality labels
 
 The implementation supports an OTel-collector-like structure:
-- `transforms[].include` - target metric name
+- `transforms[].include` - target metric name (on [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform), see [matching stored vs exported names](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex))
 - `transforms[].match_type` - `strict` or `regexp`
 - `transforms[].operations[].action` - use `update_label`
 - `transforms[].operations[].label` - label name to update

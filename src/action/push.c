@@ -38,6 +38,19 @@ void action_push(json_t *action)
 		return;
 	}
 
+	/* Hash search returns the first bucket entry; new inserts go to the tail.
+	   Re-pushing the same action name without deleting leaves stale nodes and
+	   action_get() keeps returning the old config (e.g. without metricstransform). */
+	while (action_get(name))
+	{
+		json_t *prev = json_object();
+		if (!prev)
+			break;
+		json_object_set_new(prev, "name", json_string(name));
+		action_del(prev);
+		json_decref(prev);
+	}
+
 	//json_t *jdatasource = json_object_get(action, "datasource");
 	//if (!jdatasource)
 	//{
@@ -217,7 +230,7 @@ void action_push(json_t *action)
 	an->name = strdup(name);
 	//an->datasource = strdup(datasource);
 
-	glog(L_INFO, "create action node %p name '%s', expr '%s'\n", an, an->name, an->expr);
+	glog(L_INFO, "create action node %p name '%s', expr '%s'\n", (void *)an, an->name, an->expr ? an->expr : "");
 
 	alligator_ht_insert(ac->action, &(an->node), an, tommy_strhash_u32(0, an->name));
 }

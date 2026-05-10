@@ -315,6 +315,21 @@ action {
 
 Rule structure is OTel-style (`transforms`, `operations`, `value_actions`) and supports regex capture groups in replacements (`$1`, `$2`, ...).
 
+### Matching metric names: include, metric, metric_regex
+
+Each rule selects metrics using `include` (or legacy `metric`), or `metric_regex` (with `match_type: regexp` or the `metric_regex` field). During export, matching is done as follows:
+
+1. **Serialized name first** — the metric name after this action’s [`metric_name_transform_pattern`](#metric_name_transform_pattern) / `metric_name_transform_replacement`, if those are set; otherwise the name is unchanged from storage.
+2. **Stored name if different** — if the name kept inside Alligator is not the same as that serialized name, the same pattern is also tried against the stored (in-tree) metric key.
+
+If either test succeeds, the rule applies (**OR** semantics). That way a single `include` can target either the short name on the wire (for example `memory_usage`) or the long key still stored internally (for example `ci12312312.memory_usage`) when both refer to the same series. A regexp can cover both forms in one pattern if needed.
+
+### Serializers
+
+The same `metricstransform` behavior runs for every built-in serializer on actions: JSON, OTLP (JSON and protobuf), OpenMetrics, Graphite, Carbon2, InfluxDB line protocol, StatsD, DogStatsD, Dynatrace, Elasticsearch bulk, DSV, ClickHouse, Cassandra, and PostgreSQL.
+
+On **[entrypoints](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md#metricstransform)**, `metricstransform` runs at **ingest** time and matches only the metric name as received and stored; there is no export-time rename there, so the dual-name matching above applies to **actions** (export), not to entrypoint ingest.
+
 ## log_level
 Optional. When set, it becomes the `log_level` on the oneshot `context_arg` for this action (client and parser logging for that run). When omitted, the oneshot context uses the server-wide `log_level` from the main configuration.
 

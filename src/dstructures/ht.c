@@ -1,6 +1,28 @@
+#ifdef __linux__
+/* pthread_rwlockattr_setkind_np / PTHREAD_RWLOCK_PREFER_READER_NP */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#endif
 #include "dstructures/ht.h"
 #include <unistd.h>
 #include "dstructures/tommy.h"
+
+static void alligator_ht_rwlock_init(pthread_rwlock_t *rw)
+{
+#ifdef __linux__
+	pthread_rwlockattr_t attr;
+	if (pthread_rwlockattr_init(&attr) == 0) {
+		if (pthread_rwlockattr_setkind_np(&attr, PTHREAD_RWLOCK_PREFER_READER_NP) == 0
+		    && pthread_rwlock_init(rw, &attr) == 0) {
+			pthread_rwlockattr_destroy(&attr);
+			return;
+		}
+		pthread_rwlockattr_destroy(&attr);
+	}
+#endif
+	pthread_rwlock_init(rw, NULL);
+}
 
 void* alligator_ht_init(alligator_ht *h)
 {
@@ -11,7 +33,7 @@ void* alligator_ht_init(alligator_ht *h)
 		h->ht = calloc(1, sizeof(tommy_hashdyn));
 
 	tommy_hashdyn_init(h->ht);
-	pthread_rwlock_init(&h->rwlock, NULL);
+	alligator_ht_rwlock_init(&h->rwlock);
 
 	return h;
 }

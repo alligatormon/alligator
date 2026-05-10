@@ -32,7 +32,7 @@ static inline void metric_apply_context_transform(char *name, alligator_ht *labe
 	if (!transform_carg->metricstransform)
 		return;
 
-	metric_transform_labels(name, labels, transform_carg->metricstransform);
+	metric_transform_labels(name, NULL, labels, transform_carg->metricstransform, transform_carg, NULL);
 }
 
 int64_t get_ttl(context_arg *carg)

@@ -1,6 +1,7 @@
 #include "events/context_arg.h"
 #include "events/tls.h"
 #include "main.h"
+#include <pthread.h>
 #include <stdlib.h>
 #include "common/file_stat.h"
 #include "common/netlib.h"
@@ -18,6 +19,12 @@ context_arg *carg_copy(context_arg *src)
 	context_arg *carg = malloc(carg_size);
 	memcpy(carg, src, carg_size);
 	carg->process_spawner_registered = 0;
+	carg->full_body = NULL;
+
+	if (src->work_dir)
+		carg->work_dir = string_string_init_dup(src->work_dir);
+	else
+		carg->work_dir = NULL;
 
 	carg->amtail_touch_buf = NULL;
 	carg->amtail_touch_n = 0;
@@ -260,17 +267,25 @@ void carg_free(context_arg *carg)
 
 	if (carg->env)
 	{
+		/* One write lock for collect + unlink + tommy teardown: avoids blocking in
+		 * rdlock while another thread has queued a wrlock (glibc writer-preference),
+		 * and avoids per-node wrlock re-entry from the same thread. */
 		struct env_collect_ctx ctx = { NULL, 0, 0 };
-		alligator_ht_foreach_arg(carg->env, env_collect_ptr, &ctx);
+		alligator_ht *eh = carg->env;
+		pthread_rwlock_wrlock(&eh->rwlock);
+		tommy_hashdyn_foreach_arg(eh->ht, env_collect_ptr, &ctx);
 		for (size_t i = 0; i < ctx.n; ++i) {
-			alligator_ht_remove_existing(carg->env, &(ctx.buf[i]->node));
+			tommy_hashdyn_remove_existing(eh->ht, &(ctx.buf[i]->node));
 			free(ctx.buf[i]->k);
 			free(ctx.buf[i]->v);
 			free(ctx.buf[i]);
 		}
 		free(ctx.buf);
-		alligator_ht_done(carg->env);
-		free(carg->env);
+		tommy_hashdyn_done(eh->ht);
+		pthread_rwlock_unlock(&eh->rwlock);
+		pthread_rwlock_destroy(&eh->rwlock);
+		free(eh->ht);
+		free(eh);
 		carg->env = NULL;
 	}
 

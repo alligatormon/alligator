@@ -960,11 +960,20 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	uint8_t value_field = 0;
 	uint64_t value_raw = 0;
 	uint64_t time_unix_nano;
+	json_t *metricstransform;
+	char *new_name;
+	const char *metric_name_for_transform;
+	char *metric_transform_alt;
 
 	if (!sc || !sc->str || !labels || !labels->key || !labels->key_len)
 		return;
 	if (!otlp_metric_to_pb_value(x, &value_field, &value_raw))
 		return;
+
+	metricstransform = sc->an ? sc->an->metricstransform : NULL;
+	new_name = metric_transform_name(labels->key, sc->an);
+	metric_name_for_transform = new_name ? new_name : labels->key;
+	metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	req = string_init(256);
 	rm = string_init(256);
@@ -982,10 +991,15 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	{
 		if (it->name_len && it->key_len)
 		{
-			if (alligator_ht_search(add_labels, labels_hash_compare, it->name, ac->metrictree_hashfunc_get(it->name)))
+			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, it->name, ac->metrictree_hashfunc_get(it->name)))
 				continue;
 
-			string *kv = otlp_pbw_key_value_string(it->name, it->name_len, it->key, it->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, it->name, it->key, metricstransform, NULL, sc->an);
+			string *kv = transformed
+				? otlp_pbw_key_value_string(it->name, it->name_len, transformed, strlen(transformed))
+				: otlp_pbw_key_value_string(it->name, it->name_len, it->key, it->key_len);
+			if (transformed)
+				free(transformed);
 			otlp_pbw_field_lenmsg(dp, 7, kv);
 			string_free(kv);
 		}
@@ -998,7 +1012,10 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	otlp_pbw_field_lenmsg(gauge, 1, dp);
 
 	otlp_pbw_tag(metric, 1, 2);
-	otlp_pbw_len(metric, labels->key, labels->key_len);
+	if (new_name)
+		otlp_pbw_len(metric, new_name, strlen(new_name));
+	else
+		otlp_pbw_len(metric, labels->key, labels->key_len);
 	otlp_pbw_field_lenmsg(metric, 5, gauge);
 
 	otlp_pbw_field_lenmsg(sm, 2, metric);
@@ -1013,6 +1030,8 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	string_free(sm);
 	string_free(rm);
 	string_free(req);
+	if (new_name)
+		free(new_name);
 }
 
 void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg)

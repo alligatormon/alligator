@@ -65,9 +65,6 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		ret->end = 0;
 	}
 
-	glog(L_TRACE, "token state: operator=%d argument=%d context=%d start=%d semicolon=%d single_quote=%d double_quote=%d end=%d\n",
-		ret->operator, ret->argument, ret->context, ret->start, ret->semicolon, ret->quotas1, ret->quotas2, ret->end);
-
 	if (!ret->operator && !ret->argument && !ret->context && !ret->start && !ret->semicolon && !ret->quotas1 && !ret->quotas2 && !ret->end)
 	{
 		uint64_t sq1 = strcspn(str, "'");
@@ -76,36 +73,25 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		uint64_t sm = strcspn(str, ";");
 		uint64_t st = strcspn(str, "{");
 
-		glog(L_TRACE, "context/operator split check: '{' at %"u64", ';' at %"u64"\n", st, sm);
-		glog(L_TRACE, "single-quote scan: qpos=%"u64", semicolon=%"u64", context-start=%"u64"\n", sq1, sm, st);
-		glog(L_TRACE, "double-quote scan: qpos=%"u64", semicolon=%"u64", context-start=%"u64"\n", sq2, sm, st);
-
 		if ((sq1 < sm) && (sq1 < st))
 		{
-			glog(L_TRACE, "single-quoted token selected\n");
-
 			sq1 += strcspn(str+sq1+1, "'");
 			sm = strcspn(str+sq1, ";");
 			st = strcspn(str+sq1, "{");
 		}
 		if ((sq2 < sm) && (sq2 < st))
 		{
-			glog(L_TRACE, "double-quoted token selected\n");
-
 			sq2 += strcspn(str+sq2+1, "\"");
 			sm = strcspn(str+sq2, ";");
 			st = strcspn(str+sq2, "{");
 		}
 
 		if (st < sm) {
-			glog(L_TRACE, "detected context opener before semicolon (%"u64" < %"u64")\n", st, sm);
-
 			ret->context = 1;
 			ret->operator = 0;
 		}
 		else
 		{
-			glog(L_TRACE, "detected operator before context opener (%"u64" >= %"u64")\n", st, sm);
 			ret->context = 0;
 			ret->operator = 1;
 		}
@@ -132,12 +118,9 @@ void plain_get_word(char *str, config_parser_stat *ret)
 	size_t tmp_copy = ret->fact_length < (sizeof(tmp) - 1) ? ret->fact_length : (sizeof(tmp) - 1);
 	strlcpy(tmp, str, tmp_copy + 1);
 
-	glog(L_TRACE, "token lengths: parsed=%"u64", raw=%"u64"\n", ret->length, ret->fact_length);
-
 	for (uint64_t trigger = 0; trigger < ret->fact_length; trigger++)
 	{
 		trigger += strcspn(tmp+trigger, "'\"{};");
-		glog(L_TRACE, "token scan: pos=%"u64"/%"u64", char='%c', token='%s'\n", trigger, ret->length, tmp[trigger], tmp);
 
 		if (tmp[trigger] == '\'')
 		{
@@ -232,8 +215,6 @@ config_parser_stat* string_tokenizer(string *context, uint64_t *token_count)
 	uint64_t i;
 	for (i = 0; (tmp - context->s) < context->l; i++)
 	{
-		glog(L_TRACE, "---- next token ----\n");
-
 		char *start = plain_skip_spaces(tmp, " \n\r\t");
 		if (!start)
 			break;
@@ -260,9 +241,6 @@ config_parser_stat* string_tokenizer(string *context, uint64_t *token_count)
 		}
 		else
 			string_cat(elem, tmp, retws[i].length);
-
-		glog(L_DEBUG, "token='%s' len=%zu flags: single_quote=%d double_quote=%d semicolon=%d start=%d end=%d operator=%d argument=%d context=%d\n",
-			elem->s, elem->l, retws[i].quotas1, retws[i].quotas2, retws[i].semicolon, retws[i].start, retws[i].end, retws[i].operator, retws[i].argument, retws[i].context);
 
 		tmp = tmp + retws[i].fact_length;
 		retws[i].token = elem;
@@ -448,6 +426,87 @@ static void plain_context_env_line(json_t *env_obj, string *tok)
 	free(vbuf);
 }
 
+/* Strip trailing semicolon / spaces (plain-config tokens often include `;` before `}`). */
+static char *plain_strip_trailing_semicolon_ws(const char *value)
+{
+	size_t len;
+	char *out;
+
+	if (!value)
+		return NULL;
+	len = strlen(value);
+	while (len > 0 && isspace((unsigned char)value[len - 1]))
+		len--;
+	while (len > 0 && value[len - 1] == ';')
+		len--;
+	while (len > 0 && isspace((unsigned char)value[len - 1]))
+		len--;
+	out = malloc(len + 1);
+	if (!out)
+		return NULL;
+	memcpy(out, value, len);
+	out[len] = '\0';
+	return out;
+}
+
+/* Parse inline JSON object for metricstransform (handles optional '...' / "..." wrapping). */
+static json_t *plain_parse_metricstransform_object(const char *value)
+{
+	json_error_t error;
+	json_t *parsed;
+	char *t;
+	char *inner;
+	size_t len;
+
+	if (!value)
+		return NULL;
+	t = plain_strip_trailing_semicolon_ws(value);
+	if (!t)
+		return NULL;
+
+	len = strlen(t);
+	if (len >= 2 && t[0] == '\'' && t[len - 1] == '\'')
+	{
+		inner = malloc(len - 1);
+		if (!inner)
+		{
+			free(t);
+			return NULL;
+		}
+		memcpy(inner, t + 1, len - 2);
+		inner[len - 2] = '\0';
+		free(t);
+		t = plain_strip_trailing_semicolon_ws(inner);
+		free(inner);
+		if (!t)
+			return NULL;
+	}
+	else if (len >= 2 && t[0] == '"' && t[len - 1] == '"')
+	{
+		inner = malloc(len - 1);
+		if (!inner)
+		{
+			free(t);
+			return NULL;
+		}
+		memcpy(inner, t + 1, len - 2);
+		inner[len - 2] = '\0';
+		free(t);
+		t = plain_strip_trailing_semicolon_ws(inner);
+		free(inner);
+		if (!t)
+			return NULL;
+	}
+
+	parsed = json_loads(t, 0, &error);
+	free(t);
+	if (parsed && json_is_object(parsed))
+		return parsed;
+	if (parsed)
+		json_decref(parsed);
+	return NULL;
+}
+
 static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
 {
 	const char *token;
@@ -483,7 +542,13 @@ static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat
 
 	value = sep + 1;
 	value_len = strlen(value);
-	if (!value_len && (*idx + 1 < token_count) && wstokens[*idx + 1].argument)
+	if (!value_len && *idx + 1 < token_count && !strcmp(key, "metricstransform"))
+	{
+		++(*idx);
+		value = wstokens[*idx].token->s;
+		value_len = strlen(value);
+	}
+	else if (!value_len && (*idx + 1 < token_count) && wstokens[*idx + 1].argument)
 	{
 		++(*idx);
 		value = wstokens[*idx].token->s;
@@ -541,8 +606,7 @@ static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat
 
 	if (!strcmp(key, "metricstransform"))
 	{
-		json_error_t error;
-		json_t *parsed = json_loads(value, 0, &error);
+		json_t *parsed = plain_parse_metricstransform_object(value);
 		if (!parsed)
 			return 0;
 		json_array_object_insert(dst_obj, key, parsed);
@@ -652,8 +716,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *grok_splited_tags = NULL;
 			json_t *grok_splited_inherit_tag = NULL;
 
-			glog(L_DEBUG, "parsing context '%s'\n", wstokens[i].token->s);
-
 			json_t *context_json = NULL;
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
@@ -676,8 +738,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			{
 				if (wstokens[i].operator)
 				{
-					glog(L_DEBUG, "context='%s' operator='%s'\n", context_name, wstokens[i].token->s);
-
 					operator_name = wstokens[i].token->s;
 					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "services_checking_users") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
 					{
@@ -795,6 +855,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metricstransform"))
 					{
 						/* keep parsing in the same entrypoint object */
+					}
+					else if (!strcmp(context_name, "puppeteer") && !strcmp(operator_name, "metricstransform"))
+					{
+						/* value follows as next argument token */
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "tcp"))
 					{
@@ -1131,7 +1195,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								strlcpy(arg_name, wstokens[i].token->s, 255);
 								if (!strcmp(operator_name, "metricstransform"))
-									arg_value = plain_json_or_string(wstokens[i].token->s);
+								{
+									arg_value = plain_parse_metricstransform_object(wstokens[i].token->s);
+									if (!arg_value)
+										arg_value = plain_json_or_string(wstokens[i].token->s);
+								}
 								else
 									arg_value = json_string(wstokens[i].token->s);
 								json_array_object_insert(operator_json, operator_name, arg_value);
@@ -1391,25 +1459,36 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 						for (; i < token_count; i++)
 						{
-							uint64_t sep = strcspn(wstokens[i].token->s, "=");
-							if (sep < wstokens[i].token->l)
+							char *opt_tok = wstokens[i].token->s;
+							uint64_t sep = strcspn(opt_tok, "=");
+							size_t toklen = opt_tok ? strlen(opt_tok) : 0;
+							if (sep < toklen && opt_tok[sep] == '=')
 							{
-								glog(L_TRACE, "aggregate option token='%s'\n", wstokens[i].token->s);
+								glog(L_TRACE, "aggregate option token='%s'\n", opt_tok);
 								char arg_name[255];
-								strlcpy(arg_name, wstokens[i].token->s, sep+1);
+								strlcpy(arg_name, opt_tok, sep+1);
 								glog(L_TRACE, "aggregate option key='%s'\n", arg_name);
 
-								uint64_t semisep = strcspn(wstokens[i].token->s+sep+1, ":") + sep;
+								uint64_t semisep = strcspn(opt_tok+sep+1, ":") + sep;
 								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address"))
-									semisep = wstokens[i].token->l;
+									semisep = toklen;
 								if (!strcmp(arg_name, "metricstransform"))
-									semisep = wstokens[i].token->l;
+									semisep = toklen;
 
 								json_t *arg_value = NULL;
-								if (semisep+1 < wstokens[i].token->l)
+								if (!strcmp(arg_name, "metricstransform") && opt_tok[sep + 1] == '\0' && i + 1 < token_count)
+								{
+									arg_value = plain_parse_metricstransform_object(wstokens[i + 1].token->s);
+									if (!arg_value)
+										arg_value = plain_json_or_string(wstokens[i + 1].token->s);
+									if (arg_value)
+										json_array_object_insert(operator_json, arg_name, arg_value);
+									i++;
+								}
+								else if (semisep+1 < toklen)
 								{
 									char kv_key[255];
-									strlcpy(kv_key, wstokens[i].token->s+sep+1, semisep-sep+1);
+									strlcpy(kv_key, opt_tok+sep+1, semisep-sep+1);
 									glog(L_TRACE, "aggregate key/value key='%s'\n", kv_key);
 
 									if (!strcmp(arg_name, "env"))
@@ -1424,22 +1503,26 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = add_label_obj;
 									else
 										arg_value = json_object();
-									json_t *kv_value = json_string(wstokens[i].token->s+semisep+2);
+									json_t *kv_value = json_string(opt_tok+semisep+2);
 									json_array_object_insert(arg_value, kv_key, kv_value);
 								}
 								else
 								{
-									if (sisdigit(wstokens[i].token->s+sep+1))
+									if (sisdigit(opt_tok+sep+1))
 									{
-										int64_t num = strtoll(wstokens[i].token->s+sep+1, NULL, 10);
+										int64_t num = strtoll(opt_tok+sep+1, NULL, 10);
 										arg_value = json_integer(num);
 									}
 									else
 									{
 										if (!strcmp(arg_name, "metricstransform"))
-											arg_value = plain_json_or_string(wstokens[i].token->s+sep+1);
+										{
+											arg_value = plain_parse_metricstransform_object(opt_tok+sep+1);
+											if (!arg_value)
+												arg_value = plain_json_or_string(opt_tok+sep+1);
+										}
 										else
-											arg_value = json_string(wstokens[i].token->s+sep+1);
+											arg_value = json_string(opt_tok+sep+1);
 									}
 
 									if (!strcmp(arg_name, "pquery")) {
@@ -1456,6 +1539,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						}
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
+					else if (!strcmp(context_name, "puppeteer") && operator_json && strchr(wstokens[i].token->s, '=') && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
+						continue;
 					else
 					{
 						operator_json = json_object();
@@ -1466,8 +1551,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				{
 					if (!operator_json || !operator_name)
 						continue;
-
-					glog(L_DEBUG, "context='%s' operator='%s' argument='%s'\n", context_name, operator_name, wstokens[i].token->s);
 
 					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{
@@ -1486,6 +1569,22 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metricstransform"))
 					{
 						json_t *arg_json = plain_json_or_string(wstokens[i].token->s);
+						if (arg_json)
+							json_array_object_insert(operator_json, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "action") && !strcmp(operator_name, "metricstransform"))
+					{
+						json_t *arg_json = plain_parse_metricstransform_object(wstokens[i].token->s);
+						if (!arg_json)
+							arg_json = plain_json_or_string(wstokens[i].token->s);
+						if (arg_json)
+							json_array_object_insert(operator_json, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "puppeteer") && !strcmp(operator_name, "metricstransform"))
+					{
+						json_t *arg_json = plain_parse_metricstransform_object(wstokens[i].token->s);
+						if (!arg_json)
+							arg_json = plain_json_or_string(wstokens[i].token->s);
 						if (arg_json)
 							json_array_object_insert(operator_json, operator_name, arg_json);
 					}
@@ -1541,8 +1640,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 				else if (wstokens[i].context)
 				{
-					glog(L_DEBUG, "nested context='%s' argument='%s'\n", context_name, wstokens[i].token->s);
-
 					if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "mapping"))
 					{
 						if (!mapping_entrypoint)

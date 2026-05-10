@@ -267,6 +267,7 @@ aggregate {
 
 This is useful for cardinality cleanup before storage and before exporting through actions/serializers.
 
+When the same metrics are later exported via an **action** that uses `metric_name_transform`, [export-time `metricstransform`](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) on that action can match either the stored name or the transformed export name; aggregate-time rules here only see the name as produced by the aggregate/parser.
 
 ## Available parsers
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)

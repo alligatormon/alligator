@@ -423,7 +423,7 @@ entrypoint {
 
 This applies at metric add time, so transformed labels are stored in Alligator immediately.
 
-
+Metric-name matching for these rules uses **only** the name as ingested and stored. Unlike [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex), entrypoints do not apply `metric_name_transform` at ingest time, so there is no separate “on-the-wire” name to match against.
 
 # mapping
 Default: -\

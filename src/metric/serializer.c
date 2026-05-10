@@ -280,6 +280,9 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 {
 	labels_t *labels = x->labels;
 	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
+	char *transformed_metric_name = labels ? metric_transform_name(labels->key, sc->an) : NULL;
+	const char *metric_name_for_transform = transformed_metric_name ? transformed_metric_name : (labels ? labels->key : NULL);
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels ? labels->key : NULL);
 
 
 	json_t *obj = json_object();
@@ -302,7 +305,7 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 				continue;
 			}
 
-			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 			const char *label_value = transformed ? transformed : labels->key;
 			json_t *value = json_string(label_value);
 			json_array_object_insert(jlabels, labels->name, value);
@@ -326,6 +329,8 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	json_array_object_insert(obj, "labels", jlabels);
 	json_array_object_insert(obj, "samples", samples);
 	json_array_object_insert(sc->json, "", obj);
+	if (transformed_metric_name)
+		free(transformed_metric_name);
 }
 
 void otlp_add_label_foreach(void *funcarg, void* arg)
@@ -355,10 +360,11 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 
 	metric = json_object();
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 	if (new_name)
 	{
 		json_object_set_new(metric, "name", json_stringn(new_name, strlen(new_name)));
-		free(new_name);
 	}
 	else
 	{
@@ -373,7 +379,7 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 
 		if (labels->key_len)
 		{
-			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 			const char *label_value = transformed ? transformed : labels->key;
 			size_t label_value_len = transformed ? strlen(transformed) : labels->key_len;
 			json_array_append_new(attrs, otlp_key_value_string(labels->name, labels->name_len, label_value, label_value_len));
@@ -408,18 +414,25 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	json_object_set_new(metric, "gauge", gauge);
 
 	json_array_append_new(metrics, metric);
+	if (new_name)
+		free(new_name);
 }
 
 
 void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	json_t *obj = json_object();
 	json_t *jlabels = json_array();
 	//json_t *samples = json_array();
 
-	json_t *metric_name = json_string(labels->key);
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
+	json_t *metric_name = new_name ? json_string(new_name) : json_stringn(labels->key, labels->key_len);
 
 	labels = labels->next;
 	while (labels)
@@ -428,13 +441,18 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 		{
 			json_t *label = json_object();
 			json_t *name = json_string(labels->name);
-			json_t *value = json_string(labels->key);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			json_t *value = transformed ? json_string(transformed) : json_stringn(labels->key, labels->key_len);
+			if (transformed)
+				free(transformed);
 			json_array_object_insert(label, "name", name);
 			json_array_object_insert(label, "value", value);
 			json_array_object_insert(jlabels, "", label);
 		}
 		labels = labels->next;
 	}
+	if (new_name)
+		free(new_name);
 
 	json_t *sample_value = metric_value_serialize_json(x);
 	json_t *sample_expire = json_integer(x->expire_node ? x->expire_node->key : 0);
@@ -520,10 +538,11 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 
 	string *res = sc->str;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-		free(new_name);
 	}
 	else
 	{
@@ -563,7 +582,7 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 
 			string_cat(res, labels->name, labels->name_len);
 			string_cat(res, "=\"", 2);
-			char *transformed = metric_transform_label_value(x->labels->key, labels->name, labels->key, metricstransform);
+			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 			if (transformed)
 			{
 				string_cat(res, transformed, strlen(transformed));
@@ -583,6 +602,8 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 
 	metric_value_serialize_string(x, res);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 
@@ -604,16 +625,18 @@ void graphite_add_label_foreach(void *funcarg, void *arg)
 void serialize_graphite(metric_node *x, serializer_context *sc, uint64_t sec, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 	uint64_t metric_str_start_position = res->l;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
 		tag_normalizer_graphite(res->s + metric_str_start_position, strlen(new_name));
-
-		free(new_name);
 	}
 	else
 	{
@@ -644,8 +667,18 @@ void serialize_graphite(metric_node *x, serializer_context *sc, uint64_t sec, al
 
 			string_cat(res, "=", 1);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->key, labels->key_len);
-			tag_normalizer_graphite(res->s + metric_str_start_position, labels->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				tag_normalizer_graphite(res->s + metric_str_start_position, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+				tag_normalizer_graphite(res->s + metric_str_start_position, labels->key_len);
+			}
 		}
 		labels = labels->next;
 	}
@@ -656,6 +689,8 @@ void serialize_graphite(metric_node *x, serializer_context *sc, uint64_t sec, al
 	string_cat(res, " ", 1);
 	string_uint(res, sec);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 static void carbon2_add_label_foreach(void *funcarg, void *arg)
@@ -672,13 +707,15 @@ static void carbon2_add_label_foreach(void *funcarg, void *arg)
 void serialize_carbon2(metric_node *x, serializer_context *sc, uint64_t sec, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-		free(new_name);
 	}
 	else
 	{
@@ -704,7 +741,16 @@ void serialize_carbon2(metric_node *x, serializer_context *sc, uint64_t sec, all
 			string_cat(res, ";", 1);
 			string_cat(res, labels->name, labels->name_len);
 			string_cat(res, "=", 1);
-			string_cat(res, labels->key, labels->key_len);
+			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+			}
 		}
 		labels = labels->next;
 	}
@@ -713,6 +759,8 @@ void serialize_carbon2(metric_node *x, serializer_context *sc, uint64_t sec, all
 	string_cat(res, " ", 1);
 	string_uint(res, sec);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 void influxdb_add_label_foreach(void *funcarg, void *arg)
@@ -728,23 +776,25 @@ void influxdb_add_label_foreach(void *funcarg, void *arg)
 void serialize_influxdb(metric_node *x, serializer_context *sc, r_time now, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 
 	uint64_t metric_str_start_position = res->l;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-		metric_str_start_position = res->l - labels->key_len;
-		free(new_name);
+		metric_str_start_position = res->l - (uint64_t)strlen(new_name);
 	}
 	else
 	{
 		string_cat(res, labels->key, labels->key_len);
 	}
-	tag_normalizer_influxdb(res->s + metric_str_start_position, labels->key_len);
-
+	tag_normalizer_influxdb(res->s + metric_str_start_position, new_name ? strlen(new_name) : labels->key_len);
 
 	if (add_labels && alligator_ht_count(add_labels))
 	{
@@ -769,8 +819,18 @@ void serialize_influxdb(metric_node *x, serializer_context *sc, r_time now, alli
 
 			string_cat(res, "=", 1);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->key, labels->key_len);
-			tag_normalizer_influxdb(res->s + metric_str_start_position, labels->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				tag_normalizer_influxdb(res->s + metric_str_start_position, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+				tag_normalizer_influxdb(res->s + metric_str_start_position, labels->key_len);
+			}
 		}
 		labels = labels->next;
 	}
@@ -781,11 +841,17 @@ void serialize_influxdb(metric_node *x, serializer_context *sc, r_time now, alli
 	string_uint(res, now.sec);
 	string_uint(res, now.nsec);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
+	char *mtx_new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = mtx_new_name ? mtx_new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	string *res = NULL;
 
@@ -827,10 +893,17 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 	{
 		if (labels->key_len)
 		{
+			char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 			if (data && create_table && column_names)
 			{
 				string_cat(data, ",'", 2);
-				string_cat(data, labels->key, labels->key_len);
+				if (tf)
+				{
+					string_cat(data, tf, strlen(tf));
+					free(tf);
+				}
+				else
+					string_cat(data, labels->key, labels->key_len);
 				string_cat(data, "'", 1);
 
 				string_cat(create_table, ", ", 1);
@@ -843,7 +916,15 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 			else
 			{
 				string_cat(res, ",'", 2);
-				string_cat(res, labels->key, labels->key_len);
+				if (tf)
+				{
+					string_cat(res, tf, strlen(tf));
+					free(tf);
+				}
+				else
+				{
+					string_cat(res, labels->key, labels->key_len);
+				}
 				string_cat(res, "'", 1);
 			}
 		}
@@ -878,11 +959,17 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 	}
 
 	string_cat(res, "),\n", 3);
+	if (mtx_new_name)
+		free(mtx_new_name);
 }
 
 void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
+	char *mtx_new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = mtx_new_name ? mtx_new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	string *res = NULL;
 
@@ -940,10 +1027,17 @@ void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 		{
 			if (labels->key_len)
 			{
+				char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 				if (data && create_table && column_names)
 				{
 					string_cat(data, ",'", 2);
-					string_cat(data, labels->key, labels->key_len);
+					if (tf)
+					{
+						string_cat(data, tf, strlen(tf));
+						free(tf);
+					}
+					else
+						string_cat(data, labels->key, labels->key_len);
 					string_cat(data, "'", 1);
 
 					string_cat(create_table, ", ", 1);
@@ -956,7 +1050,15 @@ void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 				else
 				{
 					string_cat(res, ",'", 2);
-					string_cat(res, labels->key, labels->key_len);
+					if (tf)
+					{
+						string_cat(res, tf, strlen(tf));
+						free(tf);
+					}
+					else
+					{
+						string_cat(res, labels->key, labels->key_len);
+					}
 					string_cat(res, "'", 1);
 				}
 			}
@@ -984,11 +1086,17 @@ void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 		string_merge(res, data);
 		string_cat(res, ");\n", 3);
 	}
+	if (mtx_new_name)
+		free(mtx_new_name);
 }
 
 void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
+	char *mtx_new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = mtx_new_name ? mtx_new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	string *res = NULL;
 
@@ -1029,10 +1137,17 @@ void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 	{
 		if (labels->key_len)
 		{
+			char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
 			if (data && create_table && column_names)
 			{
 				string_cat(data, ",'", 2);
-				string_cat(data, labels->key, labels->key_len);
+				if (tf)
+				{
+					string_cat(data, tf, strlen(tf));
+					free(tf);
+				}
+				else
+					string_cat(data, labels->key, labels->key_len);
 				string_cat(data, "'", 1);
 
 				string_cat(create_table, ", ", 1);
@@ -1045,7 +1160,15 @@ void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 			else
 			{
 				string_cat(res, ",'", 2);
-				string_cat(res, labels->key, labels->key_len);
+				if (tf)
+				{
+					string_cat(res, tf, strlen(tf));
+					free(tf);
+				}
+				else
+				{
+					string_cat(res, labels->key, labels->key_len);
+				}
 				string_cat(res, "'", 1);
 			}
 		}
@@ -1075,25 +1198,42 @@ void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 	}
 
 	string_cat(res, "),\n", 3);
+	if (mtx_new_name)
+		free(mtx_new_name);
 }
 
 void serialize_dsv(metric_node *x, serializer_context *sc)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
+
+	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	while (labels)
 	{
 		if (labels->key_len)
 		{
-			string_cat(res, labels->key, labels->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				free(transformed);
+			}
+			else
+				string_cat(res, labels->key, labels->key_len);
 			string_cat(res, &sc->delimiter, 1);
 		}
 		else
 			string_cat(res, &sc->delimiter, 1);
 		labels = labels->next;
 	}
+
+	if (new_name)
+		free(new_name);
 
 	metric_value_serialize_string(x, res);
 	string_cat(res, "\n", 1);
@@ -1116,22 +1256,24 @@ void statsd_add_label_foreach(void *funcarg, void *arg)
 void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 	uint64_t metric_str_start_position = res->l;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-
-		metric_str_start_position = res->l - labels->key_len;
-		free(new_name);
+		metric_str_start_position = res->l - (uint64_t)strlen(new_name);
 	}
 	else
 	{
 		string_cat(res, labels->key, labels->key_len);
 	}
-	tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+	tag_normalizer_statsd(res->s + metric_str_start_position, new_name ? strlen(new_name) : labels->key_len);
 	labels = labels->next;
 
 	if (add_labels && alligator_ht_count(add_labels))
@@ -1158,8 +1300,18 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 			string_cat(res, ".", 1);
 
 			metric_str_start_position = res->l;
-			string_cat(res, labels->key, labels->key_len);
-			tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+				tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+			}
 		}
 		labels = labels->next;
 	}
@@ -1174,6 +1326,8 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 	else if (x->type == DATATYPE_DOUBLE)
 		string_cat(res, "g", 1);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 typedef struct dogstatsd_add_label_ctx
@@ -1199,16 +1353,19 @@ void dogstatsd_add_label_foreach(void *funcarg, void *arg)
 void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 
 	string *res = sc->str;
 	uint64_t metric_str_start_position = res->l;
 
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-		metric_str_start_position = res->l - labels->key_len;
-		free(new_name);
+		metric_str_start_position = res->l - (uint64_t)strlen(new_name);
 	}
 	else
 	{
@@ -1228,7 +1385,6 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 		string_cat(res, "g", 1);
 
 	labels = labels->next;
-
 
 	int tags_start = 1;
 
@@ -1256,7 +1412,6 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 			else
 				string_cat(res, ",", 1);
 
-
 			metric_str_start_position = res->l;
 			string_cat(res, labels->name, labels->name_len);
 			tag_normalizer_statsd(res->s + metric_str_start_position, labels->name_len);
@@ -1264,14 +1419,24 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 			string_cat(res, ":", 1);
 
 			metric_str_start_position = res->l;
-			string_cat(res, labels->key, labels->key_len);
-			tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
-
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+				tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
+			}
 		}
 		labels = labels->next;
 	}
 	string_cat(res, "\n", 1);
-
+	if (new_name)
+		free(new_name);
 }
 
 void dynatrace_add_label_foreach(void *funcarg, void *arg)
@@ -1287,14 +1452,17 @@ void dynatrace_add_label_foreach(void *funcarg, void *arg)
 void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
+	json_t *metricstransform = sc && sc->an ? sc->an->metricstransform : NULL;
 	string *res = sc->str;
 
 	uint64_t metric_str_start_position = res->l;
 	char *new_name = metric_transform_name(labels->key, sc->an);
+	const char *metric_name_for_transform = new_name ? new_name : labels->key;
+	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
-		free(new_name);
 	}
 	else
 	{
@@ -1309,7 +1477,7 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 		string_cat(res, ".count", 6);
 	}
 
-	tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
+	tag_normalizer_dynatrace(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
 	labels = labels->next;
 
 	if (add_labels && alligator_ht_count(add_labels))
@@ -1335,8 +1503,18 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 
 			string_cat(res, "\"", 1);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->key, labels->key_len);
-			tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
+			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			if (transformed)
+			{
+				string_cat(res, transformed, strlen(transformed));
+				tag_normalizer_dynatrace(res->s + metric_str_start_position, strlen(transformed));
+				free(transformed);
+			}
+			else
+			{
+				string_cat(res, labels->key, labels->key_len);
+				tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
+			}
 			string_cat(res, "\"", 1);
 		}
 		labels = labels->next;
@@ -1344,6 +1522,8 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 	string_cat(res, " ", 1);
 	metric_value_serialize_string(x, res);
 	string_cat(res, "\n", 1);
+	if (new_name)
+		free(new_name);
 }
 
 

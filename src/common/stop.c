@@ -17,10 +17,41 @@
 #include "events/system_scrape.h"
 #include "events/a_signal.h"
 #include "system/linux/ipmi.h"
+#include <signal.h>
+#include <string.h>
+#include <stdio.h>
+
+static volatile sig_atomic_t g_stop_requested;
+static int g_stop_code;
+static char g_stop_sig[48];
 
 void alligator_stop(char *sig, int code)
 {
-	printf("Stop signal received: %d: '%s'\n", code, sig);
+	/* Never run teardown (ipmi_wait_idle -> uv_run) from inside libuv's signal
+	 * callback: nested uv_run on the same loop is unsafe and can hang SIGINT. */
+	if (g_stop_requested)
+		return;
+	g_stop_requested = 1;
+	g_stop_code = code;
+	if (sig)
+		snprintf(g_stop_sig, sizeof g_stop_sig, "%s", sig);
+	else
+		g_stop_sig[0] = '\0';
+	if (ac && ac->loop)
+		uv_stop(ac->loop);
+}
+
+int alligator_stop_requested(void)
+{
+	return g_stop_requested ? 1 : 0;
+}
+
+void alligator_shutdown_after_loop(void)
+{
+	if (!g_stop_requested)
+		return;
+
+	printf("Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
 	printf("Don't forget to start me again, otherwise the alligator will bite you :)\n");
 	fflush(stdout);
 	ipmi_wait_idle();

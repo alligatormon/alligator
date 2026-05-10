@@ -228,6 +228,8 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	{
 		if (!newenv)
 			newenv = alligator_ht_init(NULL);
+		else if (carg && carg->env && newenv == carg->env)
+			newenv = env_struct_duplicate(carg->env);
 		alligator_ht_foreach_arg(env, env_struct_duplicate_foreach, newenv);
 	}
 
