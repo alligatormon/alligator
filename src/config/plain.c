@@ -441,6 +441,7 @@ static void plain_mtx_stmt_parse(config_parser_stat *wstokens, uint64_t a, uint6
 
 	json_t *cur_va = NULL;
 	uint64_t p = a;
+
 	while (p < b)
 	{
 		while (p < b && !wstokens[p].operator && !wstokens[p].argument)
@@ -453,33 +454,44 @@ static void plain_mtx_stmt_parse(config_parser_stat *wstokens, uint64_t a, uint6
 			p++;
 			continue;
 		}
-		p++;
-		if (p >= b)
-			break;
 		if (!strcmp(kw, "regex"))
 		{
-			cur_va = json_object();
-			json_object_set_new(cur_va, "regex", json_string(wstokens[p].token->s));
-			json_array_append_new(vas, cur_va);
 			p++;
+			if (p < b)
+			{
+				cur_va = json_object();
+				json_object_set_new(cur_va, "regex", json_string(wstokens[p].token->s));
+				json_array_append_new(vas, cur_va);
+				p++;
+			}
 			continue;
 		}
 		if (!strcmp(kw, "replacement") || !strcmp(kw, "new_value"))
 		{
-			if (cur_va)
-				json_object_set_new(cur_va, "replacement", json_string(wstokens[p].token->s));
 			p++;
+			if (p < b && cur_va)
+				json_object_set_new(cur_va, "replacement", json_string(wstokens[p].token->s));
+			if (p < b)
+				p++;
 			continue;
 		}
 		if (!strcmp(kw, "replace_all"))
 		{
-			const char *vv = wstokens[p].token->s;
-			json_t *bv = (!strcmp(vv, "true") || !strcmp(vv, "1")) ? json_true() : json_false();
-			if (cur_va)
-				json_object_set_new(cur_va, "replace_all", bv);
 			p++;
+			if (p < b && cur_va)
+			{
+				const char *vv = wstokens[p].token->s;
+				json_t *bv = (!strcmp(vv, "true") || !strcmp(vv, "1")) ? json_true() : json_false();
+
+				json_object_set_new(cur_va, "replace_all", bv);
+			}
+			if (p < b)
+				p++;
 			continue;
 		}
+		p++;
+		if (p >= b)
+			break;
 		if (!strcmp(kw, "include"))
 			json_object_set_new(t, "include", json_string(wstokens[p].token->s));
 		else if (!strcmp(kw, "metric"))
@@ -535,8 +547,14 @@ static json_t *plain_metricstransform_parse_native_block(config_parser_stat *wst
 		uint64_t stmt_start = k;
 		while (k < token_count && !wstokens[k].semicolon && !wstokens[k].end)
 			k++;
-		if (k > stmt_start)
-			plain_mtx_stmt_parse(wstokens, stmt_start, k, transforms);
+		uint64_t stmt_end = k;
+		/* plain_get_quotas_word marks trailing ';' on the same token as a quoted value (e.g. 'active';).
+		 * Without extending stmt_end, plain_mtx_stmt_parse would stop before that value. */
+		if (k < token_count && wstokens[k].semicolon && !wstokens[k].end &&
+		    (wstokens[k].argument || wstokens[k].quotas1 || wstokens[k].quotas2))
+			stmt_end = k + 1;
+		if (stmt_end > stmt_start)
+			plain_mtx_stmt_parse(wstokens, stmt_start, stmt_end, transforms);
 		if (k < token_count && wstokens[k].semicolon)
 			k++;
 	}

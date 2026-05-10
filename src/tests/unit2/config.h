@@ -1812,6 +1812,37 @@ void test_metricstransform_plain_and_ingest()
     json_t *pup0 = json_object_get(puppeteer, "https://example.org");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(pup0, "metricstransform"));
 
+    json_t *mtx_ctxs[4] = { ep0, agg0, act0, pup0 };
+    for (int c = 0; c < 4; c++) {
+        json_t *mtx = json_object_get(mtx_ctxs[c], "metricstransform");
+        json_t *txf0 = json_array_get(json_object_get(mtx, "transforms"), 0);
+        json_t *op0 = json_array_get(json_object_get(txf0, "operations"), 0);
+        json_t *va0 = json_array_get(json_object_get(op0, "value_actions"), 0);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(va0, "replacement"));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "$1", json_string_value(json_object_get(va0, "replacement")));
+    }
+
+    {
+        const char *frag_repl_active =
+            "action { name regexpr expr exec://true metricstransform { include ci12312312.memory_usage_cgroup match_type regexp label type regex '^total$' replacement 'active'; }; }\n";
+        string *sx = string_new();
+        string_cat(sx, (char *)frag_repl_active, strlen(frag_repl_active));
+        char *jsx = config_plain_to_json(sx);
+        string_free(sx);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jsx);
+        json_t *partx = json_loads(jsx, 0, &error);
+        free(jsx);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, partx);
+        json_t *ax = json_object_get(partx, "action");
+        json_t *ax0 = json_array_get(ax, 0);
+        json_t *mtxx = json_object_get(ax0, "metricstransform");
+        json_t *tx0 = json_array_get(json_object_get(mtxx, "transforms"), 0);
+        json_t *opx = json_array_get(json_object_get(tx0, "operations"), 0);
+        json_t *vax = json_array_get(json_object_get(opx, "value_actions"), 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "active", json_string_value(json_object_get(vax, "replacement")));
+        json_decref(partx);
+    }
+
     context_arg carg = {0};
     carg.metricstransform = json_incref(json_object_get(ep0, "metricstransform"));
     carg.namespace = strdup("ut_metricstransform_plain_ns");

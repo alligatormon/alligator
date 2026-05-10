@@ -95,6 +95,16 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	if (an->dry_run) {
 		log_level = L_OFF;
 	}
+	if (!an->expr || !an->expr[0])
+	{
+		glog(L_FATAL, "action '%s' has no expr; add an expr directive (e.g. exec://..., http://..., udp://...)\n", name);
+		if (ms)
+			string_tokens_free(ms);
+		free(body);
+		if (work_dir)
+			string_free(work_dir);
+		return;
+	}
 	if (!strncmp(an->expr, "exec://", 7))
 	{
 		glog(log_level, "run action exec %s with cmd: '%s' from directory '%s'\n", name, an->expr, work_dir);
