@@ -289,9 +289,21 @@ The implementation supports an OTel-collector-like structure:
 This rule applies to all puppeteer metrics, but updates only series that already have the `source` label.
 
 ### metricstransform example in plain config
-In plain config, pass the same JSON rule as a string:
+
+You can pass the rule as a **JSON string** (same object as in JSON config):
+
 ```
 puppeteer {
   https://example.org metricstransform='{"transforms":[{"include":"^puppeteer_.*$","match_type":"regexp","operations":[{"action":"update_label","label":"source","value_actions":[{"regex":"^https?://([^/]+).*$","replacement":"$1"}]}]}]}';
+}
+```
+
+Or use a **native block** (no JSON); keywords are the same as in [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform):
+
+```
+puppeteer {
+  https://example.org metricstransform {
+    include ^puppeteer_.*$ match_type regexp label source regex '^https?://([^/]+).*$' replacement '$1';
+  };
 }
 ```

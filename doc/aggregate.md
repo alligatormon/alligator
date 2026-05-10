@@ -258,10 +258,21 @@ Plural: no
 `metricstransform` rewrites label values for metrics produced by this aggregate item.
 The rule format is the same OTel-style JSON used in other contexts (`transforms` -> `operations` -> `value_actions`).
 
-In plain config, pass it as inline JSON:
+In plain config, pass either **inline JSON** (`metricstransform='{...}'` or `metricstransform={...}`) or a **native block** after the handler and URL on the same aggregate line.
+
+Inline JSON:
 ```
 aggregate {
     prometheus_metrics http://127.0.0.1:9100/metrics metricstransform='{"transforms":[{"include":"^node_.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
+}
+```
+
+Native block (same keyword grammar as [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)):
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metricstransform {
+        include ^node_.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+    };
 }
 ```
 

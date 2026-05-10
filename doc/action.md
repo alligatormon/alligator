@@ -214,7 +214,7 @@ action {
 
 
 ## metric_name_transform_pattern
-/**
+
 `metric_name_transform_pattern` and `metric_name_transform_replacement` define rules for transforming metric names before metrics are exported via an action.
 
 - `metric_name_transform_pattern`: Specifies a regular expression (PCRE syntax) that matches metric names. It is used to identify all or part of metric names that should be rewritten or normalized. Only the **first** match in each name is used.
@@ -240,8 +240,6 @@ In this example, any metric name starting with `stats.` will be rewritten to sta
 - Patterns are case-sensitive.
 
 See also: [src/metric/transform.c](https://github.com/alligatormon/alligator/blob/master/src/metric/transform.c) for implementation details.
-*/
-
 
 ## env
 Adds HTTP headers for `http`/`https` actions (they are merged into the outgoing request). For `exec://` actions, the same entries are supplied as environment variables for the subprocess.
@@ -303,7 +301,9 @@ Rewrites label values during serialization for this action.
 
 Use it to normalize outgoing labels before sending to external systems (for example, OTLP, OpenMetrics, JSON, ElasticSearch).
 
-In plain config, pass the transform as JSON string:
+In plain config you can either pass a **JSON string** (as before) or a **native block** (no JSON) with the same semantics.
+
+JSON string form:
 ```
 action {
   name to-otlp;
@@ -312,6 +312,40 @@ action {
   metricstransform '{"transforms":[{"include":"^.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
 }
 ```
+
+Native block form (one `;`-terminated statement per transform; implied `action` is `update_label`):
+```
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
+  metricstransform {
+    include ^.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+  };
+}
+```
+
+Multiple changes in one `metricstransform` block:
+```
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
+  metricstransform {
+    include ^node_.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+    include http_requests_total match_type strict label path regex '^/api/v[0-9]+/(.*)$' replacement '/api/$1';
+    include ^app_.*$ match_type regexp label source regex '^https?://([^/]+).*$' replacement '$1' replace_all false;
+  };
+}
+```
+
+Each `;`-terminated line inside the block becomes one transform rule.
+
+Supported keywords inside the block (repeat `regex` / `replacement` or `new_value` for multiple `value_actions`; optional `replace_all true|false` after a pair applies to the last `value_action`):
+
+- `include`, `metric`, `metric_regex`, `match_type` (`strict` or `regexp`)
+- `label`, `label_regex`
+- `regex`, `replacement` or `new_value`, `replace_all`
 
 Rule structure is OTel-style (`transforms`, `operations`, `value_actions`) and supports regex capture groups in replacements (`$1`, `$2`, ...).
 

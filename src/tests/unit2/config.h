@@ -1764,13 +1764,13 @@ void test_metricstransform_plain_and_ingest()
     /* One plain-to-JSON run per top-level block: a single multi-block string can leave the
      * tokenizer index misaligned between contexts, so metricstransform would be missing on later blocks. */
     const char *frag_ep =
-        "entrypoint { tcp 19101; metricstransform '{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}'; }\n";
+        "entrypoint { tcp 19101; metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
     const char *frag_agg =
-        "aggregate { json http://127.0.0.1:18080/metrics metricstransform={\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}; }\n";
+        "aggregate { json http://127.0.0.1:18080/metrics metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
     const char *frag_act =
-        "action { name t1 expr exec://true metricstransform '{\"transforms\":[{\"include\":\"ut_metric_transform_total\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}'; }\n";
+        "action { name t1 expr exec://true metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
     const char *frag_pup =
-        "puppeteer { https://example.org metricstransform '{\"transforms\":[{\"include\":\"puppeteer_eventSourceResponseStatus\",\"match_type\":\"strict\",\"operations\":[{\"action\":\"update_label\",\"label\":\"source\",\"value_actions\":[{\"regex\":\"^https?://([^/]+).*$\",\"replacement\":\"$1\"}]}]}]}'; }\n";
+        "puppeteer { https://example.org metricstransform { include puppeteer_eventSourceResponseStatus match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
     const char *fragments[4] = { frag_ep, frag_agg, frag_act, frag_pup };
     const char *keys[4] = { "entrypoint", "aggregate", "action", "puppeteer" };
 

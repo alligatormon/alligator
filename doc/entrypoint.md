@@ -410,14 +410,26 @@ Plural: no
 `metricstransform` rewrites label values on metric ingest for data accepted by this entrypoint (for example, pushgateway/statsd/graphite handlers).
 
 The value is an OTel-collector-like JSON object (or array) with `transforms`, `operations`, and `value_actions` rules.
-In plain config, provide it as a JSON string.
 
-Example (rewrite `instance` to host-only value):
+In plain config, provide either a **JSON string** or a **native block** (see [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform) for the keyword grammar; it is the same here).
+
+Example with JSON string (rewrite `instance` to host-only value):
 ```
 entrypoint {
     tcp 1111;
     handler prometheus;
     metricstransform '{"transforms":[{"include":"^.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
+}
+```
+
+Same rule as a native block:
+```
+entrypoint {
+    tcp 1111;
+    handler prometheus;
+    metricstransform {
+        include ^.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+    };
 }
 ```
 
