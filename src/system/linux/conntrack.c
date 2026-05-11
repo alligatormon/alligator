@@ -107,10 +107,18 @@ void get_conntrack_info()
 
 		if (status > 0 && NLMSG_OK(h, (uint32_t) status))
 		{
-			char *dt = (char*)NLMSG_DATA(h);
-
 			if (h->nlmsg_seq != 2) {
+				if (!NLMSG_OK(h, (uint32_t)status))
+				{
+					close(fd);
+					return;
+				}
 				h = NLMSG_NEXT(h, status);
+				if (!NLMSG_OK(h, (uint32_t)status))
+				{
+					close(fd);
+					return;
+				}
 			}
 
 			if (h->nlmsg_type == NLMSG_DONE || h->nlmsg_type == NLMSG_ERROR)
@@ -120,11 +128,21 @@ void get_conntrack_info()
 				return;
 			}
 
-			uint32_t *kdvalue = (uint32_t*)(dt + 8);
-			uint64_t entries = bswap_32(*kdvalue);
+			uint64_t entries = 0;
+			uint64_t maxentries = 0;
+			size_t payload_len = NLMSG_PAYLOAD(h, 0);
+			char *dt = (char*)NLMSG_DATA(h);
 
-			kdvalue = (uint32_t*)(dt + 16);
-			uint64_t maxentries = bswap_32(*kdvalue);
+			if (payload_len >= 12)
+			{
+				uint32_t *kdvalue = (uint32_t*)(dt + 8);
+				entries = bswap_32(*kdvalue);
+			}
+			if (payload_len >= 20)
+			{
+				uint32_t *kdvalue = (uint32_t*)(dt + 16);
+				maxentries = bswap_32(*kdvalue);
+			}
 			if (!maxentries)
 				maxentries = getkvfile("/proc/sys/net/netfilter/nf_conntrack_max");
 

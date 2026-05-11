@@ -65,6 +65,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 	char temp_resp[1200];
 	char respbody[1000];
 	char status[100];
+	temp_resp[0] = '\0';
+	respbody[0] = '\0';
 	snprintf(status, 100, "OK");
 	//printf("http_api_v1 is %s\n", body);
 
