@@ -310,3 +310,7 @@ puppeteer {
   };
 }
 ```
+
+## See also: chromecdp
+
+For the same class of browser loading checks without Node.js or the Puppeteer npm package, use the native CDP integration in [chromecdp.md](https://github.com/alligatormon/alligator/blob/master/doc/chromecdp.md). The `puppeteer` and `chromecdp` blocks can coexist; see [Comparison with `puppeteer`](https://github.com/alligatormon/alligator/blob/master/doc/chromecdp.md#comparison-with-puppeteer) in that document for runtime, metrics, and config differences.

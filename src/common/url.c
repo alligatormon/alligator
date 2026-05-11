@@ -116,6 +116,10 @@ void url_set_default_port(host_aggregator_info *hi)
 		strlcpy(hi->port, "80", 3);
 	if (hi->proto == APROTO_HTTPS)
 		strlcpy(hi->port, "443", 4);
+	if (hi->proto == APROTO_WS)
+		strlcpy(hi->port, "80", 3);
+	if (hi->proto == APROTO_WSS)
+		strlcpy(hi->port, "443", 4);
 }
 
 void url_get_port(host_aggregator_info *hi, char **tmp)
@@ -239,6 +243,8 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "cassandra://", 12, APROTO_CASSANDR, APROTO_CASSANDR, "cassandra", 0);
 	url_set_proto(hi, &tmp, "zookeeper://", 12, APROTO_ZKCONF, APROTO_ZKCONF, "zookeeper", 0);
 	url_set_proto(hi, &tmp, "resolver://", 11, APROTO_RESOLVER, APROTO_RESOLVER, "resolver", 0);
+	url_set_proto(hi, &tmp, "wss://",  6, APROTO_WSS, APROTO_WSS, "wss", 1);
+	url_set_proto(hi, &tmp, "ws://",   5, APROTO_WS,  APROTO_WS,  "ws",  0);
 
 	url_set_default_port(hi);
 

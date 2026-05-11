@@ -18,6 +18,8 @@
 #define APROTO_ZKCONF 19
 #define APROTO_RESOLVER 20
 #define APROTO_CASSANDR 21
+#define APROTO_WS       22
+#define APROTO_WSS      23
 #include <stdio.h>
 typedef struct host_aggregator_info
 {

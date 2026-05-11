@@ -31,6 +31,7 @@
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "puppeteer/puppeteer.h"
+#include "chromecdp/chromecdp.h"
 #include "common/units.h"
 #include "common/auth.h"
 #include "common/crc32.h"
@@ -1479,6 +1480,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					puppeteer_delete(value);
 				else
 					puppeteer_insert(value);
+			}
+			if (!strcmp(key, "chromecdp"))
+			{
+				if (method == HTTP_METHOD_DELETE)
+					cdp_delete(value);
+				else
+					cdp_insert(value);
 			}
 		}
 

@@ -286,6 +286,11 @@ set(STATIC_FILES
 	x509/push.c
 	x509/del.c
 	puppeteer/puppeteer.c
+	common/ws.c
+	events/ws_client.c
+	chromecdp/chromecdp.c
+	chromecdp/cdp.c
+	chromecdp/target.c
 	query/query.c
 	query/push.c
 	query/del.c

@@ -27,6 +27,7 @@ The aggregator indludes async methods to get stats using various schemas/protoco
 - unix (unix://) and unixgram (unixgram://). Enables the Unix-socket over SOCK\_STREAM and SOCK\_DGRAM clients to get the body.
 - file (file://). Enables the file read to get body.
 - exec (exec://). Enables the execution of an external program and read the stdout to the parser.
+- WebSocket (ws://) and WebSocket over TLS (wss://). Enables a persistent WebSocket client that passes each received text frame to the parser.
 
 The parser gets the body after the aggregator works on it and parses it into metrics.
 
@@ -279,6 +280,71 @@ aggregate {
 This is useful for cardinality cleanup before storage and before exporting through actions/serializers.
 
 When the same metrics are later exported via an **action** that uses `metric_name_transform`, [export-time `metricstransform`](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) on that action can match either the stored name or the transformed export name; aggregate-time rules here only see the name as produced by the aggregate/parser.
+
+## WebSocket transport (ws:// and wss://)
+
+The `ws://` and `wss://` schemes connect to a WebSocket server and subscribe to its stream. The connection is **persistent** — alligator maintains it continuously and reconnects automatically if the server closes or drops the socket.
+
+Each text frame received from the server is passed directly to the configured parser, the same way a TCP response body would be. Any parser that works over TCP also works over WebSocket.
+
+Default ports: `80` for `ws://`, `443` for `wss://`.
+
+### Reconnect behaviour
+
+| Situation | Behaviour |
+|-----------|-----------|
+| Initial connection failed | Retry after `period` (default 10 s) |
+| Server closed the connection | Reconnect after `period` |
+| Server is unreachable | Retry after `period` |
+
+Use `period` to control the reconnect interval.
+
+### Typical use cases
+
+**Prometheus metrics endpoint exposed over WebSocket** — useful when the target is behind a WebSocket proxy or a custom push-based exporter:
+
+```
+aggregate {
+    prometheus_metrics ws://metrics-relay.internal:9100/metrics;
+    prometheus_metrics wss://secure-relay.internal/metrics add_label=env:prod;
+}
+```
+
+**Blackbox connectivity and availability check** — the WebSocket handshake itself acts as the probe; alligator emits TCP/TLS timing metrics even if no frames arrive:
+
+```
+aggregate {
+    blackbox ws://api.example.com:8080/health add_label=service:api;
+    blackbox wss://ws.example.com/status      add_label=service:ws-gateway;
+}
+```
+
+**Prometheus metrics with label rewriting and reconnect interval:**
+
+```
+aggregate {
+    prometheus_metrics ws://node-exporter-relay:9091/stream
+        period=30s
+        add_label=datacenter:dc1
+        metricstransform='{"transforms":[{"include":"^node_.*$","match_type":"regexp","operations":[{"action":"update_label","label":"instance","value_actions":[{"regex":"^([^:]+):?.*$","replacement":"$1"}]}]}]}';
+}
+```
+
+**Multiple WebSocket sources:**
+
+```
+aggregate {
+    prometheus_metrics ws://relay-a.internal/metrics add_label=relay:a;
+    prometheus_metrics ws://relay-b.internal/metrics add_label=relay:b;
+    blackbox           wss://healthcheck.internal/ws  add_label=check:websocket;
+}
+```
+
+### Notes
+
+- The `period` option sets both the collection schedule and the reconnect delay after a disconnect. If omitted the default reconnect delay is 10 s.
+- The WebSocket client sends a standard RFC 6455 upgrade handshake. The server must respond with HTTP 101. No subprotocol negotiation is performed.
+- `wss://` (TLS) is parsed and registered; the TLS layer is on the roadmap — currently it connects without TLS even for `wss://` URLs. Use a TLS-terminating proxy in front of the target if you need encryption today.
 
 ## Available parsers
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)

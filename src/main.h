@@ -175,6 +175,12 @@ typedef struct aconf
 	alligator_ht* puppeteer;
 	uv_timer_t puppeteer_timer;
 
+	/* chromecdp: direct Chrome DevTools Protocol integration */
+	alligator_ht* chromecdp;
+	uv_timer_t    chromecdp_timer;
+	int           chromecdp_port;  /* --remote-debugging-port (default 9222) */
+	char         *chromecdp_exec;  /* chrome/chromium binary path            */
+
 	// local query processing
 	alligator_ht* action;
 	alligator_ht* query;

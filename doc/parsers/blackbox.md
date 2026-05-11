@@ -19,6 +19,10 @@ aggregate {
 
     # file stat calc:
     blackbox file:///etc/ checksum=murmur3 file_stat=true calc_lines=true;
+
+    # WebSocket connectivity check (handshake + stream):
+    blackbox ws://api.example.com:8080/health  add_label=service:api;
+    blackbox wss://ws.example.com/status       add_label=service:ws-gateway;
 }
 ```
 

@@ -935,8 +935,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 			for (; i < token_count; i++)
 			{
-				if (!strcmp(context_name, "puppeteer") &&
-				    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
+			if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) &&
+			    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
 				{
 					if (!operator_json)
 					{
@@ -957,12 +957,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 
 				if (wstokens[i].operator ||
-				    ((!strcmp(context_name, "aggregate") ||
-				      !strcmp(context_name, "action") ||
-				      !strcmp(context_name, "puppeteer")) &&
-				     wstokens[i].context &&
-				     wstokens[i].token->s &&
-				     strcmp(wstokens[i].token->s, "metricstransform")))
+			    ((!strcmp(context_name, "aggregate") ||
+			      !strcmp(context_name, "action") ||
+			      !strcmp(context_name, "puppeteer") ||
+			      !strcmp(context_name, "chromecdp")) &&
+			     wstokens[i].context &&
+			     wstokens[i].token->s &&
+			     strcmp(wstokens[i].token->s, "metricstransform")))
 				{
 					operator_name = wstokens[i].token->s;
 					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "services_checking_users") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
@@ -1091,7 +1092,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
-					else if (!strcmp(context_name, "puppeteer") && !strcmp(operator_name, "metricstransform"))
+					else if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && !strcmp(operator_name, "metricstransform"))
 					{
 						if (!json_object_get(operator_json, "metricstransform"))
 						{
@@ -1843,7 +1844,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						}
 						json_array_object_insert(context_json, operator_name, operator_json);
 					}
-					else if (!strcmp(context_name, "puppeteer") && operator_json && strchr(wstokens[i].token->s, '=') && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
+					else if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && operator_json && strchr(wstokens[i].token->s, '=') && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
 						continue;
 					else
 					{
@@ -1910,10 +1911,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_t *arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
 						json_array_object_insert(operator_json, operator_name, arg_json);
 					}
-					else if (!strcmp(context_name, "puppeteer") && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
-					{
-						/* parsed key=value inline option for puppeteer */
-					}
+				else if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
+				{
+					/* parsed key=value inline option for puppeteer/chromecdp */
+				}
 					else
 					{
 						json_t *arg_json = json_string(wstokens[i].token->s);
@@ -1994,9 +1995,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
-					else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer")) && plain_metricstransform_has_native_block(wstokens, i, token_count))
-					{
-						if (!operator_json && !strcmp(context_name, "puppeteer"))
+				else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && plain_metricstransform_has_native_block(wstokens, i, token_count))
+				{
+					if (!operator_json && (!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")))
 						{
 							operator_json = json_object();
 							json_array_object_insert(context_json, "", operator_json);

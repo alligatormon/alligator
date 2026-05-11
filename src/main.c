@@ -20,6 +20,7 @@
 #include "parsers/postgresql.h"
 #include "events/filetailer.h"
 #include "puppeteer/puppeteer.h"
+#include "chromecdp/chromecdp.h"
 #include "cluster/type.h"
 #include "common/logs.h"
 #include "common/stop.h"
@@ -106,7 +107,10 @@ aconf* configuration()
 	ac->tls_fs_repeat = 60000;
 
 	//ac->puppeteer = calloc(1, sizeof(alligator_ht));
-	ac->puppeteer = alligator_ht_init(NULL);
+	ac->puppeteer  = alligator_ht_init(NULL);
+	ac->chromecdp  = alligator_ht_init(NULL);
+	ac->chromecdp_port = 0; /* 0 means use CHROMECDP_DEFAULT_PORT */
+	ac->chromecdp_exec = NULL;
 	ac->action = calloc(1, sizeof(alligator_ht));
 	ac->probe = calloc(1, sizeof(alligator_ht));
 	ac->cluster = calloc(1, sizeof(alligator_ht));
@@ -369,6 +373,7 @@ int main(int argc, char **argv, char **envp)
 	mysql_client_handler();
 	filetailer_crawl_handler();
 	puppeteer_generator();
+	chromecdp_generator();
 	cluster_handler();
 
 	//openssl_r("../trash/pfx/domain.name.pfx", "123456");

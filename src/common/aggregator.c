@@ -11,6 +11,7 @@
 #include "events/client.h"
 #include "events/process.h"
 #include "events/icmp.h"
+#include "events/ws_client.h"
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
 #include "scheduler/type.h"
@@ -126,6 +127,8 @@ int smart_aggregator(context_arg *carg)
 		type = mysql_client(carg);
 	else if (carg->transport == APROTO_CASSANDR)
 		type = cassandra_client(carg);
+	else if (carg->transport == APROTO_WS || carg->transport == APROTO_WSS)
+		type = ws_client(carg);
 
 	if (type && !carg->key)
 	{
@@ -168,6 +171,8 @@ void smart_aggregator_del(context_arg *carg)
 		mysql_client_del(carg);
 	else if (carg->transport == APROTO_CASSANDR)
 		cassandra_client_del(carg);
+	else if (carg->transport == APROTO_WS || carg->transport == APROTO_WSS)
+		ws_client_del(carg);
 }
 
 void smart_aggregator_del_key(char *key)
