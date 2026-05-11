@@ -2,6 +2,7 @@
 #include "action/type.h"
 #include "main.h"
 #include "common/logs.h"
+#include "dstructures/ht.h"
 #include <ctype.h>
 #include <stdarg.h>
 #include <strings.h>
@@ -309,6 +310,12 @@ static char* metric_transform_replace_regex_all(const char *value, const char *r
     return current;
 }
 
+typedef struct metric_transform_rename_pending
+{
+    labels_container *lc;
+    char *new_name;
+} metric_transform_rename_pending;
+
 typedef struct metric_transform_update_ctx
 {
     const char *metric_name;
@@ -317,7 +324,84 @@ typedef struct metric_transform_update_ctx
     const char *metric_pattern;
     context_arg *carg;
     action_node *an;
+    alligator_ht *labels;
+    metric_transform_rename_pending *renames;
+    size_t renames_n;
+    size_t renames_cap;
 } metric_transform_update_ctx;
+
+static void metric_transform_take_first_label(void *funcarg, void *arg)
+{
+    labels_container **slot = funcarg;
+    if (slot && !*slot)
+        *slot = (labels_container *)arg;
+}
+
+static int metric_transform_queue_rename(metric_transform_update_ctx *ctx, labels_container *lc, char *new_name)
+{
+    if (!ctx->labels || !lc || !new_name)
+    {
+        free(new_name);
+        return 0;
+    }
+    if (!strcmp(lc->name, new_name))
+    {
+        free(new_name);
+        return 0;
+    }
+    if (ctx->renames_n >= ctx->renames_cap)
+    {
+        size_t nc = ctx->renames_cap ? ctx->renames_cap * 2 : 4;
+        metric_transform_rename_pending *p = realloc(ctx->renames, nc * sizeof(*p));
+        if (!p)
+        {
+            free(new_name);
+            return 0;
+        }
+        ctx->renames = p;
+        ctx->renames_cap = nc;
+    }
+    ctx->renames[ctx->renames_n].lc = lc;
+    ctx->renames[ctx->renames_n].new_name = new_name;
+    ctx->renames_n++;
+    return 1;
+}
+
+static void metric_transform_flush_renames(metric_transform_update_ctx *ctx)
+{
+    size_t i;
+
+    if (!ctx)
+        return;
+    if (ctx->labels && ctx->renames_n)
+    {
+        for (i = 0; i < ctx->renames_n; i++)
+        {
+            labels_container *lc = ctx->renames[i].lc;
+            char *new_name = ctx->renames[i].new_name;
+            if (!lc || !new_name)
+                continue;
+            if (strcmp(lc->name, new_name) == 0)
+            {
+                free(new_name);
+                continue;
+            }
+            alligator_ht_remove_existing(ctx->labels, &lc->node);
+            if (lc->allocatedname)
+                free(lc->name);
+            lc->name = new_name;
+            lc->allocatedname = 1;
+            uint32_t nh = ac && ac->metrictree_hashfunc_get
+                ? ac->metrictree_hashfunc_get(lc->name)
+                : tommy_strhash_u32(0, lc->name);
+            alligator_ht_insert(ctx->labels, &lc->node, lc, nh);
+        }
+    }
+    free(ctx->renames);
+    ctx->renames = NULL;
+    ctx->renames_n = 0;
+    ctx->renames_cap = 0;
+}
 
 static void metric_transform_apply_operation(void *funcarg, void *arg)
 {
@@ -344,54 +428,117 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
         return;
 
     json_t *value_actions = json_object_get(ctx->operation, "value_actions");
-    if (!value_actions || !json_is_array(value_actions))
+    int has_va = value_actions && json_is_array(value_actions);
+    size_t value_actions_size = has_va ? json_array_size(value_actions) : 0;
+
+    json_t *label_key_actions = json_object_get(ctx->operation, "label_key_actions");
+    int has_lka = label_key_actions && json_is_array(label_key_actions);
+    size_t lka_size = has_lka ? json_array_size(label_key_actions) : 0;
+
+    const char *new_label = json_string_value(json_object_get(ctx->operation, "new_label"));
+
+    if (!has_va && lka_size == 0 && (!new_label || !*new_label))
         return;
 
-    char *orig_val = strdup(labelscont->key ? labelscont->key : "");
-    if (!orig_val)
-        return;
-    char *curr = strdup(orig_val);
-    if (!curr)
+    char *orig_val = NULL;
+    char *curr = NULL;
+    if (has_va)
     {
-        free(orig_val);
-        return;
+        orig_val = strdup(labelscont->key ? labelscont->key : "");
+        if (!orig_val)
+            return;
+        curr = strdup(orig_val);
+        if (!curr)
+        {
+            free(orig_val);
+            return;
+        }
+        for (size_t i = 0; i < value_actions_size; ++i)
+        {
+            json_t *value_action = json_array_get(value_actions, i);
+            const char *regex = json_string_value(json_object_get(value_action, "regex"));
+            if (!regex || !*regex)
+                continue;
+
+            const char *replacement = json_string_value(json_object_get(value_action, "replacement"));
+            if (!replacement)
+                replacement = json_string_value(json_object_get(value_action, "new_value"));
+
+            int replace_all = metric_transform_json_bool(json_object_get(value_action, "replace_all"));
+            char *new_value = replace_all
+                ? metric_transform_replace_regex_all(curr, regex, replacement)
+                : metric_transform_replace_regex_once(curr, regex, replacement);
+            if (!new_value)
+                continue;
+
+            free(curr);
+            curr = new_value;
+        }
     }
 
-    size_t value_actions_size = json_array_size(value_actions);
-    for (size_t i = 0; i < value_actions_size; ++i)
+    const char *orig_name = labelscont->name;
+
+    if (lka_size > 0)
     {
-        json_t *value_action = json_array_get(value_actions, i);
-        const char *regex = json_string_value(json_object_get(value_action, "regex"));
-        if (!regex || !*regex)
-            continue;
-
-        const char *replacement = json_string_value(json_object_get(value_action, "replacement"));
-        if (!replacement)
-            replacement = json_string_value(json_object_get(value_action, "new_value"));
-
-        int replace_all = metric_transform_json_bool(json_object_get(value_action, "replace_all"));
-        char *new_value = replace_all
-            ? metric_transform_replace_regex_all(curr, regex, replacement)
-            : metric_transform_replace_regex_once(curr, regex, replacement);
-        if (!new_value)
-            continue;
-
-        free(curr);
-        curr = new_value;
+        char *cn = strdup(orig_name);
+        if (cn)
+        {
+            for (size_t i = 0; i < lka_size; ++i)
+            {
+                json_t *ka = json_array_get(label_key_actions, i);
+                const char *regex = json_string_value(json_object_get(ka, "regex"));
+                if (!regex || !*regex)
+                    continue;
+                const char *replacement = json_string_value(json_object_get(ka, "replacement"));
+                if (!replacement)
+                    replacement = json_string_value(json_object_get(ka, "new_value"));
+                int replace_all = metric_transform_json_bool(json_object_get(ka, "replace_all"));
+                char *new_n = replace_all
+                    ? metric_transform_replace_regex_all(cn, regex, replacement)
+                    : metric_transform_replace_regex_once(cn, regex, replacement);
+                if (!new_n)
+                    continue;
+                free(cn);
+                cn = new_n;
+            }
+            if (strcmp(orig_name, cn) != 0)
+            {
+                metric_transform_info(ctx->carg, ctx->an,
+                    "metricstransform: metric '%s' label key '%s' -> '%s'\n",
+                    ctx->metric_name ? ctx->metric_name : "?",
+                    orig_name, cn);
+                metric_transform_queue_rename(ctx, labelscont, cn);
+            }
+            else
+                free(cn);
+        }
     }
-
-    if (strcmp(orig_val, curr) != 0)
+    else if (new_label && *new_label && strcmp(orig_name, new_label))
+    {
         metric_transform_info(ctx->carg, ctx->an,
-            "metricstransform: metric '%s' label '%s' value '%s' -> '%s'\n",
+            "metricstransform: metric '%s' label key '%s' -> '%s'\n",
             ctx->metric_name ? ctx->metric_name : "?",
-            labelscont->name ? labelscont->name : "?",
-            orig_val, curr);
-    free(orig_val);
+            orig_name, new_label);
+        char *nn = strdup(new_label);
+        if (nn)
+            metric_transform_queue_rename(ctx, labelscont, nn);
+    }
 
-    if (labelscont->allocatedkey)
-        free(labelscont->key);
-    labelscont->key = curr;
-    labelscont->allocatedkey = 1;
+    if (has_va)
+    {
+        if (strcmp(orig_val, curr) != 0)
+            metric_transform_info(ctx->carg, ctx->an,
+                "metricstransform: metric '%s' label '%s' value '%s' -> '%s'\n",
+                ctx->metric_name ? ctx->metric_name : "?",
+                labelscont->name ? labelscont->name : "?",
+                orig_val, curr);
+        free(orig_val);
+
+        if (labelscont->allocatedkey)
+            free(labelscont->key);
+        labelscont->key = curr;
+        labelscont->allocatedkey = 1;
+    }
 }
 
 void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an)
@@ -450,9 +597,11 @@ void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator
                 .metric_regexp = metric_regexp,
                 .metric_pattern = metric_pattern,
                 .carg = carg,
-                .an = an
+                .an = an,
+                .labels = labels,
             };
             alligator_ht_foreach_arg(labels, metric_transform_apply_operation, &ctx);
+            metric_transform_flush_renames(&ctx);
         }
     }
 }
@@ -469,16 +618,34 @@ char* metric_transform_label_value(char *metric_name, char *metric_name_alt, cha
     labels_hash_insert_nocache(labels, label_name, label_value);
     metric_transform_labels(metric_name, metric_name_alt, labels, metricstransform, carg, an);
 
-    /* Must use the same hash as labels_hash_insert_nocache (metrictree_hashfunc_get). */
-    uint32_t label_hash = ac && ac->metrictree_hashfunc_get
-        ? ac->metrictree_hashfunc_get(label_name)
-        : tommy_strhash_u32(0, label_name);
-    labels_container *labelscont = alligator_ht_search(
-        labels, labels_hash_compare, label_name, label_hash
-    );
+    labels_container *labelscont = NULL;
+    alligator_ht_foreach_arg(labels, metric_transform_take_first_label, &labelscont);
     char *ret = NULL;
     if (labelscont && labelscont->key)
         ret = strdup(labelscont->key);
+
+    labels_hash_free(labels);
+    return ret;
+}
+
+char *metric_transform_label_key(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an)
+{
+    if (!metric_name || !label_name || !label_value || !metricstransform)
+        return NULL;
+
+    alligator_ht *labels = alligator_ht_init(NULL);
+    if (!labels)
+        return NULL;
+
+    labels_hash_insert_nocache(labels, label_name, label_value);
+    metric_transform_labels(metric_name, metric_name_alt, labels, metricstransform, carg, an);
+
+    labels_container *labelscont = NULL;
+    alligator_ht_foreach_arg(labels, metric_transform_take_first_label, &labelscont);
+
+    char *ret = NULL;
+    if (labelscont && labelscont->name && strcmp(labelscont->name, label_name) != 0)
+        ret = strdup(labelscont->name);
 
     labels_hash_free(labels);
     return ret;

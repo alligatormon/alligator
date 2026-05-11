@@ -994,10 +994,15 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, it->name, ac->metrictree_hashfunc_get(it->name)))
 				continue;
 
+			char *transformed_key = metric_transform_label_key((char *)metric_name_for_transform, metric_transform_alt, it->name, it->key, metricstransform, NULL, sc->an);
 			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, it->name, it->key, metricstransform, NULL, sc->an);
+			char *kptr = transformed_key ? transformed_key : it->name;
+			size_t klen = transformed_key ? strlen(transformed_key) : it->name_len;
 			string *kv = transformed
-				? otlp_pbw_key_value_string(it->name, it->name_len, transformed, strlen(transformed))
-				: otlp_pbw_key_value_string(it->name, it->name_len, it->key, it->key_len);
+				? otlp_pbw_key_value_string(kptr, klen, transformed, strlen(transformed))
+				: otlp_pbw_key_value_string(kptr, klen, it->key, it->key_len);
+			if (transformed_key)
+				free(transformed_key);
 			if (transformed)
 				free(transformed);
 			otlp_pbw_field_lenmsg(dp, 7, kv);

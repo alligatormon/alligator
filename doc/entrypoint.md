@@ -407,11 +407,11 @@ entrypoint {
 Default: -\
 Plural: no
 
-`metricstransform` rewrites label values on metric ingest for data accepted by this entrypoint (for example, pushgateway/statsd/graphite handlers).
+`metricstransform` rewrites **label keys and/or values** on metric ingest for data accepted by this entrypoint (for example, pushgateway/statsd/graphite handlers). Transformed labels are stored in Alligator as renamed or rewritten.
 
-The value is an OTel-collector-like JSON object (or array) with `transforms`, `operations`, and `value_actions` rules.
+The value is an OTel-collector-like JSON object (or array) with `transforms`, `operations`, and `value_actions` rules. JSON may also use `new_label` or `label_key_actions` on each operation for key renames (see [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)); the native plain block supports `new_label` but not `label_key_actions` (use JSON for regex-based key edits).
 
-In plain config, provide either a **JSON string** or a **native block** (see [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform) for the keyword grammar; it is the same here).
+In plain config, provide either a **JSON string** or a **native block** (see [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform) for the keyword grammar; it is the same here). A native block can follow other keywords on the same construct without a semicolon before `metricstransform` (same chaining rules as on [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform) and [aggregates](https://github.com/alligatormon/alligator/blob/master/doc/aggregate.md#metricstransform)).
 
 Example with JSON string (rewrite `instance` to host-only value):
 ```
@@ -435,7 +435,7 @@ entrypoint {
 
 This applies at metric add time, so transformed labels are stored in Alligator immediately.
 
-Metric-name matching for these rules uses **only** the name as ingested and stored. Unlike [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex), entrypoints do not apply `metric_name_transform` at ingest time, so there is no separate “on-the-wire” name to match against.
+Metric-name matching for these rules uses **only** the name as ingested and stored. Unlike [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) at export time, entrypoints do not apply `metric_name_transform`, so there is no separate “on-the-wire” name to match against.
 
 # mapping
 Default: -\

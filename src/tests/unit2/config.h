@@ -1764,13 +1764,13 @@ void test_metricstransform_plain_and_ingest()
     /* One plain-to-JSON run per top-level block: a single multi-block string can leave the
      * tokenizer index misaligned between contexts, so metricstransform would be missing on later blocks. */
     const char *frag_ep =
-        "entrypoint { tcp 19101; metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
+        "entrypoint { tcp 19101; metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://(example\\.org).*$' replacement '$1'; }; }\n";
     const char *frag_agg =
-        "aggregate { json http://127.0.0.1:18080/metrics metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
+        "aggregate { json http://127.0.0.1:18080/metrics metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://(example\\.org).*$' replacement '$1'; }; }\n";
     const char *frag_act =
-        "action { name t1 expr exec://true metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
+        "action { name t1 expr exec://true metricstransform { include ut_metric_transform_total match_type strict label source regex '^https?://(example\\.org).*$' replacement '$1'; }; }\n";
     const char *frag_pup =
-        "puppeteer { https://example.org metricstransform { include puppeteer_eventSourceResponseStatus match_type strict label source regex '^https?://([^/]+).*$' replacement '$1'; }; }\n";
+        "puppeteer { https://example.org metricstransform { include puppeteer_eventSourceResponseStatus match_type strict label source regex '^https?://(example\\.org).*$' replacement '$1'; }; }\n";
     const char *fragments[4] = { frag_ep, frag_agg, frag_act, frag_pup };
     const char *keys[4] = { "entrypoint", "aggregate", "action", "puppeteer" };
 
@@ -1841,6 +1841,30 @@ void test_metricstransform_plain_and_ingest()
         json_t *vax = json_array_get(json_object_get(opx, "value_actions"), 0);
         assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "active", json_string_value(json_object_get(vax, "replacement")));
         json_decref(partx);
+    }
+
+    {
+        const char *frag_nl =
+            "action { name nl1 expr exec://true metricstransform { include ut_metric_transform_total match_type strict label source new_label src_norm; }; }\n";
+        string *sn = string_new();
+        string_cat(sn, (char *)frag_nl, strlen(frag_nl));
+        char *jsn = config_plain_to_json(sn);
+        string_free(sn);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jsn);
+        json_t *partn = json_loads(jsn, 0, &error);
+        free(jsn);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, partn);
+        json_t *an0 = json_array_get(json_object_get(partn, "action"), 0);
+        json_t *mtn = json_object_get(an0, "metricstransform");
+        json_t *txn = json_array_get(json_object_get(mtn, "transforms"), 0);
+        json_t *opn = json_array_get(json_object_get(txn, "operations"), 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "src_norm", json_string_value(json_object_get(opn, "new_label")));
+        char *nk = metric_transform_label_key(
+            "ut_metric_transform_total", NULL, "source", "v1", mtn, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, nk);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "src_norm", nk);
+        free(nk);
+        json_decref(partn);
     }
 
     context_arg carg = {0};

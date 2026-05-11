@@ -154,19 +154,22 @@ Directory where screenshots are saved.
 If `true`, captures full page screenshot.
 
 ## metricstransform
-`metricstransform` rewrites label values before exporting metrics.
+`metricstransform` rewrites **label keys and/or values** before exporting metrics (same export-time semantics as on [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)).
 It is supported in both JSON and plain configuration formats.
 
 Use it when you want to:
 - normalize noisy label values (URLs, paths, IDs)
 - extract a portion of label value via regex capture groups
 - reduce high-cardinality labels
+- rename a label key on export (`new_label` in plain or JSON, or `label_key_actions` in JSON only)
 
 The implementation supports an OTel-collector-like structure:
 - `transforms[].include` - target metric name (on [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform), see [matching stored vs exported names](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex))
 - `transforms[].match_type` - `strict` or `regexp`
 - `transforms[].operations[].action` - use `update_label`
 - `transforms[].operations[].label` - label name to update
+- `transforms[].operations[].new_label` - optional fixed new key (ignored if `label_key_actions` is present)
+- `transforms[].operations[].label_key_actions[]` - optional regex steps on the **key** (same fields as `value_actions`)
 - `transforms[].operations[].value_actions[]`:
   - `regex` - regex pattern for current label value
   - `replacement` (or `new_value`) - replacement string; supports `$1`, `$2`, ... capture groups

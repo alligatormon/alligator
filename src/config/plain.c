@@ -504,8 +504,33 @@ static void plain_mtx_stmt_parse(config_parser_stat *wstokens, uint64_t a, uint6
 			json_object_set_new(op, "label", json_string(wstokens[p].token->s));
 		else if (!strcmp(kw, "label_regex"))
 			json_object_set_new(op, "label_regex", json_string(wstokens[p].token->s));
+		else if (!strcmp(kw, "new_label"))
+			json_object_set_new(op, "new_label", json_string(wstokens[p].token->s));
 		p++;
 	}
+}
+
+static int plain_metricstransform_has_native_block(config_parser_stat *wstokens, uint64_t idx, uint64_t token_count)
+{
+	if (!wstokens || idx >= token_count || !wstokens[idx].token->s || strcmp(wstokens[idx].token->s, "metricstransform"))
+		return 0;
+	if (wstokens[idx].start)
+		return 1;
+
+	for (uint64_t k = idx + 1; k < token_count; k++)
+	{
+		if (wstokens[k].start)
+			return 1;
+		/* In plain config tokenization, native blocks may begin immediately with
+		 * operator/context tokens (without an explicit '{' token). Inline JSON/object
+		 * form uses an argument token right after metricstransform, so keep that path
+		 * as non-native for the fallback parser below. */
+		if (wstokens[k].operator || wstokens[k].context)
+			return 1;
+		if (wstokens[k].argument || wstokens[k].end || wstokens[k].semicolon)
+			return 0;
+	}
+	return 0;
 }
 
 /* *idx = index of metricstransform context token; on return *idx = index of inner closing }; that token's .end is cleared. */
@@ -876,7 +901,44 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 			for (; i < token_count; i++)
 			{
-				if (wstokens[i].operator)
+				if (!strcmp(context_name, "puppeteer") &&
+				    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
+				{
+					if (!operator_json)
+					{
+						operator_json = json_object();
+						json_array_object_insert(context_json, "", operator_json);
+					}
+					if (!json_object_get(operator_json, "metricstransform"))
+					{
+						uint64_t j = i;
+						json_t *mtx = plain_metricstransform_has_native_block(wstokens, i, token_count)
+							? plain_metricstransform_parse_native_block(wstokens, &j, token_count)
+							: NULL;
+						if (!mtx && i + 1 < token_count && wstokens[i + 1].argument)
+						{
+							mtx = plain_parse_metricstransform_object(wstokens[i + 1].token->s);
+							if (!mtx)
+								mtx = plain_json_or_string(wstokens[i + 1].token->s);
+							if (mtx)
+								j = i + 1;
+						}
+						if (mtx)
+						{
+							json_array_object_insert(operator_json, "metricstransform", mtx);
+							i = j;
+						}
+					}
+					continue;
+				}
+
+				if (wstokens[i].operator ||
+				    ((!strcmp(context_name, "aggregate") ||
+				      !strcmp(context_name, "action") ||
+				      !strcmp(context_name, "puppeteer")) &&
+				     wstokens[i].context &&
+				     wstokens[i].token->s &&
+				     strcmp(wstokens[i].token->s, "metricstransform")))
 				{
 					operator_name = wstokens[i].token->s;
 					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "services_checking_users") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
@@ -996,14 +1058,26 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						if (!json_object_get(operator_json, "metricstransform"))
 						{
-							++i;
-							if (i < token_count && wstokens[i].argument)
+							uint64_t j = i;
+							json_t *mtx = plain_metricstransform_has_native_block(wstokens, i, token_count)
+								? plain_metricstransform_parse_native_block(wstokens, &j, token_count)
+								: NULL;
+							if (mtx)
 							{
-								json_t *mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
-								if (!mtx)
-									mtx = plain_json_or_string(wstokens[i].token->s);
-								if (mtx)
-									json_array_object_insert(operator_json, "metricstransform", mtx);
+								json_array_object_insert(operator_json, "metricstransform", mtx);
+								i = j;
+							}
+							else
+							{
+								++i;
+								if (i < token_count && wstokens[i].argument)
+								{
+									mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
+									if (!mtx)
+										mtx = plain_json_or_string(wstokens[i].token->s);
+									if (mtx)
+										json_array_object_insert(operator_json, "metricstransform", mtx);
+								}
 							}
 						}
 					}
@@ -1011,14 +1085,26 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						if (!json_object_get(operator_json, "metricstransform"))
 						{
-							++i;
-							if (i < token_count && wstokens[i].argument)
+							uint64_t j = i;
+							json_t *mtx = plain_metricstransform_has_native_block(wstokens, i, token_count)
+								? plain_metricstransform_parse_native_block(wstokens, &j, token_count)
+								: NULL;
+							if (mtx)
 							{
-								json_t *mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
-								if (!mtx)
-									mtx = plain_json_or_string(wstokens[i].token->s);
-								if (mtx)
-									json_array_object_insert(operator_json, "metricstransform", mtx);
+								json_array_object_insert(operator_json, "metricstransform", mtx);
+								i = j;
+							}
+							else
+							{
+								++i;
+								if (i < token_count && wstokens[i].argument)
+								{
+									mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
+									if (!mtx)
+										mtx = plain_json_or_string(wstokens[i].token->s);
+									if (mtx)
+										json_array_object_insert(operator_json, "metricstransform", mtx);
+								}
 							}
 						}
 					}
@@ -1270,12 +1356,23 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						for (; i < token_count; i++)
 						{
 							json_t *arg_value = NULL;
-							if (wstokens[i].context && !strcmp(context_name, "action") && wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
+							if (!strcmp(context_name, "action") &&
+							    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
 							{
 								if (!json_object_get(operator_json, "metricstransform"))
 								{
 									uint64_t j = i;
-									json_t *mtx = plain_metricstransform_parse_native_block(wstokens, &j, token_count);
+									json_t *mtx = plain_metricstransform_has_native_block(wstokens, i, token_count)
+										? plain_metricstransform_parse_native_block(wstokens, &j, token_count)
+										: NULL;
+									if (!mtx && i + 1 < token_count && wstokens[i + 1].argument)
+									{
+										mtx = plain_parse_metricstransform_object(wstokens[i + 1].token->s);
+										if (!mtx)
+											mtx = plain_json_or_string(wstokens[i + 1].token->s);
+										if (mtx)
+											j = i + 1;
+									}
 									if (mtx)
 									{
 										json_array_object_insert(operator_json, "metricstransform", mtx);
@@ -1284,7 +1381,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								}
 								continue;
 							}
-							if (wstokens[i].operator)
+							if (wstokens[i].operator ||
+							    (!strcmp(context_name, "action") &&
+							     wstokens[i].context && wstokens[i].token->s))
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
@@ -1292,14 +1391,26 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								{
 									if (!json_object_get(operator_json, "metricstransform"))
 									{
-										++i;
-										if (i < token_count && wstokens[i].argument)
+										uint64_t j = i;
+										json_t *mtx = plain_metricstransform_has_native_block(wstokens, i, token_count)
+											? plain_metricstransform_parse_native_block(wstokens, &j, token_count)
+											: NULL;
+										if (mtx)
 										{
-											json_t *mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
-											if (!mtx)
-												mtx = plain_json_or_string(wstokens[i].token->s);
-											if (mtx)
-												json_array_object_insert(operator_json, "metricstransform", mtx);
+											json_array_object_insert(operator_json, "metricstransform", mtx);
+											i = j;
+										}
+										else
+										{
+											++i;
+											if (i < token_count && wstokens[i].argument)
+											{
+												mtx = plain_parse_metricstransform_object(wstokens[i].token->s);
+												if (!mtx)
+													mtx = plain_json_or_string(wstokens[i].token->s);
+												if (mtx)
+													json_array_object_insert(operator_json, "metricstransform", mtx);
+											}
 										}
 									}
 									continue;
@@ -1667,7 +1778,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						for (; i < token_count; i++)
 						{
 							char *opt_tok = wstokens[i].token->s;
-							if (wstokens[i].context && opt_tok && !strcmp(opt_tok, "metricstransform"))
+							if (plain_metricstransform_has_native_block(wstokens, i, token_count))
 							{
 								if (!json_object_get(operator_json, "metricstransform"))
 								{
@@ -1911,7 +2022,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
-					else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer")) && wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
+					else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer")) && plain_metricstransform_has_native_block(wstokens, i, token_count))
 					{
 						if (!operator_json && !strcmp(context_name, "puppeteer"))
 						{
@@ -1922,6 +2033,14 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						{
 							uint64_t j = i;
 							json_t *mtx = plain_metricstransform_parse_native_block(wstokens, &j, token_count);
+							if (!mtx && i + 1 < token_count && wstokens[i + 1].argument)
+							{
+								mtx = plain_parse_metricstransform_object(wstokens[i + 1].token->s);
+								if (!mtx)
+									mtx = plain_json_or_string(wstokens[i + 1].token->s);
+								if (mtx)
+									j = i + 1;
+							}
 							if (mtx)
 							{
 								json_array_object_insert(operator_json, "metricstransform", mtx);

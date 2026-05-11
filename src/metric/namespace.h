@@ -90,6 +90,7 @@ char* metric_transform_name(char *name, action_node *an);
 char *metric_transform_alt_for_include(const char *export_name, const char *tree_metric_key);
 void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an);
 char* metric_transform_label_value(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
+char *metric_transform_label_key(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 namespace_struct *insert_namespace(char *key, uint64_t max_emit);

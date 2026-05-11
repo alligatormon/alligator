@@ -36,6 +36,8 @@ Specifies the name of the context. It can be used as a reference for others cont
 ## expr
 An expression that takes the command to run or URL.
 
+When an action is run (for example from a scheduler or query), **`expr` must be non-empty**. If it is missing or blank, Alligator logs at fatal level and skips running that action (no crash).
+
 An example of using it to run nginx if the port doesn't listen:
 ```
 query {
@@ -297,7 +299,7 @@ action {
 ```
 
 ## metricstransform
-Rewrites label values during serialization for this action.
+Rewrites **label keys and/or label values** during serialization for this action (export time). Stored metrics in Alligator keep their original keys and values; transforms are applied when the serializer builds the outgoing representation.
 
 Use it to normalize outgoing labels before sending to external systems (for example, OTLP, OpenMetrics, JSON, ElasticSearch).
 
@@ -325,6 +327,18 @@ action {
 }
 ```
 
+Rename a label **key** on export (native keyword `new_label`; value rules are optional if you only change the key):
+```
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr http://localhost:4318/v1/metrics;
+  metricstransform {
+    include ^app_.*$ match_type regexp label k8s_pod_name new_label pod;
+  };
+}
+```
+
 Multiple changes in one `metricstransform` block:
 ```
 action {
@@ -345,9 +359,27 @@ Supported keywords inside the block (repeat `regex` / `replacement` or `new_valu
 
 - `include`, `metric`, `metric_regex`, `match_type` (`strict` or `regexp`)
 - `label`, `label_regex`
+- `new_label` — static rename of the matched label’s **key** on export (native plain only; see JSON for regex-based key edits)
 - `regex`, `replacement` or `new_value`, `replace_all`
 
-Rule structure is OTel-style (`transforms`, `operations`, `value_actions`) and supports regex capture groups in replacements (`$1`, `$2`, ...).
+In **JSON** rules, each `operations[]` entry may also include:
+
+- `new_label` — same as the native keyword (fixed new key name)
+- `label_key_actions` — array of objects with the same shape as `value_actions` (`regex`, `replacement` or `new_value`, optional `replace_all`), applied in order to the **current label key** string
+
+If both `label_key_actions` and `new_label` are present on the same operation, **`label_key_actions` takes precedence** for renaming the key (`new_label` is ignored).
+
+Rule structure is OTel-style (`transforms`, `operations`, `value_actions`, optional key fields above) and supports regex capture groups in replacements (`$1`, `$2`, ...).
+
+JSON example (regex on the key and on the value):
+```
+action {
+  name to-json;
+  serializer json;
+  expr http://127.0.0.1:9/metrics;
+  metricstransform '{"transforms":[{"include":"^.*$","match_type":"regexp","operations":[{"action":"update_label","label":"host","label_key_actions":[{"regex":"^host$","replacement":"instance"}],"value_actions":[{"regex":"^([^:]+):.*$","replacement":"$1"}]}]}]}';
+}
+```
 
 ### Matching metric names: include, metric, metric_regex
 
@@ -360,9 +392,11 @@ If either test succeeds, the rule applies (**OR** semantics). That way a single 
 
 ### Serializers
 
-The same `metricstransform` behavior runs for every built-in serializer on actions: JSON, OTLP (JSON and protobuf), OpenMetrics, Graphite, Carbon2, InfluxDB line protocol, StatsD, DogStatsD, Dynatrace, Elasticsearch bulk, DSV, ClickHouse, Cassandra, and PostgreSQL.
+The same `metricstransform` behavior (label **key and value** where the format exposes label names) runs for these serializers on actions: JSON, OTLP (JSON and protobuf), OpenMetrics, Graphite, Carbon2, InfluxDB line protocol, StatsD, DogStatsD, Dynatrace, Elasticsearch bulk, ClickHouse, Cassandra, and PostgreSQL.
 
-On **[entrypoints](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md#metricstransform)**, `metricstransform` runs at **ingest** time and matches only the metric name as received and stored; there is no export-time rename there, so the dual-name matching above applies to **actions** (export), not to entrypoint ingest.
+The **DSV** serializer only applies `metricstransform` to **label values**; the delimited field order follows the stored label key order (key renames from `metricstransform` are not applied in DSV output).
+
+On **[entrypoints](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md#metricstransform)** and **[aggregates](https://github.com/alligatormon/alligator/blob/master/doc/aggregate.md#metricstransform)**, `metricstransform` runs at **ingest / aggregate** time; matching uses only the metric name as produced at that stage (no `metric_name_transform` dual-name logic). Key and value rules still update what gets **stored** in Alligator. The dual-name matching in the previous section applies only to **actions** at export time.
 
 ## log_level
 Optional. When set, it becomes the `log_level` on the oneshot `context_arg` for this action (client and parser logging for that run). When omitted, the oneshot context uses the server-wide `log_level` from the main configuration.

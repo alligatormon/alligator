@@ -22,6 +22,26 @@
 extern aconf *ac;
 void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_ht *add_labels);
 
+/* metricstransform export: rewrite label key and/or value. Caller frees *tk_out and *tv_out when non-NULL. */
+static void metric_serializer_label_kv_transform(
+	char *metric_name_for_transform,
+	char *metric_transform_alt,
+	labels_t *labels,
+	json_t *metricstransform,
+	serializer_context *sc,
+	char **tk_out,
+	char **tv_out,
+	char **key_use,
+	size_t *key_len_use)
+{
+	*tk_out = metric_transform_label_key(metric_name_for_transform, metric_transform_alt,
+	    labels->name, labels->key, metricstransform, NULL, sc->an);
+	*tv_out = metric_transform_label_value(metric_name_for_transform, metric_transform_alt,
+	    labels->name, labels->key, metricstransform, NULL, sc->an);
+	*key_use = *tk_out ? *tk_out : labels->name;
+	*key_len_use = *tk_out ? strlen(*tk_out) : labels->name_len;
+}
+
 static json_t *otlp_export_metrics_root_new(void)
 {
 	json_t *root = json_object();
@@ -305,12 +325,17 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 				continue;
 			}
 
-			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			const char *label_value = transformed ? transformed : labels->key;
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			const char *label_value = tv ? tv : labels->key;
 			json_t *value = json_string(label_value);
-			json_array_object_insert(jlabels, labels->name, value);
-			if (transformed)
-				free(transformed);
+			json_array_object_insert(jlabels, nk, value);
+			if (tk)
+				free(tk);
+			if (tv)
+				free(tv);
 		}
 		labels = labels->next;
 	}
@@ -379,12 +404,17 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 
 		if (labels->key_len)
 		{
-			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			const char *label_value = transformed ? transformed : labels->key;
-			size_t label_value_len = transformed ? strlen(transformed) : labels->key_len;
-			json_array_append_new(attrs, otlp_key_value_string(labels->name, labels->name_len, label_value, label_value_len));
-			if (transformed)
-				free(transformed);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			const char *label_value = tv ? tv : labels->key;
+			size_t label_value_len = tv ? strlen(tv) : labels->key_len;
+			json_array_append_new(attrs, otlp_key_value_string(nk, nkl, label_value, label_value_len));
+			if (tk)
+				free(tk);
+			if (tv)
+				free(tv);
 		}
 	}
 
@@ -440,11 +470,16 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 		if (labels->key_len && labels->name)
 		{
 			json_t *label = json_object();
-			json_t *name = json_string(labels->name);
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			json_t *value = transformed ? json_string(transformed) : json_stringn(labels->key, labels->key_len);
-			if (transformed)
-				free(transformed);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			json_t *name = json_string(nk);
+			json_t *value = tv ? json_string(tv) : json_stringn(labels->key, labels->key_len);
+			if (tk)
+				free(tk);
+			if (tv)
+				free(tv);
 			json_array_object_insert(label, "name", name);
 			json_array_object_insert(label, "value", value);
 			json_array_object_insert(jlabels, "", label);
@@ -580,16 +615,21 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 			else
 				string_cat(res, ", ", 2);
 
-			string_cat(res, labels->name, labels->name_len);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			string_cat(res, nk, nkl);
 			string_cat(res, "=\"", 2);
-			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				free(tv);
 			}
 			else
 				string_cat(res, labels->key, labels->key_len);
+			if (tk)
+				free(tk);
 			string_cat(res, "\"", 1);
 		}
 		labels = labels->next;
@@ -662,23 +702,28 @@ void serialize_graphite(metric_node *x, serializer_context *sc, uint64_t sec, al
 
 			string_cat(res, ";", 1);
 			uint64_t metric_str_start_position = res->l;
-			string_cat(res, labels->name, labels->name_len);
-			tag_normalizer_graphite(res->s + metric_str_start_position, labels->name_len);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			string_cat(res, nk, nkl);
+			tag_normalizer_graphite(res->s + metric_str_start_position, nkl);
 
 			string_cat(res, "=", 1);
 			metric_str_start_position = res->l;
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				tag_normalizer_graphite(res->s + metric_str_start_position, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				tag_normalizer_graphite(res->s + metric_str_start_position, strlen(tv));
+				free(tv);
 			}
 			else
 			{
 				string_cat(res, labels->key, labels->key_len);
 				tag_normalizer_graphite(res->s + metric_str_start_position, labels->key_len);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -739,18 +784,21 @@ void serialize_carbon2(metric_node *x, serializer_context *sc, uint64_t sec, all
 			}
 
 			string_cat(res, ";", 1);
-			string_cat(res, labels->name, labels->name_len);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			string_cat(res, nk, nkl);
 			string_cat(res, "=", 1);
-			char *transformed = metric_transform_label_value((char*)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				free(tv);
 			}
 			else
-			{
 				string_cat(res, labels->key, labels->key_len);
-			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -814,23 +862,28 @@ void serialize_influxdb(metric_node *x, serializer_context *sc, r_time now, alli
 
 			string_cat(res, ",", 1);
 			uint64_t metric_str_start_position = res->l;
-			string_cat(res, labels->name, labels->name_len);
-			tag_normalizer_influxdb(res->s + metric_str_start_position, labels->name_len);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
+			string_cat(res, nk, nkl);
+			tag_normalizer_influxdb(res->s + metric_str_start_position, nkl);
 
 			string_cat(res, "=", 1);
 			metric_str_start_position = res->l;
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				tag_normalizer_influxdb(res->s + metric_str_start_position, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				tag_normalizer_influxdb(res->s + metric_str_start_position, strlen(tv));
+				free(tv);
 			}
 			else
 			{
 				string_cat(res, labels->key, labels->key_len);
 				tag_normalizer_influxdb(res->s + metric_str_start_position, labels->key_len);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -893,40 +946,43 @@ void serialize_clickhouse(metric_node *x, serializer_context *sc, uint64_t sec)
 	{
 		if (labels->key_len)
 		{
-			char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 			if (data && create_table && column_names)
 			{
 				string_cat(data, ",'", 2);
-				if (tf)
+				if (tv)
 				{
-					string_cat(data, tf, strlen(tf));
-					free(tf);
+					string_cat(data, tv, strlen(tv));
+					free(tv);
 				}
 				else
 					string_cat(data, labels->key, labels->key_len);
 				string_cat(data, "'", 1);
 
 				string_cat(create_table, ", ", 1);
-				string_cat(create_table, labels->name, labels->name_len);
+				string_cat(create_table, nk, nkl);
 				string_cat(create_table, " String ", 8);
 
 				string_cat(column_names, ",", 1);
-				string_cat(column_names, labels->name, labels->name_len);
+				string_cat(column_names, nk, nkl);
 			}
 			else
 			{
 				string_cat(res, ",'", 2);
-				if (tf)
+				if (tv)
 				{
-					string_cat(res, tf, strlen(tf));
-					free(tf);
+					string_cat(res, tv, strlen(tv));
+					free(tv);
 				}
 				else
-				{
 					string_cat(res, labels->key, labels->key_len);
-				}
 				string_cat(res, "'", 1);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -1027,40 +1083,43 @@ void serialize_cassandra(metric_node *x, serializer_context *sc, uint64_t sec)
 		{
 			if (labels->key_len)
 			{
-				char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+				char *tk, *tv;
+				char *nk;
+				size_t nkl;
+				metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 				if (data && create_table && column_names)
 				{
 					string_cat(data, ",'", 2);
-					if (tf)
+					if (tv)
 					{
-						string_cat(data, tf, strlen(tf));
-						free(tf);
+						string_cat(data, tv, strlen(tv));
+						free(tv);
 					}
 					else
 						string_cat(data, labels->key, labels->key_len);
 					string_cat(data, "'", 1);
 
 					string_cat(create_table, ", ", 1);
-					string_cat(create_table, labels->name, labels->name_len);
+					string_cat(create_table, nk, nkl);
 					string_cat(create_table, " TEXT ", 6);
 
 					string_cat(column_names, ",", 1);
-					string_cat(column_names, labels->name, labels->name_len);
+					string_cat(column_names, nk, nkl);
 				}
 				else
 				{
 					string_cat(res, ",'", 2);
-					if (tf)
+					if (tv)
 					{
-						string_cat(res, tf, strlen(tf));
-						free(tf);
+						string_cat(res, tv, strlen(tv));
+						free(tv);
 					}
 					else
-					{
 						string_cat(res, labels->key, labels->key_len);
-					}
 					string_cat(res, "'", 1);
 				}
+				if (tk)
+					free(tk);
 			}
 			labels = labels->next;
 		}
@@ -1137,40 +1196,43 @@ void serialize_pg(metric_node *x, serializer_context *sc, uint64_t sec)
 	{
 		if (labels->key_len)
 		{
-			char *tf = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 			if (data && create_table && column_names)
 			{
 				string_cat(data, ",'", 2);
-				if (tf)
+				if (tv)
 				{
-					string_cat(data, tf, strlen(tf));
-					free(tf);
+					string_cat(data, tv, strlen(tv));
+					free(tv);
 				}
 				else
 					string_cat(data, labels->key, labels->key_len);
 				string_cat(data, "'", 1);
 
 				string_cat(create_table, ", ", 1);
-				string_cat(create_table, labels->name, labels->name_len);
+				string_cat(create_table, nk, nkl);
 				string_cat(create_table, " String ", 8);
 
 				string_cat(column_names, ",", 1);
-				string_cat(column_names, labels->name, labels->name_len);
+				string_cat(column_names, nk, nkl);
 			}
 			else
 			{
 				string_cat(res, ",'", 2);
-				if (tf)
+				if (tv)
 				{
-					string_cat(res, tf, strlen(tf));
-					free(tf);
+					string_cat(res, tv, strlen(tv));
+					free(tv);
 				}
 				else
-				{
 					string_cat(res, labels->key, labels->key_len);
-				}
 				string_cat(res, "'", 1);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -1293,25 +1355,30 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 
 			string_cat(res, ".", 1);
 
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->name, labels->name_len);
-			tag_normalizer_statsd(res->s + metric_str_start_position, labels->name_len);
+			string_cat(res, nk, nkl);
+			tag_normalizer_statsd(res->s + metric_str_start_position, nkl);
 
 			string_cat(res, ".", 1);
 
 			metric_str_start_position = res->l;
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(tv));
+				free(tv);
 			}
 			else
 			{
 				string_cat(res, labels->key, labels->key_len);
 				tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -1412,25 +1479,30 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 			else
 				string_cat(res, ",", 1);
 
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->name, labels->name_len);
-			tag_normalizer_statsd(res->s + metric_str_start_position, labels->name_len);
+			string_cat(res, nk, nkl);
+			tag_normalizer_statsd(res->s + metric_str_start_position, nkl);
 
 			string_cat(res, ":", 1);
 
 			metric_str_start_position = res->l;
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				tag_normalizer_statsd(res->s + metric_str_start_position, strlen(tv));
+				free(tv);
 			}
 			else
 			{
 				string_cat(res, labels->key, labels->key_len);
 				tag_normalizer_statsd(res->s + metric_str_start_position, labels->key_len);
 			}
+			if (tk)
+				free(tk);
 		}
 		labels = labels->next;
 	}
@@ -1495,26 +1567,31 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 			}
 
 			string_cat(res, ",", 1);
+			char *tk, *tv;
+			char *nk;
+			size_t nkl;
+			metric_serializer_label_kv_transform((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc, &tk, &tv, &nk, &nkl);
 			metric_str_start_position = res->l;
-			string_cat(res, labels->name, labels->name_len);
-			tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->name_len);
+			string_cat(res, nk, nkl);
+			tag_normalizer_dynatrace(res->s + metric_str_start_position, nkl);
 
 			string_cat(res, "=", 1);
 
 			string_cat(res, "\"", 1);
 			metric_str_start_position = res->l;
-			char *transformed = metric_transform_label_value((char *)metric_name_for_transform, metric_transform_alt, labels->name, labels->key, metricstransform, NULL, sc->an);
-			if (transformed)
+			if (tv)
 			{
-				string_cat(res, transformed, strlen(transformed));
-				tag_normalizer_dynatrace(res->s + metric_str_start_position, strlen(transformed));
-				free(transformed);
+				string_cat(res, tv, strlen(tv));
+				tag_normalizer_dynatrace(res->s + metric_str_start_position, strlen(tv));
+				free(tv);
 			}
 			else
 			{
 				string_cat(res, labels->key, labels->key_len);
 				tag_normalizer_dynatrace(res->s + metric_str_start_position, labels->key_len);
 			}
+			if (tk)
+				free(tk);
 			string_cat(res, "\"", 1);
 		}
 		labels = labels->next;

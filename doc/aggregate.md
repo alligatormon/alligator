@@ -255,8 +255,8 @@ aggregate {
 Default: -\
 Plural: no
 
-`metricstransform` rewrites label values for metrics produced by this aggregate item.
-The rule format is the same OTel-style JSON used in other contexts (`transforms` -> `operations` -> `value_actions`).
+`metricstransform` rewrites **label keys and/or values** for metrics produced by this aggregate item; the result is stored in Alligator like entrypoint ingest transforms.
+The rule format is the same OTel-style JSON used in other contexts (`transforms` -> `operations` -> `value_actions`, plus optional `new_label` / `label_key_actions` as in [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)).
 
 In plain config, pass either **inline JSON** (`metricstransform='{...}'` or `metricstransform={...}`) or a **native block** after the handler and URL on the same aggregate line.
 
