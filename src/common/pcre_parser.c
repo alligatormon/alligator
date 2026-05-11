@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "pcre_parser.h"
+#include "common/logs.h"
 #include "main.h"
 
 regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
@@ -18,7 +19,7 @@ regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
 	rematch->regex_compiled = pcre_compile(regexstring, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
 
 	if(rematch->regex_compiled == NULL) {
-		printf("ERROR: Could not compile '%s': %s\n", regexstring, pcreErrorStr);
+		glog(L_ERROR, "ERROR: Could not compile '%s': %s\n", regexstring, pcreErrorStr);
 		pcre_jit_stack_free(rematch->jstack);
 		free(rematch);
 		return 0;
@@ -26,7 +27,7 @@ regex_match* regex_match_init(char *regexstring, regex_metric *metrics)
 
 	rematch->pcreExtra = pcre_study(rematch->regex_compiled, PCRE_STUDY_JIT_COMPILE, &pcreErrorStr);
 	if(pcreErrorStr != NULL) {
-		printf("ERROR: Could not study '%s': %s\n", regexstring, pcreErrorStr);
+		glog(L_ERROR, "ERROR: Could not study '%s': %s\n", regexstring, pcreErrorStr);
 		pcre_jit_stack_free(rematch->jstack);
 		pcre_free(rematch->regex_compiled);
 		free(rematch);
@@ -114,7 +115,7 @@ void pcre_match(regex_match *rematch, const char *regex_match_string)
 	{
 		if(pcreExecRet == 0)
 		{
-			printf("But too many substrings were found to fit in str_vector!\n");
+			glog(L_WARN, "But too many substrings were found to fit in str_vector!\n");
 			pcreExecRet = 50 / 3;
 		}
 
@@ -155,7 +156,7 @@ void pcre_match(regex_match *rematch, const char *regex_match_string)
 				val = strdup("1");
 
 			strlcat(metric_v, val, sizeof(metric_v));
-			printf("%s\n", metric_v);
+			glog(L_DEBUG, "%s\n", metric_v);
 			free(val);
 
 			//if (

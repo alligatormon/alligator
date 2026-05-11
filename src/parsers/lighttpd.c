@@ -38,7 +38,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t val;
 	for (uint64_t i = 0; i < size; i++)
 	{
-		if (carg->log_level > 0)
+		if (carg->log_level >= L_TRACE)
 		{
 			puts("=========");
 			size_t dbg_sz = strcspn(tmp, "\n");

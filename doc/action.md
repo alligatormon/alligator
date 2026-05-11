@@ -270,6 +270,8 @@ action {
 ## add_label
 Adds static labels to every exported metric in the action.
 
+If a stored label has the **same name** as an `add_label` key, the serializer normally omits the stored label so the static value wins (no duplicate keys). If **`metricstransform`** renames that stored label’s key (for example `type` → `tatype`), the stored series is still emitted under the new key, and `add_label` can supply the original name (`type`) with its own value—both appear on the wire.
+
 In plain configuration, each line is `add_label key:value;`. Repeat `add_label` for multiple labels.
 
 In JSON configuration, labels are represented as an object:

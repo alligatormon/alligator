@@ -42,6 +42,32 @@ static void metric_serializer_label_kv_transform(
 	*key_len_use = *tk_out ? strlen(*tk_out) : labels->name_len;
 }
 
+int metric_serializer_stored_label_superseded_by_add_label(
+	char *metric_name_for_transform,
+	char *metric_transform_alt,
+	labels_t *labels,
+	json_t *metricstransform,
+	action_node *an,
+	alligator_ht *add_labels)
+{
+	if (!add_labels || !alligator_ht_count(add_labels) || !labels || !labels->name)
+		return 0;
+	if (!alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+		return 0;
+	if (!metricstransform)
+		return 1;
+	char *tk = metric_transform_label_key(metric_name_for_transform, metric_transform_alt,
+	    labels->name, labels->key, metricstransform, NULL, an);
+	if (tk)
+	{
+		int renamed_off = strcmp(tk, labels->name) != 0;
+		free(tk);
+		if (renamed_off)
+			return 0;
+	}
+	return 1;
+}
+
 static json_t *otlp_export_metrics_root_new(void)
 {
 	json_t *root = json_object();
@@ -319,7 +345,7 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	{
 		if (labels->key_len && labels->name)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -399,7 +425,7 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	attrs = json_array();
 	for (labels = labels->next; labels; labels = labels->next)
 	{
-		if (alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+		if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			continue;
 
 		if (labels->key_len)
@@ -601,7 +627,7 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 		//printf("labels %p, labels->name: '%s' (%zu), labels->key: '%s' (%zu)\n", labels, labels->name, labels->name_len, labels->key, labels->key_len);
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -694,7 +720,7 @@ void serialize_graphite(metric_node *x, serializer_context *sc, uint64_t sec, al
 	{
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -777,7 +803,7 @@ void serialize_carbon2(metric_node *x, serializer_context *sc, uint64_t sec, all
 	{
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -854,7 +880,7 @@ void serialize_influxdb(metric_node *x, serializer_context *sc, r_time now, alli
 	{
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -1347,7 +1373,7 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 	{
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -1466,7 +1492,7 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 	{
 		if (labels->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;
@@ -1560,7 +1586,7 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 	while (labels)
 	{
 		if (labels->key_len) {
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, labels->name, ac->metrictree_hashfunc_get(labels->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, labels, metricstransform, sc->an, add_labels))
 			{
 				labels = labels->next;
 				continue;

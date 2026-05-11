@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <string.h>
 #include <libgen.h>
@@ -27,9 +28,12 @@ aconf *ac;
 uint64_t count_all;
 uint64_t count_error;
 uint8_t exit_on_error;
+FILE *ut_report;
 
 void infomesg() {
-    fprintf(stderr, "tests passed: %"PRIu64", failed: %"PRIu64", total: %"PRIu64"\n", count_all - count_error, count_error, count_all);
+    FILE *out = ut_report ? ut_report : stderr;
+    fprintf(out, "tests passed: %"PRIu64", failed: %"PRIu64", total: %"PRIu64"\n",
+        count_all - count_error, count_error, count_all);
 }
 
 int do_exit(int code) {
@@ -43,52 +47,55 @@ int do_exit(int code) {
 
 static int print_u128_u(uint128_t uu128)
 {
+    FILE *out = ut_report ? ut_report : stderr;
     int rc;
     if (uu128 > UINT64_MAX)
     {
         uint128_t leading  = uu128 / P10_UINT64;
         uint64_t  trailing = uu128 % P10_UINT64;
         rc = print_u128_u(leading);
-        rc += fprintf(stderr, "%." TO_STRING(E10_UINT64) PRIu64, trailing);
+        rc += fprintf(out, "%." TO_STRING(E10_UINT64) PRIu64, trailing);
     }
     else
     {
         uint64_t uu64 = uu128;
-        rc = fprintf(stderr, "%" PRIu64, uu64);
+        rc = fprintf(out, "%" PRIu64, uu64);
     }
     return rc;
 }
 
 static int print_128_d(int128_t dd128)
 {
+    FILE *out = ut_report ? ut_report : stderr;
     int rc;
     if (dd128 > UINT64_MAX)
     {
         int128_t leading  = dd128 / P10_INT64;
         int64_t  trailing = dd128 % P10_INT64;
         rc = print_128_d(leading);
-        rc += fprintf(stderr, "%." TO_STRING(E10_UINT64) PRIu64, trailing);
+        rc += fprintf(out, "%." TO_STRING(E10_UINT64) PRIu64, trailing);
     }
     else
     {
         int64_t dd64 = dd128;
-        rc = fprintf(stderr, "%" PRId64, dd64);
+        rc = fprintf(out, "%" PRId64, dd64);
     }
     return rc;
 }
 
 
 int assert_equal_uint(const char *file, const char *func, int line, uint128_t expected, uint128_t value) {
+    FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
     if (expected != value) {
         ++count_error;
-        fprintf(stderr, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
+        fprintf(out, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
         print_u128_u(value);
-        fprintf(stderr, "', expected: '");
+        fprintf(out, "', expected: '");
         print_u128_u(expected);
-        fprintf(stderr, "'\n");
+        fprintf(out, "'\n");
         fflush(stdout);
-        fflush(stderr);
+        fflush(out);
         return do_exit(1);
     }
 
@@ -96,16 +103,17 @@ int assert_equal_uint(const char *file, const char *func, int line, uint128_t ex
 }
 
 int assert_equal_int(const char *file, const char *func, int line, int128_t expected, int128_t value) {
+    FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
     if (expected != value) {
         ++count_error;
-        fprintf(stderr, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
+        fprintf(out, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
         print_128_d(value);
-        fprintf(stderr, "', expected: '");
+        fprintf(out, "', expected: '");
         print_128_d(expected);
-        fprintf(stderr, "'\n");
+        fprintf(out, "'\n");
         fflush(stdout);
-        fflush(stderr);
+        fflush(out);
         return do_exit(1);
     }
 
@@ -113,12 +121,13 @@ int assert_equal_int(const char *file, const char *func, int line, int128_t expe
 }
 
 int assert_ptr_notnull(const char *file, const char *func, int line, const void *value) {
+    FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
     if (!value) {
         ++count_error;
-        fprintf(stderr, "%s:%d unit test function '%s' pointer is NULL\n", file, line, func);
+        fprintf(out, "%s:%d unit test function '%s' pointer is NULL\n", file, line, func);
         fflush(stdout);
-        fflush(stderr);
+        fflush(out);
         return do_exit(1);
     }
 
@@ -126,18 +135,19 @@ int assert_ptr_notnull(const char *file, const char *func, int line, const void 
 }
 
 int assert_equal_string(const char *file, const char *func, int line, char *expected, const char *value) {
+    FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
     if (!assert_ptr_notnull(file, func, line, value))
         return 0;
     if (strcmp(expected, value)) {
         ++count_error;
-        fprintf(stderr, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
-        fprintf(stderr, "%s", value);
-        fprintf(stderr, "', expected: '");
-        fprintf(stderr, "%s", expected);
-        fprintf(stderr, "'\n");
+        fprintf(out, "%s:%d unit test function '%s' mismatch value: '", file, line, func);
+        fprintf(out, "%s", value);
+        fprintf(out, "', expected: '");
+        fprintf(out, "%s", expected);
+        fprintf(out, "'\n");
         fflush(stdout);
-        fflush(stderr);
+        fflush(out);
         return do_exit(1);
     }
 
@@ -153,10 +163,7 @@ static void metric_test_run_impl(int cmp_type, char *query, char *metric_name, d
     json_t *root = json_loads(body->s, 0, &error);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
     if (!root)
-    {
-        fprintf(stderr, "json error on line %d: %s\n'%s'\n", error.line, error.text, body->s);
         return;
-    }
     //printf("body s is '%s'\n", body->s);
     //fflush(stdout);
 
@@ -197,10 +204,7 @@ static void metric_test_run_impl(int cmp_type, char *query, char *metric_name, d
 
                 uint64_t samples_size = json_array_size(samples);
                 int samples_exists = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, samples_size > 0);
-                if (!samples_exists) {
-                    printf("checked metric '%s': expected %lf, error: no samples!\n", metric_name, expected_val);
-                    fflush(stdout);
-                }
+                (void)samples_exists;
                 for (uint64_t k = 0; k < samples_size; k++)
                 {
                     json_t *sample = json_array_get(samples, k);
@@ -222,10 +226,7 @@ static void metric_test_run_impl(int cmp_type, char *query, char *metric_name, d
                     else if (cmp_type == CMP_LESSER)
                         rc = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, expected_val > dsample_value);
 
-                    if (!rc) {
-                        printf("checked metric '%s': expected %lf, sample %lf, rc: %d\n", metric_name, expected_val, dsample_value, rc);
-                        fflush(stdout);
-                    }
+                    (void)rc;
                 }
             }
         }
@@ -319,6 +320,24 @@ int main(int argc, char **argv) {
     exit_on_error = 1;
     if ((argc > 1) && !strcmp(argv[1], "pass"))
         exit_on_error = 0;
+    ut_report = stderr;
+    if (!exit_on_error)
+    {
+        int report_fd = dup(STDERR_FILENO);
+        if (report_fd >= 0)
+        {
+            FILE *report_stream = fdopen(report_fd, "w");
+            if (report_stream)
+                ut_report = report_stream;
+        }
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0)
+        {
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            close(devnull);
+        }
+    }
 
     ac = calloc(1, sizeof(*ac));
     ac->loop = uv_default_loop();
@@ -334,6 +353,8 @@ int main(int argc, char **argv) {
 	ac->metrictree_hashfunc_get = alligator_ht_strhash_get;
 
     log_default();
+    /* Keep unit-test output error-focused. */
+    ac->log_level = L_OFF;
 
     ts_initialize();
 

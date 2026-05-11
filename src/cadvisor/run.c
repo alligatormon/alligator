@@ -389,7 +389,8 @@ void runc_labels(char *rundir, char *path_template)
 					fd = fopen(statefile, "r");
 					if (fd)
 					{
-						puts(statefile);
+						if (ac->log_level >= L_TRACE)
+							puts(statefile);
 						podman_parse(fd, statefile_size, statefile);
 
 						fclose(fd);

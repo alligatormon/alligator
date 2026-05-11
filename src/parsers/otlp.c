@@ -991,7 +991,7 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	{
 		if (it->name_len && it->key_len)
 		{
-			if (add_labels && alligator_ht_search(add_labels, labels_hash_compare, it->name, ac->metrictree_hashfunc_get(it->name)))
+			if (metric_serializer_stored_label_superseded_by_add_label((char *)metric_name_for_transform, metric_transform_alt, it, metricstransform, sc->an, add_labels))
 				continue;
 
 			char *transformed_key = metric_transform_label_key((char *)metric_name_for_transform, metric_transform_alt, it->name, it->key, metricstransform, NULL, sc->an);

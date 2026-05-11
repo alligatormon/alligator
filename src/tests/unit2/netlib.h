@@ -5,8 +5,6 @@
 #define TEST_ADDR_2 "8.8.8.8"
 void test_ip_check_access_1()
 {
-	puts("=========\ntest_ip_check_access\n============\n");
-
 	uint8_t ip_access;
 
 	//patricia_t *tree = patricia_new();

@@ -54,7 +54,6 @@ void system_test(char *binary) {
     snprintf(ac->system_rundir, PATH_MAX, "%s/run",  mockpath);
     snprintf(ac->system_usrdir, PATH_MAX, "%s/usr",  mockpath);
     snprintf(ac->system_etcdir, PATH_MAX, "%s/etc",  mockpath);
-    printf("result directory: '%s'\n", mockpath);
 
 	char *config = "{  \"system\": { \
         \"base\": {},\

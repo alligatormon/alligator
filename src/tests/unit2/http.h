@@ -81,8 +81,6 @@ void check_bearer(context_arg *carg) {
 
 void test_http_access_1()
 {
-	puts("=========\ntest_http_access_1\n============\n");
-
 	context_arg *carg = calloc(1, sizeof(*carg));
 	uint64_t b64sz;
 
@@ -99,7 +97,6 @@ void test_http_access_1()
 
 void test_http_access_2()
 {
-	puts("=========\ntest_http_access_2\n============\n");
 	context_arg *carg = calloc(1, sizeof(*carg));
 	uint64_t b64sz;
 

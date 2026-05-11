@@ -91,6 +91,8 @@ char *metric_transform_alt_for_include(const char *export_name, const char *tree
 void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an);
 char* metric_transform_label_value(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
 char *metric_transform_label_key(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
+/* True if a stored label should be omitted because add_label overrides it on the wire (same key after export). False when metricstransform renames the key away from the add_label name so both may appear. */
+int metric_serializer_stored_label_superseded_by_add_label(char *metric_name_for_transform, char *metric_transform_alt, labels_t *labels, json_t *metricstransform, action_node *an, alligator_ht *add_labels);
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 namespace_struct *insert_namespace(char *key, uint64_t max_emit);
