@@ -397,7 +397,7 @@ void metric_build (char *namespace, string *s)
 	}
 }
 
-static const char *metric_type_to_openmetrics(uint8_t type)
+static const char *metric_type_exposition_keyword(uint8_t type, int openmetrics)
 {
 	if (type == METRIC_TYPE_COUNTER)
 		return "counter";
@@ -407,7 +407,8 @@ static const char *metric_type_to_openmetrics(uint8_t type)
 		return "gauge";
 	if (type == METRIC_TYPE_SUMMARY)
 		return "summary";
-	return "untyped";
+	/* METRIC_TYPE_UNTYPED / unknown: OpenMetrics "unknown", classic Prometheus text "untyped". */
+	return openmetrics ? "unknown" : "untyped";
 }
 
 static void metric_help_escape_and_cat(string *str, const char *help)
@@ -424,10 +425,10 @@ static void metric_help_escape_and_cat(string *str, const char *help)
 	}
 }
 
-void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, const char **last_metric)
+void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, const char **last_metric, int openmetrics)
 {
 	if ( x->child[LEFT] )
-		metrictree_str_build(x->child[LEFT], str, ns, last_metric);
+		metrictree_str_build(x->child[LEFT], str, ns, last_metric, openmetrics);
 
 	labels_t *labels = x->labels;
 	if (!(*last_metric) || strcmp(*last_metric, labels->key))
@@ -445,7 +446,7 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, con
 		string_cat(str, "# TYPE ", 7);
 		string_cat(str, labels->key, labels->key_len);
 		string_cat(str, " ", 1);
-		const char *metric_type = metric_type_to_openmetrics(meta ? meta->type : METRIC_TYPE_UNTYPED);
+		const char *metric_type = metric_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, openmetrics);
 		string_cat(str, (char *)metric_type, strlen(metric_type));
 		string_cat(str, "\n", 1);
 
@@ -467,11 +468,11 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, con
 
 		if (!quotes_open)
 		{
-			string_cat(str, " {", 2);
+			string_cat(str, "{", 1);
 			quotes_open = 1;
 		}
 		else
-			string_cat(str, ", ", 2);
+			string_cat(str, ",", 1);
 		string_cat(str, labels->name, labels->name_len);
 		string_cat(str, "=\"", 2);
 		string_cat(str, labels->key, labels->key_len);
@@ -497,10 +498,10 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, con
 	string_cat(str, "\n", 1);
 
 	if ( x->child[RIGHT] )
-		metrictree_str_build(x->child[RIGHT], str, ns, last_metric);
+		metrictree_str_build(x->child[RIGHT], str, ns, last_metric, openmetrics);
 }
 
-void metric_str_build (char *namespace, string *str)
+void metric_str_build (char *namespace, string *str, int openmetrics)
 {
 	extern aconf *ac;
 
@@ -513,7 +514,7 @@ void metric_str_build (char *namespace, string *str)
 	{
 		const char *last_metric = NULL;
 		pthread_rwlock_rdlock(tree->rwlock);
-		metrictree_str_build(tree->root, str, ns, &last_metric);
+		metrictree_str_build(tree->root, str, ns, &last_metric, openmetrics);
 		string_cat(str, "alligator_metrics_exposed_total ", 32);
 		string_int(str, (tree->count + 1));
 		string_cat(str, "\n", 1);

@@ -101,7 +101,7 @@ string* namespace_print(char *namespace, namespace_struct *arg_ns);
 void free_namespaces();
 void namespace_free(char *namespace, namespace_struct *arg_ns);
 void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval);
-void metric_str_build (char *namespace, string *str);
+void metric_str_build (char *namespace, string *str, int openmetrics);
 void metric_node_serialize(metric_node *x, serializer_context *sc);
 void serializer_do(serializer_context *sc, string *str);
 void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count);

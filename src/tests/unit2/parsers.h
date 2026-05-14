@@ -1657,7 +1657,7 @@ void api_test_openmetrics_help_type_ordering()
     free(carg);
 
     string *out = string_init(1024);
-    metric_str_build(NULL, out);
+    metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     char *help_counter = strstr(out->s, "# HELP ut_order_metric_total test help text\n");
@@ -1670,7 +1670,7 @@ void api_test_openmetrics_help_type_ordering()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, type_counter < sample_counter);
 
     char *help_fallback = strstr(out->s, "# HELP ut_order_fallback_metric ut_order_fallback_metric\n");
-    char *type_fallback = strstr(out->s, "# TYPE ut_order_fallback_metric untyped\n");
+    char *type_fallback = strstr(out->s, "# TYPE ut_order_fallback_metric unknown\n");
     char *sample_fallback = strstr(out->s, "\nut_order_fallback_metric ");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, help_fallback);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, type_fallback);
@@ -1701,7 +1701,7 @@ void api_test_openmetrics_type_suffix_and_normalization()
     free(carg);
 
     string *out = string_init(2048);
-    metric_str_build(NULL, out);
+    metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     /* Names are normalized from '-' to '_'. */
@@ -1733,7 +1733,7 @@ void api_test_openmetrics_metadata_overwrite()
     free(carg);
 
     string *out = string_init(1024);
-    metric_str_build(NULL, out);
+    metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP ut_overwrite_metric second help\n") != NULL);

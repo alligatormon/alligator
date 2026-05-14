@@ -583,7 +583,7 @@ void openmetrics_add_label_foreach(void *funcarg, void* arg)
 	string *res = ctx->res;
 
 	if (!ctx->first)
-		string_cat(res, ", ", 2);
+		string_cat(res, ",", 1);
 	ctx->first = 0;
 
 	string_cat(res, labelscont->name, strlen(labelscont->name));
@@ -609,7 +609,6 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 	{
 		string_cat(res, labels->key, strlen(labels->key));
 	}
-	string_cat(res, " ", 1);
 	int init = 1;
 
 	labels = labels->next;
@@ -617,7 +616,7 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 	if (add_labels && alligator_ht_count(add_labels))
 	{
 		init = 0;
-		string_cat(res, " {", 2);
+		string_cat(res, "{", 1);
 		openmetrics_add_label_ctx add_labels_ctx = { .res = res, .first = 1 };
 		alligator_ht_foreach_arg(add_labels, openmetrics_add_label_foreach, &add_labels_ctx);
 	}
@@ -635,11 +634,11 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 
 			if (init)
 			{
-				string_cat(res, " {", 2);
+				string_cat(res, "{", 1);
 				init = 0;
 			}
 			else
-				string_cat(res, ", ", 2);
+				string_cat(res, ",", 1);
 
 			char *tk, *tv;
 			char *nk;

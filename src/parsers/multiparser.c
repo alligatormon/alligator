@@ -15,6 +15,11 @@
 #define HTTP_FORBIDDEN "HTTP/1.1 403 Access Forbidden\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_UNAUTHORIZED "HTTP/1.1 401 Unauthorized\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
+typedef struct prometheus_metrics_body_ctx {
+	string *body;
+	int openmetrics;
+} prometheus_metrics_body_ctx;
+
 static char* find_sep(const char *buf, size_t len, const char *sep, size_t sep_len)
 {
 	if (!buf || !sep || !sep_len || len < sep_len)
@@ -100,7 +105,9 @@ void do_http_delete(char *buf, size_t len, string *response, http_reply_data* ht
 void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
 {
 	cluster_node *cn = arg;
-	string *body = funcarg;
+	prometheus_metrics_body_ctx *ctx = funcarg;
+	string *body = ctx->body;
+	int openmetrics = ctx->openmetrics;
 	char namespacename[255];
 	r_time time_now = setrtime();
 
@@ -115,7 +122,7 @@ void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
 
 
 		if (cn->servers[i].ttl < time_now.sec) {
-			metric_str_build(namespacename, body);
+			metric_str_build(namespacename, body, openmetrics);
 		}
 	}
 }
@@ -175,17 +182,32 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 
 		alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 		char *namespace = http_get_param(args, "namespace");
+		int openmetrics = 1;
+		char *format = http_get_param(args, "format");
+		char *omp = http_get_param(args, "openmetrics");
 
+		if (format && !strcmp(format, "prometheus"))
+			openmetrics = 0;
+		if (omp && !strcmp(omp, "0"))
+			openmetrics = 0;
+		if (omp && !strcmp(omp, "1"))
+			openmetrics = 1;
+
+		prometheus_metrics_body_ctx body_ctx = { .body = body, .openmetrics = openmetrics };
 		if (!namespace)
-			alligator_ht_foreach_arg(ac->cluster, prometheus_response_cluster_namespaces, body);
+			alligator_ht_foreach_arg(ac->cluster, prometheus_response_cluster_namespaces, &body_ctx);
 
-		metric_str_build(namespace, body);
-		string_cat(body, "# EOF\n", 6);
+		metric_str_build(namespace, body, openmetrics);
+		if (openmetrics)
+			string_cat(body, "# EOF\n", 6);
 
 		char *content_length = malloc(255);
 		snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", body->l);
 
-		string_cat(response, OPENMETRICS_ANSWER, strlen(OPENMETRICS_ANSWER));
+		if (openmetrics)
+			string_cat(response, OPENMETRICS_ANSWER, strlen(OPENMETRICS_ANSWER));
+		else
+			string_cat(response, COMMON_ANSWER, strlen(COMMON_ANSWER));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, content_length, strlen(content_length));

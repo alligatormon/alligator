@@ -207,9 +207,13 @@ static int chromecdp_launch_chrome(void)
 
 	cs->chrome_stdio[0].flags = UV_IGNORE;
 	cs->chrome_stdio[1].flags = UV_IGNORE;
-	/* Inherit alligator's stderr so Chrome startup errors are visible in logs */
-	cs->chrome_stdio[2].flags = UV_INHERIT_FD;
-	cs->chrome_stdio[2].data.fd = 2;
+	/* Inherit stderr only when log_level > 0, otherwise suppress Chrome noise */
+	if (cs->log_level > 0) {
+		cs->chrome_stdio[2].flags = UV_INHERIT_FD;
+		cs->chrome_stdio[2].data.fd = 2;
+	} else {
+		cs->chrome_stdio[2].flags = UV_IGNORE;
+	}
 
 	uv_process_options_t opts;
 	memset(&opts, 0, sizeof(opts));

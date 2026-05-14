@@ -69,19 +69,32 @@ int metric_datatypes_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
+/* Whole keyword only: avoids "histogram_foo" matching histogram and registering _bucket/_sum/_count. */
+static int multicollector_type_keyword(const char *s, const char *kw, size_t n)
+{
+	if (strncmp(s, kw, n))
+		return 0;
+	char c = s[n];
+	return c == 0 || c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '#';
+}
+
 static uint8_t metric_type_from_string(const char *type)
 {
-	if (!type)
+	if (!type || !type[0])
 		return METRIC_TYPE_UNTYPED;
 
-	if (!strncmp(type, "counter", 7))
+	if (multicollector_type_keyword(type, "counter", 7))
 		return METRIC_TYPE_COUNTER;
-	if (!strncmp(type, "histogram", 9))
+	if (multicollector_type_keyword(type, "histogram", 9))
 		return METRIC_TYPE_HISTOGRAM;
-	if (!strncmp(type, "gauge", 5))
+	if (multicollector_type_keyword(type, "gauge", 5))
 		return METRIC_TYPE_GAUGE;
-	if (!strncmp(type, "summary", 7))
+	if (multicollector_type_keyword(type, "summary", 7))
 		return METRIC_TYPE_SUMMARY;
+	if (multicollector_type_keyword(type, "unknown", 7))
+		return METRIC_TYPE_UNTYPED;
+	if (multicollector_type_keyword(type, "untyped", 7))
+		return METRIC_TYPE_UNTYPED;
 
 	return METRIC_TYPE_UNTYPED;
 }

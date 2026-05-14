@@ -7,7 +7,7 @@
 void influxdb_handler(char *metrics, size_t size, context_arg *carg)
 {
 	string *body = string_new();
-	metric_str_build(0, body);
+	metric_str_build(0, body, 0);
 	printf("body is %s\n", body->s);
 }
 

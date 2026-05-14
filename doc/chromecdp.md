@@ -159,6 +159,20 @@ Per-URL override of the module `log_level`. Useful to enable debug output for on
 Rewrite metric names or label values before they are stored.
 Same syntax and semantics as the global `metricstransform` / `action` blocks.
 
+**Plain config example** — strip the path from the `source` label, keeping only the hostname:
+
+```
+chromecdp {
+    https://example.com {
+        metricstransform {
+            include ^chromecdp_.*$ match_type regexp label source regex '^https?://([^/]+).*$' replacement '$1';
+        }
+    }
+}
+```
+
+**JSON config example** — same transformation:
+
 ```json
 "metricstransform": {
     "transforms": [
