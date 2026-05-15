@@ -37,3 +37,6 @@ void cdp_done(void);
 
 /* Called once from main() after config is loaded */
 void chromecdp_generator(void);
+
+/* Current module log_level (for config export via config_get). */
+int chromecdp_config_log_level(void);

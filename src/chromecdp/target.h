@@ -49,6 +49,7 @@ struct cdp_page {
 	int             in_flight;
 	int             idle_ticks;
 	uv_timer_t     *idle_timer;
+	uv_timer_t     *nav_timeout_timer;
 	uv_loop_t      *loop;
 
 	int             resp_code;     /* last top-level response code       */

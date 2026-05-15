@@ -6,6 +6,7 @@
 #include "query/type.h"
 #include "probe/probe.h"
 #include "puppeteer/puppeteer.h"
+#include "chromecdp/chromecdp.h"
 #include "resolver/resolver.h"
 #include "system/linux/sysctl.h"
 #include "common/json_query.h"
@@ -893,6 +894,88 @@ void puppeteer_generate_conf(void *funcarg, void* arg)
 	}
 }
 
+static void chromecdp_module_opts(json_t *chromecdp)
+{
+	if (ac->chromecdp_port > 0)
+	{
+		json_t *port = json_integer(ac->chromecdp_port);
+		json_array_object_insert(chromecdp, "port", port);
+	}
+
+	if (ac->chromecdp_exec && ac->chromecdp_exec[0])
+	{
+		json_t *executable = json_string(ac->chromecdp_exec);
+		json_array_object_insert(chromecdp, "executable", executable);
+	}
+
+	int log_level = chromecdp_config_log_level();
+	if (log_level > 0)
+	{
+		json_t *ll;
+		if (log_level == 1)
+			ll = json_string("info");
+		else if (log_level == 2)
+			ll = json_string("debug");
+		else if (log_level == 3)
+			ll = json_string("trace");
+		else
+			ll = json_integer(log_level);
+		json_array_object_insert(chromecdp, "log_level", ll);
+	}
+}
+
+void chromecdp_root_generate_conf(json_t *dst)
+{
+	if (!ac->chromecdp)
+		return;
+
+	if (!alligator_ht_count(ac->chromecdp) &&
+	    ac->chromecdp_port <= 0 &&
+	    (!ac->chromecdp_exec || !ac->chromecdp_exec[0]) &&
+	    chromecdp_config_log_level() <= 0)
+		return;
+
+	json_t *chromecdp = json_object_get(dst, "chromecdp");
+	if (!chromecdp)
+	{
+		chromecdp = json_object();
+		json_array_object_insert(dst, "chromecdp", chromecdp);
+	}
+
+	chromecdp_module_opts(chromecdp);
+}
+
+void chromecdp_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	cdp_node *pn = arg;
+
+	json_t *chromecdp = json_object_get(dst, "chromecdp");
+	if (!chromecdp)
+	{
+		chromecdp = json_object();
+		json_array_object_insert(dst, "chromecdp", chromecdp);
+	}
+
+	chromecdp_module_opts(chromecdp);
+
+	if (pn->url)
+	{
+		json_t *url_ctx = NULL;
+
+		if (pn->value)
+		{
+			json_error_t error;
+			url_ctx = json_loads(pn->value, 0, &error);
+		}
+
+		if (!url_ctx)
+			url_ctx = json_object();
+
+		json_array_object_insert(chromecdp, pn->url->s, url_ctx);
+	}
+}
+
 
 void cluster_generate_conf(void *funcarg, void* arg)
 {
@@ -1382,6 +1465,8 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->entrypoints, entrypoints_generate_conf, dst);
 	system_config_get(dst);
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_generate_conf, dst);
+	chromecdp_root_generate_conf(dst);
+	alligator_ht_foreach_arg(ac->chromecdp, chromecdp_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->cluster, cluster_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_userprocess,  userprocess_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_groupprocess, groupprocess_generate_conf, dst);

@@ -55,6 +55,7 @@ Alligator has many contexts for describing the collection data:
 - **modules**: Loads dynamic C libraries (files with .so extension)
 - **cluster**: Configures the cluster using the node group
 - **puppeteer**: Configures the HTTP site stats collector using the puppeteer
+- **chromecdp**: Collects browser loading statistics via Chrome DevTools Protocol (no Node.js)
 - **threaded_loop**: Configures thread pool with activated event loops for particular tasks
 - **grok**: Parse logs in metrics like Elasticsearch’s Grok parser.
 - **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
@@ -222,6 +223,38 @@ Cluster enables the multi-node capabilities to synchronize metrics. [Here](https
 
 ## Puppeteer
 Puppeteer enables the collector of site load statistics. In [this](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) document is the more information about this.
+
+## Chromecdp
+Chromecdp collects browser loading statistics from Chrome or Chromium headless **without Node.js or the Puppeteer npm package**. Alligator starts Chrome once, connects over the Chrome DevTools Protocol (CDP) via a local WebSocket, and crawls each configured URL in an isolated incognito context on every collection cycle. Metrics are written directly into the alligator metric store with Prometheus-style names (`chromecdp_*`).
+
+Requirements: a Chrome/Chromium binary with CDP support (for example `chromium-browser` or `chromium-headless` on EL7/EL8).
+
+```
+chromecdp {
+    executable /usr/bin/chromium-browser;
+    port 9222;
+    log_level off;
+
+    https://example.com {
+        timeout        10s;
+        ttl            120s;
+        console_events true;
+        add_label {
+            team    sre;
+            service web-check;
+        }
+        metricstransform {
+            include ^chromecdp_.*$ match_type regexp label source regex '^https?://([^/]+).*$' replacement '$1';
+        }
+    }
+}
+```
+
+Emitted metrics include page availability, per-resource HTTP status, load duration and size, Chrome performance counters, Resource Timing API timings, and optional console or JavaScript error counters. Per-URL options (`timeout`, `ttl`, `add_label`, `metricstransform`, `log_level`, `screenshot`) match the `puppeteer` context where applicable.
+
+With `log_level off` (default), alligator suppresses Chrome’s own stderr noise (D-Bus, GPU, and similar messages). Set `log_level info` or higher to see Chrome startup diagnostics when debugging.
+
+Full documentation: [chromecdp.md](https://github.com/alligatormon/alligator/blob/master/doc/chromecdp.md). Comparison with `puppeteer` is described there as well.
 
 ## Threaded loop
 Threaded loop enables the thread pools with activated event loops for particular tasks. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/threaded-loop.md).

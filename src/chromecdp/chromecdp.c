@@ -19,6 +19,7 @@ extern aconf *ac;
 /* Forward declarations                                               */
 /* ------------------------------------------------------------------ */
 void chromecdp_connect_ws(void);
+static void chromecdp_do_discovery(void);
 
 /* ------------------------------------------------------------------ */
 /* Internal: global crawler state (singleton)                         */
@@ -63,10 +64,51 @@ typedef struct chromecdp_state {
 } chromecdp_state;
 
 static chromecdp_state g_cdp_state;
+static uv_timer_t      g_chrome_ready_timer;
+static int             g_chrome_ready_timer_inited;
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+static void chromecdp_sync_runtime(void)
+{
+	chromecdp_state *cs = &g_cdp_state;
+
+	if (ac->chromecdp_port > 0)
+		cs->chrome_port = ac->chromecdp_port;
+	if (ac->chromecdp_exec && ac->chromecdp_exec[0])
+		cs->chrome_exec = ac->chromecdp_exec;
+}
+
+static void chromecdp_chrome_ready_cb(uv_timer_t *handle)
+{
+	(void)handle;
+	chromecdp_state *cs = &g_cdp_state;
+
+	if (!cs->chrome_running)
+		return;
+	if (cs->disc || cs->cdp)
+		return;
+	if (cs->conn_state != CDP_CONN_IDLE && cs->conn_state != CDP_CONN_FAILED)
+		return;
+
+	cs->conn_state = CDP_CONN_IDLE;
+	chromecdp_do_discovery();
+}
+
+static void chromecdp_schedule_discovery(void)
+{
+	chromecdp_state *cs = &g_cdp_state;
+
+	if (!g_chrome_ready_timer_inited) {
+		uv_timer_init(cs->loop, &g_chrome_ready_timer);
+		g_chrome_ready_timer_inited = 1;
+	}
+	uv_timer_stop(&g_chrome_ready_timer);
+	uv_timer_start(&g_chrome_ready_timer, chromecdp_chrome_ready_cb,
+	               CHROMECDP_CHROME_START_DELAY_MS, 0);
+}
 
 static int chromecdp_compare(const void *arg, const void *obj)
 {
@@ -188,6 +230,8 @@ static int chromecdp_launch_chrome(void)
 	chromecdp_state *cs = &g_cdp_state;
 	if (cs->chrome_running) return 0;
 
+	chromecdp_sync_runtime();
+
 	char port_arg[32];
 	snprintf(port_arg, sizeof(port_arg),
 	         "--remote-debugging-port=%d", cs->chrome_port);
@@ -200,6 +244,7 @@ static int chromecdp_launch_chrome(void)
 		port_arg,
 		"--no-sandbox",
 		"--disable-setuid-sandbox",
+		"--disable-dev-shm-usage",
 		"--blink-settings=imagesEnabled=false",
 		"--disable-gpu",
 		NULL
@@ -236,6 +281,7 @@ static int chromecdp_launch_chrome(void)
 	if (cs->log_level > 0)
 		glog(L_INFO, "chromecdp: Chrome started (pid %d, port %d)\n",
 		     cs->chrome_proc.pid, cs->chrome_port);
+	chromecdp_schedule_discovery();
 	return 0;
 }
 
@@ -544,7 +590,7 @@ static void chromecdp_crawl(uv_timer_t *handle)
 	if (!cs->chrome_running) {
 		if (chromecdp_launch_chrome() != 0)
 			return;
-		/* Give Chrome time to start before discovery */
+		/* Discovery is scheduled by chromecdp_launch_chrome() */
 		return;
 	}
 
@@ -614,7 +660,8 @@ void cdp_insert(json_t *root)
 			}
 			if (port > 0) {
 				ac->chromecdp_port = port;
-				if (g_cdp_state.log_level > 1)
+				chromecdp_sync_runtime();
+				if (g_cdp_state.log_level > 0)
 					glog(L_INFO, "chromecdp: port set to %d\n", port);
 			}
 			continue;
@@ -626,6 +673,7 @@ void cdp_insert(json_t *root)
 			if (exec) {
 				free(ac->chromecdp_exec);
 				ac->chromecdp_exec = strdup(exec);
+				chromecdp_sync_runtime();
 				if (g_cdp_state.log_level > 0)
 					glog(L_INFO, "chromecdp: executable set to '%s'\n", exec);
 			}
@@ -655,7 +703,7 @@ void cdp_insert(json_t *root)
 		node->url   = string_init_dup((char *)key);
 		node->value = json_dumps(value, 0);
 
-		if (g_cdp_state.log_level > 1)
+		if (g_cdp_state.log_level > 0)
 			glog(L_INFO, "chromecdp: insert url '%s'\n", node->url->s);
 
 		alligator_ht_insert(ac->chromecdp, &node->node, node,
@@ -704,6 +752,11 @@ void cdp_done(void)
 		cdp_session_free(g_cdp_state.cdp);
 		g_cdp_state.cdp = NULL;
 	}
+}
+
+int chromecdp_config_log_level(void)
+{
+	return g_cdp_state.log_level;
 }
 
 /* ------------------------------------------------------------------ */

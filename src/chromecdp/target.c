@@ -237,6 +237,30 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 /* ------------------------------------------------------------------ */
 /* Idle timer (networkidle2 implementation)                           */
 /* ------------------------------------------------------------------ */
+static void stop_nav_timeout(cdp_page *page)
+{
+	if (!page->nav_timeout_timer)
+		return;
+	uv_timer_stop(page->nav_timeout_timer);
+	if (!uv_is_closing((uv_handle_t *)page->nav_timeout_timer))
+		uv_close((uv_handle_t *)page->nav_timeout_timer, idle_timer_closed);
+	else
+		free(page->nav_timeout_timer);
+	page->nav_timeout_timer = NULL;
+}
+
+static void nav_timeout_cb(uv_timer_t *timer)
+{
+	cdp_page *page = (cdp_page *)timer->data;
+	if (!page || page->state != PAGE_STATE_WAIT_IDLE)
+		return;
+
+	if (page->idle_timer)
+		uv_timer_stop(page->idle_timer);
+	stop_nav_timeout(page);
+	step_get_perf_metrics(page);
+}
+
 static void idle_tick(uv_timer_t *timer)
 {
 	cdp_page *page = (cdp_page *)timer->data;
@@ -246,6 +270,7 @@ static void idle_tick(uv_timer_t *timer)
 		page->idle_ticks++;
 		if (page->idle_ticks >= CHROMECDP_IDLE_TICKS) {
 			uv_timer_stop(timer);
+			stop_nav_timeout(page);
 			step_get_perf_metrics(page);
 			return;
 		}
@@ -263,7 +288,13 @@ static void on_context_created(cdp_session *cdp, json_t *result,
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
 
-	if (!result) { page_error(page, "createBrowserContext failed"); return; }
+	if (error || !result) {
+		const char *msg = error
+		    ? json_string_value(json_object_get(error, "message"))
+		    : NULL;
+		page_error(page, msg ? msg : "createBrowserContext failed");
+		return;
+	}
 
 	const char *ctx_id = json_string_value(
 	    json_object_get(result, "browserContextId"));
@@ -290,7 +321,13 @@ static void on_target_created(cdp_session *cdp, json_t *result,
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
 
-	if (!result) { page_error(page, "createTarget failed"); return; }
+	if (error || !result) {
+		const char *msg = error
+		    ? json_string_value(json_object_get(error, "message"))
+		    : NULL;
+		page_error(page, msg ? msg : "createTarget failed");
+		return;
+	}
 
 	const char *tid = json_string_value(json_object_get(result, "targetId"));
 	if (!tid) { page_error(page, "no targetId"); return; }
@@ -320,7 +357,13 @@ static void on_attached(cdp_session *cdp, json_t *result,
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
 
-	if (!result) { page_error(page, "attachToTarget failed"); return; }
+	if (error || !result) {
+		const char *msg = error
+		    ? json_string_value(json_object_get(error, "message"))
+		    : NULL;
+		page_error(page, msg ? msg : "attachToTarget failed");
+		return;
+	}
 
 	const char *sid = json_string_value(json_object_get(result, "sessionId"));
 	if (!sid) { page_error(page, "no sessionId"); return; }
@@ -372,12 +415,13 @@ static void step_enable_domains(cdp_page *page)
 	page->state = PAGE_STATE_ENABLE_DOMAINS;
 	const char *sid = page->session_id;
 
-	/* Enable: Network, Runtime, Performance — 3 async responses needed */
+	/* Enable: Page, Network, Runtime, Performance — 4 async responses */
 	domain_cnt *dc = calloc(1, sizeof(*dc));
 	if (!dc) { page_error(page, "OOM in step_enable_domains"); return; }
 	dc->page      = page;
-	dc->remaining = 3;
+	dc->remaining = 4;
 
+	cdp_send(page->cdp, sid, "Page.enable",        NULL, on_domain_enabled, dc);
 	cdp_send(page->cdp, sid, "Network.enable",    NULL, on_domain_enabled, dc);
 	cdp_send(page->cdp, sid, "Runtime.enable",    NULL, on_domain_enabled, dc);
 	cdp_send(page->cdp, sid, "Performance.enable", NULL, on_domain_enabled, dc);
@@ -643,8 +687,13 @@ static void step_wait_idle(cdp_page *page)
 	               CHROMECDP_IDLE_INTERVAL_MS,
 	               CHROMECDP_IDLE_INTERVAL_MS);
 
-	/* Hard-timeout: fire step_get_perf_metrics if idle never reached */
-	(void)timeout_ms; /* timer is stopped by idle_tick; Chrome has its own timeout */
+	page->nav_timeout_timer = malloc(sizeof(uv_timer_t));
+	if (page->nav_timeout_timer) {
+		page->nav_timeout_timer->data = page;
+		uv_timer_init(page->loop, page->nav_timeout_timer);
+		uv_timer_start(page->nav_timeout_timer, nav_timeout_cb,
+		               timeout_ms, 0);
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -1028,6 +1077,15 @@ void cdp_page_free(cdp_page *page)
 		else
 			free(page->idle_timer);
 		page->idle_timer = NULL;
+	}
+
+	if (page->nav_timeout_timer) {
+		uv_timer_stop(page->nav_timeout_timer);
+		if (!uv_is_closing((uv_handle_t *)page->nav_timeout_timer))
+			uv_close((uv_handle_t *)page->nav_timeout_timer, idle_timer_closed);
+		else
+			free(page->nav_timeout_timer);
+		page->nav_timeout_timer = NULL;
 	}
 
 	/* Free any in-flight request tracking entries */

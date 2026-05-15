@@ -55,6 +55,8 @@ void entrypoints_generate_conf(void *funcarg, void* arg);
 void resolver_generate_conf(json_t *dst);
 uint64_t getrtime_ms(r_time t1, r_time t2);
 void puppeteer_generate_conf(void *funcarg, void* arg);
+void chromecdp_root_generate_conf(json_t *dst);
+void chromecdp_generate_conf(void *funcarg, void* arg);
 void query_node_generate_field_conf(void *funcarg, void* arg);
 uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 void glog(int priority, const char *format, ...);
