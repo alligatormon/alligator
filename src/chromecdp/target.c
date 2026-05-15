@@ -29,6 +29,7 @@ static void step_close_target     (cdp_page *page);
 static void step_dispose_context  (cdp_page *page);
 static void page_finish           (cdp_page *page);
 static void page_error            (cdp_page *page, const char *reason);
+static void idle_timer_closed     (uv_handle_t *handle);
 
 /* ------------------------------------------------------------------ */
 /* Metric emission helpers                                             */
