@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include "main.h"
 #include "chromecdp/chromecdp.h"
@@ -20,6 +21,7 @@ extern aconf *ac;
 /* ------------------------------------------------------------------ */
 void chromecdp_connect_ws(void);
 static void chromecdp_do_discovery(void);
+static void on_page_done(cdp_page *page, void *ud);
 
 /* ------------------------------------------------------------------ */
 /* Internal: global crawler state (singleton)                         */
@@ -53,10 +55,22 @@ typedef struct chromecdp_state {
 	char            ws_path[512];     /* extracted from /json/version */
 	cdp_session    *cdp;              /* the live CDP session      */
 
-	/* Active pages being crawled */
+	/* Active pages (linked list; up to max_concurrent in parallel) */
 	cdp_page       *pages_head;
 	int             pages_total;
 	int             pages_done;
+
+	/* Crawl queue for the current aggregate_period cycle */
+	cdp_node      **crawl_queue;
+	size_t          crawl_queue_len;
+	size_t          crawl_queue_idx;
+
+	/* Batched parallel crawl: batch_size URLs every batch_interval_ms */
+	int             max_concurrent;
+	int             batch_size;
+	uint64_t        batch_interval_ms;
+	uv_timer_t      batch_timer;
+	int             batch_timer_inited;
 
 	uv_loop_t      *loop;
 
@@ -66,6 +80,15 @@ typedef struct chromecdp_state {
 static chromecdp_state g_cdp_state;
 static uv_timer_t      g_chrome_ready_timer;
 static int             g_chrome_ready_timer_inited;
+
+static context_arg *cdp_make_carg(json_t *config);
+static void cdp_free_carg(context_arg *carg);
+static void chromecdp_begin_crawl_cycle(chromecdp_state *cs);
+static void chromecdp_fill_slots(chromecdp_state *cs, int max_start);
+static void chromecdp_check_deadlines(chromecdp_state *cs);
+static void chromecdp_maybe_finish_cycle(chromecdp_state *cs);
+static void chromecdp_batch_tick(uv_timer_t *handle);
+static void chromecdp_abandon_all_pages(chromecdp_state *cs);
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -121,6 +144,241 @@ static cdp_node *chromecdp_get(const char *url)
 {
 	return alligator_ht_search(ac->chromecdp, chromecdp_compare,
 	                           url, tommy_strhash_u32(0, url));
+}
+
+static int cdp_key_is_url(const char *key)
+{
+	if (!key || !key[0])
+		return 0;
+	return !strncmp(key, "http://", 7) || !strncmp(key, "https://", 8);
+}
+
+typedef struct crawl_queue_build {
+	cdp_node **nodes;
+	size_t     count;
+	size_t     cap;
+} crawl_queue_build;
+
+static void crawl_queue_collect(void *funcarg, void *arg)
+{
+	crawl_queue_build *qb = funcarg;
+	cdp_node *node = (cdp_node *)arg;
+
+	if (!cdp_key_is_url(node->url->s))
+		return;
+
+	if (qb->count >= qb->cap) {
+		size_t ncap = qb->cap ? qb->cap * 2 : 32;
+		cdp_node **nn = realloc(qb->nodes, ncap * sizeof(*nn));
+		if (!nn)
+			return;
+		qb->nodes = nn;
+		qb->cap   = ncap;
+	}
+	qb->nodes[qb->count++] = node;
+}
+
+static void chromecdp_crawl_queue_free(chromecdp_state *cs)
+{
+	free(cs->crawl_queue);
+	cs->crawl_queue     = NULL;
+	cs->crawl_queue_len = 0;
+	cs->crawl_queue_idx = 0;
+}
+
+static int chromecdp_count_pages(chromecdp_state *cs)
+{
+	int n = 0;
+	cdp_page *p;
+
+	for (p = cs->pages_head; p; p = p->next)
+		n++;
+	return n;
+}
+
+static void chromecdp_batch_timer_stop(chromecdp_state *cs)
+{
+	if (cs->batch_timer_inited)
+		uv_timer_stop(&cs->batch_timer);
+}
+
+static uint64_t chromecdp_page_budget_ms(json_t *config)
+{
+	uint64_t timeout_ms = 10000;
+
+	json_t *to_j = json_object_get(config, "timeout");
+	if (to_j) {
+		if (json_is_string(to_j))
+			timeout_ms = (uint64_t)get_ms_from_human_range(
+			    json_string_value(to_j), json_string_length(to_j));
+		else if (json_is_integer(to_j))
+			timeout_ms = (uint64_t)json_integer_value(to_j);
+	}
+	if (timeout_ms < 1000)
+		timeout_ms = 1000;
+	/* navigation timeout + perf/eval/screenshot/CDP teardown */
+	return timeout_ms + 20000;
+}
+
+static int chromecdp_start_page_for_node(chromecdp_state *cs, cdp_node *node)
+{
+	json_error_t jerr;
+	json_t *config = node->value
+	    ? json_loads(node->value, 0, &jerr)
+	    : json_object();
+	if (!config)
+		config = json_object();
+
+	context_arg *carg = cdp_make_carg(config);
+	if (!carg) {
+		json_decref(config);
+		return -1;
+	}
+
+	cdp_page *page = cdp_page_start(cs->cdp, cs->loop,
+	                                node->url->s, config, carg,
+	                                on_page_done, NULL);
+	if (!page) {
+		cdp_free_carg(carg);
+		json_decref(config);
+		return -1;
+	}
+
+	page->next         = cs->pages_head;
+	cs->pages_head     = page;
+	page->deadline_ms  = uv_now(cs->loop) + chromecdp_page_budget_ms(config);
+
+	if (cs->log_level > 1)
+		glog(L_INFO, "chromecdp: crawling %s (active %d/%d, deadline %" PRIu64 " ms)\n",
+		     node->url->s, chromecdp_count_pages(cs), cs->max_concurrent,
+		     chromecdp_page_budget_ms(config));
+
+	return 0;
+}
+
+static void chromecdp_maybe_finish_cycle(chromecdp_state *cs)
+{
+	if (!cs->crawl_queue)
+		return;
+	if (cs->crawl_queue_idx < cs->crawl_queue_len)
+		return;
+	if (cs->pages_head)
+		return;
+
+	if (cs->log_level > 0)
+		glog(L_INFO, "chromecdp: crawl cycle finished (%d/%d URLs)\n",
+		     cs->pages_done, cs->pages_total);
+
+	chromecdp_batch_timer_stop(cs);
+	chromecdp_crawl_queue_free(cs);
+}
+
+static void chromecdp_fill_slots(chromecdp_state *cs, int max_start)
+{
+	int started = 0;
+
+	if (!cs->cdp || cs->conn_state != CDP_CONN_OPEN)
+		return;
+	if (!cs->crawl_queue)
+		return;
+
+	while (started < max_start && cs->crawl_queue_idx < cs->crawl_queue_len) {
+		if (chromecdp_count_pages(cs) >= cs->max_concurrent)
+			break;
+
+		cdp_node *node = cs->crawl_queue[cs->crawl_queue_idx++];
+		if (!cdp_key_is_url(node->url->s))
+			continue;
+		if (chromecdp_start_page_for_node(cs, node) == 0)
+			started++;
+	}
+
+	chromecdp_maybe_finish_cycle(cs);
+}
+
+static void chromecdp_check_deadlines(chromecdp_state *cs)
+{
+	uint64_t now = uv_now(cs->loop);
+	cdp_page *page = cs->pages_head;
+
+	while (page) {
+		cdp_page *next = page->next;
+
+		if (page->deadline_ms && now >= page->deadline_ms) {
+			if (cs->log_level > 0)
+				glog(L_WARN, "chromecdp: deadline exceeded, aborting %s\n",
+				     page->url);
+			cdp_page_abort(page, "crawl deadline exceeded");
+		}
+		page = next;
+	}
+}
+
+static void chromecdp_batch_tick(uv_timer_t *handle)
+{
+	chromecdp_state *cs = (chromecdp_state *)handle->data;
+
+	chromecdp_check_deadlines(cs);
+	chromecdp_fill_slots(cs, cs->batch_size);
+}
+
+static void chromecdp_abandon_all_pages(chromecdp_state *cs)
+{
+	cdp_page *page = cs->pages_head;
+
+	cs->pages_head = NULL;
+	while (page) {
+		cdp_page *next = page->next;
+		context_arg *carg = page->carg;
+
+		page->finished     = 1;
+		page->magic        = 0;
+		page->cdp_inflight = 0;
+		page->cdp          = NULL;
+		page->carg         = NULL;
+		cdp_page_stop_timers(page);
+		cdp_free_carg(carg);
+		cdp_page_destroy_async(page);
+		page = next;
+	}
+}
+
+static void chromecdp_begin_crawl_cycle(chromecdp_state *cs)
+{
+	if (cs->pages_head || cs->crawl_queue)
+		return;
+
+	crawl_queue_build qb = { NULL, 0, 0 };
+	alligator_ht_foreach_arg(ac->chromecdp, crawl_queue_collect, &qb);
+
+	cs->crawl_queue     = qb.nodes;
+	cs->crawl_queue_len = qb.count;
+	cs->crawl_queue_idx = 0;
+	cs->pages_total     = (int)qb.count;
+	cs->pages_done      = 0;
+
+	if (!qb.count) {
+		if (cs->log_level > 0)
+			glog(L_INFO, "chromecdp: no http(s) URLs in config\n");
+		return;
+	}
+
+	if (!cs->batch_timer_inited) {
+		uv_timer_init(cs->loop, &cs->batch_timer);
+		cs->batch_timer.data = cs;
+		cs->batch_timer_inited = 1;
+	}
+
+	uv_timer_start(&cs->batch_timer, chromecdp_batch_tick,
+	               0, cs->batch_interval_ms);
+
+	if (cs->log_level > 0)
+		glog(L_INFO,
+		     "chromecdp: crawl cycle started (%zu URLs, batch %d every %" PRIu64 " ms, concurrency %d)\n",
+		     qb.count, cs->batch_size, cs->batch_interval_ms, cs->max_concurrent);
+
+	/* First batch immediately, then one batch per second */
+	chromecdp_fill_slots(cs, cs->batch_size);
 }
 
 /* ------------------------------------------------------------------ */
@@ -496,51 +754,20 @@ static void on_page_done(cdp_page *page, void *ud)
 		pp = &(*pp)->next;
 	}
 
-	/* Release the borrowed context_arg */
-	cdp_free_carg(page->carg);
-	cdp_page_free(page);
+	/* Release context_arg; defer struct free until after pending CDP I/O. */
+	{
+		context_arg *carg = page->carg;
+		page->carg = NULL;
+		cdp_free_carg(carg);
+	}
+	cdp_page_destroy_async(page);
 
 	cs->pages_done++;
 	if (cs->log_level > 1)
-		glog(L_INFO, "chromecdp: page done (%d/%d)\n",
-		     cs->pages_done, cs->pages_total);
-}
+		glog(L_INFO, "chromecdp: page done (%d/%d, active %d)\n",
+		     cs->pages_done, cs->pages_total, chromecdp_count_pages(cs));
 
-/* ------------------------------------------------------------------ */
-/* Crawl: iterate all cdp_nodes and start pages                      */
-/* ------------------------------------------------------------------ */
-
-typedef struct foreach_crawl_arg {
-	chromecdp_state *cs;
-} foreach_crawl_arg;
-
-static void cdp_start_page_foreach(void *funcarg, void *arg)
-{
-	foreach_crawl_arg *fa = funcarg;
-	cdp_node *node = (cdp_node *)arg;
-
-	json_error_t jerr;
-	json_t *config = node->value
-	    ? json_loads(node->value, 0, &jerr)
-	    : json_object();
-	if (!config) config = json_object();
-
-	context_arg *carg = cdp_make_carg(config);
-	if (!carg) { json_decref(config); return; }
-
-	cdp_page *page = cdp_page_start(fa->cs->cdp, fa->cs->loop,
-	                                 node->url->s, config, carg,
-	                                 on_page_done, NULL);
-	if (!page) {
-		cdp_free_carg(carg);
-		json_decref(config);
-		return;
-	}
-
-	/* config ownership transferred to page; it'll be decref'd when page freed */
-	page->next        = fa->cs->pages_head;
-	fa->cs->pages_head = page;
-	fa->cs->pages_total++;
+	chromecdp_fill_slots(cs, cs->batch_size);
 }
 
 static void on_cdp_ready(cdp_session *cdp, void *ud)
@@ -552,27 +779,31 @@ static void on_cdp_ready(cdp_session *cdp, void *ud)
 	if (cs->log_level > 0)
 		glog(L_INFO, "chromecdp: CDP WebSocket connected\n");
 
-	/* Start crawling all configured URLs */
-	cs->pages_total = 0;
-	cs->pages_done  = 0;
-	cs->pages_head  = NULL;
-
-	foreach_crawl_arg fa = { cs };
-	alligator_ht_foreach_arg(ac->chromecdp, cdp_start_page_foreach, &fa);
-
-	if (cs->pages_total == 0 && cs->log_level > 0)
-		glog(L_INFO, "chromecdp: no URLs configured\n");
+	cs->pages_head = NULL;
+	chromecdp_begin_crawl_cycle(cs);
 }
 
 static void on_cdp_closed(cdp_session *cdp, void *ud)
 {
-	(void)cdp;
 	chromecdp_state *cs = (chromecdp_state *)ud;
+
 	if (cs->log_level > 0)
 		glog(L_INFO, "chromecdp: CDP WebSocket closed\n");
+
 	cs->conn_state = CDP_CONN_IDLE;
-	cdp_session_free(cs->cdp);
-	cs->cdp = NULL;
+	chromecdp_batch_timer_stop(cs);
+	chromecdp_crawl_queue_free(cs);
+
+	/* Active pages must not call cdp_send after the session is freed. */
+	chromecdp_abandon_all_pages(cs);
+
+	if (cs->cdp) {
+		cdp_session *dead = cs->cdp;
+		cs->cdp = NULL;
+		cdp_session_free(dead);
+	} else if (cdp) {
+		cdp_session_free(cdp);
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -605,13 +836,11 @@ static void chromecdp_crawl(uv_timer_t *handle)
 		break;
 
 	case CDP_CONN_OPEN:
-		/* Already connected — start a new crawl if previous one is done */
-		if (cs->pages_head == NULL) {
-			cs->pages_total = 0;
-			cs->pages_done  = 0;
-			foreach_crawl_arg fa = { cs };
-			alligator_ht_foreach_arg(ac->chromecdp, cdp_start_page_foreach, &fa);
-		}
+		chromecdp_check_deadlines(cs);
+		if (!cs->crawl_queue && !cs->pages_head)
+			chromecdp_begin_crawl_cycle(cs);
+		else if (cs->crawl_queue)
+			chromecdp_fill_slots(cs, cs->batch_size);
 		break;
 
 	case CDP_CONN_DISCOVER:
@@ -680,6 +909,47 @@ void cdp_insert(json_t *root)
 			continue;
 		}
 
+		/* concurrency — max parallel page crawls */
+		if (!strcmp(key, "concurrency")) {
+			int v = 0;
+			if (json_is_integer(value))
+				v = (int)json_integer_value(value);
+			else {
+				const char *s = cdp_extract_scalar("concurrency", value);
+				if (s) v = atoi(s);
+			}
+			if (v > 0)
+				g_cdp_state.max_concurrent = v;
+			continue;
+		}
+
+		/* batch_size — URLs to start on each batch tick */
+		if (!strcmp(key, "batch_size")) {
+			int v = 0;
+			if (json_is_integer(value))
+				v = (int)json_integer_value(value);
+			else {
+				const char *s = cdp_extract_scalar("batch_size", value);
+				if (s) v = atoi(s);
+			}
+			if (v > 0)
+				g_cdp_state.batch_size = v;
+			continue;
+		}
+
+		/* batch_interval — delay between batch ticks (e.g. "1s") */
+		if (!strcmp(key, "batch_interval")) {
+			uint64_t ms = 0;
+			if (json_is_string(value))
+				ms = (uint64_t)get_ms_from_human_range(
+				    json_string_value(value), json_string_length(value));
+			else if (json_is_integer(value))
+				ms = (uint64_t)json_integer_value(value);
+			if (ms > 0)
+				g_cdp_state.batch_interval_ms = ms;
+			continue;
+		}
+
 		/* log_level — scalar directive, 0/1/2/3 or off/info/debug/trace */
 		if (!strcmp(key, "log_level")) {
 			const char *s = cdp_extract_scalar("log_level", value);
@@ -695,7 +965,13 @@ void cdp_insert(json_t *root)
 			continue;
 		}
 
-		/* Everything else is a target URL */
+		/* Only http(s) keys are target URLs */
+		if (!cdp_key_is_url(key)) {
+			if (g_cdp_state.log_level > 2)
+				glog(L_DEBUG, "chromecdp: skip non-URL key '%s'\n", key);
+			continue;
+		}
+
 		if (chromecdp_get(key)) continue;
 
 		cdp_node *node = calloc(1, sizeof(*node));
@@ -738,6 +1014,9 @@ static void cdp_foreach_free(void *funcarg, void *arg)
 
 void cdp_done(void)
 {
+	chromecdp_batch_timer_stop(&g_cdp_state);
+	chromecdp_crawl_queue_free(&g_cdp_state);
+
 	alligator_ht_foreach_arg(ac->chromecdp, cdp_foreach_free, NULL);
 	alligator_ht_done(ac->chromecdp);
 	free(ac->chromecdp);
@@ -770,6 +1049,10 @@ void chromecdp_generator(void)
 	/* Read config: chrome_port, chrome_exec */
 	cs->chrome_port = CHROMECDP_DEFAULT_PORT;
 	cs->chrome_exec = CHROMECDP_DEFAULT_EXEC;
+
+	cs->max_concurrent     = CHROMECDP_DEFAULT_MAX_CONCURRENT;
+	cs->batch_size         = CHROMECDP_DEFAULT_BATCH_SIZE;
+	cs->batch_interval_ms  = CHROMECDP_BATCH_INTERVAL_MS;
 
 	/* Override from ac->chromecdp_port / ac->chromecdp_exec if set */
 	if (ac->chromecdp_port > 0)

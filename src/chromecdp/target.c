@@ -9,6 +9,7 @@
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "common/logs.h"
+#include "common/units.h"
 #include "events/fs_write.h"
 #include "common/base64.h"
 #include "common/mkdirp.h"
@@ -27,9 +28,71 @@ static void step_eval_entries     (cdp_page *page);
 static void step_screenshot       (cdp_page *page);
 static void step_close_target     (cdp_page *page);
 static void step_dispose_context  (cdp_page *page);
-static void page_finish           (cdp_page *page);
+static void page_try_finish        (cdp_page *page);
+static void page_emit_done         (cdp_page *page);
+static void page_cdp_rsp_done      (cdp_page *page);
+static uint32_t page_cdp_send      (cdp_page *page, cdp_session *cdp,
+                                    const char *session_id, const char *method,
+                                    json_t *params, cdp_response_cb cb,
+                                    void *userdata);
 static void page_error            (cdp_page *page, const char *reason);
 static void idle_timer_closed     (uv_handle_t *handle);
+static void page_destroy_idle_cb  (uv_idle_t *handle);
+
+#define PAGE_MAGIC 0xCD050A6Eu
+
+#define CDP_PAGE_GUARD(page) \
+	do { \
+		if (!(page) || (page)->magic != PAGE_MAGIC || (page)->finished) \
+			return; \
+	} while (0)
+
+/* ------------------------------------------------------------------ */
+/* CDP request lifetime (page must outlive pending callbacks)         */
+/* ------------------------------------------------------------------ */
+static void page_cdp_begin(cdp_page *page)
+{
+	if (page && page->magic == PAGE_MAGIC)
+		page->cdp_inflight++;
+}
+
+static void page_cdp_rsp_done(cdp_page *page)
+{
+	if (!page || page->magic != PAGE_MAGIC)
+		return;
+
+	page->cdp_inflight--;
+	if (page->cdp_inflight < 0)
+		page->cdp_inflight = 0;
+
+	if (page->finished && page->cdp_inflight == 0)
+		page_emit_done(page);
+}
+
+static uint32_t page_cdp_send(cdp_page *page, cdp_session *cdp,
+                              const char *session_id, const char *method,
+                              json_t *params, cdp_response_cb cb,
+                              void *userdata)
+{
+	uint32_t id;
+
+	if (cb)
+		page_cdp_begin(page);
+	id = cdp_send(cdp, session_id, method, params, cb, userdata);
+	if (cb && id == 0)
+		page_cdp_rsp_done(page);
+	return id;
+}
+
+static void page_emit_done(cdp_page *page)
+{
+	if (!page || page->magic != PAGE_MAGIC || page->done_emitted)
+		return;
+
+	page->done_emitted = 1;
+	if (page->done_cb)
+		page->done_cb(page, page->done_userdata);
+}
 
 /* ------------------------------------------------------------------ */
 /* Metric emission helpers                                             */
@@ -70,7 +133,8 @@ static const char *trunc128(const char *s, char *buf, size_t bufsz)
 /* ------------------------------------------------------------------ */
 void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 {
-	if (!page || !method) return;
+	if (!page || !method || page->magic != PAGE_MAGIC || page->finished)
+		return;
 
 	char buf128[129];
 
@@ -236,42 +300,92 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 }
 
 /* ------------------------------------------------------------------ */
-/* Idle timer (networkidle2 implementation)                           */
+/* Timer helpers — detach page pointer before uv_timer_stop/uv_close  */
 /* ------------------------------------------------------------------ */
-static void stop_nav_timeout(cdp_page *page)
+void cdp_page_stop_timers(cdp_page *page)
 {
-	if (!page->nav_timeout_timer)
+	if (!page)
 		return;
-	uv_timer_stop(page->nav_timeout_timer);
-	if (!uv_is_closing((uv_handle_t *)page->nav_timeout_timer))
-		uv_close((uv_handle_t *)page->nav_timeout_timer, idle_timer_closed);
-	else
-		free(page->nav_timeout_timer);
-	page->nav_timeout_timer = NULL;
+
+	if (page->idle_timer) {
+		uv_timer_t *t = page->idle_timer;
+		page->idle_timer = NULL;
+		t->data          = NULL;
+		uv_timer_stop(t);
+		if (!uv_is_closing((uv_handle_t *)t))
+			uv_close((uv_handle_t *)t, idle_timer_closed);
+		else
+			free(t);
+	}
+
+	if (page->nav_timeout_timer) {
+		uv_timer_t *t = page->nav_timeout_timer;
+		page->nav_timeout_timer = NULL;
+		t->data                 = NULL;
+		uv_timer_stop(t);
+		if (!uv_is_closing((uv_handle_t *)t))
+			uv_close((uv_handle_t *)t, idle_timer_closed);
+		else
+			free(t);
+	}
 }
 
+static void page_destroy_idle_cb(uv_idle_t *handle)
+{
+	cdp_page *page = (cdp_page *)handle->data;
+
+	if (page && page->magic == PAGE_MAGIC && page->cdp_inflight > 0)
+		return;
+
+	uv_idle_stop(handle);
+	uv_close((uv_handle_t *)handle, (uv_close_cb)free);
+	if (page)
+		cdp_page_free(page);
+}
+
+void cdp_page_destroy_async(cdp_page *page)
+{
+	uv_idle_t *idle;
+
+	if (!page || !page->loop)
+		return;
+
+	idle = malloc(sizeof(*idle));
+	if (!idle) {
+		cdp_page_free(page);
+		return;
+	}
+
+	uv_idle_init(page->loop, idle);
+	idle->data = page;
+	uv_idle_start(idle, page_destroy_idle_cb);
+}
+
+/* ------------------------------------------------------------------ */
+/* Idle timer (networkidle2 implementation)                           */
+/* ------------------------------------------------------------------ */
 static void nav_timeout_cb(uv_timer_t *timer)
 {
 	cdp_page *page = (cdp_page *)timer->data;
-	if (!page || page->state != PAGE_STATE_WAIT_IDLE)
+
+	CDP_PAGE_GUARD(page);
+	if (page->state != PAGE_STATE_WAIT_IDLE)
 		return;
 
-	if (page->idle_timer)
-		uv_timer_stop(page->idle_timer);
-	stop_nav_timeout(page);
+	cdp_page_stop_timers(page);
 	step_get_perf_metrics(page);
 }
 
 static void idle_tick(uv_timer_t *timer)
 {
 	cdp_page *page = (cdp_page *)timer->data;
-	if (!page) return;
+
+	CDP_PAGE_GUARD(page);
 
 	if (page->in_flight <= CHROMECDP_MAX_INFLIGHT) {
 		page->idle_ticks++;
 		if (page->idle_ticks >= CHROMECDP_IDLE_TICKS) {
-			uv_timer_stop(timer);
-			stop_nav_timeout(page);
+			cdp_page_stop_timers(page);
 			step_get_perf_metrics(page);
 			return;
 		}
@@ -287,7 +401,10 @@ static void on_context_created(cdp_session *cdp, json_t *result,
                                 json_t *error, void *ud)
 {
 	cdp_page *page = (cdp_page *)ud;
-	(void)cdp; (void)error;
+	(void)cdp;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	if (error || !result) {
 		const char *msg = error
@@ -309,8 +426,8 @@ static void on_context_created(cdp_session *cdp, json_t *result,
 static void step_create_context(cdp_page *page)
 {
 	page->state = PAGE_STATE_CREATE_CONTEXT;
-	cdp_send(page->cdp, NULL, "Target.createBrowserContext",
-	         NULL, on_context_created, page);
+	page_cdp_send(page, page->cdp, NULL, "Target.createBrowserContext",
+	              NULL, on_context_created, page);
 }
 
 /* ------------------------------------------------------------------ */
@@ -320,7 +437,10 @@ static void on_target_created(cdp_session *cdp, json_t *result,
                                json_t *error, void *ud)
 {
 	cdp_page *page = (cdp_page *)ud;
-	(void)cdp; (void)error;
+	(void)cdp;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	if (error || !result) {
 		const char *msg = error
@@ -344,8 +464,8 @@ static void step_create_target(cdp_page *page)
 	json_t *params = json_object();
 	json_object_set_new(params, "url",              json_string("about:blank"));
 	json_object_set_new(params, "browserContextId", json_string(page->context_id));
-	cdp_send(page->cdp, NULL, "Target.createTarget",
-	         params, on_target_created, page);
+	page_cdp_send(page, page->cdp, NULL, "Target.createTarget",
+	              params, on_target_created, page);
 	json_decref(params);
 }
 
@@ -356,7 +476,10 @@ static void on_attached(cdp_session *cdp, json_t *result,
                         json_t *error, void *ud)
 {
 	cdp_page *page = (cdp_page *)ud;
-	(void)cdp; (void)error;
+	(void)cdp;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	if (error || !result) {
 		const char *msg = error
@@ -380,8 +503,8 @@ static void step_attach(cdp_page *page)
 	json_t *params = json_object();
 	json_object_set_new(params, "targetId", json_string(page->target_id));
 	json_object_set_new(params, "flatten",  json_true());
-	cdp_send(page->cdp, NULL, "Target.attachToTarget",
-	         params, on_attached, page);
+	page_cdp_send(page, page->cdp, NULL, "Target.attachToTarget",
+	              params, on_attached, page);
 	json_decref(params);
 }
 
@@ -400,15 +523,23 @@ static void on_domain_enabled(cdp_session *cdp, json_t *result,
                                json_t *error, void *ud)
 {
 	domain_cnt *dc = (domain_cnt *)ud;
+	cdp_page *page;
 	(void)cdp; (void)result; (void)error;
 
+	page = dc ? dc->page : NULL;
+	page_cdp_rsp_done(page);
+
+	if (!dc)
+		return;
+
 	dc->remaining--;
-	if (dc->remaining <= 0) {
-		cdp_page *page = dc->page;
-		free(dc);
-		page->state = PAGE_STATE_NAVIGATE;
-		step_navigate(page);
-	}
+	if (dc->remaining > 0)
+		return;
+
+	free(dc);
+	CDP_PAGE_GUARD(page);
+	page->state = PAGE_STATE_NAVIGATE;
+	step_navigate(page);
 }
 
 static void step_enable_domains(cdp_page *page)
@@ -422,10 +553,14 @@ static void step_enable_domains(cdp_page *page)
 	dc->page      = page;
 	dc->remaining = 4;
 
-	cdp_send(page->cdp, sid, "Page.enable",        NULL, on_domain_enabled, dc);
-	cdp_send(page->cdp, sid, "Network.enable",    NULL, on_domain_enabled, dc);
-	cdp_send(page->cdp, sid, "Runtime.enable",    NULL, on_domain_enabled, dc);
-	cdp_send(page->cdp, sid, "Performance.enable", NULL, on_domain_enabled, dc);
+	page_cdp_send(page, page->cdp, sid, "Page.enable",
+	              NULL, on_domain_enabled, dc);
+	page_cdp_send(page, page->cdp, sid, "Network.enable",
+	              NULL, on_domain_enabled, dc);
+	page_cdp_send(page, page->cdp, sid, "Runtime.enable",
+	              NULL, on_domain_enabled, dc);
+	page_cdp_send(page, page->cdp, sid, "Performance.enable",
+	              NULL, on_domain_enabled, dc);
 
 	/* Ancillary setup — fire and forget (no callback needed) */
 	json_t *p;
@@ -615,6 +750,9 @@ static void on_navigated(cdp_session *cdp, json_t *result,
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)result;
 
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
+
 	if (error) {
 		const char *msg = json_string_value(json_object_get(error, "message"));
 		if (!msg) msg = "navigation error";
@@ -656,8 +794,8 @@ static void step_navigate(cdp_page *page)
 		   event handling — see chromecdp_event_dispatch in chromecdp.c). */
 	}
 
-	cdp_send(page->cdp, page->session_id, "Page.navigate",
-	         params, on_navigated, page);
+	page_cdp_send(page, page->cdp, page->session_id, "Page.navigate",
+	              params, on_navigated, page);
 	json_decref(params);
 }
 
@@ -669,12 +807,17 @@ static void step_wait_idle(cdp_page *page)
 	page->state       = PAGE_STATE_WAIT_IDLE;
 	page->idle_ticks  = 0;
 
-	/* Get configured timeout (default 10 s) */
-	const char *to_str = json_string_value(json_object_get(page->config, "timeout"));
+	/* Get configured timeout (default 10 s); accepts "10s", "2m", or ms integer */
 	uint64_t timeout_ms = 10000;
-	if (to_str) {
-		unsigned long v = strtoul(to_str, NULL, 10);
-		if (v > 0) timeout_ms = v * 1000;
+	json_t *to_j = json_object_get(page->config, "timeout");
+	if (to_j) {
+		if (json_is_string(to_j))
+			timeout_ms = (uint64_t)get_ms_from_human_range(
+			    json_string_value(to_j), json_string_length(to_j));
+		else if (json_is_integer(to_j))
+			timeout_ms = (uint64_t)json_integer_value(to_j);
+		if (timeout_ms < 1000)
+			timeout_ms = 1000;
 	}
 
 	page->idle_timer = malloc(sizeof(uv_timer_t));
@@ -705,6 +848,9 @@ static void on_perf_metrics(cdp_session *cdp, json_t *result,
 {
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	/* Map Chrome Performance.getMetrics names → Prometheus metric names */
 	static const struct { const char *chrome; const char *prom; } perf_map[] = {
@@ -781,8 +927,8 @@ static void on_perf_metrics(cdp_session *cdp, json_t *result,
 static void step_get_perf_metrics(cdp_page *page)
 {
 	page->state = PAGE_STATE_GET_PERF;
-	cdp_send(page->cdp, page->session_id,
-	         "Performance.getMetrics", NULL, on_perf_metrics, page);
+	page_cdp_send(page, page->cdp, page->session_id,
+	              "Performance.getMetrics", NULL, on_perf_metrics, page);
 }
 
 /* ------------------------------------------------------------------ */
@@ -816,6 +962,9 @@ static void on_eval_entries(cdp_session *cdp, json_t *result,
 {
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	if (result) {
 		json_t *ret = json_object_get(result, "result");
@@ -876,8 +1025,8 @@ static void step_eval_entries(cdp_page *page)
 	json_object_set_new(params, "expression",
 	    json_string("JSON.stringify(performance.getEntries())"));
 	json_object_set_new(params, "returnByValue", json_true());
-	cdp_send(page->cdp, page->session_id,
-	         "Runtime.evaluate", params, on_eval_entries, page);
+	page_cdp_send(page, page->cdp, page->session_id,
+	              "Runtime.evaluate", params, on_eval_entries, page);
 	json_decref(params);
 }
 
@@ -889,6 +1038,9 @@ static void on_screenshot(cdp_session *cdp, json_t *result,
 {
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)error;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 
 	if (result) {
 		const char *b64 = json_string_value(json_object_get(result, "data"));
@@ -949,8 +1101,8 @@ static void step_screenshot(cdp_page *page)
 	int full_page = json_is_true(json_object_get(ss_cfg, "fullPage"));
 	json_object_set_new(params, "captureBeyondViewport", full_page ? json_true() : json_false());
 
-	cdp_send(page->cdp, page->session_id,
-	         "Page.captureScreenshot", params, on_screenshot, page);
+	page_cdp_send(page, page->cdp, page->session_id,
+	              "Page.captureScreenshot", params, on_screenshot, page);
 	json_decref(params);
 }
 
@@ -962,6 +1114,9 @@ static void on_target_closed(cdp_session *cdp, json_t *result,
 {
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)result; (void)error;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 	step_dispose_context(page);
 }
 
@@ -970,8 +1125,8 @@ static void step_close_target(cdp_page *page)
 	page->state = PAGE_STATE_CLOSE_TARGET;
 	json_t *params = json_object();
 	json_object_set_new(params, "targetId", json_string(page->target_id));
-	cdp_send(page->cdp, NULL, "Target.closeTarget",
-	         params, on_target_closed, page);
+	page_cdp_send(page, page->cdp, NULL, "Target.closeTarget",
+	              params, on_target_closed, page);
 	json_decref(params);
 }
 
@@ -983,8 +1138,11 @@ static void on_context_disposed(cdp_session *cdp, json_t *result,
 {
 	cdp_page *page = (cdp_page *)ud;
 	(void)cdp; (void)result; (void)error;
+
+	page_cdp_rsp_done(page);
+	CDP_PAGE_GUARD(page);
 	page->state = PAGE_STATE_DONE;
-	page_finish(page);
+	page_try_finish(page);
 }
 
 static void step_dispose_context(cdp_page *page)
@@ -992,41 +1150,58 @@ static void step_dispose_context(cdp_page *page)
 	page->state = PAGE_STATE_DISPOSE_CTX;
 	json_t *params = json_object();
 	json_object_set_new(params, "browserContextId", json_string(page->context_id));
-	cdp_send(page->cdp, NULL, "Target.disposeBrowserContext",
-	         params, on_context_disposed, page);
+	page_cdp_send(page, page->cdp, NULL, "Target.disposeBrowserContext",
+	              params, on_context_disposed, page);
 	json_decref(params);
 }
 
 /* ------------------------------------------------------------------ */
 /* Terminal states                                                     */
 /* ------------------------------------------------------------------ */
-static void page_finish(cdp_page *page)
+static void page_try_finish(cdp_page *page)
 {
-	if (page->done_cb)
-		page->done_cb(page, page->done_userdata);
+	if (!page || page->magic != PAGE_MAGIC || page->finished)
+		return;
+
+	page->finished = 1;
+	cdp_page_stop_timers(page);
+
+	if (page->cdp_inflight > 0)
+		return;
+
+	page_emit_done(page);
 }
 
 static void page_error(cdp_page *page, const char *reason)
 {
+	CDP_PAGE_GUARD(page);
+
 	if (page->carg && page->carg->log_level > 0)
 		glog(L_WARN, "chromecdp: page error for %s: %s\n", page->url, reason);
 	page->state = PAGE_STATE_ERROR;
 
-	/* Best-effort cleanup — try to close target/context if we have ids */
-	if (page->target_id) {
+	/* Best-effort cleanup — only while CDP is still connected */
+	if (page->cdp && page->cdp->ws && page->cdp->ws->state == WS_STATE_OPEN &&
+	    page->target_id) {
 		json_t *params = json_object();
 		json_object_set_new(params, "targetId", json_string(page->target_id));
 		cdp_send(page->cdp, NULL, "Target.closeTarget", params, NULL, NULL);
 		json_decref(params);
 	}
-	if (page->context_id) {
+	if (page->cdp && page->cdp->ws && page->cdp->ws->state == WS_STATE_OPEN &&
+	    page->context_id) {
 		json_t *params = json_object();
 		json_object_set_new(params, "browserContextId",
 		                    json_string(page->context_id));
 		cdp_send(page->cdp, NULL, "Target.disposeBrowserContext", params, NULL, NULL);
 		json_decref(params);
 	}
-	page_finish(page);
+	page_try_finish(page);
+}
+
+void cdp_page_abort(cdp_page *page, const char *reason)
+{
+	page_error(page, reason);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1059,6 +1234,7 @@ cdp_page *cdp_page_start(cdp_session *cdp,
 	page->done_cb      = done_cb;
 	page->done_userdata = done_userdata;
 	page->state        = PAGE_STATE_IDLE;
+	page->magic        = PAGE_MAGIC;
 
 	step_create_context(page);
 	return page;
@@ -1071,23 +1247,8 @@ void cdp_page_free(cdp_page *page)
 {
 	if (!page) return;
 
-	if (page->idle_timer) {
-		uv_timer_stop(page->idle_timer);
-		if (!uv_is_closing((uv_handle_t *)page->idle_timer))
-			uv_close((uv_handle_t *)page->idle_timer, idle_timer_closed);
-		else
-			free(page->idle_timer);
-		page->idle_timer = NULL;
-	}
-
-	if (page->nav_timeout_timer) {
-		uv_timer_stop(page->nav_timeout_timer);
-		if (!uv_is_closing((uv_handle_t *)page->nav_timeout_timer))
-			uv_close((uv_handle_t *)page->nav_timeout_timer, idle_timer_closed);
-		else
-			free(page->nav_timeout_timer);
-		page->nav_timeout_timer = NULL;
-	}
+	page->magic = 0;
+	cdp_page_stop_timers(page);
 
 	/* Free any in-flight request tracking entries */
 	req_track *rt = page->req_map;

@@ -40,6 +40,10 @@ struct cdp_page {
 	char           *url;            /* target URL (owned)                 */
 
 	page_state_t    state;
+	uint32_t        magic;         /* PAGE_MAGIC while struct is valid */
+	int             finished;      /* 1: terminal; ignore new CDP work   */
+	int             done_emitted;  /* 1: done_cb already invoked      */
+	int             cdp_inflight;  /* pending CDP responses for page    */
 
 	char           *context_id;    /* browserContextId (owned)           */
 	char           *target_id;     /* targetId (owned)                   */
@@ -58,6 +62,8 @@ struct cdp_page {
 
 	page_done_cb    done_cb;
 	void           *done_userdata;
+
+	uint64_t        deadline_ms;   /* uv_now() budget for this page      */
 
 	struct cdp_page *next;         /* linked list in chromecdp_state     */
 };
@@ -84,3 +90,12 @@ void cdp_page_on_event(cdp_page *page,
                        json_t *params);
 
 void cdp_page_free(cdp_page *page);
+
+/* Force-finish a stuck or timed-out page (runs cleanup + done_cb). */
+void cdp_page_abort(cdp_page *page, const char *reason);
+
+/* Stop page timers without freeing the struct (safe before deferred free). */
+void cdp_page_stop_timers(cdp_page *page);
+
+/* Free page struct on next loop idle turn (after in-flight CDP callbacks). */
+void cdp_page_destroy_async(cdp_page *page);

@@ -50,7 +50,8 @@ uint32_t cdp_send(cdp_session *cdp,
                   json_t *params,
                   cdp_response_cb cb, void *userdata)
 {
-	if (!cdp || !cdp->ws) return 0;
+	if (!cdp || !cdp->ws || cdp->ws->state != WS_STATE_OPEN)
+		return 0;
 
 	uint32_t id = cdp->next_id++;
 
@@ -177,16 +178,24 @@ void cdp_session_free(cdp_session *cdp)
 {
 	if (!cdp) return;
 
-	/* Drain pending queue */
+	/* Drain pending queue — do not invoke callbacks on a dying session */
 	cdp_pending *p = cdp->pending_head;
 	while (p) {
 		cdp_pending *next = p->next;
 		free(p);
 		p = next;
 	}
+	cdp->pending_head = cdp->pending_tail = NULL;
 
-	if (cdp->ws)
-		ws_conn_free(cdp->ws);
+	if (cdp->ws) {
+		ws_conn *ws = cdp->ws;
+		cdp->ws = NULL;
+		ws->userdata = NULL;
+		if (ws->state == WS_STATE_CLOSED)
+			ws_conn_free(ws);
+		else
+			ws_close(ws);
+	}
 
 	free(cdp);
 }

@@ -16,6 +16,9 @@
 #define CHROMECDP_WS_RBUF_INIT     65536
 #define CHROMECDP_WS_RBUF_MAX      (8 * 1024 * 1024)
 #define CHROMECDP_CHROME_START_DELAY_MS 2500  /* wait for Chrome to start */
+#define CHROMECDP_BATCH_INTERVAL_MS     1000  /* start next batch every 1 s  */
+#define CHROMECDP_DEFAULT_BATCH_SIZE    2     /* URLs started per batch tick */
+#define CHROMECDP_DEFAULT_MAX_CONCURRENT 20   /* max parallel page crawls    */
 
 /* ------------------------------------------------------------------ */
 /* Per-URL configuration node (mirrors puppeteer_node)                 */

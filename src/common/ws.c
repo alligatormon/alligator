@@ -151,8 +151,12 @@ static ssize_t ws_parse_one_frame(ws_conn *ws, const char *buf, size_t len)
 
 	if (masked) hdr += 4;
 
+	if (payload_len > WS_RBUF_MAX)
+		return -1;
+
 	size_t total = hdr + (size_t)payload_len;
-	if (len < total) return 0;
+	if (total > WS_RBUF_MAX || total > len)
+		return (total > len) ? 0 : -1;
 
 	if (opcode == WS_OP_PING) {
 		size_t out_len = 2 + (size_t)payload_len;
@@ -190,8 +194,12 @@ static ssize_t ws_parse_one_frame(ws_conn *ws, const char *buf, size_t len)
 		ws->fbuf_len = 0;
 
 	size_t needed = ws->fbuf_len + (size_t)payload_len + 1;
+	if (needed > WS_RBUF_MAX)
+		return -1;
 	if (needed > ws->fbuf_cap) {
 		size_t new_cap = needed * 2;
+		if (new_cap > WS_RBUF_MAX)
+			new_cap = WS_RBUF_MAX;
 		char *nb = realloc(ws->fbuf, new_cap);
 		if (!nb) return -1;
 		ws->fbuf     = nb;
@@ -202,8 +210,15 @@ static ssize_t ws_parse_one_frame(ws_conn *ws, const char *buf, size_t len)
 
 	if (fin) {
 		ws->fbuf[ws->fbuf_len] = '\0';
-		if (ws->on_message)
-			ws->on_message(ws, ws->fbuf, ws->fbuf_len);
+		if (ws->on_message) {
+			/* Deliver a copy so the callback cannot race with fbuf reuse. */
+			char *copy = malloc(ws->fbuf_len + 1);
+			if (copy) {
+				memcpy(copy, ws->fbuf, ws->fbuf_len + 1);
+				ws->on_message(ws, copy, ws->fbuf_len);
+				free(copy);
+			}
+		}
 		ws->fbuf_len = 0;
 	}
 
@@ -269,9 +284,12 @@ static void ws_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 	if (nread <= 0) {
 		free(buf->base);
 		if (nread == UV_EOF || nread == UV_ECONNRESET) {
-			ws->state = WS_STATE_CLOSED;
-			if (ws->on_close)
-				ws->on_close(ws);
+			uv_read_stop(stream);
+			if (ws->state != WS_STATE_CLOSED) {
+				ws->state = WS_STATE_CLOSED;
+				if (ws->on_close)
+					ws->on_close(ws);
+			}
 		}
 		return;
 	}
@@ -313,7 +331,13 @@ static void ws_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 		ssize_t n = ws_parse_one_frame(ws,
 		                               ws->rbuf + consumed,
 		                               ws->rbuf_len - consumed);
-		if (n <= 0) break;
+		if (n < 0) {
+			glog(L_ERROR, "ws: malformed frame, dropping connection buffer\n");
+			ws->rbuf_len = 0;
+			break;
+		}
+		if (n == 0)
+			break;
 		consumed += (size_t)n;
 	}
 	if (consumed > 0) {
