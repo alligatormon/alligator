@@ -1,27 +1,113 @@
 #include "metric/namespace.h"
 #include "action/type.h"
+#include "events/context_arg.h"
 #include "main.h"
 #include "common/logs.h"
 #include "dstructures/ht.h"
 #include <ctype.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <strings.h>
 
-static void metric_transform_info(context_arg *carg, action_node *an, const char *fmt, ...)
+static void metric_transform_vlog(context_arg *carg, action_node *an,
+                                int priority, const char *fmt, va_list ap)
 {
 	int level;
+
 	if (carg)
 		level = carg->log_level;
 	else if (an)
 		level = an->log_level;
 	else
 		return;
-	if (level < L_INFO)
+
+	if (level < priority)
 		return;
+
+	wrlog(level, priority, fmt, ap);
+}
+
+static void metric_transform_info(context_arg *carg, action_node *an, const char *fmt, ...)
+{
 	va_list ap;
+
 	va_start(ap, fmt);
-	wrlog(level, L_INFO, fmt, ap);
+	metric_transform_vlog(carg, an, L_INFO, fmt, ap);
 	va_end(ap);
+}
+
+static void metric_transform_trace(context_arg *carg, action_node *an, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	metric_transform_vlog(carg, an, L_TRACE, fmt, ap);
+	va_end(ap);
+}
+
+static void metric_transform_trace_regex_step(context_arg *carg, action_node *an,
+                                              const char *metric_name,
+                                              const char *label_name, size_t step,
+                                              const char *regex, const char *replacement,
+                                              const char *before, const char *after)
+{
+	int level = carg ? carg->log_level : (an ? an->log_level : ac->log_level);
+	if (level < L_TRACE)
+		return;
+
+	if (!regex || !before)
+		return;
+
+	if (!after) {
+		const char *err = NULL;
+		int erroffset = 0;
+		pcre *re = pcre_compile(regex, 0, &err, &erroffset, NULL);
+		if (!re) {
+			metric_transform_trace(carg, an,
+			    "metricstransform: metric '%s' label '%s' step %zu COMPILE ERROR at %d: %s (regex '%s')\n",
+			    metric_name ? metric_name : "?",
+			    label_name ? label_name : "?",
+			    step, erroffset, err ? err : "?", regex);
+			return;
+		}
+
+		int ovector[90];
+		int rc = pcre_exec(re, NULL, before, (int)strlen(before), 0, 0, ovector, 90);
+		pcre_free(re);
+
+		if (rc == PCRE_ERROR_NOMATCH)
+			metric_transform_trace(carg, an,
+			    "metricstransform: metric '%s' label '%s' step %zu NO MATCH regex '%s' repl '%s' value '%s'\n",
+			    metric_name ? metric_name : "?",
+			    label_name ? label_name : "?",
+			    step, regex, replacement ? replacement : "", before);
+		else if (rc < 0)
+			metric_transform_trace(carg, an,
+			    "metricstransform: metric '%s' label '%s' step %zu EXEC ERROR %d regex '%s' value '%s'\n",
+			    metric_name ? metric_name : "?",
+			    label_name ? label_name : "?",
+			    step, rc, regex, before);
+		else
+			metric_transform_trace(carg, an,
+			    "metricstransform: metric '%s' label '%s' step %zu MATCH but replace failed regex '%s' repl '%s' value '%s'\n",
+			    metric_name ? metric_name : "?",
+			    label_name ? label_name : "?",
+			    step, regex, replacement ? replacement : "", before);
+		return;
+	}
+
+	if (strcmp(before, after) != 0)
+		metric_transform_trace(carg, an,
+		    "metricstransform: metric '%s' label '%s' step %zu OK regex '%s' repl '%s': '%s' -> '%s'\n",
+		    metric_name ? metric_name : "?",
+		    label_name ? label_name : "?",
+		    step, regex, replacement ? replacement : "", before, after);
+	else
+		metric_transform_trace(carg, an,
+		    "metricstransform: metric '%s' label '%s' step %zu UNCHANGED regex '%s' repl '%s' value '%s'\n",
+		    metric_name ? metric_name : "?",
+		    label_name ? label_name : "?",
+		    step, regex, replacement ? replacement : "", before);
 }
 
 static int metric_transform_append(char **dst, size_t *len, size_t *cap, const char *src, size_t src_len)
@@ -164,6 +250,68 @@ static int metric_transform_json_bool(json_t *val)
         return s && (!strcasecmp(s, "true") || !strcmp(s, "1"));
     }
     return 0;
+}
+
+static const char *metric_transform_json_str(json_t *val)
+{
+    if (!val)
+        return NULL;
+    if (json_is_string(val))
+        return json_string_value(val);
+    if (json_is_integer(val))
+    {
+        static __thread char numbuf[32];
+        snprintf(numbuf, sizeof(numbuf), "%lld", (long long)json_integer_value(val));
+        return numbuf;
+    }
+    return NULL;
+}
+
+static int metric_transform_match_type_is_regexp(const char *match_type)
+{
+    return match_type &&
+        (!strcasecmp(match_type, "regexp") || !strcasecmp(match_type, "regex"));
+}
+
+static void metric_transform_trace_operation(context_arg *carg, action_node *an,
+                                            const char *metric_name, size_t tidx,
+                                            size_t opidx, json_t *operation)
+{
+    const char *action = metric_transform_json_str(json_object_get(operation, "action"));
+    const char *label = metric_transform_json_str(json_object_get(operation, "label"));
+    const char *label_regex = metric_transform_json_str(json_object_get(operation, "label_regex"));
+    json_t *value_actions = json_object_get(operation, "value_actions");
+    size_t va_n = (value_actions && json_is_array(value_actions))
+        ? json_array_size(value_actions) : 0;
+
+    metric_transform_trace(carg, an,
+        "metricstransform: metric '%s' transform #%zu op #%zu action '%s' label '%s'%s value_actions %zu\n",
+        metric_name ? metric_name : "?",
+        tidx, opidx,
+        action ? action : "?",
+        label ? label : (label_regex ? label_regex : "<none>"),
+        label_regex && (!label || !*label) ? " (label_regex)" : "",
+        va_n);
+
+    if (!label && (!label_regex || !*label_regex))
+        metric_transform_info(carg, an,
+            "metricstransform: metric '%s' transform #%zu op #%zu has no label/label_regex; update_label skipped\n",
+            metric_name ? metric_name : "?", tidx, opidx);
+
+    for (size_t k = 0; k < va_n; ++k)
+    {
+        json_t *va = json_array_get(value_actions, k);
+        const char *regex = metric_transform_json_str(json_object_get(va, "regex"));
+        const char *repl = metric_transform_json_str(json_object_get(va, "replacement"));
+        if (!repl)
+            repl = metric_transform_json_str(json_object_get(va, "new_value"));
+        metric_transform_trace(carg, an,
+            "metricstransform: metric '%s' transform #%zu op #%zu value_action #%zu regex '%s' repl '%s'\n",
+            metric_name ? metric_name : "?",
+            tidx, opidx, k,
+            regex ? regex : "?",
+            repl ? repl : "");
+    }
 }
 
 static int metric_transform_match_pattern(const char *value, const char *pattern, int regexp)
@@ -410,8 +558,8 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
     if (!ctx || !labelscont || !ctx->operation)
         return;
 
-    const char *label = json_string_value(json_object_get(ctx->operation, "label"));
-    const char *label_regex = json_string_value(json_object_get(ctx->operation, "label_regex"));
+    const char *label = metric_transform_json_str(json_object_get(ctx->operation, "label"));
+    const char *label_regex = metric_transform_json_str(json_object_get(ctx->operation, "label_regex"));
     int label_is_regexp = label_regex && *label_regex;
 
     if (label_is_regexp)
@@ -425,7 +573,12 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
             return;
     }
     else
+    {
+        metric_transform_trace(ctx->carg, ctx->an,
+            "metricstransform: metric '%s' op skip (update_label needs label or label_regex)\n",
+            ctx->metric_name ? ctx->metric_name : "?");
         return;
+    }
 
     json_t *value_actions = json_object_get(ctx->operation, "value_actions");
     int has_va = value_actions && json_is_array(value_actions);
@@ -456,18 +609,25 @@ static void metric_transform_apply_operation(void *funcarg, void *arg)
         for (size_t i = 0; i < value_actions_size; ++i)
         {
             json_t *value_action = json_array_get(value_actions, i);
-            const char *regex = json_string_value(json_object_get(value_action, "regex"));
+            const char *regex = metric_transform_json_str(json_object_get(value_action, "regex"));
             if (!regex || !*regex)
                 continue;
 
-            const char *replacement = json_string_value(json_object_get(value_action, "replacement"));
+            const char *replacement = metric_transform_json_str(json_object_get(value_action, "replacement"));
             if (!replacement)
-                replacement = json_string_value(json_object_get(value_action, "new_value"));
+                replacement = metric_transform_json_str(json_object_get(value_action, "new_value"));
 
+            const char *before_step = curr;
             int replace_all = metric_transform_json_bool(json_object_get(value_action, "replace_all"));
             char *new_value = replace_all
                 ? metric_transform_replace_regex_all(curr, regex, replacement)
                 : metric_transform_replace_regex_once(curr, regex, replacement);
+
+            metric_transform_trace_regex_step(ctx->carg, ctx->an,
+                ctx->metric_name,
+                labelscont->name ? labelscont->name : "?",
+                i, regex, replacement, before_step, new_value);
+
             if (!new_value)
                 continue;
 
@@ -553,7 +713,12 @@ void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator
         transforms = json_object_get(metricstransform, "transforms");
 
     if (!transforms || !json_is_array(transforms))
+    {
+        metric_transform_trace(carg, an,
+            "metricstransform: metric '%s' skip (no transforms array)\n",
+            metric_name);
         return;
+    }
 
     size_t transforms_size = json_array_size(transforms);
     for (size_t i = 0; i < transforms_size; ++i)
@@ -562,34 +727,59 @@ void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator
         if (!transform || !json_is_object(transform))
             continue;
 
-        const char *metric_pattern = json_string_value(json_object_get(transform, "include"));
+        const char *metric_pattern = metric_transform_json_str(json_object_get(transform, "include"));
         if (!metric_pattern)
-            metric_pattern = json_string_value(json_object_get(transform, "metric"));
-        const char *match_type = json_string_value(json_object_get(transform, "match_type"));
-        int metric_regexp = match_type && !strcasecmp(match_type, "regexp");
+            metric_pattern = metric_transform_json_str(json_object_get(transform, "metric"));
+        const char *match_type = metric_transform_json_str(json_object_get(transform, "match_type"));
+        int metric_regexp = metric_transform_match_type_is_regexp(match_type);
         if (json_object_get(transform, "metric_regex"))
         {
-            metric_pattern = json_string_value(json_object_get(transform, "metric_regex"));
+            metric_pattern = metric_transform_json_str(json_object_get(transform, "metric_regex"));
             metric_regexp = 1;
         }
+
+        const char *match_mode = (!metric_pattern || !*metric_pattern)
+            ? "match-all"
+            : (metric_regexp ? "regexp" : "strict");
+        const char *pat_display = (metric_pattern && *metric_pattern) ? metric_pattern : "<any>";
 
         int matched = metric_transform_match_pattern(metric_name, metric_pattern, metric_regexp);
         if (!matched && metric_name_alt && *metric_name_alt)
             matched = metric_transform_match_pattern(metric_name_alt, metric_pattern, metric_regexp);
-        if (!matched)
+        if (!matched) {
+            metric_transform_trace(carg, an,
+                "metricstransform: metric '%s' transform #%zu/%zu skip (pattern '%s' %s)\n",
+                metric_name, i, transforms_size, pat_display, match_mode);
             continue;
+        }
+
+        metric_transform_trace(carg, an,
+            "metricstransform: metric '%s' transform #%zu/%zu apply (pattern '%s' %s)\n",
+            metric_name, i, transforms_size, pat_display, match_mode);
+
+        if (!metric_pattern || !*metric_pattern)
+            metric_transform_trace(carg, an,
+                "metricstransform: metric '%s' transform #%zu: no include/metric/metric_regex (matches every metric name)\n",
+                metric_name, i);
 
         json_t *operations = json_object_get(transform, "operations");
         if (!operations || !json_is_array(operations))
+        {
+            metric_transform_trace(carg, an,
+                "metricstransform: metric '%s' transform #%zu: no operations array\n",
+                metric_name, i);
             continue;
+        }
 
         size_t operations_size = json_array_size(operations);
         for (size_t j = 0; j < operations_size; ++j)
         {
             json_t *operation = json_array_get(operations, j);
-            const char *action = json_string_value(json_object_get(operation, "action"));
+            const char *action = metric_transform_json_str(json_object_get(operation, "action"));
             if (!action || strcmp(action, "update_label"))
                 continue;
+
+            metric_transform_trace_operation(carg, an, metric_name, i, j, operation);
 
             metric_transform_update_ctx ctx = {
                 .metric_name = metric_name,

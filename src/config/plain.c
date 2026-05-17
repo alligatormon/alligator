@@ -533,14 +533,119 @@ static int plain_metricstransform_has_native_block(config_parser_stat *wstokens,
 	return 0;
 }
 
+static char *plain_strip_trailing_semicolon_ws(const char *value);
+
+/* Join block tokens into one string (for JSON metricstransform { "transforms": ... }). */
+static char *plain_metricstransform_join_tokens(config_parser_stat *wstokens, uint64_t from, uint64_t to)
+{
+	size_t cap = 256;
+	size_t len = 0;
+	char *buf = malloc(cap);
+
+	if (!buf || from >= to)
+		return buf;
+
+	for (uint64_t i = from; i < to; ++i)
+	{
+		const char *s;
+		size_t slen;
+
+		if (!wstokens[i].token || !wstokens[i].token->s)
+			continue;
+		s = wstokens[i].token->s;
+		slen = strlen(s);
+		if (!slen)
+			continue;
+		if (len + slen + 2 > cap)
+		{
+			cap = (len + slen + 2) * 2;
+			char *nb = realloc(buf, cap);
+			if (!nb)
+			{
+				free(buf);
+				return NULL;
+			}
+			buf = nb;
+		}
+		if (len)
+			buf[len++] = ' ';
+		memcpy(buf + len, s, slen);
+		len += slen;
+	}
+	if (!len)
+	{
+		free(buf);
+		return NULL;
+	}
+	buf[len] = '\0';
+	return buf;
+}
+
+static json_t *plain_try_parse_metricstransform_json_text(const char *text)
+{
+	json_error_t error;
+	json_t *parsed;
+	char *t;
+	char *wrapped;
+
+	if (!text)
+		return NULL;
+
+	t = plain_strip_trailing_semicolon_ws(text);
+	if (!t)
+		return NULL;
+
+	parsed = json_loads(t, 0, &error);
+	if (!parsed && !strncmp(t, "\"transforms\"", 12))
+	{
+		size_t wlen = strlen(t) + 3;
+		wrapped = malloc(wlen);
+		if (wrapped)
+		{
+			snprintf(wrapped, wlen, "{%s}", t);
+			parsed = json_loads(wrapped, 0, &error);
+			free(wrapped);
+		}
+	}
+	free(t);
+	if (!parsed)
+		return NULL;
+
+	if (json_is_object(parsed) && json_object_get(parsed, "transforms"))
+		return parsed;
+	if (json_is_array(parsed))
+		return parsed;
+
+	json_decref(parsed);
+	return NULL;
+}
+
 /* *idx = index of metricstransform context token; on return *idx = index of inner closing }; that token's .end is cleared. */
 static json_t *plain_metricstransform_parse_native_block(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
 {
 	json_t *root;
 	json_t *transforms;
+	uint64_t block_end;
 
 	if (!idx || *idx >= token_count || !wstokens[*idx].token->s || strcmp(wstokens[*idx].token->s, "metricstransform"))
 		return NULL;
+
+	block_end = *idx + 1;
+	while (block_end < token_count && !wstokens[block_end].end)
+		block_end++;
+	if (block_end < token_count && wstokens[block_end].end)
+	{
+		char *joined = plain_metricstransform_join_tokens(wstokens, *idx + 1, block_end);
+		json_t *json_mtx = joined ? plain_try_parse_metricstransform_json_text(joined) : NULL;
+
+		free(joined);
+		if (json_mtx)
+		{
+			*idx = block_end;
+			wstokens[block_end].end = 0;
+			return json_mtx;
+		}
+	}
 
 	root = json_object();
 	transforms = json_array();

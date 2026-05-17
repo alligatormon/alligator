@@ -6,6 +6,7 @@
 
 #include "chromecdp/chromecdp.h"
 #include "chromecdp/target.h"
+#include "events/context_arg.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "common/logs.h"
@@ -1165,8 +1166,9 @@ static void page_error(cdp_page *page, const char *reason)
 {
 	CDP_PAGE_GUARD(page);
 
-	if (page->carg && page->carg->log_level > 0)
-		glog(L_WARN, "chromecdp: page error for %s: %s\n", page->url, reason);
+	if (page->carg)
+		carglog(page->carg, L_WARN, "chromecdp: page error for %s: %s\n",
+		        page->url, reason);
 	page->state = PAGE_STATE_ERROR;
 
 	/* Best-effort cleanup — only while CDP is still connected */

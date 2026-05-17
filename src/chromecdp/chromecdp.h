@@ -4,6 +4,7 @@
 #include "dstructures/tommy.h"
 #include "dstructures/ht.h"
 #include "common/selector.h"
+#include "common/logs.h"
 
 /* ------------------------------------------------------------------ */
 /* Tunables                                                            */
@@ -44,6 +45,9 @@ void cdp_done(void);
 
 /* Called once from main() after config is loaded */
 void chromecdp_generator(void);
+
+/* Log using chromecdp module log_level (like carglog, not glog/ac->log_level). */
+void cslog(int priority, const char *format, ...);
 
 /* Current module log_level (for config export via config_get). */
 int chromecdp_config_log_level(void);

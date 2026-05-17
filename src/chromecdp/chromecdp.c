@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdarg.h>
 
 #include "main.h"
 #include "chromecdp/chromecdp.h"
@@ -76,13 +77,27 @@ typedef struct chromecdp_state {
 
 	uv_loop_t      *loop;
 
-	int             log_level;        /* 0=off, 1=info, 2=debug, 3=trace */
+	int             log_level;        /* L_OFF / L_INFO / L_DEBUG / L_TRACE */
 } chromecdp_state;
 
 static chromecdp_state g_cdp_state;
 static uv_timer_t      g_chrome_ready_timer;
 static int             g_chrome_ready_timer_inited;
 
+void cslog(int priority, const char *format, ...)
+{
+	chromecdp_state *cs = &g_cdp_state;
+	va_list args;
+
+	if (cs->log_level < priority)
+		return;
+	va_start(args, format);
+	wrlog(cs->log_level, priority, format, args);
+	va_end(args);
+}
+
+static const char *cdp_extract_scalar(const char *key, json_t *value);
+static int chromecdp_parse_log_level_json(json_t *value);
 static context_arg *cdp_make_carg(json_t *config);
 static void cdp_free_carg(context_arg *carg);
 static void chromecdp_begin_crawl_cycle(chromecdp_state *cs);
@@ -264,10 +279,9 @@ static int chromecdp_start_page_for_node(chromecdp_state *cs, cdp_node *node)
 	cs->pages_head     = page;
 	page->deadline_ms  = uv_now(cs->loop) + chromecdp_page_budget_ms(config);
 
-	if (cs->log_level > 1)
-		glog(L_INFO, "chromecdp: crawling %s (active %d/%d, deadline %" PRIu64 " ms)\n",
-		     node->url->s, chromecdp_count_pages(cs), cs->max_concurrent,
-		     chromecdp_page_budget_ms(config));
+	cslog(L_DEBUG, "chromecdp: crawling %s (active %d/%d, deadline %" PRIu64 " ms)\n",
+	      node->url->s, chromecdp_count_pages(cs), cs->max_concurrent,
+	      chromecdp_page_budget_ms(config));
 
 	return 0;
 }
@@ -281,9 +295,8 @@ static void chromecdp_maybe_finish_cycle(chromecdp_state *cs)
 	if (cs->pages_head)
 		return;
 
-	if (cs->log_level > 0)
-		glog(L_INFO, "chromecdp: crawl cycle finished (%d/%d URLs)\n",
-		     cs->pages_done, cs->pages_total);
+	cslog(L_INFO, "chromecdp: crawl cycle finished (%d/%d URLs)\n",
+	      cs->pages_done, cs->pages_total);
 
 	chromecdp_batch_timer_stop(cs);
 	chromecdp_crawl_queue_free(cs);
@@ -321,9 +334,8 @@ static void chromecdp_check_deadlines(chromecdp_state *cs)
 		cdp_page *next = page->next;
 
 		if (page->deadline_ms && now >= page->deadline_ms) {
-			if (cs->log_level > 0)
-				glog(L_WARN, "chromecdp: deadline exceeded, aborting %s\n",
-				     page->url);
+			cslog(L_WARN, "chromecdp: deadline exceeded, aborting %s\n",
+			      page->url);
 			cdp_page_abort(page, "crawl deadline exceeded");
 		}
 		page = next;
@@ -374,8 +386,7 @@ static void chromecdp_begin_crawl_cycle(chromecdp_state *cs)
 	cs->pages_done      = 0;
 
 	if (!qb.count) {
-		if (cs->log_level > 0)
-			glog(L_INFO, "chromecdp: no http(s) URLs in config\n");
+		cslog(L_INFO, "chromecdp: no http(s) URLs in config\n");
 		return;
 	}
 
@@ -388,10 +399,9 @@ static void chromecdp_begin_crawl_cycle(chromecdp_state *cs)
 	uv_timer_start(&cs->batch_timer, chromecdp_batch_tick,
 	               0, cs->batch_interval_ms);
 
-	if (cs->log_level > 0)
-		glog(L_INFO,
-		     "chromecdp: crawl cycle started (%zu URLs, batch %d every %" PRIu64 " ms, concurrency %d)\n",
-		     qb.count, cs->batch_size, cs->batch_interval_ms, cs->max_concurrent);
+	cslog(L_INFO,
+	      "chromecdp: crawl cycle started (%zu URLs, batch %d every %" PRIu64 " ms, concurrency %d)\n",
+	      qb.count, cs->batch_size, cs->batch_interval_ms, cs->max_concurrent);
 
 	/* First batch immediately, then one batch per second */
 	chromecdp_fill_slots(cs, cs->batch_size);
@@ -432,10 +442,20 @@ static context_arg *cdp_make_carg(json_t *config)
 		}
 	}
 
-	/* metricstransform */
+	/* metricstransform (object/array or JSON string) */
 	json_t *mtx = json_object_get(config, "metricstransform");
-	if (mtx)
+	if (mtx && (json_is_object(mtx) || json_is_array(mtx)))
 		carg->metricstransform = json_incref(mtx);
+	else if (mtx && json_is_string(mtx))
+	{
+		json_error_t mtx_err;
+		json_t *mtx_obj = json_loads(json_string_value(mtx), 0, &mtx_err);
+
+		if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
+			carg->metricstransform = mtx_obj;
+		else if (mtx_obj)
+			json_decref(mtx_obj);
+	}
 
 	/* TTL: per-URL override, else fall back to global default */
 	json_t *json_ttl = json_object_get(config, "ttl");
@@ -451,20 +471,10 @@ static context_arg *cdp_make_carg(json_t *config)
 
 	/* log_level: per-URL override (from URL block), else module default */
 	json_t *json_ll = json_object_get(config, "log_level");
-	if (json_ll) {
-		if (json_typeof(json_ll) == JSON_STRING) {
-			const char *s = json_string_value(json_ll);
-			if (!strcmp(s, "off"))        carg->log_level = 0;
-			else if (!strcmp(s, "info"))  carg->log_level = 1;
-			else if (!strcmp(s, "debug")) carg->log_level = 2;
-			else if (!strcmp(s, "trace")) carg->log_level = 3;
-			else carg->log_level = atoi(s);
-		} else {
-			carg->log_level = (int)json_integer_value(json_ll);
-		}
-	} else {
+	if (json_ll)
+		carg->log_level = chromecdp_parse_log_level_json(json_ll);
+	else
 		carg->log_level = g_cdp_state.log_level;
-	}
 
 	return carg;
 }
@@ -488,7 +498,7 @@ static void cdp_free_carg(context_arg *carg)
 static void on_chrome_exit(uv_process_t *req, int64_t exit_status, int signal)
 {
 	(void)req; (void)signal;
-	glog(L_WARN, "chromecdp: Chrome exited with status %" PRId64 "\n",
+	cslog(L_WARN, "chromecdp: Chrome exited with status %" PRId64 "\n",
 	     exit_status);
 	g_cdp_state.chrome_running = 0;
 	g_cdp_state.conn_state     = CDP_CONN_IDLE;
@@ -526,8 +536,8 @@ static int chromecdp_launch_chrome(void)
 
 	cs->chrome_stdio[0].flags = UV_IGNORE;
 	cs->chrome_stdio[1].flags = UV_IGNORE;
-	/* Inherit stderr only when log_level > 0, otherwise suppress Chrome noise */
-	if (cs->log_level > 0) {
+	/* Inherit stderr only when log_level >= info, otherwise suppress Chrome noise */
+	if (cs->log_level >= L_INFO) {
 		cs->chrome_stdio[2].flags = UV_INHERIT_FD;
 		cs->chrome_stdio[2].data.fd = 2;
 	} else {
@@ -542,19 +552,17 @@ static int chromecdp_launch_chrome(void)
 	opts.stdio       = cs->chrome_stdio;
 	opts.stdio_count = 3;
 
-	if (cs->log_level > 0)
-		glog(L_INFO, "chromecdp: launching: %s --headless %s --no-sandbox ...\n",
-		     cs->chrome_exec, port_arg);
+	cslog(L_INFO, "chromecdp: launching: %s --headless %s --no-sandbox ...\n",
+	      cs->chrome_exec, port_arg);
 
 	int r = uv_spawn(cs->loop, &cs->chrome_proc, &opts);
 	if (r != 0) {
-		glog(L_ERROR, "chromecdp: uv_spawn failed: %s\n", uv_strerror(r));
+		cslog(L_ERROR, "chromecdp: uv_spawn failed: %s\n", uv_strerror(r));
 		return -1;
 	}
 	cs->chrome_running = 1;
-	if (cs->log_level > 0)
-		glog(L_INFO, "chromecdp: Chrome started (pid %d, port %d)\n",
-		     cs->chrome_proc.pid, cs->chrome_port);
+	cslog(L_INFO, "chromecdp: Chrome started (pid %d, port %d)\n",
+	      cs->chrome_proc.pid, cs->chrome_port);
 	chromecdp_schedule_discovery();
 	return 0;
 }
@@ -603,7 +611,7 @@ static void disc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf
 	json_error_t jerr;
 	json_t *root = json_loads(body, 0, &jerr);
 	if (!root) {
-		glog(L_ERROR, "chromecdp: /json/version parse error: %s\n", jerr.text);
+		cslog(L_ERROR, "chromecdp: /json/version parse error: %s\n", jerr.text);
 		g_cdp_state.conn_state = CDP_CONN_FAILED;
 		uv_read_stop(stream);
 		uv_close((uv_handle_t *)stream, disc_close_cb);
@@ -613,7 +621,7 @@ static void disc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf
 	const char *ws_url = json_string_value(
 	    json_object_get(root, "webSocketDebuggerUrl"));
 	if (!ws_url) {
-		glog(L_ERROR, "chromecdp: no webSocketDebuggerUrl in /json/version\n");
+		cslog(L_ERROR, "chromecdp: no webSocketDebuggerUrl in /json/version\n");
 		json_decref(root);
 		g_cdp_state.conn_state = CDP_CONN_FAILED;
 		uv_read_stop(stream);
@@ -633,8 +641,7 @@ static void disc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf
 
 	json_decref(root);
 
-	if (g_cdp_state.log_level > 0)
-		glog(L_INFO, "chromecdp: got WebSocket path: %s\n", g_cdp_state.ws_path);
+	cslog(L_INFO, "chromecdp: got WebSocket path: %s\n", g_cdp_state.ws_path);
 	g_cdp_state.conn_state = CDP_CONN_CONNECTING;
 
 	uv_read_stop(stream);
@@ -656,7 +663,7 @@ static void disc_connected(uv_connect_t *req, int status)
 	chromecdp_disc *disc = (chromecdp_disc *)req->data;
 
 	if (status != 0) {
-		glog(L_ERROR, "chromecdp: discovery connect failed: %s\n",
+		cslog(L_ERROR, "chromecdp: discovery connect failed: %s\n",
 		     uv_strerror(status));
 		g_cdp_state.conn_state = CDP_CONN_FAILED;
 		uv_close((uv_handle_t *)&disc->tcp, disc_close_cb);
@@ -728,7 +735,7 @@ void chromecdp_connect_ws(void)
 	                          on_cdp_ready, on_cdp_event, on_cdp_closed,
 	                          cs);
 	if (!cs->cdp) {
-		glog(L_ERROR, "chromecdp: cdp_session_new failed\n");
+		cslog(L_ERROR, "chromecdp: cdp_session_new failed\n");
 		cs->conn_state = CDP_CONN_FAILED;
 	}
 }
@@ -779,9 +786,8 @@ static void on_page_done(cdp_page *page, void *ud)
 	cdp_page_destroy_async(page);
 
 	cs->pages_done++;
-	if (cs->log_level > 1)
-		glog(L_INFO, "chromecdp: page done (%d/%d, active %d)\n",
-		     cs->pages_done, cs->pages_total, chromecdp_count_pages(cs));
+	cslog(L_DEBUG, "chromecdp: page done (%d/%d, active %d)\n",
+	      cs->pages_done, cs->pages_total, chromecdp_count_pages(cs));
 
 	chromecdp_fill_slots(cs, cs->batch_size);
 }
@@ -792,8 +798,7 @@ static void on_cdp_ready(cdp_session *cdp, void *ud)
 	chromecdp_state *cs = (chromecdp_state *)ud;
 	cs->conn_state = CDP_CONN_OPEN;
 
-	if (cs->log_level > 0)
-		glog(L_INFO, "chromecdp: CDP WebSocket connected\n");
+	cslog(L_INFO, "chromecdp: CDP WebSocket connected\n");
 
 	cs->pages_head = NULL;
 	chromecdp_begin_crawl_cycle(cs);
@@ -803,8 +808,7 @@ static void on_cdp_closed(cdp_session *cdp, void *ud)
 {
 	chromecdp_state *cs = (chromecdp_state *)ud;
 
-	if (cs->log_level > 0)
-		glog(L_INFO, "chromecdp: CDP WebSocket closed\n");
+	cslog(L_INFO, "chromecdp: CDP WebSocket closed\n");
 
 	cs->conn_state = CDP_CONN_IDLE;
 	chromecdp_batch_timer_stop(cs);
@@ -885,6 +889,23 @@ static const char *cdp_extract_scalar(const char *key, json_t *value)
 	return NULL;
 }
 
+static int chromecdp_parse_log_level_json(json_t *value)
+{
+	const char *s;
+
+	if (!value)
+		return L_OFF;
+	if (json_is_string(value))
+		return (int)get_log_level_by_name(json_string_value(value),
+		                                  json_string_length(value));
+	if (json_is_integer(value))
+		return (int)json_integer_value(value);
+	s = cdp_extract_scalar("log_level", value);
+	if (s)
+		return (int)get_log_level_by_name(s, strlen(s));
+	return L_OFF;
+}
+
 void cdp_insert(json_t *root)
 {
 	const char *key;
@@ -906,8 +927,7 @@ void cdp_insert(json_t *root)
 			if (port > 0) {
 				ac->chromecdp_port = port;
 				chromecdp_sync_runtime();
-				if (g_cdp_state.log_level > 0)
-					glog(L_INFO, "chromecdp: port set to %d\n", port);
+				cslog(L_INFO, "chromecdp: port set to %d\n", port);
 			}
 			continue;
 		}
@@ -919,8 +939,7 @@ void cdp_insert(json_t *root)
 				free(ac->chromecdp_exec);
 				ac->chromecdp_exec = strdup(exec);
 				chromecdp_sync_runtime();
-				if (g_cdp_state.log_level > 0)
-					glog(L_INFO, "chromecdp: executable set to '%s'\n", exec);
+				cslog(L_INFO, "chromecdp: executable set to '%s'\n", exec);
 			}
 			continue;
 		}
@@ -992,40 +1011,44 @@ void cdp_insert(json_t *root)
 			continue;
 		}
 
-		/* log_level — scalar directive, 0/1/2/3 or off/info/debug/trace */
+		/* log_level — off/info/debug/trace or L_* integer */
 		if (!strcmp(key, "log_level")) {
-			const char *s = cdp_extract_scalar("log_level", value);
-			if (s) {
-				if (!strcmp(s, "off"))   g_cdp_state.log_level = 0;
-				else if (!strcmp(s, "info"))  g_cdp_state.log_level = 1;
-				else if (!strcmp(s, "debug")) g_cdp_state.log_level = 2;
-				else if (!strcmp(s, "trace")) g_cdp_state.log_level = 3;
-				else g_cdp_state.log_level = atoi(s);
-			} else if (json_is_integer(value)) {
-				g_cdp_state.log_level = (int)json_integer_value(value);
-			}
+			g_cdp_state.log_level = chromecdp_parse_log_level_json(value);
 			continue;
 		}
 
 		/* Only http(s) keys are target URLs */
 		if (!cdp_key_is_url(key)) {
-			if (g_cdp_state.log_level > 2)
-				glog(L_DEBUG, "chromecdp: skip non-URL key '%s'\n", key);
+			cslog(L_TRACE, "chromecdp: skip non-URL key '%s'\n", key);
 			continue;
 		}
 
-		if (chromecdp_get(key)) continue;
+		{
+			char *new_value = json_dumps(value, 0);
+			if (!new_value)
+				continue;
 
-		cdp_node *node = calloc(1, sizeof(*node));
-		if (!node) continue;
-		node->url   = string_init_dup((char *)key);
-		node->value = json_dumps(value, 0);
+			cdp_node *existing = chromecdp_get(key);
+			if (existing) {
+				free(existing->value);
+				existing->value = new_value;
+				cslog(L_INFO, "chromecdp: update url '%s'\n", key);
+				continue;
+			}
 
-		if (g_cdp_state.log_level > 0)
-			glog(L_INFO, "chromecdp: insert url '%s'\n", node->url->s);
+			cdp_node *node = calloc(1, sizeof(*node));
+			if (!node) {
+				free(new_value);
+				continue;
+			}
+			node->url   = string_init_dup((char *)key);
+			node->value = new_value;
 
-		alligator_ht_insert(ac->chromecdp, &node->node, node,
-		                    tommy_strhash_u32(0, node->url->s));
+			cslog(L_INFO, "chromecdp: insert url '%s'\n", node->url->s);
+
+			alligator_ht_insert(ac->chromecdp, &node->node, node,
+			                    tommy_strhash_u32(0, node->url->s));
+		}
 	}
 }
 

@@ -9,6 +9,7 @@
 #include "query/promql.h"
 #include "common/json_query.h"
 #include "action/type.h"
+#include "events/context_arg.h"
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
@@ -29,8 +30,11 @@ static inline void metric_apply_context_transform(char *name, alligator_ht *labe
 			transform_carg = srv_carg;
 	}
 
-	if (!transform_carg->metricstransform)
+	if (!transform_carg->metricstransform) {
+		carglog(carg, L_TRACE,
+		    "metricstransform: metric '%s' skip (no metricstransform on context)\n", name);
 		return;
+	}
 
 	metric_transform_labels(name, NULL, labels, transform_carg->metricstransform, transform_carg, NULL);
 }

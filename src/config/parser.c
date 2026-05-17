@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <jansson.h>
@@ -30,6 +31,18 @@ void config_parse_entry(char *filepath)
 		return;
 	}
 	else {
+		const char *s = context->s;
+		while (s && *s && isspace((unsigned char)*s))
+			s++;
+		if (s && *s == '{') {
+			glog(L_ERROR,
+			    "config: invalid JSON in '%s' at line %d column %d: %s "
+			    "(plain parser not used; fix JSON syntax and reload)\n",
+			    filepath, error.line, error.column,
+			    error.text[0] ? error.text : "parse error");
+			string_free(context);
+			return;
+		}
 		if (strstr(filepath, ".json"))
 			printf("is not a json %d: %s\n", error.line, error.text);
 	}

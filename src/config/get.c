@@ -908,19 +908,14 @@ static void chromecdp_module_opts(json_t *chromecdp)
 		json_array_object_insert(chromecdp, "executable", executable);
 	}
 
-	int log_level = chromecdp_config_log_level();
-	if (log_level > 0)
 	{
-		json_t *ll;
-		if (log_level == 1)
-			ll = json_string("info");
-		else if (log_level == 2)
-			ll = json_string("debug");
-		else if (log_level == 3)
-			ll = json_string("trace");
-		else
-			ll = json_integer(log_level);
-		json_array_object_insert(chromecdp, "log_level", ll);
+		int log_level = chromecdp_config_log_level();
+		char *ll_name = get_log_level_by_id((uint64_t)log_level);
+		if (ll_name && log_level != L_OFF)
+			json_array_object_insert(chromecdp, "log_level", json_string(ll_name));
+		else if (log_level > L_OFF)
+			json_array_object_insert(chromecdp, "log_level",
+			    json_integer((json_int_t)log_level));
 	}
 
 	if (chromecdp_config_concurrency() != CHROMECDP_DEFAULT_MAX_CONCURRENT)
@@ -952,7 +947,7 @@ void chromecdp_root_generate_conf(json_t *dst)
 	if (!alligator_ht_count(ac->chromecdp) &&
 	    ac->chromecdp_port <= 0 &&
 	    (!ac->chromecdp_exec || !ac->chromecdp_exec[0]) &&
-	    chromecdp_config_log_level() <= 0 &&
+	    chromecdp_config_log_level() == L_OFF &&
 	    chromecdp_config_concurrency() == CHROMECDP_DEFAULT_MAX_CONCURRENT &&
 	    chromecdp_config_batch_size() == CHROMECDP_DEFAULT_BATCH_SIZE &&
 	    chromecdp_config_batch_interval_ms() == CHROMECDP_BATCH_INTERVAL_MS &&

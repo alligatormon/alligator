@@ -58,7 +58,7 @@ chromecdp {
 
 ### `log_level`
 
-Verbosity for chromecdp-specific messages, independent of alligator's global `log_level`.
+Verbosity for chromecdp-specific messages, independent of alligator's global `log_level`. Module messages use `cslog()` (chromecdp `log_level` only); per-URL messages use `carglog()` from the URL block's `log_level`.
 
 | Value | Alias | What is logged |
 |-------|-------|---------------|
@@ -290,6 +290,52 @@ chromecdp {
     ]
 }
 ```
+
+**JSON example — collapse Next.js `/_next/static/` sub-resources** (any host, with optional path prefix before `_next/static`, e.g. `https://www.example.com/_next/static/...` or `https://cdn.example.com/app/v1/_next/static/...`):
+
+Use a pattern that matches the **entire** `source` URL and keeps only the prefix through `_next/static/`. A capture that ends at `_next/static/` but leaves `css/...` or `chunks/...` outside the match does nothing (the suffix stays).
+
+```json
+"metricstransform": {
+    "transforms": [
+        {
+            "include": ".*",
+            "match_type": "regexp",
+            "operations": [
+                {
+                    "action": "update_label",
+                    "label": "source",
+                    "value_actions": [
+                        {
+                            "regex": "^(.+/_next/static/).*",
+                            "replacement": "$1"
+                        },
+                        {
+                            "regex": "^(data:[^;]+).*$",
+                            "replacement": "data:uri"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+```
+
+| Example `source` before | After |
+|-------------------------|-------|
+| `https://www.example.com/_next/static/css/app.css` | `https://www.example.com/_next/static/` |
+| `https://cdn.example.com/app/v1/_next/static/chunks/pages/home-abc123.js` | `https://cdn.example.com/app/v1/_next/static/` |
+
+`^(.+/_next/static/).*` is host-independent: any scheme/host/path prefix is allowed as long as `/_next/static/` appears in the URL. If you only need `https` URLs with nothing between host and `_next/static/`, `^(https://[^/]+/_next/static/).*` is enough for that layout only.
+
+**Debugging `metricstransform`** — set per-URL or module `log_level` to `trace`. Alligator logs each regex step at trace priority, for example:
+
+- `metricstransform: metric 'chromecdp_resource_size_bytes' apply`
+- `metricstransform: ... step 0 OK regex '...' repl '...': 'before' -> 'after'`
+- `metricstransform: ... step 0 NO MATCH` / `COMPILE ERROR` / `UNCHANGED`
+
+Set `log_level: trace` on the URL or `chromecdp` module. Trace lines use the URL `carg` when metrics are emitted; module lines use `cslog` and only require `chromecdp.log_level trace` (global `log_level` does not gate `cslog`).
 
 ### `screenshot`
 

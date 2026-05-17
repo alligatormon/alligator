@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "chromecdp/cdp.h"
+#include "chromecdp/chromecdp.h"
 #include "common/logs.h"
 
 /* ------------------------------------------------------------------ */
@@ -111,7 +112,7 @@ static void cdp_ws_message(ws_conn *ws, const char *data, size_t len)
 	json_error_t err;
 	json_t *msg = json_loadb(data, len, 0, &err);
 	if (!msg) {
-		glog(L_DEBUG, "chromecdp: CDP message JSON parse error: %s\n", err.text);
+		cslog(L_DEBUG, "chromecdp: CDP message JSON parse error: %s\n", err.text);
 		return;
 	}
 
