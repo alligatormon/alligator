@@ -807,18 +807,7 @@ static void step_wait_idle(cdp_page *page)
 	page->state       = PAGE_STATE_WAIT_IDLE;
 	page->idle_ticks  = 0;
 
-	/* Get configured timeout (default 10 s); accepts "10s", "2m", or ms integer */
-	uint64_t timeout_ms = 10000;
-	json_t *to_j = json_object_get(page->config, "timeout");
-	if (to_j) {
-		if (json_is_string(to_j))
-			timeout_ms = (uint64_t)get_ms_from_human_range(
-			    json_string_value(to_j), json_string_length(to_j));
-		else if (json_is_integer(to_j))
-			timeout_ms = (uint64_t)json_integer_value(to_j);
-		if (timeout_ms < 1000)
-			timeout_ms = 1000;
-	}
+	uint64_t timeout_ms = chromecdp_config_timeout_ms(page->config);
 
 	page->idle_timer = malloc(sizeof(uv_timer_t));
 	if (!page->idle_timer) {

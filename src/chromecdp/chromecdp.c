@@ -202,22 +202,35 @@ static void chromecdp_batch_timer_stop(chromecdp_state *cs)
 		uv_timer_stop(&cs->batch_timer);
 }
 
-static uint64_t chromecdp_page_budget_ms(json_t *config)
+uint64_t chromecdp_config_timeout_ms(json_t *config)
 {
-	uint64_t timeout_ms = 10000;
+	uint64_t timeout_ms = CHROMECDP_DEFAULT_TIMEOUT_MS;
+	json_t *to_j;
 
-	json_t *to_j = json_object_get(config, "timeout");
-	if (to_j) {
-		if (json_is_string(to_j))
-			timeout_ms = (uint64_t)get_ms_from_human_range(
-			    json_string_value(to_j), json_string_length(to_j));
-		else if (json_is_integer(to_j))
-			timeout_ms = (uint64_t)json_integer_value(to_j);
-	}
+	if (!config)
+		return timeout_ms;
+
+	to_j = json_object_get(config, "timeout");
+	if (!to_j)
+		return timeout_ms;
+
+	if (json_is_string(to_j))
+		timeout_ms = (uint64_t)get_ms_from_human_range(
+		    json_string_value(to_j), json_string_length(to_j));
+	else if (json_is_integer(to_j))
+		timeout_ms = (uint64_t)json_integer_value(to_j);
+
 	if (timeout_ms < 1000)
 		timeout_ms = 1000;
-	/* navigation timeout + perf/eval/screenshot/CDP teardown */
-	return timeout_ms + 20000;
+	return timeout_ms;
+}
+
+uint64_t chromecdp_page_budget_ms(json_t *config)
+{
+	uint64_t nav_ms = chromecdp_config_timeout_ms(config);
+
+	/* Hard cap from page start: CDP setup, then nav idle (≤ nav_ms), then collection/teardown. */
+	return CHROMECDP_SETUP_BUDGET_MS + nav_ms + CHROMECDP_POST_NAV_BUDGET_MS;
 }
 
 static int chromecdp_start_page_for_node(chromecdp_state *cs, cdp_node *node)
