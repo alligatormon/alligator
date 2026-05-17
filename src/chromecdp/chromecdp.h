@@ -48,6 +48,13 @@ void chromecdp_generator(void);
 /* Current module log_level (for config export via config_get). */
 int chromecdp_config_log_level(void);
 
+/* Module-level crawl options (for config export via config_get). */
+int chromecdp_config_concurrency(void);
+int chromecdp_config_batch_size(void);
+uint64_t chromecdp_config_batch_interval_ms(void);
+uint64_t chromecdp_config_setup_budget_ms(void);
+uint64_t chromecdp_config_post_nav_budget_ms(void);
+
 /* Per-URL "timeout" from config ("10s", 10000, …); used for nav idle and budgets. */
 uint64_t chromecdp_config_timeout_ms(json_t *config);
 

@@ -922,6 +922,26 @@ static void chromecdp_module_opts(json_t *chromecdp)
 			ll = json_integer(log_level);
 		json_array_object_insert(chromecdp, "log_level", ll);
 	}
+
+	if (chromecdp_config_concurrency() != CHROMECDP_DEFAULT_MAX_CONCURRENT)
+		json_array_object_insert(chromecdp, "concurrency",
+		    json_integer(chromecdp_config_concurrency()));
+
+	if (chromecdp_config_batch_size() != CHROMECDP_DEFAULT_BATCH_SIZE)
+		json_array_object_insert(chromecdp, "batch_size",
+		    json_integer(chromecdp_config_batch_size()));
+
+	if (chromecdp_config_batch_interval_ms() != CHROMECDP_BATCH_INTERVAL_MS)
+		json_array_object_insert(chromecdp, "batch_interval",
+		    json_integer((json_int_t)chromecdp_config_batch_interval_ms()));
+
+	if (chromecdp_config_setup_budget_ms() != CHROMECDP_SETUP_BUDGET_MS)
+		json_array_object_insert(chromecdp, "setup_budget",
+		    json_integer((json_int_t)chromecdp_config_setup_budget_ms()));
+
+	if (chromecdp_config_post_nav_budget_ms() != CHROMECDP_POST_NAV_BUDGET_MS)
+		json_array_object_insert(chromecdp, "post_nav_budget",
+		    json_integer((json_int_t)chromecdp_config_post_nav_budget_ms()));
 }
 
 void chromecdp_root_generate_conf(json_t *dst)
@@ -932,7 +952,12 @@ void chromecdp_root_generate_conf(json_t *dst)
 	if (!alligator_ht_count(ac->chromecdp) &&
 	    ac->chromecdp_port <= 0 &&
 	    (!ac->chromecdp_exec || !ac->chromecdp_exec[0]) &&
-	    chromecdp_config_log_level() <= 0)
+	    chromecdp_config_log_level() <= 0 &&
+	    chromecdp_config_concurrency() == CHROMECDP_DEFAULT_MAX_CONCURRENT &&
+	    chromecdp_config_batch_size() == CHROMECDP_DEFAULT_BATCH_SIZE &&
+	    chromecdp_config_batch_interval_ms() == CHROMECDP_BATCH_INTERVAL_MS &&
+	    chromecdp_config_setup_budget_ms() == CHROMECDP_SETUP_BUDGET_MS &&
+	    chromecdp_config_post_nav_budget_ms() == CHROMECDP_POST_NAV_BUDGET_MS)
 		return;
 
 	json_t *chromecdp = json_object_get(dst, "chromecdp");

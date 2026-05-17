@@ -234,6 +234,9 @@ chromecdp {
     executable /usr/bin/chromium-browser;
     port 9222;
     log_level off;
+    concurrency 25;
+    batch_size 2;
+    batch_interval 1s;
 
     https://example.com {
         timeout        10s;
@@ -250,7 +253,7 @@ chromecdp {
 }
 ```
 
-Emitted metrics include page availability, per-resource HTTP status, load duration and size, Chrome performance counters, Resource Timing API timings, and optional console or JavaScript error counters. Per-URL options (`timeout`, `ttl`, `add_label`, `metricstransform`, `log_level`, `screenshot`) match the `puppeteer` context where applicable.
+Emitted metrics include page availability, per-resource HTTP status, load duration and size, Chrome performance counters, Resource Timing API timings, and optional console or JavaScript error counters. Module options include `concurrency`, `batch_size`, `batch_interval`, `setup_budget`, and `post_nav_budget` for parallel batched crawls. Per-URL options (`timeout`, `ttl`, `add_label`, `metricstransform`, `log_level`, `screenshot`) match the `puppeteer` context where applicable. Crawl timing follows the global `aggregate_period`; a new full cycle starts only after the previous one completes.
 
 With `log_level off` (default), alligator suppresses Chrome’s own stderr noise (D-Bus, GPU, and similar messages). Set `log_level info` or higher to see Chrome startup diagnostics when debugging.
 

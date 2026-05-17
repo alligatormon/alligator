@@ -73,6 +73,99 @@ chromecdp {
 }
 ```
 
+### `concurrency`
+
+Maximum number of URLs crawled in parallel within one collection cycle.
+Default: `20`.
+
+Higher values shorten full-cycle time when many URLs are configured, at the cost of more Chrome memory and CPU.
+
+```
+chromecdp {
+    concurrency 25;
+}
+```
+
+### `batch_size`
+
+How many new URLs to start on each batch tick while a cycle is running.
+Default: `2`.
+
+Works together with `batch_interval`: URLs are not all launched at once; they are started in small groups so metrics begin appearing soon after a cycle starts.
+
+```
+chromecdp {
+    batch_size 5;
+}
+```
+
+### `batch_interval`
+
+Delay between batch ticks while a cycle is in progress.
+Accepts duration strings (`1s`, `500ms`) or integer milliseconds.
+Default: `1s` (`1000` ms).
+
+```
+chromecdp {
+    batch_interval 1s;
+}
+```
+
+### `setup_budget`
+
+Hard time allowance for CDP setup before navigation (create context, attach, enable domains).
+Accepts duration strings or integer milliseconds.
+Default: `10s`.
+
+This is **not** the navigation idle wait — see per-URL `timeout` for that.
+
+```
+chromecdp {
+    setup_budget 15s;
+}
+```
+
+### `post_nav_budget`
+
+Hard time allowance after navigation for metric collection and teardown (`Performance.getMetrics`, `performance.getEntries()`, optional screenshot, close target, dispose context).
+Accepts duration strings or integer milliseconds.
+Default: `10s`.
+
+```
+chromecdp {
+    post_nav_budget 15s;
+}
+```
+
+Together with per-URL `timeout`, these define the **page hard deadline** used to abort stuck crawls:
+
+```
+page_deadline = setup_budget + timeout + post_nav_budget
+```
+
+Example: defaults + `timeout 10s` → at most ~30 s per URL from crawl start.
+
+---
+
+## Collection scheduling
+
+Chromecdp uses the global alligator **`aggregate_period`** (same timer as most collectors) as its crawl tick interval. On each tick alligator tries to advance or start a crawl cycle.
+
+A **new** full cycle (all configured URLs) starts only when the previous cycle has finished — no active pages and the URL queue is empty. If one full pass takes longer than `aggregate_period`, timer ticks in between only continue the current cycle (start more batches, check deadlines); they do **not** start a second cycle in parallel.
+
+Typical timeline with `aggregate_period 40s` and ~109 URLs:
+
+| Time | What happens |
+|------|----------------|
+| 0 s | Cycle starts; first `batch_size` URLs launched |
+| every `batch_interval` | More URLs started until queue exhausted (up to `concurrency` parallel) |
+| 40 s, 80 s | Timer fires but cycle still running — no new cycle |
+| ~120 s | Last pages finish; next tick starts a fresh cycle |
+
+To see a full refresh more often: increase `concurrency`, lower per-URL `timeout`, or raise `batch_size` (if Chrome keeps up). Lowering `aggregate_period` alone does not help while a single cycle still exceeds that interval.
+
+Module options exported via the config API (`GET /config` or equivalent) include `concurrency`, `batch_size`, `batch_interval`, `setup_budget`, and `post_nav_budget` when they differ from defaults.
+
 ---
 
 ## Per-URL options
@@ -93,9 +186,11 @@ chromecdp {
 ### `timeout`
 
 Maximum time to wait for the page to reach network idle before proceeding.
-Accepts duration strings (`5s`, `30s`, `2m`). Default: `10s`.
+Accepts duration strings (`5s`, `30s`, `2m`) or integer milliseconds. Default: `10s`.
 
 Network idle is defined as ≤ 2 in-flight requests for at least 2 consecutive seconds (equivalent to Puppeteer's `networkidle2`).
+
+The module-level `setup_budget` and `post_nav_budget` are added to this value to form the per-page hard deadline; if the page exceeds that total, it is aborted with a warning.
 
 ### `console_events`
 
@@ -374,9 +469,14 @@ Emitted from `window.performance.getEntries()` evaluated after network idle. Lab
 
 ```
 chromecdp {
-    executable /usr/bin/chromium-browser;
-    port       9222;
-    log_level  info;
+    executable      /usr/bin/chromium-browser;
+    port            9222;
+    log_level       info;
+    concurrency     25;
+    batch_size      2;
+    batch_interval  1s;
+    setup_budget    10s;
+    post_nav_budget 10s;
 
     https://example.com {
         timeout        10s;
@@ -414,6 +514,11 @@ chromecdp {
     "executable": "/usr/bin/chromium-browser",
     "port": 9222,
     "log_level": "info",
+    "concurrency": 25,
+    "batch_size": 2,
+    "batch_interval": "1s",
+    "setup_budget": "10s",
+    "post_nav_budget": "10s",
 
     "https://example.com": {
         "timeout": "10s",
@@ -475,5 +580,7 @@ chromecdp {
 | Config block | `puppeteer { }` | `chromecdp { }` |
 | Metric prefix | `puppeteer_` | `chromecdp_` |
 | Per-URL options | `timeout`, `console_events`, `add_label`, `headers`, `screenshot`, `metricstransform` | Same + `ttl`, `log_level` |
+| Parallel crawl tuning | N/A (Node puppeteer script) | `concurrency`, `batch_size`, `batch_interval`, `setup_budget`, `post_nav_budget` |
+| Collection period | Driven by script / external cron | Global `aggregate_period`; one cycle at a time |
 
 Both contexts can coexist — the `puppeteer` block remains fully functional alongside `chromecdp`.

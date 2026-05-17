@@ -69,6 +69,8 @@ typedef struct chromecdp_state {
 	int             max_concurrent;
 	int             batch_size;
 	uint64_t        batch_interval_ms;
+	uint64_t        setup_budget_ms;
+	uint64_t        post_nav_budget_ms;
 	uv_timer_t      batch_timer;
 	int             batch_timer_inited;
 
@@ -230,7 +232,8 @@ uint64_t chromecdp_page_budget_ms(json_t *config)
 	uint64_t nav_ms = chromecdp_config_timeout_ms(config);
 
 	/* Hard cap from page start: CDP setup, then nav idle (≤ nav_ms), then collection/teardown. */
-	return CHROMECDP_SETUP_BUDGET_MS + nav_ms + CHROMECDP_POST_NAV_BUDGET_MS;
+	return chromecdp_config_setup_budget_ms() + nav_ms +
+	       chromecdp_config_post_nav_budget_ms();
 }
 
 static int chromecdp_start_page_for_node(chromecdp_state *cs, cdp_node *node)
@@ -963,6 +966,32 @@ void cdp_insert(json_t *root)
 			continue;
 		}
 
+		/* setup_budget — CDP attach/enable slack before navigation (ms or "10s") */
+		if (!strcmp(key, "setup_budget")) {
+			uint64_t ms = 0;
+			if (json_is_string(value))
+				ms = (uint64_t)get_ms_from_human_range(
+				    json_string_value(value), json_string_length(value));
+			else if (json_is_integer(value))
+				ms = (uint64_t)json_integer_value(value);
+			if (ms > 0)
+				g_cdp_state.setup_budget_ms = ms;
+			continue;
+		}
+
+		/* post_nav_budget — perf/eval/screenshot/teardown slack after navigation */
+		if (!strcmp(key, "post_nav_budget")) {
+			uint64_t ms = 0;
+			if (json_is_string(value))
+				ms = (uint64_t)get_ms_from_human_range(
+				    json_string_value(value), json_string_length(value));
+			else if (json_is_integer(value))
+				ms = (uint64_t)json_integer_value(value);
+			if (ms > 0)
+				g_cdp_state.post_nav_budget_ms = ms;
+			continue;
+		}
+
 		/* log_level — scalar directive, 0/1/2/3 or off/info/debug/trace */
 		if (!strcmp(key, "log_level")) {
 			const char *s = cdp_extract_scalar("log_level", value);
@@ -1051,6 +1080,31 @@ int chromecdp_config_log_level(void)
 	return g_cdp_state.log_level;
 }
 
+int chromecdp_config_concurrency(void)
+{
+	return g_cdp_state.max_concurrent;
+}
+
+int chromecdp_config_batch_size(void)
+{
+	return g_cdp_state.batch_size;
+}
+
+uint64_t chromecdp_config_batch_interval_ms(void)
+{
+	return g_cdp_state.batch_interval_ms;
+}
+
+uint64_t chromecdp_config_setup_budget_ms(void)
+{
+	return g_cdp_state.setup_budget_ms;
+}
+
+uint64_t chromecdp_config_post_nav_budget_ms(void)
+{
+	return g_cdp_state.post_nav_budget_ms;
+}
+
 /* ------------------------------------------------------------------ */
 /* Public: generator (called from main.c)                            */
 /* ------------------------------------------------------------------ */
@@ -1066,6 +1120,8 @@ void chromecdp_generator(void)
 	cs->max_concurrent     = CHROMECDP_DEFAULT_MAX_CONCURRENT;
 	cs->batch_size         = CHROMECDP_DEFAULT_BATCH_SIZE;
 	cs->batch_interval_ms  = CHROMECDP_BATCH_INTERVAL_MS;
+	cs->setup_budget_ms    = CHROMECDP_SETUP_BUDGET_MS;
+	cs->post_nav_budget_ms = CHROMECDP_POST_NAV_BUDGET_MS;
 
 	/* Override from ac->chromecdp_port / ac->chromecdp_exec if set */
 	if (ac->chromecdp_port > 0)
