@@ -15,6 +15,8 @@ void filetailer_on_read(uv_fs_t *req);
 void file_on_open(uv_fs_t *req);
 void blackbox_null(char *metrics, size_t size, context_arg *carg);
 
+#define FILETAILER_MAX_READ_SIZE ((size_t)1000000)
+
 typedef struct file_handle {
 	uv_fs_t open;
 	uv_fs_t read;
@@ -25,13 +27,18 @@ typedef struct file_handle {
 	context_arg *carg;
 } file_handle;
 
-file_handle *file_handler_struct_init(context_arg *carg, size_t size)
+file_handle *file_handler_struct_init(context_arg *carg)
 {
 	file_handle *fh = calloc(1, sizeof(*fh));
+	if (!fh)
+		return NULL;
 
-	unsigned int len = size+1;
-	char *base = malloc(len);
-	fh->buffer = uv_buf_init(base, len);
+	char *base = calloc(1, FILETAILER_MAX_READ_SIZE);
+	if (!base) {
+		free(fh);
+		return NULL;
+	}
+	fh->buffer = uv_buf_init(base, FILETAILER_MAX_READ_SIZE - 1);
 
 	fh->carg = carg;
 	fh->open.data = fh;
@@ -76,7 +83,13 @@ void file_stat_size_cb(uv_fs_t *req)
 		return;
 	}
 
-	file_handle *fh = file_handler_struct_init(carg, req->statbuf.st_size);
+	file_handle *fh = file_handler_struct_init(carg);
+	if (!fh)
+	{
+		uv_fs_req_cleanup(req);
+		free(req);
+		return;
+	}
 	strlcpy(fh->pathname, req->path, 1024);
 
 	if (carg->file_stat || carg->checksum || carg->parser_name || carg->calc_lines)
@@ -87,7 +100,7 @@ void file_stat_size_cb(uv_fs_t *req)
 		if (carg->file_stat)
 		{
 			if_selected = 1;
-			uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+			uv_fs_t* req_stat = calloc(1, sizeof(*req_stat));
 			req_stat->data = carg;
 			uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
 		}
@@ -113,6 +126,7 @@ void directory_crawl(void *arg)
 	context_arg *carg = arg;
 	char *path = carg->path;
 	uv_fs_t readdir_req;
+	memset(&readdir_req, 0, sizeof(readdir_req));
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
 	carglog(carg, L_ERROR, "open dir: %s, status: %p\n", path, readdir_req.ptr);
@@ -144,7 +158,7 @@ void directory_crawl(void *arg)
 			if (dirents[i].type == UV_DIRENT_FILE && (carg->checksum || carg->parser_name || carg->calc_lines))
 			{
 				++acc;
-				uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+				uv_fs_t* req_stat = calloc(1, sizeof(*req_stat));
 				req_stat->data = carg;
 				char pathname[1024];
 				snprintf(pathname, 1023, "%s%s", carg->path, dirents[i].name);
@@ -166,7 +180,7 @@ void file_crawl(void *arg)
 {
 	context_arg *carg = arg;
 
-	uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+	uv_fs_t* req_stat = calloc(1, sizeof(*req_stat));
 	req_stat->data = carg;
 	uv_fs_stat(carg->loop, req_stat, carg->path, file_stat_size_cb);
 }
@@ -192,16 +206,19 @@ void filetailer_directory_file_crawl(void *arg)
 void filetailer_checksum(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	context_arg *carg = fh->carg;
+	ssize_t nread = req->result;
 	uv_fs_req_cleanup(req);
 
-	if (req->result < 0) {
+	if (nread < 0) {
 		carglog(carg, L_ERROR, "filetailer_checksum: Read error: %s\n", fh->pathname);
 	}
-	else if (req->result == 0) {
+	else if (nread == 0) {
 		carglog(carg, L_ERROR, "filetailer_checksum: No result read: %s\n", fh->pathname);
 	}
 	else {
-		uint64_t str_len = req->result;
+		uint64_t str_len = (uint64_t)nread;
+		if (str_len >= fh->buffer.len)
+			str_len = fh->buffer.len - 1;
 		fh->buffer.base[str_len] = 0;
 		if (carg->checksum)
 		{
@@ -232,21 +249,22 @@ void filetailer_checksum(uv_fs_t *req) {
 void file_on_open(uv_fs_t *req)
 {
 	file_handle *fh = req->data;
+	int fd = (int)req->result;
 	uv_fs_req_cleanup(req);
 	context_arg *carg = fh->carg;
 	(carg->open_counter)++;
 	uint64_t offset = file_stat_get_offset(ac->file_stat, fh->pathname, carg->state);
-	if (req->result != -1)
+	if (fd != -1)
 	{
 		if (carg->checksum || carg->calc_lines)
 		{
-			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, 0, filetailer_checksum);
+			uv_fs_read(carg->loop, &fh->read, fd, &fh->buffer, 1, 0, filetailer_checksum);
 		}
 		else if (carg->parser_name)
 		{
 			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", fh->pathname, offset);
 			fh->read_offset = offset;
-			uv_fs_read(carg->loop, &fh->read, req->result, &fh->buffer, 1, offset, filetailer_on_read);
+			uv_fs_read(carg->loop, &fh->read, fd, &fh->buffer, 1, offset, filetailer_on_read);
 		}
 	}
 	else
@@ -258,13 +276,14 @@ void file_on_open(uv_fs_t *req)
 void filetailer_on_read(uv_fs_t *req) {
 	file_handle *fh = req->data;
 	context_arg *carg = fh->carg;
+	ssize_t nread = req->result;
 	uv_fs_req_cleanup(req);
 	(carg->read_counter)++;
 
-	if (req->result < 0) {
+	if (nread < 0) {
 		carglog(carg, L_ERROR, "filetailer_on_read: Read error: %s\n", fh->pathname);
 	}
-	else if (req->result == 0) {
+	else if (nread == 0) {
 		uint64_t filesize = get_file_size(fh->pathname);
 		if (fh->read_offset > filesize) {
 			carglog(carg, L_INFO, "filetailer_on_read: File truncated: %s, offset %"u64" > size %"u64". Reset to beginning\n",
@@ -277,14 +296,19 @@ void filetailer_on_read(uv_fs_t *req) {
 		}
 	}
 	else {
-		uint64_t str_len = req->result;
-		carg->read_bytes_counter += str_len;
-		fh->buffer.base[str_len] = 0;
+		size_t buf_cap = fh->buffer.len;
+		if (fh->buffer.base && buf_cap > 0 && nread > 0) {
+			size_t str_len = (size_t)nread;
+			if (str_len >= buf_cap)
+				str_len = buf_cap - 1;
+			carg->read_bytes_counter += str_len;
+			fh->buffer.base[str_len] = '\0';
 
-		carglog(carg, L_INFO, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, str_len);
+			carglog(carg, L_INFO, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, (uint64_t)str_len);
 
-		file_stat_add_offset(ac->file_stat, fh->pathname, carg, str_len);
-		alligator_multiparser(fh->buffer.base, str_len, carg->parser_handler, NULL, carg);
+			file_stat_add_offset(ac->file_stat, fh->pathname, carg, str_len);
+			alligator_multiparser(fh->buffer.base, str_len, carg->parser_handler, NULL, carg);
+		}
 	}
 	uv_fs_close(carg->loop, &fh->close, fh->open.result, filetailer_close);
 
@@ -296,7 +320,9 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 	carg->filename = filename;
 	carglog(carg, L_INFO, "Change detected in '%s': %d\n", carg->filename, events);
 
-	file_handle *fh = file_handler_struct_init(carg, 65535);
+	file_handle *fh = file_handler_struct_init(carg);
+	if (!fh)
+		return;
 	if (carg->is_dir)
 		snprintf(fh->pathname, 1023, "%s%s", carg->path, carg->filename);
 	else
@@ -308,7 +334,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 
 		if (carg->file_stat)
 		{
-			uv_fs_t* req_stat = malloc(sizeof(*req_stat));
+			uv_fs_t* req_stat = calloc(1, sizeof(*req_stat));
 			req_stat->data = carg;
 			uv_fs_stat(carg->loop, req_stat, fh->pathname, file_stat_cb);
 		}

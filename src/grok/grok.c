@@ -160,12 +160,19 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 	for (int i = 0; i < ngroup_num; i++) {
 		int gnum = group_nums[i];
 		if (region->beg[gnum] >= 0) {
-			size_t key_len = region->end[gnum] - region->beg[gnum];
-			char key[key_len+1];
+			int beg = region->beg[gnum];
+			int end = region->end[gnum];
+			size_t line_len = ctx->line->l;
+			if (end < beg || (size_t)beg >= line_len)
+				continue;
+			if ((size_t)end > line_len)
+				end = (int)line_len;
+			size_t key_len = (size_t)(end - beg);
+			char key[key_len + 1];
 			size_t name_len = name_end - name;
+			strlcpy(key, line + beg, key_len + 1);
 			char *mname = (char*)name;
 			grok_multimetric_node *gmm_node = NULL;
-			strlcpy(key, (char*)line + region->beg[gnum], key_len+1);
 
 			uint32_t hash = tommy_strhash_u32(0, mname);
 
@@ -555,6 +562,9 @@ void grok_handler_initial_patterns(void *funcarg, void* arg)
 
 void grok_handler(char *metrics, size_t size, context_arg *carg)
 {
+	if (!metrics || !size)
+		return;
+
 	grok_ds* gds = grok_get(carg->name);
 	if (!gds) {
 		carglog(carg, L_ERROR, "not found grok keys with key '%s' for '%s'\n", carg->name, carg->key);
@@ -571,18 +581,32 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 
 	grok_ctx_cb *ctx = calloc(1, sizeof(*ctx));
 	for (uint64_t i = 0; i < size; ) {
-		size_t len = strcspn(metrics+i, "\n");
+		size_t remaining = size - i;
+		char *line_start = metrics + i;
+		size_t len;
+		char *nl = memchr(line_start, '\n', remaining);
+
+		if (nl)
+			len = (size_t)(nl - line_start);
+		else
+			len = remaining;
+		if (len > 0 && line_start[len - 1] == '\r')
+			len--;
+
 		memset(ctx, 0, sizeof(*ctx));
 		ctx->gds = gds;
 		ctx->carg = carg;
 		ctx->line = line;
-		string_cat(ctx->line, metrics+i, len);
+		string_cat(ctx->line, line_start, len);
 		alligator_ht_foreach_arg(gds->hash, grok_handler_callback, ctx);
 
 		string_null(ctx->line);
 
 		i += len;
-		i += strspn(metrics+i, "\n");
+		if (nl)
+			i += 1;
+		else
+			i = size;
 	}
 
 	free(ctx);

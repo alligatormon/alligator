@@ -1398,33 +1398,36 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 	uint8_t is_setelem = ((i8type & NFT_MSG_GETSETELEM) == i8type);
 
 	struct {
-		struct nlmsghdr nlh; // 16
-		struct nfgenmsg nfg; // 4
-		char body[72];
-	} req;
-	size_t full_len = NLA_ALIGN(sizeof(req));
+		struct nlmsghdr nlh;
+		struct nfgenmsg nfg;
+	} hdr;
+	size_t msg_len = sizeof(hdr) + body_len;
 
-	memset(&req, 0, full_len);
+	memset(&hdr, 0, sizeof(hdr));
 
-	req.nlh.nlmsg_len = full_len; // 4
-	req.nlh.nlmsg_type = nlmsg_type; // 2
-	req.nlh.nlmsg_flags = nlmsg_flags; // 2
-	req.nlh.nlmsg_seq = seq; // 4
-	req.nlh.nlmsg_pid = pid; // 4
+	hdr.nlh.nlmsg_len = msg_len;
+	hdr.nlh.nlmsg_type = nlmsg_type;
+	hdr.nlh.nlmsg_flags = nlmsg_flags;
+	hdr.nlh.nlmsg_seq = seq;
+	hdr.nlh.nlmsg_pid = pid;
 
-	req.nfg.nfgen_family = nfgen_family;
-	//req.nfg.nfgen_family = AF_UNSPEC;
-	//req.nfg.nfgen_family = NFPROTO_INET; // 1
-	req.nfg.version = NFNETLINK_V0; // 1
-	req.nfg.res_id = htons(0); // 2
-	if (body_len)
-		memcpy(&req.body, body, body_len);
+	hdr.nfg.nfgen_family = nfgen_family;
+	hdr.nfg.version = NFNETLINK_V0;
+	hdr.nfg.res_id = htons(0);
 
-	struct iovec iov[3];
+	struct iovec iov[2];
+	int iovcnt = 1;
 	iov[0] = (struct iovec) {
-		.iov_base = &req,
-		.iov_len = sizeof(req) + body_len,
+		.iov_base = &hdr,
+		.iov_len = sizeof(hdr),
 	};
+	if (body_len) {
+		iov[1] = (struct iovec) {
+			.iov_base = body,
+			.iov_len = body_len,
+		};
+		iovcnt = 2;
+	}
 
 	struct msghdr msg;
 
@@ -1432,7 +1435,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 		.msg_name = (void*)&nladdr,
 		.msg_namelen = sizeof(nladdr),
 		.msg_iov = iov,
-		.msg_iovlen = 1,
+		.msg_iovlen = iovcnt,
 		.msg_control = 0,
 		.msg_controllen = 0,
 		.msg_flags = 0
@@ -1519,7 +1522,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 				char table[1024];
 				char chain[1024] = {0};
 				char userdata[1024] = { 0 };
-				int8_t verdict;
+				int8_t verdict = -127;
 				for (uint64_t i = 0; i + 20 < dt_size;)
 				{
 					nftable_struct *nftmsg = (nftable_struct*)(dtchar + i);
@@ -1535,8 +1538,12 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 						nla_copy_string(chain, sizeof(chain), nftmsg, 0);
 						labels_hash_insert_nocache(label_expression, "chain", chain);
 					}
-					else if (itype == NFTA_RULE_EXPRESSIONS)
-						expression = parse_expressions(fd, table, chain, nftmsg->data, nftmsg->nlattr.nla_len, &verdict, label_expression);
+					else if (itype == NFTA_RULE_EXPRESSIONS) {
+						size_t expr_len = 0;
+						if (nftmsg->nlattr.nla_len > sizeof(struct nlattr))
+							expr_len = nftmsg->nlattr.nla_len - sizeof(struct nlattr);
+						expression = parse_expressions(fd, table, chain, nftmsg->data, expr_len, &verdict, label_expression);
+					}
 					else if (itype == NFTA_RULE_USERDATA) {
 						nla_copy_string(userdata, sizeof(userdata), nftmsg, 2);
 						labels_hash_insert_nocache(label_expression, "chain", chain);

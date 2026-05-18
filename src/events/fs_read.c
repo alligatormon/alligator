@@ -45,12 +45,14 @@ void fs_read_on_read(uv_fs_t *req)
 	else if (req->result == 0) {
 	}
 	else {
-		size_t str_len = req->result;
+		size_t str_len = (size_t)req->result;
+		if (str_len >= frinfo->buffer.len)
+			str_len = frinfo->buffer.len - 1;
 		frinfo->buffer.base[str_len] = 0;
-		frinfo->size = str_len-1;
+		frinfo->size = str_len;
 		frinfo->offset += str_len;
 	}
-	uv_fs_t *close_req = malloc(sizeof(*close_req));
+	uv_fs_t *close_req = calloc(1, sizeof(*close_req));
 	close_req->data = frinfo;
 	uv_fs_close(uv_default_loop(), close_req, frinfo->open_fd->result, fs_read_close);
 	free(req);
@@ -61,7 +63,7 @@ void fs_read_on_open(uv_fs_t *req)
 
 	if (req->result > -1)
 	{
-		uv_fs_t *read_req = malloc(sizeof(*read_req));
+		uv_fs_t *read_req = calloc(1, sizeof(*read_req));
 		read_req->data = frinfo;
 
 		glog(L_INFO, "fs_read_on_open: trying to file read '%s', result: %zd\n", frinfo->filename, req->result);
@@ -70,7 +72,7 @@ void fs_read_on_open(uv_fs_t *req)
 	else
 	{
 		glog(L_ERROR, "Error opening file: %s\n", frinfo->filename);
-		uv_fs_t *close_req = malloc(sizeof(*close_req));
+		uv_fs_t *close_req = calloc(1, sizeof(*close_req));
 		close_req->data = frinfo;
 		fs_read_close(close_req);
 	}
@@ -90,9 +92,14 @@ void read_from_file(char *fname, uint64_t offset, void *callback, void *data)
 	frinfo->filename = filename;
 	open_req->data = frinfo;
 
-	char *base = malloc(MAX_FILE_SIZE);
-	*base = 0;
-	frinfo->buffer = uv_buf_init(base, MAX_FILE_SIZE-1);
+	char *base = calloc(1, MAX_FILE_SIZE);
+	if (!base) {
+		free(filename);
+		free(frinfo);
+		alligator_cache_push(ac->uv_cache_fs, open_req);
+		return;
+	}
+	frinfo->buffer = uv_buf_init(base, MAX_FILE_SIZE - 1);
 
 	uv_fs_open(uv_default_loop(), open_req, filename, O_RDONLY, 0, fs_read_on_open);
 	free(fname);
