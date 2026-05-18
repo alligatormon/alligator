@@ -439,6 +439,7 @@ int main(int argc, char **argv) {
     api_test_parser_mongodb_push_and_data();
     api_test_openmetrics_help_type_ordering();
     api_test_openmetrics_type_suffix_and_normalization();
+    api_test_openmetrics_histogram_type_on_components();
     api_test_openmetrics_metadata_overwrite();
 
 

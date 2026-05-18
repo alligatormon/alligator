@@ -425,32 +425,36 @@ static void metric_help_escape_and_cat(string *str, const char *help)
 	}
 }
 
-void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, const char **last_metric, int openmetrics)
+void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, char *last_family, size_t last_family_size, int openmetrics)
 {
 	if ( x->child[LEFT] )
-		metrictree_str_build(x->child[LEFT], str, ns, last_metric, openmetrics);
+		metrictree_str_build(x->child[LEFT], str, ns, last_family, last_family_size, openmetrics);
 
 	labels_t *labels = x->labels;
-	if (!(*last_metric) || strcmp(*last_metric, labels->key))
+	char family_buf[256];
+	metric_family_metadata *meta = NULL;
+	const char *family_name = prom_family_exposition_resolve(ns, labels->key, &meta, family_buf, sizeof(family_buf));
+	size_t family_name_len = strlen(family_name);
+
+	if (!last_family[0] || strcmp(last_family, family_name))
 	{
-		metric_family_metadata *meta = namespace_metric_family_get(ns, labels->key);
 		string_cat(str, "# HELP ", 7);
-		string_cat(str, labels->key, labels->key_len);
+		string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, " ", 1);
 		if (meta && meta->help)
 			metric_help_escape_and_cat(str, meta->help);
 		else
-			string_cat(str, labels->key, labels->key_len);
+			string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, "\n", 1);
 
 		string_cat(str, "# TYPE ", 7);
-		string_cat(str, labels->key, labels->key_len);
+		string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, " ", 1);
 		const char *metric_type = metric_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, openmetrics);
 		string_cat(str, (char *)metric_type, strlen(metric_type));
 		string_cat(str, "\n", 1);
 
-		*last_metric = labels->key;
+		strlcpy(last_family, family_name, last_family_size);
 	}
 
 	string_cat(str, labels->key, labels->key_len);
@@ -498,7 +502,7 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, con
 	string_cat(str, "\n", 1);
 
 	if ( x->child[RIGHT] )
-		metrictree_str_build(x->child[RIGHT], str, ns, last_metric, openmetrics);
+		metrictree_str_build(x->child[RIGHT], str, ns, last_family, last_family_size, openmetrics);
 }
 
 void metric_str_build (char *namespace, string *str, int openmetrics)
@@ -512,9 +516,9 @@ void metric_str_build (char *namespace, string *str, int openmetrics)
 
 	if (tree && tree->root)
 	{
-		const char *last_metric = NULL;
+		char last_family[256] = "";
 		pthread_rwlock_rdlock(tree->rwlock);
-		metrictree_str_build(tree->root, str, ns, &last_metric, openmetrics);
+		metrictree_str_build(tree->root, str, ns, last_family, sizeof(last_family), openmetrics);
 		string_cat(str, "alligator_metrics_exposed_total ", 32);
 		string_int(str, (tree->count + 1));
 		string_cat(str, "\n", 1);

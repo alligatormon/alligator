@@ -68,6 +68,173 @@ void namespace_metric_family_set(char *namespace, context_arg *carg, const char 
 	pthread_rwlock_unlock(ns->metrictree->rwlock);
 }
 
+static int prom_family_ends_with(const char *name, const char *suffix, size_t *base_len)
+{
+	size_t name_len = strlen(name);
+	size_t suffix_len = strlen(suffix);
+	if (name_len <= suffix_len)
+		return 0;
+	if (strcmp(name + name_len - suffix_len, suffix))
+		return 0;
+	*base_len = name_len - suffix_len;
+	return 1;
+}
+
+int prom_family_strip_histogram_suffix(const char *metric_name, char *base_out, size_t base_out_size)
+{
+	static const char *const suffixes[] = {"_bucket", "_count", "_sum"};
+	if (!metric_name || !base_out || base_out_size == 0)
+		return 0;
+
+	for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i)
+	{
+		size_t base_len = 0;
+		if (!prom_family_ends_with(metric_name, suffixes[i], &base_len))
+			continue;
+		if (base_len >= base_out_size)
+			return 0;
+		memcpy(base_out, metric_name, base_len);
+		base_out[base_len] = '\0';
+		return 1;
+	}
+	return 0;
+}
+
+int prom_family_strip_summary_suffix(const char *metric_name, char *base_out, size_t base_out_size)
+{
+	static const char *const suffixes[] = {"_quantile", "_count", "_sum"};
+	if (!metric_name || !base_out || base_out_size == 0)
+		return 0;
+
+	for (size_t i = 0; i < sizeof(suffixes) / sizeof(suffixes[0]); ++i)
+	{
+		size_t base_len = 0;
+		if (!prom_family_ends_with(metric_name, suffixes[i], &base_len))
+			continue;
+		if (base_len >= base_out_size)
+			return 0;
+		memcpy(base_out, metric_name, base_len);
+		base_out[base_len] = '\0';
+		return 1;
+	}
+	return 0;
+}
+
+const char *prom_family_exposition_resolve(namespace_struct *ns, const char *metric_name,
+    metric_family_metadata **meta_out, char *buf, size_t buf_size)
+{
+	char base[256];
+
+	if (meta_out)
+		*meta_out = NULL;
+
+	if (!metric_name)
+		return metric_name;
+
+	if (prom_family_strip_histogram_suffix(metric_name, base, sizeof(base)))
+	{
+		metric_family_metadata *base_meta = namespace_metric_family_get(ns, base);
+		if (base_meta && base_meta->type == METRIC_TYPE_HISTOGRAM && buf && buf_size)
+		{
+			if (meta_out)
+				*meta_out = base_meta;
+			strlcpy(buf, base, buf_size);
+			return buf;
+		}
+	}
+
+	if (prom_family_strip_summary_suffix(metric_name, base, sizeof(base)))
+	{
+		metric_family_metadata *base_meta = namespace_metric_family_get(ns, base);
+		if (base_meta && base_meta->type == METRIC_TYPE_SUMMARY && buf && buf_size)
+		{
+			if (meta_out)
+				*meta_out = base_meta;
+			strlcpy(buf, base, buf_size);
+			return buf;
+		}
+	}
+
+	if (meta_out)
+		*meta_out = namespace_metric_family_get(ns, metric_name);
+	return metric_name;
+}
+
+static void namespace_metric_family_set_histogram_suffixes(context_arg *carg, const char *metric_name, uint8_t metric_type)
+{
+	char bucket_name[1024];
+	char sum_name[1024];
+	char count_name[1024];
+
+	snprintf(bucket_name, sizeof(bucket_name), "%s_bucket", metric_name);
+	namespace_metric_family_set(NULL, carg, bucket_name, metric_type, NULL);
+
+	snprintf(sum_name, sizeof(sum_name), "%s_sum", metric_name);
+	namespace_metric_family_set(NULL, carg, sum_name, metric_type, NULL);
+
+	snprintf(count_name, sizeof(count_name), "%s_count", metric_name);
+	namespace_metric_family_set(NULL, carg, count_name, metric_type, NULL);
+}
+
+void namespace_metric_family_set_prom_type(context_arg *carg, const char *metric_name, uint8_t metric_type)
+{
+	char base[1024];
+
+	if (!metric_name || !metric_name[0])
+		return;
+
+	if (metric_type == METRIC_TYPE_HISTOGRAM)
+	{
+		if (prom_family_strip_histogram_suffix(metric_name, base, sizeof(base)))
+		{
+			namespace_metric_family_set(NULL, carg, base, METRIC_TYPE_HISTOGRAM, NULL);
+			return;
+		}
+		namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_HISTOGRAM, NULL);
+		namespace_metric_family_set_histogram_suffixes(carg, metric_name, METRIC_TYPE_HISTOGRAM);
+		return;
+	}
+
+	if (metric_type == METRIC_TYPE_SUMMARY)
+	{
+		if (prom_family_strip_summary_suffix(metric_name, base, sizeof(base)))
+		{
+			namespace_metric_family_set(NULL, carg, base, METRIC_TYPE_SUMMARY, NULL);
+			return;
+		}
+		namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_SUMMARY, NULL);
+		snprintf(base, sizeof(base), "%s_sum", metric_name);
+		namespace_metric_family_set(NULL, carg, base, METRIC_TYPE_SUMMARY, NULL);
+		snprintf(base, sizeof(base), "%s_count", metric_name);
+		namespace_metric_family_set(NULL, carg, base, METRIC_TYPE_SUMMARY, NULL);
+		return;
+	}
+
+	namespace_metric_family_set(NULL, carg, metric_name, metric_type, NULL);
+}
+
+void namespace_metric_family_set_prom_help(context_arg *carg, const char *metric_name, const char *help)
+{
+	char base[1024];
+
+	if (!metric_name || !metric_name[0] || !help)
+		return;
+
+	if (prom_family_strip_histogram_suffix(metric_name, base, sizeof(base)))
+	{
+		namespace_metric_family_set(NULL, carg, base, UINT8_MAX, help);
+		return;
+	}
+
+	if (prom_family_strip_summary_suffix(metric_name, base, sizeof(base)))
+	{
+		namespace_metric_family_set(NULL, carg, base, UINT8_MAX, help);
+		return;
+	}
+
+	namespace_metric_family_set(NULL, carg, metric_name, UINT8_MAX, help);
+}
+
 int namespace_struct_compare(const void* arg, const void* obj)
 {
         char *s1 = (char*)arg;

@@ -45,6 +45,8 @@ entrypoint {
     handler <handler>;
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
+    # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
+    # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
     instance <instance_name>;
     threads <number of threads>;

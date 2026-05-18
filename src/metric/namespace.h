@@ -110,3 +110,12 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns);
 void ts_initialize();
 void namespace_metric_family_set(char *namespace, context_arg *carg, const char *metric_name, uint8_t type, const char *help);
 metric_family_metadata *namespace_metric_family_get(namespace_struct *ns, const char *metric_name);
+/* Strip Prometheus histogram suffix (_bucket/_sum/_count); returns 1 if stripped. */
+int prom_family_strip_histogram_suffix(const char *metric_name, char *base_out, size_t base_out_size);
+/* Strip Prometheus summary suffix (_sum/_count/_quantile); returns 1 if stripped. */
+int prom_family_strip_summary_suffix(const char *metric_name, char *base_out, size_t base_out_size);
+/* Resolve exposition family name (base for histogram/summary components). */
+const char *prom_family_exposition_resolve(namespace_struct *ns, const char *metric_name,
+    metric_family_metadata **meta_out, char *buf, size_t buf_size);
+void namespace_metric_family_set_prom_type(context_arg *carg, const char *metric_name, uint8_t metric_type);
+void namespace_metric_family_set_prom_help(context_arg *carg, const char *metric_name, const char *help);

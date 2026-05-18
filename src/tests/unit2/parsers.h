@@ -1704,13 +1704,49 @@ void api_test_openmetrics_type_suffix_and_normalization()
     metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
-    /* Names are normalized from '-' to '_'. */
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_bucket histogram\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_sum histogram\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist_count histogram\n") != NULL);
+    /* Names are normalized from '-' to '_'; one TYPE line per histogram/summary family. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_hist histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE ut_hist_bucket histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE ut_hist_sum histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE ut_hist_count histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_hist_bucket{le=\"1\"}") != NULL);
 
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_summary_sum summary\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_summary_count summary\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_summary summary\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE ut_summary_sum summary\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE ut_summary_count summary\n") != NULL);
+
+    string_free(out);
+}
+
+void api_test_openmetrics_histogram_type_on_components()
+{
+    char *msg =
+        "# HELP widget_oauth_login_time_bucket widget_oauth_login_time_bucket\n"
+        "# TYPE widget_oauth_login_time_bucket histogram\n"
+        "widget_oauth_login_time_bucket{le=\"1\"} 1\n"
+        "# HELP widget_oauth_login_time_sum widget_oauth_login_time_sum\n"
+        "# TYPE widget_oauth_login_time_sum histogram\n"
+        "widget_oauth_login_time_sum 38.063\n"
+        "# HELP widget_oauth_login_time_count widget_oauth_login_time_count\n"
+        "# TYPE widget_oauth_login_time_count histogram\n"
+        "widget_oauth_login_time_count 1\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    multicollector(NULL, msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE widget_oauth_login_time histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE widget_oauth_login_time_bucket histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE widget_oauth_login_time_sum histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "# TYPE widget_oauth_login_time_count histogram\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "widget_oauth_login_time_bucket{le=\"1\"}") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "widget_oauth_login_time_sum ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "widget_oauth_login_time_count ") != NULL);
 
     string_free(out);
 }

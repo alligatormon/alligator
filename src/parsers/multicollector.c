@@ -99,23 +99,16 @@ static uint8_t metric_type_from_string(const char *type)
 	return METRIC_TYPE_UNTYPED;
 }
 
-static void set_metric_family_type_with_suffixes(context_arg *carg, const char *metric_name, uint8_t metric_type)
+static void register_histogram_aggregation_series(alligator_ht *counter_names, const char *series_name)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, metric_type, NULL);
-
-	if (metric_type == METRIC_TYPE_HISTOGRAM || metric_type == METRIC_TYPE_SUMMARY)
+	uint32_t key_hash = tommy_strhash_u32(0, series_name);
+	metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, series_name, key_hash);
+	if (!dt)
 	{
-		char bucket_name[1024];
-		snprintf(bucket_name, sizeof(bucket_name), "%s_bucket", metric_name);
-		namespace_metric_family_set(NULL, carg, bucket_name, metric_type, NULL);
-
-		char sum_name[1024];
-		snprintf(sum_name, sizeof(sum_name), "%s_sum", metric_name);
-		namespace_metric_family_set(NULL, carg, sum_name, metric_type, NULL);
-
-		char count_name[1024];
-		snprintf(count_name, sizeof(count_name), "%s_count", metric_name);
-		namespace_metric_family_set(NULL, carg, count_name, metric_type, NULL);
+		dt = calloc(1, sizeof(*dt));
+		dt->key = strdup(series_name);
+		dt->type = METRIC_TYPE_HISTOGRAM;
+		alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
 	}
 }
 
@@ -657,7 +650,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 				cursor += strspn(tmp + cursor, " \t");
 				uint8_t metric_type = metric_type_from_string(tmp + cursor);
 
-				set_metric_family_type_with_suffixes(carg, metric_name, metric_type);
+				namespace_metric_family_set_prom_type(carg, metric_name, metric_type);
 
 				if (carg->metric_aggregation)
 				{
@@ -675,40 +668,23 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 					}
 					else if (metric_type == METRIC_TYPE_HISTOGRAM)
 					{
-						char bucket_name[1024];
-						snprintf(bucket_name, 1023, "%s_bucket", metric_name);
-						uint32_t key_hash = tommy_strhash_u32(0, bucket_name);
-						metric_datatypes *dt = alligator_ht_search(counter_names, metric_datatypes_compare, bucket_name, key_hash);
-						if (!dt)
+						char base[1024];
+						if (prom_family_strip_histogram_suffix(metric_name, base, sizeof(base)))
+							register_histogram_aggregation_series(counter_names, metric_name);
+						else
 						{
-							dt = calloc(1, sizeof(*dt));
-							dt->key = strdup(bucket_name);
-							dt->type = METRIC_TYPE_HISTOGRAM;
-							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
-						}
+							char bucket_name[1024];
+							char sum_name[1024];
+							char count_name[1024];
 
-						char sum_name[1024];
-						snprintf(sum_name, 1023, "%s_sum", metric_name);
-						key_hash = tommy_strhash_u32(0, sum_name);
-						dt = alligator_ht_search(counter_names, metric_datatypes_compare, sum_name, key_hash);
-						if (!dt)
-						{
-							dt = calloc(1, sizeof(*dt));
-							dt->key = strdup(sum_name);
-							dt->type = METRIC_TYPE_HISTOGRAM;
-							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
-						}
+							snprintf(bucket_name, sizeof(bucket_name), "%s_bucket", metric_name);
+							register_histogram_aggregation_series(counter_names, bucket_name);
 
-						char count_name[1024];
-						snprintf(count_name, 1023, "%s_count", metric_name);
-						key_hash = tommy_strhash_u32(0, count_name);
-						dt = alligator_ht_search(counter_names, metric_datatypes_compare, count_name, key_hash);
-						if (!dt)
-						{
-							dt = calloc(1, sizeof(*dt));
-							dt->key = strdup(count_name);
-							dt->type = METRIC_TYPE_HISTOGRAM;
-							alligator_ht_insert(counter_names, &(dt->node), dt, tommy_strhash_u32(0, dt->key));
+							snprintf(sum_name, sizeof(sum_name), "%s_sum", metric_name);
+							register_histogram_aggregation_series(counter_names, sum_name);
+
+							snprintf(count_name, sizeof(count_name), "%s_count", metric_name);
+							register_histogram_aggregation_series(counter_names, count_name);
 						}
 					}
 				}
@@ -734,7 +710,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 				memcpy(help, tmp + cursor, help_size);
 				help[help_size] = 0;
 
-				namespace_metric_family_set(NULL, carg, metric_name, UINT8_MAX, help);
+				namespace_metric_family_set_prom_help(carg, metric_name, help);
 			}
 			continue;
 		}
