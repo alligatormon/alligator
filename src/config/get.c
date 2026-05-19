@@ -16,6 +16,7 @@
 #include "common/murmurhash.h"
 #include "common/file_stat.h"
 #include "scheduler/type.h"
+#include "mapping/type.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -1123,6 +1124,13 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_t *metricstransform = json_deep_copy(carg->metricstransform);
 		if (metricstransform)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
+
+	if (carg->mm)
+	{
+		json_t *mapping = mapping_metric_list_to_json(carg->mm);
+		if (mapping)
+			json_array_object_insert(ctx, "mapping", mapping);
 	}
 }
 

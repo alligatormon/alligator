@@ -93,13 +93,7 @@ int grok_push(json_t *grok) {
 					for (uint64_t i = 2; i < percentiles_size; i++)
 					{
 						json_t *percentile_obj = json_array_get(quantile, i);
-						char *percentile_str = (char*)json_string_value(percentile_obj);
-						int64_t percentile_int;
-						if (percentile_str[0] > '0')
-							percentile_int = -1;
-						else
-							percentile_int = strtoll(percentile_str+2, NULL, 10);
-						percentiles[i-2] = percentile_int;
+						percentiles[i-2] = mapping_quantile_from_json(percentile_obj);
 					}
 
 					mm->percentile = percentiles;
