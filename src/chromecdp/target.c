@@ -1195,6 +1195,22 @@ void cdp_page_abort(cdp_page *page, const char *reason)
 	page_error(page, reason);
 }
 
+void cdp_page_force_finish(cdp_page *page)
+{
+	if (!page || page->done_emitted)
+		return;
+
+	page->finished     = 1;
+	page->magic        = 0; /* ignore late CDP callbacks */
+	page->cdp_inflight = 0;
+	page->deadline_ms  = 0;
+	cdp_page_stop_timers(page);
+
+	page->done_emitted = 1;
+	if (page->done_cb)
+		page->done_cb(page, page->done_userdata);
+}
+
 /* ------------------------------------------------------------------ */
 /* Idle timer close callback                                          */
 /* ------------------------------------------------------------------ */

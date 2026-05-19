@@ -94,6 +94,9 @@ void cdp_page_free(cdp_page *page);
 /* Force-finish a stuck or timed-out page (runs cleanup + done_cb). */
 void cdp_page_abort(cdp_page *page, const char *reason);
 
+/* Drop pending CDP work and invoke done_cb (used when abort cannot complete). */
+void cdp_page_force_finish(cdp_page *page);
+
 /* Stop page timers without freeing the struct (safe before deferred free). */
 void cdp_page_stop_timers(cdp_page *page);
 

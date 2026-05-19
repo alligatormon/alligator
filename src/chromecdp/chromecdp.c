@@ -334,9 +334,17 @@ static void chromecdp_check_deadlines(chromecdp_state *cs)
 		cdp_page *next = page->next;
 
 		if (page->deadline_ms && now >= page->deadline_ms) {
-			cslog(L_WARN, "chromecdp: deadline exceeded, aborting %s\n",
-			      page->url);
-			cdp_page_abort(page, "crawl deadline exceeded");
+			if (!page->finished) {
+				cslog(L_WARN, "chromecdp: deadline exceeded, aborting %s\n",
+				      page->url);
+				cdp_page_abort(page, "crawl deadline exceeded");
+			} else if (!page->done_emitted) {
+				/* Abort set finished=1 but CDP never replied; release the slot. */
+				cslog(L_WARN,
+				      "chromecdp: force-releasing stuck page %s after deadline\n",
+				      page->url);
+				cdp_page_force_finish(page);
+			}
 		}
 		page = next;
 	}
