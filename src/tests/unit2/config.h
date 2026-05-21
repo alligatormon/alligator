@@ -1900,6 +1900,46 @@ void test_metricstransform_plain_and_ingest()
     json_decref(root);
 }
 
+void test_aggregate_multi_block_plain_parse()
+{
+    const char *conf =
+        "aggregate {\n"
+        "  dns udp://81.19.73.11:53 resolve=google.com type=a add_label=check:dns bind_address=1112;\n"
+        "  dns udp://81.19.83.11:53 resolve=yandex.ru type=a add_label=check:dns bind_address=1113;\n"
+        "  dns udp://81.19.73.11:53 resolve=store.rambler.ru type=a add_label=check:dns bind_address=1114;\n"
+        "  wazuh file:///var/ossec/var/run/wazuh-agentd.state;\n"
+        "}\n"
+        "aggregate {\n"
+        "  rabbitmq http://user:pass@127.0.0.1:8080;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, json_array_size(aggregate));
+
+    json_t *a0 = json_array_get(aggregate, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "dns", json_string_value(json_object_get(a0, "handler")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "udp://81.19.73.11:53", json_string_value(json_object_get(a0, "url")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "google.com", json_string_value(json_object_get(a0, "resolve")));
+
+    json_t *a4 = json_array_get(aggregate, 4);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq", json_string_value(json_object_get(a4, "handler")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://user:pass@127.0.0.1:8080", json_string_value(json_object_get(a4, "url")));
+
+    json_decref(root);
+}
+
 void test_match_rules_regex_paths()
 {
     match_rules *mr = calloc(1, sizeof(*mr));

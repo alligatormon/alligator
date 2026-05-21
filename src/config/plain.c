@@ -1068,6 +1068,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			      !strcmp(context_name, "chromecdp")) &&
 			     wstokens[i].context &&
 			     wstokens[i].token->s &&
+			     strcmp(wstokens[i].token->s, context_name) &&
 			     strcmp(wstokens[i].token->s, "metricstransform")))
 				{
 					operator_name = wstokens[i].token->s;
@@ -1475,7 +1476,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 							if (wstokens[i].operator ||
 							    (!strcmp(context_name, "action") &&
-							     wstokens[i].context && wstokens[i].token->s))
+							     wstokens[i].context && wstokens[i].token->s &&
+							     strcmp(wstokens[i].token->s, context_name)))
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 

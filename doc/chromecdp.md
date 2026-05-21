@@ -195,7 +195,9 @@ The module-level `setup_budget` and `post_nav_budget` are added to this value to
 ### `console_events`
 
 Emit `chromecdp_console_messages_total` for every browser console message during page load.
-Set to `true` or `1` to enable. Default: disabled.
+Set to `true`, `"true"`, or `1` to enable (plain config `console_events true` stores a string). Default: disabled.
+
+Metrics appear only when the page actually calls `console.log` / `console.warn` / etc. during the crawl window. A quiet page produces no series (only HELP/TYPE until the first message).
 
 ### `headers`
 
@@ -403,7 +405,7 @@ All metrics carry at minimum a `resource` label with the target URL.
 | Metric | Type | Description |
 |--------|------|-------------|
 | `chromecdp_info` | gauge | Set to `1` when a crawl starts for this resource |
-| `chromecdp_navigation_errors_total` | counter | CDP navigation errors; `error` label contains the message |
+| `chromecdp_navigation_errors_total` | counter | Incremented only when `Page.navigate` returns a **CDP error** (protocol failure). HTTP 4xx/5xx still count as successful navigation and do **not** increment this counter. Absent from `/metrics` until at least one such error occurs. |
 
 ### Chrome `Performance.getMetrics`
 
@@ -474,7 +476,15 @@ Emitted from CDP `Network.*` events during page load. Labels: `resource` (target
 
 ### Resource Timing API
 
-Emitted from `window.performance.getEntries()` evaluated after network idle. Labels: `resource`, `source`, `entryType`, `initiatorType`, `nextHopProtocol`.
+Emitted at crawl **step 8** (`Runtime.evaluate` → `performance.getEntries()`), after network idle and `Performance.getMetrics`. If the page hits the hard deadline earlier, these metrics are not produced.
+
+Entries are exported when **`transferSize > 0`** (same rule as the `puppeteer` collector for sub-resources) **or** `entryType` is **`navigation`** (main document timings are always kept, even when `transferSize` is 0). Cross-origin sub-resources with `transferSize == 0` are skipped.
+
+The collector evaluates a bounded payload: all `navigation` entries plus up to 250 `resource` entries with `transferSize > 0`. A full `performance.getEntries()` JSON blob can exceed Chrome CDP `returnByValue` limits on heavy pages (for example `eda.ru`), in which case step 8 produced no metrics before this cap.
+
+On failure or empty export, alligator logs `chromecdp: getEntries ...` at **warn** (check alligator stderr; per-URL `log_level: debug` is optional).
+
+Labels: `resource`, `source`, `entryType`, `initiatorType`, `nextHopProtocol`.
 
 | Metric | JS field | Description |
 |--------|----------|-------------|
@@ -506,8 +516,8 @@ Emitted from `window.performance.getEntries()` evaluated after network idle. Lab
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `chromecdp_console_messages_total` | counter | `resource`, `text` | Browser console messages (requires `console_events: true`) |
-| `chromecdp_page_errors_total` | counter | `resource`, `text` | Uncaught JavaScript exceptions |
+| `chromecdp_console_messages_total` | counter | `resource`, `text` | Browser `console.*` calls during load — **requires** per-URL `console_events: true` (see below). Absent until a message is logged. |
+| `chromecdp_page_errors_total` | counter | `resource`, `text` | **Uncaught** JavaScript exceptions (`Runtime.exceptionThrown`). `console.error` does not count. Absent until an exception occurs. |
 
 ---
 

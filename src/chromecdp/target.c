@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
@@ -115,6 +116,50 @@ static double json_num(json_t *v)
 	if (json_is_real(v))    return json_real_value(v);
 	if (json_is_integer(v)) return (double)json_integer_value(v);
 	return 0.0;
+}
+
+static int cdp_json_truthy(json_t *v)
+{
+	const char *s;
+
+	if (!v)
+		return 0;
+	if (json_is_true(v))
+		return 1;
+	if (json_is_false(v))
+		return 0;
+	if (json_is_integer(v))
+		return json_integer_value(v) != 0;
+	if (json_is_string(v)) {
+		s = json_string_value(v);
+		if (!s)
+			return 0;
+		return !strcasecmp(s, "true") || !strcasecmp(s, "yes") ||
+		       !strcasecmp(s, "on") || !strcmp(s, "1");
+	}
+	return 0;
+}
+
+/* Plain config stores console_events true as JSON string "true", not boolean. */
+static int cdp_config_bool(json_t *config, const char *key)
+{
+	json_t *v;
+
+	if (!config || !key)
+		return 0;
+
+	v = json_object_get(config, key);
+	if (!v)
+		return 0;
+
+	/* Plain-parser wrapper: { "console_events": "true" } */
+	if (json_is_object(v)) {
+		v = json_object_get(v, key);
+		if (!v)
+			return 0;
+	}
+
+	return cdp_json_truthy(v);
 }
 
 /* Truncate a string to at most 128 chars (matching puppeteer behaviour). */
@@ -249,10 +294,8 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 		}
 
 	} else if (!strcmp(method, "Runtime.consoleAPICalled") && params) {
-		json_t *config = page->config;
-		int emit = json_is_true(json_object_get(config, "console_events")) ||
-		           json_integer_value(json_object_get(config, "console_events")) == 1;
-		if (!emit) return;
+		if (!cdp_config_bool(page->config, "console_events"))
+			return;
 
 		/* Concatenate all args as text */
 		json_t *args = json_object_get(params, "args");
@@ -279,6 +322,8 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 		    &one, DATATYPE_INT, page->carg,
 		    "resource", page->url,
 		    "text",     textbuf);
+		cslog(L_INFO, "chromecdp: console message for %s: %s\n",
+		      page->url, textbuf[0] ? textbuf : "(empty)");
 
 	} else if (!strcmp(method, "Runtime.exceptionThrown") && params) {
 		json_t *det = json_object_get(params, "exceptionDetails");
@@ -779,6 +824,9 @@ static void step_navigate(cdp_page *page)
 	emit_double(page, "chromecdp_info", "resource", page->url, one);
 
 	page->state = PAGE_STATE_NAVIGATE;
+	if (cdp_config_bool(page->config, "console_events"))
+		cslog(L_INFO, "chromecdp: console_events enabled for %s\n", page->url);
+
 	json_t *params = json_object();
 	json_object_set_new(params, "url", json_string(page->url));
 
@@ -947,30 +995,112 @@ static const struct { const char *js_key; const char *prom_name; } RT_METRICS[] 
 	{ NULL, NULL }
 };
 
+/* CDP Runtime.evaluate: callback receives { result: RemoteObject, exceptionDetails? }. */
+static const char *eval_remote_object_string(json_t *cdp_result, const char **out_type)
+{
+	json_t *ro;
+	const char *val_s;
+	const char *type_s;
+
+	if (out_type)
+		*out_type = NULL;
+	if (!cdp_result)
+		return NULL;
+
+	ro = json_object_get(cdp_result, "result");
+	if (!ro)
+		ro = cdp_result;
+
+	type_s = json_string_value(json_object_get(ro, "type"));
+	if (out_type)
+		*out_type = type_s;
+
+	val_s = json_string_value(json_object_get(ro, "value"));
+	if (val_s)
+		return val_s;
+
+	/* Fallback when Chrome returns a preview string instead of value */
+	return json_string_value(json_object_get(ro, "description"));
+}
+
+/* puppeteer skips transferSize==0; always keep navigation (main document timings). */
+static int rt_entry_should_emit(json_t *entry, double *size_contrib)
+{
+	double transfer;
+	const char *etype;
+
+	if (!entry || !size_contrib)
+		return 0;
+
+	*size_contrib = 0;
+	transfer = json_num(json_object_get(entry, "transferSize"));
+	if (transfer > 0) {
+		*size_contrib = transfer;
+		return 1;
+	}
+
+	etype = json_string_value(json_object_get(entry, "entryType"));
+	if (etype && !strcmp(etype, "navigation")) {
+		double dec = json_num(json_object_get(entry, "decodedBodySize"));
+		double enc = json_num(json_object_get(entry, "encodedBodySize"));
+		*size_contrib = dec > 0 ? dec : enc;
+		return 1;
+	}
+
+	return 0;
+}
+
 static void on_eval_entries(cdp_session *cdp, json_t *result,
                              json_t *error, void *ud)
 {
 	cdp_page *page = (cdp_page *)ud;
-	(void)cdp; (void)error;
+	(void)cdp;
 
 	page_cdp_rsp_done(page);
 	CDP_PAGE_GUARD(page);
 
+	if (error) {
+		const char *msg = json_string_value(json_object_get(error, "message"));
+		cslog(L_WARN, "chromecdp: performance.getEntries() CDP error for %s: %s\n",
+		      page->url, msg ? msg : "unknown error");
+	}
+
 	if (result) {
-		json_t *ret = json_object_get(result, "result");
-		const char *val_s = json_string_value(json_object_get(ret, "value"));
-		if (val_s) {
+		json_t *exc = json_object_get(result, "exceptionDetails");
+		if (exc) {
+			const char *txt = json_string_value(json_object_get(exc, "text"));
+			cslog(L_WARN,
+			      "chromecdp: performance.getEntries() JS exception for %s: %s\n",
+			      page->url, txt ? txt : "unknown");
+		}
+
+		const char *ro_type = NULL;
+		const char *val_s = eval_remote_object_string(result, &ro_type);
+		if (!val_s) {
+			cslog(L_WARN,
+			      "chromecdp: getEntries no serialized value for %s (RemoteObject type=%s)\n",
+			      page->url, ro_type ? ro_type : "unknown");
+		} else {
 			json_error_t jerr;
 			json_t *entries = json_loads(val_s, 0, &jerr);
-			if (entries && json_is_array(entries)) {
+			if (!entries || !json_is_array(entries)) {
+				cslog(L_WARN,
+				      "chromecdp: getEntries JSON parse failed for %s: %s\n",
+				      page->url, entries ? "not an array" : jerr.text);
+			} else {
 				double total_size = 0.0;
-				size_t idx;
+				size_t idx, emitted = 0, skipped = 0;
 				json_t *entry;
+
 				json_array_foreach(entries, idx, entry) {
-					double transfer = json_real_value(
-					    json_object_get(entry, "transferSize"));
-					if (transfer <= 0) continue;
-					total_size += transfer;
+					double contrib = 0.0;
+
+					if (!rt_entry_should_emit(entry, &contrib)) {
+						skipped++;
+						continue;
+					}
+					total_size += contrib;
+					emitted++;
 
 					const char *name  = json_string_value(json_object_get(entry, "name"));
 					const char *etype = json_string_value(json_object_get(entry, "entryType"));
@@ -998,7 +1128,17 @@ static void on_eval_entries(cdp_session *cdp, json_t *result,
 						    "nextHopProtocol", (char *)proto);
 					}
 				}
-				emit_double(page, "chromecdp_page_size_bytes", "resource", page->url, total_size);
+				if (emitted > 0) {
+					emit_double(page, "chromecdp_page_size_bytes",
+					            "resource", page->url, total_size);
+					cslog(L_INFO,
+					      "chromecdp: getEntries for %s: %zu entries, %zu emitted (%zu skipped)\n",
+					      page->url, json_array_size(entries), emitted, skipped);
+				} else {
+					cslog(L_WARN,
+					      "chromecdp: getEntries for %s: %zu entries, 0 emitted (%zu skipped)\n",
+					      page->url, json_array_size(entries), skipped);
+				}
 				json_decref(entries);
 			}
 		}
@@ -1012,8 +1152,18 @@ static void step_eval_entries(cdp_page *page)
 {
 	page->state = PAGE_STATE_EVAL_ENTRIES;
 	json_t *params = json_object();
+	/* Keep payload small: navigation + resources with transferSize>0 (cap 250).
+	   Full getEntries() can exceed CDP returnByValue limits on heavy sites (eda.ru). */
 	json_object_set_new(params, "expression",
-	    json_string("JSON.stringify(performance.getEntries())"));
+	    json_string("(function(){"
+	                "var n=performance.getEntriesByType('navigation')||[];"
+	                "var r=performance.getEntriesByType('resource')||[];"
+	                "var out=[],i,j;"
+	                "for(i=0;i<n.length;i++)out.push(n[i]);"
+	                "for(j=0;j<r.length&&out.length<250;j++)"
+	                "if(r[j].transferSize>0)out.push(r[j]);"
+	                "return JSON.stringify(out);"
+	                "})()"));
 	json_object_set_new(params, "returnByValue", json_true());
 	page_cdp_send(page, page->cdp, page->session_id,
 	              "Runtime.evaluate", params, on_eval_entries, page);

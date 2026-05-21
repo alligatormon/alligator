@@ -755,12 +755,23 @@ void chromecdp_connect_ws(void)
 static void on_cdp_event(cdp_session *cdp, const char *session_id,
                          const char *method, json_t *params, void *ud)
 {
-	(void)cdp; (void)ud;
-	if (!session_id || !method) return;
-
-	/* Find the page with matching session_id */
 	chromecdp_state *cs = &g_cdp_state;
-	cdp_page *page = cs->pages_head;
+	cdp_page *page;
+	int active;
+
+	(void)cdp; (void)ud;
+	if (!method)
+		return;
+
+	/* Some Runtime events omit sessionId; route to the only active page. */
+	if (!session_id) {
+		active = chromecdp_count_pages(cs);
+		if (active == 1 && cs->pages_head)
+			cdp_page_on_event(cs->pages_head, method, params);
+		return;
+	}
+
+	page = cs->pages_head;
 	while (page) {
 		if (page->session_id && !strcmp(page->session_id, session_id)) {
 			cdp_page_on_event(page, method, params);

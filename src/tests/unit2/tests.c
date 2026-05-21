@@ -476,6 +476,7 @@ int main(int argc, char **argv) {
 
     test_config_generators_additional_scalars();
     test_metricstransform_plain_and_ingest();
+    test_aggregate_multi_block_plain_parse();
 
     infomesg();
 }
