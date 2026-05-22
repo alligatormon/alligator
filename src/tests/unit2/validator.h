@@ -97,6 +97,10 @@ void test_validator_core() {
     metric_label_value_validator_normalizer(buf, strlen(buf));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a_b_c_ ", buf);
 
+    strcpy(buf, "line1\nline2\r");
+    metric_label_value_validator_normalizer(buf, strlen(buf));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "line1 line2 ", buf);
+
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DATATYPE_INT, metric_value_validator("42", strlen("42")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DATATYPE_INT, metric_value_validator("-7", strlen("-7")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DATATYPE_DOUBLE, metric_value_validator("3.14", strlen("3.14")));
