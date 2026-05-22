@@ -15,6 +15,7 @@
 #include "events/fs_write.h"
 #include "common/base64.h"
 #include "common/mkdirp.h"
+#include "common/validator.h"
 
 /* ------------------------------------------------------------------ */
 /* Forward declarations for the navigation callback chain             */
@@ -313,9 +314,7 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 				if (pos >= sizeof(textbuf) - 1) break;
 			}
 		}
-		/* Remove newlines */
-		for (char *p = textbuf; *p; p++)
-			if (*p == '\r' || *p == '\n') *p = ' ';
+		metric_label_value_validator_normalizer(textbuf, strlen(textbuf));
 
 		int64_t one = 1;
 		metric_add_labels2("chromecdp_console_messages_total",
@@ -333,9 +332,7 @@ void cdp_page_on_event(cdp_page *page, const char *method, json_t *params)
 		char msgbuf[256];
 		strncpy(msgbuf, msg, sizeof(msgbuf) - 1);
 		msgbuf[sizeof(msgbuf) - 1] = '\0';
-		/* Remove newlines */
-		for (char *p = msgbuf; *p; p++)
-			if (*p == '\r' || *p == '\n') *p = ' ';
+		metric_label_value_validator_normalizer(msgbuf, strlen(msgbuf));
 
 		int64_t one = 1;
 		metric_add_labels2("chromecdp_page_errors_total",

@@ -516,8 +516,8 @@ Labels: `resource`, `source`, `entryType`, `initiatorType`, `nextHopProtocol`.
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `chromecdp_console_messages_total` | counter | `resource`, `text` | Browser `console.*` calls during load — **requires** per-URL `console_events: true` (see below). Absent until a message is logged. |
-| `chromecdp_page_errors_total` | counter | `resource`, `text` | **Uncaught** JavaScript exceptions (`Runtime.exceptionThrown`). `console.error` does not count. Absent until an exception occurs. |
+| `chromecdp_console_messages_total` | counter | `resource`, `text` | Browser `console.*` calls during load — **requires** per-URL `console_events: true` (see below). Absent until a message is logged. `text` is truncated to 128 chars and escaped for Prometheus (`\`, `"`, `'`, tabs → spaces). |
+| `chromecdp_page_errors_total` | counter | `resource`, `text` | **Uncaught** JavaScript exceptions (`Runtime.exceptionThrown`). `console.error` does not count. Absent until an exception occurs. Same `text` normalization as console messages. |
 
 ---
 
