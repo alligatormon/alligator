@@ -82,9 +82,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 		metric_add_labels3("alligator_read_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
 
 		uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-		carg->read_time_counter += read_time;
 		metric_add_labels3("alligator_read_duration_microseconds", &read_time, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
-		metric_add_labels3("alligator_read_duration_microseconds_total", &carg->read_time_counter, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
 	}
 
 	carg->lock = 0;

@@ -10,8 +10,12 @@
 #include "events/access.h"
 #include "common/logs.h"
 #include "events/tls.h"
+#include "common/rtime.h"
 #include "main.h"
 extern aconf *ac;
+
+#define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
+#define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
 
 void tcp_server_closed_client(uv_handle_t* handle)
 {
@@ -110,9 +114,9 @@ void tcp_server_written(uv_write_t* req, int status)
 void tls_server_written(uv_write_t* req, int status) {
 	context_arg *carg = req->data;
 	if (status)
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
 	else
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;
@@ -176,7 +180,7 @@ int do_tls_handshake_server(context_arg *carg) {
 				flush_tls_write(carg, NULL);
 			} else {
 				char *err = openssl_get_error_string();
-				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
 				free(err);
 
 				return -1;

@@ -68,7 +68,7 @@ double getrtime_msec_float(r_time t2, r_time t1)
 	return (double)rtime_delta_ns_signed(t1, t2) / 1000000.0;
 }
 
-double getrtime_sec_float(r_time t1, r_time t2)
+double getrtime_sec_float(r_time t2, r_time t1)
 {
 	return (double)rtime_delta_ns_signed(t1, t2) / 1000000000.0;
 }
@@ -77,4 +77,9 @@ uint64_t getrtime_now_ms(r_time t1)
 {
 	uint64_t ret = ((t1.sec)*1000 + ((t1.nsec)/1000000));
 	return ret;
+}
+
+uint64_t getrtime_elapsed_ms(r_time start, r_time end)
+{
+	return getrtime_ms(start, end);
 }

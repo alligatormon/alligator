@@ -61,14 +61,6 @@ alligator_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_index_s
 alligator_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 2528
 alligator_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 2109
 alligator_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 2157
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 135675
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 131150
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 157923
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 115029
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 142475
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 120802
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 106382
-alligator_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 111244
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 2018
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 12
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 14
@@ -77,14 +69,6 @@ alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_index_s
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 658
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 274
 alligator_execute_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 1052
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 184825
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 1455
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 1920
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 14221
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 25906
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 60244
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 29754
-alligator_execute_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 75326
 alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@fts/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
 alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@index/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
 alligator_parser_status {proto="tcp", key="(tcp://localhost:8091)//pools/default/buckets/@query/nodes/172.17.0.4%3a8091/stats", type="aggregator", host="localhost", parser="couchbase_bucket_nodes_stats"} 1
@@ -122,14 +106,6 @@ alligator_read_duration_microseconds {proto="tcp", key="tcp:couchbase_index_stat
 alligator_read_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 22069
 alligator_read_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 31793
 alligator_read_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 30121
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 1115560
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 1186545
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 285874
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 1969942
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 749263
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 1670404
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 2376611
-alligator_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 2224169
 alligator_shutdown_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
 alligator_shutdown_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
 alligator_shutdown_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
@@ -154,14 +130,6 @@ alligator_tls_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_ind
 alligator_tls_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_connect_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_connect_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_init_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_init_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_init_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
@@ -194,14 +162,6 @@ alligator_tls_read_duration_microseconds {proto="tcp", key="tcp:couchbase_index_
 alligator_tls_read_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_read_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_read_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_read_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_write_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_write_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_write_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
@@ -226,14 +186,6 @@ alligator_tls_write_duration_microseconds {proto="tcp", key="tcp:couchbase_index
 alligator_tls_write_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_write_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_tls_write_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_tls_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_write_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 56
 alligator_write_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 56
 alligator_write_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 56
@@ -258,14 +210,6 @@ alligator_write_duration_microseconds {proto="tcp", key="tcp:couchbase_index_sta
 alligator_write_duration_microseconds {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_write_duration_microseconds {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
 alligator_write_duration_microseconds {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_buckets:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_cbas_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_eventing_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_fts_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_index_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_nodes_list:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_query_stats:localhost:8091/", type="aggregator", host="localhost"} 0
-alligator_write_duration_microseconds_total {proto="tcp", key="tcp:couchbase_tasks:localhost:8091/", type="aggregator", host="localhost"} 0
 couchbase_bucket_autoCompactionSettings {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
 couchbase_bucket_basicStats_dataUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 33004544
 couchbase_bucket_basicStats_diskFetches {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0

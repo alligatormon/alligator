@@ -7,29 +7,22 @@ alligator_close_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:8
 alligator_connect_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_connect_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_connect_ok_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_connect_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_execute_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_execute_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_parser_status {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
 alligator_read_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_read_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_read_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_shutdown_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_timeout_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_connect_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_connect_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_init_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_read_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_read_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_read_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_write_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_write_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_tls_write_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_write_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_write_bytes_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 alligator_write_duration_microseconds {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_duration_microseconds_total {host="r0.ru", proto="tcp", key="tcp:blackbox_null:r0.ru:80/", type="aggregator} 
 probe_success {host="r0.ru", proto="http", key="tcp:blackbox_null:r0.ru:80/", type="blackbox", module="http_23xx", prober="http} 1

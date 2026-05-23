@@ -1,7 +1,11 @@
 #include "events/context_arg.h"
 #include "common/logs.h"
 #include "common/lcrypto.h"
+#include "common/rtime.h"
 #include "main.h"
+
+#define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
+#define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
 
 void tls_init()
 {
@@ -210,7 +214,7 @@ void tls_client_cleanup(context_arg *carg, uint8_t clean_context)
 }
 
 int do_tls_shutdown(context_arg *carg, SSL *ssl) {
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls call shutdown %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls call shutdown %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	int ret = SSL_shutdown(ssl);
 	if (ret == 1) {
 		return 1;
@@ -228,38 +232,38 @@ int do_tls_shutdown(context_arg *carg, SSL *ssl) {
 int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 	switch (err) {
 		case SSL_ERROR_WANT_READ:
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client wait for async read %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client wait for async read %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
 			return 0;
 		case SSL_ERROR_WANT_WRITE:
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client wait for async write %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client wait for async write %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
 			return 0;
 		case SSL_ERROR_ZERO_RETURN:
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client get tls shutdown notifier by peer %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client get tls shutdown notifier by peer %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size);
 			return 1;
 		case SSL_ERROR_SYSCALL:
 			if (read_size == 0) {
-				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read: EOF from peer");
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read: EOF from peer");
 			}
 			else {
 				char buf[256];
 				strerror_r(errno, buf, sizeof(buf));
-				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read syscall error", buf);
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read syscall error", buf);
 			}
 			return -1;
 		case SSL_ERROR_SSL: {
 			unsigned long e = ERR_peek_error();
 			if (!e) {
-				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read state %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_ERROR_SSL without OpenSSL queue entry, wait for more data");
+				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read state %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_ERROR_SSL without OpenSSL queue entry, wait for more data");
 				return 0;
 			}
 
 			char msg[256];
 			ERR_error_string_n(e, msg, sizeof(msg));
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL protocol error", msg);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL protocol error", msg);
 			return -1;
 		}
 		default:
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %d\n", carg->count++, getrtime_now_ms(carg->tls_read_time_finish), getrtime_sec_float(carg->tls_read_time_finish, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "Unknown SSL_read error", err);
+			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "Unknown SSL_read error", err);
 			return -1;
 	}
 }
@@ -267,6 +271,9 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback) {
 	if (!len)
 		return;
+
+	if (!carg->tls_write_time.sec && !carg->tls_write_time.nsec)
+		carg->tls_write_time = setrtime();
 
 	memset(&carg->write_tls, 0, sizeof(carg->write_tls));
 	carg->write_tls.data = carg;
@@ -300,5 +307,6 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 		carg->write_buffer.base = 0;
 		carg->write_buffer.len = 0;
 	}
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, getrtime_now_ms(carg->read_time), getrtime_sec_float(carg->read_time, carg->connect_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
+	r_time tls_write_now = setrtime();
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, tls_write_now), carglog_elapsed_sec(carg, tls_write_now), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
 }

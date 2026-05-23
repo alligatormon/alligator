@@ -692,15 +692,15 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 				cadvisor_scrape(NULL, NULL, "", kubepath, name_str, image, kubenamespace, kubepod, kubecontainer, NULL);
 			}
 			r_time docker_end = setrtime();
-			double scrape_total_time = getrtime_sec_float(ts_start, docker_end);
-			double docker_time = getrtime_sec_float(docker_start, docker_end);
+			double scrape_total_time = getrtime_sec_float(docker_end, ts_start);
+			double docker_time = getrtime_sec_float(docker_end, docker_start);
 			carglog(ac->system_carg, L_TRACE, "cadvisor scrape metrics: docker: image:'%lf' total:'%lf' \tname: %s, image: %s, path: %s\n", docker_time, scrape_total_time, name_str, image, kubepath);
 		}
 	}
 	json_decref(root);
 	carg->parser_status = 1;
 	r_time ts_end = setrtime();
-	double scrape_time = getrtime_sec_float(ts_start, ts_end);
+	double scrape_time = getrtime_sec_float(ts_end, ts_start);
 	carglog(ac->system_carg, L_DEBUG, "cadvisor scrape metrics: docker: '%lf'\n", scrape_time);
 }
 

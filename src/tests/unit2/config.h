@@ -879,7 +879,7 @@ void test_hash_and_rtime_helpers()
     assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 1000ULL, getrtime_ms(t1, t2));
     assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 2000ULL, getrtime_now_ms(t2));
 
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, getrtime_sec_float(t1, t2) > 0.9);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, getrtime_sec_float(t2, t1) > 0.9);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, getrtime_msec_float(t2, t1) >= 1000.0);
 }
 

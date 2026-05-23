@@ -161,15 +161,6 @@ typedef struct context_arg
 	uint64_t tls_write_bytes_counter;
 	uint64_t read_bytes_counter;
 	uint64_t tls_read_bytes_counter;
-	uint64_t tls_connect_time_counter;
-	uint64_t tls_read_time_counter;
-	uint64_t tls_write_time_counter;
-	uint64_t connect_time_counter;
-	uint64_t read_time_counter;
-	uint64_t write_time_counter;
-	uint64_t shutdown_time_counter;
-	uint64_t close_time_counter;
-	uint64_t exec_time_counter;
 	/* Minimum seconds between alligator_read_total / alligator_read_bytes_total pushes; 0 = default 10. */
 	uint32_t read_metric_interval_sec;
 	uint64_t entrypoint_read_metric_last_push_sec;

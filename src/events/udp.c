@@ -10,8 +10,12 @@
 #include "common/logs.h"
 #include "metric/namespace.h"
 #include "main.h"
+#include "common/rtime.h"
 
 extern aconf *ac;
+
+#define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
+#define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
 
 void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 {
@@ -108,7 +112,8 @@ void udp_timeout_timer(uv_timer_t *timer)
 	if (!carg)
 		return;
 
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, getrtime_now_ms(setrtime()), getrtime_sec_float(setrtime(), carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
+	r_time timeout_now = setrtime();
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	udp_close_client(carg, NULL);
