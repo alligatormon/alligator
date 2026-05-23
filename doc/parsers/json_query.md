@@ -21,9 +21,18 @@ aggregate {
 - `|` moves to the next stage.
 - `,` creates branches in the same stage.
 - `.field` moves deeper in JSON.
-- `[field]` extracts a label from array objects.
+- `[field]` extracts a label from the current JSON object (root object or each array element).
 - `[field:label]` (or `[field=label]`) extracts a field and renames the label.
 - Label blocks support spaces or commas between items.
+
+For line-delimited JSON objects (for example PostgreSQL `log_destination = jsonlog`), use a root label block:
+
+```
+aggregate {
+    json_query file:///var/log/postgresql/json.log \
+        "pquery=.[message dbname user error_severity state_code ps backend_type session_id remote_host timestamp]";
+}
+```
 
 Examples:
 ```

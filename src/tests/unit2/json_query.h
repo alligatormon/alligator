@@ -93,3 +93,22 @@ void test_json_query_merge_two_pquery(void)
 	metric_test_run(CMP_EQUAL, "json_items_count", "json_items_count", 3);
 	free(carg);
 }
+
+/* flat root object (e.g. PostgreSQL JSON log line): pquery .[field] labels at object level */
+void test_json_query_flat_object_labels(void)
+{
+	char *json = "{\"message\":\"database \\\"template0\\\" is not accepting\",\"dbname\":\"template0\","
+	    "\"error_severity\":\"FATAL\",\"pid\":1948819}";
+	char *pquery_str = ".[message dbname error_severity]";
+	char *pquery[] = { pquery_str };
+	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->key = "json_query_ut";
+	carg->pquery = pquery;
+	carg->pquery_size = 1;
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+	    json_query(json, NULL, "json", carg, carg->pquery, carg->pquery_size));
+
+	metric_test_run(CMP_EQUAL, "json_pid", "json_pid", 1948819);
+	free(carg);
+}

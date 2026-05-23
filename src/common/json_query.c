@@ -51,9 +51,63 @@ int json_query_node_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
+static void json_labels_apply_from_object(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl, alligator_ht *out_lbl)
+{
+	jq_node *jqn = alligator_ht_search(carg->data, json_query_node_compare, prefix->s, tommy_strhash_u32(0, prefix->s));
+
+	if (!jqn || !jqn->label_fields || !jqn->label_names || json_typeof(element) != JSON_OBJECT)
+		return;
+
+	for (uint64_t tkidx = 0; (tkidx < jqn->label_fields->l) && (tkidx < jqn->label_names->l); ++tkidx) {
+		char *metric_key = jqn->label_fields->str[tkidx]->s;
+		char *label_name = jqn->label_names->str[tkidx]->s;
+		json_t *metric_obj = json_object_get(element, metric_key);
+		if (!metric_obj)
+			continue;
+
+		int metric_type = json_typeof(metric_obj);
+		if (metric_type == JSON_STRING) {
+			char *metric_value = (char*)json_string_value(metric_obj);
+			size_t metric_len = strlen(metric_value);
+			metric_label_value_validator_normalizer(metric_value, metric_len);
+			labels_hash_insert_nocache(out_lbl, label_name, metric_value);
+		}
+		else if (metric_type == JSON_INTEGER) {
+			int64_t metric_ivalue = json_integer_value(metric_obj);
+			char metric_value[21];
+			snprintf(metric_value, 20, "%"PRId64, metric_ivalue);
+			labels_hash_insert_nocache(out_lbl, label_name, metric_value);
+		}
+		else if (metric_type == JSON_REAL) {
+			double metric_dvalue = json_real_value(metric_obj);
+			char metric_value[21];
+			snprintf(metric_value, 20, "%lf", metric_dvalue);
+			labels_hash_insert_nocache(out_lbl, label_name, metric_value);
+		}
+		else if (metric_type == JSON_TRUE) {
+			labels_hash_insert_nocache(out_lbl, label_name, "true");
+		}
+		else if (metric_type == JSON_FALSE) {
+			labels_hash_insert_nocache(out_lbl, label_name, "false");
+		}
+		else {
+			json_carglog_if(carg, L_DEBUG, "json '%s' error during parsing the metric key '%s': unknown type, this label will be skipped\n", json_carg_key(carg), metric_key);
+		}
+	}
+}
+
+static alligator_ht *json_labels_prepare(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl)
+{
+	alligator_ht *pass_lbl = lbl ? labels_dup(lbl) : alligator_ht_init(NULL);
+
+	json_labels_apply_from_object(carg, element, prefix, lbl, pass_lbl);
+	return pass_lbl;
+}
+
 void json_parse_object(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl) {
 	const char *key;
 	json_t *value;
+	alligator_ht *pass_lbl = json_labels_prepare(carg, element, prefix, lbl);
 
 	json_object_foreach(element, key, value) {
 		json_carglog_if(carg, L_DEBUG, "json '%s' parsed object prefix %s with key '%s'\n", json_carg_key(carg), json_prefix_s(prefix), key);
@@ -62,67 +116,28 @@ void json_parse_object(context_arg *carg, json_t *element, string *prefix, allig
 		string_string_cat(new_key, prefix);
 		string_cat(new_key, "_", 1);
 		string_cat(new_key, (char*)key, strlen(key));
-		json_parse_level(carg, value, new_key, lbl);
+		json_parse_level(carg, value, new_key, pass_lbl);
 
 		string_free(new_key);
 	}
+
+	labels_hash_free(pass_lbl);
 }
 
 void json_parse_array(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl) {
 	uint64_t size = json_array_size(element);
 
 	for (uint64_t i = 0; i < size; i++) {
-		jq_node *jqn = alligator_ht_search(carg->data, json_query_node_compare, prefix->s, tommy_strhash_u32(0, prefix->s));
 		json_t *value = json_array_get(element, i);
 
 		string *new_key = string_new();
-		alligator_ht *new_lbl;
+		alligator_ht *pass_lbl = json_labels_prepare(carg, value, prefix, lbl);
 
 		string_string_cat(new_key, prefix);
-		if (lbl)
-			new_lbl = labels_dup(lbl);
-		else {
-			new_lbl = alligator_ht_init(NULL);
-		}
-
-		for (uint64_t tkidx = 0; jqn && jqn->label_fields && jqn->label_names && (tkidx < jqn->label_fields->l) && (tkidx < jqn->label_names->l); ++tkidx) {
-			char *metric_key = jqn->label_fields->str[tkidx]->s;
-			char *label_name = jqn->label_names->str[tkidx]->s;
-			json_t *metric_obj = json_object_get(value, metric_key);
-			if (metric_obj) {
-				int metric_type = json_typeof(metric_obj);
-				if (metric_type == JSON_STRING) {
-					char *metric_value = (char*)json_string_value(metric_obj);
-					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
-				}
-				else if (metric_type == JSON_INTEGER) {
-					int64_t metric_ivalue = json_integer_value(metric_obj);
-					char metric_value[21];
-					snprintf(metric_value, 20, "%"PRId64, metric_ivalue);
-					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
-				}
-				else if (metric_type == JSON_REAL) {
-					double metric_dvalue = json_real_value(metric_obj);
-					char metric_value[21];
-					snprintf(metric_value, 20, "%lf", metric_dvalue);
-					labels_hash_insert_nocache(new_lbl, label_name, metric_value);
-				}
-				else if (metric_type == JSON_TRUE) {
-					labels_hash_insert_nocache(new_lbl, label_name, "true");
-				}
-				else if (metric_type == JSON_FALSE) {
-					labels_hash_insert_nocache(new_lbl, label_name, "false");
-				}
-				else {
-					json_carglog_if(carg, L_DEBUG, "json '%s' error during parsing the metric key '%s': unknown type, this label will be skipped\n", json_carg_key(carg), metric_key);
-				}
-			}
-		}
-
-		json_parse_level(carg, value, new_key, new_lbl);
+		json_parse_level(carg, value, new_key, pass_lbl);
 
 		string_free(new_key);
-		labels_hash_free(new_lbl);
+		labels_hash_free(pass_lbl);
 	}
 }
 
