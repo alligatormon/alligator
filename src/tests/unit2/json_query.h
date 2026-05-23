@@ -112,3 +112,22 @@ void test_json_query_flat_object_labels(void)
 	metric_test_run(CMP_EQUAL, "json_pid", "json_pid", 1948819);
 	free(carg);
 }
+
+/* NDJSON: multiple root objects separated by newlines */
+void test_json_query_ndjson_lines(void)
+{
+	char *json = "{\"pid\":1,\"message\":\"a\"}\n"
+	    "{\"pid\":2,\"message\":\"b\"}\n";
+	char *pquery_str = ".[message]";
+	char *pquery[] = { pquery_str };
+	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->key = "json_query_ut";
+	carg->pquery = pquery;
+	carg->pquery_size = 1;
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+	    json_query(json, NULL, "json", carg, carg->pquery, carg->pquery_size));
+
+	metric_test_run(CMP_EQUAL, "json_pid", "json_pid", 2);
+	free(carg);
+}

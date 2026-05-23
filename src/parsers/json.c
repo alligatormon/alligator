@@ -10,24 +10,27 @@
 #include "main.h"
 void json_handler(char *metrics, size_t size, context_arg *carg)
 {
+	(void)size;
 	namespace_metric_family_set(NULL, carg, "json", METRIC_TYPE_GAUGE, "JSON parser extracted numeric value.");
 	json_error_t error;
-	char *data = metrics;
 	json_t *root = json_loads(metrics, 0, &error);
-	if (!root)
-	{
-		data = yaml_str_to_json_str(metrics);
-		if (!data)
-			return;
-
-		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
-		free(data);
-	}
-	else
-	{
+	if (root) {
 		json_decref(root);
-		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
+		carg->parser_status = json_query(metrics, NULL, "json", carg, carg->pquery, carg->pquery_size);
+		return;
 	}
+
+	/* NDJSON / single-document JSON before YAML (multi-line JSON is not YAML). */
+	carg->parser_status = json_query(metrics, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	if (carg->parser_status)
+		return;
+
+	char *data = yaml_str_to_json_str(metrics);
+	if (!data)
+		return;
+
+	carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	free(data);
 }
 
 string* json_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
@@ -53,24 +56,27 @@ void json_parser_push()
 
 void json_query_handler(char *metrics, size_t size, context_arg *carg)
 {
+	(void)size;
 	namespace_metric_family_set(NULL, carg, "json", METRIC_TYPE_GAUGE, "JSON parser extracted numeric value.");
 	json_error_t error;
-	char *data = metrics;
 	json_t *root = json_loads(metrics, 0, &error);
-	if (!root)
-	{
-		data = yaml_str_to_json_str(metrics);
-		if (!data)
-			return;
-
-		carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
-		free(data);
-	}
-	else
-	{
+	if (root) {
 		carg->parser_status = json_query(NULL, root, "json", carg, carg->pquery, carg->pquery_size);
 		json_decref(root);
+		return;
 	}
+
+	/* NDJSON / single-document JSON before YAML (multi-line JSON is not YAML). */
+	carg->parser_status = json_query(metrics, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	if (carg->parser_status)
+		return;
+
+	char *data = yaml_str_to_json_str(metrics);
+	if (!data)
+		return;
+
+	carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	free(data);
 }
 
 void json_query_push()

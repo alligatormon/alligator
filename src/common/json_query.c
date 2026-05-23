@@ -398,35 +398,8 @@ void jq_node_free_foreach(void *funcarg, void* arg)
 	free(jqn);
 }
 
-int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char **queries, uint8_t queries_size) {
-	int need_free = 1;
-	int rc = 0;
-	char *jq_key_owned = NULL;
-
-	if (root)
-		need_free = 0;
-
-	/* Logger context: handlers often omit carg->key; use metric prefix for all json_query carglog lines. */
-	if (carg && prefix && prefix[0] && !carg->key) {
-		jq_key_owned = strdup(prefix);
-		if (jq_key_owned)
-			carg->key = jq_key_owned;
-	}
-
-	json_error_t error;
-	if (!root) {
-		root = json_loads(data, 0, &error);
-		if (!root) {
-			json_carglog_if(carg, L_ERROR, "json '%s' error on line %d: %s\n", json_carg_key(carg), error.line, error.text);
-			if (jq_key_owned) {
-				if (carg && carg->key == jq_key_owned)
-					carg->key = NULL;
-				free(jq_key_owned);
-			}
-			return 0;
-		}
-	}
-
+static void json_query_parse_root(context_arg *carg, json_t *root, char *prefix, char **queries, uint8_t queries_size)
+{
 	carg->data = json_parse_query(carg, queries, queries_size, prefix, strlen(prefix));
 
 	string *pass = string_new();
@@ -439,32 +412,155 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 	labels_hash_free(lbl);
 	alligator_ht_forfree(carg->data, jq_node_free_foreach);
 	free(carg->data);
+	carg->data = NULL;
+}
+
+static char *json_ndjson_trim_line(char *line)
+{
+	char *end = line + strlen(line);
+	while (end > line && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
+		--end;
+	*end = '\0';
+	return line;
+}
+
+/* JSON Lines / NDJSON: one JSON value per line (PostgreSQL jsonlog, etc.). */
+static int json_query_parse_lines(char *data, char *prefix, context_arg *carg, char **queries, uint8_t queries_size)
+{
+	int parsed = 0;
+	char *p = data;
+
+	while (*p) {
+		while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+			++p;
+		if (!*p)
+			break;
+
+		char *line = p;
+		while (*p && *p != '\n')
+			++p;
+
+		if (*p == '\n')
+			*p++ = '\0';
+
+		json_ndjson_trim_line(line);
+		if (!*line)
+			continue;
+
+		json_error_t error;
+		json_t *line_root = json_loads(line, 0, &error);
+		if (!line_root) {
+			json_carglog_if(carg, L_DEBUG, "json '%s' skip NDJSON line: %s\n", json_carg_key(carg), error.text);
+			continue;
+		}
+
+		json_query_parse_root(carg, line_root, prefix, queries, queries_size);
+		json_decref(line_root);
+		++parsed;
+	}
+
+	return parsed;
+}
+
+static int json_ndjson_valid_lines(char *data)
+{
+	int valid = 0;
+	char *p = data;
+
+	while (*p) {
+		while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
+			++p;
+		if (!*p)
+			break;
+
+		char *line = p;
+		while (*p && *p != '\n')
+			++p;
+
+		if (*p == '\n')
+			*p++ = '\0';
+
+		json_ndjson_trim_line(line);
+		if (!*line)
+			continue;
+
+		json_error_t error;
+		json_t *line_root = json_loads(line, 0, &error);
+		if (!line_root)
+			continue;
+
+		json_decref(line_root);
+		++valid;
+	}
+
+	return valid;
+}
+
+static void json_query_release_key(context_arg *carg, char *jq_key_owned)
+{
+	if (!jq_key_owned)
+		return;
+	if (carg && carg->key == jq_key_owned)
+		carg->key = NULL;
+	free(jq_key_owned);
+}
+
+int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char **queries, uint8_t queries_size) {
+	int need_free = !root;
+	char *jq_key_owned = NULL;
+
+	/* Logger context: handlers often omit carg->key; use metric prefix for all json_query carglog lines. */
+	if (carg && prefix && prefix[0] && !carg->key) {
+		jq_key_owned = strdup(prefix);
+		if (jq_key_owned)
+			carg->key = jq_key_owned;
+	}
+
+	json_error_t error;
+	if (!root) {
+		root = json_loads(data, 0, &error);
+		if (!root) {
+			if (json_query_parse_lines(data, prefix, carg, queries, queries_size) > 0) {
+				json_query_release_key(carg, jq_key_owned);
+				return 1;
+			}
+			json_carglog_if(carg, L_ERROR, "json '%s' error on line %d: %s\n", json_carg_key(carg), error.line, error.text);
+			json_query_release_key(carg, jq_key_owned);
+			return 0;
+		}
+	}
+
+	json_query_parse_root(carg, root, prefix, queries, queries_size);
 
 	if (need_free)
 		json_decref(root);
 
-	rc = 1;
-	if (jq_key_owned) {
-		if (carg && carg->key == jq_key_owned)
-			carg->key = NULL;
-		free(jq_key_owned);
-	}
-	return rc;
+	json_query_release_key(carg, jq_key_owned);
+	return 1;
 }
 
 int8_t json_validator(context_arg *carg, char *data, size_t size)
 {
+	(void)carg;
+	(void)size;
 	json_error_t error;
 	json_t *root = json_loads(data, 0, &error);
-	if (!root)
-	{
+	if (root) {
+		json_decref(root);
 		if (ac->log_level > 2)
-			printf("json validator: json error on line %d: %s\n", error.line, error.text);
-		return 0;
+			puts("json validator OK");
+		return 1;
 	}
-	else if (ac->log_level > 2)
-		puts("json validator OK");
-	return 1;
+
+	if (json_ndjson_valid_lines(data) > 0) {
+		if (ac->log_level > 2)
+			puts("json validator OK (NDJSON lines)");
+		return 1;
+	}
+
+	if (ac->log_level > 2)
+		printf("json validator: json error on line %d: %s\n", error.line, error.text);
+	return 0;
 }
 
 void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json)
