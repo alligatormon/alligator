@@ -4,16 +4,21 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <uv.h>
-#include <uuid/uuid.h>
 #include "dstructures/tommyds/tommyds/tommy.h"
 #include "main.h"
 #include "common/selector.h"
 #include "events/uv_alloc.h"
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
-#include "common/mkdirp.h"
 #include "common/logs.h"
 extern aconf* ac;
+
+static const char *process_shell_path(void)
+{
+	if (ac->process_shell && ac->process_shell[0])
+		return ac->process_shell;
+	return "/bin/sh";
+}
 
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
@@ -138,27 +143,9 @@ void process_insert(void *arg)
 	carg->process_spawner_registered = 1;
 }
 
-char* process_client(context_arg *carg)
+static int process_build_script(context_arg *carg)
 {
-	if (!carg)
-	{
-		carglog(carg, L_INFO, "exec is empty\n");
-		return NULL;
-	}
-
-	uuid_t uuid;
-	uuid_generate_time_safe(uuid);
-	char uuid_str[37];
-	uuid_unparse_lower(uuid, uuid_str);
-
-	size_t fsize = 255;
-	char *fname = malloc(fsize);
 	string *stemplate = string_init(1000);
-	snprintf(fname, fsize-1, "%s/%s", ac->process_script_dir, uuid_str);
-	carglog(carg, L_INFO, "exec command saved to: %s/%s: '%s'\n", ac->process_script_dir, uuid_str, carg->host);
-
-	// TODO /bin/bash only linux, need customize
-	string_cat(stemplate, "#!/bin/bash\n", 12);
 
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_struct_process, stemplate);
@@ -170,14 +157,12 @@ char* process_client(context_arg *carg)
 		string_cat(stemplate, "\n", 1);
 	}
 
-
 	if (carg->stdin_s && carg->stdin_l)
 	{
 		string_cat(stemplate, "echo '", 6);
 		string_cat(stemplate, carg->stdin_s, carg->stdin_l);
 		string_cat(stemplate, "' | '", 4);
 	}
-
 
 	string_cat(stemplate, carg->host, strlen(carg->host));
 	if (carg->mesg)
@@ -187,24 +172,90 @@ char* process_client(context_arg *carg)
 	}
 	string_cat(stemplate, "\n", 1);
 
-	unlink(fname);
+	if (carg->exec_script)
+		free(carg->exec_script);
 
-	/* write_to_file() owns and frees buffer.base in fs_write_exit() */
-	char *script_body = stemplate->s;
-	size_t script_len = stemplate->l;
+	carg->exec_script = stemplate->s;
+	carg->exec_script_len = stemplate->l;
 	stemplate->s = NULL;
 	string_free(stemplate);
 
-	mkdirp(ac->process_script_dir);
-	write_to_file(fname, script_body, script_len, process_insert, carg);
-	carglog(carg, L_DEBUG, "Saved command %zu\n'%s'\n", script_len, script_body);
+	return carg->exec_script ? 0 : -1;
+}
 
-	char **args = calloc(2, sizeof(char*));
-	args[0] = fname;
-	args[1] = NULL;
+static void process_stdin_write_cb(uv_write_t *req, int status)
+{
+	context_arg *carg = req->data;
+
+	if (status < 0)
+		carglog(carg, L_ERROR, "process stdin write for '%s': %s\n", carg->host, uv_strerror(status));
+
+	free(req);
+	uv_close((uv_handle_t*)&carg->child_stdin, NULL);
+}
+
+static void process_feed_stdin(context_arg *carg)
+{
+	uv_write_t *write_req = malloc(sizeof(*write_req));
+	if (!write_req)
+	{
+		carglog(carg, L_ERROR, "process stdin write alloc failed for '%s'\n", carg->host);
+		uv_close((uv_handle_t*)&carg->child_stdin, NULL);
+		uv_process_kill(&carg->child_req, SIGTERM);
+		return;
+	}
+
+	write_req->data = carg;
+	uv_buf_t buf = uv_buf_init(carg->exec_script, (unsigned int)carg->exec_script_len);
+	int r = uv_write(write_req, (uv_stream_t*)&carg->child_stdin, &buf, 1, process_stdin_write_cb);
+	if (r)
+	{
+		carglog(carg, L_ERROR, "process uv_write stdin for '%s': %s\n", carg->host, uv_strerror(r));
+		free(write_req);
+		uv_close((uv_handle_t*)&carg->child_stdin, NULL);
+		uv_process_kill(&carg->child_req, SIGTERM);
+	}
+}
+
+char* process_client(context_arg *carg)
+{
+	if (!carg)
+	{
+		carglog(carg, L_INFO, "exec is empty\n");
+		return NULL;
+	}
+
+	if (process_build_script(carg) < 0)
+	{
+		carglog(carg, L_ERROR, "failed to build exec script for '%s'\n", carg->host);
+		return NULL;
+	}
+
+	carglog(carg, L_INFO, "exec command via %s -s: '%s'\n", process_shell_path(), carg->host);
+	carglog(carg, L_DEBUG, "exec script %zu bytes\n'%.*s'\n",
+		carg->exec_script_len,
+		(int)(carg->exec_script_len > 4096 ? 4096 : carg->exec_script_len),
+		carg->exec_script);
+
+	char **args = calloc(3, sizeof(char*));
+	if (!args)
+	{
+		carglog(carg, L_ERROR, "failed to allocate exec argv for '%s'\n", carg->host);
+		return NULL;
+	}
+
+	args[0] = NULL;
+	args[1] = strdup("-s");
+	args[2] = NULL;
+	if (!args[1])
+	{
+		free(args);
+		carglog(carg, L_ERROR, "failed to duplicate exec argv for '%s'\n", carg->host);
+		return NULL;
+	}
 
 	carg->args = args;
-	//alligator_ht_insert(ac->process_spawner, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	process_insert(carg);
 
 	return "process";
 }
@@ -220,8 +271,6 @@ void process_client_del(context_arg *carg)
 
 	if (carg->process_spawner_registered)
 		alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
-	if (carg->args && carg->args[0])
-		unlink(carg->args[0]);
 	carg_free(carg);
 }
 
@@ -253,11 +302,29 @@ void on_process_spawn(void* arg)
 	uv_pipe_t *channel = &carg->channel;
 	channel->data = carg;
 	uv_pipe_init(carg->loop, channel, 1);
+
+	uv_pipe_t *stdin_pipe = &carg->child_stdin;
+	stdin_pipe->data = carg;
+	uv_pipe_init(carg->loop, stdin_pipe, 0);
+
 	uv_stdio_container_t *child_stdio = carg->child_stdio;
-	child_stdio[ASTDIN_FILENO].flags = UV_IGNORE;
+	child_stdio[ASTDIN_FILENO].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+	child_stdio[ASTDIN_FILENO].data.stream = (uv_stream_t*)stdin_pipe;
 	child_stdio[ASTDOUT_FILENO].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
 	child_stdio[ASTDOUT_FILENO].data.stream = (uv_stream_t*)channel;
 	child_stdio[ASTDERR_FILENO].flags = UV_IGNORE;
+
+	if (carg->args[0])
+		free(carg->args[0]);
+	carg->args[0] = strdup(process_shell_path());
+	if (!carg->args[0])
+	{
+		carglog(carg, L_ERROR, "failed to duplicate exec shell for '%s'\n", carg->host);
+		uv_close((uv_handle_t*)stdin_pipe, NULL);
+		uv_close((uv_handle_t*)channel, NULL);
+		carg->lock = 0;
+		return;
+	}
 
 	uv_process_options_t *options = &carg->options;
 	bzero(options, sizeof(uv_process_options_t));
@@ -270,10 +337,13 @@ void on_process_spawn(void* arg)
 	r = uv_spawn(carg->loop, child_req, options);
 	if (r) {
 		carglog(carg, L_ERROR, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
+		uv_close((uv_handle_t*)stdin_pipe, NULL);
+		uv_close((uv_handle_t*)channel, NULL);
 		_on_exit(child_req, 0, 0);
 	}
 	else
 	{
+		process_feed_stdin(carg);
 		uv_read_start((uv_stream_t*)channel, alloc_buffer, echo_read);
 
 		carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));

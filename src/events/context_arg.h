@@ -131,6 +131,9 @@ typedef struct context_arg
 	// for process spawn
 	uv_process_options_t options;
 	uv_pipe_t channel;
+	uv_pipe_t child_stdin;
+	char *exec_script;
+	size_t exec_script_len;
 	uv_stdio_container_t child_stdio[3];
 	uv_process_t child_req;
 	char** args;

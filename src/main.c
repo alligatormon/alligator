@@ -98,7 +98,7 @@ aconf* configuration()
 	ac->system_aggregator_repeat = 10000;
 
 	ac->process_spawner = calloc(1, sizeof(alligator_ht));
-	ac->process_script_dir = "/var/lib/alligator/spawner";
+	ac->process_shell = strdup("/bin/sh");
 
 	ac->lang_aggregator = calloc(1, sizeof(alligator_ht));
 
@@ -178,6 +178,7 @@ void main_free()
 		free(ac->cadvisor_carg);
 	free(ac->log_host);
 	free(ac->log_dest);
+	free(ac->process_shell);
 
 	alligator_ht_done(ac->tcp_server_handler);
 	free(ac->tcp_server_handler);

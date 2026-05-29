@@ -341,7 +341,6 @@ int main(int argc, char **argv) {
 
     ac = calloc(1, sizeof(*ac));
     ac->loop = uv_default_loop();
-    ac->process_script_dir = "/var/lib/alligator/spawner";
 
     ac->uv_cache_timer = calloc(1, sizeof(tommy_list));
     tommy_list_init(ac->uv_cache_timer);

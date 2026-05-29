@@ -108,6 +108,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				ac->log_dest = strdup(json_string_value(value));
 				ac->update_log_dest = 1;
 			}
+			if (!strcmp(key, "process_shell"))
+			{
+				if (ac->process_shell)
+					free(ac->process_shell);
+				ac->process_shell = strdup(json_string_value(value));
+			}
 			if (!strcmp(key, "log_form"))
 			{
 				const char *form = json_string_value(value);
@@ -172,13 +178,6 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					ac->ttl = get_sec_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					ac->ttl = json_integer_value(value);
-			}
-			if (!strcmp(key, "process_script_dir"))
-			{
-				if (json_typeof(value) == JSON_STRING)
-					ac->process_script_dir = strdup(json_string_value(value));
-				else
-					glog(L_ERROR, "error, process_script_dir is not a string\n");
 			}
 			if (!strcmp(key, "workers"))
 			{

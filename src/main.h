@@ -137,8 +137,8 @@ typedef struct aconf
 
 	// PROCESS SPAWNER
 	alligator_ht* process_spawner; // hashtable with commands
-	char *process_script_dir; // dir where store commands into scripts
 	uv_timer_t process_timer;
+	char *process_shell;
 
 	// LANG SPAWNER
 	alligator_ht* lang_aggregator;

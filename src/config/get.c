@@ -102,16 +102,16 @@ void config_global_get(json_t *dst)
 		json_t *aggregate_period = json_integer(ac->cluster_repeat);
 		json_array_object_insert(dst, "synchronization_period", aggregate_period);
 	}
-	if (ac->process_script_dir)
-	{
-		json_t *process_script_dir = json_string(ac->process_script_dir);
-		json_array_object_insert(dst, "process_script_dir", process_script_dir);
-	}
-
 	if (ac->ttl)
 	{
 		json_t *ttl = json_integer(ac->ttl);
 		json_array_object_insert(dst, "ttl", ttl);
+	}
+
+	if (ac->process_shell)
+	{
+		json_t *process_shell = json_string(ac->process_shell);
+		json_array_object_insert(dst, "process_shell", process_shell);
 	}
 
 	if (ac->metrictree_hashfunc == alligator_ht_strhash) {

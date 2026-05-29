@@ -181,6 +181,9 @@ void carg_free(context_arg *carg)
 	if (carg->script)
 		free(carg->script);
 
+	if (carg->exec_script)
+		free(carg->exec_script);
+
 	if (carg->full_body)
 		string_free(carg->full_body);
 
