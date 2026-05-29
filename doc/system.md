@@ -123,12 +123,86 @@ cpu_avg 4.326667
 
 ## packages
 Collects information about packages installed in the OS by the system installer and their installation date.\
-It can specify a list of packages. Otherwise, it collect information from all packages in the system.
-Here's an example of a collected metric:
+It can specify a list of packages. Otherwise, it collects information from all packages in the system.
+
+On RPM-based Linux systems (RHEL, CentOS, Fedora, and similar), Alligator exposes:
+
+- `package_installed` — labels `name`, `version`, `release`; value is install time (Unix timestamp)
+- `package_total` — total number of installed packages seen in the scrape
+- `rpmdb_load_failed` — `1` when package data could not be loaded, `0` otherwise
+
+Example metric:
+
 ```
+# HELP package_installed Unix timestamp when the package was installed, labeled by name, version, and release.
+# TYPE package_installed gauge
 package_installed {version="6.40", name="nmap-ncat", release="7.el7"} 1527797852
+# HELP package_total Total number of installed packages seen during the last scrape.
+# TYPE package_total gauge
+package_total 842
+# HELP rpmdb_load_failed 1 if the RPM package database could not be loaded during the last scrape, 0 otherwise.
+# TYPE rpmdb_load_failed gauge
+rpmdb_load_failed 0
 ```
 
+Prometheus exposition includes `# HELP` and `# TYPE` lines for each metric family. Without explicit registration, `package_installed` would appear as `# TYPE package_installed unknown` with the metric name repeated as help text.
+
+### RPM data source
+
+On Linux, RPM package metrics are collected in one of two ways:
+
+| Source | When used |
+|--------|-----------|
+| **rpmlib** | `modules { rpmlib <path>; }` is configured with a path to `librpm` (for example `/usr/lib64/librpm.so.9`) |
+| **rpm -qa** | Default when `rpmlib` is not configured, or when loading/using the library fails |
+
+There is no automatic search for `librpm.so.*` sonames. You must set the library path explicitly if you want the `rpmlib` backend.
+
+The `rpmlib` path is read from the top-level `modules` block (key `rpmlib`), the same mechanism used for other dynamic libraries:
+
+```
+modules {
+    rpmlib /usr/lib64/librpm.so.9;
+}
+
+system {
+    packages [nginx] [alligator];
+}
+```
+
+JSON / API configuration:
+
+```json
+"modules": {
+  "rpmlib": "/usr/lib64/librpm.so.9"
+},
+"system": {
+  "packages": ["nginx", "alligator"]
+}
+```
+
+When `rpmlib` is configured, Alligator loads the library asynchronously in a libuv worker thread (`uv_dlopen` / `uv_dlsym`), reads the RPM database through the librpm API, and publishes metrics on the event loop. This avoids blocking the main client loop during database access.
+
+If `rpmlib` is missing, cannot be opened, required symbols are absent, or iteration fails, Alligator falls back to:
+
+```
+rpm -qa --queryformat '%{RPMTAG_INSTALLTIME} %{NAME} %{VERSION} %{RELEASE}\n'
+```
+
+That fallback matches the behavior used on older systems (for example CentOS 7 with Berkeley DB rpmdb) where direct librpm access may be unavailable or undesirable.
+
+### Logging
+
+Datasource selection is logged through the system context logger (`carglog` on `system_carg`) at **info** level when `system.log_level` (or global `log_level`) is `info` or more verbose. Typical messages:
+
+- `rpm packages datasource: rpm -qa (modules.rpmlib is not configured)` — no `rpmlib` module; command backend used
+- `rpm packages datasource: rpmlib, loading library <path>` — worker started for configured library
+- `rpm packages datasource: rpmlib (library: <path>)` — collection succeeded via librpm
+- `rpm packages datasource: rpmlib failed, fallback to rpm -qa (library: <path>, reason: <...>)` — librpm failed; command fallback used
+
+Reason strings include details such as `dlopen` errors, missing symbols, or empty iterator results.
+
+On Debian/Ubuntu systems, package metrics are collected from `/var/lib/dpkg/available` when that file exists; the `rpmlib` module applies only to RPM-based hosts.
 
 ## cadvisor
 Implements metrics from the well-known exporter called CAdvisor.\

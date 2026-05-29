@@ -2,10 +2,23 @@
 #include <string.h>
 #include "main.h"
 #include "events/fs_read.h"
+#include "metric/metric_types.h"
+#include "metric/namespace.h"
 extern aconf *ac;
+
+void packages_register_metric_families(context_arg *carg)
+{
+	namespace_metric_family_set(NULL, carg, "package_installed", METRIC_TYPE_GAUGE,
+		"Unix timestamp when the package was installed, labeled by name, version, and release.");
+	namespace_metric_family_set(NULL, carg, "package_total", METRIC_TYPE_GAUGE,
+		"Total number of installed packages seen during the last scrape.");
+	namespace_metric_family_set(NULL, carg, "rpmdb_load_failed", METRIC_TYPE_GAUGE,
+		"1 if the RPM package database could not be loaded during the last scrape, 0 otherwise.");
+}
 
 void dpkg_list(char *str, size_t len)
 {
+	packages_register_metric_families(ac->system_carg);
 	uint64_t i;
 	char *package;
 	char *version;
