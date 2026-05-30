@@ -312,74 +312,68 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 	//printf("labels->list '%s': %p: %lf\n", labels_list->key, qs, x->d);
 	if (!qs)
 	{
-		qs = malloc(sizeof(*qs));
-		qs->val = 0;
+		qs = calloc(1, sizeof(*qs));
 		qs->lbl = labels_to_hash(labels_list, groupkey);
 		qs->count = 1;
 		qs->key = key->s;
 		qs->metric_name = labels_list->key;
 		alligator_ht_insert(res_hash, &(qs->node), qs, key_hash);
-
-		int8_t type = x->type;
-		if (type == DATATYPE_INT) {
-			qs->val += x->i;
-			qs->lastvar = x->i;
-			if (opval == x->i) {
-				qs->equal_hits += 1;
-			} else {
-				qs->unequal_hits += 1;
-			}
-		}
-		else if (type == DATATYPE_UINT) {
-			qs->val += x->u;
-			qs->lastvar = x->u;
-			if (opval == x->u) {
-				qs->equal_hits += 1;
-			} else {
-				qs->unequal_hits += 1;
-			}
-		}
-		else if (type == DATATYPE_DOUBLE) {
-			qs->val += x->d;
-			qs->lastvar = x->d;
-			if (opval == x->d) {
-				qs->equal_hits += 1;
-			} else {
-				qs->unequal_hits += 1;
-			}
-		}
-
-		qs->min = qs->val;
-		qs->max = qs->val;
 	}
 	else
 	{
 		free(key->s);
-
 		++qs->count;
-		int8_t type = x->type;
-		if (type == DATATYPE_INT)
-		{
-			qs->val += x->i;
-			qs->lastvar = x->i;
+	}
+
+	int8_t type = x->type;
+	if (type == DATATYPE_INT) {
+		qs->val += x->i;
+		qs->lastvar = x->i;
+		if (opval == x->i) {
+			qs->equal_hits += 1;
+		} else {
+			qs->unequal_hits += 1;
+		}
+		if (qs->count == 1) {
+			qs->min = x->i;
+			qs->max = x->i;
+		} else {
 			if (qs->min > x->i)
 				qs->min = x->i;
 			if (qs->max < x->i)
 				qs->max = x->i;
 		}
-		else if (type == DATATYPE_UINT)
-		{
-			qs->val += x->u;
-			qs->lastvar = x->u;
+	}
+	else if (type == DATATYPE_UINT) {
+		qs->val += x->u;
+		qs->lastvar = x->u;
+		if (opval == x->u) {
+			qs->equal_hits += 1;
+		} else {
+			qs->unequal_hits += 1;
+		}
+		if (qs->count == 1) {
+			qs->min = x->u;
+			qs->max = x->u;
+		} else {
 			if (qs->min > x->u)
 				qs->min = x->u;
 			if (qs->max < x->u)
 				qs->max = x->u;
 		}
-		else if (type == DATATYPE_DOUBLE)
-		{
-			qs->val += x->d;
-			qs->lastvar = x->d;
+	}
+	else if (type == DATATYPE_DOUBLE) {
+		qs->val += x->d;
+		qs->lastvar = x->d;
+		if (opval == x->d) {
+			qs->equal_hits += 1;
+		} else {
+			qs->unequal_hits += 1;
+		}
+		if (qs->count == 1) {
+			qs->min = x->d;
+			qs->max = x->d;
+		} else {
 			if (qs->min > x->d)
 				qs->min = x->d;
 			if (qs->max < x->d)
@@ -1627,7 +1621,7 @@ void metric_gen_foreach_none(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, min: %lf, max: %lf, equal: %"d64", unequal: %"d64", opval: %lf\n", qs->key, qs->count, mqc->op, qs->min, qs->max, qs->equal_hits, qs->unequal_hits, mqc->opval);
+	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, min: %lf, max: %lf, equal: %"u64", unequal: %"u64", opval: %lf\n", qs->key, qs->count, mqc->op, qs->min, qs->max, qs->equal_hits, qs->unequal_hits, mqc->opval);
 
 	if (query_struct_check_expr_none(mqc, qs))
 	{
