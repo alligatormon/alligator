@@ -290,6 +290,7 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 
 		if (carg && reject_metric(carg->reject, label_name, label_key))
 		{
+			carg_or_glog(carg, L_DEBUG, "> rejected metric: %s: %s = %s\n", str, label_name, label_key);
 			labels_hash_free(*lbl);
 			return 0;
 		}
@@ -527,8 +528,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		//printf("> last parse: %s)\n", str+i);
 
 		// don't need free labels
-		if (!parse_statsd_labels(str, &i, size, &lbl, carg))
-			return 0;
+		parse_statsd_labels(str, &i, size, &lbl, carg);
 	}
 	else if (isdigit((unsigned char)str[i]))
 	{
