@@ -37,6 +37,8 @@ typedef struct http_reply_data
 	char *auth_basic;
 	char *auth_bearer;
 	char *auth_other;
+	uint8_t connection_close;
+	uint8_t connection_keepalive;
 } http_reply_data;
 
 http_reply_data* http_reply_parser(char *http, ssize_t n);

@@ -517,6 +517,36 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					context_arg *carg = calloc(1, sizeof(*carg)); // TODO: memory leak
 					carg->buffer_request_size = 6553500;
 					carg->buffer_response_size = 6553500;
+					carg->http_keepalive = 1;
+					carg->http_idle_timeout_sec = 75;
+
+					json_t *json_http_keepalive = json_object_get(entrypoint, "http_keepalive");
+					if (json_http_keepalive)
+					{
+						if (json_is_false(json_http_keepalive))
+							carg->http_keepalive = 0;
+						else if (json_is_string(json_http_keepalive))
+						{
+							const char *s = json_string_value(json_http_keepalive);
+							if (s && (!strcmp(s, "off") || !strcmp(s, "false") || !strcmp(s, "0")))
+								carg->http_keepalive = 0;
+						}
+					}
+
+					json_t *json_http_idle = json_object_get(entrypoint, "http_idle_timeout");
+					if (json_http_idle)
+					{
+						int t = json_typeof(json_http_idle);
+						int64_t v = 0;
+						if (t == JSON_STRING)
+							v = get_sec_from_human_range(json_string_value(json_http_idle), json_string_length(json_http_idle));
+						else if (t == JSON_REAL)
+							v = (int64_t)json_real_value(json_http_idle);
+						else if (t == JSON_INTEGER)
+							v = json_integer_value(json_http_idle);
+						if (v > 0 && v <= 86400000)
+							carg->http_idle_timeout_sec = (uint32_t)v;
+					}
 
 					json_t *json_auth_header = json_object_get(entrypoint, "auth_header");
 					if (json_auth_header)

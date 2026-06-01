@@ -167,6 +167,14 @@ typedef struct context_arg
 	/* Minimum seconds between alligator_read_total / alligator_read_bytes_total pushes; 0 = default 10. */
 	uint32_t read_metric_interval_sec;
 	uint64_t entrypoint_read_metric_last_push_sec;
+	/* HTTP entrypoint: allow multiple requests per TCP connection. */
+	uint8_t http_keepalive;
+	uint8_t http_close_after_response;
+	uint32_t http_idle_timeout_sec;
+	size_t http_request_size;
+	uint8_t http_write_pending;
+	uint8_t http_idle_timer_active;
+	uv_timer_t http_idle_timer;
 
 	uint8_t no_metric;
 	uint8_t no_collect;
@@ -268,6 +276,12 @@ typedef struct context_arg
 
 	uint64_t parsed;
 
+	/* Long-lived HTTP body stream (Kubernetes watch, etc.). */
+	uint8_t http_stream_body;
+	size_t http_stream_offset;
+	void (*http_stream_body_cb)(struct context_arg *carg, const char *data, size_t len);
+	void (*http_stream_close_cb)(struct context_arg *carg);
+
 	int64_t ttl; // TTL for this context metrics
 	int64_t curr_ttl;
 	uint8_t headers_pass;
@@ -361,6 +375,7 @@ void env_struct_free(void *funcarg, void* arg);
 void carg_free(context_arg *carg);
 void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
 void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);
+int env_struct_compare(const void *arg, const void *obj);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);

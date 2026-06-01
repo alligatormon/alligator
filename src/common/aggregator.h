@@ -30,6 +30,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query);
 void smart_aggregator_del(context_arg *carg);
 int smart_aggregator(context_arg *carg);
+void smart_aggregator_del_key(char *key);
 void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query);
 void aggregators_free();
 void aggregate_ctx_free();

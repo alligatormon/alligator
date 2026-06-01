@@ -1,0 +1,6 @@
+apiVersion: v2
+name: alligator
+description: Alligator metrics collector DaemonSet with native Kubernetes operator
+type: application
+version: 0.1.0
+appVersion: "1.14.189"

@@ -4,13 +4,25 @@
 To enable the collection of statistics from Kubernetes containers, use the following option:
 ```
 aggregate {
+    kubernetes_operator https://kubernetes.default.svc/?node_local=on;
+}
+```
+
+Legacy poll-based discovery remains available:
+```
+aggregate {
     kubernetes_endpoint https://k8s.example.com 'env=Authorization:Bearer TOKEN';
 }
 ```
 The first step enables the gathering of data from PODs where Alligator annotations exist and is enabled:
 ```
 alligator/scrape: 'true'
+alligator/<port-name>-handler: <parser>
+alligator/<port-name>-proto: http|https|tcp|...
+alligator/<port-name>-path: /metrics
 ```
+
+See [kubernetes-operator.md](../kubernetes-operator.md) for DaemonSet, node-local mode, and Helm deployment.
 
 ### Ingresses and Periodic Blackbox Checks
 To enable the collection of ingresses and to perform periodic blackbox checks, use the following option:

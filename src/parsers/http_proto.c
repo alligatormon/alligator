@@ -463,6 +463,16 @@ http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_
 		{
 			ret->content_length = atoll(ret->headers+i+15+1);
 		}
+		else if (!strncasecmp(ret->headers + i, "Connection:", 11))
+		{
+			const char *v = ret->headers + i + 11;
+			while (*v == ' ' || *v == '\t')
+				v++;
+			if (!strncasecmp(v, "close", 5))
+				ret->connection_close = 1;
+			else if (!strncasecmp(v, "keep-alive", 10))
+				ret->connection_keepalive = 1;
+		}
 
 		i += strcspn(ret->headers+i, "\n");
 	}

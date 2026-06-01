@@ -183,6 +183,15 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 						string_break(carg->full_body, 0, carg->full_body->l - (body_size - chunksize));
 					}
 
+					if (carg->http_stream_body && carg->http_stream_body_cb && carg->full_body->l > hr_data->body_offset)
+					{
+						size_t stream_len = carg->full_body->l - hr_data->body_offset;
+						carg->http_stream_body_cb(carg, carg->full_body->s + hr_data->body_offset, stream_len);
+						carg->http_stream_offset = carg->full_body->l;
+						http_reply_data_free(hr_data);
+						return;
+					}
+
 					http_reply_data_free(hr_data);
 				}
 				else
@@ -199,6 +208,16 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 				string_cat(carg->full_body, base, nread);
 			}
 
+			if (carg->http_stream_body && carg->http_stream_body_cb && carg->full_body->l > carg->http_stream_offset)
+			{
+				size_t feed_len = carg->full_body->l - carg->http_stream_offset;
+				carg->http_stream_body_cb(carg, carg->full_body->s + carg->http_stream_offset, feed_len);
+				carg->http_stream_offset = carg->full_body->l;
+			}
+
+			if (carg->http_stream_body)
+				return;
+
 			int8_t rc = tcp_check_full(carg, carg->full_body->s, carg->full_body->l, chunk_ret);
 			if (rc)
 			{
@@ -213,6 +232,14 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 
 	else if(nread == UV_EOF)
 	{
+		if (carg->http_stream_body)
+		{
+			if (carg->http_stream_close_cb)
+				carg->http_stream_close_cb(carg);
+			tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
+			return;
+		}
+
 		if (carg->full_body->l && !carg->parsed)
 			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
@@ -326,9 +353,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			string_cat(buffer, read_buffer, read_size);
 		}
 		if (buffer->l > 0) {
-			//tcp_client_read_data(stream, read_size, read_buffer);
 			tcp_client_read_data(stream, buffer->l, buffer->s);
-			string_free(buffer);
 		}
 		else {
 			int err = SSL_get_error(carg->ssl, read_size);
@@ -340,6 +365,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 				tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
 			}
 		}
+		string_free(buffer);
 	}
 	else {
 		tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);

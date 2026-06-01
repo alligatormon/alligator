@@ -1,0 +1,26 @@
+Alligator has been installed as a DaemonSet with native Kubernetes operator support.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Each pod scrapes annotated workloads on its node (node-local mode) and exposes Prometheus metrics on port {{ .Values.config.entrypoint.port }}.
+
+Annotate workloads, for example:
+
+  alligator/scrape: "true"
+  alligator/metrics-handler: prometheus_metrics
+  alligator/metrics-proto: http
+  alligator/metrics-path: /metrics
+
+Then ensure the pod has a named port `metrics`.
+
+Verify:
+
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} port-forward ds/{{ include "alligator.fullname" . }} 1111:1111
+
+Upgrade config:
+
+  helm upgrade {{ .Release.Name }} ./deploy/charts/alligator -n {{ .Release.Namespace }} -f values.yaml
+
+The DaemonSet rolls automatically when the ConfigMap checksum changes.

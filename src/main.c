@@ -29,6 +29,7 @@
 #include "common/xxh.h"
 #include "parsers/multiparser.h"
 #include "amtail/type.h"
+#include "cluster/k8s_peers.h"
 
 aconf *ac;
 
@@ -347,6 +348,7 @@ int main(int argc, char **argv, char **envp)
 		parse_configs(DEFAULT_CONF_PATH);
 
 	parse_env(envp);
+	cluster_k8s_peers_configure();
 	set_workers(ac->workers);
 
 	restore_settings();

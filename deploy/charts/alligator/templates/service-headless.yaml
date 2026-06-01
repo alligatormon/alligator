@@ -1,0 +1,16 @@
+{{- if .Values.service.headless.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alligator.fullname" . }}-headless
+  labels:
+    {{- include "alligator.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "alligator.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: metrics
+      port: {{ .Values.service.headless.port }}
+      targetPort: metrics
+{{- end }}

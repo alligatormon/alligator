@@ -32,6 +32,9 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_touch_seq = 0;
 	carg->amtail_last_ttl_refresh_sec = 0;
 	carg->entrypoint_read_metric_last_push_sec = 0;
+	carg->http_idle_timer_active = 0;
+	carg->http_write_pending = 0;
+	carg->http_request_size = 0;
 
 	carg->net_tree_acl = patricia_tree_duplicate(src->net_tree_acl);
 	carg->net6_tree_acl = patricia_tree_duplicate(src->net6_tree_acl);

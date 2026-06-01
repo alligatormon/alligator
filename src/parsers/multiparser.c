@@ -5,6 +5,7 @@
 #include "parsers/multiparser.h"
 #include "common/selector.h"
 #include "common/http.h"
+#include "common/http_entrypoint.h"
 #include "router/router.h"
 #define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
@@ -68,7 +69,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-		string_cat(response, "\r\n", 2);
+		http_entrypoint_finish_empty_body(response);
 	}
 }
 
@@ -79,7 +80,7 @@ void do_http_options(char *buf, size_t len, string *response, http_reply_data* h
 	string_cat(response, OPTIONS_ANSWER, strlen(OPTIONS_ANSWER));
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-	string_cat(response, "\r\n", 2);
+	http_entrypoint_finish_empty_body(response);
 }
 
 void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
@@ -89,7 +90,7 @@ void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_dat
 	string_cat(response, METHOD_NOT_ALLOWED, strlen(METHOD_NOT_ALLOWED));
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-	string_cat(response, "\r\n", 2);
+	http_entrypoint_finish_empty_body(response);
 }
 
 void do_http_delete(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
@@ -98,8 +99,10 @@ void do_http_delete(char *buf, size_t len, string *response, http_reply_data* ht
 
 	if (!strncmp(http_data->uri, "/api", 4))
 		api_router(response, http_data, carg);
-	else
-		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n"));
+	else {
+		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"));
+		http_entrypoint_finish_empty_body(response);
+	}
 }
 
 void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
@@ -174,7 +177,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-		string_cat(response, "\r\n", 2);
+		http_entrypoint_finish_empty_body(response);
 	}
 	else
 	{
@@ -222,7 +225,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		string_null(response);
 		string_cat(response, READY_HANDLER, strlen(READY_HANDLER));
-		string_cat(response, "\r\n", 2);
+		http_entrypoint_finish_empty_body(response);
 	}
 }
 
@@ -267,6 +270,8 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 	if(!http_data)
 		return 0;
 
+	http_entrypoint_negotiate(carg, http_data);
+
 	int8_t auth = http_check_auth(carg, http_data);
 	if (auth < 1 && http_data->method != HTTP_METHOD_OPTIONS)
 	{
@@ -276,7 +281,7 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		string_cat(response, resp_code, strlen(resp_code));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-		string_cat(response, "\r\n", 2);
+		http_entrypoint_finish_empty_body(response);
 		http_reply_data_free(http_data);
 		return 1;
 	}

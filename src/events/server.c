@@ -11,16 +11,130 @@
 #include "common/logs.h"
 #include "events/tls.h"
 #include "common/rtime.h"
+#include "common/http_entrypoint.h"
 #include "main.h"
 extern aconf *ac;
 
+static void tcp_server_http_idle_cb(uv_timer_t *handle);
+static void tcp_server_http_idle_arm(context_arg *carg);
+static void tcp_server_http_idle_stop(context_arg *carg);
+static void tcp_server_write_complete(context_arg *carg, int status);
+static int tcp_server_try_dispatch(context_arg *carg);
+void tcp_server_written(uv_write_t *req, int status);
+void tls_server_written(uv_write_t *req, int status);
+
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
 #define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
+
+static int tcp_server_send_response(context_arg *carg, string *str)
+{
+	context_arg *srv_carg = carg->srv_carg;
+	char *write_body;
+	int write_allocated = 0;
+	int ret = 0;
+
+	write_body = http_entrypoint_prepare_response(carg, str->s, str->l, &write_allocated);
+	carg->write_req.data = carg;
+	if (uv_is_writable((uv_stream_t*)&carg->client))
+	{
+		srv_carg->write_bytes_counter += str->l;
+		carg->write_time = setrtime();
+		carg->http_write_pending = 1;
+		tcp_server_http_idle_stop(carg);
+		{
+			size_t wlen = write_allocated ? strlen(write_body) : str->l;
+
+			if (!carg->tls)
+			{
+				carg->response_buffer = uv_buf_init(write_body, wlen);
+				ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_written);
+			}
+			else
+			{
+				if (write_allocated)
+					carg->response_buffer = uv_buf_init(write_body, wlen);
+				tls_write(carg, (uv_stream_t*)&carg->client, write_body, wlen, tls_server_written);
+				ret = 0;
+			}
+		}
+	}
+	else
+	{
+		if (write_allocated)
+			free(write_body);
+		carg->http_write_pending = 0;
+	}
+
+	carg->buffer_response_size = str->m;
+	if (!write_allocated)
+		str->s = NULL;
+	string_free(str);
+	return ret;
+}
+
+static int tcp_server_try_dispatch(context_arg *carg)
+{
+	http_reply_data *hrdata;
+	size_t msg_size;
+	char *pastr;
+	size_t paslen;
+	string *str;
+
+	if (carg->http_write_pending || uv_is_closing((uv_handle_t*)&carg->client))
+		return 0;
+
+	if (!carg->full_body || !carg->full_body->l)
+		return 0;
+
+	pastr = carg->full_body->s;
+	paslen = carg->full_body->l;
+
+	hrdata = http_proto_get_request_data(pastr, paslen, carg->auth_header);
+	if (!hrdata)
+		return 0;
+
+	if (!http_entrypoint_request_complete(pastr, paslen, hrdata, &msg_size))
+	{
+		http_reply_data_free(hrdata);
+		return 0;
+	}
+
+	carg->expect_body_length = msg_size;
+	carg->body_read = 1;
+	carg->http_request_size = msg_size;
+	http_entrypoint_negotiate(carg, hrdata);
+	http_reply_data_free(hrdata);
+
+	str = string_init(carg->buffer_response_size);
+	alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
+
+	if (!str->l)
+	{
+		string_free(str);
+		http_entrypoint_reset_request_state(carg);
+		return 0;
+	}
+
+	if (tcp_server_send_response(carg, str))
+	{
+		carg->http_write_pending = 0;
+		return 0;
+	}
+
+	if (carg->http_close_after_response)
+	{
+		http_entrypoint_consume_request(carg);
+		http_entrypoint_reset_request_state(carg);
+	}
+
+	return 1;
+}
 
 void tcp_server_closed_client(uv_handle_t* handle)
 {
 	context_arg *carg = handle->data;
 	context_arg *srv_carg = carg->srv_carg;
+	tcp_server_http_idle_stop(carg);
 	carglog(carg, L_INFO, "%"u64": tcp server closed client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->close_counter)++;
 	carg->close_time_finish = setrtime();
@@ -86,6 +200,71 @@ void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 
 
 
+static void tcp_server_http_idle_cb(uv_timer_t *handle)
+{
+	context_arg *carg = handle->data;
+	carglog(carg, L_INFO, "%"u64": http idle timeout, closing client %p\n", carg->count++, carg);
+	tcp_server_close_client(carg);
+}
+
+static void tcp_server_http_idle_arm(context_arg *carg)
+{
+	const context_arg *policy;
+	uint32_t sec;
+
+	if (!carg || !carg->srv_carg)
+		return;
+
+	policy = carg->srv_carg;
+	if (!policy->http_keepalive || carg->http_close_after_response)
+		return;
+
+	sec = policy->http_idle_timeout_sec;
+	if (!sec)
+		sec = HTTP_ENTRYPOINT_IDLE_TIMEOUT_DEFAULT_SEC;
+
+	if (!carg->http_idle_timer_active)
+	{
+		uv_timer_init(carg->loop, &carg->http_idle_timer);
+		carg->http_idle_timer.data = carg;
+		carg->http_idle_timer_active = 1;
+	}
+
+	uv_timer_start(&carg->http_idle_timer, tcp_server_http_idle_cb, (uint64_t)sec * 1000, 0);
+}
+
+static void tcp_server_http_idle_stop(context_arg *carg)
+{
+	if (carg && carg->http_idle_timer_active)
+		uv_timer_stop(&carg->http_idle_timer);
+}
+
+static void tcp_server_write_complete(context_arg *carg, int status)
+{
+	if (!carg)
+		return;
+
+	carg->http_write_pending = 0;
+
+	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
+	{
+		if (http_entrypoint_should_shutdown(carg, status))
+		{
+			carglog(carg, L_INFO, "%"u64": tcp server call shutdown http client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+			carg->shutdown_req.data = carg;
+			carg->shutdown_time = setrtime();
+			uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
+		}
+		else
+		{
+			http_entrypoint_consume_request(carg);
+			http_entrypoint_reset_request_state(carg);
+			tcp_server_http_idle_arm(carg);
+			tcp_server_try_dispatch(carg);
+		}
+	}
+}
+
 void tcp_server_written(uv_write_t* req, int status)
 {
 	context_arg *carg = req->data;
@@ -94,13 +273,7 @@ void tcp_server_written(uv_write_t* req, int status)
 	(srv_carg->write_counter)++;
 	carg->write_time_finish = setrtime();
 
-	if (carg->response_buffer.base && !strncmp(carg->response_buffer.base, "HTTP", 4))
-	{
-		carglog(carg, L_INFO, "%"u64": tcp server call shutdown http client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
-		carg->shutdown_req.data = carg;
-		carg->shutdown_time = setrtime();
-		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
-	}
+	tcp_server_write_complete(carg, status);
 
 	if (carg->response_buffer.base)
 	{
@@ -117,9 +290,15 @@ void tls_server_written(uv_write_t* req, int status) {
 		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
 	else
 		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	tcp_server_write_complete(carg, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;
+	if (carg->response_buffer.base)
+	{
+		free(carg->response_buffer.base);
+		carg->response_buffer = uv_buf_init(NULL, 0);
+	}
 }
 
 void server_tcp_create_tls_client(context_arg *carg) {
@@ -190,93 +369,22 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		return;
 	}
 
-	http_reply_data* hrdata;
-	if (!carg->full_body || !carg->full_body->l)
-	{
-		if (nread > 0) {
-			hrdata = http_proto_get_request_data(base, nread, carg->auth_header);
-			if (hrdata)
-			{
-				carg->expect_body_length = hrdata->content_length + hrdata->headers_size;
-				carg->body = hrdata->body;
-				if (carg->body)
-					carg->body_read = 1;
-				else
-					carg->body_read = 0;
-
-				// initial big size of answer only for GET method
-				if (!carg->full_body && hrdata->method == HTTP_METHOD_GET)
-					carg->full_body = string_init(carg->buffer_request_size);
-
-				http_reply_data_free(hrdata);
-			}
-		}
-	}
-
-	if (!carg->body_read)
-	{
-		char *body = strstr(base, "\r\n\r\n");
-		if (!body)
-			body = strstr(base, "\n\n");
-
-		if (body)
-			carg->body_read = 1;
-	}
+	if (nread < 0)
+		return;
 
 	if (!carg->full_body)
-		carg->full_body = string_init(1024);
+		carg->full_body = string_init(carg->buffer_request_size ? carg->buffer_request_size : 1024);
 
-	if ((nread) > 0 && (nread < 65536) && carg->expect_body_length <= (nread + carg->full_body->l) && carg->body_read)
+	if (base && nread > 0)
 	{
 		srv_carg->read_bytes_counter += nread;
-		string *str = string_init(carg->buffer_response_size);
-
-		if (base)
+		if (nread >= 65536)
 			string_cat(carg->full_body, base, nread);
-
-		if (carg->body)
-		{
-			carg->body = strstr(carg->full_body->s, "\r\n\r\n");
-			if (!carg->body)
-				carg->body = strstr(carg->full_body->s, "\n\n");
-		}
-
-		char *pastr = carg->full_body->l ? carg->full_body->s : base;
-		uint64_t paslen = carg->full_body->l ? carg->full_body->l : nread;
-
-		alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
-
-		carg->write_req.data = carg;
-		if (uv_is_writable((uv_stream_t*)&carg->client))
-		{
-			srv_carg->write_bytes_counter += str->l;
-			carg->write_time = setrtime();
-			if(!carg->tls)
-			{
-				carg->response_buffer = uv_buf_init(str->s, str->l);
-				uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_written);
-			}
-			else {
-				tls_write(carg, (uv_stream_t*)&carg->client, str->s, str->l, tls_server_written);
-				free(str->s);
-			}
-		}
-		string_null(carg->full_body);
-		carg->buffer_response_size = str->m;
-		free(str);
+		else
+			string_cat(carg->full_body, base, nread);
 	}
-	else if (nread >= 65536)
-	{
-		srv_carg->read_bytes_counter += nread;
-		string_cat(carg->full_body, base, nread);
-	}
-	else if (carg->expect_body_length > (nread + carg->full_body->l))
-	{
-		srv_carg->read_bytes_counter += nread;
-		string_cat(carg->full_body, base, nread);
-	}
-	else
-		string_cat(carg->full_body, base, nread);
+
+	tcp_server_try_dispatch(carg);
 }
 
 void tcp_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
@@ -392,6 +500,10 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	}
 
 	carg->read_time = setrtime();
+	carg->http_write_pending = 0;
+	carg->http_close_after_response = 1;
+	carg->http_idle_timer_active = 0;
+	http_entrypoint_reset_request_state(carg);
 	if (carg->tls)
 	{
 		carg->tls_read_time = setrtime();

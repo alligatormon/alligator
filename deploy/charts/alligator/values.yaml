@@ -1,0 +1,83 @@
+image:
+  repository: alligatormon/alligator
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+  clusterWide: true
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: false
+
+daemonset:
+  updateStrategy: RollingUpdate
+  hostNetwork: false
+  priorityClassName: ""
+  args:
+    - /etc/alligator
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+operator:
+  enabled: true
+  nodeLocal: true
+  namespaces: []
+  resyncPeriod: 30s
+  ingress:
+    enabled: false
+
+cluster:
+  enabled: true
+  name: k8s-collector
+  type: sharedlock
+  dynamicPeers: true
+  headlessService: alligator-headless
+  port: 1111
+
+config:
+  logLevel: info
+  ttl: 5m
+  aggregatePeriod: 30s
+  entrypoint:
+    port: 1111
+    api: true
+    handler: prometheus
+    allowCidrs: []
+  system:
+    cadvisor:
+      enabled: false
+  aggregates: []
+  mtail: []
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+
+service:
+  headless:
+    enabled: true
+    port: 1111

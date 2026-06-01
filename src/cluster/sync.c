@@ -1,6 +1,7 @@
 #include "main.h"
 #include "cluster/type.h"
 #include "cluster/get.h"
+#include "cluster/k8s_peers.h"
 #include "events/context_arg.h"
 #include "metric/metrictree.h"
 #include "metric/labels.h"
@@ -96,6 +97,7 @@ void cluster_aggregate_recurse(void *funcarg, void* arg)
 
 void cluster_sync(uv_timer_t* handle) {
 	(void)handle;
+	cluster_k8s_peers_refresh();
 	if (ac->cluster)
 		if (alligator_ht_count(ac->cluster))
 		{

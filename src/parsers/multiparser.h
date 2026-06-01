@@ -107,6 +107,7 @@ void keepalived_parser_push();
 void kubeconfig_parser_push();
 void kubernetes_ingress_parser_push();
 void kubernetes_endpoint_parser_push();
+void kubernetes_operator_parser_push();
 void lang_parser_push();
 void lighttpd_parser_push();
 void memcached_parser_push();

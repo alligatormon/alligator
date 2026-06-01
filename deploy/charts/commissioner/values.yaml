@@ -1,0 +1,46 @@
+replicaCount: 1
+
+image:
+  repository: registry.example.com/commissioner
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 10001
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+args:
+  - --config
+  - /etc/commissioner/jira-bot-config.yaml
+
+env: []
+
+config:
+  enabled: false
+  mountPath: /etc/commissioner
+  data: {}

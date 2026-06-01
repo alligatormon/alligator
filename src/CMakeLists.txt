@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.194)
+set(VERSION 1.14.195)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -219,6 +219,9 @@ set(STATIC_FILES
 	parsers/nsd.c
 	parsers/named.c
 	parsers/kubernetes.c
+	parsers/kubernetes_common.c
+	parsers/kubernetes_operator.c
+	parsers/kubernetes_watch.c
 	parsers/kubeconfig.c
 	parsers/oracle.c
 	parsers/couchdb.c
@@ -260,6 +263,7 @@ set(STATIC_FILES
 	common/validator.c
 	common/base64.c
 	common/http.c
+	common/http_entrypoint.c
 	common/protobuf_wire.c
 	common/url.c
 	common/aggregator.c
@@ -312,6 +316,7 @@ set(STATIC_FILES
 	cluster/pass.c
 	cluster/api.c
 	cluster/sync.c
+	cluster/k8s_peers.c
 	cluster/handler.c
 	cluster/later.c
 	router/stat.c
