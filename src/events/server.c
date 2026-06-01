@@ -130,33 +130,6 @@ void server_tcp_create_tls_client(context_arg *carg) {
 	SSL_set_bio(carg->ssl, carg->rbio, carg->wbio);
 }
 
-typedef struct tls_flush_req {
-	uv_write_t req;
-	uv_buf_t buf;
-} tls_flush_req;
-
-static void tls_flush_written(uv_write_t* req, int status)
-{
-	tls_flush_req *fr = (tls_flush_req*)req;
-	if (fr->buf.base)
-		free(fr->buf.base);
-	free(fr);
-}
-
-void flush_tls_write(context_arg *carg, void *cb) {
-	(void)cb;
-	char buffer[EVENT_BUFFER];
-	int bytes;
-	while ((bytes = BIO_read(carg->wbio, buffer, sizeof(buffer))) > 0) {
-		tls_flush_req *fr = calloc(1, sizeof(*fr));
-		char *out = malloc(bytes);
-		memcpy(out, buffer, bytes);
-		fr->req.data = carg;
-		fr->buf = uv_buf_init(out, bytes);
-		uv_write(&fr->req, (uv_stream_t*)&carg->client, &fr->buf, 1, tls_flush_written);
-	}
-}
-
 int do_tls_handshake_server(context_arg *carg) {
 	if (!carg->tls_handshake_done) {
 		int hs_ret = SSL_accept(carg->ssl);
@@ -175,9 +148,9 @@ int do_tls_handshake_server(context_arg *carg) {
 		else if (hs_ret < 1) {
 			int err = SSL_get_error(carg->ssl, hs_ret);
 			if (err == SSL_ERROR_WANT_READ) {
-				flush_tls_write(carg, NULL);
+				flush_tls_write(carg, (uv_stream_t *)&carg->client);
 			} else if (err == SSL_ERROR_WANT_WRITE) {
-				flush_tls_write(carg, NULL);
+				flush_tls_write(carg, (uv_stream_t *)&carg->client);
 			} else {
 				char *err = openssl_get_error_string();
 				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);

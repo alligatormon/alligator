@@ -287,15 +287,7 @@ int do_client_tls_handshake(context_arg *carg) {
 			}
 		}
 
-		size_t pending = BIO_ctrl_pending(carg->wbio);
-		if (pending > 0) {
-			size_t bio_read = 0;
-			carg->write_buffer = uv_buf_init(calloc(1, pending), pending);
-			BIO_read_ex(carg->wbio, carg->write_buffer.base, pending, &bio_read);
-			carg->write_buffer.len = bio_read;
-			carg->write_req.data = carg;
-			uv_write(&carg->write_req, carg->connect.handle, &carg->write_buffer, 1, tls_client_written);
-		}
+		flush_tls_write(carg, (uv_stream_t *)&carg->client);
 	}
 	return handshake_done_now ? 1 : 0;
 }

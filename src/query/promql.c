@@ -560,8 +560,8 @@ void query_context_convert_http_args_to_query(metric_query_context *mqc, alligat
 
 void query_context_free(metric_query_context *mqc)
 {
-	//if (mqc->lbl)
-	//	labels_hash_free(mqc->lbl);
+	if (mqc->lbl)
+		labels_hash_free(mqc->lbl);
 	if (mqc->name)
 		free(mqc->name);
 	if (mqc->groupkey)

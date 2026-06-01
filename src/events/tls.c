@@ -229,6 +229,43 @@ int do_tls_shutdown(context_arg *carg, SSL *ssl) {
 }
 
 
+typedef struct tls_flush_req {
+	uv_write_t req;
+	uv_buf_t buf;
+} tls_flush_req;
+
+static void tls_flush_written(uv_write_t *req, int status)
+{
+	(void)status;
+	tls_flush_req *fr = (tls_flush_req *)req;
+	if (fr->buf.base)
+		free(fr->buf.base);
+	free(fr);
+}
+
+void flush_tls_write(context_arg *carg, uv_stream_t *stream)
+{
+	char buffer[EVENT_BUFFER];
+	int bytes;
+	while ((bytes = BIO_read(carg->wbio, buffer, sizeof(buffer))) > 0) {
+		tls_flush_req *fr = calloc(1, sizeof(*fr));
+		if (!fr)
+			return;
+		char *out = malloc(bytes);
+		if (!out) {
+			free(fr);
+			return;
+		}
+		memcpy(out, buffer, bytes);
+		fr->req.data = carg;
+		fr->buf = uv_buf_init(out, bytes);
+		if (uv_write(&fr->req, stream, &fr->buf, 1, tls_flush_written) < 0) {
+			free(out);
+			free(fr);
+		}
+	}
+}
+
 int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 	switch (err) {
 		case SSL_ERROR_WANT_READ:

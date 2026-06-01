@@ -225,20 +225,31 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 {
 	host_aggregator_info *hi = parse_url(url, url_len);
 
-	alligator_ht *newenv = NULL;
-	if (carg && carg->env)
-		newenv = carg->env;
+	alligator_ht *passenv = NULL;
+	uint8_t passenv_local = 0;
 
 	if (env)
 	{
-		if (!newenv)
-			newenv = alligator_ht_init(NULL);
-		else if (carg && carg->env && newenv == carg->env)
-			newenv = env_struct_duplicate(carg->env);
-		alligator_ht_foreach_arg(env, env_struct_duplicate_foreach, newenv);
+		if (carg && carg->env)
+		{
+			passenv = env_struct_duplicate(carg->env);
+			alligator_ht_foreach_arg(env, env_struct_duplicate_foreach, passenv);
+			passenv_local = 1;
+		}
+		else
+			passenv = env;
 	}
+	else if (carg && carg->env)
+		passenv = carg->env;
 
-	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, newenv, follow_redirects, s_stdin, l_stdin);
+	context_arg *new = context_arg_json_fill(NULL, hi, handler, parser_name, mesg, mesg_len, data, validator, 0, ac->loop, passenv, follow_redirects, s_stdin, l_stdin);
+
+	if (passenv_local && passenv)
+	{
+		alligator_ht_foreach_arg(passenv, env_struct_free, passenv);
+		alligator_ht_done(passenv);
+		free(passenv);
+	}
 
 	if (carg && carg->name)
 		new->name = strdup(carg->name);
