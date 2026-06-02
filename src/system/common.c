@@ -37,9 +37,9 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "memory_stat", METRIC_TYPE_GAUGE, "Memory paging and swap statistics by type.");
 	namespace_metric_family_set(NULL, carg, "load_average", METRIC_TYPE_GAUGE, "System load averages by period label.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_average_percent", METRIC_TYPE_GAUGE, "Rolling average CPU usage percentage.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_core_time", METRIC_TYPE_GAUGE, "CPU time by core and mode.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_time", METRIC_TYPE_GAUGE, "Aggregated CPU time by mode.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage", METRIC_TYPE_GAUGE, "CPU usage percentage by mode.");
+	namespace_metric_family_set(NULL, carg, "cpu_usage_core_time", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by core and mode.");
+	namespace_metric_family_set(NULL, carg, "cpu_usage_time", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by mode (from /proc/stat).");
+	namespace_metric_family_set(NULL, carg, "cpu_usage_hw_time", METRIC_TYPE_COUNTER, "Cumulative host CPU time in seconds by mode when scraped from a cgroup.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_core", METRIC_TYPE_GAUGE, "Per-core CPU usage percentage by mode.");
 	namespace_metric_family_set(NULL, carg, "cpu_current_frequency_hertz", METRIC_TYPE_GAUGE, "Current CPU frequency in hertz by core.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_calc_delta_seconds", METRIC_TYPE_GAUGE, "Elapsed wall-clock time between CPU usage calculations in seconds.");

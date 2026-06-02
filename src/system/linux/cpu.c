@@ -93,19 +93,16 @@ void get_cpu(int8_t platform)
 	uint64_t core_num = 0;
 	system_cpu_cores_stats *sccs;
 
-	char cpu_usage_name[30];
 	char cpu_usage_core_name[30];
 	char cpu_usage_time_name[30];
 
 	if (!is_cgroup)
 	{
-		strlcpy(cpu_usage_name, "cpu_usage", 10);
 		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
 		strlcpy(cpu_usage_time_name, "cpu_usage_time", 15);
 	}
 	else
 	{
-		strlcpy(cpu_usage_name, "cpu_usage_hw", 13);
 		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 18);
 		strlcpy(cpu_usage_time_name, "cpu_usage_hw_time", 18);
 	}
@@ -181,11 +178,6 @@ void get_cpu(int8_t platform)
 
 			if (!strcmp(cpuname, "cpu"))
 			{
-				metric_add_labels(cpu_usage_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-				metric_add_labels(cpu_usage_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-				metric_add_labels(cpu_usage_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
-				metric_add_labels(cpu_usage_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
-				metric_add_labels(cpu_usage_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
 				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
@@ -313,8 +305,6 @@ void get_cpu(int8_t platform)
 		double time_user = sccs->user / (dividecpu * 100.0);
 
 		carglog(ac->system_carg, L_DEBUG, "cgroup CPU: user %lf, system %lf\n", cgroup_user_usage, cgroup_system_usage);
-		metric_add_labels("cpu_usage", &cgroup_user_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-		metric_add_labels("cpu_usage", &cgroup_system_usage, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_time", &time_system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 		metric_add_labels("cpu_usage_time", &time_user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 
