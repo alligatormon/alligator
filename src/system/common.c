@@ -75,6 +75,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "tasks_usage", METRIC_TYPE_GAUGE, "Task limit usage percentage.");
 	namespace_metric_family_set(NULL, carg, "tasks_max", METRIC_TYPE_GAUGE, "Maximum number of tasks allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "processes_total", METRIC_TYPE_GAUGE, "Total number of processes.");
+	namespace_metric_family_set(NULL, carg, "processes", METRIC_TYPE_GAUGE, "Total number of processes.");
 	namespace_metric_family_set(NULL, carg, "processes_max", METRIC_TYPE_GAUGE, "Maximum number of processes allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "processes_usage", METRIC_TYPE_GAUGE, "PID limit usage percentage.");
 	namespace_metric_family_set(NULL, carg, "open_files", METRIC_TYPE_GAUGE, "Total number of open file descriptors on the host.");
@@ -83,6 +84,14 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "open_pipes", METRIC_TYPE_GAUGE, "Total number of open pipes on the host.");
 	namespace_metric_family_set(NULL, carg, "open_sockets", METRIC_TYPE_GAUGE, "Total number of open sockets on the host.");
 	namespace_metric_family_set(NULL, carg, "max_files", METRIC_TYPE_GAUGE, "Maximum number of file descriptors allowed by the kernel.");
+	namespace_metric_family_set(NULL, carg, "max_files_per_proc", METRIC_TYPE_GAUGE, "Maximum open files per process.");
+	namespace_metric_family_set(NULL, carg, "max_sockets", METRIC_TYPE_GAUGE, "Maximum number of sockets allowed by the kernel.");
+	namespace_metric_family_set(NULL, carg, "swap_usage", METRIC_TYPE_GAUGE, "Swap space in kilobytes by usage type.");
+	namespace_metric_family_set(NULL, carg, "vm_faults", METRIC_TYPE_COUNTER, "Total VM page faults since boot.");
+	namespace_metric_family_set(NULL, carg, "io_faults", METRIC_TYPE_COUNTER, "Total VM I/O faults since boot.");
+	namespace_metric_family_set(NULL, carg, "vforks", METRIC_TYPE_COUNTER, "Total vfork operations since boot.");
+	namespace_metric_family_set(NULL, carg, "rforks", METRIC_TYPE_COUNTER, "Total rfork operations since boot.");
+	namespace_metric_family_set(NULL, carg, "system_calls", METRIC_TYPE_COUNTER, "Total system calls since boot.");
 	namespace_metric_family_set(NULL, carg, "kernel_version", METRIC_TYPE_GAUGE, "Kernel version marker with version and platform labels.");
 	namespace_metric_family_set(NULL, carg, "btmp_file_size", METRIC_TYPE_GAUGE, "Current btmp file size in bytes.");
 	namespace_metric_family_set(NULL, carg, "buddyinfo_count", METRIC_TYPE_GAUGE, "Free memory blocks by NUMA node, zone, and order.");

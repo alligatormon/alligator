@@ -67,7 +67,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else if ( json_typeof(value_json1) == JSON_OBJECT )
 		{
-			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
+			size_t size1 = strlcpy(metricname2 + 5, key1, NIFI_METRIC_SIZE - 5) + 5;
 			if (size1 >= NIFI_METRIC_SIZE - 1)
 				size1 = NIFI_METRIC_SIZE - 2;
 			metricname2[size1++] = '_';
@@ -107,7 +107,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		else if ( json_typeof(value_json1) == JSON_ARRAY )
 		{
 			size_t arr_sz = json_array_size(value_json1);
-			size_t size1 = strlcpy(metricname2+5, key1, NIFI_METRIC_SIZE)+5;
+			size_t size1 = strlcpy(metricname2 + 5, key1, NIFI_METRIC_SIZE - 5) + 5;
 			if (size1 >= NIFI_METRIC_SIZE - 1)
 				size1 = NIFI_METRIC_SIZE - 2;
 			metricname2[size1++] = '_';

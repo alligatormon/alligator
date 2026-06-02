@@ -5,10 +5,10 @@ class Deps(ConanFile):
     name = "dependencies"
 
     def build(self):
-        if system() != "FreeBSD":
+        if system() == "Linux":
             self.run("pwd && cd libfyaml && find . -type f -exec sed -i -e 's/XXH/libfyaml_XXH/g' -e 's/libfyaml_libfyaml_XXH/libfyaml_XXH/g' {} \; && sh bootstrap.sh && autoreconf -f && autoreconf -i -f && ./configure && make -j4 && make -j4")
 
-        if system() != "FreeBSD":
+        if system() == "Linux":
             self.run("cd libatasmart && ./autogen.sh && ./configure --enable-static && make -j4 && make -j4")
 
         self.run("cd mruby && make")

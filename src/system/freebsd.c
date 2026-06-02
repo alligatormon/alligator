@@ -26,6 +26,7 @@
 #include <libgeom.h>
 #include <limits.h>
 #include <sys/vmmeter.h>
+#include <sys/time.h>
 
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -46,7 +47,82 @@
 
 #include "metric/labels.h"
 #include "main.h"
+#include "common/rtime.h"
+
 extern aconf *ac;
+
+static void get_cpu_avg(void)
+{
+	double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
+	metric_add_auto("cpu_usage_average_percent", &result, DATATYPE_DOUBLE, ac->system_carg);
+}
+
+static void cpu_avg_push(double now)
+{
+	if (now > 100)
+		return;
+
+	double old = ac->system_avg_metrics[ac->system_cpuavg_ptr];
+	ac->system_avg_metrics[ac->system_cpuavg_ptr] = now;
+	ac->system_cpuavg_sum = (ac->system_cpuavg_sum - old) + now;
+
+	++ac->system_cpuavg_ptr;
+	if (ac->system_cpuavg_ptr >= ac->system_cpuavg_period)
+		ac->system_cpuavg_ptr = 0;
+}
+
+static double pct_delta(uint64_t delta, uint64_t total)
+{
+	if (!total)
+		return 0.0;
+	double pct = (double)delta * 100.0 / (double)total;
+	return pct < 0.0 ? 0.0 : pct;
+}
+
+static void get_cpu_frequency(void)
+{
+	char sysctl_name[32];
+	int cpu;
+
+	for (cpu = 0; ; cpu++) {
+		int32_t mhz;
+		size_t sz = sizeof(mhz);
+		double hz;
+
+		snprintf(sysctl_name, sizeof(sysctl_name), "dev.cpu.%d.freq", cpu);
+		if (sysctlbyname(sysctl_name, &mhz, &sz, NULL, 0) != 0)
+			break;
+
+		hz = (double)mhz * 1000000.0;
+		snprintf(sysctl_name, sizeof(sysctl_name), "%d", cpu);
+		metric_add_labels("cpu_current_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg, "core", sysctl_name);
+	}
+}
+
+static long clock_stathz(void)
+{
+	static long stathz;
+	struct clockinfo clock;
+	size_t sz;
+
+	if (stathz > 0)
+		return stathz;
+
+	sz = sizeof(clock);
+	if (sysctlbyname("kern.clockrate", &clock, &sz, NULL, 0) != 0) {
+		stathz = 100;
+		return stathz;
+	}
+	stathz = clock.stathz > 0 ? clock.stathz : clock.hz;
+	if (stathz <= 0)
+		stathz = 100;
+	return stathz;
+}
+
+static double cp_ticks_to_seconds(uint64_t ticks)
+{
+	return (double)ticks / (double)clock_stathz();
+}
 
 void get_swap()
 {
@@ -245,10 +321,9 @@ void get_mem()
 	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1");
 	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5");
 	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");
-	metric_add_auto("vm_faults", &avail_memory, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("io_faults", &avail_memory, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("vm_faults", &vm_faults, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("io_faults", &io_faults, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("effective_cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
 void get_sysctl_stat_u64(char *ctlname, char *mapping)
@@ -275,103 +350,167 @@ void get_vmstat()
 	get_sysctl_stat_u64("kern.maxfilesperproc", "max_files_per_proc");
 	get_sysctl_stat_u64("kern.ipc.numopensockets", "open_sockets");
 	get_sysctl_stat_u64("kern.ipc.maxsockets", "max_sockets");
+	get_sysctl_stat_u64("kern.maxproc", "processes_max");
 }
 
-void get_cpu()
+static void cpu_core_interval_push(system_cpu_cores_stats *sccs, const char *cpuname,
+	uint64_t t_user, uint64_t t_nice, uint64_t t_system, uint64_t t_intr, uint64_t t_idle)
 {
-	kvm_t *kd;
-	kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm");
-	if (kd)
+	uint64_t t_total = t_user + t_nice + t_system + t_intr + t_idle;
+	uint64_t dt_total = t_total - sccs->total;
+
+	if (!dt_total)
+		return;
+
+	uint64_t d_user = t_user - sccs->user;
+	uint64_t d_nice = t_nice - sccs->nice;
+	uint64_t d_system = t_system - sccs->system;
+	uint64_t d_intr = t_intr - sccs->iowait;
+	uint64_t d_idle = t_idle - sccs->idle;
+
+	sccs->total = t_total;
+	sccs->user = t_user;
+	sccs->nice = t_nice;
+	sccs->system = t_system;
+	sccs->iowait = t_intr;
+	sccs->idle = t_idle;
+
 	{
-		int maxcpu;
-		uint64_t current_cores = 0;
-		maxcpu = kvm_getmaxcpu(kd);
-		//printf("maxcpu=%d\n", maxcpu);
-		if (maxcpu > 0)
-		{
-			uint64_t total = 0;
-			uint64_t total_user = 0;
-			uint64_t total_system = 0;
-			uint64_t total_nice = 0;
-			uint64_t total_intr = 0;
-			uint64_t total_idle = 0;
-			int n;
-			struct pcpu **cpu1;
-			cpu1 = calloc(sizeof(struct pcpu*), maxcpu);
-			for (n = 0; n < maxcpu; n ++)
-				cpu1[n] = kvm_getpcpu(kd, n);
-			for (n = 0; n < maxcpu; n ++)
-			{
-				if (cpu1[n])
-				{
-					char cpuname[20];
-					snprintf(cpuname, 20, "%d", cpu1[n]->pc_cpuid);
-					uint64_t user = cpu1[n]->pc_cp_time[CP_USER];
-					uint64_t system = cpu1[n]->pc_cp_time[CP_SYS];
-					uint64_t nice = cpu1[n]->pc_cp_time[CP_NICE];
-					uint64_t intr = cpu1[n]->pc_cp_time[CP_INTR];
-					uint64_t idle = cpu1[n]->pc_cp_time[CP_IDLE];
-					//printf("double: %lf, user: %ld*100.0/%lf\n", total, cpu1[n]->pc_cp_time[CP_USER], total);
-					metric_add_labels2("cpu_usage_core_time", &user, DATATYPE_UINT, ac->system_carg, "core", cpuname, "type", "user");
-					metric_add_labels2("cpu_usage_core_time", &system,  DATATYPE_UINT, ac->system_carg, "core", cpuname, "type", "system");
-					metric_add_labels2("cpu_usage_core_time", &nice, DATATYPE_UINT, ac->system_carg, "core", cpuname, "type", "nice");
-					metric_add_labels2("cpu_usage_core_time", &intr, DATATYPE_UINT, ac->system_carg, "core", cpuname, "type", "intr");
-					metric_add_labels2("cpu_usage_core_time", &idle, DATATYPE_UINT, ac->system_carg, "core", cpuname, "type", "idle");
+		double user = pct_delta(d_user, dt_total);
+		double nice = pct_delta(d_nice, dt_total);
+		double system = pct_delta(d_system, dt_total);
+		double intr = pct_delta(d_intr, dt_total);
+		double idle = pct_delta(d_idle, dt_total);
 
-					total_user += user;
-					total_system += system;
-					total_nice += nice;
-					total_intr += intr;
-					total_idle += idle;
-					total += user + system + nice + intr;
-					++current_cores;
-				}
-			}
-
-			for (n = 0; n < maxcpu; n ++)
-				if (cpu1[n]) free(cpu1[n]);
-			free(cpu1);
-
-			total /= current_cores;
-			total_system /= current_cores;
-			total_user /= current_cores;
-			total_nice /= current_cores;
-			total_intr /= current_cores;
-			total_idle /= current_cores;
-
-			metric_add_labels("cpu_usage_time", &total,  DATATYPE_UINT, ac->system_carg, "type", "total");
-			metric_add_labels("cpu_usage_time", &total_system,  DATATYPE_UINT, ac->system_carg, "type", "system");
-			metric_add_labels("cpu_usage_time", &total_user, DATATYPE_UINT, ac->system_carg, "type", "user");
-			metric_add_labels("cpu_usage_time", &total_nice, DATATYPE_UINT, ac->system_carg, "type", "nice");
-			metric_add_labels("cpu_usage_time", &total_intr, DATATYPE_UINT, ac->system_carg, "type", "intr");
-			metric_add_labels("cpu_usage_time", &total_idle, DATATYPE_UINT, ac->system_carg, "type", "idle");
-		}
-		kvm_close(kd);
+		metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", cpuname);
+		metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", cpuname);
+		metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", cpuname);
+		metric_add_labels2("cpu_usage_core", &intr, DATATYPE_DOUBLE, ac->system_carg, "type", "intr", "cpu", cpuname);
+		metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", cpuname);
 	}
 }
 
-
-double getpcpu(const struct kinfo_proc *k)
+void get_cpu(void)
 {
-	static int failure;
+	kvm_t *kd;
+	r_time ts_start = setrtime();
+	r_time ts_end;
+	int maxcpu;
+	int n;
+	struct pcpu **cpu1;
+	system_cpu_cores_stats *hw;
+	uint64_t total_user = 0;
+	uint64_t total_nice = 0;
+	uint64_t total_system = 0;
+	uint64_t total_intr = 0;
+	uint64_t total_idle = 0;
+	double diff_time;
+	uint64_t sec;
 
-	int fscale;
-	size_t len = sizeof(fscale);
-	if (sysctlbyname("kern.fscale", &fscale, &len, NULL, 0) == -1)
-		return (1);
+	kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm");
+	if (!kd)
+		return;
 
-	fixpt_t	ccpu;
-	len = sizeof(ccpu);
-	if (sysctlbyname("kern.ccpu", &ccpu, &len, NULL, 0) == -1)
-		return (1);
+	maxcpu = kvm_getmaxcpu(kd);
+	if (maxcpu <= 0) {
+		kvm_close(kd);
+		return;
+	}
 
-	if (failure)
-		return (0.0);
+	if (!ac->scs->cores)
+		ac->scs->cores = calloc((size_t)maxcpu, sizeof(system_cpu_cores_stats));
 
-	if (k->ki_swtime == 0 || (k->ki_flag & P_INMEM) == 0)
-		return (0.0);
+	cpu1 = calloc((size_t)maxcpu, sizeof(struct pcpu *));
+	if (!cpu1) {
+		kvm_close(kd);
+		return;
+	}
 
-	return (100.0 * ((double)k->ki_pctcpu/fscale) / (1.0 - exp(k->ki_swtime * log(((double)ccpu/fscale)))));
+	for (n = 0; n < maxcpu; n++)
+		cpu1[n] = kvm_getpcpu(kd, n);
+
+	hw = &ac->scs->hw;
+	for (n = 0; n < maxcpu; n++) {
+		if (!cpu1[n])
+			continue;
+
+		{
+			char cpuname[20];
+			uint64_t t_user = cpu1[n]->pc_cp_time[CP_USER];
+			uint64_t t_nice = cpu1[n]->pc_cp_time[CP_NICE];
+			uint64_t t_system = cpu1[n]->pc_cp_time[CP_SYS];
+			uint64_t t_intr = cpu1[n]->pc_cp_time[CP_INTR];
+			uint64_t t_idle = cpu1[n]->pc_cp_time[CP_IDLE];
+			double user_sec, system_sec, nice_sec, intr_sec, idle_sec;
+
+			snprintf(cpuname, sizeof(cpuname), "%d", cpu1[n]->pc_cpuid);
+			user_sec = cp_ticks_to_seconds(t_user);
+			system_sec = cp_ticks_to_seconds(t_system);
+			nice_sec = cp_ticks_to_seconds(t_nice);
+			intr_sec = cp_ticks_to_seconds(t_intr);
+			idle_sec = cp_ticks_to_seconds(t_idle);
+
+			metric_add_labels2("cpu_usage_core_time", &user_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
+			metric_add_labels2("cpu_usage_core_time", &system_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
+			metric_add_labels2("cpu_usage_core_time", &nice_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
+			metric_add_labels2("cpu_usage_core_time", &intr_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "intr");
+			metric_add_labels2("cpu_usage_core_time", &idle_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
+
+			cpu_core_interval_push(&ac->scs->cores[n], cpuname, t_user, t_nice, t_system, t_intr, t_idle);
+
+			total_user += t_user;
+			total_nice += t_nice;
+			total_system += t_system;
+			total_intr += t_intr;
+			total_idle += t_idle;
+		}
+	}
+
+	for (n = 0; n < maxcpu; n++)
+		if (cpu1[n])
+			free(cpu1[n]);
+	free(cpu1);
+	kvm_close(kd);
+
+	{
+		double agg_user = cp_ticks_to_seconds(total_user);
+		double agg_system = cp_ticks_to_seconds(total_system);
+		double agg_nice = cp_ticks_to_seconds(total_nice);
+		double agg_intr = cp_ticks_to_seconds(total_intr);
+		double agg_idle = cp_ticks_to_seconds(total_idle);
+
+		metric_add_labels("cpu_usage_time", &agg_user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_usage_time", &agg_system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage_time", &agg_nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+		metric_add_labels("cpu_usage_time", &agg_intr, DATATYPE_DOUBLE, ac->system_carg, "type", "intr");
+		metric_add_labels("cpu_usage_time", &agg_idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+	}
+
+	{
+		uint64_t t_total = total_user + total_nice + total_system + total_intr + total_idle;
+		uint64_t dt_total = t_total - hw->total;
+
+		if (dt_total && ac->system_cpuavg) {
+			uint64_t d_user = total_user - hw->user;
+			uint64_t d_system = total_system - hw->system;
+
+			cpu_avg_push(pct_delta(d_user + d_system, dt_total));
+		}
+		hw->total = t_total;
+		hw->user = total_user;
+		hw->nice = total_nice;
+		hw->system = total_system;
+		hw->iowait = total_intr;
+		hw->idle = total_idle;
+	}
+
+	ts_end = setrtime();
+	diff_time = getrtime_ns(ac->last_time_cpu, ts_start) / 1000000000.0;
+	ac->last_time_cpu = ts_start;
+	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
+
+	sec = ts_end.sec;
+	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
 
@@ -404,9 +543,17 @@ void get_proc_info(int8_t lightweight)
 
 		if (!lightweight)
 		{
-			int64_t val = getpcpu(&(proc[i]));
-			metric_add_labels("process_cpu", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm);
-			val = proc[i].ki_size;
+			char pidstr[16];
+			double utime, stime, total_time;
+
+			snprintf(pidstr, sizeof(pidstr), "%d", proc[i].ki_pid);
+			utime = (double)proc[i].ki_utime / 1000000.0;
+			stime = (double)proc[i].ki_stime / 1000000.0;
+			total_time = utime + stime;
+			metric_add_labels3("process_cpu_seconds_total", &utime, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "user");
+			metric_add_labels3("process_cpu_seconds_total", &stime, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "system");
+			metric_add_labels3("process_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "total");
+			int64_t val = proc[i].ki_size;
 			metric_add_labels2("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "vsz");
 			val = proc[i].ki_rssize;
 			metric_add_labels2("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "rss");
@@ -424,6 +571,18 @@ void get_proc_info(int8_t lightweight)
 	metric_add_labels("process_states", &locked, DATATYPE_UINT, ac->system_carg, "state", "locked");
 	metric_add_labels("process_states", &wait, DATATYPE_UINT, ac->system_carg, "state", "wait");
 
+	{
+		uint64_t proc_count = cntp;
+		uint64_t proc_max;
+		size_t proc_max_sz = sizeof(proc_max);
+
+		metric_add_auto("processes", &proc_count, DATATYPE_UINT, ac->system_carg);
+		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
+			double proc_usage = proc_count * 100.0 / (double)proc_max;
+			metric_add_auto("processes_usage", &proc_usage, DATATYPE_DOUBLE, ac->system_carg);
+		}
+	}
+
 	time_t t = time(NULL);
 	struct tm lt = {0};
 	localtime_r(&t, &lt);
@@ -435,43 +594,6 @@ void get_proc_info(int8_t lightweight)
 	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
 
 	free(proc);
-}
-
-void get_fd_info()
-{
-	int rc;
-
-	uint64_t val;
-	size_t msz = sizeof(val);
-	rc = sysctlbyname("kern.ipc.maxsockets", &val, &msz, NULL, 0);
-	if (rc < 0){
-		perror("sysctlbyname");
-	}
-	metric_add_auto("maxsockets", &val, DATATYPE_INT, ac->system_carg);
-
-	rc = sysctlbyname("kern.ipc.numopensockets", &val, &msz, NULL, 0);
-	if (rc < 0){
-		perror("sysctlbyname");
-	}
-	metric_add_auto("opensockets", &val, DATATYPE_INT, ac->system_carg);
-
-	rc = sysctlbyname("kern.maxproc", &val, &msz, NULL, 0);
-	if (rc < 0){
-		perror("sysctlbyname");
-	}
-	metric_add_auto("maxproc", &val, DATATYPE_INT, ac->system_carg);
-
-	rc = sysctlbyname("kern.maxfiles", &val, &msz, NULL, 0);
-	if (rc < 0){
-		perror("sysctlbyname");
-	}
-	metric_add_auto("maxfiles", &val, DATATYPE_INT, ac->system_carg);
-
-	rc = sysctlbyname("kern.openfiles", &val, &msz, NULL, 0);
-	if (rc < 0){
-		perror("sysctlbyname");
-	}
-	metric_add_auto("openfiles", &val, DATATYPE_INT, ac->system_carg);
 }
 
 void disk_io_stats()
@@ -518,6 +640,9 @@ void disk_io_stats()
 		metric_add_labels2("disk_io", &transfers_free, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "transfers_free");
 		double d_busy_time = (double)busy_time;
 		metric_add_labels("disk_busy", &d_busy_time, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name);
+		metric_add_labels2("disk_io_await_seconds_total", &duration_read, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "read");
+		metric_add_labels2("disk_io_await_seconds_total", &duration_write, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "write");
+		metric_add_labels2("disk_io_await_seconds_total", &duration_other, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "other");
 	}
 
 	int64_t disknum = current.dinfo->numdevs;
@@ -526,55 +651,79 @@ void disk_io_stats()
 }
 
 
+static const char *link_state_name(uint8_t link_state)
+{
+	switch (link_state) {
+	case LINK_STATE_UP:
+		return "up";
+	case LINK_STATE_DOWN:
+		return "down";
+	default:
+		return "unknown";
+	}
+}
+
 void get_iface_statistics()
 {
 	struct ifaddrs *ifap, *ifa;
-	//struct sockaddr_in *sa;
-	//char *addr;
 
-	getifaddrs (&ifap);
-	for (ifa = ifap; ifa; ifa = ifa->ifa_next)
-	{
-		//if (ifa->ifa_addr->sa_family == AF_INET)
-		//{
-		//	sa = (struct sockaddr_in *) ifa->ifa_addr;
-		//	addr = inet_ntoa(sa->sin_addr);
-		//	printf("Interface: %s\tAddress: %s\n", ifa->ifa_name, addr);
-		//}
-		//else if (ifa->ifa_addr->sa_family == AF_LINK)
-		if (ifa->ifa_addr->sa_family == AF_LINK)
-		{
-			struct if_data *ifd = ifa->ifa_data;
-			int64_t link_state = ifd->ifi_link_state;
-			int64_t ipackets = ifd->ifi_ipackets;
-			int64_t opackets = ifd->ifi_opackets;
-			int64_t ibytes = ifd->ifi_ibytes;
-			int64_t obytes = ifd->ifi_obytes;
-			int64_t ierrors = ifd->ifi_ierrors;
-			int64_t oerrors = ifd->ifi_oerrors;
-			int64_t iqdrops = ifd->ifi_iqdrops;
+	if (getifaddrs(&ifap) != 0)
+		return;
+
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		struct if_data *ifd;
+		const char *state;
+		int64_t marker;
+		int64_t ipackets, opackets, ibytes, obytes;
+		int64_t ierrors, oerrors, iqdrops;
 # if __FreeBSD__ > 10
-			int64_t oqdrops = ifd->ifi_oqdrops;
+		int64_t oqdrops;
 # endif
-			int64_t imcasts = ifd->ifi_imcasts;
-			int64_t omcasts = ifd->ifi_omcasts;
-			int64_t noproto = ifd->ifi_noproto;
-			int64_t collisions = ifd->ifi_collisions;
-			metric_add_labels2("if_stat", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_bytes");
-			metric_add_labels2("if_stat", &obytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_bytes");
-			metric_add_labels2("if_stat", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_packets");
-			metric_add_labels2("if_stat", &opackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_packets");
-			metric_add_labels2("if_stat", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_err");
-			metric_add_labels2("if_stat", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_err");
-			metric_add_labels2("if_stat", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_drop");
+		int64_t imcasts, omcasts, noproto, collisions;
+
+		if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_LINK)
+			continue;
+		if (!ifa->ifa_data)
+			continue;
+
+		ifd = ifa->ifa_data;
+		state = link_state_name(ifd->ifi_link_state);
+		marker = 1;
+		metric_add_labels2("link_status", &marker, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "state", state);
+
+		ipackets = ifd->ifi_ipackets;
+		opackets = ifd->ifi_opackets;
+		ibytes = ifd->ifi_ibytes;
+		obytes = ifd->ifi_obytes;
+		ierrors = ifd->ifi_ierrors;
+		oerrors = ifd->ifi_oerrors;
+		iqdrops = ifd->ifi_iqdrops;
 # if __FreeBSD__ > 10
-			metric_add_labels2("if_stat", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_drop");
+		oqdrops = ifd->ifi_oqdrops;
 # endif
-			metric_add_labels2("if_stat", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_multicast");
-			metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_multicast");
-			metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "collisions");
-			metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
-			metric_add_labels2("link_status", &link_state, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "state", "up");
+		imcasts = ifd->ifi_imcasts;
+		omcasts = ifd->ifi_omcasts;
+		noproto = ifd->ifi_noproto;
+		collisions = ifd->ifi_collisions;
+
+		metric_add_labels2("if_stat", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_bytes");
+		metric_add_labels2("if_stat", &obytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_bytes");
+		metric_add_labels2("if_stat", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_packets");
+		metric_add_labels2("if_stat", &opackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_packets");
+		metric_add_labels2("if_stat", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_err");
+		metric_add_labels2("if_stat", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_err");
+		metric_add_labels2("if_stat", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_drop");
+# if __FreeBSD__ > 10
+		metric_add_labels2("if_stat", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_drop");
+# endif
+		metric_add_labels2("if_stat", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_multicast");
+		metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_multicast");
+		metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_colls");
+		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
+
+		if (ifd->ifi_baudrate > 0) {
+			int64_t speed = (int64_t)ifd->ifi_baudrate;
+			metric_add_labels("if_speed", &speed, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
 		}
 	}
 	freeifaddrs(ifap);
@@ -718,8 +867,6 @@ void get_system_metrics()
 	{
 		get_swap();
 		get_mem();
-		get_cpu();
-		get_fd_info();
 		get_vmstat();
 	}
 	if (ac->system_base && !ac->system_process)
@@ -740,17 +887,17 @@ void get_system_metrics()
 		get_proc_info(0);
 	}
 	if (ac->system_cadvisor)
-	{
 		get_jail_stat();
-	}
-	if (ac->system_cadvisor)
-	{
-		get_jail_stat();
-	}
+	if (ac->system_cpuavg)
+		get_cpu_avg();
 }
 
 void system_fast_scrape()
 {
+	if (ac->system_base) {
+		get_cpu();
+		get_cpu_frequency();
+	}
 }
 
 void system_slow_scrape()
@@ -799,5 +946,11 @@ void sysctl_del(alligator_ht* sysctl, char *sysctl_name)
 
 void system_free()
 {
+	if (ac->scs) {
+		if (ac->scs->cores)
+			free(ac->scs->cores);
+		free(ac->scs);
+		ac->scs = NULL;
+	}
 }
 #endif

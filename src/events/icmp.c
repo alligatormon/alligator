@@ -459,8 +459,15 @@ void icmp_client_del(context_arg *carg)
 		carg_free(carg);
 	}
 }
-#endif
-#ifdef __FreeBSD__
-char* icmp_client(context_arg *carg) {return NULL;}
-void icmp_client_del(context_arg *carg) {}
+#else
+char *icmp_client(context_arg *carg)
+{
+	(void)carg;
+	return NULL;
+}
+
+void icmp_client_del(context_arg *carg)
+{
+	(void)carg;
+}
 #endif

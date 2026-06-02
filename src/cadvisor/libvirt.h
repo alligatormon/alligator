@@ -1,5 +1,8 @@
 #pragma once
+
+#ifdef __linux__
 #include <libvirt/libvirt.h>
+
 typedef struct libvirt_library {
 	uv_lib_t *virDomainGetID_lib;
 	unsigned int (*virDomainGetID)(virDomainPtr domain);
@@ -44,4 +47,7 @@ typedef struct libvirt_library {
 	int (*virConnectClose)(virConnectPtr);
 } libvirt_library;
 
-int libvirt();
+int libvirt(void);
+#else
+typedef struct libvirt_library libvirt_library;
+#endif

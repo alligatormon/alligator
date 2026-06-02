@@ -1519,4 +1519,11 @@ void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, c
 	uint64_t last_seen = now.sec;
 	add_cadvisor_metric_uint("container_last_seen", last_seen, cntid, name, image, cgroupPath, 0, 0, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
+#else
+#include "cadvisor/metrics.h"
+
+void cadvisor_register_metric_families(context_arg *carg)
+{
+	(void)carg;
+}
 #endif

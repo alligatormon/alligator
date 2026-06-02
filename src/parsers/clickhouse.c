@@ -727,7 +727,7 @@ void clickhouse_queries_foreach(void *funcarg, void* arg)
 	string_cat(query, " FORMAT TabSeparatedWithNamesAndTypes", 37);
 
 	char cl[20];
-	snprintf(cl, 19, "%"u64, query->l);
+	snprintf(cl, 19, "%zu", query->l);
 	env_struct_push_alloc(carg->env, "Content-Length", cl);
 	char *generated_query = gen_http_query(HTTP_POST, carg->query_url, NULL, carg->host, "alligator", NULL, "1.0", carg->env, NULL, query);
 	string_free(query);

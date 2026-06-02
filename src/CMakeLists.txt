@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 set(VERSION 1.14.196)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 
 include(FindPkgConfig)
 set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/generators" ${CMAKE_PREFIX_PATH})
@@ -24,7 +25,9 @@ find_package(jansson REQUIRED)
 find_package(libuv REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(pcre REQUIRED)
-find_package(libbsd REQUIRED)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	find_package(libbsd REQUIRED)
+endif()
 find_package(libuuid REQUIRED)
 find_package(xxHash REQUIRED)
 find_package(lua REQUIRED)
@@ -61,10 +64,18 @@ set(TESTS ${PROJECT_NAME}_tests)
 set(HEAD ${PROJECT_NAME})
 set(CLIENT ${PROJECT_NAME}_client)
 #set(JP ${PROJECT_NAME}_jp)
-file(STRINGS /etc/os-release distro REGEX "^ID=")
-string(REGEX REPLACE "ID=\"(.*)\"" "\\1" distro "${distro}")
-file(STRINGS /etc/os-release disversion REGEX "^VERSION_ID=")
-string(REGEX REPLACE "VERSION_ID=\"(.*)\"" "\\1" disversion "${disversion}")
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	set(distro "macos")
+	set(disversion "local")
+elseif(EXISTS "/etc/os-release")
+	file(STRINGS /etc/os-release distro REGEX "^ID=")
+	string(REGEX REPLACE "ID=\"(.*)\"" "\\1" distro "${distro}")
+	file(STRINGS /etc/os-release disversion REGEX "^VERSION_ID=")
+	string(REGEX REPLACE "VERSION_ID=\"(.*)\"" "\\1" disversion "${disversion}")
+else()
+	set(distro "unknown")
+	set(disversion "local")
+endif()
 message("found ${distro}.${disversion}")
 
 # for speed check add -H -ftime-report
@@ -120,7 +131,9 @@ include_directories(/usr/local/include/hv/)
 include_directories(external/libhv/include/hv/)
 include_directories(/usr/local/include/)
 include_directories(external/picohttpparser)
-include_directories(external/libfyaml/include/)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	include_directories(external/libfyaml/include/)
+endif()
 include_directories(external/libatasmart/)
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(external/mruby/include)
@@ -133,7 +146,9 @@ link_directories(/usr/lib/x86_64-linux-gnu/)
 link_directories(/usr/local/lib64/)
 link_directories(external/mruby/build/host/lib/)
 link_directories(external/libatasmart/.libs/)
-link_directories(external/libfyaml/src/.libs/)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	link_directories(external/libfyaml/src/.libs/)
+endif()
 link_directories(external/picohttpparser/)
 
 set(STATIC_FILES
@@ -380,7 +395,6 @@ set(STATIC_FILES
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
-	cadvisor/libvirt.c
 	dstructures/uv_cache.c
 	dstructures/queue.c
 	dstructures/ht.c
@@ -391,6 +405,32 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommyhash.c
 	dstructures/ngram/ngram.c
 )
+
+set(_LINUX_SYSTEM_SOURCES
+	system/linux.c
+	system/linux/ipmi.c
+	system/linux/ipset.c
+	system/linux/cpu.c
+	system/linux/sysctl.c
+	system/linux/conntrack.c
+	system/linux/sockets.c
+	system/linux/memory.c
+	system/linux/nftables.c
+	system/linux/distribution_name.c
+	system/linux/interrupts.c
+	system/linux/power_supply.c
+	system/linux/disk.c
+	system/linux/network.c
+)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	list(REMOVE_ITEM STATIC_FILES ${_LINUX_SYSTEM_SOURCES})
+endif()
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+	list(REMOVE_ITEM STATIC_FILES system/freebsd.c)
+endif()
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	list(REMOVE_ITEM STATIC_FILES system/macosx.c)
+endif()
 
 message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -422,18 +462,47 @@ pkg_check_modules(SYSTEMD "libsystemd" REQUIRED)
 	endif()
 endif()
 endif()
+set(ALLIGATOR_EXTERNAL_STATIC_LIBS libmruby.a libmruby_core.a libdns.a libpicohttpparser.a)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	list(APPEND ALLIGATOR_EXTERNAL_STATIC_LIBS libfyaml.a)
+endif()
+set(ALLIGATOR_COMMON_LIBS
+	jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libuuid::libuuid
+	xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig
+	${ALLIGATOR_EXTERNAL_STATIC_LIBS}
+)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	list(APPEND ALLIGATOR_COMMON_LIBS libbsd::libbsd)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	list(APPEND STATIC_FILES cadvisor/libvirt.c)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	list(APPEND ALLIGATOR_COMMON_LIBS libatasmart.a -ludev)
+endif()
 add_library(${COMMON} STATIC ${STATIC_FILES} ${SYSTEMD_FILES})
-target_link_libraries(${COMMON} PUBLIC jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libbsd::libbsd libuuid::libuuid xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig libfyaml.a libmruby.a libmruby_core.a libdns.a libatasmart.a -ludev libpicohttpparser.a)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	# Files that define _XOPEN_SOURCE still need BSD/network types (u_short, strlcpy).
+	target_compile_definitions(${COMMON} PRIVATE _DARWIN_C_SOURCE)
+endif()
+target_link_libraries(${COMMON} PUBLIC ${ALLIGATOR_COMMON_LIBS})
 add_executable(${HEAD} main.c)
 configure_file(alligator_template.h ${CMAKE_SOURCE_DIR}/alligator_version.h)
 
 add_library(${COMMON_TESTS} STATIC ${STATIC_FILES} ${SYSTEMD_FILES})
-target_link_libraries(${COMMON_TESTS} PUBLIC jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libbsd::libbsd libuuid::libuuid xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig libfyaml.a libmruby.a libmruby_core.a libdns.a libatasmart.a -ludev libpicohttpparser.a)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_compile_definitions(${COMMON_TESTS} PRIVATE _DARWIN_C_SOURCE)
+endif()
+target_link_libraries(${COMMON_TESTS} PUBLIC ${ALLIGATOR_COMMON_LIBS})
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_executable(${TESTS} tests/unit2/tests.c)
 set_property(TARGET ${TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(${TESTS} ${COMMON_TESTS} -Wl,--no-as-needed dl systemd jansson::jansson)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	target_link_libraries(${TESTS} ${COMMON_TESTS} -Wl,--no-as-needed dl systemd jansson::jansson)
+else()
+	target_link_libraries(${TESTS} ${COMMON_TESTS} jansson::jansson)
+endif()
 # Parser tests + long main() chains can sit near the default stack limit; JSON L_DEBUG would
 # still push va_list frames. Reserve a larger main thread stack for the test binary only.
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -443,9 +512,15 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_options(${TESTS} PRIVATE "LINKER:-stack_size,0x4000000")
 ENDIF()
 add_test(Test1 "build/alligator_tests" ".")
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
-add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp ../puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
-add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND mkdir -p /var/lib/alligator/)
+	add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND cp ../puppeteer/puppeteer-alligator.js /var/lib/alligator/puppeteer-alligator.js)
+	add_custom_command(TARGET ${COMMON} POST_BUILD WORKING_DIRECTORY ../lang/parseJks COMMAND go build -o /var/lib/alligator/parseJks.so -buildmode=c-shared cmd/parseJks/main.go)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	set(ALLIGATOR_VARLIB "${CMAKE_BINARY_DIR}/var/lib/alligator")
+	add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "${ALLIGATOR_VARLIB}")
+	add_custom_command(TARGET ${COMMON} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js" "${ALLIGATOR_VARLIB}/puppeteer-alligator.js")
+endif()
 
 set_target_properties(${HEAD} PROPERTIES C_STANDARD 11)
 # RPM checks reject absolute/build/local RUNPATH values in installed binaries.
@@ -504,7 +579,9 @@ include_directories(external/libhv/protocol/)
 
 include_directories(external/libhv/include/hv/)
 include_directories(external/picohttpparser)
-include_directories(external/libfyaml/include/)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	include_directories(external/libfyaml/include/)
+endif()
 include_directories(external/libatasmart/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(external/mruby/include)

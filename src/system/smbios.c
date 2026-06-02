@@ -15,7 +15,7 @@
 #include "common/logs.h"
 #include "system/common.h"
 
-#ifndef __linux__
+#ifdef __FreeBSD__
 #include <kenv.h>
 #endif
 
@@ -294,10 +294,10 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 	int f_found;
 	struct smbios_eps *eps;
 	uint64_t uefi_smbios_addr = 0;
-#ifndef __linux__
+#ifdef __FreeBSD__
 	char kname[] = "hint.smbios.0.mem", kval[20], *eptr;
 	int klen;
-#else
+#elif defined(__linux__)
 	FILE * fp;
 #endif
 
@@ -322,17 +322,20 @@ int smbios_lookfor_table(int memfd, struct smbios_eps *eps_buf) {
 		}
 	}
 	if (!f_found) {
-#ifndef __linux__
+		int uefi_addr_ok = 0;
+#ifdef __FreeBSD__
 		bzero(kval, sizeof(kval));
 		eptr = NULL;
-		if ((klen = kenv(KENV_GET, kname, kval, sizeof(kval))) > 0 &&
+		uefi_addr_ok = (klen = kenv(KENV_GET, kname, kval, sizeof(kval))) > 0 &&
 			klen < (int) sizeof(kval) &&
 			!kval[klen] &&
 			(uefi_smbios_addr = strtoull(kval, &eptr, 0)) &&
-			!*eptr) {
-#else
-		if ((fp = fopen("/sys/firmware/efi/systab", "r")) != NULL && fscanf(fp, "%"PRIu64, &uefi_smbios_addr) == 1 && uefi_smbios_addr) {
+			!*eptr;
+#elif defined(__linux__)
+		uefi_addr_ok = (fp = fopen("/sys/firmware/efi/systab", "r")) != NULL &&
+			fscanf(fp, "%"PRIu64, &uefi_smbios_addr) == 1 && uefi_smbios_addr;
 #endif
+		if (uefi_addr_ok) {
 			carglog(ac->system_carg, L_INFO, "SMBIOS EPS not found at default location" ", but we're got alternative addr 0x%016lx " "from UEFI\n", uefi_smbios_addr);
 			if (smbios_read_memory(memfd, uefi_smbios_addr, sizeof(*eps), &buf)) {
 				eps = (struct smbios_eps *) buf;

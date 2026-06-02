@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -422,3 +424,5 @@ int libvirt() {
 	ac->libvirt->virConnectClose(conn);
 	return domains_size;
 }
+
+#endif /* __linux__ */

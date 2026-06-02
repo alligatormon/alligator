@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include <netinet/in.h>
 #include <netdb.h>
 #include <net/if.h>
@@ -344,3 +346,5 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: get_net_tcpudp time execute '%"d64"'\n", scrape_time);
 }
+
+#endif /* __linux__ */

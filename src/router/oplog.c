@@ -12,7 +12,7 @@ void oplog_api_response(string *response, string *body)
 {
 	char *content_length = malloc(255);
 	uint64_t size = body ? body->l : 0;
-	snprintf(content_length, 255, "Content-Length: %zu\r\n\r\n", size);
+	snprintf(content_length, 255, "Content-Length: %" PRIu64 "\r\n\r\n", size);
 
 	string_cat(response, OPLOG_RESPONSE_HEADERS, strlen(OPLOG_RESPONSE_HEADERS));
 	string_cat(response, content_length, strlen(content_length));

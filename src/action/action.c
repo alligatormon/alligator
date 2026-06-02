@@ -120,13 +120,13 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			for (uint64_t i = 0; i < ms->l; ++i)
 			{
 				char cl[20];
-				snprintf(cl, 19, "%"u64, ms->str[i]->l);
+				snprintf(cl, 19, "%zu, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
 				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
-				snprintf(key, 256, "%s:clickhouse_action_query:%"u64, hi->host, ms->str[i]->l);
+				snprintf(key, 256, "%s:clickhouse_action_query:%zu, hi->host, ms->str[i]->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				glog(log_level, "run action clickhouse %s\n", name);
@@ -145,13 +145,13 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			for (uint64_t i = 0; i < ms->l; ++i)
 			{
 				char cl[20];
-				snprintf(cl, 19, "%"u64, ms->str[i]->l);
+				snprintf(cl, 19, "%zu, ms->str[i]->l);
 				alligator_ht *env = alligator_ht_init(NULL);
 				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
 				char *key = malloc(256);
-				snprintf(key, 256, "%s:postgresql_action_query:%"u64, hi->host, ms->str[i]->l);
+				snprintf(key, 256, "%s:postgresql_action_query:%zu, hi->host, ms->str[i]->l);
 				printf("ms %s: %"u64"\n", ms->str[i]->s, ms->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
@@ -169,7 +169,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 		else
 		{
 			char cl[20];
-			snprintf(cl, 19, "%"u64, body->l);
+			snprintf(cl, 19, "%zu, body->l);
 			alligator_ht *env = alligator_ht_init(NULL);
 			action_merge_action_env(env, an);
 			env_struct_push_alloc(env, "Content-Length", cl);

@@ -845,7 +845,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								if (!carg->auth_basic)
 									carg->auth_basic = alligator_ht_init(NULL);
 
-								uint64_t b64sz;
+								size_t b64sz;
 								char *b64_encoded_string = base64_encode(auth_data, auth_data_len, &b64sz);
 								http_auth_push(carg->auth_basic, b64_encoded_string);
 								free(b64_encoded_string);
@@ -1120,6 +1120,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								ac->system_etcdir = strdup(etcdir);
 							}
 						}
+#ifdef __linux__
 						else if (!strcmp(system_key, "ipmi"))
 						{
 							ac->system_ipmi = 1;
@@ -1156,6 +1157,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 							url_free(hi);
 						}
+#endif
 						else if (!strcmp(system_key, "cpuavg"))
 						{
 							ac->system_cpuavg = enkey;

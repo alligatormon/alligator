@@ -803,6 +803,11 @@ void cadvisor_metrics()
 }
 #endif
 
-#ifdef __FreeBSD__
-void docker_labels(char *metrics, size_t size, context_arg *carg) {};
+#ifndef __linux__
+void docker_labels(char *metrics, size_t size, context_arg *carg)
+{
+	(void)metrics;
+	(void)size;
+	(void)carg;
+}
 #endif

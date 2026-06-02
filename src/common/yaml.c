@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include "common/yaml.h"
 
+/* libfyaml is built and linked on Linux only; other platforms use no-op stubs. */
 #ifdef __linux__
 #include <libfyaml.h>
-#endif
-#ifdef __FreeBSD__
+#else
 #define FYECF_MODE_JSON 1
 #define FY_NT 2
 struct fy_document {
@@ -17,7 +17,7 @@ char *fy_emit_document_to_string(struct fy_document *fyd, int mode) { return NUL
 int fy_emit_document_to_file(struct fy_document *fyd, int mode, char *path) { return 0; }
 void fy_document_destroy(struct fy_document *fyd) {};
 
-#endif
+#endif /* !__linux__ */
 
 char *yaml_file_to_json_str(char *path)
 {

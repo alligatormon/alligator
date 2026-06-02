@@ -4,242 +4,652 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <mach/vm_statistics.h>
 #include <mach/mach_types.h>
 #include <mach/mach_init.h>
 #include <mach/mach_host.h>
 #include <mach/mach.h>
+#include <mach/processor_info.h>
 #include <libproc.h>
-#include <mach/mach_time.h>
-#include <mach-o/ldsyms.h>
+#include <net/if.h>
+#include <net/if_dl.h>
+#include <ifaddrs.h>
 
+#include "metric/labels.h"
 #include "main.h"
+#include "common/rtime.h"
+#include "system/common.h"
 
-void get_swap()
+extern aconf *ac;
+
+typedef struct mac_cpu_ticks {
+	uint64_t user;
+	uint64_t nice;
+	uint64_t system;
+	uint64_t idle;
+} mac_cpu_ticks;
+
+static void get_cpu_avg(void)
 {
-	extern aconf *ac;
+	double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
+	metric_add_auto("cpu_usage_average_percent", &result, DATATYPE_DOUBLE, ac->system_carg);
+}
+
+static void cpu_avg_push(double now)
+{
+	if (now > 100)
+		return;
+
+	double old = ac->system_avg_metrics[ac->system_cpuavg_ptr];
+	ac->system_avg_metrics[ac->system_cpuavg_ptr] = now;
+	ac->system_cpuavg_sum = (ac->system_cpuavg_sum - old) + now;
+
+	++ac->system_cpuavg_ptr;
+	if (ac->system_cpuavg_ptr >= ac->system_cpuavg_period)
+		ac->system_cpuavg_ptr = 0;
+}
+
+static double pct_delta(uint64_t delta, uint64_t total)
+{
+	if (!total)
+		return 0.0;
+	double pct = (double)delta * 100.0 / (double)total;
+	return pct < 0.0 ? 0.0 : pct;
+}
+
+static long cpu_tick_hz(void)
+{
+	static long hz;
+	struct clockinfo clock;
+	size_t size;
+	int mib[2];
+
+	if (hz > 0)
+		return hz;
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_CLOCKRATE;
+	size = sizeof(clock);
+	if (sysctl(mib, 2, &clock, &size, NULL, 0) == 0) {
+		hz = clock.stathz > 0 ? clock.stathz : clock.hz;
+		if (hz > 0)
+			return hz;
+	}
+
+	hz = sysconf(_SC_CLK_TCK);
+	if (hz <= 0)
+		hz = 100;
+	return hz;
+}
+
+static double ticks_to_seconds(uint64_t ticks)
+{
+	return (double)ticks / (double)cpu_tick_hz();
+}
+
+static int read_cpu_ticks(mac_cpu_ticks *agg, mac_cpu_ticks **cores, natural_t *processor_count)
+{
+	processor_cpu_load_info_t cpu_load;
+	mach_msg_type_number_t msg_count;
+	kern_return_t kr;
+	natural_t count;
+	natural_t i;
+
+	kr = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &count,
+	    (processor_info_array_t *)&cpu_load, &msg_count);
+	if (kr != KERN_SUCCESS)
+		return -1;
+
+	if (!*cores)
+		*cores = calloc(count, sizeof(mac_cpu_ticks));
+	if (!*cores) {
+		vm_deallocate(mach_task_self(), (vm_address_t)cpu_load, msg_count * sizeof(integer_t));
+		return -1;
+	}
+
+	memset(agg, 0, sizeof(*agg));
+	for (i = 0; i < count; i++) {
+		(*cores)[i].user = cpu_load[i].cpu_ticks[CPU_STATE_USER];
+		(*cores)[i].nice = cpu_load[i].cpu_ticks[CPU_STATE_NICE];
+		(*cores)[i].system = cpu_load[i].cpu_ticks[CPU_STATE_SYSTEM];
+		(*cores)[i].idle = cpu_load[i].cpu_ticks[CPU_STATE_IDLE];
+
+		agg->user += (*cores)[i].user;
+		agg->nice += (*cores)[i].nice;
+		agg->system += (*cores)[i].system;
+		agg->idle += (*cores)[i].idle;
+	}
+
+	vm_deallocate(mach_task_self(), (vm_address_t)cpu_load, msg_count * sizeof(integer_t));
+	*processor_count = count;
+	return 0;
+}
+
+static void cpu_core_interval_push(system_cpu_cores_stats *sccs, const char *cpuname,
+	const mac_cpu_ticks *now)
+{
+	uint64_t t_total = now->user + now->nice + now->system + now->idle;
+	uint64_t dt_total = t_total - sccs->total;
+
+	if (!dt_total)
+		return;
+
+	{
+		uint64_t d_user = now->user - sccs->user;
+		uint64_t d_nice = now->nice - sccs->nice;
+		uint64_t d_system = now->system - sccs->system;
+		uint64_t d_idle = now->idle - sccs->idle;
+		double user = pct_delta(d_user, dt_total);
+		double nice = pct_delta(d_nice, dt_total);
+		double system = pct_delta(d_system, dt_total);
+		double idle = pct_delta(d_idle, dt_total);
+
+		metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", (char *)cpuname);
+		metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", (char *)cpuname);
+		metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", (char *)cpuname);
+		metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", (char *)cpuname);
+	}
+
+	sccs->total = t_total;
+	sccs->user = now->user;
+	sccs->nice = now->nice;
+	sccs->system = now->system;
+	sccs->idle = now->idle;
+}
+
+static void emit_cpu_counters(const mac_cpu_ticks *ticks, const char *cpuname, int per_core)
+{
+	double user = ticks_to_seconds(ticks->user);
+	double nice = ticks_to_seconds(ticks->nice);
+	double system = ticks_to_seconds(ticks->system);
+	double idle = ticks_to_seconds(ticks->idle);
+
+	if (per_core) {
+		metric_add_labels2("cpu_usage_core_time", &user, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "user");
+		metric_add_labels2("cpu_usage_core_time", &nice, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "nice");
+		metric_add_labels2("cpu_usage_core_time", &system, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "system");
+		metric_add_labels2("cpu_usage_core_time", &idle, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "idle");
+	} else {
+		metric_add_labels("cpu_usage_time", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_usage_time", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+		metric_add_labels("cpu_usage_time", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_usage_time", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+	}
+}
+
+static void get_cpu_frequency(void)
+{
+	uint64_t freq = 0;
+	size_t size = sizeof(freq);
+	int ncpu = 0;
+	size_t nlen = sizeof(ncpu);
+	char cpuname[16];
+	int i;
+
+	if (sysctlbyname("hw.ncpu", &ncpu, &nlen, NULL, 0) != 0 || ncpu < 1)
+		return;
+
+	if (sysctlbyname("hw.cpufrequency_max", &freq, &size, NULL, 0) != 0 || !freq) {
+		size = sizeof(freq);
+		if (sysctlbyname("hw.perflevel0.frequency_target", &freq, &size, NULL, 0) != 0 || !freq)
+			return;
+	}
+
+	for (i = 0; i < ncpu; i++) {
+		double hz = (double)freq;
+		snprintf(cpuname, sizeof(cpuname), "%d", i);
+		metric_add_labels("cpu_current_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg, "core", cpuname);
+	}
+}
+
+void get_cpu(void)
+{
+	mac_cpu_ticks agg;
+	mac_cpu_ticks *cores = NULL;
+	natural_t processor_count = 0;
+	system_cpu_cores_stats *hw;
+	r_time ts_start = setrtime();
+	r_time ts_end;
+	double diff_time;
+	uint64_t sec;
+	char cpuname[20];
+	natural_t i;
+
+	if (read_cpu_ticks(&agg, &cores, &processor_count) != 0)
+		return;
+
+	if (!ac->scs->cores && processor_count > 0)
+		ac->scs->cores = calloc(processor_count, sizeof(system_cpu_cores_stats));
+
+	emit_cpu_counters(&agg, NULL, 0);
+
+	for (i = 0; i < processor_count; i++) {
+		snprintf(cpuname, sizeof(cpuname), "%u", i);
+		emit_cpu_counters(&cores[i], cpuname, 1);
+		if (ac->scs->cores && i < processor_count)
+			cpu_core_interval_push(&ac->scs->cores[i], cpuname, &cores[i]);
+	}
+
+	hw = &ac->scs->hw;
+	{
+		uint64_t t_total = agg.user + agg.nice + agg.system + agg.idle;
+		uint64_t dt_total = t_total - hw->total;
+
+		if (dt_total && ac->system_cpuavg) {
+			uint64_t d_user = agg.user - hw->user;
+			uint64_t d_system = agg.system - hw->system;
+			cpu_avg_push(pct_delta(d_user + d_system, dt_total));
+		}
+		hw->total = t_total;
+		hw->user = agg.user;
+		hw->nice = agg.nice;
+		hw->system = agg.system;
+		hw->idle = agg.idle;
+	}
+
+	free(cores);
+
+	ts_end = setrtime();
+	diff_time = getrtime_ns(ac->last_time_cpu, ts_start) / 1000000000.0;
+	ac->last_time_cpu = ts_start;
+	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
+
+	sec = ts_end.sec;
+	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
+}
+
+void get_swap(void)
+{
 	struct xsw_usage vmusage = {0};
 	size_t size = sizeof(vmusage);
-	if( sysctlbyname("vm.swapusage", &vmusage, &size, NULL, 0)!=0 )
-	{
-		perror( "unable to get swap usage by calling sysctlbyname(\"vm.swapusage\",...)" );
-	}
+
+	if (sysctlbyname("vm.swapusage", &vmusage, &size, NULL, 0) != 0)
+		return;
 
 	metric_add_labels("swap_usage", &vmusage.xsu_total, DATATYPE_INT, ac->system_carg, "type", "total");
 	metric_add_labels("swap_usage", &vmusage.xsu_avail, DATATYPE_INT, ac->system_carg, "type", "avail");
 	metric_add_labels("swap_usage", &vmusage.xsu_used, DATATYPE_INT, ac->system_carg, "type", "used");
 }
-void get_disk()
-{
-	extern aconf *ac;
-	struct statfs* mounts;
-	int num_mounts = getmntinfo(&mounts, MNT_WAIT);
-	
-	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, ac->system_carg);
-	for (int i = 0; i < num_mounts; i++) {
-		uint64_t disksize = 0;
-		struct statfs stats;
-		if (0 == statfs(mounts[i].f_mntonname, &stats))
-		{
-			disksize = (uint64_t)stats.f_bsize * stats.f_bfree;
-		}
-		int one = 1;
-		metric_add_labels("disk_usage", &disksize, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname);
-		metric_add_labels2("disk_files", &stats.f_files, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
-		metric_add_labels2("disk_files", &stats.f_ffree, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "freeinodes");
-		metric_add_labels2("disk_files", &one, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
-	}
 
+static int skip_mount(const char *path)
+{
+	return !strncmp(path, "/dev", 4)
+	    || !strncmp(path, "/private/var/vm", 15)
+	    || !strncmp(path, "/System/Volumes/Hardware", 24);
 }
 
-void get_mem()
+void get_disk(void)
 {
-	extern aconf *ac;
-	int mib[2];
-	int64_t physical_memory;
-	mib[0] = CTL_HW;
-	mib[1] = HW_MEMSIZE;
-	size_t length = sizeof(int64_t);
-	sysctl(mib, 2, &physical_memory, &length, NULL, 0, ac->system_carg);
+	struct statfs *mounts;
+	int num_mounts = getmntinfo(&mounts, MNT_WAIT);
+	int i;
 
+	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, ac->system_carg);
+	for (i = 0; i < num_mounts; i++) {
+		struct statfs stats;
+		int64_t avail, total, used;
+		double pused, pfree;
+		uint64_t inodes_used;
+		double iused, ifree;
+		int64_t one = 1;
+
+		if (skip_mount(mounts[i].f_mntonname))
+			continue;
+		if (statfs(mounts[i].f_mntonname, &stats))
+			continue;
+
+		avail = (int64_t)stats.f_bsize * stats.f_bavail;
+		total = (int64_t)stats.f_bsize * stats.f_blocks;
+		if (total <= 0)
+			continue;
+		used = total - avail;
+		pused = (double)used * 100.0 / (double)total;
+		pfree = 100.0 - pused;
+
+		metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "avail");
+		metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
+		metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+		metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+		metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+
+		if (stats.f_files > 0) {
+			inodes_used = stats.f_files - stats.f_ffree;
+			iused = inodes_used * 100.0 / stats.f_files;
+			ifree = 100.0 - iused;
+			metric_add_labels2("disk_inodes", &stats.f_ffree, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+			metric_add_labels2("disk_inodes", &inodes_used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+			metric_add_labels2("disk_inodes", &stats.f_files, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
+			metric_add_labels2("disk_inodes_percent", &iused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+			metric_add_labels2("disk_inodes_percent", &ifree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+		}
+
+		metric_add_labels2("disk_filesystem", &one, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
+	}
+}
+
+void get_mem(void)
+{
+	int64_t physical_memory = 0;
+	size_t length = sizeof(physical_memory);
+	int mib[2] = {CTL_HW, HW_MEMSIZE};
 	vm_size_t page_size;
 	mach_port_t mach_port;
 	mach_msg_type_number_t count;
 	vm_statistics64_data_t vm_stats;
+	int64_t free_memory, used_memory, active_memory, inactive_memory, wire_memory;
+	int64_t num_cpu = 0;
+	size_t cpu_len = sizeof(num_cpu);
+	double load1, load5, load15;
+	struct loadavg load;
+	size_t load_len = sizeof(load);
+
+	sysctl(mib, 2, &physical_memory, &length, NULL, 0);
+	sysctlbyname("hw.ncpu", &num_cpu, &cpu_len, NULL, 0);
 
 	mach_port = mach_host_self();
-	count = sizeof(vm_stats) / sizeof(natural_t);
-	if (KERN_SUCCESS == host_page_size(mach_port, &page_size) && KERN_SUCCESS == host_statistics64(mach_port, HOST_VM_INFO, (host_info64_t)&vm_stats, &count))
-	{
-		int64_t free_memory = (int64_t)vm_stats.free_count * (int64_t)page_size;
+	count = HOST_VM_INFO64_COUNT;
+	if (host_page_size(mach_port, &page_size) != KERN_SUCCESS
+	    || host_statistics64(mach_port, HOST_VM_INFO64, (host_info64_t)&vm_stats, &count) != KERN_SUCCESS)
+		return;
 
-		int64_t used_memory =	((int64_t)vm_stats.active_count +
-					(int64_t)vm_stats.inactive_count +
-					(int64_t)vm_stats.wire_count) * (int64_t)page_size;
-		int64_t active_memory = (int64_t)vm_stats.active_count*(int64_t)page_size;
-		int64_t inactive_memory = (int64_t)vm_stats.inactive_count*(int64_t)page_size;
-		int64_t wire_memory = (int64_t)vm_stats.wire_count*(int64_t)page_size;
-		metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
-		metric_add_labels("memory_usage", &used_memory, DATATYPE_INT, ac->system_carg, "type", "used");
-		metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
-		metric_add_labels("memory_usage", &inactive_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
-		metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
+	free_memory = (int64_t)vm_stats.free_count * (int64_t)page_size;
+	active_memory = (int64_t)vm_stats.active_count * (int64_t)page_size;
+	inactive_memory = (int64_t)vm_stats.inactive_count * (int64_t)page_size;
+	wire_memory = (int64_t)vm_stats.wire_count * (int64_t)page_size;
+	used_memory = active_memory + inactive_memory + wire_memory;
+
+	metric_add_labels("memory_usage", &physical_memory, DATATYPE_INT, ac->system_carg, "type", "total");
+	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
+	metric_add_labels("memory_usage", &used_memory, DATATYPE_INT, ac->system_carg, "type", "used");
+	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
+	metric_add_labels("memory_usage", &inactive_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
+	metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
+
+	if (physical_memory > 0) {
+		double percentused = (double)used_memory * 100.0 / (double)physical_memory;
+		double percentfree = 100.0 - percentused;
+		metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
+		metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
 	}
+
+	if (sysctlbyname("vm.loadavg", &load, &load_len, NULL, 0) == 0) {
+		load1 = (double)load.ldavg[0] / (double)load.fscale;
+		load5 = (double)load.ldavg[1] / (double)load.fscale;
+		load15 = (double)load.ldavg[2] / (double)load.fscale;
+		metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1");
+		metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5");
+		metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");
+	}
+
+	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
-typedef struct cpu_counters
+static void get_sysctl_stat_u64(const char *ctlname, const char *mapping)
 {
-	uint64_t totalSystemTime;
-	uint64_t totalUserTime;
-	uint64_t totalIdleTime;
+	uint64_t val;
+	size_t size = sizeof(val);
 
-} cpu_counters;
-
-int get_cpu_counters(struct cpu_counters *cpu_counters, struct cpu_counters** cores)
-{
-	extern aconf *ac;
-	processor_cpu_load_info_t cpuLoad;
-	mach_msg_type_number_t processorMsgCount;
-	natural_t processorCount;
-
-	uint64_t totalSystemTime = 0, totalUserTime = 0, totalIdleTime = 0;
-
-	/*kern_return_t err =*/ host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &processorCount, (processor_info_array_t *)&cpuLoad, &processorMsgCount);
-	*cores = calloc(sizeof(struct cpu_counters), processorCount);
-
-	for (int i = 0; i < processorCount; i++) {
-
-		uint64_t system = 0, user = 0, idle = 0;
-
-		system = cpuLoad[i].cpu_ticks[CPU_STATE_SYSTEM];
-		user = cpuLoad[i].cpu_ticks[CPU_STATE_USER] + cpuLoad[i].cpu_ticks[CPU_STATE_NICE];
-		idle = cpuLoad[i].cpu_ticks[CPU_STATE_IDLE];
-		(*cores)[i].totalSystemTime = system;
-		(*cores)[i].totalUserTime = user;
-		(*cores)[i].totalIdleTime = idle;
-
-		totalSystemTime += system;
-		totalUserTime += user;
-		totalIdleTime += idle;
-	}
-	cpu_counters->totalSystemTime = totalSystemTime;
-	cpu_counters->totalUserTime = totalUserTime;
-	cpu_counters->totalIdleTime = totalIdleTime;
-	return processorCount;
+	if (sysctlbyname(ctlname, &val, &size, NULL, 0) != 0)
+		return;
+	metric_add_auto((char *)mapping, &val, DATATYPE_UINT, ac->system_carg);
 }
 
-void get_cpu()
+static void get_vmstat(void)
 {
-	extern aconf *ac;
-	struct cpu_counters delta;
-	struct cpu_counters getcpu1_counters;
-	struct cpu_counters getcpu2_counters;
-	struct cpu_counters *cores1;
-	struct cpu_counters *cores2;
-	int64_t cores_num;
-
-	cores_num = get_cpu_counters(&getcpu1_counters, &cores1);
-	sleep(1);
-	get_cpu_counters(&getcpu2_counters, &cores2);
-
-	delta.totalSystemTime = getcpu2_counters.totalSystemTime - getcpu1_counters.totalSystemTime;
-	delta.totalUserTime = getcpu2_counters.totalUserTime - getcpu1_counters.totalUserTime;
-	delta.totalIdleTime = getcpu2_counters.totalIdleTime - getcpu1_counters.totalIdleTime;
-
-	uint64_t total = delta.totalSystemTime + delta.totalUserTime + delta.totalIdleTime;
-	double onePercent = total/100.0f;
-	double totalSystemTime = delta.totalSystemTime/(double)onePercent;
-	double totalUserTime = delta.totalUserTime/(double)onePercent;
-	double totalIdleTime = delta.totalIdleTime/(double)onePercent;
-
-	metric_add_labels("cpu_usage", &totalSystemTime, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-	metric_add_labels("cpu_usage", &totalUserTime, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-	metric_add_labels("cpu_usage", &totalIdleTime, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
-	metric_add_auto("cores_num", &cores_num, DATATYPE_INT, ac->system_carg);
-	int i;
-	char *corename;
-	for ( i=0; i<cores_num; i++ )
-	{
-		int64_t csystem = cores2[i].totalSystemTime - cores1[i].totalSystemTime;
-		int64_t cuser = cores2[i].totalUserTime - cores1[i].totalUserTime;
-		int64_t cidle = cores2[i].totalIdleTime - cores1[i].totalIdleTime;
-		total = csystem+cuser+cidle;
-		onePercent = total/100.0f;
-		double system = csystem/onePercent;
-		double user = cuser/onePercent;
-		double idle = cidle/onePercent;
-		
-		corename = malloc(20);
-		snprintf(corename, 20, "cpu%d", i);
-		metric_add_labels2("core_usage", &system, DATATYPE_DOUBLE, ac->system_carg, "core", corename, "type", "system");
-		metric_add_labels2("core_usage", &user, DATATYPE_DOUBLE, ac->system_carg, "core", corename, "type", "user");
-		metric_add_labels2("core_usage", &idle, DATATYPE_DOUBLE, ac->system_carg, "core", corename, "type", "idle");
-	}
-	free(cores1);
-	free(cores2);
+	get_sysctl_stat_u64("kern.num_files", "open_files");
+	get_sysctl_stat_u64("kern.maxfiles", "max_files");
+	get_sysctl_stat_u64("kern.maxproc", "processes_max");
 }
 
-int get_proc_info()
+void get_iface_statistics(void)
 {
-	extern aconf *ac;
+	struct ifaddrs *ifap, *ifa;
+
+	if (getifaddrs(&ifap) != 0)
+		return;
+
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		struct if_data *ifd;
+		const char *state;
+		int64_t marker;
+		int64_t ipackets, opackets, ibytes, obytes;
+		int64_t ierrors, oerrors, iqdrops, oqdrops;
+		int64_t imcasts, omcasts, noproto, collisions;
+
+		if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_LINK)
+			continue;
+		if (!ifa->ifa_data)
+			continue;
+
+		ifd = ifa->ifa_data;
+		state = (ifa->ifa_flags & IFF_UP) ? "up" : "down";
+		marker = 1;
+		metric_add_labels2("link_status", &marker, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "state", (char *)state);
+
+		ipackets = ifd->ifi_ipackets;
+		opackets = ifd->ifi_opackets;
+		ibytes = ifd->ifi_ibytes;
+		obytes = ifd->ifi_obytes;
+		ierrors = ifd->ifi_ierrors;
+		oerrors = ifd->ifi_oerrors;
+		iqdrops = ifd->ifi_iqdrops;
+		oqdrops = 0;
+		imcasts = ifd->ifi_imcasts;
+		omcasts = ifd->ifi_omcasts;
+		noproto = ifd->ifi_noproto;
+		collisions = ifd->ifi_collisions;
+
+		metric_add_labels2("if_stat", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_bytes");
+		metric_add_labels2("if_stat", &obytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_bytes");
+		metric_add_labels2("if_stat", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_packets");
+		metric_add_labels2("if_stat", &opackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_packets");
+		metric_add_labels2("if_stat", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_err");
+		metric_add_labels2("if_stat", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_err");
+		metric_add_labels2("if_stat", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_drop");
+		metric_add_labels2("if_stat", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_drop");
+		metric_add_labels2("if_stat", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_multicast");
+		metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_multicast");
+		metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_colls");
+		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "noproto");
+
+		if (ifd->ifi_baudrate > 0) {
+			int64_t speed = (int64_t)ifd->ifi_baudrate;
+			metric_add_labels("if_speed", &speed, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
+		}
+	}
+	freeifaddrs(ifap);
+}
+
+static void emit_uptime(void)
+{
+	struct timeval boottime;
+	size_t len = sizeof(boottime);
+	time_t now = time(NULL);
+	uint64_t uptime;
+
+	if (sysctlbyname("kern.boottime", &boottime, &len, NULL, 0) != 0)
+		return;
+	if (now <= boottime.tv_sec)
+		return;
+	uptime = (uint64_t)(now - boottime.tv_sec);
+	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
+}
+
+void get_proc_info(int8_t lightweight)
+{
 	int bufsize = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
-	pid_t pids[2 * bufsize / sizeof(pid_t)];
-	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, sizeof(pids));
-	size_t num_pids = bufsize / sizeof(pid_t);
+	pid_t *pids;
+	size_t num_pids;
+	int index;
+	uint64_t proc_count = 0;
 
-	for( int index=0; index < num_pids; index++)
-	{
-		pid_t pid = pids[index] ;
+	if (bufsize <= 0)
+		return;
 
-		struct proc_taskinfo taskInfo ;
+	pids = malloc((size_t)bufsize);
+	if (!pids)
+		return;
+
+	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, bufsize);
+	num_pids = (size_t)bufsize / sizeof(pid_t);
+
+	for (index = 0; index < (int)num_pids; index++) {
+		struct proc_taskinfo task_info;
 		struct proc_bsdinfo proc;
-		proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, sizeof( taskInfo )) ;
-		proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE);
+		pid_t pid = pids[index];
+		char pidstr[16];
+		double utime, stime, total_time;
 
-		metric_add_labels2("process_memory", &taskInfo.pti_virtual_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "vsz");
-		metric_add_labels2("process_memory", &taskInfo.pti_resident_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "rss");
-		metric_add_labels2("process_stats", &taskInfo.pti_threadnum, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "threads");
-		metric_add_labels2("process_stats", &taskInfo.pti_numrunning, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "name");
-		metric_add_labels2("process_stats", &taskInfo.pti_numrunning, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "priority");
+		if (pid <= 0)
+			continue;
+		proc_count++;
+
+		if (lightweight)
+			continue;
+
+		if (proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, PROC_PIDTASKINFO_SIZE) < 0)
+			continue;
+		if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE) < 0)
+			continue;
+
+		snprintf(pidstr, sizeof(pidstr), "%d", pid);
+		utime = (double)task_info.pti_total_user / 1e9;
+		stime = (double)task_info.pti_total_system / 1e9;
+		total_time = utime + stime;
+		metric_add_labels3("process_cpu_seconds_total", &utime, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "user");
+		metric_add_labels3("process_cpu_seconds_total", &stime, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "system");
+		metric_add_labels3("process_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "total");
+
+		metric_add_labels2("process_memory", &task_info.pti_virtual_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "vsz");
+		metric_add_labels2("process_memory", &task_info.pti_resident_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "rss");
+		metric_add_labels2("process_stats", &task_info.pti_threadnum, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "threads");
 		metric_add_labels2("process_stats", &proc.pbi_status, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "status");
 		metric_add_labels2("process_stats", &proc.pbi_flags, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "flags");
 		metric_add_labels2("process_stats", &proc.pbi_nfiles, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "nfiles");
-		metric_add_labels2("process_stats", &taskInfo.pti_syscalls_unix, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "unix_syscall");
-		metric_add_labels2("process_stats", &taskInfo.pti_syscalls_mach, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "mach_syscall");
-		metric_add_labels2("process_stats", &taskInfo.pti_csw, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "context_switches");
-		metric_add_labels2("process_stats", &taskInfo.pti_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "faults");
-		metric_add_labels2("process_stats", &taskInfo.pti_cow_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "cow_faults");
-
+		metric_add_labels2("process_stats", &task_info.pti_syscalls_unix, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "unix_syscall");
+		metric_add_labels2("process_stats", &task_info.pti_syscalls_mach, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "mach_syscall");
+		metric_add_labels2("process_stats", &task_info.pti_csw, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "context_switches");
+		metric_add_labels2("process_stats", &task_info.pti_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "faults");
+		metric_add_labels2("process_stats", &task_info.pti_cow_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "cow_faults");
 	}
 
-	return EXIT_SUCCESS ;
+	metric_add_auto("processes", &proc_count, DATATYPE_UINT, ac->system_carg);
+	{
+		uint64_t proc_max;
+		size_t proc_max_sz = sizeof(proc_max);
+		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
+			double proc_usage = proc_count * 100.0 / (double)proc_max;
+			metric_add_auto("processes_usage", &proc_usage, DATATYPE_DOUBLE, ac->system_carg);
+		}
+	}
+
+	free(pids);
 }
- 
 
-
-void get_system_metrics()
+void get_system_metrics(void)
 {
-	extern aconf *ac;
-	if (ac->system_base)
-	{
+	if (ac->system_base) {
 		get_swap();
-		get_cpu();
 		get_mem();
+		get_vmstat();
+		emit_uptime();
+		ipaddr_info();
+		hw_cpu_info();
+		get_utsname();
 	}
-
+	if (ac->system_base && !ac->system_process)
+		get_proc_info(1);
 	if (ac->system_network)
-	{
-	}
+		get_iface_statistics();
 	if (ac->system_disk)
-	{
 		get_disk();
-	}
-
 	if (ac->system_process)
-	{
-		get_proc_info();
+		get_proc_info(0);
+	if (ac->system_cpuavg)
+		get_cpu_avg();
+}
+
+void system_fast_scrape(void)
+{
+	if (ac->system_base) {
+		get_cpu();
+		get_cpu_frequency();
+	}
+}
+
+void system_slow_scrape(void)
+{
+	if (ac->system_base)
+		get_smbios();
+}
+
+void userprocess_push(alligator_ht *userprocess, char *user)
+{
+	(void)userprocess;
+	(void)user;
+}
+
+void userprocess_del(alligator_ht *userprocess, char *user)
+{
+	(void)userprocess;
+	(void)user;
+}
+
+void service_user_push(alligator_ht *service_users, char *user)
+{
+	(void)service_users;
+	(void)user;
+}
+
+void service_user_del(alligator_ht *service_users, char *user)
+{
+	(void)service_users;
+	(void)user;
+}
+
+void service_user_clear(alligator_ht *service_users)
+{
+	(void)service_users;
+}
+
+void pidfile_push(char *file, int type)
+{
+	(void)file;
+	(void)type;
+}
+
+void pidfile_del(char *file, int type)
+{
+	(void)file;
+	(void)type;
+}
+
+void sysctl_push(alligator_ht *sysctl, char *sysctl_name)
+{
+	(void)sysctl;
+	(void)sysctl_name;
+}
+
+void sysctl_del(alligator_ht *sysctl, char *sysctl_name)
+{
+	(void)sysctl;
+	(void)sysctl_name;
+}
+
+void system_free(void)
+{
+	if (ac->scs) {
+		if (ac->scs->cores)
+			free(ac->scs->cores);
+		free(ac->scs);
+		ac->scs = NULL;
 	}
 }
 #endif

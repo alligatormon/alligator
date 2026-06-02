@@ -82,7 +82,7 @@ void check_bearer(context_arg *carg) {
 void test_http_access_1()
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
-	uint64_t b64sz;
+	size_t b64sz;
 
 	carg->auth_basic = alligator_ht_init(NULL);
 
@@ -98,7 +98,7 @@ void test_http_access_1()
 void test_http_access_2()
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
-	uint64_t b64sz;
+	size_t b64sz;
 
 	carg->auth_basic = alligator_ht_init(NULL);
 
@@ -305,7 +305,7 @@ void test_http_parser_route_and_auth_edges()
 
     /* forbidden (auth present but wrong) */
     string_null(response);
-    uint64_t b64sz = 0;
+    size_t b64sz = 0;
     http_auth_push(carg->auth_basic, base64_encode("root:qwerty", strlen("root:qwerty"), &b64sz));
     char *req_bad_auth = "GET / HTTP/1.1\r\nAuthorization: basic ZXJyOmVycg==\r\n\r\n";
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_bad_auth, strlen(req_bad_auth), response, carg));
