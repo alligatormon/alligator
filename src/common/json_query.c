@@ -415,40 +415,31 @@ static void json_query_parse_root(context_arg *carg, json_t *root, char *prefix,
 	carg->data = NULL;
 }
 
-static char *json_ndjson_trim_line(char *line)
-{
-	char *end = line + strlen(line);
-	while (end > line && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t'))
-		--end;
-	*end = '\0';
-	return line;
-}
-
 /* JSON Lines / NDJSON: one JSON value per line (PostgreSQL jsonlog, etc.). */
-static int json_query_parse_lines(char *data, char *prefix, context_arg *carg, char **queries, uint8_t queries_size)
+static int json_query_parse_lines(const char *data, char *prefix, context_arg *carg, char **queries, uint8_t queries_size)
 {
 	int parsed = 0;
-	char *p = data;
+	size_t len = strlen(data);
+	size_t start = 0;
 
-	while (*p) {
-		while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
-			++p;
-		if (!*p)
-			break;
+	for (size_t p = 0; p <= len; ++p) {
+		if (p != len && data[p] != '\n')
+			continue;
 
-		char *line = p;
-		while (*p && *p != '\n')
-			++p;
+		size_t line_start = start;
+		size_t line_end = p;
+		while (line_start < line_end && isspace((unsigned char)data[line_start]))
+			++line_start;
+		while (line_end > line_start && isspace((unsigned char)data[line_end - 1]))
+			--line_end;
 
-		if (*p == '\n')
-			*p++ = '\0';
+		start = p + 1;
 
-		json_ndjson_trim_line(line);
-		if (!*line)
+		if (line_end <= line_start)
 			continue;
 
 		json_error_t error;
-		json_t *line_root = json_loads(line, 0, &error);
+		json_t *line_root = json_loadb(data + line_start, line_end - line_start, 0, &error);
 		if (!line_root) {
 			json_carglog_if(carg, L_DEBUG, "json '%s' skip NDJSON line: %s\n", json_carg_key(carg), error.text);
 			continue;
@@ -462,30 +453,30 @@ static int json_query_parse_lines(char *data, char *prefix, context_arg *carg, c
 	return parsed;
 }
 
-static int json_ndjson_valid_lines(char *data)
+static int json_ndjson_valid_lines(const char *data)
 {
 	int valid = 0;
-	char *p = data;
+	size_t len = strlen(data);
+	size_t start = 0;
 
-	while (*p) {
-		while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')
-			++p;
-		if (!*p)
-			break;
+	for (size_t p = 0; p <= len; ++p) {
+		if (p != len && data[p] != '\n')
+			continue;
 
-		char *line = p;
-		while (*p && *p != '\n')
-			++p;
+		size_t line_start = start;
+		size_t line_end = p;
+		while (line_start < line_end && isspace((unsigned char)data[line_start]))
+			++line_start;
+		while (line_end > line_start && isspace((unsigned char)data[line_end - 1]))
+			--line_end;
 
-		if (*p == '\n')
-			*p++ = '\0';
+		start = p + 1;
 
-		json_ndjson_trim_line(line);
-		if (!*line)
+		if (line_end <= line_start)
 			continue;
 
 		json_error_t error;
-		json_t *line_root = json_loads(line, 0, &error);
+		json_t *line_root = json_loadb(data + line_start, line_end - line_start, 0, &error);
 		if (!line_root)
 			continue;
 
