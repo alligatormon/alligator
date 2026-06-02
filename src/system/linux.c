@@ -488,12 +488,12 @@ void get_proc_info(char *szFileName, char *exName, char *pid_number, int8_t ligh
 		else if (cnt == 3)
 		{
 			int64_t val = int_get_next(t+4, sz, ' ', &cursor);
-			metric_add_labels3("process_page_faults", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "minor");
+			metric_add_labels3("process_page_faults_total", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "minor");
 		}
 		else if (cnt == 1)
 		{
 			int64_t val = int_get_next(t+4, sz, ' ', &cursor);
-			metric_add_labels3("process_page_faults", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "major");
+			metric_add_labels3("process_page_faults_total", &val, DATATYPE_INT, ac->system_carg, "name", exName, "pid", pid_number, "type", "major");
 		}
 		else
 			int_get_next(t+4, sz, ' ', &cursor);
@@ -661,7 +661,20 @@ void get_process_io_stat(char *file, char *command, char *pid)
 		memcpy(buf2, buf, key_copy);
 		buf2[key_copy] = 0;
 		val = strtoll(sep + 1, NULL, 10);
-		metric_add_labels3("process_io", &val, DATATYPE_INT, ac->system_carg, "name", command, "type", buf2, "pid", pid);
+		if (!strcmp(buf2, "syscr"))
+			metric_add_labels3("process_io_syscalls_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "read", "pid", pid);
+		else if (!strcmp(buf2, "syscw"))
+			metric_add_labels3("process_io_syscalls_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "write", "pid", pid);
+		else if (!strcmp(buf2, "rchar"))
+			metric_add_labels3("process_io_chars_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "read", "pid", pid);
+		else if (!strcmp(buf2, "wchar"))
+			metric_add_labels3("process_io_chars_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "write", "pid", pid);
+		else if (!strcmp(buf2, "read_bytes"))
+			metric_add_labels3("process_io_bytes_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "read", "pid", pid);
+		else if (!strcmp(buf2, "write_bytes"))
+			metric_add_labels3("process_io_bytes_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "write", "pid", pid);
+		else if (!strcmp(buf2, "cancelled_write_bytes"))
+			metric_add_labels3("process_io_bytes_total", &val, DATATYPE_INT, ac->system_carg, "name", command, "op", "cancelled_write", "pid", pid);
 	}
 	fclose(fd);
 }
@@ -696,9 +709,9 @@ void schedstat_process_info(char *pid, char *name)
 	tmp += strspn(tmp, " \t");
 	uint64_t run_periods = strtoull(tmp, &tmp, 10);
 
-	metric_add_labels2("process_schedstat_run_time", &run_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
-	metric_add_labels2("process_schedstat_runqueue_time", &runqueue_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
-	metric_add_labels2("process_schedstat_run_periods", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_run_time_nanoseconds_total", &run_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_runqueue_time_nanoseconds_total", &runqueue_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_run_periods_total", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 }
 
 
@@ -1343,11 +1356,11 @@ void get_mem(int8_t platform)
 		else if (is_bm_vm && !strncmp(key, "numa_", 5))
 			metric_add_labels("numa_stat", &ival, DATATYPE_INT, ac->system_carg, "type", key+5);
 		else if (is_bm_vm && !strncmp(key, "pgscan_", 7))
-			metric_add_labels("pgscan", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
+			metric_add_labels("pgscan_total", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
 		else if (is_bm_vm && !strncmp(key, "pgsteal_", 8))
-			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+8);
+			metric_add_labels("pgsteal_total", &ival, DATATYPE_INT, ac->system_carg, "type", key+8);
 		else if (is_bm_vm && !strncmp(key, "kswapd_", 7))
-			metric_add_labels("pgsteal", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
+			metric_add_labels("pgsteal_total", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
 	}
 	fclose(fd);
 
@@ -1592,118 +1605,12 @@ void get_netstat_statistics(char *ns_file)
 			body_index += strspn(bufbody+body_index, " \t");
 
 			//printf("%s:%s: %lld\n", proto, buf, buf_val);
-			metric_add_labels2("network_stat", &buf_val, DATATYPE_INT, ac->system_carg, "proto", proto, "stat", buf);
+			metric_add_labels2("network_stat_total", &buf_val, DATATYPE_INT, ac->system_carg, "proto", proto, "stat", buf);
 		}
 	}
 	fclose(fp);
 }
 
-void get_network_statistics()
-{
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics\n");
-
-	int64_t received_bytes;
-	int64_t received_packets;
-	int64_t received_err;
-	int64_t received_drop;
-	int64_t received_fifo;
-	int64_t received_frame;
-	int64_t received_compressed;
-	int64_t received_multicast;
-
-	int64_t transmit_bytes;
-	int64_t transmit_packets;
-	int64_t transmit_err;
-	int64_t transmit_drop;
-	int64_t transmit_fifo;
-	int64_t transmit_colls;
-	int64_t transmit_carrier;
-	int64_t transmit_compressed;
-
-	char ifdir[1000];
-	char procnetdev[255];
-	snprintf(procnetdev, 255, "%s/net/dev", ac->system_procfs);
-	FILE *fp = fopen(procnetdev, "r");
-	if (!fp)
-		return;
-	char buf[200], ifname[20];
-
-	int i;
-	for (i = 0; i < 2; i++) {
-		if(!fgets(buf, 200, fp))
-		{
-			fclose(fp);
-			return;
-		}
-	}
-
-	for (i=0; fgets(buf, 200, fp); i++)
-	{
-		int from = strspn(buf, " ");
-		int to = strcspn(buf+from, ":");
-
-		if (!strncmp(buf+from, "veth", 4))
-			continue;
-		strlcpy(ifname, buf+from, to+1);
-
-		char *pEnd;
-		pEnd = buf+from+to + strcspn(buf+from+to, "\t ");
-		pEnd += strspn(pEnd, "\t ");
-		received_bytes = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_bytes, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_bytes");
-
-		received_packets = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_packets, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_packets");
-
-		received_err = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_err, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_err");
-
-		received_drop = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_drop, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_drop");
-
-		received_fifo = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_fifo, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_fifo");
-
-		received_frame = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_frame, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_frame");
-
-		received_compressed = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_compressed");
-
-		received_multicast = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &received_multicast, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_multicast");
-
-		transmit_bytes = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_bytes, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_bytes");
-
-		transmit_packets = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_packets, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_packets");
-
-		transmit_err = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_err, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_err");
-
-		transmit_drop = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_drop, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_drop");
-
-		transmit_fifo = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_fifo, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_fifo");
-
-		transmit_colls = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_colls, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_colls");
-
-		transmit_carrier = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_carrier, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_carrier");
-
-		transmit_compressed = strtoll(pEnd, &pEnd, 10);
-		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_compressed");
-
-		snprintf(ifdir, 1000, "%s/class/net/%s/speed", ac->system_sysfs, ifname);
-		int64_t interface_speed_bits = getkvfile(ifdir);
-		metric_add_labels("if_speed", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname);
-	}
-
-	fclose(fp);
-}
 
 void get_nofile_stat()
 {
@@ -1794,9 +1701,12 @@ void get_disk_io_stat()
 		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_write");
 		metric_add_labels2("disk_io", &read_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_read");
 		metric_add_labels2("disk_io", &write_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_write");
-		metric_add_labels2("disk_io_await", &stat[10], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "write");
-		metric_add_labels2("disk_io_await", &stat[6], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "read");
-		metric_add_labels2("disk_io_await", &stat[13], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "queue");
+		int64_t await_write_sec = stat[10] / 1000;
+		int64_t await_read_sec = stat[6] / 1000;
+		int64_t await_queue_sec = stat[13] / 1000;
+		metric_add_labels2("disk_io_await_seconds_total", &await_write_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "write");
+		metric_add_labels2("disk_io_await_seconds_total", &await_read_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "read");
+		metric_add_labels2("disk_io_await_seconds_total", &await_queue_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "queue");
 		metric_add_labels("disk_busy", &disk_busy, DATATYPE_INT, ac->system_carg, "dev", devname);
 		if (j>14)
 			metric_add_labels2("disk_io", &stat[14], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_discard");
@@ -1840,7 +1750,7 @@ void get_uptime()
 	char firstproc[255];
 	snprintf(firstproc, 255, "%s/1", ac->system_procfs);
 	uint64_t uptime = time1.sec - get_file_atime(firstproc);
-	metric_add_auto("uptime", &uptime, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
 }
 
 void get_mdadm()
@@ -2039,76 +1949,6 @@ int8_t get_platform(int8_t mode)
 	}
 }
 
-void interface_stats()
-{
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: interface_stats\n");
-
-	struct dirent *entry;
-	DIR *dp;
-
-	char classpath[255];
-	snprintf(classpath, 255, "%s/class/net", ac->system_sysfs);
-	dp = opendir(classpath);
-	if (!dp)
-	{
-		//perror("opendir");
-		return;
-	}
-
-	while((entry = readdir(dp)))
-	{
-		if ( entry->d_name[0] == '.' )
-			continue;
-
-		if (!strncmp(entry->d_name, "veth", 4))
-			continue;
-
-		char operfile[512];
-		char ifacestatistics[512];
-		char operstate[100];
-		snprintf(operfile, 511, "%s/class/net/%s/operstate", ac->system_sysfs, entry->d_name);
-		FILE *fd = fopen(operfile, "r");
-		if (!fd)
-			continue;
-		
-		if(!fgets(operstate, 100, fd))
-		{
-			fclose(fd);
-			continue;
-		}
-		fclose(fd);
-		operstate[strlen(operstate)-1] = 0;
-
-		int64_t vl = 1;
-
-		metric_add_labels2("link_status", &vl, DATATYPE_INT, ac->system_carg, "ifname", entry->d_name, "state", operstate);
-
-		struct dirent *entry_statistics;
-		DIR *dp_statistics;
-		snprintf(ifacestatistics, 511, "%s/class/net/%s/statistics/", ac->system_sysfs, entry->d_name);
-		dp_statistics = opendir(ifacestatistics);
-		if (!dp_statistics)
-		{
-			//perror("opendir");
-			continue;
-		}
-
-		while((entry_statistics = readdir(dp_statistics)))
-		{
-			if ( entry_statistics->d_name[0] == '.' )
-				continue;
-
-			char statisticsfile[768];
-			snprintf(statisticsfile, 767, "%s%s", ifacestatistics, entry_statistics->d_name);
-
-			int64_t stat = getkvfile(statisticsfile);
-
-			metric_add_labels2("interface_stats", &stat, DATATYPE_INT, ac->system_carg, "ifname", entry->d_name, "type", entry_statistics->d_name);
-		}
-		closedir(dp_statistics);
-	}
-	closedir(dp);
-}
 
 void get_thermal()
 {
@@ -2180,8 +2020,9 @@ void get_thermal()
 
 				strlcpy(fname+strlen(monname)+(tmp-monentry->d_name)+1, "_input", 7);
 				temp = getkvfile(fname);
-				
-				metric_add_labels3("core_temp", &temp, DATATYPE_INT, ac->system_carg, "name", name, "component", devname, "hwmon", entry->d_name);
+				/* hwmon temp_input is millidegrees Celsius */
+				int64_t temp_c = temp / 1000;
+				metric_add_labels3("core_temperature_celsius", &temp_c, DATATYPE_INT, ac->system_carg, "name", name, "component", devname, "hwmon", entry->d_name);
 			}
 		}
 
@@ -2372,11 +2213,11 @@ void get_alligator_info()
 
 		if ( !strncmp(tmp, "VmRSS", 5) )
 		{
-			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, ac->system_carg, "type", "rss");
+			metric_add_labels("alligator_memory_usage_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "rss");
 		}
 		if ( !strncmp(tmp, "VmSize", 6) )
 		{
-			metric_add_labels("alligator_memory_usage", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz");
+			metric_add_labels("alligator_memory_usage_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz");
 		}
 	}
 	fclose(fd);
@@ -3000,12 +2841,12 @@ void utmp_parse(struct utmp *log) {
 		if (!strncmp(log->ut_line, "tty", 3))
 		{
 			//printf("user: %s, host %s, logged %u, line %s, type=\"terminal\"\n", log->ut_user, log->ut_host, log->ut_tv.tv_sec, log->ut_line);
-			metric_add_labels4("utmp_logged_in_timestamp", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "terminal", "terminal", log->ut_line);
+			metric_add_labels4("utmp_logged_in_timestamp_seconds", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "terminal", "terminal", log->ut_line);
 		}
 		if (!strncmp(log->ut_line, "pts", 3))
 		{
 			//printf("user: %s, host %s, logged %u, line %s, type=\"pseudo-terminal\"\n", log->ut_user, log->ut_host, log->ut_tv.tv_sec, log->ut_line);
-			metric_add_labels4("utmp_logged_in_timestamp", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "pseudo-terminal", "terminal", log->ut_line);
+			metric_add_labels4("utmp_logged_in_timestamp_seconds", &time, DATATYPE_INT, ac->system_carg, "user", log->ut_user, "host", log->ut_host, "type", "pseudo-terminal", "terminal", log->ut_line);
 		}
 	}
 }

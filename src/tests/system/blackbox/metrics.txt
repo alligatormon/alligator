@@ -1,9 +1,9 @@
-aggregator_http_body_size {host="r0.ru", port="80"}
-aggregator_http_body_size {host="yandex.ru", port="443"}
-aggregator_http_headers_size {host="r0.ru", port="80"}
-aggregator_http_headers_size {host="yandex.ru", port="443"}
-aggregator_http_request {host="r0.ru", code="301", port="80"}
-aggregator_http_request {host="yandex.ru", code="200", port="443"}
+aggregator_http_body_size_bytes {host="r0.ru", port="80"}
+aggregator_http_body_size_bytes {host="yandex.ru", port="443"}
+aggregator_http_headers_size_bytes {host="r0.ru", port="80"}
+aggregator_http_headers_size_bytes {host="yandex.ru", port="443"}
+aggregator_http_requests_total {host="r0.ru", code="301", port="80"}
+aggregator_http_requests_total {host="yandex.ru", code="200", port="443"}
 aggregator_packet_loss {host="8.8.8.8", type="icmp"}
 aggregator_packet_loss_percent {host="8.8.8.8", type="icmp"}
 aggregator_packet_received {host="8.8.8.8", type="icmp"}

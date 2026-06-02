@@ -29,7 +29,8 @@ int get_scaling_current_cpu_freq() {
         if (strncmp(line, "cpu MHz", 7) == 0) {
             sscanf(line, "cpu MHz : %lf", &mhz);
 			if (cpu[0]) {
-                metric_add_labels("cpu_current_frequency", &mhz, DATATYPE_DOUBLE, ac->system_carg, "core", cpu);
+				double hz = mhz * 1000000.0;
+                metric_add_labels("cpu_current_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg, "core", cpu);
             }
         }
     }
@@ -41,7 +42,7 @@ int get_scaling_current_cpu_freq() {
 void get_cpu_avg()
 {
         double result = ac->system_cpuavg_sum / ac->system_cpuavg_period;
-        metric_add_auto("cpu_avg", &result, DATATYPE_DOUBLE, ac->system_carg);
+        metric_add_auto("cpu_usage_average_percent", &result, DATATYPE_DOUBLE, ac->system_carg);
 }
 
 void cpu_avg_push(double now)
@@ -209,28 +210,28 @@ void get_cpu(int8_t platform)
 			int64_t spacenum = strcspn(temp, " ");
 			spacenum += strcspn(temp+spacenum, " ");
 			uint64_t ival = atoll(temp+spacenum);
-			metric_add_auto("forks", &ival, DATATYPE_UINT, ac->system_carg);
+			metric_add_auto("forks_total", &ival, DATATYPE_UINT, ac->system_carg);
 		}
 		else if ( !strncmp(temp, "ctxt", 4) )
 		{
 			int64_t spacenum = strcspn(temp, " ");
 			spacenum += strcspn(temp+spacenum, " ");
 			uint64_t ival = atoll(temp+spacenum);
-			metric_add_auto("context_switches", &ival, DATATYPE_UINT, ac->system_carg);
+			metric_add_auto("context_switches_total", &ival, DATATYPE_UINT, ac->system_carg);
 		}
 		else if ( !strncmp(temp, "intr", 4) )
 		{
 			int64_t spacenum = strcspn(temp, " ");
 			spacenum += strcspn(temp+spacenum, " ");
 			uint64_t ival = atoll(temp+spacenum);
-			metric_add_auto("interrupts", &ival, DATATYPE_UINT, ac->system_carg);
+			metric_add_auto("interrupts_total", &ival, DATATYPE_UINT, ac->system_carg);
 		}
 		else if ( !strncmp(temp, "softirq", 7) )
 		{
 			int64_t spacenum = strcspn(temp, " ");
 			spacenum += strcspn(temp+spacenum, " ");
 			uint64_t ival = atoll(temp+spacenum);
-			metric_add_auto("softirq", &ival, DATATYPE_UINT, ac->system_carg);
+			metric_add_auto("softirq_total", &ival, DATATYPE_UINT, ac->system_carg);
 		}
 	}
 	fclose(fd);
@@ -328,7 +329,7 @@ void get_cpu(int8_t platform)
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
 
 	ac->last_time_cpu = ts_start;
-	metric_add_auto("cpu_usage_calc_delta_time", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
+	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
 
 	uint64_t sec = ts_end.sec;
 	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);

@@ -1,12 +1,12 @@
-aggregator_http_body_size {destination="google.com", port="443"}
-aggregator_http_body_size {destination="ya.ru", port="80"} 0
-aggregator_http_body_size {destination="yandex.ru", port="443"}
-aggregator_http_headers_size {destination="google.com", port="443"}
-aggregator_http_headers_size {destination="ya.ru", port="80"}
-aggregator_http_headers_size {destination="yandex.ru", port="443"}
-aggregator_http_request {destination="google.com", code="301", port="443"} 1
-aggregator_http_request {destination="ya.ru", code="302", port="80"} 1
-aggregator_http_request {destination="yandex.ru", code="200", port="443"} 1
+aggregator_http_body_size_bytes {destination="google.com", port="443"}
+aggregator_http_body_size_bytes {destination="ya.ru", port="80"} 0
+aggregator_http_body_size_bytes {destination="yandex.ru", port="443"}
+aggregator_http_headers_size_bytes {destination="google.com", port="443"}
+aggregator_http_headers_size_bytes {destination="ya.ru", port="80"}
+aggregator_http_headers_size_bytes {destination="yandex.ru", port="443"}
+aggregator_http_requests_total {destination="google.com", code="301", port="443"} 1
+aggregator_http_requests_total {destination="ya.ru", code="302", port="80"} 1
+aggregator_http_requests_total {destination="yandex.ru", code="200", port="443"} 1
 alligator_aggregator_http_code {proto="tcp",  type="aggregator", host="google.com", parser="http"} 301
 alligator_aggregator_http_code {proto="tcp",  type="aggregator", host="yandex.ru", parser="http"} 200
 alligator_aggregator_http_code {proto="tcp",  type="aggregator", host="ya.ru", parser="http"} 302

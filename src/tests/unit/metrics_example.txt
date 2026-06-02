@@ -223,21 +223,21 @@ disk_usage {mountpoint="/var/lib/docker/plugins", type="used"} 10166341632
 load_average {type="load1"} 1.830000
 load_average {type="load15"} 2.080000
 load_average {type="load5"} 2.210000
-network_stat {type="DelayedACKLocked"} 9
-network_stat {type="DelayedACKLost"} 650
-network_stat {type="DelayedACKs"} 21870
-network_stat {type="ListenDrops"} 0
-network_stat {type="ListenOverflows"} 0
-network_stat {type="SyncookiesFailed"} 0
-network_stat {type="SyncookiesRecv"} 0
-network_stat {type="SyncookiesSent"} 0
-network_stat {type="TCPAbortFailed"} 0
-network_stat {type="TCPAbortOnMemory"} 2701155
-network_stat {type="TCPAbortOnTimeout"} 0
-network_stat {type="TCPMemoryPressures"} 0
-network_stat {type="TW"} 0
-network_stat {type="TWKilled"} 0
-network_stat {type="TWRecycled"} 12385777
+network_stat_total {type="DelayedACKLocked"} 9
+network_stat_total {type="DelayedACKLost"} 650
+network_stat_total {type="DelayedACKs"} 21870
+network_stat_total {type="ListenDrops"} 0
+network_stat_total {type="ListenOverflows"} 0
+network_stat_total {type="SyncookiesFailed"} 0
+network_stat_total {type="SyncookiesRecv"} 0
+network_stat_total {type="SyncookiesSent"} 0
+network_stat_total {type="TCPAbortFailed"} 0
+network_stat_total {type="TCPAbortOnMemory"} 2701155
+network_stat_total {type="TCPAbortOnTimeout"} 0
+network_stat_total {type="TCPMemoryPressures"} 0
+network_stat_total {type="TW"} 0
+network_stat_total {type="TWKilled"} 0
+network_stat_total {type="TWRecycled"} 12385777
 process_io {name="(agetty)", type="cancelled_write_bytes"} 0
 process_io {name="(agetty)", type="rchar"} 0
 process_io {name="(agetty)", type="read_bytes"} 0

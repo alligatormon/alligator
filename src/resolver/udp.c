@@ -47,7 +47,7 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 	(carg->read_counter)++;
 	carg->read_bytes_counter += nread;
 
-	metric_add_labels("udp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
+	metric_add_labels("udp_entrypoint_read_total", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
 	dns_handler(buf->base, nread, carg);
 	if (carg->lock)

@@ -37,6 +37,11 @@ system {
 ## base
 Enables monitoring of the base OS and hardware resources, including CPU, memory, and temperatures of the baseboard and components. OS resources such as loadavg, openfiles, interrupts, and context switches are also included.
 
+Metric naming notes:
+
+- Host uptime metric is `system_uptime_seconds`.
+- IPMI metric families are exposed in lowercase snake_case (`ipmi_*`) for Prometheus naming consistency.
+
 
 ## disk
 Enables monitoring disk metrics, including the filesystem stats and I/O block devices stats.
@@ -117,7 +122,7 @@ Creates a loadavg analog in Linux based only on CPU usage.\
 It has one option 'period' which specifies the averaging period in minutes.\
 For example, the collected metric looks like this:
 ```
-cpu_avg 4.326667
+cpu_usage_average_percent 4.326667
 ```
 
 

@@ -1,6 +1,8 @@
 #include "main.h"
 #include "mapping/mapping.h"
 
+void free_extracted_fields(char *fields[], int field_count);
+
 void calc_buckets(context_arg *carg, mapping_metric *mm, metric_node *mnode, double dval)
 {
 	int64_t bucket_size = mm->bucket_size;
@@ -107,18 +109,29 @@ int match_and_extract(const char *pattern, const char *str, char *fields[], int 
     char *s = strtok_r(txt, ".", &str_ctx);
 
     *field_count = 0;
+    for (int i = 0; i < MAPPING_MAX_EXTRACT_FIELDS; ++i)
+        fields[i] = NULL;
 
     while (p && s)
     {
         if (strcmp(p, "*") == 0)
         {
             if (*field_count >= MAPPING_MAX_EXTRACT_FIELDS)
+            {
+                free_extracted_fields(fields, *field_count);
                 return 0;
-            fields[*field_count] = s;
+            }
+            fields[*field_count] = strdup(s);
+            if (!fields[*field_count])
+            {
+                free_extracted_fields(fields, *field_count);
+                return 0;
+            }
             (*field_count)++;
         }
         else if (strcmp(p, s) != 0)
         {
+            free_extracted_fields(fields, *field_count);
             return 0;
         }
 
@@ -127,7 +140,22 @@ int match_and_extract(const char *pattern, const char *str, char *fields[], int 
         s = strtok_r(NULL, ".", &str_ctx);
     }
 
-    return (!p && !s);
+    if (!p && !s)
+        return 1;
+
+    free_extracted_fields(fields, *field_count);
+    return 0;
+}
+
+void free_extracted_fields(char *fields[], int field_count)
+{
+	if (!fields || field_count <= 0)
+		return;
+	for (int i = 0; i < field_count; ++i)
+	{
+		free(fields[i]);
+		fields[i] = NULL;
+	}
 }
 
 void template_render(const char *template, char *fields[], int field_count, char *output, size_t output_size)
@@ -224,6 +252,7 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		else if (mm->bucket)
 			calc_buckets(carg, mm, mnode, dval);
 
+		free_extracted_fields(fields, num_fields);
 		mm = mm->next;
 	}
 }

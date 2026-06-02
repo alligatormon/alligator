@@ -67,7 +67,7 @@ void get_proc_interrupts(int extended_mode)
 			values = calloc(1, sizeof(*values) * cpus);
 		}
 		else
-			metric_add_labels2("interrupts_count", &value, DATATYPE_UINT, ac->system_carg, "code", code, "description", description);
+			metric_add_labels2("interrupts_by_irq_total", &value, DATATYPE_UINT, ac->system_carg, "code", code, "description", description);
 	}
 	free(values);
 	fclose(fd);

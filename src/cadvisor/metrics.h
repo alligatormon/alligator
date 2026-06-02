@@ -1,6 +1,9 @@
 #pragma once
 #include "dstructures/tommy.h"
 #include "dstructures/ht.h"
+#include "events/context_arg.h"
+
+void cadvisor_register_metric_families(context_arg *carg);
 //typedef struct ifindexnames
 //{
 //	char *key;

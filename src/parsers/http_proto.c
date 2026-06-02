@@ -206,10 +206,10 @@ void http_null_metrics(context_arg *carg)
 	uint64_t http_code = 0;
 	char code[2];
 	strlcpy(code, "0", 2);
-	metric_update_labels7("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
+	metric_update_labels7("aggregator_http_requests_total", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
 	metric_add_labels6("aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "port", carg->port, "key", carg->key, "parser", carg->parser_name);
-	metric_add_labels6("aggregator_http_headers_size", &status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("aggregator_http_body_size", &status, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
+	metric_add_labels6("aggregator_http_headers_size_bytes", &status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
+	metric_add_labels6("aggregator_http_body_size_bytes", &status, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
 }
 
 void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
@@ -224,10 +224,10 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	snprintf(code, 6, "%"PRId16, hrdata->http_code);
 	uint64_t http_code = hrdata->http_code;
 
-	metric_update_labels7("aggregator_http_request", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
+	metric_update_labels7("aggregator_http_requests_total", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
 	metric_add_labels6("aggregator_http_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("aggregator_http_headers_size", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("aggregator_http_body_size", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
+	metric_add_labels6("aggregator_http_headers_size_bytes", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
+	metric_add_labels6("aggregator_http_body_size_bytes", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
 
 	if (carg->data && carg->parser_handler == blackbox_null)
 	{

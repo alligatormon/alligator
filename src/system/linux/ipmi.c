@@ -60,7 +60,7 @@ int ipmi_cmd(struct ipmi_ctx *ctx, uint8_t netfn, uint8_t cmd, uint8_t *data, si
     int rc = ioctl(ctx->fd, IPMICTL_SEND_COMMAND, &req);
     r_time ts_end = setrtime();
     int64_t scrape_time = getrtime_ns(ts_start, ts_end);
-    metric_update_labels2("IPMI_send_command_time", &scrape_time, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_SEND_COMMAND");
+    metric_update_labels2("ipmi_send_command_duration_nanoseconds", &scrape_time, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_SEND_COMMAND");
     carglog(ac->system_carg, L_TRACE, "IPMI send command time: %"d64"ms\n", scrape_time);
     if (rc < 0) {
         carglog(ac->system_carg, L_ERROR, "IPMI send command error: %s\n", strerror(errno));
@@ -77,7 +77,7 @@ int ipmi_cmd(struct ipmi_ctx *ctx, uint8_t netfn, uint8_t cmd, uint8_t *data, si
     rc = ioctl(ctx->fd, IPMICTL_RECEIVE_MSG_TRUNC, &recv);
     r_time ts1 = setrtime();
     int64_t scrape0 = getrtime_ns(ts0, ts1);
-    metric_update_labels2("IPMI_receive_message_time", &scrape0, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
+    metric_update_labels2("ipmi_receive_message_duration_nanoseconds", &scrape0, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
     carglog(ac->system_carg, L_TRACE, "IPMI receive message time: %"d64"ms\n", scrape0);
     if (rc == 0) {
         carglog(ac->system_carg, L_TRACE, "IPMI receive message success: %"d64"ms\n", scrape0);
@@ -113,7 +113,7 @@ int ipmi_cmd(struct ipmi_ctx *ctx, uint8_t netfn, uint8_t cmd, uint8_t *data, si
         rc = ioctl(ctx->fd, IPMICTL_RECEIVE_MSG_TRUNC, &recv);
         r_time ts_b = setrtime();
         int64_t scrape1 = getrtime_ns(ts_a, ts_b);
-        metric_update_labels2("IPMI_receive_message_time", &scrape1, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
+        metric_update_labels2("ipmi_receive_message_duration_nanoseconds", &scrape1, DATATYPE_INT, ac->system_carg, "call", "ioctl", "option", "IPMICTL_RECEIVE_MSG_TRUNC");
         carglog(ac->system_carg, L_TRACE, "IPMI receive message time: %"d64"ms\n", scrape1);
         if (rc == 0) {
             carglog(ac->system_carg, L_TRACE, "IPMI receive message success: %"d64"ms\n", scrape1);
@@ -133,35 +133,35 @@ void do_chassis_status(struct ipmi_ctx *ctx) {
     /* Need at least completion code + 3 data bytes (rsp[0..3]). */
     if (ipmi_cmd(ctx, 0x00, 0x01, NULL, 0, rsp, &rlen) == 0 && rlen >= 4) {
         uint64_t val = (rsp[1] & 0x01) ? 1 : 0;
-        metric_add_auto("IPMI_System_Power", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_system_power", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[1] & 0x02) ? 1 : 0;
-        metric_add_auto("IPMI_Power_Overload", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_power_overload", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[1] & 0x04) ? 1 : 0;
-        metric_add_auto("IPMI_Power_Interlock", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_power_interlock", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[1] & 0x08) ? 1 : 0;
-        metric_add_auto("IPMI_Main_Power_Fault", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_main_power_fault", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[1] & 0x10) ? 1 : 0;
-        metric_add_auto("IPMI_Power_Control_Fault", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_power_control_fault", &val, DATATYPE_UINT, ac->system_carg);
 
         val = (rsp[2] & 0x01) ? 1 : 0;
-        metric_add_auto("IPMI_chassis_event_ac_failed", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_event_ac_failed", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[2] & 0x02) ? 1 : 0;
-        metric_add_auto("IPMI_chassis_event_overload", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_event_overload", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[2] & 0x04) ? 1 : 0;
-        metric_add_auto("IPMI_chassis_event_interlock", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_event_interlock", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[2] & 0x08) ? 1 : 0;
-        metric_add_auto("IPMI_chassis_event_fault_main", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_event_fault_main", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[2] & 0x10) ? 1 : 0;
-        metric_add_auto("IPMI_chassis_event_power_on_via_ipmi", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_event_power_on_via_ipmi", &val, DATATYPE_UINT, ac->system_carg);
         
         val = (rsp[3] & 0x01) ? 1 : 0;
-        metric_add_auto("IPMI_Chassis_Intrusion", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_chassis_intrusion", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[3] & 0x02) ? 1 : 0;
-        metric_add_auto("IPMI_Front_Panel_Lockout", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_front_panel_lockout", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[3] & 0x04) ? 1 : 0;
-        metric_add_auto("IPMI_Drive_Fault", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_drive_fault", &val, DATATYPE_UINT, ac->system_carg);
         val = (rsp[3] & 0x08) ? 1 : 0;
-        metric_add_auto("IPMI_Cooling_Fan_Fault", &val, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_cooling_fan_fault", &val, DATATYPE_UINT, ac->system_carg);
         
         char *last_event = "none";
         if      (rsp[2] & 0x01) last_event = "ac-failed";
@@ -180,8 +180,8 @@ void do_chassis_status(struct ipmi_ctx *ctx) {
         }
 
         uint64_t info_one = 1;
-        metric_add_labels("IPMI_Last_Power_Event", &info_one, DATATYPE_UINT, ac->system_carg, "state", last_event);
-        metric_add_labels("IPMI_Power_Restore_Policy", &info_one, DATATYPE_UINT, ac->system_carg, "state", policy_str);
+        metric_add_labels("ipmi_last_power_event", &info_one, DATATYPE_UINT, ac->system_carg, "state", last_event);
+        metric_add_labels("ipmi_power_restore_policy", &info_one, DATATYPE_UINT, ac->system_carg, "state", policy_str);
     }
 }
 
@@ -239,11 +239,11 @@ void get_dcmi_power_metrics(struct ipmi_ctx *ctx) {
             max = (current > avg) ? current : avg;
         }
 
-        metric_add_auto("IPMI_dcmi_power_reading_instantaneous", &current, DATATYPE_DOUBLE, ac->system_carg);
-        metric_add_auto("IPMI_dcmi_power_reading_minimum", &min, DATATYPE_DOUBLE, ac->system_carg);
-        metric_add_auto("IPMI_dcmi_power_reading_maximum", &max, DATATYPE_DOUBLE, ac->system_carg);
-        metric_add_auto("IPMI_dcmi_power_reading_average_over_sample_period", &avg, DATATYPE_DOUBLE, ac->system_carg);
-        metric_add_auto("IPMI_dcmi_power_reading_state", &state, DATATYPE_UINT, ac->system_carg);
+        metric_add_auto("ipmi_dcmi_power_reading_instantaneous", &current, DATATYPE_DOUBLE, ac->system_carg);
+        metric_add_auto("ipmi_dcmi_power_reading_minimum", &min, DATATYPE_DOUBLE, ac->system_carg);
+        metric_add_auto("ipmi_dcmi_power_reading_maximum", &max, DATATYPE_DOUBLE, ac->system_carg);
+        metric_add_auto("ipmi_dcmi_power_reading_average_over_sample_period", &avg, DATATYPE_DOUBLE, ac->system_carg);
+        metric_add_auto("ipmi_dcmi_power_reading_state", &state, DATATYPE_UINT, ac->system_carg);
     }
 }
 
@@ -290,7 +290,7 @@ void do_prom_lan_print(struct ipmi_ctx *ctx) {
     }
     //printf("} 1\n");
     uint64_t val = 1;
-    metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
+    metric_add("ipmi_lan", hash, &val, DATATYPE_UINT, ac->system_carg);
 }
 
 int16_t get_10bit(uint8_t low, uint8_t high) {

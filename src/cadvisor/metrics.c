@@ -10,6 +10,8 @@
 #include "main.h"
 #include "cadvisor/metrics.h"
 #include "cadvisor/ns.h"
+#include "metric/metric_types.h"
+#include "metric/namespace.h"
 #include <sys/mount.h>
 #include "common/logs.h"
 #include <sys/vfs.h>
@@ -90,6 +92,89 @@ void dlid_free(alligator_ht* dlid_hash)
 	alligator_ht_foreach_arg(dlid_hash, dlid_foreach_free, NULL);
 	alligator_ht_done(dlid_hash);
 	free(dlid_hash);
+}
+
+void cadvisor_register_metric_families(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	/* CPU (cgroup cpuacct / cpu.stat). */
+	namespace_metric_family_set(NULL, carg, "container_cpu_cfs_periods_total", METRIC_TYPE_COUNTER, "Number of elapsed enforcement period intervals.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_cfs_throttled_periods_total", METRIC_TYPE_COUNTER, "Number of throttled period intervals.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_cfs_throttled_seconds_total", METRIC_TYPE_COUNTER, "Total time spent throttled in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_system_seconds_total", METRIC_TYPE_COUNTER, "Cumulative system CPU time consumed in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_usage_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time consumed in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_user_seconds_total", METRIC_TYPE_COUNTER, "Cumulative user CPU time consumed in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_all_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time consumed in seconds (all modes).");
+	namespace_metric_family_set(NULL, carg, "container_cpu_schedstat_run_periods_total", METRIC_TYPE_COUNTER, "Cumulative number of scheduling run periods.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_schedstat_runqueue_seconds_total", METRIC_TYPE_COUNTER, "Cumulative time spent waiting on the runqueue in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_cpu_schedstat_run_seconds_total", METRIC_TYPE_COUNTER, "Cumulative time spent running on the CPU in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_spec_cpu_shares", METRIC_TYPE_GAUGE, "CPU shares weight for the container.");
+
+	/* Block I/O (blkio cgroup). */
+	namespace_metric_family_set(NULL, carg, "container_fs_io_time_seconds_total", METRIC_TYPE_COUNTER, "Cumulative time spent on filesystem I/O in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_fs_io_time_weighted_seconds_total", METRIC_TYPE_COUNTER, "Cumulative weighted time spent on filesystem I/O in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_fs_read_seconds_total", METRIC_TYPE_COUNTER, "Cumulative time spent on filesystem reads in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_fs_reads_merged_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem reads merged.");
+	namespace_metric_family_set(NULL, carg, "container_fs_sector_reads_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem sectors read.");
+	namespace_metric_family_set(NULL, carg, "container_fs_sector_writes_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem sectors written.");
+	namespace_metric_family_set(NULL, carg, "container_fs_write_seconds_total", METRIC_TYPE_COUNTER, "Cumulative time spent on filesystem writes in seconds.");
+	namespace_metric_family_set(NULL, carg, "container_fs_writes_merged_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem writes merged.");
+	namespace_metric_family_set(NULL, carg, "container_fs_io_current", METRIC_TYPE_GAUGE, "Number of I/O operations currently in progress.");
+	namespace_metric_family_set(NULL, carg, "container_fs_reads_bytes_total", METRIC_TYPE_COUNTER, "Cumulative count of bytes read from the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_writes_bytes_total", METRIC_TYPE_COUNTER, "Cumulative count of bytes written to the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_reads_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem read operations.");
+	namespace_metric_family_set(NULL, carg, "container_fs_writes_total", METRIC_TYPE_COUNTER, "Cumulative count of filesystem write operations.");
+	namespace_metric_family_set(NULL, carg, "container_fs_inodes_free", METRIC_TYPE_GAUGE, "Number of available inodes on the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_inodes_usage", METRIC_TYPE_GAUGE, "Number of inodes in use on the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_inodes_total", METRIC_TYPE_GAUGE, "Total number of inodes on the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_limit_bytes", METRIC_TYPE_GAUGE, "Filesystem size limit in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_fs_usage_bytes", METRIC_TYPE_GAUGE, "Number of bytes used on the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_fs_free_bytes", METRIC_TYPE_GAUGE, "Number of bytes available on the filesystem.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_reads_rate_limit_bytes", METRIC_TYPE_GAUGE, "Filesystem read rate limit in bytes per second.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_writes_rate_limit_bytes", METRIC_TYPE_GAUGE, "Filesystem write rate limit in bytes per second.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_reads_rate_limit_total", METRIC_TYPE_COUNTER, "Filesystem read IOPS limit.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_writes_rate_limit_total", METRIC_TYPE_COUNTER, "Filesystem write IOPS limit.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_total_rate_limit_bytes", METRIC_TYPE_GAUGE, "Combined filesystem I/O rate limit in bytes per second.");
+	namespace_metric_family_set(NULL, carg, "container_spec_fs_total_rate_limit_total", METRIC_TYPE_COUNTER, "Combined filesystem I/O operations limit.");
+
+	/* Container lifecycle / CPU limits. */
+	namespace_metric_family_set(NULL, carg, "container_last_seen", METRIC_TYPE_GAUGE, "Last time the container was seen by the scraper (unix timestamp).");
+	namespace_metric_family_set(NULL, carg, "container_spec_cpu_period", METRIC_TYPE_GAUGE, "CPU CFS scheduler period in microseconds.");
+	namespace_metric_family_set(NULL, carg, "container_spec_cpu_quota", METRIC_TYPE_GAUGE, "CPU CFS scheduler quota in microseconds.");
+	namespace_metric_family_set(NULL, carg, "container_start_time_seconds", METRIC_TYPE_GAUGE, "Start time of the container since unix epoch in seconds.");
+
+	/* Memory (cgroup memory). */
+	namespace_metric_family_set(NULL, carg, "container_memory_cache", METRIC_TYPE_GAUGE, "Number of bytes of page cache memory.");
+	namespace_metric_family_set(NULL, carg, "container_memory_failcnt", METRIC_TYPE_COUNTER, "Cumulative count of memory allocation failures.");
+	namespace_metric_family_set(NULL, carg, "container_memory_failures_total", METRIC_TYPE_COUNTER, "Cumulative count of memory failures by type.");
+	namespace_metric_family_set(NULL, carg, "container_memory_mapped_file", METRIC_TYPE_GAUGE, "Size of memory mapped files in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_rss", METRIC_TYPE_GAUGE, "Size of RSS memory in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_swap", METRIC_TYPE_GAUGE, "Container swap usage in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_usage_bytes", METRIC_TYPE_GAUGE, "Current memory usage in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_working_set_bytes", METRIC_TYPE_GAUGE, "Current working set size in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_max_usage_bytes", METRIC_TYPE_GAUGE, "Maximum memory usage recorded in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_memory_oom_kill", METRIC_TYPE_COUNTER, "Cumulative count of OOM kills.");
+	namespace_metric_family_set(NULL, carg, "container_spec_memory_limit_bytes", METRIC_TYPE_GAUGE, "Memory limit for the container in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_spec_memory_swap_limit_bytes", METRIC_TYPE_GAUGE, "Memory plus swap limit for the container in bytes.");
+	namespace_metric_family_set(NULL, carg, "container_spec_memory_reservation_limit_bytes", METRIC_TYPE_GAUGE, "Memory reservation limit for the container in bytes.");
+
+	/* Process / task state. */
+	namespace_metric_family_set(NULL, carg, "container_tasks_state", METRIC_TYPE_GAUGE, "Number of tasks in a given state.");
+	namespace_metric_family_set(NULL, carg, "container_open_files", METRIC_TYPE_GAUGE, "Number of open file descriptors.");
+
+	/* Network (cgroup net_cls / per-interface stats). */
+	namespace_metric_family_set(NULL, carg, "container_network_receive_bytes_total", METRIC_TYPE_COUNTER, "Cumulative count of bytes received.");
+	namespace_metric_family_set(NULL, carg, "container_network_receive_errors_total", METRIC_TYPE_COUNTER, "Cumulative count of errors encountered while receiving.");
+	namespace_metric_family_set(NULL, carg, "container_network_receive_packets_dropped_total", METRIC_TYPE_COUNTER, "Cumulative count of inbound packets dropped.");
+	namespace_metric_family_set(NULL, carg, "container_network_receive_packets_total", METRIC_TYPE_COUNTER, "Cumulative count of packets received.");
+	namespace_metric_family_set(NULL, carg, "container_network_transmit_bytes_total", METRIC_TYPE_COUNTER, "Cumulative count of bytes transmitted.");
+	namespace_metric_family_set(NULL, carg, "container_network_transmit_errors_total", METRIC_TYPE_COUNTER, "Cumulative count of errors encountered while transmitting.");
+	namespace_metric_family_set(NULL, carg, "container_network_transmit_packets_dropped_total", METRIC_TYPE_COUNTER, "Cumulative count of outbound packets dropped.");
+	namespace_metric_family_set(NULL, carg, "container_network_transmit_packets_total", METRIC_TYPE_COUNTER, "Cumulative count of packets transmitted.");
+	namespace_metric_family_set(NULL, carg, "container_network_tcp_usage_total", METRIC_TYPE_GAUGE, "Number of TCP sockets in use.");
+	namespace_metric_family_set(NULL, carg, "container_network_udp_usage_total", METRIC_TYPE_GAUGE, "Number of UDP sockets in use.");
 }
 
 void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)

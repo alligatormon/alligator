@@ -701,7 +701,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum(uptime{instance=~\"$server\"})",
+          "expr": "sum(system_uptime_seconds{instance=~\"$server\"})",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -1124,7 +1124,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(forks{instance=~\"$server\"}[$interval])",
+          "expr": "rate(forks_total{instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ instance }} - forks rate",
@@ -1390,7 +1390,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(context_switches{instance=~\"$server\"}[$interval])",
+          "expr": "rate(context_switches_total{instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ instance }} - Context Switches",
@@ -1490,7 +1490,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(interrupts{instance=~\"$server\"}[$interval])",
+          "expr": "rate(interrupts_total{instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -2419,7 +2419,7 @@
         {
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(network_stat {proto=~\"Udp.*\", instance=~\"$server\"}[$interval])",
+          "expr": "rate(network_stat_total {proto=~\"Udp.*\", instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -3219,7 +3219,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(disk_io_await{instance=~\"$server\", type=\"write\"}[$interval])",
+          "expr": "rate(disk_io_await_seconds_total{instance=~\"$server\", type=\"write\"}[$interval])",
           "legendFormat": "{{ instance }} - {{dev}} -write",
           "range": true,
           "refId": "A"
@@ -3230,7 +3230,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "- rate(disk_io_await{instance=~\"$server\", type=\"read\"}[$interval])",
+          "expr": "- rate(disk_io_await_seconds_total{instance=~\"$server\", type=\"read\"}[$interval])",
           "hide": false,
           "legendFormat": "{{ instance }} - {{dev}} -read",
           "range": true,
@@ -3326,14 +3326,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "(sum by (instance, dev) (rate(disk_io_await{instance=~\"$server\", type=\"read\"}[$interval])) / sum by (instance, dev) (rate(disk_io{instance=~\"$server\", type=\"transfers_read\"}[$interval])) ) / 1000",
+          "expr": "sum by (instance, dev) (rate(disk_io_await_seconds_total{instance=~\"$server\", type=\"read\"}[$interval])) / sum by (instance, dev) (rate(disk_io{instance=~\"$server\", type=\"transfers_read\"}[$interval]))",
           "legendFormat": "{{ instance }} - {{dev}} - read",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "(sum by (instance, dev) (rate(disk_io_await{instance=~\"$server\", type=\"write\"}[$interval])) / sum by (instance, dev) (rate(disk_io{instance=~\"$server\", type=\"transfers_write\"}[$interval])) ) / 1000",
+          "expr": "sum by (instance, dev) (rate(disk_io_await_seconds_total{instance=~\"$server\", type=\"write\"}[$interval])) / sum by (instance, dev) (rate(disk_io{instance=~\"$server\", type=\"transfers_write\"}[$interval]))",
           "legendFormat": "{{ instance }} - {{dev}} - write",
           "range": true,
           "refId": "C"
@@ -3761,7 +3761,7 @@
         {
           "editorMode": "code",
           "exemplar": true,
-          "expr": "core_temp {instance=~\"$server\"} / 1000",
+          "expr": "core_temperature_celsius{instance=~\"$server\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",

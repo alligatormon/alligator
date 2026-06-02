@@ -30,28 +30,28 @@
 #define QUERY_EXPECT_TEST_7 "socket_stat"
 #define QUERY_FUNC_TEST_7 QUERY_FUNC_PRESENT
 
-#define QUERY_STR_TEST_8 "sum (network_stat) by (proto)"
-#define QUERY_EXPECT_TEST_8 "network_stat"
+#define QUERY_STR_TEST_8 "sum (network_stat_total) by (proto)"
+#define QUERY_EXPECT_TEST_8 "network_stat_total"
 #define QUERY_FUNC_TEST_8 QUERY_FUNC_SUM
 
-#define QUERY_STR_TEST_9 "count (network_stat) by (proto)"
-#define QUERY_EXPECT_TEST_9 "network_stat"
+#define QUERY_STR_TEST_9 "count (network_stat_total) by (proto)"
+#define QUERY_EXPECT_TEST_9 "network_stat_total"
 #define QUERY_FUNC_TEST_9 QUERY_FUNC_COUNT
 
-#define QUERY_STR_TEST_10 "network_stat{proto=\"tcp\"} > 10"
-#define QUERY_EXPECT_TEST_10 "network_stat"
+#define QUERY_STR_TEST_10 "network_stat_total{proto=\"tcp\"} > 10"
+#define QUERY_EXPECT_TEST_10 "network_stat_total"
 #define QUERY_FUNC_TEST_10 QUERY_FUNC_NONE
 
-#define QUERY_STR_TEST_11 "sum by (proto, src_port) (network_stat{state=\"listen\"} > 0)"
-#define QUERY_EXPECT_TEST_11 "network_stat"
+#define QUERY_STR_TEST_11 "sum by (proto, src_port) (network_stat_total{state=\"listen\"} > 0)"
+#define QUERY_EXPECT_TEST_11 "network_stat_total"
 #define QUERY_FUNC_TEST_11 QUERY_FUNC_SUM
 
-#define QUERY_STR_TEST_12 "sum (network_stat{state=\"listen\"} > 0) by (proto)"
-#define QUERY_EXPECT_TEST_12 "network_stat"
+#define QUERY_STR_TEST_12 "sum (network_stat_total{state=\"listen\"} > 0) by (proto)"
+#define QUERY_EXPECT_TEST_12 "network_stat_total"
 #define QUERY_FUNC_TEST_12 QUERY_FUNC_SUM
 
-#define QUERY_STR_TEST_13 "network_stat{state=\"listen\"} by (proto)"
-#define QUERY_EXPECT_TEST_13 "network_stat"
+#define QUERY_STR_TEST_13 "network_stat_total{state=\"listen\"} by (proto)"
+#define QUERY_EXPECT_TEST_13 "network_stat_total"
 #define QUERY_FUNC_TEST_13 QUERY_FUNC_NONE
 
 #define QUERY_STR_TEST_14 "{type=\"pseudo-terminal\"}"

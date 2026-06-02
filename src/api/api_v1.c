@@ -6,6 +6,7 @@
 #include "x509/type.h"
 #include "common/selector.h"
 #include "cadvisor/run.h"
+#include "cadvisor/metrics.h"
 #include "lang/type.h"
 #include "query/type.h"
 #include "grok/type.h"
@@ -1133,6 +1134,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							if (!ac->cadvisor_carg) {
 								ac->cadvisor_carg = calloc(1, sizeof(*ac->cadvisor_carg));
 								ac->cadvisor_carg->ttl = 300;
+								cadvisor_register_metric_families(ac->cadvisor_carg);
 							}
 
 							parse_add_label(ac->cadvisor_carg, sys_value);

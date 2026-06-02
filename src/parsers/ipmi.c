@@ -36,19 +36,19 @@ static const char* ipmi_metric_help(const char *metric_name)
 		return "IPMI sensor upper critical threshold.";
 	if (!strcmp(metric_name, "ipmi_sensor_upper_non_critical"))
 		return "IPMI sensor upper non-critical threshold.";
-	if (!strcmp(metric_name, "IPMI_Lan"))
+	if (!strcmp(metric_name, "ipmi_lan"))
 		return "IPMI LAN configuration presence and attributes.";
-	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_instantaneous"))
+	if (!strcmp(metric_name, "ipmi_dcmi_power_reading_instantaneous"))
 		return "IPMI DCMI instantaneous power reading in watts.";
-	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_minimum"))
+	if (!strcmp(metric_name, "ipmi_dcmi_power_reading_minimum"))
 		return "IPMI DCMI minimum power reading during the sampling period.";
-	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_maximum"))
+	if (!strcmp(metric_name, "ipmi_dcmi_power_reading_maximum"))
 		return "IPMI DCMI maximum power reading during the sampling period.";
-	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_average_over_sample_period"))
+	if (!strcmp(metric_name, "ipmi_dcmi_power_reading_average_over_sample_period"))
 		return "IPMI DCMI average power reading over the sampling period.";
-	if (!strcmp(metric_name, "IPMI_dcmi_power_reading_state"))
+	if (!strcmp(metric_name, "ipmi_dcmi_power_reading_state"))
 		return "IPMI DCMI power reading state where 1 means activated.";
-	if (!strncmp(metric_name, "IPMI_", 5))
+	if (!strncmp(metric_name, "ipmi_", 5))
 		return "IPMI chassis or SEL information field converted to a numeric value.";
 	return "IPMI metric value.";
 }
@@ -405,7 +405,7 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t val;
 	char name[IPMI_METRIC_SIZE];
 	char state[IPMI_METRIC_SIZE];
-	strlcpy(name, "IPMI_", 6);
+	strlcpy(name, "ipmi_", 6);
 	for (uint64_t i = 0; i < size; i++)
 	{
 		// name
@@ -467,7 +467,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 	double dval;
 	uint64_t val;
 	char name[IPMI_METRIC_SIZE];
-	strlcpy(name, "IPMI_", 6);
+	strlcpy(name, "ipmi_", 6);
 	for (uint64_t i = 0; i < size; i++)
 	{
 		// name
@@ -496,7 +496,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 			printf("name is '%s'\n", name);
 
 
-		if (!strcmp(name, "IPMI_Last_Add_Time") || !strcmp(name, "IPMI_Last_Del_Time"))
+		if (!strcmp(name, "ipmi_last_add_time") || !strcmp(name, "ipmi_last_del_time"))
 		{
 			i += strcspn(metrics+i, "\n");
 			continue;
@@ -524,7 +524,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 		if (carg->log_level > 1)
 			printf("\tdata is '%"u64"/%lf'\n", val, dval);
 
-		if (!strcmp(name, "IPMI_Version"))
+		if (!strcmp(name, "ipmi_version"))
 		{
 			ipmi_metric_set(carg, name);
 			metric_add_auto(name, &dval, DATATYPE_DOUBLE, carg);
@@ -599,8 +599,8 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 
 		i += strcspn(metrics+i, "\n");
 	}
-	ipmi_metric_set(carg, "IPMI_Lan");
-	metric_add("IPMI_Lan", hash, &val, DATATYPE_UINT, ac->system_carg);
+	ipmi_metric_set(carg, "ipmi_lan");
+	metric_add("ipmi_lan", hash, &val, DATATYPE_UINT, ac->system_carg);
 	carg->parser_status = 1;
 }
 
@@ -650,31 +650,31 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 
 		if (!strcmp(name, "Instantaneous power reading:"))
 		{
-			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_instantaneous");
-			metric_add_auto("IPMI_dcmi_power_reading_instantaneous", &dval, DATATYPE_DOUBLE, carg);
+			ipmi_metric_set(carg, "ipmi_dcmi_power_reading_instantaneous");
+			metric_add_auto("ipmi_dcmi_power_reading_instantaneous", &dval, DATATYPE_DOUBLE, carg);
 		}
 		else if (!strcmp(name, "Minimum during sampling period:"))
 		{
-			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_minimum");
-			metric_add_auto("IPMI_dcmi_power_reading_minimum", &dval, DATATYPE_DOUBLE, carg);
+			ipmi_metric_set(carg, "ipmi_dcmi_power_reading_minimum");
+			metric_add_auto("ipmi_dcmi_power_reading_minimum", &dval, DATATYPE_DOUBLE, carg);
 		}
 		else if (!strcmp(name, "Maximum during sampling period:"))
 		{
-			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_maximum");
-			metric_add_auto("IPMI_dcmi_power_reading_maximum", &dval, DATATYPE_DOUBLE, carg);
+			ipmi_metric_set(carg, "ipmi_dcmi_power_reading_maximum");
+			metric_add_auto("ipmi_dcmi_power_reading_maximum", &dval, DATATYPE_DOUBLE, carg);
 		}
 		else if (!strcmp(name, "Average power reading over sample period:"))
 		{
-			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_average_over_sample_period");
-			metric_add_auto("IPMI_dcmi_power_reading_average_over_sample_period", &dval, DATATYPE_DOUBLE, carg);
+			ipmi_metric_set(carg, "ipmi_dcmi_power_reading_average_over_sample_period");
+			metric_add_auto("ipmi_dcmi_power_reading_average_over_sample_period", &dval, DATATYPE_DOUBLE, carg);
 		}
 		else if (!strcmp(name, "Power reading state is:")) {
 			if (!strcmp(state, "activated"))
 				val = 1;
 			else
 				val = 0;
-			ipmi_metric_set(carg, "IPMI_dcmi_power_reading_state");
-			metric_add_auto("IPMI_dcmi_power_reading_state", &val, DATATYPE_UINT, carg);
+			ipmi_metric_set(carg, "ipmi_dcmi_power_reading_state");
+			metric_add_auto("ipmi_dcmi_power_reading_state", &val, DATATYPE_UINT, carg);
 		}
 
 		i += strcspn(metrics+i, "\n");

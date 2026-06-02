@@ -76,7 +76,7 @@
   ],
   "query": [
     {
-      "expr": "sum(alligator_metric_allocates)",
+      "expr": "sum(alligator_metric_allocates_total)",
       "make": "lol",
       "datasource": "internal",
       "action": "stdin_print"

@@ -263,11 +263,11 @@ void get_sysctl_stat_u64(char *ctlname, char *mapping)
 
 void get_vmstat()
 {
-	get_sysctl_stat_u64("vm.stats.sys.v_soft", "softirq");
-	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts");
+	get_sysctl_stat_u64("vm.stats.sys.v_soft", "softirq_total");
+	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls");
-	get_sysctl_stat_u64("vm.stats.sys.v_swtch", "context_switches");
-	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks");
+	get_sysctl_stat_u64("vm.stats.sys.v_swtch", "context_switches_total");
+	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks_total");
 	get_sysctl_stat_u64("vm.stats.vm.v_vforks", "vforks");
 	get_sysctl_stat_u64("vm.stats.vm.v_rforks", "rforks");
 	get_sysctl_stat_u64("kern.openfiles", "open_files");
@@ -432,7 +432,7 @@ void get_proc_info(int8_t lightweight)
 	time1.sec += lt.tm_gmtoff;
 	uint64_t uptime = time1.sec - proc[1].ki_start.tv_sec;
 	//printf("uptime %llu - %llu = %llu\n", time1.sec, proc[1].ki_start.tv_sec, uptime);
-	metric_add_auto("uptime", &uptime, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
 
 	free(proc);
 }

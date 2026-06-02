@@ -85,7 +85,7 @@ void get_memory_errors(char *edac, char* controller)
 			{
 				snprintf(chname, 255, "%s/%s", rowname, rowentry->d_name);
 				int64_t errors = getkvfile(chname);
-				metric_add_labels5("memory_dimm_size", &errors, DATATYPE_INT, ac->system_carg, "cpu", cpuid, "channel", channelid, "controller", controller, "slot", slotid, "branch", branchid);
+				metric_add_labels5("memory_dimm_size_bytes", &errors, DATATYPE_INT, ac->system_carg, "cpu", cpuid, "channel", channelid, "controller", controller, "slot", slotid, "branch", branchid);
 			}
 		}
 		closedir(rowdp);

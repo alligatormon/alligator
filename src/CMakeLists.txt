@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.195)
+set(VERSION 1.14.196)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -364,6 +364,7 @@ set(STATIC_FILES
 	system/linux/interrupts.c
 	system/linux/power_supply.c
 	system/linux/disk.c
+	system/linux/network.c
 	system/fdescriptors.c
 	modules/modules.c
 	metric/expiretree.c
