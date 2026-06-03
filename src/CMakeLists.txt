@@ -612,15 +612,26 @@ set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
 set(CPACK_FREEBSD_PACKAGE_LICENSE "APACHE20")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "amoshi.mandrakeuser@gmail.com")
 set(CPACK_PACKAGE_CONTACT "amoshi.mandrakeuser@gmail.com")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/alligatormon/alligator")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "alligator is aggregator for system and software metrics")
+set(CPACK_RPM_PACKAGE_DESCRIPTION "alligator is aggregator for system and software metrics")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${CPACK_RPM_PACKAGE_DESCRIPTION}")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	install(FILES grok-patterns/patterns.conf DESTINATION /etc/grok-patterns)
-	install(FILES /var/lib/alligator/parseJks.so DESTINATION /var/lib/alligator)
-	install(FILES /var/lib/alligator/puppeteer-alligator.js DESTINATION /var/lib/alligator)
-	install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION "bin" COMPONENT applications)
-	install(FILES build/alligator
-		PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-		DESTINATION /usr/local/bin)
+	install(TARGETS ${HEAD} RUNTIME DESTINATION usr/local/bin)
+	install(FILES grok-patterns/patterns.conf DESTINATION etc/grok-patterns)
+	install(FILES "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js"
+		DESTINATION var/lib/alligator)
+	if(EXISTS "/var/lib/alligator/parseJks.so")
+		install(FILES "/var/lib/alligator/parseJks.so" DESTINATION var/lib/alligator)
+	endif()
+	set(CPACK_GENERATOR "FreeBSD")
+	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-FreeBSD")
+	set(CPACK_FREEBSD_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+	set(CPACK_FREEBSD_PACKAGE_ORIGIN "misc/${PROJECT_NAME}")
+	set(CPACK_FREEBSD_PACKAGE_COMMENT "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}")
+	set(CPACK_FREEBSD_PACKAGE_DESCRIPTION "${CPACK_RPM_PACKAGE_DESCRIPTION}")
+	set(CPACK_FREEBSD_PACKAGE_WWW "${CPACK_PACKAGE_HOMEPAGE_URL}")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(FILES alligator.service DESTINATION /usr/lib/systemd/system)
@@ -632,14 +643,37 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 		DESTINATION /usr/bin)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
+IF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	set(MACOS_MISC_DIR "${CMAKE_SOURCE_DIR}/../misc/macos")
+	if(NOT EXISTS "${MACOS_MISC_DIR}/Alligator.icns")
+		execute_process(
+			COMMAND "${MACOS_MISC_DIR}/build_icns.sh"
+			WORKING_DIRECTORY "${MACOS_MISC_DIR}"
+			COMMAND_ERROR_IS_FATAL ANY
+		)
+	endif()
+	configure_file(
+		"${MACOS_MISC_DIR}/Info.plist.in"
+		"${CMAKE_BINARY_DIR}/macos/Info.plist"
+		@ONLY
+	)
+	install(TARGETS ${HEAD} RUNTIME DESTINATION MacOS)
+	install(FILES grok-patterns/patterns.conf DESTINATION Resources/etc/grok-patterns)
+	install(FILES "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js"
+		DESTINATION Resources/var/lib/alligator)
+	set(CPACK_GENERATOR "Bundle")
+	set(CPACK_BUNDLE_NAME "Alligator")
+	set(CPACK_BUNDLE_PLIST "${CMAKE_BINARY_DIR}/macos/Info.plist")
+	set(CPACK_BUNDLE_ICON "${MACOS_MISC_DIR}/Alligator.icns")
+	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-macOS")
+ENDIF()
+
 install(DIRECTORY DESTINATION /var/lib/alligator/)
 
 set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
 							/usr/lib/systemd
 							/usr/lib/systemd/system)
 
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "alligator is aggregator for system and software metrics")
-set(CPACK_RPM_PACKAGE_DESCRIPTION "alligator is aggregator for system and software metrics")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE")
 set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
 include(CPack)

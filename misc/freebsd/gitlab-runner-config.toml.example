@@ -1,0 +1,26 @@
+# Example fragment for config.toml on the host that runs VirtualBox.
+# Register with: gitlab-runner register
+#   executor: virtualbox
+#   base VM name: alligator-freebsd-13  (General > Name in VirtualBox)
+#   SSH user: gitlab
+#
+# https://docs.gitlab.com/runner/executors/virtualbox/
+
+[[runners]]
+  name = "alligator-freebsd-virtualbox"
+  url = "https://gitlab.com/"
+  token = "REPLACE_WITH_RUNNER_TOKEN"
+  executor = "virtualbox"
+  shell = "bash"
+  tags = ["virtualbox-freebsd"]
+
+  [runners.virtualbox]
+    base_name = "alligator-freebsd-13"
+    base_snapshot = "clean"
+    headless = true
+    ssh_user = "gitlab"
+    # Use ssh_password OR ssh_identity_file (not both).
+    # ssh_password = "REPLACE"
+    # ssh_identity_file = "/home/runner/.ssh/id_ed25519"
+    ssh_port = 22
+    # Optional: disable_snapshots = false  (default: runner creates/restores snapshots)
