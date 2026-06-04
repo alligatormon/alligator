@@ -15,7 +15,7 @@
 
 extern aconf *ac;
 
-void get_network_statistics()
+void get_network_statistics2()
 {
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics\n");
 	int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
@@ -138,6 +138,113 @@ void get_network_statistics()
 	}
 
 	close(fd);
+}
+
+void get_network_statistics()
+{
+	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics\n");
+
+	int64_t received_bytes;
+	int64_t received_packets;
+	int64_t received_err;
+	int64_t received_drop;
+	int64_t received_fifo;
+	int64_t received_frame;
+	int64_t received_compressed;
+	int64_t received_multicast;
+
+	int64_t transmit_bytes;
+	int64_t transmit_packets;
+	int64_t transmit_err;
+	int64_t transmit_drop;
+	int64_t transmit_fifo;
+	int64_t transmit_colls;
+	int64_t transmit_carrier;
+	int64_t transmit_compressed;
+
+	char ifdir[1000];
+	char procnetdev[255];
+	snprintf(procnetdev, 255, "%s/net/dev", ac->system_procfs);
+	FILE *fp = fopen(procnetdev, "r");
+	if (!fp)
+		return;
+	char buf[200], ifname[20];
+
+	int i;
+	for (i = 0; i < 2; i++) {
+		if(!fgets(buf, 200, fp))
+		{
+			fclose(fp);
+			return;
+		}
+	}
+
+	for (i=0; fgets(buf, 200, fp); i++)
+	{
+		int from = strspn(buf, " ");
+		int to = strcspn(buf+from, ":");
+
+		if (!strncmp(buf+from, "veth", 4))
+			continue;
+		strlcpy(ifname, buf+from, to+1);
+
+		char *pEnd;
+		pEnd = buf+from+to + strcspn(buf+from+to, "\t ");
+		pEnd += strspn(pEnd, "\t ");
+		received_bytes = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_bytes, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_bytes");
+
+		received_packets = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_packets, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_packets");
+
+		received_err = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_err, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_err");
+
+		received_drop = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_drop, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_drop");
+
+		received_fifo = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_fifo, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_fifo");
+
+		received_frame = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_frame, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_frame");
+
+		received_compressed = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_compressed");
+
+		received_multicast = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &received_multicast, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "received_multicast");
+
+		transmit_bytes = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_bytes, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_bytes");
+
+		transmit_packets = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_packets, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_packets");
+
+		transmit_err = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_err, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_err");
+
+		transmit_drop = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_drop, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_drop");
+
+		transmit_fifo = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_fifo, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_fifo");
+
+		transmit_colls = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_colls, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_colls");
+
+		transmit_carrier = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_carrier, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_carrier");
+
+		transmit_compressed = strtoll(pEnd, &pEnd, 10);
+		metric_add_labels2("if_stat", &transmit_compressed, DATATYPE_INT, ac->system_carg, "ifname", ifname, "type", "transmit_compressed");
+
+		snprintf(ifdir, 1000, "%s/class/net/%s/speed", ac->system_sysfs, ifname);
+		int64_t interface_speed_bits = getkvfile(ifdir);
+		metric_add_labels("if_speed", &interface_speed_bits, DATATYPE_INT, ac->system_carg, "ifname", ifname);
+	}
+
+	fclose(fp);
 }
 
 void interface_stats()
