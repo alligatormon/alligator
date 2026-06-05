@@ -3280,7 +3280,7 @@ void get_system_metrics()
 
 	if (ac->system_network)
 	{
-		get_network_statistics();
+		get_network_statistics_netlink();
 		char dirname[255];
 
 		snprintf(dirname, 255, "%s/net/netstat", ac->system_procfs);

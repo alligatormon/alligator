@@ -56,14 +56,14 @@ static uint8_t copy_ifla_ifname(char *dst, size_t dst_size, struct rtattr *attr)
 }
 
 /* Netlink RTM_GETLINK backend; production scrape uses get_network_statistics() (/proc). */
-void get_network_statistics2()
+void get_network_statistics_netlink()
 {
 	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics (netlink)\n");
 
 	int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (fd < 0)
 	{
-		carglog(ac->system_carg, L_ERROR, "network_statistics2: socket: %s\n", strerror(errno));
+		carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: socket: %s\n", strerror(errno));
 		return;
 	}
 
@@ -74,13 +74,13 @@ void get_network_statistics2()
 	addr.nl_family = AF_NETLINK;
 	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
 	{
-		carglog(ac->system_carg, L_ERROR, "network_statistics2: bind: %s\n", strerror(errno));
+		carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: bind: %s\n", strerror(errno));
 		close(fd);
 		return;
 	}
 	if (getsockname(fd, (struct sockaddr *)&addr, &addr_len) < 0)
 	{
-		carglog(ac->system_carg, L_ERROR, "network_statistics2: getsockname: %s\n", strerror(errno));
+		carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: getsockname: %s\n", strerror(errno));
 		close(fd);
 		return;
 	}
@@ -105,7 +105,7 @@ void get_network_statistics2()
 		{
 			if (errno == EINTR)
 				continue;
-			carglog(ac->system_carg, L_ERROR, "network_statistics2: send: %s\n", strerror(errno));
+			carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: send: %s\n", strerror(errno));
 			close(fd);
 			return;
 		}
@@ -121,7 +121,7 @@ void get_network_statistics2()
 			if (errno == EINTR)
 				continue;
 			if (errno != 0)
-				carglog(ac->system_carg, L_ERROR, "network_statistics2: recv: %s\n", strerror(errno));
+				carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: recv: %s\n", strerror(errno));
 			break;
 		}
 		if (len == 0)
@@ -139,7 +139,7 @@ void get_network_statistics2()
 			{
 				struct nlmsgerr *err = NLMSG_DATA(nh);
 				if (err->error)
-					carglog(ac->system_carg, L_ERROR, "network_statistics2: netlink error %d\n", err->error);
+					carglog(ac->system_carg, L_ERROR, "network_statistics_netlink: netlink error %d\n", err->error);
 				close(fd);
 				return;
 			}
