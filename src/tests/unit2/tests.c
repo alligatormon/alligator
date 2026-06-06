@@ -313,6 +313,7 @@ gld_done:
 #include "config.h"
 #include "ht.h"
 #include "maglev.h"
+#include "dns.h"
 
 int main(int argc, char **argv) {
     count_all = 0;
@@ -375,6 +376,7 @@ int main(int argc, char **argv) {
     test_ht_reinit_and_remove_miss_paths();
     test_ht_foreach_and_forfree_paths();
     test_maglev_core_paths();
+    test_resolver_dns_pack_unpack();
     test_patricia_helpers();
     api_test_parser_httpd();
 

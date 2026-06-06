@@ -10,6 +10,7 @@
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_conntrack.h>
 #include <inttypes.h>
+#include <unistd.h>
 #include <byteswap.h>
 #include "dstructures/ht.h"
 #include "events/context_arg.h"

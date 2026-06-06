@@ -11,6 +11,7 @@
 #include <linux/netfilter/ipset/ip_set.h>
 #include <inttypes.h>
 #include <byteswap.h>
+#include <unistd.h>
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"

@@ -1,6 +1,7 @@
 #ifdef __linux__
 #include <linux/nvme_ioctl.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include "common/selector.h"
 #include "common/logs.h"
 #include "main.h"

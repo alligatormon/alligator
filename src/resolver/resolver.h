@@ -47,6 +47,7 @@ char *resolver_carg_get_addr(context_arg *carg);
 char* get_str_by_rrtype(uint16_t type);
 uint16_t get_rrtype_by_str(char *rrtype);
 context_arg* aggregator_push_addr_strtype(context_arg *carg, char *dname, char* strtype, uint32_t rclass);
+uint64_t dns_init_type(char *domain, char *buf, uint16_t rrtype, uint16_t *transaction_id);
 uint64_t dns_init_strtype(char *domain, char *buf, char *rrtype, uint16_t *transaction_id);
 void resolver_query_refresh(context_arg *carg);
 void resolver_connect_udp(void *arg);

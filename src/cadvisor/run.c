@@ -10,6 +10,7 @@
 #include "cadvisor/metrics.h"
 #include "cadvisor/libvirt.h"
 #include "common/logs.h"
+#include <unistd.h>
 #include <sys/mount.h>
 #include <sched.h>
 int unshare(int flags);

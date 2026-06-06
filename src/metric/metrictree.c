@@ -4,6 +4,7 @@
 #include "expiretree.h"
 #include "labels.h"
 #include <stdlib.h>
+#include <math.h>
 //#define EXPIRE_DEFAULT_SECONDS 300
 
 int is_red ( metric_node *node )
