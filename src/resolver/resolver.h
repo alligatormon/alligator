@@ -51,6 +51,10 @@ uint64_t dns_init_strtype(char *domain, char *buf, char *rrtype, uint16_t *trans
 void resolver_query_refresh(context_arg *carg);
 void resolver_connect_udp(void *arg);
 void resolver_connect_tcp(void *arg);
+void resolver_udp_halt(context_arg *carg);
+void resolver_tcp_halt(context_arg *carg);
+void resolver_probe_halt(context_arg *carg);
+void resolver_probes_halt(void);
 void resolver_init_client_timer(context_arg *carg, void* timer_callback);
 void dns_record_rule_push(char *dname, uint16_t rtype, void *data, uint64_t datalen, char *IP, uint64_t SIZE, uint64_t ttl);
 int dns_name_decode_ext(const char* buf, char *msg, char* domain);

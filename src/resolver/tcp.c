@@ -8,8 +8,32 @@
 #include "events/client.h"
 #include "common/logs.h"
 #include "main.h"
+#include "common/stop.h"
+#include "metric/percentile_heap.h"
 
-void resolver_closed_tcp(uv_handle_t *handle)
+static void resolver_closed_tcp(uv_handle_t *handle);
+
+void resolver_tcp_halt(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	if (carg->tt_timer) {
+		uv_timer_stop(carg->tt_timer);
+		carg->tt_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+		carg->tt_timer = NULL;
+	}
+
+	if (!uv_is_closing((uv_handle_t*)&carg->client)) {
+		carg->client.data = carg;
+		uv_close((uv_handle_t*)&carg->client, resolver_closed_tcp);
+	} else {
+		carg->lock = 0;
+	}
+}
+
+static void resolver_closed_tcp(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	carglog(carg, L_INFO, "%"u64": tcp-resolver client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
@@ -28,7 +52,8 @@ void resolver_close_tcp(uv_handle_t *handle)
 	context_arg* carg = handle->data;
 	carglog(carg, L_INFO, "%"u64": tcp-resolver client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
-	carg->tt_timer->data = NULL;
+	if (carg->tt_timer)
+		carg->tt_timer->data = NULL;
 
 	carg->close_time = setrtime();
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
@@ -79,6 +104,21 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		if (!carg->full_body->l)
 		{
 			dns_handler(buf->base+2, nread-2, carg);
+
+			resolver_data *rd = carg->rd;
+			if (rd)
+			{
+				uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
+				uint64_t write_time = getrtime_mcs(carg->write_time, carg->write_time_finish, 0);
+				uint64_t response_time = getrtime_mcs(carg->write_time, carg->read_time_finish, 0);
+				heap_insert(rd->read_time, read_time);
+				heap_insert(rd->write_time, write_time);
+				heap_insert(rd->response_time, response_time);
+				calc_percentiles(carg, rd->read_time, NULL, "resolver_read_time_mcs_quantile", rd->labels);
+				calc_percentiles(carg, rd->write_time, NULL, "resolver_write_time_mcs_quantile", rd->labels);
+				calc_percentiles(carg, rd->response_time, NULL, "resolver_response_time_mcs_quantile", rd->labels);
+			}
+
 			if (carg->lock)
 				carg->lock = 0;
 		}
@@ -106,10 +146,20 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 void resolver_writed_tcp(uv_write_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
-	int write_status = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
-	if (write_status)
-		fprintf(stderr, "uv_write error: %s\n", uv_strerror(write_status));
 
+	if (status != 0) {
+		carglog(carg, L_ERROR, "resolver length write error: %s\n", uv_strerror(status));
+		return;
+	}
+
+	int write_status = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, NULL);
+	if (write_status) {
+		carglog(carg, L_ERROR, "uv_write error: %s\n", uv_strerror(write_status));
+		return;
+	}
+
+	carg->write_time_finish = setrtime();
+	carg->read_time = setrtime();
 }
 
 void resolver_connected_tcp(uv_connect_t* req, int status)
@@ -135,7 +185,7 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 
 	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
-	carg->read_time = setrtime();
+	carg->write_time = setrtime();
 
 	memset(&carg->write_req, 0, sizeof(carg->write_req));
 
@@ -160,6 +210,10 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 void resolver_connect_tcp(void *arg)
 {
 	context_arg *carg = arg;
+
+	if (!carg || alligator_stop_requested())
+		return;
+
 	carg->count = 0;
 	carglog(carg, L_INFO, "%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 

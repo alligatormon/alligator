@@ -37,6 +37,7 @@ void alligator_stop(char *sig, int code)
 		snprintf(g_stop_sig, sizeof g_stop_sig, "%s", sig);
 	else
 		g_stop_sig[0] = '\0';
+	resolver_probes_halt();
 	if (ac && ac->loop)
 		uv_stop(ac->loop);
 }

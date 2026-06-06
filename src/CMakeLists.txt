@@ -345,6 +345,7 @@ set(STATIC_FILES
 	common/entrypoint.c
 	common/pw.c
 	common/stop.c
+	common/ac_free.c
 	config/env.c
 	config/parser.c
 	config/plain.c

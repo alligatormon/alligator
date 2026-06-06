@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common/entrypoint.h"
+#include "common/stop.h"
 #include "resolver/resolver.h"
 #include "dstructures/uv_cache.h"
 #include "events/metrics.h"
@@ -42,6 +43,11 @@ static void resolver_udp_abort(context_arg *carg, uv_udp_t *udp)
 	} else if (carg) {
 		carg->lock = 0;
 	}
+}
+
+void resolver_udp_halt(context_arg *carg)
+{
+	resolver_udp_abort(carg, &carg->udp_client);
 }
 
 void resolver_timeout_udp(uv_timer_t *timer)
@@ -133,7 +139,7 @@ void resolver_connect_udp(void *arg)
 {
 	context_arg *carg = arg;
 
-	if (!carg || !carg->loop)
+	if (!carg || !carg->loop || alligator_stop_requested())
 		return;
 
 	carg->count = 0;

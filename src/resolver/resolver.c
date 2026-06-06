@@ -5,6 +5,7 @@
 #include "resolver/getaddrinfo.h"
 #include "common/url.h"
 #include "common/logs.h"
+#include "common/stop.h"
 #include "metric/percentile_heap.h"
 
 #include <unistd.h>
@@ -217,7 +218,7 @@ void resolver_start(uv_timer_t *timer)
 {
 	context_arg *carg = timer->data;
 
-	if (!carg)
+	if (!carg || alligator_stop_requested())
 		return;
 
 	resolver_query_refresh(carg);
@@ -258,6 +259,39 @@ void resolver_carg_set_transport(context_arg *carg)
 	carg->transport_string = proto;
 	carg->transport = carg->proto = ac->srv_resolver[r]->hi->proto;
 	strlcpy(carg->host, ac->srv_resolver[r]->hi->host, HOSTHEADER_SIZE);
+}
+
+static resolver_data *resolver_rd_probe_alloc(alligator_ht *labels)
+{
+	resolver_data *rd = calloc(1, sizeof(*rd));
+
+	if (!rd)
+		return NULL;
+
+	rd->response_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
+	rd->read_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
+	rd->write_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
+	rd->labels = labels;
+	return rd;
+}
+
+static void resolver_rd_probe_free(context_arg *carg)
+{
+	resolver_data *rd;
+
+	if (!carg || !(rd = carg->rd))
+		return;
+
+	for (uint8_t i = 0; i < ac->resolver_size; ++i) {
+		if (ac->srv_resolver[i] == rd)
+			return;
+	}
+
+	free_percentile_buffer(rd->response_time);
+	free_percentile_buffer(rd->read_time);
+	free_percentile_buffer(rd->write_time);
+	free(rd);
+	carg->rd = NULL;
 }
 
 context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
@@ -307,6 +341,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 		host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
 		new_carg = context_arg_json_fill(NULL, hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(carg->labels);
+		new_carg->rd = resolver_rd_probe_alloc(new_carg->labels);
 		url_free(hi);
 		if (carg->bind_address)
 			new_carg->bind_address = strdup(carg->bind_address);
@@ -444,8 +479,39 @@ void resolver_del(context_arg *carg)
 		return;
 
 	carg_uv_detach_timers(carg);
+	resolver_rd_probe_free(carg);
 	free(carg->data);
 	carg_free(carg);
+}
+
+void resolver_probe_halt(context_arg *carg)
+{
+	if (!carg || !carg->resolver)
+		return;
+
+	if (!uv_is_closing((uv_handle_t *)&carg->resolver_timer))
+		uv_timer_stop(&carg->resolver_timer);
+	carg->resolver_timer.data = NULL;
+
+	if (carg->transport == APROTO_UDP)
+		resolver_udp_halt(carg);
+	else if (carg->transport == APROTO_TCP)
+		resolver_tcp_halt(carg);
+
+	carg->lock = 0;
+}
+
+static void resolver_probes_halt_foreach(void *funcarg, void *arg)
+{
+	resolver_probe_halt(arg);
+}
+
+void resolver_probes_halt(void)
+{
+	if (!ac || !ac->aggregators)
+		return;
+
+	alligator_ht_foreach_arg(ac->aggregators, resolver_probes_halt_foreach, NULL);
 }
 
 void resolver_stop_foreach(void *funcarg, void* arg)
