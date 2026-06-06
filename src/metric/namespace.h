@@ -32,7 +32,7 @@
 #define METRIC_SERIALIZER_OTLP 14
 #define METRIC_SERIALIZER_OTLP_PROTOBUF 15
 #define MAIN_METRIC_NAME "__name__"
-#define MAIN_METRIC_LEN 8
+#define MAIN_METRIC_LEN 7
 #define MAIN_METRIC_HASH 3262809090
 
 typedef struct namespace_struct

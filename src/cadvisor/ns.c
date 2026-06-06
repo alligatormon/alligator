@@ -71,39 +71,4 @@ int mount_ns_by_pid(char *pid)
 	return rc;
 }
 
-//char* get_ifname_by_cgroup_id(char *slice, char *cntid, alligator_ht *ifhash, char *name)
-//{
-//	FILE *fd;
-//	char dirpath[1000];
-//	char buf[1000];
-//	snprintf(dirpath, 1000, "/sys/fs/cgroup/pids/%s/%s/cgroup.procs", slice, cntid);
-//	fd = fopen(dirpath, "r");
-//	if (!fd)
-//		return NULL;
-//
-//	fgets(buf, 1000, fd);
-//	buf[strlen(buf)-1] = 0;
-//	fclose(fd);
-//
-//	snprintf(dirpath, 1000, "/proc/%s/ns/net", buf);
-//	int sfd = open(dirpath, O_RDONLY);
-//	net_ns_mount(sfd, name);
-//	fd = fopen("/var/lib/alligator/nsmount/class/net/eth0/iflink", "r");
-//	if (!fd)
-//		return NULL;
-//
-//	fgets(buf, 1000, fd);
-//	buf[strlen(buf)-1] = 0;
-//	fclose(fd);
-//	umount("/var/lib/alligator/nsmount");
-//	unshare(CLONE_NEWNET);
-//
-//	uint32_t id_ifhash = tommy_strhash_u32(0, buf);
-//	ifindexnames *iindex = alligator_ht_search(ifhash, ifindexnames_compare, buf, id_ifhash);
-//	if (!iindex)
-//		return NULL;
-//
-//
-//	return iindex->value;
-//}
 #endif

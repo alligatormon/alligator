@@ -453,9 +453,8 @@ void openvz7_labels()
 					.libvirt_id = NULL,
 				};
 
-				network_netlink_foreach(cadvisor_netlink_emit_cb, &emit_ctx, 0, ac->cadvisor_carg, "/var/lib/alligator/nsmount");
+				network_netlink_foreach(cadvisor_netlink_emit_cb, &emit_ctx, 0, ac->cadvisor_carg, NULL);
 			}
-			umount("/var/lib/alligator/nsmount");
 			unshare(CLONE_NEWNET);
 
 			cadvisor_scrape(NULL, NULL, "", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);

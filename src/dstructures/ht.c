@@ -5,8 +5,6 @@
 #endif
 #endif
 #include "dstructures/ht.h"
-#include <string.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include "dstructures/tommy.h"
 
@@ -198,18 +196,10 @@ void alligator_ht_forfree(alligator_ht *h, void *funcfree)
 	pthread_rwlock_unlock(&h->rwlock);
 }
 
-uint64_t alligator_ht_strhash(const char *buf, uint32_t len, uint32_t initial)
-{
-	if (!buf || len == 0)
-		return tommy_hash_u32(initial, "", 0);
-
-	return tommy_hash_u32(initial, buf, len);
+uint64_t alligator_ht_strhash(const char *buf, uint32_t len, uint32_t initial) {
+	return tommy_strhash_u32(initial, buf);
 }
 
-uint64_t alligator_ht_strhash_get(const char *buf)
-{
-	if (!buf)
-		return tommy_hash_u32(0, "", 0);
-
-	return tommy_hash_u32(0, buf, strlen(buf));
+uint64_t alligator_ht_strhash_get(const char *buf) {
+	return tommy_strhash_u32(0, buf);
 }

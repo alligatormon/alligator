@@ -274,7 +274,6 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
-	sort_plan->len[0] = MAIN_METRIC_LEN;
 
 	sort_plan->check_collisions = alligator_ht_init(NULL);
 	sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
@@ -405,7 +404,6 @@ void ts_initialize()
 	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
-	sort_plan->len[0] = MAIN_METRIC_LEN;
 
 	sort_plan->check_collisions = alligator_ht_init(NULL);
 	sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));

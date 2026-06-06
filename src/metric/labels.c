@@ -391,96 +391,11 @@ int labels_hash_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-typedef struct {
-	const char *s;
-	size_t l;
-} labels_word_search_key;
-
 int labels_word_hash_compare(const void* arg, const void* obj)
 {
-	const labels_word_search_key *key = arg;
-	const labels_words_cache *cache = obj;
-
-	if (key->l != cache->l)
-		return (key->l < cache->l) ? -1 : 1;
-	return memcmp(key->s, cache->w, key->l);
-}
-
-static uint32_t labels_word_hash(const char *s, size_t len)
-{
-	if (!s || !len)
-		return 0;
-
-	return (uint32_t)ac->metrictree_hashfunc(s, (uint32_t)len, 0);
-}
-
-typedef struct labels_cache_pending {
-	labels_words_cache *cache;
-	struct labels_cache_pending *next;
-} labels_cache_pending;
-
-static labels_words_cache *labels_cache_lookup(alligator_ht *hash, const char *s, size_t len)
-{
-	if (!hash || !s || !len)
-		return NULL;
-
-	labels_word_search_key key = { s, len };
-	uint32_t h = labels_word_hash(s, len);
-	return alligator_ht_search(hash, labels_word_hash_compare, &key, h);
-}
-
-static void labels_cache_pending_add(labels_cache_pending **pending, labels_words_cache *cache)
-{
-	labels_cache_pending *entry;
-
-	if (!pending || !cache)
-		return;
-
-	for (entry = *pending; entry; entry = entry->next) {
-		if (entry->cache == cache)
-			return;
-	}
-
-	entry = malloc(sizeof(*entry));
-	if (!entry)
-		return;
-
-	entry->cache = cache;
-	entry->next = *pending;
-	*pending = entry;
-}
-
-static void labels_cache_dec_defer(labels_words_cache *cache, labels_cache_pending **pending)
-{
-	if (!cache)
-		return;
-
-	if (cache->count > 0)
-		cache->count--;
-
-	if (cache->count == 0)
-		labels_cache_pending_add(pending, cache);
-}
-
-static void labels_cache_pending_flush(labels_cache_pending **pending, alligator_ht *hash)
-{
-	labels_cache_pending *entry;
-
-	while (pending && (entry = *pending)) {
-		labels_words_cache *cache = entry->cache;
-
-		*pending = entry->next;
-		free(entry);
-
-		if (!cache)
-			continue;
-
-		free(cache->w);
-		if (hash)
-			alligator_ht_remove_existing(hash, &(cache->node));
-		free(cache);
-		++ac->metric_freed;
-	}
+        char *s1 = (char*)arg;
+        char *s2 = ((labels_words_cache*)obj)->w;
+        return strcmp(s1, s2);
 }
 
 static int labels_ptr_in_slab(labels_t *p, void *slab_base, uint32_t slab_n)
@@ -510,46 +425,59 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 
 	void *slab_base = labels->slab_alloc;
 	uint32_t slab_n = labels->slab_nnodes;
-	alligator_ht *labels_words_hash = metrictree ? metrictree->labels_words_hash : NULL;
-	labels_cache_pending *pending = NULL;
 
+	labels_words_cache *labels_cache;
+	alligator_ht *labels_words_hash = metrictree ? metrictree->labels_words_hash : NULL;
+	
 	while (labels)
 	{
-		labels_words_cache *name_cache = NULL;
-		labels_words_cache *key_cache = NULL;
-		int same_nk = 0;
-
-		if (labels->name) {
-			name_cache = labels_cache_lookup(labels_words_hash, labels->name, labels->name_len);
-			if (!name_cache)
-				fprintf(stderr, "unknown error 10\n");
+		uint32_t name_hash = tommy_strhash_u32(0, labels->name);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
+		if (labels_cache)
+		{
+			labels_cache->count--;
+			if (labels_cache->count == 0)
+			{
+				free(labels_cache->w);
+				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
+				++ac->metric_freed;
+			}
+		}
+		else
+		{
+			fprintf(stderr, "unknown error 10\n");
 		}
 
-		if (labels->key) {
-			same_nk = labels->name == labels->key && labels->name_len == labels->key_len;
-			if (!same_nk)
-				key_cache = labels_cache_lookup(labels_words_hash, labels->key, labels->key_len);
-			else
-				key_cache = name_cache;
-			if (!key_cache)
-				fprintf(stderr, "unknown error 11\n");
-		}
+		if (!labels->key)
+		{
+			labels_t *labels_old = labels;
+			labels = labels->next;
+			labels_free_chain_struct(labels_old, &slab_base, &slab_n);
 
-		if (name_cache)
-			labels_cache_dec_defer(name_cache, &pending);
-		if (key_cache && same_nk && key_cache == name_cache) {
-			if (name_cache)
-				labels_cache_dec_defer(name_cache, &pending);
-		} else if (key_cache) {
-			labels_cache_dec_defer(key_cache, &pending);
+			continue;
+		}
+		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
+		if (labels_cache)
+		{
+			labels_cache->count--;
+			if (labels_cache->count == 0)
+			{
+				free(labels_cache->w);
+				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
+				free(labels_cache);
+				++ac->metric_freed;
+			}
+		}
+		else
+		{
+			fprintf(stderr, "unknown error 11\n");
 		}
 
 		labels_t *labels_old = labels;
 		labels = labels->next;
 		labels_free_chain_struct(labels_old, &slab_base, &slab_n);
 	}
-
-	labels_cache_pending_flush(&pending, labels_words_hash);
 }
 
 int check_collisions_compare(const void* arg, const void* obj)
@@ -872,9 +800,8 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 	while (labels)
 	{
-		labels_word_search_key name_key = { labels->name, labels->name_len };
-		uint32_t name_hash = labels_word_hash(labels->name, labels->name_len);
-		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, &name_key, name_hash);
+		uint32_t name_hash = tommy_strhash_u32(0, labels->name);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->name, name_hash);
 		if (labels_cache)
 		{
 			++ac->metric_cache_hits;
@@ -884,7 +811,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		{
 			++ac->metric_allocates;
 			labels_cache = malloc(sizeof(*labels_cache));
-			labels_cache->w = strndup(labels->name, labels->name_len);
+			labels_cache->w = strdup(labels->name);
 			labels_cache->l = labels->name_len;
 			labels_cache->count = 1;
 			alligator_ht_insert(labels_words_hash, &(labels_cache->node), labels_cache, name_hash);
@@ -905,9 +832,8 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 			continue;
 		}
 
-		labels_word_search_key key_key = { labels->key, labels->key_len };
-		uint32_t key_hash = labels_word_hash(labels->key, labels->key_len);
-		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, &key_key, key_hash);
+		uint32_t key_hash = tommy_strhash_u32(0, labels->key);
+		labels_cache = alligator_ht_search(labels_words_hash, labels_word_hash_compare, labels->key, key_hash);
 		if (labels_cache)
 		{
 			++ac->metric_cache_hits;
@@ -917,7 +843,7 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 		{
 			++ac->metric_allocates;
 			labels_cache = malloc(sizeof(*labels_cache));
-			labels_cache->w = strndup(labels->key, labels->key_len);
+			labels_cache->w = strdup(labels->key);
 			labels_cache->l = labels->key_len;
 			labels_cache->count = 1;
 			alligator_ht_insert(labels_words_hash, &(labels_cache->node), labels_cache, key_hash);
