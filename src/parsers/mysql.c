@@ -6,6 +6,8 @@
 #include "main.h"
 #include "parsers/mysql2.h"
 #include <pthread.h>
+#include <unistd.h>
+#include <uv.h>
 #define MY_TYPE_MYSQL 0
 #define MY_TYPE_SPHINXSEARCH 1
 

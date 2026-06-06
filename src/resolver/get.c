@@ -1,9 +1,6 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
-#include "hdef.h"
-#include "hsocket.h"
-#include "herr.h"
 #include "resolver/resolver.h"
 #include "common/json_query.h"
 

@@ -38,6 +38,7 @@
 #include "common/crc32.h"
 #include "common/murmurhash.h"
 #include "common/xxh.h"
+#include <unistd.h>
 #define DOCKERSOCK "http://unix:/var/run/docker.sock:/containers/json"
 
 uint16_t http_error_handler_v1(int8_t ret, char *mesg_good, char *mesg_fail, const char *proto, const char *address, uint16_t port, char *status, char* respbody)

@@ -5,6 +5,7 @@
 #include "metric/labels.h"
 #include "common/logs.h"
 #include "system/common.h"
+#include <unistd.h>
 #define LINUXFS_LINE_LENGTH 300
 
 extern aconf *ac;

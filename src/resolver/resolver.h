@@ -2,15 +2,15 @@
 #include <stdint.h>
 #include "common/selector.h"
 #include "metric/percentile_heap.h"
-#include "dns.h"
+#include "resolver/dns.h"
 #include "common/url.h"
 
-#define DNS_TYPE_TXT    15
-#define DNS_TYPE_SRV    33
 #define DNS_CLASS_CHAOS 3
 #define DNS_CLASS_HESIOD 4
 #define DNS_CLASS_ANY 255
 #define DNS_MAX_RR_PER_DOMAIN 12
+#define RESOLVER_QUERY_PERIOD_MS 10000
+#define RESOLVER_METRIC_MIN_TTL_SEC 30
 
 typedef struct dns_record {
 	string *data;
@@ -48,6 +48,7 @@ char* get_str_by_rrtype(uint16_t type);
 uint16_t get_rrtype_by_str(char *rrtype);
 context_arg* aggregator_push_addr_strtype(context_arg *carg, char *dname, char* strtype, uint32_t rclass);
 uint64_t dns_init_strtype(char *domain, char *buf, char *rrtype, uint16_t *transaction_id);
+void resolver_query_refresh(context_arg *carg);
 void resolver_connect_udp(void *arg);
 void resolver_connect_tcp(void *arg);
 void resolver_init_client_timer(context_arg *carg, void* timer_callback);

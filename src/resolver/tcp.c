@@ -80,9 +80,7 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 		{
 			dns_handler(buf->base+2, nread-2, carg);
 			if (carg->lock)
-			{
 				carg->lock = 0;
-			}
 		}
 		else
 			string_cat(carg->full_body, buf->base, nread);
@@ -125,6 +123,13 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 	{
 		ok = 0;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		carg->lock = 0;
+		if (carg->tt_timer) {
+			uv_timer_stop(carg->tt_timer);
+			carg->tt_timer->data = NULL;
+			alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+			carg->tt_timer = NULL;
+		}
 		return;
 	}
 
@@ -158,12 +163,14 @@ void resolver_connect_tcp(void *arg)
 	carg->count = 0;
 	carglog(carg, L_INFO, "%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 
-	if (carg->lock)
-		return;
+	if (carg->lock) {
+		if (carg->tt_timer)
+			return;
+		carg->lock = 0;
+	}
 
 	carg->lock = 1;
 	carg->parsed = 0;
-	carg->curr_ttl = carg->ttl;
 
 	resolver_init_client_timer(carg, resolver_timeout_tcp);
 
@@ -175,13 +182,23 @@ void resolver_connect_tcp(void *arg)
 	uv_tcp_init(carg->loop, &carg->client);
 
 	char *addr = resolver_carg_get_addr(carg);
-	if (!addr)
+	if (!addr) {
+		carg->lock = 0;
 		return;
+	}
 
 	uv_ip4_addr(addr, carg->numport, &carg->remote_addr);
 
 	carg->connect_time = setrtime();
 	int status = uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, resolver_connected_tcp);
-	if (status)
+	if (status) {
 		carglog(carg, L_ERROR, "resolver_connect_tcp error: %s\n", uv_strerror(status));
+		carg->lock = 0;
+		if (carg->tt_timer) {
+			uv_timer_stop(carg->tt_timer);
+			carg->tt_timer->data = NULL;
+			alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+			carg->tt_timer = NULL;
+		}
+	}
 }

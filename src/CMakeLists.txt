@@ -123,12 +123,8 @@ include_directories(/usr/include/postgresql)
 include_directories(/var/lib/smartmontools/drivedb/)
 include_directories(/usr/share/smartmontools/)
 include_directories(external/mruby/include/)
-include_directories(external/libhv/protocol/)
-
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/include/libnl3)
-include_directories(/usr/local/include/hv/)
-include_directories(external/libhv/include/hv/)
 include_directories(/usr/local/include/)
 include_directories(external/picohttpparser)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -141,7 +137,6 @@ include_directories(external/mruby/include)
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
 link_directories(external/mruby/build/host/lib/)
-link_directories(external/libhv/lib/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 link_directories(/usr/local/lib64/)
 link_directories(external/mruby/build/host/lib/)
@@ -173,6 +168,7 @@ set(STATIC_FILES
 	events/context_arg.c
 	events/threads.c
 	events/tls.c
+	resolver/dns.c
 	resolver/resolver.c
 	resolver/udp.c
 	resolver/tcp.c
@@ -462,7 +458,7 @@ pkg_check_modules(SYSTEMD "libsystemd" REQUIRED)
 	endif()
 endif()
 endif()
-set(ALLIGATOR_EXTERNAL_STATIC_LIBS libmruby.a libmruby_core.a libdns.a libpicohttpparser.a)
+set(ALLIGATOR_EXTERNAL_STATIC_LIBS libmruby.a libmruby_core.a libpicohttpparser.a)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_EXTERNAL_STATIC_LIBS libfyaml.a)
 endif()
@@ -553,7 +549,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a libhv.a picohttpparser.a libdns.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL)
@@ -575,9 +571,6 @@ add_include_flags(include_flags ${CMAKE_INCLUDE_PATH})
 
 
 include_directories(external/mruby/include/)
-include_directories(external/libhv/protocol/)
-
-include_directories(external/libhv/include/hv/)
 include_directories(external/picohttpparser)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include_directories(external/libfyaml/include/)

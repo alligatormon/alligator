@@ -1,14 +1,13 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
-#include "hdef.h"
-#include "hsocket.h"
-#include "herr.h"
 #include "resolver/resolver.h"
 #include "resolver/getaddrinfo.h"
 #include "common/url.h"
 #include "common/logs.h"
 #include "metric/percentile_heap.h"
+
+#include <unistd.h>
 
 int resolver_compare(const void* arg, const void* obj)
 {
@@ -221,10 +220,33 @@ void resolver_start(uv_timer_t *timer)
 	if (!carg)
 		return;
 
+	resolver_query_refresh(carg);
+
 	if (carg->transport == APROTO_UDP)
 		resolver_connect_udp(carg);
 	else if (carg->transport == APROTO_TCP)
 		resolver_connect_tcp(carg);
+}
+
+void resolver_query_refresh(context_arg *carg)
+{
+	if (!carg || !carg->data)
+		return;
+
+	uint16_t rrtype = get_rrtype_by_str(carg->rrtype);
+	if (!rrtype)
+		rrtype = DNS_TYPE_A;
+
+	char *buf = calloc(1, 1024);
+	uint16_t transaction_id;
+	uint64_t buflen = dns_init_type(carg->data, buf, rrtype, &transaction_id);
+	carg->packets_id = transaction_id;
+
+	if (carg->mesg)
+		free(carg->mesg);
+	if (carg->buffer)
+		free(carg->buffer);
+	aconf_mesg_set(carg, buf, buflen);
 }
 
 void resolver_carg_set_transport(context_arg *carg)
@@ -308,6 +330,10 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 	new_carg->log_level = carg->log_level;
 	new_carg->resolver = 1;
 	new_carg->rrtype = get_str_by_rrtype(rrtype);
+	if (carg->period)
+		new_carg->period = carg->period;
+	if (carg->timeout)
+		new_carg->timeout = carg->timeout;
 
 	aconf_mesg_set(new_carg, buf, buflen);
 
@@ -315,9 +341,41 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 
 	new_carg->resolver_timer.data = new_carg;
 	uv_timer_init(new_carg->loop, &new_carg->resolver_timer);
-	uv_timer_start(&new_carg->resolver_timer, resolver_start, 0, 10000);
+	{
+		uint64_t repeat = new_carg->period ? new_carg->period : RESOLVER_QUERY_PERIOD_MS;
+		uv_timer_start(&new_carg->resolver_timer, resolver_start, 0, repeat);
+	}
 
 	return new_carg;
+}
+
+string* dns_cache_pick(dns_resource_records *dns_rr)
+{
+	if (!dns_rr || !dns_rr->size)
+		return NULL;
+
+	r_time now = setrtime();
+	uint64_t valid = 0;
+	for (uint64_t i = 0; i < dns_rr->size; ++i) {
+		if (dns_rr->rr[i].ttl > now.sec)
+			++valid;
+	}
+	if (!valid)
+		return NULL;
+
+	srand(time(NULL));
+	for (uint8_t attempt = 0; attempt < 8; ++attempt) {
+		uint8_t r = rand() % dns_rr->size;
+		if (dns_rr->rr[r].ttl > now.sec)
+			return dns_rr->rr[r].data;
+	}
+
+	for (uint64_t i = 0; i < dns_rr->size; ++i) {
+		if (dns_rr->rr[i].ttl > now.sec)
+			return dns_rr->rr[i].data;
+	}
+
+	return NULL;
 }
 
 string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
@@ -329,14 +387,9 @@ string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uin
 	carglog(carg, L_INFO, "aggregator_get_addr '%s' %p(%p:%p) with key %s, hostname %s, dname '%s', port: %s tls: %d, timeout: %"u64"\n", key, carg, &carg->connect, &carg->client, carg->key, carg->host, dname, carg->port, carg->tls, carg->timeout);
 
 	dns_resource_records *dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
-	if (dns_rr)
-	{
-		if (!dns_rr->size)
-			return NULL;
-		srand(time(NULL));
-		uint8_t r = rand() % dns_rr->size;
-		return dns_rr->rr[r].data;
-	}
+	string *data = dns_cache_pick(dns_rr);
+	if (data)
+		return data;
 
 	aggregator_push_addr(carg, dname, rrtype, rclass);
 	return NULL;

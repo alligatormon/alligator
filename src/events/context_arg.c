@@ -171,30 +171,44 @@ void carg_inherited_uv_reset(context_arg *carg)
 	carg->period_timer = NULL;
 }
 
+static void carg_timer_recycle_cb(uv_handle_t *handle)
+{
+	if (handle)
+		alligator_cache_push(ac->uv_cache_timer, handle);
+}
+
+static void carg_timer_detach_and_close(uv_timer_t **ptimer)
+{
+	uv_timer_t *timer = (ptimer && *ptimer) ? *ptimer : NULL;
+	if (!timer)
+		return;
+
+	if (!uv_is_closing((uv_handle_t *)timer))
+		uv_timer_stop(timer);
+	timer->data = NULL;
+	uv_close((uv_handle_t *)timer, carg_timer_recycle_cb);
+	*ptimer = NULL;
+}
+
 void carg_uv_detach_timers(context_arg *carg)
 {
 	if (!carg)
 		return;
 
-	if (carg->tt_timer) {
-		uv_timer_stop(carg->tt_timer);
-		carg->tt_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
-		carg->tt_timer = NULL;
-	}
+	carg_timer_detach_and_close(&carg->tt_timer);
+	carg_timer_detach_and_close(&carg->period_timer);
 
-	if (carg->period_timer) {
-		uv_timer_stop(carg->period_timer);
-		carg->period_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, carg->period_timer);
-		carg->period_timer = NULL;
+	/* Embedded timers (on-stack inside context_arg); don't uv_close to avoid
+	 * use-after-free when the context is freed. */
+	if (!uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
+		uv_timer_stop(&carg->resolver_timer);
 	}
-
-	uv_timer_stop(&carg->resolver_timer);
 	carg->resolver_timer.data = NULL;
 
 	if (carg->http_idle_timer_active) {
-		uv_timer_stop(&carg->http_idle_timer);
+		if (!uv_is_closing((uv_handle_t *)&carg->http_idle_timer)) {
+			uv_timer_stop(&carg->http_idle_timer);
+		}
 		carg->http_idle_timer.data = NULL;
 		carg->http_idle_timer_active = 0;
 	}

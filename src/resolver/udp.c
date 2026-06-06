@@ -3,17 +3,60 @@
 #include <string.h>
 #include "common/entrypoint.h"
 #include "resolver/resolver.h"
+#include "dstructures/uv_cache.h"
 #include "events/metrics.h"
 #include "common/logs.h"
 #include "main.h"
 #include <arpa/inet.h>
 
+static void resolver_udp_stop_timer(context_arg *carg)
+{
+	if (!carg || !carg->tt_timer)
+		return;
+
+	uv_timer_stop(carg->tt_timer);
+	carg->tt_timer->data = NULL;
+	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+	carg->tt_timer = NULL;
+}
+
 static void resolver_udp_closed(uv_handle_t *handle)
 {
 	context_arg *carg = handle->data;
 
-	if (carg)
+	if (carg) {
+		resolver_udp_stop_timer(carg);
 		carg->lock = 0;
+		memset(&carg->udp_client, 0, sizeof(carg->udp_client));
+	}
+}
+
+static void resolver_udp_abort(context_arg *carg, uv_udp_t *udp)
+{
+	resolver_udp_stop_timer(carg);
+
+	if (udp && !uv_is_closing((uv_handle_t*)udp)) {
+		uv_udp_recv_stop(udp);
+		udp->data = carg;
+		uv_close((uv_handle_t*)udp, resolver_udp_closed);
+	} else if (carg) {
+		carg->lock = 0;
+	}
+}
+
+void resolver_timeout_udp(uv_timer_t *timer)
+{
+	uv_timer_stop(timer);
+	alligator_cache_push(ac->uv_cache_timer, timer);
+
+	context_arg *carg = timer->data;
+	if (!carg)
+		return;
+
+	carg->tt_timer = NULL;
+	carglog(carg, L_INFO, "%"u64": timeout udp-resolver %p(%p:%p) with key %s, hostname %s, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->timeout);
+	(carg->timeout_counter)++;
+	resolver_udp_abort(carg, &carg->udp_client);
 }
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
@@ -43,11 +86,13 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 	{
 		carglog(carg, L_ERROR, "Read error %s\n", uv_err_name(nread));
 		free(buf->base);
+		resolver_udp_abort(carg, req);
 		return;
 	}
 	if (nread == 0)
 	{
 		free(buf->base);
+		resolver_udp_abort(carg, req);
 		return;
 	}
 
@@ -59,11 +104,8 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 	dns_handler(buf->base, nread, carg);
 	if (carg->lock)
-	{
-		uv_udp_recv_stop(req);
-		req->data = carg;
-		uv_close((uv_handle_t*) req, resolver_udp_closed);
-	}
+		resolver_udp_abort(carg, req);
+
 	free(buf->base);
 	free(carg->local_addr);
 	carg->local_addr = NULL;
@@ -79,6 +121,8 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 
 	if (status != 0) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
+		resolver_udp_abort(carg, req->handle);
+		return;
 	}
 	req->handle->data = req->data;
 	uv_udp_recv_start(req->handle, alloc_buffer, resolver_read_udp);
@@ -95,21 +139,23 @@ void resolver_connect_udp(void *arg)
 	carg->count = 0;
 	carglog(carg, L_INFO, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
-	if (carg->lock)
-		return;
-
-	if (uv_is_closing((uv_handle_t *)&carg->udp_client))
-		return;
+	if (carg->lock) {
+		if (carg->tt_timer)
+			return;
+		carg->lock = 0;
+	}
 
 	carg->lock = 1;
 	carg->parsed = 0;
-	carg->curr_ttl = carg->ttl;
 
 	char *addr = resolver_carg_get_addr(carg);
 	if (!addr) {
 		carg->lock = 0;
 		return;
 	}
+
+	resolver_udp_stop_timer(carg);
+	resolver_init_client_timer(carg, resolver_timeout_udp);
 
 	uv_ip4_addr(addr, carg->numport, &carg->remote_addr);
 
@@ -123,14 +169,17 @@ void resolver_connect_udp(void *arg)
 		int bind_ret = uv_udp_bind(&carg->udp_client, (const struct sockaddr *)carg->local_addr, 0);
 		if (bind_ret) {
 			carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
-			carg->lock = 0;
+			resolver_udp_abort(carg, &carg->udp_client);
 			return;
 		}
 	}
 
 	int status = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->remote_addr, resolver_send_udp);
-	if (status)
-			carglog(carg, L_ERROR, "uv_udp_send error: %s\n", uv_strerror(status));
+	if (status) {
+		carglog(carg, L_ERROR, "uv_udp_send error: %s\n", uv_strerror(status));
+		resolver_udp_abort(carg, &carg->udp_client);
+		return;
+	}
 
 	carg->write_bytes_counter += carg->request_buffer.len;
 	(carg->write_counter)++;

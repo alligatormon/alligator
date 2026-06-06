@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
