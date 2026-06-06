@@ -372,6 +372,8 @@ alligator_ht* env_struct_duplicate(alligator_ht *src);
 json_t* env_struct_dump(alligator_ht *src);
 void env_struct_duplicate_foreach(void *funcarg, void* arg);
 void env_struct_free(void *funcarg, void* arg);
+void carg_inherited_uv_reset(context_arg *carg);
+void carg_uv_detach_timers(context_arg *carg);
 void carg_free(context_arg *carg);
 void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
 void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);

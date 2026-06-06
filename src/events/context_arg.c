@@ -1,8 +1,10 @@
 #include "events/context_arg.h"
 #include "events/tls.h"
+#include "dstructures/uv_cache.h"
 #include "main.h"
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include "common/file_stat.h"
 #include "common/netlib.h"
 #include "resolver/resolver.h"
@@ -148,8 +150,63 @@ static void env_collect_ptr(void *funcarg, void *arg)
 	ctx->buf[ctx->n++] = arg;
 }
 
+void carg_inherited_uv_reset(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	memset(&carg->client, 0, sizeof(carg->client));
+	memset(&carg->server, 0, sizeof(carg->server));
+	memset(&carg->pclient, 0, sizeof(carg->pclient));
+	memset(&carg->connect, 0, sizeof(carg->connect));
+	memset(&carg->udp_client, 0, sizeof(carg->udp_client));
+	memset(&carg->udp_server, 0, sizeof(carg->udp_server));
+	memset(&carg->resolver_timer, 0, sizeof(carg->resolver_timer));
+	memset(&carg->http_idle_timer, 0, sizeof(carg->http_idle_timer));
+	memset(&carg->t_timeout, 0, sizeof(carg->t_timeout));
+	memset(&carg->t_towrite, 0, sizeof(carg->t_towrite));
+	memset(&carg->t_seq_timer, 0, sizeof(carg->t_seq_timer));
+	carg->http_idle_timer_active = 0;
+	carg->tt_timer = NULL;
+	carg->period_timer = NULL;
+}
+
+void carg_uv_detach_timers(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	if (carg->tt_timer) {
+		uv_timer_stop(carg->tt_timer);
+		carg->tt_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+		carg->tt_timer = NULL;
+	}
+
+	if (carg->period_timer) {
+		uv_timer_stop(carg->period_timer);
+		carg->period_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, carg->period_timer);
+		carg->period_timer = NULL;
+	}
+
+	uv_timer_stop(&carg->resolver_timer);
+	carg->resolver_timer.data = NULL;
+
+	if (carg->http_idle_timer_active) {
+		uv_timer_stop(&carg->http_idle_timer);
+		carg->http_idle_timer.data = NULL;
+		carg->http_idle_timer_active = 0;
+	}
+}
+
 void carg_free(context_arg *carg)
 {
+	if (!carg)
+		return;
+
+	carg_uv_detach_timers(carg);
+
 	carglog(carg, L_DEBUG, "FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n", carg, carg->host, carg->key, carg->key, carg->mesg);
 
 	if (carg->mesg)

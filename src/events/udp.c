@@ -36,6 +36,8 @@ void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
+			if (carg->key)
+				alligator_ht_remove(ac->udpaggregator, aggregator_compare, carg->key, tommy_strhash_u32(0, carg->key));
 			smart_aggregator_del(carg);
 			if (buf && buf->base)
 				free(buf->base);
@@ -299,6 +301,8 @@ void udp_client_repeat_period(uv_timer_t *timer)
 void for_udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
+	if (!carg || carg->context_ttl || carg->remove_from_hash)
+		return;
 	if (carg->period && carg->conn_counter)
 		return;
 
@@ -330,6 +334,7 @@ void udp_client_del(context_arg *carg)
 	{
 		r_time time = setrtime();
 		carg->context_ttl = time.sec;
+		alligator_ht_remove_existing(ac->udpaggregator, &(carg->node));
 		uv_udp_recv_stop(&carg->udp_client);
 	}
 	else {

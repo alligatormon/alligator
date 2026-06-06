@@ -477,6 +477,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	context_arg *carg = malloc(sizeof(*carg));
 	memcpy(carg, srv_carg, sizeof(context_arg));
+	carg_inherited_uv_reset(carg);
 	carglog(carg, L_INFO, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->conn_counter)++;
 
@@ -502,7 +503,6 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	carg->read_time = setrtime();
 	carg->http_write_pending = 0;
 	carg->http_close_after_response = 1;
-	carg->http_idle_timer_active = 0;
 	http_entrypoint_reset_request_state(carg);
 	if (carg->tls)
 	{

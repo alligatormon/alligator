@@ -8,6 +8,14 @@
 #include "main.h"
 #include <arpa/inet.h>
 
+static void resolver_udp_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+
+	if (carg)
+		carg->lock = 0;
+}
+
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
 	context_arg *carg = req->data;
@@ -53,8 +61,8 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 	if (carg->lock)
 	{
 		uv_udp_recv_stop(req);
-		uv_close((uv_handle_t*) req, NULL);
-		carg->lock = 0;
+		req->data = carg;
+		uv_close((uv_handle_t*) req, resolver_udp_closed);
 	}
 	free(buf->base);
 	free(carg->local_addr);
@@ -80,10 +88,17 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 void resolver_connect_udp(void *arg)
 {
 	context_arg *carg = arg;
+
+	if (!carg || !carg->loop)
+		return;
+
 	carg->count = 0;
 	carglog(carg, L_INFO, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
+		return;
+
+	if (uv_is_closing((uv_handle_t *)&carg->udp_client))
 		return;
 
 	carg->lock = 1;
@@ -91,13 +106,17 @@ void resolver_connect_udp(void *arg)
 	carg->curr_ttl = carg->ttl;
 
 	char *addr = resolver_carg_get_addr(carg);
-	if (!addr)
+	if (!addr) {
+		carg->lock = 0;
 		return;
+	}
 
 	uv_ip4_addr(addr, carg->numport, &carg->remote_addr);
 
 	carg->udp_send.data = carg;
-	uv_udp_init(uv_default_loop(), &carg->udp_client);
+	memset(&carg->udp_client, 0, sizeof(carg->udp_client));
+	carg->udp_client.data = carg;
+	uv_udp_init(carg->loop, &carg->udp_client);
 
 	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
 	if (addr_ret) {

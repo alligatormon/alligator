@@ -534,6 +534,8 @@ void tcp_client_connect(void *arg)
 void for_tcp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
+	if (!carg || carg->context_ttl || carg->remove_from_hash)
+		return;
 	if (carg->period && carg->close_counter)
 		return;
 
@@ -605,6 +607,8 @@ void unix_client_connect(void *arg)
 void for_unix_client_connect(void *arg)
 {
 	context_arg *carg = arg;
+	if (!carg || carg->context_ttl || carg->remove_from_hash)
+		return;
 	if (carg->period && carg->close_counter)
 		return;
 
@@ -662,6 +666,7 @@ void tcp_client_del(context_arg *carg)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
+			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else
@@ -688,6 +693,7 @@ void unix_tcp_client_del(context_arg *carg)
 		{
 			r_time time = setrtime();
 			carg->context_ttl = time.sec;
+			alligator_ht_remove_existing(ac->uggregator, &(carg->node));
 			tcp_client_close((uv_handle_t *)&carg->client);
 		}
 		else

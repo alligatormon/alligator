@@ -21,8 +21,6 @@ int net_ns_mount(int fd, char *name)
 	if (rc < 0)
 		return rc;
 
-	mount(name, "/var/lib/alligator/nsmount/", "sysfs", 0, NULL);
-
 	return 1;
 }
 

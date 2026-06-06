@@ -180,20 +180,20 @@ void cadvisor_register_metric_families(context_arg *carg)
 void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
 	alligator_ht *hash = alligator_ht_init(NULL);
-	labels_hash_insert(hash, "name", name);
+	labels_hash_insert_nocache(hash, "name", name);
 	if (image)
-		labels_hash_insert(hash, "image", image);
+		labels_hash_insert_nocache(hash, "image", image);
 	if (kubenamespace)
-		labels_hash_insert(hash, "namespace", kubenamespace);
+		labels_hash_insert_nocache(hash, "namespace", kubenamespace);
 	if (kubepod)
-		labels_hash_insert(hash, "pod_name", kubepod);
+		labels_hash_insert_nocache(hash, "pod_name", kubepod);
 	if (kubecontainer)
-		labels_hash_insert(hash, "container_name", kubecontainer);
+		labels_hash_insert_nocache(hash, "container_name", kubecontainer);
 	if (libvirt_id)
-		labels_hash_insert(hash, "libvirt_id", libvirt_id);
+		labels_hash_insert_nocache(hash, "libvirt_id", libvirt_id);
 	if (name1 && value1)
-		labels_hash_insert(hash, name1, value1);
-	labels_hash_insert(hash, "id", cad_id);
+		labels_hash_insert_nocache(hash, name1, value1);
+	labels_hash_insert_nocache(hash, "id", cad_id);
 
 	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", libvirt_id ? libvirt_id : "", val);
 
@@ -203,20 +203,20 @@ void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name
 void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
 	alligator_ht *hash = alligator_ht_init(NULL);
-	labels_hash_insert(hash, "name", name);
+	labels_hash_insert_nocache(hash, "name", name);
 	if (image)
-		labels_hash_insert(hash, "image", image);
+		labels_hash_insert_nocache(hash, "image", image);
 	if (kubenamespace)
-		labels_hash_insert(hash, "namespace", kubenamespace);
+		labels_hash_insert_nocache(hash, "namespace", kubenamespace);
 	if (kubepod)
-		labels_hash_insert(hash, "pod_name", kubepod);
+		labels_hash_insert_nocache(hash, "pod_name", kubepod);
 	if (kubecontainer)
-		labels_hash_insert(hash, "container_name", kubecontainer);
+		labels_hash_insert_nocache(hash, "container_name", kubecontainer);
 	if (libvirt_id)
-		labels_hash_insert(hash, "libvirt_id", libvirt_id);
+		labels_hash_insert_nocache(hash, "libvirt_id", libvirt_id);
 	if (name1 && value1)
-		labels_hash_insert(hash, name1, value1);
-	labels_hash_insert(hash, "id", cad_id);
+		labels_hash_insert_nocache(hash, name1, value1);
+	labels_hash_insert_nocache(hash, "id", cad_id);
 
 	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %"PRId64"\n", mname, cad_id, cntid, name1, value1, val);
 
@@ -226,50 +226,51 @@ void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, 
 void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
 	alligator_ht *hash = alligator_ht_init(NULL);
-	labels_hash_insert(hash, "name", name);
+	labels_hash_insert_nocache(hash, "name", name);
 	if (image)
-		labels_hash_insert(hash, "image", image);
+		labels_hash_insert_nocache(hash, "image", image);
 	if (kubenamespace)
-		labels_hash_insert(hash, "namespace", kubenamespace);
+		labels_hash_insert_nocache(hash, "namespace", kubenamespace);
 	if (kubepod)
-		labels_hash_insert(hash, "pod_name", kubepod);
+		labels_hash_insert_nocache(hash, "pod_name", kubepod);
 	if (kubecontainer)
-		labels_hash_insert(hash, "container_name", kubecontainer);
+		labels_hash_insert_nocache(hash, "container_name", kubecontainer);
 	if (libvirt_id)
-		labels_hash_insert(hash, "libvirt_id", libvirt_id);
+		labels_hash_insert_nocache(hash, "libvirt_id", libvirt_id);
 	if (name1 && value1)
-		labels_hash_insert(hash, name1, value1);
-	labels_hash_insert(hash, "id", cad_id);
+		labels_hash_insert_nocache(hash, name1, value1);
+	labels_hash_insert_nocache(hash, "id", cad_id);
 
 	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %lf\n", mname, cad_id, cntid, name1, value1, val);
 
 	metric_add(mname, hash, &val, DATATYPE_DOUBLE, ac->cadvisor_carg);
 }
 
-void cgroup_get_netinfo(char *sysfs, char *ifname, char *stat, char *mname, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
+void cgroup_emit_netinfo_stats(const network_if_stats *st, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
-	FILE *fd;
-	char buf[PATH_SIZE];
-	char readbuf[PATH_SIZE];
+	char *ifname;
 
-	snprintf(buf, PATH_SIZE, "%s/class/net/%s/statistics/%s", sysfs, ifname, stat);
-	fd = fopen(buf, "r");
-	if (!fd)
+	if (!st || !st->valid)
 		return;
 
-	if (!fgets(readbuf, PATH_SIZE, fd))
-	{
-		fclose(fd);
-		return;
-	}
+	ifname = (char *)st->ifname;
 
-	uint64_t val = strtoull(readbuf, NULL, 10);
-	add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
-	// additional by k8s:
-	// io.kubernetes.container.name -> container_name
-	// io.kubernetes.pod.name -> pod_name
-	// io.kubernetes.pod.namespace -> namespace
-	fclose(fd);
+	add_cadvisor_metric_uint("container_network_receive_bytes_total", st->rx_bytes, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_transmit_bytes_total", st->tx_bytes, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_transmit_packets_total", st->tx_packets, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_receive_packets_total", st->rx_packets, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_transmit_errors_total", st->tx_errors, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_receive_errors_total", st->rx_errors, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_transmit_packets_dropped_total", st->tx_dropped, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_uint("container_network_receive_packets_dropped_total", st->rx_dropped, cntid, name, image, cad_id, "interface", ifname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+}
+
+int cadvisor_netlink_emit_cb(const network_if_stats *st, void *arg)
+{
+	cadvisor_net_emit_ctx *ctx = arg;
+
+	cgroup_emit_netinfo_stats(st, ctx->cntid, ctx->name, ctx->image, ctx->cad_id, ctx->kubenamespace, ctx->kubepod, ctx->kubecontainer, ctx->libvirt_id);
+	return 0;
 }
 
 int mlist_hash_compare(const void* arg, const void* obj)
@@ -1381,10 +1382,9 @@ void cgroup_get_tcpudpinfo(char *tcpudpbuf, uint64_t pid, char *resource, char *
 
 void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 	char pidsdir[1000];
-	DIR *ethd;
-	struct dirent *ethd_entry;
+
+	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(pidsdir, 1000, "%s/fs/cgroup/pids/%s/cgroup.procs", sysfs, cad_id);
 
@@ -1398,28 +1398,20 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 		}
 	}
 
-	ethd = opendir("/var/lib/alligator/nsmount/class/net/");
-	if (ethd)
 	{
-		while((ethd_entry = readdir(ethd)))
-		{
-			if (ethd_entry->d_name[0] == '.')
-				continue;
+		cadvisor_net_emit_ctx emit_ctx = {
+			.cntid = cntid,
+			.name = name,
+			.image = image,
+			.cad_id = cad_id,
+			.kubenamespace = kubenamespace,
+			.kubepod = kubepod,
+			.kubecontainer = kubecontainer,
+			.libvirt_id = libvirt_id,
+		};
 
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-			cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		}
-		closedir(ethd);
+		network_netlink_foreach(cadvisor_netlink_emit_cb, &emit_ctx, 0, ac->cadvisor_carg, "/var/lib/alligator/nsmount");
 	}
-
-	umount("/var/lib/alligator/nsmount");
 
 	int rc = unshare(CLONE_NEWNET);
 	if (rc)
@@ -1459,14 +1451,10 @@ void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, c
 	cadvisor_network_scrape(ac->system_sysfs, cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
 	if (ifname)
 	{
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_bytes", "container_network_receive_bytes_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_bytes", "container_network_transmit_bytes_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_packets", "container_network_transmit_packets_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_packets", "container_network_receive_packets_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_errors", "container_network_transmit_errors_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_errors", "container_network_receive_errors_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "tx_dropped", "container_network_transmit_packets_dropped_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
-		cgroup_get_netinfo(ac->system_sysfs, ifname, "rx_dropped", "container_network_receive_packets_dropped_total", cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
+		network_if_stats st;
+
+		if (network_if_stats_netlink(ifname, &st) == 0)
+			cgroup_emit_netinfo_stats(&st, cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
 	}
 
 

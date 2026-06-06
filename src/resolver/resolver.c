@@ -217,6 +217,10 @@ void dns_parser_push()
 void resolver_start(uv_timer_t *timer)
 {
 	context_arg *carg = timer->data;
+
+	if (!carg)
+		return;
+
 	if (carg->transport == APROTO_UDP)
 		resolver_connect_udp(carg);
 	else if (carg->transport == APROTO_TCP)
@@ -383,6 +387,10 @@ void resolver_del_json(json_t *resolver)
 
 void resolver_del(context_arg *carg)
 {
+	if (!carg)
+		return;
+
+	carg_uv_detach_timers(carg);
 	free(carg->data);
 	carg_free(carg);
 }

@@ -415,9 +415,7 @@ void openvz7_labels()
 	char nsdir[1000];
 	char nsfile[1000];
 	DIR *rd;
-	DIR *ethd;
 	struct dirent *rd_entry;
-	struct dirent *ethd_entry;
 
 	snprintf(nsdir, 1000, "%s/netns", ac->system_rundir);
 
@@ -443,25 +441,19 @@ void openvz7_labels()
 			char cad_id[255];
 			snprintf(cad_id, 255, "/%s", rd_entry->d_name);
 
-			ethd = opendir("/var/lib/alligator/nsmount/class/net/");
-			if (ethd)
 			{
-				while((ethd_entry = readdir(ethd)))
-				{
-					if (ethd_entry->d_name[0] == '.')
-						continue;
+				cadvisor_net_emit_ctx emit_ctx = {
+					.cntid = rd_entry->d_name,
+					.name = rd_entry->d_name,
+					.image = NULL,
+					.cad_id = cad_id,
+					.kubenamespace = NULL,
+					.kubepod = NULL,
+					.kubecontainer = NULL,
+					.libvirt_id = NULL,
+				};
 
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_bytes", "container_network_receive_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_bytes", "container_network_transmit_bytes_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_packets", "container_network_transmit_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_packets", "container_network_receive_packets_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_errors", "container_network_transmit_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_errors", "container_network_receive_errors_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "tx_dropped", "container_network_transmit_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-					cgroup_get_netinfo("/var/lib/alligator/nsmount", ethd_entry->d_name, "rx_dropped", "container_network_receive_packets_dropped_total", rd_entry->d_name, rd_entry->d_name, NULL, cad_id, NULL, NULL, NULL, NULL);
-				}
-				closedir(ethd);
+				network_netlink_foreach(cadvisor_netlink_emit_cb, &emit_ctx, 0, ac->cadvisor_carg, "/var/lib/alligator/nsmount");
 			}
 			umount("/var/lib/alligator/nsmount");
 			unshare(CLONE_NEWNET);
@@ -576,7 +568,14 @@ void docker_labels(char *metrics, size_t size, context_arg *carg)
 
 			json_t *names = json_array_get(json_names, 0);
 			char *name = (char*)json_string_value(names);
-			char *name_str = name + 1;
+			char name_str_buf[255];
+			if (name && name[0] == '/')
+				strlcpy(name_str_buf, name + 1, sizeof(name_str_buf));
+			else if (name)
+				strlcpy(name_str_buf, name, sizeof(name_str_buf));
+			else
+				name_str_buf[0] = '\0';
+			char *name_str = name_str_buf;
 
 			json_t *json_labels = json_object_get(obj, "Labels");
 			if (!json_labels)

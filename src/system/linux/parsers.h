@@ -1,4 +1,7 @@
 #pragma once
+#ifdef __linux__
+#include "system/linux/network.h"
+#endif
 void get_conntrack_info();
 void memory_errors_by_controller();
 void get_distribution_name();
@@ -7,5 +10,4 @@ void sysctl_run(alligator_ht* sysctl);
 void sysctl_free(alligator_ht* sysctl);
 void get_proc_interrupts(int extended_mode);
 void collect_power_supply();
-void get_network_statistics_netlink();
 void interface_stats();
