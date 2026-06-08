@@ -78,7 +78,6 @@ void alligator_shutdown_after_loop(void)
 
 	free_namespaces();
 	main_free();
-	signal_stop();
 
 	//uv_loop_close(uv_default_loop());
 

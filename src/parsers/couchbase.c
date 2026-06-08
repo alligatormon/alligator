@@ -239,7 +239,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 		// URL encoding can expand each source byte to 3 bytes ("%XX").
 		size_t name_encoded_cap = name_length * 3 + 1;
 		char *name_encoded = malloc(name_encoded_cap);
-		uint64_t name_encoded_length = urlencode(name_encoded, name, name_length);
+		uint64_t name_encoded_length = urlencode(name_encoded, name_encoded_cap, name, name_length);
 
 		string *bucket_nodes_query_uri = string_new();
 		string_cat(bucket_nodes_query_uri, "/pools/default/buckets/", strlen("/pools/default/buckets/"));
@@ -294,11 +294,11 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 			// URL encoding can expand each source byte to 3 bytes ("%XX").
 			size_t name_encoded_cap = name_length * 3 + 1;
 			char *name_encoded = malloc(name_encoded_cap);
-			uint64_t name_encoded_length = urlencode(name_encoded, name, name_length);
+			uint64_t name_encoded_length = urlencode(name_encoded, name_encoded_cap, name, name_length);
 
 			size_t hostname_encoded_cap = hostname_length * 3 + 1;
 			char *hostname_encoded = malloc(hostname_encoded_cap);
-			uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname, hostname_length);
+			uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname_encoded_cap, hostname, hostname_length);
 
 			string *bucket_nodes_query_uri = string_new();
 			string_cat(bucket_nodes_query_uri, "/pools/default/buckets/", strlen("/pools/default/buckets/"));
@@ -502,7 +502,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 
 		size_t hostname_encoded_cap = hostname_length * 3 + 1;
 		char *hostname_encoded = malloc(hostname_encoded_cap);
-		uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname, hostname_length);
+		uint64_t hostname_encoded_length = urlencode(hostname_encoded, hostname_encoded_cap, hostname, hostname_length);
 
 		char *subqueries[] = { "@index", "@query", "@fts" };
 		uint64_t subqueries_len = 3;

@@ -1458,7 +1458,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							{
 								writemesg = query->s;
 								writelen = query->l;
-								free(query);
+								query->s = NULL;
+								string_free(query);
 							}
 						}
 

@@ -3,6 +3,7 @@
 #include "events/context_arg.h"
 #include "events/client.h"
 #include "main.h"
+#include "common/entrypoint.h"
 #include "parsers/multiparser.h"
 #include "parsers/elasticsearch.h"
 #include "parsers/postgresql.h"
@@ -423,14 +424,11 @@ void aggregators_free()
 
 void entrypoint_free_foreach(void *funcarg, void* arg)
 {
-	context_arg *carg = arg;
-	if (!carg->lock)
-	{
-		carg_free(carg);
-	}
+	(void)funcarg;
+	(void)arg;
 }
 
 void entrypoints_free()
 {
-	alligator_ht_foreach_arg(ac->entrypoints, entrypoint_free_foreach, NULL);
+	entrypoint_shutdown_all();
 }

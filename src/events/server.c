@@ -535,67 +535,66 @@ static void tcp_entrypoint_stop_async_cb(uv_async_t *handle)
 	uv_close((uv_handle_t *)&carg->server, tcp_entrypoint_server_closed);
 }
 
-void tcp_server_run(void *passarg) {
-	context_arg *srv_carg = passarg;
+static int tcp_server_setup(context_arg *srv_carg, uv_loop_t *loop)
+{
 	struct sockaddr_in addr;
 
-	if (srv_carg->threads) {
-		srv_carg->loop = malloc(sizeof *srv_carg->loop);
-		srv_carg->loop_allocated = 1;
-		uv_loop_init(srv_carg->loop); // TODO: need to be freed in carg_free
-		uv_async_init(srv_carg->loop, &srv_carg->entrypoint_stop_async, tcp_entrypoint_stop_async_cb);
-		srv_carg->entrypoint_stop_async.data = srv_carg;
-		srv_carg->entrypoint_stop_async_ready = 1;
-	} else {
-		srv_carg->loop = uv_default_loop();
-	}
+	srv_carg->loop = loop;
+	srv_carg->loop_allocated = 0;
 
 	if (srv_carg->tls) {
-		int rc = tls_context_init(srv_carg, SSLMODE_SERVER, srv_carg->tls_verify, srv_carg->tls_ca_file, srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, NULL);
-		if (!rc) {
+		int rc = tls_context_init(srv_carg, SSLMODE_SERVER, srv_carg->tls_verify, srv_carg->tls_ca_file,
+					  srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, NULL);
+		if (!rc)
 			srv_carg->running = -1;
-		}
 	}
 
-	if(uv_ip4_addr(srv_carg->host, srv_carg->numport, &addr))
-	{
+	if (uv_ip4_addr(srv_carg->host, srv_carg->numport, &addr))
 		srv_carg->running = -1;
-	}
 
-
-	// after update libuv to versions 1.49.2+ remove this block to the UV_TCP_REUSEPORT flag in uv_tcp_bind
 	uv_tcp_init_ex(srv_carg->loop, &srv_carg->server, AF_INET);
 	uv_os_fd_t fd;
 	int on = 1;
-	uv_fileno((const uv_handle_t *)&srv_carg->server, &fd);
+	uv_fileno((uv_handle_t *)&srv_carg->server, &fd);
 	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
-	//
 
-	if(uv_tcp_bind(&srv_carg->server, (const struct sockaddr*)&addr, 0))
-	{
+	if (uv_tcp_bind(&srv_carg->server, (const struct sockaddr *)&addr, 0))
 		srv_carg->running = -1;
-	}
 
 	if (uv_tcp_nodelay(&srv_carg->server, 1))
-	{
+		srv_carg->running = -1;
+
+	if (uv_listen((uv_stream_t *)&srv_carg->server, 1024, tcp_server_connected)) {
+		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error\n", srv_carg->host, srv_carg->numport);
 		srv_carg->running = -1;
 	}
 
-	int ret = uv_listen((uv_stream_t*)&srv_carg->server, 1024, tcp_server_connected);
-	if (ret)
-	{
-		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error %s\n", srv_carg->host, srv_carg->numport, uv_strerror(ret));
-		srv_carg->running = -1;
-	}
+	if (srv_carg->running != -1)
+		srv_carg->running = 1;
 
-	srv_carg->running = 1;
-	if (srv_carg->threads) {
-		uv_run(srv_carg->loop, UV_RUN_DEFAULT);
-		if (srv_carg->entrypoint_stop_async_ready && !uv_is_closing((uv_handle_t *)&srv_carg->entrypoint_stop_async))
-			uv_close((uv_handle_t *)&srv_carg->entrypoint_stop_async, NULL);
-		uv_run(srv_carg->loop, UV_RUN_NOWAIT);
-		carg_free(srv_carg);
-	}
+	return srv_carg->running == 1;
+}
+
+void tcp_server_run(void *passarg) {
+	context_arg *srv_carg = passarg;
+
+	srv_carg->loop = malloc(sizeof *srv_carg->loop);
+	srv_carg->loop_allocated = 1;
+	uv_loop_init(srv_carg->loop);
+	uv_async_init(srv_carg->loop, &srv_carg->entrypoint_stop_async, tcp_entrypoint_stop_async_cb);
+	srv_carg->entrypoint_stop_async.data = srv_carg;
+	srv_carg->entrypoint_stop_async_ready = 1;
+
+	if (!tcp_server_setup(srv_carg, srv_carg->loop))
+		goto done;
+
+	uv_run(srv_carg->loop, UV_RUN_DEFAULT);
+
+done:
+	if (srv_carg->entrypoint_stop_async_ready && !uv_is_closing((uv_handle_t *)&srv_carg->entrypoint_stop_async))
+		uv_close((uv_handle_t *)&srv_carg->entrypoint_stop_async, NULL);
+	uv_run(srv_carg->loop, UV_RUN_NOWAIT);
+	carg_free(srv_carg);
 }
 
 int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
@@ -637,8 +636,10 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		entrypoint_carg_replace_key(srv_carg, "tcp:0:%s:%u", srv_carg->host, port);
 		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
 
-		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
-		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+		if (tcp_server_setup(srv_carg, loop))
+			alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+		else
+			carg_free(srv_carg);
 	}
 	return 1;
 }

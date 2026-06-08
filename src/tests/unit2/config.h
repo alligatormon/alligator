@@ -676,7 +676,7 @@ void test_http_common_helpers()
 {
     char *encbuf = malloc(128);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, encbuf);
-    uint64_t enclen = urlencode(encbuf, "a b+c/=", strlen("a b+c/="));
+    uint64_t enclen = urlencode(encbuf, 128, "a b+c/=", strlen("a b+c/="));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 15, enclen);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a%20b%2bc%2f%3d", encbuf);
     free(encbuf);

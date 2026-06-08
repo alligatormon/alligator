@@ -112,27 +112,37 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	return buf;
 }
 
-uint64_t urlencode(char* dest, char* src, size_t src_len)
+uint64_t urlencode(char *dest, size_t dest_cap, char *src, size_t src_len)
 {
-  uint64_t i;
-  uint64_t ret = 0;
-  *dest = 0;
-  for(i = 0; i < src_len; i++, ret++) {
-    char c = src[i];
-    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-        (c >= '0' && c <= '9') ||
-        c == '-' || c == '_' || c == '.' || c == '~') {
-      char t[2];
-      t[0] = c; t[1] = '\0';
-      strcat(dest, t);
-    } else {
-      char t[4];
-      snprintf(t, sizeof(t), "%%%02x", c & 0xff);
-      strcat(dest, t);
-      ret += 2;
-    }
-  }
-  return ret;
+	uint64_t out_len = 0;
+	size_t pos = 0;
+
+	if (!dest || dest_cap == 0)
+		return 0;
+
+	dest[0] = '\0';
+
+	for (uint64_t i = 0; i < src_len; i++) {
+		unsigned char c = (unsigned char)src[i];
+
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+		    (c >= '0' && c <= '9') ||
+		    c == '-' || c == '_' || c == '.' || c == '~') {
+			if (pos + 2 > dest_cap)
+				break;
+			dest[pos++] = (char)c;
+			dest[pos] = '\0';
+			out_len++;
+		} else {
+			if (pos + 4 > dest_cap)
+				break;
+			snprintf(dest + pos, dest_cap - pos, "%%%02x", c);
+			pos += 3;
+			out_len += 3;
+		}
+	}
+
+	return out_len;
 }
 
 uint64_t urldecode(char* dest, char *src, size_t len) {

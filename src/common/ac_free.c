@@ -1,6 +1,9 @@
 #include "main.h"
 #include "amtail/type.h"
 #include "events/context_arg.h"
+#include "events/a_signal.h"
+
+#include <pthread.h>
 
 extern aconf *ac;
 
@@ -77,7 +80,9 @@ void main_free()
 	free(ac->aggregators);
 
 	alligator_ht_done(ac->entrypoints);
+	pthread_rwlock_destroy(&ac->entrypoints->rwlock);
 	free(ac->entrypoints);
+	ac->entrypoints = NULL;
 
 	thread_loop_free();
 	alligator_ht_done(ac->threads);
@@ -85,5 +90,8 @@ void main_free()
 
 	amtail_free();
 
+	signal_stop();
+
 	free(ac);
+	ac = NULL;
 }
