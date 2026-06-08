@@ -2,6 +2,7 @@
 #include "main.h"
 #include "common/logs.h"
 extern aconf *ac;
+
 void get_proc_interrupts(int extended_mode)
 {
 	char interdir[255];
@@ -44,8 +45,8 @@ void get_proc_interrupts(int extended_mode)
 
 			cur += size + strspn(cur+size, " \t\n");
 		}
-		size_t copy_size = strlcpy(description, cur, 1024);
-		description[copy_size-1] = 0;
+		strlcpy(description, cur, sizeof(description));
+		normalize_spaces(description);
 
 		uint64_t value = 0;
 		--i;

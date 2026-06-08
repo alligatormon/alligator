@@ -1229,6 +1229,30 @@ char *trim_whitespaces(char *str)
 	return str;
 }
 
+char *normalize_spaces(char *str)
+{
+	char *read = str;
+	char *write = str;
+	int space = 1;
+
+	while (*read) {
+		if (isspace((unsigned char)*read)) {
+			if (!space) {
+				*write++ = ' ';
+				space = 1;
+			}
+			++read;
+		} else {
+			*write++ = *read++;
+			space = 0;
+		}
+	}
+	if (write > str && write[-1] == ' ')
+		--write;
+	*write = '\0';
+	return str;
+}
+
 uint128_t to_uint128(char data[]) {
 	char kvalue[16] = { 0 };
 	memcpy(kvalue, data, 16);

@@ -258,7 +258,7 @@ void hw_cpu_info()
 	{
 		char socket_num[3];
 		snprintf(socket_num, sizeof(socket_num), "%d", i);
-		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", cinfo[i].model, "socket", socket_num);
+		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", normalize_spaces(cinfo[i].model), "socket", socket_num);
 	}
 	uv_free_cpu_info(cinfo, count);
 }

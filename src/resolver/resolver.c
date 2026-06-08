@@ -7,6 +7,7 @@
 #include "common/logs.h"
 #include "common/stop.h"
 #include "metric/percentile_heap.h"
+#include "metric/labels.h"
 
 #include <unistd.h>
 
@@ -261,6 +262,15 @@ void resolver_carg_set_transport(context_arg *carg)
 	strlcpy(carg->host, ac->srv_resolver[r]->hi->host, HOSTHEADER_SIZE);
 }
 
+static alligator_ht *resolver_rd_labels_alloc(host_aggregator_info *hi)
+{
+	alligator_ht *labels = alligator_ht_init(NULL);
+
+	if (labels && hi)
+		labels_hash_insert_nocache(labels, "host", hi->url);
+	return labels;
+}
+
 static resolver_data *resolver_rd_probe_alloc(alligator_ht *labels)
 {
 	resolver_data *rd = calloc(1, sizeof(*rd));
@@ -290,6 +300,8 @@ static void resolver_rd_probe_free(context_arg *carg)
 	free_percentile_buffer(rd->response_time);
 	free_percentile_buffer(rd->read_time);
 	free_percentile_buffer(rd->write_time);
+	if (rd->labels)
+		labels_hash_free(rd->labels);
 	free(rd);
 	carg->rd = NULL;
 }
@@ -341,7 +353,8 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 		host_aggregator_info *hi = parse_url(carg->url, strlen(carg->url));
 		new_carg = context_arg_json_fill(NULL, hi, dns_handler, "dns_handler", NULL, 0, strdup(dname), NULL, 0, carg->loop, NULL, 1, NULL, 0);
 		new_carg->labels = labels_dup(carg->labels);
-		new_carg->rd = resolver_rd_probe_alloc(new_carg->labels);
+		labels_hash_insert_nocache(new_carg->labels, "host", hi->url);
+		new_carg->rd = resolver_rd_probe_alloc(resolver_rd_labels_alloc(hi));
 		url_free(hi);
 		if (carg->bind_address)
 			new_carg->bind_address = strdup(carg->bind_address);
@@ -460,8 +473,7 @@ void resolver_push_json(json_t *resolver)
 	ac->srv_resolver[ac->resolver_size]->read_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
 	ac->srv_resolver[ac->resolver_size]->write_time = init_percentile_buffer(percentile_init_3n(99, 95, 90), 3);
 	ac->srv_resolver[ac->resolver_size]->hi = parse_url(host, size);
-	ac->srv_resolver[ac->resolver_size]->labels = alligator_ht_init(NULL);
-	labels_hash_insert_nocache(ac->srv_resolver[ac->resolver_size]->labels, "host", ac->srv_resolver[ac->resolver_size]->hi->url);
+	ac->srv_resolver[ac->resolver_size]->labels = resolver_rd_labels_alloc(ac->srv_resolver[ac->resolver_size]->hi);
 
 	++ac->resolver_size;
 }

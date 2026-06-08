@@ -108,6 +108,7 @@ void string_tokens_print(string_tokens *st);
 
 int sisdigit(const char *str);
 char *trim_whitespaces(char *str);
+char *normalize_spaces(char *str);
 char *trim(char *s);
 uint64_t get_file_atime(char *filename);
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name);

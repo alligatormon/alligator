@@ -15,6 +15,7 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "aggregator_http_code", METRIC_TYPE_GAUGE, "Last HTTP response code observed by aggregator parser.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_http_headers_size_bytes", METRIC_TYPE_GAUGE, "HTTP response headers size in bytes observed by aggregator parser.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_http_requests_total", METRIC_TYPE_COUNTER, "Total HTTP requests observed by aggregator parser by response code.");
+	namespace_metric_family_set(NULL, NULL, "probe_success", METRIC_TYPE_GAUGE, "Blackbox probe success where 1 means the probe passed configured checks.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_resolve_address", METRIC_TYPE_GAUGE, "DNS record presence marker for resolved names and resource record data.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_resolve_address_rr_count", METRIC_TYPE_GAUGE, "Number of DNS resource records in a resolve response by query and type.");
 

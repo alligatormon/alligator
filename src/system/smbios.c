@@ -492,7 +492,7 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 		if (smbios->u.processor.manufacturer)
 			metric_add_labels2("processor_manufacturer", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "manufacturer", trim_whitespaces(str[smbios->u.processor.manufacturer-1]));
 		if (smbios->u.processor.version)
-			metric_add_labels2("processor_version", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "version", trim_whitespaces(str[smbios->u.processor.version-1]));
+			metric_add_labels2("processor_version", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "version", normalize_spaces(str[smbios->u.processor.version-1]));
 		if (smbios->u.processor.serial_number)
 			metric_add_labels2("processor_serial", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "serial", trim_whitespaces(str[smbios->u.processor.serial_number-1]));
 		if (smbios->u.processor.asset_tag)

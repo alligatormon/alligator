@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sched.h>
+#include <unistd.h>
 #include "cadvisor/ns.h"
 #include "common/logs.h"
 #include "main.h"

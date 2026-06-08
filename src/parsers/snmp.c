@@ -15,6 +15,7 @@
 #include "common/url.h"
 #include "common/validator.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/logs.h"
@@ -69,6 +70,48 @@ static const char *snmp_env_lookup(context_arg *carg, const char *key)
  * Optional env snmp_oid_strip_prefix="1.3.6.1.2.1" → oid label shows suffix (e.g. 1.1.1.0).
  * Use with snmp_mib="SNMPv2-MIB" (literal label; no MIB file parsing).
  */
+static const char *snmp_metric_help(const char *metric_name)
+{
+	if (!metric_name)
+		return "SNMP value scraped from the target agent.";
+	if (!strcmp(metric_name, "snmp_error"))
+		return "SNMP agent error status code from the last scrape.";
+	if (!strcmp(metric_name, "snmp_scrape_missing"))
+		return "SNMP OID missing on the agent (noSuchObject or noSuchInstance).";
+	if (!strcmp(metric_name, "snmp_scrape_value"))
+		return "Numeric SNMP OID value labeled by OID and optional indices.";
+	if (!strcmp(metric_name, "snmp_scrape_string"))
+		return "SNMP OID string or octet value exported as a labeled gauge.";
+	if (!strcmp(metric_name, "snmp_scrape_unhandled_type"))
+		return "SNMP OID value with an unsupported BER type.";
+	if (!strncmp(metric_name, "snmp_hr_", 8))
+		return "HOST-RESOURCES-MIB value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_tcp_", 9))
+		return "TCP-MIB connection or listener value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_udp_", 9))
+		return "UDP-MIB endpoint value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_ip_", 8))
+		return "IP-MIB value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_if_", 8))
+		return "IF-MIB interface value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_mib2_", 10))
+		return "SNMPv2-MIB counter or gauge scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_ucd_", 9))
+		return "UCD-SNMP-MIB value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_sys_", 9))
+		return "SNMP system group value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_at_", 8))
+		return "IP-MIB address translation table value scraped via SNMP.";
+	if (!strncmp(metric_name, "snmp_", 5))
+		return "SNMP OID value scraped from the target agent.";
+	return "SNMP OID value scraped from the target agent.";
+}
+
+static inline void snmp_metric_family_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, snmp_metric_help(metric_name));
+}
+
 static void snmp_oid_label_relative(context_arg *carg, const char *full_oid, char *out, size_t outs)
 {
 	const char *pre = snmp_env_lookup(carg, "snmp_oid_strip_prefix");
@@ -94,6 +137,7 @@ static void snmp_oid_label_relative(context_arg *carg, const char *full_oid, cha
 
 static void snmp_ml1(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels2(metric, val, ty, carg, "mib", (char *)mib, k1, v1);
@@ -104,6 +148,7 @@ static void snmp_ml1(context_arg *carg, char *metric, void *val, int8_t ty, char
 static void snmp_ml2(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1, char *k2,
 		     char *v2)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels3(metric, val, ty, carg, "mib", (char *)mib, k1, v1, k2, v2);
@@ -114,6 +159,7 @@ static void snmp_ml2(context_arg *carg, char *metric, void *val, int8_t ty, char
 static void snmp_ml3(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1, char *k2,
 		     char *v2, char *k3, char *v3)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels4(metric, val, ty, carg, "mib", (char *)mib, k1, v1, k2, v2, k3, v3);
@@ -124,6 +170,7 @@ static void snmp_ml3(context_arg *carg, char *metric, void *val, int8_t ty, char
 static void snmp_ml4(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1, char *k2,
 		     char *v2, char *k3, char *v3, char *k4, char *v4)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels5(metric, val, ty, carg, "mib", (char *)mib, k1, v1, k2, v2, k3, v3, k4, v4);
@@ -134,6 +181,7 @@ static void snmp_ml4(context_arg *carg, char *metric, void *val, int8_t ty, char
 static void snmp_ml5(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1, char *k2,
 		     char *v2, char *k3, char *v3, char *k4, char *v4, char *k5, char *v5)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels6(metric, val, ty, carg, "mib", (char *)mib, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5);
@@ -144,6 +192,7 @@ static void snmp_ml5(context_arg *carg, char *metric, void *val, int8_t ty, char
 static void snmp_ml6(context_arg *carg, char *metric, void *val, int8_t ty, char *k1, char *v1, char *k2,
 		     char *v2, char *k3, char *v3, char *k4, char *v4, char *k5, char *v5, char *k6, char *v6)
 {
+	snmp_metric_family_set(carg, metric);
 	const char *mib = snmp_env_lookup(carg, "snmp_mib");
 	if (mib)
 		metric_add_labels7(metric, val, ty, carg, "mib", (char *)mib, k1, v1, k2, v2, k3, v3, k4, v4, k5, v5, k6, v6);
@@ -1747,6 +1796,7 @@ static void snmp_emit_varbind(context_arg *carg, snmp_vb *vb)
 		return;
 	if (vb->errstat != 0) {
 		double es = (double)vb->errstat;
+		snmp_metric_family_set(carg, "snmp_error");
 		metric_add_labels2("snmp_error", &es, DATATYPE_DOUBLE, carg, "status", "error_status", "index",
 				   "0");
 		return;
@@ -2228,6 +2278,7 @@ void snmp_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (vb.errstat != 0) {
 		double es = (double)vb.errstat;
+		snmp_metric_family_set(carg, "snmp_error");
 		metric_add_labels2("snmp_error", &es, DATATYPE_DOUBLE, carg, "status", "error_status", "index",
 				   "0");
 		carglog(carg, L_INFO, "snmp: agent error_status=%" PRId64 "\n", vb.errstat);
