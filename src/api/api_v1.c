@@ -999,7 +999,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else
 						{
 							context_arg *passcarg = carg_copy(carg);
-							unix_server_init(ac->loop, strdup(unix_string), passcarg);
+							unix_server_init(ac->loop, unix_string, passcarg);
 						}
 					}
 
@@ -1016,7 +1016,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else
 						{
 							context_arg *passcarg = carg_copy(carg);
-							unixgram_server_init(ac->loop, strdup(unixgram_string), passcarg);
+							unixgram_server_init(ac->loop, (char *)unixgram_string, passcarg);
 						}
 					}
 					int8_t ret = 1;
@@ -1439,9 +1439,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						continue;
 					alligator_ht *env = env_struct_parser(aggregate);
 
-					// TODO: potential memory leak
-					if (actx->data_func)
+					if (actx->data_func) {
+						if (actx->data)
+							free(actx->data);
 						actx->data = actx->data_func(hi, actx, aggregate);
+					}
 
 					for (uint64_t j = 0; j < actx->handlers; j++)
 					{

@@ -159,12 +159,21 @@ void unix_connect(uv_stream_t *server, int status) {
 	}
 }
 
+static void unix_server_pipe_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	if (carg && carg->pipe) {
+		free(carg->pipe);
+		carg->pipe = NULL;
+	}
+	carg_free(carg);
+}
+
 void unix_server_init(uv_loop_t *loop, const char* file, context_arg *carg)
 {
 	int r;
 
-	carg->key = malloc(255);
-	snprintf(carg->key, 255, "unix:%s", file);
+	entrypoint_carg_replace_key(carg, "unix:%s", file);
 
 	uv_pipe_t *server = carg->pipe = calloc(1, sizeof(*server));
 	uv_pipe_init(loop, server, 0);
@@ -189,9 +198,11 @@ void unix_server_stop(const char* file)
 	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
-		uv_close((uv_handle_t*)carg->pipe, NULL);
-		unlink(file);
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
-		carg_free(carg);
+		unlink(file);
+		if (carg->pipe && !uv_is_closing((uv_handle_t *)carg->pipe))
+			uv_close((uv_handle_t *)carg->pipe, unix_server_pipe_closed);
+		else
+			carg_free(carg);
 	}
 }

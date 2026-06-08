@@ -197,11 +197,15 @@ void unixgram_serve_cb(uv_poll_t* handle, int status, int events)
 	alligator_multiparser(buf, size, carg->parser_handler, NULL, NULL);
 }
 
+static void unixgram_poll_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	carg_free(carg);
+}
+
 void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 {
-	if (!carg->key)
-		carg->key = malloc(255);
-	snprintf(carg->key, 255, "unixgram:%s", addr);
+	entrypoint_carg_replace_key(carg, "unixgram:%s", addr);
 
 	int s = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (s == -1)
@@ -237,8 +241,12 @@ void unixgram_server_stop(const char* addr)
 	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
 	if (carg)
 	{
+		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
 		uv_poll_stop(&carg->poll_socket);
 		unlink(addr);
-		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
+		if (!uv_is_closing((uv_handle_t *)&carg->poll_socket))
+			uv_close((uv_handle_t *)&carg->poll_socket, unixgram_poll_closed);
+		else
+			carg_free(carg);
 	}
 }

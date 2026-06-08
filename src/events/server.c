@@ -520,6 +520,21 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	}
 }
 
+static void tcp_entrypoint_server_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	if (carg && carg->threads && carg->loop)
+		uv_stop(carg->loop);
+}
+
+static void tcp_entrypoint_stop_async_cb(uv_async_t *handle)
+{
+	context_arg *carg = handle->data;
+	if (!carg || uv_is_closing((uv_handle_t *)&carg->server))
+		return;
+	uv_close((uv_handle_t *)&carg->server, tcp_entrypoint_server_closed);
+}
+
 void tcp_server_run(void *passarg) {
 	context_arg *srv_carg = passarg;
 	struct sockaddr_in addr;
@@ -528,6 +543,9 @@ void tcp_server_run(void *passarg) {
 		srv_carg->loop = malloc(sizeof *srv_carg->loop);
 		srv_carg->loop_allocated = 1;
 		uv_loop_init(srv_carg->loop); // TODO: need to be freed in carg_free
+		uv_async_init(srv_carg->loop, &srv_carg->entrypoint_stop_async, tcp_entrypoint_stop_async_cb);
+		srv_carg->entrypoint_stop_async.data = srv_carg;
+		srv_carg->entrypoint_stop_async_ready = 1;
 	} else {
 		srv_carg->loop = uv_default_loop();
 	}
@@ -571,8 +589,13 @@ void tcp_server_run(void *passarg) {
 	}
 
 	srv_carg->running = 1;
-	if (srv_carg->threads)
+	if (srv_carg->threads) {
 		uv_run(srv_carg->loop, UV_RUN_DEFAULT);
+		if (srv_carg->entrypoint_stop_async_ready && !uv_is_closing((uv_handle_t *)&srv_carg->entrypoint_stop_async))
+			uv_close((uv_handle_t *)&srv_carg->entrypoint_stop_async, NULL);
+		uv_run(srv_carg->loop, UV_RUN_NOWAIT);
+		carg_free(srv_carg);
+	}
 }
 
 int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, context_arg *import_carg)
@@ -585,14 +608,13 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 			srv_carg = calloc(1, sizeof(context_arg));
 		}
 
-		srv_carg->key = malloc(255);
 		srv_carg->numport = port;
 		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
 
 		srv_carg->tls = tls;
 		srv_carg->server.data = srv_carg;
 
-		snprintf(srv_carg->key, 255, "tcp:%"PRIu64":%s:%u", i, srv_carg->host, port);
+		entrypoint_carg_replace_key(srv_carg, "tcp:%" PRIu64 ":%s:%u", i, srv_carg->host, port);
 		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
 
 		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
@@ -606,14 +628,13 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 			srv_carg = calloc(1, sizeof(context_arg));
 		}
 
-		srv_carg->key = malloc(255);
 		srv_carg->numport = port;
 		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
 
 		srv_carg->tls = tls;
 		srv_carg->server.data = srv_carg;
 
-		snprintf(srv_carg->key, 255, "tcp:0:%s:%u", srv_carg->host, port);
+		entrypoint_carg_replace_key(srv_carg, "tcp:0:%s:%u", srv_carg->host, port);
 		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
 
 		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
@@ -622,17 +643,30 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 	return 1;
 }
 
+static void tcp_entrypoint_server_closed_default(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	carg_free(carg);
+}
+
 void tcp_server_stop(const char* ip, int port)
 {
-	char key[255];
-	snprintf(key, 255, "tcp:%s:%u", ip, port);
-	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
-	if (carg)
-	{
-		uv_close((uv_handle_t*)&carg->server, NULL);
+	context_arg **matches = NULL;
+	size_t n = entrypoint_collect_transport("tcp", ip, (uint16_t)port, &matches);
+	size_t i;
+
+	for (i = 0; i < n; ++i) {
+		context_arg *carg = matches[i];
+		if (!carg)
+			continue;
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
+		if (carg->threads && carg->entrypoint_stop_async_ready)
+			uv_async_send(&carg->entrypoint_stop_async);
+		else if (!uv_is_closing((uv_handle_t *)&carg->server))
+			uv_close((uv_handle_t *)&carg->server, tcp_entrypoint_server_closed_default);
 	}
-	carg_free(carg);
+
+	free(matches);
 }
 
 //int main()

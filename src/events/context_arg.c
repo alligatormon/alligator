@@ -20,8 +20,30 @@ context_arg *carg_copy(context_arg *src)
 	size_t carg_size = sizeof(context_arg);
 	context_arg *carg = malloc(carg_size);
 	memcpy(carg, src, carg_size);
+	carg_inherited_uv_reset(carg);
 	carg->process_spawner_registered = 0;
 	carg->full_body = NULL;
+	carg->mesg = NULL;
+	carg->mesg_len = 0;
+	carg->buffer = NULL;
+	carg->loop = NULL;
+	carg->loop_allocated = 0;
+	carg->socket = NULL;
+	carg->pipe = NULL;
+	carg->ssl = NULL;
+	carg->ssl_ctx = NULL;
+	carg->rbio = NULL;
+	carg->wbio = NULL;
+	carg->tt_timer = NULL;
+	carg->period_timer = NULL;
+	carg->pg_queue = NULL;
+	carg->rd = NULL;
+	carg->open = NULL;
+	carg->read = NULL;
+	carg->dynamic_socket = NULL;
+	carg->amtail_variables = NULL;
+	carg->srv_carg = NULL;
+	carg->entrypoint_stop_async_ready = 0;
 
 	if (src->work_dir)
 		carg->work_dir = string_string_init_dup(src->work_dir);
@@ -501,6 +523,8 @@ void env_free(alligator_ht *env)
 
 void parse_add_label(context_arg *carg, json_t *root) {
 	json_t *json_add_label = json_object_get(root, "add_label");
+	if (!json_add_label || !json_is_object(json_add_label))
+		return;
 
 	const char *name;
 	json_t *jkey;

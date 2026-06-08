@@ -328,6 +328,8 @@ typedef struct context_arg
 	uint8_t check_receive;
 
 	uv_poll_t poll_socket;
+	uv_async_t entrypoint_stop_async;
+	uint8_t entrypoint_stop_async_ready;
 	uv_poll_t *dynamic_socket;
 	uv_timer_t t_timeout;
 	uv_timer_t t_towrite;

@@ -134,6 +134,20 @@ int assert_ptr_notnull(const char *file, const char *func, int line, const void 
     return 1;
 }
 
+int assert_ptr_null(const char *file, const char *func, int line, const void *value) {
+    FILE *out = ut_report ? ut_report : stderr;
+    ++count_all;
+    if (value) {
+        ++count_error;
+        fprintf(out, "%s:%d unit test function '%s' pointer is not NULL\n", file, line, func);
+        fflush(stdout);
+        fflush(out);
+        return do_exit(1);
+    }
+
+    return 1;
+}
+
 int assert_equal_string(const char *file, const char *func, int line, char *expected, const char *value) {
     FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
@@ -466,6 +480,8 @@ int main(int argc, char **argv) {
     test_config_hashfunc_serialization();
     test_config_system_serialization_paths();
     test_env_struct_helper_paths();
+
+    test_entrypoint_key_and_parse_add_label();
 
     test_hash_and_rtime_helpers();
     test_config_serializer_edge_paths();

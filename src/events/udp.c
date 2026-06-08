@@ -136,6 +136,28 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	//free(req);
 }
 
+static void udp_entrypoint_server_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	if (carg && carg->threads && carg->loop)
+		uv_stop(carg->loop);
+}
+
+static void udp_entrypoint_server_closed_default(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	carg_free(carg);
+}
+
+static void udp_entrypoint_stop_async_cb(uv_async_t *handle)
+{
+	context_arg *carg = handle->data;
+	if (!carg || uv_is_closing((uv_handle_t *)&carg->udp_server))
+		return;
+	uv_udp_recv_stop(&carg->udp_server);
+	uv_close((uv_handle_t *)&carg->udp_server, udp_entrypoint_server_closed);
+}
+
 void udp_server_run(void *passarg) {
 	context_arg *carg = passarg;
 
@@ -143,6 +165,9 @@ void udp_server_run(void *passarg) {
 		carg->loop = malloc(sizeof *carg->loop);
 		carg->loop_allocated = 1;
 		uv_loop_init(carg->loop); // TODO: need to be freed in carg_free
+		uv_async_init(carg->loop, &carg->entrypoint_stop_async, udp_entrypoint_stop_async_cb);
+		carg->entrypoint_stop_async.data = carg;
+		carg->entrypoint_stop_async_ready = 1;
 	} else {
 		carg->loop = uv_default_loop();
 	}
@@ -165,8 +190,13 @@ void udp_server_run(void *passarg) {
 	uv_udp_recv_start(&carg->udp_server, alloc_buffer, udp_on_read);
 
 	carg->running = 1;
-	if (carg->threads)
+	if (carg->threads) {
 		uv_run(carg->loop, UV_RUN_DEFAULT);
+		if (carg->entrypoint_stop_async_ready && !uv_is_closing((uv_handle_t *)&carg->entrypoint_stop_async))
+			uv_close((uv_handle_t *)&carg->entrypoint_stop_async, NULL);
+		uv_run(carg->loop, UV_RUN_NOWAIT);
+		carg_free(carg);
+	}
 }
 
 void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *import_carg)
@@ -179,7 +209,6 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 			carg = calloc(1, sizeof(context_arg));
 		}
 
-		carg->key = malloc(255);
 		carg->numport = port;
 		carg->curr_ttl = carg->ttl;
 		strlcpy(carg->host, addr, HOSTHEADER_SIZE);
@@ -187,7 +216,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 		carg->tls = tls;
 		carg->udp_server.data = carg;
 
-		snprintf(carg->key, 255, "udp:%"PRIu64":%s:%u", i, carg->host, port);
+		entrypoint_carg_replace_key(carg, "udp:%" PRIu64 ":%s:%u", i, carg->host, port);
 		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
 
 		uv_thread_create(&carg->thread, udp_server_run, carg);
@@ -201,7 +230,6 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 			carg = calloc(1, sizeof(context_arg));
 		}
 
-		carg->key = malloc(255);
 		carg->numport = port;
 		carg->curr_ttl = carg->ttl;
 		strlcpy(carg->host, addr, HOSTHEADER_SIZE);
@@ -209,7 +237,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 		carg->tls = tls;
 		carg->udp_server.data = carg;
 
-		snprintf(carg->key, 255, "udp:0:%s:%u", carg->host, port);
+		entrypoint_carg_replace_key(carg, "udp:0:%s:%u", carg->host, port);
 		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
 
 		udp_server_run(carg);
@@ -219,15 +247,24 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 
 void udp_server_stop(const char* addr, uint16_t port)
 {
-	char key[255];
-	snprintf(key, 255, "udp:%s:%"PRIu16, addr, port);
-	context_arg *carg = alligator_ht_search(ac->entrypoints, entrypoint_compare, key, tommy_strhash_u32(0, key));
-	if (carg)
-	{
-		uv_udp_recv_stop(&carg->udp_server);
-		uv_close((uv_handle_t*)&carg->udp_server, NULL);
+	context_arg **matches = NULL;
+	size_t n = entrypoint_collect_transport("udp", addr, port, &matches);
+	size_t i;
+
+	for (i = 0; i < n; ++i) {
+		context_arg *carg = matches[i];
+		if (!carg)
+			continue;
 		alligator_ht_remove_existing(ac->entrypoints, &(carg->context_node));
+		if (carg->threads && carg->entrypoint_stop_async_ready) {
+			uv_async_send(&carg->entrypoint_stop_async);
+		} else if (!uv_is_closing((uv_handle_t *)&carg->udp_server)) {
+			uv_udp_recv_stop(&carg->udp_server);
+			uv_close((uv_handle_t *)&carg->udp_server, udp_entrypoint_server_closed_default);
+		}
 	}
+
+	free(matches);
 }
 
 void udp_client_repeat_period(uv_timer_t *timer);

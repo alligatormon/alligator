@@ -9,6 +9,7 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "common/aggregator.h"
+#include "common/entrypoint.h"
 #include "common/units.h"
 #include "common/mkdirp.h"
 #include "common/murmurhash.h"
@@ -856,6 +857,25 @@ void test_env_struct_helper_paths()
     json_decref(root);
 
     env_free(env);
+}
+
+void test_entrypoint_key_and_parse_add_label()
+{
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        entrypoint_key_match_transport("tcp:0:0.0.0.0:19101", "tcp", "0.0.0.0", 19101));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        entrypoint_key_match_transport("tcp:3:127.0.0.1:8080", "tcp", "127.0.0.1", 8080));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        entrypoint_key_match_transport("tcp:0:0.0.0.0:19101", "tcp", "127.0.0.1", 19101));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        entrypoint_key_match_transport("udp:2:10.0.0.1:53", "udp", "10.0.0.1", 53));
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    json_t *root = json_object();
+    parse_add_label(carg, root);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->labels);
+    json_decref(root);
+    free(carg);
 }
 
 void test_hash_and_rtime_helpers()
