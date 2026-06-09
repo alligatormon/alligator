@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/selector_split_metric.h"
+#include "common/selector.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
@@ -15,15 +15,19 @@ static inline void sentinel_metric_set(context_arg *carg, const char *metric_nam
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Redis Sentinel exported metric value.");
 }
 
+static inline void sentinel_plain_parse(char *text, uint64_t size, context_arg *carg)
+{
+	plain_parse_family(text, size, ":", "\r\n", "sentinel_", 9, carg, sentinel_metric_set);
+}
+
 void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char **maps = malloc(sizeof(char*)*1);
-	maps[0] = strdup("master0");
-	char *res = selector_split_metric(metrics, size, "\r\n", 2, ":", 1, "sentinel_", 9, maps, 1, carg);
-	free(maps[0]);
-	free(maps);
-	if(!res)
+	sentinel_plain_parse(metrics, size, carg);
+
+	char *master = strstr(metrics, "master0:");
+	if (!master)
 		return;
+
 	uint64_t nval = 0;
 	uint64_t val = 1;
 
@@ -32,16 +36,13 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t sentinels;
 	uint64_t slaves;
 
-	char *tmp = res;
+	char *tmp = master;
 	char *tmp2;
 	size_t end;
 
 	tmp2 = strstr(tmp, "name=");
 	if (!tmp2)
-	{
-		free(res);
 		return;
-	}
 	tmp = tmp2;
 	end = strcspn(tmp+5, ",");
 	size_t name_copy = end < (sizeof(name) - 1) ? end : (sizeof(name) - 1);
@@ -63,10 +64,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 
 	tmp2 = strstr(tmp, "address=");
 	if (!tmp2)
-	{
-		free(res);
 		return;
-	}
 	tmp = tmp2;
 	end = strcspn(tmp+8, ",");
 	size_t address_copy = end < (sizeof(address) - 1) ? end : (sizeof(address) - 1);
@@ -75,10 +73,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 
 	tmp2 = strstr(tmp, "slaves=");
 	if (!tmp2)
-	{
-		free(res);
 		return;
-	}
 	tmp = tmp2;
 	end = strcspn(tmp+7, ",");
 	slaves = atoll(tmp+7);
@@ -86,10 +81,7 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 
 	tmp2 = strstr(tmp, "sentinels=");
 	if (!tmp2)
-	{
-		free(res);
 		return;
-	}
 	tmp = tmp2;
 	sentinels = atoll(tmp+10);
 
@@ -98,7 +90,6 @@ void sentinel_handler(char *metrics, size_t size, context_arg *carg)
 	sentinel_metric_set(carg, "sentinel_sentinels");
 	metric_add_labels2("sentinel_sentinels", &sentinels, DATATYPE_UINT, carg, "name", name, "address", address);
 
-	free(res);
 	carg->parser_status = 1;
 }
 

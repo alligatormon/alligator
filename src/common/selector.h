@@ -16,6 +16,8 @@
 typedef __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 
+typedef struct context_arg context_arg;
+
 void json_array_object_insert(json_t *dst_json, char *key, json_t *src_json);;
 
 typedef struct string {
@@ -58,9 +60,7 @@ int64_t int_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
 int64_t uint_get_next(char *buf, size_t sz, char sep, uint64_t *cursor);
 void selector_get_plain_metrics(char *m, size_t ms, char *sep, char *msep, char *prefix, size_t prefix_size);
 size_t get_file_size(const char *filename);
-char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num );
 char *gettextfile(char *path, size_t *filesz);
-char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, char *sep);
 int64_t getkvfile(char *file);
 int64_t getkvfile_ext(char *file, uint8_t *err);
 int getkvfile_str(char *file, char *str, uint64_t size);
@@ -112,7 +112,9 @@ char *normalize_spaces(char *str);
 char *trim(char *s);
 uint64_t get_file_atime(char *filename);
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name);
+typedef void (*plain_parse_family_cb)(context_arg *carg, const char *metric_name);
 void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, void *carg);
+void plain_parse_family(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg, plain_parse_family_cb family_cb);
 uint64_t selector_count_field(char *str, char *pattern, uint64_t sz);
 void match_push(match_rules *mrules, char *str, size_t len);
 void match_del(match_rules *mrules, char *str, size_t len);

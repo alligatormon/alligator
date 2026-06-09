@@ -69,146 +69,6 @@ uint64_t get_file_atime(char *filename)
 	return st.st_atime;
 }
 
-char* selector_getline( char *str, size_t str_n, char *fld, size_t fld_len, uint64_t num )
-{
-	uint64_t i, n, cu;
-	for (i=0, n=0; i<str_n && n<num; i++, n++)
-	{
-		for (; i<str_n && str[i]!='\n'; i++ );
-	}
-	if ( i == str_n )
-		return NULL;
-	cu = i;
-	for (; i<str_n && str[i]!='\n'; i++);
-
-	// for detect overflow
-	if ( fld_len < i-cu )
-		return NULL;
-	strlcpy(fld, str+cu, i-cu+1);
-	return fld;
-}
-
-char* selector_get_field_by_str(char *str, size_t str_n, char *sub, int col, char *sep)
-{
-	uint64_t i;
-	char *fld = malloc(str_n+1);
-	if (!fld)
-		return NULL;
-	for ( i=0; selector_getline(str, str_n, fld, str_n, i) ; i++ )
-	{
-		if ( strstr(fld, sub) )
-		{
-			if ( col != 0 )
-			{
-				int k;
-				uint64_t frstchr, ndchr, crsr = 0, y;
-				char *ssep = sep ? sep : "\r\n\t\0 " ;
-				for ( k = 1; k<col; k++ )
-				{
-					crsr += strcspn(fld+crsr, ssep)+1;
-				}
-				frstchr = crsr;
-				ndchr = strcspn(fld + crsr, ssep);
-				for ( y=0; y < ndchr; y++ )
-				{
-					fld[y]=fld[y+frstchr];
-				}
-				fld[y]='\0';
-			}
-			return fld;
-		}
-	}
-	free(fld);
-	return NULL;
-}
-
-char* selector_split_metric(char *text, size_t sz, char *nsep, size_t nsep_sz, char *sep, size_t sep_sz, char *prefix, size_t prefix_size, char **maps, size_t maps_size, context_arg *carg)
-{
-	int64_t i;
-	int64_t j;
-	int64_t n;
-	char *pmetric = malloc(METRIC_SIZE);
-	char *pfield = malloc(METRIC_SIZE);
-	size_t cpy_sz;
-	char *ret = 0;
-	if (maps && maps_size)
-	{
-		ret = malloc(METRIC_SIZE*maps_size);
-		*ret = 0;
-	}
-	int64_t count = 0;
-	for (i=0; i<sz; i++)
-	{
-		char *cur = strstr(text+i, nsep);
-		if (!cur)
-			break;
-		//cur += nsep_sz - 1;
-
-		n = cur-text-i;
-		size_t n_sz = METRIC_SIZE > n ? n : METRIC_SIZE;
-		strlcpy(pfield, text+i, n_sz+1);
-		i += n + nsep_sz - 1;
-
-		cur = strstr(pfield, sep);
-		if (!cur)
-			continue;
-		//n = pfield+n-cur-2;
-		n = pfield+n_sz-cur-sep_sz;
-
-		cpy_sz = cur - pfield;
-		if (metric_name_validator(pfield, cpy_sz))
-			strlcpy(pmetric, pfield, cpy_sz+1);
-		else
-			continue;
-
-		cur += sep_sz;
-		//cur++;
-		int rc = metric_value_validator(cur, n);
-		if (rc == DATATYPE_INT)
-		{
-			int64_t pvalue = atoll(cur);
-
-			int64_t fullsize = prefix_size+cpy_sz+1;
-			char fullmetric[fullsize];
-			strncpy(fullmetric, prefix, prefix_size);
-			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
-			metric_add_auto(fullmetric, &pvalue, rc, carg);
-		}
-		else if (rc == DATATYPE_DOUBLE)
-		{
-			double pvalue = atof(cur);
-
-			int64_t fullsize = prefix_size+cpy_sz+1;
-			char fullmetric[fullsize];
-			strncpy(fullmetric, prefix, prefix_size);
-			strlcpy(fullmetric+prefix_size, pmetric, fullsize-prefix_size);
-			metric_add_auto(fullmetric, &pvalue, rc, carg);
-		}
-		else
-		{
-			for (j=0; j<maps_size; j++)
-			{
-				if(!strncmp(pmetric, maps[j], n_sz))
-				{
-					strncat(ret, pfield, n_sz);
-					strncat(ret, "\n", 2);
-					count++;
-				}
-			}
-			continue;
-		}
-	}
-	free(pfield);
-	free(pmetric);
-	if (count)
-		return ret;
-	else
-	{
-		free(ret);
-		return NULL;
-	}
-}
-
 uint64_t selector_count_field(char *str, char *pattern, uint64_t sz)
 {
 	//printf("selector_count_field '%s' with size %d and pattern '%s'\n", str, sz, pattern);
@@ -1097,7 +957,11 @@ void match_free(match_rules *mrules)
 
 void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, void *arg)
 {
-	context_arg *carg = arg;
+	plain_parse_family(text, size, sep, nlsep, prefix, psize, (context_arg *)arg, NULL);
+}
+
+void plain_parse_family(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg, plain_parse_family_cb family_cb)
+{
 	if (!text)
 		return;
 
@@ -1120,17 +984,7 @@ void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix
 
 		copysize = next+1+psize > PLAIN_METRIC_SIZE ? PLAIN_METRIC_SIZE : next;
 		metric_name_normalizer(tmp, copysize);
-		//if (metric_name_validator(tmp, copysize))
-			strlcpy(metric_name+psize, tmp, copysize+1);
-		//else
-		//{
-		//	//strlcpy(metric_name+psize, tmp, copysize+1);
-		//	//printf("metric name %s\n", metric_name);
-
-		//	prev = tmp;
-		//	next = strcspn(tmp, nlsep);
-		//	continue;
-		//}
+		strlcpy(metric_name+psize, tmp, copysize+1);
 
 		tmp += next;
 		tmp += strspn(tmp, sep);
@@ -1142,16 +996,22 @@ void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix
 		if (rc == DATATYPE_INT)
 		{
 			int64_t val = strtoll(tmp, NULL, 10);
+			if (family_cb)
+				family_cb(carg, metric_name);
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		else if (rc == DATATYPE_UINT)
 		{
 			uint64_t val = strtoull(tmp, NULL, 10);
+			if (family_cb)
+				family_cb(carg, metric_name);
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
 			double val = strtod(tmp, NULL);
+			if (family_cb)
+				family_cb(carg, metric_name);
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		prev = tmp;

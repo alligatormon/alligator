@@ -383,6 +383,7 @@ aggregate {
 - [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
 - [snmp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/snmp.md)
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
+- [sentinel](https://github.com/alligatormon/alligator/blob/master/doc/parsers/sentinel.md)
 - [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
 - [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
 - [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md)

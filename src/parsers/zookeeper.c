@@ -1,32 +1,35 @@
 #include <stdio.h>
 #include <string.h>
-#include "common/selector_split_metric.h"
+#include "common/selector.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "main.h"
 
+static inline void zookeeper_metric_set(context_arg *carg, const char *metric_name)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "ZooKeeper exported metric value.");
+}
+
 void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "zk_mode", METRIC_TYPE_GAUGE, "ZooKeeper node mode state.");
 
-	char **maps = malloc(sizeof(char*)*1);
-	maps[0] = strdup("zk_server_state");
-	char *res = selector_split_metric(metrics, size, "\n", 1, "\t", 1, "", 0, maps, 1, carg);
-	free(maps[0]);
-	free(maps);
-	if (!res)
+	plain_parse_family(metrics, size, "\t", "\n", "", 0, carg, zookeeper_metric_set);
+
+	char *state = strstr(metrics, "zk_server_state\t");
+	if (!state)
 		return;
 
+	state += strlen("zk_server_state\t");
 	int64_t val = 1;
-	if(strstr(res, "standalone"))
+	if(strstr(state, "standalone"))
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "standalone");
-	else if(strstr(res, "follower"))
+	else if(strstr(state, "follower"))
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "follower");
-	else if(strstr(res, "leader"))
+	else if(strstr(state, "leader"))
 		metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "leader");
-	free(res);
 	carg->parser_status = 1;
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)

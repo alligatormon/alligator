@@ -209,22 +209,30 @@ void api_test_parser_zookeeper_dont_work() {
 void api_test_parser_zookeeper() {
     char *isro = "rw";
     char *wchs = "2 connections watching 13 paths\nTotal watches:15\n";
+    char *mntr = "zk_avg_latency\t10\nzk_server_state\tleader\n";
     context_arg *carg = calloc(1, sizeof(*carg));
     zookeeper_isro_handler(isro, strlen(isro), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
     metric_test_run(CMP_EQUAL, "zk_readwrite", "zk_readwrite", 1);
 
-    //carg->parser_status = 0;
-    //zookeeper_mntr_handler(mntr, strlen(mntr), carg);
-    //assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    carg->parser_status = 0;
+    zookeeper_mntr_handler(mntr, strlen(mntr), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "zk_avg_latency", "zk_avg_latency", 10);
+    metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
 
     carg->parser_status = 0;
     zookeeper_wchs_handler(wchs, strlen(wchs), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "zk_total_watches", "zk_total_watches", 15);
 
-    metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE zk_mode gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP zk_avg_latency ZooKeeper exported metric value.\n") != NULL);
+    string_free(out);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
@@ -260,6 +268,96 @@ void api_test_parser_zookeeper() {
     alligator_ht_done(ac->aggregate_ctx);
     free(ac->aggregate_ctx);
     ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_sentinel()
+{
+    char *info =
+        "sentinel_masters:1\r\n"
+        "sentinel_tilt:0\r\n"
+        "master0:name=mymaster,status=ok,address=127.0.0.1:26379,slaves=2,sentinels=3\r\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+    sentinel_handler(info, strlen(info), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "sentinel_sentinel_masters", "sentinel_sentinel_masters", 1);
+    metric_test_run(CMP_EQUAL, "sentinel_slaves", "sentinel_slaves", 2);
+    metric_test_run(CMP_EQUAL, "sentinel_sentinels", "sentinel_sentinels", 3);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE sentinel_slaves gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP sentinel_sentinel_masters Redis Sentinel exported metric value.\n") != NULL);
+    string_free(out);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    sentinel_parser_push();
+    aggregate_context *sctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "sentinel", tommy_strhash_u32(0, "sentinel"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, sctx->handlers);
+    aggregate_context *srm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "sentinel", tommy_strhash_u32(0, "sentinel"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, srm);
+    free(srm->handler);
+    free(srm->key);
+    free(srm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+    free(carg);
+}
+
+void api_test_parser_aerospike()
+{
+    char stats[] = "\2\1\0\0\0\0\0\0statistics\tuptime=100;cluster_size=3;\n";
+    char status_resp[] = "\2\1\0\0\0\0\0\0status\tok\n";
+    char namespace_resp[] = "\2\1\0\0\0\0\0\0namespace/test\tobjects=42;client_read_success=5;\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+    aerospike_statistics_handler(stats, sizeof(stats) - 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "aerospike_uptime", "aerospike_uptime", 100);
+    metric_test_run(CMP_EQUAL, "aerospike_cluster_size", "aerospike_cluster_size", 3);
+
+    carg->parser_status = 0;
+    aerospike_status_handler(status_resp, sizeof(status_resp) - 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "aerospike_status", "aerospike_status", 1);
+
+    carg->parser_status = 0;
+    aerospike_namespace_handler(namespace_resp, sizeof(namespace_resp) - 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "aerospike_objects", "aerospike_objects", 42);
+    metric_test_run(CMP_EQUAL, "aerospike_client", "aerospike_client", 5);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE aerospike_uptime gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP aerospike_status Aerospike exported metric value.\n") != NULL);
+    string_free(out);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    aerospike_parser_push();
+    aggregate_context *actx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "aerospike", tommy_strhash_u32(0, "aerospike"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, actx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, actx->handlers);
+    aggregate_context *arm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "aerospike", tommy_strhash_u32(0, "aerospike"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, arm);
+    free(arm->data);
+    free(arm->handler);
+    free(arm->key);
+    free(arm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+    free(carg);
 }
 
 void api_test_parser_memcached() {

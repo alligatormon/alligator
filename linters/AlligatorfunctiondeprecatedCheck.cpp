@@ -12,8 +12,7 @@ namespace clang::tidy::misc {
                                                 functionDecl(hasName("strcspn")),
                                                 functionDecl(hasName("printf")),
                                                 functionDecl(hasName("fprintf")),
-                                                functionDecl(hasName("puts")),
-                                                functionDecl(hasName("selector_split_metric"))
+                                                functionDecl(hasName("puts"))
                         )))).bind("deprecatedCall"),
                         this);
     }

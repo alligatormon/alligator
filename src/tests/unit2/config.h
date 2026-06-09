@@ -409,18 +409,6 @@ void test_mask_password_and_parse_url()
 
 void test_selector_helpers_core()
 {
-    char data[] = "alpha 11\nbeta 22\ngamma 33\n";
-    char *line = malloc(64);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, line);
-    char *ln = selector_getline(data, strlen(data), line, 64, 1);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ln);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "beta 22", line);
-
-    char *field = selector_get_field_by_str(data, strlen(data), "beta", 2, " ");
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, field);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "22", field);
-    free(field);
-
     uint64_t cursor = 0;
     char nums[] = "a,-7,15,42";
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -7, int_get_next(nums, strlen(nums), ',', &cursor));
@@ -447,7 +435,6 @@ void test_selector_helpers_core()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a|b|c", joined->s);
     string_free(joined);
     string_tokens_free(st);
-    free(line);
 }
 
 void test_selector_string_and_file_helpers()

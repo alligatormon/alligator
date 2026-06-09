@@ -419,6 +419,8 @@ int main(int argc, char **argv) {
 
     api_test_parser_zookeeper_dont_work();
     api_test_parser_zookeeper();
+    api_test_parser_sentinel();
+    api_test_parser_aerospike();
 
     api_test_parser_memcached();
     api_test_parser_beanstalkd();

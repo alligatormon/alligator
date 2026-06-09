@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
@@ -32,13 +33,61 @@ static inline void aerospike_metric_set(context_arg *carg, const char *metric_na
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Aerospike exported metric value.");
 }
 
+static inline void aerospike_plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)
+{
+	plain_parse_family(text, size, sep, nlsep, prefix, psize, carg, aerospike_metric_set);
+}
+
+static inline char *aerospike_statistics_payload(char *metrics, size_t size, size_t *payload_size)
+{
+	if (size <= 8 || !payload_size)
+		return NULL;
+
+	char *body = metrics + 8;
+	size_t body_size = size - 8;
+	char *line = body;
+
+	*payload_size = 0;
+	while (line < body + body_size)
+	{
+		size_t line_len = strcspn(line, "\n\r");
+		char *stats = strstr(line, "statistics");
+		if (stats && stats < line + line_len)
+		{
+			stats += strlen("statistics");
+			stats += strspn(stats, "\t ");
+			if (stats >= line + line_len)
+				break;
+
+			*payload_size = line + line_len - stats;
+			if (*payload_size == 0)
+				break;
+
+			char *payload = malloc(*payload_size + 1);
+			if (!payload)
+				return NULL;
+			memcpy(payload, stats, *payload_size);
+			payload[*payload_size] = 0;
+			return payload;
+		}
+
+		if (line_len == 0 && line + 1 >= body + body_size)
+			break;
+		line += line_len;
+		if (line < body + body_size && (*line == '\n' || *line == '\r'))
+			line++;
+	}
+	return NULL;
+}
+
 void aerospike_statistics_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char *clmetrics = selector_get_field_by_str(metrics, size, "statistics", 2, NULL);
-	if ( clmetrics )
+	size_t payload_size = 0;
+	char *payload = aerospike_statistics_payload(metrics, size, &payload_size);
+	if (payload)
 	{
-		plain_parse(clmetrics, strlen(clmetrics), "=", ";", "aerospike_", 10, carg);
-		free(clmetrics);
+		aerospike_plain_parse(payload, payload_size, "=", ";", "aerospike_", 10, carg);
+		free(payload);
 	}
 	carg->parser_status = 1;
 }
