@@ -55,6 +55,20 @@ typedef struct count_addr_port_used {
 	tommy_node node;
 } count_addr_port_used;
 
+typedef struct socket_recv_queue_stat {
+	char *key;
+	char *src;
+	char *src_port;
+	char *dst;
+	char *dst_port;
+	char *proto;
+	char *process;
+	int has_process;
+	uint64_t recv_queue_length;
+	uint64_t listen_backlog;
+	tommy_node node;
+} socket_recv_queue_stat;
+
 int port_used_compare(const void* arg, const void* obj)
 {
 		char *s1 = (char*)arg;
@@ -74,6 +88,41 @@ int count_addr_port_used_compare(const void* arg, const void* obj)
 		char *s1 = (char*)arg;
 		char *s2 = ((count_addr_port_used*)obj)->key;
 		return strcmp(s1, s2);
+}
+
+int socket_recv_queue_stat_compare(const void* arg, const void* obj)
+{
+		char *s1 = (char*)arg;
+		char *s2 = ((socket_recv_queue_stat*)obj)->key;
+		return strcmp(s1, s2);
+}
+
+void socket_recv_queue_stat_free(void *funcarg, void* arg)
+{
+	socket_recv_queue_stat *sq = arg;
+	if (!sq)
+		return;
+
+	if (sq->has_process)
+	{
+		metric_add_labels7("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
+		metric_add_labels7("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
+	}
+	else
+	{
+		metric_add_labels6("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
+		metric_add_labels6("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
+	}
+
+	free(sq->key);
+	free(sq->src);
+	free(sq->src_port);
+	free(sq->dst);
+	free(sq->dst_port);
+	free(sq->proto);
+	if (sq->has_process)
+		free(sq->process);
+	free(sq);
 }
 
 void port_used_free(void *funcarg, void* arg)
@@ -163,6 +212,7 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 	alligator_ht_init(addr_port_usage);
 
 	alligator_ht *count_port_usage = alligator_ht_init(NULL);
+	alligator_ht *recv_queue_stats = alligator_ht_init(NULL);
 
 	char srcp[6];
 	char destp[6];
@@ -245,12 +295,13 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 					break;
 				}
 				state = r->idiag_state;
-				char src[20];
-				char dst[20];
-				inet_ntop(AF_INET, r->id.idiag_src, src, sizeof(src));
-				inet_ntop(AF_INET, r->id.idiag_src, dst, sizeof(dst));
-				uint16_t sport = htons(r->id.idiag_sport);
-				uint16_t dport = htons(r->id.idiag_dport);
+				int addr_family = (family == AF_INET6) ? AF_INET6 : AF_INET;
+				char src[INET6_ADDRSTRLEN];
+				char dst[INET6_ADDRSTRLEN];
+				inet_ntop(addr_family, r->id.idiag_src, src, sizeof(src));
+				inet_ntop(addr_family, r->id.idiag_dst, dst, sizeof(dst));
+				uint16_t sport = ntohs(r->id.idiag_sport);
+				uint16_t dport = ntohs(r->id.idiag_dport);
 				snprintf(srcp, 6, "%"PRIu16, sport);
 				snprintf(destp, 6, "%"PRIu16, dport);
 
@@ -264,20 +315,48 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 				{
 					uint64_t val = 1;
 
-					uint64_t send_queue = r->idiag_rqueue;
-					uint64_t recv_queue = r->idiag_wqueue;
-
 					if (fdescriptors)
-					{
 						metric_add_labels7("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto, "process", fdescriptors->procname);
-						metric_add_labels7("socket_stat_receive_queue_length", &send_queue, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto, "process", fdescriptors->procname);
-						metric_add_labels7("socket_stat_receive_queue_limit", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto, "process", fdescriptors->procname);
-					}
 					else
-					{
 						metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto);
-						metric_add_labels6("socket_stat_receive_queue_length", &send_queue, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto);
-						metric_add_labels6("socket_stat_receive_queue_limit", &recv_queue, DATATYPE_UINT, ac->system_carg, "src", src, "src_port", srcp, "dst", dst, "dst_port", destp, "state", "LISTEN", "proto", proto);
+
+					if (pproto == IPPROTO_TCP && state == 10)
+					{
+						char queuekey[512];
+						const char *process = (fdescriptors && fdescriptors->procname) ? fdescriptors->procname : NULL;
+
+						if (process)
+							snprintf(queuekey, sizeof(queuekey), "%s:%s:%s:%s:%s:%s", src, srcp, dst, destp, proto, process);
+						else
+							snprintf(queuekey, sizeof(queuekey), "%s:%s:%s:%s:%s", src, srcp, dst, destp, proto);
+
+						uint32_t queuekey_hash = tommy_strhash_u32(0, queuekey);
+						socket_recv_queue_stat *sq = alligator_ht_search(recv_queue_stats, socket_recv_queue_stat_compare, queuekey, queuekey_hash);
+						if (!sq)
+						{
+							sq = calloc(1, sizeof(*sq));
+							sq->key = strdup(queuekey);
+							sq->src = strdup(src);
+							sq->src_port = strdup(srcp);
+							sq->dst = strdup(dst);
+							sq->dst_port = strdup(destp);
+							sq->proto = strdup(proto);
+							if (process)
+							{
+								sq->has_process = 1;
+								sq->process = strdup(process);
+							}
+							sq->recv_queue_length = r->idiag_rqueue;
+							sq->listen_backlog = r->idiag_wqueue;
+							alligator_ht_insert(recv_queue_stats, &(sq->node), sq, queuekey_hash);
+						}
+						else
+						{
+							if (r->idiag_rqueue > sq->recv_queue_length)
+								sq->recv_queue_length = r->idiag_rqueue;
+							if (r->idiag_wqueue > sq->listen_backlog)
+								sq->listen_backlog = r->idiag_wqueue;
+						}
 					}
 				}
 
@@ -336,11 +415,14 @@ void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto)
 	}
 
 	alligator_ht_foreach_arg(count_port_usage, count_port, proto);
+	alligator_ht_foreach_arg(recv_queue_stats, socket_recv_queue_stat_free, NULL);
 	alligator_ht_foreach_arg(addr_port_usage, port_used_free, NULL);
 	alligator_ht_done(addr_port_usage);
 	alligator_ht_done(count_port_usage);
+	alligator_ht_done(recv_queue_stats);
 	free(addr_port_usage);
 	free(count_port_usage);
+	free(recv_queue_stats);
 
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
