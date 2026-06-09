@@ -335,11 +335,13 @@ Plural: no\
 Possible values:
 - prometheus
 - rsyslog-impstats
+- auditd
 - lang
 
 This option specifies the handler that processes received messages.\
 The default option 'prometheus' enables the processing of Prometheus pull queries, pushgateway, statsd and graphite push queries.\
 The option 'rsyslog-impstats' needs for receiving rsyslog metrics, and the way it works described in this [document](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md).
+The option 'auditd' parses Linux audit log records in `key=value` format and exports the `auditd_event` counter. More information is in the [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md) documentation.
 The option 'lang' supports a custom function to operate with received messages. To use 'lang' the 'lang' option in the context also required. More information about [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md).
 
 

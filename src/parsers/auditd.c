@@ -2,8 +2,15 @@
 #include <string.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "main.h"
+
+static inline void auditd_metric_set(context_arg *carg)
+{
+	namespace_metric_family_set(NULL, carg, "auditd_event", METRIC_TYPE_COUNTER,
+		"Number of audit log events received, labeled by event attributes.");
+}
 
 static inline void auditd_label_insert(alligator_ht *lbl, char *key, char *value)
 {
@@ -80,6 +87,8 @@ static inline void auditd_parse_line(char *line, uint64_t line_len, alligator_ht
 void auditd_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char line[2048];
+
+	auditd_metric_set(carg);
 
 	for (uint64_t i = 0; i < size; i++)
 	{
