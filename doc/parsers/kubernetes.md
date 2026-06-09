@@ -30,6 +30,7 @@ To enable the collection of ingresses and to perform periodic blackbox checks, u
 aggregate {
     kubernetes_ingress https://k8s.example.com 'env=Authorization:Bearer TOKEN';
 }
+```
 
 ### PODs resources
 Alligator's CAdvisor implements metrics from the well-known exporter called CAdvisor.

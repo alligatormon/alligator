@@ -1,23 +1,46 @@
-## Cassandra
+# Cassandra
 
-Now Alligator doesn't support to collect statistics by queries. However, alligator supports the other methods to collect statistics from Cassandra - graphite and file exporters
-```
+Alligator supports Cassandra in two directions: **pull** metrics with SQL-like queries through the `cassandra` aggregate handler, and **push** metrics to Cassandra with the `cassandra` action serializer.
 
+## Pull metrics from Cassandra
 
-Alligator also allows the pushing metric to Cassandra using `action` methods.\
-It provides the capability to set an index name for Cassandra using a template. This option supports strftime formatting, allowing for dynamically changeable opportunities at runtime.\
-An example of usage is provided below. In this example, metrics will be pushed to the ElasticSearch instance every 15 seconds:
+Register a datasource in `aggregate`, then reference it from `query` blocks:
 
 ```
 aggregate {
-        cassandra cassandra://user:password@127.0.0.1/app_data name=to-cassandra;
+    cassandra cassandra://user:password@127.0.0.1:9042 name=from-cassandra;
+}
+
+query {
+    expr 'SELECT value, name FROM metric';
+    field value;
+    datasource from-cassandra;
+}
+
+query {
+    expr "SELECT keyspace_name, table_name, bloom_filter_fp_chance, gc_grace_seconds, compaction FROM system_schema.tables";
+    field bloom_filter_fp_chance gc_grace_seconds;
+    make cas_db_size;
+    datasource from-cassandra;
+}
+```
+
+Numeric columns listed in `field` become metrics. Other columns can be used as labels when they are not listed in `field`.
+
+## Push metrics to Cassandra
+
+Export internal metrics on a schedule:
+
+```
+aggregate {
+    cassandra cassandra://user:password@127.0.0.1/app_data name=to-cassandra;
 }
 
 scheduler {
-  name cassandra;
-  period 15s;
-  datasource internal;
-  action to-cassandra;
+    name cassandra;
+    period 15s;
+    datasource internal;
+    action to-cassandra;
 }
 
 action {
@@ -27,23 +50,8 @@ action {
 }
 ```
 
-Cassandra module in Alligator supports by user queries:
-```
-aggregate {
-        cassandra cassandra://user:password@127.0.0.1:9042 name=from-cassandra;
-}
+The `cassandra` serializer stores time-series samples in Cassandra. Use `index_template` on the action when you need time-based table or key names (strftime formatting is supported).
 
-query {
-       name cassandra;
-       expr 'SELECT value, name FROM metric';
-       field value;
-       datasource from-cassandra;
-}
+## Graphite and file exporters
 
-query {
-       expr "SELECT keyspace_name, table_name, bloom_filter_fp_chance, gc_grace_seconds, compaction FROM system_schema.tables";
-       field bloom_filter_fp_chance gc_grace_seconds;
-       make cas_db_size;
-       datasource from-cassandra;
-}
-```
+Cassandra itself can expose metrics through Graphite or JMX/file exporters. Those streams can be collected with the usual Alligator parsers (`prometheus_metrics`, custom `exec://` scripts, and so on) without using the `cassandra` SQL handler.

@@ -126,6 +126,94 @@ void api_test_parser_syslogng() {
     ac->aggregate_ctx = saved_ctx;
 }
 
+void api_test_parser_rsyslog()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+    char *msg =
+        "rsyslogd: origin=rsyslogd submitted=100 processed=200";
+    carg->parser_status = 0;
+    rsyslog_impstats_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_GREATER, "rsyslog_stats", "rsyslog_stats", 0);
+
+    char *msg_action =
+        "omfwd:action: origin=omfwd processed=42";
+    carg->parser_status = 0;
+    rsyslog_impstats_handler(msg_action, strlen(msg_action), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    carg->parser_status = 0;
+    rsyslog_impstats_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE rsyslog_stats gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP rsyslog_stats Rsyslog impstats value by module, origin, action, and key.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"submitted\"} 100") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"processed\"} 200") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "action=\"omfwd\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "action=\"omfwd\"} 42") != NULL);
+    string_free(out);
+    free(carg);
+}
+
+void api_test_parser_wazuh()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+    char *agentd =
+        "# agent state\n"
+        "status='connected'\n"
+        "queue_size=42\n";
+    wazuh_stats_parser(agentd, strlen(agentd), carg, "wazuh-agentd.state");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    char *remoted = "connection_status='pending'\n";
+    wazuh_stats_parser(remoted, strlen(remoted), carg, "wazuh-remoted.state");
+
+    char *analysisd = "events_processed=1234\n";
+    wazuh_stats_parser(analysisd, strlen(analysisd), carg, "wazuh-analysisd.state");
+
+    wazuh_logcollector_parser_json("{}", 2, carg, "wazuh-logcollector.state");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    metric_test_run(CMP_EQUAL, "wazuh_agentd_status", "wazuh_agentd_status", 1);
+    metric_test_run(CMP_EQUAL, "wazuh_agentd_queue_size", "wazuh_agentd_queue_size", 42);
+    metric_test_run(CMP_EQUAL, "wazuh_remoted_connection_status", "wazuh_remoted_connection_status", 2);
+    metric_test_run(CMP_EQUAL, "wazuh_analysisd_events_processed", "wazuh_analysisd_events_processed", 1234);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_agentd_status gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_agentd_status Wazuh API exported metric value.\n") != NULL);
+    string_free(out);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    wazuh_parser_push();
+    aggregate_context *wctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "wazuh", tommy_strhash_u32(0, "wazuh"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, wctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, wctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "wazuh", wctx->handler[0].key);
+    aggregate_context *wrm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "wazuh", tommy_strhash_u32(0, "wazuh"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, wrm);
+    free(wrm->handler);
+    free(wrm->key);
+    free(wrm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+
+    free(carg);
+}
+
 void api_test_parser_ipmi_metric_normalization_metadata() {
     context_arg *carg = calloc(1, sizeof(*carg));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);

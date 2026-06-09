@@ -93,8 +93,10 @@ Available serializers include:
 - influxdb
 - clickhouse
 - postgresql
+- cassandra
 - elasticsearch
 - dynatrace
+- openmetrics
 - otlp
 - otlp\_protobuf
 

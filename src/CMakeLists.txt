@@ -234,7 +234,6 @@ set(STATIC_FILES
 	parsers/kubernetes_operator.c
 	parsers/kubernetes_watch.c
 	parsers/kubeconfig.c
-	parsers/oracle.c
 	parsers/couchdb.c
 	parsers/couchbase.c
 	parsers/druid.c

@@ -223,7 +223,7 @@ Plural: yes
 Configuration specifies the listen port (or socket) for income queries. This is central part of entrypoint context. Any entrypoint must have at least one of this option to run entrypoint.
 Alligator usually runs on port tcp to response with metrics to Prometheus.
 UDP configuration is usually can be used for statsd metrics because udp is one of supported protocol for statsd.
-UDP and unix socket also can be used for obtain rsyslog stats in [impstats](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md).
+UDP and unix socket also can be used to obtain rsyslog stats in [impstats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md).
 
 For example, the following configuration enables the TCP and UDP ports to receive StatsD metrics in TCP and UDP mode:
 ```
@@ -293,7 +293,7 @@ entrypoint {
 entrypoint {
     tcp 1111;
     allow 192.168.0.0/24;
-    allow 172.16.0.0./12;
+    allow 172.16.0.0/12;
     allow 10.0.0.0/8;
 }
 
@@ -337,12 +337,61 @@ Possible values:
 - rsyslog-impstats
 - auditd
 - lang
+- log
+- grok
+- mtail
 
-This option specifies the handler that processes received messages.\
-The default option 'prometheus' enables the processing of Prometheus pull queries, pushgateway, statsd and graphite push queries.\
-The option 'rsyslog-impstats' needs for receiving rsyslog metrics, and the way it works described in this [document](https://github.com/alligatormon/alligator/blob/master/doc/rsyslog.md).
-The option 'auditd' parses Linux audit log records in `key=value` format and exports the `auditd_event` counter. More information is in the [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md) documentation.
-The option 'lang' supports a custom function to operate with received messages. To use 'lang' the 'lang' option in the context also required. More information about [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md).
+This option specifies the handler that processes received messages.
+
+- **prometheus** (default) — Prometheus pull, pushgateway, statsd, and graphite push queries.
+- **rsyslog-impstats** — Rsyslog impstats metrics. See [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md).
+- **auditd** — Linux audit log lines in `key=value` format. See [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md).
+- **lang** — Custom processing via external lang modules. Requires the `lang` option. See [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md).
+- **log** — Debug handler: logs the received body and does not export metrics.
+- **grok** — Parses the stream with a named [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md) context. Requires the `grok` option.
+- **mtail** — Parses the stream with a named [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md) program. Requires the `mtail` option.
+
+
+# grok
+Default: -\
+Plural: no
+
+Name of the grok context to use when `handler grok` is set. Grok contexts are defined in the top-level [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md) block.
+
+
+# mtail
+Default: -\
+Plural: no
+
+Name of the mtail program to use when `handler mtail` is set. Programs are defined in the top-level [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/configuration.md) block.
+
+
+# mtail_full_export_interval
+Default: 60s\
+Plural: no
+
+Minimum interval between full exports of all mtail variables when using `handler mtail`. See [mtail configuration](https://github.com/alligatormon/alligator/blob/master/doc/mtail/configuration.md#mtail_full_export_interval).
+
+
+# namespace
+Default: -\
+Plural: no
+
+Assigns metrics from this entrypoint to a named namespace. See [namespace](https://github.com/alligatormon/alligator/blob/master/doc/namespace.md).
+
+
+# http_keepalive
+Default: on (JSON entrypoints)\
+Plural: no
+
+Enables HTTP keep-alive for stream entrypoints that speak HTTP.
+
+
+# http_idle_timeout
+Default: 75s\
+Plural: no
+
+Idle timeout for HTTP keep-alive connections on stream entrypoints.
 
 
 # lang

@@ -239,19 +239,6 @@ Plural: no
 
 Specify the domain name for resolution. More information about DNS requests in alligator can be found in [resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) documentation.
 
-### add\_label
-Default: -\
-Plural: yes
-This option provides the opportunity to manipulate extra labels.
-
-For example, this configuration adds two extra labels for each metric:
-```
-aggregate {
-    elasticsearch http://localhost:9200 add_label=instance:localhost add_label=name:localcluster;
-    elasticsearch http://external:9200 add_label=instance:external add_label=name:extcluster;
-}
-```
-
 ## metricstransform
 Default: -\
 Plural: no
@@ -346,64 +333,81 @@ aggregate {
 - The WebSocket client sends a standard RFC 6455 upgrade handshake. The server must respond with HTTP 101. No subprotocol negotiation is performed.
 - `wss://` (TLS) is parsed and registered; the TLS layer is on the roadmap — currently it connects without TLS even for `wss://` URLs. Use a TLS-terminating proxy in front of the target if you need encryption today.
 
+## add_label
+Default: -\
+Plural: yes
+
+Adds static labels to every metric produced by this aggregate entry. Format: `add_label=key:value`.
+
+```
+aggregate {
+    elasticsearch http://localhost:9200 add_label=instance:localhost add_label=name:localcluster;
+    elasticsearch http://external:9200 add_label=instance:external add_label=name:extcluster;
+}
+```
+
+Also supported on entrypoints and actions. See [entrypoint add_label](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md#add_label).
+
+## namespace
+Default: -\
+Plural: no
+
+Assigns metrics from this aggregate to a named namespace. See [namespace](https://github.com/alligatormon/alligator/blob/master/doc/namespace.md).
+
+## no_collect
+Default: false\
+Plural: no
+
+Keeps the aggregate entry in configuration but disables metric collection.
+
+## ttl
+Default: global `ttl`\
+Plural: no
+
+Overrides the metric TTL for this aggregate entry.
+
+## file_stat
+Default: false\
+Plural: no
+
+When reading files or directories, exports file metadata metrics (`file_stat_time`, `file_stat_size`, `file_stat_mode`, and related families). Used together with `blackbox file://` and similar handlers.
+
+## script
+Default: -\
+Plural: no
+
+Shell script executed for `exec://` aggregates. Output is passed to the parser.
+
 ## Available parsers
-- [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
-- [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md)
-- [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
-- [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md)
-- [MongoDB](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mongodb.md)
-- [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md)
-- [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
-- [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
-- [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md)
-- [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
-- [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
-- [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md)
-- [rabbitmq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rabbitmq.md)
-- [eventstore](https://github.com/alligatormon/alligator/blob/master/doc/parsers/eventstore.md)
-- Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md)
-- [powerdns](https://github.com/alligatormon/alligator/blob/master/doc/parsers/powerdns.md)
-- [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md)
-- [druid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/druid.md)
-- [couchbase](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchbase.md)
-- [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md)
-- [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md)
-- [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
-- [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/kubernetes.md)
-- [prometheus\_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md)
-- [json\_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md)
-- [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
-- [bind](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md) (nameD)
-- [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
-- [tftp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/tftp.md)
-- [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md)
-- [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
-- [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
-- [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md)
-- [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
-- [snmp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/snmp.md)
-- [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
-- [sentinel](https://github.com/alligatormon/alligator/blob/master/doc/parsers/sentinel.md)
-- [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md)
-- [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
-- [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md)
-- [mysql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
-- [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
-- [nginx](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx.md)
-- [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
-- [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
-- [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
-- [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
-- [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
-- [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer)
-- [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
-- [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
-- [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
+
+The first token in an `aggregate` line is the **handler key** registered in Alligator. It must match the code exactly (for example `named`, not `bind`; `nginx_upstream_check`, not `nginx`; `nvidia_smi`, not `nvidia-smi`).
+
+### Parser documentation
+
+**Databases and caches:** [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md), [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md), [MongoDB](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mongodb.md), [mysql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md), [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md) ([pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer), [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey), [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)), [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md), [cassandra](https://github.com/alligatormon/alligator/blob/master/doc/parsers/cassandra.md), [couchbase](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchbase.md), [couchdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/couchdb.md), [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md), [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
+
+**Messaging and queues:** [rabbitmq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rabbitmq.md), [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md), [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md), [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
+
+**Web and proxies:** [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md), [nginx](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx.md) (`nginx_upstream_check`), [apache httpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/apache-httpd.md) (`httpd`), [lighttpd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/lighttpd.md), [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md), [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md), [squid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/squid.md)
+
+**Search and analytics:** [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md), [druid](https://github.com/alligatormon/alligator/blob/master/doc/parsers/druid.md) (`druid`, `druid_broker`, `druid_historical`, `druid_worker`), [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md), [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md), [eventstore](https://github.com/alligatormon/alligator/blob/master/doc/parsers/eventstore.md)
+
+**DNS:** [named](https://github.com/alligatormon/alligator/blob/master/doc/parsers/named.md) (`named`), [powerdns](https://github.com/alligatormon/alligator/blob/master/doc/parsers/powerdns.md), [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md), [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md), [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md), [dns](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) (resolver checks)
+
+**Infrastructure:** [kubernetes](https://github.com/alligatormon/alligator/blob/master/doc/parsers/kubernetes.md) (`kubernetes_operator`, `kubernetes_endpoint`, `kubernetes_ingress`, `kubeconfig`), [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md), [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md), [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md), [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md), [sentinel](https://github.com/alligatormon/alligator/blob/master/doc/parsers/sentinel.md), [snmp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/snmp.md), [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md), [wazuh](https://github.com/alligatormon/alligator/blob/master/doc/parsers/wazuh.md), [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md), [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md) (`nvidia_smi`)
+
+**Storage:** [mogilefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mogilefs.md), [moosefs](https://github.com/alligatormon/alligator/blob/master/doc/parsers/moosefs.md)
+
+**Observability and logs:** [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md), [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md) (entrypoint `auditd`), [rsyslog impstats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md) (entrypoint `rsyslog-impstats`), [prometheus_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md), [json_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md), [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md), [tftp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/tftp.md)
+
+**Other:** Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md), [consul](https://github.com/alligatormon/alligator/blob/master/doc/service-discovery.md) (`consul`, `consul-configuration`, `consul-discovery`), [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md), [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md), [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md)
+
+**Utility handlers (no dedicated parser page):** `http`, `tcp`, `process`, `influxdb` (scheduler export), `jsonparse`, `redis_ping`, `sphinxsearch`, `dummy`
 
 ## Example of usage with TLS options
 ```
 aggregate {
-    prometheus_metrics https://consulnode:8501/v1/agent/metrics?format=prometheus ca_certificate=/etc/consul.d/ca.crt tls_certificate=/etc/consul.d/server.crt tls_key=/etc/consul.d/server.key tls_server_name=consulcluster env=X-Consul-Token:XXXX;
+    prometheus_metrics https://consulnode:8501/v1/agent/metrics?format=prometheus tls_ca=/etc/consul.d/ca.crt tls_certificate=/etc/consul.d/server.crt tls_key=/etc/consul.d/server.key tls_server_name=consulcluster env=X-Consul-Token:XXXX;
 }
 ```
 

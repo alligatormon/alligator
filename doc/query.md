@@ -1,6 +1,17 @@
 # Query
-The query context creates metrics based on a query. The query can be processed on either a local metrics on Alligator or on the database.\
+The query context creates metrics based on a query. The query can run against local Alligator metric storage or an external database registered in `aggregate`.
 
+## query_period
+Default: server default\
+Plural: no
+
+Sets how often Alligator re-runs all `query` blocks. Use the same time units as elsewhere in configuration (`s`, `ms`, `h`, and so on).
+
+```
+query_period 20s;
+```
+
+This is separate from per-aggregate `period` (which controls polling of external targets).
 
 ## make
 Specifies the name of the created metric for internal queries and serves as the key for API operations.

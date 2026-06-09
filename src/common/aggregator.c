@@ -353,8 +353,6 @@ void aggregate_ctx_init()
 	kubernetes_endpoint_parser_push();
 	kubernetes_operator_parser_push();
 	kubeconfig_parser_push();
-	oracle_parser_push();
-	oracle_query_parser_push();
 	couchdb_parser_push();
 	couchbase_parser_push();
 	druid_parser_push();
