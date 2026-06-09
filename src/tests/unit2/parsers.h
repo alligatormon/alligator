@@ -1433,10 +1433,17 @@ void api_test_parser_auditd_gdnsd()
 {
     context_arg *carg = calloc(1, sizeof(*carg));
 
-    char *audit_msg = "type=SYSCALL msg=audit(1.1:2): success=yes AUID=1000 UID=1000 GID=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n";
+    char *audit_msg = "type=SYSCALL msg=audit(1.1:2): success=yes auid=1000 uid=1000 gid=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n";
     auditd_handler(audit_msg, strlen(audit_msg), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "auditd_event", "auditd_event", 1);
+
+    char *audit_more = "type=SYSCALL success=yes auid=1000 uid=1000 gid=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n\n\n";
+    auditd_handler(audit_more, strlen(audit_more), carg);
+    metric_test_run(CMP_EQUAL, "auditd_event", "auditd_event", 2);
+
+    char *audit_spaces = "type=EXECVE success=yes exe=\"/usr/bin/node /app/server.js\" key=(null)\n";
+    auditd_handler(audit_spaces, strlen(audit_spaces), carg);
 
     /* gdnsd handler expects 8-byte header prefix and JSON payload afterwards. */
     carg->pquery = calloc(1, sizeof(void*));
