@@ -531,6 +531,18 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 			//printf("memory_size_kb %llu\n", size);
 		}
 		val = size;
+#ifdef __FreeBSD__
+		{
+			int64_t size_bytes = (int64_t)size * 1024;
+			char *slot = smbios->u.memory.device_locator ?
+				trim_whitespaces(str[smbios->u.memory.device_locator - 1]) : (char *)"";
+			char *channel = smbios->u.memory.bank_locator ?
+				trim_whitespaces(str[smbios->u.memory.bank_locator - 1]) : (char *)"";
+
+			metric_add_labels5("memory_dimm_size_bytes", &size_bytes, DATATYPE_INT, ac->system_carg,
+				"slot", slot, "channel", channel, "controller", (char *)"", "cpu", (char *)"", "branch", (char *)"");
+		}
+#endif
 		metric_add_labels8("memory_module_size_kb", &val, DATATYPE_UINT, ac->system_carg,
 			"device_locator", smbios->u.memory.device_locator ? trim_whitespaces(str[smbios->u.memory.device_locator-1]) : "",
 			"bank_locator", smbios->u.memory.bank_locator ? trim_whitespaces(str[smbios->u.memory.bank_locator-1]) : "",

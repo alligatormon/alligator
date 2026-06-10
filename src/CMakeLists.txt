@@ -360,6 +360,11 @@ set(STATIC_FILES
 	lang/del.c
 	system/common.c
 	system/freebsd.c
+	system/freebsd/sysctl.c
+	system/freebsd/services.c
+	system/freebsd/packages.c
+	system/freebsd/process.c
+	system/freebsd/base.c
 	system/macosx.c
 	system/smbios.c
 	system/linux.c
@@ -421,8 +426,19 @@ set(_LINUX_SYSTEM_SOURCES
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(REMOVE_ITEM STATIC_FILES ${_LINUX_SYSTEM_SOURCES})
 endif()
+set(_FREEBSD_SYSTEM_SOURCES
+	system/freebsd.c
+	system/freebsd/sysctl.c
+	system/freebsd/services.c
+	system/freebsd/packages.c
+	system/freebsd/process.c
+	system/freebsd/base.c
+	system/freebsd/network.c
+	system/freebsd/sockets.c
+	system/freebsd/disk.c
+)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-	list(REMOVE_ITEM STATIC_FILES system/freebsd.c)
+	list(REMOVE_ITEM STATIC_FILES ${_FREEBSD_SYSTEM_SOURCES})
 endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(REMOVE_ITEM STATIC_FILES system/macosx.c)
@@ -549,7 +565,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL)

@@ -161,6 +161,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "service_running", METRIC_TYPE_GAUGE, "Systemd service running state by service labels.");
 	namespace_metric_family_set(NULL, carg, "service_match", METRIC_TYPE_GAUGE, "Systemd service match flag by service labels.");
 	namespace_metric_family_set(NULL, carg, "service_tasks_count", METRIC_TYPE_GAUGE, "Systemd service task counters by service and type labels.");
+	namespace_metric_family_set(NULL, carg, "sysctl_data", METRIC_TYPE_GAUGE, "Kernel sysctl value by sysctl name label.");
 	namespace_metric_family_set(NULL, carg, "socket_counters", METRIC_TYPE_GAUGE, "Socket counters by protocol/state labels.");
 	namespace_metric_family_set(NULL, carg, "socket_match", METRIC_TYPE_GAUGE, "Socket match flag by selector labels.");
 	namespace_metric_family_set(NULL, carg, "socket_stat", METRIC_TYPE_GAUGE, "Socket statistics by protocol/state labels.");
