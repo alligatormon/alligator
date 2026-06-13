@@ -25,25 +25,42 @@
 
 #define DNS_NAME_MAXLEN 256
 
-#if defined(__BYTE_ORDER)
-#define BYTE_ORDER __BYTE_ORDER
-#elif defined(__BYTE_ORDER__)
-#define BYTE_ORDER __BYTE_ORDER__
-#elif defined(__LITTLE_ENDIAN__)
-#define BYTE_ORDER __LITTLE_ENDIAN__
-#elif defined(__BIG_ENDIAN__)
-#define BYTE_ORDER __BIG_ENDIAN__
-#elif defined(_WIN32)
-#define BYTE_ORDER LITTLE_ENDIAN
-#else
-#error "BYTE_ORDER undefined!"
+#ifndef BYTE_ORDER
+#  if defined(__BYTE_ORDER)
+#    define BYTE_ORDER __BYTE_ORDER
+#  elif defined(__BYTE_ORDER__)
+#    define BYTE_ORDER __BYTE_ORDER__
+#  elif defined(__DARWIN_BYTE_ORDER)
+#    define BYTE_ORDER __DARWIN_BYTE_ORDER
+#  elif defined(__LITTLE_ENDIAN__)
+#    define BYTE_ORDER __LITTLE_ENDIAN__
+#  elif defined(__BIG_ENDIAN__)
+#    define BYTE_ORDER __BIG_ENDIAN__
+#  elif defined(_WIN32)
+#    define BYTE_ORDER LITTLE_ENDIAN
+#  else
+#    error "BYTE_ORDER undefined!"
+#  endif
 #endif
 
 #ifndef LITTLE_ENDIAN
-#define LITTLE_ENDIAN 1234
+#  if defined(__LITTLE_ENDIAN)
+#    define LITTLE_ENDIAN __LITTLE_ENDIAN
+#  elif defined(__ORDER_LITTLE_ENDIAN__)
+#    define LITTLE_ENDIAN __ORDER_LITTLE_ENDIAN__
+#  else
+#    define LITTLE_ENDIAN 1234
+#  endif
 #endif
+
 #ifndef BIG_ENDIAN
-#define BIG_ENDIAN 4321
+#  if defined(__BIG_ENDIAN)
+#    define BIG_ENDIAN __BIG_ENDIAN
+#  elif defined(__ORDER_BIG_ENDIAN__)
+#    define BIG_ENDIAN __ORDER_BIG_ENDIAN__
+#  else
+#    define BIG_ENDIAN 4321
+#  endif
 #endif
 
 typedef struct dnshdr_s {
