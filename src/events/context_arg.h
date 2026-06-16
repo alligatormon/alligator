@@ -140,6 +140,9 @@ typedef struct context_arg
 	string *work_dir;
 	/* Set when process_insert() has linked carg->node into ac->process_spawner. */
 	uint8_t process_spawner_registered;
+	/* Deferred free after uv_spawn pipes/process handles finish closing. */
+	uint8_t process_release_scheduled;
+	uint8_t process_released;
 
 	char *lang;
 
@@ -174,7 +177,7 @@ typedef struct context_arg
 	size_t http_request_size;
 	uint8_t http_write_pending;
 	uint8_t http_idle_timer_active;
-	uv_timer_t http_idle_timer;
+	uv_timer_t *http_idle_timer;
 
 	uint8_t no_metric;
 	uint8_t no_collect;

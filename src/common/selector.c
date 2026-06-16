@@ -983,8 +983,8 @@ void plain_parse_family(char *text, uint64_t size, char *sep, char *nlsep, char 
 		next = strcspn(tmp, sep);
 
 		copysize = next+1+psize > PLAIN_METRIC_SIZE ? PLAIN_METRIC_SIZE : next;
-		metric_name_normalizer(tmp, copysize);
 		strlcpy(metric_name+psize, tmp, copysize+1);
+		metric_name_normalizer(metric_name+psize, copysize);
 
 		tmp += next;
 		tmp += strspn(tmp, sep);

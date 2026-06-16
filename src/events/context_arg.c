@@ -56,6 +56,7 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_touch_seq = 0;
 	carg->amtail_last_ttl_refresh_sec = 0;
 	carg->entrypoint_read_metric_last_push_sec = 0;
+	carg->http_idle_timer = NULL;
 	carg->http_idle_timer_active = 0;
 	carg->http_write_pending = 0;
 	carg->http_request_size = 0;
@@ -184,10 +185,10 @@ void carg_inherited_uv_reset(context_arg *carg)
 	memset(&carg->udp_client, 0, sizeof(carg->udp_client));
 	memset(&carg->udp_server, 0, sizeof(carg->udp_server));
 	memset(&carg->resolver_timer, 0, sizeof(carg->resolver_timer));
-	memset(&carg->http_idle_timer, 0, sizeof(carg->http_idle_timer));
 	memset(&carg->t_timeout, 0, sizeof(carg->t_timeout));
 	memset(&carg->t_towrite, 0, sizeof(carg->t_towrite));
 	memset(&carg->t_seq_timer, 0, sizeof(carg->t_seq_timer));
+	carg->http_idle_timer = NULL;
 	carg->http_idle_timer_active = 0;
 	carg->tt_timer = NULL;
 	carg->period_timer = NULL;
@@ -227,11 +228,8 @@ void carg_uv_detach_timers(context_arg *carg)
 	}
 	carg->resolver_timer.data = NULL;
 
-	if (carg->http_idle_timer_active) {
-		if (!uv_is_closing((uv_handle_t *)&carg->http_idle_timer)) {
-			uv_timer_stop(&carg->http_idle_timer);
-		}
-		carg->http_idle_timer.data = NULL;
+	if (carg->http_idle_timer) {
+		carg_timer_detach_and_close(&carg->http_idle_timer);
 		carg->http_idle_timer_active = 0;
 	}
 }

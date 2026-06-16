@@ -20,6 +20,150 @@ static const char *process_shell_path(void)
 	return "/bin/sh";
 }
 
+#define PROCESS_RELEASE_STDIN   (1u << 0)
+#define PROCESS_RELEASE_CHANNEL (1u << 1)
+#define PROCESS_RELEASE_CHILD   (1u << 2)
+#define PROCESS_RELEASE_ALL     (PROCESS_RELEASE_STDIN | PROCESS_RELEASE_CHANNEL | PROCESS_RELEASE_CHILD)
+
+static void process_finalize(context_arg *carg);
+static void process_mark_released(context_arg *carg, uint8_t bit);
+static void process_try_release(context_arg *carg);
+static void process_uv_handle_closed(uv_handle_t *handle);
+static void process_close_or_released(context_arg *carg, uv_handle_t *handle, uint8_t bit);
+static void process_spawn_failed(context_arg *carg, uv_pipe_t *stdin_pipe, uv_pipe_t *channel);
+static void process_deferred_finalize_closed(uv_handle_t *handle);
+static void process_deferred_finalize(uv_timer_t *timer);
+void process_client_del(context_arg *carg);
+
+static void process_finalize(context_arg *carg)
+{
+	carglog(carg, L_INFO, "run process finalize %p with cmd %s\n", carg, carg->host);
+
+	if (carg->context_ttl)
+	{
+		r_time time = setrtime();
+		if (time.sec >= carg->context_ttl)
+		{
+			carg->remove_from_hash = 1;
+			smart_aggregator_del(carg);
+			return;
+		}
+	}
+
+	carg->process_release_scheduled = 0;
+	carg->process_released = 0;
+
+	/* Deferred external delete request while process was active. */
+	if (carg->remove_from_hash)
+	{
+		process_client_del(carg);
+		return;
+	}
+}
+
+static void process_mark_released(context_arg *carg, uint8_t bit)
+{
+	if (!carg)
+		return;
+
+	carg->process_released |= bit;
+	process_try_release(carg);
+}
+
+static void process_try_release(context_arg *carg)
+{
+	if (!carg || !carg->process_release_scheduled)
+		return;
+	if ((carg->process_released & PROCESS_RELEASE_ALL) != PROCESS_RELEASE_ALL)
+		return;
+
+	carg->process_release_scheduled = 0;
+
+	if (!carg->loop)
+	{
+		process_finalize(carg);
+		return;
+	}
+
+	{
+		uv_timer_t *defer = malloc(sizeof(*defer));
+
+		if (!defer)
+		{
+			process_finalize(carg);
+			return;
+		}
+
+		uv_timer_init(carg->loop, defer);
+		defer->data = carg;
+		uv_timer_start(defer, process_deferred_finalize, 0, 0);
+	}
+}
+
+static void process_deferred_finalize(uv_timer_t *timer)
+{
+	/* Closing-handle callbacks run after pending callbacks. */
+	uv_close((uv_handle_t *)timer, process_deferred_finalize_closed);
+}
+
+static void process_deferred_finalize_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle ? handle->data : NULL;
+
+	free(handle);
+	if (carg)
+		process_finalize(carg);
+}
+
+static void process_uv_handle_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+
+	if (!carg)
+		return;
+
+	if (handle == (uv_handle_t *)&carg->child_stdin)
+		process_mark_released(carg, PROCESS_RELEASE_STDIN);
+	else if (handle == (uv_handle_t *)&carg->channel)
+		process_mark_released(carg, PROCESS_RELEASE_CHANNEL);
+	else if (handle == (uv_handle_t *)&carg->child_req)
+		process_mark_released(carg, PROCESS_RELEASE_CHILD);
+}
+
+static void process_close_or_released(context_arg *carg, uv_handle_t *handle, uint8_t bit)
+{
+	if (!carg || !handle)
+		return;
+
+	if (carg->process_released & bit)
+		return;
+
+	if (uv_is_closing(handle))
+		return;
+
+	if (!handle->loop)
+	{
+		process_mark_released(carg, bit);
+		return;
+	}
+
+	uv_close(handle, process_uv_handle_closed);
+}
+
+static void process_spawn_failed(context_arg *carg, uv_pipe_t *stdin_pipe, uv_pipe_t *channel)
+{
+	if (!carg)
+		return;
+
+	carg->lock = 0;
+	carg->process_release_scheduled = 1;
+	carg->process_released = PROCESS_RELEASE_CHILD;
+
+	process_close_or_released(carg, (uv_handle_t *)stdin_pipe, PROCESS_RELEASE_STDIN);
+	process_close_or_released(carg, (uv_handle_t *)channel, PROCESS_RELEASE_CHANNEL);
+	process_try_release(carg);
+}
+
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
@@ -46,22 +190,6 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 
 	if (carg->period)
 		uv_timer_set_repeat(carg->period_timer, carg->period);
-}
-
-void cmd_close(uv_handle_t *handle)
-{
-	context_arg *carg = handle->data;
-	carglog(carg, L_INFO, "run cmd close %p with cmd %s\n", handle, carg->host);
-
-	if (carg->context_ttl)
-	{
-		r_time time = setrtime();
-		if (time.sec >= carg->context_ttl)
-		{
-			carg->remove_from_hash = 1;
-			smart_aggregator_del(carg);
-		}
-	}
 }
 
 static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
@@ -92,12 +220,28 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	carg->lock = 0;
 
-	uv_close((uv_handle_t*)req, cmd_close);
+	carg->process_release_scheduled = 1;
+	carg->process_released = 0;
 
-	uv_read_stop((uv_stream_t*)&carg->channel);
-	uv_close((uv_handle_t*)&carg->channel, NULL);
+	uv_read_stop((uv_stream_t *)&carg->channel);
+
+	if (!uv_is_closing((uv_handle_t *)&carg->child_stdin))
+		uv_close((uv_handle_t *)&carg->child_stdin, process_uv_handle_closed);
+	else
+		process_mark_released(carg, PROCESS_RELEASE_STDIN);
+
+	if (!uv_is_closing((uv_handle_t *)&carg->channel))
+		uv_close((uv_handle_t *)&carg->channel, process_uv_handle_closed);
+	else
+		process_mark_released(carg, PROCESS_RELEASE_CHANNEL);
+
+	if (!uv_is_closing((uv_handle_t *)req))
+		uv_close((uv_handle_t *)req, process_uv_handle_closed);
+	else
+		process_mark_released(carg, PROCESS_RELEASE_CHILD);
 
 	carg_uv_detach_timers(carg);
+	process_try_release(carg);
 }
 
 void timeout_exec_sentinel(uv_timer_t* timer) {
@@ -187,7 +331,6 @@ static void process_stdin_write_cb(uv_write_t *req, int status)
 		carglog(carg, L_ERROR, "process stdin write for '%s': %s\n", carg->host, uv_strerror(status));
 
 	free(req);
-	uv_close((uv_handle_t*)&carg->child_stdin, NULL);
 }
 
 static void process_feed_stdin(context_arg *carg)
@@ -196,7 +339,6 @@ static void process_feed_stdin(context_arg *carg)
 	if (!write_req)
 	{
 		carglog(carg, L_ERROR, "process stdin write alloc failed for '%s'\n", carg->host);
-		uv_close((uv_handle_t*)&carg->child_stdin, NULL);
 		uv_process_kill(&carg->child_req, SIGTERM);
 		return;
 	}
@@ -208,7 +350,6 @@ static void process_feed_stdin(context_arg *carg)
 	{
 		carglog(carg, L_ERROR, "process uv_write stdin for '%s': %s\n", carg->host, uv_strerror(r));
 		free(write_req);
-		uv_close((uv_handle_t*)&carg->child_stdin, NULL);
 		uv_process_kill(&carg->child_req, SIGTERM);
 	}
 }
@@ -261,6 +402,13 @@ void process_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
+	/* Never free a process context while libuv child/pipe handles are active. */
+	if (carg->lock || carg->process_release_scheduled)
+	{
+		carg->remove_from_hash = 1;
+		return;
+	}
+
 	// if not in callback
 	if (carg->remove_from_hash)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
@@ -276,6 +424,9 @@ void on_process_spawn(void* arg)
 	context_arg *carg = arg;
 	if (carg->lock)
 		return;
+	/* Previous child/pipe handles are still in close pipeline. */
+	if (carg->process_release_scheduled)
+		return;
 	if (cluster_come_later(carg))
 		return;
 
@@ -289,6 +440,8 @@ void on_process_spawn(void* arg)
 
 	carg->lock = 1;
 	carg->parser_status = 0;
+	carg->process_release_scheduled = 0;
+	carg->process_released = 0;
 
 	int r;
 	uv_process_t *child_req = &carg->child_req;
@@ -316,8 +469,11 @@ void on_process_spawn(void* arg)
 	if (!carg->args[0])
 	{
 		carglog(carg, L_ERROR, "failed to duplicate exec shell for '%s'\n", carg->host);
-		uv_close((uv_handle_t*)stdin_pipe, NULL);
-		uv_close((uv_handle_t*)channel, NULL);
+		carg->process_release_scheduled = 1;
+		carg->process_released = PROCESS_RELEASE_CHILD;
+		process_close_or_released(carg, (uv_handle_t *)stdin_pipe, PROCESS_RELEASE_STDIN);
+		process_close_or_released(carg, (uv_handle_t *)channel, PROCESS_RELEASE_CHANNEL);
+		process_try_release(carg);
 		carg->lock = 0;
 		return;
 	}
@@ -333,9 +489,7 @@ void on_process_spawn(void* arg)
 	r = uv_spawn(carg->loop, child_req, options);
 	if (r) {
 		carglog(carg, L_ERROR, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
-		uv_close((uv_handle_t*)stdin_pipe, NULL);
-		uv_close((uv_handle_t*)channel, NULL);
-		_on_exit(child_req, 0, 0);
+		process_spawn_failed(carg, stdin_pipe, channel);
 	}
 	else
 	{

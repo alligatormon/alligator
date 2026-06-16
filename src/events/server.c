@@ -18,10 +18,14 @@ extern aconf *ac;
 static void tcp_server_http_idle_cb(uv_timer_t *handle);
 static void tcp_server_http_idle_arm(context_arg *carg);
 static void tcp_server_http_idle_stop(context_arg *carg);
+static void tcp_server_deferred_release_closed(uv_handle_t *handle);
+static void tcp_server_deferred_release(uv_timer_t *timer);
+static void tcp_server_release_client(context_arg *carg);
 static void tcp_server_write_complete(context_arg *carg, int status);
 static int tcp_server_try_dispatch(context_arg *carg);
 void tcp_server_written(uv_write_t *req, int status);
 void tls_server_written(uv_write_t *req, int status);
+void tcp_server_shutdown_client(uv_shutdown_t *req, int status);
 
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
 #define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
@@ -130,11 +134,10 @@ static int tcp_server_try_dispatch(context_arg *carg)
 	return 1;
 }
 
-void tcp_server_closed_client(uv_handle_t* handle)
+static void tcp_server_release_client(context_arg *carg)
 {
-	context_arg *carg = handle->data;
 	context_arg *srv_carg = carg->srv_carg;
-	tcp_server_http_idle_stop(carg);
+
 	carglog(carg, L_INFO, "%"u64": tcp server closed client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->close_counter)++;
 	carg->close_time_finish = setrtime();
@@ -155,7 +158,56 @@ void tcp_server_closed_client(uv_handle_t* handle)
 		carg->buffer_request_size = carg->full_body->m;
 		string_free(carg->full_body);
 	}
+
+	carg_uv_detach_timers(carg);
 	free(carg);
+}
+
+static void tcp_server_deferred_release(uv_timer_t *timer)
+{
+	/* Closing-handle callbacks run after pending callbacks. */
+	uv_close((uv_handle_t *)timer, tcp_server_deferred_release_closed);
+}
+
+static void tcp_server_deferred_release_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle ? handle->data : NULL;
+
+	free(handle);
+	if (carg)
+		tcp_server_release_client(carg);
+}
+
+void tcp_server_closed_client(uv_handle_t* handle)
+{
+	context_arg *carg = handle->data;
+
+	if (!carg)
+		return;
+
+	/* Detach before libuv finishes closing the embedded uv_tcp_t; free later. */
+	handle->data = NULL;
+	tcp_server_http_idle_stop(carg);
+
+	if (!carg->loop)
+	{
+		tcp_server_release_client(carg);
+		return;
+	}
+
+	{
+		uv_timer_t *defer = malloc(sizeof(*defer));
+
+		if (!defer)
+		{
+			tcp_server_release_client(carg);
+			return;
+		}
+
+		uv_timer_init(carg->loop, defer);
+		defer->data = carg;
+		uv_timer_start(defer, tcp_server_deferred_release, 0, 0);
+	}
 }
 
 
@@ -185,6 +237,19 @@ void tcp_server_close_client(context_arg* carg)
 }
 
 
+static void tcp_server_begin_shutdown(context_arg *carg)
+{
+	if (!carg || uv_is_closing((uv_handle_t *)&carg->client))
+		return;
+	if (carg->shutdown_time.sec || carg->shutdown_time.nsec)
+		return;
+
+	carg->shutdown_req.data = carg;
+	carg->shutdown_time = setrtime();
+	if (uv_shutdown(&carg->shutdown_req, (uv_stream_t *)&carg->client, tcp_server_shutdown_client))
+		tcp_server_close_client(carg);
+}
+
 void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
@@ -203,6 +268,10 @@ void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 static void tcp_server_http_idle_cb(uv_timer_t *handle)
 {
 	context_arg *carg = handle->data;
+
+	if (!carg)
+		return;
+
 	carglog(carg, L_INFO, "%"u64": http idle timeout, closing client %p\n", carg->count++, carg);
 	tcp_server_close_client(carg);
 }
@@ -223,20 +292,23 @@ static void tcp_server_http_idle_arm(context_arg *carg)
 	if (!sec)
 		sec = HTTP_ENTRYPOINT_IDLE_TIMEOUT_DEFAULT_SEC;
 
-	if (!carg->http_idle_timer_active)
+	if (!carg->http_idle_timer)
 	{
-		uv_timer_init(carg->loop, &carg->http_idle_timer);
-		carg->http_idle_timer.data = carg;
+		carg->http_idle_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		if (!carg->http_idle_timer)
+			return;
+		uv_timer_init(carg->loop, carg->http_idle_timer);
+		carg->http_idle_timer->data = carg;
 		carg->http_idle_timer_active = 1;
 	}
 
-	uv_timer_start(&carg->http_idle_timer, tcp_server_http_idle_cb, (uint64_t)sec * 1000, 0);
+	uv_timer_start(carg->http_idle_timer, tcp_server_http_idle_cb, (uint64_t)sec * 1000, 0);
 }
 
 static void tcp_server_http_idle_stop(context_arg *carg)
 {
-	if (carg && carg->http_idle_timer_active)
-		uv_timer_stop(&carg->http_idle_timer);
+	if (carg && carg->http_idle_timer_active && carg->http_idle_timer)
+		uv_timer_stop(carg->http_idle_timer);
 }
 
 static void tcp_server_write_complete(context_arg *carg, int status)
@@ -251,9 +323,7 @@ static void tcp_server_write_complete(context_arg *carg, int status)
 		if (http_entrypoint_should_shutdown(carg, status))
 		{
 			carglog(carg, L_INFO, "%"u64": tcp server call shutdown http client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
-			carg->shutdown_req.data = carg;
-			carg->shutdown_time = setrtime();
-			uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
+			tcp_server_begin_shutdown(carg);
 		}
 		else
 		{
@@ -358,9 +428,7 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		return;
 	else if (nread == UV_EOF)
 	{
-		carg->shutdown_req.data = carg;
-		carg->shutdown_time = setrtime();
-		uv_shutdown(&carg->shutdown_req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client);
+		tcp_server_begin_shutdown(carg);
 		return;
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
@@ -428,33 +496,15 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			int need_shutdown = tls_io_check_shutdown_need(carg, err, read_size);
 			if (need_shutdown == 1) {
 				do_tls_shutdown(carg, carg->ssl);
-				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
-				req->data = carg;
-				if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
-				{
-					free(req);
-					tcp_server_close_client(carg);
-				}
+				tcp_server_begin_shutdown(carg);
 			} else if (need_shutdown == -1) {
-				uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
-				req->data = carg;
-				if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
-				{
-					free(req);
-					tcp_server_close_client(carg);
-				}
+				tcp_server_begin_shutdown(carg);
 			}
 		}
 		string_free(buffer);
 	}
 	else {
-		uv_shutdown_t* req = (uv_shutdown_t*)malloc(sizeof(uv_shutdown_t));
-		req->data = carg;
-		if (uv_shutdown(req, (uv_stream_t*)&carg->client, tcp_server_shutdown_client))
-		{
-			free(req);
-			tcp_server_close_client(carg);
-		}
+		tcp_server_begin_shutdown(carg);
 	}
 }
 
@@ -487,11 +537,15 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	carg->client.data = carg;
 	carg->curr_ttl = carg->ttl;
 
-	if (uv_tcp_nodelay(&carg->client, 1))
+	if (uv_tcp_nodelay(&carg->client, 1)) {
 		tcp_server_close_client(carg);
+		return;
+	}
 
-	if (uv_accept(stream, (uv_stream_t*)&carg->client))
+	if (uv_accept(stream, (uv_stream_t*)&carg->client)) {
 		tcp_server_close_client(carg);
+		return;
+	}
 
 	if (!check_ip_port((uv_tcp_t*)&carg->client, carg))
 	{
@@ -501,6 +555,10 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	}
 
 	carg->read_time = setrtime();
+	carg->shutdown_time = (r_time){0, 0};
+	carg->shutdown_time_finish = (r_time){0, 0};
+	carg->close_time = (r_time){0, 0};
+	carg->close_time_finish = (r_time){0, 0};
 	carg->http_write_pending = 0;
 	carg->http_close_after_response = 1;
 	http_entrypoint_reset_request_state(carg);
@@ -510,13 +568,17 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 		server_tcp_create_tls_client(carg);
 		//do_tls_handshake_server(carg);
 
-		if (uv_read_start((uv_stream_t*)&carg->client, tls_server_alloc, tls_server_read))
+		if (uv_read_start((uv_stream_t*)&carg->client, tls_server_alloc, tls_server_read)) {
 			tcp_server_close_client(carg);
+			return;
+		}
 	}
 	else
 	{
-		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_read))
+		if (uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_server_read)) {
 			tcp_server_close_client(carg);
+			return;
+		}
 	}
 }
 
