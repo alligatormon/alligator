@@ -35,6 +35,57 @@ static void process_deferred_finalize_closed(uv_handle_t *handle);
 static void process_deferred_finalize(uv_timer_t *timer);
 void process_client_del(context_arg *carg);
 
+static const char *process_parser_name(context_arg *carg)
+{
+	if (carg && carg->parser_name && carg->parser_name[0])
+		return carg->parser_name;
+	return "-";
+}
+
+static size_t process_body_line_count(const char *s, size_t len)
+{
+	size_t lines = 0;
+
+	if (!s || !len)
+		return 0;
+
+	for (size_t i = 0; i < len; i++)
+		if (s[i] == '\n')
+			lines++;
+
+	return lines;
+}
+
+static uint64_t process_wait_ms(context_arg *carg)
+{
+	if (!carg)
+		return 0;
+
+	r_time now = setrtime();
+	return getrtime_mcs(carg->read_time, now, 0) / 1000;
+}
+
+static void process_log_body_snapshot(context_arg *carg, const char *stage)
+{
+	size_t body_len = (carg && carg->full_body) ? carg->full_body->l : 0;
+	size_t body_cap = (carg && carg->full_body) ? carg->full_body->m : 0;
+	size_t lines = (carg && carg->full_body) ? process_body_line_count(carg->full_body->s, body_len) : 0;
+
+	carglog(carg, L_INFO,
+		"process %s key=%s parser=%s pid=%d reads=%" PRIu64 " body=%zu/%zu lines=%zu parsed=%d exit_parsed=%d body_at_exit=%zu\n",
+		stage,
+		carg && carg->key ? carg->key : "-",
+		process_parser_name(carg),
+		(carg && carg->child_req.pid) ? carg->child_req.pid : 0,
+		carg ? carg->read_counter : 0,
+		body_len,
+		body_cap,
+		lines,
+		carg ? carg->parsed : 0,
+		carg ? carg->process_exit_parsed : 0,
+		carg ? carg->process_body_at_exit : 0);
+}
+
 static void process_finalize(context_arg *carg)
 {
 	carglog(carg, L_INFO, "run process finalize %p with cmd %s\n", carg, carg->host);
@@ -155,6 +206,9 @@ static void process_spawn_failed(context_arg *carg, uv_pipe_t *stdin_pipe, uv_pi
 	if (!carg)
 		return;
 
+	carglog(carg, L_WARN, "process spawn failed key=%s parser=%s host=%s\n",
+		carg->key ? carg->key : "-", process_parser_name(carg), carg->host ? carg->host : "-");
+
 	carg->lock = 0;
 	carg->process_release_scheduled = 1;
 	carg->process_released = PROCESS_RELEASE_CHILD;
@@ -164,20 +218,46 @@ static void process_spawn_failed(context_arg *carg, uv_pipe_t *stdin_pipe, uv_pi
 	process_try_release(carg);
 }
 
+static void process_parse_stdout(context_arg *carg, const char *when)
+{
+	if (!carg || carg->parsed || !carg->parser_handler)
+		return;
+	if (!carg->full_body || !carg->full_body->l)
+		return;
+
+	process_log_body_snapshot(carg, when);
+	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+}
+
 void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg *carg = server->data;
 	carglog(carg, L_DEBUG, "Process %p with pid %d with cmd %s read %zd bytes\n", &carg->child_req, carg->child_req.pid, carg->host, nread);
 
-	if (nread == -1)
+	if (nread == UV_EOF)
 	{
-		carglog(carg, L_ERROR, "error echo_read");
+		carglog(carg, L_INFO,
+			"process lifecycle stop key=%s parser=%s pid=%d reason=stdout_eof wait_ms=%" PRIu64 " reads=%" PRIu64 " body=%zu\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			carg->child_req.pid,
+			process_wait_ms(carg),
+			carg->read_counter,
+			carg->full_body ? carg->full_body->l : 0);
+		process_log_body_snapshot(carg, "stdout EOF");
+		process_parse_stdout(carg, "stdout EOF parse");
 		free_buffer(carg, buf);
 		return;
 	}
 
 	if (nread < 0)
 	{
+		carglog(carg, L_WARN, "process stdout read error key=%s parser=%s pid=%d nread=%zd err=%s\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			carg->child_req.pid,
+			nread,
+			uv_strerror((int)nread));
 		free_buffer(carg, buf);
 		return;
 	}
@@ -185,6 +265,18 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 	(carg->read_counter)++;
 
 	string_cat(carg->full_body, buf->base, nread);
+
+	if (carg->process_exit_parsed)
+	{
+		carglog(carg, L_WARN,
+			"process stdout read AFTER exit parse key=%s parser=%s pid=%d +%zd bytes total=%zu (had %zu at exit)\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			carg->child_req.pid,
+			nread,
+			carg->full_body ? carg->full_body->l : 0,
+			carg->process_body_at_exit);
+	}
 
 	free_buffer(carg, buf);
 
@@ -195,10 +287,30 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 {
 	context_arg *carg = req->data;
+	const char *exit_reason = term_signal ? "signal" : "status";
 
 	carglog(carg, L_INFO, "Process %p with pid %d with cmd %s exited with status %" PRId64 ", signal %d\n", req, req->pid, carg->host, exit_status, term_signal);
+	carglog(carg, L_INFO,
+		"process lifecycle exit key=%s parser=%s pid=%d reason=%s wait_ms=%" PRIu64 " timeouts=%" PRIu64 " status=%" PRId64 " signal=%d parsed=%d\n",
+		carg->key ? carg->key : "-",
+		process_parser_name(carg),
+		req->pid,
+		exit_reason,
+		process_wait_ms(carg),
+		carg->timeout_counter,
+		exit_status,
+		term_signal,
+		carg->parsed);
 
-	alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+	process_log_body_snapshot(carg, "exit parse before");
+	carg->process_body_at_exit = carg->full_body ? carg->full_body->l : 0;
+	if (!carg->parsed && carg->full_body && carg->full_body->l && carg->parser_handler)
+		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+	else
+		carglog(carg, L_INFO, "process exit parse skipped key=%s parser=%s (already parsed)\n",
+			carg->key ? carg->key : "-", process_parser_name(carg));
+	carg->process_exit_parsed = 1;
+	process_log_body_snapshot(carg, "exit parse after");
 	string_null(carg->full_body);
 
 	carg->read_time_finish = setrtime();
@@ -253,11 +365,29 @@ void timeout_exec_sentinel(uv_timer_t* timer) {
 		return;
 	}
 
-	carglog(carg, L_INFO, "%"u64": timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
+	process_log_body_snapshot(carg, "exec timeout before parse");
+	carglog(carg, L_WARN, "process exec timeout key=%s parser=%s host=%s pid=%d timeout_ms=%" PRIu64 " parsed=%d\n",
+		carg->key ? carg->key : "-",
+		process_parser_name(carg),
+		carg->host ? carg->host : "-",
+		carg->child_req.pid,
+		carg->timeout,
+		carg->parsed);
+	carglog(carg, L_WARN,
+		"process lifecycle stop key=%s parser=%s pid=%d reason=timeout wait_ms=%" PRIu64 " timeout_ms=%" PRIu64 " reads=%" PRIu64 " body=%zu\n",
+		carg->key ? carg->key : "-",
+		process_parser_name(carg),
+		carg->child_req.pid,
+		process_wait_ms(carg),
+		carg->timeout,
+		carg->read_counter,
+		carg->full_body ? carg->full_body->l : 0);
 
 	if (!carg->parsed)
 		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+	process_log_body_snapshot(carg, "exec timeout after parse");
 
 	int err = uv_process_kill(&carg->child_req, SIGTERM);
 	if (err)
@@ -329,6 +459,20 @@ static void process_stdin_write_cb(uv_write_t *req, int status)
 
 	if (status < 0)
 		carglog(carg, L_ERROR, "process stdin write for '%s': %s\n", carg->host, uv_strerror(status));
+	else
+		carglog(carg, L_DEBUG, "process stdin write completed for '%s', closing stdin pipe\n", carg->host);
+
+	/* /bin/sh -s waits for EOF on stdin; close pipe after script write. */
+	if (!uv_is_closing((uv_handle_t *)&carg->child_stdin))
+	{
+		carglog(carg, L_INFO,
+			"process lifecycle stop key=%s parser=%s pid=%d reason=stdin_eof_sent wait_ms=%" PRIu64 "\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			carg->child_req.pid,
+			process_wait_ms(carg));
+		uv_close((uv_handle_t *)&carg->child_stdin, process_uv_handle_closed);
+	}
 
 	free(req);
 }
@@ -442,6 +586,8 @@ void on_process_spawn(void* arg)
 	carg->parser_status = 0;
 	carg->process_release_scheduled = 0;
 	carg->process_released = 0;
+	carg->process_exit_parsed = 0;
+	carg->process_body_at_exit = 0;
 
 	int r;
 	uv_process_t *child_req = &carg->child_req;
@@ -493,6 +639,20 @@ void on_process_spawn(void* arg)
 	}
 	else
 	{
+		carglog(carg, L_INFO, "process spawned key=%s parser=%s host=%s pid=%d timeout_ms=%" PRIu64 "\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			carg->host ? carg->host : "-",
+			child_req->pid,
+			carg->timeout);
+		carglog(carg, L_INFO,
+			"process lifecycle start key=%s parser=%s pid=%d state=wait timeout_ms=%" PRIu64 " period_ms=%" PRIu64 "\n",
+			carg->key ? carg->key : "-",
+			process_parser_name(carg),
+			child_req->pid,
+			carg->timeout,
+			carg->period);
+
 		process_feed_stdin(carg);
 		uv_read_start((uv_stream_t*)channel, alloc_buffer, echo_read);
 

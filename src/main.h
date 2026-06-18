@@ -263,7 +263,9 @@ typedef struct aconf
 	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
 	int log_socket;
 	int log_form;
+	int log_time;
 	char *log_dest;
+	char *log_time_format;
 	char *log_host;
 	int log_port;
 	int update_log_dest;

@@ -107,6 +107,7 @@ typedef struct context_arg
 	//int8_t expect_json;
 	uint64_t expect_body_length;
 	uint8_t no_exit_status;
+	uint8_t no_exec_timeout;
 	int64_t chunked_expect;
 	char *chunked_ptr;
 	int8_t (*expect_function)(struct context_arg*, char *, size_t);
@@ -143,6 +144,9 @@ typedef struct context_arg
 	/* Deferred free after uv_spawn pipes/process handles finish closing. */
 	uint8_t process_release_scheduled;
 	uint8_t process_released;
+	/* Diagnostic: set after _on_exit parses stdout (process.c). */
+	uint8_t process_exit_parsed;
+	size_t process_body_at_exit;
 
 	char *lang;
 

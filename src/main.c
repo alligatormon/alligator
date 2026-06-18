@@ -163,6 +163,8 @@ aconf* configuration()
 	tcp_server_initialize();
 
 	ac->log_level = 0;
+	ac->log_time = 0;
+	ac->log_time_format = NULL;
 	ac->ttl = 300;
 	ac->persistence_period = 10000;
 

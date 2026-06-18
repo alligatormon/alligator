@@ -14,6 +14,7 @@ void main_free()
 		free(ac->cadvisor_carg);
 	free(ac->log_host);
 	free(ac->log_dest);
+	free(ac->log_time_format);
 	free(ac->process_shell);
 
 	alligator_ht_done(ac->tcp_server_handler);

@@ -124,6 +124,27 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					ac->log_form = FORM_SYSLOG;
 				}
 			}
+			if (!strcmp(key, "log_time"))
+			{
+				if (json_is_true(value))
+					ac->log_time = 1;
+				else if (json_is_false(value))
+					ac->log_time = 0;
+				else if (json_typeof(value) == JSON_INTEGER)
+					ac->log_time = json_integer_value(value) != 0;
+				else if (json_typeof(value) == JSON_STRING)
+				{
+					const char *v = json_string_value(value);
+					ac->log_time = !strcasecmp(v, "on") || !strcasecmp(v, "true") ||
+					    !strcasecmp(v, "yes") || !strcmp(v, "1");
+				}
+			}
+			if (!strcmp(key, "log_time_format"))
+			{
+				if (ac->log_time_format)
+					free(ac->log_time_format);
+				ac->log_time_format = strdup(json_string_value(value));
+			}
 			if (!strcmp(key, "aggregate_period"))
 			{
 				uint64_t aggregator_repeat;
@@ -180,6 +201,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					ac->ttl = get_sec_from_human_range(json_string_value(value), json_string_length(value));
 				else
 					ac->ttl = json_integer_value(value);
+				if (ac->system_carg && ac->ttl > 0)
+				{
+					ac->system_carg->ttl = ac->ttl;
+					if (ac->system_carg->ttl < 600)
+						ac->system_carg->ttl = 600;
+				}
 			}
 			if (!strcmp(key, "workers"))
 			{

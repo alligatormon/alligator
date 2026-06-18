@@ -7,6 +7,7 @@
 #include "common/http.h"
 #include "common/http_entrypoint.h"
 #include "router/router.h"
+#include "common/logs.h"
 #define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define OPTIONS_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nAllow: OPTIONS, GET, PUT, POST\r\n"
@@ -20,6 +21,23 @@ typedef struct prometheus_metrics_body_ctx {
 	string *body;
 	int openmetrics;
 } prometheus_metrics_body_ctx;
+
+static const char *http_method_str(uint8_t method)
+{
+	switch (method) {
+	case HTTP_METHOD_GET: return "GET";
+	case HTTP_METHOD_POST: return "POST";
+	case HTTP_METHOD_PUT: return "PUT";
+	case HTTP_METHOD_DELETE: return "DELETE";
+	case HTTP_METHOD_OPTIONS: return "OPTIONS";
+	case HTTP_METHOD_HEAD: return "HEAD";
+	case HTTP_METHOD_CONNECT: return "CONNECT";
+	case HTTP_METHOD_TRACE: return "TRACE";
+	case HTTP_METHOD_PATCH: return "PATCH";
+	case HTTP_METHOD_RESPONSE: return "RESPONSE";
+	default: return "UNKNOWN";
+	}
+}
 
 static char* find_sep(const char *buf, size_t len, const char *sep, size_t sep_len)
 {
@@ -40,7 +58,10 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 {
 	char *body = http_data->body;
 	char *uri = http_data->uri;
-	extern aconf *ac;
+	size_t body_len = http_data->body_size;
+
+	if (!body_len && body)
+		body_len = strlen(body);
 
 	if (!strncmp(http_data->uri, "/api", 4))
 	{
@@ -60,10 +81,22 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 	}
 	else
 	{
-		if (ac->log_level > 2)
-			printf("Query: %s\n", uri);
-		if (ac->log_level > 10)
-			printf("get metrics from body:\n%s\n", body);
+		carg_or_glog(carg, L_DEBUG,
+			"http push metrics: method=%s uri=%s content_length=%" PRId64 " body_size=%zu key=%s parser=%s pquery=%u host=%s\n",
+			http_method_str(http_data->method),
+			uri ? uri : "-",
+			http_data->content_length,
+			body_len,
+			carg && carg->key ? carg->key : "-",
+			carg && carg->parser_name ? carg->parser_name : "-",
+			carg ? (unsigned)carg->pquery_size : 0u,
+			carg && carg->host[0] ? carg->host : "-");
+		if (body && body_len)
+			carg_or_glog(carg, L_TRACE,
+				"http push metrics body (%zu bytes, preview up to 4096):\n%.*s\n",
+				body_len,
+				(int)(body_len > 4096 ? 4096 : body_len),
+				body);
 		multicollector(http_data, NULL, 0, carg);
 		string_cat(response, HANDLER_202, strlen(HANDLER_202));
 
@@ -75,8 +108,6 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 
 void do_http_options(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
-	extern aconf *ac;
-
 	string_cat(response, OPTIONS_ANSWER, strlen(OPTIONS_ANSWER));
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
@@ -85,8 +116,6 @@ void do_http_options(char *buf, size_t len, string *response, http_reply_data* h
 
 void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
-	extern aconf *ac;
-
 	string_cat(response, METHOD_NOT_ALLOWED, strlen(METHOD_NOT_ALLOWED));
 	if (carg->env)
 		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
@@ -95,8 +124,6 @@ void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_dat
 
 void do_http_delete(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
-	extern aconf *ac;
-
 	if (!strncmp(http_data->uri, "/api", 4))
 		api_router(response, http_data, carg);
 	else {

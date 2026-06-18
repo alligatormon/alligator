@@ -223,7 +223,7 @@ void carg_uv_detach_timers(context_arg *carg)
 
 	/* Embedded timers (on-stack inside context_arg); don't uv_close to avoid
 	 * use-after-free when the context is freed. */
-	if (!uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
+	if (carg->resolver_timer.loop && !uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
 		uv_timer_stop(&carg->resolver_timer);
 	}
 	carg->resolver_timer.data = NULL;
@@ -641,9 +641,17 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->tls_ca_file = strdup(str_ca);
 
 	json_t *json_timeout = json_object_get(root, "timeout");
-	int64_t int_timeout = json_integer_value(json_timeout);
-	if (json_timeout)
-		carg->timeout = int_timeout;
+	if (json_timeout) {
+		int64_t v = 0;
+		int t = json_typeof(json_timeout);
+		if (t == JSON_STRING)
+			v = get_ms_from_human_range(json_string_value(json_timeout), json_string_length(json_timeout));
+		else if (t == JSON_REAL)
+			v = (int64_t)json_real_value(json_timeout);
+		else
+			v = json_integer_value(json_timeout);
+		carg->timeout = v;
+	}
 
 	json_t *json_ttl = json_object_get(root, "ttl");
 	if (json_ttl) {

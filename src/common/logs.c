@@ -5,11 +5,44 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+#include <time.h>
 #include "common/logs.h"
 
 #include "main.h"
 
 extern aconf *ac;
+
+static void log_write_timestamp_prefix(void)
+{
+	struct timeval tv;
+	time_t sec;
+	struct tm tm_now;
+	char ts[128];
+	const char *fmt;
+
+	if (!ac || !ac->log_time)
+		return;
+
+	if (gettimeofday(&tv, NULL) != 0)
+		return;
+
+	sec = tv.tv_sec;
+#if defined(_WIN32)
+	localtime_s(&tm_now, &sec);
+#else
+	localtime_r(&sec, &tm_now);
+#endif
+
+	fmt = (ac->log_time_format && ac->log_time_format[0]) ? ac->log_time_format : "%Y-%m-%d %H:%M:%S";
+	if (!strftime(ts, sizeof(ts), fmt, &tm_now))
+		return;
+
+	if (ac->log_time_format && ac->log_time_format[0])
+		dprintf(ac->log_socket, "%s ", ts);
+	else
+		dprintf(ac->log_socket, "%s.%03ld ", ts, tv.tv_usec / 1000);
+}
 
 uint64_t get_log_level_by_name(const char *val, size_t len) {
 	uint64_t level = L_OFF;
@@ -119,6 +152,7 @@ void wrlog(int level, int priority, const char *format, va_list args)
 {
 	if(level >= priority)
 	{
+		log_write_timestamp_prefix();
 		vdprintf(ac->log_socket, format, args);
 	}
 }
