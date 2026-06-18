@@ -207,7 +207,7 @@ static void process_spawn_failed(context_arg *carg, uv_pipe_t *stdin_pipe, uv_pi
 		return;
 
 	carglog(carg, L_WARN, "process spawn failed key=%s parser=%s host=%s\n",
-		carg->key ? carg->key : "-", process_parser_name(carg), carg->host ? carg->host : "-");
+		carg->key ? carg->key : "-", process_parser_name(carg), carg->host[0] ? carg->host : "-");
 
 	carg->lock = 0;
 	carg->process_release_scheduled = 1;
@@ -370,7 +370,7 @@ void timeout_exec_sentinel(uv_timer_t* timer) {
 	carglog(carg, L_WARN, "process exec timeout key=%s parser=%s host=%s pid=%d timeout_ms=%" PRIu64 " parsed=%d\n",
 		carg->key ? carg->key : "-",
 		process_parser_name(carg),
-		carg->host ? carg->host : "-",
+		carg->host[0] ? carg->host : "-",
 		carg->child_req.pid,
 		carg->timeout,
 		carg->parsed);
@@ -642,7 +642,7 @@ void on_process_spawn(void* arg)
 		carglog(carg, L_INFO, "process spawned key=%s parser=%s host=%s pid=%d timeout_ms=%" PRIu64 "\n",
 			carg->key ? carg->key : "-",
 			process_parser_name(carg),
-			carg->host ? carg->host : "-",
+			carg->host[0] ? carg->host : "-",
 			child_req->pid,
 			carg->timeout);
 		carglog(carg, L_INFO,
