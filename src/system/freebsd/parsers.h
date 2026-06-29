@@ -7,7 +7,6 @@ void get_distribution_name(void);
 void get_utmp_info(void);
 void get_memory_usage_hw(void);
 void get_memory_usage_cgroup(void);
-void get_open_files_system(void);
 void get_proc_interrupts(int extended_mode);
 void get_thermal(void);
 

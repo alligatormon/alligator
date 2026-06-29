@@ -127,26 +127,6 @@ static double cp_ticks_to_seconds(uint64_t ticks)
 	return (double)ticks / (double)clock_stathz();
 }
 
-void get_swap()
-{
-	struct kvm_swap swap;
-	kvm_t *kd;
-	int64_t totalswap, usedswap, availswap;
-
-	kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
-	if (!kd)
-		return;
-	kvm_getswapinfo(kd, &swap, 1, 0);
-	totalswap = swap.ksw_total;
-	usedswap = swap.ksw_used;
-	totalswap *= getpagesize() / 1024;
-	usedswap *= getpagesize() / 1024;
-	availswap = totalswap - usedswap;
-	metric_add_labels("swap_usage", &usedswap, DATATYPE_INT, ac->system_carg, "type", "usage");
-	metric_add_labels("swap_usage", &totalswap, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("swap_usage", &availswap, DATATYPE_INT, ac->system_carg, "type", "avail");
-	kvm_close(kd);
-}
 void get_disk()
 {
 	struct statfs* mounts;
@@ -646,21 +626,6 @@ void get_iface_statistics()
 		metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_colls");
 		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
 
-		metric_add_labels2("interface_stats", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_bytes");
-		metric_add_labels2("interface_stats", &obytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_bytes");
-		metric_add_labels2("interface_stats", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_packets");
-		metric_add_labels2("interface_stats", &opackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_packets");
-		metric_add_labels2("interface_stats", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_err");
-		metric_add_labels2("interface_stats", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_err");
-		metric_add_labels2("interface_stats", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_drop");
-# if __FreeBSD__ > 10
-		metric_add_labels2("interface_stats", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_drop");
-# endif
-		metric_add_labels2("interface_stats", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_multicast");
-		metric_add_labels2("interface_stats", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_multicast");
-		metric_add_labels2("interface_stats", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_colls");
-		metric_add_labels2("interface_stats", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
-
 		if (ifd->ifi_baudrate > 0) {
 			int64_t speed = (int64_t)ifd->ifi_baudrate;
 			metric_add_labels("if_speed", &speed, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
@@ -807,7 +772,6 @@ void get_system_metrics()
 	{
 		int8_t platform;
 
-		get_swap();
 		get_mem();
 		get_vmstat();
 		ipaddr_info();
@@ -819,7 +783,6 @@ void get_system_metrics()
 		get_memory_usage_hw();
 		get_memory_usage_cgroup();
 		get_utmp_info();
-		get_open_files_system();
 		get_thermal();
 		get_proc_interrupts(ac->system_interrupts);
 	}

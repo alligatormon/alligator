@@ -41,7 +41,7 @@ static void log_write_timestamp_prefix(void)
 	if (ac->log_time_format && ac->log_time_format[0])
 		dprintf(ac->log_socket, "%s ", ts);
 	else
-		dprintf(ac->log_socket, "%s.%03ld ", ts, tv.tv_usec / 1000);
+		dprintf(ac->log_socket, "%s.%03d ", ts, (int)(tv.tv_usec / 1000));
 }
 
 uint64_t get_log_level_by_name(const char *val, size_t len) {

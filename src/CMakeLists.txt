@@ -366,6 +366,13 @@ set(STATIC_FILES
 	system/freebsd/process.c
 	system/freebsd/base.c
 	system/macosx.c
+	system/macosx/sysctl.c
+	system/macosx/services.c
+	system/macosx/process.c
+	system/macosx/base.c
+	system/macosx/network.c
+	system/macosx/sockets.c
+	system/macosx/disk.c
 	system/smbios.c
 	system/linux.c
 	system/linux/ipmi.c
@@ -440,8 +447,18 @@ set(_FREEBSD_SYSTEM_SOURCES
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 	list(REMOVE_ITEM STATIC_FILES ${_FREEBSD_SYSTEM_SOURCES})
 endif()
+set(_DARWIN_SYSTEM_SOURCES
+	system/macosx.c
+	system/macosx/sysctl.c
+	system/macosx/services.c
+	system/macosx/process.c
+	system/macosx/base.c
+	system/macosx/network.c
+	system/macosx/sockets.c
+	system/macosx/disk.c
+)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	list(REMOVE_ITEM STATIC_FILES system/macosx.c)
+	list(REMOVE_ITEM STATIC_FILES ${_DARWIN_SYSTEM_SOURCES})
 endif()
 
 message("found ${SYSTEMD_FOUND}.${SYSTEMD_VERSION}")
@@ -498,6 +515,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_compile_definitions(${COMMON} PRIVATE _DARWIN_C_SOURCE)
 endif()
 target_link_libraries(${COMMON} PUBLIC ${ALLIGATOR_COMMON_LIBS})
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_link_libraries(${COMMON} PUBLIC "-framework IOKit" "-framework CoreFoundation")
+endif()
 add_executable(${HEAD} main.c)
 configure_file(alligator_template.h ${CMAKE_SOURCE_DIR}/alligator_version.h)
 
@@ -506,6 +526,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_compile_definitions(${COMMON_TESTS} PRIVATE _DARWIN_C_SOURCE)
 endif()
 target_link_libraries(${COMMON_TESTS} PUBLIC ${ALLIGATOR_COMMON_LIBS})
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_link_libraries(${COMMON_TESTS} PUBLIC "-framework IOKit" "-framework CoreFoundation")
+endif()
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_executable(${TESTS} tests/unit2/tests.c)

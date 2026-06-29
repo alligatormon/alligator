@@ -298,15 +298,6 @@ void get_memory_usage_cgroup(void)
 	}
 }
 
-void get_open_files_system(void)
-{
-	uint64_t open_files = 0;
-	size_t sz = sizeof(open_files);
-
-	if (sysctlbyname("kern.openfiles", &open_files, &sz, NULL, 0) == 0)
-		metric_add_auto("open_files_system", &open_files, DATATYPE_UINT, ac->system_carg);
-}
-
 void get_proc_interrupts(int extended_mode)
 {
 	int ncpu = 0;

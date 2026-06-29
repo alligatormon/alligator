@@ -24,14 +24,13 @@
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <ifaddrs.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/storage/IOBlockStorageDriver.h>
 
 #include "metric/labels.h"
 #include "main.h"
 #include "common/rtime.h"
 #include "system/common.h"
+#include "system/macosx/parsers.h"
+#include "system/macosx/sysctl.h"
 
 extern aconf *ac;
 
@@ -271,19 +270,6 @@ void get_cpu(void)
 	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
-void get_swap(void)
-{
-	struct xsw_usage vmusage = {0};
-	size_t size = sizeof(vmusage);
-
-	if (sysctlbyname("vm.swapusage", &vmusage, &size, NULL, 0) != 0)
-		return;
-
-	metric_add_labels("swap_usage", &vmusage.xsu_total, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("swap_usage", &vmusage.xsu_avail, DATATYPE_INT, ac->system_carg, "type", "avail");
-	metric_add_labels("swap_usage", &vmusage.xsu_used, DATATYPE_INT, ac->system_carg, "type", "used");
-}
-
 static int skip_mount(const char *path)
 {
 	return !strncmp(path, "/dev", 4)
@@ -468,6 +454,11 @@ void get_iface_statistics(void)
 		marker = 1;
 		metric_add_labels2("link_status", &marker, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "state", (char *)state);
 
+		{
+			int64_t if_up = (ifa->ifa_flags & IFF_UP) ? 1 : 0;
+			metric_add_labels("if_up", &if_up, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
+		}
+
 		ipackets = ifd->ifi_ipackets;
 		opackets = ifd->ifi_opackets;
 		ibytes = ifd->ifi_ibytes;
@@ -517,98 +508,44 @@ static void emit_uptime(void)
 	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
 }
 
-void get_proc_info(int8_t lightweight)
-{
-	int bufsize = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
-	pid_t *pids;
-	size_t num_pids;
-	int index;
-	uint64_t proc_count = 0;
-
-	if (bufsize <= 0)
-		return;
-
-	pids = malloc((size_t)bufsize);
-	if (!pids)
-		return;
-
-	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, bufsize);
-	num_pids = (size_t)bufsize / sizeof(pid_t);
-
-	for (index = 0; index < (int)num_pids; index++) {
-		struct proc_taskinfo task_info;
-		struct proc_bsdinfo proc;
-		pid_t pid = pids[index];
-		char pidstr[16];
-		double utime, stime, total_time;
-
-		if (pid <= 0)
-			continue;
-		proc_count++;
-
-		if (lightweight)
-			continue;
-
-		if (proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &task_info, PROC_PIDTASKINFO_SIZE) < 0)
-			continue;
-		if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE) < 0)
-			continue;
-
-		snprintf(pidstr, sizeof(pidstr), "%d", pid);
-		utime = (double)task_info.pti_total_user / 1e9;
-		stime = (double)task_info.pti_total_system / 1e9;
-		total_time = utime + stime;
-		metric_add_labels3("process_cpu_seconds_total", &utime, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "user");
-		metric_add_labels3("process_cpu_seconds_total", &stime, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "system");
-		metric_add_labels3("process_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "name", proc.pbi_name, "pid", pidstr, "mode", "total");
-
-		metric_add_labels2("process_memory", &task_info.pti_virtual_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "vsz");
-		metric_add_labels2("process_memory", &task_info.pti_resident_size, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "rss");
-		metric_add_labels2("process_stats", &task_info.pti_threadnum, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "threads");
-		metric_add_labels2("process_stats", &proc.pbi_status, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "status");
-		metric_add_labels2("process_stats", &proc.pbi_flags, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "flags");
-		metric_add_labels2("process_stats", &proc.pbi_nfiles, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "nfiles");
-		metric_add_labels2("process_stats", &task_info.pti_syscalls_unix, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "unix_syscall");
-		metric_add_labels2("process_stats", &task_info.pti_syscalls_mach, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "mach_syscall");
-		metric_add_labels2("process_stats", &task_info.pti_csw, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "context_switches");
-		metric_add_labels2("process_stats", &task_info.pti_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "faults");
-		metric_add_labels2("process_stats", &task_info.pti_cow_faults, DATATYPE_INT, ac->system_carg, "name", proc.pbi_name, "type", "cow_faults");
-	}
-
-	metric_add_auto("processes", &proc_count, DATATYPE_UINT, ac->system_carg);
-	{
-		uint64_t proc_max;
-		size_t proc_max_sz = sizeof(proc_max);
-		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
-			double proc_usage = proc_count * 100.0 / (double)proc_max;
-			metric_add_auto("processes_usage", &proc_usage, DATATYPE_DOUBLE, ac->system_carg);
-		}
-	}
-
-	free(pids);
-}
-
 void get_system_metrics(void)
 {
 	if (ac->system_base) {
-		get_swap();
+		int8_t platform;
+
 		get_mem();
 		get_vmstat();
 		emit_uptime();
 		ipaddr_info();
 		hw_cpu_info();
 		get_utsname();
+		platform = get_platform(1);
+		get_kernel_version(platform);
+		get_distribution_name();
+		get_memory_usage_hw();
 	}
 	if (ac->system_base && !ac->system_process)
 		get_proc_info(1);
-	if (ac->system_network)
+	if (ac->system_network) {
 		get_iface_statistics();
-	if (ac->system_disk)
+		get_network_statistics();
+		check_sockets_macos();
+	}
+	if (ac->system_disk) {
 		get_disk();
+		disk_io_stats();
+	}
 	if (ac->system_process)
 		get_proc_info(0);
 	if (ac->system_cpuavg)
 		get_cpu_avg();
+
+	if (ac->system_services || ac->system_services_process)
+		get_services();
+
+	get_pidfile_stats();
+	get_userprocess_stats();
+	sysctl_run(ac->system_sysctl);
 }
 
 void system_fast_scrape(void)
@@ -623,59 +560,8 @@ void system_slow_scrape(void)
 {
 	if (ac->system_base)
 		get_smbios();
-}
-
-void userprocess_push(alligator_ht *userprocess, char *user)
-{
-	(void)userprocess;
-	(void)user;
-}
-
-void userprocess_del(alligator_ht *userprocess, char *user)
-{
-	(void)userprocess;
-	(void)user;
-}
-
-void service_user_push(alligator_ht *service_users, char *user)
-{
-	(void)service_users;
-	(void)user;
-}
-
-void service_user_del(alligator_ht *service_users, char *user)
-{
-	(void)service_users;
-	(void)user;
-}
-
-void service_user_clear(alligator_ht *service_users)
-{
-	(void)service_users;
-}
-
-void pidfile_push(char *file, int type)
-{
-	(void)file;
-	(void)type;
-}
-
-void pidfile_del(char *file, int type)
-{
-	(void)file;
-	(void)type;
-}
-
-void sysctl_push(alligator_ht *sysctl, char *sysctl_name)
-{
-	(void)sysctl;
-	(void)sysctl_name;
-}
-
-void sysctl_del(alligator_ht *sysctl, char *sysctl_name)
-{
-	(void)sysctl;
-	(void)sysctl_name;
+	if (ac->system_disk)
+		disks_info();
 }
 
 void system_free(void)

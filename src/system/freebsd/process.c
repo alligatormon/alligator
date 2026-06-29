@@ -411,7 +411,6 @@ void get_proc_info(int8_t lightweight)
 		uint64_t proc_max;
 		size_t proc_max_sz = sizeof(proc_max);
 
-		metric_add_auto("processes", &proc_count, DATATYPE_UINT, ac->system_carg);
 		metric_add_auto("processes_total", &proc_count, DATATYPE_UINT, ac->system_carg);
 		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
 			double proc_usage = proc_count * 100.0 / (double)proc_max;
