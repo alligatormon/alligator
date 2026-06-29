@@ -537,6 +537,8 @@ void get_system_metrics(void)
 	}
 	if (ac->system_process)
 		get_proc_info(0);
+	if (ac->system_firewall)
+		bsd_firewall_collect();
 	if (ac->system_cpuavg)
 		get_cpu_avg();
 

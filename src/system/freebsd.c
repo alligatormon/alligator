@@ -807,6 +807,8 @@ void get_system_metrics()
 	}
 	if (ac->system_cadvisor)
 		get_jail_stat();
+	if (ac->system_firewall)
+		bsd_firewall_collect();
 	if (ac->system_cpuavg)
 		get_cpu_avg();
 

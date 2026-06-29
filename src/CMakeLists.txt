@@ -373,6 +373,7 @@ set(STATIC_FILES
 	system/macosx/network.c
 	system/macosx/sockets.c
 	system/macosx/disk.c
+	system/bsd/firewall.c
 	system/smbios.c
 	system/linux.c
 	system/linux/ipmi.c
