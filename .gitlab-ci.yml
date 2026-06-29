@@ -282,8 +282,7 @@ deploy_ubuntu1604:
     DEBIAN_FRONTEND: noninteractive
     TZ: Etc/UTC
   script:
-  - sed -i -e 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*
-  - sed -i -e 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*
+  - for f in /etc/apt/sources.list /etc/apt/sources.list.d/*; do test -f "$f" && sed -i -e 's/archive.ubuntu.com/old-releases.ubuntu.com/g' -e 's/security.ubuntu.com/old-releases.ubuntu.com/g' "$f"; done
   - apt update
   - apt -y install ca-certificates curl wget git make libtool rake gcc g++ libsystemd-dev libudev-dev clang pkg-config libvirt-dev smartmontools python3.6 python3.6-dev
   - apt -y install --only-upgrade m4 || true
