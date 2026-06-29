@@ -463,18 +463,6 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 			if (smbios->u.module.location)
 				metric_add_labels("baseboard_location", &okval, DATATYPE_UINT, ac->system_carg, "location", trim_whitespaces(str[smbios->u.module.location-1]));
 		}
-		else
-		{
-			metric_add_labels7("module_description", &okval, DATATYPE_UINT, ac->system_carg,
-				"manufacturer", smbios->u.module.manufacturer ? trim_whitespaces(str[smbios->u.module.manufacturer-1]) : "",
-				"type", get_baseboard_by_type(smbios->u.module.type),
-				"name", smbios->u.module.product_name ? trim_whitespaces(str[smbios->u.module.product_name-1]) : "",
-				"version", smbios->u.module.version ? trim_whitespaces(str[smbios->u.module.version-1]) : "",
-				"serial", smbios->u.module.serial_number ? trim_whitespaces(str[smbios->u.module.serial_number-1]) : "",
-				"tag", smbios->u.module.asset_tag ? trim_whitespaces(str[smbios->u.module.asset_tag-1]) : "",
-				"location", smbios->u.module.location ? trim_whitespaces(str[smbios->u.module.location-1]) : ""
-			);
-		}
 		break;
 	case 3:
 		if (smbios->u.chassis.manufacturer)
