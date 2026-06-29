@@ -182,6 +182,26 @@ void api_test_parser_wazuh()
     wazuh_logcollector_parser_json("{}", 2, carg, "wazuh-logcollector.state");
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
+    char *logcollector =
+        "{"
+        "\"global\":{"
+        "\"start\":\"2021-01-27 12:07:29\","
+        "\"end\":\"2021-01-27 12:09:29\","
+        "\"files\":[{\"location\":\"/var/log/secure\",\"events\":12853,\"bytes\":1646360,"
+        "\"targets\":[{\"name\":\"agent\",\"drops\":2808}]}]"
+        "},"
+        "\"interval\":{"
+        "\"start\":\"2021-01-27 12:08:29\","
+        "\"end\":\"2021-01-27 12:09:29\","
+        "\"files\":[{\"location\":\"/var/log/secure\",\"events\":0,\"bytes\":0,"
+        "\"targets\":[{\"name\":\"agent\",\"drops\":0}]}]"
+        "}"
+        "}";
+    wazuh_logcollector_parser_json(logcollector, strlen(logcollector), carg, "wazuh-logcollector.state");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_events", "wazuh_logcollector_global_files_events{location=\"/var/log/secure\"}", 12853);
+    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_targets_drops", "wazuh_logcollector_global_files_targets_drops{location=\"/var/log/secure\"}", 2808);
+
     metric_test_run(CMP_EQUAL, "wazuh_agentd_status", "wazuh_agentd_status", 1);
     metric_test_run(CMP_EQUAL, "wazuh_agentd_queue_size", "wazuh_agentd_queue_size", 42);
     metric_test_run(CMP_EQUAL, "wazuh_remoted_connection_status", "wazuh_remoted_connection_status", 2);
@@ -192,6 +212,10 @@ void api_test_parser_wazuh()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_agentd_status gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_agentd_status Wazuh API exported metric value.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_logcollector_global_files_events counter\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_logcollector_global_files_events Total log events collected since logcollector startup, by location.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_logcollector_interval_files_bytes gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_logcollector_interval_files_bytes Bytes read from monitored log files during the last statistics interval, by location.\n") != NULL);
     string_free(out);
 
     alligator_ht *saved_ctx = ac->aggregate_ctx;

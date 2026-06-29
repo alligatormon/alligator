@@ -19,6 +19,39 @@ static inline void wazuh_metric_set(context_arg *carg, const char *metric_name)
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Wazuh API exported metric value.");
 }
 
+static void wazuh_logcollector_metric_families_set(context_arg *carg)
+{
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_start", METRIC_TYPE_GAUGE,
+		"Wazuh logcollector global statistics period start time.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_end", METRIC_TYPE_GAUGE,
+		"Wazuh logcollector global statistics period end time.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_bytes", METRIC_TYPE_COUNTER,
+		"Total bytes read from monitored log files since logcollector startup, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_events", METRIC_TYPE_COUNTER,
+		"Total log events collected since logcollector startup, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_location", METRIC_TYPE_GAUGE,
+		"Monitored log file location marker (value 1) with location label.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_targets_drops", METRIC_TYPE_COUNTER,
+		"Total log events dropped at delivery targets since logcollector startup, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_targets_name", METRIC_TYPE_GAUGE,
+		"Log delivery target name marker (value 1) with location label.");
+
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_start", METRIC_TYPE_GAUGE,
+		"Wazuh logcollector interval statistics period start time.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_end", METRIC_TYPE_GAUGE,
+		"Wazuh logcollector interval statistics period end time.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_bytes", METRIC_TYPE_GAUGE,
+		"Bytes read from monitored log files during the last statistics interval, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_events", METRIC_TYPE_GAUGE,
+		"Log events collected during the last statistics interval, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_location", METRIC_TYPE_GAUGE,
+		"Monitored log file location marker (value 1) for the last statistics interval.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_targets_drops", METRIC_TYPE_GAUGE,
+		"Log events dropped at delivery targets during the last statistics interval, by location.");
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_targets_name", METRIC_TYPE_GAUGE,
+		"Log delivery target name marker (value 1) for the last statistics interval.");
+}
+
 void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 {
 	int64_t i = 0;
@@ -131,6 +164,7 @@ void wazuh_logcollector_parser_json(char *metrics, size_t size, void *data, char
 		carg->pquery[0] = strdup(".global.files.[location]");
 		carg->pquery_size = 1;
 	}
+	wazuh_logcollector_metric_families_set(carg);
 	carg->parser_status = json_query(metrics, NULL, "wazuh_logcollector", carg, carg->pquery, carg->pquery_size);
 }
 
