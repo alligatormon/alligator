@@ -13,4 +13,5 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl);
 void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric );
 int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric );
+int expire_refresh_metric_node ( expire_tree *tree, expire_node *node, metric_node *old_metric, metric_node *new_metric );
 void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric );

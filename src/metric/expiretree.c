@@ -13,6 +13,8 @@
 #define	RIGHT	1
 #define	LEFT	0
 
+int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2);
+
 
 int expire_is_red ( expire_node *node )
 {
@@ -55,12 +57,17 @@ expire_node *expire_make_node ( int64_t key, metric_node *metric )
 
 void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 {
-	pthread_rwlock_wrlock(tree->rwlock);
+	int lock = 0;
+	if (!tree->purging) {
+		lock = 1;
+		pthread_rwlock_wrlock(tree->rwlock);
+	}
 	if ( tree->root == NULL )
 	{
 	    tree->root = expire_make_node ( key, metric );
 	    if ( tree->root == NULL ) {
-	        pthread_rwlock_unlock(tree->rwlock);
+	        if (lock)
+	            pthread_rwlock_unlock(tree->rwlock);
 			return;
         }
 		tree->count ++ ;
@@ -69,7 +76,8 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 	{
 		expire_node *head = calloc(1, sizeof(*head));
 		if (!head) {
-			pthread_rwlock_unlock(tree->rwlock);
+			if (lock)
+				pthread_rwlock_unlock(tree->rwlock);
 			return;
 		}
 		expire_node *g, *t;
@@ -90,7 +98,8 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 				tree->count ++ ;
 				if ( q == NULL ) {
 					free(head);
-					pthread_rwlock_unlock(tree->rwlock);
+					if (lock)
+						pthread_rwlock_unlock(tree->rwlock);
 					return;
 				}
 			}
@@ -130,7 +139,8 @@ void expire_insert ( expire_tree *tree, int64_t key, metric_node *metric )
 		free(head);
 	}
 	tree->root->color = BLACK;
-	pthread_rwlock_unlock(tree->rwlock);
+	if (lock)
+		pthread_rwlock_unlock(tree->rwlock);
 }
 
 void expire_build (char *namespace);
@@ -159,7 +169,7 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 		g = p = NULL;
 		q->child[RIGHT] = tree->root;
 		int last = dir;
- 
+
 		while ( q->child[dir] != NULL )
 		{
 			last = dir;
@@ -175,7 +185,7 @@ int expire_delete ( expire_tree *tree, int64_t key, metric_node *metric )
 			{
 				dir = q->key <= key;
 			}
- 
+
 			if (!metric && q->key <= key)
 			{
 				f = q;

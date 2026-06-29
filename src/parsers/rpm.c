@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <inttypes.h>
 #include "modules/modules.h"
 #include "main.h"
 #include "common/selector.h"
@@ -111,8 +112,8 @@ static int rpmlib_append_metric(rpm_rpmlib_job *job, uint64_t ts, const char *na
 	if (!name || !*name || !version || !*version || !release || !*release)
 		return 0;
 
-	int line_len = snprintf(NULL, 0, "%llu %s %s %s\n",
-				(unsigned long long)ts, name, version, release);
+	int line_len = snprintf(NULL, 0, "%" PRIu64 " %s %s %s\n",
+				ts, name, version, release);
 	if (line_len <= 0)
 		return -1;
 
@@ -131,8 +132,8 @@ static int rpmlib_append_metric(rpm_rpmlib_job *job, uint64_t ts, const char *na
 
 	int written = snprintf(job->metrics + job->metrics_len,
 			       job->metrics_cap - job->metrics_len,
-			       "%llu %s %s %s\n",
-			       (unsigned long long)ts, name, version, release);
+			       "%" PRIu64 " %s %s %s\n",
+			       ts, name, version, release);
 	if (written <= 0)
 		return -1;
 	job->metrics_len += (size_t)written;

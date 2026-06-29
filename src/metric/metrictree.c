@@ -3,6 +3,7 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
+#include <inttypes.h>
 #include <stdlib.h>
 #include <math.h>
 //#define EXPIRE_DEFAULT_SECONDS 300
@@ -162,6 +163,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	tree->root->color = BLACK;
 
 	r_time time = setrtime();
+
 	expire_insert(expiretree, time.sec+ttl, ret);
 	pthread_rwlock_unlock(tree->rwlock);
 	return ret;
@@ -234,14 +236,36 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
  
 		if ( f != NULL )
 		{
-			expire_delete(expiretree, q->expire_node->key, q);
-			tree->count--;
-			labels_free(f->labels, tree);
-			//free(f->labels);
-			f->labels = q->labels;
-			p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
-			free ( q );
-			ret = 1;
+
+			if ( f == q )
+			{
+				/* Matched node is the node physically removed: drop its single
+				   expire entry and free it. No reinsert (would dangle onto freed memory). */
+				expire_delete(expiretree, q->expire_node->key, q);
+				tree->count--;
+				labels_free(q->labels, tree);
+				p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
+				free ( q );
+				ret = 1;
+			}
+			else
+			{
+				/* q's content moves into f. The expire tree disambiguates duplicate
+				   timestamp keys by the metric pointer, so a node's metric cannot be
+				   rewritten in place; delete both entries and reinsert f at its
+				   correct sorted position with q's key. */
+				uint64_t q_key = q->expire_node->key;
+				expire_delete(expiretree, q_key, q);
+				expire_delete(expiretree, f->expire_node->key, f);
+				expire_insert(expiretree, q_key, f);
+				tree->count--;
+				labels_free(f->labels, tree);
+				//free(f->labels);
+				f->labels = q->labels;
+				p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
+				free ( q );
+				ret = 1;
+			}
 		}
  
 		tree->root = head->child[RIGHT];

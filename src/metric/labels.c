@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "metric/labels.h"
 #include "metric/expiretree.h"
 #include "dstructures/ht.h"
@@ -1099,7 +1100,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	}
 	else
 	{
-		metric_insert(tree, labels_list, type, value, expiretree, ttl);
+		mnode = metric_insert(tree, labels_list, type, value, expiretree, ttl);
 	}
 }
 
