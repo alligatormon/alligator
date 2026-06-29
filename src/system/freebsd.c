@@ -48,9 +48,6 @@
 #include "metric/labels.h"
 #include "main.h"
 #include "common/rtime.h"
-#include "common/selector.h"
-#include "system/freebsd/parsers.h"
-#include "system/freebsd/sysctl.h"
 
 extern aconf *ac;
 
@@ -170,7 +167,7 @@ void get_disk()
 			double pused = (double)used*100/(double)total;
 			double pfree = 100 - pused;
 
-			metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+			metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "avail");
 			metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
 			metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 			metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
@@ -517,6 +514,88 @@ void get_cpu(void)
 }
 
 
+void get_proc_info(int8_t lightweight)
+{
+	//pid_t pid = 1;
+	int cntp = 0, i;
+	struct kinfo_proc *proc = kinfo_getallproc(&cntp);
+	uint64_t running = 0;
+	uint64_t sleeping = 0;
+	uint64_t stopped = 0;
+	uint64_t zombie = 0;
+	uint64_t wait = 0;
+	uint64_t locked = 0;
+	//printf("cntp = %d\n", cntp);
+	for (i=0; i<cntp; i++ )
+	{
+		if (proc[i].ki_stat == SRUN)
+			++running;
+		else if (proc[i].ki_stat == SSLEEP)
+			++sleeping;
+		else if (proc[i].ki_stat == SSTOP)
+			++stopped;
+		else if (proc[i].ki_stat == SZOMB)
+			++zombie;
+		else if (proc[i].ki_stat == SWAIT)
+			++wait;
+		else if (proc[i].ki_stat == SLOCK)
+			++locked;
+
+		if (!lightweight)
+		{
+			char pidstr[16];
+			double utime, stime, total_time;
+
+			snprintf(pidstr, sizeof(pidstr), "%d", proc[i].ki_pid);
+			utime = (double)proc[i].ki_utime / 1000000.0;
+			stime = (double)proc[i].ki_stime / 1000000.0;
+			total_time = utime + stime;
+			metric_add_labels3("process_cpu_seconds_total", &utime, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "user");
+			metric_add_labels3("process_cpu_seconds_total", &stime, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "system");
+			metric_add_labels3("process_cpu_seconds_total", &total_time, DATATYPE_DOUBLE, ac->system_carg, "name", proc[i].ki_comm, "pid", pidstr, "mode", "total");
+			int64_t val = proc[i].ki_size;
+			metric_add_labels2("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "vsz");
+			val = proc[i].ki_rssize;
+			metric_add_labels2("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "rss");
+			val = proc[i].ki_cow;
+			metric_add_labels2("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "COWfaults");
+			val = proc[i].ki_numthreads;
+			metric_add_labels2("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", proc[i].ki_comm, "type", "threads");
+		}
+	}
+
+	metric_add_labels("process_states", &running, DATATYPE_UINT, ac->system_carg, "state", "running");
+	metric_add_labels("process_states", &sleeping, DATATYPE_UINT, ac->system_carg, "state", "sleeping");
+	metric_add_labels("process_states", &stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
+	metric_add_labels("process_states", &zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
+	metric_add_labels("process_states", &locked, DATATYPE_UINT, ac->system_carg, "state", "locked");
+	metric_add_labels("process_states", &wait, DATATYPE_UINT, ac->system_carg, "state", "wait");
+
+	{
+		uint64_t proc_count = cntp;
+		uint64_t proc_max;
+		size_t proc_max_sz = sizeof(proc_max);
+
+		metric_add_auto("processes", &proc_count, DATATYPE_UINT, ac->system_carg);
+		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
+			double proc_usage = proc_count * 100.0 / (double)proc_max;
+			metric_add_auto("processes_usage", &proc_usage, DATATYPE_DOUBLE, ac->system_carg);
+		}
+	}
+
+	time_t t = time(NULL);
+	struct tm lt = {0};
+	localtime_r(&t, &lt);
+
+	r_time time1 = setrtime();
+	time1.sec += lt.tm_gmtoff;
+	uint64_t uptime = time1.sec - proc[1].ki_start.tv_sec;
+	//printf("uptime %llu - %llu = %llu\n", time1.sec, proc[1].ki_start.tv_sec, uptime);
+	metric_add_auto("system_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg);
+
+	free(proc);
+}
+
 void disk_io_stats()
 {
 	struct devinfo *info = calloc(1, sizeof(*info));
@@ -608,13 +687,9 @@ void get_iface_statistics()
 			continue;
 
 		ifd = ifa->ifa_data;
-		int64_t if_up;
 		state = link_state_name(ifd->ifi_link_state);
 		marker = 1;
 		metric_add_labels2("link_status", &marker, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "state", state);
-
-		if_up = (ifa->ifa_flags & IFF_UP) ? 1 : 0;
-		metric_add_labels("if_up", &if_up, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
 
 		ipackets = ifd->ifi_ipackets;
 		opackets = ifd->ifi_opackets;
@@ -645,21 +720,6 @@ void get_iface_statistics()
 		metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_multicast");
 		metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_colls");
 		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
-
-		metric_add_labels2("interface_stats", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_bytes");
-		metric_add_labels2("interface_stats", &obytes, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_bytes");
-		metric_add_labels2("interface_stats", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_packets");
-		metric_add_labels2("interface_stats", &opackets, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_packets");
-		metric_add_labels2("interface_stats", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_err");
-		metric_add_labels2("interface_stats", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_err");
-		metric_add_labels2("interface_stats", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_drop");
-# if __FreeBSD__ > 10
-		metric_add_labels2("interface_stats", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_drop");
-# endif
-		metric_add_labels2("interface_stats", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "received_multicast");
-		metric_add_labels2("interface_stats", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_multicast");
-		metric_add_labels2("interface_stats", &collisions, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "transmit_colls");
-		metric_add_labels2("interface_stats", &noproto, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name, "type", "noproto");
 
 		if (ifd->ifi_baudrate > 0) {
 			int64_t speed = (int64_t)ifd->ifi_baudrate;
@@ -805,23 +865,9 @@ void get_system_metrics()
 {
 	if (ac->system_base)
 	{
-		int8_t platform;
-
 		get_swap();
 		get_mem();
 		get_vmstat();
-		ipaddr_info();
-		hw_cpu_info();
-		get_utsname();
-		platform = get_platform(1);
-		get_kernel_version(platform);
-		get_distribution_name();
-		get_memory_usage_hw();
-		get_memory_usage_cgroup();
-		get_utmp_info();
-		get_open_files_system();
-		get_thermal();
-		get_proc_interrupts(ac->system_interrupts);
 	}
 	if (ac->system_base && !ac->system_process)
 	{
@@ -830,8 +876,6 @@ void get_system_metrics()
 	if (ac->system_network)
 	{
 		get_iface_statistics();
-		get_network_statistics();
-		check_sockets_freebsd();
 	}
 	if (ac->system_disk)
 	{
@@ -846,13 +890,6 @@ void get_system_metrics()
 		get_jail_stat();
 	if (ac->system_cpuavg)
 		get_cpu_avg();
-
-	if (ac->system_services || ac->system_services_process)
-		get_services();
-
-	get_pidfile_stats();
-	get_userprocess_stats();
-	sysctl_run(ac->system_sysctl);
 }
 
 void system_fast_scrape()
@@ -865,45 +902,55 @@ void system_fast_scrape()
 
 void system_slow_scrape()
 {
-	if (ac->system_packages)
-		get_packages_info();
-
 	if (ac->system_base)
+	{
 		get_smbios();
+	}
+}
 
-	if (ac->system_disk)
-		disks_info();
+void userprocess_push(alligator_ht *userprocess, char *user)
+{
+}
+
+void userprocess_del(alligator_ht* userprocess, char *user)
+{
+}
+
+void service_user_push(alligator_ht *service_users, char *user)
+{
+}
+
+void service_user_del(alligator_ht *service_users, char *user)
+{
+}
+
+void service_user_clear(alligator_ht *service_users)
+{
+}
+
+void pidfile_push(char *file, int type)
+{
+}
+
+void pidfile_del(char *file, int type)
+{
+}
+
+void sysctl_push(alligator_ht *sysctl, char *sysctl_name)
+{
+}
+
+void sysctl_del(alligator_ht* sysctl, char *sysctl_name)
+{
 }
 
 void system_free()
 {
-	if (ac->system_avg_metrics) {
-		free(ac->system_avg_metrics);
-		ac->system_avg_metrics = NULL;
-	}
-
 	if (ac->scs) {
 		if (ac->scs->cores)
 			free(ac->scs->cores);
 		free(ac->scs);
 		ac->scs = NULL;
 	}
-
-	free(ac->system_sysfs);
-	free(ac->system_procfs);
-	free(ac->system_rundir);
-	free(ac->system_usrdir);
-	free(ac->system_etcdir);
-	free(ac->system_pidfile);
-
-	match_free(ac->process_match);
-	match_free(ac->packages_match);
-	match_free(ac->services_match);
-	match_free(ac->services_process_match);
-
-	userprocess_free(ac->system_userprocess);
-	userprocess_free(ac->system_groupprocess);
-	service_user_free(ac->system_services_checking_users);
-	sysctl_free(ac->system_sysctl);
 }
 #endif

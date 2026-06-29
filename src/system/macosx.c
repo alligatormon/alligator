@@ -1,14 +1,11 @@
 #ifdef __APPLE__
 #include <inttypes.h>
-#include <ctype.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/utsname.h>
-#include <sys/proc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,9 +21,6 @@
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <ifaddrs.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
-#include <IOKit/storage/IOBlockStorageDriver.h>
 
 #include "metric/labels.h"
 #include "main.h"
@@ -319,7 +313,7 @@ void get_disk(void)
 		pused = (double)used * 100.0 / (double)total;
 		pfree = 100.0 - pused;
 
-		metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+		metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "avail");
 		metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
 		metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 		metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
@@ -350,9 +344,6 @@ void get_mem(void)
 	mach_msg_type_number_t count;
 	vm_statistics64_data_t vm_stats;
 	int64_t free_memory, used_memory, active_memory, inactive_memory, wire_memory;
-	int64_t avail_memory, compressed_memory, purgeable_memory, speculative_memory;
-	int64_t external_memory, internal_memory;
-	int64_t vm_faults;
 	int64_t num_cpu = 0;
 	size_t cpu_len = sizeof(num_cpu);
 	double load1, load5, load15;
@@ -372,14 +363,7 @@ void get_mem(void)
 	active_memory = (int64_t)vm_stats.active_count * (int64_t)page_size;
 	inactive_memory = (int64_t)vm_stats.inactive_count * (int64_t)page_size;
 	wire_memory = (int64_t)vm_stats.wire_count * (int64_t)page_size;
-	compressed_memory = (int64_t)vm_stats.compressor_page_count * (int64_t)page_size;
-	purgeable_memory = (int64_t)vm_stats.purgeable_count * (int64_t)page_size;
-	speculative_memory = (int64_t)vm_stats.speculative_count * (int64_t)page_size;
-	external_memory = (int64_t)vm_stats.external_page_count * (int64_t)page_size;
-	internal_memory = (int64_t)vm_stats.internal_page_count * (int64_t)page_size;
-	avail_memory = free_memory + inactive_memory + speculative_memory;
-	used_memory = active_memory + wire_memory + compressed_memory;
-	vm_faults = (int64_t)vm_stats.faults;
+	used_memory = active_memory + inactive_memory + wire_memory;
 
 	metric_add_labels("memory_usage", &physical_memory, DATATYPE_INT, ac->system_carg, "type", "total");
 	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
@@ -387,12 +371,6 @@ void get_mem(void)
 	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &inactive_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
 	metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
-	metric_add_labels("memory_usage", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
-	metric_add_labels("memory_usage", &compressed_memory, DATATYPE_INT, ac->system_carg, "type", "compressed");
-	metric_add_labels("memory_usage", &purgeable_memory, DATATYPE_INT, ac->system_carg, "type", "purgeable");
-	metric_add_labels("memory_usage", &speculative_memory, DATATYPE_INT, ac->system_carg, "type", "speculative");
-	metric_add_labels("memory_usage", &external_memory, DATATYPE_INT, ac->system_carg, "type", "external");
-	metric_add_labels("memory_usage", &internal_memory, DATATYPE_INT, ac->system_carg, "type", "internal");
 
 	if (physical_memory > 0) {
 		double percentused = (double)used_memory * 100.0 / (double)physical_memory;
@@ -400,19 +378,6 @@ void get_mem(void)
 		metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
 		metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
 	}
-
-	{
-		int64_t pageins = (int64_t)vm_stats.pageins;
-		int64_t pageouts = (int64_t)vm_stats.pageouts;
-		int64_t swapins = (int64_t)vm_stats.swapins;
-		int64_t swapouts = (int64_t)vm_stats.swapouts;
-
-		metric_add_labels("memory_stat", &pageins, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
-		metric_add_labels("memory_stat", &pageouts, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
-		metric_add_labels("memory_stat", &swapins, DATATYPE_INT, ac->system_carg, "type", "pgswpin");
-		metric_add_labels("memory_stat", &swapouts, DATATYPE_INT, ac->system_carg, "type", "pgswpout");
-	}
-	metric_add_auto("vm_faults", &vm_faults, DATATYPE_INT, ac->system_carg);
 
 	if (sysctlbyname("vm.loadavg", &load, &load_len, NULL, 0) == 0) {
 		load1 = (double)load.ldavg[0] / (double)load.fscale;
