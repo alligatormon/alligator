@@ -573,7 +573,7 @@ set_target_properties(${TESTS} PROPERTIES
 	INSTALL_RPATH ""
 	INSTALL_RPATH_USE_LINK_PATH FALSE
 )
-IF(NOT ${distro}.${disversion} MATCHES "centos.7")
+IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
 set_target_properties(${TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
     LINK_FLAGS "-fprofile-generate"
@@ -583,7 +583,7 @@ set_target_properties(${COMMON_TESTS} PROPERTIES
     LINK_FLAGS "-fprofile-generate"
 )
 # to check coverage report use the: ./build/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata build/alligator_tests
-ENDIF(NOT ${distro}.${disversion} MATCHES "centos.7")
+ENDIF(CMAKE_C_COMPILER_ID MATCHES "Clang")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
