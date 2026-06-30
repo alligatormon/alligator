@@ -283,7 +283,7 @@ deploy_ubuntu1604:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install ca-certificates curl wget git make libtool rake gcc g++ libsystemd-dev libudev-dev clang pkg-config libvirt-dev smartmontools bzip2 m4
+  - apt -y install ca-certificates curl wget git make libtool autoconf automake rake gcc g++ libsystemd-dev libudev-dev clang pkg-config libvirt-dev smartmontools bzip2 m4
   - apt -y install --only-upgrade m4
   - m4 --version
   - update-smart-drivedb --no-verify || true
