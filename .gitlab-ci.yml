@@ -283,9 +283,11 @@ deploy_ubuntu1604:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install ca-certificates curl wget git make libtool rake gcc g++ libsystemd-dev libudev-dev clang pkg-config libvirt-dev smartmontools python3.6 python3.6-dev
+  - apt -y install ca-certificates curl wget git make libtool rake gcc g++ libsystemd-dev libudev-dev clang pkg-config libvirt-dev smartmontools bzip2
   - apt -y install --only-upgrade m4 || true
   - update-smart-drivedb --no-verify || true
+  - curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-py38_23.11.0-2-Linux-x86_64.sh -o /tmp/miniconda.sh
+  - bash /tmp/miniconda.sh -b -p /opt/conda
   - wget -q https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.tar.gz
   - tar -xf cmake-3.28.3-linux-x86_64.tar.gz -C /usr/local --strip-components=1
   - cp misc/centos7/conanfile.txt src/conanfile.txt
@@ -297,16 +299,14 @@ deploy_ubuntu1604:
   - git checkout v0.7.12
   - cd -
 
-  - curl -sS https://bootstrap.pypa.io/pip/3.6/get-pip.py -o get-pip.py
-  - python3.6 get-pip.py
-  - python3.6 -m pip install conan==2.19.1
-  - python3.6 -m conan profile detect --force
+  - /opt/conda/bin/pip install conan==2.19.1
+  - /opt/conda/bin/conan profile detect --force
 
-  - python3.6 -m conan install . --build=missing || true
+  - /opt/conda/bin/conan install . --build=missing || true
   - ln -sf /usr/bin/m4 /root/.conan2/p/m4f50c1c1e2fee9/p/bin/m4
-  - python3.6 -m conan install . --build=missing
+  - /opt/conda/bin/conan install . --build=missing
 
-  - python3.6 -m conan build external/
+  - /opt/conda/bin/conan build external/
   - wget https://go.dev/dl/go1.22.1.linux-amd64.tar.gz
   - tar -C /usr/local -xzf go1.22.1.linux-amd64.tar.gz
   - ln -sf /usr/local/go/bin/go /usr/bin/go
