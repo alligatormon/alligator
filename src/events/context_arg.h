@@ -296,7 +296,9 @@ typedef struct context_arg
 	uint8_t api_enable;
 
 	alligator_ht *amtail_variables;
-	/* Mtail: variables touched in the current handler pass (export + TTL refresh). */
+	// Incomplete log line buffered between aggregate/file reads for mtail handler.
+	string *amtail_tail;
+	// Mtail: variables touched in the current handler pass (export + TTL refresh).
 	uint32_t amtail_touch_seq;
 	amtail_variable **amtail_touch_buf;
 	size_t amtail_touch_n;
@@ -305,6 +307,8 @@ typedef struct context_arg
 	int64_t amtail_last_ttl_refresh_sec;
 	/* Seconds between full mtail variable exports (idle-series TTL refresh). 0 = default 10. */
 	uint32_t amtail_full_export_ttl_interval_sec;
+	// Set after VARIABLE decls from shared bytecode are inserted into amtail_variables.
+	uint8_t amtail_variables_prepared;
 	uint8_t remove_from_hash; // enable if deleting 1 object
 
 	char *url;

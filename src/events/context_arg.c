@@ -42,6 +42,7 @@ context_arg *carg_copy(context_arg *src)
 	carg->read = NULL;
 	carg->dynamic_socket = NULL;
 	carg->amtail_variables = NULL;
+	carg->amtail_tail = NULL;
 	carg->srv_carg = NULL;
 	carg->entrypoint_stop_async_ready = 0;
 
@@ -307,6 +308,9 @@ void carg_free(context_arg *carg)
 	if (carg->amtail_variables) {
 		amtail_variables_free(carg->amtail_variables);
 	}
+
+	if (carg->amtail_tail)
+		string_free(carg->amtail_tail);
 
 	carg->remote_addr.sin_addr.s_addr = 0;
 	carg->remote_addr.sin_port = 0;
@@ -614,6 +618,11 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	char *str_name = (char*)json_string_value(json_name);
 	if (str_name)
 		carg->name = strdup(str_name);
+
+	json_t *json_mtail = json_object_get(root, "mtail");
+	char *str_mtail = (char*)json_string_value(json_mtail);
+	if (str_mtail && !carg->name)
+		carg->name = strdup(str_mtail);
 
 	json_t *json_lang = json_object_get(root, "lang");
 	char *str_lang = (char*)json_string_value(json_lang);

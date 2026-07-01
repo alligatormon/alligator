@@ -37,6 +37,15 @@ static void duplicate_name_check_foreach(void *funcarg, void *arg)
 		ctx->found = 1;
 }
 
+static int aggregator_name_must_be_unique(context_arg *carg)
+{
+	if (!carg || !carg->name)
+		return 0;
+	if (carg->parser_name && !strcmp(carg->parser_name, "mtail"))
+		return 0;
+	return 1;
+}
+
 int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
 {
 	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
@@ -68,7 +77,7 @@ int smart_aggregator(context_arg *carg)
 
 	carglog(carg, L_INFO, "smart_aggregator key: '%s'/%d\n", key, carg->transport);
 
-	if (carg->name) {
+	if (aggregator_name_must_be_unique(carg)) {
 		duplicate_name_check_ctx nctx = { .name = carg->name, .found = 0 };
 		alligator_ht_foreach_arg(ac->aggregators, duplicate_name_check_foreach, &nctx);
 		if (nctx.found) {

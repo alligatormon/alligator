@@ -57,7 +57,9 @@ static amtail_node *amtail_node_load_for_carg(context_arg *carg)
 	if (!carg || !carg->script)
 		return NULL;
 
-	char *name = carg->name ? carg->name : carg->script;
+	char *name = carg->name;
+	if (!name)
+		name = carg->script;
 	amtail_node *an = amtail_node_get(name);
 	if (an)
 		return an;
@@ -394,6 +396,9 @@ static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_varia
 
 	if (var->type == ALLIGATOR_VARTYPE_HISTOGRAM)
 	{
+		if (var->histogram_count == 0)
+			return;
+
 		if (!ctx->force_emit && var->emit_initialized &&
 		    var->last_emit_hist_count == var->histogram_count &&
 		    var->last_emit_hist_sum == var->histogram_sum)
@@ -500,7 +505,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!an || !an->bytecode)
 	{
-		carglog(carg, L_ERROR, "amtail: no compiled script loaded (set name=... (for aggregate) or mtail=... (for entrypoint) and push script first)\n");
+		carglog(carg, L_ERROR, "amtail: no compiled script loaded (set name=... on aggregate, or mtail=... on entrypoint, and push script first)\n");
 		carg->parser_status = 0;
 		return;
 	}
@@ -513,7 +518,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		.on_var_touched = amtail_carg_var_touched,
 	};
 	amtail_carg_touch_begin(carg);
-	size_t tail_len = an->tail ? an->tail->l : 0;
+	size_t tail_len = carg->amtail_tail ? carg->amtail_tail->l : 0;
 	size_t total = tail_len + size;
 	char *buf = malloc(total ? total : 1);
 	if (!buf)
@@ -524,7 +529,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	if (tail_len)
-		memcpy(buf, an->tail->s, tail_len);
+		memcpy(buf, carg->amtail_tail->s, tail_len);
 	memcpy(buf + tail_len, metrics, size);
 
 	size_t start = 0;
@@ -532,6 +537,21 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	if (!carg->amtail_variables)
 		carg->amtail_variables = amtail_variables_init();
 	string *line = string_new();
+
+	const char *log_filename = NULL;
+	char log_filename_buf[1024];
+	if (carg->path && carg->path[0])
+	{
+		if (carg->is_dir && carg->filename && carg->filename[0])
+		{
+			snprintf(log_filename_buf, sizeof(log_filename_buf), "%s%s", carg->path, carg->filename);
+			log_filename = log_filename_buf;
+		}
+		else
+			log_filename = carg->path;
+	}
+	else if (carg->host[0])
+		log_filename = carg->host;
 
 	for (size_t i = 0; i < total; ++i)
 	{
@@ -545,7 +565,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			string_cat(line, buf + start, line_len);
 			carglog(carg, L_DEBUG, "amtail process string with size %zu: '%s'\n", line_len, line->s);
-			if (!amtail_run(an->bytecode, carg->amtail_variables, line, an->amtail_ll, &touch_cb, an->vm_thread))
+			if (!amtail_run_file(an->bytecode, carg->amtail_variables, line, log_filename, an->amtail_ll, &touch_cb, an->vm_thread, &carg->amtail_variables_prepared))
 				rc = 0;
 			string_null(line);
 		}
@@ -556,13 +576,13 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		amtail_variables_dump(carg->amtail_variables);
 	}
 
-	if (an->tail)
+	if (carg->amtail_tail)
 	{
-		string_free(an->tail);
-		an->tail = NULL;
+		string_free(carg->amtail_tail);
+		carg->amtail_tail = NULL;
 	}
 	if (start < total)
-		an->tail = string_init_alloc(buf + start, total - start);
+		carg->amtail_tail = string_init_alloc(buf + start, total - start);
 
 	{
 		r_time now = setrtime();
