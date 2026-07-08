@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.208)
+set(VERSION 1.14.209)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
@@ -292,6 +292,11 @@ set(STATIC_FILES
 	common/lcrypto.c
 	common/units.c
 	common/logs.c
+	common/log_tcp.c
+	common/log_http.c
+	common/log_elastic.c
+	common/log_jansson.c
+	common/log_json.c
 	common/patricia.c
 	common/auth.c
 	smart/smart.c

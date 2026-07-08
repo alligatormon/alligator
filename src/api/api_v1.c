@@ -110,6 +110,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				ac->log_dest = strdup(json_string_value(value));
 				ac->update_log_dest = 1;
 			}
+			if (!strcmp(key, "log_channel"))
+			{
+				log_channels_config_json(value);
+				ac->update_log_dest = 1;
+			}
 			if (!strcmp(key, "process_shell"))
 			{
 				if (ac->process_shell)
@@ -623,6 +628,20 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							carg->read_metric_interval_sec = (uint32_t)v;
 					}
 
+					json_t *carg_buffer_request_size = json_object_get(entrypoint, "buffer_request_size");
+					if (carg_buffer_request_size) {
+						int64_t v = json_integer_value(carg_buffer_request_size);
+						if (v > 0)
+							carg->buffer_request_size = (uint64_t)v;
+					}
+
+					json_t *carg_buffer_response_size = json_object_get(entrypoint, "buffer_response_size");
+					if (carg_buffer_response_size) {
+						int64_t v = json_integer_value(carg_buffer_response_size);
+						if (v > 0)
+							carg->buffer_response_size = (uint64_t)v;
+					}
+
 					json_t *carg_log_level = json_object_get(entrypoint, "log_level");
 					if (carg_log_level) {
 						int carg_log_level_type = json_typeof(carg_log_level);
@@ -633,6 +652,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else if (carg_log_level_type == JSON_INTEGER)
 							carg->log_level = json_real_value(carg_log_level);
 					}
+
+					json_t *carg_log_channel = json_object_get(entrypoint, "log_channel");
+					if (carg_log_channel && json_typeof(carg_log_channel) == JSON_STRING)
+						carg->log_ch = log_channel_get(json_string_value(carg_log_channel));
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
@@ -1421,6 +1444,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							else
 								ac->system_carg->log_level = json_integer_value(sys_value);
 						}
+						else if (!strcmp(system_key, "log_channel"))
+						{
+							if (json_typeof(sys_value) == JSON_STRING)
+								ac->system_carg->log_ch = log_channel_get(json_string_value(sys_value));
+						}
 					}
 					code = 202;
 					snprintf(status, 100, "Accepted");
@@ -1554,6 +1582,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 		}
 
 		json_decref(root);
+	}
+
+	if (ac->update_log_dest) {
+		log_init();
+		ac->update_log_dest = 0;
 	}
 
 	if (response)

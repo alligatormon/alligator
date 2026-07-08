@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #include "config/get.h"
 #include "config/plain.h"
 #include "common/url.h"
@@ -8,6 +11,11 @@
 #include "common/auth.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "common/log_tcp.h"
+#include "common/log_http.h"
+#include "common/log_elastic.h"
+#include "common/log_json.h"
+#include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/entrypoint.h"
 #include "common/units.h"
@@ -134,6 +142,74 @@ void test_logs_helpers()
     ac->log_dest = "some-unknown-dest";
     log_init();
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, fileno(stdout), ac->log_socket);
+
+    log_channel *agg = log_channel_upsert("aggregate", "file:///tmp/alligator-ut2-aggregate.log", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, agg);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "aggregate", agg->name);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, agg->socket >= 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, log_channel_get("aggregate"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_get("missing") == log_channel_default());
+
+    log_channel *tcp_ch = log_channel_upsert("tcp-test", "tcp://127.0.0.1:59999", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_tcp(tcp_ch));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        log_tcp_sink_write(tcp_ch, "dropped\n", 8));
+    log_tcp_sink_close(tcp_ch);
+
+    log_channel *elastic_ch = log_channel_upsert("elastic-tcp", "tcp://127.0.0.1:59999", -1, -1, NULL,
+        LOG_FORMAT_ELASTIC, "alligator-test");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, elastic_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_elastic(elastic_ch));
+    {
+        char *doc;
+        size_t doclen = 0;
+        doc = log_elastic_format_doc_msg(elastic_ch, NULL, L_INFO, "hello\n", 6, &doclen);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, doc);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, doclen > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"message\":\"hello\\n\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"@timestamp\"") != NULL);
+        free(doc);
+    }
+    log_tcp_sink_close(elastic_ch);
+
+    log_channel *http_ch = log_channel_upsert("elastic-http", "http://127.0.0.1:9200/alligator/_bulk", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_http(http_ch));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_elastic(http_ch));
+    log_http_sink_close(http_ch);
+
+    log_channel *json_ch = log_channel_upsert("json-tcp", "tcp://127.0.0.1:59999", -1, 1, NULL,
+        LOG_FORMAT_JSON, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_json(json_ch));
+    {
+        context_arg json_carg = {0};
+        char *doc;
+        size_t doclen = 0;
+        strlcpy(json_carg.host, "127.0.0.1", sizeof(json_carg.host));
+        json_carg.key = "test-key";
+        doc = log_json_format_doc_msg(json_ch, &json_carg, "hello\n", 6, &doclen);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, doc);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, doclen > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"message\":\"hello\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"key\":\"test-key\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"date\":") != NULL);
+        free(doc);
+    }
+    log_tcp_sink_close(json_ch);
+
+    context_arg carg = {0};
+    strlcpy(carg.host, "127.0.0.1", sizeof(carg.host));
+    carg.key = "test-key";
+    carg.log_ch = agg;
+    carg.log_level = L_INFO;
+    ac->log_level = L_INFO;
+    carglog(&carg, L_INFO, "ut2 channel log\n");
+    if (agg->socket > 2) {
+        close(agg->socket);
+        agg->socket = fileno(stdout);
+    }
 }
 
 void test_units_human_ranges()
@@ -1943,6 +2019,62 @@ void test_aggregate_multi_block_plain_parse()
     json_t *a4 = json_array_get(aggregate, 4);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "rabbitmq", json_string_value(json_object_get(a4, "handler")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://user:pass@127.0.0.1:8080", json_string_value(json_object_get(a4, "url")));
+
+    json_decref(root);
+}
+
+void test_entrypoint_log_channel_plain_parse()
+{
+    const char *conf =
+        "log_channel {\n"
+        "  name entrypoint-tcp;\n"
+        "  dest file:///var/log/alligator-entrypoint.log;\n"
+        "}\n"
+        "entrypoint {\n"
+        "  log_level trace;\n"
+        "  log_channel entrypoint-tcp;\n"
+        "  handler prometheus;\n"
+        "  allow 127.0.0.1;\n"
+        "  allow 10.99.10.0/24;\n"
+        "  tcp 1111;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(entrypoint));
+
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ep0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "trace", json_string_value(json_object_get(ep0, "log_level")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "entrypoint-tcp", json_string_value(json_object_get(ep0, "log_channel")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "prometheus", json_string_value(json_object_get(ep0, "handler")));
+
+    json_t *allow = json_object_get(ep0, "allow");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, allow);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(allow));
+
+    json_t *tcp = json_object_get(ep0, "tcp");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(tcp));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "1111", json_string_value(json_array_get(tcp, 0)));
+
+    json_t *log_channels = json_object_get(root, "log_channel");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, log_channels);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(log_channels));
+    json_t *lc0 = json_array_get(log_channels, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "entrypoint-tcp", json_string_value(json_object_get(lc0, "name")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "file:///var/log/alligator-entrypoint.log", json_string_value(json_object_get(lc0, "dest")));
 
     json_decref(root);
 }

@@ -219,6 +219,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	r_time time = setrtime();
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
+	new->log_ch = carg->log_ch;
 
 	new->labels = labels_dup(carg->labels);
 
@@ -276,6 +277,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	new->context_ttl = time.sec;
 
 	new->log_level = carg? carg->log_level : ac->log_level;
+	new->log_ch = carg ? carg->log_ch : NULL;
 	new->ttl = carg? carg->ttl : ac->ttl;
 	new->work_dir = work_dir;
 

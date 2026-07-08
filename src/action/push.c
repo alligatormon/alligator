@@ -137,6 +137,10 @@ void action_push(json_t *action)
 			an->log_level = (int)json_integer_value(jlog_level);
 	}
 
+	json_t *jlog_channel = json_object_get(action, "log_channel");
+	if (jlog_channel && json_typeof(jlog_channel) == JSON_STRING)
+		an->log_ch = log_channel_get(json_string_value(jlog_channel));
+
 	json_t *jindex_template = json_object_get(action, "index_template");
 	if (jindex_template)
 	{

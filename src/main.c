@@ -165,6 +165,7 @@ aconf* configuration()
 	ac->log_level = 0;
 	ac->log_time = 0;
 	ac->log_time_format = NULL;
+	log_channels_init();
 	ac->ttl = 300;
 	ac->persistence_period = 10000;
 

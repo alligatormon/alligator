@@ -121,6 +121,38 @@ file_stat* file_stat_add_offset(alligator_ht *hash, const char *path, context_ar
 	return fstat;
 }
 
+file_stat* file_stat_get_or_create(alligator_ht *hash, const char *path, uint8_t state)
+{
+	if (!hash || !path)
+		return NULL;
+
+	uint32_t key_hash = tommy_strhash_u32(0, path);
+	file_stat *fstat = alligator_ht_search(hash, file_stat_compare, path, key_hash);
+	if (!fstat)
+	{
+		fstat = calloc(1, sizeof(*fstat));
+		fstat->key = strdup(path);
+		alligator_ht_insert(hash, &(fstat->node), fstat, key_hash);
+		if (state == FILESTAT_STATE_STREAM)
+			fstat->offset = get_file_size(path);
+	}
+
+	return fstat;
+}
+
+void file_stat_reset_on_rotation(file_stat *fstat, context_arg *carg, uint64_t filesize)
+{
+	if (!fstat)
+		return;
+
+	fstat->dev = 0;
+	fstat->ino = 0;
+	if (carg && carg->state == FILESTAT_STATE_STREAM)
+		fstat->offset = filesize;
+	else
+		fstat->offset = 0;
+}
+
 uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t state)
 {
 	if (!hash || !path)

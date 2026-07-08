@@ -43,7 +43,7 @@ These blocks can appear in `/etc/alligator.conf` (plain) or JSON configuration:
 | `puppeteer` | Headless browser automation |
 | `threaded_loop` | Named worker thread pools |
 
-Global directives (outside blocks): `log_level`, `log_dest`, `ttl`, `aggregate_period`, `query_period`, `system_collect_period`, and related timing options.
+Global directives (outside blocks): `log_level`, `log_dest`, `log_channel`, `ttl`, `aggregate_period`, `query_period`, `system_collect_period`, and related timing options.
 
 ## Available log levels
 - off
@@ -59,13 +59,165 @@ Global directives (outside blocks): `log_level`, `log_dest`, `ttl`, `aggregate_p
 log_dest <dest>;
 ```
 
-Destination can be standard streams of a Unix OS, a file, or a UDP port. For example, this directive can be set as follows:
+Destination can be standard streams of a Unix OS, a file, a UDP port, or a TCP socket. For example, this directive can be set as follows:
 ```
 - stdout
 - stderr
 - file:///var/log/messages
 - udp://127.0.0.1:514
+- tcp://127.0.0.1:1514
+- http://127.0.0.1:9200/alligator-logs/_bulk
 ```
+
+TCP log destinations connect asynchronously via libuv. If the remote side is not connected or a write is already in progress, log lines are dropped. Reconnection is retried in the background every few seconds.
+
+HTTP destinations (`http://host:port/path`) POST logs to Elasticsearch-compatible endpoints using the bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels default to `log_format elastic`.
+
+For Logstash TCP inputs with a JSON codec, use `tcp://` with `log_format elastic` — each log line is a JSON document terminated by newline.
+
+`log_format json` writes one JSON object per line with `message`, `key` (from context `carg->key`), and `date` (channel timestamp). Works with any destination: stdout, file, UDP, TCP.
+
+Optional per-channel fields for remote logging:
+
+- `log_format` — `plain` (default for TCP/stdout/file), `json`, or `elastic` / `elasticsearch` / `ecs`
+- `log_index` — Elasticsearch index name template, strftime-compatible (default `alligator-%Y.%m.%d`)
+
+```json
+{
+  "log_channel": [
+    {
+      "name": "elk-http",
+      "dest": "http://127.0.0.1:9200/alligator-logs/_bulk",
+      "log_index": "alligator-%Y.%m.%d"
+    },
+    {
+      "name": "logstash-tcp",
+      "dest": "tcp://127.0.0.1:5044",
+      "log_format": "elastic"
+    },
+    {
+      "name": "json-file",
+      "dest": "file:///var/log/alligator.json.log",
+      "log_format": "json",
+      "log_time": true
+    }
+  ]
+}
+```
+
+## Log channels
+
+Named log channels route context logs to different destinations. Global `log_dest` remains the default channel.
+
+```json
+{
+  "log_dest": "stdout",
+  "log_channel": [
+    {"name": "aggregate", "dest": "file:///var/log/alligator-aggregate.log"},
+    {"name": "system", "dest": "udp://127.0.0.1:514", "log_time": true}
+  ],
+  "aggregate": [
+    {
+      "url": "tcp://127.0.0.1:9100",
+      "handler": "prometheus",
+      "log_channel": "aggregate"
+    }
+  ]
+}
+```
+
+Each channel accepts the same destination values as `log_dest`. Optional per-channel fields: `log_form`, `log_time`, `log_time_format`.
+
+Context logs written via `carglog` are prefixed with `[context_key]` or `[channel_name/context_key]` when a named channel is used.
+
+### Plain configuration: per-context log files
+
+Define one channel per context, each writing to its own file under `/var/log/`, then reference the channel from that context:
+
+```conf
+# Global fallback log (startup, config parser, uncategorized messages)
+log_level info;
+log_dest file:///var/log/alligator.log;
+log_time on;
+
+# Channel definitions (one file per area)
+log_channel {
+    name aggregate;
+    dest file:///var/log/alligator-aggregate.log;
+    log_time on;
+}
+
+log_channel {
+    name system;
+    dest file:///var/log/alligator-system.log;
+    log_time on;
+}
+
+log_channel {
+    name entrypoint;
+    dest file:///var/log/alligator-entrypoint.log;
+    log_time on;
+}
+
+log_channel {
+    name action;
+    dest file:///var/log/alligator-action.log;
+    log_time on;
+}
+
+log_channel {
+    name remote-tcp;
+    dest tcp://127.0.0.1:1514;
+    log_time on;
+}
+
+log_channel {
+    name elk;
+    dest http://127.0.0.1:9200/alligator-logs/_bulk;
+    log_index alligator-%Y.%m.%d;
+    log_time on;
+}
+
+log_channel {
+    name json-log;
+    dest file:///var/log/alligator.json.log;
+    log_format json;
+    log_time on;
+}
+
+# --- contexts: pick channel + verbosity ---
+
+system {
+    base;
+    network;
+    log_level debug;
+    log_channel system;
+}
+
+entrypoint {
+    log_level debug;
+    log_channel entrypoint;
+    tcp 9100;
+    handler prometheus;
+}
+
+aggregate {
+    prometheus "http://127.0.0.1:9100/metrics" log_level=debug log_channel=aggregate;
+    redis "tcp://localhost:6379" log_level=info log_channel=aggregate;
+}
+
+action {
+    name export-metrics;
+    serializer prometheus;
+    expr http://127.0.0.1:9100/metrics;
+    log_level trace;
+    log_channel action;
+}
+```
+
+`dest` and `log_dest` are equivalent inside a `log_channel` block. On aggregate URL lines use `log_channel=name`; inside `system`, `entrypoint`, `action` blocks use `log_channel name;`.
+
+Query and other contexts that log via global `glog()` still use `log_dest` (the default channel).
 
 ## Available units for time data in configuration file:
 - ms

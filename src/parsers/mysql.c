@@ -252,6 +252,7 @@ void mysql_run_all_await(context_arg *carg)
 		db_carg.ns = ns;
 		db_carg.key = carg->key;
 		db_carg.log_level = carg->log_level;
+		db_carg.log_ch = carg->log_ch;
 
 		snprintf(db_carg.url, sizeof(url), "%s/%s", carg->url, dbname);
 		strlcpy(db_carg.ns, dbname, sizeof(ns));

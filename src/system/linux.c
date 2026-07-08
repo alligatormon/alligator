@@ -1744,7 +1744,6 @@ void get_loadavg()
 
 void get_uptime()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: uptime\n");
 	r_time time1 = setrtime();
 
 	char firstproc[255];
@@ -1855,16 +1854,16 @@ void get_mdadm()
 
 int8_t get_platform(int8_t mode)
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d\n", mode);
-
 	if (ac->system_platform == PLATFORM_OPENSTACK) {
 		uint64_t okval = 1;
 		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "openstack");
+		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: openstack\n", mode);
 		return PLATFORM_OPENSTACK;
 	}
 	else if (ac->system_platform == PLATFORM_KVM) {
 		uint64_t okval = 1;
 		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "kvm");
+		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: kvm\n", mode);
 		return PLATFORM_KVM;
 	}
 
@@ -1883,6 +1882,7 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "nspawn");
+			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: nspawn\n", mode);
 			fclose(env);
 			return PLATFORM_NSPAWN;
 		}
@@ -1890,6 +1890,7 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "docker");
+			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: docker\n", mode);
 			fclose(env);
 			return PLATFORM_DOCKER;
 		}
@@ -1911,6 +1912,7 @@ int8_t get_platform(int8_t mode)
 		fclose(env);
 		if (mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "lxc");
+		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: lxc\n", mode);
 		return PLATFORM_LXC;
 	}
 	fclose(env);
@@ -1930,12 +1932,14 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "openvz");
+			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: openvz\n", mode);
 			return PLATFORM_OPENVZ;
 		}
 		else
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "bare-metal");
+			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: bare-metal\n", mode);
 			return 0;
 		}
 	}
@@ -1945,6 +1949,7 @@ int8_t get_platform(int8_t mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "bare-metal");
 
 		fclose(env);
+		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: bare-metal\n", mode);
 		return PLATFORM_BAREMETAL;
 	}
 }

@@ -583,6 +583,7 @@ void on_process_spawn(void* arg)
 	}
 
 	carg->lock = 1;
+	carg->parsed = 0;
 	carg->parser_status = 0;
 	carg->process_release_scheduled = 0;
 	carg->process_released = 0;

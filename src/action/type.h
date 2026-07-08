@@ -32,6 +32,7 @@ typedef struct action_node
 	char *metric_name_transform_replacement;
 	pcre *metric_name_transform_compiled;
 	int log_level;
+	struct log_channel *log_ch;
 
 	tommy_node node;
 } action_node;

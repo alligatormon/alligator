@@ -77,6 +77,12 @@ void config_global_get(json_t *dst)
 		json_array_object_insert(dst, "log_level", log_level);
 	}
 
+	if (ac->log_dest)
+	{
+		json_t *log_dest = json_string(ac->log_dest);
+		json_array_object_insert(dst, "log_dest", log_dest);
+	}
+
 	if (ac->aggregator_repeat)
 	{
 		json_t *aggregate_period = json_integer(ac->aggregator_repeat);
@@ -288,6 +294,12 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "log_level", log_level);
 	}
 
+	if (carg->log_ch && carg->log_ch->name && !carg->log_ch->is_default)
+	{
+		json_t *log_channel = json_string(carg->log_ch->name);
+		json_array_object_insert(ctx, "log_channel", log_channel);
+	}
+
 	if (!strncmp(carg->url, "file://", 7))
 	{
 		if (carg->state == FILESTAT_STATE_BEGIN)
@@ -339,6 +351,18 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_t *metricstransform = json_deep_copy(carg->metricstransform);
 		if (metricstransform)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
+
+	if (carg->buffer_request_size)
+	{
+		json_t *buffer_request_size = json_integer(carg->buffer_request_size);
+		json_array_object_insert(ctx, "buffer_request_size", buffer_request_size);
+	}
+
+	if (carg->buffer_response_size)
+	{
+		json_t *buffer_response_size = json_integer(carg->buffer_response_size);
+		json_array_object_insert(ctx, "buffer_response_size", buffer_response_size);
 	}
 }
 
@@ -1124,6 +1148,18 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_t *metricstransform = json_deep_copy(carg->metricstransform);
 		if (metricstransform)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
+
+	if (carg->buffer_request_size)
+	{
+		json_t *buffer_request_size = json_integer(carg->buffer_request_size);
+		json_array_object_insert(ctx, "buffer_request_size", buffer_request_size);
+	}
+
+	if (carg->buffer_response_size)
+	{
+		json_t *buffer_response_size = json_integer(carg->buffer_response_size);
+		json_array_object_insert(ctx, "buffer_response_size", buffer_response_size);
 	}
 
 	if (carg->mm)

@@ -376,6 +376,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 
 	new_carg->packets_id = transaction_id;
 	new_carg->log_level = carg->log_level;
+	new_carg->log_ch = carg->log_ch;
 	new_carg->resolver = 1;
 	new_carg->rrtype = get_str_by_rrtype(rrtype);
 	if (carg->period)

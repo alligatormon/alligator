@@ -84,7 +84,7 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 			if (n >= sizeof(str))
 				n = sizeof(str) - 1;
 			strlcpy(str, metrics+i, n + 1);
-			printf("wazuh processing string: %"d64" < %zu: '%s'\n", i, size, str);
+			carglog(carg, L_DEBUG, "wazuh processing string: %"PRId64" < %zu: '%s'\n", i, size, str);
 		}
 
 		if (metrics[i] == '#') {

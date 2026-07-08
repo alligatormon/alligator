@@ -13,7 +13,7 @@ void langlog(lang_options *lo, int priority, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	wrlog(lo->log_level, priority, format, args);
+	wrlog(NULL, NULL, lo->log_level, priority, format, args);
 	va_end(args);
 }
 

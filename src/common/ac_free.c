@@ -2,6 +2,7 @@
 #include "amtail/type.h"
 #include "events/context_arg.h"
 #include "events/a_signal.h"
+#include "common/logs.h"
 
 #include <pthread.h>
 
@@ -15,6 +16,7 @@ void main_free()
 	free(ac->log_host);
 	free(ac->log_dest);
 	free(ac->log_time_format);
+	log_channels_free();
 	free(ac->process_shell);
 
 	alligator_ht_done(ac->tcp_server_handler);

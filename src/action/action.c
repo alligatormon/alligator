@@ -84,9 +84,11 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 
 	context_arg carg_hint = {0};
 	context_arg *oneshot_carg = NULL;
-	if (an->log_level_defined)
+	if (an->log_level_defined || an->log_ch)
 	{
-		carg_hint.log_level = an->log_level;
+		if (an->log_level_defined)
+			carg_hint.log_level = an->log_level;
+		carg_hint.log_ch = an->log_ch;
 		carg_hint.ttl = ac->ttl;
 		oneshot_carg = &carg_hint;
 	}

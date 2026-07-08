@@ -30,6 +30,8 @@
 #define ENTRYPOINT_AGGREGATION_COUNT 1
 enum ssl_mode { SSLMODE_SERVER, SSLMODE_CLIENT };
 
+struct log_channel;
+
 typedef struct env_struct {
 	char *k;
 	char *v;
@@ -309,6 +311,9 @@ typedef struct context_arg
 	uint32_t amtail_full_export_ttl_interval_sec;
 	// Set after VARIABLE decls from shared bytecode are inserted into amtail_variables.
 	uint8_t amtail_variables_prepared;
+	uv_idle_t filetailer_restart_idle;
+	uint8_t filetailer_restart_idle_active;
+	char filetailer_restart_path[1024];
 	uint8_t remove_from_hash; // enable if deleting 1 object
 
 	char *url;
@@ -325,6 +330,7 @@ typedef struct context_arg
 	int fd;
 
 	int log_level;
+	struct log_channel *log_ch;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;

@@ -994,6 +994,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *mtail_full_export_interval_entrypoint = NULL;
 			json_t *read_metric_interval_entrypoint = NULL;
 			json_t *log_level_entrypoint = NULL;
+			json_t *log_channel_entrypoint = NULL;
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
 			json_t *threads_entrypoint = NULL;
@@ -1024,7 +1025,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			context_json = json_object_get(root, wstokens[i].token->s);
 			if (!context_json)
 			{
-				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "mtail") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca") || !strcmp(wstokens[i].token->s, "namespace"))
+				if (!strcmp(wstokens[i].token->s, "aggregate") || !strcmp(wstokens[i].token->s, "x509") || !strcmp(wstokens[i].token->s, "mtail") || !strcmp(wstokens[i].token->s, "entrypoint") || !strcmp(wstokens[i].token->s, "query") || !strcmp(wstokens[i].token->s, "grok") || !strcmp(wstokens[i].token->s, "action") || !strcmp(wstokens[i].token->s, "probe") || !strcmp(wstokens[i].token->s, "lang") || !strcmp(wstokens[i].token->s, "cluster") || !strcmp(wstokens[i].token->s, "instance") || !strcmp(wstokens[i].token->s, "resolver") || !strcmp(wstokens[i].token->s, "scheduler") || !strcmp(wstokens[i].token->s, "threaded_loop") || !strcmp(wstokens[i].token->s, "tls_certificate") || !strcmp(wstokens[i].token->s, "tls_key") || !strcmp(wstokens[i].token->s, "tls_ca") || !strcmp(wstokens[i].token->s, "namespace") || !strcmp(wstokens[i].token->s, "log_channel"))
 					context_json = json_array();
 				else
 					context_json = json_object();
@@ -1091,7 +1092,22 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "log_level", log_level_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir") || !strcmp(wstokens[i].token->s, "log_level"))
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "log_channel"))
+					{
+						if (!log_channel_entrypoint)
+						{
+							++i;
+							log_channel_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "log_channel", log_channel_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
+					{
+						++i;
+						json_t *arg_json = json_string(wstokens[i].token->s);
+						json_array_object_insert(context_json, operator_name, arg_json);
+					}
+					else if (json_typeof(context_json) == JSON_OBJECT && (!strcmp(wstokens[i].token->s, "log_level") || !strcmp(wstokens[i].token->s, "log_channel")))
 					{
 						++i;
 						json_t *arg_json = json_string(wstokens[i].token->s);
@@ -1450,7 +1466,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "auth_header", auth_header_entrypoint);
 						}
 					}
-					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop") || !strcmp(context_name, "namespace"))
+					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop") || !strcmp(context_name, "namespace") || !strcmp(context_name, "log_channel"))
 					{
 						operator_json = json_object();
 						char arg_name[255];
@@ -1955,8 +1971,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						continue;
 					else
 					{
-						operator_json = json_object();
-						json_array_object_insert(context_json, operator_name, operator_json);
+						if (!strcmp(context_name, "entrypoint") && operator_json)
+							;
+						else
+						{
+							operator_json = json_object();
+							json_array_object_insert(context_json, operator_name, operator_json);
+						}
 					}
 				}
 				else if (wstokens[i].argument)
@@ -1964,7 +1985,23 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					if (!operator_json || !operator_name)
 						continue;
 
-					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
+					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "log_level"))
+					{
+						if (!log_level_entrypoint)
+						{
+							log_level_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "log_level", log_level_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "log_channel"))
+					{
+						if (!log_channel_entrypoint)
+						{
+							log_channel_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "log_channel", log_channel_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{
 						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(allow_entrypoint, operator_name, arg_json);

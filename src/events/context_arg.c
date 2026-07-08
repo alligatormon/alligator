@@ -56,6 +56,8 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_touch_cap = 0;
 	carg->amtail_touch_seq = 0;
 	carg->amtail_last_ttl_refresh_sec = 0;
+	carg->filetailer_restart_idle_active = 0;
+	carg->filetailer_restart_path[0] = '\0';
 	carg->entrypoint_read_metric_last_push_sec = 0;
 	carg->http_idle_timer = NULL;
 	carg->http_idle_timer_active = 0;
@@ -232,6 +234,13 @@ void carg_uv_detach_timers(context_arg *carg)
 	if (carg->http_idle_timer) {
 		carg_timer_detach_and_close(&carg->http_idle_timer);
 		carg->http_idle_timer_active = 0;
+	}
+
+	if (carg->filetailer_restart_idle_active &&
+	    carg->filetailer_restart_idle.loop &&
+	    !uv_is_closing((uv_handle_t *)&carg->filetailer_restart_idle)) {
+		uv_idle_stop(&carg->filetailer_restart_idle);
+		carg->filetailer_restart_idle_active = 0;
 	}
 }
 
@@ -604,6 +613,25 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->buffer_request_size = 1553500;
 	carg->buffer_response_size = 1553500;
 	carg->full_body = string_init(1553500);
+
+	json_t *json_buffer_request_size = json_object_get(root, "buffer_request_size");
+	if (json_buffer_request_size) {
+		int64_t v = json_integer_value(json_buffer_request_size);
+		if (v > 0) {
+			carg->buffer_request_size = (uint64_t)v;
+			if (carg->full_body)
+				string_free(carg->full_body);
+			carg->full_body = string_init(carg->buffer_request_size);
+		}
+	}
+
+	json_t *json_buffer_response_size = json_object_get(root, "buffer_response_size");
+	if (json_buffer_response_size) {
+		int64_t v = json_integer_value(json_buffer_response_size);
+		if (v > 0)
+			carg->buffer_response_size = (uint64_t)v;
+	}
+
 	if (hi->proto == APROTO_HTTPS || hi->proto == APROTO_TLS)
 		carg->tls = 1;
 	else
@@ -755,6 +783,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->log_level = get_log_level_by_name(json_string_value(json_log_level), json_string_length(json_log_level));
 	else if (json_log_level)
 		carg->log_level = json_integer_value(json_log_level);
+
+	json_t *json_log_channel = json_object_get(root, "log_channel");
+	if (json_log_channel && json_typeof(json_log_channel) == JSON_STRING)
+		carg->log_ch = log_channel_get(json_string_value(json_log_channel));
 
 	parse_add_label(carg, root);
 
@@ -916,22 +948,24 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 void carglog(context_arg *carg, int priority, const char *format, ...)
 {
-	int level = carg ? carg->log_level : ac->log_level;
+	int level = carg && carg->log_level ? carg->log_level : ac->log_level;
+	log_channel *ch = log_channel_for_context(carg);
 	if (level < priority)
 		return;
 	va_list args;
 	va_start(args, format);
-	wrlog(level, priority, format, args);
+	wrlog(ch, carg, level, priority, format, args);
 	va_end(args);
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)
 {
-	int level = carg ? carg->log_level : ac->log_level;
+	int level = carg && carg->log_level ? carg->log_level : ac->log_level;
+	log_channel *ch = log_channel_for_context(carg);
 	if (level < priority)
 		return;
 	va_list args;
 	va_start(args, format);
-	wrlog(level, priority, format, args);
+	wrlog(ch, carg, level, priority, format, args);
 	va_end(args);
 }

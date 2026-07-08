@@ -269,6 +269,7 @@ typedef struct aconf
 	char *log_host;
 	int log_port;
 	int update_log_dest;
+	alligator_ht *log_channels;
 	struct sockaddr_in logsoaddr;
 	int64_t ttl; // global TTL for metrics
 

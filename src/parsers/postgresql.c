@@ -352,6 +352,7 @@ context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargnam
 	db_carg->name = strdup(cargname);
 	db_carg->ns = strdup(ns);
 	db_carg->log_level = carg->log_level;
+	db_carg->log_ch = carg->log_ch;
 	db_carg->data_lock = 1;
 	db_carg->pg_queue = NULL;
 	db_carg->labels = carg->labels;

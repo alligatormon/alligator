@@ -92,7 +92,7 @@ void cslog(int priority, const char *format, ...)
 	if (cs->log_level < priority)
 		return;
 	va_start(args, format);
-	wrlog(cs->log_level, priority, format, args);
+	wrlog(NULL, NULL, cs->log_level, priority, format, args);
 	va_end(args);
 }
 

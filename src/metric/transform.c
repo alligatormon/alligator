@@ -24,7 +24,7 @@ static void metric_transform_vlog(context_arg *carg, action_node *an,
 	if (level < priority)
 		return;
 
-	wrlog(level, priority, fmt, ap);
+	wrlog(NULL, carg, level, priority, fmt, ap);
 }
 
 static void metric_transform_info(context_arg *carg, action_node *an, const char *fmt, ...)
