@@ -24,10 +24,10 @@ tests:
   - conan build external/
 
   - find . -name conan_toolchain.cmake
-  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
+  - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
   - cmake --build build --parallel 3
 
-  - ./build/alligator_tests pass
+  - LLVM_PROFILE_FILE=default.profraw ./build/alligator_tests pass
   - llvm-profdata merge -sparse default.profraw -o default.profdata
   - llvm-cov report -instr-profile=default.profdata build/alligator_tests
 

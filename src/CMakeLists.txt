@@ -594,11 +594,11 @@ set_target_properties(${TESTS} PROPERTIES
 IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
 set_target_properties(${TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
-    LINK_FLAGS "-fprofile-generate"
+    LINK_FLAGS "-fprofile-instr-generate"
 )
 set_target_properties(${COMMON_TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
-    LINK_FLAGS "-fprofile-generate"
+    LINK_FLAGS "-fprofile-instr-generate"
 )
 # to check coverage report use the: ./build/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata build/alligator_tests
 ENDIF(CMAKE_C_COMPILER_ID MATCHES "Clang")
