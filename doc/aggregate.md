@@ -160,7 +160,7 @@ Available values:
 - false
 - only
 
-Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the scheduler.
+Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the global file aggregator scheduler (`file_aggregator_repeat`). With `notify=false` (default), new file bytes are picked up on each global file crawl tick (`file_aggregator_repeat` in `system` config, default 10s); all pending lines since the last saved offset are read in one batch per tick and forwarded line by line. Do not confuse global `file_aggregator_repeat` with per-aggregate `period` (a separate per-file timer).
 
 
 ## state
@@ -198,7 +198,7 @@ Specify of the level of logging for the aggregator. Units for this option are ex
 Default: -\
 Plural: no
 
-For file and socket transports (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards each incoming payload chunk to the named log channel. Payload bytes are kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
+For file and socket transports (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards incoming data **line by line** (newline-delimited) to the named log channel. Each line is kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
 
 Plain example: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
 

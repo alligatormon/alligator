@@ -279,6 +279,42 @@ void test_logs_helpers()
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"key\":\"file://test\"") != NULL);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"date\":") != NULL);
 
+        {
+            const char *raw_lines_path = "/tmp/alligator-ut2-raw-lines.log";
+            log_channel *raw_lines;
+
+            unlink(raw_lines_path);
+            raw_lines = log_channel_upsert("raw-lines", "file:///tmp/alligator-ut2-raw-lines.log",
+                -1, 0, NULL, LOG_FORMAT_JSON, NULL);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw_lines);
+
+            memset(&file_carg, 0, sizeof(file_carg));
+            file_carg.transport = APROTO_FILE;
+            file_carg.key = "file://lines";
+            file_carg.log_ch_raw = raw_lines;
+
+            carglog_raw(&file_carg, "line1\nline2\npar", 15);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, file_carg.log_ch_raw_tail);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)file_carg.log_ch_raw_tail->l);
+
+            carglog_raw(&file_carg, "tial\n", 5);
+            assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, file_carg.log_ch_raw_tail);
+
+            if (raw_lines->socket > 2)
+                close(raw_lines->socket);
+
+            rf = fopen(raw_lines_path, "r");
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rf);
+            memset(jbuf, 0, sizeof(jbuf));
+            rn = fread(jbuf, 1, sizeof(jbuf) - 1, rf);
+            fclose(rf);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, rn > 0);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"message\":\"line1\"") != NULL);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"message\":\"line2\"") != NULL);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"message\":\"partial\"") != NULL);
+            unlink(raw_lines_path);
+        }
+
         unlink(raw_plain_path);
         unlink(raw_json_path);
     }
@@ -300,8 +336,8 @@ void test_logs_helpers()
         char lbuf[32] = {0};
         size_t ln = fread(lbuf, 1, sizeof(lbuf) - 1, lf);
         fclose(lf);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (int)ln);
-        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "syslog line\n", lbuf);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 11, (int)ln);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "syslog line", lbuf);
         unlink(log_handler_path);
     }
 

@@ -333,6 +333,7 @@ typedef struct context_arg
 	int log_level;
 	struct log_channel *log_ch;
 	struct log_channel *log_ch_raw;
+	string *log_ch_raw_tail;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;

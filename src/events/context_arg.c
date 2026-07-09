@@ -43,6 +43,7 @@ context_arg *carg_copy(context_arg *src)
 	carg->dynamic_socket = NULL;
 	carg->amtail_variables = NULL;
 	carg->amtail_tail = NULL;
+	carg->log_ch_raw_tail = NULL;
 	carg->srv_carg = NULL;
 	carg->entrypoint_stop_async_ready = 0;
 
@@ -320,6 +321,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->amtail_tail)
 		string_free(carg->amtail_tail);
+
+	if (carg->log_ch_raw_tail)
+		string_free(carg->log_ch_raw_tail);
 
 	carg->remote_addr.sin_addr.s_addr = 0;
 	carg->remote_addr.sin_port = 0;
@@ -964,11 +968,52 @@ void carglog(context_arg *carg, int priority, const char *format, ...)
 
 void carglog_raw(context_arg *carg, const char *data, size_t len)
 {
+	size_t tail_len;
+	size_t total;
+	const char *buf;
+	char *heap = NULL;
+	size_t start;
+	size_t i;
+	size_t line_len;
+
 	if (!carg || !carg->log_ch_raw || !data || !len)
 		return;
 	if (!context_allows_raw_log(carg))
 		return;
-	log_channel_write_raw(carg->log_ch_raw, carg, data, len);
+
+	tail_len = carg->log_ch_raw_tail ? carg->log_ch_raw_tail->l : 0;
+	total = tail_len + len;
+
+	if (tail_len) {
+		heap = malloc(total ? total : 1);
+		if (!heap)
+			return;
+		memcpy(heap, carg->log_ch_raw_tail->s, tail_len);
+		memcpy(heap + tail_len, data, len);
+		buf = heap;
+		string_free(carg->log_ch_raw_tail);
+		carg->log_ch_raw_tail = NULL;
+	} else {
+		buf = data;
+	}
+
+	start = 0;
+	for (i = 0; i < total; ++i) {
+		if (buf[i] != '\n')
+			continue;
+
+		line_len = i - start;
+		if (line_len && buf[start + line_len - 1] == '\r')
+			--line_len;
+		if (line_len)
+			log_channel_write_raw(carg->log_ch_raw, carg, buf + start, line_len);
+		start = i + 1;
+	}
+
+	if (start < total)
+		carg->log_ch_raw_tail = string_init_alloc((char *)(buf + start), total - start);
+
+	free(heap);
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)

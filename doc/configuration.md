@@ -172,12 +172,12 @@ Context logs written via `carglog` are prefixed with `[context_key]` or `[channe
 
 ### Raw stream passthrough (`log_channel_raw`)
 
-On **entrypoint** and **aggregate** contexts that read user data from **files or sockets** (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), `log_channel_raw` forwards incoming payload bytes to a named channel. The **message body is not rewritten** (no `carglog`-style `[channel/key]` prefix); channel settings only add an outer envelope:
+On **entrypoint** and **aggregate** contexts that read user data from **files or sockets** (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), `log_channel_raw` forwards incoming payload to a named channel **line by line** (split on `\n`; a trailing `\r` is stripped). Bytes that do not end with a newline are buffered until the next read. The **message body is not rewritten** (no `carglog`-style `[channel/key]` prefix); channel settings only add an outer envelope:
 
-- `log_format plain` + `log_time off` — bytes sent as received
-- `log_format plain` + `log_time on` — channel timestamp prefix, then unchanged payload
-- `log_format json` — one JSON object per chunk with `message` (payload), optional `key`, and `date`
-- `log_format elastic` — ECS-style document with `@timestamp`, `message`, and metadata (HTTP destinations use bulk NDJSON)
+- `log_format plain` + `log_time off` — each line sent as a separate write (payload without the newline)
+- `log_format plain` + `log_time on` — channel timestamp prefix, then one line per write
+- `log_format json` — one JSON object per line with `message` (payload), optional `key`, and `date`
+- `log_format elastic` — ECS-style document per line with `@timestamp`, `message`, and metadata (HTTP destinations use bulk NDJSON)
 
 Use it as an extra sink alongside grok/mtail metric parsing, or with `handler log` for log shipping without metrics.
 
