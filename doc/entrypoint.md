@@ -21,6 +21,8 @@ Full explain
 ```
 entrypoint {
     log_level <time>;
+    log_channel <channel_name>;
+    log_channel_raw <channel_name>;
     return [empty|on]>;
     reject <label name> <label key>;
     auth <basic|bearer|other> <user:password|token|secret>;
@@ -347,7 +349,7 @@ This option specifies the handler that processes received messages.
 - **rsyslog-impstats** — Rsyslog impstats metrics. See [rsyslog](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md).
 - **auditd** — Linux audit log lines in `key=value` format. See [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md).
 - **lang** — Custom processing via external lang modules. Requires the `lang` option. See [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md).
-- **log** — Debug handler: logs the received body and does not export metrics.
+- **log** — Log shipping only: no metric parsing. Incoming bytes are forwarded via `log_channel_raw` (see [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw)). Pair with `log_channel_raw` on file/socket transports.
 - **grok** — Parses the stream with a named [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md) context. Requires the `grok` option.
 - **mtail** — Parses the stream with a named [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md) program. Requires the `mtail` option.
 

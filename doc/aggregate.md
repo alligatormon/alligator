@@ -194,6 +194,14 @@ Plural: no
 
 Specify of the level of logging for the aggregator. Units for this option are explained in this [document](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-log-levels)
 
+## log\_channel\_raw
+Default: -\
+Plural: no
+
+For file and socket transports (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards each incoming payload chunk to the named log channel. Payload bytes are kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
+
+Plain example: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
+
 
 ## threaded_loop_name
 Default: -\
@@ -400,7 +408,7 @@ The first token in an `aggregate` line is the **handler key** registered in Alli
 
 **Observability and logs:** [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md), [auditd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/auditd.md) (entrypoint `auditd`), [rsyslog impstats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rsyslog.md) (entrypoint `rsyslog-impstats`), [prometheus_metrics](https://github.com/alligatormon/alligator/blob/master/doc/parsers/prometheus_metrics.md), [json_query](https://github.com/alligatormon/alligator/blob/master/doc/parsers/json_query.md), [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md), [tftp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/tftp.md)
 
-**Other:** Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md), [consul](https://github.com/alligatormon/alligator/blob/master/doc/service-discovery.md) (`consul`, `consul-configuration`, `consul-discovery`), [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md), [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md), [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md)
+**Other:** Celery [flower](https://github.com/alligatormon/alligator/blob/master/doc/parsers/flower.md), [consul](https://github.com/alligatormon/alligator/blob/master/doc/service-discovery.md) (`consul`, `consul-configuration`, `consul-discovery`), [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md), [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md), [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md), **log** (forward-only via `log_channel_raw`)
 
 **Utility handlers (no dedicated parser page):** `http`, `tcp`, `process`, `influxdb` (scheduler export), `jsonparse`, `redis_ping`, `sphinxsearch`, `dummy`
 

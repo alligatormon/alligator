@@ -170,6 +170,99 @@ Each channel accepts the same destination values as `log_dest`. Optional per-cha
 
 Context logs written via `carglog` are prefixed with `[context_key]` or `[channel_name/context_key]` when a named channel is used.
 
+### Raw stream passthrough (`log_channel_raw`)
+
+On **entrypoint** and **aggregate** contexts that read user data from **files or sockets** (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), `log_channel_raw` forwards incoming payload bytes to a named channel. The **message body is not rewritten** (no `carglog`-style `[channel/key]` prefix); channel settings only add an outer envelope:
+
+- `log_format plain` + `log_time off` — bytes sent as received
+- `log_format plain` + `log_time on` — channel timestamp prefix, then unchanged payload
+- `log_format json` — one JSON object per chunk with `message` (payload), optional `key`, and `date`
+- `log_format elastic` — ECS-style document with `@timestamp`, `message`, and metadata (HTTP destinations use bulk NDJSON)
+
+Use it as an extra sink alongside grok/mtail metric parsing, or with `handler log` for log shipping without metrics.
+
+`log_channel` (diagnostic logs via `carglog`) and `log_channel_raw` (incoming user payload) are independent.
+
+```json
+{
+  "log_channel": [
+    {
+      "name": "kafka-raw",
+      "dest": "kafka://127.0.0.1:9092/alligator-raw-logs",
+      "kafka_key": "syslog",
+      "log_format": "json",
+      "log_time": true
+    }
+  ],
+  "entrypoint": [
+    {
+      "handler": "log",
+      "tcp": "1514",
+      "log_channel_raw": "kafka-raw"
+    }
+  ],
+  "aggregate": [
+    {
+      "url": "file:///var/log/app.log",
+      "handler": "log",
+      "log_channel_raw": "kafka-raw"
+    }
+  ]
+}
+```
+
+Plain config (log-only forwarding):
+
+```conf
+entrypoint {
+    handler log;
+    tcp 1514;
+    log_channel_raw kafka-raw;
+}
+
+aggregate {
+    log "file:///var/log/app.log" log_channel_raw=kafka-raw;
+}
+```
+
+With metrics parsing (grok/mtail) on the same stream:
+
+```json
+  "entrypoint": [
+    {
+      "handler": "grok",
+      "grok": "syslog",
+      "tcp": "1514",
+      "log_channel_raw": "kafka-raw"
+    }
+  ],
+  "aggregate": [
+    {
+      "url": "file:///var/log/app.log",
+      "handler": "mtail",
+      "mtail": "app.mtail",
+      "log_channel_raw": "kafka-raw"
+    }
+  ]
+```
+
+Plain:
+
+```conf
+entrypoint {
+    handler grok;
+    grok syslog;
+    tcp 1514;
+    log_channel_raw kafka-raw;
+}
+
+aggregate {
+    mtail "file:///var/log/app.log" handler=mtail mtail=app.mtail log_channel_raw=kafka-raw;
+}
+```
+
+On aggregate URL lines use `log_channel_raw=name`; inside `entrypoint` blocks use `log_channel_raw name;`.
+
 ### Plain configuration: per-context log files
 
 Define one channel per context, each writing to its own file under `/var/log/`, then reference the channel from that context:
@@ -266,7 +359,7 @@ action {
 }
 ```
 
-`dest` and `log_dest` are equivalent inside a `log_channel` block. On aggregate URL lines use `log_channel=name`; inside `system`, `entrypoint`, `action` blocks use `log_channel name;`.
+`dest` and `log_dest` are equivalent inside a `log_channel` block. On aggregate URL lines use `log_channel=name` and `log_channel_raw=name`; inside `system`, `entrypoint`, `action` blocks use `log_channel name;` and `log_channel_raw name;`.
 
 Query and other contexts that log via global `glog()` still use `log_dest` (the default channel).
 

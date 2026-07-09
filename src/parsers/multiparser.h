@@ -58,6 +58,7 @@ void flower_handler(char *metrics, size_t size, context_arg *carg);
 void powerdns_handler(char *metrics, size_t size, context_arg *carg);
 void opentsdb_handler(char *metrics, size_t size, context_arg *carg);
 void log_handler(char *metrics, size_t size, context_arg *carg);
+void log_parser_push();
 void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg);
 void monit_handler(char *metrics, size_t size, context_arg *carg);
 void dummy_handler(char *metrics, size_t size, context_arg *carg);

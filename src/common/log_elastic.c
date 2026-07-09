@@ -162,11 +162,9 @@ char *log_elastic_format_doc(const log_channel *ch, context_arg *carg, int prior
 	return ret;
 }
 
-char *log_elastic_format_bulk(const log_channel *ch, context_arg *carg, int priority,
-    const char *format, va_list args, size_t *outlen)
+char *log_elastic_format_bulk_msg(const log_channel *ch, context_arg *carg, int priority,
+    const char *message, size_t msglen, size_t *outlen)
 {
-	char *msg;
-	size_t msglen = 0;
 	char *index;
 	json_t *doc;
 	json_t *action;
@@ -174,15 +172,21 @@ char *log_elastic_format_bulk(const log_channel *ch, context_arg *carg, int prio
 	char *action_json;
 	char *doc_json;
 	char *ret;
+	char *msg;
 	size_t action_len;
 	size_t doc_len;
 	size_t total;
 
-	msg = log_elastic_vformat_message(format, args, &msglen);
+	if (!message || !msglen)
+		return NULL;
+
+	msg = malloc(msglen + 1);
 	if (!msg)
 		return NULL;
 
-	(void)msglen;
+	memcpy(msg, message, msglen);
+	msg[msglen] = '\0';
+
 	index = log_elastic_index_name(ch);
 	doc = log_elastic_build_doc(ch, carg, priority, msg);
 	free(msg);
@@ -230,5 +234,21 @@ char *log_elastic_format_bulk(const log_channel *ch, context_arg *carg, int prio
 
 	if (outlen)
 		*outlen = total;
+	return ret;
+}
+
+char *log_elastic_format_bulk(const log_channel *ch, context_arg *carg, int priority,
+    const char *format, va_list args, size_t *outlen)
+{
+	char *msg;
+	size_t msglen = 0;
+	char *ret;
+
+	msg = log_elastic_vformat_message(format, args, &msglen);
+	if (!msg)
+		return NULL;
+
+	ret = log_elastic_format_bulk_msg(ch, carg, priority, msg, msglen, outlen);
+	free(msg);
 	return ret;
 }

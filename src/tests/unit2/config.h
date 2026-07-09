@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -11,6 +12,7 @@
 #include "common/auth.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "parsers/multiparser.h"
 #include "common/log_tcp.h"
 #include "common/log_http.h"
 #include "common/log_kafka.h"
@@ -224,6 +226,84 @@ void test_logs_helpers()
         free(doc);
     }
     log_tcp_sink_close(json_ch);
+
+    {
+        const char *raw_plain_path = "/tmp/alligator-ut2-raw-plain.log";
+        const char *raw_json_path = "/tmp/alligator-ut2-raw-json.log";
+        unlink(raw_plain_path);
+        unlink(raw_json_path);
+
+        log_channel *raw_plain = log_channel_upsert("raw-plain", "file:///tmp/alligator-ut2-raw-plain.log",
+            -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+        log_channel *raw_json = log_channel_upsert("raw-json", "file:///tmp/alligator-ut2-raw-json.log",
+            -1, 0, NULL, LOG_FORMAT_JSON, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw_plain);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw_json);
+
+        context_arg file_carg = {0};
+        file_carg.transport = APROTO_FILE;
+        file_carg.key = "file://test";
+        file_carg.log_ch_raw = raw_plain;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, context_allows_raw_log(&file_carg));
+        log_channel_write_raw(raw_plain, &file_carg, "raw line\n", 9);
+
+        file_carg.log_ch_raw = raw_json;
+        log_channel_write_raw(raw_json, &file_carg, "json line\n", 10);
+
+        context_arg http_carg = {0};
+        http_carg.transport = APROTO_HTTP;
+        http_carg.log_ch_raw = raw_plain;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, context_allows_raw_log(&http_carg));
+        carglog_raw(&http_carg, "skipped\n", 8);
+
+        if (raw_plain->socket > 2)
+            close(raw_plain->socket);
+        if (raw_json->socket > 2)
+            close(raw_json->socket);
+
+        FILE *rf = fopen(raw_plain_path, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rf);
+        char rbuf[32] = {0};
+        size_t rn = fread(rbuf, 1, sizeof(rbuf) - 1, rf);
+        fclose(rf);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 9, (int)rn);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "raw line\n", rbuf);
+
+        rf = fopen(raw_json_path, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rf);
+        char jbuf[256] = {0};
+        rn = fread(jbuf, 1, sizeof(jbuf) - 1, rf);
+        fclose(rf);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, rn > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"message\":\"json line\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"key\":\"file://test\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(jbuf, "\"date\":") != NULL);
+
+        unlink(raw_plain_path);
+        unlink(raw_json_path);
+    }
+
+    {
+        const char *log_handler_path = "/tmp/alligator-ut2-log-handler.log";
+        unlink(log_handler_path);
+        log_channel *log_ch = log_channel_upsert("log-handler", "file:///tmp/alligator-ut2-log-handler.log",
+            -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+        context_arg log_carg = {0};
+        log_carg.transport = APROTO_FILE;
+        log_carg.log_ch_raw = log_ch;
+        alligator_multiparser("syslog line\n", 12, log_handler, NULL, &log_carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_carg.parser_status);
+        if (log_ch && log_ch->socket > 2)
+            close(log_ch->socket);
+        FILE *lf = fopen(log_handler_path, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lf);
+        char lbuf[32] = {0};
+        size_t ln = fread(lbuf, 1, sizeof(lbuf) - 1, lf);
+        fclose(lf);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (int)ln);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "syslog line\n", lbuf);
+        unlink(log_handler_path);
+    }
 
     context_arg carg = {0};
     strlcpy(carg.host, "127.0.0.1", sizeof(carg.host));
@@ -2101,6 +2181,52 @@ void test_entrypoint_log_channel_plain_parse()
     json_t *lc0 = json_array_get(log_channels, 0);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "entrypoint-tcp", json_string_value(json_object_get(lc0, "name")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "file:///var/log/alligator-entrypoint.log", json_string_value(json_object_get(lc0, "dest")));
+
+    json_decref(root);
+}
+
+void test_log_channel_raw_plain_parse()
+{
+    const char *conf =
+        "log_channel {\n"
+        "  name kafka-raw;\n"
+        "  dest kafka://127.0.0.1:9092/alligator-raw;\n"
+        "}\n"
+        "entrypoint {\n"
+        "  handler log;\n"
+        "  tcp 1514;\n"
+        "  log_channel_raw kafka-raw;\n"
+        "}\n"
+        "aggregate {\n"
+        "  log \"file:///var/log/app.log\" log_channel_raw=kafka-raw;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kafka-raw",
+        json_string_value(json_object_get(ep0, "log_channel_raw")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "log",
+        json_string_value(json_object_get(ep0, "handler")));
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    json_t *ag0 = json_array_get(aggregate, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kafka-raw",
+        json_string_value(json_object_get(ag0, "log_channel_raw")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "log",
+        json_string_value(json_object_get(ag0, "handler")));
 
     json_decref(root);
 }

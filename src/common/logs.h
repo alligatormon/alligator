@@ -62,6 +62,8 @@ void log_channels_reopen(void);
 void log_init();
 void log_default();
 void wrlog(log_channel *ch, struct context_arg *carg, int level, int priority, const char *format, va_list args);
+void log_channel_write_raw(log_channel *ch, struct context_arg *carg, const char *data, size_t len);
+int context_allows_raw_log(const struct context_arg *carg);
 void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);
 void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options);

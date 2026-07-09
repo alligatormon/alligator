@@ -15,6 +15,7 @@
 #include <time.h>
 #include <jansson.h>
 #include "events/context_arg.h"
+#include "common/url.h"
 #include "main.h"
 
 extern aconf *ac;
@@ -159,6 +160,44 @@ static char *log_format_line_alloc(log_channel *ch, context_arg *carg, const cha
 	return buf;
 }
 
+static char *log_format_raw_plain_alloc(log_channel *ch, const char *data, size_t len, size_t *outlen)
+{
+	size_t off = 0;
+	size_t cap = len + 128;
+	char *buf;
+
+	if (!data || !len)
+		return NULL;
+
+	buf = malloc(cap);
+	if (!buf)
+		return NULL;
+
+	off = log_append_timestamp_prefix(ch, buf, cap, off);
+
+	if (off + len >= cap)
+	{
+		cap = off + len + 1;
+		{
+			char *grown = realloc(buf, cap);
+			if (!grown)
+			{
+				free(buf);
+				return NULL;
+			}
+			buf = grown;
+		}
+	}
+
+	memcpy(buf + off, data, len);
+	off += len;
+
+	if (outlen)
+		*outlen = off;
+
+	return buf;
+}
+
 static void log_channel_close_socket(log_channel *ch)
 {
 	if (!ch)
@@ -192,6 +231,21 @@ static void log_channel_close_socket(log_channel *ch)
 		free(ch->host);
 		ch->host = NULL;
 	}
+}
+
+static void log_channel_sink_write(log_channel *ch, const char *data, size_t len)
+{
+	if (!ch || !data || !len)
+		return;
+
+	if (log_channel_is_kafka(ch))
+		log_kafka_sink_write(ch, data, len);
+	else if (log_channel_is_http(ch))
+		log_http_sink_write(ch, data, len);
+	else if (log_channel_is_tcp(ch))
+		log_tcp_sink_write(ch, data, len);
+	else
+		log_channel_write(ch, data, len);
 }
 
 static int log_channel_open_dest(log_channel *ch, char *dest)
@@ -675,6 +729,84 @@ void log_default() {
 
 void log_init() {
 	log_channels_reopen();
+}
+
+int context_allows_raw_log(const context_arg *carg)
+{
+	if (!carg)
+		return 0;
+
+	switch (carg->transport) {
+	case APROTO_FILE:
+	case APROTO_TCP:
+	case APROTO_UDP:
+	case APROTO_UNIX:
+	case APROTO_UNIXGRAM:
+	case APROTO_TLS:
+	case APROTO_DTLS:
+		return 1;
+	default:
+		break;
+	}
+
+	if (carg->key) {
+		if (!strncmp(carg->key, "tcp:", 4) ||
+		    !strncmp(carg->key, "udp:", 4) ||
+		    !strncmp(carg->key, "unix:", 5) ||
+		    !strncmp(carg->key, "unixgram:", 9) ||
+		    !strncmp(carg->key, "tls:", 4) ||
+		    !strncmp(carg->key, "file://", 7))
+			return 1;
+	}
+
+	if (carg->transport_string) {
+		if (!strcmp(carg->transport_string, "file") ||
+		    !strcmp(carg->transport_string, "tcp") ||
+		    !strcmp(carg->transport_string, "udp") ||
+		    !strcmp(carg->transport_string, "unix") ||
+		    !strcmp(carg->transport_string, "unixgram") ||
+		    !strcmp(carg->transport_string, "tls"))
+			return 1;
+	}
+
+	return 0;
+}
+
+void log_channel_write_raw(log_channel *ch, context_arg *carg, const char *data, size_t len)
+{
+	char *payload = NULL;
+	size_t plen = 0;
+	const char *out;
+	size_t outlen;
+
+	if (!ch || !data || !len)
+		return;
+
+	if (log_channel_format_elastic(ch))
+	{
+		if (log_channel_is_http(ch))
+			payload = log_elastic_format_bulk_msg(ch, carg, L_INFO, data, len, &plen);
+		else
+			payload = log_elastic_format_doc_msg(ch, carg, L_INFO, data, len, &plen);
+	}
+	else if (log_channel_format_json(ch))
+		payload = log_json_format_doc_msg(ch, carg, data, len, &plen);
+	else if (log_channel_time_enabled(ch))
+		payload = log_format_raw_plain_alloc(ch, data, len, &plen);
+
+	if (payload && plen)
+	{
+		out = payload;
+		outlen = plen;
+	}
+	else
+	{
+		out = data;
+		outlen = len;
+	}
+
+	log_channel_sink_write(ch, out, outlen);
+	free(payload);
 }
 
 void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const char *format, va_list args)

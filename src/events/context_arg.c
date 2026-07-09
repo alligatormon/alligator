@@ -788,6 +788,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_log_channel && json_typeof(json_log_channel) == JSON_STRING)
 		carg->log_ch = log_channel_get(json_string_value(json_log_channel));
 
+	json_t *json_log_channel_raw = json_object_get(root, "log_channel_raw");
+	if (json_log_channel_raw && json_typeof(json_log_channel_raw) == JSON_STRING)
+		carg->log_ch_raw = log_channel_get(json_string_value(json_log_channel_raw));
+
 	parse_add_label(carg, root);
 
 	json_t *json_metricstransform = root ? json_object_get(root, "metricstransform") : NULL;
@@ -956,6 +960,15 @@ void carglog(context_arg *carg, int priority, const char *format, ...)
 	va_start(args, format);
 	wrlog(ch, carg, level, priority, format, args);
 	va_end(args);
+}
+
+void carglog_raw(context_arg *carg, const char *data, size_t len)
+{
+	if (!carg || !carg->log_ch_raw || !data || !len)
+		return;
+	if (!context_allows_raw_log(carg))
+		return;
+	log_channel_write_raw(carg->log_ch_raw, carg, data, len);
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)

@@ -382,6 +382,7 @@ void aggregate_ctx_init()
 	grok_parser_push();
 	wazuh_parser_push();
 	amtail_parser_push();
+	log_parser_push();
 }
 
 int aggregator_compare(const void* arg, const void* obj)

@@ -1,5 +1,6 @@
 #pragma once
 #define PORT_SIZE 6
+#include <stddef.h>
 #define HOSTHEADER_SIZE 232
 #define AUTH_SIZE 1024
 #define EVENT_BUFFER 65536
@@ -331,6 +332,7 @@ typedef struct context_arg
 
 	int log_level;
 	struct log_channel *log_ch;
+	struct log_channel *log_ch_raw;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;
@@ -399,6 +401,7 @@ void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);
 int env_struct_compare(const void *arg, const void *obj);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
+void carglog_raw(context_arg *carg, const char *data, size_t len);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
 void thread_loop_set(char *key, uint64_t size);

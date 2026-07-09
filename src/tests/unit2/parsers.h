@@ -284,21 +284,10 @@ void api_test_parser_ipmi_metric_normalization_metadata() {
 
 void api_test_parser_log()
 {
-    context_arg *carg = calloc(1, sizeof(*carg));
-    carg->rematch = calloc(3, sizeof(*carg->rematch));
-    carg->rematch[0] = regex_match_init("hello", NULL);
-    carg->rematch[1] = regex_match_init("world", NULL);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rematch[0]);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rematch[1]);
-
-    log_handler("abc", strlen("abc"), carg);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->rematch[0]->nomatch);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->rematch[1]->nomatch);
-
-    regex_match_free(carg->rematch[0]);
-    regex_match_free(carg->rematch[1]);
-    free(carg->rematch);
+	context_arg *carg = calloc(1, sizeof(*carg));
+	log_handler("abc", 3, carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	free(carg);
 }
 
 void api_test_parser_zookeeper_dont_work() {

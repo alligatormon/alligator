@@ -657,6 +657,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (carg_log_channel && json_typeof(carg_log_channel) == JSON_STRING)
 						carg->log_ch = log_channel_get(json_string_value(carg_log_channel));
 
+					json_t *carg_log_channel_raw = json_object_get(entrypoint, "log_channel_raw");
+					if (carg_log_channel_raw && json_typeof(carg_log_channel_raw) == JSON_STRING)
+						carg->log_ch_raw = log_channel_get(json_string_value(carg_log_channel_raw));
+
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
 					if (api && !strcmp(api, "on"))
@@ -685,8 +689,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							carg->parser_handler =  &auditd_handler;
 						else if (!strcmp(str_handler, "lang"))
 							carg->parser_handler =  &lang_parser_handler;
-						else if (!strcmp(str_handler, "log"))
+						else if (!strcmp(str_handler, "log")) {
 							carg->parser_handler =  &log_handler;
+							carg->no_metric = 1;
+						}
 						else if (!strcmp(str_handler, "grok"))
 							carg->parser_handler =  &grok_handler;
 						else if (!strcmp(str_handler, "mtail"))

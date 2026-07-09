@@ -502,6 +502,7 @@ int main(int argc, char **argv) {
     test_metricstransform_plain_and_ingest();
     test_aggregate_multi_block_plain_parse();
     test_entrypoint_log_channel_plain_parse();
+    test_log_channel_raw_plain_parse();
 
     infomesg();
 }
