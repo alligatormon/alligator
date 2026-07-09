@@ -16,6 +16,7 @@
 #include "grok/type.h"
 #include "events/system_scrape.h"
 #include "events/a_signal.h"
+#include "events/filetailer.h"
 #include "system/linux/ipmi.h"
 #include <signal.h>
 #include <string.h>
@@ -57,11 +58,12 @@ void alligator_shutdown_after_loop(void)
 	fflush(stdout);
 	ipmi_wait_idle();
 	metric_dump(1);
-	file_stat_free(ac->file_stat);
 	tls_fs_free();
 	puppeteer_done();
+	filetailer_shutdown();
 	aggregators_free();
 	aggregate_ctx_free();
+	file_stat_free(ac->file_stat);
 	entrypoints_free();
 	namespace_free(0, NULL);
 	cluster_del_all();

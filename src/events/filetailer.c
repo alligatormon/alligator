@@ -664,6 +664,26 @@ static void filetailer_drain_loop(uv_loop_t *loop, context_arg *carg)
 	}
 }
 
+void filetailer_shutdown(void)
+{
+	uv_loop_t *loop;
+	unsigned i;
+
+	if (!ac)
+		return;
+
+	loop = ac->loop;
+	if (!loop)
+		return;
+
+	if (ac->filetailer_timer.loop && !uv_is_closing((uv_handle_t *)&ac->filetailer_timer)) {
+		uv_timer_stop(&ac->filetailer_timer);
+		uv_close((uv_handle_t *)&ac->filetailer_timer, NULL);
+		for (i = 0; i < 64; ++i)
+			uv_run(loop, UV_RUN_NOWAIT);
+	}
+}
+
 static void filetailer_close_uv_handles(context_arg *carg)
 {
 	uv_loop_t *loop;
@@ -693,18 +713,10 @@ static void filetailer_close_uv_handles(context_arg *carg)
 
 void filetailer_handler_del(context_arg *carg)
 {
-	file_stat *fst;
-
 	if (!carg)
 		return;
 
 	carg->lock = 1;
-
-	if (carg->path) {
-		fst = file_stat_get_or_create(ac->file_stat, carg->path, carg->state);
-		if (fst)
-			fst->read_inflight = 0;
-	}
 
 	if (ac && ac->file_aggregator)
 		alligator_ht_remove_existing(ac->file_aggregator, &(carg->node));

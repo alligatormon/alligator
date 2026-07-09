@@ -89,31 +89,65 @@ void entrypoint_carg_replace_key(context_arg *carg, const char *fmt, ...)
 	carg->key = strdup(buf);
 }
 
+static void entrypoint_shutdown_drain(uv_loop_t *loop)
+{
+	unsigned i;
+
+	if (!loop)
+		return;
+
+	for (i = 0; i < 64; ++i)
+		uv_run(loop, UV_RUN_NOWAIT);
+}
+
+static void entrypoint_shutdown_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle ? handle->data : NULL;
+
+	if (carg)
+		carg_free(carg);
+}
+
 void entrypoint_shutdown_carg(context_arg *carg)
 {
+	uv_loop_t *loop;
+	int closed_handle = 0;
+
 	if (!carg)
 		return;
 
 	carg_uv_detach_timers(carg);
+	loop = carg->loop;
 
 	if (carg->threads && carg->entrypoint_stop_async_ready) {
 		uv_async_send(&carg->entrypoint_stop_async);
 		return;
 	}
 
-	if (carg->pipe && !uv_is_closing((uv_handle_t *)carg->pipe))
-		uv_close((uv_handle_t *)carg->pipe, NULL);
-	else if (!uv_is_closing((uv_handle_t *)&carg->server))
-		uv_close((uv_handle_t *)&carg->server, NULL);
-	else if (!uv_is_closing((uv_handle_t *)&carg->udp_server)) {
+	if (carg->pipe && carg->pipe->loop && !uv_is_closing((uv_handle_t *)carg->pipe)) {
+		carg->pipe->data = carg;
+		uv_close((uv_handle_t *)carg->pipe, entrypoint_shutdown_closed);
+		closed_handle = 1;
+	} else if (carg->server.loop && !uv_is_closing((uv_handle_t *)&carg->server)) {
+		carg->server.data = carg;
+		uv_close((uv_handle_t *)&carg->server, entrypoint_shutdown_closed);
+		closed_handle = 1;
+	} else if (carg->udp_server.loop && !uv_is_closing((uv_handle_t *)&carg->udp_server)) {
+		carg->udp_server.data = carg;
 		uv_udp_recv_stop(&carg->udp_server);
-		uv_close((uv_handle_t *)&carg->udp_server, NULL);
-	} else if (!uv_is_closing((uv_handle_t *)&carg->poll_socket)) {
+		uv_close((uv_handle_t *)&carg->udp_server, entrypoint_shutdown_closed);
+		closed_handle = 1;
+	} else if (carg->poll_socket.loop && !uv_is_closing((uv_handle_t *)&carg->poll_socket)) {
+		carg->poll_socket.data = carg;
 		uv_poll_stop(&carg->poll_socket);
-		uv_close((uv_handle_t *)&carg->poll_socket, NULL);
+		uv_close((uv_handle_t *)&carg->poll_socket, entrypoint_shutdown_closed);
+		closed_handle = 1;
 	}
 
-	carg_free(carg);
+	if (closed_handle)
+		entrypoint_shutdown_drain(loop);
+	else
+		carg_free(carg);
 }
 
 typedef struct entrypoint_collect_all_ctx {
