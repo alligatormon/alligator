@@ -13,6 +13,7 @@
 #include "common/logs.h"
 #include "common/log_tcp.h"
 #include "common/log_http.h"
+#include "common/log_kafka.h"
 #include "common/log_elastic.h"
 #include "common/log_json.h"
 #include "events/context_arg.h"
@@ -178,6 +179,31 @@ void test_logs_helpers()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_http(http_ch));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_elastic(http_ch));
     log_http_sink_close(http_ch);
+
+    log_channel *kafka_ch = log_channel_upsert("kafka-test", "kafka://127.0.0.1:9092/alligator-logs?key=test-host", -1, -1, NULL,
+        LOG_FORMAT_JSON, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, kafka_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_kafka(kafka_ch));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_json(kafka_ch));
+    {
+        json_t *kopts = json_object();
+        json_object_set_new(kopts, "linger.ms", json_integer(10));
+        json_object_set_new(kopts, "compression.type", json_string("lz4"));
+        log_channel_set_kafka(kafka_ch, "test-host-override", kopts);
+        json_decref(kopts);
+        log_channel_open(kafka_ch);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_kafka(kafka_ch));
+    }
+    {
+        size_t i;
+        char msg[64];
+        for (i = 0; i < 20000; i++) {
+            snprintf(msg, sizeof(msg), "kafka flood %zu\n", i);
+            log_kafka_sink_write(kafka_ch, msg, strlen(msg));
+        }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_kafka_sink_dropped(kafka_ch) > 0);
+    }
+    log_kafka_sink_close(kafka_ch);
 
     log_channel *json_ch = log_channel_upsert("json-tcp", "tcp://127.0.0.1:59999", -1, 1, NULL,
         LOG_FORMAT_JSON, NULL);

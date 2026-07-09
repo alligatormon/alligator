@@ -11,7 +11,7 @@ set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/generators" ${CMAKE_PREFIX_PATH})
 # Provide a default Conan toolchain only if user didn't specify one.
 # This must NOT override -DCMAKE_TOOLCHAIN_FILE=... from the cmake command line.
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE OR "${CMAKE_TOOLCHAIN_FILE}" STREQUAL "")
-	set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/build/Debug/generators/conan_toolchain.cmake" CACHE FILEPATH "Conan Toolchain")
+	set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/Debug/generators/conan_toolchain.cmake" CACHE FILEPATH "Conan Toolchain")
 endif()
 
 # Conan generators are expected next to the conan_toolchain.cmake.
@@ -33,6 +33,18 @@ find_package(xxHash REQUIRED)
 find_package(lua REQUIRED)
 find_package(duktape REQUIRED)
 find_package(oniguruma REQUIRED)
+find_package(RdKafka QUIET)
+if(NOT RdKafka_FOUND)
+	pkg_check_modules(RDKAFKA REQUIRED rdkafka)
+	add_library(RdKafka::rdkafka INTERFACE IMPORTED)
+	set_target_properties(RdKafka::rdkafka PROPERTIES
+		INTERFACE_LINK_LIBRARIES "${RDKAFKA_LIBRARIES}"
+		INTERFACE_INCLUDE_DIRECTORIES "${RDKAFKA_INCLUDE_DIRS}")
+	if(RDKAFKA_LIBRARY_DIRS)
+		set_target_properties(RdKafka::rdkafka PROPERTIES
+			INTERFACE_LINK_DIRECTORIES "${RDKAFKA_LIBRARY_DIRS}")
+	endif()
+endif()
 
 set(LIBUV_INCLUDE_HINTS "")
 if(TARGET libuv::uv_a)
@@ -294,6 +306,7 @@ set(STATIC_FILES
 	common/logs.c
 	common/log_tcp.c
 	common/log_http.c
+	common/log_kafka.c
 	common/log_elastic.c
 	common/log_jansson.c
 	common/log_json.c
@@ -504,7 +517,7 @@ endif()
 set(ALLIGATOR_COMMON_LIBS
 	jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libuuid::libuuid
 	xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig
-	${ALLIGATOR_EXTERNAL_STATIC_LIBS}
+	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS}
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(APPEND ALLIGATOR_COMMON_LIBS libbsd::libbsd)

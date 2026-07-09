@@ -67,6 +67,42 @@ Destination can be standard streams of a Unix OS, a file, a UDP port, or a TCP s
 - udp://127.0.0.1:514
 - tcp://127.0.0.1:1514
 - http://127.0.0.1:9200/alligator-logs/_bulk
+- kafka://127.0.0.1:9092/alligator-logs
+```
+
+Kafka destinations (`kafka://brokers/topic`) publish logs asynchronously via `librdkafka`. Use them on named `log_channel` entries only; the global `log_dest` default channel is unchanged unless you explicitly configure it.
+
+Broker list format: `host:port` or comma-separated `host1:port1,host2:port2`. Topic name is the URI path.
+You can set optional `kafka_key` and `kafka_options` per channel, or pass options in URI query parameters.
+
+Kafka channels are non-blocking. If the internal producer queue is full or the broker is unavailable, log lines are dropped and a throttled diagnostic is written to stderr.
+When both URI query parameters and `kafka_options` are present, `kafka_options` values take precedence.
+
+Recommended formats for Kafka consumers: `log_format json` or `log_format elastic`.
+
+```json
+{
+  "log_channel": [
+    {
+      "name": "kafka-aggregate",
+      "dest": "kafka://127.0.0.1:9092/alligator-aggregate-logs?key=aggregate",
+      "kafka_options": {
+        "acks": "all",
+        "compression.type": "lz4",
+        "linger.ms": 20
+      },
+      "log_format": "json",
+      "log_time": true
+    }
+  ],
+  "aggregate": [
+    {
+      "url": "tcp://127.0.0.1:9100",
+      "handler": "prometheus",
+      "log_channel": "kafka-aggregate"
+    }
+  ]
+}
 ```
 
 TCP log destinations connect asynchronously via libuv. If the remote side is not connected or a write is already in progress, log lines are dropped. Reconnection is retried in the background every few seconds.
@@ -81,6 +117,10 @@ Optional per-channel fields for remote logging:
 
 - `log_format` — `plain` (default for TCP/stdout/file), `json`, or `elastic` / `elasticsearch` / `ecs`
 - `log_index` — Elasticsearch index name template, strftime-compatible (default `alligator-%Y.%m.%d`)
+- `kafka_key` — partition key for Kafka destination
+- `kafka_options` — object with `librdkafka` producer options (`name: value`)
+  - JSON config: `"kafka_options": {"acks":"all","linger.ms":20}`
+  - Plain config: repeat `kafka_options key:value;` inside `log_channel { ... }`
 
 ```json
 {
@@ -181,6 +221,17 @@ log_channel {
 log_channel {
     name json-log;
     dest file:///var/log/alligator.json.log;
+    log_format json;
+    log_time on;
+}
+
+log_channel {
+    name kafka-aggregate;
+    dest kafka://127.0.0.1:9092/alligator-aggregate-logs;
+    kafka_key aggregate;
+    kafka_options acks:all;
+    kafka_options compression.type:lz4;
+    kafka_options linger.ms:20;
     log_format json;
     log_time on;
 }

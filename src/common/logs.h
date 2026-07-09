@@ -14,6 +14,7 @@ enum log_dest_kind {
 	LOG_DEST_UDP,
 	LOG_DEST_TCP,
 	LOG_DEST_HTTP,
+	LOG_DEST_KAFKA,
 };
 
 enum log_format_kind {
@@ -26,6 +27,7 @@ enum log_format_kind {
 typedef struct log_channel {
 	char *name;
 	char *dest;
+	char *kafka_key;
 	int socket;
 	int form;
 	int time;
@@ -39,6 +41,8 @@ typedef struct log_channel {
 	uint8_t is_default;
 	void *tcp_sink;
 	void *http_sink;
+	void *kafka_sink;
+	json_t *kafka_options;
 	tommy_node node;
 } log_channel;
 
@@ -60,6 +64,7 @@ void log_default();
 void wrlog(log_channel *ch, struct context_arg *carg, int level, int priority, const char *format, va_list args);
 void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);
+void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options);
 
 enum {
 	FORM_SIMPLE,

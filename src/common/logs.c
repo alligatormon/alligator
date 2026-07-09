@@ -5,6 +5,7 @@
 #include <common/logs.h>
 #include <common/log_tcp.h>
 #include <common/log_http.h>
+#include <common/log_kafka.h>
 #include <common/log_elastic.h>
 #include <common/log_json.h>
 #include <sys/types.h>
@@ -175,6 +176,12 @@ static void log_channel_close_socket(log_channel *ch)
 		return;
 	}
 
+	if (ch->dest_kind == LOG_DEST_KAFKA)
+	{
+		log_kafka_sink_close(ch);
+		return;
+	}
+
 	if (ch->socket <= 2)
 		return;
 
@@ -262,6 +269,8 @@ static int log_channel_open_dest(log_channel *ch, char *dest)
 			ch->log_format = LOG_FORMAT_ELASTIC;
 		log_http_sink_open(ch, ch->host, ch->port, hi->query);
 		url_free(hi);
+	} else if (!strncmp(dest, "kafka://", 8)) {
+		log_kafka_sink_open(ch, dest);
 	} else if (!strncmp(dest, "file://", 7)) {
 		host_aggregator_info *hi = parse_url(dest, strlen(dest));
 		if (!hi) {
@@ -295,6 +304,8 @@ void log_channels_init(void)
 	log_default_channel.form = LOG_CHANNEL_INHERIT;
 	log_default_channel.time = LOG_CHANNEL_INHERIT;
 	log_default_channel.socket = fileno(stdout);
+	log_default_channel.kafka_key = NULL;
+	log_default_channel.kafka_options = NULL;
 
 	if (!ac->log_channels) {
 		ac->log_channels = calloc(1, sizeof(alligator_ht));
@@ -313,6 +324,9 @@ static void log_channel_free_foreach(void *funcarg, void *arg)
 	log_channel_close_socket(ch);
 	free(ch->name);
 	free(ch->dest);
+	free(ch->kafka_key);
+	if (ch->kafka_options)
+		json_decref(ch->kafka_options);
 	free(ch->time_format);
 	free(ch->log_index);
 	free(ch);
@@ -325,6 +339,7 @@ void log_channels_free(void)
 
 	log_tcp_sink_close(log_channel_default());
 	log_http_sink_close(log_channel_default());
+	log_kafka_sink_close(log_channel_default());
 	alligator_ht_foreach_arg(ac->log_channels, log_channel_free_foreach, NULL);
 	alligator_ht_done(ac->log_channels);
 	free(ac->log_channels);
@@ -422,6 +437,26 @@ log_channel *log_channel_upsert(const char *name, const char *dest, int form, in
 
 	log_channel_open(ch);
 	return ch;
+}
+
+void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options)
+{
+	if (!ch)
+		return;
+
+	if (ch->kafka_key) {
+		free(ch->kafka_key);
+		ch->kafka_key = NULL;
+	}
+	if (ch->kafka_options) {
+		json_decref(ch->kafka_options);
+		ch->kafka_options = NULL;
+	}
+
+	if (kafka_key && kafka_key[0])
+		ch->kafka_key = strdup(kafka_key);
+	if (kafka_options && json_is_object(kafka_options))
+		ch->kafka_options = json_incref(kafka_options);
 }
 
 int log_channel_format_elastic(const log_channel *ch)
@@ -539,11 +574,14 @@ void log_channels_config_json(json_t *value)
 		int log_format = LOG_FORMAT_INHERIT;
 		const char *time_format = NULL;
 		const char *log_index = NULL;
+		const char *kafka_key = NULL;
 		json_t *jform;
 		json_t *jtime;
 		json_t *jtime_format;
 		json_t *jformat;
 		json_t *jindex;
+		json_t *jkafka_key;
+		json_t *jkafka_options;
 
 		if (!jdest)
 			jdest = json_object_get(item, "log_dest");
@@ -560,6 +598,8 @@ void log_channels_config_json(json_t *value)
 		jtime_format = json_object_get(item, "log_time_format");
 		jformat = json_object_get(item, "log_format");
 		jindex = json_object_get(item, "log_index");
+		jkafka_key = json_object_get(item, "kafka_key");
+		jkafka_options = json_object_get(item, "kafka_options");
 		form = log_channel_parse_form(jform);
 		time = log_channel_parse_bool(jtime);
 		if (jtime_format && json_typeof(jtime_format) == JSON_STRING)
@@ -567,8 +607,15 @@ void log_channels_config_json(json_t *value)
 		log_format = log_channel_parse_format(jformat);
 		if (jindex && json_typeof(jindex) == JSON_STRING)
 			log_index = json_string_value(jindex);
+		if (jkafka_key && json_typeof(jkafka_key) == JSON_STRING)
+			kafka_key = json_string_value(jkafka_key);
 
-		log_channel_upsert(name, dest, form, time, time_format, log_format, log_index);
+		{
+			log_channel *ch = log_channel_upsert(name, dest, form, time, time_format, log_format, log_index);
+			log_channel_set_kafka(ch, kafka_key, jkafka_options);
+			if (ch && ch->dest_kind == LOG_DEST_KAFKA)
+				log_channel_open(ch);
+		}
 	}
 }
 
@@ -638,7 +685,7 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 	if (!ch)
 		ch = log_channel_for_context(carg);
 
-	if (log_channel_is_tcp(ch) || log_channel_is_http(ch))
+	if (log_channel_is_tcp(ch) || log_channel_is_http(ch) || log_channel_is_kafka(ch))
 	{
 		char *payload = NULL;
 		size_t len = 0;
@@ -666,6 +713,8 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 		{
 			if (log_channel_is_http(ch))
 				log_http_sink_write(ch, payload, len);
+			else if (log_channel_is_kafka(ch))
+				log_kafka_sink_write(ch, payload, len);
 			else
 				log_tcp_sink_write(ch, payload, len);
 		}

@@ -1611,6 +1611,27 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 											break;
 									}
 								}
+								else if (!strcmp(operator_name, "kafka_options") || !strcmp(operator_name, "kafka_option"))
+								{
+									json_t *kafka_options_obj = json_object_get(operator_json, "kafka_options");
+									if (!kafka_options_obj || json_typeof(kafka_options_obj) != JSON_OBJECT)
+									{
+										kafka_options_obj = json_object();
+										json_array_object_insert(operator_json, "kafka_options", kafka_options_obj);
+									}
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											plain_context_env_line(kafka_options_obj, wstokens[i].token);
+											if (wstokens[i].semicolon)
+												break;
+											continue;
+										}
+										if (wstokens[i].semicolon)
+											break;
+									}
+								}
 							}
 							else if (wstokens[i].argument)
 							{
@@ -1984,6 +2005,19 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				{
 					if (!operator_json || !operator_name)
 						continue;
+
+					if (!strcmp(context_name, "log_channel") &&
+					    (!strcmp(operator_name, "kafka_options") || !strcmp(operator_name, "kafka_option")))
+					{
+						json_t *kafka_options_obj = json_object_get(operator_json, "kafka_options");
+						if (!kafka_options_obj || json_typeof(kafka_options_obj) != JSON_OBJECT)
+						{
+							kafka_options_obj = json_object();
+							json_array_object_insert(operator_json, "kafka_options", kafka_options_obj);
+						}
+						plain_context_env_line(kafka_options_obj, wstokens[i].token);
+						continue;
+					}
 
 					if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "log_level"))
 					{
