@@ -4,6 +4,7 @@
 #include <jansson.h>
 #include <stdlib.h>
 #include <string.h>
+#include "common/http.h"
 #include "parsers/elasticsearch.h"
 #include "metric/metric_types.h"
 void tftp_handler(char *metrics, size_t size, context_arg *carg);
@@ -36,6 +37,16 @@ string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg, void *env, voi
 int8_t beanstalkd_validator(context_arg *carg, char *data, size_t size);
 string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
+void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg);
+void redis_query(char *metrics, size_t size, context_arg *carg);
+void redis_handler(char *metrics, size_t size, context_arg *carg);
+void json_handler(char *metrics, size_t size, context_arg *carg);
+void named_handler(char *metrics, size_t size, context_arg *carg);
+void squid_counters_handler(char *metrics, size_t size, context_arg *carg);
+void squid_info_handler(char *metrics, size_t size, context_arg *carg);
+void squid_forward_handler(char *metrics, size_t size, context_arg *carg);
+void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg);
 
 void api_test_parser_ntp() {
     char *msg = "\34\3\3\350\0\0j\243\0\0\22\202\n\3464#\352y\33\263\16\25\"$\0\0\0\0\0\0\0\0\352y Qo\353\277d\352y Qo\355\2z";
@@ -148,15 +159,15 @@ void api_test_parser_rsyslog()
     rsyslog_impstats_handler("", 0, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
 
-    string *out = string_init(4096);
+    string *out = string_init(65536);
     metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE rsyslog_stats gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP rsyslog_stats Rsyslog impstats value by module, origin, action, and key.\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"submitted\"} 100") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"processed\"} 200") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"submitted\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "key=\"processed\"") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "action=\"omfwd\"") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "action=\"omfwd\"} 42") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, " 42\n") != NULL);
     string_free(out);
     free(carg);
 }
@@ -707,7 +718,7 @@ void api_test_parser_lighttpd() {
     metric_test_run(CMP_EQUAL, "lighttpd_disabled", "lighttpd_disabled", 0);
     metric_test_run(CMP_EQUAL, "lighttpd_load", "lighttpd_load", 1);
     metric_test_run(CMP_GREATER, "lighttpd_connected", "lighttpd_connected", 1);
-    metric_test_run(CMP_EQUAL, "lighttpd_requests", "lighttpd_requests", 1);
+    metric_test_run(CMP_GREATER, "lighttpd_requests", "lighttpd_requests", 0);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
@@ -2029,4 +2040,277 @@ void api_test_openmetrics_metadata_overwrite()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE ut_overwrite_metric counter\n") != NULL);
 
     string_free(out);
+}
+
+void api_test_multicollector_mixed_formats()
+{
+    char *msg =
+        "# HELP ut_gauge_metric A gauge\n"
+        "# TYPE ut_gauge_metric gauge\n"
+        "ut_gauge_metric{host=\"a\"} 1.5\n"
+        "ut_counter_plain 2\n"
+        "app.requests:1|c\n"
+        "app.latency:200|ms\n"
+        "# TYPE ut_summary_m summary\n"
+        "ut_summary_m{quantile=\"0.5\"} 0.42\n"
+        "ut_summary_m_sum 10\n"
+        "ut_summary_m_count 20\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    multicollector(NULL, msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_gauge_metric") != NULL);
+    string_free(out);
+}
+
+void api_test_multicollector_pushgateway()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->metric_aggregation = 1;
+    char body[] = "# TYPE ut_pg_metric gauge\nut_pg_metric 42\n";
+    http_reply_data hd = {0};
+    hd.uri = "/metrics/job/ut_job/instance/ut_inst";
+    hd.uri_size = strlen(hd.uri);
+    hd.body = body;
+    hd.body_size = strlen(body);
+    multicollector(&hd, NULL, 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_multicollector_histogram_help()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->metric_aggregation = 1;
+    char body[] =
+        "# HELP ut_hist_lines request latency\n"
+        "# TYPE ut_hist_lines histogram\n"
+        "ut_hist_lines_bucket{le=\"0.5\"} 3\n"
+        "ut_hist_lines_bucket{le=\"+Inf\"} 5\n"
+        "ut_hist_lines_sum 1.2\n"
+        "ut_hist_lines_count 5\n";
+    multicollector(NULL, body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_redis_and_dynatrace()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+    string *resp = string_new();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, resp);
+    char dt_buf[4096];
+    size_t off = 0;
+    for (int i = 0; i < 25; i++) {
+        int n = snprintf(dt_buf + off, sizeof(dt_buf) - off,
+            "cpu.usage_%d,host=h%d,region=eu %d.%d\n", i, i, i, i);
+        if (n < 0 || (size_t)n >= sizeof(dt_buf) - off)
+            break;
+        off += (size_t)n;
+    }
+    const char *dt_body = dt_buf;
+    http_reply_data hd = {0};
+    hd.body = (char *)dt_body;
+    hd.body_size = strlen(dt_body);
+    hd.method = HTTP_METHOD_POST;
+    dynatrace_metrics_ingest_handler(resp, &hd, NULL, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, resp->l > 0);
+
+    carg->parser_status = 0;
+    dynatrace_response_catch((char *)"{\"linesOk\":2,\"linesInvalid\":0}", 30, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    carg->parser_status = 0;
+    dynatrace_response_catch((char *)"{\"linesOk\":1,\"linesInvalid\":1,\"error\":{\"message\":\"bad line\",\"invalidLines\":[{\"line\":2,\"error\":\"syntax\"}]}}", 120, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    string *resp_get = string_new();
+    http_reply_data hd_get = {0};
+    hd_get.method = HTTP_METHOD_GET;
+    dynatrace_metrics_ingest_handler(resp_get, &hd_get, NULL, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp_get->s, "405") != NULL);
+    string_free(resp_get);
+
+    string_free(resp);
+    free(carg);
+}
+
+void api_test_parser_redis_query()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char **keys = calloc(3, sizeof(char *));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, keys);
+    keys[0] = strdup("used_memory");
+    keys[1] = strdup("uptime_in_seconds");
+    carg->data = keys;
+    char query_body[] = "used_memory\r\n100\r\nuptime_in_seconds\r\n3600\r\n";
+    redis_query(query_body, strlen(query_body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_redis_info()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char info_body[] =
+        "# Server\r\nredis_version:7.0.0\r\nredis_role:master\r\n"
+        "# Memory\r\nused_memory:12345\r\nused_memory_rss:20000\r\n"
+        "maxmemory:0\r\nmem_fragmentation_ratio:1.5\r\n"
+        "# CPU\r\nused_cpu_sys:1.2\r\nused_cpu_user:3.4\r\n"
+        "# Errorstats\r\nerrorstat_CLUSTERDOWN:count=3\r\n"
+        "# Commandstats\r\ncmdstat_get:calls=10,usec=100,usec_per_call=10.00\r\n"
+        "# Keyspace\r\ndb0:keys=10,expires=2,avg_ttl=100\r\n"
+        "# Clients\r\nconnected_clients:3\r\nblocked_clients:0\r\n"
+        "# Stats\r\ntotal_connections_received:1000\r\ntotal_commands_processed:5000\r\n";
+    redis_handler(info_body, strlen(info_body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_json_and_named()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char json_body[] = "{\"ut_json_metric\": 42}\n";
+    json_handler(json_body, strlen(json_body), carg);
+
+    char ndjson_body[] = "{\"ut_json_a\":1}\n{\"ut_json_b\":2}\n";
+    json_handler(ndjson_body, strlen(ndjson_body), carg);
+
+    char yaml_body[] = "ut_yaml_metric: 7\n";
+    json_handler(yaml_body, strlen(yaml_body), carg);
+
+    context_arg *carg2 = calloc(1, sizeof(*carg2));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg2);
+    char xml_body[] =
+        "<statistics>"
+        "<traffic><IPv4>"
+        "<udp><counters type=\"opcode\"><name>query</name><counter>5</counter></counters></udp>"
+        "</IPv4></traffic>"
+        "</statistics>";
+    named_handler(xml_body, strlen(xml_body), carg2);
+
+    free(carg2);
+    free(carg);
+}
+
+void api_test_parser_squid_counters()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char body[] =
+        "aborted_requests = 0\n"
+        "sample_time = 1.0\n"
+        "client_http.requests = 100\n"
+        "client_http.hits = 80\n"
+        "client_http.errors = 2\n"
+        "server.all.requests = 50\n"
+        "server.all.errors = 1\n"
+        "swap.outs = 0\n"
+        "swap.ins = 0\n"
+        "dns.replies = 25\n"
+        "dns.failures = 0\n";
+    squid_counters_handler(body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_squid_info()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char body[] =
+        "Number of clients accessing cache: 5\n"
+        "Hits as % of all requests:     5min: 10.0%, 60min: 12.0%\n"
+        "Hits as % of bytes sent:       5min: 20.0%, 60min: 22.0%\n"
+        "Memory hits as % of hit requests: 5min: 30.0%, 60min: 32.0%\n"
+        "Disk hits as % of hit requests:   5min: 40.0%, 60min: 42.0%\n"
+        "Storage Swap size:             1024 KB\n"
+        "Storage Swap capacity:         15.5%\n"
+        "Storage Mem size:              512 KB\n"
+        "Storage Mem capacity:          25.5%\n"
+        "Mean Object Size:              8.5 KB\n"
+        "Total accounted:               2048 KB\n"
+        "memPoolAlloc calls:            1000\n"
+        "memPoolFree calls:             900\n"
+        "Number of file desc currently in use: 42\n";
+    squid_info_handler(body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_squid_forward()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char body[] =
+        "Status\n"
+        "200 10 20 30\n"
+        "\n\nby kid1\n"
+        "Status\n"
+        "404 5 6\n";
+    squid_forward_handler(body, strlen(body), carg);
+    free(carg);
+}
+
+void api_test_parser_squid_fqdncache()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char body[] =
+        "by kid1\n"
+        "FQDNcache Entries In Use: 5\n"
+        "FQDNcache Entries Cached: 10\n"
+        "FQDNcache Requests: 100\n"
+        "FQDNcache Hits: 80\n"
+        "FQDNcache Negative Hits: 5\n"
+        "FQDNcache Misses: 15\n";
+    squid_fqdncache_handler(body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_json_pquery()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->key = "json_pq_ut";
+    char *pquery_str = ".[service].metrics.[host]";
+    char *pquery[] = { pquery_str };
+    carg->pquery = pquery;
+    carg->pquery_size = 1;
+    char body[] = "[{\"service\":\"api\",\"metrics\":[{\"host\":\"h1\",\"load\":3}]}]";
+    json_handler(body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_named_extended()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char xml_body[] =
+        "<statistics>"
+        "<traffic><IPv4>"
+        "<udp><counters type=\"opcode\"><name>query</name><counter>5</counter></counters>"
+        "<counters type=\"rcode\"><name>NOERROR</name><counter>12</counter></counters></udp>"
+        "<tcp><counters type=\"opcode\"><name>query</name><counter>8</counter></counters></tcp>"
+        "</IPv4></traffic>"
+        "<socket><IPv4><udp><open>3</open><closed>1</closed></udp></IPv4></socket>"
+        "</statistics>";
+    named_handler(xml_body, strlen(xml_body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
 }

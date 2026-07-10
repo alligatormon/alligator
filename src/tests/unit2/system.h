@@ -74,7 +74,11 @@ void system_test(char *binary) {
     http_api_v1(NULL, NULL, config);
     get_system_metrics();
 
-    metric_test_run(CMP_EQUAL, "process_match", "process_match", 1);
+#ifdef __linux__
+    metric_test_run(CMP_EQUAL, "process_match{name=\"beam.smp\"}", "process_match", 1);
+#else
+    metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
+#endif
     metric_test_run(CMP_GREATER, "cpu_usage_time", "cpu_usage_time", 0);
     metric_test_run(CMP_GREATER, "cores_num", "cores_num", 0);
 

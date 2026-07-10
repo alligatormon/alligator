@@ -287,6 +287,10 @@ void tls_client_written(uv_write_t* req, int status) {
 
 int do_client_tls_handshake(context_arg *carg) {
 	int handshake_done_now = 0;
+	if (!carg || !carg->ssl) {
+		carglog(carg, L_ERROR, "skip tls handshake: ssl context is not initialized\n");
+		return -1;
+	}
 	if (!carg->tls_handshake_done) {
 		int hs_ret = SSL_do_handshake(carg->ssl);
 		if (hs_ret == 1) {
@@ -501,7 +505,12 @@ void tcp_client_connect(void *arg)
 	carg->client.data = carg;
 	uv_tcp_init(carg->loop, &carg->client);
 	if (carg->tls)
-		tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL);
+	{
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL)) {
+			carg->lock = 0;
+			return;
+		}
+	}
 
 	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 	if (!data)
@@ -590,7 +599,12 @@ void unix_client_connect(void *arg)
 	carg->connect.data = carg;
 	carg->client.data = carg;
 	if (carg->tls)
-		tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL);
+	{
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL)) {
+			carg->lock = 0;
+			return;
+		}
+	}
 
 	tcp_client_timing_reset(carg);
 	carg->connect_time = setrtime();

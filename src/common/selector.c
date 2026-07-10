@@ -796,6 +796,8 @@ string_tokens* string_tokens_split_any(string *s, char *sepsym)
 json_t* string_tokens_json(string_tokens *st)
 {
 	json_t *array = json_array();
+	if (!st)
+		return array;
 	for (uint64_t i = 0; i < st->l; i++)
 	{
 		json_t *token = json_string(st->str[i]->s);
@@ -850,8 +852,9 @@ int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name)
 	regex_list *node = mrules->head;
 	while (node)
 	{
-		int str_vector[1];
-		int pcreExecRet = pcre_jit_exec(node->re_compiled, node->pcre_extra, str, size, 0, 0, str_vector, 1, node->jstack);
+		int str_vector[3];
+		/* Prefer plain pcre_exec for portability (JIT isn't guaranteed). */
+		int pcreExecRet = pcre_exec(node->re_compiled, node->pcre_extra, str, (int)size, 0, 0, str_vector, 3);
 
 		if (pcreExecRet < 0)
 			node = node->next;

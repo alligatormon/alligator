@@ -34,10 +34,14 @@
 #include "modules/modules.h"
 #include "system/linux/sysctl.h"
 #include "query/type.h"
+#include "scheduler/type.h"
 #include "metric/namespace.h"
 #include "x509/type.h"
 #include "cluster/type.h"
 #include "puppeteer/puppeteer.h"
+#include "chromecdp/chromecdp.h"
+#include "grok/type.h"
+#include "amtail/type.h"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -69,6 +73,8 @@ uint64_t getrtime_ms(r_time t1, r_time t2);
 void puppeteer_generate_conf(void *funcarg, void* arg);
 void chromecdp_root_generate_conf(json_t *dst);
 void chromecdp_generate_conf(void *funcarg, void* arg);
+void amtail_generate_conf(void *funcarg, void* arg);
+void grok_generate_conf(void *funcarg, void* arg);
 void query_node_generate_field_conf(void *funcarg, void* arg);
 uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l);
 void glog(int priority, const char *format, ...);
@@ -2267,11 +2273,1038 @@ void test_log_channel_raw_plain_parse()
     json_decref(root);
 }
 
+void test_puppeteer_option_kv_plain_parse()
+{
+    const char *conf =
+        "puppeteer {\n"
+        "  https://example.org;\n"
+        "  headers=Authorization:Bearer abc;\n"
+        "  env=NODE_ENV:prod;\n"
+        "  add_label=team:qa;\n"
+        "  screenshot=fullPage:true;\n"
+        "  screenshot=minimum_code:207;\n"
+        "  metricstransform={\"include\":\"puppeteer_eventSourceResponseStatus\",\"match_type\":\"strict\",\"transforms\":[{\"label\":\"source\",\"operations\":[{\"type\":\"replace_all\",\"value_actions\":[{\"regex\":\"^https?://(example\\\\.org).*$\",\"replacement\":\"$1\"}]}]}]};\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *puppeteer = json_object_get(root, "puppeteer");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, puppeteer);
+    json_t *p0 = json_object_get(puppeteer, "https://example.org");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p0);
+
+    json_t *headers = json_object_get(p0, "headers");
+    json_t *env = json_object_get(p0, "env");
+    json_t *add_label = json_object_get(p0, "add_label");
+    json_t *screenshot = json_object_get(p0, "screenshot");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, headers);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, env);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, add_label);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, screenshot);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_object_size(headers) > 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "prod",
+        json_string_value(json_object_get(env, "NODE_ENV")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "qa",
+        json_string_value(json_object_get(add_label, "team")));
+    json_t *full_page = json_object_get(screenshot, "fullPage");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, full_page);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        json_is_true(full_page) || (json_is_string(full_page) && !strcmp("true", json_string_value(full_page))));
+
+    json_t *min_code = json_object_get(screenshot, "minimum_code");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, min_code);
+    if (json_is_integer(min_code))
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 207, json_integer_value(min_code));
+    else
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "207", json_string_value(min_code));
+
+    json_decref(root);
+}
+
+void test_entrypoint_plain_rich_parse()
+{
+    const char *conf =
+        "entrypoint {\n"
+        "  log_level debug;\n"
+        "  handler prometheus;\n"
+        "  deny 192.168.1.0/24;\n"
+        "  allow 10.0.0.0/8;\n"
+        "  allow 127.0.0.1;\n"
+        "  tcp 8080;\n"
+        "  udp 514;\n"
+        "  tls 8443;\n"
+        "  unix /tmp/alligator.sock;\n"
+        "  unixgram /tmp/alligator.gram;\n"
+        "  namespace ut_ep_rich;\n"
+        "  ttl 30s;\n"
+        "  read_metric_interval 5s;\n"
+        "  mtail_full_export_interval 60s;\n"
+        "  cluster ut-cluster;\n"
+        "  instance host1;\n"
+        "  threads 2;\n"
+        "  metric_aggregation true;\n"
+        "  key ep-main;\n"
+        "  auth_header Authorization;\n"
+        "  return 403;\n"
+        "  mapping path1;\n"
+        "  api v1;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ep0);
+
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "debug",
+        json_string_value(json_object_get(ep0, "log_level")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "prometheus",
+        json_string_value(json_object_get(ep0, "handler")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_ep_rich",
+        json_string_value(json_object_get(ep0, "namespace")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ep-main",
+        json_string_value(json_object_get(ep0, "key")));
+
+    json_t *allow = json_object_get(ep0, "allow");
+    json_t *deny = json_object_get(ep0, "deny");
+    json_t *tcp = json_object_get(ep0, "tcp");
+    json_t *udp = json_object_get(ep0, "udp");
+    json_t *tls = json_object_get(ep0, "tls");
+    json_t *unix = json_object_get(ep0, "unix");
+    json_t *unixgram = json_object_get(ep0, "unixgram");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, allow);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, deny);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, udp);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, unix);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, unixgram);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(allow));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(deny));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "8080",
+        json_string_value(json_array_get(tcp, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "514",
+        json_string_value(json_array_get(udp, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "8443",
+        json_string_value(json_array_get(tls, 0)));
+
+    json_decref(root);
+}
+
+void test_config_plain_top_level_blocks()
+{
+    const char *fragments[] = {
+        "resolver { udp://8.8.8.8:53; udp://9.9.9.9:53; }\n",
+        "scheduler { name ut_tick action ut_action expr count(up) period 30s datasource internal; }\n",
+        "action { name ut_plain_action expr http://127.0.0.1:18080 serializer json dry_run; }\n",
+        "lang { key ut_lang expr http://127.0.0.1:18080 lang duktape method main; }\n",
+        "query { make socket_match expr process_match datasource internal action ut_action; }\n",
+        "system { sysctl vm.overcommit_memory firewall; }\n",
+        "x509 { name ut-x509 path /tmp/certs match .pem password secret type pem; }\n",
+        "modules { jvm /usr/lib/libjvm.so; }\n"
+    };
+    const char *keys[] = { "resolver", "scheduler", "action", "lang", "query", "system", "x509", "modules" };
+
+    json_error_t error;
+    for (int f = 0; f < 8; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_globals_and_channels()
+{
+    const char *conf =
+        "log_level 4;\n"
+        "grok_patterns /patterns/a.grok /patterns/b.grok;\n"
+        "log_channel {\n"
+        "  name global-ch;\n"
+        "  dest file:///var/log/alligator-global.log;\n"
+        "}\n"
+        "system {\n"
+        "  base;\n"
+        "  network;\n"
+        "  log_level info;\n"
+        "  log_channel global-ch;\n"
+        "  firewall;\n"
+        "  cadvisor add_label=team:infra;\n"
+        "}\n"
+        "aggregate {\n"
+        "  json http://127.0.0.1:9100/metrics log_level=debug log_channel=global-ch;\n"
+        "  redis tcp://127.0.0.1:6379 log_level=info;\n"
+        "  blackbox tcp://127.0.0.1:80;\n"
+        "  log \"/var/log/messages\";\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, json_integer_value(json_object_get(root, "log_level")));
+    json_t *grok = json_object_get(root, "grok_patterns");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, grok);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(grok));
+
+    json_t *system = json_object_get(root, "system");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, system);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "global-ch",
+        json_string_value(json_object_get(system, "log_channel")));
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, json_array_size(aggregate));
+
+    json_decref(root);
+}
+
+void test_config_plain_persistence_block()
+{
+    const char *conf = "persistence { directory /tmp/alligator-ut; }\n";
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *persistence = json_object_get(root, "persistence");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, persistence);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator-ut",
+        json_string_value(json_object_get(persistence, "directory")));
+    json_decref(root);
+}
+
+void test_config_plain_more_top_level_blocks()
+{
+    const char *fragments[] = {
+        "cluster { name ut-cluster size 1000 replica_factor 2 sharding_key __name__ servers localhost:1111 localhost:1112; }\n",
+        "probe { name ut-icmp prober icmp timeout 5000 loop 10 percent 0.5; }\n",
+        "namespace { name ut-ns-plain max_emit 3; }\n",
+        "threaded_loop { name ut-loop threads 4; }\n",
+        "instance { name ut-instance-host; }\n"
+    };
+    const char *keys[] = { "cluster", "probe", "namespace", "threaded_loop", "instance" };
+
+    json_error_t error;
+    for (int f = 0; f < 5; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_grok_mtail_chromecdp_blocks()
+{
+    const char *fragments[] = {
+        "grok { key dmesg; name dmesg_event; match '%{TIMESTAMP}] %{WORD:process}'; "
+        "counter dmesg_counter process; quantiles dmesg_q response_time 0.99 0.5; "
+        "splited_tags \", \" upstream_status upstream_addr; splited_inherit_tag server_name; }\n",
+        "mtail { name nginx_mtail; script /etc/alligator/mtail/nginx.mtail; log_level_vm debug; }\n",
+        "chromecdp { executable /usr/bin/chromium-browser; port 9222; https://example.com; "
+        "log_level debug; timeout 30s; }\n",
+        "aggregate { grok file:///var/log/nginx-access.log name=nginx log_level=off; "
+        "blackbox https://example.com threaded_loop_name=small; }\n"
+    };
+    const char *keys[] = { "grok", "mtail", "chromecdp", "aggregate" };
+
+    json_error_t error;
+    for (int f = 0; f < 4; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_aggregate_rich_variants()
+{
+    const char *conf =
+        "aggregate {\n"
+        "  snmp udp://public@192.0.2.1:161/1.3.6.1.2.1.1.3.0;\n"
+        "  beanstalkd tcp://127.0.0.1:11300;\n"
+        "  consul-configuration http://127.0.0.1:8500;\n"
+        "  consul-discovery http://127.0.0.1:8500;\n"
+        "  parser http://127.0.0.1:9100/metrics;\n"
+        "  redis tcp://127.0.0.1:6379 add_label=team:core tls_certificate=/tmp/c.crt tls_key=/tmp/c.key tls_ca=/tmp/ca.crt;\n"
+        "  https https://example.com follow_redirects=5;\n"
+        "  mongodb mongodb://127.0.0.1:27017;\n"
+        "  mtail file:///var/log/syslog name=syslog_mtail;\n"
+        "  blackbox https://example.org period=30s;\n"
+        "  json http://127.0.0.1:9200/_nodes/stats;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(aggregate) >= 8);
+    json_decref(root);
+}
+
+void test_config_plain_mega_document()
+{
+    const char *conf =
+        "log_level 3;\n"
+        "grok_patterns /patterns/a.grok /patterns/b.grok;\n"
+        "log_channel { name mega-ch; dest file:///var/log/mega.log; }\n"
+        "persistence { directory /var/lib/alligator; }\n"
+        "ttl 120;\n"
+        "cluster { name mega-cluster size 10 replica_factor 2 sharding_key __name__ servers h1:1111 h2:1112; }\n"
+        "instance { name mega-inst; }\n"
+        "namespace { name mega-ns max_emit 0; }\n"
+        "threaded_loop { name mega-loop threads 6; }\n"
+        "resolver { udp://8.8.8.8:53; tcp://9.9.9.9:53; }\n"
+        "scheduler { name mega_sched action mega_act expr count(x) period 60s datasource internal; }\n"
+        "action { name mega_act expr http://127.0.0.1:8080 serializer openmetrics dry_run add_label=team:mega; }\n"
+        "lang { key mega_lang expr http://127.0.0.1:8080/lang lang duktape method run; }\n"
+        "query { make mega_q expr process_match datasource internal action mega_act; }\n"
+        "probe { name mega_probe prober http valid_status_codes 2xx tls on; }\n"
+        "system { base network firewall cadvisor add_label=host:mega; }\n"
+        "x509 { name mega-x509 path /tmp/certs match .pem password x type pem; }\n"
+        "modules { jvm /usr/lib/libjvm.so; }\n"
+        "grok { key mega_grok; name mega_grok_name; match '%{WORD:w}'; counter mega_c w; }\n"
+        "mtail { name mega_mtail script /tmp/mega.mtail log_level_vm debug; }\n"
+        "chromecdp { executable /usr/bin/chromium port 9223 https://example.com timeout 30s; }\n"
+        "puppeteer { https://example.org headers=Auth:tok env=K:V add_label=l:v; }\n"
+        "entrypoint {\n"
+        "  handler prometheus;\n"
+        "  tcp 8080 udp 514 tls 8443;\n"
+        "  unix /tmp/mega.sock unixgram /tmp/mega.g;\n"
+        "  namespace mega-ns cluster mega-cluster instance mega-inst;\n"
+        "  allow 10.0.0.0/8 deny 192.168.0.0/16;\n"
+        "  mapping path1 api v1;\n"
+        "  log_level debug log_channel mega-ch;\n"
+        "  ttl 30s threads 4 metric_aggregation true key mega-ep;\n"
+        "}\n"
+        "aggregate {\n"
+        "  json http://127.0.0.1:9100/metrics log_level=info log_channel=mega-ch;\n"
+        "  redis tcp://127.0.0.1:6379 add_label=db:redis;\n"
+        "  snmp udp://public@127.0.0.1:161/1.3.6.1.2.1.1.1.0;\n"
+        "  parser http://127.0.0.1:8080/status;\n"
+        "  https https://example.com follow_redirects=3;\n"
+        "  blackbox https://google.com period=60s;\n"
+        "  log \"/var/log/syslog\" log_channel_raw=mega-ch;\n"
+        "  grok file:///var/log/nginx.log name=nginx;\n"
+        "  mtail file:///var/log/app.log name=mega_mtail;\n"
+        "  beanstalkd tcp://127.0.0.1:11300;\n"
+        "  mongodb mongodb://127.0.0.1:27017;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, json_integer_value(json_object_get(root, "log_level")));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "entrypoint"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "aggregate"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "grok"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "mtail"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "chromecdp"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "puppeteer"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "cluster"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        json_array_size(json_object_get(root, "aggregate")) >= 8);
+    json_decref(root);
+}
+
+void test_config_plain_probe_scheduler_variants()
+{
+    const char *fragments[] = {
+        "probe { name ut_probe_http prober http valid_status_codes 2xx tls on timeout 5s; }\n",
+        "probe { name ut_probe_tcp prober tcp valid_status_codes 200,404; }\n",
+        "scheduler { name ut_sched_probe action ut_action expr count(up) period 15s datasource internal; }\n",
+        "query { make ut_q_match expr process_match datasource internal action ut_action; }\n"
+    };
+    const char *keys[] = { "probe", "probe", "scheduler", "query" };
+
+    json_error_t error;
+    for (int f = 0; f < 4; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_log_scalars_block()
+{
+    const char *conf =
+        "log_level debug;\n"
+        "log_dest stderr;\n"
+        "log_form json;\n"
+        "log_time 1;\n"
+        "log_time_format rfc3339;\n"
+        "aggregate_period 45s;\n"
+        "process_shell /bin/sh;\n"
+        "metrictree_hashfunc crc32;\n";
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "log_level"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "log_dest"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "metrictree_hashfunc"));
+    json_decref(root);
+}
+
+void test_config_generators_amtail_grok_paths()
+{
+    json_t *dst = json_object();
+
+    amtail_node an = {0};
+    an.name = "ut_mtail_gen";
+    an.script = "/tmp/ut.mtail";
+    an.key = "ut_mtail_key";
+    amtail_generate_conf(dst, &an);
+
+    json_t *mtail = json_object_get(dst, "mtail");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mtail);
+    json_t *m0 = json_array_get(mtail, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_mtail_gen",
+        json_string_value(json_object_get(m0, "name")));
+
+    grok_node gn = {0};
+    gn.name = "ut_grok_name";
+    gn.value = "bytes";
+    gn.match = string_init_dup("%{WORD:word}");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn.match);
+
+    grok_ds gps = {0};
+    gps.key = "ut_grok_key";
+    gps.hash = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps.hash);
+    alligator_ht_insert(gps.hash, &gn.node, &gn, tommy_strhash_u32(0, gn.name));
+    grok_generate_conf(dst, &gps);
+
+    json_t *grok = json_object_get(dst, "grok");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, grok);
+    json_t *g0 = json_array_get(grok, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, g0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_grok_key",
+        json_string_value(json_object_get(g0, "key")));
+
+    string_free(gn.match);
+    alligator_ht_done(gps.hash);
+    free(gps.hash);
+    json_decref(dst);
+}
+
+void test_config_get_amtail_grok_runtime_paths()
+{
+    alligator_ht *saved_amtail = ac->amtail;
+    alligator_ht *saved_grok = ac->grok;
+
+    ac->amtail = alligator_ht_init(NULL);
+    ac->grok = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->amtail);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->grok);
+
+    amtail_node *an = calloc(1, sizeof(*an));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    an->name = strdup("ut_runtime_mtail");
+    an->script = strdup("/tmp/runtime.mtail");
+    alligator_ht_insert(ac->amtail, &an->node, an, tommy_strhash_u32(0, an->name));
+
+    grok_node *gn = calloc(1, sizeof(*gn));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+    gn->name = strdup("ut_runtime_grok");
+    gn->value = strdup("value");
+    gn->match = string_init_dup("%{NUMBER:n}");
+    grok_ds *gps = calloc(1, sizeof(*gps));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+    gps->key = strdup("runtime_grok_key");
+    gps->hash = alligator_ht_init(NULL);
+    alligator_ht_insert(gps->hash, &gn->node, gn, tommy_strhash_u32(0, gn->name));
+    alligator_ht_insert(ac->grok, &gps->node, gps, tommy_strhash_u32(0, gps->key));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "mtail"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "grok"));
+    json_decref(root);
+
+    alligator_ht_done(ac->amtail);
+    alligator_ht_done(ac->grok);
+    free(an->name);
+    free(an->script);
+    free(an);
+    string_free(gn->match);
+    free(gn->name);
+    free(gn->value);
+    free(gn);
+    alligator_ht_done(gps->hash);
+    free(gps->hash);
+    free(gps->key);
+    free(gps);
+    free(ac->amtail);
+    free(ac->grok);
+    ac->amtail = saved_amtail;
+    ac->grok = saved_grok;
+}
+
+void test_config_get_cluster_chromecdp_runtime_paths()
+{
+    alligator_ht *saved_cluster = ac->cluster;
+    alligator_ht *saved_puppeteer = ac->puppeteer;
+    alligator_ht *saved_chromecdp = ac->chromecdp;
+    char *saved_exec = ac->chromecdp_exec;
+
+    ac->cluster = alligator_ht_init(NULL);
+    ac->puppeteer = alligator_ht_init(NULL);
+    ac->chromecdp = alligator_ht_init(NULL);
+    ac->chromecdp_exec = "/usr/bin/chromium";
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->cluster);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->puppeteer);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->chromecdp);
+
+    cluster_node *cn = calloc(1, sizeof(*cn));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cn);
+    cn->name = "ut-runtime-cluster";
+    cn->servers_size = 2;
+    cn->replica_factor = 2;
+    cn->servers = calloc(2, sizeof(*cn->servers));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cn->servers);
+    cn->servers[0].name = "h1:1111";
+    cn->servers[1].name = "h2:1112";
+    alligator_ht_insert(ac->cluster, &cn->node, cn, tommy_strhash_u32(0, cn->name));
+
+    puppeteer_node *pn = calloc(1, sizeof(*pn));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    pn->url = string_init_dup("https://ut.example");
+    pn->value = "{\"timeout\":30}";
+    alligator_ht_insert(ac->puppeteer, &pn->node, pn, tommy_strhash_u32(0, pn->url->s));
+
+    cdp_node *cdp = calloc(1, sizeof(*cdp));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cdp);
+    cdp->url = string_init_dup("https://page.example");
+    cdp->value = "{\"wait\":1}";
+    alligator_ht_insert(ac->chromecdp, &cdp->node, cdp, tommy_strhash_u32(0, cdp->url->s));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "cluster"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "puppeteer"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "chromecdp"));
+    json_decref(root);
+
+    string_free(pn->url);
+    free(pn);
+    string_free(cdp->url);
+    free(cdp);
+    free(cn->servers);
+    free(cn);
+
+    alligator_ht_done(ac->cluster);
+    alligator_ht_done(ac->puppeteer);
+    alligator_ht_done(ac->chromecdp);
+    free(ac->cluster);
+    free(ac->puppeteer);
+    free(ac->chromecdp);
+    ac->cluster = saved_cluster;
+    ac->puppeteer = saved_puppeteer;
+    ac->chromecdp = saved_chromecdp;
+    ac->chromecdp_exec = saved_exec;
+}
+
+void test_config_get_aggregator_rich_runtime_paths()
+{
+    alligator_ht *saved_aggr = ac->aggregators;
+    ac->aggregators = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregators);
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->key = strdup("json:https://user:secret@127.0.0.1:9100/metrics");
+    carg->url = "https://user:secret@127.0.0.1:9100/metrics";
+    carg->tls_ca_file = "/tmp/ca.pem";
+    carg->tls_cert_file = "/tmp/cert.pem";
+    carg->tls_key_file = "/tmp/key.pem";
+    carg->tls_server_name = "metrics.local";
+    carg->parser_name = "json";
+    carg->follow_redirects = 3;
+    carg->period = 60;
+    carg->threaded_loop_name = "mega-loop";
+    carg->log_level = L_DEBUG;
+    carg->state = FILESTAT_STATE_SAVE;
+    carg->notify = 1;
+    carg->script = "/tmp/script.sh";
+    carg->bind_address = "10.0.0.1";
+    carg->bind_port = 8080;
+    carg->buffer_request_size = 4096;
+    carg->buffer_response_size = 8192;
+    carg->labels = alligator_ht_init(NULL);
+    labels_hash_insert_nocache(carg->labels, "team", "core");
+    carg->log_ch = log_channel_upsert("agg-ch", "file:///tmp/agg.log", -1, -1, NULL, -1, NULL);
+    carg->pquery = calloc(1, sizeof(char *));
+    carg->pquery[0] = strdup("sum(up)");
+    carg->pquery_size = 1;
+    carg->metricstransform = json_loads(
+        "{\"transforms\":[{\"include\":\"up\",\"match_type\":\"strict\",\"operations\":"
+        "[{\"action\":\"update_label\",\"label\":\"instance\",\"value_actions\":"
+        "[{\"regex\":\".*\",\"replacement\":\"local\",\"replace_all\":true}]}]}]}",
+        0, NULL);
+
+    alligator_ht_insert(ac->aggregators, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
+
+    context_arg *carg2 = calloc(1, sizeof(*carg2));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg2);
+    carg2->key = strdup("grok:file:///var/log/app.log");
+    carg2->url = "file:///var/log/app.log";
+    carg2->parser_name = "grok";
+    carg2->state = FILESTAT_STATE_STREAM;
+    carg2->notify = 2;
+    carg2->period = 120;
+    alligator_ht_insert(ac->aggregators, &(carg2->context_node), carg2, tommy_strhash_u32(0, carg2->key));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(aggregate));
+    json_decref(root);
+
+    if (carg->metricstransform)
+        json_decref(carg->metricstransform);
+    free(carg->pquery[0]);
+    free(carg->pquery);
+    labels_hash_free(carg->labels);
+    free(carg->key);
+    free(carg);
+    free(carg2->key);
+    free(carg2);
+
+    alligator_ht_done(ac->aggregators);
+    free(ac->aggregators);
+    ac->aggregators = saved_aggr;
+}
+
+void test_config_get_scheduler_x509_lang_runtime_paths()
+{
+    alligator_ht *saved_sched = ac->scheduler;
+    alligator_ht *saved_x509 = ac->fs_x509;
+    alligator_ht *saved_lang = ac->lang_aggregator;
+
+    ac->scheduler = alligator_ht_init(NULL);
+    ac->fs_x509 = alligator_ht_init(NULL);
+    ac->lang_aggregator = alligator_ht_init(NULL);
+
+    scheduler_node *sn = calloc(1, sizeof(*sn));
+    sn->name = "ut_sched_rt";
+    sn->action = "ut_action";
+    sn->lang = "ut_lang";
+    sn->datasource = "internal";
+    sn->period = 30;
+    sn->expr = string_init_dup("count(up)");
+    alligator_ht_insert(ac->scheduler, &sn->node, sn, tommy_strhash_u32(0, sn->name));
+
+    x509_fs_t *xf = calloc(1, sizeof(*xf));
+    xf->name = "ut-x509-rt";
+    xf->path = "/tmp/certs";
+    xf->password = "secret";
+    xf->type = X509_TYPE_PEM;
+    xf->period = 3600;
+    xf->match = string_tokens_new();
+    string_tokens_push_dupn(xf->match, ".pem", 4);
+    alligator_ht_insert(ac->fs_x509, &xf->node, xf, tommy_strhash_u32(0, xf->name));
+
+    lang_options *lo = calloc(1, sizeof(*lo));
+    lo->key = "ut_lang_rt";
+    lo->lang = "duktape";
+    lo->method = "main";
+    lo->arg = "safe";
+    lo->file = "/tmp/lang.js";
+    lo->serializer = METRIC_SERIALIZER_JSON;
+    alligator_ht_insert(ac->lang_aggregator, &lo->node, lo, tommy_strhash_u32(0, lo->key));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "scheduler"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "x509"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "lang"));
+    json_decref(root);
+
+    string_free(sn->expr);
+    free(sn);
+    if (xf->match)
+        string_tokens_free(xf->match);
+    free(xf);
+    free(lo);
+
+    alligator_ht_done(ac->scheduler);
+    alligator_ht_done(ac->fs_x509);
+    alligator_ht_done(ac->lang_aggregator);
+    free(ac->scheduler);
+    free(ac->fs_x509);
+    free(ac->lang_aggregator);
+    ac->scheduler = saved_sched;
+    ac->fs_x509 = saved_x509;
+    ac->lang_aggregator = saved_lang;
+}
+
+void test_config_get_system_modules_runtime_paths()
+{
+    alligator_ht *saved_up = ac->system_userprocess;
+    alligator_ht *saved_gp = ac->system_groupprocess;
+    alligator_ht *saved_sc = ac->system_sysctl;
+    alligator_ht *saved_mod = ac->modules;
+
+    ac->system_userprocess = alligator_ht_init(NULL);
+    ac->system_groupprocess = alligator_ht_init(NULL);
+    ac->system_sysctl = alligator_ht_init(NULL);
+    ac->modules = alligator_ht_init(NULL);
+
+    userprocess_node *up = calloc(1, sizeof(*up));
+    up->name = "nginx";
+    alligator_ht_insert(ac->system_userprocess, &up->node, up, tommy_strhash_u32(0, up->name));
+
+    userprocess_node *gp = calloc(1, sizeof(*gp));
+    gp->name = "www-data";
+    alligator_ht_insert(ac->system_groupprocess, &gp->node, gp, tommy_strhash_u32(0, gp->name));
+
+    sysctl_node *sc = calloc(1, sizeof(*sc));
+    sc->name = "vm.swappiness";
+    alligator_ht_insert(ac->system_sysctl, &sc->node, sc, tommy_strhash_u32(0, sc->name));
+
+    module_t *mod = calloc(1, sizeof(*mod));
+    mod->key = "utmod";
+    mod->path = "/tmp/utmod.so";
+    alligator_ht_insert(ac->modules, &mod->node, mod, tommy_strhash_u32(0, mod->key));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *system = json_object_get(root, "system");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, system);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "userprocess"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "sysctl"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "modules"));
+    json_decref(root);
+
+    free(up);
+    free(gp);
+    free(sc);
+    free(mod);
+    alligator_ht_done(ac->system_userprocess);
+    alligator_ht_done(ac->system_groupprocess);
+    alligator_ht_done(ac->system_sysctl);
+    alligator_ht_done(ac->modules);
+    free(ac->system_userprocess);
+    free(ac->system_groupprocess);
+    free(ac->system_sysctl);
+    free(ac->modules);
+    ac->system_userprocess = saved_up;
+    ac->system_groupprocess = saved_gp;
+    ac->system_sysctl = saved_sc;
+    ac->modules = saved_mod;
+}
+
+void test_config_get_action_probe_query_runtime_paths()
+{
+    alligator_ht *saved_action = ac->action;
+    alligator_ht *saved_probe = ac->probe;
+
+    ac->action = alligator_ht_init(NULL);
+    ac->probe = alligator_ht_init(NULL);
+
+    action_node *an = calloc(1, sizeof(*an));
+    an->name = strdup("ut_action_rt");
+    an->expr = strdup("up == 0");
+    an->expr_len = strlen(an->expr);
+    an->serializer = METRIC_SERIALIZER_JSON;
+    an->dry_run = 1;
+    alligator_ht_insert(ac->action, &an->node, an, tommy_strhash_u32(0, an->name));
+
+    probe_node *pn = calloc(1, sizeof(*pn));
+    pn->name = strdup("ut_probe_rt");
+    pn->prober_str = "http";
+    pn->timeout = 1000;
+    pn->method = HTTP_GET;
+    alligator_ht_insert(ac->probe, &pn->node, pn, tommy_strhash_u32(0, pn->name));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "action"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "probe"));
+    json_decref(root);
+
+    free(an->name);
+    free(an->expr);
+    free(an);
+    free(pn->name);
+    free(pn);
+    alligator_ht_done(ac->action);
+    alligator_ht_done(ac->probe);
+    free(ac->action);
+    free(ac->probe);
+    ac->action = saved_action;
+    ac->probe = saved_probe;
+}
+
+void test_config_get_system_flags_runtime_paths()
+{
+    uint8_t saved_base = ac->system_base;
+    uint8_t saved_disk = ac->system_disk;
+    uint8_t saved_network = ac->system_network;
+    uint8_t saved_smart = ac->system_smart;
+    uint8_t saved_ipmi = ac->system_ipmi;
+    uint8_t saved_interrupts = ac->system_interrupts;
+    uint8_t saved_firewall = ac->system_firewall;
+    uint8_t saved_ipset = ac->system_ipset;
+    uint8_t saved_ipset_entries = ac->system_ipset_entries;
+    uint8_t saved_cadvisor = ac->system_cadvisor;
+    uint8_t saved_packages = ac->system_packages;
+    uint8_t saved_services = ac->system_services;
+    uint8_t saved_services_process = ac->system_services_process;
+    uint8_t saved_process = ac->system_process;
+    uint8_t saved_cpuavg = ac->system_cpuavg;
+    char *saved_sysfs = ac->system_sysfs;
+    char *saved_procfs = ac->system_procfs;
+    char *saved_rundir = ac->system_rundir;
+
+    ac->system_base = 1;
+    ac->system_disk = 1;
+    ac->system_network = 1;
+    ac->system_smart = 1;
+    ac->system_ipmi = 1;
+    ac->system_interrupts = 1;
+    ac->system_firewall = 1;
+    ac->system_ipset = 1;
+    ac->system_cadvisor = 1;
+    ac->system_packages = 1;
+    ac->system_services = 1;
+    ac->system_services_process = 1;
+    ac->system_process = 1;
+    ac->system_cpuavg = 1;
+    ac->system_sysfs = "/sys";
+    ac->system_procfs = "/proc";
+    ac->system_rundir = "/run";
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *system = json_object_get(root, "system");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, system);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "base"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "network"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "firewall"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "cadvisor"));
+    json_decref(root);
+
+    ac->system_ipset_entries = 1;
+    root = config_get();
+    system = json_object_get(root, "system");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, system);
+    json_decref(root);
+
+    ac->system_base = saved_base;
+    ac->system_disk = saved_disk;
+    ac->system_network = saved_network;
+    ac->system_smart = saved_smart;
+    ac->system_ipmi = saved_ipmi;
+    ac->system_interrupts = saved_interrupts;
+    ac->system_firewall = saved_firewall;
+    ac->system_ipset = saved_ipset;
+    ac->system_ipset_entries = saved_ipset_entries;
+    ac->system_cadvisor = saved_cadvisor;
+    ac->system_packages = saved_packages;
+    ac->system_services = saved_services;
+    ac->system_services_process = saved_services_process;
+    ac->system_process = saved_process;
+    ac->system_cpuavg = saved_cpuavg;
+    ac->system_sysfs = saved_sysfs;
+    ac->system_procfs = saved_procfs;
+    ac->system_rundir = saved_rundir;
+}
+
+void test_config_get_entrypoint_rich_runtime_paths()
+{
+    alligator_ht *saved_ep = ac->entrypoints;
+    ac->entrypoints = alligator_ht_init(NULL);
+
+    context_arg *ep = calloc(1, sizeof(*ep));
+    ep->key = strdup("ep-rich-rt");
+    ep->ttl = 60;
+    ep->threads = 8;
+    ep->pingloop = 5;
+    ep->api_enable = 1;
+    ep->cluster = "ut-cluster";
+    ep->instance = "ut-inst";
+    ep->lang = "ut_lang";
+    ep->name = "prometheus";
+    ep->metric_aggregation = ENTRYPOINT_AGGREGATION_COUNT;
+    ep->buffer_request_size = 2048;
+    ep->buffer_response_size = 4096;
+    ep->labels = alligator_ht_init(NULL);
+    labels_hash_insert_nocache(ep->labels, "role", "front");
+    alligator_ht_insert(ac->entrypoints, &(ep->context_node), ep, tommy_strhash_u32(0, ep->key));
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(entrypoint) > 0);
+    json_decref(root);
+
+    labels_hash_free(ep->labels);
+    free(ep->key);
+    free(ep);
+    alligator_ht_done(ac->entrypoints);
+    free(ac->entrypoints);
+    ac->entrypoints = saved_ep;
+}
+
+void test_config_get_resolver_runtime_paths()
+{
+    resolver_data rd1 = {0}, rd2 = {0};
+    host_aggregator_info *hi1 = calloc(1, sizeof(*hi1));
+    host_aggregator_info *hi2 = calloc(1, sizeof(*hi2));
+    hi1->host = strdup("1.1.1.1");
+    hi1->url = strdup("udp://1.1.1.1:53");
+    hi1->user = strdup("");
+    hi1->transport_string = strdup("udp");
+    snprintf(hi1->port, sizeof(hi1->port), "%s", "53");
+    rd1.hi = hi1;
+    hi2->host = strdup("8.8.8.8");
+    hi2->url = strdup("tcp://8.8.8.8:53");
+    hi2->user = strdup("");
+    hi2->transport_string = strdup("tcp");
+    snprintf(hi2->port, sizeof(hi2->port), "%s", "53");
+    rd2.hi = hi2;
+
+    resolver_data *old_srv_resolver[255] = {0};
+    uint8_t old_resolver_size = ac->resolver_size;
+    for (uint16_t i = 0; i < 255; ++i)
+        old_srv_resolver[i] = ac->srv_resolver[i];
+    ac->srv_resolver[0] = &rd1;
+    ac->srv_resolver[1] = &rd2;
+    ac->resolver_size = 2;
+
+    json_t *root = config_get();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *resolver = json_object_get(root, "resolver");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, resolver);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(resolver));
+    json_decref(root);
+
+    ac->resolver_size = old_resolver_size;
+    for (uint16_t i = 0; i < 255; ++i)
+        ac->srv_resolver[i] = old_srv_resolver[i];
+    free(hi1->host);
+    free(hi1->url);
+    free(hi1->user);
+    free(hi1->transport_string);
+    free(hi1);
+    free(hi2->host);
+    free(hi2->url);
+    free(hi2->user);
+    free(hi2->transport_string);
+    free(hi2);
+}
+
 void test_match_rules_regex_paths()
 {
     match_rules *mr = calloc(1, sizeof(*mr));
     mr->hash = alligator_ht_init(NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mr->hash);
+
+    /* exact-string hash path */
+    match_push(mr, "postgres", strlen("postgres"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, match_mapper(mr, "postgres", strlen("postgres"), "n"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, match_mapper(mr, "postgre", strlen("postgre"), "n"));
 
     match_push(mr, "/foo.*/", strlen("/foo.*/"));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mr->head != NULL);
@@ -2281,6 +3314,10 @@ void test_match_rules_regex_paths()
     /* broken regex should not crash and should not replace existing regex chain */
     match_push(mr, "/[/", strlen("/[/"));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mr->head != NULL);
+
+    /* hash deletion path */
+    match_del(mr, "postgres", strlen("postgres"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, match_mapper(mr, "postgres", strlen("postgres"), "n"));
 
     match_free(mr);
 }

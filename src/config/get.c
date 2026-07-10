@@ -17,6 +17,8 @@
 #include "common/file_stat.h"
 #include "scheduler/type.h"
 #include "mapping/type.h"
+#include "amtail/type.h"
+#include "grok/type.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -364,6 +366,84 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_t *buffer_response_size = json_integer(carg->buffer_response_size);
 		json_array_object_insert(ctx, "buffer_response_size", buffer_response_size);
 	}
+}
+
+void amtail_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	amtail_node *an = arg;
+
+	json_t *mtail = json_object_get(dst, "mtail");
+	if (!mtail)
+	{
+		mtail = json_array();
+		json_array_object_insert(dst, "mtail", mtail);
+	}
+
+	json_t *ctx = json_object();
+	json_array_object_insert(mtail, NULL, ctx);
+
+	if (an->name)
+		json_array_object_insert(ctx, "name", json_string(an->name));
+
+	if (an->script)
+		json_array_object_insert(ctx, "script", json_string(an->script));
+
+	if (an->key)
+		json_array_object_insert(ctx, "key", json_string(an->key));
+}
+
+typedef struct grok_config_get_arg
+{
+	json_t *dst;
+	char *key;
+} grok_config_get_arg;
+
+void grok_node_generate_conf(void *funcarg, void* arg)
+{
+	grok_config_get_arg *garg = funcarg;
+	grok_node *gn = arg;
+
+	if (!garg || !garg->dst || !gn)
+		return;
+
+	json_t *grok = json_object_get(garg->dst, "grok");
+	if (!grok)
+	{
+		grok = json_array();
+		json_array_object_insert(garg->dst, "grok", grok);
+	}
+
+	json_t *ctx = json_object();
+	json_array_object_insert(grok, NULL, ctx);
+
+	if (gn->name)
+	{
+		json_array_object_insert(ctx, "name", json_string(gn->name));
+		/* Keep legacy delete path compatible where grok_del expects "make". */
+		json_array_object_insert(ctx, "make", json_string(gn->name));
+	}
+
+	if (garg->key)
+		json_array_object_insert(ctx, "key", json_string(garg->key));
+
+	if (gn->value)
+		json_array_object_insert(ctx, "value", json_string(gn->value));
+
+	if (gn->match && gn->match->s)
+		json_array_object_insert(ctx, "match", json_string(gn->match->s));
+}
+
+void grok_generate_conf(void *funcarg, void* arg)
+{
+	json_t *dst = funcarg;
+	grok_ds *gps = arg;
+
+	if (!dst || !gps || !gps->hash)
+		return;
+
+	grok_config_get_arg garg = { .dst = dst, .key = gps->key };
+	alligator_ht_foreach_arg(gps->hash, grok_node_generate_conf, &garg);
 }
 
 void lang_generate_conf(void *funcarg, void* arg)
@@ -1537,6 +1617,10 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->system_services_checking_users, services_checking_users_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->system_sysctl, sysctl_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->modules, modules_generate_conf, dst);
+	if (ac->amtail)
+		alligator_ht_foreach_arg(ac->amtail, amtail_generate_conf, dst);
+	if (ac->grok)
+		alligator_ht_foreach_arg(ac->grok, grok_generate_conf, dst);
 	system_pidfile_generate_conf(dst);
 	resolver_generate_conf(dst);
 

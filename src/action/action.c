@@ -180,6 +180,8 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				env_struct_push_alloc(env, "Content-Type", "application/json");
 			else if (an->content_type_protobuf)
 				env_struct_push_alloc(env, "Content-Type", "application/x-protobuf");
+			else if (an->content_type_plain)
+				env_struct_push_alloc(env, "Content-Type", "text/plain; charset=utf-8");
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, body);
 			size_t http_data_size = action_http_query_size_with_body(http_data, body->l);
@@ -215,11 +217,13 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			json_t *insert = json_string("insert");
 			json_array_object_insert(cassandra_json, "type", insert);
 
-			json_t *queries = string_tokens_json(ms);
+			json_t *queries = ms ? string_tokens_json(ms) : json_array();
 			json_array_object_insert(cassandra_json, "queries", queries);
 
 			char *pdata = json_dumps(cassandra_json, 0);
 			string *parser_data = string_init_dup(pdata);
+			free(pdata);
+			json_decref(cassandra_json);
 
 			glog(log_level, "run action cassandra %s\n", name);
 			if (!an->dry_run)

@@ -247,7 +247,7 @@ string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 	uint64_t j = 0;
 	char tmp[255];
 	//printf("groupkey '%s'\n",  groupkey->s);
-	for (uint64_t i = 0; i < groupkey->l; i++)
+	for (uint64_t i = 0; i < groupkey->l; )
 	{
 		j = strcspn(groupkey->s + i, ",");
 		strlcpy(tmp, groupkey->s + i, j+1);
@@ -262,6 +262,12 @@ string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 			}
 			cur_labels = cur_labels->next;
 		}
+
+		if (!j)
+			break;
+		i += j;
+		if (i < groupkey->l && groupkey->s[i] == ',')
+			++i;
 	}
 
 	return label;
@@ -278,7 +284,7 @@ alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 	uint64_t j = 0;
 	char tmp[255];
 	//printf("groupkey '%s'\n",  groupkey->s);
-	for (uint64_t i = 0; i < groupkey->l; i++)
+	for (uint64_t i = 0; i < groupkey->l; )
 	{
 		j = strcspn(groupkey->s + i, ",");
 		strlcpy(tmp, groupkey->s + i, j+1);
@@ -297,6 +303,12 @@ alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 			}
 			cur_labels = cur_labels->next;
 		}
+
+		if (!j)
+			break;
+		i += j;
+		if (i < groupkey->l && groupkey->s[i] == ',')
+			++i;
 	}
 
 	return lbl;

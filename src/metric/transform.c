@@ -446,15 +446,52 @@ static char* metric_transform_replace_regex_all(const char *value, const char *r
     if (!current)
         return NULL;
 
-    while (1)
+    const char *error = NULL;
+    int erroffset = 0;
+    pcre *re = pcre_compile(regex, 0, &error, &erroffset, NULL);
+    if (!re)
     {
-        char *updated = metric_transform_replace_regex_once(current, regex, replacement);
-        if (!updated)
-            break;
         free(current);
-        current = updated;
+        return NULL;
     }
 
+    int startoffset = 0;
+    for (int guard = 0; guard < 10000; ++guard)
+    {
+        int ovector[90];
+        int val_len = (int)strlen(current);
+        if (startoffset > val_len)
+            break;
+
+        int rc = pcre_exec(re, NULL, current, val_len, startoffset, 0, ovector, 90);
+        if (rc < 0)
+            break;
+
+        char *replacement_text = metric_transform_replace_groups(current, ovector, rc, replacement);
+        if (!replacement_text)
+            break;
+
+        size_t out_cap = strlen(current) + strlen(replacement_text) + 1;
+        char *out = calloc(1, out_cap);
+        if (!out)
+        {
+            free(replacement_text);
+            break;
+        }
+
+        int start = ovector[0];
+        int end = ovector[1];
+        memcpy(out, current, (size_t)start);
+        strcat(out, replacement_text);
+        strcat(out, current + end);
+
+        startoffset = start + (int)strlen(replacement_text);
+        free(replacement_text);
+        free(current);
+        current = out;
+    }
+
+    pcre_free(re);
     return current;
 }
 

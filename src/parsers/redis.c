@@ -35,6 +35,9 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 	i += strspn(metrics + i, "\r\n");
 	for (uint64_t j = 0; i < size; i++, j++)
 	{
+		if (!redis_keys || !redis_keys[j])
+			break;
+
 		uint64_t endline = strcspn(metrics + i, "\r\n");
 		uint64_t cur = i;
 		cur += strcspn(metrics + cur, " \n");
@@ -77,6 +80,7 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 	}
 
 	redis_keys_free(redis_keys);
+	carg->data = NULL;
 	carg->parser_status = 1;
 }
 
@@ -248,6 +252,10 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 
 	tmp += 10;
+	char *end = metrics + size;
+	if (tmp >= end)
+		return;
+	size_t remain = (size_t)(end - tmp);
 
 	uint64_t i, is, ys;
 	char mval[REDIS_NAME_SIZE];
@@ -257,12 +265,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 	int64_t val = 1;
 
 
-	for (i=0; i<size; i++)
+	for (i = 0; i < remain; i++)
 	{
-		if (!strncmp(tmp+i, " Memory", 7))
+		if (i + 7 <= remain && !strncmp(tmp + i, " Memory", 7))
 		{
 			i += 9;
-			for (; i<size && tmp[i]!='#'; i++)
+			for (; i < remain && tmp[i] != '#'; i++)
 			{
 				if (!strncmp(tmp+i, "used_memory:", 12))
 				{
@@ -326,10 +334,10 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 			}
 		}
-		else if (!strncmp(tmp+i, " CPU", 4))
+		else if (i + 4 <= remain && !strncmp(tmp + i, " CPU", 4))
 		{
 			i += 4;
-			for (; i<size && tmp[i]!='#'; i++)
+			for (; i < remain && tmp[i] != '#'; i++)
 			{
 				if (!strncmp(tmp+i, "used_cpu_sys:", 13))
 				{
@@ -361,12 +369,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 			}
 		}
-		else if (!strncmp(tmp+i, " Errorstats", 4))
+		else if (i + 4 <= remain && !strncmp(tmp + i, " Errorstats", 4))
 		{
 //# Errorstats
 //errorstat_CLUSTERDOWN:count=1653679
 			i += 4;
-			for (; i<size && tmp[i]!='#'; i++)
+			for (; i < remain && tmp[i] != '#'; i++)
 			{
 				if (!strncmp(tmp+i, "errorstat_", 10))
 				{
@@ -385,12 +393,12 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				}
 			}
 		}
-		else if (!strncmp(tmp+i, " Commandstats", 13))
+		else if (i + 13 <= remain && !strncmp(tmp + i, " Commandstats", 13))
 		{
 			char cmdname[REDIS_NAME_SIZE];
 			char *tmp2 = tmp+i+13;
 			char *tmp3;
-			while (tmp2 && *tmp2 != '#')
+			while (tmp2 && *tmp2 != '#' && tmp2 < end)
 			{
 				tmp2 = strstr(tmp2, "cmdstat_");
 				if (!tmp2)
@@ -428,21 +436,24 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					break;
 
 				for (; tmp2 && ((*tmp2 == '\n')||(*tmp2 == '\r')); tmp2++);
-				if (!tmp2)
+				if (!tmp2 || tmp2 >= end)
 					break;
 
 				metric_add_labels("redis_cmdstat_calls", &calls, DATATYPE_UINT, carg, "cmd", cmdname);
 				metric_add_labels("redis_cmdstat_usec", &usec, DATATYPE_UINT, carg, "cmd", cmdname);
 				metric_add_labels("redis_cmdstat_usec_per_call", &usec_per_call, DATATYPE_DOUBLE, carg, "cmd", cmdname);
 			}
-			i = tmp2 - tmp;
+			if (tmp2 && tmp2 < end)
+				i = (uint64_t)(tmp2 - tmp);
+			else
+				break;
 		}
-		else if (!strncmp(tmp+i, " Keyspace", 9))
+		else if (i + 9 <= remain && !strncmp(tmp + i, " Keyspace", 9))
 		{
 			char dbname[REDIS_NAME_SIZE];
 			char *tmp2 = tmp+i+9;
 			char *tmp3;
-			while (tmp2)
+			while (tmp2 && tmp2 < end)
 			{
 				tmp2 = strstr(tmp2, "db");
 				if (!tmp2)
@@ -479,16 +490,19 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				metric_add_labels("redis_avg_ttl", &avg_ttl, DATATYPE_UINT, carg, "db", dbname);
 
 				for (; tmp2 && ((*tmp2 == '\n')||(*tmp2 == '\r')); tmp2++);
-				if (!tmp2)
+				if (!tmp2 || tmp2 >= end)
 					break;
 			}
-			i = tmp2 - tmp;
+			if (tmp2 && tmp2 < end)
+				i = (uint64_t)(tmp2 - tmp);
+			else
+				break;
 		}
 		else
 		{
 			char mname[REDIS_NAME_SIZE];
 			strlcpy(mname, "redis_", 7);
-			for (; i<size && tmp[i]!='#'; i++)
+			for (; i < remain && tmp[i] != '#'; i++)
 			{
 				is = strcspn(tmp+i, ":");
 				if (!is)
