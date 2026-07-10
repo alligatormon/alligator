@@ -2390,14 +2390,14 @@ void test_entrypoint_plain_rich_parse()
     json_t *tcp = json_object_get(ep0, "tcp");
     json_t *udp = json_object_get(ep0, "udp");
     json_t *tls = json_object_get(ep0, "tls");
-    json_t *unix = json_object_get(ep0, "unix");
+    json_t *unix_ep = json_object_get(ep0, "unix");
     json_t *unixgram = json_object_get(ep0, "unixgram");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, allow);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, deny);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, udp);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, unix);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, unix_ep);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, unixgram);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(allow));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(deny));
