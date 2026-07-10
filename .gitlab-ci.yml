@@ -7,6 +7,8 @@ image: centos:7.9.2009
 tests:
   stage: build
   image: quay.io/centos/centos:stream9
+  variables:
+    MIN_LINE_COVERAGE: "31"
   except:
   - tags
   script:
@@ -27,9 +29,14 @@ tests:
   - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
   - cmake --build build --parallel 3
 
-  - LLVM_PROFILE_FILE=default.profraw ./build/alligator_tests pass
-  - llvm-profdata merge -sparse default.profraw -o default.profdata
-  - llvm-cov report -instr-profile=default.profdata build/alligator_tests
+  - chmod +x tests/coverage/run_coverage.sh tests/coverage/parse_coverage_summary.py
+  - MIN_LINE_COVERAGE=$MIN_LINE_COVERAGE ./tests/coverage/run_coverage.sh
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - src/tests/coverage/coverage_report.txt
+      - src/tests/coverage/coverage_top15.txt
 
 
 static-analyzer:
