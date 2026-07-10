@@ -25,7 +25,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	size_t serialized_before = str ? str->l : 0;
 	glog(L_DEBUG, "metric_str_build_query: ns='%s' name='%s' func=%d labels=%zu groupby='%s' serializer=%d\n", namespace ? namespace : "", name ? name : "", func, labels_count, (groupkey && groupkey->s) ? groupkey->s : "", serializer);
 
-	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an);
+	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an, ns);
 	if (!sc)
 	{
 		if (multistring)

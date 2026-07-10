@@ -3,6 +3,7 @@
 #include "action/type.h"
 #include "common/logs.h"
 #include "events/context_arg.h"
+#include "metric/namespace.h"
 
 void action_del(json_t *action)
 {
@@ -49,6 +50,7 @@ void action_del(json_t *action)
 			pcre_free(an->metric_name_transform_compiled);
 		if (an->metricstransform)
 			json_decref(an->metricstransform);
+		dynatrace_action_counter_state_free(an);
 		free(an);
 	}
 

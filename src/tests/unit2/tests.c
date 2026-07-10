@@ -754,7 +754,7 @@ static void test_serializer_context_matrix(void)
 
     for (uint64_t i = 0; i < sizeof(serializers) / sizeof(serializers[0]); i++) {
         string *out = string_new();
-        serializer_context *sc = serializer_init(serializers[i], out, ';', engine, index_template, NULL);
+        serializer_context *sc = serializer_init(serializers[i], out, ';', engine, index_template, NULL, NULL);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sc);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, serializers[i], sc->serializer);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sc->index_name);
@@ -2008,13 +2008,83 @@ static void test_serializer_dogstatsd_format(void)
 
 static void test_serializer_dynatrace_format(void)
 {
+    action_node an = {0};
     double v = 1.25;
     metric_add_labels("ut_fmt_dynatrace", &v, DATATYPE_DOUBLE, NULL, "host", "n1");
     metric_query_context *mqc = promql_parser(NULL, "ut_fmt_dynatrace", strlen("ut_fmt_dynatrace"));
-    string *body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, NULL);
+    string *body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_fmt_dynatrace") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=") == NULL);
     string_free(body);
     query_context_free(mqc);
+    dynatrace_action_counter_state_free(&an);
+}
+
+static void test_serializer_dynatrace_prom_types(void)
+{
+    action_node an = {0};
+    double counter_v = 100;
+    double gauge_v = 42.5;
+    int64_t untyped_v = 7;
+
+    namespace_metric_family_set(NULL, NULL, "ut_dt_counter", METRIC_TYPE_COUNTER, "counter");
+    namespace_metric_family_set(NULL, NULL, "ut_dt_gauge", METRIC_TYPE_GAUGE, "gauge");
+    namespace_metric_family_set_prom_type(NULL, "ut_dt_hist", METRIC_TYPE_HISTOGRAM);
+
+    metric_add_labels("ut_dt_counter", &counter_v, DATATYPE_DOUBLE, NULL, "host", "h1");
+    metric_add_labels("ut_dt_gauge", &gauge_v, DATATYPE_DOUBLE, NULL, "host", "h1");
+    metric_add_labels("ut_dt_hist_count", &counter_v, DATATYPE_DOUBLE, NULL, "host", "h1");
+    metric_add_labels("ut_dt_untyped_int", &untyped_v, DATATYPE_INT, NULL, "host", "h1");
+
+    metric_query_context *mqc = promql_parser(NULL, "ut_dt_counter{host=\"h1\"}", strlen("ut_dt_counter{host=\"h1\"}"));
+    string *body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_counter") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=100") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    counter_v = 130;
+    {
+        alligator_ht *lbl = alligator_ht_init(NULL);
+        labels_hash_insert_nocache(lbl, "host", "h1");
+        metric_update("ut_dt_counter", lbl, &counter_v, DATATYPE_DOUBLE, NULL);
+        labels_hash_free(lbl);
+    }
+    mqc = promql_parser(NULL, "ut_dt_counter{host=\"h1\"}", strlen("ut_dt_counter{host=\"h1\"}"));
+    body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=30") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_dt_gauge{host=\"h1\"}", strlen("ut_dt_gauge{host=\"h1\"}"));
+    body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_gauge") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=") == NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, " 42.5") != NULL || strstr(body->s, " 42.500000") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_dt_hist_count{host=\"h1\"}", strlen("ut_dt_hist_count{host=\"h1\"}"));
+    body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_hist_count") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=100") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_dt_untyped_int{host=\"h1\"}", strlen("ut_dt_untyped_int{host=\"h1\"}"));
+    body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_untyped_int") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=7") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    dynatrace_action_counter_state_free(&an);
 }
 
 static void test_serializer_elasticsearch_format(void)
@@ -2291,6 +2361,7 @@ static void run_helpers_and_events_suites(void)
     test_serializer_carbon2_format();
     test_serializer_dogstatsd_format();
     test_serializer_dynatrace_format();
+    test_serializer_dynatrace_prom_types();
     test_serializer_elasticsearch_format();
     test_serializer_datatypes_outputs();
     test_filestat_restore_v1_paths();

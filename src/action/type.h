@@ -34,6 +34,7 @@ typedef struct action_node
 	pcre *metric_name_transform_compiled;
 	int log_level;
 	struct log_channel *log_ch;
+	alligator_ht *dynatrace_counter_last;
 
 	tommy_node node;
 } action_node;

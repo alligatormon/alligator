@@ -1,5 +1,6 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "common/rtime.h"
 #include "common/selector.h"
 #include "common/json_query.h"
@@ -147,7 +148,7 @@ static void otlp_data_point_set_value(json_t *dp, metric_node *x)
 		json_object_set_new(dp, "asDouble", json_real(0.0));
 }
 
-serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an)
+serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an, namespace_struct *ns)
 {
 	serializer_context *sc = calloc(1, sizeof(*sc));
 	if (!sc)
@@ -155,6 +156,7 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 
 	sc->serializer = serializer;
 	sc->an = an;
+	sc->ns = ns;
 	if (serializer == METRIC_SERIALIZER_OPENMETRICS)
 		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_GRAPHITE)
@@ -1546,6 +1548,176 @@ void dynatrace_add_label_foreach(void *funcarg, void *arg)
 	string_cat(res, labelscont->key, strlen(labelscont->key));
 }
 
+typedef struct dynatrace_counter_last {
+	char *key;
+	double last;
+	tommy_node node;
+} dynatrace_counter_last;
+
+static int dynatrace_counter_last_compare(const void *arg, const void *obj)
+{
+	return strcmp((const char *)arg, ((dynatrace_counter_last *)obj)->key);
+}
+
+static void dynatrace_counter_last_free_foreach(void *funcarg, void *arg)
+{
+	(void)funcarg;
+	dynatrace_counter_last *entry = arg;
+	if (entry->key)
+		free(entry->key);
+	free(entry);
+}
+
+void dynatrace_action_counter_state_free(action_node *an)
+{
+	if (!an || !an->dynatrace_counter_last)
+		return;
+
+	alligator_ht_foreach_arg(an->dynatrace_counter_last, dynatrace_counter_last_free_foreach, NULL);
+	alligator_ht_done(an->dynatrace_counter_last);
+	free(an->dynatrace_counter_last);
+	an->dynatrace_counter_last = NULL;
+}
+
+static double dynatrace_metric_node_value(metric_node *x)
+{
+	if (x->type == DATATYPE_INT)
+		return (double)x->i;
+	if (x->type == DATATYPE_UINT)
+		return (double)x->u;
+	if (x->type == DATATYPE_DOUBLE)
+	{
+		if (isnan(x->d) || isinf(x->d))
+			return 0.0;
+		return x->d;
+	}
+	return 0.0;
+}
+
+static int dynatrace_metric_name_is_count_component(const char *metric_key)
+{
+	size_t len;
+
+	if (!metric_key)
+		return 0;
+	len = strlen(metric_key);
+	if (len < 6)
+		return 0;
+	return strcmp(metric_key + len - 6, "_count") == 0;
+}
+
+static uint8_t dynatrace_resolve_prom_type(namespace_struct *ns, const char *metric_key, metric_family_metadata **meta_out)
+{
+	char family_buf[256];
+	metric_family_metadata *meta = NULL;
+
+	if (meta_out)
+		*meta_out = NULL;
+	if (!metric_key)
+		return METRIC_TYPE_UNTYPED;
+
+	prom_family_exposition_resolve(ns, metric_key, &meta, family_buf, sizeof(family_buf));
+	if (meta_out)
+		*meta_out = meta;
+	return meta ? meta->type : METRIC_TYPE_UNTYPED;
+}
+
+static int dynatrace_metric_is_count(namespace_struct *ns, const char *metric_key, int8_t value_type)
+{
+	uint8_t prom_type = dynatrace_resolve_prom_type(ns, metric_key, NULL);
+
+	if (prom_type == METRIC_TYPE_COUNTER)
+		return 1;
+	if ((prom_type == METRIC_TYPE_HISTOGRAM || prom_type == METRIC_TYPE_SUMMARY) &&
+	    dynatrace_metric_name_is_count_component(metric_key))
+		return 1;
+	if (prom_type == METRIC_TYPE_UNTYPED && (value_type == DATATYPE_INT || value_type == DATATYPE_UINT))
+		return 1;
+	return 0;
+}
+
+static char *dynatrace_series_key(const char *metric_key, labels_t *labels)
+{
+	string *key = string_new();
+
+	if (!key || !metric_key)
+		return NULL;
+
+	string_cat(key, (char *)metric_key, strlen(metric_key));
+	for (labels = labels ? labels->next : NULL; labels; labels = labels->next)
+	{
+		if (!labels->name_len)
+			continue;
+		string_cat(key, ",", 1);
+		string_cat(key, labels->name, labels->name_len);
+		string_cat(key, "=", 1);
+		string_cat(key, labels->key, labels->key_len);
+	}
+	char *ret = strdup(key->s);
+	string_free(key);
+	return ret;
+}
+
+static double dynatrace_counter_delta(action_node *an, const char *series_key, double current)
+{
+	dynatrace_counter_last *entry;
+	uint32_t key_hash;
+	double delta;
+
+	if (!series_key)
+		return current;
+
+	if (!an)
+		return current;
+
+	if (!an->dynatrace_counter_last)
+		an->dynatrace_counter_last = alligator_ht_init(NULL);
+
+	key_hash = tommy_strhash_u32(0, (void *)series_key);
+	entry = alligator_ht_search(an->dynatrace_counter_last, dynatrace_counter_last_compare, (void *)series_key, key_hash);
+	if (!entry)
+	{
+		entry = calloc(1, sizeof(*entry));
+		if (!entry)
+			return current;
+		entry->key = strdup(series_key);
+		if (!entry->key)
+		{
+			free(entry);
+			return current;
+		}
+		entry->last = current;
+		alligator_ht_insert(an->dynatrace_counter_last, &(entry->node), entry, key_hash);
+		return current;
+	}
+
+	if (current < entry->last)
+		delta = current;
+	else
+		delta = current - entry->last;
+	entry->last = current;
+	return delta;
+}
+
+static void dynatrace_serialize_payload(string *res, metric_node *x, int is_count, action_node *an, const char *series_key)
+{
+	double delta;
+
+	string_cat(res, " ", 1);
+	if (!is_count)
+	{
+		metric_value_serialize_string(x, res);
+		return;
+	}
+
+	delta = dynatrace_counter_delta(an, series_key, dynatrace_metric_node_value(x));
+	string_cat(res, "count,delta=", 12);
+	if (delta == (double)(int64_t)delta)
+		string_int(res, (int64_t)delta);
+	else
+		string_double(res, delta);
+}
+
 void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
@@ -1556,6 +1728,8 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 	char *new_name = metric_transform_name(labels->key, sc->an);
 	const char *metric_name_for_transform = new_name ? new_name : labels->key;
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+	int is_count = dynatrace_metric_is_count(sc ? sc->ns : NULL, labels->key, x->type);
+	char *series_key = is_count ? dynatrace_series_key(labels->key, labels) : NULL;
 
 	if (new_name)
 	{
@@ -1564,14 +1738,6 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 	else
 	{
 		string_cat(res, labels->key, labels->key_len);
-	}
-	if (x->type == DATATYPE_INT)
-	{
-		string_cat(res, ".count", 6);
-	}
-	else if (x->type == DATATYPE_UINT)
-	{
-		string_cat(res, ".count", 6);
 	}
 
 	tag_normalizer_dynatrace(res->s + metric_str_start_position, (size_t)(res->l - metric_str_start_position));
@@ -1621,9 +1787,10 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 		}
 		labels = labels->next;
 	}
-	string_cat(res, " ", 1);
-	metric_value_serialize_string(x, res);
+	dynatrace_serialize_payload(res, x, is_count, sc ? sc->an : NULL, series_key);
 	string_cat(res, "\n", 1);
+	if (series_key)
+		free(series_key);
 	if (new_name)
 		free(new_name);
 }
