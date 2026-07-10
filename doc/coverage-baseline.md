@@ -10,7 +10,7 @@ cmake --build build --target alligator_tests --parallel
 ./tests/coverage/run_coverage.sh
 ```
 
-Current baseline (local): **31.82% line coverage** (69,967 tests pass; re-run `run_coverage.sh` to confirm).
+Current baseline (local): **32.89% line coverage** (70,396 tests pass; re-run `run_coverage.sh` to confirm).
 
 Scope: `src/**/*.c`, excluding `src/tests/**` and `src/external/**`.
 
@@ -31,9 +31,9 @@ Staged `MIN_LINE_COVERAGE` bumps in `.gitlab-ci.yml`:
 | Stage | Threshold | Notes |
 |-------|-----------|-------|
 | 1 | 23% | Initial gate |
-| 2 | 30% | **Done** (31.82%) |
-| 3 | 32% | Next CI bump |
-| 4 | 35% | Target — ~3.2% / ~1,800 lines remaining |
+| 2 | 30% | **Done** |
+| 3 | 32% | **Done** (32.89%) |
+| 4 | 35% | Target — ~2.1% / ~1,170 lines remaining |
 | 5 | 40% | Follow-up |
 | 6 | 50% | Long-term lock |
 
@@ -41,15 +41,18 @@ Increase only after a stage is stable under `run_coverage.sh` (tests must run **
 
 ## Plan to reach 35%
 
-**Gap to 35%:** ~3.2 percentage points ≈ **~1,800 lines** on ~55,675 total instrumented lines.
+**Gap to 35%:** ~2.1 percentage points ≈ **~1,170 lines** on ~55,681 total instrumented lines.
 
 ### Pass-mode stability notes
 
 Some scenarios segfault or abort under `./build/alligator_tests pass` (stderr redirected) even when verbose mode passes:
 
-- `api_v1` probe/scheduler/cluster pushes via plain→JSON
-- Dedicated ClickHouse/PG serializer tests passing `&ms` to `metric_query_deserialize` (matrix tests in `test_serializer_context_matrix` are OK)
-- `squid_forward_handler` multi-pool fixtures
+- `api_v1` log/x509/lang/mtail JSON PUT+DELETE batches
+- `api_v1` `threaded_loop` push via plain→JSON
+- Combined `api_v1` PUT with reject + multi-block DELETE
+- `labels_initiate` + `metric_update` in one test
+- ClickHouse/PG/Cassandra `metric_query_deserialize` with `&ms`
+- `action_run_process` serializer matrix without proper `action_push`/`action_del` lifecycle
 
 Prefer small, isolated `http_api_v1` JSON chunks and plain-config parse-only tests for the next push.
 

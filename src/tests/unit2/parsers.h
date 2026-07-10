@@ -47,6 +47,7 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg);
 void squid_info_handler(char *metrics, size_t size, context_arg *carg);
 void squid_forward_handler(char *metrics, size_t size, context_arg *carg);
 void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg);
+void squid_mem_handler(char *metrics, size_t size, context_arg *carg);
 
 void api_test_parser_ntp() {
     char *msg = "\34\3\3\350\0\0j\243\0\0\22\202\n\3464#\352y\33\263\16\25\"$\0\0\0\0\0\0\0\0\352y Qo\353\277d\352y Qo\355\2z";
@@ -2279,6 +2280,19 @@ void api_test_parser_squid_fqdncache()
         "FQDNcache Misses: 15\n";
     squid_fqdncache_handler(body, strlen(body), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_squid_mem()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    char body[] =
+        "Current memory usage\n"
+        "Pool\tobj_size\tkb/chunk\tobj/chunk\n"
+        "data\t1024\t64\t16\n"
+        "Cumulative allocated volume\t4096\n";
+    squid_mem_handler(body, strlen(body), carg);
     free(carg);
 }
 

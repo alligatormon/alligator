@@ -2742,6 +2742,363 @@ void test_config_plain_log_scalars_block()
     json_decref(root);
 }
 
+void test_config_plain_extra_blocks_batch()
+{
+    const char *fragments[] = {
+        "instance { name ut-inst-plain; }\n",
+        "namespace { name ut-ns-a max_emit 1; }\nnamespace { name ut-ns-b max_emit 0; }\n",
+        "probe { name ut-probe-http prober http valid_status_codes 2xx timeout 3s; }\n",
+        "probe { name ut-probe-icmp prober icmp timeout 2000; }\n",
+        "cluster { name ut-cl-plain size 500 replica_factor 1 servers s1:1111 s2:1112; }\n",
+        "x509 { name ut-x509-b path /tmp/pem match .crt password p type pem; }\n",
+        "modules { mod_a /lib/a.so; mod_b /lib/b.so; }\n",
+        "puppeteer { https://example.com env=K:V; }\n",
+        "chromecdp { executable /usr/bin/chromium port 9222 https://page.example timeout 10s; }\n"
+    };
+    const char *keys[] = {
+        "instance", "namespace", "probe", "probe",
+        "cluster", "x509", "modules", "puppeteer", "chromecdp"
+    };
+
+    json_error_t error;
+    for (int f = 0; f < 9; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_action_query_lang_batch()
+{
+    const char *fragments[] = {
+        "action { name ut_pq_a1 expr http://127.0.0.1:1 serializer json dry_run content_type_json; }\n",
+        "action { name ut_pq_a2 expr udp://127.0.0.1:2 serializer openmetrics dry_run add_label=team:core; }\n",
+        "action { name ut_pq_a3 expr http://127.0.0.1:3 serializer influxdb dry_run follow_redirects 2; }\n",
+        "action { name ut_pq_a4 expr http://127.0.0.1:4 serializer graphite dry_run namespace ut_pq_ns; }\n",
+        "action { name ut_pq_a5 expr cassandra://127.0.0.1:9042 serializer cassandra dry_run; }\n",
+        "action { name ut_pq_a6 expr http://127.0.0.1:6 serializer clickhouse dry_run; }\n",
+        "action { name ut_pq_a7 expr http://127.0.0.1:7 serializer postgresql dry_run; }\n",
+        "action { name ut_pq_a8 expr http://127.0.0.1:8 serializer elasticsearch dry_run; }\n",
+        "query { make ut_pq_q1 expr up datasource internal action ut_pq_a1; }\n",
+        "query { make ut_pq_q2 expr process_match datasource internal action ut_pq_a2; }\n",
+        "query { make ut_pq_q3 expr count(x) datasource internal action ut_pq_a3; }\n",
+        "scheduler { name ut_pq_sched action ut_pq_a1 expr sum(up) period 30s datasource internal; }\n",
+        "lang { key ut_pq_lang expr http://127.0.0.1/lang lang lua method run file /tmp/ut.lua; }\n",
+        "resolver { udp://8.8.4.4:53; tcp://1.1.1.1:53; }\n"
+    };
+    const char *keys[] = {
+        "action", "action", "action", "action", "action", "action", "action", "action",
+        "query", "query", "query", "scheduler", "lang", "resolver"
+    };
+
+    json_error_t error;
+    for (int f = 0; f < 14; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_entrypoint_batch2()
+{
+    const char *fragments[] = {
+        "entrypoint { handler prometheus tcp 8080 namespace ut_ep_ns; }\n",
+        "entrypoint { handler json udp 514 allow 10.0.0.0/8 deny 192.168.0.0/16; }\n",
+        "entrypoint { handler openmetrics tls 8443 unix /tmp/ut.sock key ut_ep_key; }\n",
+        "entrypoint { handler graphite unixgram /tmp/ut.g mapping path1 api v1 threads 2; }\n",
+        "entrypoint { handler influxdb tcp 8086 log_level debug metric_aggregation true ttl 60s; }\n"
+    };
+
+    json_error_t error;
+    for (int f = 0; f < 5; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, "entrypoint");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(child) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_timing_repeat_globals()
+{
+    const char *conf =
+        "synchronization_period 120s;\n"
+        "tls_collect_period 300s;\n"
+        "query_repeat 5;\n"
+        "cluster_repeat 2;\n"
+        "aggregator_repeat 3;\n"
+        "workers auto;\n"
+        "ttl 900;\n"
+        "system_collect_period 75;\n"
+        "query_period 20s;\n"
+        "grok_patterns /tmp/a.grok /tmp/b.grok;\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "synchronization_period"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "query_repeat"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "grok_patterns"));
+    json_decref(root);
+}
+
+void test_config_plain_aggregate_more_subtypes()
+{
+    const char *conf =
+        "aggregate {\n"
+        "  log \"/var/log/messages\" log_channel_raw=raw-ch;\n"
+        "  consul-configuration http://127.0.0.1:8500/v1/kv/;\n"
+        "  consul-discovery http://127.0.0.1:8500/v1/catalog/services;\n"
+        "  parser http://127.0.0.1:9100/metrics period=30s;\n"
+        "  https https://example.com follow_redirects=2 tls_verify=off;\n"
+        "  mongodb mongodb://127.0.0.1:27017/?authSource=admin;\n"
+        "  mtail file:///var/log/nginx-access.log name=nginx_mtail;\n"
+        "  beanstalkd tcp://127.0.0.1:11300;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(aggregate) >= 6);
+    json_decref(root);
+}
+
+static void test_config_plain_mega_document_v2()
+{
+    const char *conf =
+        "log_level info;\n"
+        "log_dest syslog;\n"
+        "log_form plain;\n"
+        "workers 8;\n"
+        "ttl 240;\n"
+        "synchronization_period 90s;\n"
+        "tls_collect_period 600s;\n"
+        "query_repeat 4;\n"
+        "cluster_repeat 1;\n"
+        "aggregator_repeat 2;\n"
+        "grok_patterns /opt/grok/a.grok;\n"
+        "log_channel { name v2-ch; dest file:///var/log/v2.log; }\n"
+        "persistence { directory /var/lib/alligator-v2; }\n"
+        "cluster { name v2-cluster size 20 replica_factor 3 servers n1:1111 n2:1112 n3:1113; }\n"
+        "instance { name v2-inst; }\n"
+        "namespace { name v2-ns max_emit 1; }\n"
+        "threaded_loop { name v2-loop threads 8; }\n"
+        "resolver { udp://1.0.0.1:53; }\n"
+        "scheduler { name v2_sched action v2_act expr avg(cpu) period 45s datasource internal; }\n"
+        "action { name v2_act expr http://127.0.0.1:9090 serializer prometheus dry_run; }\n"
+        "lang { key v2_lang expr http://127.0.0.1:9090/lang lang duktape method run; }\n"
+        "query { make v2_q expr present(up) datasource internal action v2_act; }\n"
+        "probe { name v2_probe prober tcp valid_status_codes 200 timeout 1s; }\n"
+        "system { base disk smart interrupts load add_label=site:v2; }\n"
+        "x509 { name v2-x509 path /etc/ssl match .key password z type pem; }\n"
+        "modules { custom /opt/libcustom.so; }\n"
+        "reject { label dc value us; }\n"
+        "metricstransform { include v2_.* match_type regexp label dc regex '^(.+)$' replacement 'dc-$1'; }\n"
+        "grok { key v2_grok; name v2_grok_name; match '%{NUMBER:n}'; counter v2_c n; }\n"
+        "mtail { name v2_mtail script /tmp/v2.mtail; }\n"
+        "chromecdp { executable /usr/bin/chrome port 9224 https://v2.example timeout 20s; }\n"
+        "puppeteer { https://v2.example headers=H:V env=E:1; }\n"
+        "entrypoint {\n"
+        "  handler influxdb;\n"
+        "  tcp 9091 udp 5514;\n"
+        "  namespace v2-ns cluster v2-cluster instance v2-inst;\n"
+        "  allow 172.16.0.0/12;\n"
+        "  mapping metrics prom v2;\n"
+        "  log_channel v2-ch;\n"
+        "}\n"
+        "aggregate {\n"
+        "  json http://127.0.0.1:9200/_cluster/health;\n"
+        "  redis tcp://127.0.0.1:6380;\n"
+        "  snmp udp://public@127.0.0.1:161/1.3.6.1.2.1.1.5.0;\n"
+        "  parser http://127.0.0.1:8080/status;\n"
+        "  https https://v2.example follow_redirects=1;\n"
+        "  blackbox https://example.net period=45s;\n"
+        "  log \"/var/log/v2.log\";\n"
+        "  grok file:///var/log/v2-nginx.log name=v2nginx;\n"
+        "  mtail file:///var/log/v2-app.log name=v2_mtail;\n"
+        "  beanstalkd tcp://127.0.0.1:11301;\n"
+        "  mongodb mongodb://127.0.0.1:27018;\n"
+        "  consul-configuration http://127.0.0.1:8500;\n"
+        "  consul-discovery http://127.0.0.1:8500;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "entrypoint"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "reject"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "metricstransform"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        json_array_size(json_object_get(root, "aggregate")) >= 10);
+    json_decref(root);
+}
+
+void test_config_plain_reject_transform_batch()
+{
+    const char *fragments[] = {
+        "reject { label env value prod; }\nreject { label role; }\n",
+        "metricstransform { include ut_mt_.* match_type regexp label host regex '^(.+)$' replacement 'h-$1'; }\n",
+        "query { make ut_rej_q expr up datasource internal action ut_rej_a; }\n"
+        "action { name ut_rej_a expr http://127.0.0.1:9 serializer json dry_run; }\n"
+    };
+    const char *keys[] = { "reject", "metricstransform", "query" };
+
+    json_error_t error;
+    for (int f = 0; f < 3; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_action_serializer_plain_batch()
+{
+    const char *serializers[] = {
+        "json", "openmetrics", "graphite", "influxdb", "statsd",
+        "dogstatsd", "dynatrace", "carbon2", "dsv", "elasticsearch",
+        "cassandra", "clickhouse", "postgresql", "mongodb", "otlp"
+    };
+    json_error_t error;
+    for (int i = 0; i < 15; i++) {
+        char conf[256];
+        snprintf(conf, sizeof(conf),
+            "action { name ut_ser_plain_%d expr http://127.0.0.1:%d serializer %s dry_run; }\n",
+            i, 20000 + i, serializers[i]);
+        string *s = string_new();
+        string_cat(s, conf, strlen(conf));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *action = json_object_get(part, "action");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, action);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(action) > 0);
+        json_decref(part);
+    }
+}
+
+void test_config_plain_fragment_library()
+{
+    const char *fragments[] = {
+        "log_channel { name frag-ch1; dest stderr; }\n",
+        "log_channel { name frag-ch2; dest file:///tmp/f.log; }\n",
+        "persistence { directory /tmp/frag-persist; }\n",
+        "resolver { udp://8.8.8.8:53; }\n",
+        "resolver { tcp://9.9.9.9:53; }\n",
+        "instance { name frag-inst-1; }\n",
+        "instance { name frag-inst-2; }\n",
+        "namespace { name frag-ns-1 max_emit 0; }\n",
+        "namespace { name frag-ns-2 max_emit 5; }\n",
+        "threaded_loop { name frag-loop-1 threads 2; }\n",
+        "threaded_loop { name frag-loop-2 threads 6; }\n",
+        "cluster { name frag-cl size 100 replica_factor 1 servers a:1 b:2; }\n",
+        "probe { name frag-probe-http prober http timeout 3s; }\n",
+        "probe { name frag-probe-icmp prober icmp timeout 1000; }\n",
+        "scheduler { name frag-sched action frag-act expr count(x) period 10s datasource internal; }\n",
+        "action { name frag-act expr http://127.0.0.1:1 serializer json dry_run; }\n",
+        "query { make frag-q expr up datasource internal action frag-act; }\n",
+        "lang { key frag-lang expr http://127.0.0.1/l lang lua method run; }\n",
+        "x509 { name frag-x509 path /tmp/p match .pem type pem password p; }\n",
+        "modules { m1 /lib/m1.so; m2 /lib/m2.so; }\n",
+        "puppeteer { https://frag.example env=K:V; }\n",
+        "chromecdp { executable /usr/bin/chromium port 9222 https://frag.example timeout 5s; }\n",
+        "grok { key frag-grok; name frag_grok_n; match '%{WORD:w}'; counter frag_c w; }\n",
+        "mtail { name frag-mtail script /tmp/frag.mtail; }\n",
+        "system { base network firewall cadvisor; }\n",
+        "reject { label team value ops; }\n",
+        "metricstransform { include frag_.* match_type strict label k regex '^(.+)$' replacement '$1'; }\n",
+        "entrypoint { handler prometheus tcp 19999; }\n",
+        "aggregate { json http://127.0.0.1:9100/metrics; }\n",
+        "aggregate { snmp udp://public@127.0.0.1:161/1.3.6.1.2.1.1.1.0; }\n"
+    };
+    const char *keys[] = {
+        "log_channel", "log_channel", "persistence", "resolver", "resolver",
+        "instance", "instance", "namespace", "namespace", "threaded_loop",
+        "threaded_loop", "cluster", "probe", "probe", "scheduler",
+        "action", "query", "lang", "x509", "modules",
+        "puppeteer", "chromecdp", "grok", "mtail", "system",
+        "reject", "metricstransform", "entrypoint", "aggregate", "aggregate"
+    };
+
+    json_error_t error;
+    for (int f = 0; f < 30; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        json_decref(part);
+    }
+}
+
 void test_config_generators_amtail_grok_paths()
 {
     json_t *dst = json_object();
