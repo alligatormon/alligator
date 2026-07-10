@@ -229,6 +229,7 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 	}
 
 	sc->last_metric = "";
+	sc->last_family[0] = '\0';
 
 	return sc;
 }
@@ -324,6 +325,42 @@ void json_add_label_foreach(void *funcarg, void *arg)
 	json_array_object_insert(jlabels, labelscont->name, value);
 }
 
+static void serializer_openmetrics_emit_family_headers(serializer_context *sc, const char *metric_key)
+{
+	char family_buf[256];
+	metric_family_metadata *meta = NULL;
+	const char *family_name;
+	size_t family_name_len;
+
+	if (!sc || !sc->str || !metric_key)
+		return;
+
+	family_name = prom_family_exposition_resolve(sc->ns, metric_key, &meta, family_buf, sizeof(family_buf));
+	family_name_len = strlen(family_name);
+	if (sc->last_family[0] && !strcmp(sc->last_family, family_name))
+		return;
+
+	string_cat(sc->str, "# HELP ", 7);
+	string_cat(sc->str, (char *)family_name, family_name_len);
+	string_cat(sc->str, " ", 1);
+	if (meta && meta->help)
+		prom_help_escape_and_cat(sc->str, meta->help);
+	else
+		string_cat(sc->str, (char *)family_name, family_name_len);
+	string_cat(sc->str, "\n", 1);
+
+	string_cat(sc->str, "# TYPE ", 7);
+	string_cat(sc->str, (char *)family_name, family_name_len);
+	string_cat(sc->str, " ", 1);
+	{
+		const char *metric_type = prom_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, 1);
+		string_cat(sc->str, (char *)metric_type, strlen(metric_type));
+	}
+	string_cat(sc->str, "\n", 1);
+
+	strlcpy(sc->last_family, family_name, sizeof(sc->last_family));
+}
+
 void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x->labels;
@@ -331,6 +368,7 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	char *transformed_metric_name = labels ? metric_transform_name(labels->key, sc->an) : NULL;
 	const char *metric_name_for_transform = transformed_metric_name ? transformed_metric_name : (labels ? labels->key : NULL);
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels ? labels->key : NULL);
+	const char *metric_key = labels ? labels->key : NULL;
 
 
 	json_t *obj = json_object();
@@ -379,6 +417,12 @@ void serialize_json(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	json_array_object_insert(sample, "expire", sample_expire);
 	json_array_object_insert(samples, "", sample);
 
+	if (metric_key)
+	{
+		uint8_t prom_type = prom_resolve_type(sc ? sc->ns : NULL, metric_key, NULL);
+		json_array_object_insert(obj, "type", json_string(prom_type_exposition_keyword(prom_type, 1)));
+	}
+
 	json_array_object_insert(obj, "labels", jlabels);
 	json_array_object_insert(obj, "samples", samples);
 	json_array_object_insert(sc->json, "", obj);
@@ -403,13 +447,16 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	json_t *attrs;
 	json_t *dp;
 	json_t *dps;
-	json_t *gauge;
+	json_t *wrap;
 	r_time now;
 	uint64_t tns;
 	char timestr[32];
+	int as_sum;
 
 	if (!labels || !metrics)
 		return;
+
+	as_sum = prom_metric_serializes_as_otlp_sum(sc ? sc->ns : NULL, labels->key, x->type);
 
 	metric = json_object();
 	char *new_name = metric_transform_name(labels->key, sc->an);
@@ -467,9 +514,18 @@ void serialize_otlp(metric_node *x, serializer_context *sc, alligator_ht *add_la
 	dps = json_array();
 	json_array_append_new(dps, dp);
 
-	gauge = json_object();
-	json_object_set_new(gauge, "dataPoints", dps);
-	json_object_set_new(metric, "gauge", gauge);
+	wrap = json_object();
+	json_object_set_new(wrap, "dataPoints", dps);
+	if (as_sum)
+	{
+		json_object_set_new(wrap, "aggregationTemporality", json_integer(2));
+		json_object_set_new(wrap, "isMonotonic", json_true());
+		json_object_set_new(metric, "sum", wrap);
+	}
+	else
+	{
+		json_object_set_new(metric, "gauge", wrap);
+	}
 
 	json_array_append_new(metrics, metric);
 	if (new_name)
@@ -491,6 +547,7 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
 
 	json_t *metric_name = new_name ? json_string(new_name) : json_stringn(labels->key, labels->key_len);
+	const char *metric_key = labels->key;
 
 	labels = labels->next;
 	while (labels)
@@ -548,6 +605,10 @@ void serialize_elasticsearch(metric_node *x, serializer_context *sc)
 	json_array_object_insert(obj, "timestamp", timestamp);
 	json_array_object_insert(obj, "value", sample_value);
 	json_array_object_insert(obj, "expire", sample_expire);
+	{
+		uint8_t prom_type = prom_resolve_type(sc ? sc->ns : NULL, metric_key, NULL);
+		json_array_object_insert(obj, "metric_type", json_string(prom_type_exposition_keyword(prom_type, 1)));
+	}
 
 	json_array_object_insert(obj, "labels", jlabels);
 
@@ -603,6 +664,7 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 	char *new_name = metric_transform_name(labels->key, sc->an);
 	const char *metric_name_for_transform = new_name ? new_name : labels->key;
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+	serializer_openmetrics_emit_family_headers(sc, labels->key);
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));
@@ -1352,6 +1414,7 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 	char *new_name = metric_transform_name(labels->key, sc->an);
 	const char *metric_name_for_transform = new_name ? new_name : labels->key;
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
+	const char *metric_key = labels->key;
 
 	if (new_name)
 	{
@@ -1413,11 +1476,9 @@ void serialize_statsd(metric_node *x, serializer_context *sc, alligator_ht *add_
 	string_cat(res, ":", 1);
 	metric_value_serialize_string(x, res);
 	string_cat(res, "|", 1);
-	if (x->type == DATATYPE_INT)
-		string_cat(res, "g", 1);
-	else if (x->type == DATATYPE_UINT)
-		string_cat(res, "g", 1);
-	else if (x->type == DATATYPE_DOUBLE)
+	if (prom_metric_serializes_as_counter(sc ? sc->ns : NULL, metric_key, x->type))
+		string_cat(res, "c", 1);
+	else
 		string_cat(res, "g", 1);
 	string_cat(res, "\n", 1);
 	if (new_name)
@@ -1471,11 +1532,9 @@ void serialize_dogstatsd(metric_node *x, serializer_context *sc, alligator_ht *a
 	string_cat(res, ":", 1);
 	metric_value_serialize_string(x, res);
 	string_cat(res, "|", 1);
-	if (x->type == DATATYPE_INT)
-		string_cat(res, "g", 1);
-	else if (x->type == DATATYPE_UINT)
-		string_cat(res, "g", 1);
-	else if (x->type == DATATYPE_DOUBLE)
+	if (prom_metric_serializes_as_counter(sc ? sc->ns : NULL, labels->key, x->type))
+		string_cat(res, "c", 1);
+	else
 		string_cat(res, "g", 1);
 
 	labels = labels->next;
@@ -1594,48 +1653,6 @@ static double dynatrace_metric_node_value(metric_node *x)
 	return 0.0;
 }
 
-static int dynatrace_metric_name_is_count_component(const char *metric_key)
-{
-	size_t len;
-
-	if (!metric_key)
-		return 0;
-	len = strlen(metric_key);
-	if (len < 6)
-		return 0;
-	return strcmp(metric_key + len - 6, "_count") == 0;
-}
-
-static uint8_t dynatrace_resolve_prom_type(namespace_struct *ns, const char *metric_key, metric_family_metadata **meta_out)
-{
-	char family_buf[256];
-	metric_family_metadata *meta = NULL;
-
-	if (meta_out)
-		*meta_out = NULL;
-	if (!metric_key)
-		return METRIC_TYPE_UNTYPED;
-
-	prom_family_exposition_resolve(ns, metric_key, &meta, family_buf, sizeof(family_buf));
-	if (meta_out)
-		*meta_out = meta;
-	return meta ? meta->type : METRIC_TYPE_UNTYPED;
-}
-
-static int dynatrace_metric_is_count(namespace_struct *ns, const char *metric_key, int8_t value_type)
-{
-	uint8_t prom_type = dynatrace_resolve_prom_type(ns, metric_key, NULL);
-
-	if (prom_type == METRIC_TYPE_COUNTER)
-		return 1;
-	if ((prom_type == METRIC_TYPE_HISTOGRAM || prom_type == METRIC_TYPE_SUMMARY) &&
-	    dynatrace_metric_name_is_count_component(metric_key))
-		return 1;
-	if (prom_type == METRIC_TYPE_UNTYPED && (value_type == DATATYPE_INT || value_type == DATATYPE_UINT))
-		return 1;
-	return 0;
-}
-
 static char *dynatrace_series_key(const char *metric_key, labels_t *labels)
 {
 	string *key = string_new();
@@ -1728,7 +1745,7 @@ void serialize_dynatrace(metric_node *x, serializer_context *sc, alligator_ht *a
 	char *new_name = metric_transform_name(labels->key, sc->an);
 	const char *metric_name_for_transform = new_name ? new_name : labels->key;
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
-	int is_count = dynatrace_metric_is_count(sc ? sc->ns : NULL, labels->key, x->type);
+	int is_count = prom_metric_serializes_as_counter(sc ? sc->ns : NULL, labels->key, x->type);
 	char *series_key = is_count ? dynatrace_series_key(labels->key, labels) : NULL;
 
 	if (new_name)

@@ -51,6 +51,7 @@ typedef struct serializer_context {
 	action_node *an;
 	namespace_struct *ns;
 	char *last_metric; // for SQL-like databases
+	char last_family[256]; // for OpenMetrics action # HELP/# TYPE headers
 	json_t *json;
 	string *str;
 	//string **multistring;
@@ -119,5 +120,12 @@ int prom_family_strip_summary_suffix(const char *metric_name, char *base_out, si
 /* Resolve exposition family name (base for histogram/summary components). */
 const char *prom_family_exposition_resolve(namespace_struct *ns, const char *metric_name,
     metric_family_metadata **meta_out, char *buf, size_t buf_size);
+const char *prom_type_exposition_keyword(uint8_t type, int openmetrics);
+void prom_help_escape_and_cat(string *str, const char *help);
+int prom_metric_name_is_count_component(const char *metric_key);
+int prom_metric_name_is_sum_component(const char *metric_key);
+uint8_t prom_resolve_type(namespace_struct *ns, const char *metric_key, metric_family_metadata **meta_out);
+int prom_metric_serializes_as_counter(namespace_struct *ns, const char *metric_key, int8_t value_type);
+int prom_metric_serializes_as_otlp_sum(namespace_struct *ns, const char *metric_key, int8_t value_type);
 void namespace_metric_family_set_prom_type(context_arg *carg, const char *metric_name, uint8_t metric_type);
 void namespace_metric_family_set_prom_help(context_arg *carg, const char *metric_name, const char *help);

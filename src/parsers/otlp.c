@@ -37,7 +37,7 @@ static void otlp_sanitize_attr_key(char *k, size_t len)
 	}
 }
 
-static int otlp_ingest_value_labels(char *metric_name, double value, alligator_ht *resource_lbl, alligator_ht *dp_lbl, context_arg *carg)
+static int otlp_ingest_value_labels(char *metric_name, double value, alligator_ht *resource_lbl, alligator_ht *dp_lbl, context_arg *carg, uint8_t metric_type)
 {
 	alligator_ht *lbl = NULL;
 
@@ -56,7 +56,9 @@ static int otlp_ingest_value_labels(char *metric_name, double value, alligator_h
 		labels_hash_free(lbl);
 		return 1;
 	}
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "OTLP exported metric value.");
+	if (metric_type == METRIC_TYPE_UNTYPED)
+		metric_type = METRIC_TYPE_GAUGE;
+	namespace_metric_family_set(NULL, carg, metric_name, metric_type, "OTLP exported metric value.");
 	metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 	return 1;
 }
@@ -198,7 +200,7 @@ static int otlp_number_datapoint_value(json_t *dp, double *out)
 	return 0;
 }
 
-static uint8_t otlp_ingest_one_datapoint(char *metric_name, json_t *dp, alligator_ht *resource_lbl, context_arg *carg)
+static uint8_t otlp_ingest_one_datapoint(char *metric_name, json_t *dp, alligator_ht *resource_lbl, context_arg *carg, uint8_t metric_type)
 {
 	alligator_ht *dp_lbl = NULL;
 	json_t *dp_attrs;
@@ -211,9 +213,27 @@ static uint8_t otlp_ingest_one_datapoint(char *metric_name, json_t *dp, alligato
 	if (dp_attrs && json_is_array(dp_attrs) && json_array_size(dp_attrs) > 0)
 		dp_lbl = otlp_kv_array_to_labels(dp_attrs, carg);
 
-	otlp_ingest_value_labels(metric_name, value, resource_lbl, dp_lbl, carg);
+	otlp_ingest_value_labels(metric_name, value, resource_lbl, dp_lbl, carg, metric_type);
 	labels_hash_free(dp_lbl);
 	return 1;
+}
+
+static uint8_t otlp_json_metric_type(json_t *metric)
+{
+	json_t *sum_wrap;
+
+	if (!metric || !json_is_object(metric))
+		return METRIC_TYPE_GAUGE;
+	if (json_object_get(metric, "gauge"))
+		return METRIC_TYPE_GAUGE;
+	sum_wrap = json_object_get(metric, "sum");
+	if (sum_wrap && json_is_object(sum_wrap))
+	{
+		json_t *mono = json_object_get(sum_wrap, "isMonotonic");
+		if (!mono || json_is_true(mono))
+			return METRIC_TYPE_COUNTER;
+	}
+	return METRIC_TYPE_GAUGE;
 }
 
 static void otlp_ingest_metric_object(json_t *metric, alligator_ht *resource_lbl, context_arg *carg, uint64_t *ok, uint64_t *bad)
@@ -257,7 +277,7 @@ static void otlp_ingest_metric_object(json_t *metric, alligator_ht *resource_lbl
 	for (i = 0; i < ndp; i++)
 	{
 		json_t *dp = json_array_get(dps, i);
-		if (otlp_ingest_one_datapoint(metric_name, dp, resource_lbl, carg))
+		if (otlp_ingest_one_datapoint(metric_name, dp, resource_lbl, carg, otlp_json_metric_type(metric)))
 		{
 			(*ok)++;
 			carg->push_accepted_lines++;
@@ -542,7 +562,41 @@ static int otlp_pb_parse_number_datapoint(const uint8_t *p, size_t len, context_
 	return 1;
 }
 
-static void otlp_pb_parse_number_data(const uint8_t *p, size_t len, const char *metric_name, int metric_ok, alligator_ht *resource_lbl, context_arg *carg, uint64_t *ok, uint64_t *bad)
+static void otlp_pbw_field_varint(string *dst, uint32_t field, uint64_t v)
+{
+	pbwire_write_tag(dst, field, 0);
+	pbwire_write_varint(dst, v);
+}
+
+static uint8_t otlp_pb_sum_is_monotonic(const uint8_t *p, size_t len)
+{
+	const uint8_t *cur = p;
+	const uint8_t *end = p + len;
+
+	while (cur < end)
+	{
+		uint64_t tagv;
+		uint8_t wire;
+		uint32_t tag;
+
+		if (!otlp_pb_read_varint(&cur, end, &tagv))
+			break;
+		wire = (uint8_t)(tagv & 0x7);
+		tag = (uint32_t)(tagv >> 3);
+		if (tag == 3 && wire == 0)
+		{
+			uint64_t mono = 0;
+			if (!otlp_pb_read_varint(&cur, end, &mono))
+				break;
+			return mono ? METRIC_TYPE_COUNTER : METRIC_TYPE_GAUGE;
+		}
+		if (!otlp_pb_skip_field(&cur, end, wire))
+			break;
+	}
+	return METRIC_TYPE_COUNTER;
+}
+
+static void otlp_pb_parse_number_data(const uint8_t *p, size_t len, const char *metric_name, int metric_ok, alligator_ht *resource_lbl, context_arg *carg, uint64_t *ok, uint64_t *bad, uint8_t metric_type)
 {
 	const uint8_t *cur = p;
 	const uint8_t *end = p + len;
@@ -575,7 +629,7 @@ static void otlp_pb_parse_number_data(const uint8_t *p, size_t len, const char *
 				(*bad)++;
 				continue;
 			}
-			otlp_ingest_value_labels((char *)metric_name, value, resource_lbl, dp_lbl, carg);
+			otlp_ingest_value_labels((char *)metric_name, value, resource_lbl, dp_lbl, carg, metric_type);
 			labels_hash_free(dp_lbl);
 			(*ok)++;
 			carg->push_accepted_lines++;
@@ -649,12 +703,16 @@ static void otlp_pb_parse_metric(const uint8_t *p, size_t len, alligator_ht *res
 		tag = (uint32_t)(tagv >> 3);
 		if ((tag == 5 || tag == 7) && wire == 2)
 		{
+			uint8_t metric_type = METRIC_TYPE_GAUGE;
+
 			if (!otlp_pb_read_len(&cur, end, &s, &sl))
 				break;
+			if (tag == 7)
+				metric_type = otlp_pb_sum_is_monotonic(s, sl);
 			if (!metric_ok)
 				*bad += otlp_pb_count_number_datapoints(s, sl);
 			else
-				otlp_pb_parse_number_data(s, sl, metric_name, metric_ok, resource_lbl, carg, ok, bad);
+				otlp_pb_parse_number_data(s, sl, metric_name, metric_ok, resource_lbl, carg, ok, bad, metric_type);
 			continue;
 		}
 		if (!otlp_pb_skip_field(&cur, end, wire))
@@ -956,7 +1014,7 @@ void otlp_protobuf_add_labels_foreach(void *funcarg, void* arg)
 void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_ht *add_labels)
 {
 	labels_t *labels = x ? x->labels : NULL;
-	string *req, *rm, *sm, *metric, *gauge, *dp;
+	string *req, *rm, *sm, *metric, *wrap, *dp;
 	uint8_t value_field = 0;
 	uint64_t value_raw = 0;
 	uint64_t time_unix_nano;
@@ -964,11 +1022,16 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	char *new_name;
 	const char *metric_name_for_transform;
 	char *metric_transform_alt;
+	int as_sum;
+	uint32_t metric_wrap_field;
 
 	if (!sc || !sc->str || !labels || !labels->key || !labels->key_len)
 		return;
 	if (!otlp_metric_to_pb_value(x, &value_field, &value_raw))
 		return;
+
+	as_sum = prom_metric_serializes_as_otlp_sum(sc->ns, labels->key, x->type);
+	metric_wrap_field = as_sum ? 7 : 5;
 
 	metricstransform = sc->an ? sc->an->metricstransform : NULL;
 	new_name = metric_transform_name(labels->key, sc->an);
@@ -979,7 +1042,7 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	rm = string_init(256);
 	sm = string_init(256);
 	metric = string_init(256);
-	gauge = string_init(128);
+	wrap = string_init(128);
 	dp = string_init(256);
 
 	if (add_labels)
@@ -1014,14 +1077,19 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	otlp_pbw_field_fixed64(dp, 3, time_unix_nano);
 
 	otlp_pbw_field_fixed64(dp, value_field, value_raw);
-	otlp_pbw_field_lenmsg(gauge, 1, dp);
+	otlp_pbw_field_lenmsg(wrap, 1, dp);
+	if (as_sum)
+	{
+		otlp_pbw_field_varint(wrap, 2, 2);
+		otlp_pbw_field_varint(wrap, 3, 1);
+	}
 
 	otlp_pbw_tag(metric, 1, 2);
 	if (new_name)
 		otlp_pbw_len(metric, new_name, strlen(new_name));
 	else
 		otlp_pbw_len(metric, labels->key, labels->key_len);
-	otlp_pbw_field_lenmsg(metric, 5, gauge);
+	otlp_pbw_field_lenmsg(metric, metric_wrap_field, wrap);
 
 	otlp_pbw_field_lenmsg(sm, 2, metric);
 	otlp_pbw_field_lenmsg(rm, 2, sm);
@@ -1030,7 +1098,7 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	string_cat(sc->str, req->s, req->l);
 
 	string_free(dp);
-	string_free(gauge);
+	string_free(wrap);
 	string_free(metric);
 	string_free(sm);
 	string_free(rm);

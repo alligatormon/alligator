@@ -422,34 +422,6 @@ void metric_build (char *namespace, string *s)
 	}
 }
 
-static const char *metric_type_exposition_keyword(uint8_t type, int openmetrics)
-{
-	if (type == METRIC_TYPE_COUNTER)
-		return "counter";
-	if (type == METRIC_TYPE_HISTOGRAM)
-		return "histogram";
-	if (type == METRIC_TYPE_GAUGE)
-		return "gauge";
-	if (type == METRIC_TYPE_SUMMARY)
-		return "summary";
-	/* METRIC_TYPE_UNTYPED / unknown: OpenMetrics "unknown", classic Prometheus text "untyped". */
-	return openmetrics ? "unknown" : "untyped";
-}
-
-static void metric_help_escape_and_cat(string *str, const char *help)
-{
-	for (size_t i = 0; help && help[i]; ++i)
-	{
-		char ch[2] = {help[i], 0};
-		if (help[i] == '\\' || help[i] == '"')
-			string_cat(str, "\\", 1);
-		if (help[i] == '\n')
-			string_cat(str, "\\n", 2);
-		else
-			string_cat(str, ch, 1);
-	}
-}
-
 void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, char *last_family, size_t last_family_size, int openmetrics)
 {
 	if ( x->child[LEFT] )
@@ -467,7 +439,7 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, cha
 		string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, " ", 1);
 		if (meta && meta->help)
-			metric_help_escape_and_cat(str, meta->help);
+			prom_help_escape_and_cat(str, meta->help);
 		else
 			string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, "\n", 1);
@@ -475,7 +447,7 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, cha
 		string_cat(str, "# TYPE ", 7);
 		string_cat(str, (char *)family_name, family_name_len);
 		string_cat(str, " ", 1);
-		const char *metric_type = metric_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, openmetrics);
+		const char *metric_type = prom_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, openmetrics);
 		string_cat(str, (char *)metric_type, strlen(metric_type));
 		string_cat(str, "\n", 1);
 

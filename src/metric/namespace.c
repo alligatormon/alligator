@@ -160,6 +160,104 @@ const char *prom_family_exposition_resolve(namespace_struct *ns, const char *met
 	return metric_name;
 }
 
+const char *prom_type_exposition_keyword(uint8_t type, int openmetrics)
+{
+	if (type == METRIC_TYPE_COUNTER)
+		return "counter";
+	if (type == METRIC_TYPE_HISTOGRAM)
+		return "histogram";
+	if (type == METRIC_TYPE_GAUGE)
+		return "gauge";
+	if (type == METRIC_TYPE_SUMMARY)
+		return "summary";
+	return openmetrics ? "unknown" : "untyped";
+}
+
+void prom_help_escape_and_cat(string *str, const char *help)
+{
+	for (size_t i = 0; help && help[i]; ++i)
+	{
+		char ch[2] = {help[i], 0};
+		if (help[i] == '\\' || help[i] == '"')
+			string_cat(str, "\\", 1);
+		if (help[i] == '\n')
+			string_cat(str, "\\n", 2);
+		else
+			string_cat(str, ch, 1);
+	}
+}
+
+int prom_metric_name_is_count_component(const char *metric_key)
+{
+	size_t len;
+
+	if (!metric_key)
+		return 0;
+	len = strlen(metric_key);
+	if (len < 6)
+		return 0;
+	return strcmp(metric_key + len - 6, "_count") == 0;
+}
+
+int prom_metric_name_is_sum_component(const char *metric_key)
+{
+	size_t len;
+
+	if (!metric_key)
+		return 0;
+	len = strlen(metric_key);
+	if (len < 4)
+		return 0;
+	return strcmp(metric_key + len - 4, "_sum") == 0;
+}
+
+uint8_t prom_resolve_type(namespace_struct *ns, const char *metric_key, metric_family_metadata **meta_out)
+{
+	char family_buf[256];
+	metric_family_metadata *meta = NULL;
+
+	if (meta_out)
+		*meta_out = NULL;
+	if (!metric_key)
+		return METRIC_TYPE_UNTYPED;
+
+	prom_family_exposition_resolve(ns, metric_key, &meta, family_buf, sizeof(family_buf));
+	if (meta_out)
+		*meta_out = meta;
+	return meta ? meta->type : METRIC_TYPE_UNTYPED;
+}
+
+int prom_metric_serializes_as_counter(namespace_struct *ns, const char *metric_key, int8_t value_type)
+{
+	uint8_t prom_type = prom_resolve_type(ns, metric_key, NULL);
+
+	if (prom_type == METRIC_TYPE_COUNTER)
+		return 1;
+	if ((prom_type == METRIC_TYPE_HISTOGRAM || prom_type == METRIC_TYPE_SUMMARY) &&
+	    prom_metric_name_is_count_component(metric_key))
+		return 1;
+	if (prom_type == METRIC_TYPE_UNTYPED && (value_type == DATATYPE_INT || value_type == DATATYPE_UINT))
+		return 1;
+	return 0;
+}
+
+int prom_metric_serializes_as_otlp_sum(namespace_struct *ns, const char *metric_key, int8_t value_type)
+{
+	uint8_t prom_type = prom_resolve_type(ns, metric_key, NULL);
+
+	if (prom_type == METRIC_TYPE_COUNTER)
+		return 1;
+	if (prom_type == METRIC_TYPE_HISTOGRAM &&
+	    (prom_metric_name_is_count_component(metric_key) || prom_metric_name_is_sum_component(metric_key)))
+		return 1;
+	if (prom_type == METRIC_TYPE_SUMMARY &&
+	    (prom_metric_name_is_count_component(metric_key) || prom_metric_name_is_sum_component(metric_key)))
+		return 1;
+	if (prom_type == METRIC_TYPE_UNTYPED && (value_type == DATATYPE_INT || value_type == DATATYPE_UINT))
+		return 1;
+	return 0;
+}
+
 static void namespace_metric_family_set_histogram_suffixes(context_arg *carg, const char *metric_name, uint8_t metric_type)
 {
 	char bucket_name[1024];

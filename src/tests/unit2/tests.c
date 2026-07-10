@@ -2087,6 +2087,61 @@ static void test_serializer_dynatrace_prom_types(void)
     dynatrace_action_counter_state_free(&an);
 }
 
+static void test_serializer_prom_types_across_formats(void)
+{
+    double counter_v = 55;
+    double gauge_v = 12.5;
+
+    namespace_metric_family_set(NULL, NULL, "ut_prom_counter", METRIC_TYPE_COUNTER, "counter help");
+    namespace_metric_family_set(NULL, NULL, "ut_prom_gauge", METRIC_TYPE_GAUGE, "gauge help");
+
+    metric_add_labels("ut_prom_counter", &counter_v, DATATYPE_DOUBLE, NULL, "host", "h1");
+    metric_add_labels("ut_prom_gauge", &gauge_v, DATATYPE_DOUBLE, NULL, "host", "h1");
+
+    metric_query_context *mqc = promql_parser(NULL, "ut_prom_counter{host=\"h1\"}", strlen("ut_prom_counter{host=\"h1\"}"));
+    string *body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_STATSD, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "|c") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_prom_gauge{host=\"h1\"}", strlen("ut_prom_gauge{host=\"h1\"}"));
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_STATSD, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "|g") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_prom_counter{host=\"h1\"}", strlen("ut_prom_counter{host=\"h1\"}"));
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OTLP, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "\"sum\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "\"isMonotonic\": true") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_prom_gauge{host=\"h1\"}", strlen("ut_prom_gauge{host=\"h1\"}"));
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OTLP, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "\"gauge\"") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_prom_counter{host=\"h1\"}", strlen("ut_prom_counter{host=\"h1\"}"));
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "# TYPE ut_prom_counter counter") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_prom_gauge{host=\"h1\"}", strlen("ut_prom_gauge{host=\"h1\"}"));
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_JSON, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "\"type\": \"gauge\"") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+}
+
 static void test_serializer_elasticsearch_format(void)
 {
     int64_t v = 17;
@@ -2362,6 +2417,7 @@ static void run_helpers_and_events_suites(void)
     test_serializer_dogstatsd_format();
     test_serializer_dynatrace_format();
     test_serializer_dynatrace_prom_types();
+    test_serializer_prom_types_across_formats();
     test_serializer_elasticsearch_format();
     test_serializer_datatypes_outputs();
     test_filestat_restore_v1_paths();
