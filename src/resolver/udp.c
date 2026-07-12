@@ -36,7 +36,7 @@ static void resolver_udp_abort(context_arg *carg, uv_udp_t *udp)
 {
 	resolver_udp_stop_timer(carg);
 
-	if (udp && !uv_is_closing((uv_handle_t*)udp)) {
+	if (udp && udp->loop && !uv_is_closing((uv_handle_t*)udp)) {
 		uv_udp_recv_stop(udp);
 		udp->data = carg;
 		uv_close((uv_handle_t*)udp, resolver_udp_closed);

@@ -25,7 +25,7 @@ void resolver_tcp_halt(context_arg *carg)
 		carg->tt_timer = NULL;
 	}
 
-	if (!uv_is_closing((uv_handle_t*)&carg->client)) {
+	if (carg->client.loop && !uv_is_closing((uv_handle_t*)&carg->client)) {
 		carg->client.data = carg;
 		uv_close((uv_handle_t*)&carg->client, resolver_closed_tcp);
 	} else {
