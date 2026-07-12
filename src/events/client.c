@@ -543,8 +543,16 @@ void tcp_client_connect(void *arg)
 void for_tcp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
-	if (!carg || carg->context_ttl || carg->remove_from_hash)
+	if (!carg || carg->remove_from_hash)
 		return;
+
+	if (carg->context_ttl) {
+		if (carg->lock || carg->close_counter)
+			return;
+		tcp_client_connect(arg);
+		return;
+	}
+
 	if (carg->period && carg->close_counter)
 		return;
 

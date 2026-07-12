@@ -92,16 +92,23 @@ int smart_aggregator(context_arg *carg)
 		}
 	}
 
-	if (alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key)))
+	context_arg *existing = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	if (existing)
 	{
-		carglog(carg, L_ERROR,
-			"smart_aggregator config error: duplicate datasource key '%s' (parser='%s', host='%s', name='%s'). "
-			"Datasource names/keys must be unique; this aggregate entry is ignored.\n",
-			key,
-			carg->parser_name ? carg->parser_name : "unknown",
-			carg->host[0] ? carg->host : "unknown",
-			carg->name ? carg->name : "unknown");
-		return 0; // err, need for carg_free
+		if (existing->context_ttl || carg->context_ttl) {
+			existing->remove_from_hash = 1;
+			smart_aggregator_del(existing);
+		}
+		else {
+			carglog(carg, L_ERROR,
+				"smart_aggregator config error: duplicate datasource key '%s' (parser='%s', host='%s', name='%s'). "
+				"Datasource names/keys must be unique; this aggregate entry is ignored.\n",
+				key,
+				carg->parser_name ? carg->parser_name : "unknown",
+				carg->host[0] ? carg->host : "unknown",
+				carg->name ? carg->name : "unknown");
+			return 0; // err, need for carg_free
+		}
 	}
 
 	if (carg->resolver)
