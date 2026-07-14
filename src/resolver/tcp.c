@@ -76,9 +76,17 @@ void resolver_shutdown_tcp(uv_shutdown_t* req, int status)
 void resolver_timeout_tcp(uv_timer_t *timer)
 {
 	uv_timer_stop(timer);
-	alligator_cache_push(ac->uv_cache_timer, timer);
 
 	context_arg *carg = timer->data;
+
+	/* Clear the owning carg's reference before recycling this handle into
+	 * the shared timer cache, so later teardown cannot stop/close/recycle
+	 * the same timer a second time and corrupt the loop timer heap. */
+	if (carg && carg->tt_timer == timer)
+		carg->tt_timer = NULL;
+
+	alligator_cache_push(ac->uv_cache_timer, timer);
+
 	if (!carg)
 	{
 		return;

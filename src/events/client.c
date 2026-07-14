@@ -107,7 +107,8 @@ void tcp_client_close(uv_handle_t *handle)
 	carg->close_time = setrtime();
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->close_time), carglog_elapsed_sec(carg, carg->close_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
-	carg->tt_timer->data = NULL;
+	if (carg->tt_timer)
+		carg->tt_timer->data = NULL;
 
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
@@ -447,9 +448,19 @@ void tcp_connected(uv_connect_t* req, int status)
 void tcp_timeout_timer(uv_timer_t *timer)
 {
 	uv_timer_stop(timer);
-	alligator_cache_push(ac->uv_cache_timer, timer);
 
 	context_arg *carg = timer->data;
+
+	/* The timer fired and is being recycled into the shared timer cache.
+	 * Clear the owning carg's reference first, otherwise later teardown
+	 * (carg_uv_detach_timers) would stop/close/recycle this very handle a
+	 * second time, corrupting the loop timer heap and handing the same
+	 * timer out of the cache twice. */
+	if (carg && carg->tt_timer == timer)
+		carg->tt_timer = NULL;
+
+	alligator_cache_push(ac->uv_cache_timer, timer);
+
 	if (!carg)
 	{
 		return;
@@ -678,27 +689,26 @@ void tcp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-
-	if (carg)
+	if (carg->lock)
 	{
-		if (carg->remove_from_hash)
-			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
-		
-		if (carg->lock)
-		{
-			r_time time = setrtime();
-			carg->context_ttl = time.sec;
-			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
-			tcp_client_close((uv_handle_t *)&carg->client);
-		}
-		else
-		{
-			carg->lock = 1;
-
-			alligator_ht_remove_existing(ac->aggregator, &(carg->node));
-			carg_free(carg);
-		}
+		/* Connection is still active: schedule TTL expiry and close it.
+		 * The hash removal and carg_free are deferred to the reentrant
+		 * unlocked path below (invoked from tcp_client_closed once the
+		 * handle is closed). Removing the nodes here as well would unlink
+		 * them a second time and corrupt the tommy hash lists. */
+		r_time time = setrtime();
+		carg->context_ttl = time.sec;
+		tcp_client_close((uv_handle_t *)&carg->client);
+		return;
 	}
+
+	carg->lock = 1;
+
+	if (carg->remove_from_hash)
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+
+	alligator_ht_remove_existing(ac->aggregator, &(carg->node));
+	carg_free(carg);
 }
 
 void unix_tcp_client_del(context_arg *carg)
@@ -706,25 +716,26 @@ void unix_tcp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	if (carg)
+	if (carg->lock)
 	{
-		if (carg->remove_from_hash)
-			alligator_ht_remove_existing(ac->uggregator, &(carg->context_node));
-		
-		if (carg->lock)
-		{
-			r_time time = setrtime();
-			carg->context_ttl = time.sec;
-			alligator_ht_remove_existing(ac->uggregator, &(carg->node));
-			tcp_client_close((uv_handle_t *)&carg->client);
-		}
-		else
-		{
-			carg->lock = 1;
-			alligator_ht_remove_existing(ac->uggregator, &(carg->node));
-			carg_free(carg);
-		}
+		/* Connection is still active: schedule TTL expiry and close it.
+		 * The hash removal and carg_free are deferred to the reentrant
+		 * unlocked path below (invoked from tcp_client_closed once the
+		 * handle is closed). Removing the nodes here as well would unlink
+		 * them a second time and corrupt the tommy hash lists. */
+		r_time time = setrtime();
+		carg->context_ttl = time.sec;
+		tcp_client_close((uv_handle_t *)&carg->client);
+		return;
 	}
+
+	carg->lock = 1;
+
+	if (carg->remove_from_hash)
+		alligator_ht_remove_existing(ac->uggregator, &(carg->context_node));
+
+	alligator_ht_remove_existing(ac->uggregator, &(carg->node));
+	carg_free(carg);
 }
 
 void tcp_client_handler()

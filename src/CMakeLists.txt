@@ -118,7 +118,7 @@ set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-su
 # Keep auto-selected libuv target/library; no centos-specific override here.
 ELSEIF(${distro}.${disversion} MATCHES "centos.9")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wunreachable-code -Wno-visibility -std=gnu11 -pthread -O3")
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wunreachable-code -Wno-visibility -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.16.04")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wundef -Wunreachable-code -O3 -std=gnu11 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "ubuntu.14.04")
