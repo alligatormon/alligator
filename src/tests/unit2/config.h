@@ -2826,7 +2826,7 @@ void test_config_plain_entrypoint_batch2()
     const char *fragments[] = {
         "entrypoint { handler prometheus tcp 8080 namespace ut_ep_ns; }\n",
         "entrypoint { handler json udp 514 allow 10.0.0.0/8 deny 192.168.0.0/16; }\n",
-        "entrypoint { handler openmetrics tls 8443 unix /tmp/ut.sock key ut_ep_key; }\n",
+        "entrypoint { handler openmetrics format prometheus tls 8443 unix /tmp/ut.sock key ut_ep_key; }\n",
         "entrypoint { handler graphite unixgram /tmp/ut.g mapping path1 api v1 threads 2; }\n",
         "entrypoint { handler influxdb tcp 8086 log_level debug metric_aggregation true ttl 60s; }\n"
     };

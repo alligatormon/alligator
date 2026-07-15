@@ -373,6 +373,9 @@ typedef struct context_arg
 	char *instance; // only for entrypoint, not aggregate!
 	uint8_t rreturn; // only for entrypoint, not aggregate!
 	uint8_t metric_aggregation; // only for entrypoint, not aggregate!
+	/* Metrics exposition format for prometheus handler scrape (0=prometheus, 1=openmetrics). */
+	uint8_t metrics_openmetrics;
+	uint8_t metrics_openmetrics_set;
 	char **pquery; // parser query
 	uint8_t pquery_size;
 

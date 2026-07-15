@@ -1216,6 +1216,12 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		}
 	}
 
+	if (carg->metrics_openmetrics_set)
+	{
+		json_t *format = json_string(carg->metrics_openmetrics ? "openmetrics" : "prometheus");
+		json_array_object_insert(ctx, "format", format);
+	}
+
 	if (carg->labels)
 		alligator_ht_foreach_arg(carg->labels, labels_kv_deserialize, ctx);
 

@@ -849,6 +849,22 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						}
 					}
 
+					json_t *json_format = json_object_get(entrypoint, "format");
+					if (json_format)
+					{
+						const char *format = json_string_value(json_format);
+						if (format)
+						{
+							carg->metrics_openmetrics_set = 1;
+							if (!strcmp(format, "prometheus"))
+								carg->metrics_openmetrics = 0;
+							else if (!strcmp(format, "openmetrics"))
+								carg->metrics_openmetrics = 1;
+							else
+								glog(L_ERROR, "entrypoint error: unknown format '%s', use openmetrics or prometheus\n", format);
+						}
+					}
+
 					json_t *json_add_label = json_object_get(entrypoint, "add_label");
 					if (json_add_label)
 					{

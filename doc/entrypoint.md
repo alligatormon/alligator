@@ -47,6 +47,7 @@ entrypoint {
     handler <handler>;
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
+    format [openmetrics|prometheus]; # metrics exposition format for prometheus handler (default: openmetrics)
     # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
     # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
@@ -420,6 +421,27 @@ Possible values:
 - count
 
 This option makes it possible to count counters and histogram metrics inside Alligator instead of replacing them when a metric is pushed with pushgateway protocol. It opens the prom-aggregation-gateway interface. Graphite and statsd cannot specify this as they already support counting metrics inside protocol.
+
+
+# format
+Default: openmetrics\
+Plural: no\
+Possible values:
+- openmetrics
+- prometheus
+
+Selects the text exposition format returned by the **prometheus** handler on GET scrape requests. By default Alligator serves [OpenMetrics](https://openmetrics.io/) text (`Content-Type: application/openmetrics-text`) with a trailing `# EOF` line. Set `format prometheus` to use the classic Prometheus text format instead (`Content-Type: text/plain`).
+
+Query parameters still override this setting for individual requests: `?format=prometheus`, `?format=openmetrics`, `?openmetrics=0`, or `?openmetrics=1`.
+
+Example for Prometheus-compatible scrapers that expect the legacy format:
+
+```
+entrypoint {
+    format prometheus;
+    tcp 9100;
+}
+```
 
 
 # cluster

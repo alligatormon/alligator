@@ -296,6 +296,24 @@ void test_http_parser_route_and_auth_edges()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Type: application/openmetrics-text; version=1.0.0; charset=utf-8\r\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "# EOF\n") != NULL);
 
+    /* entrypoint format prometheus config overrides default OpenMetrics */
+    string_null(response);
+    carg->metrics_openmetrics_set = 1;
+    carg->metrics_openmetrics = 0;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_metrics, strlen(req_metrics), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Type: text/plain\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(response->s, "# EOF\n") != NULL);
+
+    /* query ?format=openmetrics overrides entrypoint format prometheus */
+    string_null(response);
+    char *req_metrics_om = "GET /?format=openmetrics HTTP/1.1\r\n\r\n";
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_metrics_om, strlen(req_metrics_om), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Type: application/openmetrics-text; version=1.0.0; charset=utf-8\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "# EOF\n") != NULL);
+
+    carg->metrics_openmetrics_set = 0;
+    carg->metrics_openmetrics = 0;
+
     /* unauthorized (auth required header missing) */
     string_null(response);
     carg->auth_basic = alligator_ht_init(NULL);

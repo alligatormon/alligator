@@ -212,12 +212,14 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 
 		alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
 		char *namespace = http_get_param(args, "namespace");
-		int openmetrics = 1;
+		int openmetrics = (carg && carg->metrics_openmetrics_set) ? carg->metrics_openmetrics : 1;
 		char *format = http_get_param(args, "format");
 		char *omp = http_get_param(args, "openmetrics");
 
 		if (format && !strcmp(format, "prometheus"))
 			openmetrics = 0;
+		else if (format && !strcmp(format, "openmetrics"))
+			openmetrics = 1;
 		if (omp && !strcmp(omp, "0"))
 			openmetrics = 0;
 		if (omp && !strcmp(omp, "1"))
