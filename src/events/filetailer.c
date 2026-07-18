@@ -793,7 +793,8 @@ void filetailer_write_state(alligator_ht *hash)
 	if (str->l > 25)
 	{
 		char dirtowrite[255];
-		snprintf(dirtowrite, 255, "/var/lib/alligator/file_stat");
+		const char *dir = ac->persistence_dir ? ac->persistence_dir : "/var/lib/alligator";
+		snprintf(dirtowrite, sizeof(dirtowrite), "%s/file_stat", dir);
 		write_to_file(dirtowrite, str->s, str->l, free, str);
 	}
 	else
@@ -868,8 +869,26 @@ void filestat_read_callback(char *buf, size_t len, void *data, char *filename)
 	}
 }
 
+void filestat_stat_cb(uv_fs_t* req)
+{
+	if (req->result < 0) {
+		free(req->data);
+		free(req);
+		return;
+	}
+
+	read_from_file(strdup(req->data), 0, filestat_read_callback, NULL);
+	free(req->data);
+	free(req);
+}
+
 void filestat_restore()
 {
-	char *dirtoread = strdup("/var/lib/alligator/file_stat");
-	read_from_file(dirtoread, 0, filestat_read_callback, dirtoread);
+	char path[255];
+	const char *dir = ac->persistence_dir ? ac->persistence_dir : "/var/lib/alligator";
+	snprintf(path, sizeof(path), "%s/file_stat", dir);
+
+	uv_fs_t *req = malloc(sizeof(uv_fs_t));
+	req->data = strdup(path);
+	uv_fs_stat(uv_default_loop(), req, req->data, filestat_stat_cb);
 }
