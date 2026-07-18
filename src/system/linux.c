@@ -2264,7 +2264,7 @@ void get_alligator_info()
 void get_packages_info()
 {
 	get_rpm_info();
-	dpkg_crawl(strdup("/var/lib/dpkg/available"));
+	dpkg_crawl("/var/lib/dpkg/available");
 }
 
 void clear_counts_for(void* arg)

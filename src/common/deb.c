@@ -109,7 +109,19 @@ void dpkg_callback(char *buf, size_t len, void *data)
 		dpkg_list(buf, len);
 }
 
+void dpkg_stat_cb(uv_fs_t* req)
+{
+	if (req->result < 0) {
+		return;
+	}
+
+	read_from_file(strdup(req->data), 0, dpkg_callback, NULL);
+	free(req);
+}
+
 void dpkg_crawl(char *path)
 {
-	read_from_file(path, 0, dpkg_callback, NULL);
+	uv_fs_t *req = malloc(sizeof(uv_fs_t));
+	req->data = path;
+	uv_fs_stat(uv_default_loop(), req, path, dpkg_stat_cb);
 }
