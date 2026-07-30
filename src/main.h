@@ -161,6 +161,7 @@ typedef struct aconf
 	alligator_ht* config_ctx;
 	alligator_ht* aggregate_ctx;
 	alligator_ht* amtail;
+	alligator_ht* vrl;
 
 	// filetailer file list
 	alligator_ht* file_stat;

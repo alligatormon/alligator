@@ -560,6 +560,25 @@ void grok_handler_initial_patterns(void *funcarg, void* arg)
 	grok_expand(gn->match, &gn->expanded_match, ac->grok_patterns);
 }
 
+typedef struct grok_ml_ud {
+	grok_ds *gds;
+	context_arg *carg;
+	string *line;
+	grok_ctx_cb *ctx;
+} grok_ml_ud;
+
+static void grok_record_cb(void *vud, const char *record, size_t len)
+{
+	grok_ml_ud *ud = vud;
+	memset(ud->ctx, 0, sizeof(*ud->ctx));
+	ud->ctx->gds = ud->gds;
+	ud->ctx->carg = ud->carg;
+	ud->ctx->line = ud->line;
+	string_null(ud->line);
+	string_cat(ud->line, (char *)record, len);
+	alligator_ht_foreach_arg(ud->gds->hash, grok_handler_callback, ud->ctx);
+}
+
 void grok_handler(char *metrics, size_t size, context_arg *carg)
 {
 	if (!metrics || !size)
@@ -580,34 +599,15 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	grok_ctx_cb *ctx = calloc(1, sizeof(*ctx));
-	for (uint64_t i = 0; i < size; ) {
-		size_t remaining = size - i;
-		char *line_start = metrics + i;
-		size_t len;
-		char *nl = memchr(line_start, '\n', remaining);
+	grok_ml_ud ud = {
+		.gds = gds,
+		.carg = carg,
+		.line = line,
+		.ctx = ctx,
+	};
 
-		if (nl)
-			len = (size_t)(nl - line_start);
-		else
-			len = remaining;
-		if (len > 0 && line_start[len - 1] == '\r')
-			len--;
-
-		memset(ctx, 0, sizeof(*ctx));
-		ctx->gds = gds;
-		ctx->carg = carg;
-		ctx->line = line;
-		string_cat(ctx->line, line_start, len);
-		alligator_ht_foreach_arg(gds->hash, grok_handler_callback, ctx);
-
-		string_null(ctx->line);
-
-		i += len;
-		if (nl)
-			i += 1;
-		else
-			i = size;
-	}
+	carg_linebuf_ensure(carg);
+	alligator_linebuf_feed(&carg->ml_lb, metrics, size, grok_record_cb, &ud);
 
 	free(ctx);
 	string_free(line);

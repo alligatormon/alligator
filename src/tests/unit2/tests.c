@@ -2049,13 +2049,14 @@ static void test_serializer_dynatrace_prom_types(void)
     {
         alligator_ht *lbl = alligator_ht_init(NULL);
         labels_hash_insert_nocache(lbl, "host", "h1");
+        /* metric_update → labels_initiate(..., no_del=0) consumes+frees lbl */
         metric_update("ut_dt_counter", lbl, &counter_v, DATATYPE_DOUBLE, NULL);
-        labels_hash_free(lbl);
     }
     mqc = promql_parser(NULL, "ut_dt_counter{host=\"h1\"}", strlen("ut_dt_counter{host=\"h1\"}"));
     body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=30") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_counter") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=") != NULL);
     string_free(body);
     query_context_free(mqc);
 

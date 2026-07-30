@@ -1,0 +1,384 @@
+#include "vrl/type.h"
+#include "common/logs.h"
+#include "common/aggregator.h"
+#include "common/http.h"
+#include "metric/labels.h"
+#include "metric/namespace.h"
+#include "main.h"
+#include "json.h"
+#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern aconf *ac;
+
+/* ---------------- node registry ---------------- */
+
+int vrl_node_compare(const void *arg, const void *obj)
+{
+	return strcmp((const char *)arg, ((const vrl_node *)obj)->name);
+}
+
+static void vrl_node_get_any_foreach(void *funcarg, void *arg)
+{
+	vrl_node **dst = funcarg;
+	if (!*dst)
+		*dst = arg;
+}
+
+vrl_node *vrl_node_get(char *name)
+{
+	if (!ac || !ac->vrl || !name)
+		return NULL;
+	return alligator_ht_search(ac->vrl, vrl_node_compare, name, tommy_strhash_u32(0, name));
+}
+
+vrl_node *vrl_node_get_any(void)
+{
+	vrl_node *vn = NULL;
+	if (!ac || !ac->vrl)
+		return NULL;
+	alligator_ht_foreach_arg(ac->vrl, vrl_node_get_any_foreach, &vn);
+	return vn;
+}
+
+void vrl_node_free(vrl_node *vn)
+{
+	if (!vn)
+		return;
+	if (vn->prog)
+		vrl_program_free(vn->prog);
+	free(vn->name);
+	free(vn->key);
+	free(vn->script);
+	free(vn->program);
+	free(vn->ml_start_pattern);
+	free(vn->ml_condition_pattern);
+	uv_mutex_destroy(&vn->lock);
+	free(vn);
+}
+
+struct vrl_collect_ctx {
+	vrl_node **buf;
+	size_t n;
+	size_t cap;
+};
+
+static void vrl_collect_ptr(void *funcarg, void *arg)
+{
+	struct vrl_collect_ctx *ctx = funcarg;
+	if (ctx->n >= ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		vrl_node **nb = realloc(ctx->buf, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		ctx->buf = nb;
+		ctx->cap = ncap;
+	}
+	ctx->buf[ctx->n++] = arg;
+}
+
+int vrl_engine_init(void)
+{
+	if (!ac)
+		return 0;
+	if (!ac->vrl) {
+		ac->vrl = calloc(1, sizeof(alligator_ht));
+		alligator_ht_init(ac->vrl);
+		vrl_stdlib_init();
+	}
+	return 1;
+}
+
+void vrl_engine_free(void)
+{
+	if (!ac || !ac->vrl)
+		return;
+	struct vrl_collect_ctx ctx = {NULL, 0, 0};
+	alligator_ht_foreach_arg(ac->vrl, vrl_collect_ptr, &ctx);
+	for (size_t i = 0; i < ctx.n; ++i) {
+		alligator_ht_remove_existing(ac->vrl, &(ctx.buf[i]->node));
+		vrl_node_free(ctx.buf[i]);
+	}
+	free(ctx.buf);
+	alligator_ht_done(ac->vrl);
+	free(ac->vrl);
+	ac->vrl = NULL;
+}
+
+string *vrl_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)
+{
+	(void)arg;
+	if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
+		return string_init_add_auto(gen_http_query(0, hi->query, "", hi->host, "alligator",
+							  hi->auth, NULL, env, proxy_settings, NULL));
+	else if (hi->query)
+		return string_init_alloc(hi->query, 0);
+	else
+		return NULL;
+}
+
+/* ---------------- metric export from transformed event ---------------- */
+
+static int metric_value_from_vrl(vrl_value *v, double *d_out, int64_t *i_out, int8_t *dtype)
+{
+	if (!v)
+		return 0;
+	if (v->type == VRL_INTEGER) {
+		*i_out = v->u.integer;
+		*dtype = DATATYPE_INT;
+		return 1;
+	}
+	if (v->type == VRL_FLOAT) {
+		*d_out = v->u.flt;
+		*dtype = DATATYPE_DOUBLE;
+		return 1;
+	}
+	if (v->type == VRL_BOOLEAN) {
+		*i_out = v->u.boolean ? 1 : 0;
+		*dtype = DATATYPE_INT;
+		return 1;
+	}
+	return 0;
+}
+
+static alligator_ht *labels_from_vrl_object(vrl_value *labels)
+{
+	if (!labels || labels->type != VRL_OBJECT)
+		return NULL;
+	alligator_ht *ht = alligator_ht_init(NULL);
+	for (size_t i = 0; i < labels->u.object.len; i++) {
+		vrl_object_entry *e = &labels->u.object.entries[i];
+		if (!e->val)
+			continue;
+		char *s = vrl_value_to_string(e->val, NULL);
+		if (!s)
+			continue;
+		/* labels_hash_insert_nocache copies; free our temp */
+		char *k = strndup(e->key, e->key_len);
+		labels_hash_insert_nocache(ht, k, s);
+		free(k);
+		free(s);
+	}
+	return ht;
+}
+
+static void emit_one_metric(context_arg *carg, vrl_value *m)
+{
+	if (!m || m->type != VRL_OBJECT) {
+		carglog(carg, L_DEBUG, "vrl: skip metric emit: not an object\n");
+		return;
+	}
+	vrl_value *namev = vrl_object_get(m, "name", 4);
+	vrl_value *valv = vrl_object_get(m, "value", 5);
+	if (!namev || namev->type != VRL_BYTES || !namev->u.bytes.data) {
+		carglog(carg, L_INFO, "vrl: skip metric emit: missing string .name\n");
+		return;
+	}
+	double d = 0;
+	int64_t i = 0;
+	int8_t dtype = DATATYPE_NONE;
+	if (!metric_value_from_vrl(valv, &d, &i, &dtype)) {
+		carglog(carg, L_INFO, "vrl: skip metric '%s': .value must be number/bool\n",
+			namev->u.bytes.data);
+		return;
+	}
+	alligator_ht *labels = labels_from_vrl_object(vrl_object_get(m, "labels", 6));
+	void *vp = (dtype == DATATYPE_DOUBLE) ? (void *)&d : (void *)&i;
+	if (dtype == DATATYPE_DOUBLE)
+		carglog(carg, L_INFO, "vrl: metric_add %s = %.17g\n", namev->u.bytes.data, d);
+	else
+		carglog(carg, L_INFO, "vrl: metric_add %s = %" PRId64 "\n", namev->u.bytes.data, i);
+	metric_add(namev->u.bytes.data, labels, vp, dtype, carg);
+}
+
+static void vrl_export_metrics(context_arg *carg, vrl_value *event)
+{
+	if (!carg || !event || event->type != VRL_OBJECT)
+		return;
+	vrl_value *metrics = vrl_object_get(event, "metrics", 7);
+	vrl_value *metric = vrl_object_get(event, "metric", 6);
+	if ((!metrics || metrics->type != VRL_ARRAY || !metrics->u.array.len) && !metric) {
+		carglog(carg, L_DEBUG,
+			"vrl: no .metric / .metrics on event after transform (nothing to export)\n");
+		return;
+	}
+	if (metrics && metrics->type == VRL_ARRAY) {
+		carglog(carg, L_DEBUG, "vrl: exporting %zu metrics from .metrics\n",
+			metrics->u.array.len);
+		for (size_t i = 0; i < metrics->u.array.len; i++)
+			emit_one_metric(carg, vrl_array_get(metrics, i));
+	}
+	if (metric)
+		emit_one_metric(carg, metric);
+}
+
+/* ---------------- per-stream state ---------------- */
+
+typedef struct vrl_stream {
+	vrl_ctx *ctx;
+	vrl_node *vn; /* borrowed, under vn->lock while running */
+	context_arg *carg;
+	int ok;
+} vrl_stream;
+
+static void vrl_apply_node_multiline(context_arg *carg, vrl_node *vn)
+{
+	if (!carg || !vn || !vn->ml_enabled)
+		return;
+	if (carg->ml_enabled)
+		return; /* aggregate/carg settings win */
+	carg->ml_start_pattern = strdup(vn->ml_start_pattern);
+	carg->ml_condition_pattern = strdup(vn->ml_condition_pattern);
+	carg->ml_mode = vn->ml_mode;
+	carg->ml_enabled = 1;
+}
+
+static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
+{
+	vrl_stream *st = carg->vrl_stream;
+	if (st && st->vn == vn)
+		return st;
+
+	if (st) {
+		if (st->ctx)
+			vrl_ctx_free(st->ctx);
+		free(st);
+		carg->vrl_stream = NULL;
+	}
+
+	st = calloc(1, sizeof(*st));
+	st->vn = vn;
+	st->carg = carg;
+	st->ctx = vrl_ctx_new(vn->ll);
+	st->ok = 1;
+	vrl_apply_node_multiline(carg, vn);
+	carg_linebuf_ensure(carg);
+	carg->vrl_stream = st;
+	return st;
+}
+
+static const char *vrl_source_hint(context_arg *carg)
+{
+	if (carg->path && carg->path[0])
+		return carg->path;
+	if (carg->host[0])
+		return carg->host;
+	return "alligator";
+}
+
+static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
+{
+	context_arg *carg = st->carg;
+	vrl_node *vn = st->vn;
+	carglog(carg, L_INFO, "vrl: run record (%zu bytes) program='%s': '%.*s'\n",
+		len, vn->name ? vn->name : "?", (int)(len > 200 ? 200 : len), record);
+	vrl_ctx_reset(st->ctx);
+	vrl_ctx_set_event(st->ctx, vrl_event_from_message(record, len, vrl_source_hint(carg)));
+	vrl_status stt = vrl_exec(st->ctx, vn->prog->root);
+	if (stt == VRL_ABORT) {
+		carglog(carg, L_INFO, "vrl: abort: %s\n",
+			st->ctx->abort_msg ? st->ctx->abort_msg : "(no message)");
+		return;
+	}
+	if (stt != VRL_OK) {
+		carglog(carg, L_ERROR, "vrl: error: %s\n",
+			st->ctx->error ? st->ctx->error : "unknown");
+		st->ok = 0;
+		return;
+	}
+	if (carg->log_level >= L_DEBUG && st->ctx->event) {
+		char *js = vrl_json_encode(st->ctx->event);
+		carglog(carg, L_DEBUG, "vrl: event after transform: %s\n", js ? js : "(null)");
+		free(js);
+	}
+	vrl_export_metrics(carg, st->ctx->event);
+}
+
+static void vrl_record_cb(void *ud, const char *record, size_t len)
+{
+	vrl_run_record((vrl_stream *)ud, record, len);
+}
+
+static vrl_node *vrl_node_load_for_carg(context_arg *carg)
+{
+	if (!carg || !carg->script)
+		return NULL;
+	char *name = carg->name ? carg->name : carg->script;
+	vrl_node *vn = vrl_node_get(name);
+	if (vn)
+		return vn;
+	json_t *tmp = json_object();
+	json_object_set_new(tmp, "name", json_string(name));
+	json_object_set_new(tmp, "script", json_string(carg->script));
+	if (carg->key)
+		json_object_set_new(tmp, "key", json_string(carg->key));
+	int rc = vrl_push(tmp);
+	json_decref(tmp);
+	return rc ? vrl_node_get(name) : NULL;
+}
+
+void vrl_handler(char *metrics, size_t size, context_arg *carg)
+{
+	if (!metrics || !size || !carg) {
+		if (carg)
+			carg->parser_status = 0;
+		return;
+	}
+
+	carglog(carg, L_INFO, "vrl: handler got %zu bytes (name=%s)\n",
+		size, carg->name ? carg->name : "(none)");
+
+	vrl_node *vn = NULL;
+	if (carg->name)
+		vn = vrl_node_get(carg->name);
+	if (!vn)
+		vn = vrl_node_load_for_carg(carg);
+	if (!vn)
+		vn = vrl_node_get_any();
+	if (!vn || !vn->prog) {
+		carglog(carg, L_ERROR,
+			"vrl: no compiled program (set name=... / vrl=... and push first)\n");
+		carg->parser_status = 0;
+		return;
+	}
+
+	uv_mutex_lock(&vn->lock);
+	vrl_stream *st = vrl_stream_ensure(carg, vn);
+	st->ok = 1;
+
+	alligator_linebuf_feed(&carg->ml_lb, metrics, size, vrl_record_cb, st);
+
+	carglog(carg, L_INFO, "vrl: processed chunk via linebuf (multiline=%s)\n",
+		carg->ml_enabled ? "on" : "off");
+
+	uv_mutex_unlock(&vn->lock);
+	carg->parser_status = st->ok ? 1 : 0;
+}
+
+void vrl_stream_free(context_arg *carg)
+{
+	if (!carg || !carg->vrl_stream)
+		return;
+	vrl_stream *st = carg->vrl_stream;
+	if (carg->ml_lb_ready) {
+		alligator_linebuf_flush(&carg->ml_lb, vrl_record_cb, st);
+	}
+	if (st->ctx)
+		vrl_ctx_free(st->ctx);
+	free(st);
+	carg->vrl_stream = NULL;
+}
+
+void vrl_parser_push(void)
+{
+	aggregate_context *actx = calloc(1, sizeof(*actx));
+	actx->key = strdup("vrl");
+	actx->handlers = 1;
+	actx->handler = calloc(1, sizeof(*actx->handler) * actx->handlers);
+	actx->handler[0].name = vrl_handler;
+	actx->handler[0].validator = NULL;
+	actx->handler[0].mesg_func = vrl_mesg;
+	strlcpy(actx->handler[0].key, "vrl", 255);
+	alligator_ht_insert(ac->aggregate_ctx, &(actx->node), actx, tommy_strhash_u32(0, actx->key));
+}

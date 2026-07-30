@@ -13,6 +13,7 @@
 #include "common/logs.h"
 #include "common/auth.h"
 #include "external/amtail/variables.h"
+#include "vrl/type.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -46,6 +47,16 @@ context_arg *carg_copy(context_arg *src)
 	carg->log_ch_raw_tail = NULL;
 	carg->srv_carg = NULL;
 	carg->entrypoint_stop_async_ready = 0;
+	alligator_linebuf_init(&carg->ml_lb);
+	carg->ml_lb_ready = 0;
+	carg->ml_start_pattern = NULL;
+	carg->ml_condition_pattern = NULL;
+	if (src->ml_start_pattern)
+		carg->ml_start_pattern = strdup(src->ml_start_pattern);
+	if (src->ml_condition_pattern)
+		carg->ml_condition_pattern = strdup(src->ml_condition_pattern);
+	carg->ml_mode = src->ml_mode;
+	carg->ml_enabled = src->ml_enabled;
 
 	if (src->work_dir)
 		carg->work_dir = string_string_init_dup(src->work_dir);
@@ -322,6 +333,13 @@ void carg_free(context_arg *carg)
 	if (carg->amtail_tail)
 		string_free(carg->amtail_tail);
 
+	vrl_stream_free(carg);
+
+	if (carg->ml_lb_ready)
+		alligator_linebuf_free(&carg->ml_lb);
+	free(carg->ml_start_pattern);
+	free(carg->ml_condition_pattern);
+
 	if (carg->log_ch_raw_tail)
 		string_free(carg->log_ch_raw_tail);
 
@@ -556,6 +574,28 @@ void parse_add_label(context_arg *carg, json_t *root) {
 	}
 }
 
+int carg_linebuf_ensure(context_arg *carg)
+{
+	if (!carg)
+		return -1;
+	if (carg->ml_lb_ready)
+		return 0;
+	alligator_linebuf_init(&carg->ml_lb);
+	carg->ml_lb_ready = 1;
+	if (!carg->ml_enabled)
+		return 0;
+	char *err = NULL;
+	if (alligator_linebuf_enable_ml(&carg->ml_lb, carg->ml_start_pattern,
+					carg->ml_condition_pattern, carg->ml_mode, &err) != 0) {
+		carglog(carg, L_ERROR, "multiline init failed: %s\n", err ? err : "unknown");
+		free(err);
+		return -1;
+	}
+	carglog(carg, L_INFO, "multiline assembler ready (mode=%s)\n",
+		alligator_ml_mode_to_str(carg->ml_mode));
+	return 0;
+}
+
 int carg_set_socket_addr(struct sockaddr_in **addr, char *address, uint16_t port)
 {
 	if (!addr)
@@ -787,6 +827,64 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->log_level = get_log_level_by_name(json_string_value(json_log_level), json_string_length(json_log_level));
 	else if (json_log_level)
 		carg->log_level = json_integer_value(json_log_level);
+
+	/* Vector-compatible multiline on aggregate (shared by mtail/grok/vrl). */
+	{
+		json_t *jstart = json_object_get(root, "start_pattern");
+		json_t *jcond = json_object_get(root, "condition_pattern");
+		json_t *jmode = json_object_get(root, "multiline_mode");
+		json_t *jml = json_object_get(root, "multiline");
+		const char *start = NULL;
+		const char *cond = NULL;
+		const char *mode_s = NULL;
+		alligator_ml_mode mode = ALLIGATOR_ML_CONTINUE_THROUGH;
+
+		if (json_is_object(jml)) {
+			json_t *js = json_object_get(jml, "start_pattern");
+			json_t *jc = json_object_get(jml, "condition_pattern");
+			json_t *jm = json_object_get(jml, "mode");
+			json_t *jp = json_object_get(jml, "pattern");
+			if (json_is_string(js))
+				start = json_string_value(js);
+			if (json_is_string(jc))
+				cond = json_string_value(jc);
+			if (json_is_string(jm))
+				mode_s = json_string_value(jm);
+			/* Legacy single-pattern form: pattern + mode → start=condition=pattern. */
+			if ((!start || !cond) && json_is_string(jp)) {
+				const char *pat = json_string_value(jp);
+				if (!mode_s)
+					mode_s = "halt_before";
+				start = pat;
+				cond = pat;
+			}
+		}
+		if (json_is_string(jstart))
+			start = json_string_value(jstart);
+		if (json_is_string(jcond))
+			cond = json_string_value(jcond);
+		if (json_is_string(jmode))
+			mode_s = json_string_value(jmode);
+
+		if (start && *start && cond && *cond) {
+			if (mode_s && alligator_ml_mode_from_str(mode_s, &mode) != 0) {
+				carglog(carg, L_ERROR,
+					"multiline: unknown multiline_mode '%s' "
+					"(continue_through|continue_past|halt_before|halt_with)\n",
+					mode_s);
+			} else {
+				if (!mode_s)
+					mode = ALLIGATOR_ML_CONTINUE_THROUGH;
+				carg->ml_start_pattern = strdup(start);
+				carg->ml_condition_pattern = strdup(cond);
+				carg->ml_mode = mode;
+				carg->ml_enabled = 1;
+				carglog(carg, L_INFO,
+					"multiline enabled: start='%s' condition='%s' mode=%s\n",
+					start, cond, alligator_ml_mode_to_str(mode));
+			}
+		}
+	}
 
 	json_t *json_log_channel = json_object_get(root, "log_channel");
 	if (json_log_channel && json_typeof(json_log_channel) == JSON_STRING)

@@ -46,6 +46,75 @@ if(NOT RdKafka_FOUND)
 	endif()
 endif()
 
+# --- avrl (VRL engine): prefer submodule, fall back to sibling checkout ---
+# Use CMAKE_CURRENT_SOURCE_DIR (this file lives in src/), not CMAKE_SOURCE_DIR:
+# when the top-level alligator/CMakeLists.txt does add_subdirectory(src),
+# CMAKE_SOURCE_DIR is the repo root and would miss src/external/avrl.
+set(_avrl_candidates
+	"${CMAKE_CURRENT_SOURCE_DIR}/external/avrl"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../avrl"
+	"${CMAKE_SOURCE_DIR}/src/external/avrl"
+	"${CMAKE_SOURCE_DIR}/../avrl"
+)
+unset(AVRL_DIR)
+foreach(_cand IN LISTS _avrl_candidates)
+	if(EXISTS "${_cand}/vrl.h")
+		set(AVRL_DIR "${_cand}")
+		break()
+	endif()
+endforeach()
+if(NOT AVRL_DIR)
+	message(FATAL_ERROR
+		"avrl not found (looked under src/external/avrl and sibling ../avrl).\n"
+		"  git submodule update --init --recursive src/external/avrl\n"
+		"  # or keep a sibling checkout at ../avrl")
+endif()
+message(STATUS "avrl sources: ${AVRL_DIR}")
+find_package(OpenSSL REQUIRED)
+option(AVRL_WITH_OPENSSL "Enable OpenSSL-backed VRL crypto functions" ON)
+set(AVRL_ENGINE_SOURCES
+	${AVRL_DIR}/value.c
+	${AVRL_DIR}/pcre_wrap.c
+	${AVRL_DIR}/lexer.c
+	${AVRL_DIR}/parser.c
+	${AVRL_DIR}/interp.c
+	${AVRL_DIR}/stdlib.c
+	${AVRL_DIR}/stdlib_util.c
+	${AVRL_DIR}/stdlib_type.c
+	${AVRL_DIR}/stdlib_string.c
+	${AVRL_DIR}/stdlib_collection.c
+	${AVRL_DIR}/stdlib_codec.c
+	${AVRL_DIR}/stdlib_number.c
+	${AVRL_DIR}/stdlib_random.c
+	${AVRL_DIR}/stdlib_path.c
+	${AVRL_DIR}/stdlib_parse.c
+	${AVRL_DIR}/json.c
+	${AVRL_DIR}/multiline.c
+	${AVRL_DIR}/vrl.c
+)
+if(AVRL_WITH_OPENSSL)
+	list(APPEND AVRL_ENGINE_SOURCES ${AVRL_DIR}/stdlib_crypto.c)
+endif()
+add_library(avrl_static STATIC ${AVRL_ENGINE_SOURCES})
+set_target_properties(avrl_static PROPERTIES C_STANDARD 11 OUTPUT_NAME avrl)
+# Own include root first so avrl's parser.h/value.h win over any alligator names.
+target_include_directories(avrl_static
+	PUBLIC ${AVRL_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(avrl_static PUBLIC pcre::libpcre jansson::jansson)
+if(AVRL_WITH_OPENSSL)
+	target_compile_definitions(avrl_static PUBLIC AVRL_WITH_OPENSSL=1)
+	if(TARGET openssl::openssl)
+		target_link_libraries(avrl_static PUBLIC openssl::openssl)
+	elseif(TARGET OpenSSL::Crypto)
+		target_link_libraries(avrl_static PUBLIC OpenSSL::Crypto)
+	endif()
+	if(APPLE)
+		target_link_libraries(avrl_static PUBLIC "-framework Security" "-framework CoreFoundation")
+	endif()
+endif()
+
 set(LIBUV_INCLUDE_HINTS "")
 if(TARGET libuv::uv_a)
 	get_target_property(LIBUV_INCLUDE_HINTS libuv::uv_a INTERFACE_INCLUDE_DIRECTORIES)
@@ -267,6 +336,9 @@ set(STATIC_FILES
 	amtail/amtail.c
 	amtail/push.c
 	amtail/del.c
+	vrl/vrl.c
+	vrl/push.c
+	vrl/del.c
 	external/amtail/amtail_pcre.c
 	external/amtail/compile.c
 	external/amtail/file.c
@@ -291,6 +363,7 @@ set(STATIC_FILES
 	common/aggregator.c
 	common/json_query.c
 	common/pcre_parser.c
+	common/multiline.c
 	common/xml.c
 	mapping/mapping.c
 	common/netlib.c
@@ -515,9 +588,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_EXTERNAL_STATIC_LIBS libfyaml.a)
 endif()
 set(ALLIGATOR_COMMON_LIBS
-	jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libuuid::libuuid
+	# Use pcre::libpcre (not pcre::pcre): the umbrella also links libpcreposix,
+	# which collides with oniguruma's POSIX regcomp/regexec/regfree on Linux.
+	jansson::jansson pcre::libpcre PostgreSQL::PostgreSQL libuuid::libuuid
 	xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig
-	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS}
+	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS} avrl_static
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(APPEND ALLIGATOR_COMMON_LIBS libbsd::libbsd)

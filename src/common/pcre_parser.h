@@ -61,5 +61,7 @@ typedef struct regex_match
 	const unsigned char *pcre_name_table;
 } regex_match;
 
+regex_match *regex_match_init(char *regexstring, regex_metric *metrics);
+void regex_match_free(regex_match *rematch);
 void pcre_match(regex_match *rematch, const char *regex_match_string);
 void pcre_match_multi(regex_match **rematch, size_t rematch_size, const char *regex_match_string);

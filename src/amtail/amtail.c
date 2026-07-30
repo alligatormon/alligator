@@ -486,6 +486,30 @@ static void amtail_carg_var_touched(void *userdata, amtail_variable *v)
 	carg->amtail_touch_buf[carg->amtail_touch_n++] = v;
 }
 
+typedef struct amtail_ml_ud {
+	amtail_node *an;
+	context_arg *carg;
+	amtail_touch_callbacks *touch_cb;
+	const char *log_filename;
+	string *line;
+	int rc;
+} amtail_ml_ud;
+
+static void amtail_record_cb(void *vud, const char *record, size_t len)
+{
+	amtail_ml_ud *ud = vud;
+	if (!len)
+		return;
+	string_null(ud->line);
+	string_cat(ud->line, (char *)record, len);
+	carglog(ud->carg, L_DEBUG, "amtail process string with size %zu: '%s'\n",
+		len, ud->line->s);
+	if (!amtail_run_file(ud->an->bytecode, ud->carg->amtail_variables, ud->line,
+			     ud->log_filename, ud->an->amtail_ll, ud->touch_cb,
+			     ud->an->vm_thread, &ud->carg->amtail_variables_prepared))
+		ud->rc = 0;
+}
+
 void amtail_handler(char *metrics, size_t size, context_arg *carg)
 {
 	amtail_node *an = NULL;
@@ -518,25 +542,8 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 		.on_var_touched = amtail_carg_var_touched,
 	};
 	amtail_carg_touch_begin(carg);
-	size_t tail_len = carg->amtail_tail ? carg->amtail_tail->l : 0;
-	size_t total = tail_len + size;
-	char *buf = malloc(total ? total : 1);
-	if (!buf)
-	{
-		uv_mutex_unlock(&an->lock);
-		carg->parser_status = 0;
-		return;
-	}
-
-	if (tail_len)
-		memcpy(buf, carg->amtail_tail->s, tail_len);
-	memcpy(buf + tail_len, metrics, size);
-
-	size_t start = 0;
-	int rc = 1;
 	if (!carg->amtail_variables)
 		carg->amtail_variables = amtail_variables_init();
-	string *line = string_new();
 
 	const char *log_filename = NULL;
 	char log_filename_buf[1024];
@@ -553,36 +560,36 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	else if (carg->host[0])
 		log_filename = carg->host;
 
-	for (size_t i = 0; i < total; ++i)
-	{
-		if (buf[i] != '\n')
-			continue;
+	amtail_ml_ud ud = {
+		.an = an,
+		.carg = carg,
+		.touch_cb = &touch_cb,
+		.log_filename = log_filename,
+		.line = string_new(),
+		.rc = 1,
+	};
 
-		size_t line_len = i - start;
-		if (line_len && buf[start + line_len - 1] == '\r')
-			--line_len;
-		if (line_len)
-		{
-			string_cat(line, buf + start, line_len);
-			carglog(carg, L_DEBUG, "amtail process string with size %zu: '%s'\n", line_len, line->s);
-			if (!amtail_run_file(an->bytecode, carg->amtail_variables, line, log_filename, an->amtail_ll, &touch_cb, an->vm_thread, &carg->amtail_variables_prepared))
-				rc = 0;
-			string_null(line);
+	carg_linebuf_ensure(carg);
+
+	/* Migrate legacy incomplete-line buffer into linebuf once. */
+	if (carg->amtail_tail && carg->amtail_tail->l) {
+		if (!carg->ml_lb.tail) {
+			carg->ml_lb.tail = malloc(carg->amtail_tail->l + 1);
+			if (carg->ml_lb.tail) {
+				memcpy(carg->ml_lb.tail, carg->amtail_tail->s, carg->amtail_tail->l);
+				carg->ml_lb.tail[carg->amtail_tail->l] = '\0';
+				carg->ml_lb.tail_len = carg->amtail_tail->l;
+				carg->ml_lb.tail_cap = carg->amtail_tail->l + 1;
+			}
 		}
-		start = i + 1;
-	}
-	if (carg->log_level >= L_DEBUG)
-	{
-		amtail_variables_dump(carg->amtail_variables);
-	}
-
-	if (carg->amtail_tail)
-	{
 		string_free(carg->amtail_tail);
 		carg->amtail_tail = NULL;
 	}
-	if (start < total)
-		carg->amtail_tail = string_init_alloc(buf + start, total - start);
+
+	alligator_linebuf_feed(&carg->ml_lb, metrics, size, amtail_record_cb, &ud);
+
+	if (carg->log_level >= L_DEBUG)
+		amtail_variables_dump(carg->amtail_variables);
 
 	{
 		r_time now = setrtime();
@@ -600,11 +607,9 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 			amtail_variables_export_touched(carg);
 	}
 
-	string_free(line);
-
-	free(buf);
+	string_free(ud.line);
 	uv_mutex_unlock(&an->lock);
-	carg->parser_status = rc ? 1 : 0;
+	carg->parser_status = ud.rc ? 1 : 0;
 }
 
 void amtail_parser_push()

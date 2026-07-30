@@ -41,7 +41,7 @@ static int aggregator_name_must_be_unique(context_arg *carg)
 {
 	if (!carg || !carg->name)
 		return 0;
-	if (carg->parser_name && !strcmp(carg->parser_name, "mtail"))
+	if (carg->parser_name && (!strcmp(carg->parser_name, "mtail") || !strcmp(carg->parser_name, "vrl")))
 		return 0;
 	return 1;
 }
@@ -389,6 +389,7 @@ void aggregate_ctx_init()
 	grok_parser_push();
 	wazuh_parser_push();
 	amtail_parser_push();
+	vrl_parser_push();
 	log_parser_push();
 }
 

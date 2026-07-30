@@ -18,6 +18,7 @@
 #include "scheduler/type.h"
 #include "mapping/type.h"
 #include "amtail/type.h"
+#include "vrl/type.h"
 #include "grok/type.h"
 #include "main.h"
 extern aconf *ac;
@@ -296,6 +297,14 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "log_level", log_level);
 	}
 
+	if (carg->ml_enabled && carg->ml_start_pattern && carg->ml_condition_pattern)
+	{
+		json_array_object_insert(ctx, "start_pattern", json_string(carg->ml_start_pattern));
+		json_array_object_insert(ctx, "condition_pattern", json_string(carg->ml_condition_pattern));
+		json_array_object_insert(ctx, "multiline_mode",
+					 json_string(alligator_ml_mode_to_str(carg->ml_mode)));
+	}
+
 	if (carg->log_ch && carg->log_ch->name && !carg->log_ch->is_default)
 	{
 		json_t *log_channel = json_string(carg->log_ch->name);
@@ -391,6 +400,37 @@ void amtail_generate_conf(void *funcarg, void* arg)
 
 	if (an->key)
 		json_array_object_insert(ctx, "key", json_string(an->key));
+}
+
+void vrl_generate_conf(void *funcarg, void *arg)
+{
+	json_t *dst = funcarg;
+	vrl_node *vn = arg;
+
+	json_t *vrl = json_object_get(dst, "vrl");
+	if (!vrl) {
+		vrl = json_array();
+		json_array_object_insert(dst, "vrl", vrl);
+	}
+
+	json_t *ctx = json_object();
+	json_array_object_insert(vrl, NULL, ctx);
+
+	if (vn->name)
+		json_array_object_insert(ctx, "name", json_string(vn->name));
+	if (vn->script)
+		json_array_object_insert(ctx, "script", json_string(vn->script));
+	if (vn->program)
+		json_array_object_insert(ctx, "program", json_string(vn->program));
+	if (vn->key)
+		json_array_object_insert(ctx, "key", json_string(vn->key));
+	if (vn->ml_enabled && vn->ml_start_pattern && vn->ml_condition_pattern) {
+		json_t *ml = json_object();
+		json_object_set_new(ml, "mode", json_string(alligator_ml_mode_to_str(vn->ml_mode)));
+		json_object_set_new(ml, "start_pattern", json_string(vn->ml_start_pattern));
+		json_object_set_new(ml, "condition_pattern", json_string(vn->ml_condition_pattern));
+		json_object_set_new(ctx, "multiline", ml);
+	}
 }
 
 typedef struct grok_config_get_arg
@@ -1625,6 +1665,8 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->modules, modules_generate_conf, dst);
 	if (ac->amtail)
 		alligator_ht_foreach_arg(ac->amtail, amtail_generate_conf, dst);
+	if (ac->vrl)
+		alligator_ht_foreach_arg(ac->vrl, vrl_generate_conf, dst);
 	if (ac->grok)
 		alligator_ht_foreach_arg(ac->grok, grok_generate_conf, dst);
 	system_pidfile_generate_conf(dst);
