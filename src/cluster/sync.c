@@ -8,16 +8,44 @@
 #include "common/selector.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "common/aggregator.h"
 #include "parsers/multiparser.h"
+
+static int cluster_sync_already_active(host_aggregator_info *hi)
+{
+	char key[512];
+	const char *query;
+	context_arg *existing;
+
+	if (!hi || !hi->host || !hi->port[0])
+		return 0;
+
+	query = hi->query ? hi->query : "/";
+	smart_aggregator_default_key(key, hi->transport_string ? hi->transport_string : "tcp",
+		"cluster_sync_handler", hi->host, hi->port, (char *)query);
+	smart_aggregator_key_normalize(key);
+
+	existing = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
+	if (!existing)
+		return 0;
+
+	/* Permanent sync client, or an in-flight request: do not spawn another. */
+	if (!existing->context_ttl || existing->lock)
+		return 1;
+
+	return 0;
+}
 
 void cluster_recurse(void *funcarg, void* arg)
 {
 	context_arg *carg = arg;
 
-	if (!carg->cluster)
+	if (!carg->cluster || !carg->instance)
 		return;
 
 	cluster_node* cn = get_cluster_node_from_carg(carg);
+	if (!cn)
+		return;
 
 	uint64_t servers_size = cn->servers_size;
 	for (uint64_t i = 0; i < servers_size; i++)
@@ -37,6 +65,14 @@ void cluster_recurse(void *funcarg, void* arg)
 		string_cat(url, "&replica=", 9);
 		string_cat(url, carg->instance, strlen(carg->instance));
 		host_aggregator_info *hi = parse_url(url->s, url->l);
+
+		if (cluster_sync_already_active(hi)) {
+			carglog(carg, L_DEBUG, "cluster sync already active for %s, skip\n", url->s);
+			string_free(url);
+			url_free(hi);
+			continue;
+		}
+
 		carglog(carg, L_DEBUG, "cluster sync url %s\n", url->s);
 		char *query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, NULL, NULL, NULL);
 		context_arg *new = aggregator_oneshot(NULL, url->s, url->l, query, strlen(query), cluster_sync_handler, "cluster_sync_handler", NULL, NULL, 0, &cn->servers[i], NULL, 0, NULL, NULL);
