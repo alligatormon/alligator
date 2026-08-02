@@ -95,6 +95,14 @@ int smart_aggregator(context_arg *carg)
 	context_arg *existing = alligator_ht_search(ac->aggregators, aggregator_compare, key, tommy_strhash_u32(0, key));
 	if (existing)
 	{
+		/* Permanent aggregators (context_ttl == 0) must not be replaced by oneshots.
+		 * Cluster oplog sync used to recreate permanent clients every reload; that
+		 * ignored in-flight lock and leaked TCP connections (CLOSE_WAIT). */
+		if (!existing->context_ttl && carg->context_ttl) {
+			carglog(carg, L_INFO,
+				"smart_aggregator: skip oneshot replace of permanent key '%s'\n", key);
+			return 0; // err, need for carg_free
+		}
 		if (existing->context_ttl || carg->context_ttl) {
 			existing->remove_from_hash = 1;
 			smart_aggregator_del(existing);

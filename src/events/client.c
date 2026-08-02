@@ -23,6 +23,8 @@ extern aconf* ac;
 void tcp_connected(uv_connect_t* req, int status);
 void tcp_client_close(uv_handle_t *handle);
 void tcp_client_shutdown(uv_shutdown_t *req, int status);
+void tcp_client_repeat_period(uv_timer_t *timer);
+void unix_client_repeat_period(uv_timer_t *timer);
 
 static void tcp_client_timing_reset(context_arg *carg)
 {
@@ -94,9 +96,15 @@ void tcp_client_closed(uv_handle_t *handle)
 		}
 	}
 	else {
-
-		if (carg->period)
-			uv_timer_set_repeat(carg->period_timer, carg->period);
+		/* One-shot period timers stop after firing; set_repeat alone does not
+		 * restart them. Schedule the next connect explicitly after close. */
+		if (carg->period && carg->period_timer) {
+			uv_timer_stop(carg->period_timer);
+			if (carg->transport == APROTO_UNIX)
+				uv_timer_start(carg->period_timer, unix_client_repeat_period, carg->period, 0);
+			else
+				uv_timer_start(carg->period_timer, tcp_client_repeat_period, carg->period, 0);
+		}
 	}
 }
 
@@ -478,7 +486,6 @@ void tcp_timeout_timer(uv_timer_t *timer)
 		http_null_metrics(carg);
 }
 
-void tcp_client_repeat_period(uv_timer_t *timer);
 void tcp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -579,7 +586,6 @@ void tcp_client_repeat_period(uv_timer_t *timer)
 	tcp_client_connect((void*)carg);
 }
 
-void unix_client_repeat_period(uv_timer_t *timer);
 void unix_client_connect(void *arg)
 {
 	context_arg *carg = arg;
