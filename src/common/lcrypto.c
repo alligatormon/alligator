@@ -269,8 +269,8 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 	alligator_ht *lbl = calloc(1, sizeof(*lbl));
 	alligator_ht_init(lbl);
 	labels_hash_insert_nocache(lbl, "cert", cert_name);
-	if (host)
-		labels_hash_insert_nocache(lbl, "host", host);
+	if (target)
+		labels_hash_insert_nocache(lbl, "target", host);
 
 	labels_hash_insert_nocache(lbl, "common_name", common_name);
 	carg_or_glog(carg, L_INFO, "cert: %s, common_name=%s\n", cert_name, common_name);

@@ -412,7 +412,7 @@ static void amtail_variable_metric_emit_one(amtail_metric_ctx *ctx, amtail_varia
 		var->last_emit_hist_count = var->histogram_count;
 		var->last_emit_hist_sum = var->histogram_sum;
 	}
-	else if (metric_value && dtype != DATATYPE_NONE && dtype != DATATYPE_STRING) {
+	else if (metric_value && dtype != DATATYPE_NONE) {
 		if (skip_emit)
 			return;
 		alligator_ht *labels = amtail_variable_make_labels(var, ctx->variables);

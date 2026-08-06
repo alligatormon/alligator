@@ -85,7 +85,7 @@ func readCert(path string) {
 			}
 			Labels += " serial=\"" + certData.SerialNumber.String() + "\","
 			Labels += " issuer=\"" + fmt.Sprintf("%v", certData.Issuer) + "\","
-			Labels += " cert=\"" + fmt.Sprintf("%v", path) + "\""
+			Labels += " target=\"" + fmt.Sprintf("%v", path) + "\""
 			Labels = strings.ReplaceAll(Labels, `\`, ``)
 			Mstring += "x509_cert_expire_days{" + Labels + "} " + expire_days_str + "\n"
 			Mstring += "x509_cert_not_after{" + Labels + "} " + not_after_str + "\n"
