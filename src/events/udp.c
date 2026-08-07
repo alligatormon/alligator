@@ -17,18 +17,15 @@ extern aconf *ac;
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
 #define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
 
-void udp_close_client(context_arg *carg, const uv_buf_t *buf)
+void udp_client_repeat_period(uv_timer_t *timer);
+
+static void udp_client_closed(uv_handle_t *handle)
 {
-	uv_udp_recv_stop(&carg->udp_client);
-
-	if (carg->tt_timer) {
-		uv_timer_stop(carg->tt_timer);
-		carg->tt_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
-		carg->tt_timer = NULL;
-	}
-
+	context_arg *carg = handle->data;
+	(carg->close_counter)++;
 	carg->lock = 0;
+
+	aggregator_events_metric_add(carg, carg, NULL, "udp", "aggregator", carg->host);
 
 	if (carg->context_ttl)
 	{
@@ -36,24 +33,46 @@ void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			if (carg->key)
-				alligator_ht_remove(ac->udpaggregator, aggregator_compare, carg->key, tommy_strhash_u32(0, carg->key));
 			smart_aggregator_del(carg);
-			if (buf && buf->base)
-				free(buf->base);
-			return;
 		}
 	}
-	else {
-		if (carg->period)
-			uv_timer_set_repeat(carg->period_timer, carg->period);
+	else if (carg->period && carg->period_timer) {
+		/* One-shot period timers stop after firing; restart after close. */
+		uv_timer_stop(carg->period_timer);
+		uv_timer_start(carg->period_timer, udp_client_repeat_period, carg->period, 0);
+	}
+}
+
+void udp_close_client(context_arg *carg, const uv_buf_t *buf)
+{
+	if (carg->tt_timer) {
+		uv_timer_stop(carg->tt_timer);
+		carg->tt_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+		carg->tt_timer = NULL;
 	}
 
 	if (buf && buf->base)
 		free(buf->base);
 
-	if (carg->key)
-		alligator_ht_remove(ac->udpaggregator, aggregator_compare, carg->key, tommy_strhash_u32(0, carg->key));
+	/* Client handle must have been uv_udp_init'd. Keep lock until closed
+	 * callback so crawl cannot reconnect a oneshot mid-teardown. */
+	if (carg->udp_client.type == UV_UDP && !uv_is_closing((uv_handle_t *)&carg->udp_client)) {
+		uv_udp_recv_stop(&carg->udp_client);
+		uv_close((uv_handle_t *)&carg->udp_client, udp_client_closed);
+		return;
+	}
+
+	/* No live client socket (e.g. failed before init): finish oneshot here. */
+	(carg->close_counter)++;
+	carg->lock = 0;
+	if (carg->context_ttl) {
+		r_time time = setrtime();
+		if (time.sec >= carg->context_ttl) {
+			carg->remove_from_hash = 1;
+			smart_aggregator_del(carg);
+		}
+	}
 }
 
 void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
@@ -61,6 +80,25 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	context_arg *carg = req->data;
 	carg->read_time_finish = setrtime();
 	carglog(carg, L_INFO, "%"u64": udp read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+
+	/* Entrypoint server: parse datagram and keep listening. */
+	if (req == &carg->udp_server) {
+		if (nread > 0) {
+			if (!check_udp_ip_port(addr, carg)) {
+				carglog(carg, L_ERROR, "no access!\n");
+			} else {
+				(carg->conn_counter)++;
+				(carg->read_counter)++;
+				carg->read_bytes_counter += (uint64_t)nread;
+				alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
+				if (!carg->no_metric)
+					entrypoint_read_metrics_throttled_push(carg, carg, "udp", 1, carg->key);
+			}
+		}
+		if (buf && buf->base)
+			free(buf->base);
+		return;
+	}
 
 	if (nread < 0)
 	{
@@ -93,11 +131,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	if (nread > 0 && !carg->no_metric && !carg->lock)
 		entrypoint_read_metrics_throttled_push(carg, carg, "udp", 1, carg->key);
 	if (carg->lock)
-	{
-		uv_udp_recv_stop(req);
-		uv_close((uv_handle_t*) req, NULL);
 		aggregator_events_metric_add(carg, carg, NULL, "udp", "entrypoint", carg->key);
-	}
 
 	udp_close_client(carg, buf);
 }
@@ -267,7 +301,6 @@ void udp_server_stop(const char* addr, uint16_t port)
 	free(matches);
 }
 
-void udp_client_repeat_period(uv_timer_t *timer);
 void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -281,7 +314,7 @@ void udp_client_connect(void *arg)
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 
-	if (carg->period && !carg->conn_counter) {
+	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
 		uv_timer_init(carg->loop, carg->period_timer);
@@ -307,9 +340,9 @@ void udp_client_connect(void *arg)
 	uv_timer_init(carg->loop, carg->tt_timer);
 	uv_timer_start(carg->tt_timer, udp_timeout_timer, carg->timeout, 0);
 
-
 	carg->udp_send.data = carg;
 	uv_udp_init(carg->loop, &carg->udp_client);
+	carg->udp_client.data = carg;
 
 	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
 	if (addr_ret) {
@@ -320,7 +353,6 @@ void udp_client_connect(void *arg)
 			return;
 		}
 	}
-
 
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->remote_addr, udp_on_send);
 	carg->write_time = setrtime();
@@ -338,9 +370,18 @@ void udp_client_repeat_period(uv_timer_t *timer)
 void for_udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
-	if (!carg || carg->context_ttl || carg->remove_from_hash)
+	if (!carg || carg->remove_from_hash)
 		return;
-	if (carg->period && carg->conn_counter)
+
+	/* oneshot: context_ttl set at create; connect once while unlocked and not yet closed */
+	if (carg->context_ttl) {
+		if (carg->lock || carg->close_counter)
+			return;
+		udp_client_connect(arg);
+		return;
+	}
+
+	if (carg->period && carg->close_counter)
 		return;
 
 	udp_client_connect(arg);
@@ -363,22 +404,23 @@ void udp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	uv_udp_recv_stop(&carg->udp_client);
+	if (carg->lock)
+	{
+		/* Active: schedule TTL expiry and close. Hash removal / free happen on
+		 * the unlocked path from udp_client_closed (same as TCP). */
+		r_time time = setrtime();
+		carg->context_ttl = time.sec;
+		udp_close_client(carg, NULL);
+		return;
+	}
+
+	carg->lock = 1;
+
 	if (carg->remove_from_hash)
 		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
-	if (carg->lock)
-	{
-		r_time time = setrtime();
-		carg->context_ttl = time.sec;
-		alligator_ht_remove_existing(ac->udpaggregator, &(carg->node));
-		uv_udp_recv_stop(&carg->udp_client);
-	}
-	else {
-		carg->lock = 1;
-		alligator_ht_remove_existing(ac->udpaggregator, &(carg->node));
-		carg_free(carg);
-	}
+	alligator_ht_remove_existing(ac->udpaggregator, &(carg->node));
+	carg_free(carg);
 }
 
 static void udp_client_crawl(uv_timer_t* handle) {

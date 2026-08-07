@@ -4,7 +4,10 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 #include <openssl/pkcs12.h>
+#include <openssl/x509_vfy.h>
+#include <openssl/x509v3.h>
 #include "common/selector.h"
+#include "common/lcrypto.h"
 #include "dstructures/ht.h"
 #include "metric/labels.h"
 #include "metric/namespace.h"
@@ -21,6 +24,107 @@ static inline void x509_metric_families_set(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "x509_cert_not_before", METRIC_TYPE_GAUGE, "X.509 certificate notBefore timestamp (Unix seconds).");
 	namespace_metric_family_set(NULL, carg, "x509_cert_not_after", METRIC_TYPE_GAUGE, "X.509 certificate notAfter timestamp (Unix seconds).");
 	namespace_metric_family_set(NULL, carg, "x509_cert_expire_days", METRIC_TYPE_GAUGE, "Whole days until X.509 certificate expiration.");
+	namespace_metric_family_set(NULL, carg, "x509_cert_valid", METRIC_TYPE_GAUGE, "1 if certificate passes time/chain(/hostname for network) checks, 0 otherwise. Label reason explains invalidity.");
+}
+
+static const char *x509_verify_err_to_reason(int err)
+{
+	switch (err) {
+		case X509_V_OK:
+			return "ok";
+		case X509_V_ERR_CERT_NOT_YET_VALID:
+			return "not_yet_valid";
+		case X509_V_ERR_CERT_HAS_EXPIRED:
+		case X509_V_ERR_CRL_HAS_EXPIRED:
+			return "expired";
+		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
+		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+		case X509_V_ERR_UNABLE_TO_GET_CRL_ISSUER:
+		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+		case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
+		case X509_V_ERR_CERT_UNTRUSTED:
+			return "unknown_ca";
+		case X509_V_ERR_HOSTNAME_MISMATCH:
+		case X509_V_ERR_IP_ADDRESS_MISMATCH:
+			return "hostname_mismatch";
+		default:
+			return "invalid_chain";
+	}
+}
+
+/* Time, optional chain/CA, optional hostname (network only). reason always set. */
+static int x509_cert_eval(X509 *cert, STACK_OF(X509) *untrusted,
+	int have_times, uint64_t valid_from, uint64_t valid_to, uint64_t now_sec,
+	const char *ca_file, int use_default_ca, const char *check_hostname,
+	const char **reason)
+{
+	if (!have_times) {
+		*reason = "invalid_time";
+		return 0;
+	}
+	if (now_sec < valid_from) {
+		*reason = "not_yet_valid";
+		return 0;
+	}
+	if (now_sec > valid_to) {
+		*reason = "expired";
+		return 0;
+	}
+
+	if (ca_file || use_default_ca) {
+		X509_STORE *store = X509_STORE_new();
+		X509_STORE_CTX *ctx = X509_STORE_CTX_new();
+		int ok = 0;
+		int err = X509_V_ERR_UNSPECIFIED;
+
+		if (!store || !ctx) {
+			*reason = "invalid_chain";
+			X509_STORE_CTX_free(ctx);
+			X509_STORE_free(store);
+			return 0;
+		}
+
+		if (ca_file) {
+			if (X509_STORE_load_locations(store, ca_file, NULL) != 1) {
+				*reason = "unknown_ca";
+				X509_STORE_CTX_free(ctx);
+				X509_STORE_free(store);
+				return 0;
+			}
+		} else if (X509_STORE_set_default_paths(store) != 1) {
+			*reason = "unknown_ca";
+			X509_STORE_CTX_free(ctx);
+			X509_STORE_free(store);
+			return 0;
+		}
+
+		if (X509_STORE_CTX_init(ctx, store, cert, untrusted) == 1) {
+			ok = X509_verify_cert(ctx) == 1;
+			err = X509_STORE_CTX_get_error(ctx);
+		}
+
+		X509_STORE_CTX_free(ctx);
+		X509_STORE_free(store);
+
+		if (!ok) {
+			*reason = x509_verify_err_to_reason(err);
+			return 0;
+		}
+	}
+
+	if (check_hostname && *check_hostname) {
+		/* 1 = match, 0 = no match, negative = error. Try DNS then IP. */
+		int host_ok = X509_check_host(cert, check_hostname, 0, 0, NULL);
+		if (host_ok != 1)
+			host_ok = X509_check_ip_asc(cert, check_hostname, 0);
+		if (host_ok != 1) {
+			*reason = "hostname_mismatch";
+			return 0;
+		}
+	}
+
+	*reason = "ok";
+	return 1;
 }
 
 alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
@@ -163,7 +267,7 @@ static time_t ASN1_GetTimeT(ASN1_TIME* time){
 	return mktime(&t);
 }
 
-void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn_issuer, char *serial, int64_t valid_from, int64_t valid_to)
+void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn_issuer, char *serial, int64_t valid_from, int64_t valid_to, X509 *x509, STACK_OF(X509) *untrusted, const char *ca_file)
 {
 	x509_metric_families_set(NULL);
 
@@ -177,26 +281,35 @@ void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn
 
 	r_time now = setrtime();
 
-	int64_t expdays =  (valid_to-now.sec)/86400;
+	int64_t expdays =  ((int64_t)valid_to-(int64_t)now.sec)/86400;
+	const char *reason = "ok";
+	int64_t is_valid = x509_cert_eval(x509, untrusted, 1, (uint64_t)valid_from, (uint64_t)valid_to, now.sec,
+		ca_file, 0, NULL, &reason);
 	if (ac->log_level > 2)
 	{
 		printf("cert: %s, certsubject: %s\n", cert, dn_subject);
 		printf("cert: %s, complete for: %u.\n", cert, now.sec);
 		printf("cert: %s, valid from: %"d64".\n", cert, valid_from);
 		printf("cert: %s, %"d64" exp\n", cert, expdays);
+		printf("cert: %s, valid: %"d64" reason=%s\n", cert, is_valid, reason);
 	}
 	alligator_ht *notafter_lbl = labels_dup(lbl);
 	alligator_ht *expiredays_lbl = labels_dup(lbl);
+	alligator_ht *valid_lbl = labels_dup(lbl);
+	labels_hash_insert_nocache(valid_lbl, "reason", (char *)reason);
 	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
 	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
 	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
+	metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, NULL);
 }
 
 void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename)
 {
 	//printf("pem check '%s'\n", pem_cert);
 	++cert_size;
-	char *password = data;
+	x509_parse_fctx *fctx = data;
+	char *password = fctx ? fctx->password : NULL;
+	const char *ca_file = fctx ? fctx->ca_file : NULL;
 	EVP_PKEY *pkey;
 	X509 *cert;
 	STACK_OF(X509) *ca = NULL;
@@ -231,7 +344,7 @@ void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char
 	time_t not_after = ASN1_GetTimeT(X509_get_notAfter(cert));
 	time_t not_before = ASN1_GetTimeT(X509_get_notBefore(cert));
 
-	pem_create_metric(lbl, filename, subj, issuer, serial->s, not_before, not_after);
+	pem_create_metric(lbl, filename, subj, issuer, serial->s, not_before, not_after, cert, ca, ca_file);
 
 	string_free(serial);
 	free(subj);
@@ -259,7 +372,8 @@ int asn1_time_to_uint64(const ASN1_TIME *time, uint64_t *out) {
     *out = (uint64_t)t;
     return 1;
 }
-void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host) {
+void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target,
+	const char *ca_file, const char *check_hostname) {
 	if (!cert)
 		return;
 	X509_NAME *subject = X509_get_subject_name(cert);
@@ -269,8 +383,8 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 	alligator_ht *lbl = calloc(1, sizeof(*lbl));
 	alligator_ht_init(lbl);
 	labels_hash_insert_nocache(lbl, "cert", cert_name);
-	if (host)
-		labels_hash_insert_nocache(lbl, "host", host);
+	if (target)
+		labels_hash_insert_nocache(lbl, "target", target);
 
 	labels_hash_insert_nocache(lbl, "common_name", common_name);
 	carg_or_glog(carg, L_INFO, "cert: %s, common_name=%s\n", cert_name, common_name);
@@ -326,26 +440,45 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
 	}
 
+	STACK_OF(X509) *untrusted = NULL;
+	if (carg && carg->ssl)
+		untrusted = SSL_get_peer_cert_chain(carg->ssl);
+
+	/* Network (hostname check requested): use system CA when ca_file omitted.
+	 * Filesystem: chain verify only when ca_file is set. */
+	int use_default_ca = (check_hostname != NULL) && (ca_file == NULL);
+
 	const ASN1_TIME *notBefore = X509_get0_notBefore(cert);
 	const ASN1_TIME *notAfter  = X509_get0_notAfter(cert);
-	uint64_t valid_from, valid_to;
-	if (asn1_time_to_uint64(notBefore, &valid_from) && asn1_time_to_uint64(notAfter, &valid_to)) {
-		x509_metric_families_set(carg);
+	uint64_t valid_from = 0, valid_to = 0;
+	int have_times = asn1_time_to_uint64(notBefore, &valid_from) && asn1_time_to_uint64(notAfter, &valid_to);
+	x509_metric_families_set(carg);
 
-		r_time now = setrtime();
-		int64_t expdays =  (valid_to-now.sec)/86400;
+	r_time now = setrtime();
+	const char *reason = "ok";
+	int64_t is_valid = x509_cert_eval(cert, untrusted, have_times, valid_from, valid_to, now.sec,
+		ca_file, use_default_ca, check_hostname, &reason);
+
+	if (have_times) {
+		int64_t expdays =  ((int64_t)valid_to-(int64_t)now.sec)/86400;
 		carg_or_glog(carg, L_INFO, "cert: %s, complete for: %u.\n", cert_name, now.sec);
 		carg_or_glog(carg, L_INFO, "cert: %s, valid from: %"d64".\n", cert_name, valid_from);
 		carg_or_glog(carg, L_INFO, "cert: %s, %"d64" exp\n", cert_name, expdays);
 		carg_or_glog(carg, L_INFO, "cert: %s, version: %d\n", cert_name, X509_get_version(cert) + 1);
+		carg_or_glog(carg, L_INFO, "cert: %s, valid: %"d64" reason=%s\n", cert_name, is_valid, reason);
 		alligator_ht *notafter_lbl = labels_dup(lbl);
 		alligator_ht *expiredays_lbl = labels_dup(lbl);
+		alligator_ht *valid_lbl = labels_dup(lbl);
+		labels_hash_insert_nocache(valid_lbl, "reason", (char *)reason);
 		metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
 		metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
 		metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
+		metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, NULL);
 	}
 	else {
 		carg_or_glog(carg, L_ERROR, "Failed to parse ASN1_TIME in cert: %s\n", cert_name);
+		labels_hash_insert_nocache(lbl, "reason", (char *)reason);
+		metric_add("x509_cert_valid", lbl, &is_valid, DATATYPE_INT, NULL);
 	}
 
 	BN_free(bn);
@@ -353,7 +486,8 @@ void x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *host)
 }
 
 int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename) {
-	(void)data;
+	x509_parse_fctx *fctx = data;
+	const char *ca_file = fctx ? fctx->ca_file : NULL;
 	if (!pem_cert || !cert_size)
 		return 0;
 
@@ -371,7 +505,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
         return 0;
 	}
 
-	x509_parse_cert(NULL, cert, NULL, filename);
+	x509_parse_cert(NULL, cert, NULL, filename, ca_file, NULL);
     X509_free(cert);
     return 1;
 }

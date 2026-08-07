@@ -135,15 +135,6 @@ static void otlp_data_point_set_value(json_t *dp, metric_node *x)
 	}
 	else if (type == DATATYPE_DOUBLE)
 		json_object_set_new(dp, "asDouble", json_real(x->d));
-	else if (type == DATATYPE_STRING)
-	{
-		char *end = NULL;
-		double d = strtod(x->s, &end);
-		if (end != x->s && end && *end == '\0')
-			json_object_set_new(dp, "asDouble", json_real(d));
-		else
-			json_object_set_new(dp, "asDouble", json_real(0.0));
-	}
 	else
 		json_object_set_new(dp, "asDouble", json_real(0.0));
 }
@@ -287,11 +278,6 @@ void metric_value_serialize_string(metric_node *x, string *str)
 		string_uint(str, x->u);
 	else if (type == DATATYPE_DOUBLE)
 		string_double(str, x->d);
-	else if (type == DATATYPE_STRING)
-	{
-		if (x->s)
-			string_cat(str, x->s, strlen(x->s));
-	}
 }
 
 json_t *metric_value_serialize_json(metric_node *x)
@@ -311,8 +297,6 @@ json_t *metric_value_serialize_json(metric_node *x)
 			return json_real(0.0);
 		return json_real(x->d);
 	}
-	else if (type == DATATYPE_STRING)
-		return json_string(x->s ? x->s : "");
 
 	return json_integer(0);
 }

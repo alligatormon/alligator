@@ -79,18 +79,6 @@ typedef struct metric_family_metadata
 	tommy_node node;
 } metric_family_metadata;
 
-typedef struct metric_list {
-	union
-	{
-		double d;
-		uint64_t u;
-		int64_t i;
-		char *s; // string
-	};
-	uint64_t timestamp;
-	uint64_t serial;
-} metric_list;
-
 struct expire_node;
 struct expire_tree;
 
@@ -101,9 +89,6 @@ typedef struct metric_node
 		double d;
 		uint64_t u;
 		int64_t i;
-		char *s; // string
-		char *index; // index file
-		metric_list *list;
 	};
 	int16_t list_len;
 	int8_t type;

@@ -3,6 +3,7 @@
 #include <uv.h>
 #include <jansson.h>
 #include "common/selector.h"
+#include "common/lcrypto.h"
 #include "dstructures/ht.h"
 #define X509_TYPE_PEM 1
 #define X509_TYPE_PFX 2
@@ -12,7 +13,9 @@ typedef struct x509_fs_t {
 	char *path;
 	string_tokens *match;
 	char *password;
+	char *ca_file;
 	uint8_t type;
+	x509_parse_fctx fctx;
 
 	uint64_t period;
 	uv_timer_t *period_timer;

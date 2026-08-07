@@ -617,6 +617,12 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(ctx, "", token);
 		}
 	}
+
+	if (tls_fs->ca_file)
+	{
+		json_t *ca_file = json_string(tls_fs->ca_file);
+		json_array_object_insert(ctx, "ca_file", ca_file);
+	}
 }
 
 void scheduler_generate_conf(void *funcarg, void* arg)

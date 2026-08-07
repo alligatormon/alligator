@@ -5,11 +5,6 @@
 #include "action/type.h"
 #include "query/promql.h"
 
-#define DATATYPE_LIST_STRING 8
-#define DATATYPE_LIST_UINT 7
-#define DATATYPE_LIST_INT 6
-#define DATATYPE_LIST_DOUBLE 5
-#define DATATYPE_STRING 4
 #define DATATYPE_UINT 3
 #define DATATYPE_INT 2
 #define DATATYPE_DOUBLE 1

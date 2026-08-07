@@ -54,32 +54,6 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 			else
 				rn->d = *(double*)value;
 		}
-		else if (type == DATATYPE_STRING)
-			rn->s = *(char **)value;
-		else if (type == DATATYPE_LIST_UINT)
-		{
-			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-			rn->list[0].u = *(uint64_t*)value;
-			rn->list_len = 1;
-		}
-		else if (type == DATATYPE_LIST_INT)
-		{
-			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-			rn->list[0].i = *(int64_t*)value;
-			rn->list_len = 1;
-		}
-		else if (type == DATATYPE_LIST_DOUBLE)
-		{
-			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-			rn->list[0].d = *(double*)value;
-			rn->list_len = 1;
-		}
-		else if (type == DATATYPE_LIST_STRING)
-		{
-			rn->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-			rn->list[0].s = *(char **)value;
-			rn->list_len = 1;
-		}
 	}
 	return rn;
 }
@@ -250,18 +224,28 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			}
 			else
 			{
-				/* q's content moves into f. The expire tree disambiguates duplicate
-				   timestamp keys by the metric pointer, so a node's metric cannot be
-				   rewritten in place; delete both entries and reinsert f at its
-				   correct sorted position with q's key. */
+				/* q's content moves into f (RB delete: found node f, physical
+				   removal of successor/leaf q). Expire tree keys are tied to the
+				   metric pointer, so delete both entries and reinsert f with q's
+				   key. Labels alone are not enough — value/type must move too,
+				   otherwise the surviving metric keeps the deleted node's sample. */
 				uint64_t q_key = q->expire_node->key;
 				expire_delete(expiretree, q_key, q);
 				expire_delete(expiretree, f->expire_node->key, f);
 				expire_insert(expiretree, q_key, f);
 				tree->count--;
 				labels_free(f->labels, tree);
-				//free(f->labels);
+				if (f->percentile_buf)
+					free_percentile_buffer(f->percentile_buf);
 				f->labels = q->labels;
+				f->type = q->type;
+				f->list_len = q->list_len;
+				f->enabled = q->enabled;
+				f->percentile_buf = q->percentile_buf;
+				f->u = q->u; /* bit-exact union copy (d/i/s/list share storage) */
+				q->percentile_buf = NULL;
+				//q->s = NULL;
+				//q->list = NULL;
 				p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
 				free ( q );
 				ret = 1;
@@ -322,48 +306,6 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 			mnode->d = 0;
 		else
 			mnode->d = *(double*)value;
-	}
-	else if (type == DATATYPE_STRING)
-		mnode->s = *(char **)value;
-	else if (type == DATATYPE_LIST_UINT)
-	{
-		if (!mnode->list)
-			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		if (mnode->list) {
-			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
-				mnode->list_len = 0;
-			mnode->list[mnode->list_len++].u = *(uint64_t*)value;
-		}
-	}
-	else if (type == DATATYPE_LIST_INT)
-	{
-		if (!mnode->list)
-			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		if (mnode->list) {
-			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
-				mnode->list_len = 0;
-			mnode->list[mnode->list_len++].i = *(int64_t*)value;
-		}
-	}
-	else if (type == DATATYPE_LIST_DOUBLE)
-	{
-		if (!mnode->list)
-			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		if (mnode->list) {
-			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
-				mnode->list_len = 0;
-			mnode->list[mnode->list_len++].d = *(double*)value;
-		}
-	}
-	else if (type == DATATYPE_LIST_STRING)
-	{
-		if (!mnode->list)
-			mnode->list = calloc(METRIC_STORAGE_BUFFER_DEFAULT, sizeof(metric_list));
-		if (mnode->list) {
-			if (mnode->list_len >= METRIC_STORAGE_BUFFER_DEFAULT)
-				mnode->list_len = 0;
-			mnode->list[mnode->list_len++].s = *(char **)value;
-		}
 	}
 
 	metric_refresh_expire(mnode, expiretree, ttl);
@@ -494,8 +436,6 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, cha
 		string_uint(str, x->u);
 	else if (type == DATATYPE_DOUBLE)
 		string_double(str, x->d);
-	else if (type == DATATYPE_STRING)
-		string_cat(str, x->s, strlen(x->s));
 	string_cat(str, "\n", 1);
 
 	if ( x->child[RIGHT] )

@@ -971,17 +971,6 @@ static int otlp_metric_to_pb_value(metric_node *x, uint8_t *field, uint64_t *raw
 		memcpy(raw, &d, sizeof(d));
 		return 1;
 	}
-	if (x->type == DATATYPE_STRING && x->s)
-	{
-		char *end = NULL;
-		d = strtod(x->s, &end);
-		if (end != x->s && end && *end == '\0')
-		{
-			*field = 4;
-			memcpy(raw, &d, sizeof(d));
-			return 1;
-		}
-	}
 	*field = 4;
 	d = 0.0;
 	memcpy(raw, &d, sizeof(d));

@@ -58,25 +58,6 @@ static void metric_dump_node(metric_node *x, const char *ns_name, string *out)
 				json_object_set_new_nocheck(row, "value", json_integer((json_int_t)x->u));
 			else if (x->type == DATATYPE_DOUBLE)
 				json_object_set_new_nocheck(row, "value", json_real(x->d));
-			else if (x->type == DATATYPE_STRING)
-				json_object_set_new_nocheck(row, "value", json_string(x->s ? x->s : ""));
-			else if (x->type == DATATYPE_LIST_INT || x->type == DATATYPE_LIST_UINT || x->type == DATATYPE_LIST_DOUBLE || x->type == DATATYPE_LIST_STRING)
-			{
-				json_t *arr = json_array();
-				uint64_t list_sz = x->list_len < METRIC_STORAGE_BUFFER_DEFAULT ? x->list_len : METRIC_STORAGE_BUFFER_DEFAULT;
-				for (uint64_t i = 0; x->list && i < list_sz; ++i)
-				{
-					if (x->type == DATATYPE_LIST_INT)
-						json_array_append_new(arr, json_integer(x->list[i].i));
-					else if (x->type == DATATYPE_LIST_UINT)
-						json_array_append_new(arr, json_integer((json_int_t)x->list[i].u));
-					else if (x->type == DATATYPE_LIST_DOUBLE)
-						json_array_append_new(arr, json_real(x->list[i].d));
-					else if (x->type == DATATYPE_LIST_STRING)
-						json_array_append_new(arr, json_string(x->list[i].s ? x->list[i].s : ""));
-				}
-				json_object_set_new_nocheck(row, "values", arr);
-			}
 
 			char *line = json_dumps(row, JSON_COMPACT);
 			if (line)
@@ -173,7 +154,7 @@ static void metric_restore_row(json_t *row)
 	int8_t type = (int8_t)json_integer_value(jtype);
 	json_t *labels_obj = json_object_get(row, "labels");
 
-	if (type == DATATYPE_INT || type == DATATYPE_UINT || type == DATATYPE_DOUBLE || type == DATATYPE_STRING)
+	if (type == DATATYPE_INT || type == DATATYPE_UINT || type == DATATYPE_DOUBLE)
 	{
 		alligator_ht *labels = metric_restore_labels(labels_obj);
 		json_t *jvalue = json_object_get(row, "value");
@@ -192,40 +173,7 @@ static void metric_restore_row(json_t *row)
 			double v = json_number_value(jvalue);
 			metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
 		}
-		else if (type == DATATYPE_STRING) {
-			char *v = (char*)json_string_value(jvalue);
-			metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
-		}
 		return;
-	}
-
-	if (type == DATATYPE_LIST_INT || type == DATATYPE_LIST_UINT || type == DATATYPE_LIST_DOUBLE || type == DATATYPE_LIST_STRING)
-	{
-		json_t *jvalues = json_object_get(row, "values");
-		if (!json_is_array(jvalues))
-			return;
-		size_t i;
-		json_t *jv;
-		json_array_foreach(jvalues, i, jv)
-		{
-			alligator_ht *labels = metric_restore_labels(labels_obj);
-			if (type == DATATYPE_LIST_INT) {
-				int64_t v = json_integer_value(jv);
-				metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
-			}
-			else if (type == DATATYPE_LIST_UINT) {
-				uint64_t v = (uint64_t)json_integer_value(jv);
-				metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
-			}
-			else if (type == DATATYPE_LIST_DOUBLE) {
-				double v = json_number_value(jv);
-				metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
-			}
-			else if (type == DATATYPE_LIST_STRING) {
-				char *v = (char*)json_string_value(jv);
-				metric_add((char*)json_string_value(jname), labels, &v, type, &carg);
-			}
-		}
 	}
 }
 

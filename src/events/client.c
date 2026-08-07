@@ -310,7 +310,8 @@ int do_client_tls_handshake(context_arg *carg) {
 			handshake_done_now = 1;
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
-				x509_parse_cert(carg, cert, carg->host, carg->host);
+				const char *verify_host = carg->tls_server_name ? carg->tls_server_name : carg->host;
+				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, verify_host);
 				X509_free(cert);
 			}
 		}
@@ -524,7 +525,8 @@ void tcp_client_connect(void *arg)
 	uv_tcp_init(carg->loop, &carg->client);
 	if (carg->tls)
 	{
-		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL)) {
+		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, NULL)) {
 			carg->lock = 0;
 			return;
 		}
@@ -625,7 +627,8 @@ void unix_client_connect(void *arg)
 	carg->client.data = carg;
 	if (carg->tls)
 	{
-		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, carg->host, NULL)) {
+		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, NULL)) {
 			carg->lock = 0;
 			return;
 		}

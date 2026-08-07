@@ -67,6 +67,16 @@ func readCert(path string) {
 			not_before_str := strconv.FormatInt(not_before, 10)
 			expire_days := (not_after - now) / 86400
 			expire_days_str := strconv.FormatInt(expire_days, 10)
+			reason := "ok"
+			is_valid := int64(1)
+			if now < not_before {
+				reason = "not_yet_valid"
+				is_valid = 0
+			} else if now > not_after {
+				reason = "expired"
+				is_valid = 0
+			}
+			is_valid_str := strconv.FormatInt(is_valid, 10)
 			Labels := ""
 			if certData.Subject.CommonName != "" {
 				Labels += "common_name=\"" + certData.Subject.CommonName + "\","
@@ -85,11 +95,13 @@ func readCert(path string) {
 			}
 			Labels += " serial=\"" + certData.SerialNumber.String() + "\","
 			Labels += " issuer=\"" + fmt.Sprintf("%v", certData.Issuer) + "\","
-			Labels += " cert=\"" + fmt.Sprintf("%v", path) + "\""
+			Labels += " target=\"" + fmt.Sprintf("%v", path) + "\""
 			Labels = strings.ReplaceAll(Labels, `\`, ``)
+			ValidLabels := Labels + ", reason=\"" + reason + "\""
 			Mstring += "x509_cert_expire_days{" + Labels + "} " + expire_days_str + "\n"
 			Mstring += "x509_cert_not_after{" + Labels + "} " + not_after_str + "\n"
 			Mstring += "x509_cert_not_before{" + Labels + "} " + not_before_str + "\n"
+			Mstring += "x509_cert_valid{" + ValidLabels + "} " + is_valid_str + "\n"
 		}
 	}
 }

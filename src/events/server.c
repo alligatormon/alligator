@@ -388,7 +388,8 @@ int do_tls_handshake_server(context_arg *carg) {
 
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
-				x509_parse_cert(carg, cert, carg->host, carg->host);
+				/* Server/mTLS peer: chain/CA only, no hostname match. */
+				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, NULL);
 				X509_free(cert);
 			}
 
