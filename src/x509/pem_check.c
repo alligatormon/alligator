@@ -31,16 +31,16 @@ char *read_file(char *name)
 	return pem_cert;
 }
 
-void fs_cert_check(char *name, char *fname, string_tokens *match, char *password, uint8_t type)
+void fs_cert_check(x509_fs_t *tls_fs, char *fname)
 {
 	void *func = libcrypto_pem_check_cert;
-	if (type == X509_TYPE_PFX)
+	if (tls_fs->type == X509_TYPE_PFX)
 		func = libcrypto_p12_check_cert;
 
 	int found = 0;
-	for (uint64_t i = 0; i < match->l; ++i) {
-		if (strstr(fname, match->str[i]->s)) {
-			read_from_file(fname, 0, func, password);
+	for (uint64_t i = 0; i < tls_fs->match->l; ++i) {
+		if (strstr(fname, tls_fs->match->str[i]->s)) {
+			read_from_file(fname, 0, func, &tls_fs->fctx);
 			found = 1;
 			break;
 		}
@@ -50,7 +50,7 @@ void fs_cert_check(char *name, char *fname, string_tokens *match, char *password
 }
 
 //int min(int a, int b) { return (a < b)? a : b;  }
-int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password, uint8_t type)
+int tls_fs_dir_read(x509_fs_t *tls_fs, char *path)
 {
 	uv_fs_t readdir_req;
 
@@ -89,7 +89,7 @@ int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password
 				size_t remain = sizeof(fullname) - (size_t)(filebase - fullname);
 				if (remain > 1) {
 					strlcpy(filebase, dirents[i].name, remain);
-					acc += tls_fs_dir_read(name, fullname, match, password, type);
+					acc += tls_fs_dir_read(tls_fs, fullname);
 				}
 			}
 			else if (dirents[i].type == UV_DIRENT_FILE || dirents[i].type == UV_DIRENT_LINK)
@@ -98,7 +98,7 @@ int tls_fs_dir_read(char *name, char *path, string_tokens *match, char *password
 				acc += 1;
 				char *filename = malloc(1024);
 				snprintf(filename, 1023, "%s/%s", path, dirents[i].name);
-				fs_cert_check(name, filename, match, password, type);
+				fs_cert_check(tls_fs, filename);
 			}
 			free((void*)dirents[i].name);
 		}
@@ -115,7 +115,7 @@ void tls_fs_recurse(void *arg)
 
 	x509_fs_t *tls_fs = arg;
 
-	tls_fs_dir_read(tls_fs->name, tls_fs->path, tls_fs->match, tls_fs->password, tls_fs->type);
+	tls_fs_dir_read(tls_fs, tls_fs->path);
 }
 
 void for_tls_fs_recurse(void *arg)

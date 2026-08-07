@@ -7,7 +7,7 @@
 #include "common/units.h"
 
 
-int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *type, uint64_t period) {
+int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *ca_file, char *type, uint64_t period) {
 	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, and password/passtr %p\n", name, path, password);
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
@@ -17,6 +17,11 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *passw
 
 	if (password)
 		tls_fs->password = strdup(password);
+	if (ca_file)
+		tls_fs->ca_file = strdup(ca_file);
+
+	tls_fs->fctx.password = tls_fs->password;
+	tls_fs->fctx.ca_file = tls_fs->ca_file;
 
 	if (type && !strcmp(type, "pfx"))
 		tls_fs->type = X509_TYPE_PFX;
@@ -132,6 +137,9 @@ int x509_push(json_t *x509) {
 	json_t *jpassword = json_object_get(x509, "password");
 	char *password = (char*)json_string_value(jpassword);
 
+	json_t *jca_file = json_object_get(x509, "ca_file");
+	char *ca_file = (char*)json_string_value(jca_file);
+
 	json_t *jtype = json_object_get(x509, "type");
 	char *type = (char*)json_string_value(jtype);
 
@@ -149,7 +157,7 @@ int x509_push(json_t *x509) {
 	}
 	else
 	{
-		int ret = tls_fs_push(name, path, tokens_match, password, type, period);
+		int ret = tls_fs_push(name, path, tokens_match, password, ca_file, type, period);
 		free(path);
 		return ret;
 	}

@@ -106,6 +106,14 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			carglog(carg, L_ERROR, "context %p Failed loading CA file: %s: %s\n", carg, ca, err);
 			free(err);
 		}
+	} else if (verify) {
+		if (SSL_CTX_set_default_verify_paths(carg->ssl_ctx)) {
+			carglog(carg, L_INFO, "context %p Loaded default CA verify paths\n", carg);
+		} else {
+			char *err = openssl_get_error_string();
+			carglog(carg, L_ERROR, "context %p Failed loading default CA verify paths: %s\n", carg, err);
+			free(err);
+		}
 	}
 
 	if (crl) {
@@ -154,7 +162,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		// SSL_VERIFY_FAIL_IF_NO_PEER_CERT - mTLS
 		// SSL_VERIFY_NONE - disable
 		// SSL_VERIFY_PEER - check peer
-		SSL_CTX_set_verify(carg->ssl_ctx, verify, verify_callback);
+		SSL_CTX_set_verify(carg->ssl_ctx, SSL_VERIFY_PEER, verify_callback);
 	}
 
 	if (mode == SSLMODE_CLIENT) {
@@ -171,6 +179,12 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		if (!SSL_set_tlsext_host_name(carg->ssl, servername)) {
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "context %p Failed to set SNI '%s': %s\n", carg, servername, err);
+			free(err);
+		}
+		/* Enforce CN/SAN match during handshake when peer verify is enabled. */
+		if (verify && !SSL_set1_host(carg->ssl, servername)) {
+			char *err = openssl_get_error_string();
+			carglog(carg, L_ERROR, "context %p Failed to set verify hostname '%s': %s\n", carg, servername, err);
 			free(err);
 		}
 	}

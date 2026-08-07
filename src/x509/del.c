@@ -19,6 +19,7 @@ void tls_fs_del_node(x509_fs_t *tls_fs)
 	free(tls_fs->path);
 	free(tls_fs->match);
 	free(tls_fs->password);
+	free(tls_fs->ca_file);
 	free(tls_fs);
 }
 
