@@ -210,7 +210,7 @@ deploy_centos7:
   - conan profile detect --force
 
   - conan install . --build=missing || true
-  - ln -sf /usr/bin/m4 /root/.conan2/p/m4f50c1c1e2fee9/p/bin/m4
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m48c2694838e05b/p/bin/m4
   - conan install . --build=missing
 
   - conan build external/
@@ -311,7 +311,7 @@ deploy_ubuntu1604:
   - /opt/conda/bin/conan profile detect --force
 
   - /opt/conda/bin/conan install . --build=missing || true
-  - ln -sf /usr/bin/m4 /root/.conan2/p/m4f50c1c1e2fee9/p/bin/m4
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m48c2694838e05b/p/bin/m4
   - /opt/conda/bin/conan install . --build=missing
 
   - /opt/conda/bin/conan build external/
@@ -350,7 +350,7 @@ deploy_ubuntu2004:
   - conan profile detect --force
 
   - conan install . --build=missing || true
-  - ln -sf /usr/bin/m4 /root/.conan2/p/m4f50c1c1e2fee9/p/bin/m4
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m48c2694838e05b/p/bin/m4
   - conan install . --build=missing
 
   - conan build external/
@@ -447,7 +447,7 @@ deploy_debian11:
   - conan profile detect --force
 
   - conan install . --build=missing || true
-  - ln -sf /usr/bin/m4 /root/.conan2/p/m4f50c1c1e2fee9/p/bin/m4
+  - ln -sf /usr/bin/m4 /root/.conan2/p/m48c2694838e05b/p/bin/m4
   - conan install . --build=missing
 
   - conan build external/
