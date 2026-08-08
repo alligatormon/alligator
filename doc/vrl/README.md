@@ -117,6 +117,12 @@ With `log_level=debug` you also get the full JSON event after transform.
 
 ### Metric export: `.metric` / `.metrics`
 
+> **Deviation from Vector VRL.** Standard Vector Remap Language has no metric
+> export objects, no Prometheus histogram observation, and no `update` /
+> `buckets` fields. `.metric` / `.metrics` (and the histogram shape below) are
+> an **Alligator extension** on top of avrl: the script remaps the event, then
+> Alligator reads these fields and pushes series into its metric tree.
+
 Each object needs `name` (string) and `value` (number/bool). Optional:
 
 | Field | Meaning |
@@ -124,8 +130,33 @@ Each object needs `name` (string) and `value` (number/bool). Optional:
 | `labels` | object of string labels |
 | `update` | if `true`, call `metric_update` (increment) instead of `metric_add` (set) |
 | `type` | `counter` / `gauge` / `histogram` / `summary` — sets Prometheus `# TYPE` |
+| `buckets` | array of numeric upper bounds — **histogram observation** (Alligator-only) |
 
-For Prometheus histograms emit cumulative `_bucket{le=...}` with `"update": true`, plus `_sum` / `_count`. Names ending in `_bucket` / `_sum` / `_count` also auto-mark the base name as `histogram`.
+#### Histogram observation (`buckets`)
+
+When `buckets` is a non-empty number array (and `type` is omitted or
+`"histogram"`), Alligator treats `value` as one sample and updates:
+
+- `{name}_bucket{le="…"}` — cumulative counts for every bound `value <= bound`, plus `le="+Inf"`
+- `{name}_sum` — adds `value`
+- `{name}_count` — adds `1`
+
+```
+.metrics = [{
+  "name": "postgresql_query_duration_ms",
+  "value": .ms,
+  "type": "histogram",
+  "buckets": [1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000],
+  "labels": {
+    "database": .database_name,
+    "duration_kind": .duration_kind
+  }
+}]
+```
+
+This is the same idea as mtail `histogram … buckets …`, not a Vector VRL feature.
+You can still emit raw `_bucket` / `_sum` / `_count` series yourself with
+`"update": true` if you need full control.
 
 ## Glob file sources (PostgreSQL csvlog example)
 

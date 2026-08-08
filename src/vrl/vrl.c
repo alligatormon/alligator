@@ -8,6 +8,7 @@
 #include "main.h"
 #include "json.h"
 #include <inttypes.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -119,7 +120,12 @@ string *vrl_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_set
 		return NULL;
 }
 
-/* ---------------- metric export from transformed event ---------------- */
+/* ---------------- metric export from transformed event ----------------
+ *
+ * Alligator extension (not part of Vector VRL): after the remapped event is
+ * produced, alligator reads .metric / .metrics and exports Prometheus-style
+ * series. Histogram observation via "buckets" is likewise alligator-only.
+ */
 
 static int metric_value_from_vrl(vrl_value *v, double *d_out, int64_t *i_out, int8_t *dtype)
 {
@@ -176,11 +182,18 @@ static int vrl_metric_wants_update(vrl_value *m)
 	return 0;
 }
 
-static void vrl_maybe_set_prom_type(context_arg *carg, vrl_value *m, const char *name)
+static const char *vrl_metric_type_str(vrl_value *m)
 {
 	vrl_value *tv = vrl_object_get(m, "type", 4);
-	if (tv && tv->type == VRL_BYTES && tv->u.bytes.data) {
-		const char *t = tv->u.bytes.data;
+	if (tv && tv->type == VRL_BYTES && tv->u.bytes.data)
+		return tv->u.bytes.data;
+	return NULL;
+}
+
+static void vrl_maybe_set_prom_type(context_arg *carg, vrl_value *m, const char *name)
+{
+	const char *t = vrl_metric_type_str(m);
+	if (t) {
 		if (!strcmp(t, "histogram"))
 			namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_HISTOGRAM);
 		else if (!strcmp(t, "counter"))
@@ -195,6 +208,69 @@ static void vrl_maybe_set_prom_type(context_arg *carg, vrl_value *m, const char 
 	char base[256];
 	if (prom_family_strip_histogram_suffix(name, base, sizeof(base)))
 		namespace_metric_family_set_prom_type(carg, base, METRIC_TYPE_HISTOGRAM);
+}
+
+static int vrl_bucket_bound(vrl_value *v, double *out)
+{
+	if (!v || !out)
+		return 0;
+	if (v->type == VRL_FLOAT) {
+		*out = v->u.flt;
+		return 1;
+	}
+	if (v->type == VRL_INTEGER) {
+		*out = (double)v->u.integer;
+		return 1;
+	}
+	return 0;
+}
+
+/* Alligator extension (not Vector VRL): observe one sample into a Prometheus histogram. */
+static int emit_histogram_observation(context_arg *carg, const char *name,
+	double sample, alligator_ht *base_labels, vrl_value *buckets)
+{
+	if (!carg || !name || !buckets || buckets->type != VRL_ARRAY || !buckets->u.array.len)
+		return 0;
+
+	namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_HISTOGRAM);
+
+	char metric_name[512];
+	char le_buf[64];
+	int64_t one = 1;
+
+	snprintf(metric_name, sizeof(metric_name), "%s_bucket", name);
+	for (size_t i = 0; i < buckets->u.array.len; i++) {
+		double bound = 0;
+		if (!vrl_bucket_bound(vrl_array_get(buckets, i), &bound)) {
+			carglog(carg, L_INFO, "vrl: histogram '%s': buckets[%zu] not a number, skip\n",
+				name, i);
+			continue;
+		}
+		if (sample > bound)
+			continue;
+		snprintf(le_buf, sizeof(le_buf), "%g", bound);
+		alligator_ht *lbl = base_labels ? labels_dup(base_labels) : alligator_ht_init(NULL);
+		labels_hash_insert_nocache(lbl, "le", le_buf);
+		metric_update(metric_name, lbl, &one, DATATYPE_INT, carg);
+	}
+
+	alligator_ht *inf = base_labels ? labels_dup(base_labels) : alligator_ht_init(NULL);
+	labels_hash_insert_nocache(inf, "le", "+Inf");
+	metric_update(metric_name, inf, &one, DATATYPE_INT, carg);
+
+	snprintf(metric_name, sizeof(metric_name), "%s_sum", name);
+	metric_update(metric_name, base_labels ? labels_dup(base_labels) : NULL,
+		&sample, DATATYPE_DOUBLE, carg);
+
+	snprintf(metric_name, sizeof(metric_name), "%s_count", name);
+	metric_update(metric_name, base_labels ? labels_dup(base_labels) : NULL,
+		&one, DATATYPE_INT, carg);
+
+	carglog(carg, L_INFO, "vrl: histogram observe %s = %.17g (%zu buckets)\n",
+		name, sample, buckets->u.array.len);
+	if (base_labels)
+		labels_hash_free(base_labels);
+	return 1;
 }
 
 static void emit_one_metric(context_arg *carg, vrl_value *m)
@@ -217,7 +293,21 @@ static void emit_one_metric(context_arg *carg, vrl_value *m)
 			namev->u.bytes.data);
 		return;
 	}
+	if (dtype == DATATYPE_INT)
+		d = (double)i;
+
 	alligator_ht *labels = labels_from_vrl_object(vrl_object_get(m, "labels", 6));
+	vrl_value *buckets = vrl_object_get(m, "buckets", 7);
+	const char *t = vrl_metric_type_str(m);
+	int want_hist = (buckets && buckets->type == VRL_ARRAY && buckets->u.array.len > 0) &&
+		(!t || !strcmp(t, "histogram"));
+
+	if (want_hist) {
+		if (emit_histogram_observation(carg, namev->u.bytes.data, d, labels, buckets))
+			return;
+		/* fall through if buckets invalid */
+	}
+
 	void *vp = (dtype == DATATYPE_DOUBLE) ? (void *)&d : (void *)&i;
 	int do_update = vrl_metric_wants_update(m);
 	vrl_maybe_set_prom_type(carg, m, namev->u.bytes.data);
