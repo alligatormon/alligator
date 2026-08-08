@@ -37,14 +37,8 @@ typedef struct lang_options {
 int lang_push(json_t *lang);
 void lang_push_options(lang_options *lo);
 void lang_delete(json_t *lang);
-char* java_run(char *optionString, char* className, char *method, char *arg, string* metrics, string *conf);
-char* lua_run(lang_options *lo, char* script, char *file, char *arg, string* smetrics, string *conf, string *parser_data, string *response);
-char* mruby_run(lang_options *lo, char* script, char *file, char *arg, string* smetrics, string *conf, string *parser_data, string *response);
-char* mruby_run_script(lang_options *lo, char *code, string* metrics, string *conf, string *parser_data, string *response);
-char* python_run(lang_options *lo, char* code, char *file, char *arg, char *path, string* metrics, string *conf);
 char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, string* metrics, string *conf, string *data_parser, string *response, char *queries);
 void lang_load_script(char *script, size_t script_size, void *data, char *filename);
-char* duktape_run(lang_options *lo, char *script, char *file, char *arg, string* metrics, string *conf, string *parser_data, string *response);
 void lang_run(char *key, string *body, string *parser_data, string *response);
 void lang_stop();
 int lang_compare(const void* arg, const void* obj);

@@ -1191,11 +1191,11 @@ void test_config_generators_batch()
     json_t *dst = json_object();
 
     lang_options lo1 = {0};
-    lo1.key = "lua_test";
-    lo1.lang = "lua";
+    lo1.key = "so_test";
+    lo1.lang = "so";
     lo1.method = "run";
     lo1.arg = "safe-arg";
-    lo1.file = "/tmp/script.lua";
+    lo1.file = "/tmp/script.txt";
     lo1.module = "mod1";
     lo1.query = "sum(metric)";
     lo1.log_level = L_INFO;
@@ -1204,8 +1204,8 @@ void test_config_generators_batch()
     lang_generate_conf(dst, &lo1);
 
     lang_options lo2 = {0};
-    lo2.key = "lua_hidden";
-    lo2.lang = "lua";
+    lo2.key = "so_hidden";
+    lo2.lang = "so";
     lo2.hidden_arg = 1;
     lo2.arg = "should-not-be-exported";
     lo2.serializer = 999;
@@ -1216,7 +1216,7 @@ void test_config_generators_batch()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(lang));
     json_t *lang0 = json_array_get(lang, 0);
     json_t *lang1 = json_array_get(lang, 1);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "lua_test", json_string_value(json_object_get(lang0, "key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "so_test", json_string_value(json_object_get(lang0, "key")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "dsv", json_string_value(json_object_get(lang0, "serializer")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_integer_value(json_object_get(lang0, "conf")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_true(json_object_get(lang1, "hidden_arg")));
@@ -1273,12 +1273,12 @@ void test_config_generators_batch()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(valid_status_codes));
 
     module_t mod = {0};
-    mod.key = "luaext";
-    mod.path = "/tmp/luaext.so";
+    mod.key = "soext";
+    mod.path = "/tmp/soext.so";
     modules_generate_conf(dst, &mod);
     json_t *modules = json_object_get(dst, "modules");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, modules);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/luaext.so", json_string_value(json_object_get(modules, "luaext")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/soext.so", json_string_value(json_object_get(modules, "soext")));
 
     userprocess_node up = {0};
     up.name = "nginx";
@@ -2417,7 +2417,7 @@ void test_config_plain_top_level_blocks()
         "resolver { udp://8.8.8.8:53; udp://9.9.9.9:53; }\n",
         "scheduler { name ut_tick action ut_action expr count(up) period 30s datasource internal; }\n",
         "action { name ut_plain_action expr http://127.0.0.1:18080 serializer json dry_run; }\n",
-        "lang { key ut_lang expr http://127.0.0.1:18080 lang duktape method main; }\n",
+        "lang { key ut_lang expr http://127.0.0.1:18080 lang so method main module go; }\n",
         "query { make socket_match expr process_match datasource internal action ut_action; }\n",
         "system { sysctl vm.overcommit_memory firewall; }\n",
         "x509 { name ut-x509 path /tmp/certs match .pem password secret type pem; }\n",
@@ -2629,7 +2629,7 @@ void test_config_plain_mega_document()
         "resolver { udp://8.8.8.8:53; tcp://9.9.9.9:53; }\n"
         "scheduler { name mega_sched action mega_act expr count(x) period 60s datasource internal; }\n"
         "action { name mega_act expr http://127.0.0.1:8080 serializer openmetrics dry_run add_label=team:mega; }\n"
-        "lang { key mega_lang expr http://127.0.0.1:8080/lang lang duktape method run; }\n"
+        "lang { key mega_lang expr http://127.0.0.1:8080/lang lang so method run module go; }\n"
         "query { make mega_q expr process_match datasource internal action mega_act; }\n"
         "probe { name mega_probe prober http valid_status_codes 2xx tls on; }\n"
         "system { base network firewall cadvisor add_label=host:mega; }\n"
@@ -2794,7 +2794,7 @@ void test_config_plain_action_query_lang_batch()
         "query { make ut_pq_q2 expr process_match datasource internal action ut_pq_a2; }\n",
         "query { make ut_pq_q3 expr count(x) datasource internal action ut_pq_a3; }\n",
         "scheduler { name ut_pq_sched action ut_pq_a1 expr sum(up) period 30s datasource internal; }\n",
-        "lang { key ut_pq_lang expr http://127.0.0.1/lang lang lua method run file /tmp/ut.lua; }\n",
+        "lang { key ut_pq_lang expr http://127.0.0.1/lang lang so method run module go file /tmp/ut.txt; }\n",
         "resolver { udp://8.8.4.4:53; tcp://1.1.1.1:53; }\n"
     };
     const char *keys[] = {
@@ -2932,7 +2932,7 @@ static void test_config_plain_mega_document_v2()
         "resolver { udp://1.0.0.1:53; }\n"
         "scheduler { name v2_sched action v2_act expr avg(cpu) period 45s datasource internal; }\n"
         "action { name v2_act expr http://127.0.0.1:9090 serializer prometheus dry_run; }\n"
-        "lang { key v2_lang expr http://127.0.0.1:9090/lang lang duktape method run; }\n"
+        "lang { key v2_lang expr http://127.0.0.1:9090/lang lang so method run module go; }\n"
         "query { make v2_q expr present(up) datasource internal action v2_act; }\n"
         "probe { name v2_probe prober tcp valid_status_codes 200 timeout 1s; }\n"
         "system { base disk smart interrupts load add_label=site:v2; }\n"
@@ -3060,7 +3060,7 @@ void test_config_plain_fragment_library()
         "scheduler { name frag-sched action frag-act expr count(x) period 10s datasource internal; }\n",
         "action { name frag-act expr http://127.0.0.1:1 serializer json dry_run; }\n",
         "query { make frag-q expr up datasource internal action frag-act; }\n",
-        "lang { key frag-lang expr http://127.0.0.1/l lang lua method run; }\n",
+        "lang { key frag-lang expr http://127.0.0.1/l lang so method run module go; }\n",
         "x509 { name frag-x509 path /tmp/p match .pem type pem password p; }\n",
         "modules { m1 /lib/m1.so; m2 /lib/m2.so; }\n",
         "puppeteer { https://frag.example env=K:V; }\n",
@@ -3362,10 +3362,10 @@ void test_config_get_scheduler_x509_lang_runtime_paths()
 
     lang_options *lo = calloc(1, sizeof(*lo));
     lo->key = "ut_lang_rt";
-    lo->lang = "duktape";
+    lo->lang = "so";
     lo->method = "main";
     lo->arg = "safe";
-    lo->file = "/tmp/lang.js";
+    lo->file = "/tmp/lang.txt";
     lo->serializer = METRIC_SERIALIZER_JSON;
     alligator_ht_insert(ac->lang_aggregator, &lo->node, lo, tommy_strhash_u32(0, lo->key));
 

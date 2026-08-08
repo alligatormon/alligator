@@ -27,6 +27,11 @@ int lang_push(json_t *lang)
 		return 0;
 	}
 	char *slang_name = (char*)json_string_value(lang_name);
+	if (!slang_name || strcmp(slang_name, "so"))
+	{
+		glog(L_ERROR, "lang key '%s': only 'so' is supported (got '%s')\n", key, slang_name ? slang_name : "");
+		return 0;
+	}
 
 	json_t *lang_method = json_object_get(lang, "method");
 	char *slang_method = (char*)json_string_value(lang_method);

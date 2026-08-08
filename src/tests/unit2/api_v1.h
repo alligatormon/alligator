@@ -123,7 +123,7 @@ void api_test_lang_1() {
 	ac->lang_aggregator = alligator_ht_init(NULL);
     lang_options *lo;
 	char *config = "{\"lang\": [ \
-			{ \"key\": \"l1\", \"lang\": \"mruby\", \"script\": \"run-something\", \"method\": \"main\", \"hidden_arg\": true, \"log_level\": \"debug\", \"arg\": \"hello world\", \"serializer\": \"json\"}, \
+			{ \"key\": \"l1\", \"lang\": \"so\", \"module\": \"module_0\", \"script\": \"run-something\", \"method\": \"main\", \"hidden_arg\": true, \"log_level\": \"debug\", \"arg\": \"hello world\", \"serializer\": \"json\"}, \
 			{ \"key\": \"l2\", \"lang\": \"so\", \"module\": \"module_1\", \"file\": \"path\", \"method\": \"_main\", \"arg\": \"goodbye world\", \"serializer\": \"dsv\"} \
 		] \
 	}\
@@ -134,7 +134,7 @@ void api_test_lang_1() {
     lo = lang_get("l1");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lo);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "run-something", lo->script);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "mruby", lo->lang);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "so", lo->lang);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "main", lo->method);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, L_DEBUG, lo->log_level);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hello world", lo->arg);

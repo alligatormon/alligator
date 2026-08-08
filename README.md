@@ -222,7 +222,7 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 [Here](https://github.com/alligatormon/alligator/blob/master/doc/namespace.md) is an explanation of namespace context and `max_emit`.
 
 ## Lang
-[Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) is a way to run other software to collect metrics.
+[Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) loads a shared library (`.so`) to collect metrics (C/C++/Go/Rust).
 
 ## Actions
 Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. It also provide capability to export data in others databases. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).

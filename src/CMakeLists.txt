@@ -30,8 +30,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 find_package(libuuid REQUIRED)
 find_package(xxHash REQUIRED)
-find_package(lua REQUIRED)
-find_package(duktape REQUIRED)
 find_package(oniguruma REQUIRED)
 find_package(RdKafka QUIET)
 if(NOT RdKafka_FOUND)
@@ -203,7 +201,6 @@ include_directories(/usr/local/include)
 include_directories(/usr/include/postgresql)
 include_directories(/var/lib/smartmontools/drivedb/)
 include_directories(/usr/share/smartmontools/)
-include_directories(external/mruby/include/)
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/include/libnl3)
 include_directories(/usr/local/include/)
@@ -213,14 +210,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include_directories(external/libatasmart/)
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(external/mruby/include)
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
-link_directories(external/mruby/build/host/lib/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 link_directories(/usr/local/lib64/)
-link_directories(external/mruby/build/host/lib/)
 link_directories(external/libatasmart/.libs/)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	link_directories(external/libfyaml/src/.libs/)
@@ -443,10 +437,7 @@ set(STATIC_FILES
 	config/get.c
 	dynconf/sd.c
 	lang/lang.c
-	lang/lua.c
-	lang/mruby.c
 	lang/so.c
-	lang/duktape.c
 	lang/push.c
 	lang/del.c
 	system/common.c
@@ -583,7 +574,7 @@ pkg_check_modules(SYSTEMD "libsystemd" REQUIRED)
 	endif()
 endif()
 endif()
-set(ALLIGATOR_EXTERNAL_STATIC_LIBS libmruby.a libmruby_core.a libpicohttpparser.a)
+set(ALLIGATOR_EXTERNAL_STATIC_LIBS libpicohttpparser.a)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_EXTERNAL_STATIC_LIBS libfyaml.a)
 endif()
@@ -591,7 +582,7 @@ set(ALLIGATOR_COMMON_LIBS
 	# Use pcre::libpcre (not pcre::pcre): the umbrella also links libpcreposix,
 	# which collides with oniguruma's POSIX regcomp/regexec/regfree on Linux.
 	jansson::jansson pcre::libpcre PostgreSQL::PostgreSQL libuuid::libuuid
-	xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig
+	xxHash::xxhash ${LIBUV_DRIVER} oniguruma::onig
 	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS} avrl_static
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -682,7 +673,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL)
@@ -703,14 +694,12 @@ endfunction()
 add_include_flags(include_flags ${CMAKE_INCLUDE_PATH})
 
 
-include_directories(external/mruby/include/)
 include_directories(external/picohttpparser)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include_directories(external/libfyaml/include/)
 endif()
 include_directories(external/libatasmart/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include_directories(external/mruby/include)
 
 
 get_target_property(SRCs ${HEAD} SOURCES)

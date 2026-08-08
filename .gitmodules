@@ -1,6 +1,3 @@
-[submodule "src/external/mruby"]
-	path = src/external/mruby
-	url = https://github.com/mruby/mruby.git
 [submodule "src/external/libfyaml"]
 	path = src/external/libfyaml
 	url = https://github.com/pantoniou/libfyaml.git

@@ -1571,7 +1571,7 @@ static void test_http_api_v1_lang_x509_put_only(void)
 
     const char *lang_body =
         "{\"lang\":[{\"key\":\"ut_api_lang_only\",\"expr\":\"http://127.0.0.1/lang\","
-        "\"lang\":\"lua\",\"method\":\"run\",\"file\":\"/tmp/ut.lua\"}]}";
+        "\"lang\":\"so\",\"method\":\"run\",\"module\":\"go\",\"file\":\"/tmp/ut.txt\"}]}";
     hd.body = (char *)lang_body;
     hd.body_size = strlen(lang_body);
     http_api_v1(resp, &hd, NULL);
