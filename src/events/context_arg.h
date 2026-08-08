@@ -241,6 +241,10 @@ typedef struct context_arg
 	const char *filename;
 	char *path;
 	uint8_t is_dir;
+	/* Optional basename glob (fnmatch) for directory file:// crawl/notify.
+	 * Set via aggregate match=/glob=, or auto-extracted from URL basename
+	 * containing *, ? or [. Example: file:///var/log/postgresql-2026-08-*.csv */
+	char *file_match;
 	//uint64_t offset;
 	uint64_t files_count;
 

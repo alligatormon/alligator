@@ -1950,7 +1950,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 								uint64_t semisep = strcspn(opt_tok+sep+1, ":") + sep;
 								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address") ||
-								    !strcmp(arg_name, "start_pattern") || !strcmp(arg_name, "condition_pattern"))
+								    !strcmp(arg_name, "start_pattern") || !strcmp(arg_name, "condition_pattern") ||
+								    !strcmp(arg_name, "match") || !strcmp(arg_name, "glob"))
 									semisep = toklen;
 								if (!strcmp(arg_name, "metricstransform"))
 									semisep = toklen;

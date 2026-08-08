@@ -32,6 +32,7 @@ void filestat_read_callback(char *buf, size_t len, void *data, char *filename);
 void *file_handler_struct_init(context_arg *carg);
 void file_handler_struct_free(void *fh);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
+void filetailer_apply_path_glob(context_arg *carg);
 char* unix_tcp_client(context_arg* carg);
 void unix_tcp_client_del(context_arg *carg);
 void tcp_client_del(context_arg *carg);
@@ -834,6 +835,42 @@ static void test_filetailer_helpers_paths(void)
     void *fh = file_handler_struct_init(NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fh);
     file_handler_struct_free(fh);
+
+    /* Basename glob in file:// path → dir crawl + match */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/spool/postgres-logs/pg/postgresql-2026-08-*.csv", sizeof(carg.host));
+        carg.path = carg.host;
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/spool/postgres-logs/pg/", carg.path);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "postgresql-2026-08-*.csv", carg.file_match);
+        free(carg.file_match);
+    }
+
+    /* Explicit match= on directory path without trailing slash */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/spool/postgres-logs/pg", sizeof(carg.host));
+        carg.path = carg.host;
+        carg.file_match = strdup("postgresql-2026-08-*.csv");
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/spool/postgres-logs/pg/", carg.path);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "postgresql-2026-08-*.csv", carg.file_match);
+        free(carg.file_match);
+    }
+
+    /* Plain file path without glob stays a single file */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/var/log/messages", sizeof(carg.host));
+        carg.path = carg.host;
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/log/messages", carg.path);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.file_match == NULL);
+    }
 
     string *st = string_new();
     file_stat fs_skip = {0};

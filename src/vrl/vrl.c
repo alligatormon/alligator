@@ -4,6 +4,7 @@
 #include "common/http.h"
 #include "metric/labels.h"
 #include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "main.h"
 #include "json.h"
 #include <inttypes.h>
@@ -163,6 +164,39 @@ static alligator_ht *labels_from_vrl_object(vrl_value *labels)
 	return ht;
 }
 
+static int vrl_metric_wants_update(vrl_value *m)
+{
+	vrl_value *u = vrl_object_get(m, "update", 6);
+	if (!u)
+		return 0;
+	if (u->type == VRL_BOOLEAN)
+		return u->u.boolean != 0;
+	if (u->type == VRL_INTEGER)
+		return u->u.integer != 0;
+	return 0;
+}
+
+static void vrl_maybe_set_prom_type(context_arg *carg, vrl_value *m, const char *name)
+{
+	vrl_value *tv = vrl_object_get(m, "type", 4);
+	if (tv && tv->type == VRL_BYTES && tv->u.bytes.data) {
+		const char *t = tv->u.bytes.data;
+		if (!strcmp(t, "histogram"))
+			namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_HISTOGRAM);
+		else if (!strcmp(t, "counter"))
+			namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_COUNTER);
+		else if (!strcmp(t, "gauge"))
+			namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_GAUGE);
+		else if (!strcmp(t, "summary"))
+			namespace_metric_family_set_prom_type(carg, name, METRIC_TYPE_SUMMARY);
+		return;
+	}
+	/* Prometheus histogram components → TYPE on base name */
+	char base[256];
+	if (prom_family_strip_histogram_suffix(name, base, sizeof(base)))
+		namespace_metric_family_set_prom_type(carg, base, METRIC_TYPE_HISTOGRAM);
+}
+
 static void emit_one_metric(context_arg *carg, vrl_value *m)
 {
 	if (!m || m->type != VRL_OBJECT) {
@@ -185,11 +219,18 @@ static void emit_one_metric(context_arg *carg, vrl_value *m)
 	}
 	alligator_ht *labels = labels_from_vrl_object(vrl_object_get(m, "labels", 6));
 	void *vp = (dtype == DATATYPE_DOUBLE) ? (void *)&d : (void *)&i;
+	int do_update = vrl_metric_wants_update(m);
+	vrl_maybe_set_prom_type(carg, m, namev->u.bytes.data);
 	if (dtype == DATATYPE_DOUBLE)
-		carglog(carg, L_INFO, "vrl: metric_add %s = %.17g\n", namev->u.bytes.data, d);
+		carglog(carg, L_INFO, "vrl: metric_%s %s = %.17g\n",
+			do_update ? "update" : "add", namev->u.bytes.data, d);
 	else
-		carglog(carg, L_INFO, "vrl: metric_add %s = %" PRId64 "\n", namev->u.bytes.data, i);
-	metric_add(namev->u.bytes.data, labels, vp, dtype, carg);
+		carglog(carg, L_INFO, "vrl: metric_%s %s = %" PRId64 "\n",
+			do_update ? "update" : "add", namev->u.bytes.data, i);
+	if (do_update)
+		metric_update(namev->u.bytes.data, labels, vp, dtype, carg);
+	else
+		metric_add(namev->u.bytes.data, labels, vp, dtype, carg);
 }
 
 static void vrl_export_metrics(context_arg *carg, vrl_value *event)

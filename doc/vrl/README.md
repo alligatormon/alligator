@@ -114,3 +114,50 @@ aggregate { vrl file:///var/log/app.log name=app log_level=info; }
 ```
 
 With `log_level=debug` you also get the full JSON event after transform.
+
+### Metric export: `.metric` / `.metrics`
+
+Each object needs `name` (string) and `value` (number/bool). Optional:
+
+| Field | Meaning |
+|-------|---------|
+| `labels` | object of string labels |
+| `update` | if `true`, call `metric_update` (increment) instead of `metric_add` (set) |
+| `type` | `counter` / `gauge` / `histogram` / `summary` — sets Prometheus `# TYPE` |
+
+For Prometheus histograms emit cumulative `_bucket{le=...}` with `"update": true`, plus `_sum` / `_count`. Names ending in `_bucket` / `_sum` / `_count` also auto-mark the base name as `histogram`.
+
+## Glob file sources (PostgreSQL csvlog example)
+
+Basename globs work on `file://` aggregates (see [aggregate.md](../aggregate.md#glob--match-basename-filter)):
+
+```
+vrl {
+    name postgresql_csv;
+    script /etc/alligator/vrl/postgresql_csv.vrl;
+}
+
+aggregate {
+    vrl file:///spool/postgres-logs/pg/postgresql-2026-08-*.csv name=postgresql_csv
+        state=stream
+        start_pattern='^\d{4}-\d{2}-\d{2}'
+        condition_pattern='^\s'
+        multiline_mode=continue_through
+        log_level=info;
+}
+```
+
+Quote patterns that contain `{` / `}` — otherwise the plain tokenizer treats `{` as a context brace and truncates (e.g. `^\d{4}` → `^\d`).
+
+Equivalent:
+
+```
+aggregate {
+    vrl file:///spool/postgres-logs/pg/ match=postgresql-2026-08-*.csv name=postgresql_csv
+        state=stream
+        start_pattern='^\d{4}-\d{2}-\d{2}'
+        condition_pattern='^\s'
+        multiline_mode=continue_through;
+}
+```
+

@@ -339,6 +339,9 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 			json_t *notify = json_string("only");
 			json_array_object_insert(ctx, "notify", notify);
 		}
+
+		if (carg->file_match)
+			json_array_object_insert(ctx, "match", json_string(carg->file_match));
 	}
 
 	if (carg->labels)

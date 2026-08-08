@@ -126,6 +126,10 @@ context_arg *carg_copy(context_arg *src)
 
 	if (src->checksum)
 		carg->checksum = strdup(src->checksum);
+	if (src->file_match)
+		carg->file_match = strdup(src->file_match);
+	else
+		carg->file_match = NULL;
 	if (src->script)
 		carg->script = strdup(src->script);
 
@@ -294,6 +298,8 @@ void carg_free(context_arg *carg)
 
 	if (carg->checksum)
 		free(carg->checksum);
+	if (carg->file_match)
+		free(carg->file_match);
 	if (carg->script)
 		free(carg->script);
 
@@ -777,6 +783,16 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	json_t *json_checksum = json_object_get(root, "checksum");
 	if (json_checksum)
 		carg->checksum = strdup((char*)json_string_value(json_checksum));
+
+	/* Basename glob for file:// directory crawl (alias: match / glob). */
+	json_t *json_file_match = json_object_get(root, "match");
+	if (!json_file_match)
+		json_file_match = json_object_get(root, "glob");
+	if (json_file_match && json_typeof(json_file_match) == JSON_STRING) {
+		const char *fm = json_string_value(json_file_match);
+		if (fm && *fm)
+			carg->file_match = strdup(fm);
+	}
 
 	json_t *json_script = json_object_get(root, "script");
 	if (json_script) {

@@ -440,6 +440,27 @@ file_checksum {path="/etc/fuse.conf", hash="murmur3"} 1032033040
 
 Please note that when parsing files in a directory, the directory path must end with '/' as follows: `file:///var/log/`. This enables the directory walk mode. By default, single file checking is enabled.
 
+### Glob / match (basename filter)
+
+To read only files matching a basename pattern, either put a glob in the URL basename (`*`, `?`, `[...]`) or set `match=` / `glob=` on a directory URL. Matching uses `fnmatch(3)`.
+
+```
+aggregate {
+    # URL basename glob → directory crawl of /spool/postgres-logs/pg/
+    # with match=postgresql-2026-08-*.csv
+    vrl file:///spool/postgres-logs/pg/postgresql-2026-08-*.csv name=postgresql_csv
+        state=stream
+        start_pattern='^\d{4}-\d{2}-\d{2}'
+        condition_pattern='^\s'
+        multiline_mode=continue_through;
+
+    # Equivalent explicit form:
+    # vrl file:///spool/postgres-logs/pg/ match=postgresql-2026-08-*.csv name=postgresql_csv;
+}
+```
+
+Only the **basename** is filtered (no recursive `**` / multi-directory globs). New files that appear later are picked up on the next crawl tick (or via `notify=true`).
+
 
 ## Example of usage reading metrics from a file:
 ```
