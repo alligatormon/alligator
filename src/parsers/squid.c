@@ -258,7 +258,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 
 		char *hashtable = strstr(tmp, "\n\n");
 		hash_table_offset = (hashtable - tmp);
-		if (carg->log_level > 1)
+		if ((carg->log_level ? carg->log_level : ac->log_level) >= L_TRACE)
 		{
 			debug_req = strndup(tmp, hash_table_offset);
 			carglog(carg, L_TRACE, "==== squid debug req ===\n'%s'\n", debug_req);
@@ -296,7 +296,7 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		tmp = hashtable + 10;
 		char *end = strstr(tmp, "} by kid");
 		hash_table_offset = (end - tmp);
-		if (carg->log_level > 1)
+		if ((carg->log_level ? carg->log_level : ac->log_level) >= L_TRACE)
 		{
 			debug_table = strndup(tmp, hash_table_offset);
 			carglog(carg, L_TRACE, "==== squid debug table ===\n'%s'\n", debug_table);

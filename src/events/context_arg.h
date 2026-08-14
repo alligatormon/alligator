@@ -351,6 +351,8 @@ typedef struct context_arg
 	struct log_channel *log_ch;
 	struct log_channel *log_ch_raw;
 	string *log_ch_raw_tail;
+	/* Transformed log sink (VRL .log/.logs, grok, amtail emit_log). Independent of log_ch_raw. */
+	struct log_channel *log_ch_out;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;
@@ -423,6 +425,10 @@ int env_struct_compare(const void *arg, const void *obj);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
 void carglog_raw(context_arg *carg, const char *data, size_t len);
+/* Emit one transformed log line/document to carg->log_ch_out (no-op if unset). */
+void carg_emit_log(context_arg *carg, const char *data, size_t len);
+/* Emit a flat JSON document to carg->log_ch_out (does not wrap as {"message":...}). */
+void carg_emit_log_document(context_arg *carg, json_t *doc);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
 

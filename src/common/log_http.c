@@ -595,24 +595,32 @@ void log_http_sink_close(log_channel *ch)
 		log_http_sink_destroy(sink);
 }
 
-int log_http_sink_write(log_channel *ch, const char *data, size_t len)
+int log_http_sink_write(log_channel *ch, const char *data, size_t len, const char *kind)
 {
 	log_http_sink *sink;
 	char *copy;
 
 	if (!ch || !data || !len)
 		return -1;
+	if (!kind || !kind[0])
+		kind = "unknown";
 
 	sink = ch->http_sink;
-	if (!sink || sink->closing)
+	if (!sink || sink->closing) {
+		log_channel_account(ch, kind, "dropped", "disconnected");
 		return -1;
+	}
 
-	if (!log_http_is_connected(sink))
+	if (!log_http_is_connected(sink)) {
+		log_channel_account(ch, kind, "dropped", "disconnected");
 		return -1;
+	}
 
 	copy = malloc(len);
-	if (!copy)
+	if (!copy) {
+		log_channel_account(ch, kind, "error", "oom");
 		return -1;
+	}
 	memcpy(copy, data, len);
 
 	pthread_mutex_lock(&sink->lock);
@@ -620,6 +628,7 @@ int log_http_sink_write(log_channel *ch, const char *data, size_t len)
 	{
 		pthread_mutex_unlock(&sink->lock);
 		free(copy);
+		log_channel_account(ch, kind, "dropped", "busy");
 		return -1;
 	}
 
@@ -628,6 +637,7 @@ int log_http_sink_write(log_channel *ch, const char *data, size_t len)
 	pthread_mutex_unlock(&sink->lock);
 
 	log_http_schedule_drain(sink);
+	log_channel_account(ch, kind, "sent", NULL);
 	return 0;
 }
 

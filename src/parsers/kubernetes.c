@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/json_query.h"
@@ -43,7 +44,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -61,8 +62,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 			json_t *rule = json_array_get(rules, j);
 			json_t *host_json = json_object_get(rule, "host");
 			char *host = (char*)json_string_value(host_json);
-			if (carg->log_level > 0)
-				printf("ingress host is %s\n", host);
+			carglog(carg, L_DEBUG, "ingress host is %s\n", host);
 
 			json_t *http = json_object_get(rule, "http");
 			char *keyhost = malloc((json_string_length(host_json)+10));
@@ -91,8 +91,7 @@ void kubernetes_ingress_handler(char *metrics, size_t size, context_arg *carg)
 			json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
 			json_array_object_insert(aggregate_add_label, "name", aggregate_name);
 			char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
-			if (carg->log_level > 1)
-				puts(dvalue);
+			carglog(carg, L_TRACE, "%s\n", dvalue);
 			http_api_v1(NULL, NULL, dvalue);
 			free(dvalue);
 			free(keyhost);
@@ -119,7 +118,7 @@ void kubernetes_endpoint_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

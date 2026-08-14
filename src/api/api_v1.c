@@ -81,8 +81,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 		code = 400;
 		snprintf(status, 100, "Bad Request");
 		snprintf(respbody, 1000, "json error on line %d: %s\n", error.line, error.text);
-		if (ac->log_level > 0)
-			fprintf(stderr, "%s", respbody);
+		glog(L_DEBUG, "%s", respbody);
 	}
 
 	if (root)
@@ -234,7 +233,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				if (json_typeof(value) == JSON_STRING) {
 					const char *hashfunc = json_string_value(value);
 					if (!hashfunc) {
-						fprintf(stderr, "error, metrictree_hashfunc is null\n");
+						glog(L_ERROR, "error, metrictree_hashfunc is null\n");
 					}
 					if (!strcmp(hashfunc, "lookup3")) {
 						ac->metrictree_hashfunc = alligator_ht_strhash;
@@ -254,7 +253,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 				}
 				else
-					fprintf(stderr, "error, metrictree_hashfunc is not a string\n");
+					glog(L_ERROR, "error, metrictree_hashfunc is not a string\n");
 			}
 			if (!strcmp(key, "modules"))
 			{
@@ -312,7 +311,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					grok_patterns_init();
 				}
 				else
-					fprintf(stderr, "error, grok_patterns is not an array\n");
+					glog(L_ERROR, "error, grok_patterns is not an array\n");
 			}
 			if (!strcmp(key, "grok"))
 			{
@@ -679,6 +678,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					json_t *carg_log_channel_raw = json_object_get(entrypoint, "log_channel_raw");
 					if (carg_log_channel_raw && json_typeof(carg_log_channel_raw) == JSON_STRING)
 						carg->log_ch_raw = log_channel_get(json_string_value(carg_log_channel_raw));
+
+					json_t *carg_log_channel_out = json_object_get(entrypoint, "log_channel_out");
+					if (carg_log_channel_out && json_typeof(carg_log_channel_out) == JSON_STRING)
+						carg->log_ch_out = log_channel_get(json_string_value(carg_log_channel_out));
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
@@ -1130,8 +1133,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					code = 400;
 					snprintf(status, 100, "Bad Request");
 					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}\n");
-					if (ac->log_level > 0)
-						fprintf(stderr, "%s", respbody);
+					glog(L_DEBUG, "%s", respbody);
 				}
 				else
 				{
@@ -1501,8 +1503,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					code = 202;
 					snprintf(status, 100, "Accepted");
 					snprintf(respbody, 1000, "{\"success\": \"accepted\"}\n");
-					if (ac->log_level > 0)
-						fprintf(stderr, "%s", respbody);
+					glog(L_DEBUG, "%s", respbody);
 				}
 			}
 			if (!strcmp(key, "aggregate"))

@@ -1,4 +1,5 @@
 #include "stdlib.h"
+#include "string.h"
 #include "query/type.h"
 #include "action/type.h"
 #include "metric/labels.h"
@@ -8,6 +9,7 @@
 #include "common/url.h"
 #include "common/json_query.h"
 #include "common/logs.h"
+#include "common/aggregator.h"
 #include "events/context_arg.h"
 #include "parsers/multiparser.h"
 #include "common/http.h"
@@ -57,8 +59,57 @@ void action_query_foreach_process(query_struct *qs, action_node *an, void *val, 
 	free(current_carg);
 }
 
+char *action_aggregator_key(const char *scheduler_name, const char *url, size_t url_len, const char *parser_name, const char *base_override)
+{
+	char base[512];
+	base[0] = 0;
+
+	if (base_override && *base_override)
+		strlcpy(base, base_override, sizeof(base));
+	else if (scheduler_name && *scheduler_name && url && url_len)
+	{
+		host_aggregator_info *hi = parse_url((char *)url, url_len);
+		if (hi)
+		{
+			smart_aggregator_default_key(base,
+				hi->transport_string,
+				parser_name ? parser_name : "NULL",
+				hi->host,
+				hi->port,
+				hi->query);
+			url_free(hi);
+		}
+	}
+
+	if (!scheduler_name || !*scheduler_name)
+	{
+		if (base[0])
+			return strdup(base);
+		return NULL;
+	}
+
+	char *key = malloc(512);
+	if (!key)
+		return NULL;
+	if (base[0])
+		snprintf(key, 512, "scheduler:%s:%s", scheduler_name, base);
+	else
+		snprintf(key, 512, "scheduler:%s", scheduler_name);
+	smart_aggregator_key_normalize(key);
+	return key;
+}
+
+static context_arg *action_run_oneshot(action_node *an, context_arg *oneshot_carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, char *key_base, void *data, char *s_stdin, size_t l_stdin, string *work_dir, alligator_ht *env, const char *scheduler_name)
+{
+	if (an->dry_run)
+		return NULL;
+
+	char *key = action_aggregator_key(scheduler_name, url, url_len, parser_name, key_base);
+	return aggregator_oneshot(oneshot_carg, url, url_len, mesg, mesg_len, handler, parser_name, NULL, key, an->follow_redirects, data, s_stdin, l_stdin, work_dir, env);
+}
+
 // custom mqc
-void action_run_process(char *name, char *namespace, metric_query_context *mqc)
+void action_run_process(char *name, char *namespace, metric_query_context *mqc, const char *scheduler_name)
 {
 	if (!name)
 		return;
@@ -110,8 +161,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	if (!strncmp(an->expr, "exec://", 7))
 	{
 		glog(log_level, "run action exec %s with cmd: '%s' from directory '%s'\n", name, an->expr, work_dir);
-		if (!an->dry_run)
-			aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, body->s, body->l, work_dir, an->env); // params pass for exec in stdin
+		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, body->s, body->l, work_dir, an->env, scheduler_name);
 	}
 	else if (!strncmp(an->expr, "http", 4))
 	{
@@ -127,13 +177,12 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
-				char *key = malloc(256);
-				snprintf(key, 256, "%s:clickhouse_action_query:%zu", hi->host, ms->str[i]->l);
+				char key_base[256];
+				snprintf(key_base, 256, "%s:clickhouse_action_query:%zu", hi->host, ms->str[i]->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				glog(log_level, "run action clickhouse %s\n", name);
-				if (!an->dry_run)
-					aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
+				action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -152,14 +201,13 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 				action_merge_action_env(env, an);
 				env_struct_push_alloc(env, "Content-Length", cl);
 
-				char *key = malloc(256);
-				snprintf(key, 256, "%s:postgresql_action_query:%zu", hi->host, ms->str[i]->l);
-				printf("ms %s: %"u64"\n", ms->str[i]->s, ms->l);
+				char key_base[256];
+				snprintf(key_base, 256, "%s:postgresql_action_query:%zu", hi->host, ms->str[i]->l);
+				glog(log_level, "ms %s: %"u64"\n", ms->str[i]->s, ms->l);
 
 				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 				glog(log_level, "run action pg %s\n", name);
-				if (!an->dry_run)
-					aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
+				action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
 				alligator_ht_foreach_arg(env, env_struct_free, env);
 				alligator_ht_done(env);
@@ -187,8 +235,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 			size_t http_data_size = action_http_query_size_with_body(http_data, body->l);
 			free(body->s);
 			glog(log_level, "run action http %s\n", name);
-			if (!an->dry_run)
-				aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, env); // params pass for other in body
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, NULL, 0, NULL, env, scheduler_name);
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
 			free(env);
@@ -234,18 +281,14 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc)
 	else if (!strncmp(an->expr, "udp", 3))
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
-		if (!an->dry_run) {
-			context_arg *carg = aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, an->env); // params pass for other in body
-			if (carg) {
-				carg->timeout = 1000;
-			}
-		}
+		context_arg *carg = action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
+		if (carg)
+			carg->timeout = 1000;
 	}
 	else
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
-		if (!an->dry_run)
-			aggregator_oneshot(oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, an->follow_redirects, NULL, NULL, 0, NULL, an->env); // params pass for other in body
+		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
 	}
 
 	if (ms)
@@ -258,6 +301,6 @@ void action_namespaced_run(char *action_name, char *key, metric_query_context *m
 {
 	char ns[255];
 	snprintf(ns, 254, "action:%s", key);
-	action_run_process(action_name, ns, mqc);
+	action_run_process(action_name, ns, mqc, NULL);
 }
 

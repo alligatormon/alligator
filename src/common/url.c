@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "url.h"
 #include "base64.h"
+#include "common/logs.h"
 #include "main.h"
 void url_set_proto(host_aggregator_info *hi, char **tmp, char *match, size_t size, int8_t proto, int8_t transport, char *transport_string, uint8_t tls)
 {
@@ -151,61 +152,57 @@ void url_get_query(host_aggregator_info *hi, char *tmp)
 
 void url_dump(host_aggregator_info *hi)
 {
-	extern aconf *ac;
 	if (!hi)
 		return;
 
-	if (ac && ac->log_level > 1)
-	{
-		printf("===url dump===\n");
-		if (hi->transport == APROTO_DTLS)
-			puts("transport: DTLS");
-		if (hi->transport == APROTO_TLS)
-			puts("transport: TLS");
-		if (hi->transport == APROTO_TCP)
-			puts("transport: TCP");
-		if (hi->transport == APROTO_UDP)
-			puts("transport: UDP");
-		if (hi->transport == APROTO_PROCESS)
-			puts("transport: run process");
-		if (hi->transport == APROTO_FILE)
-			puts("transport: open file");
-		if (hi->transport == APROTO_ICMP)
-			puts("transport: icmp");
+	glog(L_DEBUG, "===url dump===\n");
+	if (hi->transport == APROTO_DTLS)
+		glog(L_DEBUG, "transport: DTLS\n");
+	if (hi->transport == APROTO_TLS)
+		glog(L_DEBUG, "transport: TLS\n");
+	if (hi->transport == APROTO_TCP)
+		glog(L_DEBUG, "transport: TCP\n");
+	if (hi->transport == APROTO_UDP)
+		glog(L_DEBUG, "transport: UDP\n");
+	if (hi->transport == APROTO_PROCESS)
+		glog(L_DEBUG, "transport: run process\n");
+	if (hi->transport == APROTO_FILE)
+		glog(L_DEBUG, "transport: open file\n");
+	if (hi->transport == APROTO_ICMP)
+		glog(L_DEBUG, "transport: icmp\n");
 
-		if (hi->proto == APROTO_DTLS)
-			puts("proto: DTLS");
-		if (hi->proto == APROTO_TLS)
-			puts("proto: TLS");
-		if (hi->proto == APROTO_TCP)
-			puts("proto: TCP");
-		if (hi->proto == APROTO_UDP)
-			puts("proto: UDP");
-		if (hi->proto == APROTO_PROCESS)
-			puts("proto: run process");
-		if (hi->proto == APROTO_FILE)
-			puts("proto: open file");
-		if (hi->proto == APROTO_ICMP)
-			puts("proto: icmp");
-		if (hi->proto == APROTO_FCGI)
-			puts("proto: fastcgi");
-		if (hi->proto == APROTO_HTTP)
-			puts("proto: http");
-		if (hi->proto == APROTO_RESOLVER)
-			puts("proto: resolver");
+	if (hi->proto == APROTO_DTLS)
+		glog(L_DEBUG, "proto: DTLS\n");
+	if (hi->proto == APROTO_TLS)
+		glog(L_DEBUG, "proto: TLS\n");
+	if (hi->proto == APROTO_TCP)
+		glog(L_DEBUG, "proto: TCP\n");
+	if (hi->proto == APROTO_UDP)
+		glog(L_DEBUG, "proto: UDP\n");
+	if (hi->proto == APROTO_PROCESS)
+		glog(L_DEBUG, "proto: run process\n");
+	if (hi->proto == APROTO_FILE)
+		glog(L_DEBUG, "proto: open file\n");
+	if (hi->proto == APROTO_ICMP)
+		glog(L_DEBUG, "proto: icmp\n");
+	if (hi->proto == APROTO_FCGI)
+		glog(L_DEBUG, "proto: fastcgi\n");
+	if (hi->proto == APROTO_HTTP)
+		glog(L_DEBUG, "proto: http\n");
+	if (hi->proto == APROTO_RESOLVER)
+		glog(L_DEBUG, "proto: resolver\n");
 
 
-		printf("port: %s\n", hi->port);
+	glog(L_DEBUG, "port: %s\n", hi->port);
 
-		if (hi->host)
-			printf("address: %s\n", hi->host);
-		if (hi->host_header)
-			printf("header 'Host': %s\n", hi->host_header);
-		if (hi->query)
-			printf("query: %s\n", hi->query);
-		if (hi->auth)
-			puts("auth enable");
-	}
+	if (hi->host)
+		glog(L_DEBUG, "address: %s\n", hi->host);
+	if (hi->host_header)
+		glog(L_DEBUG, "header 'Host': %s\n", hi->host_header);
+	if (hi->query)
+		glog(L_DEBUG, "query: %s\n", hi->query);
+	if (hi->auth)
+		glog(L_DEBUG, "auth enable\n");
 }
 
 // http://example.com

@@ -261,7 +261,7 @@ typedef struct aconf
 	ngram_index_t *drivedb;
 
 	int8_t system_platform;
-	int log_level; // 0 - no logs, 1 - err only, 2 - all queries logging, 3 - verbosity
+	int log_level; // L_OFF .. L_TRACE (see src/common/logs.h / doc/logging.md)
 	int log_socket;
 	int log_form;
 	int log_time;

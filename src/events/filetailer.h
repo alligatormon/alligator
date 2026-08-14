@@ -10,3 +10,4 @@ void filetailer_shutdown(void);
 void filestat_restore();
 /* Used by unit tests; also called from filetailer_handler. */
 void filetailer_apply_path_glob(context_arg *carg);
+uint8_t filetailer_wants_content_read(context_arg *carg);

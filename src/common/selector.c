@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "common/validator.h"
 //#include "platform/platform.h"
@@ -16,6 +17,7 @@
 #include "metric/namespace.h"
 
 #define PLAIN_METRIC_SIZE 1000
+#include "common/logs.h"
 
 size_t get_file_size(const char *filename)
 {
@@ -810,7 +812,7 @@ void string_tokens_print(string_tokens *st)
 {
 	for (uint64_t i = 0; i < st->l; i++)
 	{
-		printf("token[%"PRIu64"]: '%s'\n", i, st->str[i]->s);
+		glog(L_TRACE, "token[%"PRIu64"]: '%s'\n", i, st->str[i]->s);
 	}
 }
 
@@ -884,7 +886,7 @@ void match_push(match_rules *mrules, char *str, size_t len)
 		node->re_compiled = pcre_compile(strnormalized, 0, &pcreErrorStr, &pcreErrorOffset, NULL);
 		if(!node->re_compiled)
 		{
-			printf("ERROR: Could not compile '%s': %s\n", strnormalized, pcreErrorStr);
+			glog(L_ERROR, "ERROR: Could not compile '%s': %s\n", strnormalized, pcreErrorStr);
 			free(node);
 			return;
 		}
@@ -892,7 +894,7 @@ void match_push(match_rules *mrules, char *str, size_t len)
 		node->pcre_extra = pcre_study(node->re_compiled, PCRE_STUDY_JIT_COMPILE, &pcreErrorStr);
 		if(pcreErrorStr)
 		{
-			printf("ERROR: Could not study '%s': %s\n", strnormalized, pcreErrorStr);
+			glog(L_ERROR, "ERROR: Could not study '%s': %s\n", strnormalized, pcreErrorStr);
 			free(node);
 			return;
 		}
@@ -1028,8 +1030,7 @@ string* get_file_content(char *file, uint8_t error_logging)
 	{
 		if (error_logging)
 		{
-			fprintf(stderr, "Open config file failed: %s", file);
-			perror(": ");
+			glog(L_ERROR, "Open config file failed: %s: %s\n", file, strerror(errno));
 		}
 		return 0;
 	}

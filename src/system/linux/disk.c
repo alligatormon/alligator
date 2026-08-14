@@ -168,7 +168,7 @@ int nvme_smart_get(char *dev, char *controller, char *disk) {
 
 uint64_t nvme_info()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: disks: nvme\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: disks: nvme\n");
 
 	int disk_num = 0;
 
@@ -197,7 +197,7 @@ uint64_t nvme_info()
 		if (!dir_disk)
 			continue;
 
-	    carglog(ac->system_carg, L_INFO, "system scrape metrics: disks: controller: %s from dev %s\n", controller->d_name, controllerpath);
+		carglog(ac->system_carg, L_TRACE, "nvme scrape controller: %s from dev %s\n", controller->d_name, controllerpath);
 		disk_num += nvme_ioctl_stat(controllerpath, controller->d_name, controller->d_name);
 		while((disk = readdir(dir_disk)))
 		{
@@ -206,7 +206,7 @@ uint64_t nvme_info()
 
 			char diskpath[2048];
 			snprintf(diskpath, 2047, "%s/%s", "/dev", disk->d_name);
-	    	carglog(ac->system_carg, L_INFO, "system scrape metrics: disks: controller: %s from dev %s, disk: %s\n", controller->d_name, controllerpath, disk->d_name);
+			carglog(ac->system_carg, L_TRACE, "nvme scrape disk: %s from dev %s\n", disk->d_name, diskpath);
 			nvme_smart_get(diskpath, controller->d_name, disk->d_name);
 		}
 		closedir(dir_disk);

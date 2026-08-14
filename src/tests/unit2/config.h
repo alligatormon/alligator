@@ -163,7 +163,7 @@ void test_logs_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp_ch);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_tcp(tcp_ch));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
-        log_tcp_sink_write(tcp_ch, "dropped\n", 8));
+        log_tcp_sink_write(tcp_ch, "dropped\n", 8, "diag"));
     log_tcp_sink_close(tcp_ch);
 
     log_channel *elastic_ch = log_channel_upsert("elastic-tcp", "tcp://127.0.0.1:59999", -1, -1, NULL,
@@ -203,12 +203,16 @@ void test_logs_helpers()
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_kafka(kafka_ch));
     }
     {
+        /* Flood only exercises librdkafka queue drops; skip Prom accounting noise. */
+        context_arg *saved_system_carg = ac->system_carg;
         size_t i;
         char msg[64];
+        ac->system_carg = NULL;
         for (i = 0; i < 20000; i++) {
             snprintf(msg, sizeof(msg), "kafka flood %zu\n", i);
-            log_kafka_sink_write(kafka_ch, msg, strlen(msg));
+            log_kafka_sink_write(kafka_ch, msg, strlen(msg), "diag");
         }
+        ac->system_carg = saved_system_carg;
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_kafka_sink_dropped(kafka_ch) > 0);
     }
     log_kafka_sink_close(kafka_ch);
@@ -401,6 +405,101 @@ void test_mkdirp_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, d1);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator/", d1);
     free(d1);
+}
+
+void test_log_channel_shipper_metrics()
+{
+    context_arg *saved_system_carg = ac->system_carg;
+    log_channel *file_ch;
+    log_channel *tcp_ch;
+    log_channel *http_ch;
+    log_channel *kafka_ch;
+    context_arg carg = {0};
+    const char *file_path = "/tmp/alligator-ut2-lc-metrics.log";
+
+    ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->system_carg);
+
+    /* Direct account API */
+    {
+        log_channel fake = {0};
+        fake.name = "ut-lc-account";
+        log_channel_account(&fake, "raw", "sent", NULL);
+        log_channel_account(&fake, "out", "dropped", "queue_full");
+        log_channel_account(&fake, "diag", "error", "produce");
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_sent_total{channel=\"ut-lc-account\",kind=\"raw\"}",
+            "alligator_log_channel_sent_total", 1);
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_dropped_total{channel=\"ut-lc-account\",kind=\"out\",reason=\"queue_full\"}",
+            "alligator_log_channel_dropped_total", 1);
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_errors_total{channel=\"ut-lc-account\",kind=\"diag\",reason=\"produce\"}",
+            "alligator_log_channel_errors_total", 1);
+    }
+
+    /* FD path: raw + out */
+    unlink(file_path);
+    file_ch = log_channel_upsert("ut-lc-file", "file:///tmp/alligator-ut2-lc-metrics.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, file_ch);
+    carg.transport = APROTO_FILE;
+    carg.key = "file://ut-lc";
+    log_channel_write_raw_kind(file_ch, &carg, "raw-kind\n", 9, "raw");
+    carg.log_ch_out = file_ch;
+    carg_emit_log(&carg, "out-kind\n", 9);
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_sent_total{channel=\"ut-lc-file\",kind=\"raw\"}",
+        "alligator_log_channel_sent_total", 1);
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_sent_total{channel=\"ut-lc-file\",kind=\"out\"}",
+        "alligator_log_channel_sent_total", 1);
+    if (file_ch->socket > 2)
+        close(file_ch->socket);
+
+    /* TCP disconnected drop */
+    tcp_ch = log_channel_upsert("ut-lc-tcp", "tcp://127.0.0.1:59998", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        log_tcp_sink_write(tcp_ch, "drop-tcp\n", 9, "diag"));
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-tcp\",kind=\"diag\",reason=\"disconnected\"}",
+        "alligator_log_channel_dropped_total", 1);
+    log_tcp_sink_close(tcp_ch);
+
+    /* HTTP disconnected drop */
+    http_ch = log_channel_upsert("ut-lc-http", "http://127.0.0.1:59997/bulk", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        log_http_sink_write(http_ch, "drop-http\n", 10, "out"));
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-http\",kind=\"out\",reason=\"disconnected\"}",
+        "alligator_log_channel_dropped_total", 1);
+    log_http_sink_close(http_ch);
+
+    /* Kafka: one produce with tiny queue is enough for queue_full accounting */
+    kafka_ch = log_channel_upsert("ut-lc-kafka", "kafka://127.0.0.1:9092/alligator-ut-lc", -1, -1, NULL,
+        LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, kafka_ch);
+    {
+        json_t *kopts = json_object();
+        json_object_set_new(kopts, "queue.buffering.max.messages", json_integer(1));
+        json_object_set_new(kopts, "linger.ms", json_integer(5000));
+        log_channel_set_kafka(kafka_ch, NULL, kopts);
+        json_decref(kopts);
+        log_channel_open(kafka_ch);
+        log_kafka_sink_write(kafka_ch, "a\n", 2, "raw");
+        log_kafka_sink_write(kafka_ch, "b\n", 2, "raw");
+        log_kafka_sink_write(kafka_ch, "c\n", 2, "raw");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_kafka_sink_dropped(kafka_ch) > 0);
+    }
+    metric_test_run(CMP_GREATER,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-kafka\",kind=\"raw\",reason=\"queue_full\"}",
+        "alligator_log_channel_dropped_total", 0);
+    log_kafka_sink_close(kafka_ch);
+
+    free(ac->system_carg);
+    ac->system_carg = saved_system_carg;
 }
 
 void test_dpkg_list_helpers()
@@ -2269,6 +2368,51 @@ void test_log_channel_raw_plain_parse()
         json_string_value(json_object_get(ag0, "log_channel_raw")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "log",
         json_string_value(json_object_get(ag0, "handler")));
+
+    json_decref(root);
+}
+
+void test_log_channel_out_plain_parse()
+{
+    const char *conf =
+        "log_channel {\n"
+        "  name pg-json;\n"
+        "  dest kafka://127.0.0.1:9092/pg-transformed;\n"
+        "  log_format json;\n"
+        "}\n"
+        "aggregate {\n"
+        "  vrl \"file:///var/log/postgresql.csv\" name=pg log_channel_out=pg-json;\n"
+        "}\n"
+        "entrypoint {\n"
+        "  handler mtail;\n"
+        "  tcp 3903;\n"
+        "  log_channel_out pg-json;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    json_t *ag0 = json_array_get(aggregate, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-json",
+        json_string_value(json_object_get(ag0, "log_channel_out")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "vrl",
+        json_string_value(json_object_get(ag0, "handler")));
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-json",
+        json_string_value(json_object_get(ep0, "log_channel_out")));
 
     json_decref(root);
 }

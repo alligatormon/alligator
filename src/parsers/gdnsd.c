@@ -2,6 +2,7 @@
 #include <jansson.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/json_query.h"
 #include "common/aggregator.h"
 #include "metric/metric_types.h"
@@ -18,7 +19,7 @@ int8_t gdnsd_validator(context_arg *carg, char *data, size_t size)
 	json_t *root = json_loads(data+8, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return 0;
 	}
 	return 1;

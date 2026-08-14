@@ -1,6 +1,6 @@
-#include <stdio.h>
 #include "rtime.h"
 #include <inttypes.h>
+#include "common/logs.h"
 #define d64 PRId64
 #define u64 PRIu64
 #ifdef __MACH__
@@ -34,7 +34,7 @@ void getrtime(r_time t1, r_time t2)
 {
 	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
 	double delta_sec = (double)delta_ns / 1000000000.0;
-	printf("complete for: %.09f sec\n", delta_sec);
+	glog(L_TRACE, "complete for: %.09f sec\n", delta_sec);
 }
 
 uint64_t getrtime_ns(r_time t1, r_time t2)
@@ -50,7 +50,7 @@ uint64_t getrtime_mcs(r_time t1, r_time t2, int debug)
 	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
 	uint64_t ret = (delta_ns <= 0) ? 0 : (uint64_t)(delta_ns / 1000);
 	if (debug)
-		printf("complete for: %.09f sec (%d - %d sec, %d - %d nsec), ret: %"u64"\n",
+		glog(L_TRACE, "complete for: %.09f sec (%d - %d sec, %d - %d nsec), ret: %"u64"\n",
 			   (double)delta_ns / 1000000000.0, t2.sec, t1.sec, t2.nsec, t1.nsec, ret);
 	return ret;
 }

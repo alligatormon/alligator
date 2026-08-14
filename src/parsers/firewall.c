@@ -8,6 +8,7 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
+#include "common/logs.h"
 #include "main.h"
 #define IPTABLES_LEN 1024
 #define IPTABLES_ARGS " -L -v -x -n"
@@ -86,8 +87,7 @@ void firewall_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			uint64_t cursor = 0;
 
-			if (ac->log_level > 0)
-				printf("firewall field '%s'\n", field);
+			carglog(carg, L_DEBUG, "firewall field '%s'\n", field);
 
 			int64_t pkts = uint_get_next(field, field_size, ' ', &cursor);
 			int64_t bytes = uint_get_next(field, field_size, ' ', &cursor);

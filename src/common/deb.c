@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
+#include "common/logs.h"
 #include "events/fs_read.h"
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
@@ -75,8 +76,7 @@ void dpkg_list(char *str, size_t len)
 			*releasename = 0;
 		}
 
-		if (ac->log_level > 2)
-			printf("package: %s, version: %s, releasename: %s\n", pkgname, versionname, releasename);
+		glog(L_TRACE, "package: %s, version: %s, releasename: %s\n", pkgname, versionname, releasename);
 
 		if (match)
 			metric_add_labels3("package_installed", &datetime, DATATYPE_UINT, ac->system_carg, "name", pkgname, "release", releasename, "version", versionname);

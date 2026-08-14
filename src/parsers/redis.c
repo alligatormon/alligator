@@ -3,6 +3,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "parsers/multiparser.h"
@@ -25,8 +26,7 @@ void redis_keys_free(char **redis_keys)
 
 void redis_query(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 0)
-		puts(metrics);
+	carglog(carg, L_TRACE, "redis query scrape payload size: %zu\n", size);
 
 	char **redis_keys = carg->data;
 
@@ -42,8 +42,7 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 		uint64_t cur = i;
 		cur += strcspn(metrics + cur, " \n");
 		cur += strspn(metrics + cur, " \n");
-		if (carg->log_level > 0)
-			printf("metric name is %s\n", redis_keys[j]);
+		carglog(carg, L_DEBUG, "metric name is %s\n", redis_keys[j]);
 
 		metric_name_normalizer(redis_keys[j], strlen(redis_keys[j]));
 
@@ -55,15 +54,13 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 		uint64_t copysize = strcspn(metrics + cur, "\r");
 		if (!copysize)
 		{
-			if (carg->log_level > 0)
-				printf("metric value size is 0, error\n");
+			carglog(carg, L_WARN, "metric value size is 0, error\n");
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 		size_t metricvalue_copy = copysize < (sizeof(metricvalue) - 1) ? copysize : (sizeof(metricvalue) - 1);
 		strlcpy(metricvalue, metrics + cur, metricvalue_copy + 1);
-		if (carg->log_level > 0)
-			printf("metric value is %s\n", metricvalue);
+		carglog(carg, L_DEBUG, "metric value is %s\n", metricvalue);
 
 		if (metric_value_validator(metricvalue, copysize-1))
 		{
@@ -95,8 +92,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	uint64_t num_elements = strtoull(metrics+1, NULL, 10);
 	if (!num_elements)
 	{
-		if (carg->log_level > 1)
-			printf("num of elements %"u64", error\n", num_elements);
+		carglog(carg, L_WARN, "num of elements %"u64", error\n", num_elements);
 		return;
 	}
 	char **redis_keys = calloc(1, (num_elements + 1) * sizeof(void*));
@@ -112,8 +108,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 		// ITEM third_metric
 		if ((*field != '$') && (*field != '*'))
 		{
-			if (carg->log_level > 2)
-				puts("is item");
+			carglog(carg, L_TRACE, "is item\n");
 
 			copysize = strcspn(field, " \t\n");
 			string_cat(get_query, " ", 1);
@@ -132,8 +127,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	char *key = malloc(512);
 	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
-	if (carg->log_level > 0)
-		printf("redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
+	carglog(carg, L_DEBUG, "redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, redis_query, "redis_query", NULL, key, redis_keys);
 	carg->parser_status = 1;
 }
@@ -143,11 +137,8 @@ void redis_queries_foreach(void *funcarg, void* arg)
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
 
-	if (carg->log_level > 1)
-	{
-		puts("+-+-+-+-+-+-+-+");
-		printf("run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
-	}
+	carglog(carg, L_DEBUG, "+-+-+-+-+-+-+-+\n");
+	carglog(carg, L_DEBUG, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 
 	if (!strncmp(qn->expr, "glob", 4))
 	{
@@ -215,8 +206,7 @@ void redis_queries(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		if (carg->log_level > 1)
-			printf("found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_DEBUG, "found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, redis_queries_foreach, carg);
@@ -744,8 +734,7 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 	{
 		*field = 0;
 		str_get_next(tmp, field, REDIS_NAME_SIZE, "\r\n", &i);
-		if (carg->log_level > 1)
-			printf("redis latency field:\n'%s', %"u64"\n", field, i);
+		carglog(carg, L_DEBUG, "redis latency field:\n'%s', %"u64"\n", field, i);
 		if (field[0] == '$')
 			continue;
 		if (field[0] == 0)
@@ -757,8 +746,7 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 			if (arg == 1)
 			{
 				metric_data = strtoll(field + 1, NULL, 10);
-				if (carg->log_level > 1)
-					printf("metric: '%s', indicator: '%s', data: %"u64"\n", metric_name, indicator, metric_data);
+				carglog(carg, L_DEBUG, "metric: '%s', indicator: '%s', data: %"u64"\n", metric_name, indicator, metric_data);
 				metric_add_labels(metric_name, &metric_data, DATATYPE_INT, carg, "operation", indicator);
 			}
 			++arg;
@@ -766,8 +754,7 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 		else
 		{
 			strlcpy(indicator, field, REDIS_NAME_SIZE);
-			if (carg->log_level > 1)
-				printf("indicator: %s\n", indicator);
+			carglog(carg, L_DEBUG, "indicator: %s\n", indicator);
 			arg = 0;
 		}
 	}

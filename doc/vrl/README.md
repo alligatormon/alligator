@@ -158,6 +158,44 @@ This is the same idea as mtail `histogram … buckets …`, not a Vector VRL fea
 You can still emit raw `_bucket` / `_sum` / `_count` series yourself with
 `"update": true` if you need full control.
 
+### Log export: `.log` / `.logs` → `log_channel_out`
+
+> **Deviation from Vector VRL.** Shipping remapped events to a sink is not part
+> of standard VRL. Alligator only emits logs when the script sets **explicit**
+> `.log` or `.logs`, and the aggregate/entrypoint has `log_channel_out` set.
+> Metrics (`.metrics`) and logs are independent — both can fire on the same record.
+
+| Field | Meaning |
+|-------|---------|
+| `.log` | one string (plain body) or one **flat object** (JSON document) |
+| `.logs` | array of strings and/or flat objects |
+
+Objects are written as **flat** JSON documents (not nested under `message`).
+Strings go through `log_channel_write_raw` (json/elastic channels wrap them as `message`).
+
+```
+.log = {
+  "database": .database_name,
+  "query": .query,
+  "application_name": .application_name,
+  "message": .pg_message
+}
+.metrics = [{ "name": "postgresql_log_lines_total", "value": 1, "update": true, "labels": { "database": .database_name } }]
+```
+
+```
+aggregate {
+    vrl file:///var/log/pg.csv name=postgresql_csv
+        log_channel_out=pg-json
+        start_pattern='^\d{4}-\d{2}-\d{2}'
+        condition_pattern='^\s'
+        multiline_mode=continue_through;
+}
+```
+
+Without `.log` / `.logs`, nothing is sent to `log_channel_out` (metrics-only).
+See also `log_channel_raw` for untransformed passthrough.
+
 ## Glob file sources (PostgreSQL csvlog example)
 
 Basename globs work on `file://` aggregates (see [aggregate.md](../aggregate.md#glob--match-basename-filter)):

@@ -23,6 +23,13 @@ Plural: no
 A template used to match a log string. The captured fields are extracted and added as labels.
 
 
+## log\_channel\_out (transformed logs)
+When the aggregate/entrypoint sets `log_channel_out` and a line **matches**, Alligator
+emits one **flat** JSON document to that channel: named captures plus `message`
+(the matched line). Metrics are still produced as usual (dual sink).
+This is an Alligator extension — not part of Elastic Grok itself.
+
+
 ## bucket
 Default: -\
 Plural: yes

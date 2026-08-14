@@ -163,7 +163,7 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		int64_t chunk_ret = -2;
 		if (base)
 			base[nread] = 0;
-		carglog(carg, L_TRACE, "\n==================BASE===================\n'%s'\n======\n", base? base : "");
+		carglog(carg, L_TRACE, "read chunk key %s nread %zd preview %.*s\n", carg->key, nread, (int)(nread > 80 ? 80 : nread), base ? base : "");
 		carg->read_bytes_counter += nread;
 		if (base)
 		{
@@ -446,7 +446,7 @@ void tcp_connected(uv_connect_t* req, int status)
 	memset(&carg->write_req, 0, sizeof(carg->write_req));
 	carg->write_req.data = carg;
 
-	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64")===================\n'%s'\n======\n", carg->request_buffer.len, carg->request_buffer.base ? carg->request_buffer.base : "");
+	carglog(carg, L_TRACE, "write request key %s plain bytes %"PRIu64" preview %.*s\n", carg->key, carg->request_buffer.len, (int)(carg->request_buffer.len > 80 ? 80 : (int)carg->request_buffer.len), carg->request_buffer.base ? carg->request_buffer.base : "");
 	carg->write_time = setrtime();
 	int ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, tcp_client_written);
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->request_buffer.len);

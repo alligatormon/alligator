@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 #include <ftw.h>
 #include "events/context_arg.h"
 #include "common/logs.h"
@@ -62,11 +63,8 @@ void sysctl_get_foreach(void *arg)
 
 	sysctl_copy_path(full_path, scn->name, 1024);
 	int rc = nftw(full_path, nftw_info, 20, flags);
-	if ((rc == -1) && (ac->system_carg->log_level > 0))
-	{
-		carglog(ac->system_carg, L_ERROR, "nftw error %s", full_path);
-		perror("");
-	}
+	if (rc == -1)
+		carglog(ac->system_carg, L_ERROR, "nftw error %s: %s\n", full_path, strerror(errno));
 
 }
 

@@ -24,6 +24,17 @@ void filetailer_start_chain(context_arg *carg, const char *pathname);
 
 #define FILETAILER_MAX_READ_SIZE ((size_t)1000000)
 
+static const char *filetailer_state_name(uint8_t state)
+{
+	switch (state) {
+	case FILESTAT_STATE_STREAM: return "stream";
+	case FILESTAT_STATE_BEGIN: return "begin";
+	case FILESTAT_STATE_SAVE: return "save";
+	case FILESTAT_STATE_FORGET: return "forget";
+	default: return "unknown";
+	}
+}
+
 static int filetailer_path_has_glob(const char *s)
 {
 	if (!s || !*s)
@@ -131,15 +142,19 @@ void file_handler_struct_free(file_handle *fh)
  * be in flight at a time: concurrent chains would read the same offset and
  * advance it several times, skipping data and triggering bogus truncation
  * resets. checksum/calc_lines reads are stateless and are not gated. */
-static uint8_t filetailer_wants_content_read(context_arg *carg)
+/* NULL parser_handler is the default OpenMetrics path (prometheus_metrics).
+ * Only blackbox_null means "probe, do not parse file contents". */
+uint8_t filetailer_wants_content_read(context_arg *carg)
 {
 	if (!carg)
 		return 0;
 	if (carg->checksum || carg->calc_lines || carg->log_ch_raw)
 		return 1;
-	if (!carg->parser_handler || carg->parser_handler == blackbox_null)
+	if (carg->parser_handler == blackbox_null)
 		return 0;
-	return 1;
+	if (carg->parser_handler)
+		return 1;
+	return carg->parser_name && carg->parser_name[0];
 }
 
 static uint8_t filetailer_is_parser_read(context_arg *carg)
@@ -194,8 +209,14 @@ static void filetailer_schedule_content_read_sz(context_arg *carg, const char *p
 				fst->read_dirty = 1;
 				return;
 			}
+			file_stat_offset_for_read(fst, carg->state);
+			carglog(carg, L_INFO, "schedule content read: %s size %"u64" offset %"u64" state %s\n",
+				pathname, filesize, fst->offset, filetailer_state_name(carg->state));
 			if (filesize <= fst->offset)
+			{
+				carglog(carg, L_INFO, "skip content read (no new bytes): %s\n", pathname);
 				return;
+			}
 		}
 	}
 
@@ -256,7 +277,7 @@ static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pa
 
 	struct stat st;
 	if (fstat(fd, &st) != 0)
-		return fst->offset;
+		return file_stat_offset_for_read(fst, carg->state);
 
 	uint64_t filesize = (uint64_t)st.st_size;
 	uint64_t dev = (uint64_t)st.st_dev;
@@ -277,7 +298,7 @@ static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pa
 
 	fst->dev = dev;
 	fst->ino = ino;
-	return fst->offset;
+	return file_stat_offset_for_read(fst, carg->state);
 }
 
 void filetailer_start_chain(context_arg *carg, const char *pathname)

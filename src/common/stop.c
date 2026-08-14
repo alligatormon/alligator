@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include "common/logs.h"
 
 static volatile sig_atomic_t g_stop_requested;
 static int g_stop_code;
@@ -53,9 +54,8 @@ void alligator_shutdown_after_loop(void)
 	if (!g_stop_requested)
 		return;
 
-	printf("Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
-	printf("Don't forget to start me again, otherwise the alligator will bite you :)\n");
-	fflush(stdout);
+	glog(L_INFO, "Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
+	glog(L_INFO, "Don't forget to start me again, otherwise the alligator will bite you :)\n");
 	ipmi_wait_idle();
 	metric_dump(1);
 	tls_fs_free();

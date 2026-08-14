@@ -6,6 +6,7 @@
 #include "parsers/http_proto.h"
 #include "common/http.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "metric/labels.h"
 #include "main.h"
 #include "probe/probe.h"
@@ -84,8 +85,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		http_version = 20;
 	else
 	{
-		if (ac->log_level > 3)
-			printf("1DO NOT HTTP RESPONSE: %s\n", http);
+		glog(L_TRACE, "1DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -96,8 +96,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	http_code = atoi(cur);
 	if (!http_code || http_code > 599)
 	{
-		if (ac->log_level > 3)
-			printf("2DO NOT HTTP RESPONSE: %s\n", http);
+		glog(L_TRACE, "2DO NOT HTTP RESPONSE: %s\n", http);
 		return NULL;
 	}
 
@@ -280,8 +279,7 @@ void http_get_auth_data(http_reply_data *hr_data, char *auth_header)
 
 void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 {
-	if (ac->log_level > 2)
-		printf("http_follow_redirect: %s\n", hrdata->location);
+	carglog(carg, L_DEBUG, "http_follow_redirect: %s\n", hrdata->location);
 	if (!hrdata)
 		return;
 
@@ -311,8 +309,7 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		{
 			location = strdup(hrdata->location);
 		}
-		if (ac->log_level > 2)
-			printf("location is %s\n", location);
+		carglog(carg, L_DEBUG, "location is %s\n", location);
 
 		json_t *aggregate_root = json_object();
 		json_t *aggregate_arr = json_array();
@@ -334,8 +331,7 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
 
 		char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
-		if (carg->log_level > 1)
-			puts(dvalue);
+		carglog(carg, L_DEBUG, "%s\n", dvalue);
 		http_api_v1(NULL, NULL, dvalue);
 		free(dvalue);
 		json_decref(aggregate_root);

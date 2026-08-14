@@ -9,6 +9,8 @@
 #include "common/json_query.h"
 #include "common/http.h"
 #include "api/api.h"
+#include "common/logs.h"
+#include "events/context_arg.h"
 
 void sd_etcd_node(json_t *rnode)
 {
@@ -42,7 +44,7 @@ void sd_etcd_configuration(char *conf, size_t conf_len, context_arg *carg)
 	json_t *root = json_loads(conf, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -55,12 +57,12 @@ void sd_etcd_configuration(char *conf, size_t conf_len, context_arg *carg)
 
 void sd_consul_configuration(char *conf, size_t conf_len, context_arg *carg)
 {
-	puts(conf);
+	carglog(carg, L_TRACE, "%.*s\n", (int)(conf_len > 512 ? 512 : conf_len), conf);
 	json_error_t error;
 	json_t *root = json_loads(conf, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -91,7 +93,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 	json_t *root = json_loads(conf, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -99,8 +101,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 	json_t *value;
 	json_object_foreach(root, name, value)
 	{
-		if (ac->log_level > 1)
-			printf("service id: %s\n", name);
+		carglog(carg, L_DEBUG, "service id: %s\n", name);
 		json_t *meta = json_object_get(value, "Meta");
 		if (meta)
 		{
@@ -131,8 +132,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 					host = (char*)json_string_value(address);
 					if (!host)
 					{
-						if (ac->log_level > 1)
-							printf("alligator_host for svc: %s not specified, skip\n", name);
+						carglog(carg, L_DEBUG, "alligator_host for svc: %s not specified, skip\n", name);
 						continue;
 					}
 				}
@@ -144,8 +144,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 					int64_t port_i = json_integer_value(aport);
 					if (!port_i)
 					{
-						if (ac->log_level > 1)
-							printf("alligator_port for svc: %s not specified, skip\n", name);
+						carglog(carg, L_DEBUG, "alligator_port for svc: %s not specified, skip\n", name);
 						continue;
 					}
 
@@ -156,8 +155,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 				proto = (char*)json_string_value(alligator_proto);
 				if (!proto)
 				{
-					if (ac->log_level > 1)
-						printf("alligator_proto for svc: %s not specified, skip\n", name);
+					carglog(carg, L_DEBUG, "alligator_proto for svc: %s not specified, skip\n", name);
 					continue;
 				}
 

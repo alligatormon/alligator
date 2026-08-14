@@ -8,6 +8,7 @@
 #include "common/http.h"
 #include "events/client.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "main.h"
 
 #define KUBE_WATCH_KEY "kubernetes_operator_watch"
@@ -119,8 +120,7 @@ static void kubernetes_watch_consume_body(kubernetes_watch_state *st, context_ar
 		json_t *event = json_loadb(st->pending->s + offset, obj_len, 0, &error);
 		if (!event)
 		{
-			if (carg->log_level > 0)
-				fprintf(stderr, "kubernetes watch json error: %s\n", error.text);
+			carglog(carg, L_ERROR, "kubernetes watch json error: %s\n", error.text);
 			break;
 		}
 
@@ -160,9 +160,8 @@ static void kubernetes_watch_close_cb(context_arg *carg)
 	if (st->pending)
 		string_null(st->pending);
 
-	if (carg->log_level > 0)
-		printf("kubernetes watch: connection closed, reconnecting (resourceVersion=%s)\n",
-			st->resource_version ? st->resource_version : "");
+	carglog(carg, L_INFO, "kubernetes watch: connection closed, reconnecting (resourceVersion=%s)\n",
+		st->resource_version ? st->resource_version : "");
 
 	if (!st->reconnect_timer)
 	{

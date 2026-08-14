@@ -5,6 +5,7 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/json_query.h"
 #include "common/http.h"
 #include "metric/metric_types.h"
@@ -30,7 +31,7 @@ void rabbitmq_nodes_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -163,7 +164,7 @@ void rabbitmq_exchanges_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -247,7 +248,7 @@ void rabbitmq_connections_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -411,7 +412,7 @@ void rabbitmq_queues_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -674,7 +675,7 @@ void rabbitmq_vhosts_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

@@ -17,8 +17,7 @@ void scheduler_run(uv_timer_t* handle)
 
 		if (sn->action)
 		{
-			// TODO: fix sn->name
-			action_run_process(sn->action, NULL, mqc);
+			action_run_process(sn->action, NULL, mqc, sn->name);
 			/* action_run_process() consumes and frees mqc */
 			mqc = NULL;
 		}

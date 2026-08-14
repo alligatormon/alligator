@@ -34,3 +34,4 @@ _CPack_Packages/
 src/build
 src/CMakeUserPresets.json
 src/external/drivedb.h
+maillog

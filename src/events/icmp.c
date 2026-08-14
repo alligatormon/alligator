@@ -249,7 +249,7 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 
 			if ( sendto(carg->fd, i_p, sizeof(*i_p), 0, (const struct sockaddr *)&carg->remote_addr, sizeof(*sa)) <= 0 ) {
 				icmp_stop_run(carg);
-				perror("sendto");
+				carglog(carg, L_ERROR, "sendto: %s\n", strerror(errno));
 				return;
 			}
 			carg->check_receive = 1;

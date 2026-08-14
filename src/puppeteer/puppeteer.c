@@ -1,5 +1,6 @@
 #include <jansson.h>
 #include "main.h"
+#include "common/logs.h"
 #include "puppeteer/puppeteer.h"
 #include "common/json_query.h"
 #define PUPPETEER_CMD "exec://node /var/lib/alligator/puppeteer-alligator.js"
@@ -26,8 +27,7 @@ void puppeteer_insert_object(const char *url, char *value)
 	pn->url = string_init_dup((char*)url);
 	pn->value = value;
 
-	if (ac->log_level > 0)
-		printf("puppeteer insert url '%s'\n", pn->url->s);
+	glog(L_INFO, "puppeteer insert url '%s'\n", pn->url->s);
 
 	alligator_ht_insert(ac->puppeteer, &(pn->node), pn, tommy_strhash_u32(0, pn->url->s));
 }
@@ -94,7 +94,7 @@ void puppeteer_foreach_run(void *funcarg, void* arg)
 	json_t *arg_val = json_loads(pn->value, 0, &error);
 	if (!arg_val)
 	{
-		fprintf(stderr, "puppeteer json error on line %d: %s\n", error.line, error.text);
+		glog(L_ERROR, "puppeteer json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

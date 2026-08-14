@@ -1,5 +1,6 @@
 #include "events/context_arg.h"
 #include "cluster/get.h"
+#include "common/logs.h"
 
 int cluster_come_later(context_arg *carg)
 {
@@ -13,14 +14,14 @@ int cluster_come_later(context_arg *carg)
 	if (!cn)
 		return 0;
 
-	printf("LATER update_count is %"PRIu64"\n", cn->update_count);
+	carglog(carg, L_DEBUG, "LATER update_count is %"PRIu64"\n", cn->update_count);
 
 	if (cn->update_count < (cn->servers_size * 8))
 		return 0;
 
 	r_time time_now = setrtime();
 
-	printf("cluster_come_later check: '%s':'%s' && %d %"PRIu64", result: %d\n", cn->shared_lock_instance ? cn->shared_lock_instance->s : NULL, carg->instance, (cn->ttl >= time_now.sec), carg->parser_status, ((string_compare(cn->shared_lock_instance, carg->instance, strlen(carg->instance))) && (cn->ttl >= time_now.sec)));
+	carglog(carg, L_DEBUG, "cluster_come_later check: '%s':'%s' && %d %"PRIu64", result: %d\n", cn->shared_lock_instance ? cn->shared_lock_instance->s : NULL, carg->instance, (cn->ttl >= time_now.sec), carg->parser_status, ((string_compare(cn->shared_lock_instance, carg->instance, strlen(carg->instance))) && (cn->ttl >= time_now.sec)));
 	if ((string_compare(cn->shared_lock_instance, carg->instance, strlen(carg->instance))) && (cn->ttl >= time_now.sec))
 		return 1;
 

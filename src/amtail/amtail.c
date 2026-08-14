@@ -486,6 +486,11 @@ static void amtail_carg_var_touched(void *userdata, amtail_variable *v)
 	carg->amtail_touch_buf[carg->amtail_touch_n++] = v;
 }
 
+static void amtail_carg_emit_log(void *userdata, const char *data, size_t len)
+{
+	carg_emit_log((context_arg *)userdata, data, len);
+}
+
 typedef struct amtail_ml_ud {
 	amtail_node *an;
 	context_arg *carg;
@@ -540,6 +545,7 @@ void amtail_handler(char *metrics, size_t size, context_arg *carg)
 	amtail_touch_callbacks touch_cb = {
 		.userdata = carg,
 		.on_var_touched = amtail_carg_var_touched,
+		.on_emit_log = amtail_carg_emit_log,
 	};
 	amtail_carg_touch_begin(carg);
 	if (!carg->amtail_variables)

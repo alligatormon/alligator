@@ -31,6 +31,8 @@ void file_stat_cb(uv_fs_t *req);
 file_stat* file_stat_push(alligator_ht *hash, char *path, context_arg *carg, uv_stat_t *st);
 file_stat* file_stat_get_or_create(alligator_ht *hash, const char *path, uint8_t state);
 void file_stat_reset_on_rotation(file_stat *fstat, context_arg *carg, uint64_t filesize);
+/* FILESTAT_STATE_FORGET: drop stored offset so the next open starts at 0. */
+uint64_t file_stat_offset_for_read(file_stat *fstat, uint8_t state);
 uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t state);
 file_stat* file_stat_add_offset(alligator_ht *hash, const char *path, context_arg *carg, uint64_t add_offset);
 void file_stat_free(alligator_ht *hash);

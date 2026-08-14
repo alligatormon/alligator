@@ -910,6 +910,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_log_channel_raw && json_typeof(json_log_channel_raw) == JSON_STRING)
 		carg->log_ch_raw = log_channel_get(json_string_value(json_log_channel_raw));
 
+	json_t *json_log_channel_out = json_object_get(root, "log_channel_out");
+	if (json_log_channel_out && json_typeof(json_log_channel_out) == JSON_STRING)
+		carg->log_ch_out = log_channel_get(json_string_value(json_log_channel_out));
+
 	parse_add_label(carg, root);
 
 	json_t *json_metricstransform = root ? json_object_get(root, "metricstransform") : NULL;
@@ -1003,7 +1007,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	{
 		char *bind_address = (char*)json_string_value(json_bind_address);
 		if (bind_address) {
-			printf("bind address %s\n", bind_address);
+			carglog(carg, L_DEBUG, "bind address %s\n", bind_address);
 			char *colon = strchr(bind_address, ':');
 			if (colon)
 			{
@@ -1120,7 +1124,7 @@ void carglog_raw(context_arg *carg, const char *data, size_t len)
 		if (line_len && buf[start + line_len - 1] == '\r')
 			--line_len;
 		if (line_len)
-			log_channel_write_raw(carg->log_ch_raw, carg, buf + start, line_len);
+			log_channel_write_raw_kind(carg->log_ch_raw, carg, buf + start, line_len, "raw");
 		start = i + 1;
 	}
 
@@ -1128,6 +1132,20 @@ void carglog_raw(context_arg *carg, const char *data, size_t len)
 		carg->log_ch_raw_tail = string_init_alloc((char *)(buf + start), total - start);
 
 	free(heap);
+}
+
+void carg_emit_log(context_arg *carg, const char *data, size_t len)
+{
+	if (!carg || !carg->log_ch_out || !data || !len)
+		return;
+	log_channel_write_raw_kind(carg->log_ch_out, carg, data, len, "out");
+}
+
+void carg_emit_log_document(context_arg *carg, json_t *doc)
+{
+	if (!carg || !carg->log_ch_out || !doc)
+		return;
+	log_channel_write_document_kind(carg->log_ch_out, carg, doc, "out");
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)

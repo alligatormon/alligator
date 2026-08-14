@@ -1,17 +1,18 @@
 //#define _POSIX_SOURCE
-#include <stdio.h>
 #include <sys/types.h>
 #include <string.h>
 #include <pwd.h>
 #include <grp.h>
 #include <stdlib.h>
+#include <errno.h>
+#include "common/logs.h"
 
 char* get_username_by_uid(uid_t uid) {
 	struct passwd *p = getpwuid(uid);
 	
 	if (!p)
 	{
-		perror("getpwuid() error");
+		glog(L_ERROR, "getpwuid() error: %s\n", strerror(errno));
 		return NULL;
 	}
 	else {
@@ -30,7 +31,7 @@ char* get_groupname_by_gid(gid_t gid) {
 	
 	if (!g)
 	{
-		perror("getgrgid() error");
+		glog(L_ERROR, "getgrgid() error: %s\n", strerror(errno));
 		return NULL;
 	}
 	else {
@@ -43,7 +44,7 @@ uid_t get_uid_by_username(char *username)
 	struct passwd *pwd = getpwnam(username);
 	if (!pwd)
 	{
-		perror("getpwnam:");
+		glog(L_ERROR, "getpwnam: %s\n", strerror(errno));
 		return -1;
 	}
 	else
@@ -58,7 +59,7 @@ gid_t get_gid_by_groupname(char *groupname)
 	struct group *g = getgrnam(groupname);
 	if (!g)
 	{
-		perror("getgrnam:");
+		glog(L_ERROR, "getgrnam: %s\n", strerror(errno));
 		return -1;
 	}
 	else

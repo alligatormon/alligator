@@ -4,6 +4,7 @@
 #include <errno.h>
 #include "atasmart.h"
 #include "smart/drivedb.h"
+#include "common/logs.h"
 #include "main.h"
 
 //typedef struct drive_settings {
@@ -237,7 +238,7 @@ void get_ata_smart_info(char *device)
 
 		if ((ret = sk_disk_open(NULL, &d)) < 0)
 		{
-			fprintf(stderr, "Failed to open disk: %s\n", strerror(errno));
+			glog(L_ERROR, "Failed to open disk: %s\n", strerror(errno));
 			return;
 		}
 
@@ -245,7 +246,7 @@ void get_ata_smart_info(char *device)
 		{
 			if (!(f = fopen(device, "r")))
 			{
-				fprintf(stderr, "Failed to open file: %s\n", strerror(errno));
+				glog(L_ERROR, "Failed to open file: %s\n", strerror(errno));
 				if (d)
 		   			sk_disk_free(d);
 				return;
@@ -259,7 +260,7 @@ void get_ata_smart_info(char *device)
 
 		if (size >= sizeof(blob))
 		{
-			fprintf(stderr, "File too large for buffer.\n");
+			glog(L_ERROR, "File too large for buffer.\n");
 			if (d)
 	   			sk_disk_free(d);
 			return;
@@ -267,7 +268,7 @@ void get_ata_smart_info(char *device)
 
 		if ((ret = sk_disk_set_blob(d, blob, size)) < 0)
 		{
-			fprintf(stderr, "Failed to set blob: %s\n", strerror(errno));
+			glog(L_ERROR, "Failed to set blob: %s\n", strerror(errno));
 			if (d)
 	   			sk_disk_free(d);
 			return;
@@ -278,7 +279,7 @@ void get_ata_smart_info(char *device)
 	{
 		if ((ret = sk_disk_open(device, &d)) < 0)
 		{
-			fprintf(stderr, "Failed to open disk %s: %s\n", device, strerror(errno));
+			glog(L_ERROR, "Failed to open disk %s: %s\n", device, strerror(errno));
 			return;
 		}
 	}

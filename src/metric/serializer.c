@@ -5,6 +5,7 @@
 #include "common/selector.h"
 #include "common/json_query.h"
 #include "common/validator.h"
+#include "common/logs.h"
 #include "main.h"
 #include <uuid/uuid.h>
 #include <time.h>
@@ -418,7 +419,7 @@ void otlp_add_label_foreach(void *funcarg, void* arg)
 {
 	labels_container *labelscont = (labels_container*)arg;
 	json_t *attrs = funcarg;
-	printf("otlp_add_label_foreach: %s=%s\n", labelscont->name, labelscont->key);
+	glog(L_TRACE, "otlp_add_label_foreach: %s=%s\n", labelscont->name, labelscont->key);
 	json_array_append_new(attrs, otlp_key_value_string(labelscont->name, strlen(labelscont->name), labelscont->key, strlen(labelscont->key)));
 }
 

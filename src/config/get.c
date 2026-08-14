@@ -311,6 +311,18 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "log_channel", log_channel);
 	}
 
+	if (carg->log_ch_raw && carg->log_ch_raw->name && !carg->log_ch_raw->is_default)
+	{
+		json_t *log_channel_raw = json_string(carg->log_ch_raw->name);
+		json_array_object_insert(ctx, "log_channel_raw", log_channel_raw);
+	}
+
+	if (carg->log_ch_out && carg->log_ch_out->name && !carg->log_ch_out->is_default)
+	{
+		json_t *log_channel_out = json_string(carg->log_ch_out->name);
+		json_array_object_insert(ctx, "log_channel_out", log_channel_out);
+	}
+
 	if (!strncmp(carg->url, "file://", 7))
 	{
 		if (carg->state == FILESTAT_STATE_BEGIN)
@@ -321,6 +333,11 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		else if (carg->state == FILESTAT_STATE_SAVE)
 		{
 			json_t *state = json_string("save");
+			json_array_object_insert(ctx, "state", state);
+		}
+		else if (carg->state == FILESTAT_STATE_FORGET)
+		{
+			json_t *state = json_string("forget");
 			json_array_object_insert(ctx, "state", state);
 		}
 		else if (carg->state == FILESTAT_STATE_STREAM)

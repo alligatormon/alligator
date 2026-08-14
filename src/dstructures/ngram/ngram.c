@@ -1,8 +1,8 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "dstructures/tommy.h"
 #include "dstructures/ngram/ngram.h"
+#include "common/logs.h"
 
 static inline int ngram_cmp(const void* arg, const void* obj) {
 	const char* key = (const char*)arg;
@@ -23,7 +23,7 @@ uint64_t ngram_add(ngram_index_t *ngram_table, const char* ngram, void *data) {
 	ngram_node_t* node = alligator_ht_search(hash, ngram_cmp, (void*)ngram, hash_val);
 	if (node) {
 		if (node->count == ngram_table->parts_in_node) {
-			fprintf(stderr, "ngram_add error: too much parts per node: '%s'\n", ngram);
+			glog(L_ERROR, "ngram_add error: too much parts per node: '%s'\n", ngram);
 			return 0;
 		}
 		uint64_t prev_count = node->count == 0 ? 0 : node->count - 1;

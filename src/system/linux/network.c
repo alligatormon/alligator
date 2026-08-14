@@ -350,13 +350,13 @@ static int network_emit_system_cb(const network_if_stats *st, void *arg)
 
 void get_network_statistics_netlink()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: network_statistics (netlink)\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: network_statistics (netlink)\n");
 	network_netlink_foreach(network_emit_system_cb, ac->system_carg, 1, ac->system_carg, ac->system_sysfs);
 }
 
 void interface_stats()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: interface_stats\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: interface_stats\n");
 
 	struct dirent *entry;
 	DIR *dp;

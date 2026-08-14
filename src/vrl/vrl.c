@@ -344,6 +344,54 @@ static void vrl_export_metrics(context_arg *carg, vrl_value *event)
 		emit_one_metric(carg, metric);
 }
 
+static void emit_one_log(context_arg *carg, vrl_value *v)
+{
+	if (!v)
+		return;
+	if (v->type == VRL_BYTES && v->u.bytes.data) {
+		carg_emit_log(carg, v->u.bytes.data, v->u.bytes.len);
+		return;
+	}
+	if (v->type == VRL_OBJECT) {
+		json_t *doc = vrl_value_to_json(v);
+		if (!doc)
+			return;
+		carg_emit_log_document(carg, doc);
+		json_decref(doc);
+		return;
+	}
+	/* numbers/bools/arrays → string body via write_raw */
+	size_t len = 0;
+	char *s = vrl_value_to_string(v, &len);
+	if (!s)
+		return;
+	carg_emit_log(carg, s, len);
+	free(s);
+}
+
+/* Alligator extension: explicit .log / .logs → log_channel_out (not Vector VRL). */
+static void vrl_export_logs(context_arg *carg, vrl_value *event)
+{
+	if (!carg || !carg->log_ch_out || !event || event->type != VRL_OBJECT)
+		return;
+
+	vrl_value *logs = vrl_object_get(event, "logs", 4);
+	vrl_value *logv = vrl_object_get(event, "log", 3);
+
+	if ((!logs || logs->type != VRL_ARRAY || !logs->u.array.len) && !logv) {
+		carglog(carg, L_DEBUG, "vrl: no .log / .logs (skip log_channel_out)\n");
+		return;
+	}
+
+	if (logs && logs->type == VRL_ARRAY) {
+		carglog(carg, L_DEBUG, "vrl: exporting %zu logs from .logs\n", logs->u.array.len);
+		for (size_t i = 0; i < logs->u.array.len; i++)
+			emit_one_log(carg, vrl_array_get(logs, i));
+	}
+	if (logv)
+		emit_one_log(carg, logv);
+}
+
 /* ---------------- per-stream state ---------------- */
 
 typedef struct vrl_stream {
@@ -424,6 +472,7 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 		free(js);
 	}
 	vrl_export_metrics(carg, st->ctx->event);
+	vrl_export_logs(carg, st->ctx->event);
 }
 
 static void vrl_record_cb(void *ud, const char *record, size_t len)

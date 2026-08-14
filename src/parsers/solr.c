@@ -5,10 +5,11 @@
 #include "common/selector.h"
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #define SOLR_METRIC_SIZE 1000
 void solr_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
+	carglog(carg, L_TRACE, "%.*s\n", (int)size, metrics);
 	//json_t *root;
 	//json_error_t error;
 

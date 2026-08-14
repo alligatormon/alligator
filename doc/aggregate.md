@@ -203,6 +203,19 @@ For file and socket transports (`file://`, `tcp://`, `udp://`, `unix://`, `unixg
 Plain example: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
 
 
+## log\_channel\_out
+Default: -\
+Plural: no
+
+Sink for **transformed** log events after VRL / grok / amtail remap (not raw bytes).
+Independent of `log_channel_raw`. VRL emits only when the script sets explicit
+`.log` / `.logs`; objects are flat JSON documents. See
+[configuration — transformed log sink](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#transformed-log-sink-log_channel_out)
+and [vrl README](https://github.com/alligatormon/alligator/blob/master/doc/vrl/README.md#log-export-log--logs--log_channel_out).
+
+Plain example: `vrl "file:///var/log/app.log" name=app log_channel_out=pg-json;`
+
+
 ## threaded_loop_name
 Default: -\
 Plural: no

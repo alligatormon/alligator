@@ -8,6 +8,7 @@
 #include <common/log_kafka.h>
 #include <common/log_elastic.h>
 #include <common/log_json.h>
+#include <common/log_jansson.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -16,6 +17,8 @@
 #include <jansson.h>
 #include "events/context_arg.h"
 #include "common/url.h"
+#include "metric/namespace.h"
+#include "metric/metric_types.h"
 #include "main.h"
 
 extern aconf *ac;
@@ -233,19 +236,82 @@ static void log_channel_close_socket(log_channel *ch)
 	}
 }
 
-static void log_channel_sink_write(log_channel *ch, const char *data, size_t len)
+static void log_channel_sink_write(log_channel *ch, const char *data, size_t len, const char *kind)
 {
+	int rc;
+
 	if (!ch || !data || !len)
 		return;
 
-	if (log_channel_is_kafka(ch))
-		log_kafka_sink_write(ch, data, len);
-	else if (log_channel_is_http(ch))
-		log_http_sink_write(ch, data, len);
-	else if (log_channel_is_tcp(ch))
-		log_tcp_sink_write(ch, data, len);
-	else
-		log_channel_write(ch, data, len);
+	if (!kind || !kind[0])
+		kind = "unknown";
+
+	if (log_channel_is_kafka(ch)) {
+		log_kafka_sink_write(ch, data, len, kind);
+		return;
+	}
+	if (log_channel_is_http(ch)) {
+		log_http_sink_write(ch, data, len, kind);
+		return;
+	}
+	if (log_channel_is_tcp(ch)) {
+		log_tcp_sink_write(ch, data, len, kind);
+		return;
+	}
+
+	rc = 0;
+	log_channel_write(ch, data, len);
+	/* FD/UDP path has no status — count as sent */
+	(void)rc;
+	log_channel_account(ch, kind, "sent", NULL);
+}
+
+void log_channel_account(const log_channel *ch, const char *kind, const char *result, const char *reason)
+{
+	static int busy;
+	char *cname;
+	int64_t one = 1;
+	int saved_carg_level;
+	int saved_ac_level;
+
+	if (!ac || !ac->system_carg || !result || busy)
+		return;
+	if (!kind || !kind[0])
+		kind = "unknown";
+	cname = (ch && ch->name && ch->name[0]) ? ch->name : "default";
+
+	/* metric_update may carglog(TRACE); wrlog would account again → recurse.
+	 * carg->log_level==0 means "use ac->log_level", so force both off. */
+	busy = 1;
+	saved_carg_level = ac->system_carg->log_level;
+	saved_ac_level = ac->log_level;
+	ac->system_carg->log_level = L_OFF;
+	ac->log_level = L_OFF;
+
+	if (!strcmp(result, "sent")) {
+		namespace_metric_family_set_prom_type(ac->system_carg,
+			"alligator_log_channel_sent_total", METRIC_TYPE_COUNTER);
+		metric_update_labels2("alligator_log_channel_sent_total", &one, DATATYPE_INT,
+			ac->system_carg, "channel", cname, "kind", (char *)kind);
+	} else if (!strcmp(result, "dropped")) {
+		if (!reason || !reason[0])
+			reason = "unknown";
+		namespace_metric_family_set_prom_type(ac->system_carg,
+			"alligator_log_channel_dropped_total", METRIC_TYPE_COUNTER);
+		metric_update_labels3("alligator_log_channel_dropped_total", &one, DATATYPE_INT,
+			ac->system_carg, "channel", cname, "kind", (char *)kind, "reason", (char *)reason);
+	} else if (!strcmp(result, "error")) {
+		if (!reason || !reason[0])
+			reason = "unknown";
+		namespace_metric_family_set_prom_type(ac->system_carg,
+			"alligator_log_channel_errors_total", METRIC_TYPE_COUNTER);
+		metric_update_labels3("alligator_log_channel_errors_total", &one, DATATYPE_INT,
+			ac->system_carg, "channel", cname, "kind", (char *)kind, "reason", (char *)reason);
+	}
+
+	ac->system_carg->log_level = saved_carg_level;
+	ac->log_level = saved_ac_level;
+	busy = 0;
 }
 
 static int log_channel_open_dest(log_channel *ch, char *dest)
@@ -774,6 +840,11 @@ int context_allows_raw_log(const context_arg *carg)
 
 void log_channel_write_raw(log_channel *ch, context_arg *carg, const char *data, size_t len)
 {
+	log_channel_write_raw_kind(ch, carg, data, len, "diag");
+}
+
+void log_channel_write_raw_kind(log_channel *ch, context_arg *carg, const char *data, size_t len, const char *kind)
+{
 	char *payload = NULL;
 	size_t plen = 0;
 	const char *out;
@@ -788,9 +859,18 @@ void log_channel_write_raw(log_channel *ch, context_arg *carg, const char *data,
 			payload = log_elastic_format_bulk_msg(ch, carg, L_INFO, data, len, &plen);
 		else
 			payload = log_elastic_format_doc_msg(ch, carg, L_INFO, data, len, &plen);
+		if (!payload) {
+			log_channel_account(ch, kind, "error", "serialize");
+			return;
+		}
 	}
-	else if (log_channel_format_json(ch))
+	else if (log_channel_format_json(ch)) {
 		payload = log_json_format_doc_msg(ch, carg, data, len, &plen);
+		if (!payload) {
+			log_channel_account(ch, kind, "error", "serialize");
+			return;
+		}
+	}
 	else if (log_channel_time_enabled(ch))
 		payload = log_format_raw_plain_alloc(ch, data, len, &plen);
 
@@ -805,7 +885,105 @@ void log_channel_write_raw(log_channel *ch, context_arg *carg, const char *data,
 		outlen = len;
 	}
 
-	log_channel_sink_write(ch, out, outlen);
+	log_channel_sink_write(ch, out, outlen, kind ? kind : "diag");
+	free(payload);
+}
+
+void log_channel_write_document(log_channel *ch, context_arg *carg, json_t *doc)
+{
+	log_channel_write_document_kind(ch, carg, doc, "diag");
+}
+
+void log_channel_write_document_kind(log_channel *ch, context_arg *carg, json_t *doc, const char *kind)
+{
+	json_t *out_doc;
+	char *payload = NULL;
+	size_t plen = 0;
+	char ts[64];
+
+	(void)carg;
+	if (!ch || !doc || !json_is_object(doc))
+		return;
+	if (!kind || !kind[0])
+		kind = "diag";
+
+	out_doc = json_deep_copy(doc);
+	if (!out_doc) {
+		log_channel_account(ch, kind, "error", "serialize");
+		return;
+	}
+
+	if (log_channel_format_elastic(ch)) {
+		if (!json_object_get(out_doc, "@timestamp")) {
+			struct timeval tv;
+			time_t sec;
+			struct tm tm_now;
+			if (gettimeofday(&tv, NULL) == 0) {
+				sec = tv.tv_sec;
+#if defined(_WIN32)
+				gmtime_s(&tm_now, &sec);
+#else
+				gmtime_r(&sec, &tm_now);
+#endif
+				snprintf(ts, sizeof(ts), "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+					tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+					tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec,
+					(int)(tv.tv_usec / 1000));
+				json_object_set_new(out_doc, "@timestamp", json_string(ts));
+			}
+		}
+	}
+
+	if (log_channel_format_elastic(ch) && log_channel_is_http(ch)) {
+		char *index = log_elastic_index_name(ch);
+		json_t *action = json_object();
+		json_t *meta = json_object();
+		char *action_json;
+		char *doc_json;
+		size_t action_len = 0;
+		size_t doc_len = 0;
+		size_t total;
+
+		if (index)
+			json_object_set_new(meta, "_index", json_string(index));
+		free(index);
+		json_object_set_new(action, "index", meta);
+		action_json = log_jansson_dumps_compact(action, &action_len);
+		doc_json = log_jansson_dumps_compact(out_doc, &doc_len);
+		json_decref(action);
+		json_decref(out_doc);
+		if (!action_json || !doc_json) {
+			free(action_json);
+			free(doc_json);
+			log_channel_account(ch, kind, "error", "serialize");
+			return;
+		}
+		total = action_len + 1 + doc_len + 1;
+		payload = malloc(total + 1);
+		if (!payload) {
+			free(action_json);
+			free(doc_json);
+			log_channel_account(ch, kind, "error", "serialize");
+			return;
+		}
+		memcpy(payload, action_json, action_len);
+		payload[action_len] = '\n';
+		memcpy(payload + action_len + 1, doc_json, doc_len);
+		payload[action_len + 1 + doc_len] = '\n';
+		payload[total] = '\0';
+		plen = total;
+		free(action_json);
+		free(doc_json);
+	} else {
+		payload = log_jansson_dumps_line(out_doc, &plen);
+		json_decref(out_doc);
+		if (!payload || !plen) {
+			log_channel_account(ch, kind, "error", "serialize");
+			return;
+		}
+	}
+
+	log_channel_sink_write(ch, payload, plen, kind);
 	free(payload);
 }
 
@@ -844,12 +1022,14 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 		if (payload && len)
 		{
 			if (log_channel_is_http(ch))
-				log_http_sink_write(ch, payload, len);
+				log_http_sink_write(ch, payload, len, "diag");
 			else if (log_channel_is_kafka(ch))
-				log_kafka_sink_write(ch, payload, len);
+				log_kafka_sink_write(ch, payload, len, "diag");
 			else
-				log_tcp_sink_write(ch, payload, len);
+				log_tcp_sink_write(ch, payload, len, "diag");
 		}
+		else if (!payload)
+			log_channel_account(ch, "diag", "error", "serialize");
 		free(payload);
 		return;
 	}
@@ -868,8 +1048,11 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 		else
 			payload = log_format_line_alloc(ch, carg, format, args, &len);
 
-		if (payload && len)
+		if (payload && len) {
 			log_channel_write(ch, payload, len);
+			log_channel_account(ch, "diag", "sent", NULL);
+		} else if (!payload)
+			log_channel_account(ch, "diag", "error", "serialize");
 		free(payload);
 	}
 }

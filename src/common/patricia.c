@@ -582,9 +582,9 @@ void check_ip(patricia_t *tree, char *ip) {
     uint64_t t;
     rnode *node = patricia_find(tree, int_ip, &t);
     if (node && node->data)
-        printf("network for %s: %s\n", ip, (char*)node->data);
+        glog(L_TRACE, "network for %s: %s\n", ip, (char*)node->data);
     else
-        printf("can't find %s\n", ip);
+        glog(L_TRACE, "can't find %s\n", ip);
 }
 
 rnode* network_add_ip(patricia_t *tree, patricia_t *tree6, char *s_ip, void *tag) {
@@ -668,8 +668,11 @@ void print_node(rnode *node, int indent, uint32_t cursor) {
         print_node(node->right, indent+1, pass_cursor);
 
     char *bcursor = (char*)&cursor;
-    for (int i = 0; i < indent; printf(" "), ++i);
-    printf("cursor %x, %hhu.%hhu.%hhu.%hhu: %s\n", cursor, bcursor[3], bcursor[2], bcursor[1], bcursor[0], node->data ? (char*)node->data : "");
+    char sp[128];
+    int n = indent < (int)sizeof(sp) - 1 ? indent : (int)sizeof(sp) - 1;
+    memset(sp, ' ', (size_t)n);
+    sp[n] = '\0';
+    glog(L_TRACE, "%scursor %x, %hhu.%hhu.%hhu.%hhu: %s\n", sp, cursor, bcursor[3], bcursor[2], bcursor[1], bcursor[0], node->data ? (char*)node->data : "");
 
     if (node->left)
         print_node(node->left, indent+1, pass_cursor);

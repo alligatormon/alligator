@@ -5,6 +5,7 @@
 #include "common/aggregator.h"
 #include "common/validator.h"
 #include "events/fs_read.h"
+#include "common/logs.h"
 #include "main.h"
 #define KEEPALIVEDLEN_BIG 2048
 #define KEEPALIVEDLEN 1024
@@ -34,8 +35,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 		*field = 0;
 		field_len = str_get_next(metrics, field, KEEPALIVEDLEN_BIG, "\n", &i);
 
-		if (carg->log_level > 1)
-			printf("keepalived field: %s\n", field);
+		carglog(carg, L_DEBUG, "keepalived field: %s\n", field);
 
 		cur_indent = strspn(field, " ");
 		if (cur_indent < indent)
@@ -57,8 +57,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 			str_get_next(field, name, KEEPALIVEDLEN, ":", &j);
 
 			char *ptrtoval = name + strspn(name, " ");
-			if (carg->log_level > 1)
-				printf("\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
+			carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 			if (isdigit((unsigned char)*ptrtoval))
 			{
@@ -121,8 +120,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 		*field = 0;
 		str_get_next(metrics, field, KEEPALIVEDLEN_BIG, "\n", &i);
 
-		if (carg->log_level > 1)
-			printf("keepalived field: '%s'\n", field);
+		carglog(carg, L_DEBUG, "keepalived field: '%s'\n", field);
 
 		cur_indent = strspn(field, " ");
 		if (cur_indent < 1)
@@ -180,8 +178,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 
 			if (keepalived_isdigit(ptrtoval))
 			{
-				if (carg->log_level > 1)
-					printf("\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
+				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
 				//if (!strstr(ptrtoval, "usecs"))
@@ -194,8 +191,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 				char *ptrtoval = ptrtocnt + 8;
 				metric_name[metric_name_size - 1] = 0;
 
-				if (carg->log_level > 1)
-					printf("\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
+				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
 				keepalived_metric_set(carg, metric_name);
@@ -207,8 +203,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 			}
 			else
 			{
-				if (carg->log_level > 1)
-					printf("\t\t'%s {context=\"%s\", instance=\"%s\", key=\"%s\"{from '%s'} 1\n", metric_name, context, instance, ptrtoval, name);
+				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\", key=\"%s\"{from '%s'} 1\n", metric_name, context, instance, ptrtoval, name);
 
 				int64_t val_data = 1;
 				keepalived_metric_set(carg, metric_name);
@@ -242,8 +237,7 @@ void keepalived_handler(char *metrics, size_t size, context_arg *carg)
 {
 	int64_t pid = strtoll(metrics, NULL, 10);
 
-	if (carg->log_level > 0)
-		printf("keepalived_handler: send SIGUSR1, SIGUSR2 to pid: %"d64"\n", pid);
+	carglog(carg, L_DEBUG, "keepalived_handler: send SIGUSR1, SIGUSR2 to pid: %"d64"\n", pid);
 
 	uv_kill(pid, SIGUSR1);
 	uv_kill(pid, SIGUSR2);

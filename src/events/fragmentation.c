@@ -8,17 +8,17 @@ extern aconf *ac;
 int64_t chunk_calc(context_arg* carg, char *buf, ssize_t nread, uint8_t copying, uint64_t *decoded_size)
 {
 	size_t bufsz = nread;
-	carglog(carg, L_TRACE, "\n\n\n\n========buf is (%s) =====\n'%s'\n\t=====\n", carg->key, buf);
+	carglog(carg, L_TRACE, "chunk_calc(%s): nread %zd preview %.*s\n", carg->key, nread, (int)(nread > 80 ? 80 : nread), buf);
 	int ret = phr_decode_chunked(&carg->chunked_dec, buf, &bufsz);
-	carglog(carg, L_TRACE, "0phr_decode_chunked return(%s): %d/%zu: %zu\n", carg->key, ret, nread, bufsz);
+	carglog(carg, L_TRACE, "phr_decode_chunked(%s): ret %d nread %zu decoded %zu\n", carg->key, ret, (size_t)nread, bufsz);
 	if (decoded_size)
 		*decoded_size = bufsz;
 	if (bufsz)
 	{
-		carglog(carg, L_TRACE, "\n+++++ 1decoded(%s): ++++\n'%s'\n++++end+++++\n", carg->key, buf);
+		carglog(carg, L_TRACE, "chunk decoded(%s): size %zu preview %.*s\n", carg->key, bufsz, (int)(bufsz > 80 ? 80 : bufsz), buf);
 		if (copying)
 			string_cat(carg->full_body, buf, bufsz);
-		carglog(carg, L_TRACE, "\n+++++ 2decoded(%s): ++++\n'%s'\n=======end=======\n\n\n\n", carg->key, carg->full_body->s);
+		carglog(carg, L_TRACE, "chunk body(%s): total %zu preview %.*s\n", carg->key, carg->full_body->l, (int)(carg->full_body->l > 80 ? 80 : carg->full_body->l), carg->full_body->s);
 	}
 
 	return ret;

@@ -71,20 +71,20 @@ int amtail_push(json_t *amtail)
 	json_t *jpcre = json_object_get(amtail, "log_level_pcre");
 	if (json_is_string(jpcre))
 		amtail_ll.pcre = (uint8_t)get_log_level_by_name(json_string_value(jpcre), json_string_length(jpcre));
-    puts("amtail_push: compiling...");
+    glog(L_INFO, "amtail_push: compiling...\n");
 
     string *script = string_init_dup((char*)script_path);
     string_tokens *tokens = amtail_lex(script, (char*)script_path, amtail_ll);
     if (!tokens)
     {
-        printf("[FAIL][RUN] lex failed: %s\n", script_path);
+        glog(L_ERROR, "[FAIL][RUN] lex failed: %s\n", script_path);
         string_free(script);
         return 1;
     }
     amtail_ast *ast = amtail_parser(tokens, (char*)script_path, amtail_ll);
     if (!ast)
     {
-        printf("[FAIL][RUN] parser failed: %s\n", script_path);
+        glog(L_ERROR, "[FAIL][RUN] parser failed: %s\n", script_path);
         string_tokens_free(tokens);
         string_free(script);
         return 1;
@@ -92,14 +92,14 @@ int amtail_push(json_t *amtail)
     amtail_bytecode *bytecode = amtail_code_generator(ast, amtail_ll);
     if (!bytecode)
     {
-        printf("[FAIL][RUN] generator failed: %s\n", script_path);
+        glog(L_ERROR, "[FAIL][RUN] generator failed: %s\n", script_path);
         amtail_ast_free(ast);
         string_tokens_free(tokens);
         string_free(script);
         return 1;
     }
 
-    printf("amtail_push: compiled '%s', result %p\n", name, bytecode);
+    glog(L_INFO, "amtail_push: compiled '%s', result %p\n", name, (void *)bytecode);
 	string_free(script_src);
 	if (!bytecode)
 	{

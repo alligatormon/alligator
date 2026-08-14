@@ -20,7 +20,7 @@ static inline void nvidia_smi_metric_set(context_arg *carg, const char *metric_n
 
 void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 {
-	puts(metrics);
+	carglog(carg, L_TRACE, "nvidia-smi scrape payload size: %zu\n", size);
 	char *row = metrics;
 	char metric_name[NVIDIA_SMI_MAX_LEN];
 	size_t metric_prefix_len = strlen(NVIDIA_SMI_METRIC_PREFIX);

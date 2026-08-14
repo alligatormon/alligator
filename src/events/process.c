@@ -391,7 +391,7 @@ void timeout_exec_sentinel(uv_timer_t* timer) {
 
 	int err = uv_process_kill(&carg->child_req, SIGTERM);
 	if (err)
-		printf("Error kill process with pid %d: %s\n", carg->child_req.pid, uv_strerror(err));
+		carglog(carg, L_ERROR, "Error kill process with pid %d: %s\n", carg->child_req.pid, uv_strerror(err));
 }
 
 void env_struct_process(void *funcarg, void* arg)

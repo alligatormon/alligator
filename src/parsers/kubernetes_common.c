@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <strings.h>
 #include "kubernetes_common.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "common/logs.h"
 #include "api/api.h"
 #include "main.h"
 #include "events/context_arg.h"
@@ -137,9 +139,12 @@ kubernetes_operator_opts *kubernetes_operator_opts_from_json(json_t *aggregate, 
 			opts->watch = kubernetes_truthy(watch_env);
 		else
 		{
-			FILE *token_fd = fopen("/var/run/secrets/kubernetes.io/serviceaccount/token", "r");
+			const char *token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token";
+			FILE *token_fd = fopen(token_path, "r");
 			opts->watch = token_fd ? 1 : 0;
-			if (token_fd)
+			if (!token_fd)
+				glog(L_DEBUG, "kubernetes token open %s: %s (watch disabled)\n", token_path, strerror(errno));
+			else
 				fclose(token_fd);
 		}
 	}
@@ -237,16 +242,14 @@ uint8_t kubernetes_pod_scrape_enabled(json_t *metadata, context_arg *carg,
 	json_t *alligator = json_object_get(annotations, KUBE_SCRAPE_ANNOTATION);
 	if (!alligator)
 	{
-		if (carg && carg->log_level > 1)
-			printf("pod name %s, namespace %s: no %s\n", pod_name, namespace, KUBE_SCRAPE_ANNOTATION);
+		carg_or_glog(carg, L_DEBUG, "pod name %s, namespace %s: no %s\n", pod_name, namespace, KUBE_SCRAPE_ANNOTATION);
 		return 0;
 	}
 
 	char *scrape = (char *)json_string_value(alligator);
 	if (!scrape || !kubernetes_truthy(scrape))
 	{
-		if (carg && carg->log_level > 1)
-			printf("pod name %s, namespace %s: %s disabled\n", pod_name, namespace, KUBE_SCRAPE_ANNOTATION);
+		carg_or_glog(carg, L_DEBUG, "pod name %s, namespace %s: %s disabled\n", pod_name, namespace, KUBE_SCRAPE_ANNOTATION);
 		return 0;
 	}
 	return 1;
@@ -283,9 +286,8 @@ void kubernetes_ports_from_annotations(json_t *annotations, alligator_ht *hash, 
 		ptr = type_sep + 1;
 		strlcpy(type, ptr, sizeof(type));
 
-		if (carg && carg->log_level > 0)
-			printf("\tkey: %s, metric_port_name: %s, type: %s, value: %s\n",
-				annotation_key, metric_port_name, type, annotation);
+		carglog(carg, L_DEBUG, "\tkey: %s, metric_port_name: %s, type: %s, value: %s\n",
+			annotation_key, metric_port_name, type, annotation);
 
 		uint32_t metric_hash = tommy_strhash_u32(0, metric_port_name);
 		kubernetes_endpoint_port *kubeport = alligator_ht_search(hash, kubernetes_endpoint_port_compare,
@@ -341,8 +343,7 @@ void kubernetes_target_upsert(const char *target_key, const char *handler, const
 		json_array_object_insert(aggregate_add_label, "alligator_instance", json_string(carg->instance));
 
 	char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
-	if (carg && carg->log_level > 1)
-		puts(dvalue);
+	carglog(carg, L_TRACE, "%s\n", dvalue);
 	http_api_v1(NULL, NULL, dvalue);
 	free(dvalue);
 	json_decref(aggregate_root);
@@ -501,8 +502,7 @@ void kubernetes_reconcile_end(context_arg *carg)
 	alligator_ht_foreach_arg(kube_active_targets, kube_reconcile_remove_stale, NULL);
 	kube_reconcile_active = 0;
 
-	if (carg && carg->log_level > 0)
-		printf("kubernetes reconcile complete, active targets: %zu\n", alligator_ht_count(kube_active_targets));
+	carglog(carg, L_INFO, "kubernetes reconcile complete, active targets: %zu\n", alligator_ht_count(kube_active_targets));
 }
 
 static void kubernetes_reconcile_pod_drop(json_t *item, context_arg *carg, kubernetes_operator_opts *opts)
@@ -678,8 +678,7 @@ void kubernetes_reconcile_pod_deleted(json_t *item, context_arg *carg, kubernete
 	snprintf(prefix, sizeof(prefix), KUBE_TARGET_KEY_PREFIX "%s:%s:", namespace, uid);
 	alligator_ht_foreach_arg(kube_active_targets, kubernetes_targets_delete_by_uid, prefix);
 
-	if (carg && carg->log_level > 0)
-		printf("kubernetes watch: removed targets for pod %s/%s\n", namespace, uid);
+	carglog(carg, L_INFO, "kubernetes watch: removed targets for pod %s/%s\n", namespace, uid);
 }
 
 string *kubernetes_pods_list_mesg(host_aggregator_info *hi, kubernetes_operator_opts *opts,
@@ -726,14 +725,18 @@ alligator_ht *kubernetes_incluster_env(alligator_ht *env)
 
 	const char *token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 	FILE *fd = fopen(token_path, "r");
-	if (!fd)
+	if (!fd) {
+		glog(L_WARN, "kubernetes token open %s: %s\n", token_path, strerror(errno));
 		return env;
+	}
 
 	char token[4096];
 	size_t n = fread(token, 1, sizeof(token) - 1, fd);
 	fclose(fd);
-	if (!n)
+	if (!n) {
+		glog(L_WARN, "kubernetes token read %s: empty\n", token_path);
 		return env;
+	}
 	token[n] = '\0';
 	while (n > 0 && (token[n - 1] == '\n' || token[n - 1] == '\r'))
 		token[--n] = '\0';

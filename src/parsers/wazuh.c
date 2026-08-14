@@ -77,14 +77,14 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 
 	while(i < size)
 	{
-		if (carg->log_level > 3)
+		if ((carg->log_level ? carg->log_level : ac->log_level) >= L_TRACE)
 		{
 			char str[255];
 			size_t n = strcspn(metrics+i, "\n");
 			if (n >= sizeof(str))
 				n = sizeof(str) - 1;
 			strlcpy(str, metrics+i, n + 1);
-			carglog(carg, L_DEBUG, "wazuh processing string: %"PRId64" < %zu: '%s'\n", i, size, str);
+			carglog(carg, L_TRACE, "wazuh processing string: %"PRId64" < %zu: '%s'\n", i, size, str);
 		}
 
 		if (metrics[i] == '#') {

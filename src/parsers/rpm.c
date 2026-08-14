@@ -38,10 +38,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!isdigit((unsigned char)*metrics))
 	{
-		if (ac->log_level > 2)
-		{
-			printf("rpm handler: format error:\n'%s'\n", metrics);
-		}
+		carglog(carg, L_TRACE, "rpm handler: format error:\n'%s'\n", metrics);
 		return;
 	}
 

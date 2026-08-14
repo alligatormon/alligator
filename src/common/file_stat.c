@@ -153,6 +153,17 @@ void file_stat_reset_on_rotation(file_stat *fstat, context_arg *carg, uint64_t f
 		fstat->offset = 0;
 }
 
+uint64_t file_stat_offset_for_read(file_stat *fstat, uint8_t state)
+{
+	if (!fstat)
+		return 0;
+	if (state == FILESTAT_STATE_FORGET) {
+		fstat->offset = 0;
+		return 0;
+	}
+	return fstat->offset;
+}
+
 uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t state)
 {
 	if (!hash || !path)
@@ -182,6 +193,7 @@ uint64_t file_stat_get_offset(alligator_ht *hash, const char *path, uint8_t stat
 		if (state == FILESTAT_STATE_FORGET)
 		{
 			glog(L_INFO, "file_stat_get_offset: %s FORGET CASE: %d\n", path, 0);
+			fstat->offset = 0;
 			return 0;
 		}
 		else

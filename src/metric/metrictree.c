@@ -3,6 +3,7 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
+#include "common/logs.h"
 #include <inttypes.h>
 #include <stdlib.h>
 #include <math.h>
@@ -314,7 +315,7 @@ void metric_set(metric_node *mnode, int8_t type, void* value, expire_tree *expir
 void metrictree_show(metric_node *x)
 {
 	labels_print(x->labels, 0);
-	puts("");
+	glog(L_TRACE, "\n");
 	if ( x->child[LEFT] )
 		metrictree_show(x->child[LEFT]);
 	if ( x->child[RIGHT] )
@@ -463,14 +464,38 @@ void metric_str_build (char *namespace, string *str, int openmetrics)
 	}
 }
 
+/* Name is the primary BST key. After the first exact-name hit, descendants may
+ * still include other metric names. Re-check the name on every node; when a
+ * name filter is set, prune branches that cannot contain the target name. */
+static int metrictree_query_name_ok(labels_t *node_labels, labels_t *query_labels)
+{
+	if (!query_labels || !query_labels->key_len)
+		return 1;
+	return metric_name_match(node_labels, query_labels) == 0;
+}
+
 void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
 {
 	if (!x)
 		return;
 
-	if (!labels_match(sort_plan, x->labels, labels, labels_count))
-	{
+	int rc = (labels && labels->key_len) ? metric_name_match(x->labels, labels) : 0;
+
+	if ((!labels || !labels->key_len || !rc) && !labels_match(sort_plan, x->labels, labels, labels_count))
 		labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
+
+	if (labels && labels->key_len)
+	{
+		if (rc > 0)
+			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
+		else if (rc < 0)
+			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+		else
+		{
+			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+		}
+		return;
 	}
 
 	metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
@@ -515,11 +540,22 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 
 	while (sp > 0) {
 		metric_node *n = stack[--sp];
+		int rc = (labels && labels->key_len) ? metric_name_match(n->labels, labels) : 0;
 
-		if (!labels_match(sort_plan, n->labels, labels, labels_count))
+		if (metrictree_query_name_ok(n->labels, labels) && !labels_match(sort_plan, n->labels, labels, labels_count))
 			metric_node_serialize(n, sc);
 
-		if (n->child[RIGHT]) {
+		int visit_left = 1;
+		int visit_right = 1;
+		if (labels && labels->key_len)
+		{
+			if (rc > 0)
+				visit_right = 0;
+			else if (rc < 0)
+				visit_left = 0;
+		}
+
+		if (visit_right && n->child[RIGHT]) {
 			if (sp >= cap) {
 				size_t ncap = cap * 2;
 				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
@@ -532,7 +568,7 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 			}
 			stack[sp++] = n->child[RIGHT];
 		}
-		if (n->child[LEFT]) {
+		if (visit_left && n->child[LEFT]) {
 			if (sp >= cap) {
 				size_t ncap = cap * 2;
 				metric_node **ns = realloc(stack, ncap * sizeof(*stack));
@@ -563,7 +599,7 @@ void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *gro
 			x = x->child[RIGHT];
 		else
 		{
-			if (labels->key_len || !labels_count)
+			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
 				metric_node_serialize(x, sc);
 			metrictree_serialize_query_node(x->child[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count);
 			metrictree_serialize_query_node(x->child[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count);

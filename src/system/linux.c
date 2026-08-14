@@ -43,6 +43,12 @@
 #define LINUX_CPU 2
 extern aconf *ac;
 
+static void system_scrape_fopen_fail(const char *path, int optional)
+{
+	int pri = (optional && (errno == ENOENT || errno == ENOTDIR)) ? L_DEBUG : L_ERROR;
+	carglog(ac->system_carg, pri, "system scrape fopen %s: %s\n", path, strerror(errno));
+}
+
 void check_sockets_by_netlink(char *proto, uint8_t family, uint8_t pproto);
 
 typedef struct process_states
@@ -90,13 +96,17 @@ void print_mount(const struct mntent *fs)
 		f_d = open(fs->mnt_dir,O_RDONLY);
 		if(-1 == f_d)
 		{
+			if (errno == ENOENT || errno == EACCES)
+				carglog(ac->system_carg, L_DEBUG, "system scrape open %s: %s\n", fs->mnt_dir, strerror(errno));
+			else
+				carglog(ac->system_carg, L_ERROR, "system scrape open %s: %s\n", fs->mnt_dir, strerror(errno));
 		}
 		else
 		{
 			struct statvfs buf;
 
 			if (statvfs(fs->mnt_dir, &buf) == -1)
-				perror("statvfs() error");
+				carglog(ac->system_carg, L_ERROR, "statvfs() error on '%s': %s\n", fs->mnt_dir, strerror(errno));
 			else
 			{
 				int64_t total = ((double)buf.f_blocks * buf.f_bsize);
@@ -134,7 +144,7 @@ void print_mount(const struct mntent *fs)
 
 void get_disk()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: get_stat\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: disk: get_stat\n");
 
 	FILE *fp;
 	struct mntent *fs;
@@ -154,8 +164,10 @@ void get_disk()
 ulimit_pid_stat* get_pid_ulimit_stat(char *path)
 {
 	FILE *fd = fopen(path, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(path, 1);
 		return NULL;
+	}
 
 	char ulimit[1024];
 	ulimit_pid_stat *ups = calloc(1, sizeof(*ups));
@@ -692,7 +704,7 @@ void schedstat_process_info(char *pid, char *name)
 
 	if (!fgets(buf, 1000, sched_fd))
 	{
-		perror("fgets:");
+		carglog(ac->system_carg, L_ERROR, "fgets %s: %s\n", fpath, strerror(errno));
 		fclose(sched_fd);
 		return;
 	}
@@ -1114,7 +1126,7 @@ void files_fd_free(void *funcarg, void* arg)
 
 void find_pid(int8_t lightweight)
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: processes\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: processes\n");
 
 
 	struct dirent *entry;
@@ -1194,14 +1206,16 @@ void get_mem(int8_t platform)
 {
 	int is_cgroup = is_container(platform); // exclude baremetal and virt
 	int is_bm_vm = is_baremetal_or_vm(platform); // exclude baremetal and virt
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: mem\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: mem\n");
 
 	char pathbuf[255];
 	snprintf(pathbuf, 255, "%s/meminfo", ac->system_procfs);
 
 	FILE *fd = fopen(pathbuf, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(pathbuf, 0);
 		return;
+	}
 
 	char tmp[LINUXFS_LINE_LENGTH];
 	char key[LINUXFS_LINE_LENGTH];
@@ -1563,11 +1577,13 @@ void throttle_stat()
 
 void get_netstat_statistics(char *ns_file)
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: netstat_statistics '%s'\n", ns_file);
 
 	FILE *fp = fopen(ns_file, "r");
-	if(!fp)
+	if(!fp) {
+		system_scrape_fopen_fail(ns_file, 1);
 		return;
+	}
 
 	size_t filesize = 10000;
 	char bufheader[filesize];
@@ -1614,13 +1630,15 @@ void get_netstat_statistics(char *ns_file)
 
 void get_nofile_stat()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: nofile_stat\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: nofile_stat\n");
 
 	char filenr[255];
 	snprintf(filenr, 255, "%s/sys/fs/file-nr", ac->system_procfs);
 	FILE *fd = fopen(filenr, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(filenr, 0);
 		return;
+	}
 
 	char buf[LINUXFS_LINE_LENGTH];
 	if(!fgets(buf, LINUXFS_LINE_LENGTH, fd))
@@ -1656,13 +1674,15 @@ void get_nofile_stat()
 
 void get_disk_io_stat()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: io_stat\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: disk: io_stat\n");
 
 	char diskstats[255];
 	snprintf(diskstats, 255, "%s/diskstats", ac->system_procfs);
 	FILE *fd = fopen(diskstats, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(diskstats, 0);
 		return;
+	}
 
 	int64_t stat[15];
 	char buf[LINUXFS_LINE_LENGTH];
@@ -1716,13 +1736,15 @@ void get_disk_io_stat()
 
 void get_loadavg()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: loadavg\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: loadavg\n");
 
 	char loadavg[255];
 	snprintf(loadavg, 255, "%s/loadavg", ac->system_procfs);
 	FILE *fd = fopen(loadavg, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(loadavg, 0);
 		return;
+	}
 
 	char str[LINUXFS_LINE_LENGTH];
 	if(!fgets(str, LINUXFS_LINE_LENGTH, fd))
@@ -1754,14 +1776,16 @@ void get_uptime()
 
 void get_mdadm()
 {
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: mdadm\n");
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: disk: mdadm\n");
 
 	char mdstat[255];
 	snprintf(mdstat, 255, "%s/mdstat", ac->system_procfs);
 	FILE *fd;
 	fd = fopen(mdstat, "r");
-	if (!fd)
+	if (!fd) {
+		system_scrape_fopen_fail(mdstat, 1);
 		return;
+	}
 
 	char str1[LINUXFS_LINE_LENGTH];
 	char str2[LINUXFS_LINE_LENGTH];
@@ -1857,13 +1881,13 @@ int8_t get_platform(int8_t mode)
 	if (ac->system_platform == PLATFORM_OPENSTACK) {
 		uint64_t okval = 1;
 		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "openstack");
-		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: openstack\n", mode);
+		carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: openstack\n", mode);
 		return PLATFORM_OPENSTACK;
 	}
 	else if (ac->system_platform == PLATFORM_KVM) {
 		uint64_t okval = 1;
 		metric_add_labels("server_platform", &okval, DATATYPE_UINT, ac->system_carg, "platform", "kvm");
-		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: kvm\n", mode);
+		carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: kvm\n", mode);
 		return PLATFORM_KVM;
 	}
 
@@ -1882,7 +1906,7 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "nspawn");
-			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: nspawn\n", mode);
+			carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: nspawn\n", mode);
 			fclose(env);
 			return PLATFORM_NSPAWN;
 		}
@@ -1890,7 +1914,7 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "docker");
-			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: docker\n", mode);
+			carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: docker\n", mode);
 			fclose(env);
 			return PLATFORM_DOCKER;
 		}
@@ -1912,7 +1936,7 @@ int8_t get_platform(int8_t mode)
 		fclose(env);
 		if (mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "lxc");
-		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: lxc\n", mode);
+		carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: lxc\n", mode);
 		return PLATFORM_LXC;
 	}
 	fclose(env);
@@ -1932,14 +1956,14 @@ int8_t get_platform(int8_t mode)
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "openvz");
-			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: openvz\n", mode);
+			carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: openvz\n", mode);
 			return PLATFORM_OPENVZ;
 		}
 		else
 		{
 			if (mode)
 				metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "bare-metal");
-			carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: bare-metal\n", mode);
+			carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: bare-metal\n", mode);
 			return 0;
 		}
 	}
@@ -1949,7 +1973,7 @@ int8_t get_platform(int8_t mode)
 			metric_add_labels("server_platform", &vl, DATATYPE_INT, ac->system_carg, "platform", "bare-metal");
 
 		fclose(env);
-		carglog(ac->system_carg, L_INFO, "system scrape metrics: base: platform %d: bare-metal\n", mode);
+		carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: platform %d: bare-metal\n", mode);
 		return PLATFORM_BAREMETAL;
 	}
 }

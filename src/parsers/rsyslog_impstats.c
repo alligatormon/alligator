@@ -4,16 +4,13 @@
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "main.h"
 
 void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 {
-	extern aconf *ac;
-	if (ac->log_level > 3)
-	{
-		puts("===================");
-		printf("'%s'\n", metrics);
-	}
+	carglog(carg, L_TRACE, "===================\n");
+	carglog(carg, L_TRACE, "'%s'\n", metrics);
 	char field1[255];
 	char field2[255];
 	char field3[255];
@@ -68,16 +65,12 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 	}
 	else
 	{
-		if (ac->log_level > 3)
-			puts("no parse rules");
+		carglog(carg, L_TRACE, "no parse rules\n");
 		return;
 	}
 
-	if (ac->log_level > 3)
-	{
-		printf("field1 = '%s'\nfield2 = '%s'\nfield3 = '%s'\n", field1, field2, field3);
-		printf("action = '%s'\nmodule = '%s'\norigin = '%s'\n", action, module, origin);
-	}
+	carglog(carg, L_TRACE, "field1 = '%s'\nfield2 = '%s'\nfield3 = '%s'\n", field1, field2, field3);
+	carglog(carg, L_TRACE, "action = '%s'\nmodule = '%s'\norigin = '%s'\n", action, module, origin);
 
 	for (; headerend<size;)
 	{
@@ -92,8 +85,7 @@ void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 		size_t name_copy = len < (sizeof(name) - 1) ? len : (sizeof(name) - 1);
 		strlcpy(name, metrics+headerend, name_copy + 1);
 		headerend += len + 1;
-		if (ac->log_level > 3)
-			printf("key: %s, name: %s\n", key, name);
+		carglog(carg, L_TRACE, "key: %s, name: %s\n", key, name);
 		int64_t vl = atoll(name);
 		namespace_metric_family_set(NULL, carg, "rsyslog_stats", METRIC_TYPE_GAUGE, "Rsyslog impstats value by module, origin, action, and key.");
 		if (*action)

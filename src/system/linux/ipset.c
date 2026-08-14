@@ -277,8 +277,8 @@ void ipset()
 		if (status < 0) {
 			if (errno == EINTR)
 				continue;
-			printf("OVERRUN\n");
-				continue;
+			carglog(ac->system_carg, L_ERROR, "recvmsg error in ipset(): possible buffer overrun or unexpected failure: %s\n", strerror(errno));
+			continue; // TODO: or break?
 		}
 		if (status == 0)
 			break;

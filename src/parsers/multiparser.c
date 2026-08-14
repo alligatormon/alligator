@@ -363,11 +363,11 @@ int plain_parser(char *buf, size_t len, context_arg *carg)
 
 void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t, context_arg*), string *response, context_arg *carg)
 {
-	if (carg && carg->log_level > 99)
+	if (carg)
 	{
-		puts("========================================================================");
-		printf("handler (%p) parsing (%zu):\n'%s'\n", handler, slen, buf);
-		puts("========================================================================");
+		carglog(carg, L_TRACE, "========================================================================\n");
+		carglog(carg, L_TRACE, "handler (%p) parsing (%zu):\n'%s'\n", handler, slen, buf);
+		carglog(carg, L_TRACE, "========================================================================\n");
 	}
 	if (!buf)
 		return;

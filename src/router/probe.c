@@ -8,6 +8,7 @@
 #include "metric/query.h"
 #include "query/promql.h"
 #include "probe/probe.h"
+#include "common/logs.h"
 
 #define HTTP_PROBE_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_PROBE_HANDLER_ERR "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
@@ -19,8 +20,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	http_arg *harg = alligator_ht_search(args, http_arg_compare, "module", tommy_strhash_u32(0, "module"));
 	if (!harg)
 	{
-		if (carg->log_level > 0)
-			printf("no arg 'module' in query '%s'\n", http_data->uri);
+		carglog(carg, L_WARN, "no arg 'module' in query '%s'\n", http_data->uri);
 
 		string_cat(response, "no arg 'module' in query '", 26);
 		string_cat(response, http_data->uri, http_data->uri_size);
@@ -34,8 +34,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	harg = alligator_ht_search(args, http_arg_compare, "target", tommy_strhash_u32(0, "target"));
 	if (!harg)
 	{
-		if (carg->log_level > 0)
-			printf("no arg 'target' in query '%s'\n", http_data->uri);
+		carglog(carg, L_WARN, "no arg 'target' in query '%s'\n", http_data->uri);
 
 		string_cat(response, "no arg 'target' in query '", 26);
 		string_cat(response, http_data->uri, http_data->uri_size);
@@ -51,8 +50,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	probe_node* pn = probe_get(module);
 	if (!pn)
 	{
-		if (carg->log_level > 0)
-			printf("no such module '%s' in query '%s'\n", module, http_data->uri);
+		carglog(carg, L_WARN, "no such module '%s' in query '%s'\n", module, http_data->uri);
 		string_cat(response, HTTP_PROBE_HANDLER_ERR, strlen(HTTP_PROBE_HANDLER_ERR));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
