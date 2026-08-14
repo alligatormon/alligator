@@ -12,5 +12,5 @@
 	url = https://github.com/alligatormon/amtail.git
 [submodule "src/external/avrl"]
 	path = src/external/avrl
-	url = git@github.com:alligatormon/avrl.git
+	url = https://github.com/alligatormon/avrl.git
 	branch = main
