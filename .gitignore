@@ -35,3 +35,15 @@ src/build
 src/CMakeUserPresets.json
 src/external/drivedb.h
 maillog
+src/build-test/
+src/default.profdata
+src/default.profraw
+src/external/conanbuild.sh
+src/external/conanbuildenv.sh
+src/external/conanrun.sh
+src/external/conanrunenv.sh
+src/external/deactivate_conanbuild.sh
+src/external/deactivate_conanbuildenv.sh
+src/external/deactivate_conanrun.sh
+src/tests/coverage/coverage_report.txt
+src/tests/coverage/coverage_top15.txt
