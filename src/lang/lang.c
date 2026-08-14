@@ -62,14 +62,10 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 		}
 	}
 
-	if (!strcmp(lo->lang, "lua"))
-		ret = lua_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
-	else if (!strcmp(lo->lang, "mruby"))
-		ret = mruby_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
-	else if (!strcmp(lo->lang, "duktape"))
-		ret = duktape_run(lo, lo->script, lo->file, lo->arg, body, conf, parser_data, response);
-	else if (!strcmp(lo->lang, "so"))
+	if (!strcmp(lo->lang, "so"))
 		ret = so_run(lo, lo->script, lo->file, "data_example", lo->arg, body, conf, parser_data, response, queries);
+	else
+		langlog(lo, L_ERROR, "lang '%s' is not supported (only 'so' shared libraries)\n", lo->lang);
 
 	if (ret) {
 		if (conf)

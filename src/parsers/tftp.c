@@ -3,6 +3,7 @@
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/logs.h"
 #include "main.h"
 
 void tftp_handler(char *metrics, size_t size, context_arg *carg)
@@ -13,16 +14,13 @@ void tftp_handler(char *metrics, size_t size, context_arg *carg)
 	if ((metrics[0] == '\0') && (metrics[1] == '\3'))
 	{
 		val = 1;
-		if (carg->log_level > 0)
-			printf("data package: %s: %"u64"\n", metrics+4, val);
+		carglog(carg, L_DEBUG, "data package: %s: %"u64"\n", metrics+4, val);
 	}
 	if ((metrics[0] == '\0') && ((metrics[1] == '\5')))
 	{
-		if (carg->log_level > 0)
-			printf("error package: %s\n", metrics+4);
+		carglog(carg, L_DEBUG, "error package: %s\n", metrics+4);
 	}
-	if (carg->log_level > 2)
-		printf("id: %d:%d %"u64"\n", metrics[2], metrics[3], val);
+	carglog(carg, L_TRACE, "id: %d:%d %"u64"\n", metrics[2], metrics[3], val);
 	const char *fname = (carg && carg->mesg && strlen(carg->mesg) > 2) ? (carg->mesg + 2) : "";
 	namespace_metric_family_set(NULL, carg, "tftp_file_exists", METRIC_TYPE_GAUGE, "TFTP file presence probe result.");
 	metric_add_labels("tftp_file_exists", &val, DATATYPE_UINT, carg, "name", (char*)fname);

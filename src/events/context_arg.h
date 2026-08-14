@@ -8,6 +8,7 @@
 #include <jansson.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
+#include "common/multiline.h"
 #include "metric/metrictree.h"
 #include "dstructures/tommy.h"
 #include "common/netlib.h"
@@ -240,6 +241,10 @@ typedef struct context_arg
 	const char *filename;
 	char *path;
 	uint8_t is_dir;
+	/* Optional basename glob (fnmatch) for directory file:// crawl/notify.
+	 * Set via aggregate match=/glob=, or auto-extracted from URL basename
+	 * containing *, ? or [. Example: file:///var/log/postgresql-2026-08-*.csv */
+	char *file_match;
 	//uint64_t offset;
 	uint64_t files_count;
 
@@ -301,6 +306,15 @@ typedef struct context_arg
 	alligator_ht *amtail_variables;
 	// Incomplete log line buffered between aggregate/file reads for mtail handler.
 	string *amtail_tail;
+
+	/* Vector-compatible multiline (amtail / grok / vrl). Config from aggregate
+	 * or JSON: start_pattern=, condition_pattern=, multiline_mode=. */
+	char *ml_start_pattern;
+	char *ml_condition_pattern;
+	alligator_ml_mode ml_mode;
+	uint8_t ml_enabled;
+	alligator_linebuf ml_lb;
+	uint8_t ml_lb_ready;
 	// Mtail: variables touched in the current handler pass (export + TTL refresh).
 	uint32_t amtail_touch_seq;
 	amtail_variable **amtail_touch_buf;
@@ -312,6 +326,9 @@ typedef struct context_arg
 	uint32_t amtail_full_export_ttl_interval_sec;
 	// Set after VARIABLE decls from shared bytecode are inserted into amtail_variables.
 	uint8_t amtail_variables_prepared;
+
+	/* Per-stream avrl/VRL runtime (opaque vrl_stream* owned by this carg). */
+	void *vrl_stream;
 	uv_idle_t filetailer_restart_idle;
 	uint8_t filetailer_restart_idle_active;
 	char filetailer_restart_path[1024];
@@ -334,6 +351,8 @@ typedef struct context_arg
 	struct log_channel *log_ch;
 	struct log_channel *log_ch_raw;
 	string *log_ch_raw_tail;
+	/* Transformed log sink (VRL .log/.logs, grok, amtail emit_log). Independent of log_ch_raw. */
+	struct log_channel *log_ch_out;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;
@@ -406,8 +425,15 @@ int env_struct_compare(const void *arg, const void *obj);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
 void carglog_raw(context_arg *carg, const char *data, size_t len);
+/* Emit one transformed log line/document to carg->log_ch_out (no-op if unset). */
+void carg_emit_log(context_arg *carg, const char *data, size_t len);
+/* Emit a flat JSON document to carg->log_ch_out (does not wrap as {"message":...}). */
+void carg_emit_log_document(context_arg *carg, json_t *doc);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
+
+/* Init carg->ml_lb once; attach multiline assembler if ml_enabled. */
+int carg_linebuf_ensure(context_arg *carg);
 void thread_loop_set(char *key, uint64_t size);
 void thread_loop_free(void);
 threaded_loop *get_threaded_loop(char *key);

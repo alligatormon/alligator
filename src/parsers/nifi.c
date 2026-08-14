@@ -6,6 +6,7 @@
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #define NIFI_METRIC_SIZE 1000
 
 static inline void nifi_metric_set(context_arg *carg, const char *metric_name)
@@ -22,7 +23,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

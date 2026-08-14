@@ -1,6 +1,6 @@
 #include <uv.h>
-#include <stdio.h>
 #include <fcntl.h>
+#include "common/logs.h"
 #include <string.h>
 #include <stdlib.h>
 #include "dstructures/uv_cache.h"
@@ -40,7 +40,7 @@ void write_cb(uv_fs_t* req) {
 	int result = req->result; 
  
 	if (result < 0) {
-		printf("Error at writing file: %s\n", uv_strerror(result));
+		glog(L_ERROR, "Error at writing file: %s\n", uv_strerror(result));
 	}
 	uv_fs_close(loop, fs_info->close_req, (uv_file)req->file, fs_write_exit);
 	uv_fs_req_cleanup(req);
@@ -52,7 +52,7 @@ void open_cb(uv_fs_t* req) {
 	int result = req->result;
  
 	if (result < 0) {
-		printf("Error at opening file '%s': %s\n", req->path, uv_strerror((int)req->result));
+		glog(L_ERROR, "Error at opening file '%s': %s\n", req->path, uv_strerror((int)req->result));
 	}
 	uv_fs_req_cleanup(req);
 	uv_fs_write(loop, fs_info->write_req, result, &fs_info->buffer, 1, 0, write_cb);
@@ -81,6 +81,6 @@ void write_to_file(char *filename, char *str, uint64_t len, void *callback, void
  
 	r = uv_fs_open(loop, fs_info->open_req, filename, O_CREAT | O_WRONLY | O_TRUNC, 0700, open_cb);
 	if (r < 0) {
-		printf("Error at opening file '%s': %s\n", filename, uv_strerror(r));
+		glog(L_ERROR, "Error at opening file '%s': %s\n", filename, uv_strerror(r));
 	}
 }

@@ -19,6 +19,7 @@
 | HTTP API | [api.md](api.md) |
 | Puppeteer / browser checks | [puppeteer.md](puppeteer.md) |
 | Thread pools | [threaded-loop.md](threaded-loop.md) |
+| Developer logging (`glog` / `carglog`) | [logging.md](logging.md) |
 
 ### Top-level configuration contexts
 
@@ -76,6 +77,32 @@ Broker list format: `host:port` or comma-separated `host1:port1,host2:port2`. To
 You can set optional `kafka_key` and `kafka_options` per channel, or pass options in URI query parameters.
 
 Kafka channels are non-blocking. If the internal producer queue is full or the broker is unavailable, log lines are dropped and a throttled diagnostic is written to stderr.
+
+### Log channel shipper metrics
+
+Alligator exports counters (via `system_carg`) for every log channel write:
+
+| Metric | Labels | Meaning |
+|--------|--------|---------|
+| `alligator_log_channel_sent_total` | `channel`, `kind` | accepted by sink (queued/written) |
+| `alligator_log_channel_dropped_total` | `channel`, `kind`, `reason` | intentionally dropped |
+| `alligator_log_channel_errors_total` | `channel`, `kind`, `reason` | produce/serialize failure |
+
+`kind`: `raw` (`log_channel_raw`), `out` (transformed `log_channel_out`), `diag` (`carglog` / `glog`).
+
+`reason` examples: `queue_full`, `disconnected`, `busy`, `produce`, `serialize`, `oom`.
+
+```promql
+rate(alligator_log_channel_dropped_total{kind="out"}[5m])
+  /
+clamp_min(
+  rate(alligator_log_channel_sent_total{kind="out"}[5m])
+  + rate(alligator_log_channel_dropped_total{kind="out"}[5m]),
+  1e-9)
+```
+
+TCP log destinations connect asynchronously via libuv. If the remote side is not connected or a write is already in progress, log lines are dropped (`reason=disconnected|busy`). Reconnection is retried in the background every few seconds.
+
 When both URI query parameters and `kafka_options` are present, `kafka_options` values take precedence.
 
 Recommended formats for Kafka consumers: `log_format json` or `log_format elastic`.
@@ -182,6 +209,44 @@ On **entrypoint** and **aggregate** contexts that read user data from **files or
 Use it as an extra sink alongside grok/mtail metric parsing, or with `handler log` for log shipping without metrics.
 
 `log_channel` (diagnostic logs via `carglog`) and `log_channel_raw` (incoming user payload) are independent.
+
+### Transformed log sink (`log_channel_out`)
+
+After **VRL / grok / amtail** remap, alligator can ship **transformed** events to a
+named channel. This is separate from `log_channel_raw` (passthrough of input bytes).
+
+| Option | Payload |
+|--------|---------|
+| `log_channel_raw` | original stream, physical lines |
+| `log_channel_out` | remapped events (explicit operator per engine) |
+
+**VRL (Alligator extension, not Vector VRL):** only explicit `.log` / `.logs`.
+Flat objects are written as flat JSON documents; strings use the same wrapping as
+`log_channel_write_raw`. Metrics via `.metrics` can run on the same record.
+
+```conf
+log_channel {
+    name pg-json;
+    dest kafka://127.0.0.1:9092/pg-parsed;
+    log_format json;
+}
+
+aggregate {
+    vrl "file:///var/log/postgresql.csv" name=postgresql_csv
+        log_channel_out=pg-json
+        start_pattern='^\d{4}-\d{2}-\d{2}'
+        condition_pattern='^\s'
+        multiline_mode=continue_through;
+}
+```
+
+Both sinks may be set at once (raw audit + structured). Prefer one for most cases.
+
+**amtail:** call `emit_log("...")` or `emit_log($capture)` inside the script (Alligator extension).
+No call → no log to `log_channel_out` (metrics still work).
+
+**grok:** on successful match, if `log_channel_out` is set, emit one flat JSON document
+with named captures plus `message` (the matched line). Metrics are unchanged.
 
 ```json
 {

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "main.h"
 #include "metric/labels.h"
 #include "common/logs.h"
@@ -13,7 +14,7 @@ extern aconf *ac;
 int get_scaling_current_cpu_freq() {
     FILE *f = fopen("/proc/cpuinfo", "r");
     if (!f) {
-        perror("fopen");
+        carglog(ac->system_carg, L_ERROR, "fopen /proc/cpuinfo: %s\n", strerror(errno));
         return 1;
     }
 
@@ -54,7 +55,7 @@ void cpu_avg_push(double now)
 	double old = ac->system_avg_metrics[ac->system_cpuavg_ptr];
 	ac->system_avg_metrics[ac->system_cpuavg_ptr] = now;
 	ac->system_cpuavg_sum = (ac->system_cpuavg_sum - old) + now;
-	carglog(ac->system_carg, L_INFO, "set ac->system_avg_metrics[%"u64"]=%lf, sum: %lf\n", ac->system_cpuavg_ptr, ac->system_avg_metrics[ac->system_cpuavg_ptr], ac->system_cpuavg_sum);
+	carglog(ac->system_carg, L_TRACE, "set ac->system_avg_metrics[%"u64"]=%lf, sum: %lf\n", ac->system_cpuavg_ptr, ac->system_avg_metrics[ac->system_cpuavg_ptr], ac->system_cpuavg_sum);
 
 	++ac->system_cpuavg_ptr;
 	if (ac->system_cpuavg_ptr >= ac->system_cpuavg_period)
@@ -64,7 +65,7 @@ void cpu_avg_push(double now)
 void get_cpu(int8_t platform)
 {
 	int is_cgroup = is_container(platform); // exclude baremetal and virt
-	carglog(ac->system_carg, L_INFO, "fast scrape metrics: base: cpu\n");
+	carglog(ac->system_carg, L_TRACE, "fast scrape metrics: base: cpu\n");
 	r_time ts_start = setrtime();
 
 	int64_t effective_cores;
@@ -131,7 +132,7 @@ void get_cpu(int8_t platform)
 				sccs = &ac->scs->cores[core_num];
 				if (core_num >= num_cpus)
 				{
-					printf("error: cpus: %"PRId64", core num: %"PRIu64", field: '%s' (/proc/stat)\n", num_cpus, core_num, temp);
+					carglog(ac->system_carg, L_ERROR, "error: cpus: %"PRId64", core num: %"PRIu64", field: '%s' (/proc/stat)\n", num_cpus, core_num, temp);
 					continue;
 				}
 			}
@@ -254,7 +255,7 @@ void get_cpu(int8_t platform)
 		FILE *fd = fopen(syspath, "r");
 		if (!fd)
 		{
-			printf("Not found %s\n", syspath);
+			carglog(ac->system_carg, L_ERROR, "Not found %s\n", syspath);
 			return;
 		}
 
@@ -317,7 +318,7 @@ void get_cpu(int8_t platform)
 	r_time ts_end = setrtime();
 	int64_t scrape_time = getrtime_ns(ts_start, ts_end);
 	double diff_time = getrtime_ns(ac->last_time_cpu, ts_start)/1000000000.0;
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: get_cpu time execute '%"d64", diff '%lf'\n", scrape_time, diff_time);
 
 	ac->last_time_cpu = ts_start;
 	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);

@@ -1,5 +1,6 @@
 #include "main.h"
 #include "amtail/type.h"
+#include "vrl/type.h"
 #include "events/context_arg.h"
 #include "events/a_signal.h"
 #include "common/logs.h"
@@ -92,6 +93,7 @@ void main_free()
 	free(ac->threads);
 
 	amtail_free();
+	vrl_engine_free();
 
 	signal_stop();
 

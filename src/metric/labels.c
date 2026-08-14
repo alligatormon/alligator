@@ -32,8 +32,6 @@ static inline void metric_apply_context_transform(char *name, alligator_ht *labe
 	}
 
 	if (!transform_carg->metricstransform) {
-		carglog(carg, L_TRACE,
-		    "metricstransform: metric '%s' skip (no metricstransform on context)\n", name);
 		return;
 	}
 
@@ -49,7 +47,6 @@ int64_t get_ttl(context_arg *carg)
 			return ac->ttl;
 	}
 
-	//printf("curr ttl: %ld, carg->ttl %ld, ttl %ld\n", carg->curr_ttl, carg->ttl, ac->ttl);
 	if (carg->curr_ttl > -1)
 	{
 		if (carg->curr_ttl == 0)
@@ -202,13 +199,17 @@ int metric_name_match(labels_t *labels1, labels_t *labels2)
 void labels_print(labels_t *labels, int l)
 {
 	labels_t *cur = labels;
+	char indent[256];
 
 	while (cur)
 	{
 		uint64_t i;
-		for ( i=0; i<l; i++)
-			printf("\t");
-		printf("%s:%s (%zu/%zu), go to: %p\n", cur->name, cur->key, cur->name_len, cur->key_len, cur->next);
+		if ((size_t)l >= sizeof(indent))
+			l = (int)(sizeof(indent) - 1);
+		for (i = 0; i < (uint64_t)l; i++)
+			indent[i] = '\t';
+		indent[l] = 0;
+		glog(L_TRACE, "%s%s:%s (%zu/%zu), go to: %p\n", indent, cur->name, cur->key, cur->name_len, cur->key_len, cur->next);
 		cur = cur->next;
 	}
 }
@@ -246,7 +247,6 @@ string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 	string *label = string_init(255);
 	uint64_t j = 0;
 	char tmp[255];
-	//printf("groupkey '%s'\n",  groupkey->s);
 	for (uint64_t i = 0; i < groupkey->l; )
 	{
 		j = strcspn(groupkey->s + i, ",");
@@ -283,7 +283,6 @@ alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 
 	uint64_t j = 0;
 	char tmp[255];
-	//printf("groupkey '%s'\n",  groupkey->s);
 	for (uint64_t i = 0; i < groupkey->l; )
 	{
 		j = strcspn(groupkey->s + i, ",");
@@ -322,7 +321,6 @@ void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *gro
 	string *key = labels_to_groupkey(labels_list, groupkey);
 	uint32_t key_hash = tommy_strhash_u32(0, key->s);
 	query_struct *qs = alligator_ht_search(res_hash, query_struct_compare, key->s, key_hash);
-	//printf("labels->list '%s': %p: %lf\n", labels_list->key, qs, x->d);
 	if (!qs)
 	{
 		qs = calloc(1, sizeof(*qs));
@@ -458,7 +456,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 		}
 		else
 		{
-			fprintf(stderr, "unknown error 10\n");
+			glog(L_ERROR, "unknown error 10\n");
 		}
 
 		if (!labels->key)
@@ -484,7 +482,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 		}
 		else
 		{
-			fprintf(stderr, "unknown error 11\n");
+			glog(L_ERROR, "unknown error 11\n");
 		}
 
 		labels_t *labels_old = labels;
@@ -535,7 +533,7 @@ void labels_new_plan_node(void *funcarg, void* arg)
 
 	sortplan_collision *sp_colls = alligator_ht_search(sort_plan->check_collisions, check_collisions_compare, cur->name, cur->name_hash);
 	if (sp_colls) {
-		fprintf(stderr, "There is a collision with the label name '%s' (%"PRIu64") and already added '%s' (%"PRIu64"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
+		glog(L_WARN, "There is a collision with the label name '%s' (%"PRIu64") and already added '%s' (%"PRIu64"). Alligator will use the `strcmp` function to compare such names, which may decrease performance.\n", cur->name, cur->name_hash, sort_plan->plan[sp_colls->index], sort_plan->hash[sp_colls->index]);
 		//sort_plan->is_collision[sort_plan->size] = 1;
 		//sort_plan->is_collision[sp_colls->index] = 1;
 	}
@@ -674,7 +672,6 @@ void labels_free_node(void *funcarg, void* arg)
 
 	if (labelscont->allocatedkey)
 	{
-		//printf("DEBUG1: free key %p (%s)\n", labelscont->key, labelscont->key);
 		free(labelscont->key);
 	}
 	if (labelscont->allocatedname)
@@ -733,7 +730,7 @@ void print_labels(labels_t *labels)
 {
 	while (labels)
 	{
-		printf("labels %p, labels->name: '%s' (%zu), labels->key: '%s' (%zu)\n", labels, labels->name, labels->name_len, labels->key, labels->key_len);
+		glog(L_TRACE, "labels %p, labels->name: '%s' (%zu), labels->key: '%s' (%zu)\n", labels, labels->name, labels->name_len, labels->key, labels->key_len);
 		labels = labels->next;
 	}
 }
@@ -832,7 +829,6 @@ void labels_cache_fill(labels_t *labels, metric_tree *metrictree)
 
 		if (labels->allocatedname)
 		{
-			//printf("freeing %s\n", labels->name);
 			//free(labels->name);
 		}
 
@@ -1477,7 +1473,7 @@ void metric_gen_foreach_avg(void *funcarg, void* arg)
 
 	query_pass *qp = funcarg;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
+	glog(L_TRACE, "qs->key %s, val: %lf, count: %"u64"\n", qs->key, qs->val, qs->count);
 
 	double avg = qs->val / qs->count;
 	metric_add(name, qs->lbl, &avg, DATATYPE_DOUBLE, ac->system_carg);
@@ -1547,7 +1543,7 @@ void metric_gen_foreach_min(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, min: %lf, op: %d, opval: %lf\n", qs->key, qs->min, mqc->op, mqc->opval);
+	glog(L_TRACE, "qs->key %s, min: %lf, op: %d, opval: %lf\n", qs->key, qs->min, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->min, mqc->opval))
 	{
@@ -1567,7 +1563,7 @@ void metric_gen_foreach_max(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, max: %lf, op: %d, opval: %lf\n", qs->key, qs->max, mqc->op, mqc->opval);
+	glog(L_TRACE, "qs->key %s, max: %lf, op: %d, opval: %lf\n", qs->key, qs->max, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->max, mqc->opval))
 	{
@@ -1587,7 +1583,7 @@ void metric_gen_foreach_sum(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, val: %lf, op: %d, opval: %lf\n", qs->key, qs->val, mqc->op, mqc->opval);
+	glog(L_TRACE, "qs->key %s, val: %lf, op: %d, opval: %lf\n", qs->key, qs->val, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->val, mqc->opval))
 	{
@@ -1607,7 +1603,7 @@ void metric_gen_foreach_count(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
+	glog(L_TRACE, "qs->key %s, count: %"u64", op: %d, opval: %lf\n", qs->key, qs->count, mqc->op, mqc->opval);
 
 	if (query_struct_check_expr(mqc->op, qs->count, mqc->opval))
 	{
@@ -1634,7 +1630,7 @@ void metric_gen_foreach_none(void *funcarg, void* arg)
 	query_pass *qp = funcarg;
 	metric_query_context *mqc = qp->mqc;
 	char *name = qp->new_name;
-	glog(L_INFO, "qs->key %s, count: %"u64", op: %d, min: %lf, max: %lf, equal: %"u64", unequal: %"u64", opval: %lf\n", qs->key, qs->count, mqc->op, qs->min, qs->max, qs->equal_hits, qs->unequal_hits, mqc->opval);
+	glog(L_TRACE, "qs->key %s, count: %"u64", op: %d, min: %lf, max: %lf, equal: %"u64", unequal: %"u64", opval: %lf\n", qs->key, qs->count, mqc->op, qs->min, qs->max, qs->equal_hits, qs->unequal_hits, mqc->opval);
 
 	if (query_struct_check_expr_none(mqc, qs))
 	{

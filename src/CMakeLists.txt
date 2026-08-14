@@ -30,8 +30,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 find_package(libuuid REQUIRED)
 find_package(xxHash REQUIRED)
-find_package(lua REQUIRED)
-find_package(duktape REQUIRED)
 find_package(oniguruma REQUIRED)
 find_package(RdKafka QUIET)
 if(NOT RdKafka_FOUND)
@@ -43,6 +41,75 @@ if(NOT RdKafka_FOUND)
 	if(RDKAFKA_LIBRARY_DIRS)
 		set_target_properties(RdKafka::rdkafka PROPERTIES
 			INTERFACE_LINK_DIRECTORIES "${RDKAFKA_LIBRARY_DIRS}")
+	endif()
+endif()
+
+# --- avrl (VRL engine): prefer submodule, fall back to sibling checkout ---
+# Use CMAKE_CURRENT_SOURCE_DIR (this file lives in src/), not CMAKE_SOURCE_DIR:
+# when the top-level alligator/CMakeLists.txt does add_subdirectory(src),
+# CMAKE_SOURCE_DIR is the repo root and would miss src/external/avrl.
+set(_avrl_candidates
+	"${CMAKE_CURRENT_SOURCE_DIR}/external/avrl"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../avrl"
+	"${CMAKE_SOURCE_DIR}/src/external/avrl"
+	"${CMAKE_SOURCE_DIR}/../avrl"
+)
+unset(AVRL_DIR)
+foreach(_cand IN LISTS _avrl_candidates)
+	if(EXISTS "${_cand}/vrl.h")
+		set(AVRL_DIR "${_cand}")
+		break()
+	endif()
+endforeach()
+if(NOT AVRL_DIR)
+	message(FATAL_ERROR
+		"avrl not found (looked under src/external/avrl and sibling ../avrl).\n"
+		"  git submodule update --init --recursive src/external/avrl\n"
+		"  # or keep a sibling checkout at ../avrl")
+endif()
+message(STATUS "avrl sources: ${AVRL_DIR}")
+find_package(OpenSSL REQUIRED)
+option(AVRL_WITH_OPENSSL "Enable OpenSSL-backed VRL crypto functions" ON)
+set(AVRL_ENGINE_SOURCES
+	${AVRL_DIR}/value.c
+	${AVRL_DIR}/pcre_wrap.c
+	${AVRL_DIR}/lexer.c
+	${AVRL_DIR}/parser.c
+	${AVRL_DIR}/interp.c
+	${AVRL_DIR}/stdlib.c
+	${AVRL_DIR}/stdlib_util.c
+	${AVRL_DIR}/stdlib_type.c
+	${AVRL_DIR}/stdlib_string.c
+	${AVRL_DIR}/stdlib_collection.c
+	${AVRL_DIR}/stdlib_codec.c
+	${AVRL_DIR}/stdlib_number.c
+	${AVRL_DIR}/stdlib_random.c
+	${AVRL_DIR}/stdlib_path.c
+	${AVRL_DIR}/stdlib_parse.c
+	${AVRL_DIR}/json.c
+	${AVRL_DIR}/multiline.c
+	${AVRL_DIR}/vrl.c
+)
+if(AVRL_WITH_OPENSSL)
+	list(APPEND AVRL_ENGINE_SOURCES ${AVRL_DIR}/stdlib_crypto.c)
+endif()
+add_library(avrl_static STATIC ${AVRL_ENGINE_SOURCES})
+set_target_properties(avrl_static PROPERTIES C_STANDARD 11 OUTPUT_NAME avrl)
+# Own include root first so avrl's parser.h/value.h win over any alligator names.
+target_include_directories(avrl_static
+	PUBLIC ${AVRL_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}
+)
+target_link_libraries(avrl_static PUBLIC pcre::libpcre jansson::jansson)
+if(AVRL_WITH_OPENSSL)
+	target_compile_definitions(avrl_static PUBLIC AVRL_WITH_OPENSSL=1)
+	if(TARGET openssl::openssl)
+		target_link_libraries(avrl_static PUBLIC openssl::openssl)
+	elseif(TARGET OpenSSL::Crypto)
+		target_link_libraries(avrl_static PUBLIC OpenSSL::Crypto)
+	endif()
+	if(APPLE)
+		target_link_libraries(avrl_static PUBLIC "-framework Security" "-framework CoreFoundation")
 	endif()
 endif()
 
@@ -134,7 +201,6 @@ include_directories(/usr/local/include)
 include_directories(/usr/include/postgresql)
 include_directories(/var/lib/smartmontools/drivedb/)
 include_directories(/usr/share/smartmontools/)
-include_directories(external/mruby/include/)
 include_directories(/usr/include/zookeeper/)
 include_directories(/usr/include/libnl3)
 include_directories(/usr/local/include/)
@@ -144,14 +210,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include_directories(external/libatasmart/)
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(external/mruby/include)
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
-link_directories(external/mruby/build/host/lib/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 link_directories(/usr/local/lib64/)
-link_directories(external/mruby/build/host/lib/)
 link_directories(external/libatasmart/.libs/)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	link_directories(external/libfyaml/src/.libs/)
@@ -267,6 +330,9 @@ set(STATIC_FILES
 	amtail/amtail.c
 	amtail/push.c
 	amtail/del.c
+	vrl/vrl.c
+	vrl/push.c
+	vrl/del.c
 	external/amtail/amtail_pcre.c
 	external/amtail/compile.c
 	external/amtail/file.c
@@ -291,6 +357,7 @@ set(STATIC_FILES
 	common/aggregator.c
 	common/json_query.c
 	common/pcre_parser.c
+	common/multiline.c
 	common/xml.c
 	mapping/mapping.c
 	common/netlib.c
@@ -370,10 +437,7 @@ set(STATIC_FILES
 	config/get.c
 	dynconf/sd.c
 	lang/lang.c
-	lang/lua.c
-	lang/mruby.c
 	lang/so.c
-	lang/duktape.c
 	lang/push.c
 	lang/del.c
 	system/common.c
@@ -510,14 +574,16 @@ pkg_check_modules(SYSTEMD "libsystemd" REQUIRED)
 	endif()
 endif()
 endif()
-set(ALLIGATOR_EXTERNAL_STATIC_LIBS libmruby.a libmruby_core.a libpicohttpparser.a)
+set(ALLIGATOR_EXTERNAL_STATIC_LIBS libpicohttpparser.a)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_EXTERNAL_STATIC_LIBS libfyaml.a)
 endif()
 set(ALLIGATOR_COMMON_LIBS
-	jansson::jansson pcre::pcre PostgreSQL::PostgreSQL libuuid::libuuid
-	xxHash::xxhash lua::lua duktape::duktape ${LIBUV_DRIVER} oniguruma::onig
-	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS}
+	# Use pcre::libpcre (not pcre::pcre): the umbrella also links libpcreposix,
+	# which collides with oniguruma's POSIX regcomp/regexec/regfree on Linux.
+	jansson::jansson pcre::libpcre PostgreSQL::PostgreSQL libuuid::libuuid
+	xxHash::xxhash ${LIBUV_DRIVER} oniguruma::onig
+	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS} avrl_static
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(APPEND ALLIGATOR_COMMON_LIBS libbsd::libbsd)
@@ -607,7 +673,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a liblua.a libduktape.a libmruby.a libmruby_core.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL)
@@ -628,14 +694,12 @@ endfunction()
 add_include_flags(include_flags ${CMAKE_INCLUDE_PATH})
 
 
-include_directories(external/mruby/include/)
 include_directories(external/picohttpparser)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	include_directories(external/libfyaml/include/)
 endif()
 include_directories(external/libatasmart/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include_directories(external/mruby/include)
 
 
 get_target_property(SRCs ${HEAD} SOURCES)

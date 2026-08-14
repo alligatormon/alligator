@@ -12,6 +12,7 @@
 #include "parsers/multiparser.h"
 #include "common/entrypoint.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 #include "main.h"
 
 extern aconf* ac;
@@ -28,10 +29,7 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	int size;
 	if ((size = recvfrom(carg->fd, buf, 65535, 0, (struct sockaddr*)carg->local, &carg->local_len)) <= 0)
 	{
-		if (carg->log_level > 1) {
-			perror("recvfrom: ");
-			printf("recvfrom err\n");
-		}
+		carglog(carg, L_DEBUG, "recvfrom: %s\n", strerror(errno));
 		uv_close((uv_handle_t*)handle, NULL);
 		return;
 	}
@@ -44,8 +42,7 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	metric_add_labels("unixgram_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
 	close(carg->fd);
-	if (carg->log_level > 0)
-		printf("deleting file %s\n", carg->local->sun_path);
+	carglog(carg, L_INFO, "deleting file %s\n", carg->local->sun_path);
 	unlink(carg->local->sun_path);
 	free(carg->remote);
 	free(carg->local);
@@ -62,10 +59,8 @@ void do_unixgram(void *arg)
 		return;
 
 	context_arg *carg = arg;
-	if (carg->log_level > 1) {
-		printf("run %s\n", carg->key);
-		printf("arg %p\n", carg);
-	}
+	carglog(carg, L_DEBUG, "run %s\n", carg->key);
+	carglog(carg, L_DEBUG, "arg %p\n", carg);
 	//char *client_sock = malloc(255);
 
 	if (cluster_come_later(carg))
@@ -98,8 +93,7 @@ void do_unixgram(void *arg)
 
 	int s;
 	if ((s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
-		if (carg->log_level > 0)
-			perror("socket");
+		carglog(carg, L_ERROR, "socket: %s\n", strerror(errno));
 		return;
 	}
 	struct timeval tv_out; 
@@ -111,8 +105,7 @@ void do_unixgram(void *arg)
 	int len = strlen(local->sun_path) + sizeof(local->sun_family);
 	if (bind(s, (struct sockaddr *)local, len) == -1)
 	{
-		if (carg->log_level > 0)
-			perror("bind");
+		carglog(carg, L_ERROR, "bind: %s\n", strerror(errno));
 		free(remote);
 		free(local);
 		return;
@@ -120,15 +113,13 @@ void do_unixgram(void *arg)
 
 	if (sendto(s, carg->mesg, strlen(carg->mesg), 0, (struct sockaddr*)remote, remote_len) == -1)
 	{
-		if (carg->log_level > 0)
-			perror("sendto");
+		carglog(carg, L_ERROR, "sendto: %s\n", strerror(errno));
 		free(remote);
 		free(local);
 		return;
 	}
 
-	if (carg->log_level > 0)
-		printf("sent %zu bytes\n", strlen(carg->mesg));
+	carglog(carg, L_INFO, "sent %zu bytes\n", strlen(carg->mesg));
 
 	carg->poll_socket.data = carg;
 	uv_poll_init_socket(uv_default_loop(), &carg->poll_socket, s);
@@ -190,7 +181,7 @@ void unixgram_serve_cb(uv_poll_t* handle, int status, int events)
 	int size;
 	if ( ( size = recvfrom(carg->fd, buf, 65535, 0, (struct sockaddr*)carg->local, &carg->local_len)) <= 0 )
 	{
-		perror("recvfrom: ");
+		carglog(carg, L_ERROR, "recvfrom: %s\n", strerror(errno));
 		return;
 	}
 	buf[size]=0;
@@ -210,7 +201,7 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	int s = socket(AF_UNIX, SOCK_DGRAM, 0);
 	if (s == -1)
 	{
-		perror("socket");
+		carglog(carg, L_ERROR, "socket: %s\n", strerror(errno));
 		return;
 	}
 	size_t local_len = sizeof(struct sockaddr_un);
@@ -220,7 +211,7 @@ void unixgram_server_init(uv_loop_t *loop, char *addr, context_arg *carg)
 	unlink(local->sun_path);
 	if (bind(s, (struct sockaddr *)local, local_len) == -1)
 	{
-		perror("bind");
+		carglog(carg, L_ERROR, "bind: %s\n", strerror(errno));
 		return;
 	}
 	carg->remote = 0;

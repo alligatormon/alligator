@@ -40,7 +40,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 
 	if (!lo->module)
 	{
-		printf("No defined module for key '%s', module: %s\n", lo->key, lo->module ? lo->module : "");
+		langlog(lo, L_ERROR, "No defined module for key '%s', module: %s\n", lo->key, lo->module ? lo->module : "");
 		return NULL;
 	}
 
@@ -49,7 +49,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 
 	if (!lo->lib)
 	{
-		printf("No defined library in configuration\n");
+		langlog(lo, L_ERROR, "No defined library in configuration\n");
 		return NULL;
 	}
 
@@ -58,7 +58,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 		lo->func = (void*)module_load(lo->lib->path, lo->method, &lo->func_lib);
 		if (!lo->func)
 		{
-			printf("Cannot get '%s' from '%s'\n", lo->method, lo->module);
+			langlog(lo, L_ERROR, "Cannot get '%s' from '%s'\n", lo->method, lo->module);
 			return NULL;
 		}
 	}

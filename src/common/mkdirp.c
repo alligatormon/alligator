@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <uv.h>
+#include "common/logs.h"
 #include "main.h"
 //#include <stdlib.h>
 //#include <sys/types.h>
@@ -46,14 +47,12 @@ char * get_dir (char *str, uint64_t num, int *fin)
 
 void mkdir_cb(uv_fs_t* req)
 {
-	extern aconf *ac;
 	int result = req->result;
 
-	if ((ac->log_level > 1) && (result == -1))
-		fprintf(stderr, "Error at creating directory: %s\n", (char*)req->data);
+	if (result == -1)
+		glog(L_ERROR, "Error at creating directory: %s: %s\n", (char*)req->data, uv_strerror(result));
 
-	if (ac->log_level > 2)
-		printf("Successfully created directory: %s\n", (char*)req->data);
+	glog(L_TRACE, "Successfully created directory: %s\n", (char*)req->data);
 
 	uv_fs_req_cleanup(req);
 	free(req->data);

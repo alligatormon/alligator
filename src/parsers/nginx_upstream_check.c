@@ -2,6 +2,7 @@
 #include <string.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/validator.h"
 #include "common/http.h"
 #include "main.h"
@@ -36,20 +37,19 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 
 	while(i < size)
 	{
-		if (carg->log_level > 2)
+		if (carg->log_level >= L_DEBUG)
 		{
 			char str[255];
 			size_t n = strcspn(metrics+i, "\n");
 			if (n >= sizeof(str))
 				n = sizeof(str) - 1;
 			strlcpy(str, metrics+i, n + 1);
-			printf("nginx processing string: %"d64" < %zu: '%s'\n", i, size, str);
+			carglog(carg, L_DEBUG, "nginx processing string: %"d64" < %zu: '%s'\n", i, size, str);
 		}
 		//++i;
 		if (!isdigit(metrics[i]))
 		{
-			if (carg->log_level > 2)
-				printf("nginx scrape metrics: field 'id' not a number into stats:\n'%s'\n", metrics+i);
+			carglog(carg, L_WARN, "nginx scrape metrics: field 'id' not a number into stats:\n'%s'\n", metrics+i);
 			break;
 		}
 		cur = strcspn(metrics+i, ",");
@@ -62,8 +62,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		size_t upstream_len = name_size-1;
 		if (!*upstream)
 		{
-			if (carg->log_level > 2)
-				printf("nginx scrape metrics: empty field 'upstream' into stats:\n'%s'\n", metrics+i);
+			carglog(carg, L_WARN, "nginx scrape metrics: empty field 'upstream' into stats:\n'%s'\n", metrics+i);
 			break;
 		}
 		if (!metric_label_validator(upstream, cur))
@@ -82,8 +81,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		size_t server_len = name_size-1;
 		if (!*server)
 		{
-			if (carg->log_level > 2)
-				printf("nginx scrape metrics: empty field 'server' into stats:\n'%s'\n", metrics+i);
+			carglog(carg, L_WARN, "nginx scrape metrics: empty field 'server' into stats:\n'%s'\n", metrics+i);
 			break;
 		}
 		cur++;
@@ -99,8 +97,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		// processing "rise"
 		if (!isdigit(metrics[i]))
 		{
-			if (carg->log_level > 2)
-				printf("nginx scrape metrics: field 'rise' not a number into stats:\n'%s'\n", metrics+i);
+			carglog(carg, L_WARN, "nginx scrape metrics: field 'rise' not a number into stats:\n'%s'\n", metrics+i);
 			break;
 		}
 		cur = strcspn(metrics+i, ",");
@@ -111,8 +108,7 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		// processing "fall"
 		if (!isdigit(metrics[i]))
 		{
-			if (carg->log_level > 2)
-				printf("nginx scrape metrics: field 'fall' not a number into stats:\n'%s'\n", metrics+i);
+			carglog(carg, L_WARN, "nginx scrape metrics: field 'fall' not a number into stats:\n'%s'\n", metrics+i);
 			break;
 		}
 		cur = strcspn(metrics+i, ",");
@@ -127,58 +123,46 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		if (carg->log_level > 3)
-		{
-			printf("server is '%s'\n", server);
-			printf("upstream is '%s'\n", upstream);
-			printf("type is '%s'\n", type);
-			printf("status is '%s'\n", status);
-		}
+		carglog(carg, L_TRACE, "server is '%s'\n", server);
+		carglog(carg, L_TRACE, "upstream is '%s'\n", upstream);
+		carglog(carg, L_TRACE, "type is '%s'\n", type);
+		carglog(carg, L_TRACE, "status is '%s'\n", status);
 		if (!*server)
 			continue;
-		if (carg->log_level > 3)
-			puts("validate server is not null");
+		carglog(carg, L_TRACE, "validate server is not null\n");
 
 		if (!*upstream)
 			continue;
-		if (carg->log_level > 3)
-			puts("validate upstream is not null");
+		carglog(carg, L_TRACE, "validate upstream is not null\n");
 
 		if (!metric_label_validator(type, type_len))
 		{
-			if (carg->log_level > 3)
-				puts("validate type is ERR");
+			carglog(carg, L_TRACE, "validate type is ERR\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (carg->log_level > 3)
-			puts("validate type is OK");
+		carglog(carg, L_TRACE, "validate type is OK\n");
 		if (!metric_label_validator(status, status_len))
 		{
-			if (carg->log_level > 3)
-				puts("validate status is ERR");
+			carglog(carg, L_TRACE, "validate status is ERR\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (carg->log_level > 3)
-			puts("validate status is OK");
+		carglog(carg, L_TRACE, "validate status is OK\n");
 		if (!metric_label_validator(server, server_len))
 		{
-			puts("validate server is ERR");
+			carglog(carg, L_WARN, "validate server is ERR\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (carg->log_level > 3)
-			puts("validate server is OK");
+		carglog(carg, L_TRACE, "validate server is OK\n");
 		if (!metric_label_validator(upstream, upstream_len))
 		{
-			if (carg->log_level > 3)
-				puts("validate upstream is ERR");
+			carglog(carg, L_TRACE, "validate upstream is ERR\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		if (carg->log_level > 3)
-			puts("validate upstream is OK");
+		carglog(carg, L_TRACE, "validate upstream is OK\n");
 
 		uint64_t val = 1;
 		uint64_t nval = 0;

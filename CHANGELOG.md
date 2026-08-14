@@ -1,5 +1,8 @@
 Changelog
 
+## [unreleased]
+- Remove embedded lang interpreters (lua, mruby, duktape). `lang` supports only shared libraries (`lang so` + `modules`). Drop Conan deps `lua` and `duktape`, and the `src/external/mruby` submodule.
+
 ## [1.14.0] - 07.07.2021
 - Add run commands (actions run when query return not empty) https://github.com/alligatormon/alligator/blob/1.14/src/tests/system/action/alligator.conf
 - Add support debian 9, 10

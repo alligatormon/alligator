@@ -3,6 +3,7 @@
 #include "metric/namespace.h"
 #include "common/yaml.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "common/base64.h"
@@ -18,7 +19,7 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 	root = json_loads(json, 0, &error);
 	free(json);
 	if (!root) {
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -33,16 +34,14 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 		if (!name)
 			continue;
 
-		if (carg->log_level > 0)
-			printf("kubeconfig parse user name %s\n", name);
+		carglog(carg, L_DEBUG, "kubeconfig parse user name %s\n", name);
 		json_t *users_user = json_object_get(arr_obj, "user");
 
 		json_t *client_certificate_data = json_object_get(users_user, "client-certificate-data");
 		char *cert = (char*)json_string_value(client_certificate_data);
 		if (cert)
 		{
-			if (carg->log_level > 0)
-				puts("> found client-certificate-data base64 data");
+			carglog(carg, L_DEBUG, "> found client-certificate-data base64 data\n");
 			//printf("cert is %s\n", cert);
 
 			size_t outlen;
@@ -58,8 +57,7 @@ void kubeconfig_handler(char *metrics, size_t size, context_arg *carg)
 		char *cert_path = (char*)json_string_value(client_certificate);
 		if (cert_path)
 		{
-			if (carg->log_level > 0)
-				printf("> found client-certificate path: %s\n", cert_path);
+			carglog(carg, L_DEBUG, "> found client-certificate path: %s\n", cert_path);
 			char *filename = strdup(cert_path);
 			read_from_file(filename, 0, libcrypto_pem_check_cert, NULL);
 			free(filename);

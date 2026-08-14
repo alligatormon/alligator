@@ -5,6 +5,7 @@
 #include "dstructures/ngram/ngram.h"
 #include "smart/drivedb.h"
 #include "common/selector.h"
+#include "common/logs.h"
 
 drive_settings builtin_knowndrives[] = {
 #include "drivedb.h"
@@ -62,7 +63,7 @@ drive_settings_extended *drivedb_search(ngram_index_t *ngram_table, char *query)
 		drive_settings_extended *dse = filtered_results->data[i];
 		int reg_ret = regcomp(&regex, dse->ds.modelregexp, REG_EXTENDED);
 		if (reg_ret) {
-			fprintf(stderr, "Could not compile regex: %s\n", dse->ds.modelregexp);
+			glog(L_ERROR, "Could not compile regex: %s\n", dse->ds.modelregexp);
 			continue;
 		}
 

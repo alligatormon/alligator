@@ -87,7 +87,7 @@ int query_push(json_t *query) {
 	else if (query_get_node(qds, qn->make))
 	{
 		// internal is OK case for multiple queries with the same make
-		printf("qn->datasource: %s\n", qn->datasource);
+		glog(L_DEBUG, "qn->datasource: %s\n", qn->datasource);
 		if (strcmp(qn->datasource, "internal")) {
 			glog(L_FATAL, "query_push config error: duplicate query for datasource='%s' make='%s'. One datasource+make pair must be unique; duplicate query entry is ignored.\n", qn->datasource, qn->make);
 			query_node_del(qn);

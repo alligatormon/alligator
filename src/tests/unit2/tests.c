@@ -32,6 +32,8 @@ void filestat_read_callback(char *buf, size_t len, void *data, char *filename);
 void *file_handler_struct_init(context_arg *carg);
 void file_handler_struct_free(void *fh);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
+void filetailer_apply_path_glob(context_arg *carg);
+uint8_t filetailer_wants_content_read(context_arg *carg);
 char* unix_tcp_client(context_arg* carg);
 void unix_tcp_client_del(context_arg *carg);
 void tcp_client_del(context_arg *carg);
@@ -650,10 +652,10 @@ static void test_action_run_process_dry_paths(void)
     a_mongo->dry_run = 1;
     alligator_ht_insert(ac->action, &(a_mongo->node), a_mongo, tommy_strhash_u32(0, a_mongo->name));
 
-    action_run_process("ut_action_exec", NULL, NULL);
-    action_run_process("ut_action_http", NULL, NULL);
-    action_run_process("ut_action_udp", NULL, NULL);
-    action_run_process("ut_action_mongo", NULL, NULL);
+    action_run_process("ut_action_exec", NULL, NULL, NULL);
+    action_run_process("ut_action_http", NULL, NULL, NULL);
+    action_run_process("ut_action_udp", NULL, NULL, NULL);
+    action_run_process("ut_action_mongo", NULL, NULL, NULL);
 
     json_t *del = json_object();
     json_array_object_insert(del, "name", json_string("ut_action_exec"));
@@ -676,6 +678,52 @@ static void test_action_run_process_dry_paths(void)
     json_decref(del);
 
     ac->action = saved_action;
+}
+
+static void test_action_aggregator_key_scheduler_prefix(void)
+{
+    const char *url = "exec://echo ok";
+    size_t url_len = strlen(url);
+
+    char *none = action_aggregator_key(NULL, url, url_len, "NULL", NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, none);
+
+    char *k15 = action_aggregator_key("every-15s", url, url_len, "NULL", NULL);
+    char *k15b = action_aggregator_key("every-15s", url, url_len, "NULL", NULL);
+    char *k1h = action_aggregator_key("every-1h", url, url_len, "NULL", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, k15);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, k15b);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, k1h);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, k15, k15b);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(k15, k1h) != 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strncmp(k15, "scheduler:every-15s:", strlen("scheduler:every-15s:")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strncmp(k1h, "scheduler:every-1h:", strlen("scheduler:every-1h:")));
+
+    const char *http = "http://127.0.0.1:9091/metrics";
+    char *h1 = action_aggregator_key("sched-a", http, strlen(http), "NULL", NULL);
+    char *h2 = action_aggregator_key("sched-b", http, strlen(http), "NULL", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, h1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, h2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(h1, h2) != 0);
+
+    char *ch1 = action_aggregator_key("s1", NULL, 0, NULL, "localhost:clickhouse_action_query:10");
+    char *ch2 = action_aggregator_key("s2", NULL, 0, NULL, "localhost:clickhouse_action_query:10");
+    char *ch_none = action_aggregator_key(NULL, NULL, 0, NULL, "localhost:clickhouse_action_query:10");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_none);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "localhost:clickhouse_action_query:10", ch_none);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(ch1, ch2) != 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strncmp(ch1, "scheduler:s1:", strlen("scheduler:s1:")));
+
+    free(k15);
+    free(k15b);
+    free(k1h);
+    free(h1);
+    free(h2);
+    free(ch1);
+    free(ch2);
+    free(ch_none);
 }
 
 static void test_action_push_serializer_matrix(void)
@@ -824,6 +872,20 @@ static void test_filestat_restore_v1_paths(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7,
         file_stat_get_offset(ac->file_stat, "/tmp/b.log", FILESTAT_STATE_SAVE));
 
+    {
+        file_stat *fst = file_stat_get_or_create(ac->file_stat, "/tmp/a.log", FILESTAT_STATE_SAVE);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fst);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 123, fst->offset);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 123,
+            file_stat_offset_for_read(fst, FILESTAT_STATE_BEGIN));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 123, fst->offset);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            file_stat_offset_for_read(fst, FILESTAT_STATE_FORGET));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fst->offset);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            file_stat_get_offset(ac->file_stat, "/tmp/a.log", FILESTAT_STATE_FORGET));
+    }
+
     free(buf);
     file_stat_free(ac->file_stat);
     ac->file_stat = saved_file_stat;
@@ -834,6 +896,56 @@ static void test_filetailer_helpers_paths(void)
     void *fh = file_handler_struct_init(NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fh);
     file_handler_struct_free(fh);
+
+    /* Basename glob in file:// path → dir crawl + match */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/spool/postgres-logs/pg/postgresql-2026-08-*.csv", sizeof(carg.host));
+        carg.path = carg.host;
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/spool/postgres-logs/pg/", carg.path);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "postgresql-2026-08-*.csv", carg.file_match);
+        free(carg.file_match);
+    }
+
+    /* Explicit match= on directory path without trailing slash */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/spool/postgres-logs/pg", sizeof(carg.host));
+        carg.path = carg.host;
+        carg.file_match = strdup("postgresql-2026-08-*.csv");
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/spool/postgres-logs/pg/", carg.path);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "postgresql-2026-08-*.csv", carg.file_match);
+        free(carg.file_match);
+    }
+
+    /* Plain file path without glob stays a single file */
+    {
+        context_arg carg = {0};
+        strlcpy(carg.host, "/var/log/messages", sizeof(carg.host));
+        carg.path = carg.host;
+        filetailer_apply_path_glob(&carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg.is_dir);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/log/messages", carg.path);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.file_match == NULL);
+    }
+
+    /* prometheus_metrics: NULL handler + parser_name still reads file:// dirs */
+    {
+        context_arg carg = {0};
+        carg.parser_name = "prometheus_metrics";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, filetailer_wants_content_read(&carg));
+        carg.parser_handler = blackbox_null;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, filetailer_wants_content_read(&carg));
+        carg.parser_handler = lang_parser_handler;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, filetailer_wants_content_read(&carg));
+        context_arg empty = {0};
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, filetailer_wants_content_read(&empty));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, filetailer_wants_content_read(NULL));
+    }
 
     string *st = string_new();
     file_stat fs_skip = {0};
@@ -1534,7 +1646,7 @@ static void test_http_api_v1_lang_x509_put_only(void)
 
     const char *lang_body =
         "{\"lang\":[{\"key\":\"ut_api_lang_only\",\"expr\":\"http://127.0.0.1/lang\","
-        "\"lang\":\"lua\",\"method\":\"run\",\"file\":\"/tmp/ut.lua\"}]}";
+        "\"lang\":\"so\",\"method\":\"run\",\"module\":\"go\",\"file\":\"/tmp/ut.txt\"}]}";
     hd.body = (char *)lang_body;
     hd.body_size = strlen(lang_body);
     http_api_v1(resp, &hd, NULL);
@@ -1589,9 +1701,61 @@ static void test_labels_metric_add_multi_paths(void)
 
     metric_query_context *mqc = promql_parser(NULL, "ut_lbl_m5", strlen("ut_lbl_m5"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
-    string *body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_JSON, ';', NULL, NULL, NULL, NULL, NULL);
+    string *body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_JSON, ';', "ut_lbl_multi", NULL, NULL, NULL, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, body->l > 0);
+    string_free(body);
+    query_context_free(mqc);
+}
+
+static void test_metric_query_name_filter_no_subtree_spill(void)
+{
+    /* Regression: after the first exact-name BST hit, serialize/gen used to dump
+     * the whole subtree and leak sibling metric names (e.g. x509_cert_not_after
+     * when querying x509_cert_expire_days). */
+    insert_namespace("ut_qname_filter", 0);
+    context_arg carg = {0};
+    carg.namespace = "ut_qname_filter";
+
+    int64_t v = 7;
+    metric_add_labels("cpu_usage", &v, DATATYPE_INT, &carg, "host", "a");
+    metric_add_labels("http_requests_total", &v, DATATYPE_INT, &carg, "code", "500");
+    metric_add_labels("x509_cert_expire_days", &v, DATATYPE_INT, &carg, "cn", "a.example");
+    metric_add_labels("x509_cert_expire_days", &v, DATATYPE_INT, &carg, "cn", "b.example");
+    metric_add_labels("x509_cert_not_after", &v, DATATYPE_INT, &carg, "cn", "a.example");
+    metric_add_labels("x509_cert_not_before", &v, DATATYPE_INT, &carg, "cn", "a.example");
+    metric_add_labels("x509_cert_valid", &v, DATATYPE_INT, &carg, "cn", "a.example");
+    metric_add_labels("zombie_processes", &v, DATATYPE_INT, &carg, "host", "a");
+
+    metric_query_context *mqc = promql_parser(NULL, "x509_cert_expire_days", strlen("x509_cert_expire_days"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    string *body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_expire_days") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "cn=\"a.example\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "cn=\"b.example\"") != NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_after"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_before"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_valid"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "cpu_usage"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "http_requests_total"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "zombie_processes"));
+    string_free(body);
+
+    mqc = promql_parser(NULL, "count(x509_cert_expire_days)", strlen("count(x509_cert_expire_days)"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    metric_query_gen("ut_qname_filter", mqc, "ut_qname_filter_count", NULL);
+    query_context_free(mqc);
+
+    /* metric_query_gen writes the derived metric into the default namespace */
+    mqc = promql_parser(NULL, "ut_qname_filter_count", strlen("ut_qname_filter_count"));
+    body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_qname_filter_count") != NULL);
+    /* count of two expire_days series only (not the whole subtree) */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        strstr(body->s, "\"value\":2") != NULL || strstr(body->s, "\"value\": 2") != NULL ||
+        strstr(body->s, ",2]") != NULL || strstr(body->s, ", 2]") != NULL);
     string_free(body);
     query_context_free(mqc);
 }
@@ -1676,10 +1840,10 @@ static void test_action_query_foreach_and_http_paths(void)
     int64_t v = 7;
     metric_add_labels("ut_act_q_metric", &v, DATATYPE_INT, NULL, "k", "v");
     metric_query_context *mqc = promql_parser(NULL, "ut_act_q_metric", strlen("ut_act_q_metric"));
-    action_run_process("ut_act_http_ct", NULL, mqc);
+    action_run_process("ut_act_http_ct", NULL, mqc, NULL);
 
     mqc = promql_parser(NULL, "ut_act_q_metric", strlen("ut_act_q_metric"));
-    action_run_process("ut_act_cass", NULL, mqc);
+    action_run_process("ut_act_cass", NULL, mqc, NULL);
 
     alligator_ht *lbl = alligator_ht_init(NULL);
     labels_hash_insert_nocache(lbl, "k", "v");
@@ -2049,13 +2213,14 @@ static void test_serializer_dynatrace_prom_types(void)
     {
         alligator_ht *lbl = alligator_ht_init(NULL);
         labels_hash_insert_nocache(lbl, "host", "h1");
+        /* metric_update → labels_initiate(..., no_del=0) consumes+frees lbl */
         metric_update("ut_dt_counter", lbl, &counter_v, DATATYPE_DOUBLE, NULL);
-        labels_hash_free(lbl);
     }
     mqc = promql_parser(NULL, "ut_dt_counter{host=\"h1\"}", strlen("ut_dt_counter{host=\"h1\"}"));
     body = metric_query_deserialize(2048, mqc, METRIC_SERIALIZER_DYNATRACE, ';', NULL, NULL, NULL, NULL, &an);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=30") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_dt_counter") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "count,delta=") != NULL);
     string_free(body);
     query_context_free(mqc);
 
@@ -2296,6 +2461,7 @@ static void run_config_query_suites(char **argv)
 static void run_helpers_and_events_suites(void)
 {
     test_logs_helpers();
+    test_log_channel_shipper_metrics();
     test_units_human_ranges();
     test_mkdirp_helpers();
     test_dpkg_list_helpers();
@@ -2329,6 +2495,7 @@ static void run_helpers_and_events_suites(void)
     test_aggregate_multi_block_plain_parse();
     test_entrypoint_log_channel_plain_parse();
     test_log_channel_raw_plain_parse();
+    test_log_channel_out_plain_parse();
     test_puppeteer_option_kv_plain_parse();
     test_entrypoint_plain_rich_parse();
     test_config_plain_top_level_blocks();
@@ -2367,6 +2534,7 @@ static void run_helpers_and_events_suites(void)
     test_parse_add_label_paths();
     test_action_push_get_del_paths();
     test_action_run_process_dry_paths();
+    test_action_aggregator_key_scheduler_prefix();
     test_action_run_serializer_dry_matrix();
     test_action_push_serializer_matrix();
     test_serializer_context_matrix();
@@ -2402,6 +2570,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_query_gen_paths();
     test_metric_query_gen_extended();
     test_labels_metric_add_multi_paths();
+    test_metric_query_name_filter_no_subtree_spill();
     test_labels_metric_add_labels6_to_10();
     test_metric_update_labels_multi_paths();
     test_labels_initiate_and_update_paths();

@@ -1,4 +1,5 @@
 #include "main.h"
+#include "common/logs.h"
 #include "parsers/http_proto.h"
 #include "api/api.h"
 #define HTTP_STATUS_API_OK "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
@@ -11,8 +12,7 @@ void api_router(string *response, http_reply_data* http_data, context_arg *carg)
 		dynatrace_metrics_ingest_handler(response, http_data, NULL, carg);
 	else if (carg && !carg->api_enable)
 	{
-		if (ac->log_level > 0)
-			puts("API request error: api disabled");
+		carglog(carg, L_WARN, "API request error: api disabled\n");
 		string_cat(response, HTTP_STATUS_API_DISABLED, strlen(HTTP_STATUS_API_DISABLED));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);

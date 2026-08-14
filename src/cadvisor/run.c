@@ -105,7 +105,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 	free(buf);
 	if (!root)
 	{
-		fprintf(stderr, "podman_get_labels json error on line %d: %s\n", error.line, error.text);
+		glog(L_ERROR, "podman_get_labels json error on line %d: %s\n", error.line, error.text);
 		fclose(fd);
 		return NULL;
 	}
@@ -134,7 +134,7 @@ cnt_labels* podman_get_labels(char *path, char *find_id, json_t *cgroup_main_pat
 			json_t *metadata_root = json_loads(metadata, 0, &error);
 			if (!metadata_root)
 			{
-				fprintf(stderr, "podman_get_labels 2 json error on line %d: %s\n", error.line, error.text);
+				glog(L_ERROR, "podman_get_labels 2 json error on line %d: %s\n", error.line, error.text);
 				continue;
 			}
 
@@ -247,7 +247,7 @@ void podman_parse(FILE *fd, size_t fd_size, char *fname)
 	json_t *root = json_loads(buf, JSON_DECODE_INT_AS_REAL, &error);
 	if (!root)
 	{
-		fprintf(stderr, "podman_parse file %s: json error on line %d: %s\n", fname, error.line, error.text);
+		glog(L_ERROR, "podman_parse file %s: json error on line %d: %s\n", fname, error.line, error.text);
 		free(buf);
 		return;
 	}
@@ -356,6 +356,7 @@ void runc_labels(char *rundir, char *path_template)
 			fd = fopen(statefile, "r");
 			if (fd)
 			{
+				glog(L_TRACE, "runc scrape statefile: '%s'\n", statefile);
 				podman_parse(fd, statefile_size, statefile);
 
 				fclose(fd);
@@ -390,8 +391,7 @@ void runc_labels(char *rundir, char *path_template)
 					fd = fopen(statefile, "r");
 					if (fd)
 					{
-						if (ac->log_level >= L_TRACE)
-							puts(statefile);
+						glog(L_TRACE, "runc scrape statefile: '%s'\n", statefile);
 						podman_parse(fd, statefile_size, statefile);
 
 						fclose(fd);
@@ -423,6 +423,7 @@ void openvz7_labels()
 	rd = opendir(nsdir);
 	if (rd)
 	{
+		carglog(ac->cadvisor_carg, L_TRACE, "openvz7 scrape dir: '%s'\n", nsdir);
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')
@@ -441,6 +442,8 @@ void openvz7_labels()
 
 			char cad_id[255];
 			snprintf(cad_id, 255, "/%s", rd_entry->d_name);
+
+			carglog(ac->cadvisor_carg, L_TRACE, "openvz7 scrape name: '%s', ns: '%s'\n", rd_entry->d_name, nsfile);
 
 			{
 				cadvisor_net_emit_ctx emit_ctx = {
@@ -476,6 +479,7 @@ void lxc_labels()
 	rd = opendir(lxcdir);
 	if (rd)
 	{
+		carglog(ac->cadvisor_carg, L_TRACE, "lxc scrape dir: '%s'\n", lxcdir);
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')
@@ -489,6 +493,7 @@ void lxc_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
+			carglog(ac->cadvisor_carg, L_TRACE, "lxc scrape name: '%s', cgroup: '%s'\n", rd_entry->d_name, lxccgroup);
 			cadvisor_scrape(NULL, NULL, "lxc", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
@@ -507,7 +512,7 @@ void nspawn_labels()
 	rd = opendir(nspawndir);
 	if (rd)
 	{
-		puts("NSPAWN scraper!");
+		carglog(ac->cadvisor_carg, L_TRACE, "nspawn scrape dir: '%s'\n", nspawndir);
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')
@@ -521,6 +526,7 @@ void nspawn_labels()
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
 
+			carglog(ac->cadvisor_carg, L_TRACE, "nspawn scrape name: '%s', cgroup: '%s'\n", rd_entry->d_name, nspawncgroup);
 			cadvisor_scrape(NULL, NULL, "machine.slice", rd_entry->d_name, rd_entry->d_name, NULL, NULL, NULL, NULL, NULL);
 		}
 		closedir(rd);
@@ -530,19 +536,18 @@ void nspawn_labels()
 void docker_labels(char *metrics, size_t size, context_arg *carg)
 {
 	r_time ts_start = setrtime();
-	carglog(ac->cadvisor_carg, L_TRACE, "DOCKER scraper!\n");
-	carglog(ac->cadvisor_carg, L_TRACE, "%s\n", metrics);
-	carglog(ac->cadvisor_carg, L_TRACE, "END\n");
+	carglog(ac->cadvisor_carg, L_TRACE, "docker scrape payload size: %zu\n", size);
 
 	json_error_t error;
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "docker_labels json error on line %d: %s\n", error.line, error.text);
+		glog(L_ERROR, "docker_labels json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
 	uint64_t cnt_size = json_array_size(root);
+	carglog(ac->cadvisor_carg, L_TRACE, "docker scrape containers: %" PRIu64 "\n", cnt_size);
 	if (cnt_size)
 	{
 		for (uint64_t i = 0; i < cnt_size; i++)
@@ -715,6 +720,7 @@ void cgroup_v2_machines()
 	rd = opendir(v2dir);
 	if (rd)
 	{
+		carglog(ac->cadvisor_carg, L_TRACE, "cgroup v2 scrape dir: '%s'\n", v2dir);
 		while((rd_entry = readdir(rd)))
 		{
 			if (rd_entry->d_name[0] == '.')
@@ -781,7 +787,7 @@ void cgroup_v2_machines()
 				strlcpy(name, ptrname, endname - ptrname + 1);
 			else
 				strlcpy(name, contname, 255);
-			carglog(ac->cadvisor_carg, L_INFO, "cgroup v2 scrape name: '%s', d_name: '%s', contname: '%s', type: '%s', libvirt index: %s/%s, check_libvirt: '%s'\n", name, rd_entry->d_name, contname, type, libvirt_index, pass_libvirt_id, check_libvirt_path);
+			carglog(ac->cadvisor_carg, L_TRACE, "cgroup v2 scrape name: '%s', d_name: '%s', contname: '%s', type: '%s', libvirt index: %s/%s, check_libvirt: '%s'\n", name, rd_entry->d_name, contname, type, libvirt_index, pass_libvirt_id, check_libvirt_path);
 			cadvisor_scrape(NULL, NULL, "machine.slice", rd_entry->d_name, name, NULL, NULL, NULL, NULL, pass_libvirt_id);
 			free(contname);
 		}

@@ -11,5 +11,4 @@ class Deps(ConanFile):
         if system() == "Linux":
             self.run("cd libatasmart && ./autogen.sh && ./configure --enable-static && make -j4 && make -j4")
 
-        self.run("cd mruby && make")
         self.run("cd picohttpparser && cc -c -o libpicohttpparser.o picohttpparser.c && ar rcs libpicohttpparser.a libpicohttpparser.o")

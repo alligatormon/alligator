@@ -2343,9 +2343,7 @@ string *snmp_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_se
 		oidpart++;
 
 	if (!oidpart[0] && !is_walk) {
-		if (ac->log_level > 0)
-			fprintf(stderr,
-				"snmp: empty OID in URL path (e.g. udp://public@host:161/1.3.6.1.2.1.1.3.0 or walk/...)\n");
+		glog(L_WARN, "snmp: empty OID in URL path (e.g. udp://public@host:161/1.3.6.1.2.1.1.3.0 or walk/...)\n");
 		return string_init_add_auto(strdup(""));
 	}
 

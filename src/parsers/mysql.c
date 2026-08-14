@@ -188,8 +188,7 @@ static void mysql_exec_cb(mysql_row_t *row, void *ud)
 			metric_label_value_validator_normalizer(res, row->lengths[i]);
 			labels_hash_insert_nocache(hash, colname, res);
 		}
-		if (carg->log_level > 2)
-			carglog(carg, L_INFO, "\tmysql: '%s' field '%s': '%s'\n", carg->host, colname, res);
+		carglog(carg, L_TRACE, "\tmysql: '%s' field '%s': '%s'\n", carg->host, colname, res);
 		free(res);
 	}
 
@@ -227,8 +226,7 @@ void mysql_run_all_await(context_arg *carg)
 	if (carg->name) {
 		query_ds *qds = query_get(carg->name);
 		if (qds) {
-			if (carg->log_level > 1)
-				carglog(carg, L_INFO, "mysql: '%s' run queries for namespace '%s'\n", carg->host, carg->name);
+			carglog(carg, L_DEBUG, "mysql: '%s' run queries for namespace '%s'\n", carg->host, carg->name);
 		
 			alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, carg);
 		}
@@ -261,8 +259,7 @@ void mysql_run_all_await(context_arg *carg)
 		snprintf(name, sizeof(name), "%s/*", carg->name);
 		query_ds *qds = query_get(name);
 		if (qds) {
-			if (carg->log_level > 1)
-				carglog(carg, L_INFO, "mysql: '%s' run wildcard queries for namespace '%s'\n", carg->host, name);
+			carglog(carg, L_DEBUG, "mysql: '%s' run wildcard queries for namespace '%s'\n", carg->host, name);
 
 			alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, &db_carg);
 		}
@@ -272,8 +269,7 @@ void mysql_run_all_await(context_arg *carg)
 			snprintf(db_carg.name, sizeof(name), "%s/%s", carg->name, dbname);
 			qds = query_get(db_carg.name);
 			if (qds) {
-				if (carg->log_level > 1)
-					carglog(carg, L_INFO, "mysql: '%s' exec queries for namespace '%s'\n", carg->host, db_carg.name);
+				carglog(carg, L_DEBUG, "mysql: '%s' exec queries for namespace '%s'\n", carg->host, db_carg.name);
 
 				alligator_ht_foreach_arg(qds->hash, mysql_queries_foreach, &db_carg);
 			}
@@ -385,7 +381,7 @@ void mysql_run(void* arg)
 
 	/* Start connect on loop thread, run await in worker thread */
 	if (!mysql2_start_connect(&data->conn, carg)) {
-		puts("go away from mysql_run");
+		carglog(carg, L_DEBUG, "go away from mysql_run\n");
 		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
 		namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status flag.");
 		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg,

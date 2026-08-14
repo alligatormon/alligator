@@ -105,19 +105,14 @@ int expand_grok_pattern(char *src, string *dst_pass, grok_pattern_node *patterns
 
 			if (strlen(field) > 0 && !recursive_call)
 				string_sprintf(dst_pass, "(?<%s>%s)", field, regex);
-				//out += sprintf(out, "(?<%s>%s)", field, regex);
 			else
 				string_sprintf(dst_pass, "(?:%s)", regex);
-				//out += sprintf(out, "(?:%s)", regex);
 
 			++expanded;
 		} else {
 			string_cat(dst_pass, p++, 1);
-			//*out++ = *p++;
 		}
 	}
-	//*out = '\0';
-	//*size = out - dst_pass->s;
 	return expanded;
 }
 
@@ -370,11 +365,6 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 			metric_label_value_validator_normalizer(key, key_len);
 			metric_name_normalizer(mname, name_len);
 			labels_hash_insert_nocache(ctx->lbl, mname, key);
-
-			//printf("  %.*s = %.*s\n",
-			//	   (int)(name_end - name), (const char *)name,
-			//	   region->end[gnum] - region->beg[gnum],
-			//	   line + region->beg[gnum]);
 		}
 	}
 	return 0;
@@ -409,7 +399,7 @@ void grok_handler_callback(void *funcarg, void* arg)
 
 	ctx->region = onig_region_new();
 	int r = onig_search(gn->reg, (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), ctx->region, ONIG_OPTION_NONE);
-	carglog(ctx->carg, L_TRACE, "matching line (%zu) (r: %d) '%s' with pattern '%s'\n", ctx->line->l, r, ctx->line->s, gn->expanded_match->s);
+	carglog(ctx->carg, L_TRACE, "matching line len %zu (r: %d) line %.*s pattern %.*s\n", ctx->line->l, r, 80, ctx->line->s, 80, gn->expanded_match->s);
 
 	ctx->gn = gn;
 
@@ -476,6 +466,19 @@ void grok_handler_callback(void *funcarg, void* arg)
 		if (!ctx->value_set)
 			ctx->value = 1;
 		carglog(ctx->carg, L_TRACE, "add metric %s = %f\n", gn->name, ctx->value);
+
+		/* Transformed log sink: flat JSON of captures + message (Alligator extension). */
+		if (ctx->carg && ctx->carg->log_ch_out && ctx->lbl) {
+			json_t *doc = labels_to_json(ctx->lbl);
+			if (doc) {
+				if (!json_object_get(doc, "message") && ctx->line && ctx->line->s)
+					json_object_set_new(doc, "message",
+						json_stringn(ctx->line->s, ctx->line->l));
+				carg_emit_log_document(ctx->carg, doc);
+				json_decref(doc);
+			}
+		}
+
 		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
 	} else if (r == ONIG_MISMATCH) {
 	} else {
@@ -560,6 +563,25 @@ void grok_handler_initial_patterns(void *funcarg, void* arg)
 	grok_expand(gn->match, &gn->expanded_match, ac->grok_patterns);
 }
 
+typedef struct grok_ml_ud {
+	grok_ds *gds;
+	context_arg *carg;
+	string *line;
+	grok_ctx_cb *ctx;
+} grok_ml_ud;
+
+static void grok_record_cb(void *vud, const char *record, size_t len)
+{
+	grok_ml_ud *ud = vud;
+	memset(ud->ctx, 0, sizeof(*ud->ctx));
+	ud->ctx->gds = ud->gds;
+	ud->ctx->carg = ud->carg;
+	ud->ctx->line = ud->line;
+	string_null(ud->line);
+	string_cat(ud->line, (char *)record, len);
+	alligator_ht_foreach_arg(ud->gds->hash, grok_handler_callback, ud->ctx);
+}
+
 void grok_handler(char *metrics, size_t size, context_arg *carg)
 {
 	if (!metrics || !size)
@@ -580,34 +602,15 @@ void grok_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	grok_ctx_cb *ctx = calloc(1, sizeof(*ctx));
-	for (uint64_t i = 0; i < size; ) {
-		size_t remaining = size - i;
-		char *line_start = metrics + i;
-		size_t len;
-		char *nl = memchr(line_start, '\n', remaining);
+	grok_ml_ud ud = {
+		.gds = gds,
+		.carg = carg,
+		.line = line,
+		.ctx = ctx,
+	};
 
-		if (nl)
-			len = (size_t)(nl - line_start);
-		else
-			len = remaining;
-		if (len > 0 && line_start[len - 1] == '\r')
-			len--;
-
-		memset(ctx, 0, sizeof(*ctx));
-		ctx->gds = gds;
-		ctx->carg = carg;
-		ctx->line = line;
-		string_cat(ctx->line, line_start, len);
-		alligator_ht_foreach_arg(gds->hash, grok_handler_callback, ctx);
-
-		string_null(ctx->line);
-
-		i += len;
-		if (nl)
-			i += 1;
-		else
-			i = size;
-	}
+	carg_linebuf_ensure(carg);
+	alligator_linebuf_feed(&carg->ml_lb, metrics, size, grok_record_cb, &ud);
 
 	free(ctx);
 	string_free(line);

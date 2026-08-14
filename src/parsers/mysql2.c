@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <uv.h>
 #include <openssl/evp.h>
 #include <openssl/ssl.h>
@@ -87,6 +88,15 @@ static void mysql2_alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_b
 	buf->len = suggested_size;
 }
 
+static void mysql2_log_ssl_ctx_fail(context_arg *carg)
+{
+	unsigned long e = ERR_get_error();
+	if (e)
+		carglog(carg, L_ERROR, "mysql2 SSL_CTX_new failed: %s\n", ERR_reason_error_string(e));
+	else
+		carglog(carg, L_ERROR, "mysql2 SSL_CTX_new failed\n");
+}
+
 static int mysql2_port_from_carg(context_arg *carg)
 {
 	if (!carg->port[0])
@@ -138,8 +148,10 @@ static mysql_conn_t *mysql2_get_conn(context_arg *carg, int create_if_null)
 
 	if (!carg->data && create_if_null) {
 		mysql_conn_t *conn = calloc(1, sizeof(mysql_conn_t));
-		if (!conn)
+		if (!conn) {
+			carglog(carg, L_ERROR, "mysql2 conn alloc failed\n");
 			return NULL;
+		}
 
 		static int ssl_inited = 0;
 		if (!ssl_inited) {
@@ -154,6 +166,7 @@ static mysql_conn_t *mysql2_get_conn(context_arg *carg, int create_if_null)
 
 		conn->ssl_ctx = SSL_CTX_new(TLS_client_method());
 		if (!conn->ssl_ctx) {
+			mysql2_log_ssl_ctx_fail(carg);
 			free(conn);
 			return NULL;
 		}
@@ -214,8 +227,10 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 
 	if (!*pconn) {
 		mysql_conn_t *conn = calloc(1, sizeof(mysql_conn_t));
-		if (!conn)
+		if (!conn) {
+			carglog(carg, L_ERROR, "mysql2 conn alloc failed\n");
 			return 0;
+		}
 
 		static int ssl_inited = 0;
 		if (!ssl_inited) {
@@ -226,6 +241,7 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 
 		conn->ssl_ctx = SSL_CTX_new(TLS_client_method());
 		if (!conn->ssl_ctx) {
+			mysql2_log_ssl_ctx_fail(carg);
 			free(conn);
 			return 0;
 		}
@@ -260,8 +276,10 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 	uv_ip4_addr(carg->host, port, &dest);
 
 	uv_connect_t *connect_req = malloc(sizeof(uv_connect_t));
-	if (!connect_req)
+	if (!connect_req) {
+		carglog(carg, L_ERROR, "mysql2 connect_req alloc failed\n");
 		return 0;
+	}
 	connect_req->data = conn;
 
 	conn->state = STATE_HANDSHAKE;
@@ -273,6 +291,7 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
 	if (r < 0) {
+		carglog(carg, L_ERROR, "mysql2 uv_tcp_connect %s:%d: %s\n", carg->host, port, uv_strerror(r));
 		free(connect_req);
 		return 0;
 	}
@@ -314,8 +333,10 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 
 	if (!*pconn) {
 		mysql_conn_t *conn = calloc(1, sizeof(mysql_conn_t));
-		if (!conn)
+		if (!conn) {
+			carglog(carg, L_ERROR, "mysql2 conn alloc failed\n");
 			return 0;
+		}
 
 		static int ssl_inited = 0;
 		if (!ssl_inited) {
@@ -326,6 +347,7 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 
 		conn->ssl_ctx = SSL_CTX_new(TLS_client_method());
 		if (!conn->ssl_ctx) {
+			mysql2_log_ssl_ctx_fail(carg);
 			free(conn);
 			return 0;
 		}
@@ -361,8 +383,10 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	uv_ip4_addr(carg->host, port, &dest);
 
 	uv_connect_t *connect_req = malloc(sizeof(uv_connect_t));
-	if (!connect_req)
+	if (!connect_req) {
+		carglog(carg, L_ERROR, "mysql2 connect_req alloc failed\n");
 		return 0;
+	}
 	connect_req->data = conn;
 
 	conn->state = STATE_HANDSHAKE;
@@ -374,6 +398,7 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
 	if (r < 0) {
+		carglog(carg, L_ERROR, "mysql2 uv_tcp_connect %s:%d: %s\n", carg->host, port, uv_strerror(r));
 		free(connect_req);
 		return 0;
 	}
@@ -384,8 +409,10 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 int mysql2_connect_context(context_arg *carg)
 {
 	mysql_conn_t *conn = mysql2_get_conn(carg, 1);
-	if (!conn)
+	if (!conn) {
+		carglog(carg, L_ERROR, "mysql2_get_conn failed\n");
 		return 0;
+	}
 
 	if (conn->state == STATE_QUERY)
 		return 1;
@@ -400,8 +427,10 @@ int mysql2_connect_context(context_arg *carg)
 	uv_ip4_addr(carg->host, port, &dest);
 
 	uv_connect_t *connect_req = malloc(sizeof(uv_connect_t));
-	if (!connect_req)
+	if (!connect_req) {
+		carglog(carg, L_ERROR, "mysql2 connect_req alloc failed\n");
 		return 0;
+	}
 	connect_req->data = conn;
 	conn->carg = carg;
 
@@ -413,6 +442,7 @@ int mysql2_connect_context(context_arg *carg)
 
 	int r = uv_tcp_connect(connect_req, &conn->handle, (const struct sockaddr*)&dest, mysql2_on_connect);
 	if (r < 0) {
+		carglog(carg, L_ERROR, "mysql2 uv_tcp_connect %s:%d: %s\n", carg->host, port, uv_strerror(r));
 		free(connect_req);
 		return 0;
 	}

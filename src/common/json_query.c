@@ -532,25 +532,21 @@ int json_query(char *data, json_t *root, char *prefix, context_arg *carg, char *
 
 int8_t json_validator(context_arg *carg, char *data, size_t size)
 {
-	(void)carg;
 	(void)size;
 	json_error_t error;
 	json_t *root = json_loads(data, 0, &error);
 	if (root) {
 		json_decref(root);
-		if (ac->log_level > 2)
-			puts("json validator OK");
+		carg_or_glog(carg, L_TRACE, "json validator OK\n");
 		return 1;
 	}
 
 	if (json_ndjson_valid_lines(data) > 0) {
-		if (ac->log_level > 2)
-			puts("json validator OK (NDJSON lines)");
+		carg_or_glog(carg, L_TRACE, "json validator OK (NDJSON lines)\n");
 		return 1;
 	}
 
-	if (ac->log_level > 2)
-		printf("json validator: json error on line %d: %s\n", error.line, error.text);
+	carg_or_glog(carg, L_TRACE, "json validator: json error on line %d: %s\n", error.line, error.text);
 	return 0;
 }
 

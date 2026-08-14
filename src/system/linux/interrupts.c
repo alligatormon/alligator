@@ -7,7 +7,7 @@ void get_proc_interrupts(int extended_mode)
 {
 	char interdir[255];
 	snprintf(interdir, 255, "%s/interrupts", ac->system_procfs);
-	carglog(ac->system_carg, L_INFO, "system scrape metrics: disk: get_proc_interrupts: %s, extended mode: %d\n", interdir, extended_mode);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: disk: get_proc_interrupts: %s, extended mode: %d\n", interdir, extended_mode);
 	FILE *fd = fopen(interdir, "r");
 	if (!fd)
 		return;

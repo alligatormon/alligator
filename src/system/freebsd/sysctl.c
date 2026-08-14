@@ -48,8 +48,7 @@ static void sysctl_get_foreach(void *arg)
 		return;
 
 	if (!sysctl_read_int64(scn->name, &data)) {
-		if (ac->system_carg && ac->system_carg->log_level > 0)
-			carglog(ac->system_carg, L_ERROR, "sysctlbyname failed for %s", scn->name);
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname failed for %s\n", scn->name);
 		return;
 	}
 

@@ -6,16 +6,14 @@
 #include "common/selector.h"
 #include "common/http.h"
 #include "lang/type.h"
+#include "common/logs.h"
 #include "main.h"
 
 void lang_parser_handler(char *metrics, size_t size, context_arg *carg)
 {
-	if (carg->log_level > 3)
-	{
-		puts("====lang_parser_handler===============");
-		printf("'%s'\n", metrics);
-		printf("carg->lang '%s'\n", carg->lang);
-	}
+	carglog(carg, L_TRACE, "====lang_parser_handler===============\n");
+	carglog(carg, L_TRACE, "'%s'\n", metrics);
+	carglog(carg, L_TRACE, "carg->lang '%s'\n", carg->lang);
 
 	string *request = string_init_add_auto(metrics);
 	lang_run(carg->lang, NULL, request, carg->response);

@@ -146,8 +146,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(country_name) - 1) ? size : (sizeof(country_name) - 1);
 			strlcpy(country_name, dn_subject+i, copy_size + 1);
-			if (ac->log_level > 2)
-				printf("cert: %s, country=%s\n", cert, country_name);
+			glog(L_DEBUG, "cert: %s, country=%s\n", cert, country_name);
 			labels_hash_insert_nocache(lbl, "country", country_name);
 			i += size;
 		}
@@ -158,8 +157,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(county) - 1) ? size : (sizeof(county) - 1);
 			strlcpy(county, dn_subject+i, copy_size + 1);
-			if (ac->log_level > 2)
-				printf("cert: %s, county=%s\n", cert, county);
+			glog(L_DEBUG, "cert: %s, county=%s\n", cert, county);
 			labels_hash_insert_nocache(lbl, "county", county);
 			i += size;
 		}
@@ -170,8 +168,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(organization_name) - 1) ? size : (sizeof(organization_name) - 1);
 			strlcpy(organization_name, dn_subject+i, copy_size + 1);
-			if (ac->log_level > 2)
-				printf("cert: %s, organization_name=%s\n", cert, organization_name);
+			glog(L_DEBUG, "cert: %s, organization_name=%s\n", cert, organization_name);
 			labels_hash_insert_nocache(lbl, "organization_name", organization_name);
 			i += size;
 		}
@@ -182,8 +179,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(organization_unit) - 1) ? size : (sizeof(organization_unit) - 1);
 			strlcpy(organization_unit, dn_subject+i, copy_size + 1);
-			if (ac->log_level > 2)
-				printf("cert: %s, organization_unit=%s\n", cert, organization_unit);
+			glog(L_DEBUG, "cert: %s, organization_unit=%s\n", cert, organization_unit);
 			labels_hash_insert_nocache(lbl, "organization_unit", organization_unit);
 			i += size;
 		}
@@ -194,8 +190,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(common_name) - 1) ? size : (sizeof(common_name) - 1);
 			strlcpy(common_name, dn_subject+i, copy_size + 1);
-			if (ac->log_level > 2)
-				printf("cert: %s, common_name=%s\n", cert, common_name);
+			glog(L_DEBUG, "cert: %s, common_name=%s\n", cert, common_name);
 			labels_hash_insert_nocache(lbl, "common_name", common_name);
 			i += size;
 		}
@@ -214,13 +209,13 @@ string *pem_get_serial_number(X509 *cert)
 	
 	BIGNUM *bn = ASN1_INTEGER_to_BN(serial, NULL);
 	if (!bn) {
-		fprintf(stderr, "unable to convert ASN1INTEGER to BN\n");
+		glog(L_ERROR, "unable to convert ASN1INTEGER to BN\n");
 		return NULL;
 	}
 	
 	char *tmp = BN_bn2hex(bn);
 	if (!tmp) {
-		fprintf(stderr, "unable to convert BN to decimal string.\n");
+		glog(L_ERROR, "unable to convert BN to decimal string.\n");
 		BN_free(bn);
 		return NULL;
 	}
@@ -272,12 +267,10 @@ void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn
 	x509_metric_families_set(NULL);
 
 	labels_hash_insert_nocache(lbl, "issuer", dn_issuer);
-	if (ac->log_level > 2)
-		printf("cert: %s, issuer: %s\n", cert, dn_issuer);
+	glog(L_DEBUG, "cert: %s, issuer: %s\n", cert, dn_issuer);
 
 	labels_hash_insert_nocache(lbl, "serial", serial);
-	if (ac->log_level > 2)
-		printf("cert: %s, serial: %s\n", cert, serial);
+	glog(L_DEBUG, "cert: %s, serial: %s\n", cert, serial);
 
 	r_time now = setrtime();
 
@@ -285,14 +278,11 @@ void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn
 	const char *reason = "ok";
 	int64_t is_valid = x509_cert_eval(x509, untrusted, 1, (uint64_t)valid_from, (uint64_t)valid_to, now.sec,
 		ca_file, 0, NULL, &reason);
-	if (ac->log_level > 2)
-	{
-		printf("cert: %s, certsubject: %s\n", cert, dn_subject);
-		printf("cert: %s, complete for: %u.\n", cert, now.sec);
-		printf("cert: %s, valid from: %"d64".\n", cert, valid_from);
-		printf("cert: %s, %"d64" exp\n", cert, expdays);
-		printf("cert: %s, valid: %"d64" reason=%s\n", cert, is_valid, reason);
-	}
+	glog(L_DEBUG, "cert: %s, certsubject: %s\n", cert, dn_subject);
+	glog(L_DEBUG, "cert: %s, complete for: %u.\n", cert, now.sec);
+	glog(L_DEBUG, "cert: %s, valid from: %"d64".\n", cert, valid_from);
+	glog(L_DEBUG, "cert: %s, %"d64" exp\n", cert, expdays);
+	glog(L_DEBUG, "cert: %s, valid: %"d64" reason=%s\n", cert, is_valid, reason);
 	alligator_ht *notafter_lbl = labels_dup(lbl);
 	alligator_ht *expiredays_lbl = labels_dup(lbl);
 	alligator_ht *valid_lbl = labels_dup(lbl);
@@ -319,19 +309,13 @@ void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char
 	BIO *fd_bio = BIO_new_mem_buf((void*)pem_cert, cert_size);
 	p12 = d2i_PKCS12_bio(fd_bio, NULL);
 	if (!p12) {
-		if (ac->log_level > 0)
-		{
-			fprintf(stderr, "Error reading PKCS#12 file\n");
-			ERR_print_errors_fp(stderr);
-		}
+		glog(L_ERROR, "Error reading PKCS#12 file\n");
+		ERR_print_errors_fp(stderr);
 		return;
 	}
 	if (!PKCS12_parse(p12, password, &pkey, &cert, &ca)) {
-		if (ac->log_level > 0)
-		{
-			fprintf(stderr, "Error parsing PKCS#12 file\n");
-			ERR_print_errors_fp(stderr);
-		}
+		glog(L_ERROR, "Error parsing PKCS#12 file\n");
+		ERR_print_errors_fp(stderr);
 		return;
 	}
 

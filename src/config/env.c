@@ -2,6 +2,7 @@
 #include "main.h"
 #include "config/env.h"
 #include "common/murmurhash.h"
+#include "common/logs.h"
 #include "api/api.h"
 #include "common/selector.h"
 #include "common/json_query.h"
@@ -73,8 +74,7 @@ env_tree* env_tree_init(size_t size)
 
 env_tree *env_node_select(env_tree *node, char *name, size_t size, uint8_t is_array)
 {
-	if (ac->log_level > 0)
-		printf(" > env_node_select: { node: '%p', name: '%s', size: '%zu'}\n", node, name, size);
+	glog(L_DEBUG, " > env_node_select: { node: '%p', name: '%s', size: '%zu'}\n", node, name, size);
 
 	//if (node->is_array != 2 && node->is_array != is_array)
 	//{
@@ -87,23 +87,20 @@ env_tree *env_node_select(env_tree *node, char *name, size_t size, uint8_t is_ar
 	uint32_t index = hash % node->allocated;
 	uint32_t step = 0;
 
-	if (ac->log_level > 0)
-		printf(" > env_node_select: murmurhash: '%"u32"', index: '%"u32"'\n", hash, index);
+	glog(L_DEBUG, " > env_node_select: murmurhash: '%"u32"', index: '%"u32"'\n", hash, index);
 
 	for (; index < node->allocated && (&node->steam[index] != (struct env_tree*)NULL) && node->steam[index].active; index++)
 	{
 		if (!strncmp(node->steam[index].name, name, size))
 		{
-			if (ac->log_level > 0)
-				printf(" > env_node_select: { result: : 'OK', found: '%s', hash: '%"u32"', index: '%"u32"', steps: '%"u32"'}\n", node->steam[index].name, hash, index, step);
+			glog(L_DEBUG, " > env_node_select: { result: : 'OK', found: '%s', hash: '%"u32"', index: '%"u32"', steps: '%"u32"'}\n", node->steam[index].name, hash, index, step);
 
 			return &node->steam[index];
 		}
 		++step;
 	}
 
-	if (ac->log_level > 0)
-		printf(" > env_node_select: { result: : 'not found'}\n");
+	glog(L_DEBUG, " > env_node_select: { result: : 'not found'}\n");
 
 	return NULL;
 }
@@ -126,8 +123,7 @@ env_tree *env_node_add(env_tree *node, char *name, size_t size, uint8_t is_array
 
 	if (node->allocated == index)
 	{
-		if (ac->log_level > 0)
-			printf(" > env_node_add: { result: 'error': 'allocated size if full', name: '%s'}\n", name);
+		glog(L_WARN, " > env_node_add: { result: 'error': 'allocated size if full', name: '%s'}\n", name);
 		return NULL;
 	}
 
@@ -136,8 +132,7 @@ env_tree *env_node_add(env_tree *node, char *name, size_t size, uint8_t is_array
 	node->steam[index].name = name;
 	node->steam[index].is_array = is_array;
 
-	if (ac->log_level > 0)
-		printf(" > env_node_add: { result: 'CREATED', name: '%s', array: '%d', ptr: '%p', hash: '%"u32"', index: '%"u32"', step: '%"u32"'\n", name, is_array, &node->steam[index], hash, index, step);
+	glog(L_DEBUG, " > env_node_add: { result: 'CREATED', name: '%s', array: '%d', ptr: '%p', hash: '%"u32"', index: '%"u32"', step: '%"u32"'\n", name, is_array, &node->steam[index], hash, index, step);
 	return &node->steam[index];
 }
 
@@ -182,20 +177,9 @@ void env_node_scan(env_tree *node, int64_t indent, json_t *nroot)
 
 	if (node->active)
 	{
-		if (ac->log_level > 0)
-		{
-			for (int64_t i = 0; i < indent; i++)
-				printf(" ");
-			printf("> (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
-		}
+		glog(L_DEBUG, "> (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
 
 		nroot = env_tree_new_node_json(nroot, node);
-	}
-	else if (ac->log_level > 11)
-	{
-		for (int64_t i = 0; i < indent; i++)
-			printf(" ");
-		printf("> (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
 	}
 
 	++indent;
@@ -213,8 +197,6 @@ void env_tree_deserialize_json(env_tree *tree)
 	env_node_scan(tree, 0, root);
 
 	char *dvalue = json_dumps(root, JSON_INDENT(2));
-	if (ac->log_level > 11)
-		puts(dvalue);
 	http_api_v1(NULL, NULL, dvalue);
 	free(dvalue);
 	json_decref(root);
@@ -245,20 +227,9 @@ void env_node_scan_del(env_tree *node, int64_t indent)
 
 	if (node->active)
 	{
-		if (ac->log_level > 0)
-		{
-			for (int64_t i = 0; i < indent; i++)
-				printf(" ");
-			printf("> delete (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
-		}
+		glog(L_DEBUG, "> delete (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
 
 		env_tree_del_node(node);
-	}
-	else if (ac->log_level > 11)
-	{
-		for (int64_t i = 0; i < indent; i++)
-			printf(" ");
-		printf("> delete (%d) {%p} name is '%s', is array '%d', allocated '%"u64"', value is '%s'\n", node->active, node, node->name, node->is_array, node->allocated, (char*)node->value);
 	}
 }
 
@@ -282,13 +253,11 @@ void parse_env(char **envp)
 
 		if (strncmp(clear_env, "alligator__", 11))
 		{
-			if (ac->log_level > 3)
-				printf("parse_env, not applied: raw:%s, clean:%s\n", env, clear_env);
+			glog(L_TRACE, "parse_env, not applied: raw:%s, clean:%s\n", env, clear_env);
 			continue;
 		}
 
-		if (ac->log_level > 2)
-			printf("parse_env, applied: raw:%s, clean:%s\n", env, clear_env);
+		glog(L_DEBUG, "parse_env, applied: raw:%s, clean:%s\n", env, clear_env);
 
 
 		size_t ctx_size;
@@ -318,8 +287,7 @@ void parse_env(char **envp)
 			ctx_size = ctx_ptr - tmp;
 
 			strlcpy(ctx, tmp, ctx_size + 1);
-			if (ac->log_level > 3)
-				printf("> parse_env ctx: %s\n", ctx);
+			glog(L_TRACE, "> parse_env ctx: %s\n", ctx);
 
 			name_size = strcspn(ctx, "0123456789");
 			name = strndup(ctx, name_size);
@@ -336,14 +304,12 @@ void parse_env(char **envp)
 				strlcpy(value, ctx_ptr, ENV_MAX_SIZE);
 			}
 
-			if (ac->log_level > 0)
-				printf("> parse env ctx: '%s', name: {'%s'}, index: '%s', array: '%d'\n", ctx, name, index, is_array);
+			glog(L_DEBUG, "> parse env ctx: '%s', name: {'%s'}, index: '%s', array: '%d'\n", ctx, name, index, is_array);
 			node = env_node_select_create(node, name, name_size, is_array);
 
 			if (is_array)
 			{
-				if (ac->log_level > 0)
-					printf("> parse index ctx: '%s', name: '%s', index: {'%s'}, array: '%d'\n", ctx, name, index, is_array);
+				glog(L_DEBUG, "> parse index ctx: '%s', name: '%s', index: {'%s'}, array: '%d'\n", ctx, name, index, is_array);
 				name = strdup(index);
 				name_size = strlen(name);
 				node = env_node_select_create(node, name, name_size, 0);
@@ -360,8 +326,7 @@ void parse_env(char **envp)
 
 		if (node)
 		{
-			if (ac->log_level > 0)
-				printf(">> value is %s\n", value);
+			glog(L_DEBUG, ">> value is %s\n", value);
 			env_node_value(node, strdup(value));
 		}
 	}

@@ -29,6 +29,7 @@
 #include "common/xxh.h"
 #include "parsers/multiparser.h"
 #include "amtail/type.h"
+#include "vrl/type.h"
 #include "cluster/k8s_peers.h"
 
 aconf *ac;
@@ -153,6 +154,7 @@ aconf* configuration()
 
 	ac->threads = alligator_ht_init(NULL);
 	amtail_init();
+	vrl_engine_init();
 
 	ac->request_cnt = 0;
 	ts_initialize();

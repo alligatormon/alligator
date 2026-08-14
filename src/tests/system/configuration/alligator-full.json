@@ -105,20 +105,12 @@
   ],
   "lang": [
     {
-      "lang": "lua",
-      "method": "alligator_metrics",
-      "arg": "lua_metrics",
+      "lang": "so",
+      "method": "alligator_call",
+      "arg": "go_metric",
+      "module": "go",
       "log_level": 1,
-      "key": "lua"
-    },
-    {
-      "lang": "lua",
-      "method": "alligator_metrics",
-      "query": "",
-      "file": "/app/src/tests/system/lang/script.lua",
-      "arg": "6",
-      "log_level": 1,
-      "key": "lua-file"
+      "key": "go"
     }
   ]
 }

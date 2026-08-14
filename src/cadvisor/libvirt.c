@@ -402,7 +402,7 @@ int libvirt() {
 
 	virConnectPtr conn = ac->libvirt->virConnectOpen(NULL);
 	if (conn == NULL) {
-		fprintf(stderr, "Failed to connect to hypervisor\n");
+		glog(L_ERROR, "Failed to connect to hypervisor\n");
 		return 0;
 	}
 

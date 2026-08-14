@@ -3,6 +3,7 @@
 #include "metric/labels.h"
 #include "common/http.h"
 #include "common/json_query.h"
+#include "common/logs.h"
 #include "main.h"
 
 int probe_compare(const void* arg, const void* obj)
@@ -159,8 +160,7 @@ void probe_push_json(json_t *probe)
 		return;
 	}
 
-	if (ac->log_level > 0)
-		printf("create probe node name '%s' and prober '%s'\n", pn->name, prober);
+	glog(L_INFO, "create probe node name '%s' and prober '%s'\n", pn->name, prober);
 
 	alligator_ht_insert(ac->probe, &(pn->node), pn, tommy_strhash_u32(0, pn->name));
 }

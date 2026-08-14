@@ -5,6 +5,7 @@
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/json_query.h"
 #include "common/aggregator.h"
 #include "common/http.h"
@@ -77,7 +78,7 @@ void patroni_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -171,7 +172,7 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

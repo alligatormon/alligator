@@ -1,6 +1,7 @@
 #ifdef __linux__
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <mntent.h>
 #include <fcntl.h>
@@ -20,6 +21,12 @@
 int unshare(int flags);
 
 extern aconf *ac;
+
+static void cadvisor_fopen_fail(const char *path)
+{
+	int pri = (errno == ENOENT || errno == ENOTDIR) ? L_DEBUG : L_ERROR;
+	carglog(ac->cadvisor_carg, pri, "cadvisor fopen %s: %s\n", path, strerror(errno));
+}
 
 typedef struct disk_list_id
 {
@@ -48,8 +55,10 @@ int get_int_file(char *fpath, int64_t *ret)
 	char buf[1000];
 
 	FILE *fd = fopen(fpath, "r");
-	if (!fd)
+	if (!fd) {
+		cadvisor_fopen_fail(fpath);
 		return 0;
+	}
 
 	if (fgets(buf, 1000, fd))
 		*ret = strtoll(buf, NULL, 10);
@@ -195,7 +204,7 @@ void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name
 		labels_hash_insert_nocache(hash, name1, value1);
 	labels_hash_insert_nocache(hash, "id", cad_id);
 
-	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", libvirt_id ? libvirt_id : "", val);
+	carglog(ac->cadvisor_carg, L_TRACE, "%s:%s:%s:%s:%s:%s:%s:%s:%s %"PRIu64"\n", mname ? mname : "", cad_id ? cad_id : "", cntid ? cntid : "", name1 ? name1 : "", value1 ? value1 : "", kubenamespace ? kubenamespace : "", kubepod ? kubepod : "", kubecontainer ? kubecontainer : "", libvirt_id ? libvirt_id : "", val);
 
 	metric_add(mname, hash, &val, DATATYPE_UINT, ac->cadvisor_carg);
 }
@@ -218,7 +227,7 @@ void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, 
 		labels_hash_insert_nocache(hash, name1, value1);
 	labels_hash_insert_nocache(hash, "id", cad_id);
 
-	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %"PRId64"\n", mname, cad_id, cntid, name1, value1, val);
+	carglog(ac->cadvisor_carg, L_TRACE, "%s:%s:%s:%s:%s %"PRId64"\n", mname, cad_id, cntid, name1, value1, val);
 
 	metric_add(mname, hash, &val, DATATYPE_INT, ac->cadvisor_carg);
 }
@@ -241,7 +250,7 @@ void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name
 		labels_hash_insert_nocache(hash, name1, value1);
 	labels_hash_insert_nocache(hash, "id", cad_id);
 
-	carglog(ac->cadvisor_carg, L_INFO, "%s:%s:%s:%s:%s %lf\n", mname, cad_id, cntid, name1, value1, val);
+	carglog(ac->cadvisor_carg, L_TRACE, "%s:%s:%s:%s:%s %lf\n", mname, cad_id, cntid, name1, value1, val);
 
 	metric_add(mname, hash, &val, DATATYPE_DOUBLE, ac->cadvisor_carg);
 }
@@ -293,8 +302,10 @@ alligator_ht* get_disk_ids_names(char *cntid, char *name, char *image, char *cad
 	char diskstatspath[256];
 	snprintf(diskstatspath, 255, "%s/diskstats", ac->system_procfs);
 	fd = fopen(diskstatspath, "r");
-	if (!fd)
+	if (!fd) {
+		carglog(ac->cadvisor_carg, L_ERROR, "cadvisor fopen %s: %s\n", diskstatspath, strerror(errno));
 		return NULL;
+	}
 
 	uint64_t maj, min;
 	alligator_ht* dlid_hash = alligator_ht_init(NULL);
@@ -346,7 +357,6 @@ alligator_ht* get_disk_ids_names(char *cntid, char *name, char *image, char *cad
 			dstats[j] = strtoull(tmp, NULL, 10);
 		}
 
-        //printf("dstat[] %lu %lu %lu %lu %lu %lu %lu %lu %lu\n", dstats[1], dstats[2], dstats[3], dstats[5], dstats[6], dstats[7], dstats[8], dstats[9], dstats[10]);
 		if (dstats[1])
 			add_cadvisor_metric_uint("container_fs_reads_merged_total", dstats[1], cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
 
@@ -416,8 +426,10 @@ void cgroup_get_diskinfo(alligator_ht* dlid_hash, char *prefix, char *cntid, cha
 	// end
 
 	fd = fopen(buf, "r");
-	if (!fd)
+	if (!fd) {
+		cadvisor_fopen_fail(buf);
 		return;
+	}
 
 	while(fgets(readbuf, PATH_SIZE, fd))
 	{
@@ -444,7 +456,6 @@ void cgroup_get_diskinfo(alligator_ht* dlid_hash, char *prefix, char *cntid, cha
 		disk_list_id *dlid = alligator_ht_search(dlid_hash, dlid_hash_compare, disk_id, id_hash);
 		if (dlid)
 		{
-			//printf("%s:%s:%s:%s %"PRIu64"\n", mname, cntid, dlid->devname, stat, val);
 			add_cadvisor_metric_uint(mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, NULL);
 		}
 	}
@@ -462,9 +473,11 @@ void cgroup2_get_diskinfo(context_arg *carg, alligator_ht* dlid_hash, char *pref
 	snprintf(buf, PATH_SIZE, "%s/fs/cgroup/%s/%s/%s", ac->system_sysfs, prefix, cntid, file);
 
 	fd = fopen(buf, "r");
-	carglog(carg, L_INFO, "cgroup2_get_diskinfo tries open: '%s': %d\n", buf, fd);
-	if (!fd)
+	carglog(carg, L_TRACE, "cgroup2_get_diskinfo tries open: '%s': %d\n", buf, fd);
+	if (!fd) {
+		cadvisor_fopen_fail(buf);
 		return;
+	}
 
 	while(fgets(readbuf, PATH_SIZE, fd))
 	{
@@ -532,8 +545,10 @@ void cgroup_get_diskinfo_total(alligator_ht* dlid_hash, char *prefix, char *cnti
 
 	snprintf(buf, PATH_SIZE, "%s/fs/cgroup/blkio/%s/%s/blkio.%s", ac->system_sysfs, prefix, cntid, stat);
 	fd = fopen(buf, "r");
-	if (!fd)
+	if (!fd) {
+		cadvisor_fopen_fail(buf);
 		return;
+	}
 
 	while(fgets(readbuf, PATH_SIZE, fd))
 	{
@@ -568,8 +583,10 @@ uint64_t cgroup_get_pid(char *prefix, char *container)
 	{
 		snprintf(fpath, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/%s/cgroup.procs", ac->system_sysfs, prefix, container);
 		fd = fopen(fpath, "r");
-		if (!fd)
+		if (!fd) {
+			cadvisor_fopen_fail(fpath);
 			return 0;
+		}
 	}
 
 	if (!fgets(buf, 1000, fd))
@@ -595,13 +612,12 @@ void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, allig
 
 	FILE *fp = setmntent(fpath, "r");
 	if (fp == NULL) {
-		fprintf(stderr, "could not open %s\n ", fpath);
+		carglog(ac->cadvisor_carg, L_ERROR, "could not open %s: %s\n", fpath, strerror(errno));
 		return;
 	}
 
 	while ((fs = getmntent(fp)) != NULL)
 	{
-		//printf("mnt type '%s' mnt_dir '%s', mnt_opts '%s', mnt_fsname '%s'\n", fs->mnt_type, fs->mnt_dir, fs->mnt_opts, fs->mnt_fsname);
 
 		struct statvfs vfsbuf;
 		if (statvfs(fs->mnt_dir, &vfsbuf) == -1)
@@ -626,7 +642,6 @@ void cgroup_fd_disk_part_info(char *prefix, uint64_t pid, char *container, allig
 		mnt_list *mlist = alligator_ht_search(mlist_hash, mlist_hash_compare, mountpoint, id_hash);
 		if (mlist)
 		{
-			//printf("%s:%s %"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64"""\n", "mname", prefix, mlist->mountpoint, mlist->total, mlist->avail, mlist->used, mlist->inodes_total, mlist->inodes_avail, mlist->inodes_used);
 			add_cadvisor_metric_uint("container_fs_inodes_free", mlist->inodes_avail, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer, NULL);
 			add_cadvisor_metric_uint("container_fs_inodes_usage", mlist->inodes_used, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer, NULL);
 			add_cadvisor_metric_uint("container_fs_inodes_total", mlist->inodes_total, container, name, image, cad_id, "device", mlist->mountname, kubenamespace, kubepod, kubecontainer, NULL);
@@ -647,14 +662,13 @@ alligator_ht* get_mountpoint_list()
 
 	fp = setmntent("/etc/mtab", "r");
 	if (fp == NULL) {
-		fprintf(stderr, "could not open /etc/mtab\n " );
+		carglog(ac->cadvisor_carg, L_ERROR, "could not open /etc/mtab: %s\n", strerror(errno));
 		mlist_free(mlist_hash);
 		return NULL;
 	}
 
 	while ((fs = getmntent(fp)) != NULL)
 	{
-		//printf("mnt type '%s' mnt_dir '%s'\n", fs->mnt_type, fs->mnt_dir);
 
 		//int mnt_fd;
 		//mnt_fd = open(fs->mnt_dir,O_RDONLY);
@@ -687,7 +701,6 @@ alligator_ht* get_mountpoint_list()
 		if (len > 0)
 		{
 			linkurl[len] = 0;
-			//printf("%s(%s) -> %s\n", fs->mnt_fsname, linkurl, fs->mnt_dir);
 			mnt_list *dmlist = malloc(sizeof(*dmlist));
 			memcpy(dmlist, mlist, sizeof(*dmlist));
 			strlcpy(dmlist->mountpoint, linkurl+3, 1000);
@@ -728,8 +741,10 @@ void cgroup_get_cpuinfo(char *prefix, char *cntid, char *stat, char *name, char 
 	uint64_t system = 0, user = 0;
 	snprintf(fpath, 1000, "%s/fs/cgroup/cpu,cpuacct/%s/%s/%s", ac->system_sysfs, prefix, cntid, stat);
 	FILE *fd = fopen(fpath, "r");
-	if (!fd)
+	if (!fd) {
+		cadvisor_fopen_fail(fpath);
 		return;
+	}
 
 	while(fgets(buf, 1000, fd))
 	{
@@ -793,12 +808,10 @@ void cgroup_get_cpuacctinfo(char *prefix, char *cntid, char *stat, char *mname, 
 
 		double fval = (double)val/1000000000.0;
 		snprintf(cpuname, 10, "cpu%02"PRIu64, i);
-		//printf("[%3zu/%zu] %s:%s:%s:%s:%s %lf\n", tmp-buf, read_size, mname, stat, cpuname, prefix, cntid, fval);
 		add_cadvisor_metric_double(mname, fval, cntid, name, image, cad_id, "cpu", cpuname, kubenamespace, kubepod, kubecontainer, NULL);
 		tmp += strcspn(tmp, " \t");
 		tmp += strspn(tmp, " \t");
 	}
-		//printf("container_cpu_cfs_throttled_seconds_total:%s:%s %"PRIu64"\n", prefix, cntid, val);
 
 	fclose(fd);
 }
@@ -869,7 +882,7 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 
 		if (!fgets(buf, 1000, sched_fd))
 		{
-			perror("fgets:");
+			carglog(ac->cadvisor_carg, L_ERROR, "fgets: %s\n", strerror(errno));
 			fclose(sched_fd);
 			continue;
 		}
@@ -895,7 +908,7 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 
 		if (!fgets(buf, 1000, state_fd))
 		{
-			perror("fgets:");
+			carglog(ac->cadvisor_carg, L_ERROR, "fgets: %s\n", strerror(errno));
 			fclose(state_fd);
 			continue;
 		}
@@ -923,16 +936,6 @@ void cgroup_cpu_schedstats_info(char *prefix, char *cntid, char *name, char *ima
 		open_files += cadvisor_files_num(fpath);
 	}
 
-	//printf("container_cpu_schedstat_run_periods_total:%s:%s %"PRIu64"\n", prefix, cntid, run_periods);
-	//printf("container_cpu_schedstat_runqueue_seconds_total:%s:%s %"PRIu64"\n", prefix, cntid, runqueue_time);
-	//printf("container_cpu_schedstat_run_seconds_total:%s:%s %"PRIu64"\n", prefix, cntid, run_time);
-
-	//printf("container_tasks_state:%s:%s:state:running %"PRIu64"\n", prefix, cntid, running);
-	//printf("container_tasks_state:%s:%s:state:sleeping %"PRIu64"\n", prefix, cntid, sleeping);
-	//printf("container_tasks_state:%s:%s:state:uninterruptible %"PRIu64"\n", prefix, cntid, uninterruptible);
-	//printf("container_tasks_state:%s:%s:state:zombie %"PRIu64"\n", prefix, cntid, zombie);
-	//printf("container_tasks_state:%s:%s:state:stopped %"PRIu64"\n", prefix, cntid, stopped);
-
 	add_cadvisor_metric_uint("container_cpu_schedstat_run_periods_total", run_periods, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 	add_cadvisor_metric_uint("container_cpu_schedstat_runqueue_seconds_total", runqueue_time, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 	add_cadvisor_metric_uint("container_cpu_schedstat_run_seconds_total", run_time, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
@@ -958,9 +961,11 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 	snprintf(fpath, 1000, "%s/fs/cgroup/memory/%s/memory.stat", ac->system_sysfs, cad_id);
 
 	FILE *fd = fopen(fpath, "r");
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor tries open '%s': %p\n", fpath, fd);
-	if (!fd)
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor tries open '%s': %p\n", fpath, fd);
+	if (!fd) {
+		cadvisor_fopen_fail(fpath);
 		return;
+	}
 
 	while(fgets(buf, 1000, fd))
 	{
@@ -974,7 +979,7 @@ void cgroup_memory_info(char *prefix, char *cntid, char *name, char *image, char
 		{
 			working_set += val;
 			add_cadvisor_metric_uint("container_memory_rss", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
-			carglog(ac->cadvisor_carg, L_INFO, "container_memory_rss sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", ac->system_sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+			carglog(ac->cadvisor_carg, L_TRACE, "container_memory_rss sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", ac->system_sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 		}
 		else if (!strncmp(buf, "total_swap ", 11))
 		{
@@ -1095,9 +1100,11 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.stat", ac->system_sysfs, cad_id);
 
 	FILE *fd = fopen(fpath, "r");
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
-	if (!fd)
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
+	if (!fd) {
+		cadvisor_fopen_fail(fpath);
 		return;
+	}
 
 	while(fgets(buf, 1000, fd))
 	{
@@ -1137,7 +1144,7 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	add_cadvisor_metric_uint("container_memory_rss", memory_rss, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.swap.max", ac->system_sysfs, cad_id);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
 	fd = fopen(fpath, "r");
 	if (!fd)
 		return;
@@ -1155,7 +1162,7 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	}
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.max", ac->system_sysfs, cad_id);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
 	fd = fopen(fpath, "r");
 	if (!fd)
 		return;
@@ -1173,7 +1180,7 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	}
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.swap.current", ac->system_sysfs, cad_id);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
 	fd = fopen(fpath, "r");
 	if (!fd)
 		return;
@@ -1189,7 +1196,7 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	add_cadvisor_metric_uint("container_memory_swap", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer,  NULL);
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/memory.events", ac->system_sysfs, cad_id);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor memory v2 tries open '%s': %p\n", fpath, fd);
 	fd = fopen(fpath, "r");
 	if(!fd)
 		return;
@@ -1270,9 +1277,11 @@ void cgroup2_cpu_info(char *prefix, char *cntid, char *name, char *image, char *
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/cpu.stat", ac->system_sysfs, cad_id);
 
 	FILE *fd = fopen(fpath, "r");
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor cpu v2 tries open '%s': %p\n", fpath, fd);
-	if (!fd)
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor cpu v2 tries open '%s': %p\n", fpath, fd);
+	if (!fd) {
+		cadvisor_fopen_fail(fpath);
 		return;
+	}
 
 	while(fgets(buf, 1000, fd))
 	{
@@ -1297,7 +1306,7 @@ void cgroup2_cpu_info(char *prefix, char *cntid, char *name, char *image, char *
 	fclose(fd);
 
 	snprintf(fpath, 1000, "%s/fs/cgroup/%s/cpu.max", ac->system_sysfs, cad_id);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor cpu v2 tries open '%s': %p\n", fpath, fd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor cpu v2 tries open '%s': %p\n", fpath, fd);
 	fd = fopen(fpath, "r");
 	if (!fd)
 		return;
@@ -1319,7 +1328,7 @@ void cgroup2_cpu_info(char *prefix, char *cntid, char *name, char *image, char *
 	if (ptr_to_period)
 		period = strtoull(ptr_to_period + 1, NULL, 10);
 
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor cpu max %"PRIu64", period %"PRIu64"\n", max, period);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor cpu max %"PRIu64", period %"PRIu64"\n", max, period);
 	add_cadvisor_metric_uint("container_spec_cpu_period", period, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, libvirt_id);
 	add_cadvisor_metric_uint("container_spec_cpu_quota", max, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
@@ -1330,7 +1339,7 @@ void cgroup2_libvirt_cpu_shares(char *prefix, char *cntid, char *name, char *ima
 	char libvirtdir[256];
 	snprintf(libvirtdir, 255, "%s/fs/cgroup/%s/libvirt", ac->system_sysfs, cad_id);
 	DIR *rd = opendir(libvirtdir);
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor cpu shares v2 tries open '%s': %p\n", libvirtdir, rd);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor cpu shares v2 tries open '%s': %p\n", libvirtdir, rd);
 	if (rd)
 	{
 		uint64_t cpu_shares = 0;
@@ -1384,7 +1393,7 @@ void cadvisor_network_scrape(char *sysfs, char *cntid, char *name, char *image, 
 {
 	char pidsdir[1000];
 
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor_network_scrape sysfs %s, cntid %s, name %s, image %s, cad_id %s, kubenamespace %s, kubepod %s, kubecontainer %s\n", sysfs, cntid, name, image, cad_id, kubenamespace, kubepod, kubecontainer);
 
 	snprintf(pidsdir, 1000, "%s/fs/cgroup/pids/%s/cgroup.procs", sysfs, cad_id);
 
@@ -1434,7 +1443,7 @@ void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, c
 	else if (cgroupdirstat.f_type == CGROUP2_SUPER_MAGIC)
 		cgroupver = 2;
 
-	carglog(ac->cadvisor_carg, L_INFO, "cadvisor_scrape search id in slice %s id: %s with name: %s and version %d\n", slice, cntid, name, cgroupver);
+	carglog(ac->cadvisor_carg, L_TRACE, "cadvisor_scrape search id in slice %s id: %s with name: %s and version %d\n", slice, cntid, name, cgroupver);
 	if (!ac->cadvisor_tcpudpbuf)
 		ac->cadvisor_tcpudpbuf = malloc(TCPUDP_NET_LENREAD);
 

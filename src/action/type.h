@@ -40,7 +40,8 @@ typedef struct action_node
 } action_node;
 
 action_node* action_get(char *name);
-void action_run_process(char *name, char *namespace, metric_query_context *mqc);
+char *action_aggregator_key(const char *scheduler_name, const char *url, size_t url_len, const char *parser_name, const char *base_override);
+void action_run_process(char *name, char *namespace, metric_query_context *mqc, const char *scheduler_name);
 void action_del(json_t *action);
 void action_push(json_t *action);
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type);

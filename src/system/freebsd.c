@@ -39,6 +39,7 @@
 #include <sys/jail.h>
 #include <jail.h>
 #include <sys/rctl.h>
+#include <errno.h>
 
 #define d64 PRId64
 #define u64 PRIu64
@@ -49,6 +50,7 @@
 #include "main.h"
 #include "common/rtime.h"
 #include "common/selector.h"
+#include "common/logs.h"
 #include "system/freebsd/parsers.h"
 #include "system/freebsd/sysctl.h"
 
@@ -217,64 +219,64 @@ void get_mem()
 
 	rc = sysctlbyname("vm.vmtotal", &vmt, &vmt_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 
 	rc = sysctlbyname("vm.stats.vm.v_page_size", &page_size, &uint_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 
 	u_int wire_size;
 	rc = sysctlbyname("vm.stats.vm.v_wire_count", &wire_size, &uint_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 
 	int64_t vm_faults;
 	rc = sysctlbyname("vm.stats.vm.v_vm_faults", &vm_faults, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t io_faults;
 	rc = sysctlbyname("vm.stats.vm.v_io_faults", &io_faults, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_swapout;
 	rc = sysctlbyname("vm.stats.vm.v_swapout", &v_swapout, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_swapin;
 	rc = sysctlbyname("vm.stats.vm.v_swapin", &v_swapin, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_swappgsout;
 	rc = sysctlbyname("vm.stats.vm.v_swappgsout", &v_swapout, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_swappgsin;
 	rc = sysctlbyname("vm.stats.vm.v_swappgsin", &v_swapin, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t physmem;
 	rc = sysctlbyname("hw.physmem", &physmem, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_active_count;
 	rc = sysctlbyname("vm.stats.vm.v_active_count", &v_active_count, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t v_inactive_count;
 	rc = sysctlbyname("vm.stats.vm.v_inactive_count", &v_inactive_count, &int64_size, NULL, 0);
 	if (rc < 0){
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 	int64_t free_memory = vmt.t_free * (u_int64_t)page_size;
 	int64_t avail_memory = vmt.t_avm * (u_int64_t)page_size;
@@ -314,7 +316,7 @@ void get_sysctl_stat_u64(char *ctlname, char *mapping)
 	size_t uint_size = sizeof(uint64_t);
 	uint64_t val;
 	if (sysctlbyname(ctlname, &val, &uint_size, NULL, 0) < 0)
-		perror("sysctlbyname");
+		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 
 	metric_add_auto(mapping, &val, DATATYPE_UINT, ac->system_carg);
 }
@@ -728,12 +730,12 @@ void get_jail_stat()
 	int rv = sysctlbyname("kern.racct.enable", &ena, &ena_len, 0, 0);
 	if (rv == -1 && errno == ENOENT)
 	{
-		puts("RACCT/RCTL support not compiled; see rctl(8)");
+		carglog(ac->system_carg, L_WARN, "RACCT/RCTL support not compiled; see rctl(8)\n");
 		return;
 	}
 	if (!ena)
 	{
-		puts("RACCT/RCTL support not enabled; enable using kern.racct.enable=1 tunable");
+		carglog(ac->system_carg, L_WARN, "RACCT/RCTL support not enabled; enable using kern.racct.enable=1 tunable\n");
 		return;
 	}
 
@@ -743,13 +745,13 @@ void get_jail_stat()
 
 	if (jailparam_init(&param[0], "lastjid") == -1 || jailparam_init(&param[1], "jid") == -1 || jailparam_init(&param[2], "name") == -1)
 	{
-		printf("jailparam_init: %s\n", jail_errmsg);
+		carglog(ac->system_carg, L_ERROR, "jailparam_init: %s\n", jail_errmsg);
 		return;
 	}
 
 	if (jailparam_import_raw(&param[0], &lastjid, sizeof lastjid) == -1 || jailparam_import_raw(&param[1], &jid, sizeof jid) == -1 || jailparam_import_raw(&param[2], name, sizeof name) == -1)
 	{
-		printf("jailparam_import_raw: %s\n", jail_errmsg);
+		carglog(ac->system_carg, L_ERROR, "jailparam_import_raw: %s\n", jail_errmsg);
 		return;
 	}
 

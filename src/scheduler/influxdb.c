@@ -1,14 +1,14 @@
-#include <stdio.h>
 #include <jansson.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "common/logs.h"
 #include "main.h"
 void influxdb_handler(char *metrics, size_t size, context_arg *carg)
 {
 	string *body = string_new();
 	metric_str_build(0, body, 0);
-	printf("body is %s\n", body->s);
+	carglog(carg, L_DEBUG, "influxdb_handler: built body is '%s'\n", body->s);
 }
 
 int8_t influxdb_validator(context_arg *carg, char *data, size_t size)
@@ -17,7 +17,7 @@ int8_t influxdb_validator(context_arg *carg, char *data, size_t size)
 	json_t *root = json_loads(data+8, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return 0;
 	}
 	return 1;

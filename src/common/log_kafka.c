@@ -408,7 +408,7 @@ void log_kafka_sink_close(log_channel *ch)
 	log_kafka_sink_destroy(sink);
 }
 
-int log_kafka_sink_write(log_channel *ch, const char *data, size_t len)
+int log_kafka_sink_write(log_channel *ch, const char *data, size_t len, const char *kind)
 {
 	log_kafka_sink *sink;
 	int ret;
@@ -417,10 +417,14 @@ int log_kafka_sink_write(log_channel *ch, const char *data, size_t len)
 
 	if (!ch || !data || !len)
 		return -1;
+	if (!kind || !kind[0])
+		kind = "unknown";
 
 	sink = ch->kafka_sink;
-	if (!sink || sink->closing || !sink->rk || !sink->rkt)
+	if (!sink || sink->closing || !sink->rk || !sink->rkt) {
+		log_channel_account(ch, kind, "dropped", "disconnected");
 		return -1;
+	}
 
 	if (sink->msg_key)
 	{
@@ -442,11 +446,17 @@ int log_kafka_sink_write(log_channel *ch, const char *data, size_t len)
 			sink->errors++;
 		pthread_mutex_unlock(&sink->lock);
 
+		if (err == RD_KAFKA_RESP_ERR__QUEUE_FULL)
+			log_channel_account(ch, kind, "dropped", "queue_full");
+		else
+			log_channel_account(ch, kind, "error", "produce");
+
 		log_kafka_warn_throttled(sink, rd_kafka_err2str(err));
 		return -1;
 	}
 
 	rd_kafka_poll(sink->rk, 0);
+	log_channel_account(ch, kind, "sent", NULL);
 	return 0;
 }
 

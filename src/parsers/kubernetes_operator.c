@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "metric/namespace.h"
 #include "events/context_arg.h"
+#include "common/logs.h"
 #include "common/aggregator.h"
 #include "common/http.h"
 #include "metric/metric_types.h"
@@ -29,7 +30,7 @@ void kubernetes_operator_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "kubernetes_operator json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "kubernetes_operator json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 

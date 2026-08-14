@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include "expiretree.h"
+#include "common/logs.h"
 #include "main.h"
 
 #define u64	PRIu64
@@ -260,7 +261,7 @@ void expire_select_delete ( expire_tree *tree, int64_t key )
 void tree_show(expire_node *x)
 {
 	char *color = x->color ? "red" : "black";
-	printf("%"u64": '%p' (%s)\n",x->key, x->metric, color);
+	glog(L_TRACE, "%"u64": '%p' (%s)\n", x->key, x->metric, color);
 	if ( x->child[LEFT] )
 		tree_show(x->child[LEFT]);
 	if ( x->child[RIGHT] )
@@ -300,18 +301,21 @@ uint64_t tree_build(expire_node *x, uint64_t l)
 	if ( x->child[LEFT] )
 		l = tree_build(x->child[LEFT], l++);
 
+	char line[4096];
+	int pos = 0;
 	uint64_t i;
-	for ( i=0; i<l; i++)
-		printf("\t");
+	if (l >= sizeof(line) / 2)
+		l = sizeof(line) / 2 - 1;
+	for (i = 0; i < l; i++)
+		line[pos++] = '\t';
+	pos += snprintf(line + pos, sizeof(line) - (size_t)pos, "%"u64" (%p){%p} %s", x->key, x, x->metric, color);
 	labels_t *lab = x->metric->labels;
-	printf("%"u64" (%p){%p} %s", x->key, x, x->metric, color);
-	while (lab)
+	while (lab && pos < (int)sizeof(line) - 64)
 	{
-		printf("(%s=%s)", lab->name, lab->key);
+		pos += snprintf(line + pos, sizeof(line) - (size_t)pos, "(%s=%s)", lab->name, lab->key);
 		lab = lab->next;
 	}
-
-	puts("");
+	glog(L_TRACE, "%s\n", line);
 
 	if ( x->child[RIGHT] )
 		l = tree_build(x->child[RIGHT], l++);
@@ -424,8 +428,7 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 {
 	extern aconf *ac;
 
-	if (ac->log_level > 2)
-		printf("run expire purge on namespace %s/%s\n", namespace, ns->key);
+	glog(L_INFO, "run expire purge on namespace %s/%s\n", namespace, ns->key);
 
 	if (!ns) {
 		if (!namespace)

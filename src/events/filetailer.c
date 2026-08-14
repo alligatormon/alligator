@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fnmatch.h>
 #include <uv.h>
 #include "common/file_stat.h"
 #include "parsers/multiparser.h"
@@ -22,6 +23,83 @@ void blackbox_null(char *metrics, size_t size, context_arg *carg);
 void filetailer_start_chain(context_arg *carg, const char *pathname);
 
 #define FILETAILER_MAX_READ_SIZE ((size_t)1000000)
+
+static const char *filetailer_state_name(uint8_t state)
+{
+	switch (state) {
+	case FILESTAT_STATE_STREAM: return "stream";
+	case FILESTAT_STATE_BEGIN: return "begin";
+	case FILESTAT_STATE_SAVE: return "save";
+	case FILESTAT_STATE_FORGET: return "forget";
+	default: return "unknown";
+	}
+}
+
+static int filetailer_path_has_glob(const char *s)
+{
+	if (!s || !*s)
+		return 0;
+	return strchr(s, '*') || strchr(s, '?') || strchr(s, '[');
+}
+
+/* Return 1 if basename should be processed for this carg. */
+static int filetailer_basename_matches(context_arg *carg, const char *basename)
+{
+	if (!basename || !*basename)
+		return 0;
+	if (!carg || !carg->file_match || !carg->file_match[0])
+		return 1;
+	return fnmatch(carg->file_match, basename, 0) == 0;
+}
+
+/* Split URL path with a basename glob into directory + file_match, or ensure
+ * directory mode when match= was set explicitly. Mutates carg->host (path). */
+void filetailer_apply_path_glob(context_arg *carg)
+{
+	char *path;
+	char *slash;
+	size_t n;
+
+	if (!carg || !carg->path || !carg->path[0])
+		return;
+
+	path = carg->path;
+
+	if (filetailer_path_has_glob(path)) {
+		slash = strrchr(path, '/');
+		if (!slash) {
+			/* Pattern only (no directory) — treat as cwd-relative. */
+			if (!carg->file_match)
+				carg->file_match = strdup(path);
+			strlcpy(path, "./", HOSTHEADER_SIZE);
+			carg->is_dir = 1;
+			carglog(carg, L_INFO, "filetailer: glob pattern '%s' in cwd './'\n",
+				carg->file_match ? carg->file_match : "?");
+			return;
+		}
+		if (!carg->file_match)
+			carg->file_match = strdup(slash + 1);
+		slash[1] = '\0';
+		carg->is_dir = 1;
+		carglog(carg, L_INFO, "filetailer: glob dir='%s' match='%s'\n",
+			path, carg->file_match ? carg->file_match : "?");
+		return;
+	}
+
+	/* Explicit match=/glob= with a directory or file path: force dir crawl. */
+	if (carg->file_match && carg->file_match[0]) {
+		n = strlen(path);
+		if (n && path[n - 1] != '/') {
+			if (n + 1 < HOSTHEADER_SIZE) {
+				path[n] = '/';
+				path[n + 1] = '\0';
+			}
+		}
+		carg->is_dir = 1;
+		carglog(carg, L_INFO, "filetailer: dir='%s' match='%s'\n",
+			path, carg->file_match);
+	}
+}
 
 typedef struct file_handle {
 	uv_fs_t open;
@@ -64,15 +142,19 @@ void file_handler_struct_free(file_handle *fh)
  * be in flight at a time: concurrent chains would read the same offset and
  * advance it several times, skipping data and triggering bogus truncation
  * resets. checksum/calc_lines reads are stateless and are not gated. */
-static uint8_t filetailer_wants_content_read(context_arg *carg)
+/* NULL parser_handler is the default OpenMetrics path (prometheus_metrics).
+ * Only blackbox_null means "probe, do not parse file contents". */
+uint8_t filetailer_wants_content_read(context_arg *carg)
 {
 	if (!carg)
 		return 0;
 	if (carg->checksum || carg->calc_lines || carg->log_ch_raw)
 		return 1;
-	if (!carg->parser_handler || carg->parser_handler == blackbox_null)
+	if (carg->parser_handler == blackbox_null)
 		return 0;
-	return 1;
+	if (carg->parser_handler)
+		return 1;
+	return carg->parser_name && carg->parser_name[0];
 }
 
 static uint8_t filetailer_is_parser_read(context_arg *carg)
@@ -127,8 +209,14 @@ static void filetailer_schedule_content_read_sz(context_arg *carg, const char *p
 				fst->read_dirty = 1;
 				return;
 			}
+			file_stat_offset_for_read(fst, carg->state);
+			carglog(carg, L_INFO, "schedule content read: %s size %"u64" offset %"u64" state %s\n",
+				pathname, filesize, fst->offset, filetailer_state_name(carg->state));
 			if (filesize <= fst->offset)
+			{
+				carglog(carg, L_INFO, "skip content read (no new bytes): %s\n", pathname);
 				return;
+			}
 		}
 	}
 
@@ -189,7 +277,7 @@ static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pa
 
 	struct stat st;
 	if (fstat(fd, &st) != 0)
-		return fst->offset;
+		return file_stat_offset_for_read(fst, carg->state);
 
 	uint64_t filesize = (uint64_t)st.st_size;
 	uint64_t dev = (uint64_t)st.st_dev;
@@ -210,7 +298,7 @@ static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pa
 
 	fst->dev = dev;
 	fst->ino = ino;
-	return fst->offset;
+	return file_stat_offset_for_read(fst, carg->state);
 }
 
 void filetailer_start_chain(context_arg *carg, const char *pathname)
@@ -348,6 +436,12 @@ void directory_crawl(void *arg)
 		{
 			if (dirents[i].type == UV_DIRENT_FILE && filetailer_wants_content_read(carg))
 			{
+				if (!filetailer_basename_matches(carg, dirents[i].name))
+				{
+					carglog(carg, L_DEBUG, "skip (glob): %s%s\n", carg->path, dirents[i].name);
+					free((void*)dirents[i].name);
+					continue;
+				}
 				++acc;
 				uv_fs_t* req_stat = calloc(1, sizeof(*req_stat));
 				req_stat->data = carg;
@@ -574,6 +668,11 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 	else
 		snprintf(pathname, 1023, "%s", carg->path);
 
+	if (carg->is_dir && !filetailer_basename_matches(carg, carg->filename)) {
+		carglog(carg, L_DEBUG, "ignore change (glob): %s\n", pathname);
+		return;
+	}
+
 	if (events & UV_RENAME) {
 		struct stat st;
 		file_stat *fst = file_stat_get_or_create(ac->file_stat, pathname, carg->state);
@@ -614,14 +713,24 @@ char* filetailer_handler(context_arg *carg)
 
 	carg->path = carg->host;
 
+	/* Key must stay unique per aggregate (include basename glob / match=). */
+	if (carg->key)
+		free(carg->key);
+	if (carg->file_match && carg->file_match[0]) {
+		size_t n = strlen(carg->host) + strlen(carg->file_match) + 1;
+		carg->key = malloc(n);
+		if (carg->key)
+			snprintf(carg->key, n, "%s%s", carg->host, carg->file_match);
+	} else {
+		carg->key = strdup(carg->host);
+	}
+
+	filetailer_apply_path_glob(carg);
+
 	if (carg->path[strlen(carg->path)-1] == '/')
 		carg->is_dir = 1;
 
 	carg->fs_handle.data = carg;
-
-	if (carg->key)
-		free(carg->key);
-	carg->key = strdup(carg->host);
 
 	if ((carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler ||
 	     carg->parser_name || carg->log_ch_raw) && carg->notify != 2)

@@ -11,6 +11,7 @@ The module is implemented in `src/amtail` and uses the embedded `amtail` library
 - Processes incoming log lines with a selected program
 - Maintains per-context parser state between lines
 - Exports counters/gauges/histograms as regular Alligator metrics
+- Optional **transformed logs** via `emit_log(...)` when the aggregate/entrypoint has `log_channel_out` (Alligator extension; not stock mtail)
 
 ## Runtime Model
 
@@ -43,6 +44,21 @@ Current implementation supports:
 - variable substitutions (for example, `$httpcode`) resolved from VM variables
 
 This allows mtail scripts to produce dimensional metrics that appear as normal labeled Alligator metrics.
+
+## emit_log (transformed logs)
+
+Alligator extension (not stock Google mtail). With `log_channel_out` on the aggregate:
+
+```
+counter lines_total
+
+/error=(?P<msg>.*)/ {
+  lines_total++
+  emit_log($msg)
+}
+```
+
+`emit_log` sends a prepared string to `log_channel_out`. Without a call, only metrics are exported.
 
 ## Thread Safety
 

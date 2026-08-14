@@ -17,10 +17,12 @@ scheduler {
 
 ## name
 Specifies only the context name.\
-This does not affect anything in the context of collecting metrics; it is solely a key used to update fields of the scheduler context by the Alligator API.
+It is the key used to update fields of the scheduler context by the Alligator API.\
+When the scheduler runs an `action`, this name is also prefixed onto the aggregator oneshot key (`scheduler:<name>:…`). That lets several schedulers fire the **same** action at the same time without colliding. A second tick of the **same** scheduler still shares that key, so it will not run the action twice concurrently.
 
 ## action
-Specifies the action name to be executed.
+Specifies the action name to be executed.\
+Several schedulers may reference the same action name. Use a distinct `expr` on each scheduler to export different metric subsets.
 
 
 ## lang
@@ -28,7 +30,8 @@ Specifies the name of the language to be executed.
 
 
 ## expr
-Specifies the PromQL expression to filter metrics that will be passed to a calling `lang` or a software in the `action` on the stdin.
+Specifies the PromQL expression to filter metrics that will be passed to a calling `lang` or a software in the `action` on the stdin.\
+The metric name is matched exactly (not as a prefix). For example `expr x509_cert_expire_days;` exports only that metric family, not neighboring names such as `x509_cert_not_after`.
 
 
 ## period

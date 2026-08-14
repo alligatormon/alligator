@@ -63,6 +63,12 @@ void log_init();
 void log_default();
 void wrlog(log_channel *ch, struct context_arg *carg, int level, int priority, const char *format, va_list args);
 void log_channel_write_raw(log_channel *ch, struct context_arg *carg, const char *data, size_t len);
+/* kind: "raw" | "out" | "diag" — for alligator_log_channel_*_total metrics */
+void log_channel_write_raw_kind(log_channel *ch, struct context_arg *carg, const char *data, size_t len, const char *kind);
+/* Write a flat JSON object as one log document (json/elastic/plain). Does not nest under "message". */
+void log_channel_write_document(log_channel *ch, struct context_arg *carg, json_t *doc);
+void log_channel_write_document_kind(log_channel *ch, struct context_arg *carg, json_t *doc, const char *kind);
+void log_channel_account(const log_channel *ch, const char *kind, const char *result, const char *reason);
 int context_allows_raw_log(const struct context_arg *carg);
 void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);

@@ -248,11 +248,11 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 			ml->name = strdup(label_key);
 			ml->key = strdup(label_value_str);
 			ml->next = 0;
-			glog(L_INFO, "\tcreated label [%p] for template '%s': '%s'='%s', next is %p\n", ml, mm->template, ml->name, ml->key, ml->next);
+			glog(L_DEBUG, "\tcreated label [%p] for template '%s': '%s'='%s', next is %p\n", ml, mm->template, ml->name, ml->key, ml->next);
 		}
 	}
 
-	glog(L_INFO, "created mapping %p from template '%s' with ml %p\n", mm, mm->template, mm->label_head);
+	glog(L_DEBUG, "created mapping %p from template '%s' with ml %p\n", mm, mm->template, mm->label_head);
 	return mm;
 }
 
@@ -266,7 +266,7 @@ void push_mapping_metric(mapping_metric *dest, mapping_metric *source)
 void mm_list(mapping_metric *dest)
 {
 	for (; dest; dest = dest->next) {
-		printf("mm(%p)->%p mm_list %s %s\n", dest, dest->next, dest->metric_name, dest->template);
+		glog(L_TRACE, "mm(%p)->%p mm_list %s %s\n", dest, dest->next, dest->metric_name, dest->template);
 	}
 }
 

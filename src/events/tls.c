@@ -21,9 +21,9 @@ int verify_callback(int preverify_ok, X509_STORE_CTX *ctx) {
 	int depth = X509_STORE_CTX_get_error_depth(ctx);
 	int err = X509_STORE_CTX_get_error(ctx);
 
-	printf("Depth %d: %s\n", depth, X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0));
+	glog(L_DEBUG, "Depth %d: %s\n", depth, X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0));
 	if (!preverify_ok) {
-		printf("Cert verification error: %s\n", X509_verify_cert_error_string(err));
+		glog(L_ERROR, "Cert verification error: %s\n", X509_verify_cert_error_string(err));
 		return 0; // reject
 	}
 	return 1; // accept
@@ -351,7 +351,7 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 	BIO_read_ex(carg->wbio, carg->write_buffer.base, pending, &tls_bytes);
 	carg->write_buffer.len = tls_bytes;
 
-	carglog(carg, L_TRACE, "\n==================WRITEBASE(plain:%"PRIu64"/tls:%d)===================\n'%s'\n======\n", len, carg->write_buffer.len, message ? message : "");
+	carglog(carg, L_TRACE, "tls write key %s plain %"PRIu64" tls %zu preview %.*s\n", carg->key, len, carg->write_buffer.len, (int)(len > 80 ? 80 : (int)len), message ? message : "");
 	int ret = uv_write(&carg->write_tls, stream, &carg->write_buffer, 1, callback);
 	if (ret < 0) {
 		free(carg->write_buffer.base);

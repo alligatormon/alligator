@@ -13,6 +13,7 @@
 #include "common/logs.h"
 #include "common/auth.h"
 #include "external/amtail/variables.h"
+#include "vrl/type.h"
 extern aconf *ac;
 
 context_arg *carg_copy(context_arg *src)
@@ -46,6 +47,16 @@ context_arg *carg_copy(context_arg *src)
 	carg->log_ch_raw_tail = NULL;
 	carg->srv_carg = NULL;
 	carg->entrypoint_stop_async_ready = 0;
+	alligator_linebuf_init(&carg->ml_lb);
+	carg->ml_lb_ready = 0;
+	carg->ml_start_pattern = NULL;
+	carg->ml_condition_pattern = NULL;
+	if (src->ml_start_pattern)
+		carg->ml_start_pattern = strdup(src->ml_start_pattern);
+	if (src->ml_condition_pattern)
+		carg->ml_condition_pattern = strdup(src->ml_condition_pattern);
+	carg->ml_mode = src->ml_mode;
+	carg->ml_enabled = src->ml_enabled;
 
 	if (src->work_dir)
 		carg->work_dir = string_string_init_dup(src->work_dir);
@@ -115,6 +126,10 @@ context_arg *carg_copy(context_arg *src)
 
 	if (src->checksum)
 		carg->checksum = strdup(src->checksum);
+	if (src->file_match)
+		carg->file_match = strdup(src->file_match);
+	else
+		carg->file_match = NULL;
 	if (src->script)
 		carg->script = strdup(src->script);
 
@@ -283,6 +298,8 @@ void carg_free(context_arg *carg)
 
 	if (carg->checksum)
 		free(carg->checksum);
+	if (carg->file_match)
+		free(carg->file_match);
 	if (carg->script)
 		free(carg->script);
 
@@ -321,6 +338,13 @@ void carg_free(context_arg *carg)
 
 	if (carg->amtail_tail)
 		string_free(carg->amtail_tail);
+
+	vrl_stream_free(carg);
+
+	if (carg->ml_lb_ready)
+		alligator_linebuf_free(&carg->ml_lb);
+	free(carg->ml_start_pattern);
+	free(carg->ml_condition_pattern);
 
 	if (carg->log_ch_raw_tail)
 		string_free(carg->log_ch_raw_tail);
@@ -556,6 +580,28 @@ void parse_add_label(context_arg *carg, json_t *root) {
 	}
 }
 
+int carg_linebuf_ensure(context_arg *carg)
+{
+	if (!carg)
+		return -1;
+	if (carg->ml_lb_ready)
+		return 0;
+	alligator_linebuf_init(&carg->ml_lb);
+	carg->ml_lb_ready = 1;
+	if (!carg->ml_enabled)
+		return 0;
+	char *err = NULL;
+	if (alligator_linebuf_enable_ml(&carg->ml_lb, carg->ml_start_pattern,
+					carg->ml_condition_pattern, carg->ml_mode, &err) != 0) {
+		carglog(carg, L_ERROR, "multiline init failed: %s\n", err ? err : "unknown");
+		free(err);
+		return -1;
+	}
+	carglog(carg, L_INFO, "multiline assembler ready (mode=%s)\n",
+		alligator_ml_mode_to_str(carg->ml_mode));
+	return 0;
+}
+
 int carg_set_socket_addr(struct sockaddr_in **addr, char *address, uint16_t port)
 {
 	if (!addr)
@@ -738,6 +784,16 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	if (json_checksum)
 		carg->checksum = strdup((char*)json_string_value(json_checksum));
 
+	/* Basename glob for file:// directory crawl (alias: match / glob). */
+	json_t *json_file_match = json_object_get(root, "match");
+	if (!json_file_match)
+		json_file_match = json_object_get(root, "glob");
+	if (json_file_match && json_typeof(json_file_match) == JSON_STRING) {
+		const char *fm = json_string_value(json_file_match);
+		if (fm && *fm)
+			carg->file_match = strdup(fm);
+	}
+
 	json_t *json_script = json_object_get(root, "script");
 	if (json_script) {
 		char *script = (char*)json_string_value(json_script);
@@ -788,6 +844,64 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	else if (json_log_level)
 		carg->log_level = json_integer_value(json_log_level);
 
+	/* Vector-compatible multiline on aggregate (shared by mtail/grok/vrl). */
+	{
+		json_t *jstart = json_object_get(root, "start_pattern");
+		json_t *jcond = json_object_get(root, "condition_pattern");
+		json_t *jmode = json_object_get(root, "multiline_mode");
+		json_t *jml = json_object_get(root, "multiline");
+		const char *start = NULL;
+		const char *cond = NULL;
+		const char *mode_s = NULL;
+		alligator_ml_mode mode = ALLIGATOR_ML_CONTINUE_THROUGH;
+
+		if (json_is_object(jml)) {
+			json_t *js = json_object_get(jml, "start_pattern");
+			json_t *jc = json_object_get(jml, "condition_pattern");
+			json_t *jm = json_object_get(jml, "mode");
+			json_t *jp = json_object_get(jml, "pattern");
+			if (json_is_string(js))
+				start = json_string_value(js);
+			if (json_is_string(jc))
+				cond = json_string_value(jc);
+			if (json_is_string(jm))
+				mode_s = json_string_value(jm);
+			/* Legacy single-pattern form: pattern + mode → start=condition=pattern. */
+			if ((!start || !cond) && json_is_string(jp)) {
+				const char *pat = json_string_value(jp);
+				if (!mode_s)
+					mode_s = "halt_before";
+				start = pat;
+				cond = pat;
+			}
+		}
+		if (json_is_string(jstart))
+			start = json_string_value(jstart);
+		if (json_is_string(jcond))
+			cond = json_string_value(jcond);
+		if (json_is_string(jmode))
+			mode_s = json_string_value(jmode);
+
+		if (start && *start && cond && *cond) {
+			if (mode_s && alligator_ml_mode_from_str(mode_s, &mode) != 0) {
+				carglog(carg, L_ERROR,
+					"multiline: unknown multiline_mode '%s' "
+					"(continue_through|continue_past|halt_before|halt_with)\n",
+					mode_s);
+			} else {
+				if (!mode_s)
+					mode = ALLIGATOR_ML_CONTINUE_THROUGH;
+				carg->ml_start_pattern = strdup(start);
+				carg->ml_condition_pattern = strdup(cond);
+				carg->ml_mode = mode;
+				carg->ml_enabled = 1;
+				carglog(carg, L_INFO,
+					"multiline enabled: start='%s' condition='%s' mode=%s\n",
+					start, cond, alligator_ml_mode_to_str(mode));
+			}
+		}
+	}
+
 	json_t *json_log_channel = json_object_get(root, "log_channel");
 	if (json_log_channel && json_typeof(json_log_channel) == JSON_STRING)
 		carg->log_ch = log_channel_get(json_string_value(json_log_channel));
@@ -795,6 +909,10 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	json_t *json_log_channel_raw = json_object_get(root, "log_channel_raw");
 	if (json_log_channel_raw && json_typeof(json_log_channel_raw) == JSON_STRING)
 		carg->log_ch_raw = log_channel_get(json_string_value(json_log_channel_raw));
+
+	json_t *json_log_channel_out = json_object_get(root, "log_channel_out");
+	if (json_log_channel_out && json_typeof(json_log_channel_out) == JSON_STRING)
+		carg->log_ch_out = log_channel_get(json_string_value(json_log_channel_out));
 
 	parse_add_label(carg, root);
 
@@ -889,7 +1007,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	{
 		char *bind_address = (char*)json_string_value(json_bind_address);
 		if (bind_address) {
-			printf("bind address %s\n", bind_address);
+			carglog(carg, L_DEBUG, "bind address %s\n", bind_address);
 			char *colon = strchr(bind_address, ':');
 			if (colon)
 			{
@@ -1006,7 +1124,7 @@ void carglog_raw(context_arg *carg, const char *data, size_t len)
 		if (line_len && buf[start + line_len - 1] == '\r')
 			--line_len;
 		if (line_len)
-			log_channel_write_raw(carg->log_ch_raw, carg, buf + start, line_len);
+			log_channel_write_raw_kind(carg->log_ch_raw, carg, buf + start, line_len, "raw");
 		start = i + 1;
 	}
 
@@ -1014,6 +1132,20 @@ void carglog_raw(context_arg *carg, const char *data, size_t len)
 		carg->log_ch_raw_tail = string_init_alloc((char *)(buf + start), total - start);
 
 	free(heap);
+}
+
+void carg_emit_log(context_arg *carg, const char *data, size_t len)
+{
+	if (!carg || !carg->log_ch_out || !data || !len)
+		return;
+	log_channel_write_raw_kind(carg->log_ch_out, carg, data, len, "out");
+}
+
+void carg_emit_log_document(context_arg *carg, json_t *doc)
+{
+	if (!carg || !carg->log_ch_out || !doc)
+		return;
+	log_channel_write_document_kind(carg->log_ch_out, carg, doc, "out");
 }
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)

@@ -38,6 +38,8 @@ An expression that takes the command to run or URL.
 
 When an action is run (for example from a scheduler or query), **`expr` must be non-empty**. If it is missing or blank, Alligator logs at fatal level and skips running that action (no crash).
 
+Several schedulers may point at the same action. Each run’s aggregator key includes the scheduler name, so overlapping ticks from **different** schedulers do not block each other. Overlapping ticks from the **same** scheduler still share one key and will not run in parallel.
+
 An example of using it to run nginx if the port doesn't listen:
 ```
 query {

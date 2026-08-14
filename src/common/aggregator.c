@@ -41,13 +41,23 @@ static int aggregator_name_must_be_unique(context_arg *carg)
 {
 	if (!carg || !carg->name)
 		return 0;
-	if (carg->parser_name && !strcmp(carg->parser_name, "mtail"))
+	if (carg->parser_name && (!strcmp(carg->parser_name, "mtail") || !strcmp(carg->parser_name, "vrl")))
 		return 0;
 	return 1;
 }
 
-int smart_aggregator_default_key(char *key, char* transport_string, char* parser_name, char* host, char* port, char *query)
+int smart_aggregator_default_key(char *key, const char *transport_string, const char *parser_name, const char *host, const char *port, const char *query)
 {
+	if (!transport_string)
+		transport_string = "";
+	if (!parser_name)
+		parser_name = "";
+	if (!host)
+		host = "";
+	if (!port)
+		port = "";
+	if (!query)
+		query = "";
 	return snprintf(key, 254, "%s:%s:%s:%s%s%s", transport_string, parser_name, host, port, *query == '/' ? "" : "/", query);
 }
 
@@ -235,11 +245,12 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
 	new->log_ch = carg->log_ch;
+	new->log_ch_raw = carg->log_ch_raw;
+	new->log_ch_out = carg->log_ch_out;
 
 	new->labels = labels_dup(carg->labels);
 
-	if (ac->log_level > 2)
-		printf("try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+	carglog(carg, L_TRACE, "try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
 
 	url_free(hi);
 
@@ -293,11 +304,12 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 
 	new->log_level = carg? carg->log_level : ac->log_level;
 	new->log_ch = carg ? carg->log_ch : NULL;
+	new->log_ch_raw = carg ? carg->log_ch_raw : NULL;
+	new->log_ch_out = carg ? carg->log_ch_out : NULL;
 	new->ttl = carg? carg->ttl : ac->ttl;
 	new->work_dir = work_dir;
 
-	if (ac->log_level > 2)
-		printf("aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
+	carg_or_glog(carg, L_TRACE, "aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
 	url_free(hi);
 
@@ -397,6 +409,7 @@ void aggregate_ctx_init()
 	grok_parser_push();
 	wazuh_parser_push();
 	amtail_parser_push();
+	vrl_parser_push();
 	log_parser_push();
 }
 

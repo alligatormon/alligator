@@ -163,7 +163,7 @@ void test_logs_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp_ch);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_tcp(tcp_ch));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
-        log_tcp_sink_write(tcp_ch, "dropped\n", 8));
+        log_tcp_sink_write(tcp_ch, "dropped\n", 8, "diag"));
     log_tcp_sink_close(tcp_ch);
 
     log_channel *elastic_ch = log_channel_upsert("elastic-tcp", "tcp://127.0.0.1:59999", -1, -1, NULL,
@@ -203,12 +203,16 @@ void test_logs_helpers()
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_kafka(kafka_ch));
     }
     {
+        /* Flood only exercises librdkafka queue drops; skip Prom accounting noise. */
+        context_arg *saved_system_carg = ac->system_carg;
         size_t i;
         char msg[64];
+        ac->system_carg = NULL;
         for (i = 0; i < 20000; i++) {
             snprintf(msg, sizeof(msg), "kafka flood %zu\n", i);
-            log_kafka_sink_write(kafka_ch, msg, strlen(msg));
+            log_kafka_sink_write(kafka_ch, msg, strlen(msg), "diag");
         }
+        ac->system_carg = saved_system_carg;
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_kafka_sink_dropped(kafka_ch) > 0);
     }
     log_kafka_sink_close(kafka_ch);
@@ -401,6 +405,101 @@ void test_mkdirp_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, d1);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator/", d1);
     free(d1);
+}
+
+void test_log_channel_shipper_metrics()
+{
+    context_arg *saved_system_carg = ac->system_carg;
+    log_channel *file_ch;
+    log_channel *tcp_ch;
+    log_channel *http_ch;
+    log_channel *kafka_ch;
+    context_arg carg = {0};
+    const char *file_path = "/tmp/alligator-ut2-lc-metrics.log";
+
+    ac->system_carg = calloc(1, sizeof(*ac->system_carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->system_carg);
+
+    /* Direct account API */
+    {
+        log_channel fake = {0};
+        fake.name = "ut-lc-account";
+        log_channel_account(&fake, "raw", "sent", NULL);
+        log_channel_account(&fake, "out", "dropped", "queue_full");
+        log_channel_account(&fake, "diag", "error", "produce");
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_sent_total{channel=\"ut-lc-account\",kind=\"raw\"}",
+            "alligator_log_channel_sent_total", 1);
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_dropped_total{channel=\"ut-lc-account\",kind=\"out\",reason=\"queue_full\"}",
+            "alligator_log_channel_dropped_total", 1);
+        metric_test_run(CMP_EQUAL,
+            "alligator_log_channel_errors_total{channel=\"ut-lc-account\",kind=\"diag\",reason=\"produce\"}",
+            "alligator_log_channel_errors_total", 1);
+    }
+
+    /* FD path: raw + out */
+    unlink(file_path);
+    file_ch = log_channel_upsert("ut-lc-file", "file:///tmp/alligator-ut2-lc-metrics.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, file_ch);
+    carg.transport = APROTO_FILE;
+    carg.key = "file://ut-lc";
+    log_channel_write_raw_kind(file_ch, &carg, "raw-kind\n", 9, "raw");
+    carg.log_ch_out = file_ch;
+    carg_emit_log(&carg, "out-kind\n", 9);
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_sent_total{channel=\"ut-lc-file\",kind=\"raw\"}",
+        "alligator_log_channel_sent_total", 1);
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_sent_total{channel=\"ut-lc-file\",kind=\"out\"}",
+        "alligator_log_channel_sent_total", 1);
+    if (file_ch->socket > 2)
+        close(file_ch->socket);
+
+    /* TCP disconnected drop */
+    tcp_ch = log_channel_upsert("ut-lc-tcp", "tcp://127.0.0.1:59998", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        log_tcp_sink_write(tcp_ch, "drop-tcp\n", 9, "diag"));
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-tcp\",kind=\"diag\",reason=\"disconnected\"}",
+        "alligator_log_channel_dropped_total", 1);
+    log_tcp_sink_close(tcp_ch);
+
+    /* HTTP disconnected drop */
+    http_ch = log_channel_upsert("ut-lc-http", "http://127.0.0.1:59997/bulk", -1, -1, NULL, -1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http_ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        log_http_sink_write(http_ch, "drop-http\n", 10, "out"));
+    metric_test_run(CMP_EQUAL,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-http\",kind=\"out\",reason=\"disconnected\"}",
+        "alligator_log_channel_dropped_total", 1);
+    log_http_sink_close(http_ch);
+
+    /* Kafka: one produce with tiny queue is enough for queue_full accounting */
+    kafka_ch = log_channel_upsert("ut-lc-kafka", "kafka://127.0.0.1:9092/alligator-ut-lc", -1, -1, NULL,
+        LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, kafka_ch);
+    {
+        json_t *kopts = json_object();
+        json_object_set_new(kopts, "queue.buffering.max.messages", json_integer(1));
+        json_object_set_new(kopts, "linger.ms", json_integer(5000));
+        log_channel_set_kafka(kafka_ch, NULL, kopts);
+        json_decref(kopts);
+        log_channel_open(kafka_ch);
+        log_kafka_sink_write(kafka_ch, "a\n", 2, "raw");
+        log_kafka_sink_write(kafka_ch, "b\n", 2, "raw");
+        log_kafka_sink_write(kafka_ch, "c\n", 2, "raw");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_kafka_sink_dropped(kafka_ch) > 0);
+    }
+    metric_test_run(CMP_GREATER,
+        "alligator_log_channel_dropped_total{channel=\"ut-lc-kafka\",kind=\"raw\",reason=\"queue_full\"}",
+        "alligator_log_channel_dropped_total", 0);
+    log_kafka_sink_close(kafka_ch);
+
+    free(ac->system_carg);
+    ac->system_carg = saved_system_carg;
 }
 
 void test_dpkg_list_helpers()
@@ -1191,11 +1290,11 @@ void test_config_generators_batch()
     json_t *dst = json_object();
 
     lang_options lo1 = {0};
-    lo1.key = "lua_test";
-    lo1.lang = "lua";
+    lo1.key = "so_test";
+    lo1.lang = "so";
     lo1.method = "run";
     lo1.arg = "safe-arg";
-    lo1.file = "/tmp/script.lua";
+    lo1.file = "/tmp/script.txt";
     lo1.module = "mod1";
     lo1.query = "sum(metric)";
     lo1.log_level = L_INFO;
@@ -1204,8 +1303,8 @@ void test_config_generators_batch()
     lang_generate_conf(dst, &lo1);
 
     lang_options lo2 = {0};
-    lo2.key = "lua_hidden";
-    lo2.lang = "lua";
+    lo2.key = "so_hidden";
+    lo2.lang = "so";
     lo2.hidden_arg = 1;
     lo2.arg = "should-not-be-exported";
     lo2.serializer = 999;
@@ -1216,7 +1315,7 @@ void test_config_generators_batch()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(lang));
     json_t *lang0 = json_array_get(lang, 0);
     json_t *lang1 = json_array_get(lang, 1);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "lua_test", json_string_value(json_object_get(lang0, "key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "so_test", json_string_value(json_object_get(lang0, "key")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "dsv", json_string_value(json_object_get(lang0, "serializer")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_integer_value(json_object_get(lang0, "conf")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_true(json_object_get(lang1, "hidden_arg")));
@@ -1273,12 +1372,12 @@ void test_config_generators_batch()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(valid_status_codes));
 
     module_t mod = {0};
-    mod.key = "luaext";
-    mod.path = "/tmp/luaext.so";
+    mod.key = "soext";
+    mod.path = "/tmp/soext.so";
     modules_generate_conf(dst, &mod);
     json_t *modules = json_object_get(dst, "modules");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, modules);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/luaext.so", json_string_value(json_object_get(modules, "luaext")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/soext.so", json_string_value(json_object_get(modules, "soext")));
 
     userprocess_node up = {0};
     up.name = "nginx";
@@ -2273,6 +2372,51 @@ void test_log_channel_raw_plain_parse()
     json_decref(root);
 }
 
+void test_log_channel_out_plain_parse()
+{
+    const char *conf =
+        "log_channel {\n"
+        "  name pg-json;\n"
+        "  dest kafka://127.0.0.1:9092/pg-transformed;\n"
+        "  log_format json;\n"
+        "}\n"
+        "aggregate {\n"
+        "  vrl \"file:///var/log/postgresql.csv\" name=pg log_channel_out=pg-json;\n"
+        "}\n"
+        "entrypoint {\n"
+        "  handler mtail;\n"
+        "  tcp 3903;\n"
+        "  log_channel_out pg-json;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *aggregate = json_object_get(root, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    json_t *ag0 = json_array_get(aggregate, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-json",
+        json_string_value(json_object_get(ag0, "log_channel_out")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "vrl",
+        json_string_value(json_object_get(ag0, "handler")));
+
+    json_t *entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    json_t *ep0 = json_array_get(entrypoint, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-json",
+        json_string_value(json_object_get(ep0, "log_channel_out")));
+
+    json_decref(root);
+}
+
 void test_puppeteer_option_kv_plain_parse()
 {
     const char *conf =
@@ -2417,7 +2561,7 @@ void test_config_plain_top_level_blocks()
         "resolver { udp://8.8.8.8:53; udp://9.9.9.9:53; }\n",
         "scheduler { name ut_tick action ut_action expr count(up) period 30s datasource internal; }\n",
         "action { name ut_plain_action expr http://127.0.0.1:18080 serializer json dry_run; }\n",
-        "lang { key ut_lang expr http://127.0.0.1:18080 lang duktape method main; }\n",
+        "lang { key ut_lang expr http://127.0.0.1:18080 lang so method main module go; }\n",
         "query { make socket_match expr process_match datasource internal action ut_action; }\n",
         "system { sysctl vm.overcommit_memory firewall; }\n",
         "x509 { name ut-x509 path /tmp/certs match .pem password secret type pem; }\n",
@@ -2629,7 +2773,7 @@ void test_config_plain_mega_document()
         "resolver { udp://8.8.8.8:53; tcp://9.9.9.9:53; }\n"
         "scheduler { name mega_sched action mega_act expr count(x) period 60s datasource internal; }\n"
         "action { name mega_act expr http://127.0.0.1:8080 serializer openmetrics dry_run add_label=team:mega; }\n"
-        "lang { key mega_lang expr http://127.0.0.1:8080/lang lang duktape method run; }\n"
+        "lang { key mega_lang expr http://127.0.0.1:8080/lang lang so method run module go; }\n"
         "query { make mega_q expr process_match datasource internal action mega_act; }\n"
         "probe { name mega_probe prober http valid_status_codes 2xx tls on; }\n"
         "system { base network firewall cadvisor add_label=host:mega; }\n"
@@ -2794,7 +2938,7 @@ void test_config_plain_action_query_lang_batch()
         "query { make ut_pq_q2 expr process_match datasource internal action ut_pq_a2; }\n",
         "query { make ut_pq_q3 expr count(x) datasource internal action ut_pq_a3; }\n",
         "scheduler { name ut_pq_sched action ut_pq_a1 expr sum(up) period 30s datasource internal; }\n",
-        "lang { key ut_pq_lang expr http://127.0.0.1/lang lang lua method run file /tmp/ut.lua; }\n",
+        "lang { key ut_pq_lang expr http://127.0.0.1/lang lang so method run module go file /tmp/ut.txt; }\n",
         "resolver { udp://8.8.4.4:53; tcp://1.1.1.1:53; }\n"
     };
     const char *keys[] = {
@@ -2932,7 +3076,7 @@ static void test_config_plain_mega_document_v2()
         "resolver { udp://1.0.0.1:53; }\n"
         "scheduler { name v2_sched action v2_act expr avg(cpu) period 45s datasource internal; }\n"
         "action { name v2_act expr http://127.0.0.1:9090 serializer prometheus dry_run; }\n"
-        "lang { key v2_lang expr http://127.0.0.1:9090/lang lang duktape method run; }\n"
+        "lang { key v2_lang expr http://127.0.0.1:9090/lang lang so method run module go; }\n"
         "query { make v2_q expr present(up) datasource internal action v2_act; }\n"
         "probe { name v2_probe prober tcp valid_status_codes 200 timeout 1s; }\n"
         "system { base disk smart interrupts load add_label=site:v2; }\n"
@@ -3060,7 +3204,7 @@ void test_config_plain_fragment_library()
         "scheduler { name frag-sched action frag-act expr count(x) period 10s datasource internal; }\n",
         "action { name frag-act expr http://127.0.0.1:1 serializer json dry_run; }\n",
         "query { make frag-q expr up datasource internal action frag-act; }\n",
-        "lang { key frag-lang expr http://127.0.0.1/l lang lua method run; }\n",
+        "lang { key frag-lang expr http://127.0.0.1/l lang so method run module go; }\n",
         "x509 { name frag-x509 path /tmp/p match .pem type pem password p; }\n",
         "modules { m1 /lib/m1.so; m2 /lib/m2.so; }\n",
         "puppeteer { https://frag.example env=K:V; }\n",
@@ -3362,10 +3506,10 @@ void test_config_get_scheduler_x509_lang_runtime_paths()
 
     lang_options *lo = calloc(1, sizeof(*lo));
     lo->key = "ut_lang_rt";
-    lo->lang = "duktape";
+    lo->lang = "so";
     lo->method = "main";
     lo->arg = "safe";
-    lo->file = "/tmp/lang.js";
+    lo->file = "/tmp/lang.txt";
     lo->serializer = METRIC_SERIALIZER_JSON;
     alligator_ht_insert(ac->lang_aggregator, &lo->node, lo, tommy_strhash_u32(0, lo->key));
 

@@ -80,7 +80,7 @@ void couchbase_bucket_nodes_stats(char *metrics, size_t size, context_arg *carg)
 	{
 		if (bucket)
 			free(bucket);
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -214,7 +214,7 @@ void couchbase_buckets_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -354,7 +354,7 @@ void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
 	json_t *root = json_loads(metrics, 0, &error);
 	if (!root)
 	{
-		fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+		carglog(carg, L_ERROR, "json error on line %d: %s\n", error.line, error.text);
 		return;
 	}
 
@@ -490,7 +490,7 @@ void couchbase_nodes_list(char *metrics, size_t size, context_arg *carg)
 		uint64_t hostname_length = json_string_length(hostname_json);
 		if (!hostname)
 		{
-			if (carg->log_level > 0)
+			if ((carg->log_level ? carg->log_level : ac->log_level) >= L_ERROR)
 			{
 				char *dvalue = json_dumps(node, JSON_INDENT(2));
 				carglog(carg, L_ERROR, "couchbase_nodes_list warning: no 'hostname' in:\n%s\n", dvalue);
