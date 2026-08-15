@@ -196,6 +196,12 @@ int vrl_push(json_t *cfg)
 						       "dns_negative_ttl_ms");
 	vn->dns_negative_cache_max = vrl_json_u64(cfg, "dns_negative_cache_max");
 
+	/* http_request: await timeout plus positive/negative result cache TTLs. */
+	vn->http_timeout_ms = vrl_json_duration_ms(cfg, "http_timeout", "http_timeout_ms");
+	vn->http_ttl_ms = vrl_json_duration_ms(cfg, "http_ttl", "http_ttl_ms");
+	vn->http_negative_ttl_ms = vrl_json_duration_ms(cfg, "http_negative_ttl",
+							"http_negative_ttl_ms");
+
 	char *ml_err = NULL;
 	if (!parse_multiline(cfg, vn, &ml_err)) {
 		glog(L_ERROR, "vrl_push: %s\n", ml_err ? ml_err : "multiline error");

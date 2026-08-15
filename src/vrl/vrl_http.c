@@ -30,8 +30,9 @@
 extern aconf *ac;
 
 #define VRL_HTTP_URL_MAX 2048
-#define VRL_HTTP_DEFAULT_TIMEOUT_MS 10000
 #define VRL_HTTP_CACHE_MAX 4096
+/* Cap a cached response body so a few large replies cannot dominate memory. */
+#define VRL_HTTP_BODY_MAX (1u << 20) /* 1 MiB */
 
 /* ---------------- request timing metrics ----------------
  *
@@ -80,6 +81,9 @@ typedef struct vrl_http_entry {
 	int status;          /* HTTP status; 0 = transport failure / timeout sentinel */
 	int ready;           /* 0 = in flight, 1 = complete */
 	uint64_t start_ms;
+	uint64_t expire_ms;  /* uv_now() when a ready entry becomes stale (0 = in flight) */
+	uint64_t pos_ttl_ms; /* TTL applied to a successful result (0 = default) */
+	uint64_t neg_ttl_ms; /* TTL applied to a failure/timeout result (0 = default) */
 	char result[16];     /* success|failure|timeout — for per-call metrics on cache hits */
 } vrl_http_entry;
 
@@ -137,25 +141,48 @@ static void vrl_http_cache_maybe_evict_unlocked(void)
 	}
 }
 
-/* Returns owned clone of a ready entry, or NULL if missing / not ready. */
+static uint64_t vrl_http_now(void)
+{
+	return (ac && ac->loop) ? uv_now(ac->loop) : 0;
+}
+
+static uint64_t vrl_http_pos_ttl(uint64_t t)
+{
+	return t ? t : VRL_HTTP_DEFAULT_TTL_MS;
+}
+
+static uint64_t vrl_http_neg_ttl(uint64_t t)
+{
+	return t ? t : VRL_HTTP_DEFAULT_NEGATIVE_TTL_MS;
+}
+
+/* Returns owned clone of a live ready entry, or NULL if missing / in flight /
+ * expired. Expired entries are evicted so the next call re-fetches. */
 vrl_http_entry *vrl_http_cache_lookup_ready(const char *url)
 {
 	if (!vrl_http_ready || !url)
 		return NULL;
 	uint32_t h = tommy_strhash_u32(0, (char *)url);
+	uint64_t now = vrl_http_now();
 	vrl_http_entry *out = NULL;
 
 	uv_mutex_lock(&vrl_http_lock);
 	vrl_http_entry *e = alligator_ht_search(vrl_http_cache, vrl_http_compare, url, h);
 	if (e && e->ready) {
-		out = calloc(1, sizeof(*out));
-		if (out) {
-			out->url = strdup(e->url);
-			out->body = e->body_len ? strndup(e->body, e->body_len) : strdup("");
-			out->body_len = e->body_len;
-			out->status = e->status;
-			out->ready = 1;
-			memcpy(out->result, e->result, sizeof(out->result));
+		if (e->expire_ms && now >= e->expire_ms) {
+			/* stale: drop so the URL is fetched again */
+			alligator_ht_remove_existing(vrl_http_cache, &e->node);
+			vrl_http_entry_free(e);
+		} else {
+			out = calloc(1, sizeof(*out));
+			if (out) {
+				out->url = strdup(e->url);
+				out->body = e->body_len ? strndup(e->body, e->body_len) : strdup("");
+				out->body_len = e->body_len;
+				out->status = e->status;
+				out->ready = 1;
+				memcpy(out->result, e->result, sizeof(out->result));
+			}
 		}
 	}
 	uv_mutex_unlock(&vrl_http_lock);
@@ -202,20 +229,29 @@ static int vrl_http_cache_complete(const char *url, const char *body, size_t bod
 		*start_ms_out = e->start_ms;
 	if (!e->ready) {
 		first = 1;
+		size_t store_len = body_len > VRL_HTTP_BODY_MAX ? VRL_HTTP_BODY_MAX : body_len;
 		free(e->body);
-		e->body = body_len ? strndup(body, body_len) : strdup("");
-		e->body_len = e->body ? body_len : 0;
+		e->body = store_len ? strndup(body, store_len) : strdup("");
+		e->body_len = e->body ? store_len : 0;
 		e->status = status;
 		e->ready = 1;
 		snprintf(e->result, sizeof(e->result), "%s",
 			 result && result[0] ? result : "failure");
+		/* Successful fetches live for the positive TTL; failures/timeouts for
+		 * the (shorter) negative TTL so a transient error is retried. */
+		int good = (status >= 200 && status < 400);
+		uint64_t ttl = good ? vrl_http_pos_ttl(e->pos_ttl_ms)
+				    : vrl_http_neg_ttl(e->neg_ttl_ms);
+		e->expire_ms = vrl_http_now() + ttl;
 	}
 	uv_mutex_unlock(&vrl_http_lock);
 	return first;
 }
 
-/* Mark URL as in-flight so concurrent requests do not spawn duplicate oneshots. */
-static int vrl_http_cache_begin(const char *url, uint64_t start_ms)
+/* Mark URL as in-flight so concurrent requests do not spawn duplicate oneshots.
+ * pos_ttl_ms/neg_ttl_ms (0 = default) are remembered for use at completion. */
+static int vrl_http_cache_begin(const char *url, uint64_t start_ms,
+				uint64_t pos_ttl_ms, uint64_t neg_ttl_ms)
 {
 	if (!vrl_http_ready || !url)
 		return 0;
@@ -245,14 +281,20 @@ static int vrl_http_cache_begin(const char *url, uint64_t start_ms)
 	e->status = 0;
 	e->ready = 0;
 	e->start_ms = start_ms;
+	e->pos_ttl_ms = pos_ttl_ms;
+	e->neg_ttl_ms = neg_ttl_ms;
 	alligator_ht_insert(vrl_http_cache, &e->node, e, h);
 	started = 1;
 	uv_mutex_unlock(&vrl_http_lock);
 	return started;
 }
 
-void vrl_http_cache_force_ready_null(const char *url)
+void vrl_http_cache_force_ready_null(const char *url, uint64_t neg_ttl_ms)
 {
+	/* If no in-flight entry exists (rare), create one carrying the negative TTL
+	 * so the timeout sentinel is retried rather than cached forever. */
+	if (url && !vrl_http_cache_is_ready(url))
+		(void)vrl_http_cache_begin(url, vrl_http_now(), 0, neg_ttl_ms);
 	/* Metric is emitted per VRL call in fn_http_request, not here. */
 	(void)vrl_http_cache_complete(url, "", 0, 0, "timeout", NULL);
 }
@@ -288,14 +330,11 @@ static void vrl_http_handler(char *body, size_t size, context_arg *carg)
 	carglog(carg, L_INFO, "vrl: http_request completed url='%s' status=%d body_len=%zu\n",
 		url, status, size);
 
-	int store_status = status ? status : 200;
-	const char *result = "failure";
-	if (status == 0)
-		result = "failure";
-	else if (status >= 200 && status < 400)
-		result = "success";
+	/* Keep status 0 as the transport-failure / null sentinel; do NOT coerce it
+	 * to 200 (that made the reader treat failures as empty-body successes). */
+	const char *result = (status >= 200 && status < 400) ? "success" : "failure";
 	(void)vrl_http_cache_complete(url, body ? body : "", body ? size : 0,
-				      store_status, result, NULL);
+				      status, result, NULL);
 
 	carg->parser_status = 1;
 	/* data is owned strdup of url — free so carg_free does not leak */
@@ -303,14 +342,15 @@ static void vrl_http_handler(char *body, size_t size, context_arg *carg)
 	carg->data = NULL;
 }
 
-static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t timeout_ms)
+static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t timeout_ms,
+			     uint64_t pos_ttl_ms, uint64_t neg_ttl_ms)
 {
 	(void)parent;
 	if (!url || !url[0] || !ac || !ac->loop)
 		return;
 
 	uint64_t now = uv_now(ac->loop);
-	if (!vrl_http_cache_begin(url, now)) {
+	if (!vrl_http_cache_begin(url, now, pos_ttl_ms, neg_ttl_ms)) {
 		/* already pending or ready */
 		return;
 	}
@@ -358,10 +398,12 @@ static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t time
 		free(url_copy);
 		(void)vrl_http_cache_complete(url, "", 0, 0, "failure", NULL);
 	} else {
-		/* Cover full VRL await window; default oneshot timeout is only 5s. */
-		if (timeout_ms < VRL_HTTP_DEFAULT_TIMEOUT_MS)
+		/* Bound the transport to the VRL await window. The VRL deadline adds
+		 * VRL_HTTP_DEADLINE_GRACE_MS on top, so the oneshot times out first and
+		 * the handler records a real (failure) status before VRL forces null. */
+		if (!timeout_ms)
 			timeout_ms = VRL_HTTP_DEFAULT_TIMEOUT_MS;
-		shot->timeout = timeout_ms + 5000;
+		shot->timeout = timeout_ms;
 
 		carglog(shot, L_INFO, "vrl: http_request oneshot started key='%s' host='%s' port='%s'\n",
 			shot->key ? shot->key : "?", shot->host, shot->port);
@@ -429,15 +471,18 @@ static vrl_status fn_http_request(vrl_call_args *a, vrl_value **out, char **err)
 	}
 
 	if (!st->dns_suspended) {
+		uint64_t http_to = st->http_timeout_ms ? st->http_timeout_ms
+						       : VRL_HTTP_DEFAULT_TIMEOUT_MS;
+		uint64_t pos_ttl = st->vn ? st->vn->http_ttl_ms : 0;
+		uint64_t neg_ttl = st->vn ? st->vn->http_negative_ttl_ms : 0;
 		st->dns_suspended = 1;
 		st->await_http = 1;
 		st->http_waited = 1;
 		st->http_wait_start_ms = (ac && ac->loop) ? uv_now(ac->loop) : 0;
 		snprintf(st->http_url, sizeof(st->http_url), "%s", url);
-		/* Prefer a longer deadline for HTTP than DNS. */
-		if (st->dns_timeout_ms < VRL_HTTP_DEFAULT_TIMEOUT_MS)
-			st->dns_timeout_ms = VRL_HTTP_DEFAULT_TIMEOUT_MS;
-		vrl_http_kickoff(st->carg, url, st->dns_timeout_ms);
+		/* arm_resume uses st->http_timeout_ms (+grace) for the deadline; the DNS
+		 * timeout is left untouched so later dns_lookup() keeps its own budget. */
+		vrl_http_kickoff(st->carg, url, http_to, pos_ttl, neg_ttl);
 		carglog(st->carg, L_INFO, "vrl: http_request('%s') miss, fetching async (paused)\n",
 			url);
 	}

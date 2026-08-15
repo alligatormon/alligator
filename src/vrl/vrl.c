@@ -429,6 +429,7 @@ static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
 	st->ctx = vrl_ctx_new(vn->ll);
 	st->ok = 1;
 	st->dns_timeout_ms = vn->dns_timeout_ms ? vn->dns_timeout_ms : VRL_DNS_DEFAULT_TIMEOUT_MS;
+	st->http_timeout_ms = vn->http_timeout_ms ? vn->http_timeout_ms : VRL_HTTP_DEFAULT_TIMEOUT_MS;
 	st->dns_poll_ms = vn->dns_poll_ms ? vn->dns_poll_ms : VRL_DNS_DEFAULT_POLL_MS;
 	st->dns_negative_ttl_ms = vn->dns_negative_ttl_ms; /* 0 = disabled */
 	/* Reachable from dns_lookup/reverse_dns builtins as a->ctx->host. */
@@ -570,7 +571,12 @@ static void vrl_stream_arm_resume(vrl_stream *st)
 {
 	context_arg *carg = st->carg;
 	uint64_t now = carg->loop ? uv_now(carg->loop) : 0;
-	st->dns_deadline_ms = now + st->dns_timeout_ms;
+	/* HTTP awaits use their own (longer) timeout, plus a small grace so the
+	 * transport oneshot times out first and can cache a real status. */
+	uint64_t timeout = st->await_http
+		? st->http_timeout_ms + VRL_HTTP_DEADLINE_GRACE_MS
+		: st->dns_timeout_ms;
+	st->dns_deadline_ms = now + timeout;
 
 	if (!st->resume_timer) {
 		st->resume_timer = calloc(1, sizeof(*st->resume_timer));
@@ -652,8 +658,9 @@ static void vrl_resume_timer_cb(uv_timer_t *timer)
 			carglog(carg, L_ERROR,
 				"vrl: HTTP request timeout after %" PRIu64 "ms for '%s'; "
 				"continuing with null\n",
-				st->dns_timeout_ms, st->http_url);
-			vrl_http_cache_force_ready_null(st->http_url);
+				st->http_timeout_ms, st->http_url);
+			vrl_http_cache_force_ready_null(st->http_url,
+				st->vn ? st->vn->http_negative_ttl_ms : 0);
 			st->http_force_null = 1;
 		}
 	} else {

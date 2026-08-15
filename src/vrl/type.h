@@ -60,6 +60,14 @@ typedef struct vrl_node {
 	uint64_t dns_negative_ttl_ms;
 	uint64_t dns_negative_cache_max;
 
+	/* http_request tuning: how long a record may pause on a fetch, and how long
+	 * results are cached. http_ttl_ms caches good responses; http_negative_ttl_ms
+	 * caches failures/timeouts so a transient error is retried (not poisoned
+	 * forever). 0 uses the built-in defaults. */
+	uint64_t http_timeout_ms;
+	uint64_t http_ttl_ms;
+	uint64_t http_negative_ttl_ms;
+
 	uv_mutex_t lock;
 	tommy_node node;
 } vrl_node;
@@ -68,6 +76,14 @@ typedef struct vrl_node {
 #define VRL_DNS_DEFAULT_TIMEOUT_MS 2000
 #define VRL_DNS_DEFAULT_POLL_MS 50
 #define VRL_DNS_DEFAULT_NEGATIVE_CACHE_MAX 100000
+
+/* http_request defaults (see vrl_http.c). */
+#define VRL_HTTP_DEFAULT_TIMEOUT_MS 10000
+#define VRL_HTTP_DEFAULT_TTL_MS 60000
+#define VRL_HTTP_DEFAULT_NEGATIVE_TTL_MS 10000
+/* Extra grace on the VRL await deadline over the transport timeout, so the
+ * oneshot fails first and caches a real status before VRL forces null. */
+#define VRL_HTTP_DEADLINE_GRACE_MS 1000
 
 /* One buffered, not-yet-executed record captured while a stream is paused
  * waiting for async DNS. Bytes are owned. */
@@ -104,7 +120,8 @@ typedef struct vrl_stream {
 	char http_url[2048];               /* URL awaited by http_request */
 	uint16_t dns_rrtype;               /* rrtype awaited (A / PTR) */
 	uint64_t dns_deadline_ms;          /* uv_now() deadline for the current wait */
-	uint64_t dns_timeout_ms;           /* copied from vn (or default); also used for HTTP */
+	uint64_t dns_timeout_ms;           /* copied from vn (or default) */
+	uint64_t http_timeout_ms;          /* copied from vn (or default); HTTP awaits only */
 	uint64_t dns_poll_ms;              /* copied from vn (or default) */
 	uint64_t dns_negative_ttl_ms;      /* copied from vn; 0 = negative cache off */
 
@@ -153,7 +170,7 @@ void vrl_enrich_generate_conf(void *funcarg, void *arg);
 void vrl_stream_clear_secrets(vrl_stream *st);
 void vrl_stream_free_secrets(vrl_stream *st);
 int  vrl_http_cache_is_ready(const char *url);
-void vrl_http_cache_force_ready_null(const char *url);
+void vrl_http_cache_force_ready_null(const char *url, uint64_t neg_ttl_ms);
 void vrl_http_try_connect(const char *url);
 void vrl_http_metric(const char *result, uint64_t start_ms, uint64_t now_ms);
 /* Build a reverse-DNS query name for an IPv4/IPv6 literal:
