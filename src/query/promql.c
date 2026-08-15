@@ -4,6 +4,12 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include <ctype.h>
+#include <pcre.h>
+
+#define PROMQL_MATCH_EQ 0
+#define PROMQL_MATCH_RE 1
+#define PROMQL_MATCH_RE_NEG 2
+#define PROMQL_MATCH_SKIP 3
 
 static void promql_skip_ws(const char **p, const char *end)
 {
@@ -286,7 +292,83 @@ static void promql_parse_comparator(const char *begin, const char *end, metric_q
 	}
 }
 
-static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char *end)
+static int promql_parse_matcher(const char **cur, const char *end)
+{
+	promql_skip_ws(cur, end);
+	if (*cur >= end)
+		return PROMQL_MATCH_SKIP;
+
+	if (*cur + 1 < end && **cur == '!' && (*cur)[1] == '~')
+	{
+		*cur += 2;
+		return PROMQL_MATCH_RE_NEG;
+	}
+	if (*cur + 1 < end && **cur == '=' && (*cur)[1] == '~')
+	{
+		*cur += 2;
+		return PROMQL_MATCH_RE;
+	}
+	if (*cur + 1 < end && **cur == '!' && (*cur)[1] == '=')
+	{
+		*cur += 2;
+		return PROMQL_MATCH_SKIP;
+	}
+	if (**cur == '=')
+	{
+		++(*cur);
+		return PROMQL_MATCH_EQ;
+	}
+	return PROMQL_MATCH_SKIP;
+}
+
+static void promql_set_name_regex(metric_query_context *mqc, const char *pat, size_t pat_len, uint8_t neg)
+{
+	const char *err = NULL;
+	int erroffset = 0;
+	char *tmp;
+
+	if (!mqc)
+		return;
+
+	if (mqc->name_re)
+	{
+		pcre_free(mqc->name_re);
+		mqc->name_re = NULL;
+	}
+	if (mqc->name_regex)
+	{
+		free(mqc->name_regex);
+		mqc->name_regex = NULL;
+	}
+
+	tmp = malloc(pat_len + 1);
+	if (!tmp)
+	{
+		mqc->name_re_invalid = 1;
+		return;
+	}
+	memcpy(tmp, pat, pat_len);
+	tmp[pat_len] = 0;
+
+	mqc->name_regex = tmp;
+	mqc->name_re_neg = neg;
+	mqc->name_re = pcre_compile(tmp, 0, &err, &erroffset, NULL);
+	if (!mqc->name_re)
+	{
+		mqc->name_re_invalid = 1;
+		glog(L_ERROR, "promql: invalid __name__ regex '%s' at %d: %s\n", tmp, erroffset, err ? err : "unknown");
+	}
+	else
+		mqc->name_re_invalid = 0;
+
+	if (mqc->name)
+	{
+		free(mqc->name);
+		mqc->name = NULL;
+	}
+}
+
+static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char *end, metric_query_context *mqc)
 {
 	char key[255];
 	char value[255];
@@ -294,13 +376,17 @@ static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char
 
 	while (cur < end)
 	{
+		int matcher;
+		size_t key_len;
+		size_t value_len;
+
 		while (cur < end && (isspace((unsigned char)*cur) || *cur == ','))
 			++cur;
 		if (cur >= end)
 			break;
 
 		const char *key_begin = cur;
-		while (cur < end && !isspace((unsigned char)*cur) && *cur != '=' && *cur != ',')
+		while (cur < end && !isspace((unsigned char)*cur) && *cur != '=' && *cur != '!' && *cur != ',')
 			++cur;
 		const char *key_end = cur;
 		promql_trim_range(&key_begin, &key_end);
@@ -310,15 +396,35 @@ static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char
 			continue;
 		}
 
+		matcher = promql_parse_matcher(&cur, end);
 		promql_skip_ws(&cur, end);
-		if (cur >= end || *cur != '=')
+		if (matcher == PROMQL_MATCH_SKIP)
 		{
 			while (cur < end && *cur != ',')
+			{
+				if (*cur == '"')
+				{
+					++cur;
+					int escaped = 0;
+					while (cur < end)
+					{
+						if (escaped)
+							escaped = 0;
+						else if (*cur == '\\')
+							escaped = 1;
+						else if (*cur == '"')
+						{
+							++cur;
+							break;
+						}
+						++cur;
+					}
+					continue;
+				}
 				++cur;
+			}
 			continue;
 		}
-		++cur;
-		promql_skip_ws(&cur, end);
 
 		const char *value_begin = cur;
 		const char *value_end = cur;
@@ -356,19 +462,34 @@ static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char
 			value_end = cur;
 		}
 
-		size_t key_len = key_end - key_begin;
+		key_len = key_end - key_begin;
 		if (key_len > sizeof(key) - 1)
 			key_len = sizeof(key) - 1;
 		memcpy(key, key_begin, key_len);
 		key[key_len] = 0;
 
-		size_t value_len = value_end - value_begin;
+		value_len = value_end - value_begin;
 		if (value_len > sizeof(value) - 1)
 			value_len = sizeof(value) - 1;
 		memcpy(value, value_begin, value_len);
 		value[value_len] = 0;
 
-		labels_hash_insert_nocache(lbl, key, value);
+		if (!strcmp(key, "__name__") || !strcmp(key, "name"))
+		{
+			if (matcher == PROMQL_MATCH_RE || matcher == PROMQL_MATCH_RE_NEG)
+				promql_set_name_regex(mqc, value, strlen(value), matcher == PROMQL_MATCH_RE_NEG);
+			else if (matcher == PROMQL_MATCH_EQ && mqc)
+			{
+				if (mqc->name)
+					free(mqc->name);
+				mqc->name = strdup(value);
+			}
+		}
+		else if (matcher == PROMQL_MATCH_EQ)
+			labels_hash_insert_nocache(lbl, key, value);
+		else
+			glog(L_DEBUG, "promql: label matcher %s on '%s' is ignored (only __name__=~ / __name__!~ are supported)\n",
+				matcher == PROMQL_MATCH_RE_NEG ? "!~" : "=~", key);
 
 		while (cur < end && *cur != ',')
 			++cur;
@@ -509,12 +630,12 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 			{
 				const char *rb = promql_find_matching(lb, selector_end, '{', '}');
 				if (rb)
-					promql_parse_labels(lbl, lb + 1, rb);
+					promql_parse_labels(lbl, lb + 1, rb, mqc);
 			}
 		}
 	}
 
-	glog(L_DEBUG, "promql_parser: query='%.*s' name='%s' func=%d groupby='%s' labels=%zu op=%u opval=%lf\n", (int)size, query ? query : "", mqc->name ? mqc->name : "", mqc->func, (mqc->groupkey && mqc->groupkey->s) ? mqc->groupkey->s : "", lbl ? alligator_ht_count(lbl) : 0, mqc->op, mqc->opval);
+	glog(L_DEBUG, "promql_parser: query='%.*s' name='%s' name_re='%s' neg=%u invalid=%u func=%d groupby='%s' labels=%zu op=%u opval=%lf\n", (int)size, query ? query : "", mqc->name ? mqc->name : "", mqc->name_regex ? mqc->name_regex : "", mqc->name_re_neg, mqc->name_re_invalid, mqc->func, (mqc->groupkey && mqc->groupkey->s) ? mqc->groupkey->s : "", lbl ? alligator_ht_count(lbl) : 0, mqc->op, mqc->opval);
 
 	mqc->query = query;
 	mqc->size = size;
@@ -560,10 +681,16 @@ void query_context_convert_http_args_to_query(metric_query_context *mqc, alligat
 
 void query_context_free(metric_query_context *mqc)
 {
+	if (!mqc)
+		return;
 	if (mqc->lbl)
 		labels_hash_free(mqc->lbl);
 	if (mqc->name)
 		free(mqc->name);
+	if (mqc->name_regex)
+		free(mqc->name_regex);
+	if (mqc->name_re)
+		pcre_free(mqc->name_re);
 	if (mqc->groupkey)
 		string_free(mqc->groupkey);
 	free(mqc);

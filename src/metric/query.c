@@ -6,24 +6,31 @@
 #include "common/logs.h"
 extern aconf *ac;
 
-void metric_str_build_query (char *namespace, string *str, char *name, alligator_ht *hash, int func, string *groupkey, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template, void *an)
+void metric_str_build_query (char *namespace, string *str, metric_query_context *mqc, int serializer, char delimiter, string_tokens **multistring, string *engine, string *index_template, void *an)
 {
-	if (!ac)
+	char *name;
+	alligator_ht *hash;
+	string *groupkey;
+
+	if (!ac || !mqc)
 		return;
 
 	namespace_struct *ns = get_namespace(namespace);
 	if (!ns || !ns->metrictree)
 		return;
 
+	name = mqc->name;
 	if (name && !*name)
 		name = NULL;
+	hash = mqc->lbl;
+	groupkey = mqc->groupkey;
 
 	/* labels_initiate consumes and frees the hash; dup so promql mqc->lbl stays valid if reused. */
 	alligator_ht *hash_work = hash ? labels_dup(hash) : alligator_ht_init(NULL);
 	size_t labels_count = alligator_ht_count(hash_work);
 	metric_tree *tree = ns->metrictree;
 	size_t serialized_before = str ? str->l : 0;
-	glog(L_DEBUG, "metric_str_build_query: ns='%s' name='%s' func=%d labels=%zu groupby='%s' serializer=%d\n", namespace ? namespace : "", name ? name : "", func, labels_count, (groupkey && groupkey->s) ? groupkey->s : "", serializer);
+	glog(L_DEBUG, "metric_str_build_query: ns='%s' name='%s' name_re='%s' func=%d labels=%zu groupby='%s' serializer=%d\n", namespace ? namespace : "", name ? name : "", mqc->name_regex ? mqc->name_regex : "", mqc->func, labels_count, (groupkey && groupkey->s) ? groupkey->s : "", serializer);
 
 	serializer_context *sc = serializer_init(serializer, str, delimiter, engine, index_template, an, ns);
 	if (!sc)
@@ -37,7 +44,7 @@ void metric_str_build_query (char *namespace, string *str, char *name, alligator
 	if (tree && tree->root && tree->rwlock)
 	{
 		labels_t *labels_list = labels_initiate(ns, hash_work, name, 0, 0, 0);
-		metrictree_serialize_query(tree, labels_list, groupkey, sc, labels_count);
+		metrictree_serialize_query(tree, labels_list, groupkey, sc, labels_count, mqc);
 		labels_head_free(labels_list);
 		serializer_do(sc, str);
 		glog(L_DEBUG, "metric_str_build_query: serialized_len=%zu\n", str ? str->l : 0);
@@ -71,7 +78,7 @@ string* metric_query_deserialize(size_t init_size, metric_query_context *mqc, in
 	string *body = string_init(init_size);
 	if (!mqc)
 		return body;
-	metric_str_build_query(namespace, body, mqc->name, mqc->lbl, mqc->func, mqc->groupkey, serializer, delimiter, multistring, engine, index_template, an);
+	metric_str_build_query(namespace, body, mqc, serializer, delimiter, multistring, engine, index_template, an);
 
 	return body;
 }

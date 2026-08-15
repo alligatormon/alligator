@@ -26,6 +26,10 @@ typedef struct metric_query_context {
 	char *query;
 	size_t size;
 	char *name;
+	char *name_regex;
+	void *name_re; /* pcre* compiled from __name__=~ / __name__!~ */
+	uint8_t name_re_neg;
+	uint8_t name_re_invalid;
 	uint8_t op;
 	double opval;
 } metric_query_context;

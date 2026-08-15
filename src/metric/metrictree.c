@@ -3,10 +3,12 @@
 #include "metrictree.h"
 #include "expiretree.h"
 #include "labels.h"
+#include "query/promql.h"
 #include "common/logs.h"
 #include <inttypes.h>
 #include <stdlib.h>
 #include <math.h>
+#include <pcre.h>
 //#define EXPIRE_DEFAULT_SECONDS 300
 
 int is_red ( metric_node *node )
@@ -466,18 +468,44 @@ void metric_str_build (char *namespace, string *str, int openmetrics)
 
 /* Name is the primary BST key. After the first exact-name hit, descendants may
  * still include other metric names. Re-check the name on every node; when a
- * name filter is set, prune branches that cannot contain the target name. */
-static int metrictree_query_name_ok(labels_t *node_labels, labels_t *query_labels)
+ * name filter is set, prune branches that cannot contain the target name.
+ * __name__=~ / !~ cannot use the BST: walk the whole tree and test each name. */
+static int metrictree_query_name_ok(labels_t *node_labels, labels_t *query_labels, metric_query_context *mqc)
 {
+	if (mqc && mqc->name_re_invalid)
+		return 0;
+	if (mqc && mqc->name_re)
+	{
+		pcre *re = mqc->name_re;
+		const char *n = (node_labels && node_labels->key) ? node_labels->key : "";
+		int ovector[30];
+		int rc = pcre_exec(re, NULL, n, (int)strlen(n), 0, 0, ovector, 30);
+		int matched = rc >= 0;
+		return mqc->name_re_neg ? !matched : matched;
+	}
 	if (!query_labels || !query_labels->key_len)
 		return 1;
 	return metric_name_match(node_labels, query_labels) == 0;
 }
 
-void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
+static int metrictree_query_uses_regex(metric_query_context *mqc)
+{
+	return mqc && (mqc->name_re || mqc->name_re_invalid);
+}
+
+void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval, metric_query_context *mqc)
 {
 	if (!x)
 		return;
+
+	if (metrictree_query_uses_regex(mqc))
+	{
+		if (metrictree_query_name_ok(x->labels, labels, mqc) && !labels_match(sort_plan, x->labels, labels, labels_count))
+			labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
+		metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+		metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+		return;
+	}
 
 	int rc = (labels && labels->key_len) ? metric_name_match(x->labels, labels) : 0;
 
@@ -487,24 +515,32 @@ void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, 
 	if (labels && labels->key_len)
 	{
 		if (rc > 0)
-			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
 		else if (rc < 0)
-			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
 		else
 		{
-			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
-			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+			metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
 		}
 		return;
 	}
 
-	metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval);
-	metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval);
+	metrictree_gen_scan(x->child[LEFT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+	metrictree_gen_scan(x->child[RIGHT], sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
 }
 
-void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval)
+void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval, metric_query_context *mqc)
 {
 	pthread_rwlock_rdlock(tree->rwlock);
+	if (metrictree_query_uses_regex(mqc))
+	{
+		if (!mqc->name_re_invalid)
+			metrictree_gen_scan(tree->root, tree->sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+		pthread_rwlock_unlock(tree->rwlock);
+		return;
+	}
+
 	metric_node *x = tree->root;
 	while (x)
 	{
@@ -517,15 +553,15 @@ void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, allig
 		{
 			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
 				labels_gen_metric(x->labels, 0, x, groupkey, hash, opval);
-			metrictree_gen_scan(x->child[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
-			metrictree_gen_scan(x->child[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count, opval);
+			metrictree_gen_scan(x->child[LEFT], tree->sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
+			metrictree_gen_scan(x->child[RIGHT], tree->sort_plan, labels, groupkey, hash, labels_count, opval, mqc);
 			break;
 		}
 	}
 	pthread_rwlock_unlock(tree->rwlock);
 }
 
-void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count, metric_query_context *mqc)
 {
 	if (!x)
 		return;
@@ -540,14 +576,15 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 
 	while (sp > 0) {
 		metric_node *n = stack[--sp];
-		int rc = (labels && labels->key_len) ? metric_name_match(n->labels, labels) : 0;
+		int regex = metrictree_query_uses_regex(mqc);
+		int rc = (!regex && labels && labels->key_len) ? metric_name_match(n->labels, labels) : 0;
 
-		if (metrictree_query_name_ok(n->labels, labels) && !labels_match(sort_plan, n->labels, labels, labels_count))
+		if (metrictree_query_name_ok(n->labels, labels, mqc) && !labels_match(sort_plan, n->labels, labels, labels_count))
 			metric_node_serialize(n, sc);
 
 		int visit_left = 1;
 		int visit_right = 1;
-		if (labels && labels->key_len)
+		if (!regex && labels && labels->key_len)
 		{
 			if (rc > 0)
 				visit_right = 0;
@@ -586,10 +623,18 @@ void metrictree_serialize_query_node(metric_node *x, sortplan *sort_plan, labels
 	free(stack);
 }
 
-void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count)
+void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count, metric_query_context *mqc)
 {
-	metric_node *x = tree->root;
 	pthread_rwlock_rdlock(tree->rwlock);
+	if (metrictree_query_uses_regex(mqc))
+	{
+		if (!mqc->name_re_invalid)
+			metrictree_serialize_query_node(tree->root, tree->sort_plan, labels, groupkey, sc, labels_count, mqc);
+		pthread_rwlock_unlock(tree->rwlock);
+		return;
+	}
+
+	metric_node *x = tree->root;
 	while (x)
 	{
 		int rc1 = metric_name_match(x->labels, labels);
@@ -601,8 +646,8 @@ void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *gro
 		{
 			if (!labels_match(tree->sort_plan, x->labels, labels, labels_count))
 				metric_node_serialize(x, sc);
-			metrictree_serialize_query_node(x->child[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count);
-			metrictree_serialize_query_node(x->child[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count);
+			metrictree_serialize_query_node(x->child[LEFT], tree->sort_plan, labels, groupkey, sc, labels_count, mqc);
+			metrictree_serialize_query_node(x->child[RIGHT], tree->sort_plan, labels, groupkey, sc, labels_count, mqc);
 			break;
 		}
 	}

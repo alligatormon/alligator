@@ -1556,6 +1556,53 @@ static void test_promql_parser_extended_matrix(void)
     }
 }
 
+static void test_promql_name_regex_parser(void)
+{
+    metric_query_context *mqc = promql_parser(NULL, "{__name__=~\"^x509_cert_\"}", strlen("{__name__=~\"^x509_cert_\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, mqc->name);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^x509_cert_", mqc->name_regex);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mqc->name_re_neg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mqc->name_re_invalid);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{name=~\"^cpu_\"}", strlen("{name=~\"^cpu_\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^cpu_", mqc->name_regex);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mqc->name_re_neg);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__!~\"^cpu_\"}", strlen("{__name__!~\"^cpu_\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^cpu_", mqc->name_regex);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mqc->name_re_neg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mqc->name_re_invalid);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=\"x509_cert_expire_days\"}", strlen("{__name__=\"x509_cert_expire_days\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "x509_cert_expire_days", mqc->name);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, mqc->name_regex);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "count({__name__=~\"^socket_stat\"})", strlen("count({__name__=~\"^socket_stat\"})"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, QUERY_FUNC_COUNT, mqc->func);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^socket_stat", mqc->name_regex);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=~\"(\"}", strlen("{__name__=~\"(\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mqc->name_re_invalid);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
+    query_context_free(mqc);
+}
+
 static void test_http_api_v1_plain_aggregate_push_batch2(void)
 {
     static volatile int skip = 0;
@@ -1741,6 +1788,66 @@ static void test_metric_query_name_filter_no_subtree_spill(void)
     assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "http_requests_total"));
     assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "zombie_processes"));
     string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=\"x509_cert_expire_days\"}", strlen("{__name__=\"x509_cert_expire_days\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_expire_days") != NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_after"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "cpu_usage"));
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=~\"^x509_cert_\"}", strlen("{__name__=~\"^x509_cert_\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_expire_days") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_not_after") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_not_before") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_valid") != NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "cpu_usage"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "http_requests_total"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "zombie_processes"));
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=~\"^x509_cert_expire\"}", strlen("{__name__=~\"^x509_cert_expire\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "x509_cert_expire_days") != NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_after"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_before"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_valid"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "cpu_usage"));
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__!~\"^x509_cert_\"}", strlen("{__name__!~\"^x509_cert_\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "cpu_usage") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "http_requests_total") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "zombie_processes") != NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_expire_days"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_not_after"));
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "{__name__=~\"(\"}", strlen("{__name__=~\"(\"}"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    body = metric_query_deserialize(4096, mqc, METRIC_SERIALIZER_OPENMETRICS, ';', "ut_qname_filter", NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "x509_cert_expire_days"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "cpu_usage"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "http_requests_total"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(body->s, "zombie_processes"));
+    string_free(body);
+    query_context_free(mqc);
 
     mqc = promql_parser(NULL, "count(x509_cert_expire_days)", strlen("count(x509_cert_expire_days)"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
@@ -1756,6 +1863,22 @@ static void test_metric_query_name_filter_no_subtree_spill(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
         strstr(body->s, "\"value\":2") != NULL || strstr(body->s, "\"value\": 2") != NULL ||
         strstr(body->s, ",2]") != NULL || strstr(body->s, ", 2]") != NULL);
+    string_free(body);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "count({__name__=~\"^x509_cert_\"})", strlen("count({__name__=~\"^x509_cert_\"})"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
+    metric_query_gen("ut_qname_filter", mqc, "ut_qname_filter_re_count", NULL);
+    query_context_free(mqc);
+
+    mqc = promql_parser(NULL, "ut_qname_filter_re_count", strlen("ut_qname_filter_re_count"));
+    body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, ';', NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(body->s, "ut_qname_filter_re_count") != NULL);
+    /* four x509 families: expire_days x2 + not_after + not_before + valid */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        strstr(body->s, "\"value\":5") != NULL || strstr(body->s, "\"value\": 5") != NULL ||
+        strstr(body->s, ",5]") != NULL || strstr(body->s, ", 5]") != NULL);
     string_free(body);
     query_context_free(mqc);
 }
@@ -2542,6 +2665,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_query_deserialize_db_serializers();
     test_promql_parser_matrix();
     test_promql_parser_extended_matrix();
+    test_promql_name_regex_parser();
     test_entrypoint_collect_shutdown_paths();
     test_query_context_http_args_paths();
     test_metric_namespace_helper_paths();

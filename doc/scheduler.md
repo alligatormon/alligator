@@ -30,8 +30,19 @@ Specifies the name of the language to be executed.
 
 
 ## expr
-Specifies the PromQL expression to filter metrics that will be passed to a calling `lang` or a software in the `action` on the stdin.\
-The metric name is matched exactly (not as a prefix). For example `expr x509_cert_expire_days;` exports only that metric family, not neighboring names such as `x509_cert_not_after`.
+Specifies the PromQL expression to filter metrics that will be passed to a calling `lang` or a software in the `action` on the stdin.
+
+A bare identifier is an **exact** metric name (not a prefix). `expr x509_cert_expire_days;` exports only that family, not neighbors such as `x509_cert_not_after`.
+
+To match several names, use PromQL `__name__=~` / `__name__!~` (PCRE, unanchored). `name` is accepted as an alias of `__name__`. An invalid regex matches nothing.
+
+```
+expr '{__name__=~"^x509_cert_"}';
+expr '{__name__!~"^cpu_"}';
+expr 'count({__name__=~"^socket_stat"})';
+```
+
+Label `=~` / `!~` on keys other than `__name__` is ignored. `x509_cert_.*` as a bare identifier is a literal name, not a regex.
 
 
 ## period

@@ -1660,7 +1660,7 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 	if ( tree && tree->root)
 	{
 		alligator_ht *res_hash = alligator_ht_init(NULL);
-		metrictree_gen(tree, labels_list, mqc->groupkey, res_hash, labels_count, mqc->opval);
+		metrictree_gen(tree, labels_list, mqc->groupkey, res_hash, labels_count, mqc->opval, mqc);
 		labels_list->key = new_name;
 		labels_list->key_len = strlen(new_name);
 

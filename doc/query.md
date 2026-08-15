@@ -28,6 +28,16 @@ Note: For `internal` datasource queries, `count()` uses PromQL syntax and return
 Unlike PromQL behavior, this implementation still returns a result even when no metrics match the filter.
 Use `count by (<label>, ...) (...)` to keep grouping labels in the output instead of a single total value.
 
+A bare metric identifier is an exact name. To match a family of names, use `{__name__=~"..."}` or `{__name__!~"..."}` (PCRE, unanchored). `name` is an alias of `__name__`. An invalid regex matches nothing; label `=~` on keys other than `__name__` is ignored.
+
+```
+query {
+	expr 'count({__name__=~"^socket_stat"})';
+	make socket_stat_series;
+	datasource internal;
+}
+```
+
 
 ## action
 Specifies the action context to run when expr is triggered. This is working only for 'internal' datasource.\
