@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- VRL: opt-in negative DNS cache for `dns_lookup` / `reverse_dns` (`dns_negative_ttl_ms`, `dns_negative_cache_max`). Documented in `doc/vrl/README.md`.
 - Remove embedded lang interpreters (lua, mruby, duktape). `lang` supports only shared libraries (`lang so` + `modules`). Drop Conan deps `lua` and `duktape`, and the `src/external/mruby` submodule.
 
 ## [1.14.0] - 07.07.2021

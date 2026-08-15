@@ -145,6 +145,22 @@ int vrl_push(json_t *cfg)
 	if (json_is_string(jkey) && json_string_value(jkey)[0])
 		vn->key = strdup(json_string_value(jkey));
 
+	/* Async DNS glue tuning (dns_lookup / reverse_dns), optional. */
+	json_t *jdns_timeout = json_object_get(cfg, "dns_timeout_ms");
+	if (json_is_integer(jdns_timeout) && json_integer_value(jdns_timeout) > 0)
+		vn->dns_timeout_ms = (uint64_t)json_integer_value(jdns_timeout);
+	json_t *jdns_poll = json_object_get(cfg, "dns_poll_ms");
+	if (json_is_integer(jdns_poll) && json_integer_value(jdns_poll) > 0)
+		vn->dns_poll_ms = (uint64_t)json_integer_value(jdns_poll);
+	/* Negative cache: dns_negative_ttl_ms > 0 enables it; dns_negative_cache_max
+	 * bounds distinct remembered names (0 -> default). */
+	json_t *jdns_negttl = json_object_get(cfg, "dns_negative_ttl_ms");
+	if (json_is_integer(jdns_negttl) && json_integer_value(jdns_negttl) > 0)
+		vn->dns_negative_ttl_ms = (uint64_t)json_integer_value(jdns_negttl);
+	json_t *jdns_negmax = json_object_get(cfg, "dns_negative_cache_max");
+	if (json_is_integer(jdns_negmax) && json_integer_value(jdns_negmax) > 0)
+		vn->dns_negative_cache_max = (uint64_t)json_integer_value(jdns_negmax);
+
 	char *ml_err = NULL;
 	if (!parse_multiline(cfg, vn, &ml_err)) {
 		glog(L_ERROR, "vrl_push: %s\n", ml_err ? ml_err : "multiline error");

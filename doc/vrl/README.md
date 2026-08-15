@@ -73,7 +73,97 @@ On the `vrl` program (JSON API):
 Legacy single-pattern form still works: `{ "mode": "halt_before", "pattern": "^\\S" }`
 (uses the pattern for both start and condition).
 
-JSON API key: `"vrl": [ { "name": "...", "script"|"program": "...", "multiline": {...} } ]`
+JSON API key: `"vrl": [ { "name": "...", "script"|"program": "...", "multiline": {...}, "dns_timeout_ms": …, "dns_negative_ttl_ms": … } ]`
+
+### Async DNS: `dns_lookup` / `reverse_dns`
+
+> **Host builtins (alligator glue).** These are not part of the avrl library itself;
+> alligator registers them in `src/vrl/vrl_dns.c` and drives suspend/resume from
+> `src/vrl/vrl.c`. They share alligator's resolver cache (`resolver_cache_lookup`).
+
+Both functions are **fully asynchronous**: resolution runs via libuv
+(`uv_getaddrinfo` / `uv_getnameinfo`) and does **not** block other alligator
+work (other aggregates, scrapes, entrypoints, timers). While a stream waits,
+alligator keeps serving the rest of the process.
+
+On a **cache miss**, the builtin starts that one-shot async resolution, returns
+`null`, and pauses **this** stream. `vrl_run_record()` buffers the record and a
+poll timer replays it when the answer lands (or after `dns_timeout_ms`, replays
+once with `null` via `dns_force_null`). Further records from the same source are
+queued until then, so **log lines for that stream are processed only after a
+full resolution completes or a (positive/negative) cache hit** — order is
+preserved, but throughput for that file can stall on cold lookups.
+
+**`reverse_dns` vs `dns_lookup` in log pipelines:** PTR lookups often take
+**much longer in wall-clock terms across a stream** than forward `dns_lookup`.
+Client/peer IPs in logs are highly variable (many distinct addresses, low
+reuse), so the positive cache helps less and each new IP is a first-sight miss
+(suspend + resolve, or a negative-cache window if enabled). Forward lookups of
+a small set of hostnames tend to warm the cache quickly. Prefer negative cache
+and/or avoid unconditional `reverse_dns` on high-cardinality IP fields when
+latency matters.
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `dns_timeout_ms` | `2000` | How long a record may wait for a first-sight resolution before the timeout path |
+| `dns_poll_ms` | `50` | How often the resume timer re-checks the cache |
+| `dns_negative_ttl_ms` | `0` (off) | Opt-in negative cache TTL (see below) |
+| `dns_negative_cache_max` | `100000` | Cap on distinct remembered bad names |
+
+#### Negative DNS cache (opt-in)
+
+**Problem it solves:** previously a name that failed or timed out was never
+remembered, so every subsequent log line with that bad domain triggered a fresh
+async resolution and a full `dns_timeout_ms` suspend of the pipeline. With the
+negative cache enabled, failures/timeouts are memoized for a configurable window.
+
+**Lookup order** in `vrl_dns_common()`:
+
+1. `dns_force_null` one-shot (timeout replay) — unchanged
+2. Positive cache (`resolver_cache_lookup`) — a real answer always wins
+3. Negative cache — if a live entry exists, return `null` immediately (no suspend, no re-resolve)
+4. Cache miss → suspend + kick off async resolution
+
+A negative entry is recorded when:
+
+- `getaddrinfo` / `getnameinfo` returns an error or empty result (resolver callbacks in `vrl_dns.c`)
+- a paused stream times out waiting (`vrl_resume_timer_cb` in `vrl.c`)
+
+When the entry's TTL lapses, the name is re-resolved. A short TTL re-resolves bad
+domains sooner; a longer one retries persistently-bad names less often.
+
+**Config** (per `vrl` node; JSON API / conf dump):
+
+```json
+{
+  "name": "postfix",
+  "script": "/etc/alligator/vrl/postfix.vrl",
+  "dns_timeout_ms": 2000,
+  "dns_negative_ttl_ms": 30000,
+  "dns_negative_cache_max": 50000
+}
+```
+
+- `dns_negative_ttl_ms` — enable and set the negative TTL in ms. `0` (default)
+  disables it and preserves the old suspend-each-time behavior.
+- `dns_negative_cache_max` — max distinct remembered names (default `100000`) to
+  bound memory. When full, new bad names fall back to suspend-each-time.
+
+**Implementation notes**
+
+- Process-global `alligator_ht` keyed by `"<name>:<rrtype>"`, storing an absolute
+  `expire_ms`.
+- Guarded by its own `uv_mutex_t`: search-then-evict/refresh runs on the loop
+  thread (callbacks/timer) and during VRL record processing; `alligator_ht`'s
+  internal rwlock only protects individual ops, not the compound sequence.
+- Expired entries are evicted lazily on access; insertions stop at the cap.
+- Positive precedence is preserved: if an async resolution succeeds after a
+  timeout, the positive cache entry takes over and any stale negative entry is
+  ignored (then eventually evicted).
+
+Metrics (system carg): `vrl_dns_resolutions_total` and
+`vrl_dns_resolution_duration_seconds_sum` with labels `type` (`A`/`AAAA`/`PTR`)
+and `result` (`success`/`failure`/`timeout`).
 
 ## Debugging
 

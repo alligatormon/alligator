@@ -42,6 +42,10 @@ dns_resource_records* resolver_get_address(const char* domain, char* addrs, int 
 uint64_t dns_handler(char *metrics, size_t size, context_arg *carg);
 string *resolver_get_api_response();
 string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass);
+/* Read-only cache lookup: return a cached, non-expired record for
+ * "<dname>:<rrtype>" or NULL. Unlike aggregator_get_addr() this never starts
+ * an async probe (used by embedders that manage their own resolution kickoff). */
+string* resolver_cache_lookup(char *dname, uint16_t rrtype);
 void resolver_start(uv_timer_t *timer);
 char *resolver_carg_get_addr(context_arg *carg);
 char* get_str_by_rrtype(uint16_t type);

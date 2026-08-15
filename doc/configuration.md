@@ -11,6 +11,7 @@
 | Export and automation | [action.md](action.md), [scheduler.md](scheduler.md) |
 | Metric namespaces | [namespace.md](namespace.md) |
 | Log parsing | [grok.md](grok.md), [mtail/README.md](mtail/README.md) |
+| VRL (avrl) remap / metrics / DNS builtins | [vrl/README.md](vrl/README.md) |
 | Custom modules | [lang.md](lang.md) |
 | DNS resolution checks | [resolver.md](resolver.md) |
 | TLS certificate monitoring | [x509.md](x509.md) |
@@ -37,6 +38,7 @@ These blocks can appear in `/etc/alligator.conf` (plain) or JSON configuration:
 | `namespace` | Declare metric namespace prefixes |
 | `grok` | Register grok pattern sets |
 | `mtail` | Register mtail programs |
+| `vrl` | Register avrl programs (`dns_lookup` / `reverse_dns`, negative DNS cache) |
 | `lang` | Load external language modules |
 | `probe` | Prometheus-style probe modules (HTTP/TCP checks via API) |
 | `x509` | Monitor certificate files |

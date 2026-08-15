@@ -331,6 +331,7 @@ set(STATIC_FILES
 	amtail/push.c
 	amtail/del.c
 	vrl/vrl.c
+	vrl/vrl_dns.c
 	vrl/push.c
 	vrl/del.c
 	external/amtail/amtail_pcre.c

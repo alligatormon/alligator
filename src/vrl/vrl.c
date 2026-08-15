@@ -2,6 +2,7 @@
 #include "common/logs.h"
 #include "common/aggregator.h"
 #include "common/http.h"
+#include "resolver/resolver.h"
 #include "metric/labels.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
@@ -88,6 +89,7 @@ int vrl_engine_init(void)
 		ac->vrl = calloc(1, sizeof(alligator_ht));
 		alligator_ht_init(ac->vrl);
 		vrl_stdlib_init();
+		vrl_host_builtins_init();
 	}
 	return 1;
 }
@@ -393,13 +395,7 @@ static void vrl_export_logs(context_arg *carg, vrl_value *event)
 }
 
 /* ---------------- per-stream state ---------------- */
-
-typedef struct vrl_stream {
-	vrl_ctx *ctx;
-	vrl_node *vn; /* borrowed, under vn->lock while running */
-	context_arg *carg;
-	int ok;
-} vrl_stream;
+/* vrl_stream is defined in vrl/type.h (shared with vrl_dns.c). */
 
 static void vrl_apply_node_multiline(context_arg *carg, vrl_node *vn)
 {
@@ -413,6 +409,9 @@ static void vrl_apply_node_multiline(context_arg *carg, vrl_node *vn)
 	carg->ml_enabled = 1;
 }
 
+/* Release all resources held by a stream (DNS timer, buffered records, ctx). */
+static void vrl_stream_destroy(vrl_stream *st);
+
 static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
 {
 	vrl_stream *st = carg->vrl_stream;
@@ -420,9 +419,7 @@ static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
 		return st;
 
 	if (st) {
-		if (st->ctx)
-			vrl_ctx_free(st->ctx);
-		free(st);
+		vrl_stream_destroy(st);
 		carg->vrl_stream = NULL;
 	}
 
@@ -431,6 +428,11 @@ static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
 	st->carg = carg;
 	st->ctx = vrl_ctx_new(vn->ll);
 	st->ok = 1;
+	st->dns_timeout_ms = vn->dns_timeout_ms ? vn->dns_timeout_ms : VRL_DNS_DEFAULT_TIMEOUT_MS;
+	st->dns_poll_ms = vn->dns_poll_ms ? vn->dns_poll_ms : VRL_DNS_DEFAULT_POLL_MS;
+	st->dns_negative_ttl_ms = vn->dns_negative_ttl_ms; /* 0 = disabled */
+	/* Reachable from dns_lookup/reverse_dns builtins as a->ctx->host. */
+	vrl_ctx_set_host(st->ctx, st);
 	vrl_apply_node_multiline(carg, vn);
 	carg_linebuf_ensure(carg);
 	carg->vrl_stream = st;
@@ -446,6 +448,8 @@ static const char *vrl_source_hint(context_arg *carg)
 	return "alligator";
 }
 
+static void vrl_resume_timer_cb(uv_timer_t *timer);
+
 static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 {
 	context_arg *carg = st->carg;
@@ -455,6 +459,16 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 	vrl_ctx_reset(st->ctx);
 	vrl_ctx_set_event(st->ctx, vrl_event_from_message(record, len, vrl_source_hint(carg)));
 	vrl_status stt = vrl_exec(st->ctx, vn->prog->root);
+
+	/* A dns_lookup()/reverse_dns() first-sight cache miss paused the stream.
+	 * The record is incomplete and MUST NOT be exported (side effects would
+	 * duplicate on replay). The resume timer re-runs it once resolved. */
+	if (st->dns_suspended) {
+		carglog(carg, L_INFO, "vrl: record paused awaiting DNS '%s' (rrtype %hu)\n",
+			st->dns_name, st->dns_rrtype);
+		return;
+	}
+
 	if (stt == VRL_ABORT) {
 		carglog(carg, L_INFO, "vrl: abort: %s\n",
 			st->ctx->abort_msg ? st->ctx->abort_msg : "(no message)");
@@ -475,9 +489,203 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 	vrl_export_logs(carg, st->ctx->event);
 }
 
+/* ---------------- DNS suspend/resume: record buffering ---------------- */
+
+static void vrl_stream_enqueue(vrl_stream *st, const char *record, size_t len)
+{
+	if (st->q_len == st->q_cap) {
+		/* Reclaim already-consumed slots before growing. */
+		if (st->q_head) {
+			size_t live = st->q_len - st->q_head;
+			if (live)
+				memmove(st->queue, st->queue + st->q_head,
+					live * sizeof(*st->queue));
+			st->q_len = live;
+			st->q_head = 0;
+		}
+		if (st->q_len == st->q_cap) {
+			size_t ncap = st->q_cap ? st->q_cap * 2 : 16;
+			vrl_record_item *nq = realloc(st->queue, ncap * sizeof(*nq));
+			if (!nq) {
+				carglog(st->carg, L_ERROR,
+					"vrl: dropping record while paused (OOM queue)\n");
+				return;
+			}
+			st->queue = nq;
+			st->q_cap = ncap;
+		}
+	}
+	char *copy = malloc(len + 1);
+	if (!copy) {
+		carglog(st->carg, L_ERROR, "vrl: dropping record while paused (OOM)\n");
+		return;
+	}
+	memcpy(copy, record, len);
+	copy[len] = '\0';
+	st->queue[st->q_len].data = copy;
+	st->queue[st->q_len].len = len;
+	st->q_len++;
+}
+
+static int vrl_stream_dequeue(vrl_stream *st, char **data, size_t *len)
+{
+	if (st->q_head >= st->q_len)
+		return 0;
+	*data = st->queue[st->q_head].data;
+	*len = st->queue[st->q_head].len;
+	st->queue[st->q_head].data = NULL;
+	st->q_head++;
+	if (st->q_head >= st->q_len) {
+		st->q_head = 0;
+		st->q_len = 0;
+	}
+	return 1;
+}
+
+static void vrl_stream_set_pending(vrl_stream *st, const char *record, size_t len)
+{
+	free(st->pending_record);
+	st->pending_record = malloc(len + 1);
+	if (!st->pending_record) {
+		st->pending_len = 0;
+		return;
+	}
+	memcpy(st->pending_record, record, len);
+	st->pending_record[len] = '\0';
+	st->pending_len = len;
+}
+
+static void vrl_resume_timer_close_cb(uv_handle_t *h)
+{
+	free(h);
+}
+
+static void vrl_stream_arm_resume(vrl_stream *st)
+{
+	context_arg *carg = st->carg;
+	uint64_t now = carg->loop ? uv_now(carg->loop) : 0;
+	st->dns_deadline_ms = now + st->dns_timeout_ms;
+
+	if (!st->resume_timer) {
+		st->resume_timer = calloc(1, sizeof(*st->resume_timer));
+		if (!st->resume_timer) {
+			carglog(carg, L_ERROR, "vrl: cannot allocate DNS resume timer\n");
+			return;
+		}
+		uv_timer_init(carg->loop, st->resume_timer);
+		st->resume_timer->data = st;
+	}
+	if (!uv_is_active((uv_handle_t *)st->resume_timer)) {
+		uint64_t poll = st->dns_poll_ms ? st->dns_poll_ms : VRL_DNS_DEFAULT_POLL_MS;
+		uv_timer_start(st->resume_timer, vrl_resume_timer_cb, poll, poll);
+	}
+}
+
+/* Replay the paused record, then any records buffered while paused, in order.
+ * If a replayed record suspends again (different name), it becomes the new
+ * pending record and draining stops until that resolves. */
+static void vrl_stream_drain(vrl_stream *st)
+{
+	if (st->pending_record) {
+		char *rec = st->pending_record;
+		size_t len = st->pending_len;
+		st->pending_record = NULL;
+		st->pending_len = 0;
+		vrl_run_record(st, rec, len);
+		if (st->dns_suspended) {
+			vrl_stream_set_pending(st, rec, len);
+			free(rec);
+			vrl_stream_arm_resume(st);
+			return;
+		}
+		free(rec);
+	}
+
+	char *data;
+	size_t len;
+	while (vrl_stream_dequeue(st, &data, &len)) {
+		vrl_run_record(st, data, len);
+		if (st->dns_suspended) {
+			vrl_stream_set_pending(st, data, len);
+			free(data);
+			vrl_stream_arm_resume(st);
+			return;
+		}
+		free(data);
+	}
+}
+
+static void vrl_resume_timer_cb(uv_timer_t *timer)
+{
+	vrl_stream *st = timer->data;
+	if (!st || !st->carg || !st->vn)
+		return;
+	context_arg *carg = st->carg;
+	vrl_node *vn = st->vn;
+
+	uv_mutex_lock(&vn->lock);
+
+	if (!st->dns_suspended) {
+		uv_timer_stop(timer);
+		uv_mutex_unlock(&vn->lock);
+		return;
+	}
+
+	string *v = resolver_cache_lookup(st->dns_name, st->dns_rrtype);
+	uint64_t now = carg->loop ? uv_now(carg->loop) : 0;
+
+	if (!v && now < st->dns_deadline_ms) {
+		uv_mutex_unlock(&vn->lock);
+		return; /* keep polling */
+	}
+
+	if (!v) {
+		carglog(carg, L_ERROR,
+			"vrl: DNS resolution timeout after %" PRIu64 "ms for '%s' (rrtype %hu); "
+			"continuing with null\n",
+			st->dns_timeout_ms, st->dns_name, st->dns_rrtype);
+		vrl_dns_metric(get_str_by_rrtype(st->dns_rrtype), "timeout",
+			       now > st->dns_timeout_ms ? now - st->dns_timeout_ms : 0, now);
+		if (st->dns_negative_ttl_ms) {
+			char key[VRL_DNS_KEY_MAX];
+			snprintf(key, sizeof(key), "%s:%hu", st->dns_name, st->dns_rrtype);
+			vrl_dns_neg_add(key, now, st->dns_negative_ttl_ms,
+					st->vn ? st->vn->dns_negative_cache_max : 0);
+		}
+		st->dns_force_null = 1;
+	}
+
+	st->dns_suspended = 0;
+	vrl_stream_drain(st);
+
+	if (!st->dns_suspended) {
+		/* Fully caught up: retire the timer and clear any timeout latch. */
+		uv_timer_stop(timer);
+		st->dns_force_null = 0;
+	}
+	/* else: vrl_stream_drain() re-armed the timer for a new resolution. */
+
+	uv_mutex_unlock(&vn->lock);
+}
+
 static void vrl_record_cb(void *ud, const char *record, size_t len)
 {
-	vrl_run_record((vrl_stream *)ud, record, len);
+	vrl_stream *st = (vrl_stream *)ud;
+
+	/* Stream is paused awaiting a DNS answer: buffer this record so output
+	 * order is preserved, and run it later on resume. */
+	if (st->dns_suspended) {
+		vrl_stream_enqueue(st, record, len);
+		return;
+	}
+
+	vrl_run_record(st, record, len);
+
+	/* This record triggered a first-sight cache miss and paused the stream. */
+	if (st->dns_suspended) {
+		vrl_stream_set_pending(st, record, len);
+		vrl_stream_arm_resume(st);
+	}
 }
 
 static vrl_node *vrl_node_load_for_carg(context_arg *carg)
@@ -536,17 +744,42 @@ void vrl_handler(char *metrics, size_t size, context_arg *carg)
 	carg->parser_status = st->ok ? 1 : 0;
 }
 
+static void vrl_stream_destroy(vrl_stream *st)
+{
+	if (!st)
+		return;
+
+	/* Stop polling for DNS and retire the timer handle asynchronously. */
+	if (st->resume_timer) {
+		uv_timer_stop(st->resume_timer);
+		st->resume_timer->data = NULL;
+		if (!uv_is_closing((uv_handle_t *)st->resume_timer))
+			uv_close((uv_handle_t *)st->resume_timer, vrl_resume_timer_close_cb);
+		st->resume_timer = NULL;
+	}
+
+	free(st->pending_record);
+	for (size_t i = st->q_head; i < st->q_len; i++)
+		free(st->queue[i].data);
+	free(st->queue);
+
+	if (st->ctx)
+		vrl_ctx_free(st->ctx);
+	free(st);
+}
+
 void vrl_stream_free(context_arg *carg)
 {
 	if (!carg || !carg->vrl_stream)
 		return;
 	vrl_stream *st = carg->vrl_stream;
-	if (carg->ml_lb_ready) {
+
+	/* Only flush the multiline tail if we are not mid-pause (a paused stream
+	 * cannot complete records anyway; buffered work is discarded on free). */
+	if (carg->ml_lb_ready && !st->dns_suspended)
 		alligator_linebuf_flush(&carg->ml_lb, vrl_record_cb, st);
-	}
-	if (st->ctx)
-		vrl_ctx_free(st->ctx);
-	free(st);
+
+	vrl_stream_destroy(st);
 	carg->vrl_stream = NULL;
 }
 

@@ -212,6 +212,73 @@ static void test_dns_unpack_invalid(void)
 		dns_name_decode_msg((char*)wire, (char*)wire, domain));
 }
 
+/* Declared in vrl/type.h; prototype here to avoid pulling the full VRL/uv
+ * header stack into the DNS test unit. */
+int vrl_dns_reverse_name(const char *ip, char *out, size_t outlen);
+
+static void test_vrl_dns_reverse_name(void)
+{
+	char out[DNS_NAME_MAXLEN];
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		vrl_dns_reverse_name("1.2.3.4", out, sizeof(out)));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"4.3.2.1.in-addr.arpa", out);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		vrl_dns_reverse_name("203.0.113.7", out, sizeof(out)));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"7.113.0.203.in-addr.arpa", out);
+
+	/* IPv6 nibble-reversed: 32 nibbles ("N.") + "ip6.arpa" = 72 chars.
+	 * ::1 has its single set nibble first. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		vrl_dns_reverse_name("::1", out, sizeof(out)));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 72, (int)strlen(out));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		strncmp(out, "1.0.0.0.", 8));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		strcmp(out + strlen(out) - 8, "ip6.arpa"));
+
+	/* Invalid literals are rejected. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		vrl_dns_reverse_name("not-an-ip", out, sizeof(out)));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		vrl_dns_reverse_name("999.1.1.1", out, sizeof(out)));
+}
+
+static void test_resolver_cache_lookup(void)
+{
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	/* Miss: no probe is started, just NULL. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_cache_lookup("absent.example.org", DNS_TYPE_A) == NULL);
+
+	/* Forward hit after a store (same path dns_lookup uses). */
+	dns_record_rule_push("cache.example.org", DNS_TYPE_A, NULL, 0,
+		"203.0.113.7", strlen("203.0.113.7"), 300);
+	string *v = resolver_cache_lookup("cache.example.org", DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, v != NULL);
+	if (v)
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "203.0.113.7", v->s);
+
+	/* Reverse (PTR) hit under the in-addr.arpa key. */
+	dns_record_rule_push("7.113.0.203.in-addr.arpa", DNS_TYPE_PTR, NULL, 0,
+		"host.example.org", strlen("host.example.org"), 300);
+	string *p = resolver_cache_lookup("7.113.0.203.in-addr.arpa", DNS_TYPE_PTR);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p != NULL);
+	if (p)
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "host.example.org", p->s);
+
+	/* Expired record is not returned (ttl in the past). */
+	dns_record_rule_push("expired.example.org", DNS_TYPE_A, NULL, 0,
+		"198.51.100.9", strlen("198.51.100.9"), 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_cache_lookup("expired.example.org", DNS_TYPE_A) == NULL);
+}
+
 void test_resolver_dns_pack_unpack(void)
 {
 	test_dns_name_encode_decode();
@@ -221,4 +288,6 @@ void test_resolver_dns_pack_unpack(void)
 	test_dns_response_pack_roundtrip();
 	test_dns_handler_parse_response();
 	test_dns_unpack_invalid();
+	test_vrl_dns_reverse_name();
+	test_resolver_cache_lookup();
 }

@@ -451,6 +451,19 @@ string* aggregator_get_addr_strtype(context_arg *carg, char *dname, char* strtyp
 	return aggregator_get_addr(carg, dname, rrtype, rclass);
 }
 
+string* resolver_cache_lookup(char *dname, uint16_t rrtype)
+{
+	if (!ac || !ac->resolver || !dname)
+		return NULL;
+
+	char key[DNS_NAME_MAXLEN];
+	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hu", dname, rrtype);
+	uint32_t key_hash = tommy_strhash_u32(0, key);
+
+	dns_resource_records *dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
+	return dns_cache_pick(dns_rr);
+}
+
 context_arg* aggregator_push_addr_strtype(context_arg *carg, char *dname, char* strtype, uint32_t rclass)
 {
 	uint16_t rrtype = get_rrtype_by_str(strtype);
