@@ -490,6 +490,19 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					scheduler_push_json(scheduler);
 				}
 			}
+			if (!strcmp(key, "enrichment_table"))
+			{
+				uint64_t n = json_array_size(value);
+				for (uint64_t i = 0; i < n; i++)
+				{
+					json_t *tbl = json_array_get(value, i);
+					if (method == HTTP_METHOD_DELETE) {
+						vrl_enrich_del_json(tbl);
+						continue;
+					}
+					vrl_enrich_push_json(tbl);
+				}
+			}
 			if (!strcmp(key, "threaded_loop"))
 			{
 				uint64_t threaded_loop_size = json_array_size(value);

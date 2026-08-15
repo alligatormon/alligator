@@ -143,6 +143,46 @@ Network awaits attribute wall-clock wait; pure cache hits use duration 0:
 Average latency = `duration_sum / requests_total` for a given `result`.
 Per-line script metrics (e.g. `apache_referer_json_total`) remain separate.
 
+### Enrichment tables (host)
+
+Declare named tables in config, then call Vector-compatible builtins:
+
+```
+enrichment_table {
+    name codes;
+    type file;                    # CSV (header row required)
+    path /etc/alligator/codes.csv;
+}
+
+enrichment_table {
+    name city;
+    type mmdb;                    # or geoip
+    path /usr/share/GeoIP/GeoLite2-City.mmdb;
+}
+```
+
+```
+row, err = get_enrichment_table_record("codes", {"code": .code})
+rows = find_enrichment_table_records("codes", {"code": .code})
+geo, err = get_enrichment_table_record("city", {"ip": .client_ip})
+```
+
+- **file**: exact-match on all condition object fields; `get_*` errors if 0 or >1 rows.
+- **mmdb/geoip**: condition must include `"ip"`; returns Vector-like fields (`country_code`,
+  `city_name`, `latitude`, …) when present. Requires Conan/system `libmaxminddb`
+  (hard dependency).
+
+### Secrets and semantic meaning (host)
+
+Per-event maps on the VRL stream (cleared between records):
+
+```
+set_secret("token", "s3cr3t")
+tok = get_secret("token")
+remove_secret("token")
+set_semantic_meaning(".status", "http.status_code")   # string path (optional leading '.')
+```
+
 #### Negative DNS cache (opt-in)
 
 **Problem it solves:** previously a name that failed or timed out was never

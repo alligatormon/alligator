@@ -93,6 +93,7 @@ void main_free()
 	free(ac->threads);
 
 	amtail_free();
+	vrl_enrich_tables_free();
 	vrl_engine_free();
 
 	signal_stop();

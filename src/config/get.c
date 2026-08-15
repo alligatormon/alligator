@@ -1703,6 +1703,8 @@ json_t *config_get()
 		alligator_ht_foreach_arg(ac->amtail, amtail_generate_conf, dst);
 	if (ac->vrl)
 		alligator_ht_foreach_arg(ac->vrl, vrl_generate_conf, dst);
+	if (ac->enrichment_tables)
+		alligator_ht_foreach_arg(ac->enrichment_tables, vrl_enrich_generate_conf, dst);
 	if (ac->grok)
 		alligator_ht_foreach_arg(ac->grok, grok_generate_conf, dst);
 	system_pidfile_generate_conf(dst);

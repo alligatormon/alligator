@@ -60,12 +60,23 @@ To build use these commands:
 git submodule sync --recursive
 git submodule update --init --recursive
 cd src
-conan install . --build=missing
+conan install . --build=missing -s build_type=Debug
 conan build external/
+```
+
+For CentOS 7, use the pinned deps first:
+```
+cp ../misc/centos7/conanfile.txt ./conanfile.txt
+conan install . --build=missing -s build_type=Debug
 ```
 
 ## Build alligator
 ```
-cmake .
-make
+cmake -S . -B build \
+  -DCMAKE_TOOLCHAIN_FILE=build/Debug/generators/conan_toolchain.cmake \
+  -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel
 ```
+
+Do not pass `--output-folder=build` to `conan install` when using `cmake_layout`: that nests
+generators under `build/build/<Config>/generators` and breaks the paths above.

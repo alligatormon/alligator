@@ -162,6 +162,7 @@ typedef struct aconf
 	alligator_ht* aggregate_ctx;
 	alligator_ht* amtail;
 	alligator_ht* vrl;
+	alligator_ht* enrichment_tables; /* named VRL enrichment tables (file/mmdb) */
 
 	// filetailer file list
 	alligator_ht* file_stat;

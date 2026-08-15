@@ -83,6 +83,7 @@ aconf* configuration()
 	ac->udpaggregator = calloc(1, sizeof(alligator_ht));
 	alligator_ht_init(ac->udpaggregator);
 	ac->scheduler = alligator_ht_init(NULL);
+	ac->enrichment_tables = alligator_ht_init(NULL);
 
 	ac->iggregator = calloc(1, sizeof(alligator_ht));
 	ac->iggregator_startup = 1000;

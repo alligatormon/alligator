@@ -118,6 +118,11 @@ typedef struct vrl_stream {
 	size_t q_cap;
 
 	uv_timer_t *resume_timer;          /* owned; poll for resolution */
+
+	/* Per-event maps for get/set/remove_secret and set_semantic_meaning.
+	 * Cleared at the start of each record (see vrl_run_record). */
+	alligator_ht *secrets;
+	alligator_ht *semantic_meanings;
 } vrl_stream;
 
 int vrl_node_compare(const void *arg, const void *obj);
@@ -139,6 +144,14 @@ void vrl_stream_free(context_arg *carg);
  * into avrl. Called once from vrl_engine_init() after vrl_stdlib_init(). */
 void vrl_host_builtins_init(void);
 void vrl_http_builtins_init(void);
+void vrl_enrich_builtins_init(void);
+void vrl_secret_builtins_init(void);
+int  vrl_enrich_push_json(json_t *cfg);
+int  vrl_enrich_del_json(json_t *cfg);
+void vrl_enrich_tables_free(void);
+void vrl_enrich_generate_conf(void *funcarg, void *arg);
+void vrl_stream_clear_secrets(vrl_stream *st);
+void vrl_stream_free_secrets(vrl_stream *st);
 int  vrl_http_cache_is_ready(const char *url);
 void vrl_http_cache_force_ready_null(const char *url);
 void vrl_http_try_connect(const char *url);

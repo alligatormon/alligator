@@ -5,13 +5,33 @@ project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 
+# Conan CMakeDeps requires CMAKE_BUILD_TYPE before find_package().
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+
 include(FindPkgConfig)
 set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/generators" ${CMAKE_PREFIX_PATH})
 
 # Provide a default Conan toolchain only if user didn't specify one.
 # This must NOT override -DCMAKE_TOOLCHAIN_FILE=... from the cmake command line.
+# Prefer cmake_layout paths from `conan install .` (CI): build/<Config>/generators.
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE OR "${CMAKE_TOOLCHAIN_FILE}" STREQUAL "")
-	set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/Debug/generators/conan_toolchain.cmake" CACHE FILEPATH "Conan Toolchain")
+	set(_alligator_conan_toolchains
+		"${CMAKE_SOURCE_DIR}/build/Debug/generators/conan_toolchain.cmake"
+		"${CMAKE_SOURCE_DIR}/build/Release/generators/conan_toolchain.cmake"
+		"${CMAKE_SOURCE_DIR}/build/build/Debug/generators/conan_toolchain.cmake"
+		"${CMAKE_SOURCE_DIR}/build/build/Release/generators/conan_toolchain.cmake"
+	)
+	foreach(_tc IN LISTS _alligator_conan_toolchains)
+		if(EXISTS "${_tc}")
+			set(CMAKE_TOOLCHAIN_FILE "${_tc}" CACHE FILEPATH "Conan Toolchain" FORCE)
+			break()
+		endif()
+	endforeach()
+	if(NOT DEFINED CMAKE_TOOLCHAIN_FILE OR "${CMAKE_TOOLCHAIN_FILE}" STREQUAL "")
+		set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/Debug/generators/conan_toolchain.cmake" CACHE FILEPATH "Conan Toolchain")
+	endif()
 endif()
 
 # Conan generators are expected next to the conan_toolchain.cmake.
@@ -70,6 +90,14 @@ endif()
 message(STATUS "avrl sources: ${AVRL_DIR}")
 find_package(OpenSSL REQUIRED)
 option(AVRL_WITH_OPENSSL "Enable OpenSSL-backed VRL crypto functions" ON)
+find_package(maxminddb CONFIG QUIET)
+if(NOT maxminddb_FOUND)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(MAXMINDDB REQUIRED IMPORTED_TARGET libmaxminddb)
+endif()
+if(NOT TARGET maxminddb::maxminddb AND NOT TARGET maxminddb::libmaxminddb AND NOT TARGET PkgConfig::MAXMINDDB)
+	message(FATAL_ERROR "libmaxminddb is required (Conan package libmaxminddb or system libmaxminddb)")
+endif()
 set(AVRL_ENGINE_SOURCES
 	${AVRL_DIR}/value.c
 	${AVRL_DIR}/pcre_wrap.c
@@ -134,9 +162,6 @@ if(LIBUV_INCLUDE_HINTS)
 	include_directories(${LIBUV_INCLUDE_HINTS})
 endif()
 
-if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Debug)
-endif()
 set(COMMON_TESTS lib${PROJECT_NAME}_tests)
 set(COMMON lib${PROJECT_NAME})
 set(TESTS ${PROJECT_NAME}_tests)
@@ -333,6 +358,8 @@ set(STATIC_FILES
 	vrl/vrl.c
 	vrl/vrl_dns.c
 	vrl/vrl_http.c
+	vrl/vrl_enrich.c
+	vrl/vrl_secret.c
 	vrl/push.c
 	vrl/del.c
 	external/amtail/amtail_pcre.c
@@ -587,6 +614,13 @@ set(ALLIGATOR_COMMON_LIBS
 	xxHash::xxhash ${LIBUV_DRIVER} oniguruma::onig
 	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS} avrl_static
 )
+if(TARGET maxminddb::maxminddb)
+	list(APPEND ALLIGATOR_COMMON_LIBS maxminddb::maxminddb)
+elseif(TARGET maxminddb::libmaxminddb)
+	list(APPEND ALLIGATOR_COMMON_LIBS maxminddb::libmaxminddb)
+else()
+	list(APPEND ALLIGATOR_COMMON_LIBS PkgConfig::MAXMINDDB)
+endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(APPEND ALLIGATOR_COMMON_LIBS libbsd::libbsd)
 endif()

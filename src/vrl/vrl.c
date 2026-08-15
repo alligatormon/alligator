@@ -456,6 +456,7 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 	vrl_node *vn = st->vn;
 	carglog(carg, L_INFO, "vrl: run record (%zu bytes) program='%s': '%.*s'\n",
 		len, vn->name ? vn->name : "?", (int)(len > 200 ? 200 : len), record);
+	vrl_stream_clear_secrets(st);
 	vrl_ctx_reset(st->ctx);
 	vrl_ctx_set_event(st->ctx, vrl_event_from_message(record, len, vrl_source_hint(carg)));
 	vrl_status stt = vrl_exec(st->ctx, vn->prog->root);
@@ -788,6 +789,8 @@ static void vrl_stream_destroy(vrl_stream *st)
 	for (size_t i = st->q_head; i < st->q_len; i++)
 		free(st->queue[i].data);
 	free(st->queue);
+
+	vrl_stream_free_secrets(st);
 
 	if (st->ctx)
 		vrl_ctx_free(st->ctx);

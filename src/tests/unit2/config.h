@@ -434,6 +434,71 @@ void test_vrl_dns_duration_config()
     json_decref(cfg);
 }
 
+/* enrichment_table file push + host builtin registration (secrets / enrichment). */
+void test_vrl_enrichment_and_secrets()
+{
+	vrl_engine_init();
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("get_secret", strlen("get_secret")));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("set_secret", strlen("set_secret")));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("remove_secret", strlen("remove_secret")));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("set_semantic_meaning", strlen("set_semantic_meaning")));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("get_enrichment_table_record",
+					    strlen("get_enrichment_table_record")));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+			   vrl_stdlib_lookup("find_enrichment_table_records",
+					    strlen("find_enrichment_table_records")));
+
+	const char *csv_path = "/tmp/alligator_ut_enrich.csv";
+	FILE *f = fopen(csv_path, "w");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+	fputs("code,message\n", f);
+	fputs("42,ok\n", f);
+	fputs("7,fail\n", f);
+	fclose(f);
+
+	json_error_t error;
+	json_t *cfg = json_pack("{s:s,s:s,s:s}", "name", "ut_codes", "type", "file",
+				"path", csv_path);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, vrl_enrich_push_json(cfg));
+	json_decref(cfg);
+
+	vrl_fn get_fn = vrl_stdlib_lookup("get_enrichment_table_record",
+					  strlen("get_enrichment_table_record"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, get_fn);
+
+	vrl_value *table = vrl_bytes_cstr("ut_codes");
+	vrl_value *cond = vrl_object_new();
+	vrl_object_set_cstr(cond, "code", vrl_bytes_cstr("42"));
+	vrl_value *args[2] = { table, cond };
+	vrl_call_args ca = { .ctx = NULL, .args = args, .names = NULL, .n = 2, .closure = NULL };
+	vrl_value *out = NULL;
+	char *err = NULL;
+	vrl_status st = get_fn(&ca, &out, &err);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, VRL_OK, st);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, err);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, VRL_OBJECT, out->type);
+	vrl_value *msg = vrl_object_get(out, "message", strlen("message"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, VRL_BYTES, msg->type);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ok", msg->u.bytes.data);
+	vrl_value_unref(out);
+	vrl_value_unref(table);
+	vrl_value_unref(cond);
+
+	json_t *del = json_pack("{s:s}", "name", "ut_codes");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, vrl_enrich_del_json(del));
+	json_decref(del);
+	unlink(csv_path);
+	(void)error;
+}
+
 void test_mkdirp_helpers()
 {
     char path1[] = "/tmp/alligator/unit2/a/b";

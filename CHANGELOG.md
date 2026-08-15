@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- VRL host: enrichment tables (`enrichment_table` config) with `get_enrichment_table_record` / `find_enrichment_table_records` (CSV `file` + MaxMind `mmdb`/`geoip`). Required Conan dep `libmaxminddb/1.12.2`.
+- VRL host: `get_secret` / `set_secret` / `remove_secret` / `set_semantic_meaning` (per-event maps on the VRL stream).
 - Fix: TCP/TLS connect failure and empty-body TCP timeout now invoke the oneshot parser handler (so `http_request` records `failure` instead of hanging until VRL timeout when the peer refuses, e.g. mock not listening).
 - Fix: TCP aggregator oneshots no longer stick with `lock=1` on DNS miss (hostname `http_request` / HTTPS Referer fetches timed out forever). VRL resume poll retries connect after the A record lands.
 - VRL: `http_request` metrics count every served call (including cache hits), not only unique URL fetches.
