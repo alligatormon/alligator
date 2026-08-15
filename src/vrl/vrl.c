@@ -642,6 +642,8 @@ static void vrl_resume_timer_cb(uv_timer_t *timer)
 	if (st->await_http) {
 		ready = vrl_http_cache_is_ready(st->http_url);
 		if (!ready && now < st->dns_deadline_ms) {
+			/* DNS may have landed since kickoff — retry oneshot connect. */
+			vrl_http_try_connect(st->http_url);
 			uv_mutex_unlock(&vn->lock);
 			return;
 		}

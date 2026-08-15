@@ -133,12 +133,15 @@ resolver cache so local URLs like `http://127.0.0.1:8765/...` do not stall.
 The pause deadline is at least 10s (or `dns_timeout` if larger). Reuses
 `dns_timeout` / `dns_poll` for the await timer.
 
-Timing metrics (system namespace, same idea as DNS):
+Timing metrics (system namespace, same idea as DNS) — counted **once per
+`http_request()` call that returns a final answer** (warm cache hits included).
+Network awaits attribute wall-clock wait; pure cache hits use duration 0:
 
 - `vrl_http_requests_total{result="success|failure|timeout", method="GET"}`
 - `vrl_http_request_duration_seconds_sum{result=..., method="GET"}`
 
 Average latency = `duration_sum / requests_total` for a given `result`.
+Per-line script metrics (e.g. `apache_referer_json_total`) remain separate.
 
 #### Negative DNS cache (opt-in)
 

@@ -98,6 +98,8 @@ typedef struct vrl_stream {
 	int dns_force_null;                /* next lookup of (dns_name,rrtype) returns null (timeout) */
 	int await_http;                    /* 1 = paused on http_request, 0 = paused on DNS */
 	int http_force_null;               /* next http_request of http_url returns null (timeout) */
+	int http_waited;                   /* this call suspended on HTTP; attribute wait duration */
+	uint64_t http_wait_start_ms;       /* uv_now when http_request suspended */
 	char dns_name[VRL_DNS_KEY_MAX];    /* query name awaited (host, or *.arpa for PTR) */
 	char http_url[2048];               /* URL awaited by http_request */
 	uint16_t dns_rrtype;               /* rrtype awaited (A / PTR) */
@@ -139,6 +141,7 @@ void vrl_host_builtins_init(void);
 void vrl_http_builtins_init(void);
 int  vrl_http_cache_is_ready(const char *url);
 void vrl_http_cache_force_ready_null(const char *url);
+void vrl_http_try_connect(const char *url);
 void vrl_http_metric(const char *result, uint64_t start_ms, uint64_t now_ms);
 /* Build a reverse-DNS query name for an IPv4/IPv6 literal:
  *   "1.2.3.4"  -> "4.3.2.1.in-addr.arpa"

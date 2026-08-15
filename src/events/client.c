@@ -23,6 +23,19 @@ extern aconf* ac;
 void tcp_connected(uv_connect_t* req, int status);
 void tcp_client_close(uv_handle_t *handle);
 void tcp_client_shutdown(uv_shutdown_t *req, int status);
+
+/* Notify oneshot/parser when the TCP session ends with no HTTP body
+ * (connect refused, idle timeout, etc.). Without this, handlers like
+ * vrl_http never run and VRL waits the full await deadline. */
+static void tcp_client_notify_handler_empty(context_arg *carg)
+{
+	if (!carg || carg->parsed || !carg->parser_handler)
+		return;
+	carg->parsed = 1;
+	carg->last_http_code = 0;
+	void (*handler)(char *, size_t, context_arg *) = carg->parser_handler;
+	handler("", 0, carg);
+}
 void tcp_client_repeat_period(uv_timer_t *timer);
 void unix_client_repeat_period(uv_timer_t *timer);
 
@@ -405,6 +418,9 @@ void tls_connected(uv_connect_t* req, int status)
 	if (status < 0) {
 		ok = 0;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		carglog(carg, L_INFO, "tls client connect failed key %s host %s: %s\n",
+			carg->key ? carg->key : "?", carg->host, uv_strerror(status));
+		tcp_client_notify_handler_empty(carg);
 		tcp_client_closed((uv_handle_t*)&carg->client);
 		return;
 	}
@@ -433,6 +449,10 @@ void tcp_connected(uv_connect_t* req, int status)
 	{
 		ok = 0;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		carglog(carg, L_INFO, "tcp client connect failed key %s host %s port %s: %s\n",
+			carg->key ? carg->key : "?", carg->host, carg->port, uv_strerror(status));
+		tcp_client_notify_handler_empty(carg);
+		tcp_client_close((uv_handle_t *)&carg->client);
 		return;
 	}
 
@@ -479,8 +499,12 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
-	if (!carg->parsed && carg->full_body->l)
-		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+	if (!carg->parsed) {
+		if (carg->full_body && carg->full_body->l)
+			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+		else
+			tcp_client_notify_handler_empty(carg);
+	}
 	tcp_client_close((uv_handle_t *)&carg->client);
 
 	if ((carg->proto == APROTO_HTTP) || (carg->proto == APROTO_HTTPS))
@@ -498,6 +522,15 @@ void tcp_client_connect(void *arg)
 		return;
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
+
+	/* Resolve before locking / allocating handles. A DNS miss must leave the
+	 * carg unlocked so the crawl (or VRL HTTP poll) can retry once the A
+	 * record lands — same pattern as udp_client_connect. Previously lock=1
+	 * was set first, so oneshots to unresolved hostnames never connected. */
+	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
+	if (!data)
+		return;
+
 	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
@@ -531,10 +564,6 @@ void tcp_client_connect(void *arg)
 			return;
 		}
 	}
-
-	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
-	if (!data)
-		return;
 
 	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
 	if (addr_ret) {
