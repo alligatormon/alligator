@@ -202,6 +202,9 @@ int vrl_push(json_t *cfg)
 	vn->http_negative_ttl_ms = vrl_json_duration_ms(cfg, "http_negative_ttl",
 							"http_negative_ttl_ms");
 
+	/* Backpressure: cap records buffered while paused on async DNS/HTTP. */
+	vn->queue_max = vrl_json_u64(cfg, "queue_max");
+
 	char *ml_err = NULL;
 	if (!parse_multiline(cfg, vn, &ml_err)) {
 		glog(L_ERROR, "vrl_push: %s\n", ml_err ? ml_err : "multiline error");

@@ -68,6 +68,11 @@ typedef struct vrl_node {
 	uint64_t http_ttl_ms;
 	uint64_t http_negative_ttl_ms;
 
+	/* Max records buffered while a stream is paused on async DNS/HTTP. Beyond
+	 * this the newest record is dropped (backpressure) to bound memory during a
+	 * slow/unreachable resolution. 0 uses the built-in default. */
+	uint64_t queue_max;
+
 	uv_mutex_t lock;
 	tommy_node node;
 } vrl_node;
@@ -76,6 +81,9 @@ typedef struct vrl_node {
 #define VRL_DNS_DEFAULT_TIMEOUT_MS 2000
 #define VRL_DNS_DEFAULT_POLL_MS 50
 #define VRL_DNS_DEFAULT_NEGATIVE_CACHE_MAX 100000
+
+/* Max records buffered per stream while paused on async DNS/HTTP (drop-newest). */
+#define VRL_DEFAULT_QUEUE_MAX 100000
 
 /* http_request defaults (see vrl_http.c). */
 #define VRL_HTTP_DEFAULT_TIMEOUT_MS 10000
@@ -133,6 +141,8 @@ typedef struct vrl_stream {
 	size_t q_head;
 	size_t q_len;
 	size_t q_cap;
+	uint64_t queue_max;                /* max buffered records while paused (0 = default) */
+	int q_dropping;                    /* latched while dropping, to rate-limit the warning */
 
 	uv_timer_t *resume_timer;          /* owned; poll for resolution */
 

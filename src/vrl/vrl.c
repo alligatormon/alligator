@@ -432,6 +432,7 @@ static vrl_stream *vrl_stream_ensure(context_arg *carg, vrl_node *vn)
 	st->http_timeout_ms = vn->http_timeout_ms ? vn->http_timeout_ms : VRL_HTTP_DEFAULT_TIMEOUT_MS;
 	st->dns_poll_ms = vn->dns_poll_ms ? vn->dns_poll_ms : VRL_DNS_DEFAULT_POLL_MS;
 	st->dns_negative_ttl_ms = vn->dns_negative_ttl_ms; /* 0 = disabled */
+	st->queue_max = vn->queue_max ? vn->queue_max : VRL_DEFAULT_QUEUE_MAX;
 	/* Reachable from dns_lookup/reverse_dns builtins as a->ctx->host. */
 	vrl_ctx_set_host(st->ctx, st);
 	vrl_apply_node_multiline(carg, vn);
@@ -500,6 +501,29 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 
 static void vrl_stream_enqueue(vrl_stream *st, const char *record, size_t len)
 {
+	/* Backpressure: bound how many records we buffer while paused on async
+	 * DNS/HTTP. Drop the newest arrival (preserving the order of what is
+	 * already queued) and account for it, so a slow/unreachable resolution
+	 * cannot grow memory without limit. */
+	if (st->queue_max && (st->q_len - st->q_head) >= st->queue_max) {
+		if (ac && ac->system_carg) {
+			uint64_t one = 1;
+			metric_update_labels2("vrl_suspend_queue_dropped_total", &one, DATATYPE_UINT,
+					      ac->system_carg,
+					      "name", (st->vn && st->vn->name) ? st->vn->name : "?",
+					      "waiting", st->await_http ? "http" : "dns");
+		}
+		if (!st->q_dropping) {
+			st->q_dropping = 1;
+			carglog(st->carg, L_ERROR,
+				"vrl: suspend queue full (%" PRIu64 " records) while awaiting %s '%s'; "
+				"dropping records until it drains\n",
+				st->queue_max, st->await_http ? "http" : "dns",
+				st->await_http ? st->http_url : st->dns_name);
+		}
+		return;
+	}
+
 	if (st->q_len == st->q_cap) {
 		/* Reclaim already-consumed slots before growing. */
 		if (st->q_head) {
@@ -545,6 +569,7 @@ static int vrl_stream_dequeue(vrl_stream *st, char **data, size_t *len)
 	if (st->q_head >= st->q_len) {
 		st->q_head = 0;
 		st->q_len = 0;
+		st->q_dropping = 0; /* drained: re-arm the "queue full" warning */
 	}
 	return 1;
 }
