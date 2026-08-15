@@ -48,7 +48,8 @@ typedef struct vrl_node {
 	uint8_t ml_enabled;
 
 	/* Async DNS glue (dns_lookup / reverse_dns): how long a record may pause
-	 * waiting for a first-sight resolution, and how often to re-check cache. */
+	 * waiting for a first-sight resolution, and how often to re-check cache.
+	 * Config accepts human units (dns_timeout 2s) or *_ms integer aliases. */
 	uint64_t dns_timeout_ms;
 	uint64_t dns_poll_ms;
 
@@ -92,13 +93,16 @@ typedef struct vrl_stream {
 	context_arg *carg;
 	int ok;
 
-	/* --- async DNS suspend state --- */
-	int dns_suspended;                 /* stream paused waiting for a resolution */
+	/* --- async DNS / HTTP suspend state --- */
+	int dns_suspended;                 /* stream paused waiting for DNS or HTTP */
 	int dns_force_null;                /* next lookup of (dns_name,rrtype) returns null (timeout) */
+	int await_http;                    /* 1 = paused on http_request, 0 = paused on DNS */
+	int http_force_null;               /* next http_request of http_url returns null (timeout) */
 	char dns_name[VRL_DNS_KEY_MAX];    /* query name awaited (host, or *.arpa for PTR) */
+	char http_url[2048];               /* URL awaited by http_request */
 	uint16_t dns_rrtype;               /* rrtype awaited (A / PTR) */
 	uint64_t dns_deadline_ms;          /* uv_now() deadline for the current wait */
-	uint64_t dns_timeout_ms;           /* copied from vn (or default) */
+	uint64_t dns_timeout_ms;           /* copied from vn (or default); also used for HTTP */
 	uint64_t dns_poll_ms;              /* copied from vn (or default) */
 	uint64_t dns_negative_ttl_ms;      /* copied from vn; 0 = negative cache off */
 
@@ -129,9 +133,13 @@ int vrl_push(json_t *cfg);
 void vrl_handler(char *metrics, size_t size, context_arg *carg);
 void vrl_stream_free(context_arg *carg);
 
-/* Register alligator host builtins (dns_lookup, reverse_dns) into avrl. Called
- * once from vrl_engine_init() after vrl_stdlib_init(). */
+/* Register alligator host builtins (dns_lookup, reverse_dns, http_request)
+ * into avrl. Called once from vrl_engine_init() after vrl_stdlib_init(). */
 void vrl_host_builtins_init(void);
+void vrl_http_builtins_init(void);
+int  vrl_http_cache_is_ready(const char *url);
+void vrl_http_cache_force_ready_null(const char *url);
+void vrl_http_metric(const char *result, uint64_t start_ms, uint64_t now_ms);
 /* Build a reverse-DNS query name for an IPv4/IPv6 literal:
  *   "1.2.3.4"  -> "4.3.2.1.in-addr.arpa"
  *   "2001:db8::1" -> nibble-reversed "...ip6.arpa"

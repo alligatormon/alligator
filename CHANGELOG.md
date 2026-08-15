@@ -1,7 +1,9 @@
 Changelog
 
 ## [unreleased]
-- VRL: opt-in negative DNS cache for `dns_lookup` / `reverse_dns` (`dns_negative_ttl_ms`, `dns_negative_cache_max`). Documented in `doc/vrl/README.md`.
+- VRL: `http_request` emits timing metrics `vrl_http_requests_total` and `vrl_http_request_duration_seconds_sum` (`result=success|failure|timeout`).
+- VRL: add host builtin `http_request(url)` → `{body, status}` with async suspend/resume (same model as `dns_lookup`). Used to fetch Referer URLs from Apache logs and `parse_json` the body.
+- VRL: opt-in negative DNS cache for `dns_lookup` / `reverse_dns` (`dns_negative_ttl` / `dns_negative_ttl_ms`, `dns_negative_cache_max`). Duration fields accept human units (`2s`, `2000ms`, …). Documented in `doc/vrl/README.md`.
 - Remove embedded lang interpreters (lua, mruby, duktape). `lang` supports only shared libraries (`lang so` + `modules`). Drop Conan deps `lua` and `duktape`, and the `src/external/mruby` submodule.
 
 ## [1.14.0] - 07.07.2021

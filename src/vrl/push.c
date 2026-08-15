@@ -1,11 +1,52 @@
 #include "vrl/type.h"
 #include "common/logs.h"
+#include "common/units.h"
 #include "external/amtail/file.h"
 #include "main.h"
 #include <stdlib.h>
 #include <string.h>
 
 extern aconf *ac;
+
+/* Duration from JSON: integer/real = milliseconds; string = human range
+ * ("2s", "2000ms", "1m", bare number = seconds) via get_ms_from_human_range.
+ * Tries key then key_alt (e.g. "dns_timeout" then "dns_timeout_ms"). */
+static uint64_t vrl_json_duration_ms(json_t *cfg, const char *key, const char *key_alt)
+{
+	json_t *j = json_object_get(cfg, key);
+	if (!j && key_alt)
+		j = json_object_get(cfg, key_alt);
+	if (!j)
+		return 0;
+
+	int64_t v = 0;
+	int t = json_typeof(j);
+	if (t == JSON_STRING)
+		v = get_ms_from_human_range(json_string_value(j), json_string_length(j));
+	else if (t == JSON_REAL)
+		v = (int64_t)json_real_value(j);
+	else if (t == JSON_INTEGER)
+		v = json_integer_value(j);
+	return v > 0 ? (uint64_t)v : 0;
+}
+
+/* Count / size: integer, or numeric string (plain config always emits strings). */
+static uint64_t vrl_json_u64(json_t *cfg, const char *key)
+{
+	json_t *j = json_object_get(cfg, key);
+	if (!j)
+		return 0;
+
+	int64_t v = 0;
+	int t = json_typeof(j);
+	if (t == JSON_STRING)
+		v = (int64_t)strtoull(json_string_value(j), NULL, 10);
+	else if (t == JSON_REAL)
+		v = (int64_t)json_real_value(j);
+	else if (t == JSON_INTEGER)
+		v = json_integer_value(j);
+	return v > 0 ? (uint64_t)v : 0;
+}
 
 static char *read_script_file(const char *path, size_t *out_len)
 {
@@ -145,21 +186,15 @@ int vrl_push(json_t *cfg)
 	if (json_is_string(jkey) && json_string_value(jkey)[0])
 		vn->key = strdup(json_string_value(jkey));
 
-	/* Async DNS glue tuning (dns_lookup / reverse_dns), optional. */
-	json_t *jdns_timeout = json_object_get(cfg, "dns_timeout_ms");
-	if (json_is_integer(jdns_timeout) && json_integer_value(jdns_timeout) > 0)
-		vn->dns_timeout_ms = (uint64_t)json_integer_value(jdns_timeout);
-	json_t *jdns_poll = json_object_get(cfg, "dns_poll_ms");
-	if (json_is_integer(jdns_poll) && json_integer_value(jdns_poll) > 0)
-		vn->dns_poll_ms = (uint64_t)json_integer_value(jdns_poll);
-	/* Negative cache: dns_negative_ttl_ms > 0 enables it; dns_negative_cache_max
-	 * bounds distinct remembered names (0 -> default). */
-	json_t *jdns_negttl = json_object_get(cfg, "dns_negative_ttl_ms");
-	if (json_is_integer(jdns_negttl) && json_integer_value(jdns_negttl) > 0)
-		vn->dns_negative_ttl_ms = (uint64_t)json_integer_value(jdns_negttl);
-	json_t *jdns_negmax = json_object_get(cfg, "dns_negative_cache_max");
-	if (json_is_integer(jdns_negmax) && json_integer_value(jdns_negmax) > 0)
-		vn->dns_negative_cache_max = (uint64_t)json_integer_value(jdns_negmax);
+	/* Async DNS glue (dns_lookup / reverse_dns). Durations accept human units
+	 * (ms/s/m/h/d/w) as strings, or integers as milliseconds. Aliases without
+	 * the _ms suffix are preferred in plain config (dns_timeout 2s;). */
+	vn->dns_timeout_ms = vrl_json_duration_ms(cfg, "dns_timeout", "dns_timeout_ms");
+	vn->dns_poll_ms = vrl_json_duration_ms(cfg, "dns_poll", "dns_poll_ms");
+	/* Negative cache: ttl > 0 enables it; cache_max bounds distinct names. */
+	vn->dns_negative_ttl_ms = vrl_json_duration_ms(cfg, "dns_negative_ttl",
+						       "dns_negative_ttl_ms");
+	vn->dns_negative_cache_max = vrl_json_u64(cfg, "dns_negative_cache_max");
 
 	char *ml_err = NULL;
 	if (!parse_multiline(cfg, vn, &ml_err)) {

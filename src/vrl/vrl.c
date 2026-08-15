@@ -460,12 +460,17 @@ static void vrl_run_record(vrl_stream *st, const char *record, size_t len)
 	vrl_ctx_set_event(st->ctx, vrl_event_from_message(record, len, vrl_source_hint(carg)));
 	vrl_status stt = vrl_exec(st->ctx, vn->prog->root);
 
-	/* A dns_lookup()/reverse_dns() first-sight cache miss paused the stream.
-	 * The record is incomplete and MUST NOT be exported (side effects would
-	 * duplicate on replay). The resume timer re-runs it once resolved. */
+	/* A dns_lookup()/reverse_dns()/http_request() first-sight cache miss
+	 * paused the stream. The record is incomplete and MUST NOT be exported
+	 * (side effects would duplicate on replay). The resume timer re-runs it
+	 * once resolved. */
 	if (st->dns_suspended) {
-		carglog(carg, L_INFO, "vrl: record paused awaiting DNS '%s' (rrtype %hu)\n",
-			st->dns_name, st->dns_rrtype);
+		if (st->await_http)
+			carglog(carg, L_INFO, "vrl: record paused awaiting HTTP '%s'\n",
+				st->http_url);
+		else
+			carglog(carg, L_INFO, "vrl: record paused awaiting DNS '%s' (rrtype %hu)\n",
+				st->dns_name, st->dns_rrtype);
 		return;
 	}
 
@@ -631,37 +636,56 @@ static void vrl_resume_timer_cb(uv_timer_t *timer)
 		return;
 	}
 
-	string *v = resolver_cache_lookup(st->dns_name, st->dns_rrtype);
 	uint64_t now = carg->loop ? uv_now(carg->loop) : 0;
+	int ready = 0;
 
-	if (!v && now < st->dns_deadline_ms) {
-		uv_mutex_unlock(&vn->lock);
-		return; /* keep polling */
-	}
-
-	if (!v) {
-		carglog(carg, L_ERROR,
-			"vrl: DNS resolution timeout after %" PRIu64 "ms for '%s' (rrtype %hu); "
-			"continuing with null\n",
-			st->dns_timeout_ms, st->dns_name, st->dns_rrtype);
-		vrl_dns_metric(get_str_by_rrtype(st->dns_rrtype), "timeout",
-			       now > st->dns_timeout_ms ? now - st->dns_timeout_ms : 0, now);
-		if (st->dns_negative_ttl_ms) {
-			char key[VRL_DNS_KEY_MAX];
-			snprintf(key, sizeof(key), "%s:%hu", st->dns_name, st->dns_rrtype);
-			vrl_dns_neg_add(key, now, st->dns_negative_ttl_ms,
-					st->vn ? st->vn->dns_negative_cache_max : 0);
+	if (st->await_http) {
+		ready = vrl_http_cache_is_ready(st->http_url);
+		if (!ready && now < st->dns_deadline_ms) {
+			uv_mutex_unlock(&vn->lock);
+			return;
 		}
-		st->dns_force_null = 1;
+		if (!ready) {
+			carglog(carg, L_ERROR,
+				"vrl: HTTP request timeout after %" PRIu64 "ms for '%s'; "
+				"continuing with null\n",
+				st->dns_timeout_ms, st->http_url);
+			vrl_http_cache_force_ready_null(st->http_url);
+			st->http_force_null = 1;
+		}
+	} else {
+		string *v = resolver_cache_lookup(st->dns_name, st->dns_rrtype);
+		ready = (v != NULL);
+		if (!ready && now < st->dns_deadline_ms) {
+			uv_mutex_unlock(&vn->lock);
+			return; /* keep polling */
+		}
+		if (!ready) {
+			carglog(carg, L_ERROR,
+				"vrl: DNS resolution timeout after %" PRIu64 "ms for '%s' (rrtype %hu); "
+				"continuing with null\n",
+				st->dns_timeout_ms, st->dns_name, st->dns_rrtype);
+			vrl_dns_metric(get_str_by_rrtype(st->dns_rrtype), "timeout",
+				       now > st->dns_timeout_ms ? now - st->dns_timeout_ms : 0, now);
+			if (st->dns_negative_ttl_ms) {
+				char key[VRL_DNS_KEY_MAX];
+				snprintf(key, sizeof(key), "%s:%hu", st->dns_name, st->dns_rrtype);
+				vrl_dns_neg_add(key, now, st->dns_negative_ttl_ms,
+						st->vn ? st->vn->dns_negative_cache_max : 0);
+			}
+			st->dns_force_null = 1;
+		}
 	}
 
 	st->dns_suspended = 0;
+	st->await_http = 0;
 	vrl_stream_drain(st);
 
 	if (!st->dns_suspended) {
 		/* Fully caught up: retire the timer and clear any timeout latch. */
 		uv_timer_stop(timer);
 		st->dns_force_null = 0;
+		st->http_force_null = 0;
 	}
 	/* else: vrl_stream_drain() re-armed the timer for a new resolution. */
 

@@ -38,6 +38,7 @@
 #include "metric/namespace.h"
 #include "x509/type.h"
 #include "cluster/type.h"
+#include "vrl/type.h"
 #include "puppeteer/puppeteer.h"
 #include "chromecdp/chromecdp.h"
 #include "grok/type.h"
@@ -374,6 +375,63 @@ void test_units_human_ranges()
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 123456, get_sec_from_human_range("123456", strlen("123456")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 75, get_sec_from_human_range("1m15s", strlen("1m15s")));
+}
+
+/* Plain config + vrl_push: DNS duration fields accept human units (and *_ms ints). */
+void test_vrl_dns_duration_config()
+{
+    json_error_t error;
+    const char *frag =
+	"vrl { name ut_dns_units; program \".x = 1\"; "
+	"dns_timeout 2s; dns_poll 50ms; dns_negative_ttl 30s; "
+	"dns_negative_cache_max 50000; }\n";
+    string *s = string_new();
+    string_cat(s, (char *)frag, strlen(frag));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_t *part = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+    json_t *arr = json_object_get(part, "vrl");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, arr);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(arr) >= 1);
+    json_t *vn_j = json_array_get(arr, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "2s",
+			json_string_value(json_object_get(vn_j, "dns_timeout")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "50ms",
+			json_string_value(json_object_get(vn_j, "dns_poll")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "30s",
+			json_string_value(json_object_get(vn_j, "dns_negative_ttl")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "50000",
+			json_string_value(json_object_get(vn_j, "dns_negative_cache_max")));
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, vrl_push(vn_j));
+    vrl_node *vn = vrl_node_get("ut_dns_units");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, vn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2000, (int)vn->dns_timeout_ms);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 50, (int)vn->dns_poll_ms);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 30000, (int)vn->dns_negative_ttl_ms);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 50000, (int)vn->dns_negative_cache_max);
+    vrl_del("ut_dns_units");
+    json_decref(part);
+
+    /* JSON integer *_ms aliases remain milliseconds. */
+    json_t *cfg = json_loads(
+	"{\"name\":\"ut_dns_ms\",\"program\":\".x = 1\","
+	"\"dns_timeout_ms\":2500,\"dns_negative_ttl_ms\":15000,"
+	"\"dns_negative_cache_max\":9}",
+	0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, vrl_push(cfg));
+    vn = vrl_node_get("ut_dns_ms");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, vn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2500, (int)vn->dns_timeout_ms);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 15000, (int)vn->dns_negative_ttl_ms);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 9, (int)vn->dns_negative_cache_max);
+    vrl_del("ut_dns_ms");
+    json_decref(cfg);
 }
 
 void test_mkdirp_helpers()

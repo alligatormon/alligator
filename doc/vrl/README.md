@@ -18,7 +18,7 @@ Current branch uses git submodule `src/external/avrl`.
 ```
 vrl {
     name app_logs;
-    script /etc/alligator/vrl/app.vrl;
+    script /etc/vrl/app.vrl;
     # or: program ".status = upcase(.message)";
 }
 
@@ -73,7 +73,7 @@ On the `vrl` program (JSON API):
 Legacy single-pattern form still works: `{ "mode": "halt_before", "pattern": "^\\S" }`
 (uses the pattern for both start and condition).
 
-JSON API key: `"vrl": [ { "name": "...", "script"|"program": "...", "multiline": {...}, "dns_timeout_ms": …, "dns_negative_ttl_ms": … } ]`
+JSON API key: `"vrl": [ { "name": "...", "script"|"program": "...", "multiline": {...}, "dns_timeout": "2s", "dns_negative_ttl": "30s" } ]`
 
 ### Async DNS: `dns_lookup` / `reverse_dns`
 
@@ -88,7 +88,7 @@ alligator keeps serving the rest of the process.
 
 On a **cache miss**, the builtin starts that one-shot async resolution, returns
 `null`, and pauses **this** stream. `vrl_run_record()` buffers the record and a
-poll timer replays it when the answer lands (or after `dns_timeout_ms`, replays
+poll timer replays it when the answer lands (or after `dns_timeout`, replays
 once with `null` via `dns_force_null`). Further records from the same source are
 queued until then, so **log lines for that stream are processed only after a
 full resolution completes or a (positive/negative) cache hit** — order is
@@ -103,18 +103,48 @@ a small set of hostnames tend to warm the cache quickly. Prefer negative cache
 and/or avoid unconditional `reverse_dns` on high-cardinality IP fields when
 latency matters.
 
-| Field | Default | Meaning |
-|-------|---------|---------|
-| `dns_timeout_ms` | `2000` | How long a record may wait for a first-sight resolution before the timeout path |
-| `dns_poll_ms` | `50` | How often the resume timer re-checks the cache |
-| `dns_negative_ttl_ms` | `0` (off) | Opt-in negative cache TTL (see below) |
-| `dns_negative_cache_max` | `100000` | Cap on distinct remembered bad names |
+| Field | Alias | Default | Meaning |
+|-------|-------|---------|---------|
+| `dns_timeout` | `dns_timeout_ms` | `2s` (2000 ms) | How long a record may wait for a first-sight resolution before the timeout path |
+| `dns_poll` | `dns_poll_ms` | `50ms` | How often the resume timer re-checks the cache |
+| `dns_negative_ttl` | `dns_negative_ttl_ms` | `0` (off) | Opt-in negative cache TTL (see below) |
+| `dns_negative_cache_max` | — | `100000` | Cap on distinct remembered bad names |
+
+**Duration values** use the same rules as other alligator time fields
+([configuration.md](../configuration.md#available-units-for-time-data-in-configuration-file)):
+
+- JSON/plain **string** with units: `ms`, `s`, `m`, `h`, `d`, `w` (e.g. `"2s"`, `"2000ms"`, `"30s"`). A bare number in a string is treated as **seconds**.
+- JSON **integer** / **real**: milliseconds (so `2000` == `"2000ms"`).
+- Plain config always yields strings, so prefer an explicit unit: `dns_timeout 2s;` rather than a bare number.
+
+### Async HTTP: `http_request`
+
+> **Host builtin (alligator glue)** in `src/vrl/vrl_http.c`. Same suspend/resume
+> model as DNS: cache miss → oneshot GET → pause stream → replay with result.
+
+```
+resp = http_request(.referer)   # null while pending / on failure
+# resp.body (string), resp.status (int)
+obj, err = parse_json(resp.body)
+```
+
+Uses `aggregator_oneshot` under the hood. IP-literal hosts are seeded into the
+resolver cache so local URLs like `http://127.0.0.1:8765/...` do not stall.
+The pause deadline is at least 10s (or `dns_timeout` if larger). Reuses
+`dns_timeout` / `dns_poll` for the await timer.
+
+Timing metrics (system namespace, same idea as DNS):
+
+- `vrl_http_requests_total{result="success|failure|timeout", method="GET"}`
+- `vrl_http_request_duration_seconds_sum{result=..., method="GET"}`
+
+Average latency = `duration_sum / requests_total` for a given `result`.
 
 #### Negative DNS cache (opt-in)
 
 **Problem it solves:** previously a name that failed or timed out was never
 remembered, so every subsequent log line with that bad domain triggered a fresh
-async resolution and a full `dns_timeout_ms` suspend of the pipeline. With the
+async resolution and a full `dns_timeout` suspend of the pipeline. With the
 negative cache enabled, failures/timeouts are memoized for a configurable window.
 
 **Lookup order** in `vrl_dns_common()`:
@@ -132,20 +162,34 @@ A negative entry is recorded when:
 When the entry's TTL lapses, the name is re-resolved. A short TTL re-resolves bad
 domains sooner; a longer one retries persistently-bad names less often.
 
-**Config** (per `vrl` node; JSON API / conf dump):
+**Plain config:**
+
+```
+vrl {
+    name postfix;
+    script /etc/vrl/postfix.vrl;
+    dns_timeout 2s;
+    dns_negative_ttl 30s;
+    dns_negative_cache_max 50000;
+}
+```
+
+**JSON API:**
 
 ```json
 {
   "name": "postfix",
-  "script": "/etc/alligator/vrl/postfix.vrl",
-  "dns_timeout_ms": 2000,
-  "dns_negative_ttl_ms": 30000,
+  "script": "/etc/vrl/postfix.vrl",
+  "dns_timeout": "2s",
+  "dns_negative_ttl": "30s",
   "dns_negative_cache_max": 50000
 }
 ```
 
-- `dns_negative_ttl_ms` — enable and set the negative TTL in ms. `0` (default)
-  disables it and preserves the old suspend-each-time behavior.
+Integer milliseconds still work (`"dns_timeout_ms": 2000`, `"dns_negative_ttl_ms": 30000`).
+
+- `dns_negative_ttl` — enable and set the negative TTL. `0` / omitted disables it
+  and preserves the old suspend-each-time behavior.
 - `dns_negative_cache_max` — max distinct remembered names (default `100000`) to
   bound memory. When full, new bad names fall back to suspend-each-time.
 
@@ -195,11 +239,11 @@ If you see **nothing** after appending to the log:
 5. Prefer a **script file** over inline `program` (quoting in plain config is easy to break):
 
 ```
-# /etc/alligator/vrl/app.vrl
+# /etc/vrl/app.vrl
 .metric = { "name": "lines_total", "value": 1 }
 
 # alligator.conf
-vrl { name app; script /etc/alligator/vrl/app.vrl; }
+vrl { name app; script /etc/vrl/app.vrl; }
 aggregate { vrl file:///var/log/app.log name=app log_level=info; }
 ```
 
@@ -293,7 +337,7 @@ Basename globs work on `file://` aggregates (see [aggregate.md](../aggregate.md#
 ```
 vrl {
     name postgresql_csv;
-    script /etc/alligator/vrl/postgresql_csv.vrl;
+    script /etc/vrl/postgresql_csv.vrl;
 }
 
 aggregate {

@@ -2586,6 +2586,7 @@ static void run_helpers_and_events_suites(void)
     test_logs_helpers();
     test_log_channel_shipper_metrics();
     test_units_human_ranges();
+    test_vrl_dns_duration_config();
     test_mkdirp_helpers();
     test_dpkg_list_helpers();
     test_aggregator_helper_paths();

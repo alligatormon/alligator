@@ -441,4 +441,5 @@ void vrl_host_builtins_init(void)
 	vrl_dns_neg_init();
 	vrl_register("dns_lookup", fn_dns_lookup);
 	vrl_register("reverse_dns", fn_reverse_dns);
+	vrl_http_builtins_init();
 }

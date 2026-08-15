@@ -431,16 +431,16 @@ action {
 Query and other contexts that log via global `glog()` still use `log_dest` (the default channel).
 
 ## Available units for time data in configuration file:
-- ms
-- s
-- h
-- d
-- w
+- `ms` — milliseconds
+- `s` — seconds (bare numbers in a string are also seconds)
+- `m` — minutes
+- `h` — hours
+- `d` — days
+- `w` — weeks
 
-
-
-
-
+Examples: `timeout 5s;`, `period 1m;`, `dns_timeout 2s;`, `"ttl": "1h"`.
+JSON integers for millisecond fields are raw milliseconds (`2000` == `"2000ms"`).
+See also [vrl/README.md](vrl/README.md) for VRL DNS duration options.
 ## Comments in plain config
 The plain configuration parser supports both single-line and multiline comments:
 - `# comment text` for single-line comments.

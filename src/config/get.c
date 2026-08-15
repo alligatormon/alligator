@@ -444,6 +444,16 @@ void vrl_generate_conf(void *funcarg, void *arg)
 		json_array_object_insert(ctx, "program", json_string(vn->program));
 	if (vn->key)
 		json_array_object_insert(ctx, "key", json_string(vn->key));
+	if (vn->dns_timeout_ms)
+		json_array_object_insert(ctx, "dns_timeout", json_integer((json_int_t)vn->dns_timeout_ms));
+	if (vn->dns_poll_ms)
+		json_array_object_insert(ctx, "dns_poll", json_integer((json_int_t)vn->dns_poll_ms));
+	if (vn->dns_negative_ttl_ms)
+		json_array_object_insert(ctx, "dns_negative_ttl",
+					 json_integer((json_int_t)vn->dns_negative_ttl_ms));
+	if (vn->dns_negative_cache_max)
+		json_array_object_insert(ctx, "dns_negative_cache_max",
+					 json_integer((json_int_t)vn->dns_negative_cache_max));
 	if (vn->ml_enabled && vn->ml_start_pattern && vn->ml_condition_pattern) {
 		json_t *ml = json_object();
 		json_object_set_new(ml, "mode", json_string(alligator_ml_mode_to_str(vn->ml_mode)));
