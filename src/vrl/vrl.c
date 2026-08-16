@@ -834,11 +834,19 @@ void vrl_stream_free(context_arg *carg)
 	if (!carg || !carg->vrl_stream)
 		return;
 	vrl_stream *st = carg->vrl_stream;
+	vrl_node *vn = st->vn;
 
 	/* Only flush the multiline tail if we are not mid-pause (a paused stream
-	 * cannot complete records anyway; buffered work is discarded on free). */
-	if (carg->ml_lb_ready && !st->dns_suspended)
+	 * cannot complete records anyway; buffered work is discarded on free).
+	 * Hold vn->lock: flush runs the interpreter and mutates shared AST
+	 * literal refcounts. */
+	if (carg->ml_lb_ready && !st->dns_suspended) {
+		if (vn)
+			uv_mutex_lock(&vn->lock);
 		alligator_linebuf_flush(&carg->ml_lb, vrl_record_cb, st);
+		if (vn)
+			uv_mutex_unlock(&vn->lock);
+	}
 
 	vrl_stream_destroy(st);
 	carg->vrl_stream = NULL;
