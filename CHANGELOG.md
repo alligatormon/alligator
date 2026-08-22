@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Grok matching now uses PCRE 8 instead of Oniguruma. Drop Conan dep `oniguruma`. Capture names are sanitized to PCRE identifiers (`[process][name]` → `process_name`). Existing `%{PATTERN:field}` templates stay valid.
 - Vendor uvasyncawait as first-party sources under `src/uva/` (compiled into liballigator; no submodule or sibling checkout).
 - `aggregator_oneshot()` starts the transport immediately (TCP/TLS, unix, UDP, exec, file, PostgreSQL, MySQL, Cassandra). IPv4 literals skip DNS; hostname oneshots connect as soon as the A record lands instead of waiting for the crawl timer.
 - TLS/x509: CRL (local file) and OCSP (AIA or `tls_ocsp_responder`) revocation checks for TCP client, mTLS entrypoint, and the filesystem x509 collector. Config: `tls_verify`, `tls_crl`, `tls_ocsp*`, `tls_revocation_mode`, `tls_ocsp_fetch`, `tls_verify_client`. Metrics: `x509_cert_valid{reason="revoked"}`, `x509_cert_revocation_status`, `x509_cert_ocsp_next_update`, `ocsp_requests_total`.

@@ -11,8 +11,10 @@ void grok_node_del(grok_node *gn)
 		free(gn->value);
 	if (gn->match)
 		string_free(gn->match);
+	if (gn->pcre_extra)
+		pcre_free_study(gn->pcre_extra);
 	if (gn->reg)
-		onig_free(gn->reg);
+		pcre_free(gn->reg);
 	if (gn->expanded_match)
 		string_free(gn->expanded_match);
 	if (gn->labels)

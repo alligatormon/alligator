@@ -50,7 +50,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 find_package(libuuid REQUIRED)
 find_package(xxHash REQUIRED)
-find_package(oniguruma REQUIRED)
 find_package(RdKafka QUIET)
 if(NOT RdKafka_FOUND)
 	pkg_check_modules(RDKAFKA REQUIRED rdkafka)
@@ -617,9 +616,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 set(ALLIGATOR_COMMON_LIBS
 	# Use pcre::libpcre (not pcre::pcre): the umbrella also links libpcreposix,
-	# which collides with oniguruma's POSIX regcomp/regexec/regfree on Linux.
+	# whose POSIX regcomp/regexec/regfree collide with libc on Linux.
 	jansson::jansson pcre::libpcre PostgreSQL::PostgreSQL libuuid::libuuid
-	xxHash::xxhash ${LIBUV_DRIVER} oniguruma::onig
+	xxHash::xxhash ${LIBUV_DRIVER}
 	RdKafka::rdkafka ${ALLIGATOR_EXTERNAL_STATIC_LIBS} avrl_static
 )
 if(TARGET maxminddb::maxminddb)
@@ -714,10 +713,10 @@ set_target_properties(${COMMON_TESTS} PROPERTIES
 ENDIF(CMAKE_C_COMPILER_ID MATCHES "Clang")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a libonig.a)
+	target_link_libraries(${HEAD} ${COMMON} uv_a libm.a kvm util geom libdevstat.a libjansson.a libpcre.a libjail.a picohttpparser.a libpq.a libpgcommon.a libpgport.a libxxhash.a)
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	target_link_libraries(${HEAD} ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL)

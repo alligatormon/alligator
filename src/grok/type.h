@@ -1,5 +1,5 @@
 #pragma once
-#include <oniguruma.h>
+#include <pcre.h>
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
 #include <jansson.h>
@@ -27,7 +27,12 @@ typedef struct grok_node
 	char *value;
 	string *match;
 	string *expanded_match;
-	regex_t *reg;
+	pcre *reg;
+	pcre_extra *pcre_extra;
+	int capturecount;
+	int namecount;
+	int name_entry_size;
+	const char *nametable;
 	alligator_ht *labels;
 
 	tommy_node node;
@@ -76,3 +81,5 @@ int grok_compare(const void* arg, const void* obj);
 int grokds_compare(const void* arg, const void* obj);
 int grok_patterns_init();
 int grok_multimetric_hash_compare(const void* arg, const void* obj);
+void grok_expand(string *src, string **dst, grok_pattern *patterns);
+void grok_sanitize_capture_name(const char *in, char *out, size_t outsz);

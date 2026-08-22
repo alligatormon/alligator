@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <strings.h>
+#include <pcre.h>
 #include "main.h"
 #include "common/aggregator.h"
 #include "dstructures/tommy.h"
@@ -18,9 +21,86 @@
 
 extern aconf *ac;
 
+#ifndef PCRE_UTF8
+#define PCRE_UTF8 0
+#endif
+#ifndef PCRE_UCP
+#define PCRE_UCP 0
+#endif
+#ifndef PCRE_DUPNAMES
+#define PCRE_DUPNAMES 0
+#endif
+
+#define GROK_PCRE_OPTIONS (PCRE_UTF8 | PCRE_UCP | PCRE_DUPNAMES)
+
+void grok_sanitize_capture_name(const char *in, char *out, size_t outsz)
+{
+	if (!out || outsz < 2)
+		return;
+	out[0] = '\0';
+	if (!in || !*in) {
+		out[0] = '_';
+		out[1] = '\0';
+		return;
+	}
+
+	size_t in_len = strlen(in);
+	const char *end = in + in_len;
+	const char *colon = strrchr(in, ':');
+	if (colon && colon != in) {
+		const char *type = colon + 1;
+		if (!strcasecmp(type, "int") || !strcasecmp(type, "float") || !strcasecmp(type, "string"))
+			end = colon;
+	}
+
+	size_t o = 0;
+	int last_us = 0;
+	for (const char *p = in; p < end && o + 1 < outsz; ++p) {
+		unsigned char c = (unsigned char)*p;
+		if (c == '[')
+			continue;
+		if (c == ']') {
+			if (p + 1 < end && o && !last_us) {
+				out[o++] = '_';
+				last_us = 1;
+			}
+			continue;
+		}
+		if (c == '-' || c == '.' || c == '/' || c == ' ' || c == ':') {
+			if (o && !last_us) {
+				out[o++] = '_';
+				last_us = 1;
+			}
+			continue;
+		}
+		if (isalnum(c) || c == '_') {
+			if (o == 0 && isdigit(c)) {
+				out[o++] = '_';
+				if (o + 1 >= outsz)
+					break;
+			}
+			out[o++] = (char)c;
+			last_us = 0;
+			continue;
+		}
+		if (o && !last_us) {
+			out[o++] = '_';
+			last_us = 1;
+		}
+	}
+	while (o && out[o - 1] == '_')
+		--o;
+	if (!o) {
+		out[0] = '_';
+		out[1] = '\0';
+		return;
+	}
+	out[o] = '\0';
+}
+
 typedef struct grok_ctx_cb {
 	string *line;
-	OnigRegion *region;
+	int *ovector;
 	alligator_ht *lbl;
 	alligator_ht *splited_lbl_inherited;
 	alligator_ht **splited_lbl;
@@ -103,8 +183,11 @@ int expand_grok_pattern(char *src, string *dst_pass, grok_pattern_node *patterns
 				}
 			}
 
-			if (strlen(field) > 0 && !recursive_call)
-				string_sprintf(dst_pass, "(?<%s>%s)", field, regex);
+			if (strlen(field) > 0 && !recursive_call) {
+				char capture[64];
+				grok_sanitize_capture_name(field, capture, sizeof(capture));
+				string_sprintf(dst_pass, "(?<%s>%s)", capture, regex);
+			}
 			else
 				string_sprintf(dst_pass, "(?:%s)", regex);
 
@@ -145,26 +228,20 @@ int grok_multimetric_hash_compare(const void* arg, const void* obj)
 	return strcmp(s1, s2);
 }
 
-static int print_named_group(const UChar *name, const UChar *name_end, int ngroup_num, int *group_nums, regex_t *reg, void *arg)
+static int print_named_group(const char *name, size_t name_len, int beg, int end, void *arg)
 {
 	struct grok_ctx_cb *ctx = arg;
 
 	const char *line = ctx->line->s;
-	OnigRegion *region = ctx->region;
 
-	for (int i = 0; i < ngroup_num; i++) {
-		int gnum = group_nums[i];
-		if (region->beg[gnum] >= 0) {
-			int beg = region->beg[gnum];
-			int end = region->end[gnum];
+	if (beg >= 0) {
 			size_t line_len = ctx->line->l;
 			if (end < beg || (size_t)beg >= line_len)
-				continue;
+				return 0;
 			if ((size_t)end > line_len)
 				end = (int)line_len;
 			size_t key_len = (size_t)(end - beg);
 			char key[key_len + 1];
-			size_t name_len = name_end - name;
 			strlcpy(key, line + beg, key_len + 1);
 			char *mname = (char*)name;
 			grok_multimetric_node *gmm_node = NULL;
@@ -188,14 +265,14 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 				carglog(ctx->carg, L_TRACE, "\t>simple\n");
 				ctx->value_set = 1;
 				ctx->value = strtod(key, NULL);
-				continue;
+				return 0;
 			}
 			else if (!strncmp(mname, "__name__", 5)) {
 				carglog(ctx->carg, L_TRACE, "\t>metric with custom name\n");
 				ctx->value_set = 1;
 				ctx->value_set = 1;
 				strlcpy(ctx->metric_name, key, 255);
-				continue;
+				return 0;
 			}
 			// splited tags
 			else if (ctx->gds->gmm_splited_tags && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_tags, grok_multimetric_hash_compare, mname, hash))) {
@@ -218,7 +295,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 						string_tokens_free(st);
 					}
 				}
-				continue;
+				return 0;
 			}
 			// splited quantile
 			else if (ctx->gds->gmm_splited_quantile && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_quantile, grok_multimetric_hash_compare, mname, hash))) {
@@ -246,7 +323,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					}
 					ctx->splited_quantile_index++;
 				}
-				continue;
+				return 0;
 			}
 			// splited counter
 			else if (ctx->gds->gmm_splited_counter && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_counter, grok_multimetric_hash_compare, mname, hash))) {
@@ -275,7 +352,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					}
 					ctx->splited_counter_index++;
 				}
-				continue;
+				return 0;
 			} // splited bucket
 			else if (ctx->gds->gmm_splited_le && (gmm_node = alligator_ht_search(ctx->gds->gmm_splited_le, grok_multimetric_hash_compare, mname, hash))) {
 				carglog(ctx->carg, L_TRACE, "\t>splited_le\n");
@@ -302,7 +379,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					}
 					ctx->splited_le_index++;
 				}
-				continue;
+				return 0;
 			}
 			// quantile
 			else if (ctx->gds->gmm_quantile && (gmm_node = alligator_ht_search(ctx->gds->gmm_quantile, grok_multimetric_hash_compare, mname, hash))) {
@@ -321,7 +398,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					carglog(ctx->carg, L_TRACE,"\t\t>quantile secondary: %f\n", ctx->quantile_values[ctx->quantile_index]);
 				}
 				ctx->quantile_index++;
-				continue;
+				return 0;
 			}
 
 			// simple bucket
@@ -341,7 +418,7 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					carglog(ctx->carg, L_TRACE,"\t\t>le secondary: %f\n", ctx->le_values[ctx->le_index]);;
 				}
 				ctx->le_index++;
-				continue;
+				return 0;
 			}
 			// simple counter
 			else if (ctx->gds->gmm_counter && (gmm_node = alligator_ht_search(ctx->gds->gmm_counter, grok_multimetric_hash_compare, mname, hash))) {
@@ -360,12 +437,11 @@ static int print_named_group(const UChar *name, const UChar *name_end, int ngrou
 					carglog(ctx->carg, L_TRACE,"\t\t>counter secondary: %f\n", ctx->counter_values[ctx->counter_index]);
 				}
 				ctx->counter_index++;
-				continue;
+				return 0;
 			}
 			metric_label_value_validator_normalizer(key, key_len);
 			metric_name_normalizer(mname, name_len);
 			labels_hash_insert_nocache(ctx->lbl, mname, key);
-		}
 	}
 	return 0;
 }
@@ -382,23 +458,48 @@ void grok_handler_callback(void *funcarg, void* arg)
 	grok_ctx_cb *ctx = (grok_ctx_cb*)funcarg;
 	grok_node *gn = arg;
 
-	//regex_t *reg;
-	OnigErrorInfo einfo;
- 
 	if (!gn->reg) {
 		if (!gn->expanded_match) {
 			glog(L_ERROR, "Don't loaded grok patterns\n");
 			return;
 		}
-		int r = onig_new(&gn->reg, (UChar *)gn->expanded_match->s, (UChar *)(gn->expanded_match->s + gn->expanded_match->l), ONIG_OPTION_NONE, ONIG_ENCODING_UTF8, ONIG_SYNTAX_DEFAULT, &einfo);
-		if (r != ONIG_NORMAL) {
-			carglog(ctx->carg, L_ERROR, "Onig is not normal regex: '%s'\n", gn->expanded_match->s);
+		const char *pcreErrorStr = NULL;
+		int pcreErrorOffset = 0;
+		gn->reg = pcre_compile(gn->expanded_match->s, GROK_PCRE_OPTIONS, &pcreErrorStr, &pcreErrorOffset, NULL);
+		if (!gn->reg) {
+			pcreErrorStr = NULL;
+			gn->reg = pcre_compile(gn->expanded_match->s, PCRE_DUPNAMES, &pcreErrorStr, &pcreErrorOffset, NULL);
+		}
+		if (!gn->reg) {
+			carglog(ctx->carg, L_ERROR, "PCRE grok compile failed at %d: %s: '%s'\n",
+				pcreErrorOffset, pcreErrorStr ? pcreErrorStr : "unknown", gn->expanded_match->s);
 			return;
+		}
+		const char *studyErr = NULL;
+#ifdef PCRE_STUDY_JIT_COMPILE
+		gn->pcre_extra = pcre_study(gn->reg, PCRE_STUDY_JIT_COMPILE, &studyErr);
+#else
+		gn->pcre_extra = pcre_study(gn->reg, 0, &studyErr);
+#endif
+		if (studyErr)
+			carglog(ctx->carg, L_WARN, "PCRE grok study: %s\n", studyErr);
+		pcre_fullinfo(gn->reg, gn->pcre_extra, PCRE_INFO_CAPTURECOUNT, &gn->capturecount);
+		pcre_fullinfo(gn->reg, gn->pcre_extra, PCRE_INFO_NAMECOUNT, &gn->namecount);
+		pcre_fullinfo(gn->reg, gn->pcre_extra, PCRE_INFO_NAMEENTRYSIZE, &gn->name_entry_size);
+		{
+			char *nametable = NULL;
+			pcre_fullinfo(gn->reg, gn->pcre_extra, PCRE_INFO_NAMETABLE, &nametable);
+			gn->nametable = nametable;
 		}
 	}
 
-	ctx->region = onig_region_new();
-	int r = onig_search(gn->reg, (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), (UChar *)ctx->line->s, (UChar *)(ctx->line->s + ctx->line->l), ctx->region, ONIG_OPTION_NONE);
+	int ovecsize = (gn->capturecount + 1) * 3;
+	if (ovecsize < 30)
+		ovecsize = 30;
+	ctx->ovector = malloc(sizeof(int) * (size_t)ovecsize);
+	if (!ctx->ovector)
+		return;
+	int r = pcre_exec(gn->reg, gn->pcre_extra, ctx->line->s, (int)ctx->line->l, 0, 0, ctx->ovector, ovecsize);
 	carglog(ctx->carg, L_TRACE, "matching line len %zu (r: %d) line %.*s pattern %.*s\n", ctx->line->l, r, 80, ctx->line->s, 80, gn->expanded_match->s);
 
 	ctx->gn = gn;
@@ -412,7 +513,14 @@ void grok_handler_callback(void *funcarg, void* arg)
 		ctx->splited_quantile_index = 0;
 		ctx->splited_counter_index = 0;
 		ctx->splited_le_index = 0;
-		onig_foreach_name(gn->reg, print_named_group, ctx);
+		for (int i = 0; i < gn->namecount; i++) {
+			const unsigned char *entry = (const unsigned char *)gn->nametable + i * gn->name_entry_size;
+			int gnum = (entry[0] << 8) | entry[1];
+			const char *name = (const char *)(entry + 2);
+			if (gnum < 1 || gnum > gn->capturecount)
+				continue;
+			print_named_group(name, strlen(name), ctx->ovector[2 * gnum], ctx->ovector[2 * gnum + 1], ctx);
+		}
 		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_le); ++i) {
 			alligator_ht *hash = labels_dup(ctx->lbl);
 			carglog(ctx->carg, L_TRACE, "le adding metric: '%s' = %f\n", ctx->gds->le_names->str[i]->s, ctx->le_values[i]);
@@ -480,11 +588,10 @@ void grok_handler_callback(void *funcarg, void* arg)
 		}
 
 		metric_update(gn->name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
-	} else if (r == ONIG_MISMATCH) {
-	} else {
-		char s[ONIG_MAX_ERROR_MESSAGE_LEN];
-		onig_error_code_to_str((UChar* )s, r);
-		carglog(ctx->carg, L_TRACE, "matching line ERROR: %s\n", s);
+	} else if (r != PCRE_ERROR_NOMATCH) {
+		carglog(ctx->carg, L_TRACE, "matching line ERROR: pcre_exec %d\n", r);
+		free(ctx->ovector);
+		ctx->ovector = NULL;
 		return;
 	}
 
@@ -554,7 +661,8 @@ void grok_handler_callback(void *funcarg, void* arg)
 		ctx->splited_lbl_inherited = NULL;
 	}
 
-	onig_region_free(ctx->region, 1);
+	free(ctx->ovector);
+	ctx->ovector = NULL;
 }
 
 void grok_handler_initial_patterns(void *funcarg, void* arg)

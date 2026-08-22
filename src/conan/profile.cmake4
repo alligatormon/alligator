@@ -1,6 +1,6 @@
 # Hosts with CMake 4 (e.g. Ubuntu 26.04) cannot configure upstream recipes whose
-# cmake_minimum_required() is below 3.5 (oniguruma/6.9.9 uses 3.1). Force Conan
-# to supply CMake 3.x when building dependencies from source.
+# cmake_minimum_required() is below 3.5. Force Conan to supply CMake 3.x when
+# building dependencies from source.
 # See https://github.com/conan-io/conan-center-index/issues/26878
 include(default)
 

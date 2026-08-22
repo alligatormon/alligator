@@ -357,6 +357,7 @@ gld_done:
 #include "ht.h"
 #include "maglev.h"
 #include "dns.h"
+#include "grok.h"
 
 static void unit2_fixture_init(void)
 {
@@ -2554,6 +2555,7 @@ static void run_parser_suites(char **argv)
     api_test_parser_squid_info();
     api_test_parser_squid_fqdncache();
     api_test_parser_squid_mem();
+    test_grok_pcre_expand_and_match();
 }
 
 static void run_config_query_suites(char **argv)

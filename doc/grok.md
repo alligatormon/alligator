@@ -22,6 +22,12 @@ Plural: no
 
 A template used to match a log string. The captured fields are extracted and added as labels.
 
+Matching uses **PCRE 8** (the same engine as amtail / selectors). `%{PATTERN:field}`
+becomes a named group `(?<field>...)`. Capture names must be `[A-Za-z_][A-Za-z0-9_]*`.
+Alligator sanitizes Elastic-style names (`[process][name]`, `field:int`) to
+`process_name` / `field` before compile. Prefer writing PCRE-legal names in
+templates (`client_ip`, not `client-ip`).
+
 
 ## log\_channel\_out (transformed logs)
 When the aggregate/entrypoint sets `log_channel_out` and a line **matches**, Alligator
