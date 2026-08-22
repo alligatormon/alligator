@@ -442,7 +442,7 @@ deploy_ubuntu2604:
 
   - pip3 install --break-system-packages conan==2.26.1
   - conan profile detect --force
-  - conan install . --build=missing
+  - conan install . --build=missing -pr:a=conan/profile.cmake4
   - conan build external/
 
   - cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake -DCPACK_GENERATOR=DEB -DCMAKE_BUILD_TYPE=Release
