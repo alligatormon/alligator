@@ -7,7 +7,7 @@
 #define UVA_DEFAULT_MAX_DEPTH 8
 #endif
 
-static _Thread_local int uva_depth;
+static __thread int uva_depth;
 static int uva_max_depth = UVA_DEFAULT_MAX_DEPTH;
 
 int uva_loop_depth(uv_loop_t *loop)
