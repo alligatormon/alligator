@@ -1,4 +1,6 @@
 #include <uv.h>
+#include <stdlib.h>
+#include <strings.h>
 #include "common/url.h"
 #include "events/context_arg.h"
 #include "events/client.h"
@@ -17,6 +19,18 @@
 #include "resolver/resolver.h"
 #include "scheduler/type.h"
 #include "common/logs.h"
+#include "common/logs.h"
+#include "common/url.h"
+#include "dstructures/ht.h"
+#include "events/client.h"
+#include "events/filetailer.h"
+#include "events/icmp.h"
+#include "events/process.h"
+#include "events/udp.h"
+#include "main.h"
+#include "parsers/postgresql.h"
+#include "parsers/multiparser.h"
+
 extern aconf *ac;
 
 char* icmp_client(context_arg *carg);
@@ -180,6 +194,97 @@ int smart_aggregator(context_arg *carg)
 	return 1; // OK
 }
 
+typedef struct oneshot_retry_ctx {
+	const char *host;
+	context_arg **list;
+	size_t n;
+	size_t cap;
+} oneshot_retry_ctx;
+
+void aggregator_oneshot_start(context_arg *carg)
+{
+	if (!carg || carg->lock || carg->remove_from_hash)
+		return;
+
+	switch (carg->transport) {
+		case APROTO_TCP:
+		case APROTO_TLS:
+			tcp_client_connect(carg);
+			break;
+		case APROTO_UNIX:
+			unix_client_connect(carg);
+			break;
+		case APROTO_UDP:
+			udp_client_connect(carg);
+			break;
+		case APROTO_PROCESS:
+			on_process_spawn(carg);
+			break;
+		case APROTO_FILE:
+			filetailer_directory_file_crawl(carg);
+			break;
+		case APROTO_PG:
+			postgresql_run(carg);
+			break;
+		case APROTO_MY:
+			mysql_run(carg);
+			break;
+		case APROTO_CASSANDR:
+			cassandra_run(carg);
+			break;
+		case APROTO_ICMP:
+			/* icmp_client() already started getaddrinfo; icmp_resolved
+			 * calls icmp_start once the address is known. */
+			break;
+		case APROTO_WS:
+		case APROTO_WSS:
+			/* ws_client() connects during smart_aggregator insert. */
+			break;
+		default:
+			break;
+	}
+}
+
+static void aggregator_oneshot_retry_collect(void *funcarg, void *arg)
+{
+	oneshot_retry_ctx *ctx = funcarg;
+	context_arg *carg = arg;
+
+	if (!ctx || !ctx->host || !carg || !carg->host[0])
+		return;
+	if (carg->lock || carg->remove_from_hash)
+		return;
+	if (strcasecmp(carg->host, ctx->host))
+		return;
+	if (carg->transport != APROTO_TCP && carg->transport != APROTO_TLS &&
+	    carg->transport != APROTO_UDP)
+		return;
+
+	if (ctx->n == ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		context_arg **nl = realloc(ctx->list, ncap * sizeof(*nl));
+		if (!nl)
+			return;
+		ctx->list = nl;
+		ctx->cap = ncap;
+	}
+	ctx->list[ctx->n++] = carg;
+}
+
+void aggregator_oneshot_retry_host(const char *host)
+{
+	oneshot_retry_ctx ctx = { .host = host };
+	size_t i;
+
+	if (!host || !host[0] || !ac || !ac->aggregators)
+		return;
+
+	alligator_ht_foreach_arg(ac->aggregators, aggregator_oneshot_retry_collect, &ctx);
+	for (i = 0; i < ctx.n; ++i)
+		aggregator_oneshot_start(ctx.list[i]);
+	free(ctx.list);
+}
+
 void smart_aggregator_del(context_arg *carg)
 {
 	if (carg->resolver)
@@ -247,6 +352,8 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	new->log_ch = carg->log_ch;
 	new->log_ch_raw = carg->log_ch_raw;
 	new->log_ch_out = carg->log_ch_out;
+	if (carg->timeout)
+		new->timeout = carg->timeout;
 
 	new->labels = labels_dup(carg->labels);
 
@@ -256,6 +363,8 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 
 	if (!smart_aggregator(new))
 		carg_free(new);
+	else
+		aggregator_oneshot_start(new);
 }
 
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env)
@@ -306,8 +415,10 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	new->log_ch = carg ? carg->log_ch : NULL;
 	new->log_ch_raw = carg ? carg->log_ch_raw : NULL;
 	new->log_ch_out = carg ? carg->log_ch_out : NULL;
-	new->ttl = carg? carg->ttl : ac->ttl;
+	new->ttl = (carg && carg->ttl) ? carg->ttl : ac->ttl;
 	new->work_dir = work_dir;
+	if (carg && carg->timeout)
+		new->timeout = carg->timeout;
 
 	carg_or_glog(carg, L_TRACE, "aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
@@ -319,6 +430,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 		return NULL;
 	}
 
+	aggregator_oneshot_start(new);
 	return new;
 }
 

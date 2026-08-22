@@ -32,6 +32,16 @@ static char* print_name(char *s, size_t len, uint8_t id, const char *k) {
 	return s;
 }
 
+static uint64_t smart_attribute_raw48(const SkSmartAttributeParsedData *a)
+{
+	return ((uint64_t) a->raw[0]) |
+		(((uint64_t) a->raw[1]) << 8) |
+		(((uint64_t) a->raw[2]) << 16) |
+		(((uint64_t) a->raw[3]) << 24) |
+		(((uint64_t) a->raw[4]) << 32) |
+		(((uint64_t) a->raw[5]) << 40);
+}
+
 static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a, void* userdata)
 {
 	extern aconf *ac;
@@ -81,6 +91,7 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 	int64_t current_value = a->current_value;
 	int64_t worst_value = a->worst_value;
 	int64_t threshold = a->threshold;
+	uint64_t raw_value = smart_attribute_raw48(a);
 	int64_t pretty_value;
 	if (a->pretty_unit == SK_SMART_ATTRIBUTE_UNIT_MKELVIN)
 		pretty_value = (a->pretty_value - 273150) / 1000;
@@ -90,7 +101,8 @@ static void disk_dump_attributes(SkDisk *d, const SkSmartAttributeParsedData *a,
 		pretty_value = a->pretty_value;
 
 	metric_add_labels3("smart_attribute_stat_value", &current_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
-	metric_add_labels3("smart_attribute_stat_raw_value", &pretty_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
+	metric_add_labels3("smart_attribute_stat_raw_value", &raw_value, DATATYPE_UINT, ac->system_carg, "device", device, "id", aid, "identificator", name);
+	metric_add_labels3("smart_attribute_stat_pretty_value", &pretty_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
 	metric_add_labels3("smart_attribute_stat_worst", &worst_value, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
 	metric_add_labels3("smart_attribute_stat_threshold", &threshold, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);
 	metric_add_labels3("smart_attribute_stat_online", &online, DATATYPE_INT, ac->system_carg, "device", device, "id", aid, "identificator", name);

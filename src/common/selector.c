@@ -557,8 +557,6 @@ string* string_init_alloc(char *str, size_t max)
 {
 	if (!max)
 		max = strlen(str);
-	else
-		max = strnlen(str, max);
 	string *ret = malloc(sizeof(*ret));
 	ret->m = max;
 	ret->s = malloc(max+1);

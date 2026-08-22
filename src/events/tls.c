@@ -1,6 +1,7 @@
 #include "events/context_arg.h"
 #include "common/logs.h"
 #include "common/lcrypto.h"
+#include "common/revocation.h"
 #include "common/rtime.h"
 #include "main.h"
 
@@ -116,53 +117,30 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		}
 	}
 
-	if (crl) {
-		X509_STORE *store = SSL_CTX_get_cert_store(carg->ssl_ctx);
-
-		FILE *crl_fp = fopen(crl, "r");
-		if (!crl_fp) {
-			char buf[256];
-			strerror_r(errno, buf, sizeof(buf));
-			carglog(carg, L_ERROR, "context %p SSL_CTX_get_cert_store open('%s') failed: %s\n", carg, carg->ssl_ctx, buf);
-			return 0;
-		}
-		
-		X509_CRL *crl = PEM_read_X509_CRL(crl_fp, NULL, NULL, NULL);
-		fclose(crl_fp);
-		
-		if (!crl) {
-			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed to read CRL: %s\n", carg, carg->ssl_ctx, err);
-			free(err);
-
-			return 0;
-		}
-		else {
-			carglog(carg, L_INFO, "context %p Successfully parsed CRL file '%s': %s\n", carg, carg->ssl_ctx, ca);
-		}
-		
-		if (!X509_STORE_add_crl(store, crl)) {
-			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed to add CRL '%s' to store: %s\n", carg, carg->ssl_ctx, err);
-			free(err);
-
-			return 0;
-		}
-		else {
-			carglog(carg, L_INFO, "context %p Successfully loaded CRL file: %s\n", carg, ca);
-		}
-
-		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
-
-		X509_CRL_free(crl);
+	if (!crl && carg->rev.crl_file)
+		crl = carg->rev.crl_file;
+	if (crl && !carg->rev.crl_file) {
+		carg->rev.crl_file = strdup(crl);
+		carg->rev.crl_enabled = 1;
 	}
+	if (carg->rev.crl_enabled && carg->rev.crl_file) {
+		X509_STORE *store = SSL_CTX_get_cert_store(carg->ssl_ctx);
+		if (!revocation_store_apply_crl(store, &carg->rev)) {
+			carglog(carg, L_ERROR, "context %p Failed to load CRL file: %s\n", carg, carg->rev.crl_file);
+			return 0;
+		}
+		carglog(carg, L_INFO, "context %p Successfully loaded CRL file: %s\n", carg, carg->rev.crl_file);
+	}
+
+	if (mode == SSLMODE_SERVER && carg->tls_verify_client)
+		verify = 1;
 
 	SSL_CTX_set_verify(carg->ssl_ctx, SSL_VERIFY_NONE, NULL);
 	if (verify) {
-		// SSL_VERIFY_FAIL_IF_NO_PEER_CERT - mTLS
-		// SSL_VERIFY_NONE - disable
-		// SSL_VERIFY_PEER - check peer
-		SSL_CTX_set_verify(carg->ssl_ctx, SSL_VERIFY_PEER, verify_callback);
+		int vmode = SSL_VERIFY_PEER;
+		if (mode == SSLMODE_SERVER && carg->tls_verify_client == REV_VERIFY_CLIENT_REQUIRE)
+			vmode |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+		SSL_CTX_set_verify(carg->ssl_ctx, vmode, verify_callback);
 	}
 
 	if (mode == SSLMODE_CLIENT) {
@@ -187,6 +165,8 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			carglog(carg, L_ERROR, "context %p Failed to set verify hostname '%s': %s\n", carg, servername, err);
 			free(err);
 		}
+		if (carg->rev.ocsp_stapling)
+			SSL_set_tlsext_status_type(carg->ssl, TLSEXT_STATUSTYPE_ocsp);
 	}
 
 	SSL_CTX_set_ciphersuites(carg->ssl_ctx, "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256");

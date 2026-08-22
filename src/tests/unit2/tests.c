@@ -2624,6 +2624,7 @@ static void run_helpers_and_events_suites(void)
     test_puppeteer_option_kv_plain_parse();
     test_entrypoint_plain_rich_parse();
     test_config_plain_top_level_blocks();
+    test_config_tls_revocation_keys();
     test_config_plain_globals_and_channels();
     test_config_plain_persistence_block();
     test_config_plain_more_top_level_blocks();

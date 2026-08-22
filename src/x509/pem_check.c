@@ -115,7 +115,11 @@ void tls_fs_recurse(void *arg)
 
 	x509_fs_t *tls_fs = arg;
 
+	if (tls_fs->crawl_busy)
+		return;
+	tls_fs->crawl_busy = 1;
 	tls_fs_dir_read(tls_fs, tls_fs->path);
+	tls_fs->crawl_busy = 0;
 }
 
 void for_tls_fs_recurse(void *arg)

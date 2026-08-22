@@ -441,6 +441,16 @@ void api_test_parser_aerospike()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "aerospike_status", "aerospike_status", 1);
 
+    /* Timeout/empty notify used to pass a 0-length body (and a string
+     * literal). The handler must not write before the buffer. */
+    carg->parser_status = 0;
+    aerospike_status_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    aerospike_namespace_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    aerospike_namespace_list_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
     carg->parser_status = 0;
     aerospike_namespace_handler(namespace_resp, sizeof(namespace_resp) - 1, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);

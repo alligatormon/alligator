@@ -3,6 +3,7 @@
 #include <string.h>
 #include "common/logs.h"
 #include "main.h"
+#include "common/aggregator.h"
 
 void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
 {
@@ -28,6 +29,9 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 		dns_record_rule_push(host, DNS_TYPE_A, NULL, 0, addr, 17, 300);
 
 	uv_freeaddrinfo(res);
+	/* Connect waiting oneshots now; do not wait for the crawl timer. */
+	if (host)
+		aggregator_oneshot_retry_host(host);
 	free(host);
 	free(req);
 }

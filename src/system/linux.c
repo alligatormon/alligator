@@ -1270,58 +1270,58 @@ void get_mem(int8_t platform)
 		//	memfree = ival;
 		//}
 		else if ( !strcmp(key, "MemAvailable") ) {
-			strlcpy(key_map, "available", 9);
+			strlcpy(key_map, "available", sizeof(key_map));
 			memavailable = ival;
 		}
 		else if ( !strcmp(key, "Inactive") ) {
-			strlcpy(key_map, "inactive", 9);
+			strlcpy(key_map, "inactive", sizeof(key_map));
 			inactive = ival;
 		}
 		else if ( !strcmp(key, "Active") ) {
-			strlcpy(key_map, "active", 7);
+			strlcpy(key_map, "active", sizeof(key_map));
 			active = ival;
 		}
 		else if ( !strcmp(key, "Inactive(anon)") ) {
-			strlcpy(key_map, "inactive_anon", 14);
+			strlcpy(key_map, "inactive_anon", sizeof(key_map));
 			inactive_anon = ival;
 		}
 		else if ( !strcmp(key, "Active(anon)") ) {
-			strlcpy(key_map, "active_anon", 12);
+			strlcpy(key_map, "active_anon", sizeof(key_map));
 			active_anon = ival;
 		}
 		else if ( !strcmp(key, "Inactive(file)") ) {
-			strlcpy(key_map, "inactive_anon", 14);
+			strlcpy(key_map, "inactive_anon", sizeof(key_map));
 			inactive_file = ival;
 		}
 		else if ( !strcmp(key, "Active(file)") ) {
-			strlcpy(key_map, "active_anon", 12);
+			strlcpy(key_map, "active_anon", sizeof(key_map));
 			active_file = ival;
 		}
 		else if ( !strcmp(key, "SwapTotal") ) {
-			strlcpy(key_map, "swap_total", 11);
+			strlcpy(key_map, "swap_total", sizeof(key_map));
 			totalswap = ival;
 		}
 		else if ( !strcmp(key, "SwapFree") ) {
-			strlcpy(key_map, "swap_free", 10);
+			strlcpy(key_map, "swap_free", sizeof(key_map));
 			freeswap = ival;
 		}
 		else if ( !strcmp(key, "Buffers") ) {
-			strlcpy(key_map, "buffers", 8);
+			strlcpy(key_map, "buffers", sizeof(key_map));
 		}
 		else if ( !strcmp(key, "Cached") ) {
-			strlcpy(key_map, "cache", 6);
+			strlcpy(key_map, "cache", sizeof(key_map));
 			cache = ival;
 		}
 		else if ( !strcmp(key, "Mapped") ) {
-			strlcpy(key_map, "mapped", 7);
+			strlcpy(key_map, "mapped", sizeof(key_map));
 			mapped = ival;
 		}
 		else if ( !strcmp(key, "Unevictable") ) {
-			strlcpy(key_map, "unevictable", 12);
+			strlcpy(key_map, "unevictable", sizeof(key_map));
 			unevictable = ival;
 		}
 		else if ( !strcmp(key, "Shmem") ) {
-			strlcpy(key_map, "shmem", 6);
+			strlcpy(key_map, "shmem", sizeof(key_map));
 			shmem = ival;
 		}
 		else	continue;
@@ -1406,62 +1406,62 @@ void get_mem(int8_t platform)
 		ival = atoll(val);
 
 		if	(!strcmp(key, "total_cache")) {
-			strlcpy(key_map, "cache", 6);
+			strlcpy(key_map, "cache", sizeof(key_map));
 			cache = is_cgroup ? ival : cache;
 		}
 		else if (!strcmp(key, "total_mapped_file")) {
-			strlcpy(key_map, "mapped", 7);
+			strlcpy(key_map, "mapped", sizeof(key_map));
 			mapped = is_cgroup ? ival : mapped;
 		}
 		else if (!strcmp(key, "total_dirty")) {
-			strlcpy(key_map, "dirty", 6);
+			strlcpy(key_map, "dirty", sizeof(key_map));
 			dirty = is_cgroup ? ival : dirty;
 			container_memory_usage += dirty;
 		}
 		else if (!strcmp(key, "total_unevictable")) {
-			strlcpy(key_map, "unevictable", 12);
+			strlcpy(key_map, "unevictable", sizeof(key_map));
 			unevictable = is_cgroup ? ival : unevictable;
 		}
 		else if (!strcmp(key, "total_active_anon")) {
-			strlcpy(key_map, "active_anon", 12);
+			strlcpy(key_map, "active_anon", sizeof(key_map));
 			active_anon = is_cgroup ? ival : active_anon;
 			container_memory_usage += active_anon;
 		}
 		else if (!strcmp(key, "total_inactive_anon")) {
-			strlcpy(key_map, "inactive_anon", 14);
+			strlcpy(key_map, "inactive_anon", sizeof(key_map));
 			inactive_anon = is_cgroup ? ival : inactive_anon;
 			container_memory_usage += inactive_anon;
 		}
 		else if (!strcmp(key, "total_active_file")) {
-			strlcpy(key_map, "active_file", 12);
+			strlcpy(key_map, "active_file", sizeof(key_map));
 			active_file = is_cgroup ? ival : active_file;
 		}
 		else if (!strcmp(key, "total_inactive_file")) {
-			strlcpy(key_map, "inactive_file", 14);
+			strlcpy(key_map, "inactive_file", sizeof(key_map));
 			inactive_file = is_cgroup ? ival : inactive_file;
 		}
 		else if (!strcmp(key, "total_pgpgin")) {
-			strlcpy(key_map, "pgpgin", 7);
+			strlcpy(key_map, "pgpgin", sizeof(key_map));
 			pgpgin = is_cgroup ? ival : pgpgin;
 		}
 		else if (!strcmp(key, "total_pgpgout")) {
-			strlcpy(key_map, "pgpgout", 8);
+			strlcpy(key_map, "pgpgout", sizeof(key_map));
 			pgpgout = is_cgroup ? ival : pgpgout;
 		}
 		else if (!strcmp(key, "total_pgfault")) {
-			strlcpy(key_map, "pgfault", 8);
+			strlcpy(key_map, "pgfault", sizeof(key_map));
 			pgfault = is_cgroup ? ival : pgfault;
 		}
 		else if (!strcmp(key, "total_pgmajfault")) {
-			strlcpy(key_map, "pgmajfault", 11);
+			strlcpy(key_map, "pgmajfault", sizeof(key_map));
 			pgmajfault = is_cgroup ? ival : pgmajfault;
 		}
 		else if (!strcmp(key, "hierarchical_memory_limit")) {
-			strlcpy(key_map, "total", 6);
+			strlcpy(key_map, "total", sizeof(key_map));
 			memtotal = memtotal > ival ? ival : memtotal;
 		}
 		else if (!strcmp(key, "total_shmem")) {
-			strlcpy(key_map, "shmem", 6);
+			strlcpy(key_map, "shmem", sizeof(key_map));
 			shmem = is_cgroup ? ival : shmem;
 			container_memory_usage += shmem;
 		}

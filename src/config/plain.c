@@ -1424,6 +1424,22 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "tls_ca", tls_ca_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && (
+						!strcmp(operator_name, "tls_verify") ||
+						!strcmp(operator_name, "tls_verify_client") ||
+						!strcmp(operator_name, "tls_crl") ||
+						!strcmp(operator_name, "tls_crl_scope") ||
+						!strcmp(operator_name, "tls_ocsp") ||
+						!strcmp(operator_name, "tls_ocsp_responder") ||
+						!strcmp(operator_name, "tls_ocsp_stapling") ||
+						!strcmp(operator_name, "tls_ocsp_timeout") ||
+						!strcmp(operator_name, "tls_ocsp_cache_ttl") ||
+						!strcmp(operator_name, "tls_revocation_mode") ||
+						!strcmp(operator_name, "tls_ocsp_fetch")))
+					{
+						++i;
+						json_array_object_insert(operator_json, operator_name, json_string(wstokens[i].token->s));
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "lang"))
 					{
 						if (!lang_entrypoint)

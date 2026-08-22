@@ -20,9 +20,6 @@
 #include "metric/namespace.h"
 #include "main.h"
 #include "parsers/multiparser.h"
-#include "resolver/resolver.h"
-#include "resolver/dns.h"
-#include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -299,7 +296,7 @@ void vrl_http_cache_force_ready_null(const char *url, uint64_t neg_ttl_ms)
 	(void)vrl_http_cache_complete(url, "", 0, 0, "timeout", NULL);
 }
 
-/* Retry oneshot TCP connect after DNS lands (resume poll / crawl). */
+/* Retry oneshot TCP connect after DNS lands (resume poll fallback). */
 void vrl_http_try_connect(const char *url)
 {
 	if (!url || !url[0] || !ac || !ac->aggregators)
@@ -314,8 +311,7 @@ void vrl_http_try_connect(const char *url)
 	if (!shot)
 		return;
 
-	extern void for_tcp_client_connect(void *arg);
-	for_tcp_client_connect(shot);
+	aggregator_oneshot_start(shot);
 }
 
 static void vrl_http_handler(char *body, size_t size, context_arg *carg)
@@ -345,7 +341,6 @@ static void vrl_http_handler(char *body, size_t size, context_arg *carg)
 static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t timeout_ms,
 			     uint64_t pos_ttl_ms, uint64_t neg_ttl_ms)
 {
-	(void)parent;
 	if (!url || !url[0] || !ac || !ac->loop)
 		return;
 
@@ -359,15 +354,6 @@ static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t time
 	if (!hi) {
 		(void)vrl_http_cache_complete(url, "", 0, 0, "failure", NULL);
 		return;
-	}
-
-	/* tcp_client_connect() requires an A-record cache hit before connecting.
-	 * Seed IP literals so oneshots to http://127.0.0.1:... do not stall on DNS. */
-	if (hi->host) {
-		struct in_addr a4;
-		if (inet_pton(AF_INET, hi->host, &a4) == 1)
-			dns_record_rule_push(hi->host, DNS_TYPE_A, NULL, 0,
-					     hi->host, strlen(hi->host), 3600);
 	}
 
 	char *query = NULL;
@@ -385,8 +371,22 @@ static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t time
 	if (override_key)
 		snprintf(override_key, 512, "vrl_http:%s", url);
 
+	if (!timeout_ms)
+		timeout_ms = VRL_HTTP_DEFAULT_TIMEOUT_MS;
+
+	/* Timeout (and log level) must be on the parent carg *before*
+	 * aggregator_oneshot(), which starts the transport immediately. */
+	context_arg hint;
+	memset(&hint, 0, sizeof(hint));
+	hint.timeout = timeout_ms;
+	hint.log_level = parent ? parent->log_level : (ac ? ac->log_level : 0);
+	hint.log_ch = parent ? parent->log_ch : NULL;
+	hint.log_ch_raw = parent ? parent->log_ch_raw : NULL;
+	hint.log_ch_out = parent ? parent->log_ch_out : NULL;
+	hint.ttl = parent ? parent->ttl : (ac ? ac->ttl : 0);
+
 	context_arg *shot = aggregator_oneshot(
-		NULL, (char *)url, strlen(url), query, query ? strlen(query) : 0,
+		&hint, (char *)url, strlen(url), query, query ? strlen(query) : 0,
 		vrl_http_handler, "vrl_http", NULL, override_key, 1 /* follow redirects */,
 		url_copy, NULL, 0, NULL, NULL);
 
@@ -398,19 +398,8 @@ static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t time
 		free(url_copy);
 		(void)vrl_http_cache_complete(url, "", 0, 0, "failure", NULL);
 	} else {
-		/* Bound the transport to the VRL await window. The VRL deadline adds
-		 * VRL_HTTP_DEADLINE_GRACE_MS on top, so the oneshot times out first and
-		 * the handler records a real (failure) status before VRL forces null. */
-		if (!timeout_ms)
-			timeout_ms = VRL_HTTP_DEFAULT_TIMEOUT_MS;
-		shot->timeout = timeout_ms;
-
 		carglog(shot, L_INFO, "vrl: http_request oneshot started key='%s' host='%s' port='%s'\n",
 			shot->key ? shot->key : "?", shot->host, shot->port);
-		/* Connect immediately when DNS is already cached; otherwise the VRL
-		 * resume poll calls vrl_http_try_connect() after the A record lands. */
-		extern void for_tcp_client_connect(void *arg);
-		for_tcp_client_connect(shot);
 	}
 	url_free(hi);
 }

@@ -15,6 +15,7 @@
 #include "common/logs.h"
 #include "events/tls.h"
 #include "common/rtime.h"
+#include "common/revocation.h"
 extern aconf* ac;
 
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
@@ -23,18 +24,33 @@ extern aconf* ac;
 void tcp_connected(uv_connect_t* req, int status);
 void tcp_client_close(uv_handle_t *handle);
 void tcp_client_shutdown(uv_shutdown_t *req, int status);
+void tcp_timeout_timer(uv_timer_t *timer);
+void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
+void tls_client_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
 
 /* Notify oneshot/parser when the TCP session ends with no HTTP body
  * (connect refused, idle timeout, etc.). Without this, handlers like
- * vrl_http never run and VRL waits the full await deadline. */
+ * vrl_http never run and VRL waits the full await deadline.
+ *
+ * Permanent scrapes must not take this path: many parsers (e.g.
+ * aerospike_status) mutate the body in place and assume a real info
+ * packet. Feeding them a string literal "" writes into .rodata.
+ * Only oneshots (context_ttl) need the empty completion. */
 static void tcp_client_notify_handler_empty(context_arg *carg)
 {
+	char empty[1];
+
 	if (!carg || carg->parsed || !carg->parser_handler)
+		return;
+	if (!carg->context_ttl)
 		return;
 	carg->parsed = 1;
 	carg->last_http_code = 0;
-	void (*handler)(char *, size_t, context_arg *) = carg->parser_handler;
-	handler("", 0, carg);
+	empty[0] = 0;
+	{
+		void (*handler)(char *, size_t, context_arg *) = carg->parser_handler;
+		handler(empty, 0, carg);
+	}
 }
 void tcp_client_repeat_period(uv_timer_t *timer);
 void unix_client_repeat_period(uv_timer_t *timer);
@@ -324,7 +340,28 @@ int do_client_tls_handshake(context_arg *carg) {
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
 				const char *verify_host = carg->tls_server_name ? carg->tls_server_name : carg->host;
-				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, verify_host);
+				int allow_fetch = carg->rev.fetch == REV_FETCH_INLINE;
+				uint64_t gen = 0;
+				if (allow_fetch && carg->rev.ocsp_enabled) {
+					gen = ++carg->rev_gen;
+					uv_read_stop((uv_stream_t *)&carg->client);
+					if (carg->tt_timer)
+						uv_timer_stop(carg->tt_timer);
+				}
+				if (revocation_peer_check(carg, cert, allow_fetch) < 0) {
+					X509_free(cert);
+					return -1;
+				}
+				if (allow_fetch && carg->rev.ocsp_enabled) {
+					if (carg->rev_gen != gen) {
+						X509_free(cert);
+						return -1;
+					}
+					if (carg->tt_timer && carg->timeout)
+						uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+					uv_read_start((uv_stream_t *)&carg->client, tls_client_alloc, tls_client_read);
+				}
+				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, verify_host, &carg->rev);
 				X509_free(cert);
 			}
 		}
@@ -559,7 +596,7 @@ void tcp_client_connect(void *arg)
 	if (carg->tls)
 	{
 		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
-		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, NULL)) {
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
 			carg->lock = 0;
 			return;
 		}
@@ -657,7 +694,7 @@ void unix_client_connect(void *arg)
 	if (carg->tls)
 	{
 		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
-		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, NULL)) {
+		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
 			carg->lock = 0;
 			return;
 		}
@@ -678,8 +715,16 @@ void unix_client_connect(void *arg)
 void for_unix_client_connect(void *arg)
 {
 	context_arg *carg = arg;
-	if (!carg || carg->context_ttl || carg->remove_from_hash)
+	if (!carg || carg->remove_from_hash)
 		return;
+
+	if (carg->context_ttl) {
+		if (carg->lock || carg->close_counter)
+			return;
+		unix_client_connect(arg);
+		return;
+	}
+
 	if (carg->period && carg->close_counter)
 		return;
 
@@ -709,7 +754,10 @@ char* tcp_client(void *arg)
 	context_arg *carg = arg;
 
 	alligator_ht_insert(ac->aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
-	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
+	/* Oneshots connect immediately via aggregator_oneshot_start(); prefetching
+	 * DNS here would fire a second probe when connect also calls get_addr. */
+	if (!carg->context_ttl)
+		aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 	return "tcp";
 }
 

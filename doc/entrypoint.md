@@ -44,6 +44,16 @@ entrypoint {
     tls_certificate <path>;
     tls_key <path>;
     tls_ca <path>;
+    tls_verify [on|off];
+    tls_verify_client [off|optional|require];
+    tls_crl <path>;
+    tls_crl_scope [leaf|chain];
+    tls_ocsp [on|off];
+    tls_ocsp_responder <http://url>;
+    tls_ocsp_timeout <time>;
+    tls_ocsp_cache_ttl <time>;
+    tls_revocation_mode [soft|hard];
+    tls_ocsp_fetch [background|inline];
     handler <handler>;
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
@@ -331,6 +341,17 @@ Plural: no
 
 Specifies the path of the server x509 key.
 
+## tls\_ca
+Default: -\
+Plural: no
+
+CA bundle used to verify client certificates (mTLS) and to validate OCSP responses.
+
+## tls\_verify / tls\_verify\_client
+`tls_verify on` enables peer verification. `tls_verify_client require` additionally sets `SSL_VERIFY_FAIL_IF_NO_PEER_CERT`. `optional` requests a client cert without requiring one.
+
+## tls\_crl / tls\_ocsp
+Same revocation keys as aggregate (`tls_crl`, `tls_crl_scope`, `tls_ocsp`, `tls_ocsp_responder`, `tls_ocsp_timeout`, `tls_ocsp_cache_ttl`, `tls_revocation_mode`, `tls_ocsp_fetch`). Used for mTLS client certificates.
 
 # handler
 Default: prometheus\

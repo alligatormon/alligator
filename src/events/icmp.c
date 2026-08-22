@@ -395,6 +395,9 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 
 	alligator_ht_insert(ac->iggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	uv_freeaddrinfo(res);
+
+	if (carg->context_ttl)
+		icmp_start(carg);
 }
 
 char* icmp_client(context_arg *carg)

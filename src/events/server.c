@@ -11,10 +11,13 @@
 #include "common/logs.h"
 #include "events/tls.h"
 #include "common/rtime.h"
+#include "common/revocation.h"
 #include "common/http_entrypoint.h"
 #include "main.h"
 extern aconf *ac;
 
+void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
+void tls_server_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
 static void tcp_server_http_idle_cb(uv_timer_t *handle);
 static void tcp_server_http_idle_arm(context_arg *carg);
 static void tcp_server_http_idle_stop(context_arg *carg);
@@ -389,7 +392,24 @@ int do_tls_handshake_server(context_arg *carg) {
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
 				/* Server/mTLS peer: chain/CA only, no hostname match. */
-				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, NULL);
+				int allow_fetch = carg->rev.fetch == REV_FETCH_INLINE;
+				uint64_t gen = 0;
+				if (allow_fetch && carg->rev.ocsp_enabled) {
+					gen = ++carg->rev_gen;
+					uv_read_stop((uv_stream_t *)&carg->client);
+				}
+				if (revocation_peer_check(carg, cert, allow_fetch) < 0) {
+					X509_free(cert);
+					return -1;
+				}
+				if (allow_fetch && carg->rev.ocsp_enabled) {
+					if (carg->rev_gen != gen) {
+						X509_free(cert);
+						return -1;
+					}
+					uv_read_start((uv_stream_t *)&carg->client, tls_server_alloc, tls_server_read);
+				}
+				x509_parse_cert(carg, cert, carg->host, carg->host, carg->tls_ca_file, NULL, &carg->rev);
 				X509_free(cert);
 			}
 
@@ -607,7 +627,7 @@ static int tcp_server_setup(context_arg *srv_carg, uv_loop_t *loop)
 
 	if (srv_carg->tls) {
 		int rc = tls_context_init(srv_carg, SSLMODE_SERVER, srv_carg->tls_verify, srv_carg->tls_ca_file,
-					  srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, NULL);
+					  srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, srv_carg->rev.crl_file);
 		if (!rc)
 			srv_carg->running = -1;
 	}

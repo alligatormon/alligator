@@ -27,6 +27,12 @@ int actx_compare(const void* arg, const void* obj);
 int aggregator_compare(const void* arg, const void* obj);
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data);
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env);
+/* Kick the transport immediately (TCP/TLS/unix/udp/exec/file/pg/mysql/cassandra).
+ * Safe to call more than once: connect functions no-op while lock is set.
+ * aggregator_oneshot() calls this after insert; DNS completion calls
+ * aggregator_oneshot_retry_host() so hostname oneshots do not wait for crawl. */
+void aggregator_oneshot_start(context_arg *carg);
+void aggregator_oneshot_retry_host(const char *host);
 int smart_aggregator_default_key(char *key, const char *transport_string, const char *parser_name, const char *host, const char *port, const char *query);
 void smart_aggregator_key_normalize(char *key);
 void smart_aggregator_del(context_arg *carg);

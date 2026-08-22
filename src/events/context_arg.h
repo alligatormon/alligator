@@ -26,6 +26,7 @@
 #include "common/selector.h"
 #include "common/url.h"
 #include "common/patricia.h"
+#include "common/revocation.h"
 #include "mapping/type.h"
 #include "picohttpparser.h"
 #define ENTRYPOINT_RETURN_EMPTY 1
@@ -268,6 +269,9 @@ typedef struct context_arg
 	char *tls_key_file;
 	char *tls_server_name;
 	uint8_t tls_verify;
+	uint8_t tls_verify_client;
+	revocation_policy rev;
+	uint64_t rev_gen;
 
 	uv_buf_t write_buffer;
 	uv_buf_t user_read_buf;

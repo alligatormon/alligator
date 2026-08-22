@@ -194,6 +194,9 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 
 	metric_add_labels3("aggregator_resolve_address_rr_count", &addr_cnt, DATATYPE_UINT, carg, "name", qname, "class", qclass, "type", qtype);
 
+	if (addr_cnt)
+		aggregator_oneshot_retry_host(qname);
+
 	if (carg->curr_ttl < RESOLVER_METRIC_MIN_TTL_SEC)
 		carg->curr_ttl = RESOLVER_METRIC_MIN_TTL_SEC;
 

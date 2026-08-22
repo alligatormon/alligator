@@ -16,6 +16,8 @@ typedef struct x509_fs_t {
 	char *ca_file;
 	uint8_t type;
 	x509_parse_fctx fctx;
+	revocation_policy rev;
+	uint8_t crawl_busy;
 
 	uint64_t period;
 	uv_timer_t *period_timer;

@@ -99,6 +99,13 @@ context_arg *carg_copy(context_arg *src)
 	if (src->tls_key_file)
 		carg->tls_key_file = strdup(src->tls_key_file);
 
+	if (src->tls_server_name)
+		carg->tls_server_name = strdup(src->tls_server_name);
+
+	carg->rev.crl_file = NULL;
+	carg->rev.ocsp_responder = NULL;
+	revocation_policy_copy(&carg->rev, &src->rev);
+
 	if (src->namespace && src->namespace_allocated)
 		carg->namespace = strdup(src->namespace);
 	else
@@ -377,6 +384,8 @@ void carg_free(context_arg *carg)
 
 	if (carg->tls_server_name)
 		free(carg->tls_server_name);
+
+	revocation_policy_free(&carg->rev);
 
 	if (carg->tls)
 		tls_client_cleanup(carg, 1);
@@ -726,6 +735,17 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	char *str_ca = (char*)json_string_value(json_ca);
 	if (str_ca)
 		carg->tls_ca_file = strdup(str_ca);
+
+	json_t *json_tls_verify = json_object_get(root, "tls_verify");
+	if (json_tls_verify)
+		carg->tls_verify = config_json_is_on(json_tls_verify) ? 1 : 0;
+
+	json_t *json_tls_verify_client = json_object_get(root, "tls_verify_client");
+	if (json_tls_verify_client)
+		carg->tls_verify_client = (uint8_t)config_json_verify_client(json_tls_verify_client);
+
+	revocation_policy_init(&carg->rev);
+	revocation_policy_parse_json(&carg->rev, root, 1);
 
 	json_t *json_timeout = json_object_get(root, "timeout");
 	if (json_timeout) {

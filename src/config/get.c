@@ -15,6 +15,7 @@
 #include "common/xxh.h"
 #include "common/murmurhash.h"
 #include "common/file_stat.h"
+#include "common/revocation.h"
 #include "scheduler/type.h"
 #include "mapping/type.h"
 #include "amtail/type.h"
@@ -235,6 +236,14 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_t *tls_server_name = json_string(carg->tls_server_name);
 		json_array_object_insert(ctx, "tls_server_name", tls_server_name);
 	}
+
+	if (carg->tls_verify)
+		json_array_object_insert(ctx, "tls_verify", json_string("on"));
+	if (carg->tls_verify_client == REV_VERIFY_CLIENT_REQUIRE)
+		json_array_object_insert(ctx, "tls_verify_client", json_string("require"));
+	else if (carg->tls_verify_client == REV_VERIFY_CLIENT_OPTIONAL)
+		json_array_object_insert(ctx, "tls_verify_client", json_string("optional"));
+	revocation_policy_export_json(ctx, &carg->rev, 1);
 
 	if (carg->parser_name)
 	{
@@ -653,6 +662,7 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 		json_t *ca_file = json_string(tls_fs->ca_file);
 		json_array_object_insert(ctx, "ca_file", ca_file);
 	}
+	revocation_policy_export_json(ctx, &tls_fs->rev, 0);
 }
 
 void scheduler_generate_conf(void *funcarg, void* arg)
@@ -1330,6 +1340,20 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		if (mapping)
 			json_array_object_insert(ctx, "mapping", mapping);
 	}
+
+	if (carg->tls_ca_file)
+		json_array_object_insert(ctx, "tls_ca", json_string(carg->tls_ca_file));
+	if (carg->tls_cert_file)
+		json_array_object_insert(ctx, "tls_certificate", json_string(carg->tls_cert_file));
+	if (carg->tls_key_file)
+		json_array_object_insert(ctx, "tls_key", json_string(carg->tls_key_file));
+	if (carg->tls_verify)
+		json_array_object_insert(ctx, "tls_verify", json_string("on"));
+	if (carg->tls_verify_client == REV_VERIFY_CLIENT_REQUIRE)
+		json_array_object_insert(ctx, "tls_verify_client", json_string("require"));
+	else if (carg->tls_verify_client == REV_VERIFY_CLIENT_OPTIONAL)
+		json_array_object_insert(ctx, "tls_verify_client", json_string("optional"));
+	revocation_policy_export_json(ctx, &carg->rev, 1);
 }
 
 void system_config_get(json_t *dst)

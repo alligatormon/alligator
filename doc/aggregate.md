@@ -126,6 +126,66 @@ Plural: no
 
 Specifies the TLS servername field when it is necessary.
 
+## tls\_verify
+Default: off\
+Plural: no
+
+Enable peer certificate verification (`SSL_VERIFY_PEER`) for this aggregate. Required for CRL checks during the handshake.
+
+## tls\_crl
+Default: -\
+Plural: no
+
+Path to a PEM/DER CRL file. Loaded into the TLS store and used by `x509_cert_valid`.
+
+## tls\_crl\_scope
+Default: leaf\
+Plural: no
+
+`leaf` or `chain`. `chain` sets `X509_V_FLAG_CRL_CHECK_ALL`.
+
+## tls\_ocsp
+Default: off\
+Plural: no
+
+Enable OCSP. The responder URL is taken from the certificate AIA unless `tls_ocsp_responder` is set.
+
+## tls\_ocsp\_responder
+Default: -\
+Plural: no
+
+Override AIA with an `http://` OCSP URL.
+
+## tls\_ocsp\_stapling
+Default: off\
+Plural: no
+
+Ask the peer for a stapled OCSP response and validate it before falling back to a fetch.
+
+## tls\_ocsp\_timeout
+Default: 3s\
+Plural: no
+
+Timeout for the OCSP HTTP request.
+
+## tls\_ocsp\_cache\_ttl
+Default: 1h\
+Plural: no
+
+Maximum OCSP cache TTL (also clamped by `nextUpdate`).
+
+## tls\_revocation\_mode
+Default: soft\
+Plural: no
+
+`soft`: only a revoked answer fails the handshake. `hard`: fetch/unknown errors also fail.
+
+## tls\_ocsp\_fetch
+Default: background\
+Plural: no
+
+`background` soft-allows the first connection and fills the cache for the next. `inline` awaits the OCSP HTTP request during the handshake.
+
 
 ## timeout
 Default: 5s\

@@ -393,9 +393,9 @@ char* udp_client(void *arg)
 		return NULL;
 
 	context_arg *carg = arg;
-	aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
-
 	alligator_ht_insert(ac->udpaggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	if (!carg->context_ttl)
+		aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
 	return "udp";
 }
 

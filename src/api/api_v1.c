@@ -761,6 +761,17 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (str_ca)
 						carg->tls_ca_file = strdup(str_ca);
 
+					json_t *json_tls_verify = json_object_get(entrypoint, "tls_verify");
+					if (json_tls_verify)
+						carg->tls_verify = config_json_is_on(json_tls_verify) ? 1 : 0;
+
+					json_t *json_tls_verify_client = json_object_get(entrypoint, "tls_verify_client");
+					if (json_tls_verify_client)
+						carg->tls_verify_client = (uint8_t)config_json_verify_client(json_tls_verify_client);
+
+					revocation_policy_init(&carg->rev);
+					revocation_policy_parse_json(&carg->rev, entrypoint, 1);
+
 					json_t *json_grok = json_object_get(entrypoint, "grok");
 					char *str_grok = (char*)json_string_value(json_grok);
 					if (str_grok)

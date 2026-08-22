@@ -13,4 +13,5 @@ void tcp_client_close(uv_handle_t *handle);
 void unix_tcp_client_del(context_arg *carg);
 void tcp_client_del(context_arg *carg);
 void tcp_client_connect(void *arg);
+void unix_client_connect(void *arg);
 void tcp_client_handler();

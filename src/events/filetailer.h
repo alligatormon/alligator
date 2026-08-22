@@ -1,6 +1,7 @@
 #pragma once
 #include "events/context_arg.h"
 char* filetailer_handler(context_arg *carg);
+void filetailer_directory_file_crawl(void *arg);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
 void filetailer_write_state(alligator_ht *hash);
 void filetailer_handler_del(context_arg *carg);

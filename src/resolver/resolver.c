@@ -10,6 +10,7 @@
 #include "metric/labels.h"
 
 #include <unistd.h>
+#include <string.h>
 
 int resolver_compare(const void* arg, const void* obj)
 {
@@ -439,6 +440,17 @@ string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uin
 	string *data = dns_cache_pick(dns_rr);
 	if (data)
 		return data;
+
+	/* IPv4 literals are already resolved — seed the cache so oneshots and
+	 * crawl alike connect immediately instead of waiting on DNS. */
+	if (rrtype == DNS_TYPE_A && dname && is_ip_addr(dname)) {
+		size_t n = strlen(dname);
+		dns_record_rule_push(dname, DNS_TYPE_A, NULL, 0, dname, n, 3600);
+		dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
+		data = dns_cache_pick(dns_rr);
+		if (data)
+			return data;
+	}
 
 	aggregator_push_addr(carg, dname, rrtype, rclass);
 	return NULL;

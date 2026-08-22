@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.14.217)
+set(VERSION 1.15.0)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
@@ -235,6 +235,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include_directories(external/libatasmart/)
 include_directories(${PROJECT_SOURCE_DIR})
+# Vendored uvasyncawait (src/uva/) — first-party, not a submodule.
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/uva)
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
@@ -268,6 +270,11 @@ set(STATIC_FILES
 	events/context_arg.c
 	events/threads.c
 	events/tls.c
+	uva/future.c
+	uva/tcp.c
+	uva/udp.c
+	uva/unix.c
+	uva/http.c
 	resolver/dns.c
 	resolver/resolver.c
 	resolver/udp.c
@@ -398,6 +405,7 @@ set(STATIC_FILES
 	common/murmurhash.c
 	common/xxh.c
 	common/lcrypto.c
+	common/revocation.c
 	common/units.c
 	common/logs.c
 	common/log_tcp.c

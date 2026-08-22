@@ -102,6 +102,9 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 	if (!actx)
 		return;
 
+	if (!metrics || size <= 8)
+		return;
+
 	size_t elem_size;
 	char namespace_name[32];
 	char *tmp = strstr(metrics+8, "namespaces\t");
@@ -145,7 +148,12 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 
 void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char *tmp = strstr(metrics+8, "namespace/");
+	char *tmp;
+
+	if (!metrics || size <= 8)
+		return;
+
+	tmp = strstr(metrics+8, "namespace/");
 	if (!tmp)
 		return;
 
@@ -260,11 +268,18 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 
 void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 {
-	char *tmp = metrics+8;
+	char *tmp;
+	uint64_t vl = 1;
+
+	if (!metrics || size <= 8)
+		return;
+
+	tmp = metrics + 8;
 	tmp += strcspn(tmp, "\t");
 	tmp += strspn(tmp, "\t");
-	tmp[size - (tmp-metrics) - 1] = 0;
-	uint64_t vl = 1;
+	if (tmp >= metrics + size)
+		return;
+	metrics[size - 1] = 0;
 	aerospike_metric_set(carg, "aerospike_status");
 	metric_add_labels("aerospike_status", &vl, DATATYPE_UINT, carg, "status", tmp);
 	carg->parser_status = 1;

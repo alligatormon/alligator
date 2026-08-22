@@ -5,9 +5,10 @@
 #include "common/logs.h"
 #include "scheduler/type.h"
 #include "common/units.h"
+#include "common/revocation.h"
 
 
-int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *ca_file, char *type, uint64_t period) {
+int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *ca_file, char *type, uint64_t period, json_t *x509) {
 	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, and password/passtr %p\n", name, path, password);
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
@@ -20,8 +21,14 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *passw
 	if (ca_file)
 		tls_fs->ca_file = strdup(ca_file);
 
+	revocation_policy_init(&tls_fs->rev);
+	if (x509)
+		revocation_policy_parse_json(&tls_fs->rev, x509, 0);
+	tls_fs->rev.fetch = REV_FETCH_INLINE;
+
 	tls_fs->fctx.password = tls_fs->password;
 	tls_fs->fctx.ca_file = tls_fs->ca_file;
+	tls_fs->fctx.pol = &tls_fs->rev;
 
 	if (type && !strcmp(type, "pfx"))
 		tls_fs->type = X509_TYPE_PFX;
@@ -157,7 +164,7 @@ int x509_push(json_t *x509) {
 	}
 	else
 	{
-		int ret = tls_fs_push(name, path, tokens_match, password, ca_file, type, period);
+		int ret = tls_fs_push(name, path, tokens_match, password, ca_file, type, period, x509);
 		free(path);
 		return ret;
 	}
