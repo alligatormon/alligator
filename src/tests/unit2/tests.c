@@ -358,6 +358,8 @@ gld_done:
 #include "maglev.h"
 #include "dns.h"
 #include "grok.h"
+#include "oneshot_await.h"
+#include "proxy.h"
 
 static void unit2_fixture_init(void)
 {
@@ -2507,6 +2509,8 @@ static void run_core_net_suites(void)
     test_maglev_core_paths();
     test_resolver_dns_pack_unpack();
     test_patricia_helpers();
+    test_aggregator_oneshot_await_suite();
+    test_proxy_suite();
 }
 
 static void run_parser_suites(char **argv)

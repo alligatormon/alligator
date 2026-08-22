@@ -1434,6 +1434,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						!strcmp(operator_name, "tls_ocsp_stapling") ||
 						!strcmp(operator_name, "tls_ocsp_timeout") ||
 						!strcmp(operator_name, "tls_ocsp_cache_ttl") ||
+						!strcmp(operator_name, "tls_ocsp_proxy") ||
 						!strcmp(operator_name, "tls_revocation_mode") ||
 						!strcmp(operator_name, "tls_ocsp_fetch")))
 					{
@@ -1977,7 +1978,9 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								uint64_t semisep = strcspn(opt_tok+sep+1, ":") + sep;
 								if (!strcmp(arg_name, "instance") || !strcmp(arg_name, "bind_address") ||
 								    !strcmp(arg_name, "start_pattern") || !strcmp(arg_name, "condition_pattern") ||
-								    !strcmp(arg_name, "match") || !strcmp(arg_name, "glob"))
+								    !strcmp(arg_name, "match") || !strcmp(arg_name, "glob") ||
+								    !strcmp(arg_name, "proxy") || !strcmp(arg_name, "tls_ocsp_proxy") ||
+								    !strcmp(arg_name, "tls_ocsp_responder"))
 									semisep = toklen;
 								if (!strcmp(arg_name, "metricstransform"))
 									semisep = toklen;

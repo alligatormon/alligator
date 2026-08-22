@@ -7,3 +7,5 @@ void udp_client_del(context_arg *carg);
 void udp_server_stop(const char* addr, uint16_t port);
 void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t tls, context_arg *carg);
 void udp_client_handler();
+void udp_client_socks_fail(context_arg *carg);
+void udp_client_socks_relay_start(context_arg *carg);

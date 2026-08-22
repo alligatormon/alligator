@@ -1,6 +1,8 @@
 #include <uv.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
+#include <inttypes.h>
 #include "common/url.h"
 #include "events/context_arg.h"
 #include "events/client.h"
@@ -30,6 +32,9 @@
 #include "main.h"
 #include "parsers/postgresql.h"
 #include "parsers/multiparser.h"
+#include "metric/labels.h"
+#include "events/future.h"
+#include "events/proxy.h"
 
 extern aconf *ac;
 
@@ -419,6 +424,15 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 	new->work_dir = work_dir;
 	if (carg && carg->timeout)
 		new->timeout = carg->timeout;
+	if (carg && carg->labels && !new->labels)
+		new->labels = labels_dup(carg->labels);
+	if (carg && carg->oneshot_await)
+		new->oneshot_await = carg->oneshot_await;
+	if (new && carg && carg->proxy && !new->proxy) {
+		new->proxy = proxy_settings_copy(carg->proxy);
+		if (new->proxy)
+			http_request_apply_proxy(new);
+	}
 
 	carg_or_glog(carg, L_TRACE, "aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
 
@@ -432,6 +446,145 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 
 	aggregator_oneshot_start(new);
 	return new;
+}
+
+typedef struct aggregator_await_wait {
+	uva_future_t fut;
+	aggregator_await_res_t *out;
+	void (*user_handler)(char *, size_t, context_arg *);
+	int abandoned;
+	int completed;
+} aggregator_await_wait;
+
+void aggregator_await_res_free(aggregator_await_res_t *r)
+{
+	if (!r)
+		return;
+	free(r->body);
+	r->body = NULL;
+	r->body_len = 0;
+	r->http_code = 0;
+	r->status = 0;
+}
+
+static void aggregator_oneshot_await_handler(char *body, size_t size, context_arg *carg)
+{
+	aggregator_await_wait *w;
+	aggregator_await_res_t *out;
+
+	if (!carg)
+		return;
+	w = carg->oneshot_await;
+	carg->oneshot_await = NULL;
+	if (!w)
+		return;
+	if (w->abandoned) {
+		free(w);
+		return;
+	}
+
+	out = w->out;
+	if (out) {
+		out->http_code = (int)carg->last_http_code;
+		if (body && size) {
+			out->body = malloc(size + 1);
+			if (out->body) {
+				memcpy(out->body, body, size);
+				out->body[size] = 0;
+				out->body_len = size;
+			}
+		}
+		if (carg->timeout_counter)
+			out->status = UV_ETIMEDOUT;
+		else if ((!size || !body) && !carg->last_http_code)
+			out->status = UV_ECONNREFUSED;
+		else
+			out->status = 0;
+	}
+
+	if (w->user_handler)
+		w->user_handler(body, size, carg);
+
+	w->completed = 1;
+	uva_future_complete(&w->fut, out ? out->status : 0);
+}
+
+int aggregator_oneshot_await(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string *work_dir, alligator_ht *env, aggregator_await_res_t *out)
+{
+	static uint64_t await_seq;
+	aggregator_await_wait *w;
+	context_arg *shot;
+	char *key = override_key;
+	uv_loop_t *loop;
+	uint64_t timeout_ms;
+	int status;
+
+	if (out)
+		memset(out, 0, sizeof(*out));
+
+	if (!ac || !url)
+		return UV_EINVAL;
+
+	loop = ac->loop ? ac->loop : uv_default_loop();
+	if (!loop)
+		return UV_EINVAL;
+
+	if (!key) {
+		key = malloc(320);
+		if (!key)
+			return UV_ENOMEM;
+		snprintf(key, 320, "oneshot_await:%" PRIu64 ":%s", ++await_seq,
+			parser_name ? parser_name : "raw");
+	}
+
+	w = calloc(1, sizeof(*w));
+	if (!w) {
+		if (!override_key)
+			free(key);
+		return UV_ENOMEM;
+	}
+	uva_future_init(&w->fut, loop);
+	w->out = out;
+	w->user_handler = handler;
+
+	/* Attach before aggregator_oneshot_start so a synchronous empty-failure
+	 * notify still completes the future. Restore the caller's pointer. */
+	if (carg)
+		carg->oneshot_await = w;
+
+	shot = aggregator_oneshot(carg, url, url_len, mesg, mesg_len,
+		aggregator_oneshot_await_handler,
+		parser_name ? parser_name : "oneshot_await",
+		validator, key, follow_redirects, data, s_stdin, l_stdin, work_dir, env);
+	if (carg)
+		carg->oneshot_await = NULL;
+	if (!shot) {
+		free(w);
+		if (out)
+			out->status = UV_ENOENT;
+		return UV_ENOENT;
+	}
+
+	if (!shot->oneshot_await && !w->completed)
+		shot->oneshot_await = w;
+	timeout_ms = shot->timeout ? shot->timeout : 5000;
+	status = uva_await_timeout(&w->fut, timeout_ms);
+	if (w->completed) {
+		free(w);
+		if (status == 0)
+			return out ? out->status : 0;
+		if (out)
+			out->status = status;
+		return status;
+	}
+
+	/* Timed out or idle loop before the oneshot handler ran. The handler
+	 * (or empty-failure notify) still owns w and will free it. */
+	w->abandoned = 1;
+	w->out = NULL;
+	if (out)
+		out->status = status;
+	return status;
 }
 
 int actx_compare(const void* arg, const void* obj)

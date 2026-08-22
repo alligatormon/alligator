@@ -125,10 +125,32 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 	string_cat(get_query, "\r\n", 2);
 
 	char *key = malloc(512);
-	snprintf(key, 512, "redis_query(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
+	snprintf(key, 512, "redis_query(tcp://%s:%s)/%s", carg->host, carg->port, qn->expr);
 
 	carglog(carg, L_DEBUG, "redis glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
-	try_again(carg, get_query->s, get_query->l, redis_query, "redis_query", NULL, key, redis_keys);
+	{
+		char url[512];
+		aggregator_await_res_t res;
+		context_arg hint;
+		char *mesg = get_query->s;
+		size_t mesg_len = get_query->l;
+
+		get_query->s = NULL;
+		string_free(get_query);
+		snprintf(url, sizeof(url), "tcp://%s:%s", carg->host, carg->port[0] ? carg->port : "6379");
+		memset(&hint, 0, sizeof(hint));
+		hint.timeout = carg->timeout;
+		hint.log_level = carg->log_level;
+		hint.log_ch = carg->log_ch;
+		hint.log_ch_raw = carg->log_ch_raw;
+		hint.log_ch_out = carg->log_ch_out;
+		hint.labels = carg->labels;
+		memset(&res, 0, sizeof(res));
+		aggregator_oneshot_await(&hint, url, strlen(url), mesg, mesg_len,
+			redis_query, "redis_query", NULL, key, 0, redis_keys,
+			NULL, 0, NULL, NULL, &res);
+		aggregator_await_res_free(&res);
+	}
 	carg->parser_status = 1;
 }
 

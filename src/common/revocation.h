@@ -36,6 +36,7 @@ typedef struct revocation_policy {
 	uint8_t crl_scope;
 	uint8_t ocsp_enabled;
 	char *ocsp_responder;
+	char *ocsp_proxy;
 	uint8_t ocsp_stapling;
 	uint8_t mode;
 	uint8_t fetch;

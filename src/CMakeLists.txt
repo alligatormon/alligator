@@ -234,8 +234,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include_directories(external/libatasmart/)
 include_directories(${PROJECT_SOURCE_DIR})
-# Vendored uvasyncawait (src/uva/) — first-party, not a submodule.
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/uva)
 
 link_directories(/usr/local/lib64/)
 link_directories(/usr/local/lib/)
@@ -253,6 +251,7 @@ set(STATIC_FILES
 	events/debug.c
 	events/server.c
 	events/client.c
+	events/proxy.c
 	events/process.c
 	events/unix_server.c
 	events/unixgram.c
@@ -269,11 +268,7 @@ set(STATIC_FILES
 	events/context_arg.c
 	events/threads.c
 	events/tls.c
-	uva/future.c
-	uva/tcp.c
-	uva/udp.c
-	uva/unix.c
-	uva/http.c
+	events/future.c
 	resolver/dns.c
 	resolver/resolver.c
 	resolver/udp.c

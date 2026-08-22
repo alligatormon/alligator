@@ -1,5 +1,6 @@
 #include "events/context_arg.h"
 #include "events/tls.h"
+#include "events/proxy.h"
 #include "dstructures/uv_cache.h"
 #include "main.h"
 #include <pthread.h>
@@ -46,6 +47,7 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_tail = NULL;
 	carg->log_ch_raw_tail = NULL;
 	carg->srv_carg = NULL;
+	carg->oneshot_await = NULL;
 	carg->entrypoint_stop_async_ready = 0;
 	alligator_linebuf_init(&carg->ml_lb);
 	carg->ml_lb_ready = 0;
@@ -104,6 +106,7 @@ context_arg *carg_copy(context_arg *src)
 
 	carg->rev.crl_file = NULL;
 	carg->rev.ocsp_responder = NULL;
+	carg->rev.ocsp_proxy = NULL;
 	revocation_policy_copy(&carg->rev, &src->rev);
 
 	if (src->namespace && src->namespace_allocated)
@@ -143,6 +146,13 @@ context_arg *carg_copy(context_arg *src)
 	if (src->bind_address)
 		carg->bind_address = strdup(src->bind_address);
 	carg->bind_port = src->bind_port;
+
+	carg->proxy = proxy_settings_copy(src->proxy);
+	carg->proxy_phase = PROXY_PHASE_NONE;
+	carg->proxy_hs_len = 0;
+	carg->proxy_udp_associate = 0;
+	carg->proxy_udp_control = 0;
+	memset(&carg->proxy_udp_relay, 0, sizeof(carg->proxy_udp_relay));
 
 	if (src->pquery_size && src->pquery) {
 		carg->pquery_size = src->pquery_size;
@@ -403,6 +413,9 @@ void carg_free(context_arg *carg)
 
 	if (carg->threaded_loop_name)
 		free(carg->threaded_loop_name);
+
+	proxy_settings_free(carg->proxy);
+	carg->proxy = NULL;
 
 	if (carg->q_request_time)
 		free_percentile_buffer(carg->q_request_time);
@@ -1044,6 +1057,27 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 			}
 		} else {
 			carg->bind_port = json_integer_value(json_bind_address);
+		}
+	}
+
+	json_t *json_proxy = json_object_get(root, "proxy");
+	if (json_proxy && json_typeof(json_proxy) == JSON_STRING) {
+		const char *purl = json_string_value(json_proxy);
+		if (purl && !strncmp(purl, "https://", 8)) {
+			carglog(carg, L_ERROR, "proxy: TLS to proxy (https://) is not supported for '%s'\n",
+				carg->key ? carg->key : carg->host);
+		} else if (purl && *purl) {
+			carg->proxy = proxy_parse_url(purl);
+			if (!carg->proxy)
+				carglog(carg, L_ERROR, "proxy: cannot parse '%s'\n", purl);
+			else if (!proxy_ok_for_transport(carg->proxy, carg->transport)) {
+				carglog(carg, L_ERROR, "proxy: HTTP proxy is not supported for UDP (use socks5://) key %s\n",
+					carg->key ? carg->key : "?");
+				proxy_settings_free(carg->proxy);
+				carg->proxy = NULL;
+			} else {
+				http_request_apply_proxy(carg);
+			}
 		}
 	}
 

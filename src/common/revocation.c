@@ -2,11 +2,15 @@
 #include "events/context_arg.h"
 #include "common/logs.h"
 #include "common/units.h"
+#include "common/http.h"
+#include "common/url.h"
+#include "common/aggregator.h"
+#include "common/selector.h"
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
 #include "main.h"
-#include "uva.h"
 
+#include <uv.h>
 #include <openssl/ocsp.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
@@ -17,6 +21,7 @@
 #include <time.h>
 
 extern aconf *ac;
+char *mask_password(const char *url);
 
 #ifndef REV_OCSP_CACHE_MAX
 #define REV_OCSP_CACHE_MAX 4096
@@ -159,8 +164,10 @@ void revocation_policy_free(revocation_policy *p)
 		return;
 	free(p->crl_file);
 	free(p->ocsp_responder);
+	free(p->ocsp_proxy);
 	p->crl_file = NULL;
 	p->ocsp_responder = NULL;
+	p->ocsp_proxy = NULL;
 }
 
 void revocation_policy_copy(revocation_policy *dst, const revocation_policy *src)
@@ -171,6 +178,7 @@ void revocation_policy_copy(revocation_policy *dst, const revocation_policy *src
 	*dst = *src;
 	dst->crl_file = src->crl_file ? strdup(src->crl_file) : NULL;
 	dst->ocsp_responder = src->ocsp_responder ? strdup(src->ocsp_responder) : NULL;
+	dst->ocsp_proxy = src->ocsp_proxy ? strdup(src->ocsp_proxy) : NULL;
 }
 
 static json_t *pol_get(json_t *root, int tls_prefix, const char *bare, const char *alt)
@@ -249,6 +257,13 @@ void revocation_policy_parse_json(revocation_policy *p, json_t *root, int tls_pr
 			p->ocsp_enabled = 1;
 	}
 
+	j = pol_get(root, tls_prefix, "ocsp_proxy", NULL);
+	s = j ? json_string_value(j) : NULL;
+	if (s && *s) {
+		free(p->ocsp_proxy);
+		p->ocsp_proxy = strdup(s);
+	}
+
 	j = pol_get(root, tls_prefix, "ocsp_stapling", NULL);
 	if (j)
 		p->ocsp_stapling = config_json_is_on(j) ? 1 : 0;
@@ -293,6 +308,12 @@ void revocation_policy_export_json(json_t *ctx, const revocation_policy *p, int 
 	if (p->ocsp_responder)
 		json_object_set_new(ctx, tls_prefix ? "tls_ocsp_responder" : "ocsp_responder",
 			json_string(p->ocsp_responder));
+	if (p->ocsp_proxy) {
+		char *masked = mask_password(p->ocsp_proxy);
+		json_object_set_new(ctx, tls_prefix ? "tls_ocsp_proxy" : "ocsp_proxy",
+			json_string(masked ? masked : p->ocsp_proxy));
+		free(masked);
+	}
 	if (p->ocsp_stapling)
 		json_object_set_new(ctx, "tls_ocsp_stapling", json_string("on"));
 	if (p->mode == REV_MODE_HARD)
@@ -723,14 +744,21 @@ static rev_status ocsp_fetch_once(X509 *cert, X509 *issuer, const char *url,
 	OCSP_CERTID *id;
 	unsigned char *der = NULL;
 	int derlen;
-	uva_http_req_t href = {0};
-	uva_http_res_t hres;
+	host_aggregator_info *hi;
+	alligator_ht *env;
+	string body;
+	char clen[32];
+	char *query;
+	char *sep;
+	size_t qlen;
+	context_arg hint;
+	aggregator_await_res_t res;
 	uv_loop_t *loop;
 	uint64_t start;
 	rev_status st;
 	int r;
 
-	if (!url || strncmp(url, "http://", 7) != 0)
+	if (!url || (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0))
 		return REV_NO_RESPONDER;
 
 	req = OCSP_REQUEST_new();
@@ -746,30 +774,68 @@ static rev_status ocsp_fetch_once(X509 *cert, X509 *issuer, const char *url,
 	if (derlen <= 0 || !der)
 		return REV_FETCH_ERROR;
 
-	loop = (ac && ac->loop) ? ac->loop : uv_default_loop();
-	start = uv_now(loop);
-	href.method = "POST";
-	href.url = url;
-	href.content_type = "application/ocsp-request";
-	href.body = der;
-	href.body_len = (size_t)derlen;
-	href.timeout_ms = pol && pol->timeout_ms ? pol->timeout_ms : REV_DEFAULT_TIMEOUT_MS;
-	href.max_body = 1u << 20;
-	href.follow_redirects = 1;
-
-	memset(&hres, 0, sizeof(hres));
-	r = uva_http_request(loop, &href, &hres);
-	OPENSSL_free(der);
-	if (r < 0 || hres.status < 200 || hres.status >= 300 || !hres.body) {
-		ocsp_metric("failure", start);
-		uva_http_res_free(&hres);
+	hi = parse_url((char *)url, strlen(url));
+	if (!hi) {
+		OPENSSL_free(der);
 		return REV_FETCH_ERROR;
 	}
 
-	st = ocsp_validate_response((unsigned char *)hres.body, hres.body_len,
+	env = alligator_ht_init(NULL);
+	env_struct_push_alloc(env, "Content-Type", "application/ocsp-request");
+	snprintf(clen, sizeof(clen), "%d", derlen);
+	env_struct_push_alloc(env, "Content-Length", clen);
+	env_struct_push_alloc(env, "Connection", "close");
+
+	memset(&body, 0, sizeof(body));
+	body.s = (char *)der;
+	body.l = (size_t)derlen;
+	body.m = (size_t)derlen;
+	query = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator",
+		hi->auth, NULL, env, NULL, &body);
+	url_free(hi);
+	if (!query) {
+		OPENSSL_free(der);
+		env_free(env);
+		return REV_FETCH_ERROR;
+	}
+	sep = strstr(query, "\r\n\r\n");
+	qlen = sep ? (size_t)(sep - query) + 4 + (size_t)derlen : strlen(query);
+
+	loop = (ac && ac->loop) ? ac->loop : uv_default_loop();
+	start = uv_now(loop);
+	memset(&hint, 0, sizeof(hint));
+	hint.timeout = pol && pol->timeout_ms ? pol->timeout_ms : REV_DEFAULT_TIMEOUT_MS;
+	hint.log_level = ac ? ac->log_level : 0;
+	if (pol && pol->ocsp_proxy && pol->ocsp_proxy[0]) {
+		hint.proxy = proxy_parse_url(pol->ocsp_proxy);
+		if (!hint.proxy) {
+			glog(L_ERROR, "revocation: cannot parse ocsp proxy '%s'\n", pol->ocsp_proxy);
+			free(query);
+			OPENSSL_free(der);
+			env_free(env);
+			return REV_FETCH_ERROR;
+		}
+		glog(L_DEBUG, "revocation: OCSP fetch via proxy %s:%s\n",
+			hint.proxy->host, hint.proxy->port);
+	}
+
+	memset(&res, 0, sizeof(res));
+	r = aggregator_oneshot_await(&hint, (char *)url, strlen(url), query, qlen,
+		NULL, "ocsp", NULL, NULL, 1, NULL, NULL, 0, NULL, NULL, &res);
+	proxy_settings_free(hint.proxy);
+	hint.proxy = NULL;
+	OPENSSL_free(der);
+	env_free(env);
+	if (r < 0 || res.http_code < 200 || res.http_code >= 300 || !res.body) {
+		ocsp_metric("failure", start);
+		aggregator_await_res_free(&res);
+		return REV_FETCH_ERROR;
+	}
+
+	st = ocsp_validate_response((unsigned char *)res.body, res.body_len,
 		cert, issuer, ca_file, chain, next_update);
 	ocsp_metric(st == REV_OK ? "success" : (st == REV_REVOKED ? "revoked" : "failure"), start);
-	uva_http_res_free(&hres);
+	aggregator_await_res_free(&res);
 	return st;
 }
 

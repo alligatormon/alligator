@@ -329,6 +329,8 @@ void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 		json_array_object_insert(aggregate_obj, "timeout", aggregate_timeout);
 		json_array_object_insert(aggregate_obj, "log_level", aggregate_log_level);
 		json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
+		if (carg->proxy && carg->proxy->url)
+			json_array_object_insert(aggregate_obj, "proxy", json_string(carg->proxy->url));
 
 		char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
 		carglog(carg, L_DEBUG, "%s\n", dvalue);

@@ -15,3 +15,5 @@ void tcp_client_del(context_arg *carg);
 void tcp_client_connect(void *arg);
 void unix_client_connect(void *arg);
 void tcp_client_handler();
+void tcp_client_start_app(context_arg *carg);
+void tcp_client_fail_session(context_arg *carg);

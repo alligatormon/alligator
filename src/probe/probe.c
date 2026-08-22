@@ -86,6 +86,15 @@ void probe_push_json(json_t *probe)
 			pn->server_name = strdup(server_name);
 	}
 
+	json_t *jproxy = json_object_get(probe, "http_proxy_url");
+	if (!jproxy)
+		jproxy = json_object_get(probe, "proxy");
+	if (jproxy && json_typeof(jproxy) == JSON_STRING) {
+		const char *proxy_url = json_string_value(jproxy);
+		if (proxy_url && *proxy_url)
+			pn->http_proxy_url = strdup(proxy_url);
+	}
+
 	//uint64_t *valid_status_codes;
 	//uint64_t valid_status_codes_size;
 	json_t *jvalid_status_codes = json_object_get(probe, "valid_status_codes");

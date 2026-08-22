@@ -283,6 +283,14 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "bind_address", jbind_address);
 	}
 
+	if (carg->proxy && carg->proxy->url)
+	{
+		char *strproxy = mask_password(carg->proxy->url);
+		json_t *jproxy = json_string(strproxy);
+		json_array_object_insert(ctx, "proxy", jproxy);
+		free(strproxy);
+	}
+
 	if (carg->script)
 	{
 		json_t *script = json_string(carg->script);
@@ -332,7 +340,7 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "log_channel_out", log_channel_out);
 	}
 
-	if (!strncmp(carg->url, "file://", 7))
+	if (carg->url && !strncmp(carg->url, "file://", 7))
 	{
 		if (carg->state == FILESTAT_STATE_BEGIN)
 		{

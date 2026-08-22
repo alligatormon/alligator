@@ -11,6 +11,8 @@
 #include "metric/namespace.h"
 #include "main.h"
 #include "common/rtime.h"
+#include "events/proxy.h"
+#include "events/uv_alloc.h"
 
 extern aconf *ac;
 
@@ -18,12 +20,15 @@ extern aconf *ac;
 #define carglog_elapsed_sec(carg, when) getrtime_sec_float((when), (carg)->connect_time)
 
 void udp_client_repeat_period(uv_timer_t *timer);
+static void udp_socks_tcp_closed(uv_handle_t *handle);
+static void udp_session_finish(context_arg *carg);
 
-static void udp_client_closed(uv_handle_t *handle)
+static void udp_session_finish(context_arg *carg)
 {
-	context_arg *carg = handle->data;
 	(carg->close_counter)++;
 	carg->lock = 0;
+	carg->proxy_udp_associate = 0;
+	carg->proxy_udp_control = 0;
 
 	aggregator_events_metric_add(carg, carg, NULL, "udp", "aggregator", carg->host);
 
@@ -37,10 +42,35 @@ static void udp_client_closed(uv_handle_t *handle)
 		}
 	}
 	else if (carg->period && carg->period_timer) {
-		/* One-shot period timers stop after firing; restart after close. */
 		uv_timer_stop(carg->period_timer);
 		uv_timer_start(carg->period_timer, udp_client_repeat_period, carg->period, 0);
 	}
+}
+
+static void udp_client_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+
+	if (carg->write_buffer.base && carg->write_buffer.base != carg->request_buffer.base) {
+		free(carg->write_buffer.base);
+		carg->write_buffer.base = NULL;
+		carg->write_buffer.len = 0;
+	}
+
+	if (carg->proxy_udp_control && carg->client.type == UV_TCP && !uv_is_closing((uv_handle_t *)&carg->client)) {
+		uv_read_stop((uv_stream_t *)&carg->client);
+		uv_close((uv_handle_t *)&carg->client, udp_socks_tcp_closed);
+		return;
+	}
+
+	udp_session_finish(carg);
+}
+
+static void udp_socks_tcp_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle->data;
+	carg->proxy_udp_control = 0;
+	udp_session_finish(carg);
 }
 
 void udp_close_client(context_arg *carg, const uv_buf_t *buf)
@@ -63,16 +93,13 @@ void udp_close_client(context_arg *carg, const uv_buf_t *buf)
 		return;
 	}
 
-	/* No live client socket (e.g. failed before init): finish oneshot here. */
-	(carg->close_counter)++;
-	carg->lock = 0;
-	if (carg->context_ttl) {
-		r_time time = setrtime();
-		if (time.sec >= carg->context_ttl) {
-			carg->remove_from_hash = 1;
-			smart_aggregator_del(carg);
-		}
+	if (carg->proxy_udp_control && carg->client.type == UV_TCP && !uv_is_closing((uv_handle_t *)&carg->client)) {
+		uv_read_stop((uv_stream_t *)&carg->client);
+		uv_close((uv_handle_t *)&carg->client, udp_socks_tcp_closed);
+		return;
 	}
+
+	udp_session_finish(carg);
 }
 
 void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
@@ -112,21 +139,35 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		return;
 	}
 
-	if (!check_udp_ip_port(addr, carg))
+	if (!(carg->proxy && carg->proxy->type == PROXY_TYPE_SOCKS5) && !check_udp_ip_port(addr, carg))
 	{
 		carglog(carg, L_ERROR, "no access!\n");
 		udp_close_client(carg, buf);
 		return;
 	}
 
-	if (nread > 0)
+	const char *parse_base = buf ? buf->base : NULL;
+	ssize_t parse_len = nread;
+	if (nread > 0 && carg->proxy && carg->proxy->type == PROXY_TYPE_SOCKS5) {
+		const unsigned char *payload = NULL;
+		size_t payload_len = 0;
+		if (proxy_udp_unwrap((const unsigned char *)buf->base, (size_t)nread, &payload, &payload_len) < 0) {
+			carglog(carg, L_ERROR, "SOCKS5 UDP unwrap failed\n");
+			udp_close_client(carg, buf);
+			return;
+		}
+		parse_base = (const char *)payload;
+		parse_len = (ssize_t)payload_len;
+	}
+
+	if (parse_len > 0)
 	{
 		(carg->conn_counter)++;
 		(carg->read_counter)++;
-		carg->read_bytes_counter += (uint64_t)nread;
+		carg->read_bytes_counter += (uint64_t)parse_len;
 	}
 
-	alligator_multiparser(buf->base, nread, carg->parser_handler, NULL, carg);
+	alligator_multiparser((char *)parse_base, parse_len, carg->parser_handler, NULL, carg);
 
 	if (nread > 0 && !carg->no_metric && !carg->lock)
 		entrypoint_read_metrics_throttled_push(carg, carg, "udp", 1, carg->key);
@@ -301,6 +342,72 @@ void udp_server_stop(const char* addr, uint16_t port)
 	free(matches);
 }
 
+static void udp_socks_tcp_connected(uv_connect_t *req, int status)
+{
+	context_arg *carg = req->data;
+
+	if (status < 0) {
+		carglog(carg, L_ERROR, "SOCKS5 UDP TCP connect failed key %s: %s\n",
+			carg->key ? carg->key : "?", uv_strerror(status));
+		udp_client_socks_fail(carg);
+		return;
+	}
+	carg->connect_time_finish = setrtime();
+	proxy_handshake_start(carg);
+}
+
+void udp_client_socks_fail(context_arg *carg)
+{
+	if (!carg)
+		return;
+	udp_close_client(carg, NULL);
+}
+
+void udp_client_socks_relay_start(context_arg *carg)
+{
+	unsigned char *wrapped;
+	size_t cap;
+	size_t n;
+	int addr_ret;
+
+	if (!carg)
+		return;
+
+	carg->udp_send.data = carg;
+	uv_udp_init(carg->loop, &carg->udp_client);
+	carg->udp_client.data = carg;
+
+	addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
+	if (addr_ret) {
+		int bind_ret = uv_udp_bind(&carg->udp_client, (const struct sockaddr *)carg->local_addr, 0);
+		if (bind_ret) {
+			carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
+			udp_client_socks_fail(carg);
+			return;
+		}
+	}
+
+	cap = carg->request_buffer.len + 512;
+	wrapped = malloc(cap);
+	if (!wrapped) {
+		udp_client_socks_fail(carg);
+		return;
+	}
+	n = proxy_udp_wrap(wrapped, cap, carg->host, carg->numport,
+		(const unsigned char *)carg->request_buffer.base, carg->request_buffer.len);
+	if (!n) {
+		free(wrapped);
+		udp_client_socks_fail(carg);
+		return;
+	}
+	if (carg->write_buffer.base && carg->write_buffer.base != carg->request_buffer.base)
+		free(carg->write_buffer.base);
+	carg->write_buffer = uv_buf_init((char *)wrapped, n);
+	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->write_buffer, 1,
+		(struct sockaddr *)&carg->proxy_udp_relay, udp_on_send);
+	carg->write_time = setrtime();
+}
+
 void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
@@ -312,13 +419,48 @@ void udp_client_connect(void *arg)
 	if (cluster_come_later(carg))
 		return;
 
+	if (carg->proxy && !proxy_ok_for_transport(carg->proxy, carg->transport)) {
+		carglog(carg, L_ERROR, "proxy: HTTP/HTTPS proxy is not supported for UDP (use socks5://) key %s\n",
+			carg->key ? carg->key : "?");
+		return;
+	}
+
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
+	proxy_handshake_reset(carg);
 
 	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
 		uv_timer_init(carg->loop, carg->period_timer);
 		uv_timer_start(carg->period_timer, udp_client_repeat_period, carg->period, 0);
+	}
+
+	if (carg->proxy && carg->proxy->type == PROXY_TYPE_SOCKS5) {
+		string *pdata = aggregator_get_addr(carg, carg->proxy->host, DNS_TYPE_A, DNS_CLASS_IN);
+		if (!pdata)
+			return;
+
+		carg->lock = 1;
+		carg->parsed = 0;
+		carg->parser_status = 0;
+		carg->curr_ttl = carg->ttl;
+		carg->proxy_udp_associate = 1;
+
+		carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->tt_timer->data = carg;
+		uv_timer_init(carg->loop, carg->tt_timer);
+		uv_timer_start(carg->tt_timer, udp_timeout_timer, carg->timeout, 0);
+
+		memset(&carg->connect, 0, sizeof(carg->connect));
+		carg->connect.data = carg;
+		memset(&carg->client, 0, sizeof(carg->client));
+		carg->client.data = carg;
+		uv_tcp_init(carg->loop, &carg->client);
+		carg->proxy_udp_control = 1;
+		uv_ip4_addr(pdata->s, carg->proxy->numport, &carg->remote_addr);
+		carg->connect_time = setrtime();
+		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, udp_socks_tcp_connected);
+		return;
 	}
 
 	carg->lock = 1;

@@ -27,6 +27,29 @@ int actx_compare(const void* arg, const void* obj);
 int aggregator_compare(const void* arg, const void* obj);
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data);
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env);
+
+/* Sequential oneshot: same transport as aggregator_oneshot(), then pump the
+ * shared libuv loop (uva_await in events/future.c) until the parser handler
+ * or empty-failure path runs. Loop thread only. Do not call from a uv_close
+ * callback, or from an in-flight parent connection's connect/read/close
+ * callbacks.
+ *
+ * handler may be NULL; if set it runs on the oneshot carg before the wait
+ * completes (same signature as aggregator_oneshot). override_key ownership
+ * is transferred, same as aggregator_oneshot; NULL generates a unique key.
+ *
+ * Returns 0 or a UV_ error. out is filled on success and on transport
+ * failure (http_code 0, empty body). Caller must aggregator_await_res_free(). */
+typedef struct aggregator_await_res {
+	int status;
+	int http_code;
+	char *body;
+	size_t body_len;
+} aggregator_await_res_t;
+
+void aggregator_await_res_free(aggregator_await_res_t *r);
+int aggregator_oneshot_await(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string *work_dir, alligator_ht *env, aggregator_await_res_t *out);
+
 /* Kick the transport immediately (TCP/TLS/unix/udp/exec/file/pg/mysql/cassandra).
  * Safe to call more than once: connect functions no-op while lock is set.
  * aggregator_oneshot() calls this after insert; DNS completion calls

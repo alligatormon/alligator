@@ -50,6 +50,7 @@ entrypoint {
     tls_crl_scope [leaf|chain];
     tls_ocsp [on|off];
     tls_ocsp_responder <http://url>;
+    tls_ocsp_proxy <http://proxy:port>;
     tls_ocsp_timeout <time>;
     tls_ocsp_cache_ttl <time>;
     tls_revocation_mode [soft|hard];
@@ -351,7 +352,7 @@ CA bundle used to verify client certificates (mTLS) and to validate OCSP respons
 `tls_verify on` enables peer verification. `tls_verify_client require` additionally sets `SSL_VERIFY_FAIL_IF_NO_PEER_CERT`. `optional` requests a client cert without requiring one.
 
 ## tls\_crl / tls\_ocsp
-Same revocation keys as aggregate (`tls_crl`, `tls_crl_scope`, `tls_ocsp`, `tls_ocsp_responder`, `tls_ocsp_timeout`, `tls_ocsp_cache_ttl`, `tls_revocation_mode`, `tls_ocsp_fetch`). Used for mTLS client certificates.
+Same revocation keys as aggregate (`tls_crl`, `tls_crl_scope`, `tls_ocsp`, `tls_ocsp_responder`, `tls_ocsp_proxy`, `tls_ocsp_timeout`, `tls_ocsp_cache_ttl`, `tls_revocation_mode`, `tls_ocsp_fetch`). Used for mTLS client certificates.
 
 # handler
 Default: prometheus\

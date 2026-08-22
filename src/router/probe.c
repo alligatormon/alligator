@@ -9,6 +9,7 @@
 #include "query/promql.h"
 #include "probe/probe.h"
 #include "common/logs.h"
+#include "events/proxy.h"
 
 #define HTTP_PROBE_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_PROBE_HANDLER_ERR "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
@@ -71,12 +72,25 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	context_arg *new_carg;
 	if ((pn->prober == APROTO_HTTP) || (pn->prober == APROTO_HTTPS))
 	{
-		char *http_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, pn->env, pn->http_proxy_url, NULL);
+		char *http_query = gen_http_query(0, hi->query, NULL, hi->host, "alligator", hi->auth, NULL, pn->env, NULL, NULL);
 		new_carg = context_arg_json_fill(NULL, hi, blackbox_null, "blackbox_null", http_query, 0, pn, NULL, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
 	}
 	else
 	{
 		new_carg = context_arg_json_fill(NULL, hi, blackbox_null, "blackbox_null", hi->query, 0, pn, NULL, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
+	}
+
+	if (pn->http_proxy_url) {
+		new_carg->proxy = proxy_parse_url(pn->http_proxy_url);
+		if (!new_carg->proxy)
+			carglog(carg, L_ERROR, "probe: cannot parse proxy '%s'\n", pn->http_proxy_url);
+		else if (!proxy_ok_for_transport(new_carg->proxy, new_carg->transport)) {
+			carglog(carg, L_ERROR, "probe: HTTP proxy is not supported for UDP\n");
+			proxy_settings_free(new_carg->proxy);
+			new_carg->proxy = NULL;
+		} else {
+			http_request_apply_proxy(new_carg);
+		}
 	}
 
 	if (pn->ca_file)

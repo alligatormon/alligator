@@ -164,10 +164,18 @@ void cluster_k8s_peers_refresh(void)
 		free(query);
 		query = gen_http_query(0, NULL, path, "kubernetes.default.svc", "alligator", NULL, NULL, env, NULL, NULL);
 	}
-	aggregator_oneshot(NULL, url, strlen(url), query, strlen(query),
-		cluster_k8s_peers_handler, "cluster_k8s_peers", NULL, NULL, 0, cn,
-		NULL, 0, NULL, env);
-	free(query);
+	{
+		aggregator_await_res_t res;
+		context_arg hint;
+
+		memset(&hint, 0, sizeof(hint));
+		hint.timeout = 5000;
+		memset(&res, 0, sizeof(res));
+		aggregator_oneshot_await(&hint, url, strlen(url), query, strlen(query),
+			cluster_k8s_peers_handler, "cluster_k8s_peers", NULL, NULL, 0, cn,
+			NULL, 0, NULL, env, &res);
+		aggregator_await_res_free(&res);
+	}
 	if (env)
 	{
 		alligator_ht_foreach_arg(env, env_struct_free, env);

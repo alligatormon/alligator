@@ -29,6 +29,7 @@
 #include "common/revocation.h"
 #include "mapping/type.h"
 #include "picohttpparser.h"
+#include "events/proxy.h"
 #define ENTRYPOINT_RETURN_EMPTY 1
 #define ENTRYPOINT_AGGREGATION_COUNT 1
 enum ssl_mode { SSLMODE_SERVER, SSLMODE_CLIENT };
@@ -219,6 +220,8 @@ typedef struct context_arg
 	uint64_t push_accepted_lines;
 
 	void *data; // for parser-data
+	/* Internal: aggregator_oneshot_await wait token. Do not set from parsers. */
+	void *oneshot_await;
 	char *ns; // for parsers ns
 	uint64_t parser_status;
 	uint16_t last_http_code;
@@ -259,6 +262,13 @@ typedef struct context_arg
 	uint8_t is_http_query;
 	uint8_t follow_redirects;
 	uint8_t tls;
+	proxy_settings *proxy;
+	uint8_t proxy_phase;
+	uint8_t proxy_udp_associate;
+	uint8_t proxy_udp_control;
+	char proxy_hs_buf[PROXY_HS_SIZE];
+	size_t proxy_hs_len;
+	struct sockaddr_in proxy_udp_relay;
 	SSL_CTX *ssl_ctx;
 	SSL *ssl;
 	BIO *rbio;

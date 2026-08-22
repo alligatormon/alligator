@@ -1,8 +1,13 @@
 Changelog
 
 ## [unreleased]
+- TCP and UDP aggregator clients can use an HTTP or SOCKS5 proxy (`proxy=http://…`, `proxy=socks5://…` / `socks5h://`). HTTPS/TLS/TCP go through HTTP CONNECT; plaintext HTTP uses an absolute-URI request; UDP uses SOCKS5 UDP ASSOCIATE only. TLS-to-proxy (`https://proxy`) is not supported.
+- OCSP fetches can use a separate proxy (`tls_ocsp_proxy=` on aggregate/entrypoint, `ocsp_proxy=` on x509). Same URL schemes as scrape `proxy=`; scrape `proxy=` is not inherited.
+- Config dump no longer crashes when an aggregate has no `url` (`aggregator_generate_conf`).
 - Grok matching now uses PCRE 8 instead of Oniguruma. Drop Conan dep `oniguruma`. Capture names are sanitized to PCRE identifiers (`[process][name]` → `process_name`). Existing `%{PATTERN:field}` templates stay valid.
-- Vendor uvasyncawait as first-party sources under `src/uva/` (compiled into liballigator; no submodule or sibling checkout).
+- `aggregator_oneshot_await()`: sequential oneshot on the same aggregator client (TCP/TLS/unix/exec/…) using the nested `uv_run` wait in `events/future.c`. Callback `aggregator_oneshot()` / `try_again` stay for fire-and-forget and parallel fan-out.
+- OCSP fetch uses `aggregator_oneshot_await` instead of the cleartext-only uva HTTP client, so `https://` responders work. The unused `src/uva` TCP/HTTP/UDP/Unix copies are removed.
+- Cluster k8s peer refresh and Redis glob `KEYS`→`MGET` use oneshot await (serial follow-up). Parallel parser fan-out still uses `try_again`.
 - `aggregator_oneshot()` starts the transport immediately (TCP/TLS, unix, UDP, exec, file, PostgreSQL, MySQL, Cassandra). IPv4 literals skip DNS; hostname oneshots connect as soon as the A record lands instead of waiting for the crawl timer.
 - TLS/x509: CRL (local file) and OCSP (AIA or `tls_ocsp_responder`) revocation checks for TCP client, mTLS entrypoint, and the filesystem x509 collector. Config: `tls_verify`, `tls_crl`, `tls_ocsp*`, `tls_revocation_mode`, `tls_ocsp_fetch`, `tls_verify_client`. Metrics: `x509_cert_valid{reason="revoked"}`, `x509_cert_revocation_status`, `x509_cert_ocsp_next_update`, `ocsp_requests_total`.
 - VRL host: enrichment tables (`enrichment_table` config) with `get_enrichment_table_record` / `find_enrichment_table_records` (CSV `file` + MaxMind `mmdb`/`geoip`). Required Conan dep `libmaxminddb/1.12.2`.

@@ -31,6 +31,24 @@ The aggregator indludes async methods to get stats using various schemas/protoco
 
 The parser gets the body after the aggregator works on it and parses it into metrics.
 
+## Oneshot vs await
+
+Permanent `aggregate` scrapes stay on the callback client: the crawl timer connects, the parser handler runs, the session closes, and the next period repeats. That is the right model for many parallel HTTP/TCP targets.
+
+`aggregator_oneshot()` is the same transport used for a single request (actions, VRL `http_request`, parser `try_again` fan-out, exec). Completion is a parser callback.
+
+`aggregator_oneshot_await()` is the sequential style on that same client: it starts a oneshot, then pumps the shared libuv loop (`uva_await`) until the handler or the empty-failure path runs. Use it for short, one-at-a-time fetches (OCSP, k8s peer list, Redis `KEYS` then `MGET`).
+
+Constraints (nested `uv_run`):
+
+- Call from the loop thread only.
+- Do not await from a `uv_close` callback.
+- Do not await on the same `context_arg` that is currently in connect/read/close.
+- Nested await depth is limited (default 8). OCSP during a TLS handshake already consumes one level.
+- Keep `try_again` for parallel fan-out (CouchDB per-database, Aerospike namespaces). Await serializes.
+
+HTTPS, unix sockets, exec, alligator DNS, and scrape metrics are available on await because it is the aggregator client, not a second HTTP stack.
+
 ## Overview
 ```
 aggregate {
@@ -78,6 +96,28 @@ aggregate {
     blackbox https://example.com bind_address=:1234;
     dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=0.0.0.0;
     dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=192.0.2.1:1234;
+}
+```
+
+## proxy
+Default: -\
+Plural: no
+
+Sends the aggregate over an HTTP or SOCKS5 proxy. The scrape URL (and metrics labels, `Host`, TLS SNI) stay the origin; only the TCP/UDP hop changes.
+
+Schemes:
+
+- `proxy=http://[user:pass@]host[:port]` — plaintext HTTP proxy (default port 8080). HTTPS/TLS/TCP origins use `CONNECT`. Plaintext `http://` origins use an absolute-URI request (`GET http://origin/path`) with optional `Proxy-Authorization`. TLS to the proxy (`https://proxy`) is not supported.
+- `proxy=socks5://[user:pass@]host[:port]` or `socks5h://` — SOCKS5 (default port 1080). TCP uses CONNECT; UDP uses UDP ASSOCIATE. Origin hostnames are sent to the proxy unless the origin is an IPv4 literal. Username/password uses RFC 1929.
+
+HTTP/HTTPS proxies cannot carry UDP. Use SOCKS5 for `udp://` aggregates.
+
+```
+aggregate {
+    http https://example.com/metrics proxy=http://user:pass@proxy:3128;
+    tcp  tcp://db:5432 proxy=socks5://127.0.0.1:1080;
+    dns  udp://8.8.8.8:53 resolve=example.com type=a
+         proxy=socks5h://127.0.0.1:1080;
 }
 ```
 
@@ -154,7 +194,20 @@ Enable OCSP. The responder URL is taken from the certificate AIA unless `tls_ocs
 Default: -\
 Plural: no
 
-Override AIA with an `http://` OCSP URL.
+Override AIA with an `http://` or `https://` OCSP URL.
+
+## tls\_ocsp\_proxy
+Default: -\
+Plural: no
+
+HTTP or SOCKS5 proxy used only for the OCSP fetch. Independent of scrape `proxy=`. Same URL schemes as `proxy` (`http://`, `socks5://`, `socks5h://`). TLS to the proxy (`https://proxy`) is not supported.
+
+```
+aggregate {
+    https https://example.com tls_verify=on tls_ocsp=on
+        tls_ocsp_proxy=http://user:pass@proxy:3128;
+}
+```
 
 ## tls\_ocsp\_stapling
 Default: off\
@@ -184,7 +237,7 @@ Plural: no
 Default: background\
 Plural: no
 
-`background` soft-allows the first connection and fills the cache for the next. `inline` awaits the OCSP HTTP request during the handshake.
+`background` soft-allows the first connection and fills the cache for the next. `inline` awaits the OCSP HTTP request during the handshake via `aggregator_oneshot_await` (http:// and https:// responders).
 
 
 ## timeout

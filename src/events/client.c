@@ -14,6 +14,7 @@
 #include "common/units.h"
 #include "common/logs.h"
 #include "events/tls.h"
+#include "events/proxy.h"
 #include "common/rtime.h"
 #include "common/revocation.h"
 extern aconf* ac;
@@ -51,6 +52,14 @@ static void tcp_client_notify_handler_empty(context_arg *carg)
 		void (*handler)(char *, size_t, context_arg *) = carg->parser_handler;
 		handler(empty, 0, carg);
 	}
+}
+
+void tcp_client_fail_session(context_arg *carg)
+{
+	if (!carg)
+		return;
+	tcp_client_notify_handler_empty(carg);
+	tcp_client_close((uv_handle_t *)&carg->client);
 }
 void tcp_client_repeat_period(uv_timer_t *timer);
 void unix_client_repeat_period(uv_timer_t *timer);
@@ -446,6 +455,42 @@ void tls_client_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 	buf->len = sizeof(carg->ssl_read_buffer);
 }
 
+void tcp_client_start_app(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	if (carg->proxy_phase == PROXY_PHASE_DONE) {
+		uint64_t ok = 1;
+		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	}
+
+	memset(&carg->write_req, 0, sizeof(carg->write_req));
+	carg->write_req.data = carg;
+
+	if (carg->tls) {
+		if (!carg->ssl) {
+			const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
+			if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
+				tcp_client_fail_session(carg);
+				return;
+			}
+		}
+		carg->tls_read_time = setrtime();
+		uv_read_start((uv_stream_t *)&carg->client, tls_client_alloc, tls_client_read);
+		do_client_tls_handshake(carg);
+		return;
+	}
+
+	uv_read_start((uv_stream_t *)&carg->client, tcp_alloc, tcp_client_read);
+	carglog(carg, L_TRACE, "write request key %s plain bytes %"PRIu64" preview %.*s\n", carg->key, carg->request_buffer.len, (int)(carg->request_buffer.len > 80 ? 80 : (int)carg->request_buffer.len), carg->request_buffer.base ? carg->request_buffer.base : "");
+	carg->write_time = setrtime();
+	int ret = uv_write(&carg->write_req, (uv_stream_t *)&carg->client, &carg->request_buffer, 1, tcp_client_written);
+	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->request_buffer.len);
+	carg->write_bytes_counter += carg->request_buffer.len;
+	(carg->write_counter)++;
+}
+
 void tls_connected(uv_connect_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
@@ -468,12 +513,7 @@ void tls_connected(uv_connect_t* req, int status)
 	carg->read_time = setrtime();
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carglog_elapsed_ms(carg, carg->connect_time_finish), carglog_elapsed_sec(carg, carg->connect_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 
-	memset(&carg->write_req, 0, sizeof(carg->write_req));
-	carg->write_req.data = carg;
-
-	carg->tls_read_time = setrtime();
-	uv_read_start((uv_stream_t*)&carg->client, tls_client_alloc, tls_client_read);
-	do_client_tls_handshake(carg);
+	tcp_client_start_app(carg);
 }
 
 void tcp_connected(uv_connect_t* req, int status)
@@ -493,22 +533,17 @@ void tcp_connected(uv_connect_t* req, int status)
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-
 	carg->connect_time_finish = setrtime();
 	carg->read_time = setrtime();
 	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client stream established %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
-	uv_read_start((uv_stream_t*)&carg->client, tcp_alloc, tcp_client_read);
 
-	memset(&carg->write_req, 0, sizeof(carg->write_req));
-	carg->write_req.data = carg;
+	if (proxy_needs_tunnel(carg)) {
+		proxy_handshake_start(carg);
+		return;
+	}
 
-	carglog(carg, L_TRACE, "write request key %s plain bytes %"PRIu64" preview %.*s\n", carg->key, carg->request_buffer.len, (int)(carg->request_buffer.len > 80 ? 80 : (int)carg->request_buffer.len), carg->request_buffer.base ? carg->request_buffer.base : "");
-	carg->write_time = setrtime();
-	int ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, &carg->request_buffer, 1, tcp_client_written);
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->request_buffer.len);
-	carg->write_bytes_counter += carg->request_buffer.len;
-	(carg->write_counter)++;
+	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	tcp_client_start_app(carg);
 }
 
 void tcp_timeout_timer(uv_timer_t *timer)
@@ -560,70 +595,81 @@ void tcp_client_connect(void *arg)
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 
+	proxy_handshake_reset(carg);
+
 	/* Resolve before locking / allocating handles. A DNS miss must leave the
 	 * carg unlocked so the crawl (or VRL HTTP poll) can retry once the A
 	 * record lands — same pattern as udp_client_connect. Previously lock=1
 	 * was set first, so oneshots to unresolved hostnames never connected. */
-	string *data = aggregator_get_addr(carg, carg->host, DNS_TYPE_A, DNS_CLASS_IN);
-	if (!data)
-		return;
-
-	if (carg->period && !carg->close_counter) {
-		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
-		carg->period_timer->data = carg;
-		uv_timer_init(carg->loop, carg->period_timer);
-		uv_timer_start(carg->period_timer, tcp_client_repeat_period, carg->period, 0);
-	}
-
-
-	carg->lock = 1;
-	carg->parsed = 0;
-	carg->parser_status = 0;
-	carg->last_http_code = 0;
-	carg->curr_ttl = carg->ttl;
-
-	carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
-	carg->tt_timer->data = carg;
-	uv_timer_init(carg->loop, carg->tt_timer);
-	uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
-
-	memset(&carg->connect, 0, sizeof(carg->connect));
-	carg->connect.data = carg;
-
-	memset(&carg->client, 0, sizeof(carg->client));
-	carg->client.data = carg;
-	uv_tcp_init(carg->loop, &carg->client);
-	if (carg->tls)
 	{
-		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
-		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
-			carg->lock = 0;
-			return;
+		char *dns_host = carg->host;
+		uint16_t conn_port = carg->numport;
+		if (carg->proxy) {
+			dns_host = carg->proxy->host;
+			conn_port = carg->proxy->numport;
 		}
-	}
-
-	int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
-	if (addr_ret) {
-		int bind_ret = uv_tcp_bind(&carg->client, (const struct sockaddr *)carg->local_addr, 0);
-		if (bind_ret) {
-			carglog(carg, L_FATAL, "Bind tcp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
-			carg->lock = 0;
+		string *data = aggregator_get_addr(carg, dns_host, DNS_TYPE_A, DNS_CLASS_IN);
+		if (!data)
 			return;
+
+		if (carg->period && !carg->close_counter) {
+			carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+			carg->period_timer->data = carg;
+			uv_timer_init(carg->loop, carg->period_timer);
+			uv_timer_start(carg->period_timer, tcp_client_repeat_period, carg->period, 0);
 		}
-	}
 
-	uv_ip4_addr(data->s, carg->numport, &carg->remote_addr);
 
-	tcp_client_timing_reset(carg);
-	carg->connect_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
-	if (carg->tls)
-	{
-		carg->tls_connect_time = setrtime();
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tls_connected);
+		carg->lock = 1;
+		carg->parsed = 0;
+		carg->parser_status = 0;
+		carg->last_http_code = 0;
+		carg->curr_ttl = carg->ttl;
+
+		carg->tt_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+		carg->tt_timer->data = carg;
+		uv_timer_init(carg->loop, carg->tt_timer);
+		uv_timer_start(carg->tt_timer, tcp_timeout_timer, carg->timeout, 0);
+
+		memset(&carg->connect, 0, sizeof(carg->connect));
+		carg->connect.data = carg;
+
+		memset(&carg->client, 0, sizeof(carg->client));
+		carg->client.data = carg;
+		uv_tcp_init(carg->loop, &carg->client);
+		int tunnel = proxy_needs_tunnel(carg);
+		if (carg->tls && !tunnel)
+		{
+			const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
+			if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
+				carg->lock = 0;
+				return;
+			}
+		}
+
+		int addr_ret = carg_set_socket_addr(&carg->local_addr, carg->bind_address, carg->bind_port);
+		if (addr_ret) {
+			int bind_ret = uv_tcp_bind(&carg->client, (const struct sockaddr *)carg->local_addr, 0);
+			if (bind_ret) {
+				carglog(carg, L_FATAL, "Bind tcp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
+				carg->lock = 0;
+				return;
+			}
+		}
+
+		uv_ip4_addr(data->s, conn_port, &carg->remote_addr);
+
+		tcp_client_timing_reset(carg);
+		carg->connect_time = setrtime();
+		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"%s%s\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout, carg->proxy ? " proxy " : "", carg->proxy ? carg->proxy->host : "");
+		if (carg->tls && !tunnel)
+		{
+			carg->tls_connect_time = setrtime();
+			uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tls_connected);
+		}
+		else
+			uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tcp_connected);
 	}
-	else
-		uv_tcp_connect(&carg->connect, &carg->client, (struct sockaddr *)&carg->remote_addr, tcp_connected);
 }
 
 void for_tcp_client_connect(void *arg)
@@ -663,6 +709,9 @@ void unix_client_connect(void *arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+
+	if (carg->proxy)
+		carglog(carg, L_INFO, "unix client ignores proxy key %s path %s\n", carg->key ? carg->key : "?", carg->host);
 
 	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));

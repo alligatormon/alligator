@@ -3950,7 +3950,7 @@ void test_config_tls_revocation_keys()
 {
     const char *conf =
         "aggregate {\n"
-        "  https https://example.com tls_verify=on tls_crl=/tmp/ca.crl tls_crl_scope=leaf tls_ocsp=on tls_ocsp_responder=http://127.0.0.1:8888 tls_ocsp_timeout=2s tls_revocation_mode=hard tls_ocsp_fetch=inline;\n"
+        "  https https://example.com tls_verify=on tls_crl=/tmp/ca.crl tls_crl_scope=leaf tls_ocsp=on tls_ocsp_responder=http://127.0.0.1:8888 tls_ocsp_proxy=http://user:secret@127.0.0.1:3128 tls_ocsp_timeout=2s tls_revocation_mode=hard tls_ocsp_fetch=inline;\n"
         "}\n"
         "entrypoint {\n"
         "  tls 8443;\n"
@@ -3961,6 +3961,7 @@ void test_config_tls_revocation_keys()
         "  tls_verify_client require;\n"
         "  tls_crl /tmp/ca.crl;\n"
         "  tls_ocsp on;\n"
+        "  tls_ocsp_proxy socks5://127.0.0.1:1080;\n"
         "}\n"
         "x509 {\n"
         "  name ut-rev;\n"
@@ -3970,6 +3971,7 @@ void test_config_tls_revocation_keys()
         "  crl_file /tmp/ca.crl;\n"
         "  ocsp on;\n"
         "  ocsp_responder http://127.0.0.1:8888;\n"
+        "  ocsp_proxy http://proxy:8080;\n"
         "}\n";
 
     string *s = string_new();
@@ -3990,6 +3992,7 @@ void test_config_tls_revocation_keys()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(a0, "tls_verify")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/ca.crl", json_string_value(json_object_get(a0, "tls_crl")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://127.0.0.1:8888", json_string_value(json_object_get(a0, "tls_ocsp_responder")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://user:secret@127.0.0.1:3128", json_string_value(json_object_get(a0, "tls_ocsp_proxy")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hard", json_string_value(json_object_get(a0, "tls_revocation_mode")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "inline", json_string_value(json_object_get(a0, "tls_ocsp_fetch")));
 
@@ -4000,6 +4003,7 @@ void test_config_tls_revocation_keys()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(e0, "tls_verify")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "require", json_string_value(json_object_get(e0, "tls_verify_client")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/ca.crl", json_string_value(json_object_get(e0, "tls_crl")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "socks5://127.0.0.1:1080", json_string_value(json_object_get(e0, "tls_ocsp_proxy")));
 
     json_t *x509 = json_object_get(root, "x509");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, x509);
@@ -4007,6 +4011,7 @@ void test_config_tls_revocation_keys()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, x0);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/ca.crl", json_string_value(json_object_get(x0, "crl_file")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(x0, "ocsp")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://proxy:8080", json_string_value(json_object_get(x0, "ocsp_proxy")));
     json_decref(root);
 
     context_arg carg = {0};
@@ -4016,6 +4021,7 @@ void test_config_tls_revocation_keys()
     carg.rev.crl_file = "/tmp/ca.crl";
     carg.rev.ocsp_enabled = 1;
     carg.rev.ocsp_responder = "http://127.0.0.1:8888";
+    carg.rev.ocsp_proxy = "http://user:secret@127.0.0.1:3128";
     carg.rev.mode = REV_MODE_HARD;
     json_t *dst = json_object();
     aggregator_generate_conf(dst, &carg);
@@ -4024,5 +4030,17 @@ void test_config_tls_revocation_keys()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(g0, "tls_verify")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/ca.crl", json_string_value(json_object_get(g0, "tls_crl")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hard", json_string_value(json_object_get(g0, "tls_revocation_mode")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://user:*******@127.0.0.1:3128", json_string_value(json_object_get(g0, "tls_ocsp_proxy")));
     json_decref(dst);
+
+    json_error_t perr;
+    json_t *polj = json_loads("{\"tls_ocsp_proxy\":\"socks5h://10.0.0.1:1080\",\"tls_ocsp\":\"on\"}", 0, &perr);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, polj);
+    revocation_policy pol;
+    revocation_policy_init(&pol);
+    revocation_policy_parse_json(&pol, polj, 1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pol.ocsp_enabled);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "socks5h://10.0.0.1:1080", pol.ocsp_proxy);
+    revocation_policy_free(&pol);
+    json_decref(polj);
 }
