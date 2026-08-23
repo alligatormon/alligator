@@ -38,13 +38,17 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 		resp.hdr.qr != DNS_RESPONSE ||
 		resp.hdr.rcode != 0) {
 
-		carglog(carg, L_ERROR, "resolve %s fail: ERR_MISMATCH\n", carg->host);
+		carglog(carg, L_ERROR, "resolve %s fail: ERR_MISMATCH txid=%u qr=%u rcode=%u (expected txid=%u qr=%u rcode=0)\n",
+			carg->host, resp.hdr.transaction_id, resp.hdr.qr, resp.hdr.rcode,
+			carg->packets_id, DNS_RESPONSE);
 		dns_free(&resp);
 		return rr_ttl;
 	}
 
 	if (resp.hdr.nanswer == 0)
 	{
+		carglog(carg, L_WARN, "resolve %s: empty answer (txid=%u rcode=%u)\n",
+			carg->host, resp.hdr.transaction_id, resp.hdr.rcode);
 		dns_free(&resp);
 		return rr_ttl;
 	}

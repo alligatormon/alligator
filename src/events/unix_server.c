@@ -182,11 +182,11 @@ void unix_server_init(uv_loop_t *loop, const char* file, context_arg *carg)
 	unlink(file);
 	r = uv_pipe_bind(server, file);
 	if (r)
-		carglog(carg, L_INFO, "unix %s bind %s %s\n", file, uv_err_name(r), uv_strerror(r));
+		carglog(carg, L_ERROR, "unix %s bind %s %s\n", file, uv_err_name(r), uv_strerror(r));
 
 	r = uv_listen((uv_stream_t*)server, 128, unix_connect);
 	if (r)
-		carglog(carg, L_INFO, "unix %s listen %s %s\n", file, uv_err_name(r), uv_strerror(r));
+		carglog(carg, L_ERROR, "unix %s listen %s %s\n", file, uv_err_name(r), uv_strerror(r));
 
 	alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
 }

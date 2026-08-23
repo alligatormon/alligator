@@ -349,13 +349,18 @@ void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char
 	BIO *fd_bio = BIO_new_mem_buf((void*)pem_cert, cert_size);
 	p12 = d2i_PKCS12_bio(fd_bio, NULL);
 	if (!p12) {
-		glog(L_ERROR, "Error reading PKCS#12 file\n");
-		ERR_print_errors_fp(stderr);
+		char errbuf[256];
+		ERR_error_string_n(ERR_peek_last_error(), errbuf, sizeof(errbuf));
+		glog(L_ERROR, "Error reading PKCS#12 file %s: %s\n", filename ? filename : "(null)", errbuf);
+		BIO_free(fd_bio);
 		return;
 	}
 	if (!PKCS12_parse(p12, password, &pkey, &cert, &ca)) {
-		glog(L_ERROR, "Error parsing PKCS#12 file\n");
-		ERR_print_errors_fp(stderr);
+		char errbuf[256];
+		ERR_error_string_n(ERR_peek_last_error(), errbuf, sizeof(errbuf));
+		glog(L_ERROR, "Error parsing PKCS#12 file %s: %s\n", filename ? filename : "(null)", errbuf);
+		PKCS12_free(p12);
+		BIO_free(fd_bio);
 		return;
 	}
 
@@ -411,13 +416,13 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 		labels_hash_insert_nocache(lbl, "target", target);
 
 	labels_hash_insert_nocache(lbl, "common_name", common_name);
-	carg_or_glog(carg, L_INFO, "cert: %s, common_name=%s\n", cert_name, common_name);
+	carg_or_glog(carg, L_DEBUG, "cert: %s, common_name=%s\n", cert_name, common_name);
 
 	X509_NAME *issuer = X509_get_issuer_name(cert);
 	char issuer_str[256];
 	X509_NAME_oneline(issuer, issuer_str, sizeof(issuer_str));
 	labels_hash_insert_nocache(lbl, "issuer", issuer_str);
-	carg_or_glog(carg, L_INFO, "cert: %s, issuer: %s\n", cert_name, issuer_str);
+	carg_or_glog(carg, L_DEBUG, "cert: %s, issuer: %s\n", cert_name, issuer_str);
 
 	STACK_OF(GENERAL_NAME) *san_names = NULL;
 	san_names = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
@@ -430,7 +435,7 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 				snprintf(san_index, 19, "san%d", i);
 				char *dns = (char *)ASN1_STRING_get0_data(name->d.dNSName);
 				labels_hash_insert_nocache(lbl, san_index, dns);
-				carg_or_glog(carg, L_INFO, "cert: %s, san: %s\n", cert_name, dns);
+				carg_or_glog(carg, L_DEBUG, "cert: %s, san: %s\n", cert_name, dns);
 			}
 		}
 		sk_GENERAL_NAME_pop_free(san_names, GENERAL_NAME_free);
@@ -440,28 +445,28 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 	BIGNUM *bn = ASN1_INTEGER_to_BN(serial, NULL);
 	char *serial_str = BN_bn2hex(bn);
 	labels_hash_insert_nocache(lbl, "serial", serial_str);
-	carg_or_glog(carg, L_INFO, "cert: %s, serial: %s\n", cert_name, serial_str);
+	carg_or_glog(carg, L_DEBUG, "cert: %s, serial: %s\n", cert_name, serial_str);
 
 	char buffer[256];
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_countryName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "country", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_stateOrProvinceName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "county", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_organizationName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "organization_unit", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_organizationalUnitName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "organization_name", buffer);
-		carg_or_glog(carg, L_INFO, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
 	}
 
 	STACK_OF(X509) *untrusted = NULL;
@@ -487,11 +492,11 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 
 	if (have_times) {
 		int64_t expdays =  ((int64_t)valid_to-(int64_t)now.sec)/86400;
-		carg_or_glog(carg, L_INFO, "cert: %s, complete for: %u.\n", cert_name, now.sec);
-		carg_or_glog(carg, L_INFO, "cert: %s, valid from: %"d64".\n", cert_name, valid_from);
-		carg_or_glog(carg, L_INFO, "cert: %s, %"d64" exp\n", cert_name, expdays);
-		carg_or_glog(carg, L_INFO, "cert: %s, version: %d\n", cert_name, X509_get_version(cert) + 1);
-		carg_or_glog(carg, L_INFO, "cert: %s, valid: %"d64" reason=%s\n", cert_name, is_valid, reason);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, complete for: %u.\n", cert_name, now.sec);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, valid from: %"d64".\n", cert_name, valid_from);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, %"d64" exp\n", cert_name, expdays);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, version: %d\n", cert_name, X509_get_version(cert) + 1);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, valid: %"d64" reason=%s\n", cert_name, is_valid, reason);
 		alligator_ht *notafter_lbl = labels_dup(lbl);
 		alligator_ht *expiredays_lbl = labels_dup(lbl);
 		alligator_ht *valid_lbl = labels_dup(lbl);
@@ -532,7 +537,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
 
 	BIO *bio = BIO_new_mem_buf(pem_cert, (int)cert_size);
 	if (!bio) {
-		glog(L_DEBUG, "filename: %s, BIO_new_mem_buf failed\n", filename);
+		glog(L_ERROR, "filename: %s, BIO_new_mem_buf failed\n", filename ? filename : "(null)");
 		return 0;
 	}
 
@@ -540,7 +545,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
 	BIO_free(bio);
 
 	if (!cert) {
-		glog(L_DEBUG, "filename: %s, PEM_read_bio_X509 failed\n", filename);
+		glog(L_ERROR, "filename: %s, PEM_read_bio_X509 failed\n", filename ? filename : "(null)");
         return 0;
 	}
 

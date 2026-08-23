@@ -12,11 +12,12 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 	 * carg that issued it (e.g. one-shot aggregators freed after their
 	 * TTL expires), so dereferencing carg here would be a use-after-free. */
 	char* host = (char*)req->data;
-	glog(L_INFO, "getaddrinfo resolve done for hostname %s, status: %d\n", host ? host : "(null)", status);
 
 	char addr[17] = {'\0'};
 	if (status < 0)
 	{
+		glog(L_ERROR, "getaddrinfo resolve failed for hostname %s: %s\n",
+			host ? host : "(null)", uv_strerror(status));
 		uv_freeaddrinfo(res);
 		free(host);
 		free(req);
@@ -24,6 +25,7 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 	}
 
 	uv_ip4_name((struct sockaddr_in*) res->ai_addr, addr, 16);
+	glog(L_DEBUG, "getaddrinfo resolve done for hostname %s, addr %s\n", host ? host : "(null)", addr);
 
 	if (host)
 		dns_record_rule_push(host, DNS_TYPE_A, NULL, 0, addr, 17, 300);
@@ -61,6 +63,8 @@ void resolver_getaddrinfo_get(context_arg* carg)
 
 	if (uv_getaddrinfo(carg->loop, addr_info, resolver_getaddrinfo, carg->host, carg->port, &hints))
 	{
+		carglog(carg, L_ERROR, "getaddrinfo start failed key %s host %s port %s\n",
+			carg->key ? carg->key : "?", carg->host, carg->port);
 		free(addr_info->data);
 		free(addr_info);
 	}

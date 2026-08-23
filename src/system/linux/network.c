@@ -365,8 +365,10 @@ void interface_stats()
 	char classpath[255];
 	snprintf(classpath, 255, "%s/class/net", ac->system_sysfs);
 	dp = opendir(classpath);
-	if (!dp)
+	if (!dp) {
+		carglog(ac->system_carg, L_WARN, "interface_stats: opendir(%s): %s\n", classpath, strerror(errno));
 		return;
+	}
 
 	while((entry = readdir(dp)))
 	{
@@ -380,8 +382,10 @@ void interface_stats()
 		char operstate[100];
 		snprintf(operfile, 511, "%s/class/net/%s/operstate", ac->system_sysfs, entry->d_name);
 		FILE *fd = fopen(operfile, "r");
-		if (!fd)
+		if (!fd) {
+			carglog(ac->system_carg, L_WARN, "interface_stats: fopen(%s): %s\n", operfile, strerror(errno));
 			continue;
+		}
 
 		if(!fgets(operstate, 100, fd))
 		{

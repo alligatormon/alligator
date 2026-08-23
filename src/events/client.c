@@ -105,7 +105,7 @@ void tcp_client_closed(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	carg->close_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carglog_elapsed_ms(carg, carg->close_time_finish), carglog_elapsed_sec(carg, carg->close_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carglog_elapsed_ms(carg, carg->close_time_finish), carglog_elapsed_sec(carg, carg->close_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 
 
@@ -151,7 +151,7 @@ void tcp_client_close(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
 	carg->close_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->close_time), carglog_elapsed_sec(carg, carg->close_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tls client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->close_time), carglog_elapsed_sec(carg, carg->close_time), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	if (carg->tt_timer)
 		carg->tt_timer->data = NULL;
@@ -179,7 +179,7 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
 	carg->shutdown_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->shutdown_time_finish), carglog_elapsed_sec(carg, carg->shutdown_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->shutdown_time_finish), carglog_elapsed_sec(carg, carg->shutdown_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 
 	tcp_client_close((uv_handle_t *)&carg->client);
@@ -311,7 +311,7 @@ void tcp_client_written(uv_write_t *req, int status)
 	context_arg *carg = req->data;
 	carg->write_time_finish = setrtime();
 	if (status)
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client plain write failed %p(%p:%p) with key %s, hostname %s, port: %s, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->write_time_finish), carglog_elapsed_sec(carg, carg->write_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, uv_strerror(status));
+		carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] client plain write failed %p(%p:%p) with key %s, hostname %s, port: %s, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->write_time_finish), carglog_elapsed_sec(carg, carg->write_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, uv_strerror(status));
 }
 
 void tls_client_written(uv_write_t* req, int status) {
@@ -324,9 +324,9 @@ void tls_client_written(uv_write_t* req, int status) {
 		carg->tls_write_bytes_counter += carg->write_buffer.len;
 	}
 	if (status) {
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
+		carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
 	}
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;
@@ -341,7 +341,7 @@ int do_client_tls_handshake(context_arg *carg) {
 	if (!carg->tls_handshake_done) {
 		int hs_ret = SSL_do_handshake(carg->ssl);
 		if (hs_ret == 1) {
-			carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake complete %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+			carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] handshake complete %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 			carg->tls_handshake_done = 1;
 			if (!carg->tls_connect_time_finish.sec && !carg->tls_connect_time_finish.nsec)
 				carg->tls_connect_time_finish = setrtime();
@@ -380,7 +380,7 @@ int do_client_tls_handshake(context_arg *carg) {
 			} else if (err == SSL_ERROR_WANT_WRITE) {
 			} else {
 				char *err = openssl_get_error_string();
-				carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+				carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
 				free(err);
 
 				return -1;
@@ -397,7 +397,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = stream->data;
 	carg->tls_read_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client read %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tls client read %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	(carg->tls_read_counter)++;
 
 	if (nread <= 0)
@@ -413,7 +413,7 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	if (handshaked > 0) {
 		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
 		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written);
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] handshaked! request sent over tls %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+		carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] handshaked! request sent over tls %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	} else if (!handshaked) {
 		string *buffer = string_new();
 		int read_size = 0;
@@ -486,7 +486,7 @@ void tcp_client_start_app(context_arg *carg)
 	carglog(carg, L_TRACE, "write request key %s plain bytes %"PRIu64" preview %.*s\n", carg->key, carg->request_buffer.len, (int)(carg->request_buffer.len > 80 ? 80 : (int)carg->request_buffer.len), carg->request_buffer.base ? carg->request_buffer.base : "");
 	carg->write_time = setrtime();
 	int ret = uv_write(&carg->write_req, (uv_stream_t *)&carg->client, &carg->request_buffer, 1, tcp_client_written);
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->request_buffer.len);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->request_buffer.len);
 	carg->write_bytes_counter += carg->request_buffer.len;
 	(carg->write_counter)++;
 }
@@ -500,7 +500,7 @@ void tls_connected(uv_connect_t* req, int status)
 	if (status < 0) {
 		ok = 0;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-		carglog(carg, L_INFO, "tls client connect failed key %s host %s: %s\n",
+		carglog(carg, L_ERROR, "tls client connect failed key %s host %s: %s\n",
 			carg->key ? carg->key : "?", carg->host, uv_strerror(status));
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_closed((uv_handle_t*)&carg->client);
@@ -511,7 +511,7 @@ void tls_connected(uv_connect_t* req, int status)
 
 	carg->connect_time_finish = setrtime();
 	carg->read_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carglog_elapsed_ms(carg, carg->connect_time_finish), carglog_elapsed_sec(carg, carg->connect_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tls client connected %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count, carglog_elapsed_ms(carg, carg->connect_time_finish), carglog_elapsed_sec(carg, carg->connect_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 
 	tcp_client_start_app(carg);
 }
@@ -526,7 +526,7 @@ void tcp_connected(uv_connect_t* req, int status)
 	{
 		ok = 0;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
-		carglog(carg, L_INFO, "tcp client connect failed key %s host %s port %s: %s\n",
+		carglog(carg, L_ERROR, "tcp client connect failed key %s host %s port %s: %s\n",
 			carg->key ? carg->key : "?", carg->host, carg->port, uv_strerror(status));
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
@@ -535,7 +535,7 @@ void tcp_connected(uv_connect_t* req, int status)
 
 	carg->connect_time_finish = setrtime();
 	carg->read_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] client stream established %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client stream established %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->read_time), carglog_elapsed_sec(carg, carg->read_time), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 
 	if (proxy_needs_tunnel(carg)) {
 		proxy_handshake_start(carg);
@@ -568,7 +568,7 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	}
 
 	r_time timeout_now = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_WARN, "%"u64": [%"PRIu64"/%lf] timeout tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	if (!carg->parsed) {
@@ -661,7 +661,7 @@ void tcp_client_connect(void *arg)
 
 		tcp_client_timing_reset(carg);
 		carg->connect_time = setrtime();
-		carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"%s%s\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout, carg->proxy ? " proxy " : "", carg->proxy ? carg->proxy->host : "");
+		carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"%s%s\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout, carg->proxy ? " proxy " : "", carg->proxy ? carg->proxy->host : "");
 		if (carg->tls && !tunnel)
 		{
 			carg->tls_connect_time = setrtime();
@@ -711,7 +711,7 @@ void unix_client_connect(void *arg)
 		return;
 
 	if (carg->proxy)
-		carglog(carg, L_INFO, "unix client ignores proxy key %s path %s\n", carg->key ? carg->key : "?", carg->host);
+		carglog(carg, L_WARN, "unix client ignores proxy key %s path %s\n", carg->key ? carg->key : "?", carg->host);
 
 	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
@@ -751,7 +751,7 @@ void unix_client_connect(void *arg)
 
 	tcp_client_timing_reset(carg);
 	carg->connect_time = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] unix client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, carg->connect_time), carglog_elapsed_sec(carg, carg->connect_time), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 	if (carg->tls)
 	{
 		carg->tls_connect_time = setrtime();
