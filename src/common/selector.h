@@ -4,6 +4,7 @@
 #include <pcre.h>
 #include "dstructures/ht.h"
 #include <jansson.h>
+#include "common/strlcpy.h"
 //#include <byteswap.h>
 #if defined(__APPLE__)
     #include <libkern/OSByteOrder.h>

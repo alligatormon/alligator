@@ -20,7 +20,8 @@ static void libvirt_log_domain_error(virDomainPtr d, const char *op)
 		if (ac->libvirt->virDomainGetName(d))
 			dname = ac->libvirt->virDomainGetName(d);
 	}
-	err = virGetLastError();
+	err = (ac->libvirt && ac->libvirt->virGetLastError)
+	    ? ac->libvirt->virGetLastError() : NULL;
 	carglog(ac->cadvisor_carg, L_ERROR,
 	    "libvirt %s failed domain id=%u name=%s: %s\n",
 	    op, did, dname,
@@ -29,7 +30,8 @@ static void libvirt_log_domain_error(virDomainPtr d, const char *op)
 
 static void libvirt_log_conn_error(const char *op)
 {
-	virErrorPtr err = virGetLastError();
+	virErrorPtr err = (ac->libvirt && ac->libvirt->virGetLastError)
+	    ? ac->libvirt->virGetLastError() : NULL;
 
 	carglog(ac->cadvisor_carg, L_ERROR, "libvirt %s failed: %s\n", op,
 	    (err && err->message) ? err->message : "unknown error");
@@ -80,6 +82,9 @@ void libvirt_free(libvirt_library* libvirt) {
 
 	if (libvirt->virConnectClose_lib)
 		free(libvirt->virConnectClose_lib);
+
+	if (libvirt->virGetLastError_lib)
+		free(libvirt->virGetLastError_lib);
 
 	free(libvirt);
 }
@@ -203,6 +208,14 @@ libvirt_library* libvirt_init()
 	if (!libvirt->virConnectClose)
 	{
 		libvirt_log_symbol_error("virConnectClose", mod->path);
+		libvirt_free(libvirt);
+		return NULL;
+	}
+
+	libvirt->virGetLastError = (virErrorPtr (*)(void))module_load(mod->path, "virGetLastError", &libvirt->virGetLastError_lib);
+	if (!libvirt->virGetLastError)
+	{
+		libvirt_log_symbol_error("virGetLastError", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}

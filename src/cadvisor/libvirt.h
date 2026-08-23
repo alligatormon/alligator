@@ -2,6 +2,7 @@
 
 #ifdef __linux__
 #include <libvirt/libvirt.h>
+#include <libvirt/virterror.h>
 
 typedef struct libvirt_library {
 	uv_lib_t *virDomainGetID_lib;
@@ -45,6 +46,9 @@ typedef struct libvirt_library {
 
 	uv_lib_t *virConnectClose_lib;
 	int (*virConnectClose)(virConnectPtr);
+
+	uv_lib_t *virGetLastError_lib;
+	virErrorPtr (*virGetLastError)(void);
 } libvirt_library;
 
 int libvirt(void);
