@@ -41,6 +41,7 @@ Metric naming notes:
 
 - Host uptime metric is `system_uptime_seconds`.
 - IPMI metric families are exposed in lowercase snake_case (`ipmi_*`) for Prometheus naming consistency.
+- `interface_address` omits interfaces whose name starts with `veth` (same 4-character prefix as `if_stat` / `link_status`). This avoids high-churn Docker container veth series. `iface_num` still counts all interfaces returned by the OS.
 
 
 ## disk
@@ -49,6 +50,8 @@ Enables monitoring disk metrics, including the filesystem stats and I/O block de
 
 ## network
 Enables the monitoring of the network interfaces and sockets statistics.
+
+`if_stat`, `if_speed`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted.
 
 
 ## process

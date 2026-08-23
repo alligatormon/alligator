@@ -22,3 +22,4 @@ void get_utsname();
 void get_smbios();
 void system_initialize();
 int is_container(int8_t platform);
+int system_iface_is_veth(const char *name);

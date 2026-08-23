@@ -7,7 +7,19 @@
 #include "system/common.h"
 extern aconf *ac;
 
+void test_system_iface_is_veth(void) {
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("veth9cb223a"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("veth"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("vethernet"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, system_iface_is_veth("eth0"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, system_iface_is_veth("docker0"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, system_iface_is_veth("br-abc123"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, system_iface_is_veth(""));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, system_iface_is_veth(NULL));
+}
+
 void system_test(char *binary) {
+	test_system_iface_is_veth();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);

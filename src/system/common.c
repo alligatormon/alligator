@@ -1,6 +1,12 @@
 #include "main.h"
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
+#include <string.h>
+
+int system_iface_is_veth(const char *name)
+{
+	return name && !strncmp(name, "veth", 4);
+}
 
 static void system_register_metric_families(context_arg *carg)
 {
@@ -219,6 +225,9 @@ void ipaddr_info() {
 	metric_add_auto("iface_num", &count64, DATATYPE_INT, ac->system_carg);
 	while (i--) {
 		uv_interface_address_t interface = info[i];
+
+		if (system_iface_is_veth(interface.name))
+			continue;
 
 		unsigned char phys_addr[6];
 		phys_addr[0] = interface.phys_addr[0];

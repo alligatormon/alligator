@@ -14,6 +14,7 @@
 #include "metric/labels.h"
 #include "common/logs.h"
 #include "system/linux/network.h"
+#include "system/common.h"
 
 #define LINUXFS_LINE_LENGTH 300
 #define NETLINK_STATS_BUF_SIZE 32768
@@ -125,7 +126,7 @@ static int network_netlink_parse_link(const char *ifname, struct rtnl_link_stats
 
 	if (!has_stats)
 		return 0;
-	if (ctx->skip_veth && !strncmp(ifname, "veth", 4))
+	if (ctx->skip_veth && system_iface_is_veth(ifname))
 		return 0;
 
 	memset(&st, 0, sizeof(st));
@@ -372,7 +373,7 @@ void interface_stats()
 		if ( entry->d_name[0] == '.' )
 			continue;
 
-		if (!strncmp(entry->d_name, "veth", 4))
+		if (system_iface_is_veth(entry->d_name))
 			continue;
 
 		char operfile[512];
