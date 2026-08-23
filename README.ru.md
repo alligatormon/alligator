@@ -41,18 +41,39 @@ MIN_LINE_COVERAGE=50 ./tests/coverage/run_coverage.sh
 
 > Сборка тестов требует зависимостей проекта (например `jansson`) и инициализированных submodules.
 
+# Командная строка
+
+```
+alligator [-h|--help] [-v|--version] [-l <level>] [<path>]
+```
+
+| Флаг | Описание |
+|------|----------|
+| `-h`, `--help` | Справка и выход |
+| `-v`, `--version` | Версия и выход |
+| `-l <num\|name>` | Уровень логирования (число или имя: `off`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`) |
+| `<path>` | Файл или каталог конфигурации (необязательно; можно указать несколько раз) |
+
+Без аргументов используется basename `/etc/alligator` (Linux) или `/usr/local/etc/alligator` (FreeBSD).
+
 # Описание конфигурации
 Alligator поддерживает YAML, JSON и plain-text. В примерах ниже — plain text. Подробности — в [документации](doc/ru/configuration.md) и тестах.
 
-При старте alligator ищет `/etc/alligator.json`, затем `/etc/alligator.yaml`, иначе `/etc/alligator.conf`.
+Если путь не передан, alligator загружает конфигурацию по basename по умолчанию (`/etc/alligator` на Linux, `/usr/local/etc/alligator` на FreeBSD). Для basename проверяются по порядку:
 
-Также читается каталог `/etc/alligator/` с файлами `.yaml`, `.json`, `.conf` (includes). Можно комбинировать форматы.
+1. `{basename}.json`
+2. `{basename}.yaml`
+3. `{basename}.conf`
 
-Путь к конфигурации — первый аргумент:
+Если `{basename}` — каталог, читаются все файлы с расширениями `.yaml`, `.json`, `.conf` (split / includes). Если `{basename}` — обычный файл, он парсится напрямую.
+
+Явный путь на командной строке:
 ```
-alligator <path_to_conf>
-alligator <path_to_dir>
+alligator /path/to/alligator.conf
+alligator /etc/alligator.d/
 ```
+
+Конфигурацию можно дополнять переменными окружения (`ALLIGATOR__…`). См. [configuration — переменные окружения](doc/ru/configuration.md#поддержка-переменных-окружения).
 
 ## Основная структура
 Контексты для описания сбора данных:
@@ -74,6 +95,8 @@ alligator <path_to_dir>
 - **grok**: разбор логов в метрики (Grok, как в Elasticsearch)
 - **mtail**: разбор логов скриптами, совместимыми с mtail (amtail)
 - **vrl**: преобразование и обогащение событий логов (avrl)
+- **enrichment_table**: таблицы CSV и MaxMind для VRL; см. [vrl](doc/ru/vrl/README.md)
+- **probe**: модули blackbox-проверок для `GET /probe`; см. [probe](doc/ru/probe.md)
 
 Подробная структура конфигурации — [configuration](doc/ru/configuration.md).
 
@@ -133,7 +156,7 @@ aggregate {
 
 
 # Список парсеров ПО
-Переведённые страницы — в `doc/ru/parsers/`. Заглушки без перевода ведут на английскую версию.
+Переведённые страницы — в `doc/ru/parsers/`.
 
 - [rsyslog](doc/ru/parsers/rsyslog.md)
 - [PostgreSQL](doc/ru/parsers/postgresql.md)
@@ -150,46 +173,46 @@ aggregate {
 - [nats](doc/ru/parsers/nats.md)
 - [riak](doc/ru/parsers/riak.md)
 - [rabbitmq](doc/ru/parsers/rabbitmq.md)
-- [eventstore](doc/parsers/eventstore.md) *(English)*
-- Celery [flower](doc/parsers/flower.md) *(English)*
+- [eventstore](doc/ru/parsers/eventstore.md)
+- Celery [flower](doc/ru/parsers/flower.md)
 - [powerdns](doc/ru/parsers/powerdns.md)
 - [apache httpd](doc/ru/parsers/apache-httpd.md)
 - [druid](doc/ru/parsers/druid.md)
-- [couchbase](doc/parsers/couchbase.md) *(English)*
-- [couchdb](doc/parsers/couchdb.md) *(English)*
-- [mogilefs](doc/parsers/mogilefs.md) *(English)*
-- [moosefs](doc/parsers/moosefs.md) *(English)*
+- [couchbase](doc/ru/parsers/couchbase.md)
+- [couchdb](doc/ru/parsers/couchdb.md)
+- [mogilefs](doc/ru/parsers/mogilefs.md)
+- [moosefs](doc/ru/parsers/moosefs.md)
 - [kubernetes](doc/ru/parsers/kubernetes.md)
 - [prometheus\_metrics](doc/ru/parsers/prometheus_metrics.md)
 - [json\_query](doc/ru/parsers/json_query.md)
 - [squid](doc/ru/parsers/squid.md)
 - [bind](doc/ru/parsers/named.md) (nameD)
-- [gdnsd](doc/parsers/gdnsd.md) *(English)*
+- [gdnsd](doc/ru/parsers/gdnsd.md)
 - [tftp](doc/ru/parsers/tftp.md)
 - [unbound](doc/ru/parsers/unbound.md)
-- [syslog-ng](doc/parsers/syslog-ng.md) *(English)*
+- [syslog-ng](doc/ru/parsers/syslog-ng.md)
 - [elasticsearch](doc/ru/parsers/elasticsearch.md)
-- [opentsdb](doc/parsers/opentsdb.md) *(English)*
-- [hadoop](doc/parsers/hadoop.md) *(English)*
+- [opentsdb](doc/ru/parsers/opentsdb.md)
+- [hadoop](doc/ru/parsers/hadoop.md)
 - [snmp](doc/ru/parsers/snmp.md)
 - [aerospike](doc/ru/parsers/aerospike.md)
 - [lighttpd](doc/ru/parsers/lighttpd.md)
-- [ipmi](doc/parsers/ipmi.md) *(English)*
+- [ipmi](doc/ru/parsers/ipmi.md)
 - [keepalived](doc/ru/parsers/keepalived.md)
 - [mysql](doc/ru/parsers/mysql.md)
-- [monit](doc/parsers/monit.md) *(English)*
+- [monit](doc/ru/parsers/monit.md)
 - [nginx](doc/ru/parsers/nginx.md)
-- [nsd](doc/parsers/nsd.md) *(English)*
-- [ntp](doc/parsers/ntp.md) *(English)*
-- [nvidia-smi](doc/parsers/nvidia-smi.md) *(English)*
+- [nsd](doc/ru/parsers/nsd.md)
+- [ntp](doc/ru/parsers/ntp.md)
+- [nvidia-smi](doc/ru/parsers/nvidia-smi.md)
 - [auditd](doc/ru/parsers/auditd.md)
 - [cassandra](doc/ru/parsers/cassandra.md)
 - [sentinel](doc/ru/parsers/sentinel.md)
-- [patroni](doc/parsers/patroni.md) *(English)*
+- [patroni](doc/ru/parsers/patroni.md)
 - [pgbouncer](doc/ru/parsers/postgresql.md#pgbouncer)
 - [odyssey](doc/ru/parsers/postgresql.md#odyssey)
 - [pgpool](doc/ru/parsers/postgresql.md#pgpool)
-- [varnish](doc/parsers/varnish.md) *(English)*
+- [varnish](doc/ru/parsers/varnish.md)
 - [wazuh](doc/ru/parsers/wazuh.md)
 
 
@@ -217,6 +240,10 @@ modules {
 
 ## Мониторинг сертификатов
 См. [x509](doc/ru/x509.md).
+
+Alligator проверяет срок действия сертификатов на файловой системе (`x509`) и в TLS-соединениях (`aggregate`, `entrypoint`). Опциональные проверки **CRL** и **OCSP** доступны для TLS aggregate, mTLS entrypoint и файловых коллекторов. Метрики: `x509_cert_expire_days`, `x509_cert_revocation_status`, `ocsp_requests_total`.
+
+Пример конфигурации: [misc/examples/ocsp/alligator.conf](misc/examples/ocsp/alligator.conf).
 
 ## Queries
 См. [query](doc/ru/query.md).

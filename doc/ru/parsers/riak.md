@@ -2,22 +2,36 @@
 
 ## Riak
 
-Чтобы включить сбор статистики с Riak, используйте следующую опцию:
+Собирает HTTP stats Riak (порт по умолчанию **8098**).
+
+### Connection URL
+
+```
+http://[user:pass@]host[:8098]
+```
+
+### Пример
+
 ```
 aggregate {
     riak http://localhost:8098;
 }
 ```
 
-Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:
+### Metrics
+
+Поля JSON `/stats` становятся метриками `riak_*`.
+
+Опциональные проверки process / socket:
+
 ```
 system {
     services riak.service;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{src_port="8098"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{src_port="8098"})';
+    make socket_match;
+    datasource internal;
 }
 ```

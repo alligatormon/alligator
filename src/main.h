@@ -31,10 +31,8 @@
 #define u64 PRIu64
 #define METRIC_SIZE 1000
 #ifdef __FreeBSD__
-#define DEFAULT_CONF_DIR "/usr/local/etc/alligator.conf"
 #define DEFAULT_CONF_PATH "/usr/local/etc/alligator"
 #else
-#define DEFAULT_CONF_DIR "/etc/alligator.conf"
 #define DEFAULT_CONF_PATH "/etc/alligator"
 #endif
 

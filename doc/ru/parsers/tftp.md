@@ -1,16 +1,33 @@
 **Language / Язык:** [English](../../parsers/tftp.md) | [Русский](tftp.md)
 
-## tftp
+## TFTP
 
-Чтобы включить сбор статистики с tftp, используйте следующую опцию:
+Активная проверка TFTP: запрос файла по UDP и фиксация доступности / timing.
+
+### Connection URL
+
+```
+udp://host[:69]/filename
+```
+
+Порт TFTP по умолчанию — **69**. Path — имя удалённого файла (например `/ping`).
+
+### Пример
+
 ```
 aggregate {
     tftp udp://localhost:69/ping;
 }
 ```
-Это проверит доступность файла `ping`.
 
-Также полезно проверять статистику процесса, запущенные сервисы и открытые порты. TFTP обычно используется со службой inetd/xinetd:
+Проверяет доступность файла `ping`.
+
+### Metrics
+
+Метрики связности в стиле blackbox для TFTP-передачи (success / timing).
+
+Опциональные проверки process / socket (TFTP часто за inetd/xinetd):
+
 ```
 system {
     process xinetd;
@@ -18,8 +35,8 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="xinetd", src_port="69"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{process="xinetd", src_port="69"})';
+    make socket_match;
+    datasource internal;
 }
 ```

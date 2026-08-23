@@ -1,13 +1,29 @@
+**Language / Язык:** [English](squid.md) | [Русский](../ru/parsers/squid.md)
+
 ## Squid
 
-To enable the collection of statistics from Squid, use the following option:
+Scrapes Squid cache manager statistics over HTTP (default port **3128**).
+
+### Connection URL
+
+```
+http://[user:pass@]host[:3128]
+```
+
+### Example
+
 ```
 aggregate {
-	squid http://localhost:3128;
+    squid http://localhost:3128;
 }
 ```
 
-It is also useful to check process statistics, running services and open ports:
+### Metrics
+
+Cache manager fields become `squid_*` metrics.
+
+Optional process / socket checks:
+
 ```
 system {
     process squid;
@@ -15,8 +31,8 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="squid", src_port="3128"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{process="squid", src_port="3128"})';
+    make socket_match;
+    datasource internal;
 }
 ```

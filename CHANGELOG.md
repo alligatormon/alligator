@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+
+## [1.15.2] - 23.08.2026
 - TCP and UDP aggregator clients can use an HTTP or SOCKS5 proxy (`proxy=http://…`, `proxy=socks5://…` / `socks5h://`). HTTPS/TLS/TCP go through HTTP CONNECT; plaintext HTTP uses an absolute-URI request; UDP uses SOCKS5 UDP ASSOCIATE only. TLS-to-proxy (`https://proxy`) is not supported.
 - OCSP fetches can use a separate proxy (`tls_ocsp_proxy=` on aggregate/entrypoint, `ocsp_proxy=` on x509). Same URL schemes as scrape `proxy=`; scrape `proxy=` is not inherited.
 - Config dump no longer crashes when an aggregate has no `url` (`aggregator_generate_conf`).

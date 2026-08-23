@@ -210,7 +210,7 @@ Another way to specify a TTL for each pushed request is to use the X-Expire-Time
 curl -sS -d "restore_test 1" -H "X-Expire-Time: 1d" 127.0.0.1:1111
 ```
 
-More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
+More information about units that user can specify in configuration can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
 
 ## read_metric_interval
 Default: 10 (seconds)\

@@ -20,6 +20,7 @@
 | Cluster replication | [cluster.md](cluster.md) |
 | Service discovery | [service-discovery.md](service-discovery.md) |
 | HTTP API | [api.md](api.md) |
+| Blackbox probe modules | [probe.md](probe.md) |
 | Puppeteer / browser checks | [puppeteer.md](puppeteer.md), [chromecdp.md](chromecdp.md) |
 | Kubernetes operator | [kubernetes-operator.md](kubernetes-operator.md) |
 | Thread pools | [threaded-loop.md](threaded-loop.md) |
@@ -43,13 +44,35 @@ These blocks can appear in `/etc/alligator.conf` (plain) or JSON configuration:
 | `mtail` | Register mtail programs |
 | `vrl` | Register avrl programs (`dns_lookup` / `reverse_dns`, negative DNS cache) |
 | `lang` | Load external language modules |
-| `probe` | Prometheus-style probe modules (HTTP/TCP checks via API) |
+| `probe` | Prometheus-style probe modules (`GET /probe`); see [probe.md](probe.md) |
 | `x509` | Monitor certificate files |
 | `cluster` / `instance` | Cluster membership |
-| `puppeteer` | Headless browser automation |
+| `puppeteer` | Headless browser automation (Node.js Puppeteer) |
+| `chromecdp` | Browser metrics via Chrome DevTools Protocol (no Node.js) |
 | `threaded_loop` | Named worker thread pools |
+| `enrichment_table` | CSV / MaxMind lookup tables for VRL; see [vrl/README.md](vrl/README.md) |
+| `persistence` | Save metrics to disk between restarts |
+| `modules` | Map names to `.so` paths for parsers and `lang so` |
 
-Global directives (outside blocks): `log_level`, `log_dest`, `log_channel`, `ttl`, `aggregate_period`, `query_period`, `system_collect_period`, and related timing options.
+### Global directives
+
+These appear outside context blocks (plain config) or as top-level JSON keys:
+
+| Directive | Purpose |
+|-----------|---------|
+| `log_level`, `log_dest`, `log_channel`, `log_form`, `log_time`, `log_time_format` | Logging defaults and named channels |
+| `ttl` | Global metric TTL (seconds) |
+| `aggregate_period` | Default scrape interval for `aggregate` targets |
+| `system_collect_period` | Host metrics scrape interval |
+| `tls_collect_period` | Filesystem `x509` collector interval |
+| `query_period` | Internal query evaluation interval |
+| `synchronization_period` | Cluster sync interval |
+| `workers` | libuv thread pool size (`auto` or integer) |
+| `metrictree_hashfunc` | Metric tree hash: `lookup3`, `murmur`, `crc32`, `XXH3` |
+| `process_shell` | Shell for process spawner (default `/bin/sh`) |
+| `persistence` | `{ directory, period }` — metric persistence directory and flush interval |
+
+See [Available units for time data](#available-units-for-time-data-in-configuration-file) for duration syntax.
 
 ## Available log levels
 - off

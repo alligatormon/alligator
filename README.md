@@ -41,18 +41,39 @@ MIN_LINE_COVERAGE=50 ./tests/coverage/run_coverage.sh
 
 > Note: building tests requires project dependencies (for example `jansson`) and initialized external sources/submodules.
 
+# Command line
+
+```
+alligator [-h|--help] [-v|--version] [-l <level>] [<path>]
+```
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | Print usage and exit |
+| `-v`, `--version` | Print version and exit |
+| `-l <num\|name>` | Override log level (numeric or name: `off`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`) |
+| `<path>` | Config file or directory (optional; can repeat) |
+
+If no path is given, the default config basename is `/etc/alligator` on Linux and `/usr/local/etc/alligator` on FreeBSD.
+
 # Configuration description:
 Alligator supports YAML, JSON or plain-text format. In examples we will consider only plain text format. For more information please refer to the detailed documentation or the tests.
 
-When alligator starts, it tries to parse the /etc/alligator.json file. If this file is not found, it then tries to parse the /etc/alligator.yaml file. Otherwise, it falls back to parsing the /etc/alligator.conf file.
+When no path is passed on the command line, alligator loads the default basename (`/etc/alligator` on Linux, `/usr/local/etc/alligator` on FreeBSD). For that basename it tries, in order:
 
-Additionally, Alligator attempts to parse the entire directory /etc/alligator/ for files with the .yaml, .json and .conf file extensions. This approach enables the use of includes. Users can combine all of these methods for representing configuration (YAML, JSON and plain text .conf).
+1. `{basename}.json`
+2. `{basename}.yaml`
+3. `{basename}.conf`
 
-The configuration file path can be passed as the first argument on the command line.
+If `{basename}` is a directory, every file inside it with extensions `.yaml`, `.json`, or `.conf` is loaded (split configs / includes). If `{basename}` is a regular file, that file is parsed directly.
+
+You can also pass an explicit path on the command line:
 ```
-alligator <path_to_conf>
-alligator <path_to_dir>
+alligator /path/to/alligator.conf
+alligator /etc/alligator.d/
 ```
+
+Configuration can be overridden or extended with environment variables (`ALLIGATOR__…`). See [configuration — environment variables](doc/configuration.md#support-environment-variables).
 
 ## Main structure
 Alligator has many contexts for describing the collection data:
@@ -74,6 +95,8 @@ Alligator has many contexts for describing the collection data:
 - **grok**: Parse logs in metrics like Elasticsearch’s Grok parser.
 - **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
 - **vrl**: Remap and enrich log events with Vector Remap Language (avrl) programs.
+- **enrichment_table**: CSV and MaxMind lookup tables for VRL (`get_enrichment_table_record`); see [vrl](doc/vrl/README.md)
+- **probe**: Prometheus-style blackbox probe modules served at `GET /probe`; see [probe](doc/probe.md)
 
 Detailed information about the configuration file structure is in [configuration](doc/configuration.md).
 
@@ -217,7 +240,11 @@ The resolver in Alligator provides flexible DNS configuration. It allows using D
 
 
 ## Certificates monitoring
-Please refer to the explanation of x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
+Please refer to the explanation of x509 [context](doc/x509.md).
+
+Alligator checks certificate expiry on the filesystem (`x509` context) and on TLS connections (`aggregate`, `entrypoint`). Optional **CRL** and **OCSP** revocation checks apply to aggregate TLS probes, mTLS entrypoints, and filesystem collectors. Metrics include `x509_cert_expire_days`, `x509_cert_revocation_status`, and `ocsp_requests_total`.
+
+Walkthrough config: [misc/examples/ocsp/alligator.conf](misc/examples/ocsp/alligator.conf).
 
 
 ## Queries

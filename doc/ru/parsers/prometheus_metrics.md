@@ -1,19 +1,35 @@
 **Language / Язык:** [English](../../parsers/prometheus_metrics.md) | [Русский](prometheus_metrics.md)
 
-## OpenMetrics
+## OpenMetrics / Prometheus metrics
 
-Чтобы включить сбор статистики с любых эндпоинтов в формате OpenMetrics, используйте следующую опцию:
+Собирает любой HTTP(S), file или другой transport, который отдаёт Prometheus text или OpenMetrics.
+
+### Connection URL
+
+Любой transport агрегатора с телом ответа, обычно:
+
+```
+http://host/metrics
+https://host/metrics
+file:///path/to/metrics.txt
+```
+
+### Пример
+
 ```
 aggregate {
     prometheus_metrics http://localhost/metrics;
 }
 ```
 
-### Пример чтения метрик из файла:
+Из файла (опционально state / notify для filetailer):
+
 ```
 aggregate {
     prometheus_metrics file:///var/run/keepalived_time_state state=save notify=true;
 }
 ```
 
-Эта опция позволяет собирать метрики с других экспортёров.
+### Metrics
+
+Имена метрик и labels берутся из текста exposition как у exporter (passthrough в хранилище Alligator).

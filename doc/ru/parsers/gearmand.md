@@ -2,14 +2,28 @@
 
 ## Gearmand
 
-Чтобы включить сбор статистики с gearmand, используйте следующую опцию:
+Собирает статус Gearman job server по TCP (порт по умолчанию **4730**).
+
+### Connection URL
+
+```
+tcp://host[:4730]
+```
+
+### Пример
+
 ```
 aggregate {
     gearmand tcp://localhost:4730;
 }
 ```
 
-Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:
+### Metrics
+
+Счётчики очередей и воркеров становятся `gearmand_*`.
+
+Опциональные проверки process / socket:
+
 ```
 system {
     process gearmand;
@@ -17,8 +31,8 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="gearmand", src_port="4730"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{process="gearmand", src_port="4730"})';
+    make socket_match;
+    datasource internal;
 }
 ```

@@ -1,6 +1,38 @@
 # API
 
-JSON API is similar to plaintext configuration. The description of directives can be found in other sections of the documentation.
+**Language / Язык:** [English](api.md) | [Русский](ru/api.md)
+
+JSON configuration mirrors plain-text blocks. Directive descriptions live in the topic docs linked from [configuration.md](configuration.md).
+
+## HTTP endpoints
+
+These paths are served on any HTTP/TLS/unix entrypoint (the router does not require `handler prometheus`):
+
+| Path | Method | Purpose |
+|------|--------|---------|
+| `/` or `/metrics` | GET | Prometheus or OpenMetrics export (`format` on entrypoint, or `?format=` / `?namespace=`) |
+| `/conf` | GET | Full running configuration as JSON (same shape as below) |
+| `/json?query=…` | GET | Internal metric query (PromQL subset) as JSON |
+| `/dsv?query=…` | GET | Same query as DSV (`delimiter` optional, default `\|`) |
+| `/probe?module=…&target=…` | GET | On-demand blackbox probe (requires `probe { … }` blocks; see [probe.md](probe.md)) |
+| `/stats` | GET | Internal statistics |
+| `/ready` | GET | Readiness probe (empty 200) |
+| `/labels_cache` | GET | Label cache dump (`?namespace=` optional) |
+| `/resolver` | GET | Resolver cache as JSON |
+| `/oplog` | GET | Cluster oplog |
+| `/sharedlock` | GET | Cluster shared-lock state |
+| `/api/v1/…` | GET, PUT, POST, DELETE | Runtime config API when `api on` on the entrypoint |
+
+Example — export current config for Consul/Etcd templates:
+
+```
+curl -s http://127.0.0.1:1111/conf
+```
+
+There is no CLI flag to dump configuration; `-l` sets log level only.
+
+## JSON configuration schema
+
 ```
 {
   "log_level": "<level>",
@@ -163,7 +195,7 @@ JSON API is similar to plaintext configuration. The description of directives ca
       "notify": "true",
       "file_stat": "true",
       "checksum": "murmur3",
-      "ca_certificate": "/path/to/ca/cert",
+      "tls_ca": "/path/to/ca/cert",
       "tls_certificate": "/path/to/client/crt",
       "tls_key": "/path/to/client/key",
       "tls_server_name": "server_name",
@@ -233,6 +265,21 @@ JSON API is similar to plaintext configuration. The description of directives ca
         "dir": "/path/to/save/pictures/"
       }
     }
-  }
+  },
+  "probe": [
+    {
+      "name": "http_2xx",
+      "prober": "http",
+      "follow_redirects": 5,
+      "valid_status_codes": ["2xx"]
+    },
+    {
+      "name": "icmp",
+      "prober": "icmp",
+      "timeout": "5s",
+      "loop": 10,
+      "percent": 0.5
+    }
+  ]
 }
 ```

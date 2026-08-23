@@ -29,3 +29,24 @@ aggregate {
 ```
 
 ### Blackbox в entrypoint
+
+Проверки по запросу используют модули **`probe`** и `GET /probe?module=…&target=…` вместо периодического `aggregate`. См. [probe.md](../probe.md).
+
+Пример:
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 1111;
+}
+
+probe {
+    name http_2xx;
+    prober http;
+    valid_status_codes 2xx;
+}
+```
+
+```
+curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
+```

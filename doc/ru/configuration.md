@@ -20,6 +20,7 @@
 | Репликация кластера | [cluster.md](cluster.md) |
 | Service discovery | [service-discovery.md](service-discovery.md) |
 | HTTP API | [api.md](api.md) |
+| Blackbox probe modules | [probe.md](probe.md) |
 | Puppeteer / browser checks | [puppeteer.md](puppeteer.md), [chromecdp.md](chromecdp.md) |
 | Kubernetes operator | [kubernetes-operator.md](kubernetes-operator.md) |
 | Thread pools | [threaded-loop.md](threaded-loop.md) |
@@ -43,13 +44,35 @@
 | `mtail` | Регистрация mtail programs |
 | `vrl` | Регистрация avrl programs (`dns_lookup` / `reverse_dns`, negative DNS cache) |
 | `lang` | Загрузка external language modules |
-| `probe` | Prometheus-style probe modules (HTTP/TCP checks via API) |
+| `probe` | Prometheus-style probe modules (`GET /probe`); см. [probe.md](probe.md) |
 | `x509` | Мониторинг certificate files |
 | `cluster` / `instance` | Cluster membership |
-| `puppeteer` | Headless browser automation |
+| `puppeteer` | Headless browser automation (Node.js Puppeteer) |
+| `chromecdp` | Метрики браузера через Chrome DevTools Protocol (без Node.js) |
 | `threaded_loop` | Именованные worker thread pools |
+| `enrichment_table` | Таблицы CSV / MaxMind для VRL; см. [vrl/README.md](vrl/README.md) |
+| `persistence` | Сохранение метрик на диск между перезапусками |
+| `modules` | Сопоставление имён и путей `.so` для parsers и `lang so` |
 
-Глобальные директивы (вне блоков): `log_level`, `log_dest`, `log_channel`, `ttl`, `aggregate_period`, `query_period`, `system_collect_period` и связанные timing options.
+### Глобальные директивы
+
+Задаются вне контекстных блоков (plain) или как ключи верхнего уровня JSON:
+
+| Директива | Назначение |
+|-----------|------------|
+| `log_level`, `log_dest`, `log_channel`, `log_form`, `log_time`, `log_time_format` | Логирование по умолчанию и именованные каналы |
+| `ttl` | Глобальный TTL метрик (секунды) |
+| `aggregate_period` | Интервал scrape для `aggregate` |
+| `system_collect_period` | Интервал сбора метрик хоста |
+| `tls_collect_period` | Интервал файлового коллектора `x509` |
+| `query_period` | Интервал внутренних query |
+| `synchronization_period` | Интервал синхронизации кластера |
+| `workers` | Размер thread pool libuv (`auto` или число) |
+| `metrictree_hashfunc` | Хеш дерева метрик: `lookup3`, `murmur`, `crc32`, `XXH3` |
+| `process_shell` | Shell для process spawner (по умолчанию `/bin/sh`) |
+| `persistence` | `{ directory, period }` — каталог и интервал сохранения метрик |
+
+Синтаксис интервалов — в разделе [единицы времени](#available-units-for-time-data-in-configuration-file).
 
 ## Доступные уровни логирования
 - off
@@ -517,6 +540,8 @@ puppeteer {
     <puppeteer options>;
 }
 ```
+
+<a id="support-environment-variables"></a>
 
 # Поддержка переменных окружения
 `__` — separator вложенности contexts

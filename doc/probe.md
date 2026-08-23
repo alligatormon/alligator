@@ -2,7 +2,7 @@
 
 **Language / Язык:** [English](probe.md) | [Русский](ru/probe.md)
 
-The `probe` context defines reusable blackbox check modules. They are invoked on demand through `GET /probe` on any Prometheus entrypoint, similar to Prometheus Blackbox Exporter.
+The `probe` context defines reusable blackbox check modules. They are invoked on demand through `GET /probe` on any HTTP entrypoint, similar to Prometheus Blackbox Exporter.
 
 Periodic checks still use `aggregate { blackbox … }`. Use `probe` when an external system (Prometheus, Alertmanager, custom scripts) chooses targets at request time.
 
@@ -46,15 +46,14 @@ The handler builds a full URL (`http://`, `https://`, `tcp://`, `icmp://`, …) 
 | Field | Description |
 |-------|-------------|
 | `name` | Module name referenced by `module=` query parameter (required) |
-| `prober` | `http`, `tcp`, or `icmp` (required) |
-| `tls` | `on` — use HTTPS (with `prober http`) or TLS TCP (with `prober tcp`) |
+| `prober` | `http`, `tcp`, `udp`, or `icmp` (required) |
+| `tls` | `on` — HTTPS (`prober http` → `https://`) or TLS (`prober tcp` → `tls://`) |
 | `timeout` | Probe timeout (default `5s`) |
 | `method` | `GET` or `POST` (HTTP/HTTPS only) |
 | `follow_redirects` | Max redirects for HTTP(S) |
 | `valid_status_codes` | Allowed HTTP status patterns (`2xx`, `3xx`, `101`, …) |
 | `loop` | Repeat probe N times (ICMP packet loss statistics) |
 | `percent` | Required success ratio when `loop` is set (0.0–1.0) |
-| `query_response` | TCP banner checks: `expect` regex and optional `send` string |
 | `ca_file`, `cert_file`, `key_file`, `server_name` | TLS client settings |
 | `tls_verify` | `on` — verify server certificate |
 | `http_proxy_url` / `proxy` | HTTP proxy URL for the probe request |
@@ -72,19 +71,6 @@ probe {
     timeout 5000;
     loop 10;
     percent 0.5;
-}
-```
-
-SSH banner over TCP:
-
-```
-probe {
-    name ssh_banner;
-    prober tcp;
-    query_response {
-        expect "^SSH-2.0-";
-        send "SSH-2.0-blackbox-ssh-check";
-    }
 }
 ```
 

@@ -2,14 +2,28 @@
 
 ## Beanstalkd
 
-Чтобы включить сбор статистики с beanstalkd, используйте следующую опцию:
+Собирает статистику tube и сервера Beanstalkd по TCP (порт по умолчанию **11300**).
+
+### Connection URL
+
+```
+tcp://host[:11300]
+```
+
+### Пример
+
 ```
 aggregate {
     beanstalkd tcp://localhost:11300;
 }
 ```
 
-Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:
+### Metrics
+
+Счётчики сервера и tube становятся `beanstalkd_*`.
+
+Опциональные проверки process / socket:
+
 ```
 system {
     process beanstalkd;
@@ -17,8 +31,8 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="beanstalkd", src_port="11300"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{process="beanstalkd", src_port="11300"})';
+    make socket_match;
+    datasource internal;
 }
 ```

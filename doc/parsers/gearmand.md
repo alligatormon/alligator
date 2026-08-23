@@ -1,13 +1,29 @@
+**Language / Язык:** [English](gearmand.md) | [Русский](../ru/parsers/gearmand.md)
+
 ## Gearmand
 
-To enable the collection of statistics from gearmand, use the following option:
+Collects Gearman job server status over TCP (default port **4730**).
+
+### Connection URL
+
+```
+tcp://host[:4730]
+```
+
+### Example
+
 ```
 aggregate {
     gearmand tcp://localhost:4730;
 }
 ```
 
-It is also useful to check process statistics, running services and open ports:
+### Metrics
+
+Queue and worker counters become `gearmand_*` metrics.
+
+Optional process / socket checks:
+
 ```
 system {
     process gearmand;
@@ -15,8 +31,8 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="gearmand", src_port="4730"})';
-	make socket_match;
-	datasource internal;
+    expr 'count by (src_port, process) (socket_stat{process="gearmand", src_port="4730"})';
+    make socket_match;
+    datasource internal;
 }
 ```

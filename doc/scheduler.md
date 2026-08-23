@@ -47,7 +47,7 @@ Label `=~` / `!~` on keys other than `__name__` is ignored. `x509_cert_.*` as a 
 
 ## period
 Specifies the time interval for the repeated execution of the command.\
-More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
+More information about units that user can specify in configuration can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md).
 
 
 ## datasource

@@ -245,7 +245,7 @@ Default: 5s\
 Plural: no
 
 Specifies the timeout for the request.
-More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-units-for-time-data-in-configuration-file).
+More information about units that user can specify in configuration can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-units-for-time-data-in-configuration-file).
 
 
 ## calc\_lines
@@ -364,7 +364,7 @@ Default: -\
 Plural: no
 
 Specifies the time interval for the repeated calling of the request.\
-More information about units that user can specify in configuratino can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-units-for-time-data-in-configuration-file).
+More information about units that user can specify in configuration can be obtained from configuration [doc](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#available-units-for-time-data-in-configuration-file).
 
 
 ## resolve

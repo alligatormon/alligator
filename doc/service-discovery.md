@@ -1,5 +1,7 @@
 # Service Discovery
 
+**Language / Язык:** [English](service-discovery.md) | [Русский](ru/service-discovery.md)
+
 This is an example of service discovery and configuration retrieval from Consul and Etcd. When specified, alligator starts to recursively gather configuration from the root.
 ```
 aggregate {
@@ -19,12 +21,23 @@ For Consul service discovery, it can be used as an example of registering a serv
 consul services register -name=web -port=1334 -address=127.0.0.1 -meta alligator_port=2332 -meta alligator_host=127.0.0.2 -meta alligator_handler=uwsgi -meta alligator_proto=tcp
 ```
 
-To use Consul as a configuration storage, you can utilize the JSON implementation of alligator configuration. To illustrate an example of a JSON-encoded configuration in alligator, you can simply use the command `alligator -l 1 <path_to_conf>`. This encodes the configuration in JSON format, providing a basis for settings.
+To use Consul as a configuration storage, store JSON that matches the alligator schema (see [api.md](api.md)). To obtain a JSON template from a running instance:
+
 ```
-'{"entrypoint": [{"tcp":["1111"]}]}'
+entrypoint {
+    handler prometheus;
+    tcp 1111;
+}
 ```
 
-To push configurations to etcd, you can use the following directive:
+```
+curl -s http://127.0.0.1:1111/conf
+```
+
+Plain-text config files are converted to the same JSON shape at load time; there is no CLI flag to dump configuration (`-l` sets log level only).
+
+To push configurations to etcd:
+
 ```
 curl http://127.0.0.1:2379/v2/keys/message -XPUT -d value='{"entrypoint": [{"tcp":["1111"]}]}'
 ```

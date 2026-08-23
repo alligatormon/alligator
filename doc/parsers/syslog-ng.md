@@ -1,12 +1,35 @@
+**Language / Язык:** [English](syslog-ng.md) | [Русский](../ru/parsers/syslog-ng.md)
+
 ## syslog-ng
 
-To enable the collection of statistics from syslog-ng, use the following option:
+Reads syslog-ng internal statistics from the control socket.
+
+### Connection URL
+
+```
+unix:///var/lib/syslog-ng/syslog-ng.ctl
+```
+
+Path matches the `stats()` destination control socket in syslog-ng configuration.
+
+### Example
+
 ```
 aggregate {
     syslog-ng unix:///var/lib/syslog-ng/syslog-ng.ctl;
 }
 ```
 
-## Dashboard
-The syslog-ng dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-syslog-ng.json)
-<img alt="Alligator syslog-ng dashboard" src="../images/dashboard-syslog-ng.jpg">
+See [`src/tests/system/syslog-ng/alligator.conf`](../../src/tests/system/syslog-ng/alligator.conf).
+
+### Protocol
+
+Alligator sends `STATS CSV\n` and parses CSV rows.
+
+### Metrics
+
+- `syslogng_stats` with labels: `source_name`, `source_id`, `source_instance`, `state`, `type`
+
+### Dashboard
+
+Grafana dashboard: [`dashboards/alligator-syslog-ng.json`](../../dashboards/alligator-syslog-ng.json)

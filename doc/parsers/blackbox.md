@@ -27,3 +27,24 @@ aggregate {
 ```
 
 ### Blackbox in entrypoint
+
+On-demand checks use **`probe`** modules and `GET /probe?module=…&target=…` instead of scheduled `aggregate` scrapes. See [probe.md](../probe.md).
+
+Example:
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 1111;
+}
+
+probe {
+    name http_2xx;
+    prober http;
+    valid_status_codes 2xx;
+}
+```
+
+```
+curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
+```
