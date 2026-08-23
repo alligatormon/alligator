@@ -279,3 +279,6 @@ Enables parsing log entries into metrics using Elasticsearch-style Grok patterns
 
 ## Mtail
 Enables parsing log entries into metrics with mtail-compatible programs in the C runtime. See the [detailed explanation](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md)
+
+## VRL
+Enables remapping and enriching log events with Vector Remap Language (avrl) programs. See the [detailed explanation](https://github.com/alligatormon/alligator/blob/master/doc/vrl/README.md)
