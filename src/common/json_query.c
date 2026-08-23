@@ -546,7 +546,7 @@ int8_t json_validator(context_arg *carg, char *data, size_t size)
 		return 1;
 	}
 
-	carg_or_glog(carg, L_TRACE, "json validator: json error on line %d: %s\n", error.line, error.text);
+	carg_or_glog(carg, L_WARN, "json validator: json error on line %d: %s\n", error.line, error.text);
 	return 0;
 }
 

@@ -112,7 +112,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	if (req == &carg->udp_server) {
 		if (nread > 0) {
 			if (!check_udp_ip_port(addr, carg)) {
-				carglog(carg, L_ERROR, "no access!\n");
+				access_log_denied_udp(addr, carg);
 			} else {
 				(carg->conn_counter)++;
 				(carg->read_counter)++;
@@ -141,7 +141,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 
 	if (!(carg->proxy && carg->proxy->type == PROXY_TYPE_SOCKS5) && !check_udp_ip_port(addr, carg))
 	{
-		carglog(carg, L_ERROR, "no access!\n");
+		access_log_denied_udp(addr, carg);
 		udp_close_client(carg, buf);
 		return;
 	}

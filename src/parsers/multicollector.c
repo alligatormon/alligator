@@ -17,6 +17,21 @@
 #include "main.h"
 #define METRIC_NAME_SIZE 255
 #define MAX_LABEL_COUNT 10
+#define MC_LINE_SNIPPET_MAX 120
+
+static void multicollector_warn_reject(context_arg *carg, const char *reason, const char *str)
+{
+	size_t len;
+
+	if (!str)
+		str = "";
+	len = strlen(str);
+	if (len > MC_LINE_SNIPPET_MAX)
+		carg_or_glog(carg, L_WARN, "multicollector rejected line (%s): %.*s...\n",
+		    reason, MC_LINE_SNIPPET_MAX, str);
+	else
+		carg_or_glog(carg, L_WARN, "multicollector rejected line (%s): %s\n", reason, str);
+}
 
 static uint8_t multicollector_is_http_header_line(const char *line)
 {
@@ -290,7 +305,7 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 
 		if (carg && reject_metric(carg->reject, label_name, label_key))
 		{
-			carg_or_glog(carg, L_DEBUG, "> rejected metric: %s: %s = %s\n", str, label_name, label_key);
+			multicollector_warn_reject(carg, "reject rule", str);
 			labels_hash_free(*lbl);
 			return 0;
 		}
@@ -329,7 +344,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
 	{
 		labels_hash_free(lbl);
-		carg_or_glog(carg, L_DEBUG, "> metric name validator failed for '%s'\n", metric_name);
+		multicollector_warn_reject(carg, "invalid metric name", str);
 		return 0;
 	}
 
@@ -435,10 +450,9 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			//printf("trying for rc = 0: %d\n", rc);
 			if (rc == 0)
 			{
-			//	labels_hash_free(lbl);
-			//	carglog(carg, L_DEBUG, "metric '%s' has invalid label format\n", str);
-
-			//	return 0;
+				labels_hash_free(lbl);
+				multicollector_warn_reject(carg, "invalid label value quotes", str);
+				return 0;
 			}
 
 			carg_or_glog(carg, L_TRACE, "> label_name = %s\n", label_name);
@@ -448,6 +462,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			{
 				if (carg && reject_metric(carg->reject, label_name, label_key))
 				{
+					multicollector_warn_reject(carg, "reject rule", str);
 					labels_hash_free(lbl);
 					return 0;
 				}
@@ -459,7 +474,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			else
 			{
 				labels_hash_free(lbl);
-				carg_or_glog(carg, L_TRACE, "metric '%s' has invalid label format: %s\n", str, label_name);
+				multicollector_warn_reject(carg, "invalid label name", str);
 				return 0;
 			}
 			// go to next label or end '}'
@@ -602,6 +617,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 	alligator_ht *counter_names = alligator_ht_init(NULL);
 	uint64_t fgets_counter = 0;
+	uint64_t rejected_lines = 0;
 	uint8_t skip_http_headers = 0;
 
 	while ( (tmp_len = char_fgets(str, tmp, sizeof(tmp), &cnt, size, carg)) )
@@ -740,13 +756,15 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 
 		uint8_t rc = multicollector_field_get(tmp, tmp_len, lbl, carg, counter_names);
 		if (carg) {
+			if (!rc)
+				rejected_lines++;
 			carg->push_accepted_lines += rc;
 			carg->parser_status = rc;
 		}
 	}
 
 	if (carg)
-		carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", accepted %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, carg->push_accepted_lines, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
+		carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", accepted %"u64", rejected %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, carg->push_accepted_lines, rejected_lines, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
 
 	if (carg && !carg->no_metric)
 	{

@@ -254,10 +254,11 @@ void test_logs_helpers()
         size_t doclen = 0;
         strlcpy(json_carg.host, "127.0.0.1", sizeof(json_carg.host));
         json_carg.key = "test-key";
-        doc = log_json_format_doc_msg(json_ch, &json_carg, "hello\n", 6, &doclen);
+        doc = log_json_format_doc_msg(json_ch, &json_carg, L_INFO, "hello\n", 6, &doclen);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, doc);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, doclen > 0);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"message\":\"hello\"") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"level\":\"info\"") != NULL);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"key\":\"test-key\"") != NULL);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(doc, "\"date\":") != NULL);
         free(doc);

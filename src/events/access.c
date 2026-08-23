@@ -1,6 +1,5 @@
 #include <uv.h>
 #include <stdio.h>
-#include <stdio.h>
 #include "context_arg.h"
 #include "common/netlib.h"
 #include "common/logs.h"
@@ -31,4 +30,38 @@ uint8_t check_udp_ip_port(const struct sockaddr *caddr, context_arg *carg)
 
 	carglog(carg, L_INFO, "udp client host %s\n", sender);
 	return ip_check_access(carg->net_tree_acl, carg->net6_tree_acl, sender);
+}
+
+static void access_log_denied(context_arg *listener, const char *peer)
+{
+	const char *key = listener && listener->key ? listener->key : "?";
+	const char *host = listener && listener->host[0] ? listener->host : "?";
+	const char *port = listener && listener->port[0] ? listener->port : "?";
+
+	carglog(listener, L_ERROR,
+	    "access denied: peer %s, listener key %s (%s:%s)\n",
+	    peer ? peer : "?", key, host, port);
+}
+
+void access_log_denied_tcp(uv_tcp_t *client, context_arg *listener)
+{
+	char peer[64] = "?";
+	struct sockaddr_storage caddr = {0};
+	int caddr_len = sizeof(caddr);
+
+	if (client && uv_tcp_getpeername(client, (struct sockaddr *)&caddr, &caddr_len) == 0) {
+		struct sockaddr_in *in_caddr = (struct sockaddr_in *)&caddr;
+
+		uv_inet_ntop(AF_INET, &in_caddr->sin_addr, peer, sizeof(peer));
+	}
+	access_log_denied(listener, peer);
+}
+
+void access_log_denied_udp(const struct sockaddr *addr, context_arg *listener)
+{
+	char peer[64] = "?";
+
+	if (addr)
+		uv_ip4_name((const struct sockaddr_in *)addr, peer, sizeof(peer));
+	access_log_denied(listener, peer);
 }

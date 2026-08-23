@@ -118,10 +118,12 @@ static size_t log_json_trim_trailing_newline(char *msg, size_t len)
 	return len;
 }
 
-static json_t *log_json_build_doc(const log_channel *ch, context_arg *carg, const char *message)
+static json_t *log_json_build_doc(const log_channel *ch, context_arg *carg, int priority,
+    const char *message)
 {
 	json_t *doc;
 	char date[128];
+	char *level;
 
 	if (!message)
 		return NULL;
@@ -131,6 +133,10 @@ static json_t *log_json_build_doc(const log_channel *ch, context_arg *carg, cons
 		return NULL;
 
 	json_object_set_new(doc, "message", json_string(message));
+
+	level = get_log_level_by_id((uint64_t)priority);
+	if (level)
+		json_object_set_new(doc, "level", json_string(level));
 
 	if (carg && carg->key && carg->key[0])
 		json_object_set_new(doc, "key", json_string(carg->key));
@@ -142,7 +148,7 @@ static json_t *log_json_build_doc(const log_channel *ch, context_arg *carg, cons
 	return doc;
 }
 
-char *log_json_format_doc_msg(const log_channel *ch, context_arg *carg,
+char *log_json_format_doc_msg(const log_channel *ch, context_arg *carg, int priority,
     const char *message, size_t msglen, size_t *outlen)
 {
 	json_t *doc;
@@ -160,7 +166,7 @@ char *log_json_format_doc_msg(const log_channel *ch, context_arg *carg,
 	msg[msglen] = '\0';
 	msglen = log_json_trim_trailing_newline(msg, msglen);
 
-	doc = log_json_build_doc(ch, carg, msg);
+	doc = log_json_build_doc(ch, carg, priority, msg);
 	free(msg);
 	if (!doc)
 		return NULL;
@@ -170,7 +176,7 @@ char *log_json_format_doc_msg(const log_channel *ch, context_arg *carg,
 	return ret;
 }
 
-char *log_json_format_doc(const log_channel *ch, context_arg *carg,
+char *log_json_format_doc(const log_channel *ch, context_arg *carg, int priority,
     const char *format, va_list args, size_t *outlen)
 {
 	char *msg;
@@ -181,7 +187,7 @@ char *log_json_format_doc(const log_channel *ch, context_arg *carg,
 	if (!msg)
 		return NULL;
 
-	ret = log_json_format_doc_msg(ch, carg, msg, msglen, outlen);
+	ret = log_json_format_doc_msg(ch, carg, priority, msg, msglen, outlen);
 	free(msg);
 	return ret;
 }

@@ -34,6 +34,86 @@ static int log_channel_time_enabled(log_channel *ch)
 	return ac && ac->log_time;
 }
 
+static int log_channel_form(log_channel *ch)
+{
+	if (ch && !ch->is_default && ch->form != LOG_CHANNEL_INHERIT)
+		return ch->form;
+	return ac ? ac->log_form : FORM_SIMPLE;
+}
+
+static int log_syslog_pri(int priority)
+{
+	int sev;
+
+	switch (priority) {
+	case L_FATAL:
+		sev = 2;
+		break;
+	case L_ERROR:
+		sev = 3;
+		break;
+	case L_WARN:
+		sev = 4;
+		break;
+	case L_INFO:
+		sev = 6;
+		break;
+	case L_DEBUG:
+	case L_TRACE:
+		sev = 7;
+		break;
+	default:
+		sev = 6;
+		break;
+	}
+
+	/* RFC5424/RFC3164: facility USER (1) * 8 + severity */
+	return 8 + sev;
+}
+
+static size_t log_append_syslog_prefix(log_channel *ch, char *buf, size_t bufsz, size_t off, int priority)
+{
+	struct timeval tv;
+	time_t sec;
+	struct tm tm_now;
+	char hostname[256];
+	int n;
+
+	if (!buf || off >= bufsz)
+		return off;
+
+	if (gettimeofday(&tv, NULL) != 0)
+		return off;
+
+	sec = tv.tv_sec;
+#if defined(_WIN32)
+	localtime_s(&tm_now, &sec);
+#else
+	localtime_r(&sec, &tm_now);
+#endif
+
+	hostname[0] = '\0';
+#if !defined(_WIN32)
+	if (gethostname(hostname, sizeof(hostname)) != 0)
+		hostname[0] = '\0';
+#endif
+	if (!hostname[0])
+		snprintf(hostname, sizeof(hostname), "localhost");
+
+	n = snprintf(buf + off, bufsz - off,
+	    "<%d>%s %2d %02d:%02d:%02d %s alligator: ",
+	    log_syslog_pri(priority),
+	    (const char *[]){"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"}[tm_now.tm_mon],
+	    tm_now.tm_mday, tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec,
+	    hostname);
+	(void)ch;
+
+	if (n > 0 && (size_t)n < bufsz - off)
+		off += (size_t)n;
+
+	return off;
+}
+
 static const char *log_channel_time_format(log_channel *ch)
 {
 	if (ch && !ch->is_default && ch->time_format && ch->time_format[0])
@@ -119,7 +199,8 @@ static size_t log_append_context_prefix(log_channel *ch, context_arg *carg, char
 	return off;
 }
 
-static char *log_format_line_alloc(log_channel *ch, context_arg *carg, const char *format, va_list args, size_t *outlen)
+static char *log_format_line_alloc(log_channel *ch, context_arg *carg, int priority,
+    const char *format, va_list args, size_t *outlen)
 {
 	char stack[8192];
 	va_list args2;
@@ -138,8 +219,13 @@ static char *log_format_line_alloc(log_channel *ch, context_arg *carg, const cha
 	if (!buf)
 		return NULL;
 
-	off = log_append_timestamp_prefix(ch, buf, cap, off);
-	off = log_append_context_prefix(ch, carg, buf, cap, off);
+	if (log_channel_form(ch) == FORM_SYSLOG) {
+		off = log_append_syslog_prefix(ch, buf, cap, off, priority);
+		off = log_append_context_prefix(ch, carg, buf, cap, off);
+	} else {
+		off = log_append_timestamp_prefix(ch, buf, cap, off);
+		off = log_append_context_prefix(ch, carg, buf, cap, off);
+	}
 
 	if ((size_t)msglen >= cap - off)
 	{
@@ -886,7 +972,7 @@ void log_channel_write_raw_kind(log_channel *ch, context_arg *carg, const char *
 		}
 	}
 	else if (log_channel_format_json(ch)) {
-		payload = log_json_format_doc_msg(ch, carg, data, len, &plen);
+		payload = log_json_format_doc_msg(ch, carg, L_INFO, data, len, &plen);
 		if (!payload) {
 			log_channel_account(ch, kind, "error", "serialize");
 			return;
@@ -1034,11 +1120,11 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 		else if (log_channel_format_json(ch))
 		{
 			va_copy(args_copy, args);
-			payload = log_json_format_doc(ch, carg, format, args_copy, &len);
+			payload = log_json_format_doc(ch, carg, priority, format, args_copy, &len);
 			va_end(args_copy);
 		}
 		else
-			payload = log_format_line_alloc(ch, carg, format, args, &len);
+			payload = log_format_line_alloc(ch, carg, priority, format, args, &len);
 
 		if (payload && len)
 		{
@@ -1063,11 +1149,11 @@ void wrlog(log_channel *ch, context_arg *carg, int level, int priority, const ch
 		if (log_channel_format_json(ch))
 		{
 			va_copy(args_copy, args);
-			payload = log_json_format_doc(ch, carg, format, args_copy, &len);
+			payload = log_json_format_doc(ch, carg, priority, format, args_copy, &len);
 			va_end(args_copy);
 		}
 		else
-			payload = log_format_line_alloc(ch, carg, format, args, &len);
+			payload = log_format_line_alloc(ch, carg, priority, format, args, &len);
 
 		if (payload && len) {
 			log_channel_write(ch, payload, len);

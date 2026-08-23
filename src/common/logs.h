@@ -70,6 +70,16 @@ void log_channel_write_document(log_channel *ch, struct context_arg *carg, json_
 void log_channel_write_document_kind(log_channel *ch, struct context_arg *carg, json_t *doc, const char *kind);
 void log_channel_account(const log_channel *ch, const char *kind, const char *result, const char *reason);
 int context_allows_raw_log(const struct context_arg *carg);
+
+/*
+ * Diagnostic logging entry points (all funnel into wrlog() in logs.c):
+ *
+ * glog         — startup, config, and global subsystems without a context_arg.
+ * carglog      — entrypoint/aggregate-scoped; uses carg->log_level and log channel.
+ * carg_or_glog — shared helpers that may run with carg == NULL (falls back to glog).
+ * langlog      — lang_options subsystem; uses lo->log_level (see lang/type.h).
+ * cslog        — Chrome CDP subsystem; uses chromecdp log_level (see chromecdp.h).
+ */
 void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);
 void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options);

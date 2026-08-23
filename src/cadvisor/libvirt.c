@@ -9,6 +9,38 @@
 #include "common/logs.h"
 #define LIBVIRT_XML_SIZE 10240
 
+static void libvirt_log_domain_error(virDomainPtr d, const char *op)
+{
+	const char *dname = "?";
+	unsigned int did = (unsigned int)-1;
+	virErrorPtr err;
+
+	if (d && ac->libvirt) {
+		did = ac->libvirt->virDomainGetID(d);
+		if (ac->libvirt->virDomainGetName(d))
+			dname = ac->libvirt->virDomainGetName(d);
+	}
+	err = virGetLastError();
+	carglog(ac->cadvisor_carg, L_ERROR,
+	    "libvirt %s failed domain id=%u name=%s: %s\n",
+	    op, did, dname,
+	    (err && err->message) ? err->message : "unknown error");
+}
+
+static void libvirt_log_conn_error(const char *op)
+{
+	virErrorPtr err = virGetLastError();
+
+	carglog(ac->cadvisor_carg, L_ERROR, "libvirt %s failed: %s\n", op,
+	    (err && err->message) ? err->message : "unknown error");
+}
+
+static void libvirt_log_symbol_error(const char *symbol, const char *path)
+{
+	carglog(ac->cadvisor_carg, L_ERROR,
+	    "Cannot load libvirt symbol '%s' from %s\n", symbol, path ? path : "?");
+}
+
 void libvirt_free(libvirt_library* libvirt) {
 	if (libvirt->virDomainGetID_lib)
 		free(libvirt->virDomainGetID_lib);
@@ -66,7 +98,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetID = (unsigned int (*)(virDomainPtr))module_load(mod->path, "virDomainGetID", &libvirt->virDomainGetID_lib);
 	if (!libvirt->virDomainGetID)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetID from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetID", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -74,7 +106,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetName = (const char *(*)(virDomainPtr))module_load(mod->path, "virDomainGetName", &libvirt->virDomainGetName_lib);
 	if (!libvirt->virDomainGetName)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetName from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetName", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -82,7 +114,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainMemoryStats = (int (*)(virDomainPtr, virDomainMemoryStatPtr, unsigned int, unsigned int))module_load(mod->path, "virDomainMemoryStats", &libvirt->virDomainMemoryStats_lib);
 	if (!libvirt->virDomainMemoryStats)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainMemoryStats from libvirt\n");
+		libvirt_log_symbol_error("virDomainMemoryStats", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -90,7 +122,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainSetMemoryStatsPeriod = (int (*)(virDomainPtr, int, unsigned int))module_load(mod->path, "virDomainSetMemoryStatsPeriod", &libvirt->virDomainSetMemoryStatsPeriod_lib);
 	if (!libvirt->virDomainSetMemoryStatsPeriod)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainSetMemoryStatsPeriod from libvirt\n");
+		libvirt_log_symbol_error("virDomainSetMemoryStatsPeriod", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -98,7 +130,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetMaxMemory = (unsigned long (*)(virDomainPtr))module_load(mod->path, "virDomainGetMaxMemory", &libvirt->virDomainGetMaxMemory_lib);
 	if (!libvirt->virDomainGetMaxMemory_lib)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetMaxMemory_lib from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetMaxMemory", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -106,7 +138,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetMaxVcpus = (int (*)(virDomainPtr))module_load(mod->path, "virDomainGetMaxVcpus", &libvirt->virDomainGetMaxVcpus_lib);
 	if (!libvirt->virDomainGetMaxVcpus)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetMaxVcpus from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetMaxVcpus", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -114,7 +146,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetBlockIoTune = (int (*)(virDomainPtr, const char *, virTypedParameterPtr, int *, unsigned int))module_load(mod->path, "virDomainGetBlockIoTune", &libvirt->virDomainGetBlockIoTune_lib);
 	if (!libvirt->virDomainGetBlockIoTune_lib)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetBlockIoTune_lib from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetBlockIoTune", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -122,7 +154,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainGetXMLDesc = (char *(*)(virDomainPtr, unsigned int))module_load(mod->path, "virDomainGetXMLDesc", &libvirt->virDomainGetXMLDesc_lib);
 	if (!libvirt->virDomainGetXMLDesc)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainGetXMLDesc from libvirt\n");
+		libvirt_log_symbol_error("virDomainGetXMLDesc", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -130,7 +162,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainLookupByID = (virDomainPtr (*)(virConnectPtr, int))module_load(mod->path, "virDomainLookupByID", &libvirt->virDomainLookupByID_lib);
 	if (!libvirt->virDomainLookupByID)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainLookupByID from libvirt\n");
+		libvirt_log_symbol_error("virDomainLookupByID", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -138,7 +170,7 @@ libvirt_library* libvirt_init()
 	libvirt->virConnectOpen = (virConnectPtr (*)(char *))module_load(mod->path, "virConnectOpen", &libvirt->virConnectOpen_lib);
 	if (!libvirt->virConnectOpen)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virConnectOpen from libvirt\n");
+		libvirt_log_symbol_error("virConnectOpen", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -146,7 +178,7 @@ libvirt_library* libvirt_init()
 	libvirt->virConnectListAllDomains = (int (*)(virConnectPtr, virDomainPtr **, unsigned int))module_load(mod->path, "virConnectListAllDomains", &libvirt->virConnectListAllDomains_lib);
 	if (!libvirt->virConnectListAllDomains)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virConnectListAllDomains from libvirt\n");
+		libvirt_log_symbol_error("virConnectListAllDomains", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -154,7 +186,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainInterfaceStats = (int (*)(virDomainPtr, char *, virDomainInterfaceStatsPtr, size_t))module_load(mod->path, "virDomainInterfaceStats", &libvirt->virDomainInterfaceStats_lib);
 	if (!libvirt->virDomainInterfaceStats)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainInterfaceStats from libvirt\n");
+		libvirt_log_symbol_error("virDomainInterfaceStats", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -162,7 +194,7 @@ libvirt_library* libvirt_init()
 	libvirt->virDomainFree = (int (*)(virDomainPtr))module_load(mod->path, "virDomainFree", &libvirt->virDomainFree_lib);
 	if (!libvirt->virDomainFree)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virDomainFree from libvirt\n");
+		libvirt_log_symbol_error("virDomainFree", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -170,7 +202,7 @@ libvirt_library* libvirt_init()
 	libvirt->virConnectClose = (int (*)(virConnectPtr))module_load(mod->path, "virConnectClose", &libvirt->virConnectClose_lib);
 	if (!libvirt->virConnectClose)
 	{
-		carglog(ac->cadvisor_carg, L_ERROR, "Cannot get virConnectClose from libvirt\n");
+		libvirt_log_symbol_error("virConnectClose", mod->path);
 		libvirt_free(libvirt);
 		return NULL;
 	}
@@ -180,8 +212,10 @@ libvirt_library* libvirt_init()
 
 void libvirt_if_dev_stats(virDomainPtr d, char *id, char *name, char *ifname) {
 	virDomainInterfaceStatsStruct stats = {0};
-	if (ac->libvirt->virDomainInterfaceStats(d, ifname, &stats, sizeof(stats)) != 0)
+	if (ac->libvirt->virDomainInterfaceStats(d, ifname, &stats, sizeof(stats)) != 0) {
+		libvirt_log_domain_error(d, "virDomainInterfaceStats");
 		return;
+	}
 
 	carglog(ac->cadvisor_carg, L_DEBUG, "libvirt_if_dev_stats '%s' '%s' '%s': rx_bytes %lld, tx_bytes %lld, rx_packets %lld, tx_packets %lld, rx_errors %lld, tx_errors %lld, rx_drop %lld, tx_drop %lld\n", name, id, ifname, stats.rx_bytes, stats.tx_bytes, stats.rx_packets, stats.tx_packets, stats.rx_errs, stats.tx_errs, stats.rx_drop, stats.tx_drop);
 	metric_add_labels4("container_network_receive_bytes_total", &stats.rx_bytes, DATATYPE_INT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id, "interface", ifname);
@@ -240,10 +274,17 @@ void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname)
 	virTypedParameterPtr params = NULL;
 	int nparams = 0;
 	int ret = ac->libvirt->virDomainGetBlockIoTune(d, devname, NULL, &nparams, 0);
-	if (ret)
+	if (ret) {
+		libvirt_log_domain_error(d, "virDomainGetBlockIoTune");
 		return;
+	}
 	params = calloc(nparams, sizeof(*params));
 	ret = ac->libvirt->virDomainGetBlockIoTune(d, devname, params, &nparams, 0);
+	if (ret) {
+		free(params);
+		libvirt_log_domain_error(d, "virDomainGetBlockIoTune");
+		return;
+	}
 
 	for (int i = 0; i < nparams; i++) {
 		uint64_t ioval = 0;
@@ -304,9 +345,8 @@ void libvirt_memory(virDomainPtr d, char* id, char *name) {
 	virDomainMemoryStatStruct memstats[13];
 	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * 13);
 	int rc = ac->libvirt->virDomainSetMemoryStatsPeriod(d, 10, VIR_DOMAIN_AFFECT_LIVE);
-	if (rc < 0) {
-		carglog(ac->cadvisor_carg, L_OFF, "virDomainSetMemoryStatsPeriod: Unable to change balloon collection period.");
-	}
+	if (rc < 0)
+		libvirt_log_domain_error(d, "virDomainSetMemoryStatsPeriod");
 	ac->libvirt->virDomainMemoryStats(d, (virDomainMemoryStatPtr)&memstats, VIR_DOMAIN_MEMORY_STAT_NR, 0);
 
 	uint64_t maxmemory = ac->libvirt->virDomainGetMaxMemory(d) * 1024;
@@ -402,7 +442,7 @@ int libvirt() {
 
 	virConnectPtr conn = ac->libvirt->virConnectOpen(NULL);
 	if (conn == NULL) {
-		glog(L_ERROR, "Failed to connect to hypervisor\n");
+		libvirt_log_conn_error("virConnectOpen");
 		return 0;
 	}
 
@@ -415,6 +455,8 @@ int libvirt() {
 			 ac->libvirt->virDomainFree(domains[domains_size]);
 		}
 		free(domains);
+	} else {
+		libvirt_log_conn_error("virConnectListAllDomains");
 	}
 
 	//get_memory(conn, 1);

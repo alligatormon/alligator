@@ -570,7 +570,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 
 	if (!check_ip_port((uv_tcp_t*)&carg->client, carg))
 	{
-		carglog(carg, L_ERROR, "no access!\n");
+		access_log_denied_tcp((uv_tcp_t *)&carg->client, srv_carg);
 		tcp_server_close_client(carg);
 		return;
 	}
