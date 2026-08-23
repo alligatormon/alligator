@@ -154,8 +154,27 @@ static char *log_format_line_alloc(log_channel *ch, context_arg *carg, const cha
 		}
 	}
 
-	memcpy(buf + off, stack, (size_t)msglen);
-	off += (size_t)msglen;
+	/* vsnprintf() returns the untruncated length. Copy from the stack
+	 * only when the message fit; otherwise format again into the heap. */
+	if ((size_t)msglen < sizeof(stack))
+	{
+		memcpy(buf + off, stack, (size_t)msglen);
+		off += (size_t)msglen;
+	}
+	else
+	{
+		int n;
+
+		va_copy(args2, args);
+		n = vsnprintf(buf + off, cap - off, format, args2);
+		va_end(args2);
+		if (n < 0)
+		{
+			free(buf);
+			return NULL;
+		}
+		off += (size_t)n;
+	}
 
 	if (outlen)
 		*outlen = off;

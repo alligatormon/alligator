@@ -149,6 +149,32 @@ void test_logs_helpers()
         close(ac->log_socket);
     }
 
+    /* >8KB payload used to SIGSEGV: vsnprintf length was memcpy'd from a 8KB stack buf */
+    {
+        char large[10000];
+        int saved_level = ac->log_level;
+        FILE *lf;
+        long sz;
+
+        memset(large, 'A', sizeof(large) - 1);
+        large[sizeof(large) - 1] = '\0';
+        ac->log_level = L_INFO;
+        ac->log_dest = "file:///tmp/alligator-ut2-large.log";
+        log_init();
+        glog(L_INFO, "ut2 large log %s\n", large);
+        if (ac->log_socket > 2)
+            close(ac->log_socket);
+        ac->log_level = saved_level;
+
+        lf = fopen("/tmp/alligator-ut2-large.log", "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lf);
+        fseek(lf, 0, SEEK_END);
+        sz = ftell(lf);
+        fclose(lf);
+        unlink("/tmp/alligator-ut2-large.log");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, sz >= (long)sizeof(large));
+    }
+
     ac->log_dest = "some-unknown-dest";
     log_init();
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, fileno(stdout), ac->log_socket);
