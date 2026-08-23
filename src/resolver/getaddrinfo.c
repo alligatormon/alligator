@@ -40,7 +40,7 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 
 void resolver_getaddrinfo_get(context_arg* carg)
 {
-	carglog(carg, L_INFO, "resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_DEBUG, "resolve host call tcp client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	struct addrinfo hints;
 	uv_getaddrinfo_t* addr_info = 0;
 	addr_info = malloc(sizeof(uv_getaddrinfo_t));

@@ -193,7 +193,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
 		}
         else
-			carglog(carg, L_ERROR, "\tadd resolved address '%s' error %s: unkown type %d\n", carg->key, qname, rr->rtype);
+			carglog(carg, L_ERROR, "\tadd resolved address '%s' error %s: unknown type %d\n", carg->key, qname, rr->rtype);
 	}
 
 	metric_add_labels3("aggregator_resolve_address_rr_count", &addr_cnt, DATATYPE_UINT, carg, "name", qname, "class", qclass, "type", qtype);

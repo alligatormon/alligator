@@ -451,22 +451,22 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_countryName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "country", buffer);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, country: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_stateOrProvinceName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "county", buffer);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, state: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_organizationName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "organization_unit", buffer);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, organization: %s\n", cert_name, buffer);
 	}
     *buffer = 0;
 	if (X509_NAME_get_text_by_NID(subject, NID_organizationalUnitName, buffer, sizeof(buffer)) > 0) {
 		labels_hash_insert_nocache(lbl, "organization_name", buffer);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, countr: %s\n", cert_name, buffer);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, organization_unit: %s\n", cert_name, buffer);
 	}
 
 	STACK_OF(X509) *untrusted = NULL;

@@ -36,7 +36,7 @@ void resolver_tcp_halt(context_arg *carg)
 static void resolver_closed_tcp(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	carglog(carg, L_INFO, "%"u64": tcp-resolver client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client closed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, TTL: %"d64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->context_ttl);
 	(carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
@@ -50,7 +50,7 @@ static void resolver_closed_tcp(uv_handle_t *handle)
 void resolver_close_tcp(uv_handle_t *handle)
 {
 	context_arg* carg = handle->data;
-	carglog(carg, L_INFO, "%"u64": tcp-resolver client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client call close %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls);
 
 	if (carg->tt_timer)
 		carg->tt_timer->data = NULL;
@@ -65,7 +65,7 @@ void resolver_close_tcp(uv_handle_t *handle)
 void resolver_shutdown_tcp(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
-	carglog(carg, L_INFO, "%"u64": tcp-resolver client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 
@@ -92,7 +92,7 @@ void resolver_timeout_tcp(uv_timer_t *timer)
 		return;
 	}
 
-	carglog(carg, L_INFO, "%"u64": timeout tcp-resolver client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_WARN, "%"u64": timeout tcp-resolver client %p(%p:%p) with key %s, hostname %s, port: %s tls: %d, timeout: %"u64"\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	tcp_client_close((uv_handle_t *)&carg->client);
@@ -102,7 +102,7 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = (context_arg*)stream->data;
 
-	carglog(carg, L_INFO, "%"u64": tcp-resolver client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client readed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread);
 	
 	(carg->read_counter)++;
 	carg->read_time_finish = setrtime();
@@ -173,7 +173,7 @@ void resolver_writed_tcp(uv_write_t* req, int status)
 void resolver_connected_tcp(uv_connect_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
-	carglog(carg, L_INFO, "%"u64": tcp-resolver connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver connected %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, status);
 	(carg->conn_counter)++;
 
 	uint64_t ok = 1;
@@ -223,7 +223,7 @@ void resolver_connect_tcp(void *arg)
 		return;
 
 	carg->count = 0;
-	carglog(carg, L_INFO, "%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver connect %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->port, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock) {
 		if (carg->tt_timer)

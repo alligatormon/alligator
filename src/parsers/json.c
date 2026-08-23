@@ -7,7 +7,9 @@
 #include "common/aggregator.h"
 #include "common/json_query.h"
 #include "common/yaml.h"
+#include "common/logs.h"
 #include "main.h"
+
 void json_handler(char *metrics, size_t size, context_arg *carg)
 {
 	(void)size;
@@ -26,10 +28,14 @@ void json_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 
 	char *data = yaml_str_to_json_str(metrics);
-	if (!data)
+	if (!data) {
+		carglog(carg, L_ERROR, "json parse failed at line %d: %s\n", error.line, error.text);
 		return;
+	}
 
 	carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	if (!carg->parser_status)
+		carglog(carg, L_ERROR, "json query extraction failed for payload\n");
 	free(data);
 }
 
@@ -72,10 +78,14 @@ void json_query_handler(char *metrics, size_t size, context_arg *carg)
 		return;
 
 	char *data = yaml_str_to_json_str(metrics);
-	if (!data)
+	if (!data) {
+		carglog(carg, L_ERROR, "json parse failed at line %d: %s\n", error.line, error.text);
 		return;
+	}
 
 	carg->parser_status = json_query(data, NULL, "json", carg, carg->pquery, carg->pquery_size);
+	if (!carg->parser_status)
+		carglog(carg, L_ERROR, "json query extraction failed for payload\n");
 	free(data);
 }
 

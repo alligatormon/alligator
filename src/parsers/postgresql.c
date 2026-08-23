@@ -117,7 +117,7 @@ static void run_close_internal(void *arg) {
 		return;
 
 	if (uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run close\", \"function\": \"%s\"}\n", carg->fd, carg->key, "already closing");
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run close\", \"function\": \"%s\"}\n", carg->fd, carg->key, "already closing");
 		return;
 	}
 
@@ -142,8 +142,8 @@ void postgresql_run(void* arg);
 void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *database_class)
 {
 
-	carglog(carg, L_INFO, "pg status %d/%d\n", PQresultStatus(r), PGRES_TUPLES_OK);
-	carglog(carg, L_INFO, "pg tuples %d, field %d\n", PQntuples(r), PQnfields(r));
+	carglog(carg, L_DEBUG, "pg status %d/%d\n", PQresultStatus(r), PGRES_TUPLES_OK);
+	carglog(carg, L_DEBUG, "pg tuples %d, field %d\n", PQntuples(r), PQnfields(r));
 
 
 	uint64_t i;
@@ -165,7 +165,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				query_field *qf = query_field_get(qn->qf_hash, colname);
 				if (qf)
 				{
-					carglog(carg, L_INFO, "\tcolname: '%s', value '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tcolname: '%s', value '%s'\n", colname, res);
 					if (res && res[0] == 't')
 						qf->i = 1;
 					else
@@ -175,7 +175,7 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				}
 				else
 				{
-					carglog(carg, L_INFO, "\tfield '%s': '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tfield '%s': '%s'\n", colname, res);
 					labels_hash_insert_nocache(hash, colname, res);
 				}
 			}
@@ -185,14 +185,14 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				query_field *qf = query_field_get(qn->qf_hash, colname);
 				if (qf)
 				{
-					carglog(carg, L_INFO, "\tcolname: '%s', value '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tcolname: '%s', value '%s'\n", colname, res);
 					qf->d = strtod(res, NULL);
 
 					qf->type = DATATYPE_DOUBLE;
 				}
 				else
 				{
-					carglog(carg, L_INFO, "\tfield '%s': '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tfield '%s': '%s'\n", colname, res);
 					labels_hash_insert_nocache(hash, colname, res);
 				}
 			}
@@ -204,13 +204,13 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				query_field *qf = query_field_get(qn->qf_hash, colname);
 				if (qf)
 				{
-					carglog(carg, L_INFO, "\tcolname: '%s', value '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tcolname: '%s', value '%s'\n", colname, res);
 					qf->i = strtoll(res, NULL, 10);
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					carglog(carg, L_INFO, "\tfield '%s': '%s'\n", colname, res);
+					carglog(carg, L_TRACE, "\tfield '%s': '%s'\n", colname, res);
 					metric_label_value_validator_normalizer(res, res_len);
 					labels_hash_insert_nocache(hash, colname, res);
 				}
@@ -239,24 +239,24 @@ void update_poll_state(context_arg *carg) {
 
     switch (poll_status) {
         case PGRES_POLLING_ACTIVE:
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"active\"}\n", carg->fd, carg->key);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"active\"}\n", carg->fd, carg->key);
             return update_poll_state(carg); 
 			//break;
 
         case PGRES_POLLING_READING:
             uv_events = UV_READABLE;
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"reading\"}\n", carg->fd, carg->key);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"reading\"}\n", carg->fd, carg->key);
 
             break;
 
         case PGRES_POLLING_WRITING:
             uv_events = UV_WRITABLE;
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"writing\"}\n", carg->fd, carg->key);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"writing\"}\n", carg->fd, carg->key);
             break;
 
         case PGRES_POLLING_OK:
             PQsetnonblocking(data->conn, 1);
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
 			postgresql_connect_ok_total(carg, 1);
 
             carg->parser_status = 1;
@@ -305,7 +305,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
             if (finished_ctx) free(finished_ctx);
 
             if (!queue_empty(carg->pg_queue)) {
-				carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pg_poll_event\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
+				carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pg_poll_event\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
                 postgresql_query_run(carg);
             } else {
 
@@ -323,7 +323,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
             if (pqctx && pqctx->callback) {
                 pqctx->callback(res, pqctx->qn, carg, pqctx->database_class);
             } else {
-				carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event NO CALLBACK\", \"function\": \"%s\"}\n", carg->fd, carg->key, "");
+				carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event NO CALLBACK\", \"function\": \"%s\"}\n", carg->fd, carg->key, "");
 				PQclear(res);
 				run_close(carg);
 				return;
@@ -387,8 +387,8 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 	pg_data *data = carg->data;
 	PGconn *conn = data->conn;
 
-	carglog(carg, L_INFO, "pg status %d/%d\n", PQresultStatus(res), PGRES_TUPLES_OK);
-	carglog(carg, L_INFO, "pg tuples %d, field %d\n", PQntuples(res), PQnfields(res));
+	carglog(carg, L_DEBUG, "pg status %d/%d\n", PQresultStatus(res), PGRES_TUPLES_OK);
+	carglog(carg, L_DEBUG, "pg tuples %d, field %d\n", PQntuples(res), PQnfields(res));
 
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
@@ -419,7 +419,7 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 				wildcard = 1;
 
 
-			carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"finding wildcard queries\", \"name\": \"%s\", \"result\": \"%d\"}\n", carg->fd, carg->key, namefind, wildcard);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"finding wildcard queries\", \"name\": \"%s\", \"result\": \"%d\"}\n", carg->fd, carg->key, namefind, wildcard);
 
 
 
@@ -439,7 +439,7 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 				if (wildcard)
 				{
 					context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
-					carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run wildcard queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
+					carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run wildcard queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
 
 					++children;
 					postgresql_run(db_carg);
@@ -448,12 +448,12 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 					snprintf(dbcargname, resultnamelen, "%s/%s", carg->name, resp);
 					if (query_get(dbcargname)) {
 						context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
-						carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"exec queries database\", \"database\": \"%s\"}\n", carg->fd, carg->key, db_carg->name);
+						carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"exec queries database\", \"database\": \"%s\"}\n", carg->fd, carg->key, db_carg->name);
 						++children;
 						postgresql_run(db_carg);
 					}
 					else {
-						carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"database not found in queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, dbcargname);
+						carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"database not found in queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, dbcargname);
 						continue;
 					}
 				}
@@ -463,7 +463,7 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 			}
 		}
 		carg->lock = children;
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"stat amount of children\", \"amount\": %lu}\n", carg->fd, carg->key, children);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"stat amount of children\", \"amount\": %lu}\n", carg->fd, carg->key, children);
 
 	}
 }
@@ -503,11 +503,11 @@ void postgresql_query_run(context_arg *carg)
 void postgresql_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
-    carglog(carg, L_INFO, "postgresql_queries_foreach\n");
+    carglog(carg, L_DEBUG, "postgresql_queries_foreach\n");
 	pg_data *data = carg->data;
 
 	query_node *qn = arg;
-	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	carglog(carg, L_DEBUG, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	postgresql_query_init(data->conn, qn->expr, qn, carg, postgresql_write, "database");
 }
 
@@ -560,8 +560,8 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 		strlcpy(pooler_name, "pgpool", 20);
 
 	char *prefix = (char*)arg;
-	carglog(carg, L_INFO, "pg status %d/%d\n", PQresultStatus(r), PGRES_TUPLES_OK);
-	carglog(carg, L_INFO, "pg tuples %d, field %d\n", PQntuples(r), PQnfields(r));
+	carglog(carg, L_DEBUG, "pg status %d/%d\n", PQresultStatus(r), PGRES_TUPLES_OK);
+	carglog(carg, L_DEBUG, "pg tuples %d, field %d\n", PQntuples(r), PQnfields(r));
 
 	uint64_t i;
 	uint64_t j;
@@ -806,17 +806,17 @@ void postgresql_run(void* arg)
 	context_arg *carg = arg;
 
 	if (carg->dynamic_socket) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"skip run\", \"reason\": \"dynamic socket exists\"}\n", carg->fd, carg->key);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"skip run\", \"reason\": \"dynamic socket exists\"}\n", carg->fd, carg->key);
 		return;
 	}
 
     if (carg->lock) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg locked!\"}\n", carg->fd, carg->key);
+		carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg locked!\"}\n", carg->fd, carg->key);
 		return;
 	}
 
 	if (carg->parental_carg) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg parental locked!\"}\n", carg->fd, carg->key);
+		carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg parental locked!\"}\n", carg->fd, carg->key);
 		if (carg->parental_carg->lock) {
 			carg_free(carg);
 			return;
@@ -867,7 +867,7 @@ void postgresql_run(void* arg)
 		if (carg->name)
 		{
 			query_ds *qds = query_get(carg->name);
-			carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
+			carglog(carg, L_DEBUG, "found queries for datasource: %s: %p\n", carg->name, qds);
 			if (qds)
 			{
 				alligator_ht_foreach_arg(qds->hash, postgresql_queries_foreach, carg);

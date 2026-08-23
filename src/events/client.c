@@ -325,8 +325,9 @@ void tls_client_written(uv_write_t* req, int status) {
 	}
 	if (status) {
 		carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
+	} else {
+		carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	}
-	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, now), carglog_elapsed_sec(carg, now), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
 	carg->write_buffer.base = 0;

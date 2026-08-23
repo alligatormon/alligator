@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <common/selector.h>
 #include <common/logs.h>
 #include <common/log_tcp.h>
@@ -370,7 +371,8 @@ static int log_channel_open_dest(log_channel *ch, char *dest)
 		ch->dest_kind = LOG_DEST_UDP;
 
 		if (connect(ch->socket, (struct sockaddr *)&ch->soaddr, sizeof(ch->soaddr)) < 0) {
-			printf("log connect failed\n");
+			glog(L_ERROR, "log udp connect failed host %s port %d: %s\n",
+				ch->host ? ch->host : "?", ch->port, strerror(errno));
 			ch->socket = fileno(stdout);
 			ch->dest_kind = LOG_DEST_FD;
 		}

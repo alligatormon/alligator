@@ -13,6 +13,7 @@
 #include "main.h"
 #include "metric/labels.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 #include "system/linux/network.h"
 #include "system/common.h"
 
@@ -340,7 +341,12 @@ int network_if_stats_netlink(const char *ifname, network_if_stats *st)
 	if (network_netlink_foreach(network_lookup_cb, &ctx, 0, ac ? ac->system_carg : NULL, ac ? ac->system_sysfs : NULL) < 0)
 		return -1;
 
-	return ctx.found ? 0 : -1;
+	if (!ctx.found) {
+		carg_or_glog(ac ? ac->system_carg : NULL, L_WARN, "network interface not found: %s\n", ifname);
+		return -1;
+	}
+
+	return 0;
 }
 
 static int network_emit_system_cb(const network_if_stats *st, void *arg)

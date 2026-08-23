@@ -53,7 +53,7 @@ void unix_write(uv_write_t* req, int status) {
 	context_arg *cc = usdata->carg;
 
 	if (status)
-		carglog(cc, L_INFO, "async unix socket write %s %s\n", uv_err_name(status), uv_strerror(status));
+		carglog(cc, L_ERROR, "async unix socket write %s %s\n", uv_err_name(status), uv_strerror(status));
 
 	free(usdata->answ);
 	free(usdata);
@@ -135,7 +135,7 @@ void unix_connect(uv_stream_t *server, int status) {
 
 	r = uv_pipe_init(loop, &cc->pclient, 0);
 	if (r) {
-		carglog(srv_carg, L_INFO, "initializing client pipe %s %s\n", uv_err_name(r), uv_strerror(r));
+		carglog(srv_carg, L_ERROR, "initializing client pipe %s %s\n", uv_err_name(r), uv_strerror(r));
 		free(cc);
 		return;
 	}
@@ -143,6 +143,7 @@ void unix_connect(uv_stream_t *server, int status) {
 
 	r = uv_accept(server, (uv_stream_t*)&cc->pclient);
 	if (r != 0) {
+		carglog(srv_carg, L_ERROR, "unix accept %s %s\n", uv_err_name(r), uv_strerror(r));
 		cc->pclient.data = cc;
 		uv_close((uv_handle_t*)&cc->pclient, unix_only_free_context);
 		return;
@@ -151,8 +152,9 @@ void unix_connect(uv_stream_t *server, int status) {
 	(srv_carg->conn_counter)++;
 	cc->connect_time = setrtime();
 
-	if (uv_read_start((uv_stream_t*)&cc->pclient, alloc_buffer, unix_read))
-	{
+	r = uv_read_start((uv_stream_t*)&cc->pclient, alloc_buffer, unix_read);
+	if (r) {
+		carglog(srv_carg, L_ERROR, "unix read_start %s %s\n", uv_err_name(r), uv_strerror(r));
 		(srv_carg->conn_counter)--;
 		cc->pclient.data = cc;
 		uv_close((uv_handle_t*)&cc->pclient, unix_only_free_context);

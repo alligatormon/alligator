@@ -280,8 +280,8 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 		multicollector_skip_spaces(i, str, size);
 		//printf("5str+i '%s'\n", str+*i);
 
-		carglog(carg, L_DEBUG, "label name: %s\n", label_name);
-		carglog(carg, L_DEBUG, "label key: %s\n", label_key);
+		carglog(carg, L_TRACE, "label name: %s\n", label_name);
+		carglog(carg, L_TRACE, "label key: %s\n", label_key);
 
 		if (!*lbl)
 		{
@@ -309,7 +309,7 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 
 uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, context_arg *carg, alligator_ht *counter_names)
 {
-	carg_or_glog(carg, L_DEBUG, "multicollector: parse metric string '%s'\n", str);
+	carg_or_glog(carg, L_TRACE, "multicollector: parse metric string '%s'\n", str);
 	r_time start_parsing = setrtime();
 	double value = 0;
 	uint64_t i = 0;
@@ -329,7 +329,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	if (!metric_name_validator_promstatsd(metric_name, metric_len))
 	{
 		labels_hash_free(lbl);
-		carg_or_glog(carg, L_DEBUG, "> metric name validator failed\n");
+		carg_or_glog(carg, L_DEBUG, "> metric name validator failed for '%s'\n", metric_name);
 		return 0;
 	}
 
@@ -352,12 +352,12 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 				continue;
 			}
 
-			carg_or_glog(carg, L_DEBUG, "> mapping matched: mapping %p template %s, metric name is '%s'\n", mm, mm->template, metric_name);
+			carg_or_glog(carg, L_TRACE, "> mapping matched: mapping %p template %s, metric name is '%s'\n", mm, mm->template, metric_name);
 			template_render(mm->metric_name, fields, num_fields, metric_name, METRIC_NAME_SIZE);
 
 
 			mapping_label *ml = mm->label_head;
-			carg_or_glog(carg, L_DEBUG, "> mapping matched: mapping %p template %s, metric name updated to '%s'\n", mm, mm->template, metric_name);
+			carg_or_glog(carg, L_TRACE, "> mapping matched: mapping %p template %s, metric name updated to '%s'\n", mm, mm->template, metric_name);
 
 			while (ml)
 			{
@@ -370,7 +370,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 				template_render(ml->name, fields, num_fields, label_name, METRIC_NAME_SIZE);
 				template_render(ml->key, fields, num_fields, label_key, METRIC_NAME_SIZE);
 
-				carg_or_glog(carg, L_DEBUG, "\t> mapping %p for template '%s' generated label '%s'='%s'\n", mm, mm->template, label_name, label_key);
+				carg_or_glog(carg, L_TRACE, "\t> mapping %p for template '%s' generated label '%s'='%s'\n", mm, mm->template, label_name, label_key);
 				labels_hash_insert_nocache(lbl, label_name, label_key);
 				ml = ml->next;
 			}
@@ -380,10 +380,10 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 	}
 
-	carg_or_glog(carg, L_DEBUG, "> metric name = %s\n", metric_name);
+	carg_or_glog(carg, L_TRACE, "> metric name = %s\n", metric_name);
 	if (i == size)
 	{
-		carg_or_glog(carg, L_DEBUG, "%s: increment\n", metric_name);
+		carg_or_glog(carg, L_TRACE, "%s: increment\n", metric_name);
 		labels_hash_free(lbl);
 		return 0;
 	}
@@ -441,8 +441,8 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			//	return 0;
 			}
 
-			carg_or_glog(carg, L_DEBUG, "> label_name = %s\n", label_name);
-			carg_or_glog(carg, L_DEBUG, "> label_key = %s\n", label_key);
+			carg_or_glog(carg, L_TRACE, "> label_name = %s\n", label_name);
+			carg_or_glog(carg, L_TRACE, "> label_key = %s\n", label_key);
 
 			if (metric_name_validator(label_name, label_name_size))
 			{
@@ -459,7 +459,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 			else
 			{
 				labels_hash_free(lbl);
-				carg_or_glog(carg, L_DEBUG, "metric '%s' has invalid label format: %s\n", str, label_name);
+				carg_or_glog(carg, L_TRACE, "metric '%s' has invalid label format: %s\n", str, label_name);
 				return 0;
 			}
 			// go to next label or end '}'
@@ -494,7 +494,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		i += strcspn(str+i, " \t");
 		i += strspn(str+i, " \t");
 
-		carg_or_glog(carg, L_DEBUG, "> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carg_or_glog(carg, L_TRACE, "> prometheus labels value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else if (str[i] == ':' || str[i] == '#' || str[i] == ',')
@@ -517,12 +517,12 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 		}
 		else
 		{
-			carg_or_glog(carg, L_DEBUG, "> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+			carg_or_glog(carg, L_TRACE, "> statsd value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			value = atof(str+i);
 			if (strstr(str+i, "|c"))
 			{
 				increment = 1;
-				carg_or_glog(carg, L_DEBUG, "> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+				carg_or_glog(carg, L_TRACE, "> statsd value increment: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 			}
 		}
 
@@ -535,7 +535,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	else if (isdigit((unsigned char)str[i]))
 	{
 		// prometheus without labels
-		carg_or_glog(carg, L_DEBUG, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
+		carg_or_glog(carg, L_TRACE, "> prometheus value: %lf (sym: %"u64"/%s)\n", atof(str+i), i, str+i);
 		value = atof(str+i);
 	}
 	else

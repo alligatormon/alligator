@@ -6,6 +6,7 @@
 #include "common/http.h"
 #include "main.h"
 #include "metric/metric_types.h"
+#include "common/logs.h"
 #define HAPROXY_NAME_SIZE 1000
 
 void haproxy_info_handler(char *metrics, size_t size, context_arg *carg)
@@ -39,8 +40,10 @@ void haproxy_pools_handler(char *metrics, size_t size, context_arg *carg)
 	char *tmp = metrics + to;
 
 	char* total = strstr(metrics, "\nTotal");
-	if (!total)
+	if (!total) {
+		carglog(carg, L_WARN, "haproxy pools parse: missing Total section in payload\n");
 		return;
+	}
 
 	for(i=0; i<size && tmp < total; ++i)
 	{

@@ -1204,12 +1204,21 @@ void carg_emit_log_document(context_arg *carg, json_t *doc)
 
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...)
 {
-	int level = carg && carg->log_level ? carg->log_level : ac->log_level;
-	log_channel *ch = log_channel_for_context(carg);
-	if (level < priority)
-		return;
 	va_list args;
+
 	va_start(args, format);
+	if (!carg) {
+		wrlog(NULL, NULL, ac->log_level, priority, format, args);
+		va_end(args);
+		return;
+	}
+
+	int level = carg->log_level ? carg->log_level : ac->log_level;
+	log_channel *ch = log_channel_for_context(carg);
+	if (level < priority) {
+		va_end(args);
+		return;
+	}
 	wrlog(ch, carg, level, priority, format, args);
 	va_end(args);
 }
