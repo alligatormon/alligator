@@ -71,6 +71,7 @@ Alligator has many contexts for describing the collection data:
 - **threaded_loop**: Configures thread pool with activated event loops for particular tasks
 - **grok**: Parse logs in metrics like Elasticsearch’s Grok parser.
 - **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
+- **vrl**: Remap and enrich log events with Vector Remap Language (avrl) programs.
 
 Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
 
