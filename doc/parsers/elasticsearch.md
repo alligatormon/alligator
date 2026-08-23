@@ -44,4 +44,4 @@ aggregate {
 
 ## Dashboard
 The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-elasticsearch.json)
-<img alt="Dashboard" src="/doc/images/dashboard-elasticsearch.jpg"><br>
+<img alt="Dashboard" src="../images/dashboard-elasticsearch.jpg"><br>

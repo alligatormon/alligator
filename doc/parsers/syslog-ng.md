@@ -9,4 +9,4 @@ aggregate {
 
 ## Dashboard
 The syslog-ng dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-syslog-ng.json)
-<img alt="Alligator syslog-ng dashboard" src="/doc/images/dashboard-syslog-ng.jpg">
+<img alt="Alligator syslog-ng dashboard" src="../images/dashboard-syslog-ng.jpg">

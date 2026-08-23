@@ -5,7 +5,7 @@ Alligator configuration supports a list of entrypoints, providing the capability
 <br>
 <p align="center">
 <h1 align="center" style="border-bottom: none">
-    <img alt="alligator-cluster-entrypoint" src="/doc/images/entrypoint.jpeg"></a><br>
+    <img alt="alligator-cluster-entrypoint" src="images/entrypoint.jpeg"></a><br>
 </h1>
 <br>
 <br>
@@ -176,7 +176,7 @@ entrypoint {
 }
 ```
 
-# ttl
+## ttl
 Default: 300\
 Plural: no\
 Possible values:
@@ -320,7 +320,7 @@ entrypoint {
 }
 ```
 
-# api
+## api
 Default: off\
 Plural: no\
 Possible values:
@@ -354,7 +354,7 @@ CA bundle used to verify client certificates (mTLS) and to validate OCSP respons
 ## tls\_crl / tls\_ocsp
 Same revocation keys as aggregate (`tls_crl`, `tls_crl_scope`, `tls_ocsp`, `tls_ocsp_responder`, `tls_ocsp_proxy`, `tls_ocsp_timeout`, `tls_ocsp_cache_ttl`, `tls_revocation_mode`, `tls_ocsp_fetch`). Used for mTLS client certificates.
 
-# handler
+## handler
 Default: prometheus\
 Plural: no\
 Possible values:
@@ -377,56 +377,56 @@ This option specifies the handler that processes received messages.
 - **mtail** — Parses the stream with a named [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/README.md) program. Requires the `mtail` option.
 
 
-# grok
+## grok
 Default: -\
 Plural: no
 
 Name of the grok context to use when `handler grok` is set. Grok contexts are defined in the top-level [grok](https://github.com/alligatormon/alligator/blob/master/doc/grok.md) block.
 
 
-# mtail
+## mtail
 Default: -\
 Plural: no
 
 Name of the mtail program to use when `handler mtail` is set. Programs are defined in the top-level [mtail](https://github.com/alligatormon/alligator/blob/master/doc/mtail/configuration.md) block.
 
 
-# mtail_full_export_interval
+## mtail_full_export_interval
 Default: 60s\
 Plural: no
 
 Minimum interval between full exports of all mtail variables when using `handler mtail`. See [mtail configuration](https://github.com/alligatormon/alligator/blob/master/doc/mtail/configuration.md#mtail_full_export_interval).
 
 
-# namespace
+## namespace
 Default: -\
 Plural: no
 
 Assigns metrics from this entrypoint to a named namespace. See [namespace](https://github.com/alligatormon/alligator/blob/master/doc/namespace.md).
 
 
-# http_keepalive
+## http_keepalive
 Default: on (JSON entrypoints)\
 Plural: no
 
 Enables HTTP keep-alive for stream entrypoints that speak HTTP.
 
 
-# http_idle_timeout
+## http_idle_timeout
 Default: 75s\
 Plural: no
 
 Idle timeout for HTTP keep-alive connections on stream entrypoints.
 
 
-# lang
+## lang
 Default: -\
 Plural: no
 
 The [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) option specifies the context that operates the received body with custom functions via external modules.
 
 
-# pingloop
+## pingloop
 Default: 0\
 Plural: no\
 Possible values:
@@ -435,7 +435,7 @@ Possible values:
 Pingloop allows a blackbox handler to ping resource more than once.
 
 
-# metric_aggregation
+## metric_aggregation
 Default: off\
 Plural: no\
 Possible values:
@@ -445,7 +445,7 @@ Possible values:
 This option makes it possible to count counters and histogram metrics inside Alligator instead of replacing them when a metric is pushed with pushgateway protocol. It opens the prom-aggregation-gateway interface. Graphite and statsd cannot specify this as they already support counting metrics inside protocol.
 
 
-# format
+## format
 Default: openmetrics\
 Plural: no\
 Possible values:
@@ -466,26 +466,26 @@ entrypoint {
 ```
 
 
-# cluster
+## cluster
 Default: -\
 Plural: no
 
 Specify the cluster name for receiving metrics. More information about cluster can be found in the [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
 
-# instance
+## instance
 Default: -\
 Plural: no\
 
 Specify the cluster current instance name for receiving metrics. More information about cluster can be found in [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
 
 
-# threads
+## threads
 Default: 0\
 Plural: no\
 
 Specifies the number of threads working in this entrypoint.
 
-# add_labels
+## add_labels
 Default: -\
 Plural: yes
 
@@ -536,7 +536,7 @@ This applies at metric add time, so transformed labels are stored in Alligator i
 
 Metric-name matching for these rules uses **only** the name as ingested and stored. Unlike [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) at export time, entrypoints do not apply `metric_name_transform`, so there is no separate “on-the-wire” name to match against.
 
-# mapping
+## mapping
 Default: -\
 Plural: yes
 

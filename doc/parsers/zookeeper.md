@@ -73,4 +73,4 @@ Total watches:15
 
 The system dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-zookeeper.json)
 
-<img alt="Dashboard" src="/doc/images/dashboard-zookeeper.jpg"><br>
+<img alt="Dashboard" src="../images/dashboard-zookeeper.jpg"><br>

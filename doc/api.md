@@ -8,10 +8,10 @@ JSON API is similar to plaintext configuration. The description of directives ca
   "entrypoint": [
     {
       "log_level": "<level>",
-      "return": "[empty|on]>"
+      "return": "[empty|on]"
     },
     {
-      "reject": "key>",
+      "reject": "<key>",
       "auth": [
         {
           "type": "<basic|bearer|other>",
@@ -191,7 +191,7 @@ JSON API is similar to plaintext configuration. The description of directives ca
   "action": [
     {
       "name": "<name>",
-      "expr": "url>",
+      "expr": "<expr>",
       "ns": "<namespace>",
       "work_dir": "<directory>",
       "serializer": "<serializer>",
@@ -207,7 +207,7 @@ JSON API is similar to plaintext configuration. The description of directives ca
       "datasource": "<internal>",
       "action": "<run-script>",
       "lang": "<call-func>",
-      "expr": "promql>"
+      "expr": "<promql>"
     }
   ],
   "x509": [
@@ -219,20 +219,20 @@ JSON API is similar to plaintext configuration. The description of directives ca
       "type": "/type/"
     }
   ],
-  puppeteer" {
+  "puppeteer": {
     "https://google.com": {
-        "headers": {
-            "Connection": "close"
-            "Host": "hotname"
-        },
-        "post_data": "body request",
-        "timeout": 30000,
-        "screenshot": {
-            "minimum_code": 400,
-            "type": "png",
-            "dir": "/path/to/save/pictures/"
-        }
+      "headers": {
+        "Connection": "close",
+        "Host": "hostname"
+      },
+      "post_data": "body request",
+      "timeout": 30000,
+      "screenshot": {
+        "minimum_code": 400,
+        "type": "png",
+        "dir": "/path/to/save/pictures/"
+      }
     }
-}
+  }
 }
 ```

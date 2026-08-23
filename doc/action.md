@@ -6,7 +6,7 @@ This context can be used multiple times within the configuration.
 <br>
 <p align="center">
 <h1 align="center" style="border-bottom: none">
-    <img alt="alligator-cluster-entrypoint" src="/doc/images/action.jpeg"></a><br>
+    <img alt="alligator-cluster-entrypoint" src="images/action.jpeg"></a><br>
 </h1>
 <br>
 <br>

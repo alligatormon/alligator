@@ -1,5 +1,7 @@
 # Configuration
 
+**Language / Язык:** [English](configuration.md) | [Русский](ru/configuration.md)
+
 ## Documentation index
 
 | Topic | Document |
@@ -18,7 +20,8 @@
 | Cluster replication | [cluster.md](cluster.md) |
 | Service discovery | [service-discovery.md](service-discovery.md) |
 | HTTP API | [api.md](api.md) |
-| Puppeteer / browser checks | [puppeteer.md](puppeteer.md) |
+| Puppeteer / browser checks | [puppeteer.md](puppeteer.md), [chromecdp.md](chromecdp.md) |
+| Kubernetes operator | [kubernetes-operator.md](kubernetes-operator.md) |
 | Thread pools | [threaded-loop.md](threaded-loop.md) |
 | Developer logging (`glog` / `carglog`) | [logging.md](logging.md) |
 

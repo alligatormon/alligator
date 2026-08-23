@@ -1,5 +1,7 @@
+**Language / Язык:** [English](README.md) | [Русский](README.ru.md)
+
 <h1 align="center" style="border-bottom: none">
-    <img width="100" height="100" alt="Alligator" src="/doc/images/logo.min.png"></a><br>Alligator
+    <img width="100" height="100" alt="Alligator" src="doc/images/logo.min.png"><br>Alligator
 </h1>
 
 <p align="center">
@@ -10,8 +12,8 @@ Alligator is an aggregator for system and software metrics. It is an incredibly 
 
 
 # Installation
-Alligator supports the GNU/Linux and FreeBSD systems.
-How to install this, check the [distribution](https://github.com/alligatormon/alligator/blob/master/doc/distribution.md) doc.
+Alligator supports GNU/Linux and FreeBSD.
+For installation instructions, see the [distribution](doc/distribution.md) doc.
 
 For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
 
@@ -55,14 +57,14 @@ alligator <path_to_dir>
 ## Main structure
 Alligator has many contexts for describing the collection data:
 - **aggregate**: Collects metrics from software using various parsers from software
-- **query**: Generates make new metrics internally through PromQL queries or from databases queries
+- **query**: Generates new metrics internally through PromQL queries or database queries
 - **namespace**: Configures metric namespaces and optional emission limits (`max_emit`)
 - **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
 - **lang**: Runs functions and methods from subprograms
-- **x509**: Obtains metrics from PEM, JKS or PCKS certificate formats
+- **x509**: Obtains metrics from PEM, JKS or PKCS certificate formats
 - **action**: Runs commands in response to the metrics behaviour. It allows for proactive monitoring policy.
 - **scheduler**: Configures the repeat time to run lang or actions by alligator.
-- **resolver**: Configures the DNS system of Alligator and allows to the collection of metrics from DNS servers for resolution
+- **resolver**: Configures Alligator DNS and enables collecting metrics from DNS resolution checks
 - **persistence**: Saves metrics to the filesystem that enable preservation metrics between restarts
 - **modules**: Loads dynamic C libraries (files with .so extension)
 - **cluster**: Configures the cluster using the node group
@@ -73,12 +75,12 @@ Alligator has many contexts for describing the collection data:
 - **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
 - **vrl**: Remap and enrich log events with Vector Remap Language (avrl) programs.
 
-Detailed information about the configuration file structure stored in the [configuration](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md)
+Detailed information about the configuration file structure is in [configuration](doc/configuration.md).
 
 
 
 ## Entrypoint context
-Please refer to the entrypoint context [explanation](https://github.com/alligatormon/alligator/blob/master/doc/entrypoint.md).
+Please refer to the entrypoint context [explanation](doc/entrypoint.md).
 
 Here's an example of a simple handler that can respond to Prometheus:
 ```
@@ -89,9 +91,9 @@ entrypoint {
 ```
 
 ## System metrics collecting
-Please refer to the explanation of system context [here](https://github.com/alligatormon/alligator/blob/master/doc/system.md).
+Please refer to the explanation of system context [here](doc/system.md).
 
-Bellow is an example of a simple configured system context in Alligator that enables the collection of CPU, baseboard, system-wide resouces, memory and network statistics:
+Below is an example of a simple system context that collects CPU, baseboard, system-wide resources, memory, and network statistics:
 ```
 system {
     base;
@@ -129,7 +131,7 @@ aggregate {
 }
 ```
 
-More information about the aggregate directive can be found at the following [document](https://github.com/alligatormon/alligator/blob/master/doc/aggregate.md).
+More information about the aggregate directive can be found in [aggregate](doc/aggregate.md).
 
 
 # List of software parsers
@@ -180,9 +182,11 @@ More information about the aggregate directive can be found at the following [do
 - [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)
 - [ntp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ntp.md)
 - [nvidia-smi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nvidia-smi.md)
-- [patroni](https://github.com/alligatormon/alligator/blob/master/doc/parsers/patroni.md)
-- [postgresql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md)
-- [pgbouncer](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgbouncer)
+- [auditd](doc/parsers/auditd.md)
+- [cassandra](doc/parsers/cassandra.md)
+- [sentinel](doc/parsers/sentinel.md)
+- [patroni](doc/parsers/patroni.md)
+- [pgbouncer](doc/parsers/postgresql.md#pgbouncer)
 - [odyssey](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#odyssey)
 - [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
 - [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
@@ -198,7 +202,7 @@ persistence {
 ```
 
 ## Modules
-The `modules` context allows the loadingin of .so files into memory.
+The `modules` context allows loading `.so` files into memory.
 ```
 modules {
 	postgresql /usr/lib64/libpq.so;
@@ -209,7 +213,7 @@ modules {
 This feature is typically used in parsers or for `lang` contexts.
 
 ## Resolver
-The resolver in Alligator provides capabilities for working with DNS flexible. It allows to use different DNS server that is configured in operating system and add functionality to resolve DNS names to the metrics. For more information, please refer to the [DNS resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) in Alligator.
+The resolver in Alligator provides flexible DNS configuration. It allows using DNS servers other than the OS default and adds DNS resolution metrics. See [DNS resolver](doc/resolver.md).
 
 
 ## Certificates monitoring
@@ -226,16 +230,16 @@ Please refer to the explanation of x509 [context](https://github.com/alligatormo
 [Lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) loads a shared library (`.so`) to collect metrics (C/C++/Go/Rust).
 
 ## Actions
-Actions provides the capability to run other software via the command in response to the scheduler or metric behaviour. It also provide capability to export data in others databases. Here is an [explanation](https://github.com/alligatormon/alligator/blob/master/doc/action.md).
+Actions run commands in response to scheduler triggers or metric behaviour, and can export data to external databases. See [action](doc/action.md).
 
 ## Scheduler
 The [scheduler](https://github.com/alligatormon/alligator/blob/master/doc/scheduler.md) is a tool that specifies settings to repeatedly run lang and action resources.
 
 ## Cluster
-Cluster enables the multi-node capabilities to synchronize metrics. [Here](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) is the more information about this.
+Cluster enables multi-node metric synchronization. See [cluster](doc/cluster.md).
 
 ## Puppeteer
-Puppeteer enables the collector of site load statistics. In [this](https://github.com/alligatormon/alligator/blob/master/doc/puppeteer.md) document is the more information about this.
+Puppeteer collects HTTP site load statistics. See [puppeteer](doc/puppeteer.md).
 
 ## Chromecdp
 Chromecdp collects browser loading statistics from Chrome or Chromium headless **without Node.js or the Puppeteer npm package**. Alligator starts Chrome once, connects over the Chrome DevTools Protocol (CDP) via a local WebSocket, and crawls each configured URL in an isolated incognito context on every collection cycle. Metrics are written directly into the alligator metric store with Prometheus-style names (`chromecdp_*`).

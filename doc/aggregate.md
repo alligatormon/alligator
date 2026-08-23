@@ -5,14 +5,14 @@ It consists of two main parts: `aggregator` and `parser`.
 <br>
 <p align="center">
 <h1 align="center" style="border-bottom: none">
-    <img alt="alligator-cluster-entrypoint" src="/doc/images/aggregator.jpeg"></a><br>
+    <img alt="alligator-cluster-entrypoint" src="images/aggregator.jpeg"></a><br>
 </h1>
 <br>
 
 Alligator eventloop provides asynchronous methods for collecting metrics from various sources and passing them to custom parsers for each software:
 <br>
 <h1 align="center" style="border-bottom: none">
-    <img alt="alligator-cluster-aggregate" src="/doc/images/parsers.jpeg"></a><br>
+    <img alt="alligator-cluster-aggregate" src="images/parsers.jpeg"></a><br>
 </h1>
 
 <br>
@@ -134,7 +134,7 @@ Plural: no
 
 The [lang](https://github.com/alligatormon/alligator/blob/master/doc/lang.md) option specifies the context that operates the received body with custom functions via external modules.
 
-# follow\_redirects
+## follow\_redirects
 Default: 0
 Plural: no
 
@@ -340,13 +340,13 @@ Specifies the declared name of the threaded loop. More information about the thr
 Specifies the body to be passed to the stdin of the called script.
 
 
-# cluster
+## cluster
 Default: -\
 Plural: no
 
 Specify the cluster name for crawling metrics. More information about cluster can be found in the [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) documentation.
 
-# instance
+## instance
 Default: -\
 Plural: no
 

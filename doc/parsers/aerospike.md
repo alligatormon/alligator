@@ -41,4 +41,4 @@ namespace/test	objects=42;client_read_success=5;
 
 The aerospike dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-aerospike.json)
 
-<img alt="Alligator aerospike dashboard" src="/doc/images/dashboard-aerospike.jpg">
+<img alt="Alligator aerospike dashboard" src="../images/dashboard-aerospike.jpg">

@@ -21,36 +21,41 @@ metadata_expire=300
 ```
 
 ## Ubuntu
+Install prerequisites and import the Packagecloud GPG key. On Debian/Ubuntu 22.04+, prefer `signed-by` instead of deprecated `apt-key`:
+
 ```
-apt install -y curl gnupg apt-transport-https && \
-curl -L https://packagecloud.io/amoshi/alligator/gpgkey | apt-key add -
+apt install -y curl gnupg apt-transport-https
+curl -fsSL https://packagecloud.io/amoshi/alligator/gpgkey | gpg --dearmor -o /usr/share/keyrings/alligator-packagecloud.gpg
 ```
 
 ### Ubuntu 20.04:
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ focal main' | tee /etc/apt/sources.list.d/alligator.list
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu/ focal main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
 ### Ubuntu 22.04:
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/alligator.list
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
-### Ubuntu 22.04:
+### Ubuntu 24.04:
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
 ## Debian
 ### Debian 11
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bullseye main' | tee /etc/apt/sources.list.d/alligator.list
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu bullseye main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
 ### Debian 12
 ```
-echo 'deb https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
 ```
+
+## FreeBSD
+Alligator builds on FreeBSD from source (see **Build** below). CI uses a VirtualBox VM — see [ci-freebsd-virtualbox.md](ci-freebsd-virtualbox.md). There is no official package repository entry yet.
 
 # Build
 CMake is used as build system. Dependencies are supplied with conan and git submodules.
