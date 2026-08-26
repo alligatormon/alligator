@@ -1245,6 +1245,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								ac->system_etcdir = strdup(etcdir);
 							}
 						}
+						else if (!strcmp(system_key, "nvml"))
+						{
+							ac->system_nvml = 1;
+						}
 #ifdef __linux__
 						else if (!strcmp(system_key, "ipmi"))
 						{

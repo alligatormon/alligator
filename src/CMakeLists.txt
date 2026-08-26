@@ -491,6 +491,7 @@ set(STATIC_FILES
 	system/smbios.c
 	system/linux.c
 	system/linux/ipmi.c
+	system/linux/nvml.c
 	system/linux/ipset.c
 	system/linux/cpu.c
 	system/linux/sysctl.c

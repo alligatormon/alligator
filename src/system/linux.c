@@ -37,6 +37,7 @@
 #include "system/linux/disk.h"
 #include "system/linux/cpu.h"
 #include "system/linux/ipmi.h"
+#include "system/linux/nvml.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -3373,6 +3374,9 @@ void get_system_metrics()
 		if (!platform)
 			ipmi_schedule_get_status();
 	}
+
+	if (ac->system_nvml)
+		nvml_schedule_scrape();
 
 	get_pidfile_stats();
 	get_userprocess_stats();

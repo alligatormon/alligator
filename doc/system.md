@@ -15,6 +15,7 @@ system {
     services_checking_users [system] [user] [login1] [login2];
     smart;
     ipmi;
+    nvml;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -113,6 +114,80 @@ Enables the collection of S.M.A.R.T. metrics.
 
 ## ipmi
 Enables the collection of IPMI metrics using native ioctl() calls. For integration with ipmitool, see this [documentation](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
+
+
+## nvml
+Collects NVIDIA GPU metrics in-process via **NVML** (`libnvidia-ml.so`), without DCGM or `dcgm-exporter`. Linux only.
+
+Requires an explicit library path in the top-level `modules` block (same pattern as `rpmlib` / `libvirt`). There is no automatic soname search.
+
+```
+modules {
+    nvml /usr/lib64/libnvidia-ml.so.1;
+}
+
+system {
+    nvml;
+}
+```
+
+JSON / API:
+
+```json
+{
+  "modules": { "nvml": "/usr/lib64/libnvidia-ml.so.1" },
+  "system": { "nvml": {} }
+}
+```
+
+If `modules.nvml` is missing or the library fails to load/init, the scrape is skipped (logged). There is **no** automatic fallback to `nvidia-smi`; use the [nvidia_smi aggregate parser](parsers/nvidia-smi.md) when you want the CLI path.
+
+Both collectors may run together: prefixes differ (`nvml_*` vs `nvidia_smi_*`).
+
+Scrapes run on a libuv worker thread so NVML calls do not block the event loop.
+
+### Metrics
+
+Prefix `nvml_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Unit suffixes: `_bytes`, `_percent`, `_watt`, `_mhz`, `_celsius`, `_joules`.
+
+| Metric | Notes |
+|--------|--------|
+| `nvml_gpu_count` | Visible GPU count |
+| `nvml_driver_version{version=…}` | Value `1` |
+| `nvml_device_info{…,pci_bus_id,brand}` | Value `1` |
+| `nvml_utilization_{gpu,memory,encoder,decoder}_percent` | |
+| `nvml_memory_{free,used,total}_bytes` | Framebuffer |
+| `nvml_temperature_{gpu,memory}_celsius` | Memory temp when supported |
+| `nvml_power_usage_watt`, `nvml_power_limit{,_min,_max}_watt` | mW → W |
+| `nvml_energy_consumption_joules` | Cumulative since driver load |
+| `nvml_clocks_{sm,memory,graphics,video}_mhz` | |
+| `nvml_fan_speed_percent` | |
+| `nvml_pcie_{tx,rx}_bytes` | Gauge of last sample interval (KB/s → B/s) |
+| `nvml_pcie_replay_total` | |
+| `nvml_ecc_{corrected,uncorrected}_total` | Volatile aggregate |
+| `nvml_retired_pages_{sbe,dbe}_total` | |
+| `nvml_clocks_throttle_reasons` | Bitmask + boolean gauges for idle / sw_power / hw_thermal / hw_power_brake |
+| `nvml_mig_mode`, `nvml_persistence_mode` | `0`/`1` |
+| `nvml_pstate{pstate=P0}` | Value `1` |
+| `nvml_process_used_memory_bytes{pid,process_name,type}` | `type=compute\|graphics` when supported |
+
+### Mapping from dcgm-exporter fields
+
+| Alligator metric | Typical DCGM field |
+|------------------|--------------------|
+| `nvml_clocks_sm_mhz` / `nvml_clocks_memory_mhz` | `DCGM_FI_DEV_SM_CLOCK` / `MEM_CLOCK` |
+| `nvml_temperature_gpu_celsius` | `DCGM_FI_DEV_GPU_TEMP` |
+| `nvml_power_usage_watt` | `DCGM_FI_DEV_POWER_USAGE` |
+| `nvml_energy_consumption_joules` | `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` |
+| `nvml_utilization_gpu_percent` | `DCGM_FI_DEV_GPU_UTIL` |
+| `nvml_utilization_memory_percent` | `DCGM_FI_DEV_MEM_COPY_UTIL` |
+| `nvml_memory_used_bytes` / `nvml_memory_free_bytes` | `DCGM_FI_DEV_FB_USED` / `FB_FREE` |
+| `nvml_fan_speed_percent` | `DCGM_FI_DEV_FAN_SPEED` |
+
+### Gaps vs DCGM
+
+- **`DCGM_FI_PROF_*`** (SM occupancy, tensor pipe, DRAM active, etc.) need CUPTI/DCGM profiling — not available via NVML.
+- **XID errors** are event-based in NVML; not exported in this collector yet.
 
 
 ## firewall

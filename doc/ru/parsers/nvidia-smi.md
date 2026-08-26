@@ -29,6 +29,22 @@ aggregate {
 }
 ```
 
+### Предпочтительный NVML
+
+На хостах с библиотекой драйвера NVIDIA предпочтительнее встроенный system collector (без spawn `nvidia-smi`):
+
+```
+modules {
+    nvml /usr/lib64/libnvidia-ml.so.1;
+}
+
+system {
+    nvml;
+}
+```
+
+См. [system.md — nvml](../system.md#nvml). Этот handler `nvidia_smi` оставляйте, когда нужен CLI CSV или NVML недоступен.
+
 ### Requirements
 
 - Установленный NVIDIA driver и `nvidia-smi`

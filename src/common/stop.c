@@ -18,6 +18,7 @@
 #include "events/a_signal.h"
 #include "events/filetailer.h"
 #include "system/linux/ipmi.h"
+#include "system/linux/nvml.h"
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
@@ -57,6 +58,7 @@ void alligator_shutdown_after_loop(void)
 	glog(L_INFO, "Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
 	glog(L_INFO, "Don't forget to start me again, otherwise the alligator will bite you :)\n");
 	ipmi_wait_idle();
+	nvml_wait_idle();
 	metric_dump(1);
 	tls_fs_free();
 	puppeteer_done();

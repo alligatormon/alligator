@@ -3793,6 +3793,7 @@ void test_config_get_system_flags_runtime_paths()
     uint8_t saved_network = ac->system_network;
     uint8_t saved_smart = ac->system_smart;
     uint8_t saved_ipmi = ac->system_ipmi;
+    uint8_t saved_nvml = ac->system_nvml;
     uint8_t saved_interrupts = ac->system_interrupts;
     uint8_t saved_firewall = ac->system_firewall;
     uint8_t saved_ipset = ac->system_ipset;
@@ -3812,6 +3813,7 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_network = 1;
     ac->system_smart = 1;
     ac->system_ipmi = 1;
+    ac->system_nvml = 1;
     ac->system_interrupts = 1;
     ac->system_firewall = 1;
     ac->system_ipset = 1;
@@ -3833,6 +3835,7 @@ void test_config_get_system_flags_runtime_paths()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "network"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "firewall"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "cadvisor"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "nvml"));
     json_decref(root);
 
     ac->system_ipset_entries = 1;
@@ -3846,6 +3849,7 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_network = saved_network;
     ac->system_smart = saved_smart;
     ac->system_ipmi = saved_ipmi;
+    ac->system_nvml = saved_nvml;
     ac->system_interrupts = saved_interrupts;
     ac->system_firewall = saved_firewall;
     ac->system_ipset = saved_ipset;

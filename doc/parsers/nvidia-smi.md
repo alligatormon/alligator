@@ -29,6 +29,22 @@ aggregate {
 }
 ```
 
+### Prefer NVML when available
+
+For hosts with the NVIDIA driver library, prefer the built-in system collector (no `nvidia-smi` process spawn):
+
+```
+modules {
+    nvml /usr/lib64/libnvidia-ml.so.1;
+}
+
+system {
+    nvml;
+}
+```
+
+See [system.md — nvml](../system.md#nvml). Keep this `nvidia_smi` aggregate handler when you need the CLI CSV path or NVML is unavailable.
+
 ### Requirements
 
 - NVIDIA driver and `nvidia-smi` installed

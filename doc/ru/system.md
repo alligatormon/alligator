@@ -17,6 +17,7 @@ system {
     services_checking_users [system] [user] [login1] [login2];
     smart;
     ipmi;
+    nvml;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -115,6 +116,80 @@ JSON (API или `.json` config) использует array под `system.servi
 
 ## ipmi
 Включает сбор IPMI-метрик нативными вызовами ioctl(). Для интеграции с ipmitool см. [документацию](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
+
+
+## nvml
+Собирает метрики NVIDIA GPU in-process через **NVML** (`libnvidia-ml.so`), без DCGM и `dcgm-exporter`. Только Linux.
+
+Нужен явный путь к библиотеке в top-level блоке `modules` (как у `rpmlib` / `libvirt`). Автопоиск soname не выполняется.
+
+```
+modules {
+    nvml /usr/lib64/libnvidia-ml.so.1;
+}
+
+system {
+    nvml;
+}
+```
+
+JSON / API:
+
+```json
+{
+  "modules": { "nvml": "/usr/lib64/libnvidia-ml.so.1" },
+  "system": { "nvml": {} }
+}
+```
+
+Если `modules.nvml` отсутствует или библиотека не загружается/не инициализируется, scrape пропускается (с логом). **Автоматического** fallback на `nvidia-smi` нет; для CLI-пути используйте [парсер nvidia_smi](parsers/nvidia-smi.md).
+
+Оба коллектора можно включать вместе: префиксы разные (`nvml_*` vs `nvidia_smi_*`).
+
+Scrape идёт в libuv worker thread, чтобы вызовы NVML не блокировали event loop.
+
+### Метрики
+
+Префикс `nvml_`. Labels на per-GPU series: `name`, `uuid`, `serial`, `index`. Суффиксы единиц: `_bytes`, `_percent`, `_watt`, `_mhz`, `_celsius`, `_joules`.
+
+| Метрика | Заметки |
+|---------|---------|
+| `nvml_gpu_count` | Число видимых GPU |
+| `nvml_driver_version{version=…}` | Значение `1` |
+| `nvml_device_info{…,pci_bus_id,brand}` | Значение `1` |
+| `nvml_utilization_{gpu,memory,encoder,decoder}_percent` | |
+| `nvml_memory_{free,used,total}_bytes` | Framebuffer |
+| `nvml_temperature_{gpu,memory}_celsius` | Memory temp, если поддерживается |
+| `nvml_power_usage_watt`, `nvml_power_limit{,_min,_max}_watt` | mW → W |
+| `nvml_energy_consumption_joules` | Накопительно с загрузки драйвера |
+| `nvml_clocks_{sm,memory,graphics,video}_mhz` | |
+| `nvml_fan_speed_percent` | |
+| `nvml_pcie_{tx,rx}_bytes` | Gauge последнего sample interval (KB/s → B/s) |
+| `nvml_pcie_replay_total` | |
+| `nvml_ecc_{corrected,uncorrected}_total` | Volatile aggregate |
+| `nvml_retired_pages_{sbe,dbe}_total` | |
+| `nvml_clocks_throttle_reasons` | Bitmask + boolean gauges idle / sw_power / hw_thermal / hw_power_brake |
+| `nvml_mig_mode`, `nvml_persistence_mode` | `0`/`1` |
+| `nvml_pstate{pstate=P0}` | Значение `1` |
+| `nvml_process_used_memory_bytes{pid,process_name,type}` | `type=compute\|graphics` при поддержке |
+
+### Соответствие полям dcgm-exporter
+
+| Метрика Alligator | Типичное поле DCGM |
+|-------------------|--------------------|
+| `nvml_clocks_sm_mhz` / `nvml_clocks_memory_mhz` | `DCGM_FI_DEV_SM_CLOCK` / `MEM_CLOCK` |
+| `nvml_temperature_gpu_celsius` | `DCGM_FI_DEV_GPU_TEMP` |
+| `nvml_power_usage_watt` | `DCGM_FI_DEV_POWER_USAGE` |
+| `nvml_energy_consumption_joules` | `DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION` |
+| `nvml_utilization_gpu_percent` | `DCGM_FI_DEV_GPU_UTIL` |
+| `nvml_utilization_memory_percent` | `DCGM_FI_DEV_MEM_COPY_UTIL` |
+| `nvml_memory_used_bytes` / `nvml_memory_free_bytes` | `DCGM_FI_DEV_FB_USED` / `FB_FREE` |
+| `nvml_fan_speed_percent` | `DCGM_FI_DEV_FAN_SPEED` |
+
+### Ограничения относительно DCGM
+
+- **`DCGM_FI_PROF_*`** (SM occupancy, tensor pipe, DRAM active и т.п.) требуют CUPTI/DCGM profiling — через NVML недоступны.
+- **XID errors** в NVML event-based; в этом коллекторе пока не экспортируются.
 
 
 ## firewall
