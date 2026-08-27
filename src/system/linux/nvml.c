@@ -581,11 +581,13 @@ static void nvml_fill_device(nvml_library *n, nvmlDevice_t dev, unsigned int ind
 		strlcpy(snap->serial, buf, sizeof(snap->serial));
 
 	if (n->nvmlDeviceGetPciInfo_v3) {
-		nvmlPciInfo_v3_t pci = {0};
+		nvmlPciInfo_v3_t pci;
+		memset(&pci, 0, sizeof(pci));
 		if (n->nvmlDeviceGetPciInfo_v3(dev, &pci) == NVML_SUCCESS)
 			strlcpy(snap->pci_bus_id, pci.busId[0] ? pci.busId : pci.busIdLegacy, sizeof(snap->pci_bus_id));
 	} else if (n->nvmlDeviceGetPciInfo) {
-		nvmlPciInfo_t pci = {0};
+		nvmlPciInfo_t pci;
+		memset(&pci, 0, sizeof(pci));
 		if (n->nvmlDeviceGetPciInfo(dev, &pci) == NVML_SUCCESS)
 			strlcpy(snap->pci_bus_id, pci.busId, sizeof(snap->pci_bus_id));
 	}
