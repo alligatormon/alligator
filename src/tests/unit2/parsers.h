@@ -850,8 +850,9 @@ void api_test_parser_nats() {
     metric_test_run_ns(CMP_EQUAL, "nats_varz_version", "nats_varz_version", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_varz_max_connections", "nats_varz_max_connections", 65536, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_varz_ping_max", "nats_varz_ping_max", 2, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_varz", "nats_varz", 4251648, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats", "nats_varz_http_req_stats", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_mem", "nats_varz_mem", 4251648, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats{endpoint=\"/\"}", "nats_varz_http_req_stats", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats{endpoint=\"/varz\"}", "nats_varz_http_req_stats", 1, nats_test_ns);
 
 
     carg = calloc(1, sizeof(*carg));
@@ -865,8 +866,6 @@ void api_test_parser_nats() {
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_server_id", "nats_routez_server_id", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez", "nats_routez", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez_now", "nats_routez_now", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_num_routes", "nats_routez_num_routes", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_remote_id", "nats_routez_routes_remote_id", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_ip", "nats_routez_routes_ip", 1, nats_test_ns);
@@ -876,6 +875,7 @@ void api_test_parser_nats() {
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_bytes", "nats_routez_routes_in_bytes", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_bytes", "nats_routez_routes_out_bytes", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_subscriptions", "nats_routez_routes_subscriptions", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_did_solicit", "nats_routez_routes_did_solicit", 1, nats_test_ns);
 
 
     carg = calloc(1, sizeof(*carg));
@@ -887,28 +887,18 @@ void api_test_parser_nats() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_lang", "nats_connz_connections_lang", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_version", "nats_connz_connections_version", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections", "nats_connz_connections", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_tls_version", "nats_connz_connections_tls_version", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_tls_cipher_suite", "nats_connz_connections_tls_cipher_suite", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_subscriptions", "nats_connz_connections_subscriptions", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_out_bytes", "nats_connz_connections_out_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_in_bytes", "nats_connz_connections_in_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_out_msgs", "nats_connz_connections_out_msgs", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_in_msgs", "nats_connz_connections_in_msgs", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_pending_bytes", "nats_connz_connections_pending_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_idle", "nats_connz_connections_idle", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_rtt", "nats_connz_connections_rtt", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_last_activity", "nats_connz_connections_last_activity", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_connections_kind", "nats_connz_connections_kind", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz", "nats_connz", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz", "nats_connz", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_now", "nats_connz_now", 1, nats_test_ns);
+    /* Aggregated connz (no per-cid / string=1 junk like tls_version, lang, idle). */
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_num_connections", "nats_connz_num_connections", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_total", "nats_connz_total", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_offset", "nats_connz_offset", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_limit", "nats_connz_limit", 1024, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_subscriptions", "nats_connz_subscriptions", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_bytes", "nats_connz_out_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_bytes", "nats_connz_in_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_msgs", "nats_connz_out_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_msgs", "nats_connz_in_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_pending_bytes", "nats_connz_pending_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1, nats_test_ns);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);

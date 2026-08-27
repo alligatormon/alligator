@@ -2582,6 +2582,7 @@ static void run_config_query_suites(char **argv)
     test_json_query_comma_branches();
     test_json_query_merge_two_pquery();
     test_json_query_flat_object_labels();
+    test_json_query_skip_label_field_metric();
     test_json_query_ndjson_lines();
     system_test(argv[0]);
     test_config();

@@ -294,6 +294,7 @@ void system_initialize()
 	ac->system_services_process = 0;
 	ac->system_smart = 0;
 	ac->system_nvml = 0;
+	ac->system_dcgm = 0;
 	ac->system_carg = calloc(1, sizeof(*ac->system_carg));
 	ac->system_carg->ttl = 300;
 	ac->system_carg->curr_ttl = 0;

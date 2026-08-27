@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- NATS parser: stop dumping every JSON field as a metric. String fields (`tls_version`, `lang`, `uptime`, …) are no longer gauges with value `1`; `/connz` exports aggregates only (no per-`cid` series); `http_req_stats` uses `nats_varz_http_req_stats{endpoint=…}`. Identity strings use `{value="…"} 1`.
+- `json_query`: fields listed in `pquery` `[…]` label blocks are labels only and are not emitted as separate series.
 
 ## [1.15.2] - 23.08.2026
 - TCP and UDP aggregator clients can use an HTTP or SOCKS5 proxy (`proxy=http://…`, `proxy=socks5://…` / `socks5h://`). HTTPS/TLS/TCP go through HTTP CONNECT; plaintext HTTP uses an absolute-URI request; UDP uses SOCKS5 UDP ASSOCIATE only. TLS-to-proxy (`https://proxy`) is not supported.

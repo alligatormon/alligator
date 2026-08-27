@@ -113,6 +113,30 @@ void test_json_query_flat_object_labels(void)
 	free(carg);
 }
 
+/* pquery label fields must not also become metrics (cid/rid style) */
+void test_json_query_skip_label_field_metric(void)
+{
+	char *json = "{\"connections\":[{\"cid\":42,\"in_msgs\":3}]}";
+	char *pquery_str = ".connections.[cid]";
+	char *pquery[] = { pquery_str };
+	context_arg *carg = calloc(1, sizeof(*carg));
+	carg->key = "json_query_ut";
+	carg->pquery = pquery;
+	carg->pquery_size = 1;
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+	    json_query(json, NULL, "json", carg, carg->pquery, carg->pquery_size));
+
+	metric_test_run(CMP_EQUAL, "json_connections_in_msgs", "json_connections_in_msgs", 3);
+	/* cid is a label only — no json_connections_cid series */
+	metric_query_context *mqc = promql_parser(NULL, "json_connections_cid", strlen("json_connections_cid"));
+	string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "[]", body->s);
+	string_free(body);
+	free(carg);
+}
+
 /* NDJSON: multiple root objects separated by newlines */
 void test_json_query_ndjson_lines(void)
 {

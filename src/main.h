@@ -216,6 +216,7 @@ typedef struct aconf
 	int system_services_process;
 	int system_ipmi;
 	int system_nvml;
+	int system_dcgm;
 	char *system_procfs;
 	char *system_sysfs;
 	char *system_rundir;

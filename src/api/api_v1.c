@@ -1249,6 +1249,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						{
 							ac->system_nvml = 1;
 						}
+						else if (!strcmp(system_key, "dcgm"))
+						{
+							ac->system_dcgm = 1;
+						}
 #ifdef __linux__
 						else if (!strcmp(system_key, "ipmi"))
 						{

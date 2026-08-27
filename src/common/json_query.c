@@ -104,12 +104,37 @@ static alligator_ht *json_labels_prepare(context_arg *carg, json_t *element, str
 	return pass_lbl;
 }
 
+static int json_key_is_label_field(context_arg *carg, string *prefix, const char *key)
+{
+	if (!carg || !carg->data || !prefix || !prefix->s || !key)
+		return 0;
+
+	jq_node *jqn = alligator_ht_search(carg->data, json_query_node_compare, prefix->s, tommy_strhash_u32(0, prefix->s));
+	if (!jqn || !jqn->label_fields)
+		return 0;
+
+	size_t key_len = strlen(key);
+	for (uint64_t i = 0; i < jqn->label_fields->l; ++i) {
+		if (jqn->label_fields->str[i]->l == key_len &&
+		    !strncmp(jqn->label_fields->str[i]->s, key, key_len))
+			return 1;
+	}
+	return 0;
+}
+
 void json_parse_object(context_arg *carg, json_t *element, string *prefix, alligator_ht *lbl) {
 	const char *key;
 	json_t *value;
 	alligator_ht *pass_lbl = json_labels_prepare(carg, element, prefix, lbl);
 
 	json_object_foreach(element, key, value) {
+		/* Fields declared in pquery [...] are labels, not separate series
+		 * (avoids nats_connz_connections_cid{cid="X"} X and similar). */
+		if (json_key_is_label_field(carg, prefix, key)) {
+			json_carglog_if(carg, L_DEBUG, "json '%s' skip label field '%s' under prefix %s\n", json_carg_key(carg), key, json_prefix_s(prefix));
+			continue;
+		}
+
 		json_carglog_if(carg, L_DEBUG, "json '%s' parsed object prefix %s with key '%s'\n", json_carg_key(carg), json_prefix_s(prefix), key);
 		string *new_key = string_new();
 

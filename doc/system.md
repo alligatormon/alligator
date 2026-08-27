@@ -16,6 +16,7 @@ system {
     smart;
     ipmi;
     nvml;
+    dcgm;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -186,8 +187,70 @@ Prefix `nvml_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Unit suffixes
 
 ### Gaps vs DCGM
 
-- **`DCGM_FI_PROF_*`** (SM occupancy, tensor pipe, DRAM active, etc.) need CUPTI/DCGM profiling — not available via NVML.
+- **`DCGM_FI_PROF_*`** (SM occupancy, tensor pipe, DRAM active, etc.) are collected by [`system { dcgm; }`](#dcgm), not NVML.
 - **XID errors** are event-based in NVML; not exported in this collector yet.
+
+
+## dcgm
+Collects NVIDIA **profiling** metrics in-process via embedded **DCGM** (`libdcgm.so`), without running `dcgm-exporter`. Complements [nvml](#nvml) (device health/capacity). Linux only; typically needs datacenter GPUs and DCGM packages.
+
+Requires an explicit library path (no soname auto-search):
+
+```
+modules {
+    nvml /usr/lib64/libnvidia-ml.so.1;
+    dcgm /usr/lib64/libdcgm.so.4;
+}
+
+system {
+    nvml;
+    dcgm;
+}
+```
+
+JSON / API:
+
+```json
+{
+  "modules": {
+    "nvml": "/usr/lib64/libnvidia-ml.so.1",
+    "dcgm": "/usr/lib64/libdcgm.so.4"
+  },
+  "system": { "nvml": {}, "dcgm": {} }
+}
+```
+
+Alligator starts an **embedded** DCGM host engine in manual mode, watches identity fields always, and tries a separate PROF field group (~1s). If `modules.dcgm` is missing or base init fails, the scrape is skipped (logged). If profiling watches fail (typical on **GeForce** / unsupported SKUs — DCGM returns “module not loaded”), alligator still emits identity metrics and sets `dcgm_profiling_available 0`.
+
+Do not run alligator-embedded DCGM and `dcgm-exporter` both watching the same GPUs without care — prefer one sampler.
+
+Unsupported individual fields on a given GPU are omitted, same pattern as NVML.
+
+### Metrics
+
+Prefix `dcgm_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Profiling ratios are 0.0–1.0 (not percent).
+
+| Metric | DCGM field |
+|--------|------------|
+| `dcgm_gpu_count` | supported GPU count |
+| `dcgm_profiling_available` | `1` if PROF watches active, else `0` |
+| `dcgm_device_info{…,pci_bus_id}` | identity (`DEV_NAME` / `UUID` / …) |
+| `dcgm_gr_engine_active_ratio` | `DCGM_FI_PROF_GR_ENGINE_ACTIVE` (1001) |
+| `dcgm_sm_active_ratio` | `DCGM_FI_PROF_SM_ACTIVE` (1002) |
+| `dcgm_sm_occupancy_ratio` | `DCGM_FI_PROF_SM_OCCUPANCY` (1003) |
+| `dcgm_tensor_active_ratio` | `DCGM_FI_PROF_PIPE_TENSOR_ACTIVE` (1004) |
+| `dcgm_dram_active_ratio` | `DCGM_FI_PROF_DRAM_ACTIVE` (1005) |
+| `dcgm_fp64_active_ratio` / `fp32` / `fp16` | 1006–1008 |
+| `dcgm_pcie_{tx,rx}_bytes` | 1009–1010 (sample interval bytes) |
+| `dcgm_nvlink_{tx,rx}_bytes` | 1011–1012 |
+| `dcgm_tensor_{imma,hmma,dfma}_active_ratio` | 1013–1015 |
+
+### Notes
+
+- Needs NVIDIA **Datacenter GPU Manager** libraries on the host.
+- **GeForce RTX 20/30/40**: expect `dcgm_device_info` / `dcgm_gpu_count` and `dcgm_profiling_available 0`. Full `dcgm_*_ratio` needs datacenter / Quadro (or newer SKUs NVIDIA documents as DCP-capable).
+- Profiling adds GPU overhead; field set is intentionally small.
+- Prefer `nvml` for VRAM/power/temp; use `dcgm` for SM/tensor/DRAM activity when available.
 
 
 ## firewall

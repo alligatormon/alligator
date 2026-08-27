@@ -6,6 +6,7 @@
 #include <limits.h>
 #include "system/common.h"
 #include "system/linux/nvml.h"
+#include "system/linux/dcgm.h"
 #include "api/api.h"
 extern aconf *ac;
 
@@ -84,10 +85,63 @@ void test_nvml_config_enable(void)
 	ac->system_nvml = saved;
 }
 
+void test_dcgm_emit_metrics(void)
+{
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+	dcgm_emit_globals(carg, 2, 1);
+	metric_test_run(CMP_EQUAL, "dcgm_gpu_count", "dcgm_gpu_count", 2);
+	metric_test_run(CMP_EQUAL, "dcgm_profiling_available", "dcgm_profiling_available", 1);
+
+	dcgm_device_snapshot snap;
+	memset(&snap, 0, sizeof(snap));
+	strlcpy(snap.name, "Tesla_T4", sizeof(snap.name));
+	strlcpy(snap.uuid, "GPU-dcgm-uuid", sizeof(snap.uuid));
+	strlcpy(snap.serial, "0324218021234", sizeof(snap.serial));
+	strlcpy(snap.index, "0", sizeof(snap.index));
+	strlcpy(snap.pci_bus_id, "00000000:3B:00.0", sizeof(snap.pci_bus_id));
+	snap.have = DCGM_HAVE_DEVICE_INFO | DCGM_HAVE_SM_ACTIVE | DCGM_HAVE_SM_OCCUPANCY |
+		DCGM_HAVE_TENSOR | DCGM_HAVE_DRAM | DCGM_HAVE_GR_ENGINE;
+	snap.gr_engine_active_ratio = 0.25;
+	snap.sm_active_ratio = 0.42;
+	snap.sm_occupancy_ratio = 0.33;
+	snap.tensor_active_ratio = 0.11;
+	snap.dram_active_ratio = 0.55;
+
+	dcgm_emit_device(carg, &snap);
+
+	metric_test_run(CMP_EQUAL,
+		"dcgm_sm_active_ratio{name=\"Tesla_T4\",uuid=\"GPU-dcgm-uuid\",serial=\"0324218021234\",index=\"0\"}",
+		"dcgm_sm_active_ratio", 0.42);
+	metric_test_run(CMP_EQUAL,
+		"dcgm_dram_active_ratio{name=\"Tesla_T4\",uuid=\"GPU-dcgm-uuid\",serial=\"0324218021234\",index=\"0\"}",
+		"dcgm_dram_active_ratio", 0.55);
+	metric_test_run(CMP_EQUAL,
+		"dcgm_tensor_active_ratio{name=\"Tesla_T4\",uuid=\"GPU-dcgm-uuid\",serial=\"0324218021234\",index=\"0\"}",
+		"dcgm_tensor_active_ratio", 0.11);
+	metric_test_run(CMP_EQUAL,
+		"dcgm_device_info{name=\"Tesla_T4\",uuid=\"GPU-dcgm-uuid\",serial=\"0324218021234\",index=\"0\",pci_bus_id=\"00000000:3B:00.0\"}",
+		"dcgm_device_info", 1);
+
+	free(carg);
+}
+
+void test_dcgm_config_enable(void)
+{
+	int saved = ac->system_dcgm;
+	ac->system_dcgm = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"dcgm\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_dcgm);
+	ac->system_dcgm = saved;
+}
+
 void system_test(char *binary) {
 	test_system_iface_is_veth();
 	test_nvml_emit_metrics();
 	test_nvml_config_enable();
+	test_dcgm_emit_metrics();
+	test_dcgm_config_enable();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);
