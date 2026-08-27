@@ -40,3 +40,7 @@ aggregate {
 ### Metrics
 
 Examples: `unbound_uptime`, `unbound_cache_count{cache=…}`, `unbound_num_rrset_bogus`, `unbound_unwanted_{queries,replies}`, `unbound_recursion_time_avg`, `unbound_duration_microseconds`.
+
+## Dashboard
+
+The unbound dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-unbound.json)

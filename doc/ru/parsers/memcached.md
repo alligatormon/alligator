@@ -32,6 +32,15 @@ query {
 
 ```
 
+### Метрики
+
+Поля `stats` маппятся в Prometheus-подобные семейства (ломающее переименование относительно старых плоских gauges `memcached_<stat>`):
+
+- Counters: `memcached_commands_total{command,status}`, `memcached_read_bytes_total` / `memcached_written_bytes_total`, счётчики соединений/элементов/LRU, `memcached_rusage_seconds_total{type}` и т.д.
+- Gauges: `memcached_current_connections`, `memcached_current_bytes`, `memcached_current_items`, `memcached_limit_bytes`, gauges hash/slab/read-buffer; `memcached_uptime_seconds` — **counter**, `memcached_time_seconds` — gauge.
+
+`cmd_get` / `cmd_touch` не экспортируются (есть hit/miss). `cmd_set` идёт как `memcached_commands_total{command="set",status="hit"}` после вычитания CAS (как в prometheus/memcached_exporter). Неизвестные числовые STAT-ключи — fallback `memcached_<key>` gauge.
+
 ### Запросы к memcached
 
 Alligator поддерживает запросы ключей в Memcached. Следующий пример демонстрирует генерацию метрик по ключам в Memcached:
