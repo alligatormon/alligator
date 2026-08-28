@@ -183,6 +183,7 @@ typedef struct {
 
 #define MAKE_DCGM_VERSION(typeName, ver) ((unsigned int)(sizeof(typeName) | ((unsigned long)(ver) << 24U)))
 #define dcgmFieldValue_version1 MAKE_DCGM_VERSION(dcgmFieldValue_v1, 1)
+#define DCGM_PROF_FIELD_MAX 15
 
 typedef struct dcgm_library {
 	uv_lib_t lib;
@@ -190,9 +191,10 @@ typedef struct dcgm_library {
 	int initialized;
 	dcgmHandle_t handle;
 	dcgmFieldGrp_t field_group_base;
-	dcgmFieldGrp_t field_group_prof;
+	dcgmFieldGrp_t prof_groups[DCGM_PROF_FIELD_MAX];
+	unsigned short prof_fields[DCGM_PROF_FIELD_MAX];
+	unsigned int prof_watch_count;
 	int watching_base;
-	int watching_prof;
 
 	dcgmReturn_t (*dcgmInit)(void);
 	dcgmReturn_t (*dcgmShutdown)(void);
@@ -207,6 +209,7 @@ typedef struct dcgm_library {
 	dcgmReturn_t (*dcgmUnwatchFields)(dcgmHandle_t, dcgmGpuGrp_t, dcgmFieldGrp_t);
 	dcgmReturn_t (*dcgmUpdateAllFields)(dcgmHandle_t, int);
 	dcgmReturn_t (*dcgmGetLatestValuesForFields)(dcgmHandle_t, int, unsigned short *, unsigned int, dcgmFieldValue_v1 *);
+	dcgmReturn_t (*dcgmProfResume)(dcgmHandle_t);
 } dcgm_library;
 
 static dcgm_library g_dcgm;
@@ -221,7 +224,9 @@ static const unsigned short dcgm_base_fields[] = {
 	DCGM_FI_DEV_PCI_BUS_ID,
 };
 
-/* Profiling (DCP) fields — require datacenter / Quadro / supported SKUs. */
+/* Profiling (DCP) fields — require datacenter / Quadro / supported SKUs.
+ * Watched one field per group: V100 and older GPUs reject incompatible fields
+ * in a single group; 1013–1015 may be absent on Volta. */
 static const unsigned short dcgm_prof_fields[] = {
 	DCGM_FI_PROF_GR_ENGINE_ACTIVE,
 	DCGM_FI_PROF_SM_ACTIVE,
@@ -242,7 +247,11 @@ static const unsigned short dcgm_prof_fields[] = {
 
 #define DCGM_BASE_FIELD_COUNT (sizeof(dcgm_base_fields) / sizeof(dcgm_base_fields[0]))
 #define DCGM_PROF_FIELD_COUNT (sizeof(dcgm_prof_fields) / sizeof(dcgm_prof_fields[0]))
-#define DCGM_WATCH_FIELD_COUNT (DCGM_BASE_FIELD_COUNT + DCGM_PROF_FIELD_COUNT)
+#define DCGM_WATCH_FIELD_COUNT (DCGM_BASE_FIELD_COUNT + DCGM_PROF_FIELD_MAX)
+
+#if DCGM_PROF_FIELD_COUNT > DCGM_PROF_FIELD_MAX
+#error "dcgm_prof_fields[] exceeds DCGM_PROF_FIELD_MAX"
+#endif
 
 static int dcgm_fp64_is_blank(double val)
 {
@@ -341,6 +350,8 @@ static int dcgm_load_library(dcgm_library *d, const char *path)
 		goto fail;
 	d->dcgmGetLatestValuesForFields =
 		(dcgmReturn_t (*)(dcgmHandle_t, int, unsigned short *, unsigned int, dcgmFieldValue_v1 *))sym;
+	if (!dcgm_dlsym(d, "dcgmProfResume", &sym))
+		d->dcgmProfResume = (dcgmReturn_t (*)(dcgmHandle_t))sym;
 
 	d->loaded = 1;
 	return 0;
@@ -351,18 +362,21 @@ fail:
 	return -1;
 }
 
+static void dcgm_shutdown_prof_watches(dcgm_library *d)
+{
+	for (unsigned int i = 0; i < d->prof_watch_count; ++i) {
+		d->dcgmUnwatchFields(d->handle, DCGM_GROUP_ALL_GPUS, d->prof_groups[i]);
+		d->dcgmFieldGroupDestroy(d->handle, d->prof_groups[i]);
+		d->prof_groups[i] = 0;
+	}
+	d->prof_watch_count = 0;
+}
+
 static void dcgm_shutdown_engine(dcgm_library *d)
 {
 	if (!d->initialized)
 		return;
-	if (d->watching_prof && d->field_group_prof) {
-		d->dcgmUnwatchFields(d->handle, DCGM_GROUP_ALL_GPUS, d->field_group_prof);
-		d->watching_prof = 0;
-	}
-	if (d->field_group_prof) {
-		d->dcgmFieldGroupDestroy(d->handle, d->field_group_prof);
-		d->field_group_prof = 0;
-	}
+	dcgm_shutdown_prof_watches(d);
 	if (d->watching_base && d->field_group_base) {
 		d->dcgmUnwatchFields(d->handle, DCGM_GROUP_ALL_GPUS, d->field_group_base);
 		d->watching_base = 0;
@@ -409,6 +423,35 @@ static int dcgm_watch_field_group(dcgm_library *d, const unsigned short *src, un
 	return 0;
 }
 
+static void dcgm_setup_prof_watches(dcgm_library *d)
+{
+	char name[48];
+
+	d->prof_watch_count = 0;
+	for (unsigned int i = 0; i < DCGM_PROF_FIELD_COUNT; ++i) {
+		unsigned short field = dcgm_prof_fields[i];
+		dcgmFieldGrp_t grp = 0;
+
+		snprintf(name, sizeof(name), "alligator_dcgm_prof_%u", (unsigned)field);
+		if (dcgm_watch_field_group(d, &field, 1, name, &grp) != 0) {
+			carglog(ac->system_carg, L_DEBUG, "dcgm: PROF field %u not watched\n", (unsigned)field);
+			continue;
+		}
+		d->prof_groups[d->prof_watch_count] = grp;
+		d->prof_fields[d->prof_watch_count] = field;
+		d->prof_watch_count++;
+	}
+
+	if (d->prof_watch_count > 0) {
+		carglog(ac->system_carg, L_INFO, "dcgm: profiling watches enabled (%u/%u fields)\n",
+			d->prof_watch_count, (unsigned int)DCGM_PROF_FIELD_COUNT);
+		return;
+	}
+
+	carglog(ac->system_carg, L_INFO,
+		"dcgm: no PROF fields watched (GeForce, missing datacenter-gpu-manager profiling module, or Nsight holding the perf counters)\n");
+}
+
 static int dcgm_ensure_ready(dcgm_library *d)
 {
 	if (d->initialized)
@@ -440,6 +483,12 @@ static int dcgm_ensure_ready(dcgm_library *d)
 		return -1;
 	}
 
+	if (d->dcgmProfResume) {
+		rc = d->dcgmProfResume(d->handle);
+		if (rc != DCGM_ST_OK)
+			carglog(ac->system_carg, L_DEBUG, "dcgm: dcgmProfResume: %s\n", dcgm_err(d, rc));
+	}
+
 	/* Base identity watches must succeed or DCGM is unusable. */
 	if (dcgm_watch_field_group(d, dcgm_base_fields, (unsigned int)DCGM_BASE_FIELD_COUNT,
 			"alligator_dcgm_base", &d->field_group_base)) {
@@ -451,24 +500,12 @@ static int dcgm_ensure_ready(dcgm_library *d)
 	}
 	d->watching_base = 1;
 
-	/*
-	 * PROF_* (DCP) fails on GeForce / unsupported SKUs with "module not loaded".
-	 * Keep identity metrics and mark profiling unavailable instead of aborting.
-	 */
-	if (dcgm_watch_field_group(d, dcgm_prof_fields, (unsigned int)DCGM_PROF_FIELD_COUNT,
-			"alligator_dcgm_prof", &d->field_group_prof) == 0) {
-		d->watching_prof = 1;
-		carglog(ac->system_carg, L_INFO, "dcgm: profiling watches enabled\n");
-	} else {
-		d->watching_prof = 0;
-		d->field_group_prof = 0;
-		carglog(ac->system_carg, L_INFO,
-			"dcgm: profiling unavailable on this host (common on GeForce); emitting identity only\n");
-	}
+	/* PROF fields: one watch per field (V100 rejects mixed groups). */
+	dcgm_setup_prof_watches(d);
 
 	d->initialized = 1;
-	carglog(ac->system_carg, L_INFO, "dcgm: embedded engine ready (library %s, prof=%d)\n",
-		mod->path, d->watching_prof);
+	carglog(ac->system_carg, L_INFO, "dcgm: embedded engine ready (library %s, prof_fields=%u)\n",
+		mod->path, d->prof_watch_count);
 	return 0;
 }
 
@@ -657,8 +694,8 @@ static void dcgm_fill_device(dcgm_library *d, unsigned int gpu_id, unsigned int 
 	strlcpy(snap->pci_bus_id, "unknown", sizeof(snap->pci_bus_id));
 
 	dcgm_fetch_fields(d, gpu_id, dcgm_base_fields, (unsigned int)DCGM_BASE_FIELD_COUNT, snap);
-	if (d->watching_prof)
-		dcgm_fetch_fields(d, gpu_id, dcgm_prof_fields, (unsigned int)DCGM_PROF_FIELD_COUNT, snap);
+	if (d->prof_watch_count > 0)
+		dcgm_fetch_fields(d, gpu_id, d->prof_fields, d->prof_watch_count, snap);
 }
 
 static void dcgm_scrape_sync(void)
@@ -694,7 +731,7 @@ static void dcgm_scrape_sync(void)
 	if (count > DCGM_MAX_NUM_DEVICES)
 		count = DCGM_MAX_NUM_DEVICES;
 
-	dcgm_emit_globals(ac->system_carg, (uint64_t)count, d->watching_prof);
+	dcgm_emit_globals(ac->system_carg, (uint64_t)count, d->prof_watch_count > 0);
 
 	for (int i = 0; i < count; ++i) {
 		dcgm_device_snapshot snap;

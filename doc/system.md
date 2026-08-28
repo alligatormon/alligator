@@ -220,7 +220,7 @@ JSON / API:
 }
 ```
 
-Alligator starts an **embedded** DCGM host engine in manual mode, watches identity fields always, and tries a separate PROF field group (~1s). If `modules.dcgm` is missing or base init fails, the scrape is skipped (logged). If profiling watches fail (typical on **GeForce** / unsupported SKUs — DCGM returns “module not loaded”), alligator still emits identity metrics and sets `dcgm_profiling_available 0`.
+Alligator starts an **embedded** DCGM host engine in manual mode, watches identity fields always, and tries each PROF field in its own watch group (~1s). Mixed PROF groups fail on V100 (incompatible counters); unsupported fields are skipped per GPU generation.
 
 Do not run alligator-embedded DCGM and `dcgm-exporter` both watching the same GPUs without care — prefer one sampler.
 
