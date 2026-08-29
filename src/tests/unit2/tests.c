@@ -360,6 +360,8 @@ gld_done:
 #include "grok.h"
 #include "oneshot_await.h"
 #include "proxy.h"
+#include <sys/socket.h>
+#include <sys/stat.h>
 
 static void unit2_fixture_init(void)
 {
@@ -2513,6 +2515,72 @@ static void run_core_net_suites(void)
     test_proxy_suite();
 }
 
+static void test_pg_poll_closed(uv_handle_t *handle)
+{
+    int *closed = handle->data;
+    *closed = 1;
+}
+
+static void test_pg_poll_cb(uv_poll_t *handle, int status, int events)
+{
+    (void)handle;
+    (void)status;
+    (void)events;
+}
+
+static void test_postgresql_poll_dup_survives_socket_replace(void)
+{
+    uv_loop_t loop;
+    uv_poll_t *handle;
+    int sv[2];
+    int dupfd;
+    int replacement;
+    int closed = 0;
+    int i;
+    struct stat st_dup;
+    struct stat st_new;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_init(&loop));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+    dupfd = dup(sv[0]);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dupfd >= 0);
+
+    handle = calloc(1, sizeof(*handle));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_poll_init(&loop, handle, dupfd));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_poll_start(handle, UV_READABLE, test_pg_poll_cb));
+
+    /* PQconnectPoll may close() the libpq fd and open another (A+AAAA / retry). */
+    close(sv[0]);
+    replacement = socket(AF_UNIX, SOCK_STREAM, 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, replacement >= 0);
+    sv[0] = replacement;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fstat(dupfd, &st_dup));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fstat(sv[0], &st_new));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        (st_dup.st_dev == st_new.st_dev && st_dup.st_ino == st_new.st_ino) ? 1 : 0);
+
+    /* libuv 1.44.2: uv_poll on the original fd + close() aborts in uv__io_poll epoll_ctl. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_poll_start(handle, UV_WRITABLE, test_pg_poll_cb));
+    for (i = 0; i < 16; i++)
+        uv_run(&loop, UV_RUN_NOWAIT);
+
+    uv_poll_stop(handle);
+    handle->data = &closed;
+    uv_close((uv_handle_t *)handle, test_pg_poll_closed);
+    for (i = 0; i < 64 && !closed; i++)
+        uv_run(&loop, UV_RUN_NOWAIT);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, closed);
+
+    close(dupfd);
+    close(sv[0]);
+    close(sv[1]);
+    free(handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_close(&loop));
+}
+
 static void run_parser_suites(char **argv)
 {
     api_test_parser_httpd();
@@ -2560,6 +2628,7 @@ static void run_parser_suites(char **argv)
     api_test_parser_squid_fqdncache();
     api_test_parser_squid_mem();
     test_grok_pcre_expand_and_match();
+    test_postgresql_poll_dup_survives_socket_replace();
 }
 
 static void run_config_query_suites(char **argv)

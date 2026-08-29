@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <libpq-fe.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -22,7 +25,168 @@
 typedef struct pg_data {
 	PGconn *conn;
 	int type;
+	int poll_dup_fd;
 } pg_data;
+
+typedef struct pg_stale_poll {
+	int dup_fd;
+} pg_stale_poll;
+
+void pg_poll_event(uv_poll_t* handle, int status, int events);
+
+static pg_data *pg_data_new(int type)
+{
+	pg_data *data = calloc(1, sizeof(*data));
+	if (!data)
+		return NULL;
+	data->type = type;
+	data->poll_dup_fd = -1;
+	return data;
+}
+
+/*
+ * libuv 1.44.2 uv_poll_init() watches the given fd as-is (no internal dup).
+ * PQconnectPoll() may close() that socket and open another while retrying
+ * addresses (A+AAAA, connect fail). close() of an fd still in epoll makes the
+ * next uv__io_poll() epoll_ctl() fail with EBADF/ENOENT and abort().
+ * Poll a dup so libpq can replace its fd; rebind when the file description changes.
+ */
+static int postgresql_fds_are_same(int a, int b)
+{
+	struct stat sa, sb;
+
+	if (a < 0 || b < 0)
+		return 0;
+	if (fstat(a, &sa) || fstat(b, &sb))
+		return 0;
+	return sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
+}
+
+static void on_stale_poll_closed(uv_handle_t *handle)
+{
+	pg_stale_poll *stale = handle->data;
+
+	if (stale) {
+		if (stale->dup_fd >= 0)
+			close(stale->dup_fd);
+		free(stale);
+	}
+	free(handle);
+}
+
+static int postgresql_poll_abandon(context_arg *carg)
+{
+	pg_data *data;
+	uv_poll_t *old;
+	pg_stale_poll *stale;
+
+	if (!carg || !carg->dynamic_socket)
+		return 1;
+
+	old = carg->dynamic_socket;
+	if (uv_is_closing((uv_handle_t *)old)) {
+		carg->dynamic_socket = NULL;
+		return 1;
+	}
+
+	stale = calloc(1, sizeof(*stale));
+	if (!stale)
+		return 0;
+
+	data = carg->data;
+	stale->dup_fd = (data && data->poll_dup_fd >= 0) ? data->poll_dup_fd : -1;
+	if (data)
+		data->poll_dup_fd = -1;
+
+	carg->dynamic_socket = NULL;
+	old->data = stale;
+	uv_poll_stop(old);
+	uv_close((uv_handle_t *)old, on_stale_poll_closed);
+	return 1;
+}
+
+static int postgresql_poll_bind(context_arg *carg)
+{
+	pg_data *data;
+	int pq_fd;
+	int dup_fd;
+	int err;
+	uv_poll_t *handle;
+
+	if (!carg || !carg->loop)
+		return 0;
+
+	data = carg->data;
+	if (!data || !data->conn)
+		return 0;
+
+	if (carg->dynamic_socket && uv_is_closing((uv_handle_t *)carg->dynamic_socket))
+		return 0;
+
+	pq_fd = PQsocket(data->conn);
+	if (pq_fd < 0)
+		return 0;
+
+	if (carg->dynamic_socket && data->poll_dup_fd >= 0 && carg->fd == pq_fd
+	    && postgresql_fds_are_same(data->poll_dup_fd, pq_fd)) {
+		return 1;
+	}
+
+	if (carg->dynamic_socket) {
+		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"rebind poll fd\", \"pq_fd\": %d, \"old_dup\": %d}\n",
+			pq_fd, carg->key, pq_fd, data->poll_dup_fd);
+		if (!postgresql_poll_abandon(carg))
+			return 0;
+	}
+
+	dup_fd = dup(pq_fd);
+	if (dup_fd < 0) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"dup PQsocket failed\", \"message\": \"%s\"}\n",
+			pq_fd, carg->key, strerror(errno));
+		return 0;
+	}
+
+	handle = calloc(1, sizeof(*handle));
+	if (!handle) {
+		close(dup_fd);
+		return 0;
+	}
+
+	err = uv_poll_init(carg->loop, handle, dup_fd);
+	if (err) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_init failed\", \"message\": \"%s\"}\n",
+			pq_fd, carg->key, uv_strerror(err));
+		close(dup_fd);
+		free(handle);
+		return 0;
+	}
+
+	handle->data = carg;
+	carg->dynamic_socket = handle;
+	carg->fd = pq_fd;
+	data->poll_dup_fd = dup_fd;
+	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"initiated dynamic socket\", \"message\": \"%p->%p\", \"dup_fd\": %d}\n",
+		carg->fd, carg->key, carg, carg->dynamic_socket, dup_fd);
+	return 1;
+}
+
+static int postgresql_poll_start_events(context_arg *carg, int uv_events)
+{
+	int err;
+
+	if (!postgresql_poll_bind(carg))
+		return 0;
+	if (!carg->dynamic_socket || uv_is_closing((uv_handle_t *)carg->dynamic_socket))
+		return 0;
+
+	err = uv_poll_start(carg->dynamic_socket, uv_events, pg_poll_event);
+	if (err) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start failed\", \"message\": \"%s\"}\n",
+			carg->fd, carg->key, uv_strerror(err));
+		return 0;
+	}
+	return 1;
+}
 
 
 postgresql_query_ctx* postgresql_query_ctx_init(context_arg *carg, char *query, void callback(PGresult*, query_node*, context_arg*, char*), char *database_class, query_node *qn) {
@@ -70,9 +234,21 @@ static inline void postgresql_connect_ok_total(context_arg *carg, uint64_t ok)
 
 void on_handle_closed(uv_handle_t* handle) {
     context_arg *carg = handle->data;
+	pg_data *data;
 
-	pg_data *data = carg->data;
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
+	if (!carg) {
+		free(handle);
+		return;
+	}
+
+	data = carg->data;
+	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n",
+		carg->fd, carg->key, data ? (void *)data->conn : NULL);
+
+	if (data && data->poll_dup_fd >= 0) {
+		close(data->poll_dup_fd);
+		data->poll_dup_fd = -1;
+	}
 
     if (data && data->conn) {
 		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
@@ -226,69 +402,106 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 
 
 
-void pg_poll_event(uv_poll_t* handle, int status, int events);
 void postgresql_query_run(context_arg *carg);
 
 
 void update_poll_state(context_arg *carg) {
-    if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) return;
+	pg_data *data;
+	PostgresPollingStatusType poll_status;
+	int spins = 0;
+	int uv_events = 0;
 
-    pg_data *data = carg->data;
-    PostgresPollingStatusType poll_status = PQconnectPoll(data->conn);
-    int uv_events = 0;
+	if (!carg)
+		return;
 
-    switch (poll_status) {
-        case PGRES_POLLING_ACTIVE:
-			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"active\"}\n", carg->fd, carg->key);
-            return update_poll_state(carg); 
-			//break;
+	data = carg->data;
+	if (!data || !data->conn)
+		return;
 
-        case PGRES_POLLING_READING:
-            uv_events = UV_READABLE;
-			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"reading\"}\n", carg->fd, carg->key);
+	do {
+		poll_status = PQconnectPoll(data->conn);
+	} while (poll_status == PGRES_POLLING_ACTIVE && ++spins < 64);
 
-            break;
-
-        case PGRES_POLLING_WRITING:
-            uv_events = UV_WRITABLE;
-			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"writing\"}\n", carg->fd, carg->key);
-            break;
-
-        case PGRES_POLLING_OK:
-            PQsetnonblocking(data->conn, 1);
-			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
-			postgresql_connect_ok_total(carg, 1);
-
-            carg->parser_status = 1;
-            postgresql_query_run(carg);
-            return;
-
-        case PGRES_POLLING_FAILED:
-            carg->parser_status = 0;
-			char *errmsg = PQerrorMessage(data->conn);
+	/* Socket may have been replaced inside PQconnectPoll; rebind before epoll_ctl. */
+	if (poll_status != PGRES_POLLING_FAILED && poll_status != PGRES_POLLING_OK) {
+		if (!postgresql_poll_bind(carg)) {
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state rebind failed\"}\n", carg->fd, carg->key);
 			postgresql_connect_ok_total(carg, 0);
 			postgresql_error_metric(data->conn, carg);
-			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update poll state PGRES_POLLING_FAILED\", \"function\": \"%s\"}\n", carg->fd, carg->key, errmsg);
 			run_close(carg);
-            return;
-    }
-    if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket))
+			return;
+		}
+	}
+
+	switch (poll_status) {
+		case PGRES_POLLING_ACTIVE:
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"active\"}\n", carg->fd, carg->key);
+			uv_events = UV_WRITABLE;
+			break;
+
+		case PGRES_POLLING_READING:
+			uv_events = UV_READABLE;
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"reading\"}\n", carg->fd, carg->key);
+			break;
+
+		case PGRES_POLLING_WRITING:
+			uv_events = UV_WRITABLE;
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"writing\"}\n", carg->fd, carg->key);
+			break;
+
+		case PGRES_POLLING_OK:
+			PQsetnonblocking(data->conn, 1);
+			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
+			postgresql_connect_ok_total(carg, 1);
+			carg->parser_status = 1;
+			if (!postgresql_poll_bind(carg)) {
+				run_close(carg);
+				return;
+			}
+			postgresql_query_run(carg);
+			return;
+
+		case PGRES_POLLING_FAILED:
+			carg->parser_status = 0;
+			postgresql_connect_ok_total(carg, 0);
+			postgresql_error_metric(data->conn, carg);
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update poll state PGRES_POLLING_FAILED\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
+			run_close(carg);
+			return;
+	}
+
+	if (!uv_events)
 		return;
-    uv_poll_start(carg->dynamic_socket, uv_events, pg_poll_event);
+	if (!postgresql_poll_start_events(carg, uv_events))
+		run_close(carg);
 }
 
 void pg_poll_event(uv_poll_t* handle, int status, int events) {
-    context_arg *carg = (context_arg*)handle->data;
+	context_arg *carg = (context_arg*)handle->data;
+	pg_data *data;
 
-    if (uv_is_closing((uv_handle_t*)handle)) {
-        return;
-    }
-	pg_data *data = carg->data;
+	(void)events;
 
-    if (PQstatus(data->conn) != CONNECTION_OK) {
-        update_poll_state(carg);
-        return;
-    }
+	if (!carg || uv_is_closing((uv_handle_t*)handle))
+		return;
+	if (carg->dynamic_socket != handle)
+		return;
+
+	data = carg->data;
+	if (!data || !data->conn) {
+		run_close(carg);
+		return;
+	}
+
+	if (status < 0) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event status\", \"message\": \"%s\"}\n",
+			carg->fd, carg->key, uv_strerror(status));
+	}
+
+	if (PQstatus(data->conn) != CONNECTION_OK) {
+		update_poll_state(carg);
+		return;
+	}
 
     if (!PQconsumeInput(data->conn)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PQconsumeInput error\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
@@ -493,11 +706,10 @@ void postgresql_query_run(context_arg *carg)
 	pg_data *data = carg->data;
 
     if (PQsendQuery(data->conn, pqctx->query)) {
-		if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
+		if (!postgresql_poll_start_events(carg, UV_READABLE)) {
 			run_close(carg);
 			return;
 		}
-        uv_poll_start(carg->dynamic_socket, UV_READABLE, pg_poll_event);
 		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query sent\"}\n", carg->fd, carg->key);
     } else {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"PQsendQuery error\", \"message\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
@@ -524,36 +736,38 @@ void postgresql_queries_foreach(void *funcarg, void* arg)
 
 int postgresql_set_params(PGconn *conn, context_arg *carg)
 {
+	int socket_fd;
+	int sec;
+	int msec;
+	struct timeval timeout;
+	int setopt_result_1;
+	int setopt_result_2;
+
 	PQsetnonblocking(conn, 1);
 
-	int socket_fd = PQsocket(conn);
+	socket_fd = PQsocket(conn);
 	if (socket_fd < 0) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"invalid socket descriptor\", \"message\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(conn));
 		postgresql_error_metric(conn, carg);
-
 		return 0;
 	}
 
-
-	carg->dynamic_socket = calloc(1, sizeof(uv_poll_t));
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"initiated dynamic socket\", \"message\": \"%p->%p\"}\n", carg->fd, carg->key, carg, carg->dynamic_socket);
-
 	carg->fd = socket_fd;
-	uv_poll_init(carg->loop, carg->dynamic_socket, socket_fd);
+	sec = carg->timeout / 1000;
+	msec = carg->timeout % 1000;
+	timeout.tv_sec = sec;
+	timeout.tv_usec = msec;
 
-	carg->dynamic_socket->data = carg;
-//
-	int sec = carg->timeout / 1000;
-	int msec = carg->timeout % 1000;
-	struct timeval timeout = { sec, msec };
-
-	int setopt_result_1 = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
-	int setopt_result_2 = setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
-
-
+	setopt_result_1 = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+	setopt_result_2 = setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 	if (setopt_result_1 < 0 || setopt_result_2 < 0)
 		carglog(carg, L_ERROR, "libpq failed to set timeout\n");
-//
+
+	if (!postgresql_poll_bind(carg)) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll bind failed\", \"message\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(conn));
+		postgresql_error_metric(conn, carg);
+		return 0;
+	}
 	return 1;
 }
 
@@ -842,9 +1056,11 @@ void postgresql_run(void* arg)
 
 	pg_data *data = carg->data;
 	if (!data) {
-		carg->data = data = calloc(1, sizeof(*data));
-		data->type = PG_TYPE_PG;
-	}
+		carg->data = data = pg_data_new(PG_TYPE_PG);
+		if (!data)
+			return;
+	} else if (data->poll_dup_fd == 0 && !carg->dynamic_socket)
+		data->poll_dup_fd = -1;
 
 
 	PGconn *conn = PQconnectStart(carg->url);
@@ -857,21 +1073,20 @@ void postgresql_run(void* arg)
 		return;
 	}
 
+	data->conn = conn;
 	if (!postgresql_set_params(conn, carg))
 	{
 		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_connect_ok_total(carg, 0);
 		postgresql_error_metric(conn, carg);
-		PQfinish(conn);
-		conn = NULL;
-		if (carg->dynamic_socket) {
-			free(carg->dynamic_socket);
-			carg->dynamic_socket = NULL;
+		if (carg->dynamic_socket)
+			run_close(carg);
+		else {
+			PQfinish(conn);
+			data->conn = NULL;
 		}
 		return;
 	}
-
-	data->conn = conn;
 	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"created socket\"}\n", carg->fd, carg->key);
 	if (data->type == PG_TYPE_PG)
 	{
@@ -902,12 +1117,9 @@ void postgresql_run(void* arg)
 		pgpool_queries(carg);
 	}
 
-	if (!carg->dynamic_socket || uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
-		run_close(carg);
-		return;
-	}
 	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start\"}\n", carg->fd, carg->key);
-	uv_poll_start(carg->dynamic_socket, UV_WRITABLE, pg_poll_event);
+	if (!postgresql_poll_start_events(carg, UV_WRITABLE))
+		run_close(carg);
 }
 
 static void postgresql_run_by_key(void *arg)
@@ -971,11 +1183,9 @@ char* postgresql_client(context_arg* carg)
 
 	{
 		pg_data *shared = carg->data;
-		pg_data *own = calloc(1, sizeof(*own));
-		if (own) {
-			own->type = shared ? shared->type : PG_TYPE_PG;
+		pg_data *own = pg_data_new(shared ? shared->type : PG_TYPE_PG);
+		if (own)
 			carg->data = own;
-		}
 	}
 
 	alligator_ht_insert(ac->pg_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
@@ -1012,7 +1222,7 @@ void postgresql_client_del(context_arg* carg)
 void pg_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
-	pg_data *data = calloc(1, sizeof(*data));
+	pg_data *data = pg_data_new(PG_TYPE_PG);
 
 	actx->key = strdup("postgresql");
 	actx->handlers = 1;
@@ -1030,8 +1240,7 @@ void pg_parser_push()
 void pgbouncer_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
-	pg_data *data = calloc(1, sizeof(*data));
-	data->type = PG_TYPE_PGBOUNCER;
+	pg_data *data = pg_data_new(PG_TYPE_PGBOUNCER);
 
 	actx->key = strdup("pgbouncer");
 	actx->handlers = 1;
@@ -1049,8 +1258,7 @@ void pgbouncer_parser_push()
 void odyssey_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
-	pg_data *data = calloc(1, sizeof(*data));
-	data->type = PG_TYPE_ODYSSEY;
+	pg_data *data = pg_data_new(PG_TYPE_ODYSSEY);
 
 	actx->key = strdup("odyssey");
 	actx->handlers = 1;
@@ -1068,8 +1276,7 @@ void odyssey_parser_push()
 void pgpool_parser_push()
 {
 	aggregate_context *actx = calloc(1, sizeof(*actx));
-	pg_data *data = calloc(1, sizeof(*data));
-	data->type = PG_TYPE_PGPOOL;
+	pg_data *data = pg_data_new(PG_TYPE_PGPOOL);
 
 	actx->key = strdup("pgpool");
 	actx->handlers = 1;
