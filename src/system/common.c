@@ -77,6 +77,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "process_vmap_usage", METRIC_TYPE_GAUGE, "Process virtual memory map usage ratio.");
 	namespace_metric_family_set(NULL, carg, "process_cpu_seconds_total", METRIC_TYPE_COUNTER, "Per-process CPU time in seconds by mode.");
 	namespace_metric_family_set(NULL, carg, "process_states", METRIC_TYPE_GAUGE, "Number of processes by scheduler state.");
+	namespace_metric_family_set(NULL, carg, "task_states", METRIC_TYPE_GAUGE, "Number of tasks (threads) by scheduler state from /proc/<pid>/task/*/stat.");
 	namespace_metric_family_set(NULL, carg, "tasks_total", METRIC_TYPE_GAUGE, "Total number of tasks.");
 	namespace_metric_family_set(NULL, carg, "tasks_usage", METRIC_TYPE_GAUGE, "Task limit usage percentage.");
 	namespace_metric_family_set(NULL, carg, "tasks_max", METRIC_TYPE_GAUGE, "Maximum number of tasks allowed by the kernel.");

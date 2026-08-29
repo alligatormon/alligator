@@ -14,6 +14,12 @@ NATS должен быть запущен с опцией `-m 8222`. Alligator �
 
 Парсер **не** превращает каждое JSON-поле в метрику: строковые поля больше не становятся gauge со значением `1` (`tls_version`, `lang`, …), а `/connz` отдаёт только агрегаты (без серий на каждый `cid`). `http_req_stats` — метрика `nats_varz_http_req_stats{endpoint="…"}`.
 
+## Dashboard
+
+Дашборд Grafana для Prometheus/Thanos: [dashboards/alligator-nats.json](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-nats.json)
+
+Обзор сервера, трафик, connz, подписки, маршруты кластера, HTTP monitoring. Переменная: `host`.
+
 Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:
 ```
 system {

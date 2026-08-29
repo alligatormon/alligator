@@ -9,6 +9,7 @@
 #include "system/linux/dcgm.h"
 #include "api/api.h"
 extern aconf *ac;
+void get_system_metrics();
 
 void test_system_iface_is_veth(void) {
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("veth9cb223a"));
@@ -210,6 +211,11 @@ void system_test(char *binary) {
 
 #ifdef __linux__
     metric_test_run(CMP_EQUAL, "process_match{name=\"beam.smp\"}", "process_match", 1);
+    metric_test_run(CMP_EQUAL, "task_states{state=\"running\"}", "task_states", 1);
+    metric_test_run(CMP_EQUAL, "task_states{state=\"uninterruptible\"}", "task_states", 1);
+    metric_test_run(CMP_EQUAL, "task_states{state=\"sleeping\"}", "task_states", 5);
+    metric_test_run(CMP_EQUAL, "process_states{state=\"sleeping\"}", "process_states", 5);
+    metric_test_run(CMP_EQUAL, "process_states{state=\"running\"}", "process_states", 0);
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
 #endif

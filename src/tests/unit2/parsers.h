@@ -323,6 +323,16 @@ void api_test_parser_zookeeper() {
     char *isro = "rw";
     char *wchs = "2 connections watching 13 paths\nTotal watches:15\n";
     char *mntr = "zk_avg_latency\t10\nzk_server_state\tleader\n";
+    char *mntr_labels =
+        "zk_avg_latency\t0.3539\n"
+        "zk_server_state\tfollower\n"
+        "zk_znode_count\t305\n"
+        "zk_readlatency{quantile=\"0.5\"}\t0\n"
+        "zk_readlatency{quantile=\"0.9\"}\t1\n"
+        "zk_jvm_buffer_pool_capacity_bytes{pool=\"direct\"}\t385546\n"
+        "zk_jvm_gc_collection_seconds_count{gc=\"PS MarkSweep\"}\t11\n"
+        "zk_jvm_info{version=\"1.8.0_192-b12\",vendor=\"Oracle Corporation\",runtime=\"Java(TM) SE Runtime Environment\"}\t1\n"
+        "zk_read_per_namespace_count{key=\"scafka\"}\t70844\n";
     context_arg *carg = calloc(1, sizeof(*carg));
     zookeeper_isro_handler(isro, strlen(isro), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
@@ -336,15 +346,33 @@ void api_test_parser_zookeeper() {
     metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
 
     carg->parser_status = 0;
+    zookeeper_mntr_handler(mntr_labels, strlen(mntr_labels), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "zk_mode{mode=\"follower\"}", "zk_mode", 1);
+    metric_test_run(CMP_EQUAL, "zk_znode_count", "zk_znode_count", 305);
+    metric_test_run(CMP_EQUAL, "zk_readlatency{quantile=\"0.5\"}", "zk_readlatency", 0);
+    metric_test_run(CMP_EQUAL, "zk_readlatency{quantile=\"0.9\"}", "zk_readlatency", 1);
+    metric_test_run(CMP_EQUAL, "zk_jvm_buffer_pool_capacity_bytes{pool=\"direct\"}", "zk_jvm_buffer_pool_capacity_bytes", 385546);
+    metric_test_run(CMP_EQUAL, "zk_jvm_gc_collection_seconds_count{gc=\"PS MarkSweep\"}", "zk_jvm_gc_collection_seconds_count", 11);
+    metric_test_run(CMP_EQUAL, "zk_jvm_info{version=\"1.8.0_192-b12\"}", "zk_jvm_info", 1);
+    metric_test_run(CMP_EQUAL, "zk_read_per_namespace_count{key=\"scafka\"}", "zk_read_per_namespace_count", 70844);
+
+    carg->parser_status = 0;
     zookeeper_wchs_handler(wchs, strlen(wchs), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "zk_total_watches", "zk_total_watches", 15);
 
-    string *out = string_init(4096);
+    string *out = string_init(16384);
     metric_str_build(NULL, out, 1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE zk_mode gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP zk_avg_latency ZooKeeper exported metric value.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_readlatency{quantile=\"0.5\"}") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_jvm_buffer_pool_capacity_bytes{pool=\"direct\"}") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_jvm_gc_collection_seconds_count{gc=\"PS MarkSweep\"}") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_read_per_namespace_count{key=\"scafka\"}") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_readlatency_quantile__0_5__") == NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_jvm_buffer_pool_capacity_bytes_pool__direct__") == NULL);
     string_free(out);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));

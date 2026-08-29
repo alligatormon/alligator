@@ -1,3 +1,5 @@
+**Language / Язык:** [English](memcached.md) | [Русский](../ru/parsers/memcached.md)
+
 ## Memcached
 
 To enable the collection of statistics from memcached, use the following option:
@@ -38,6 +40,10 @@ query {
 - Gauges: `memcached_current_connections`, `memcached_current_bytes`, `memcached_current_items`, `memcached_limit_bytes`, hash/slab/read-buffer gauges, `memcached_time_seconds`. `memcached_uptime_seconds` is a **counter**.
 
 `cmd_get` / `cmd_touch` are not exported (covered by hit/miss breakdown). `cmd_set` is emitted as `memcached_commands_total{command="set",status="hit"}` after subtracting CAS counts (same semantics as prometheus/memcached_exporter). Unknown numeric STAT keys fall back to `memcached_<key>` gauges.
+
+## Dashboard
+
+The memcached dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-memcached.json)
 
 ### Querying the memcached
 

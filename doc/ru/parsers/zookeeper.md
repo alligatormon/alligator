@@ -43,7 +43,7 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge | `mntr` | Числовые поля из вывода `mntr`. |
+| `zk_*` | gauge | `mntr` | Числовые поля из вывода `mntr`. Наборы Prometheus `{label="value"}` в строке `mntr` становятся лейблами (не частью имени метрики). |
 | `zk_mode` | gauge | `mntr` | Роль узла: `standalone`, `follower` или `leader`. |
 | `zk_readwrite` | gauge | `isro` | Режим чтения/записи: `ro`, `rw` или `null`. |
 | `zk_total_watches` | gauge | `wchs` | Общее число watches. |
@@ -57,7 +57,11 @@ query {
 ```
 zk_avg_latency	10
 zk_server_state	leader
+zk_readlatency{quantile="0.5"}	0
+zk_jvm_buffer_pool_capacity_bytes{pool="direct"}	385546
 ```
+
+Экспортируется как `zk_readlatency{quantile="0.5"}` и `zk_jvm_buffer_pool_capacity_bytes{pool="direct"}`, а не как сплющенные имена вида `zk_readlatency_quantile__0_5__`.
 
 Ответ `isro`:
 

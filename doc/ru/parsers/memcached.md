@@ -41,6 +41,10 @@ query {
 
 `cmd_get` / `cmd_touch` не экспортируются (есть hit/miss). `cmd_set` идёт как `memcached_commands_total{command="set",status="hit"}` после вычитания CAS (как в prometheus/memcached_exporter). Неизвестные числовые STAT-ключи — fallback `memcached_<key>` gauge.
 
+## Dashboard
+
+Dashboard memcached для Grafana + Prometheus доступен по [ссылке](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-memcached.json)
+
 ### Запросы к memcached
 
 Alligator поддерживает запросы ключей в Memcached. Следующий пример демонстрирует генерацию метрик по ключам в Memcached:

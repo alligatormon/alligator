@@ -495,6 +495,7 @@ set(STATIC_FILES
 	system/linux/dcgm.c
 	system/linux/ipset.c
 	system/linux/cpu.c
+	system/linux/process.c
 	system/linux/sysctl.c
 	system/linux/conntrack.c
 	system/linux/sockets.c
@@ -536,6 +537,7 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/ipmi.c
 	system/linux/ipset.c
 	system/linux/cpu.c
+	system/linux/process.c
 	system/linux/sysctl.c
 	system/linux/conntrack.c
 	system/linux/sockets.c

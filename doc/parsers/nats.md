@@ -20,6 +20,12 @@ The parser does **not** dump every JSON field. That used to create useless serie
 | `/connz` | **Aggregates only** (like prometheus-nats-exporter `-connz`): `num_connections`, `total`, `limit`, summed `in_msgs`/`out_bytes`/… — **no** per-`cid` series |
 | `/routez` | `num_routes` plus per-route numerics labeled by `rid` |
 
+## Dashboard
+
+Grafana dashboard for Prometheus/Thanos: [dashboards/alligator-nats.json](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-nats.json)
+
+Panels cover server overview (connections, subscriptions, slow consumers, memory), traffic rates, connz aggregates, subscription cache stats, cluster routes, and HTTP monitoring scrape counts. Template variable: `host`.
+
 It is also useful to check process statistics, running services and open ports:
 ```
 system {

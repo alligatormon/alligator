@@ -19,6 +19,21 @@
 //#define	 X509_get_notAfter(x) ((x)->cert_info->validity->notAfter)
 extern aconf *ac;
 
+static inline void x509_labels_add_endpoint(context_arg *carg, alligator_ht *lbl)
+{
+	char endpoint[HOSTHEADER_SIZE + PORT_SIZE];
+
+	if (!carg || !lbl || !carg->host[0])
+		return;
+
+	if (carg->port[0])
+		snprintf(endpoint, sizeof(endpoint), "%s:%s", carg->host, carg->port);
+	else
+		strlcpy(endpoint, carg->host, sizeof(endpoint));
+
+	labels_hash_insert_nocache(lbl, "endpoint", endpoint);
+}
+
 static inline void x509_metric_families_set(context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "x509_cert_not_before", METRIC_TYPE_GAUGE, "X.509 certificate notBefore timestamp (Unix seconds).");
@@ -414,6 +429,7 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 	labels_hash_insert_nocache(lbl, "cert", cert_name);
 	if (target)
 		labels_hash_insert_nocache(lbl, "target", target);
+	x509_labels_add_endpoint(carg, lbl);
 
 	labels_hash_insert_nocache(lbl, "common_name", common_name);
 	carg_or_glog(carg, L_DEBUG, "cert: %s, common_name=%s\n", cert_name, common_name);
@@ -506,21 +522,21 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 			int64_t rev_val = (ocsp_st == REV_REVOKED) ? 0 : 1;
 			labels_hash_insert_nocache(rev_lbl, "source", pol->ocsp_enabled ? "ocsp" : "crl");
 			labels_hash_insert_nocache(rev_lbl, "status", (char *)rev_status_str(ocsp_st));
-			metric_add("x509_cert_revocation_status", rev_lbl, &rev_val, DATATYPE_INT, NULL);
+			metric_add("x509_cert_revocation_status", rev_lbl, &rev_val, DATATYPE_INT, carg);
 			if (ocsp_next) {
 				alligator_ht *next_lbl = labels_dup(lbl);
-				metric_add("x509_cert_ocsp_next_update", next_lbl, &ocsp_next, DATATYPE_INT, NULL);
+				metric_add("x509_cert_ocsp_next_update", next_lbl, &ocsp_next, DATATYPE_INT, carg);
 			}
 		}
-		metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
-		metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
-		metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
-		metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, NULL);
+		metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, carg);
+		metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, carg);
+		metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, carg);
+		metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, carg);
 	}
 	else {
 		carg_or_glog(carg, L_ERROR, "Failed to parse ASN1_TIME in cert: %s\n", cert_name);
 		labels_hash_insert_nocache(lbl, "reason", (char *)reason);
-		metric_add("x509_cert_valid", lbl, &is_valid, DATATYPE_INT, NULL);
+		metric_add("x509_cert_valid", lbl, &is_valid, DATATYPE_INT, carg);
 	}
 
 	BN_free(bn);

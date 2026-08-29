@@ -41,7 +41,7 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge | `mntr` | Numeric fields from the `mntr` output. |
+| `zk_*` | gauge | `mntr` | Numeric fields from the `mntr` output. Prometheus `{label="value"}` sets on the `mntr` line become labels (not part of the metric name). |
 | `zk_mode` | gauge | `mntr` | Node role: `standalone`, `follower`, or `leader`. |
 | `zk_readwrite` | gauge | `isro` | Read/write mode: `ro`, `rw`, or `null`. |
 | `zk_total_watches` | gauge | `wchs` | Total number of watches. |
@@ -55,7 +55,11 @@ All exported families include Prometheus `# HELP` and `# TYPE gauge` metadata.
 ```
 zk_avg_latency	10
 zk_server_state	leader
+zk_readlatency{quantile="0.5"}	0
+zk_jvm_buffer_pool_capacity_bytes{pool="direct"}	385546
 ```
+
+Exported as `zk_readlatency{quantile="0.5"}` and `zk_jvm_buffer_pool_capacity_bytes{pool="direct"}`, not flattened names like `zk_readlatency_quantile__0_5__`.
 
 `isro` response:
 

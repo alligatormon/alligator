@@ -42,7 +42,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_num_alive_connections{host=~\"$host\"}"
+                      "expr": "nats_varz_connections{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -59,7 +61,7 @@
         "description": "Current client connections",
         "id": 1,
         "links": [],
-        "title": "Alive connections",
+        "title": "Connections",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -128,7 +130,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_outstanding_requests{host=~\"$host\"}"
+                      "expr": "nats_varz_subscriptions{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -142,10 +146,10 @@
             "transformations": []
           }
         },
-        "description": "Requests waiting to be processed",
+        "description": "Active subscriptions on server",
         "id": 2,
         "links": [],
-        "title": "Outstanding requests",
+        "title": "Subscriptions",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -214,7 +218,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_znode_count{host=~\"$host\"}"
+                      "expr": "nats_varz_routes{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -228,10 +234,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Cluster routes",
         "id": 3,
         "links": [],
-        "title": "ZNodes",
+        "title": "Routes",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -300,7 +306,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_total_watches{host=~\"$host\"}"
+                      "expr": "nats_varz_slow_consumers{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -314,10 +322,10 @@
             "transformations": []
           }
         },
-        "description": "Total watches from wchs",
+        "description": "Clients falling behind",
         "id": 4,
         "links": [],
-        "title": "Watches",
+        "title": "Slow consumers",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -336,8 +344,12 @@
                       "value": 0
                     },
                     {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
                       "color": "red",
-                      "value": 80
+                      "value": 1
                     }
                   ]
                 },
@@ -386,7 +398,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_ephemerals_count{host=~\"$host\"}"
+                      "expr": "nats_varz_mem{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -400,10 +414,98 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Server memory usage",
         "id": 5,
         "links": [],
-        "title": "Ephemerals",
+        "title": "Memory",
+        "vizConfig": {
+          "group": "stat",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "fixedColor": "rgb(31, 120, 193)",
+                  "mode": "fixed"
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "red",
+                      "value": 80
+                    }
+                  ]
+                },
+                "unit": "bytes"
+              },
+              "overrides": []
+            },
+            "options": {
+              "colorMode": "none",
+              "graphMode": "area",
+              "justifyMode": "auto",
+              "orientation": "horizontal",
+              "percentChangeColorMode": "standard",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
+                ],
+                "fields": "",
+                "values": false
+              },
+              "showPercentChange": false,
+              "textMode": "auto",
+              "wideLayout": true
+            }
+          },
+          "version": "13.1.0"
+        }
+      }
+    },
+    "panel-6": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "nats_varz_total_connections{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {
+              "maxDataPoints": 100
+            },
+            "transformations": []
+          }
+        },
+        "description": "Connections since server start",
+        "id": 6,
+        "links": [],
+        "title": "Total connections",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -453,92 +555,6 @@
         }
       }
     },
-    "panel-6": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_approximate_data_size{host=~\"$host\"}"
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {
-              "maxDataPoints": 100
-            },
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 6,
-        "links": [],
-        "title": "Data size",
-        "vizConfig": {
-          "group": "stat",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "fixedColor": "rgb(31, 120, 193)",
-                  "mode": "fixed"
-                },
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "bytes"
-              },
-              "overrides": []
-            },
-            "options": {
-              "colorMode": "none",
-              "graphMode": "area",
-              "justifyMode": "auto",
-              "orientation": "horizontal",
-              "percentChangeColorMode": "standard",
-              "reduceOptions": {
-                "calcs": [
-                  "lastNotNull"
-                ],
-                "fields": "",
-                "values": false
-              },
-              "showPercentChange": false,
-              "textMode": "auto",
-              "wideLayout": true
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
     "panel-10": {
       "kind": "Panel",
       "spec": {
@@ -558,13 +574,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum by (host, mode) (zk_mode{host=~\"$host\"}) > 0",
-                      "format": "table",
-                      "instant": true
+                      "expr": "rate(nats_varz_in_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "in"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(nats_varz_out_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "out"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
                 }
               }
             ],
@@ -572,22 +609,52 @@
             "transformations": []
           }
         },
-        "description": "standalone / follower / leader",
+        "description": "Messages per second (varz counters)",
         "id": 10,
         "links": [],
-        "title": "Node mode",
+        "title": "Message rate",
         "vizConfig": {
-          "group": "table",
+          "group": "timeseries",
           "kind": "VizConfig",
           "spec": {
             "fieldConfig": {
               "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
                 "custom": {
-                  "align": "auto",
-                  "cellOptions": {
-                    "type": "auto"
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
                   },
-                  "inspect": false
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "none"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
+                  }
                 },
                 "thresholds": {
                   "mode": "absolute",
@@ -601,21 +668,33 @@
                       "value": 80
                     }
                   ]
-                }
+                },
+                "unit": "ops"
               },
               "overrides": []
             },
             "options": {
-              "cellHeight": "sm",
-              "footer": {
-                "countRows": false,
-                "fields": "",
-                "reducer": [
-                  "sum"
-                ],
-                "show": false
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
               },
-              "showHeader": true
+              "legend": {
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
+                "placement": "bottom",
+                "showLegend": true
+              },
+              "tooltip": {
+                "hideZeros": false,
+                "mode": "multi",
+                "sort": "desc"
+              }
             }
           },
           "version": "13.1.0"
@@ -641,92 +720,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum by (host, status) (zk_readwrite{host=~\"$host\"}) > 0",
-                      "format": "table",
-                      "instant": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "isro: ro / rw / null",
-        "id": 11,
-        "links": [],
-        "title": "Read/write",
-        "vizConfig": {
-          "group": "table",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "custom": {
-                  "align": "auto",
-                  "cellOptions": {
-                    "type": "auto"
-                  },
-                  "inspect": false
-                },
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                }
-              },
-              "overrides": []
-            },
-            "options": {
-              "cellHeight": "sm",
-              "footer": {
-                "countRows": false,
-                "fields": "",
-                "reducer": [
-                  "sum"
-                ],
-                "show": false
-              },
-              "showHeader": true
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-12": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_num_alive_connections{host=~\"$host\"}",
-                      "legendFormat": "alive {{host}}",
-                      "range": true
+                      "expr": "rate(nats_varz_in_bytes{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "in"
                     },
                     "version": "v0"
                   },
@@ -745,45 +741,24 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_global_sessions{host=~\"$host\"}",
-                      "legendFormat": "global sessions {{host}}",
-                      "range": true
+                      "expr": "rate(nats_varz_out_bytes{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "out"
                     },
                     "version": "v0"
                   },
                   "refId": "B"
                 }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_local_sessions{host=~\"$host\"}",
-                      "legendFormat": "local sessions {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
               }
             ],
             "queryOptions": {},
             "transformations": []
           }
         },
-        "description": "",
-        "id": 12,
+        "description": "Bytes per second",
+        "id": 11,
         "links": [],
-        "title": "Connections and sessions",
+        "title": "Traffic rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -827,7 +802,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -841,7 +815,7 @@
                     }
                   ]
                 },
-                "unit": "short"
+                "unit": "Bps"
               },
               "overrides": []
             },
@@ -851,8 +825,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -861,129 +839,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-13": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_outstanding_requests{host=~\"$host\"}",
-                      "legendFormat": "{{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 13,
-        "links": [],
-        "title": "Outstanding requests",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1010,9 +866,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_packets_received{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "recv {{host}}",
-                      "range": true
+                      "expr": "nats_varz_connections{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "varz"
                     },
                     "version": "v0"
                   },
@@ -1031,9 +887,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_packets_sent{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "sent {{host}}",
-                      "range": true
+                      "expr": "nats_connz_num_connections{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "connz"
                     },
                     "version": "v0"
                   },
@@ -1045,10 +901,10 @@
             "transformations": []
           }
         },
-        "description": "Client packets in/out",
+        "description": "Live connections from varz and connz",
         "id": 20,
         "links": [],
-        "title": "Packets",
+        "title": "Connections",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1092,7 +948,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1106,7 +961,7 @@
                     }
                   ]
                 },
-                "unit": "pps"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -1116,8 +971,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1126,7 +985,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1153,9 +1012,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_min_latency{host=~\"$host\"}",
-                      "legendFormat": "min {{host}}",
-                      "range": true
+                      "expr": "nats_varz_max_connections{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "max"
                     },
                     "version": "v0"
                   },
@@ -1174,34 +1033,13 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_avg_latency{host=~\"$host\"}",
-                      "legendFormat": "avg {{host}}",
-                      "range": true
+                      "expr": "nats_connz_limit{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "connz limit"
                     },
                     "version": "v0"
                   },
                   "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_max_latency{host=~\"$host\"}",
-                      "legendFormat": "max {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
                 }
               }
             ],
@@ -1209,10 +1047,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Configured connection ceilings",
         "id": 21,
         "links": [],
-        "title": "Latency min / avg / max",
+        "title": "Connection limits",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1256,7 +1094,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1270,7 +1107,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -1280,8 +1117,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1290,7 +1131,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1317,13 +1158,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_readlatency{host=~\"$host\"}",
-                      "legendFormat": "p{{quantile}} {{host}}",
-                      "range": true
+                      "expr": "rate(nats_connz_in_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "in msgs"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(nats_connz_out_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "out msgs"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
                 }
               }
             ],
@@ -1331,10 +1193,10 @@
             "transformations": []
           }
         },
-        "description": "Summary quantiles from mntr",
+        "description": "Aggregated client message rates from connz",
         "id": 22,
         "links": [],
-        "title": "Read latency by quantile",
+        "title": "Connz traffic rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1378,7 +1240,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1392,7 +1253,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -1402,8 +1263,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1412,7 +1277,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1439,34 +1304,12 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_updatelatency{host=~\"$host\"}",
-                      "legendFormat": "p{{quantile}} {{host}}",
+                      "expr": "nats_connz_pending_bytes{host=~\"$host\"}",
                       "range": true
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_updatelatency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_updatelatency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "mean {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
                 }
               }
             ],
@@ -1474,10 +1317,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Queued bytes across clients",
         "id": 23,
         "links": [],
-        "title": "Update latency",
+        "title": "Pending bytes",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1521,7 +1364,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1535,7 +1377,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "bytes"
               },
               "overrides": []
             },
@@ -1545,8 +1387,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1555,7 +1401,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1582,76 +1428,12 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_znode_count{host=~\"$host\"}",
-                      "legendFormat": "znode {{host}}",
+                      "expr": "nats_subz_num_subscriptions{host=~\"$host\"}",
                       "range": true
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_watch_count{host=~\"$host\"}",
-                      "legendFormat": "watch {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_total_watches{host=~\"$host\"}",
-                      "legendFormat": "total watches {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_ephemerals_count{host=~\"$host\"}",
-                      "legendFormat": "ephemeral {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "D"
                 }
               }
             ],
@@ -1659,10 +1441,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Subscriptions in routing cache",
         "id": 30,
         "links": [],
-        "title": "ZNodes, watches, ephemerals",
+        "title": "Subscription cache",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1706,7 +1488,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1730,8 +1511,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1740,7 +1525,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1767,8 +1552,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_approximate_data_size{host=~\"$host\"}",
-                      "legendFormat": "{{host}}",
+                      "expr": "nats_subz_cache_hit_rate{host=~\"$host\"}",
                       "range": true
                     },
                     "version": "v0"
@@ -1781,10 +1565,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Subscription cache hit ratio",
         "id": 31,
         "links": [],
-        "title": "Approximate data size",
+        "title": "Cache hit rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1828,7 +1612,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1842,7 +1625,7 @@
                     }
                   ]
                 },
-                "unit": "bytes"
+                "unit": "percentunit"
               },
               "overrides": []
             },
@@ -1852,8 +1635,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1862,7 +1649,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1889,13 +1676,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_read_per_namespace_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{key}} {{host}}",
-                      "range": true
+                      "expr": "nats_subz_avg_fanout{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "avg"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "nats_subz_max_fanout{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "max"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
                 }
               }
             ],
@@ -1903,10 +1711,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Average and max subscription fanout",
         "id": 32,
         "links": [],
-        "title": "Reads per namespace",
+        "title": "Fanout",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1950,7 +1758,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1964,7 +1771,7 @@
                     }
                   ]
                 },
-                "unit": "ops"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -1974,8 +1781,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1984,7 +1795,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2011,13 +1822,55 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_write_per_namespace_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{key}} {{host}}",
-                      "range": true
+                      "expr": "rate(nats_subz_num_inserts{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "inserts"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(nats_subz_num_removes{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "removes"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(nats_subz_num_matches{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "matches"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
                 }
               }
             ],
@@ -2025,10 +1878,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Inserts/removes/matches per second",
         "id": 33,
         "links": [],
-        "title": "Writes per namespace",
+        "title": "Subscription churn",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2072,7 +1925,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2096,8 +1948,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2106,7 +1962,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2133,8 +1989,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_memory_pool_bytes_used{host=~\"$host\"}",
-                      "legendFormat": "{{pool}} {{host}}",
+                      "expr": "nats_routez_num_routes{host=~\"$host\"}",
                       "range": true
                     },
                     "version": "v0"
@@ -2147,10 +2002,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Active cluster routes",
         "id": 40,
         "links": [],
-        "title": "JVM memory pool used",
+        "title": "Cluster routes",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2194,7 +2049,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2208,7 +2062,7 @@
                     }
                   ]
                 },
-                "unit": "bytes"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -2218,8 +2072,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2228,7 +2086,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2255,9 +2113,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_jvm_gc_collection_seconds_sum{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{gc}} {{host}}",
-                      "range": true
+                      "expr": "sum by (rid) (rate(nats_routez_routes_in_msgs{host=~\"$host\"}[$__rate_interval]))",
+                      "range": true,
+                      "legendFormat": "{{rid}}"
                     },
                     "version": "v0"
                   },
@@ -2269,10 +2127,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Incoming messages per route",
         "id": 41,
         "links": [],
-        "title": "JVM GC collection",
+        "title": "Route message rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2316,7 +2174,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2330,7 +2187,7 @@
                     }
                   ]
                 },
-                "unit": "s"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -2340,8 +2197,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2350,7 +2211,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2377,76 +2238,13 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_threads_current{host=~\"$host\"}",
-                      "legendFormat": "current {{host}}",
-                      "range": true
+                      "expr": "sum by (rid) (rate(nats_routez_routes_in_bytes{host=~\"$host\"}[$__rate_interval]))",
+                      "range": true,
+                      "legendFormat": "{{rid}}"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_jvm_threads_daemon{host=~\"$host\"}",
-                      "legendFormat": "daemon {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_jvm_threads_peak{host=~\"$host\"}",
-                      "legendFormat": "peak {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_jvm_threads_state{host=~\"$host\"}",
-                      "legendFormat": "{{state}} {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "D"
                 }
               }
             ],
@@ -2454,10 +2252,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Incoming bytes per route",
         "id": 42,
         "links": [],
-        "title": "JVM threads",
+        "title": "Route byte rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2501,7 +2299,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2515,7 +2312,7 @@
                     }
                   ]
                 },
-                "unit": "short"
+                "unit": "Bps"
               },
               "overrides": []
             },
@@ -2525,8 +2322,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2535,171 +2336,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-43": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_open_file_descriptor_count{host=~\"$host\"}",
-                      "legendFormat": "open {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_max_file_descriptor_count{host=~\"$host\"}",
-                      "legendFormat": "max {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_process_open_fds{host=~\"$host\"}",
-                      "legendFormat": "process open {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 43,
-        "links": [],
-        "title": "File descriptors",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2726,9 +2363,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_fsynctime_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_fsynctime_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "mean {{host}}",
-                      "range": true
+                      "expr": "nats_varz_http_req_stats{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "{{endpoint}}"
                     },
                     "version": "v0"
                   },
@@ -2740,10 +2377,10 @@
             "transformations": []
           }
         },
-        "description": "Mean fsync duration",
+        "description": "Monitoring endpoint scrape counts",
         "id": 50,
         "links": [],
-        "title": "Fsync time",
+        "title": "HTTP monitoring requests",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2787,7 +2424,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2801,7 +2437,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -2811,8 +2447,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2821,7 +2461,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2848,55 +2488,12 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_commit_process_time_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_commit_process_time_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "commit {{host}}",
+                      "expr": "nats_varz_cpu{host=~\"$host\"}",
                       "range": true
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_proposal_latency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_proposal_latency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "proposal {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_propagation_latency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_propagation_latency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "propagation {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
                 }
               }
             ],
@@ -2904,10 +2501,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "NATS process CPU (from varz)",
         "id": 51,
         "links": [],
-        "title": "Commit / proposal process",
+        "title": "CPU",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2951,272 +2548,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "ms"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-52": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_snapshottime_sum{host=~\"$host\"}[$__rate_interval]) / clamp_min(rate(zk_snapshottime_count{host=~\"$host\"}[$__rate_interval]), 1e-9)",
-                      "legendFormat": "{{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 52,
-        "links": [],
-        "title": "Snapshot time",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "ms"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-53": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_quorum_size{host=~\"$host\"}",
-                      "legendFormat": "quorum {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_synced_observers{host=~\"$host\"}",
-                      "legendFormat": "observers {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 53,
-        "links": [],
-        "title": "Quorum size and synced observers",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -3240,8 +2571,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -3250,7 +2585,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -3348,7 +2683,21 @@
                       "x": 20,
                       "y": 0
                     }
-                  },
+                  }
+                ]
+              }
+            },
+            "title": "Overview"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
                   {
                     "kind": "GridLayoutItem",
                     "spec": {
@@ -3356,10 +2705,10 @@
                         "kind": "ElementReference",
                         "name": "panel-10"
                       },
-                      "height": 6,
-                      "width": 8,
+                      "height": 8,
+                      "width": 12,
                       "x": 0,
-                      "y": 4
+                      "y": 0
                     }
                   },
                   {
@@ -3369,42 +2718,16 @@
                         "kind": "ElementReference",
                         "name": "panel-11"
                       },
-                      "height": 6,
-                      "width": 8,
-                      "x": 8,
-                      "y": 4
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-12"
-                      },
-                      "height": 6,
-                      "width": 8,
-                      "x": 16,
-                      "y": 4
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-13"
-                      },
                       "height": 8,
-                      "width": 24,
-                      "x": 0,
-                      "y": 10
+                      "width": 12,
+                      "x": 12,
+                      "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "Overview"
+            "title": "Traffic"
           }
         },
         {
@@ -3470,7 +2793,7 @@
                 ]
               }
             },
-            "title": "Traffic and latency"
+            "title": "Connections"
           }
         },
         {
@@ -3536,7 +2859,7 @@
                 ]
               }
             },
-            "title": "Data"
+            "title": "Subscriptions"
           }
         },
         {
@@ -3555,7 +2878,7 @@
                         "name": "panel-40"
                       },
                       "height": 8,
-                      "width": 12,
+                      "width": 8,
                       "x": 0,
                       "y": 0
                     }
@@ -3568,8 +2891,8 @@
                         "name": "panel-41"
                       },
                       "height": 8,
-                      "width": 12,
-                      "x": 12,
+                      "width": 8,
+                      "x": 8,
                       "y": 0
                     }
                   },
@@ -3581,28 +2904,15 @@
                         "name": "panel-42"
                       },
                       "height": 8,
-                      "width": 12,
-                      "x": 0,
-                      "y": 8
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-43"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 8
+                      "width": 8,
+                      "x": 16,
+                      "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "JVM"
+            "title": "Cluster routes"
           }
         },
         {
@@ -3621,7 +2931,7 @@
                         "name": "panel-50"
                       },
                       "height": 8,
-                      "width": 12,
+                      "width": 16,
                       "x": 0,
                       "y": 0
                     }
@@ -3634,41 +2944,15 @@
                         "name": "panel-51"
                       },
                       "height": 8,
-                      "width": 12,
-                      "x": 12,
+                      "width": 8,
+                      "x": 16,
                       "y": 0
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-52"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 0,
-                      "y": 8
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-53"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 8
                     }
                   }
                 ]
               }
             },
-            "title": "Persistence and quorum"
+            "title": "Monitoring"
           }
         }
       ]
@@ -3677,7 +2961,10 @@
   "links": [],
   "liveNow": false,
   "preload": false,
-  "tags": [],
+  "tags": [
+    "nats",
+    "alligator"
+  ],
   "timeSettings": {
     "autoRefresh": "",
     "autoRefreshIntervals": [
@@ -3691,12 +2978,12 @@
       "1d"
     ],
     "fiscalYearStartMonth": 0,
-    "from": "now-30m",
+    "from": "now-6h",
     "hideTimepicker": false,
     "timezone": "Europe/Moscow",
     "to": "now"
   },
-  "title": "Alligator ZooKeeper",
+  "title": "Alligator NATS",
   "variables": [
     {
       "kind": "QueryVariable",
@@ -3706,7 +2993,7 @@
           "text": "srv1.example.com",
           "value": "srv1.example.com"
         },
-        "definition": "label_values(zk_avg_latency,host)",
+        "definition": "label_values(nats_varz_connections,host)",
         "hide": "dontHide",
         "includeAll": false,
         "label": "host",
@@ -3718,7 +3005,7 @@
           "kind": "DataQuery",
           "spec": {
             "qryType": 1,
-            "query": "label_values(zk_avg_latency,host)",
+            "query": "label_values(nats_varz_connections,host)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "version": "v0"

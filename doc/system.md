@@ -39,6 +39,8 @@ system {
 ## base
 Enables monitoring of the base OS and hardware resources, including CPU, memory, and temperatures of the baseboard and components. OS resources such as loadavg, openfiles, interrupts, and context switches are also included.
 
+`load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
+
 Metric naming notes:
 
 - Host uptime metric is `system_uptime_seconds`.

@@ -42,7 +42,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_num_alive_connections{host=~\"$host\"}"
+                      "expr": "memcached_uptime_seconds{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -56,10 +58,10 @@
             "transformations": []
           }
         },
-        "description": "Current client connections",
+        "description": "Seconds since memcached started",
         "id": 1,
         "links": [],
-        "title": "Alive connections",
+        "title": "Uptime",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -83,7 +85,7 @@
                     }
                   ]
                 },
-                "unit": "none"
+                "unit": "s"
               },
               "overrides": []
             },
@@ -128,7 +130,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_outstanding_requests{host=~\"$host\"}"
+                      "expr": "memcached_current_connections{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -142,10 +146,10 @@
             "transformations": []
           }
         },
-        "description": "Requests waiting to be processed",
+        "description": "Open client connections",
         "id": 2,
         "links": [],
-        "title": "Outstanding requests",
+        "title": "Current connections",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -214,7 +218,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_znode_count{host=~\"$host\"}"
+                      "expr": "memcached_current_items{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -228,10 +234,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Items currently stored",
         "id": 3,
         "links": [],
-        "title": "ZNodes",
+        "title": "Current items",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -300,7 +306,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_total_watches{host=~\"$host\"}"
+                      "expr": "100 * memcached_current_bytes{host=~\"$host\"} / clamp_min(memcached_limit_bytes{host=~\"$host\"}, 1)",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -314,10 +322,10 @@
             "transformations": []
           }
         },
-        "description": "Total watches from wchs",
+        "description": "Share of configured memory limit",
         "id": 4,
         "links": [],
-        "title": "Watches",
+        "title": "Memory used",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -341,12 +349,12 @@
                     }
                   ]
                 },
-                "unit": "none"
+                "unit": "percent"
               },
               "overrides": []
             },
             "options": {
-              "colorMode": "none",
+              "colorMode": "value",
               "graphMode": "area",
               "justifyMode": "auto",
               "orientation": "horizontal",
@@ -386,7 +394,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_ephemerals_count{host=~\"$host\"}"
+                      "expr": "memcached_accepting_connections{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -400,10 +410,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "1 = accepting, 0 = not accepting",
         "id": 5,
         "links": [],
-        "title": "Ephemerals",
+        "title": "Accepting connections",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -472,7 +482,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_approximate_data_size{host=~\"$host\"}"
+                      "expr": "memcached_threads{host=~\"$host\"}",
+                      "range": false,
+                      "instant": true
                     },
                     "version": "v0"
                   },
@@ -489,7 +501,7 @@
         "description": "",
         "id": 6,
         "links": [],
-        "title": "Data size",
+        "title": "Worker threads",
         "vizConfig": {
           "group": "stat",
           "kind": "VizConfig",
@@ -513,7 +525,7 @@
                     }
                   ]
                 },
-                "unit": "bytes"
+                "unit": "none"
               },
               "overrides": []
             },
@@ -558,13 +570,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum by (host, mode) (zk_mode{host=~\"$host\"}) > 0",
-                      "format": "table",
-                      "instant": true
+                      "expr": "memcached_current_bytes{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "used"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "memcached_limit_bytes{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "limit"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
                 }
               }
             ],
@@ -572,22 +605,52 @@
             "transformations": []
           }
         },
-        "description": "standalone / follower / leader",
+        "description": "Current item storage vs configured limit",
         "id": 10,
         "links": [],
-        "title": "Node mode",
+        "title": "Memory bytes",
         "vizConfig": {
-          "group": "table",
+          "group": "timeseries",
           "kind": "VizConfig",
           "spec": {
             "fieldConfig": {
               "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
                 "custom": {
-                  "align": "auto",
-                  "cellOptions": {
-                    "type": "auto"
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
                   },
-                  "inspect": false
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "none"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
+                  }
                 },
                 "thresholds": {
                   "mode": "absolute",
@@ -601,21 +664,33 @@
                       "value": 80
                     }
                   ]
-                }
+                },
+                "unit": "bytes"
               },
               "overrides": []
             },
             "options": {
-              "cellHeight": "sm",
-              "footer": {
-                "countRows": false,
-                "fields": "",
-                "reducer": [
-                  "sum"
-                ],
-                "show": false
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
               },
-              "showHeader": true
+              "legend": {
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
+                "placement": "bottom",
+                "showLegend": true
+              },
+              "tooltip": {
+                "hideZeros": false,
+                "mode": "multi",
+                "sort": "desc"
+              }
             }
           },
           "version": "13.1.0"
@@ -641,9 +716,8 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum by (host, status) (zk_readwrite{host=~\"$host\"}) > 0",
-                      "format": "table",
-                      "instant": true
+                      "expr": "100 * memcached_current_bytes{host=~\"$host\"} / clamp_min(memcached_limit_bytes{host=~\"$host\"}, 1)",
+                      "range": true
                     },
                     "version": "v0"
                   },
@@ -655,23 +729,21 @@
             "transformations": []
           }
         },
-        "description": "isro: ro / rw / null",
+        "description": "Current memory utilization",
         "id": 11,
         "links": [],
-        "title": "Read/write",
+        "title": "Memory usage",
         "vizConfig": {
-          "group": "table",
+          "group": "gauge",
           "kind": "VizConfig",
           "spec": {
             "fieldConfig": {
               "defaults": {
-                "custom": {
-                  "align": "auto",
-                  "cellOptions": {
-                    "type": "auto"
-                  },
-                  "inspect": false
+                "color": {
+                  "mode": "thresholds"
                 },
+                "max": 100,
+                "min": 0,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -680,311 +752,33 @@
                       "value": 0
                     },
                     {
+                      "color": "yellow",
+                      "value": 70
+                    },
+                    {
                       "color": "red",
-                      "value": 80
+                      "value": 90
                     }
                   ]
-                }
+                },
+                "unit": "percent"
               },
               "overrides": []
             },
             "options": {
-              "cellHeight": "sm",
-              "footer": {
-                "countRows": false,
-                "fields": "",
-                "reducer": [
-                  "sum"
+              "minVizHeight": 75,
+              "minVizWidth": 75,
+              "orientation": "auto",
+              "reduceOptions": {
+                "calcs": [
+                  "lastNotNull"
                 ],
-                "show": false
+                "fields": "",
+                "values": false
               },
-              "showHeader": true
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-12": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_num_alive_connections{host=~\"$host\"}",
-                      "legendFormat": "alive {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_global_sessions{host=~\"$host\"}",
-                      "legendFormat": "global sessions {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_local_sessions{host=~\"$host\"}",
-                      "legendFormat": "local sessions {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 12,
-        "links": [],
-        "title": "Connections and sessions",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-13": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_outstanding_requests{host=~\"$host\"}",
-                      "legendFormat": "{{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 13,
-        "links": [],
-        "title": "Outstanding requests",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
+              "showThresholdLabels": false,
+              "showThresholdMarkers": true,
+              "sizing": "auto"
             }
           },
           "version": "13.1.0"
@@ -1010,34 +804,13 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_packets_received{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "recv {{host}}",
-                      "range": true
+                      "expr": "sum by (command) (rate(memcached_commands_total{host=~\"$host\"}[$__rate_interval]))",
+                      "range": true,
+                      "legendFormat": "{{command}}"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_packets_sent{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "sent {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
                 }
               }
             ],
@@ -1045,10 +818,10 @@
             "transformations": []
           }
         },
-        "description": "Client packets in/out",
+        "description": "Operations per second by command",
         "id": 20,
         "links": [],
-        "title": "Packets",
+        "title": "Command rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1092,7 +865,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1106,7 +878,7 @@
                     }
                   ]
                 },
-                "unit": "pps"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -1116,8 +888,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1126,7 +902,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1153,55 +929,13 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_min_latency{host=~\"$host\"}",
-                      "legendFormat": "min {{host}}",
-                      "range": true
+                      "expr": "100 * sum(rate(memcached_commands_total{host=~\"$host\",command=\"get\",status=\"hit\"}[$__rate_interval])) / clamp_min(sum(rate(memcached_commands_total{host=~\"$host\",command=\"get\"}[$__rate_interval])), 1e-9)",
+                      "range": true,
+                      "legendFormat": "hit %"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_avg_latency{host=~\"$host\"}",
-                      "legendFormat": "avg {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_max_latency{host=~\"$host\"}",
-                      "legendFormat": "max {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
                 }
               }
             ],
@@ -1209,10 +943,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "GET hits / all GET outcomes",
         "id": 21,
         "links": [],
-        "title": "Latency min / avg / max",
+        "title": "GET hit ratio",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1256,7 +990,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1270,7 +1003,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "percent"
               },
               "overrides": []
             },
@@ -1280,8 +1013,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1290,7 +1027,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1317,9 +1054,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_readlatency{host=~\"$host\"}",
-                      "legendFormat": "p{{quantile}} {{host}}",
-                      "range": true
+                      "expr": "sum by (status) (rate(memcached_commands_total{host=~\"$host\",command=\"get\"}[$__rate_interval]))",
+                      "range": true,
+                      "legendFormat": "{{status}}"
                     },
                     "version": "v0"
                   },
@@ -1331,10 +1068,10 @@
             "transformations": []
           }
         },
-        "description": "Summary quantiles from mntr",
+        "description": "GET hits, misses, expired, flushed",
         "id": 22,
         "links": [],
-        "title": "Read latency by quantile",
+        "title": "GET outcomes rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1372,13 +1109,12 @@
                   "spanNulls": false,
                   "stacking": {
                     "group": "A",
-                    "mode": "none"
+                    "mode": "normal"
                   },
                   "thresholdsStyle": {
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1392,7 +1128,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -1402,8 +1138,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1412,150 +1152,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-23": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_updatelatency{host=~\"$host\"}",
-                      "legendFormat": "p{{quantile}} {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_updatelatency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_updatelatency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "mean {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 23,
-        "links": [],
-        "title": "Update latency",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "ms"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -1582,9 +1179,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_znode_count{host=~\"$host\"}",
-                      "legendFormat": "znode {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_read_bytes_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "read"
                     },
                     "version": "v0"
                   },
@@ -1603,66 +1200,24 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_watch_count{host=~\"$host\"}",
-                      "legendFormat": "watch {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_written_bytes_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "write"
                     },
                     "version": "v0"
                   },
                   "refId": "B"
                 }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_total_watches{host=~\"$host\"}",
-                      "legendFormat": "total watches {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_ephemerals_count{host=~\"$host\"}",
-                      "legendFormat": "ephemeral {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "D"
-                }
               }
             ],
             "queryOptions": {},
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Bytes read from / written to network",
         "id": 30,
         "links": [],
-        "title": "ZNodes, watches, ephemerals",
+        "title": "Network throughput",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -1706,7 +1261,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -1720,7 +1274,7 @@
                     }
                   ]
                 },
-                "unit": "short"
+                "unit": "Bps"
               },
               "overrides": []
             },
@@ -1730,8 +1284,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -1740,373 +1298,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-31": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_approximate_data_size{host=~\"$host\"}",
-                      "legendFormat": "{{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 31,
-        "links": [],
-        "title": "Approximate data size",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "bytes"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-32": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_read_per_namespace_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{key}} {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 32,
-        "links": [],
-        "title": "Reads per namespace",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "ops"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-33": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "rate(zk_write_per_namespace_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{key}} {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 33,
-        "links": [],
-        "title": "Writes per namespace",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "ops"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2133,13 +1325,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_memory_pool_bytes_used{host=~\"$host\"}",
-                      "legendFormat": "{{pool}} {{host}}",
-                      "range": true
+                      "expr": "memcached_current_items{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "current"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_items_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "stored rate"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
                 }
               }
             ],
@@ -2147,10 +1360,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "Current item count and store rate",
         "id": 40,
         "links": [],
-        "title": "JVM memory pool used",
+        "title": "Items",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2194,7 +1407,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2208,7 +1420,7 @@
                     }
                   ]
                 },
-                "unit": "bytes"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -2218,8 +1430,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2228,7 +1444,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2255,131 +1471,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_jvm_gc_collection_seconds_sum{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{gc}} {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 41,
-        "links": [],
-        "title": "JVM GC collection",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "s"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-42": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_jvm_threads_current{host=~\"$host\"}",
-                      "legendFormat": "current {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_items_evicted_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "evicted"
                     },
                     "version": "v0"
                   },
@@ -2398,9 +1492,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_threads_daemon{host=~\"$host\"}",
-                      "legendFormat": "daemon {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_items_reclaimed_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "reclaimed"
                     },
                     "version": "v0"
                   },
@@ -2419,9 +1513,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_threads_peak{host=~\"$host\"}",
-                      "legendFormat": "peak {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_items_evicted_unfetched_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "evicted unfetched"
                     },
                     "version": "v0"
                   },
@@ -2440,9 +1534,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_jvm_threads_state{host=~\"$host\"}",
-                      "legendFormat": "{{state}} {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_items_expired_unfetched_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "expired unfetched"
                     },
                     "version": "v0"
                   },
@@ -2454,10 +1548,10 @@
             "transformations": []
           }
         },
-        "description": "",
-        "id": 42,
+        "description": "Item lifecycle counters",
+        "id": 41,
         "links": [],
-        "title": "JVM threads",
+        "title": "Evictions and reclaims",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2501,7 +1595,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2515,7 +1608,7 @@
                     }
                   ]
                 },
-                "unit": "short"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -2525,8 +1618,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2535,171 +1632,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
-              }
-            }
-          },
-          "version": "13.1.0"
-        }
-      }
-    },
-    "panel-43": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_open_file_descriptor_count{host=~\"$host\"}",
-                      "legendFormat": "open {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_max_file_descriptor_count{host=~\"$host\"}",
-                      "legendFormat": "max {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "B"
-                }
-              },
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "000000001"
-                    },
-                    "group": "prometheus",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "expr": "zk_process_open_fds{host=~\"$host\"}",
-                      "legendFormat": "process open {{host}}",
-                      "range": true
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "C"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 43,
-        "links": [],
-        "title": "File descriptors",
-        "vizConfig": {
-          "group": "timeseries",
-          "kind": "VizConfig",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {
-                "color": {
-                  "mode": "palette-classic"
-                },
-                "custom": {
-                  "axisBorderShow": false,
-                  "axisCenteredZero": false,
-                  "axisColorMode": "text",
-                  "axisLabel": "",
-                  "axisPlacement": "auto",
-                  "barAlignment": 0,
-                  "barWidthFactor": 0.6,
-                  "drawStyle": "line",
-                  "fillOpacity": 10,
-                  "gradientMode": "none",
-                  "hideFrom": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": false
-                  },
-                  "insertNulls": false,
-                  "lineInterpolation": "linear",
-                  "lineWidth": 1,
-                  "pointSize": 5,
-                  "scaleDistribution": {
-                    "type": "linear"
-                  },
-                  "showPoints": "never",
-                  "showValues": false,
-                  "spanNulls": false,
-                  "stacking": {
-                    "group": "A",
-                    "mode": "none"
-                  },
-                  "thresholdsStyle": {
-                    "mode": "off"
-                  }
-                },
-                "fieldMinMax": false,
-                "thresholds": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": 0
-                    },
-                    {
-                      "color": "red",
-                      "value": 80
-                    }
-                  ]
-                },
-                "unit": "short"
-              },
-              "overrides": []
-            },
-            "options": {
-              "annotations": {
-                "clustering": -1,
-                "multiLane": false
-              },
-              "legend": {
-                "calcs": [],
-                "displayMode": "list",
-                "enableFacetedFilter": false,
-                "overflow": "ellipsis",
-                "placement": "bottom",
-                "showLegend": true
-              },
-              "tooltip": {
-                "hideZeros": false,
-                "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2726,13 +1659,55 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_fsynctime_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_fsynctime_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "mean {{host}}",
-                      "range": true
+                      "expr": "memcached_current_connections{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "current"
                     },
                     "version": "v0"
                   },
                   "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "memcached_max_connections{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "max configured"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "memcached_connection_structures{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "structures"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
                 }
               }
             ],
@@ -2740,10 +1715,10 @@
             "transformations": []
           }
         },
-        "description": "Mean fsync duration",
+        "description": "",
         "id": 50,
         "links": [],
-        "title": "Fsync time",
+        "title": "Connections",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2787,7 +1762,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2801,7 +1775,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "short"
               },
               "overrides": []
             },
@@ -2811,8 +1785,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2821,7 +1799,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2848,9 +1826,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_commit_process_time_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_commit_process_time_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "commit {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_connections_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "opened"
                     },
                     "version": "v0"
                   },
@@ -2869,9 +1847,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_proposal_latency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_proposal_latency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "proposal {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_connections_rejected_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "rejected"
                     },
                     "version": "v0"
                   },
@@ -2890,13 +1868,34 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_propagation_latency_sum{host=~\"$host\"}[$__rate_interval]) / rate(zk_propagation_latency_count{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "propagation {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_connections_yielded_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "yielded"
                     },
                     "version": "v0"
                   },
                   "refId": "C"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_connections_listener_disabled_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "listener disabled"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
                 }
               }
             ],
@@ -2907,7 +1906,7 @@
         "description": "",
         "id": 51,
         "links": [],
-        "title": "Commit / proposal process",
+        "title": "Connection events",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -2951,7 +1950,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -2965,7 +1963,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "ops"
               },
               "overrides": []
             },
@@ -2975,8 +1973,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -2985,7 +1987,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -2993,7 +1995,7 @@
         }
       }
     },
-    "panel-52": {
+    "panel-60": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -3012,9 +2014,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_snapshottime_sum{host=~\"$host\"}[$__rate_interval]) / clamp_min(rate(zk_snapshottime_count{host=~\"$host\"}[$__rate_interval]), 1e-9)",
-                      "legendFormat": "{{host}}",
-                      "range": true
+                      "expr": "sum by (type) (rate(memcached_rusage_seconds_total{host=~\"$host\"}[$__rate_interval]))",
+                      "range": true,
+                      "legendFormat": "{{type}}"
                     },
                     "version": "v0"
                   },
@@ -3026,10 +2028,10 @@
             "transformations": []
           }
         },
-        "description": "",
-        "id": 52,
+        "description": "User/system CPU consumed by memcached",
+        "id": 60,
         "links": [],
-        "title": "Snapshot time",
+        "title": "CPU time rate",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -3073,7 +2075,6 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -3087,7 +2088,7 @@
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "s"
               },
               "overrides": []
             },
@@ -3097,8 +2098,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -3107,7 +2112,7 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
               }
             }
           },
@@ -3115,7 +2120,7 @@
         }
       }
     },
-    "panel-53": {
+    "panel-61": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -3134,9 +2139,9 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_quorum_size{host=~\"$host\"}",
-                      "legendFormat": "quorum {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_malloc_fails_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "malloc fails"
                     },
                     "version": "v0"
                   },
@@ -3155,14 +2160,77 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_synced_observers{host=~\"$host\"}",
-                      "legendFormat": "observers {{host}}",
-                      "range": true
+                      "expr": "rate(memcached_auth_errors_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "auth errors"
                     },
                     "version": "v0"
                   },
                   "refId": "B"
                 }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_ssl_handshake_errors_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "TLS handshake errors"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_read_buf_oom_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "read buf OOM"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_response_obj_oom_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "response obj OOM"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "E"
+                }
               }
             ],
             "queryOptions": {},
@@ -3170,9 +2238,9 @@
           }
         },
         "description": "",
-        "id": 53,
+        "id": 61,
         "links": [],
-        "title": "Quorum size and synced observers",
+        "title": "Errors and OOM",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -3216,7 +2284,194 @@
                     "mode": "off"
                   }
                 },
-                "fieldMinMax": false,
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "red",
+                      "value": 80
+                    }
+                  ]
+                },
+                "unit": "ops"
+              },
+              "overrides": []
+            },
+            "options": {
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
+              "legend": {
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
+                "placement": "bottom",
+                "showLegend": true
+              },
+              "tooltip": {
+                "hideZeros": false,
+                "mode": "multi",
+                "sort": "desc"
+              }
+            }
+          },
+          "version": "13.1.0"
+        }
+      }
+    },
+    "panel-70": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "memcached_lru_crawler_running{host=~\"$host\"}",
+                      "range": true,
+                      "legendFormat": "running"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_starts_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "starts"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_reclaimed_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "reclaimed"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_items_checked_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "items checked"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 70,
+        "links": [],
+        "title": "LRU crawler",
+        "vizConfig": {
+          "group": "timeseries",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "none"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
+                  }
+                },
                 "thresholds": {
                   "mode": "absolute",
                   "steps": [
@@ -3240,8 +2495,12 @@
                 "multiLane": false
               },
               "legend": {
-                "calcs": [],
-                "displayMode": "list",
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
                 "enableFacetedFilter": false,
                 "overflow": "ellipsis",
                 "placement": "bottom",
@@ -3250,7 +2509,195 @@
               "tooltip": {
                 "hideZeros": false,
                 "mode": "multi",
-                "sort": "none"
+                "sort": "desc"
+              }
+            }
+          },
+          "version": "13.1.0"
+        }
+      }
+    },
+    "panel-71": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_moves_to_cold_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "to cold"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_moves_to_warm_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "to warm"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "B"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_crawler_moves_within_lru_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "within LRU"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
+                }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "000000001"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "rate(memcached_lru_maintainer_juggles_total{host=~\"$host\"}[$__rate_interval])",
+                      "range": true,
+                      "legendFormat": "maintainer juggles"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "D"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 71,
+        "links": [],
+        "title": "LRU moves rate",
+        "vizConfig": {
+          "group": "timeseries",
+          "kind": "VizConfig",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 10,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "never",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "none"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
+                  }
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "red",
+                      "value": 80
+                    }
+                  ]
+                },
+                "unit": "ops"
+              },
+              "overrides": []
+            },
+            "options": {
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
+              "legend": {
+                "calcs": [
+                  "lastNotNull",
+                  "max",
+                  "mean"
+                ],
+                "displayMode": "table",
+                "enableFacetedFilter": false,
+                "overflow": "ellipsis",
+                "placement": "bottom",
+                "showLegend": true
+              },
+              "tooltip": {
+                "hideZeros": false,
+                "mode": "multi",
+                "sort": "desc"
               }
             }
           },
@@ -3348,7 +2795,21 @@
                       "x": 20,
                       "y": 0
                     }
-                  },
+                  }
+                ]
+              }
+            },
+            "title": "Overview"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
                   {
                     "kind": "GridLayoutItem",
                     "spec": {
@@ -3356,10 +2817,10 @@
                         "kind": "ElementReference",
                         "name": "panel-10"
                       },
-                      "height": 6,
-                      "width": 8,
+                      "height": 8,
+                      "width": 16,
                       "x": 0,
-                      "y": 4
+                      "y": 0
                     }
                   },
                   {
@@ -3369,42 +2830,16 @@
                         "kind": "ElementReference",
                         "name": "panel-11"
                       },
-                      "height": 6,
-                      "width": 8,
-                      "x": 8,
-                      "y": 4
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-12"
-                      },
-                      "height": 6,
+                      "height": 8,
                       "width": 8,
                       "x": 16,
-                      "y": 4
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-13"
-                      },
-                      "height": 8,
-                      "width": 24,
-                      "x": 0,
-                      "y": 10
+                      "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "Overview"
+            "title": "Memory"
           }
         },
         {
@@ -3436,7 +2871,7 @@
                         "name": "panel-21"
                       },
                       "height": 8,
-                      "width": 12,
+                      "width": 6,
                       "x": 12,
                       "y": 0
                     }
@@ -3449,28 +2884,15 @@
                         "name": "panel-22"
                       },
                       "height": 8,
-                      "width": 12,
-                      "x": 0,
-                      "y": 8
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-23"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 8
+                      "width": 6,
+                      "x": 18,
+                      "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "Traffic and latency"
+            "title": "Commands"
           }
         },
         {
@@ -3489,54 +2911,15 @@
                         "name": "panel-30"
                       },
                       "height": 8,
-                      "width": 12,
+                      "width": 24,
                       "x": 0,
                       "y": 0
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-31"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 0
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-32"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 0,
-                      "y": 8
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-33"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 8
                     }
                   }
                 ]
               }
             },
-            "title": "Data"
+            "title": "Network"
           }
         },
         {
@@ -3572,37 +2955,11 @@
                       "x": 12,
                       "y": 0
                     }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-42"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 0,
-                      "y": 8
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-43"
-                      },
-                      "height": 8,
-                      "width": 12,
-                      "x": 12,
-                      "y": 8
-                    }
                   }
                 ]
               }
             },
-            "title": "JVM"
+            "title": "Items"
           }
         },
         {
@@ -3638,18 +2995,32 @@
                       "x": 12,
                       "y": 0
                     }
-                  },
+                  }
+                ]
+              }
+            },
+            "title": "Connections"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
                   {
                     "kind": "GridLayoutItem",
                     "spec": {
                       "element": {
                         "kind": "ElementReference",
-                        "name": "panel-52"
+                        "name": "panel-60"
                       },
                       "height": 8,
                       "width": 12,
                       "x": 0,
-                      "y": 8
+                      "y": 0
                     }
                   },
                   {
@@ -3657,18 +3028,58 @@
                     "spec": {
                       "element": {
                         "kind": "ElementReference",
-                        "name": "panel-53"
+                        "name": "panel-61"
                       },
                       "height": 8,
                       "width": 12,
                       "x": 12,
-                      "y": 8
+                      "y": 0
                     }
                   }
                 ]
               }
             },
-            "title": "Persistence and quorum"
+            "title": "CPU and errors"
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-70"
+                      },
+                      "height": 8,
+                      "width": 12,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-71"
+                      },
+                      "height": 8,
+                      "width": 12,
+                      "x": 12,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "title": "LRU"
           }
         }
       ]
@@ -3677,7 +3088,10 @@
   "links": [],
   "liveNow": false,
   "preload": false,
-  "tags": [],
+  "tags": [
+    "memcached",
+    "alligator"
+  ],
   "timeSettings": {
     "autoRefresh": "",
     "autoRefreshIntervals": [
@@ -3691,12 +3105,12 @@
       "1d"
     ],
     "fiscalYearStartMonth": 0,
-    "from": "now-30m",
+    "from": "now-6h",
     "hideTimepicker": false,
     "timezone": "Europe/Moscow",
     "to": "now"
   },
-  "title": "Alligator ZooKeeper",
+  "title": "Alligator Memcached",
   "variables": [
     {
       "kind": "QueryVariable",
@@ -3706,7 +3120,7 @@
           "text": "srv1.example.com",
           "value": "srv1.example.com"
         },
-        "definition": "label_values(zk_avg_latency,host)",
+        "definition": "label_values(memcached_uptime_seconds,host)",
         "hide": "dontHide",
         "includeAll": false,
         "label": "host",
@@ -3718,7 +3132,7 @@
           "kind": "DataQuery",
           "spec": {
             "qryType": 1,
-            "query": "label_values(zk_avg_latency,host)",
+            "query": "label_values(memcached_uptime_seconds,host)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "version": "v0"
