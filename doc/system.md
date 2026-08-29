@@ -226,6 +226,56 @@ Do not run alligator-embedded DCGM and `dcgm-exporter` both watching the same GP
 
 Unsupported individual fields on a given GPU are omitted, same pattern as NVML.
 
+### Host setup
+
+**1. NVIDIA driver** — same stack as for CUDA/GPU compute. NVML comes from the driver (`libnvidia-ml.so.1`, often via `nvidia-driver-NVML` / driver meta-package). DCGM is **separate** from the driver.
+
+**2. Datacenter GPU Manager (DCGM)** — install the vendor package that ships `libdcgm.so` and the profiling plugin (not buildable from DCGM sources alone):
+
+| Distro | Package (typical) | Library path (check on host) |
+|--------|-------------------|------------------------------|
+| RHEL / Rocky / Alma | `datacenter-gpu-manager` | `/usr/lib64/libdcgm.so.3` or `.so.4` |
+| Ubuntu / Debian | `datacenter-gpu-manager` | `/usr/lib/x86_64-linux-gnu/libdcgm.so.*` |
+
+```bash
+# RHEL family
+dnf install datacenter-gpu-manager
+ls /usr/lib64/libdcgm.so*
+
+# Ubuntu
+apt install datacenter-gpu-manager
+ls /usr/lib/x86_64-linux-gnu/libdcgm.so*
+```
+
+Point `modules.dcgm` at the **real soname** on the host (`readlink -f …` if needed). Alligator does not search `LD_LIBRARY_PATH` for you.
+
+**3. Embedded mode** — alligator calls `dcgmStartEmbedded`; you do **not** need a standalone `nv-hostengine` service or `dcgm-exporter` for these metrics.
+
+**4. GPU SKU**
+
+| GPU class | Expected result |
+|-----------|-----------------|
+| Tesla / datacenter (V100, A100, …) | `dcgm_profiling_available 1`, SM/DRAM/PCIe ratios |
+| GeForce RTX 20/30/40 | identity + `dcgm_profiling_available 0` (no DCP) |
+| PCIe cards without NVLink | `dcgm_nvlink_*` absent or zero |
+
+Fields **1013–1015** (IMMA/HMMA/DFMA) are Ampere+; V100 logs `Feature not supported` for them — normal, 12/15 watches is OK.
+
+**5. Privileges** — profiling often needs **root** or `CAP_SYS_ADMIN` (same as `dcgm-exporter` in Docker). Identity fields may work without it; if `dcgm_profiling_available` stays `0` on Tesla, check permissions first.
+
+**6. Conflicts** — pause DCGM profiling while Nsight Compute / Nsight Systems hold the perf counters; stop `dcgm-exporter` / standalone hostengine if they watch the same GPUs.
+
+**7. Verify**
+
+```bash
+dcgmi modules -l          # Module 8 "Profiling" → Loaded (not Failed)
+curl -s localhost:1111/conf | jq '.modules.dcgm, .system.dcgm'
+curl -s localhost:1111 | grep -E 'dcgm_profiling_available|dcgm_sm_active'
+# logs: dcgm: profiling watches enabled (N/15 fields)
+```
+
+Reload alligator after changing `modules` / `system` config.
+
 ### Metrics
 
 Prefix `dcgm_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Profiling ratios are 0.0–1.0 (not percent).
@@ -247,8 +297,7 @@ Prefix `dcgm_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Profiling rat
 
 ### Notes
 
-- Needs NVIDIA **Datacenter GPU Manager** libraries on the host.
-- **GeForce RTX 20/30/40**: expect `dcgm_device_info` / `dcgm_gpu_count` and `dcgm_profiling_available 0`. Full `dcgm_*_ratio` needs datacenter / Quadro (or newer SKUs NVIDIA documents as DCP-capable).
+- Package: **`datacenter-gpu-manager`** (see [Host setup](#host-setup) above).
 - Profiling adds GPU overhead; field set is intentionally small.
 - Prefer `nvml` for VRAM/power/temp; use `dcgm` for SM/tensor/DRAM activity when available.
 

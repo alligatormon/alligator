@@ -249,9 +249,8 @@ static const unsigned short dcgm_prof_fields[] = {
 #define DCGM_PROF_FIELD_COUNT (sizeof(dcgm_prof_fields) / sizeof(dcgm_prof_fields[0]))
 #define DCGM_WATCH_FIELD_COUNT (DCGM_BASE_FIELD_COUNT + DCGM_PROF_FIELD_MAX)
 
-#if DCGM_PROF_FIELD_COUNT > DCGM_PROF_FIELD_MAX
-#error "dcgm_prof_fields[] exceeds DCGM_PROF_FIELD_MAX"
-#endif
+_Static_assert(DCGM_PROF_FIELD_COUNT <= DCGM_PROF_FIELD_MAX,
+	"dcgm_prof_fields[] exceeds DCGM_PROF_FIELD_MAX");
 
 static int dcgm_fp64_is_blank(double val)
 {
@@ -394,10 +393,11 @@ static void dcgm_shutdown_engine(dcgm_library *d)
 }
 
 static int dcgm_watch_field_group(dcgm_library *d, const unsigned short *src, unsigned int count,
-	const char *name, dcgmFieldGrp_t *out_grp)
+	const char *name, dcgmFieldGrp_t *out_grp, int optional)
 {
 	unsigned short fields[DCGM_WATCH_FIELD_COUNT];
 	dcgmFieldGrp_t grp = 0;
+	int err_level = optional ? L_DEBUG : L_ERROR;
 
 	if (count > DCGM_WATCH_FIELD_COUNT)
 		return -1;
@@ -405,7 +405,7 @@ static int dcgm_watch_field_group(dcgm_library *d, const unsigned short *src, un
 
 	dcgmReturn_t rc = d->dcgmFieldGroupCreate(d->handle, (int)count, fields, name, &grp);
 	if (rc != DCGM_ST_OK) {
-		carglog(ac->system_carg, L_ERROR, "dcgm: FieldGroupCreate(%s) failed: %s\n",
+		carglog(ac->system_carg, err_level, "dcgm: FieldGroupCreate(%s) failed: %s\n",
 			name, dcgm_err(d, rc));
 		return -1;
 	}
@@ -413,7 +413,7 @@ static int dcgm_watch_field_group(dcgm_library *d, const unsigned short *src, un
 	rc = d->dcgmWatchFields(d->handle, DCGM_GROUP_ALL_GPUS, grp,
 		DCGM_WATCH_UPDATE_USEC, DCGM_WATCH_MAX_KEEP_AGE, DCGM_WATCH_MAX_KEEP_SAMPLES);
 	if (rc != DCGM_ST_OK) {
-		carglog(ac->system_carg, L_ERROR, "dcgm: WatchFields(%s) failed: %s\n",
+		carglog(ac->system_carg, err_level, "dcgm: WatchFields(%s) failed: %s\n",
 			name, dcgm_err(d, rc));
 		d->dcgmFieldGroupDestroy(d->handle, grp);
 		return -1;
@@ -433,10 +433,8 @@ static void dcgm_setup_prof_watches(dcgm_library *d)
 		dcgmFieldGrp_t grp = 0;
 
 		snprintf(name, sizeof(name), "alligator_dcgm_prof_%u", (unsigned)field);
-		if (dcgm_watch_field_group(d, &field, 1, name, &grp) != 0) {
-			carglog(ac->system_carg, L_DEBUG, "dcgm: PROF field %u not watched\n", (unsigned)field);
+		if (dcgm_watch_field_group(d, &field, 1, name, &grp, 1) != 0)
 			continue;
-		}
 		d->prof_groups[d->prof_watch_count] = grp;
 		d->prof_fields[d->prof_watch_count] = field;
 		d->prof_watch_count++;
@@ -491,7 +489,7 @@ static int dcgm_ensure_ready(dcgm_library *d)
 
 	/* Base identity watches must succeed or DCGM is unusable. */
 	if (dcgm_watch_field_group(d, dcgm_base_fields, (unsigned int)DCGM_BASE_FIELD_COUNT,
-			"alligator_dcgm_base", &d->field_group_base)) {
+			"alligator_dcgm_base", &d->field_group_base, 0)) {
 		d->dcgmStopEmbedded(d->handle);
 		d->dcgmShutdown();
 		uv_dlclose(&d->lib);

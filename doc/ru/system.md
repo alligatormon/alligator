@@ -228,6 +228,51 @@ Alligator поднимает **embedded** DCGM host engine в manual mode, вс�
 
 Неподдерживаемые отдельные fields на конкретной GPU пропускаются, как у NVML.
 
+### Установка на хосте
+
+**1. Драйвер NVIDIA** — тот же стек, что для CUDA/GPU. NVML идёт из драйвера (`libnvidia-ml.so.1`). DCGM — **отдельный** пакет.
+
+**2. Datacenter GPU Manager** — ставится пакет с `libdcgm.so` и profiling plugin (из исходников DCGM profiling module не собрать):
+
+| Дистрибутив | Пакет | Путь к библиотеке (проверить на хосте) |
+|-------------|-------|----------------------------------------|
+| RHEL / Rocky / Alma | `datacenter-gpu-manager` | `/usr/lib64/libdcgm.so.3` или `.so.4` |
+| Ubuntu / Debian | `datacenter-gpu-manager` | `/usr/lib/x86_64-linux-gnu/libdcgm.so.*` |
+
+```bash
+dnf install datacenter-gpu-manager    # RHEL
+# apt install datacenter-gpu-manager  # Ubuntu
+ls /usr/lib64/libdcgm.so*             # или путь из таблицы
+```
+
+В `modules.dcgm` укажите **реальный soname** на хосте. Auto-search по `LD_LIBRARY_PATH` нет.
+
+**3. Embedded mode** — alligator вызывает `dcgmStartEmbedded`; отдельный `nv-hostengine` и `dcgm-exporter` **не нужны**.
+
+**4. GPU**
+
+| Класс | Ожидание |
+|-------|----------|
+| Tesla / datacenter (V100, A100, …) | `dcgm_profiling_available 1`, SM/DRAM/PCIe ratios |
+| GeForce RTX 20/30/40 | identity + `dcgm_profiling_available 0` |
+| PCIe без NVLink | `dcgm_nvlink_*` нулевые или отсутствуют |
+
+Fields **1013–1015** — Ampere+; на V100 `Feature not supported`, нормально иметь 12/15 watches.
+
+**5. Права** — profiling часто требует **root** или `CAP_SYS_ADMIN`. На Tesla при `dcgm_profiling_available 0` сначала проверьте права.
+
+**6. Конфликты** — Nsight / standalone hostengine / dcgm-exporter на тех же GPU.
+
+**7. Проверка**
+
+```bash
+dcgmi modules -l
+curl -s localhost:1111 | grep dcgm_profiling_available
+# в логах: dcgm: profiling watches enabled (N/15 fields)
+```
+
+После смены config — reload alligator.
+
 ### Метрики
 
 Префикс `dcgm_`. Labels на per-GPU series: `name`, `uuid`, `serial`, `index`. Profiling ratios — 0.0–1.0 (не проценты).
@@ -249,10 +294,9 @@ Alligator поднимает **embedded** DCGM host engine в manual mode, вс�
 
 ### Заметки
 
-- Нужны библиотеки NVIDIA **Datacenter GPU Manager**.
-- **GeForce RTX 20/30/40**: ожидайте `dcgm_device_info` / `dcgm_gpu_count` и `dcgm_profiling_available 0`. Полные `dcgm_*_ratio` — на datacenter / Quadro (или SKU, которые NVIDIA документирует как DCP-capable).
-- Profiling даёт overhead на GPU; набор fields специально небольшой.
-- Для VRAM/power/temp предпочитайте `nvml`; для SM/tensor/DRAM activity — `dcgm`, когда доступен.
+- Пакет: **`datacenter-gpu-manager`** (см. [Установка на хосте](#установка-на-хосте)).
+- Profiling даёт overhead; набор fields небольшой.
+- VRAM/power/temp — `nvml`; SM/tensor/DRAM activity — `dcgm`, когда доступен.
 
 
 ## firewall
