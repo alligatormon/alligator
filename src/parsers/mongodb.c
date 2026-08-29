@@ -158,6 +158,8 @@ static void mongodb_query_foreach_cb(void *funcarg, void *arg)
 	query_node *qn = arg;
 	if (!mongodb_foreach_ctx || !qn)
 		return;
+	if (query_except_match(qn, mongodb_foreach_ctx->dbname))
+		return;
 	mongodb_foreach_ctx->qn = qn;
 	mongodb_run_query(mongodb_foreach_ctx, qn->expr);
 }
@@ -220,6 +222,16 @@ static void mongodb_run_single(context_arg *carg)
 		carglog(carg, L_INFO, "mongodb listDatabases ok: count=%"u64"\n", (uint64_t)db_count);
 
 		for (size_t i = 0; i < db_count; i++) {
+			char ds[1024];
+			snprintf(ds, sizeof(ds), "%s/*", carg->name);
+			query_ds *wild = query_get(ds);
+			snprintf(ds, sizeof(ds), "%s/%s", carg->name, dbs[i]);
+			query_ds *specific = query_get(ds);
+			if (query_ds_except_db(wild, dbs[i]) && !specific) {
+				carglog(carg, L_DEBUG, "mongodb skip excepted database '%s'\n", dbs[i]);
+				continue;
+			}
+
 			cols = NULL;
 			coll_count = 0;
 			if (!mongodb_wire_list_collections(client, dbs[i], &cols, &coll_count, err, sizeof(err))) {

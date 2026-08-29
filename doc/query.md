@@ -58,6 +58,44 @@ When the database have internal namespaces (e.g., databases in a Relational DB),
 Used to select the column in SQL responses. The column name will be used as the metric name and column values as the metric values.
 
 
+## except
+Skips databases by name when `datasource` is a wildcard (`pg/*`, `mysql/*`, and similar). Bare names are exact matches (hashtable). Tokens wrapped in `/…/` are PCRE (same convention as `system { process …; }`), unanchored unless the pattern includes `^`/`$`. Empty `except` skips nothing. Matching uses the database (or keyspace) name, not the full datasource key. System databases such as `template0` are not skipped unless listed.
+
+If several query blocks share the same wildcard datasource with different `except` lists, a database is skipped only for the queries that match it. A per-database connection is skipped only when every query on that datasource excepts the database.
+
+```
+query {
+    expr "
+        WITH s AS (
+            SELECT *
+            FROM pg_stat_statements(false)
+            WHERE calls > 0
+              AND dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+        ),
+        topq AS (
+            SELECT queryid
+            FROM s
+            ORDER BY total_exec_time DESC
+            LIMIT 50
+        )
+        SELECT
+            current_database() AS psql_database,
+            s.queryid::text AS psql_queryid,
+            round(sum(s.total_exec_time)::numeric, 3)::double precision AS postgresql_pgss_top_total_ms
+        FROM s
+        JOIN topq t USING (queryid)
+        GROUP BY 1, 2;
+    ";
+    field postgresql_pgss_top_total_ms;
+    datasource pg/*;
+    except db1 db2 /db[0-9]/;
+    make postgresql_pgss_top_total_ms;
+}
+```
+
+JSON form: `"except": ["db1", "db2", "/db[0-9]/"]`.
+
+
 ## Examples
 
 ### Internal Alligator queries

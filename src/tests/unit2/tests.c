@@ -2608,6 +2608,7 @@ static void run_helpers_and_events_suites(void)
     test_match_rules_hash_paths();
     test_http_common_helpers();
     test_match_rules_regex_paths();
+    test_query_except_parse_match_dump();
     test_config_hashfunc_serialization();
     test_config_system_serialization_paths();
     test_env_struct_helper_paths();

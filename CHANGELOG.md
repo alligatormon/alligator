@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Query `except` skips databases by exact name or `/regex/` when `datasource` is a wildcard (`pg/*`).
 - Memcached parser (breaking): STAT fields are no longer all flat gauges. Metrics are renamed/grouped with correct types — e.g. `memcached_commands_total{command,status}`, `memcached_read_bytes_total` / `memcached_written_bytes_total`, `memcached_current_*` gauges, `memcached_uptime_seconds` counter. Aligns with prometheus/memcached_exporter semantics (`cmd_set` minus CAS).
 - NATS parser: stop dumping every JSON field as a metric. String fields (`tls_version`, `lang`, `uptime`, …) are no longer gauges with value `1`; `/connz` exports aggregates only (no per-`cid` series); `http_req_stats` uses `nats_varz_http_req_stats{endpoint=…}`. Identity strings use `{value="…"} 1`.
 - `json_query`: fields listed in `pquery` `[…]` label blocks are labels only and are not emitted as separate series.

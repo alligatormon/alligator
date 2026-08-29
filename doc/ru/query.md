@@ -60,6 +60,44 @@ query {
 Используется для выбора столбца в SQL-ответах. Имя столбца будет использовано как имя метрики, а значения столбца — как значения метрики.
 
 
+## except
+Пропускает базы по имени, когда `datasource` — wildcard (`pg/*`, `mysql/*` и аналоги). Имена без обёртки — точное совпадение (hashtable). Токены в `/…/` — PCRE (то же соглашение, что `system { process …; }`), без якоря, если в шаблоне нет `^`/`$`. Пустой `except` ничего не пропускает. Сопоставление идёт по имени базы (или keyspace), не по полному ключу datasource. Системные базы вроде `template0` не пропускаются, пока их не укажут явно.
+
+Если несколько блоков query делят один wildcard datasource с разными списками `except`, база пропускается только для тех query, которые её исключают. Подключение к базе не создаётся, только если все query этого datasource её except'ят.
+
+```
+query {
+    expr "
+        WITH s AS (
+            SELECT *
+            FROM pg_stat_statements(false)
+            WHERE calls > 0
+              AND dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+        ),
+        topq AS (
+            SELECT queryid
+            FROM s
+            ORDER BY total_exec_time DESC
+            LIMIT 50
+        )
+        SELECT
+            current_database() AS psql_database,
+            s.queryid::text AS psql_queryid,
+            round(sum(s.total_exec_time)::numeric, 3)::double precision AS postgresql_pgss_top_total_ms
+        FROM s
+        JOIN topq t USING (queryid)
+        GROUP BY 1, 2;
+    ";
+    field postgresql_pgss_top_total_ms;
+    datasource pg/*;
+    except db1 db2 /db[0-9]/;
+    make postgresql_pgss_top_total_ms;
+}
+```
+
+Форма JSON: `"except": ["db1", "db2", "/db[0-9]/"]`.
+
+
 ## Примеры
 
 ### Internal query Alligator

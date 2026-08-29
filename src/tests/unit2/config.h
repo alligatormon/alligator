@@ -3981,6 +3981,95 @@ void test_match_rules_regex_paths()
     match_free(mr);
 }
 
+void test_query_except_parse_match_dump()
+{
+    const char *conf =
+        "query {\n"
+        "    expr SELECT 1;\n"
+        "    field postgresql_pgss_top_total_ms;\n"
+        "    datasource pg/*;\n"
+        "    except db1 db2 /db[0-9]/;\n"
+        "    make postgresql_pgss_top_total_ms;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *query = json_object_get(root, "query");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, query);
+    json_t *q0 = json_array_get(query, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, q0);
+    json_t *except = json_object_get(q0, "except");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, except);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, json_array_size(except));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "db1", json_string_value(json_array_get(except, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "db2", json_string_value(json_array_get(except, 1)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/db[0-9]/", json_string_value(json_array_get(except, 2)));
+    json_decref(root);
+
+    query_node empty_qn = {0};
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match(&empty_qn, "db1"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match(NULL, "db1"));
+
+    if (!ac->query)
+        ac->query = alligator_ht_init(NULL);
+
+    json_t *jpush = json_object();
+    json_object_set_new(jpush, "make", json_string("ut_except_q"));
+    json_object_set_new(jpush, "expr", json_string("SELECT 1"));
+    json_object_set_new(jpush, "datasource", json_string("ut_pg/*"));
+    json_t *jex = json_array();
+    json_array_append_new(jex, json_string("db1"));
+    json_array_append_new(jex, json_string("db2"));
+    json_array_append_new(jex, json_string("/db[0-9]/"));
+    json_object_set_new(jpush, "except", jex);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_push(jpush));
+    json_decref(jpush);
+
+    query_ds *qds = query_get("ut_pg/*");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qds);
+    query_node *qn = query_get_node(qds, "ut_except_q");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_except_match(qn, "db1"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_except_match(qn, "db2"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_except_match(qn, "db7"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match(qn, "app"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_ds_except_db(qds, "db1"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_ds_except_db(qds, "app"));
+
+    json_t *dst = json_object();
+    query_node_generate_conf(dst, qn);
+    json_t *dumped = json_object_get(dst, "query");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dumped);
+    json_t *d0 = json_array_get(dumped, 0);
+    json_t *dexcept = json_object_get(d0, "except");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dexcept);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(dexcept) >= 3);
+    int saw_db1 = 0, saw_db2 = 0, saw_re = 0;
+    size_t n = json_array_size(dexcept);
+    for (size_t i = 0; i < n; i++) {
+        const char *item = json_string_value(json_array_get(dexcept, i));
+        if (item && !strcmp(item, "db1"))
+            saw_db1 = 1;
+        if (item && !strcmp(item, "db2"))
+            saw_db2 = 1;
+        if (item && item[0] == '/')
+            saw_re = 1;
+    }
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_db1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_db2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_re);
+    json_decref(dst);
+}
+
 void test_config_tls_revocation_keys()
 {
     const char *conf =

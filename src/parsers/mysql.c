@@ -211,6 +211,11 @@ void mysql_queries_foreach(void *funcarg, void* arg)
 	carglog(carg, L_INFO, "mysql_queries_foreach\n");
 
 	query_node *qn = arg;
+	if (query_except_match(qn, carg->ns))
+	{
+		carglog(carg, L_DEBUG, "mysql: skip query datasource '%s', make '%s': except database '%s'\n", qn->datasource, qn->make, carg->ns ? carg->ns : "");
+		return;
+	}
 	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	mysql_run_single_query_await(carg, qn);
 }   
@@ -235,6 +240,19 @@ void mysql_run_all_await(context_arg *carg)
 	for (uint64_t i = 0; i < dbl.count; ++i) {
 		const char *dbname = dbl.dbs[i];
 
+		char name[1024];
+		snprintf(name, sizeof(name), "%s/*", carg->name);
+		query_ds *qds_wild = query_get(name);
+		query_ds *qds_spec = NULL;
+		if (carg->name) {
+			snprintf(name, sizeof(name), "%s/%s", carg->name, dbname);
+			qds_spec = query_get(name);
+		}
+		if (query_ds_except_db(qds_wild, dbname) && !qds_spec) {
+			carglog(carg, L_DEBUG, "mysql: '%s' skip excepted database '%s'\n", carg->host, dbname);
+			continue;
+		}
+
 		/* USE db */
 		char use_query[256];
 		snprintf(use_query, sizeof(use_query), "USE `%s`", dbname);
@@ -242,7 +260,6 @@ void mysql_run_all_await(context_arg *carg)
 
 		context_arg db_carg = *carg;
 		char url[1024];
-		char name[1024];
 		char ns[256];
 
 		db_carg.url = url;

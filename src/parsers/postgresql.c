@@ -438,6 +438,12 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 				snprintf(dbcargname, resultnamelen - 1, "%s/*", carg->name);
 				if (wildcard)
 				{
+					query_ds *qds_wild = query_get(namefind);
+					if (query_ds_except_db(qds_wild, resp))
+					{
+						carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"skip excepted database\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
+						continue;
+					}
 					context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
 					carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run wildcard queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
 
@@ -507,6 +513,11 @@ void postgresql_queries_foreach(void *funcarg, void* arg)
 	pg_data *data = carg->data;
 
 	query_node *qn = arg;
+	if (query_except_match(qn, carg->ns))
+	{
+		carglog(carg, L_DEBUG, "skip query datasource '%s', make '%s': except database '%s'\n", qn->datasource, qn->make, carg->ns ? carg->ns : "");
+		return;
+	}
 	carglog(carg, L_DEBUG, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	postgresql_query_init(data->conn, qn->expr, qn, carg, postgresql_write, "database");
 }

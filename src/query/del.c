@@ -39,6 +39,8 @@ void query_node_del(query_node *qn)
 		}
 		free(qn->pquery);
 	}
+	if (qn->except)
+		match_free(qn->except);
 	free(qn);
 }
 

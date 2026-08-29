@@ -745,6 +745,16 @@ void query_node_generate_pquery_conf(void *funcarg, void* arg)
 	json_array_object_insert(pquery, NULL, spquery);
 }
 
+void query_node_generate_except_hash_conf(void *funcarg, void* arg)
+{
+	json_t *except = funcarg;
+	match_string *ms = arg;
+	if (!ms || !ms->s)
+		return;
+
+	json_array_object_insert(except, NULL, json_string(ms->s));
+}
+
 void query_node_generate_conf(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -807,6 +817,25 @@ void query_node_generate_conf(void *funcarg, void* arg)
 			query_node_generate_pquery_conf(pquery, qn->pquery[i]);
 		}
 		json_array_object_insert(ctx, "jpath", pquery);
+	}
+
+	if (qn->except)
+	{
+		json_t *except = json_array();
+		if (qn->except->hash)
+			alligator_ht_foreach_arg(qn->except->hash, query_node_generate_except_hash_conf, except);
+		regex_list *node = qn->except->head;
+		while (node)
+		{
+			if (node->name)
+			{
+				char wrapped[512];
+				snprintf(wrapped, sizeof(wrapped), "/%s/", node->name);
+				json_array_object_insert(except, NULL, json_string(wrapped));
+			}
+			node = node->next;
+		}
+		json_array_object_insert(ctx, "except", except);
 	}
 }
 

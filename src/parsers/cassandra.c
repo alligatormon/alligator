@@ -297,6 +297,8 @@ static void cassandra_run_single_query(context_arg *carg, query_node *qn) {
 void cassandra_queries_foreach(void *funcarg, void* arg) {
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
+	if (query_except_match(qn, carg->ns))
+		return;
 	cassandra_run_single_query(carg, qn);
 }
 
@@ -312,11 +314,18 @@ void cassandra_run_all_await(context_arg *carg) {
 
 	for (uint64_t i = 0; i < dbl.count; ++i) {
 		const char *dbname = dbl.dbs[i];
+		char name[1024];
+		snprintf(name, sizeof(name), "%s/*", carg->name);
+		query_ds *qds_wild = query_get(name);
+		snprintf(name, sizeof(name), "%s/%s", carg->name, dbname);
+		query_ds *qds_spec = query_get(name);
+		if (query_ds_except_db(qds_wild, dbname) && !qds_spec)
+			continue;
+
 		if (!cassandra2_use_keyspace(cassandra_conn_from_carg(carg), dbname))
 			continue;
 
 		context_arg db_carg = *carg;
-		char name[1024];
 		char ns[256];
 		db_carg.name = name;
 		db_carg.ns = ns;

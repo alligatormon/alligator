@@ -33,6 +33,7 @@ int query_push(json_t *query) {
 
 	json_t *jfield = json_object_get(query, "field");
 	json_t *jpquery = json_object_get(query, "jpath");
+	json_t *jexcept = json_object_get(query, "except");
 
 	query_node *qn = calloc(1, sizeof(*qn));
 
@@ -45,6 +46,29 @@ int query_push(json_t *query) {
 	if (ns)
 		qn->ns = strdup(ns);
 	qn->qf_hash = qf_hash;
+
+	if (jexcept) {
+		qn->except = calloc(1, sizeof(*qn->except));
+		qn->except->hash = alligator_ht_init(NULL);
+		if (json_is_array(jexcept)) {
+			size_t n = json_array_size(jexcept);
+			for (size_t i = 0; i < n; i++) {
+				json_t *jitem = json_array_get(jexcept, i);
+				const char *item = json_string_value(jitem);
+				if (item)
+					match_push(qn->except, (char *)item, strlen(item));
+			}
+		}
+		else if (json_is_string(jexcept)) {
+			const char *item = json_string_value(jexcept);
+			if (item)
+				match_push(qn->except, (char *)item, strlen(item));
+		}
+		if (!alligator_ht_count(qn->except->hash) && !qn->except->head) {
+			match_free(qn->except);
+			qn->except = NULL;
+		}
+	}
 
 	if (jpquery) {
 		if (json_is_array(jpquery)) {

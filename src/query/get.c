@@ -1,5 +1,6 @@
 #include "query/type.h"
 #include "main.h"
+#include <string.h>
 
 int query_compare(const void* arg, const void* obj)
 {
@@ -64,4 +65,42 @@ alligator_ht* query_get_field(json_t *jfield)
 query_field* query_field_get(alligator_ht *qf_hash, char *key)
 {
 	return alligator_ht_search(qf_hash, query_field_compare, key, tommy_strhash_u32(0, key));
+}
+
+int query_except_match(query_node *qn, const char *name)
+{
+	if (!qn || !qn->except || !name)
+		return 0;
+	if (!qn->except->hash)
+		return 0;
+	if (!alligator_ht_count(qn->except->hash) && !qn->except->head)
+		return 0;
+
+	return match_mapper(qn->except, (char *)name, strlen(name), (char *)name) == 1;
+}
+
+typedef struct query_except_scan
+{
+	const char *name;
+	int any_run;
+} query_except_scan;
+
+static void query_ds_except_scan(void *funcarg, void *arg)
+{
+	query_except_scan *s = funcarg;
+	query_node *qn = arg;
+	if (!query_except_match(qn, s->name))
+		s->any_run = 1;
+}
+
+int query_ds_except_db(query_ds *qds, const char *dbname)
+{
+	if (!qds || !qds->hash || !dbname)
+		return 0;
+	if (!alligator_ht_count(qds->hash))
+		return 0;
+
+	query_except_scan s = { .name = dbname, .any_run = 0 };
+	alligator_ht_foreach_arg(qds->hash, query_ds_except_scan, &s);
+	return !s.any_run;
 }
