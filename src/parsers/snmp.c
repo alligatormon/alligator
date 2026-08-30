@@ -2281,7 +2281,7 @@ void snmp_handler(char *metrics, size_t size, context_arg *carg)
 		snmp_metric_family_set(carg, "snmp_error");
 		metric_add_labels2("snmp_error", &es, DATATYPE_DOUBLE, carg, "status", "error_status", "index",
 				   "0");
-		carglog(carg, L_INFO, "snmp: agent error_status=%" PRId64 "\n", vb.errstat);
+		carglog(carg, L_WARN, "snmp: agent error_status=%" PRId64 "\n", vb.errstat);
 		goto done;
 	}
 

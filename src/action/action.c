@@ -40,7 +40,7 @@ static size_t action_http_query_size_with_body(char *http_data, size_t body_size
 
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type)
 {
-	glog(L_INFO, "an %p: qs %p: qs->key %s, count: %"u64"\n", an, qs, qs->key, qs->count);
+	glog(L_DEBUG, "an %p: qs %p: qs->key %s, count: %"u64"\n", an, qs, qs->key, qs->count);
 	if (!an)
 		return;
 
@@ -53,7 +53,7 @@ void action_query_foreach_process(query_struct *qs, action_node *an, void *val, 
 	context_arg *current_carg = calloc(1, sizeof(*current_carg));
 	current_carg->namespace = ns->key;
 
-	glog(L_INFO, "insert metric name %s, namespace %s\n", qs->metric_name, key);
+	glog(L_DEBUG, "insert metric name %s, namespace %s\n", qs->metric_name, key);
 	alligator_ht *duplabels = labels_dup(qs->lbl);
 	metric_add(qs->metric_name, duplabels, val, type, current_carg);
 	free(current_carg);

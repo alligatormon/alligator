@@ -13,12 +13,14 @@
 | `glog(priority, fmt, …)` | Глобально / без `context_arg` (старт, парсер конфигурации, модули без carg) |
 | `carglog(carg, priority, fmt, …)` | Всё, где есть `context_arg *` (aggregates, entrypoints, probes, parsers) |
 | `carg_or_glog(carg, priority, fmt, …)` | Null-safe: ведёт себя как `carglog`, если `carg` задан, иначе как `glog` |
-| `langlog(lo, priority, fmt, …)` | Только модуль Lang |
-| `cslog(priority, fmt, …)` | Только модуль Chrome CDP |
+| `langlog(lo, priority, fmt, …)` | Только модуль Lang (`lo->log_level`); default channel, без префикса `[key]` |
+| `cslog(priority, fmt, …)` | Только модуль Chrome CDP (`chromecdp` log_level); default channel, без префикса `[key]` |
 
 Отправка пользовательских/преобразованных данных отделена: `carglog_raw`, `carg_emit_log`, `carg_emit_log_document` (см. configuration.md). Не используйте их для диагностики.
 
 Фильтрация: сообщение выводится, когда настроенный `level >= priority`. Для контекста `carg->log_level == 0` означает наследование глобального `ac->log_level`.
+
+`langlog` и `cslog` фильтруют по `log_level` своего модуля, но всегда пишут в default channel (без `carg->log_ch` и без префикса `[key]`). Логи Chrome CDP удобно отфильтровать по префиксу `chromecdp:` в тексте сообщения.
 
 ## Уровни (`L_*`)
 

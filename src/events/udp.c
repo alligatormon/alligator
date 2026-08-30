@@ -106,7 +106,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 {
 	context_arg *carg = req->data;
 	carg->read_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": udp read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	/* Entrypoint server: parse datagram and keep listening. */
 	if (req == &carg->udp_server) {
@@ -190,7 +190,7 @@ void udp_timeout_timer(uv_timer_t *timer)
 		return;
 
 	r_time timeout_now = setrtime();
-	carglog(carg, L_INFO, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	udp_close_client(carg, NULL);
@@ -202,7 +202,7 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
 	}
 	carg->write_time_finish = setrtime();
-	carglog(carg, L_INFO, "%"u64": udp sent %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp sent %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	req->handle->data = req->data;
 
@@ -412,7 +412,7 @@ void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	carglog(carg, L_INFO, "%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock)
 		return;

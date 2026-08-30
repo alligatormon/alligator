@@ -85,7 +85,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		http_version = 20;
 	else
 	{
-		glog(L_TRACE, "1DO NOT HTTP RESPONSE: %s\n", http);
+		glog(L_TRACE, "not an HTTP response (bad version): %s\n", http);
 		return NULL;
 	}
 
@@ -96,7 +96,7 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	http_code = atoi(cur);
 	if (!http_code || http_code > 599)
 	{
-		glog(L_TRACE, "2DO NOT HTTP RESPONSE: %s\n", http);
+		glog(L_TRACE, "not an HTTP response (bad status code): %s\n", http);
 		return NULL;
 	}
 

@@ -32,7 +32,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 			strlcpy(metric_name+6, tmp, metric_copy + 1);
 			metric_name_normalizer(metric_name, metric_copy);
 
-			carglog(carg, L_INFO, "httpd metric_name '%s'\n", metric_name);
+			carglog(carg, L_DEBUG, "httpd metric_name '%s'\n", metric_name);
 
 			tmp += sz;
 			tmp += strcspn(tmp, " \t");
@@ -47,7 +47,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 				namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache HTTPD mod_status field exported from ?auto.");
 				metric_add_auto(metric_name, &dval, DATATYPE_DOUBLE, carg);
 
-				carglog(carg, L_INFO, "httpd dval %lf\n", dval);
+				carglog(carg, L_DEBUG, "httpd dval %lf\n", dval);
 			}
 			else
 			{
@@ -55,7 +55,7 @@ void httpd_status_handler(char *metrics, size_t size, context_arg *carg)
 				namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache HTTPD mod_status field exported from ?auto.");
 				metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 
-				carglog(carg, L_INFO, "httpd val %"u64"\n", val);
+				carglog(carg, L_DEBUG, "httpd val %"u64"\n", val);
 			}
 		}
 

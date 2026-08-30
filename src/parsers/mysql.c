@@ -208,7 +208,7 @@ static void mysql_run_single_query_await(context_arg *carg, query_node *qn)
 void mysql_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
-	carglog(carg, L_INFO, "mysql_queries_foreach\n");
+	carglog(carg, L_DEBUG, "mysql_queries_foreach\n");
 
 	query_node *qn = arg;
 	if (query_except_match(qn, carg->ns))
@@ -216,7 +216,7 @@ void mysql_queries_foreach(void *funcarg, void* arg)
 		carglog(carg, L_DEBUG, "mysql: skip query datasource '%s', make '%s': except database '%s'\n", qn->datasource, qn->make, carg->ns ? carg->ns : "");
 		return;
 	}
-	carglog(carg, L_INFO, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	carglog(carg, L_DEBUG, "+-+-+-+-+-+-+-+\ninit query datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	mysql_run_single_query_await(carg, qn);
 }   
 

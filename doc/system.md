@@ -39,6 +39,13 @@ system {
 ## base
 Enables monitoring of the base OS and hardware resources, including CPU, memory, and temperatures of the baseboard and components. OS resources such as loadavg, openfiles, interrupts, and context switches are also included.
 
+When the kernel exposes PSI (`/proc/pressure/*`, Linux 4.20+), Alligator exports:
+
+- `pressure_waiting_seconds_total{resource="cpu|memory|io"}` — cumulative **some** stall time (counter)
+- `pressure_stalled_seconds_total{resource="cpu|memory|io"}` — cumulative **full** stall time (counter)
+
+CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core`.
+
 `load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
 
 Metric naming notes:
@@ -54,6 +61,17 @@ Enables monitoring disk metrics, including the filesystem stats and I/O block de
 
 ## network
 Enables the monitoring of the network interfaces and sockets statistics.
+
+From `/proc/net/softnet_stat` (when present):
+
+- `softnet_processed_total{cpu}`
+- `softnet_dropped_total{cpu}`
+- `softnet_times_squeezed_total{cpu}`
+
+From `/proc/net/sockstat`:
+
+- `sockstat_sockets_used`
+- `sockstat_stat_total{protocol,stat}` — e.g. `protocol="TCP", stat="inuse|orphan|tw|alloc|mem"`
 
 `if_stat`, `if_speed`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted.
 

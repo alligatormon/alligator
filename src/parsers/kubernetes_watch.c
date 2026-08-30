@@ -160,7 +160,7 @@ static void kubernetes_watch_close_cb(context_arg *carg)
 	if (st->pending)
 		string_null(st->pending);
 
-	carglog(carg, L_INFO, "kubernetes watch: connection closed, reconnecting (resourceVersion=%s)\n",
+	carglog(carg, L_WARN, "kubernetes watch: connection closed, reconnecting (resourceVersion=%s)\n",
 		st->resource_version ? st->resource_version : "");
 
 	if (!st->reconnect_timer)

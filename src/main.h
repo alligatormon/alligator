@@ -48,6 +48,11 @@ typedef struct system_cpu_cores_stats
 	uint64_t system;
 	uint64_t idle;
 	uint64_t iowait;
+	uint64_t irq;
+	uint64_t softirq;
+	uint64_t steal;
+	uint64_t guest;
+	uint64_t guest_nice;
 	uint64_t total;
 } system_cpu_cores_stats;
 

@@ -150,7 +150,7 @@ void druid_queries_foreach(void *funcarg, void* arg)
 {
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
-	carglog(carg, L_INFO, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	carglog(carg, L_DEBUG, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 	char *key = malloc(255);
 	snprintf(key, 255, "(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->make);
 
@@ -183,7 +183,7 @@ void druid_status_health_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_DEBUG, "found queries for datasource: %s\n", carg->name);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, druid_queries_foreach, carg);

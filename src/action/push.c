@@ -227,14 +227,14 @@ void action_push(json_t *action)
 		}
 		else
 		{
-			glog(L_ERROR, "action %s error: unknown serializator '%s', use openmetrics by default\n", name, srlz);
+			glog(L_ERROR, "action %s error: unknown serializer '%s', use openmetrics by default\n", name, srlz);
 		}
 	}
 
 	an->name = strdup(name);
 	//an->datasource = strdup(datasource);
 
-	glog(L_INFO, "create action node %p name '%s', expr '%s'\n", (void *)an, an->name, an->expr ? an->expr : "");
+	glog(L_DEBUG, "create action node name '%s', expr '%s'\n", an->name, an->expr ? an->expr : "");
 
 	alligator_ht_insert(ac->action, &(an->node), an, tommy_strhash_u32(0, an->name));
 }

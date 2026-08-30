@@ -179,7 +179,7 @@ void tcp_client_shutdown(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
 	carg->shutdown_time_finish = setrtime();
-	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->shutdown_time_finish), carglog_elapsed_sec(carg, carg->shutdown_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] tcp client shut down %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->shutdown_time_finish), carglog_elapsed_sec(carg, carg->shutdown_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 
 	tcp_client_close((uv_handle_t *)&carg->client);

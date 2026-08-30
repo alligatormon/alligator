@@ -71,7 +71,7 @@ static void process_log_body_snapshot(context_arg *carg, const char *stage)
 	size_t body_cap = (carg && carg->full_body) ? carg->full_body->m : 0;
 	size_t lines = (carg && carg->full_body) ? process_body_line_count(carg->full_body->s, body_len) : 0;
 
-	carglog(carg, L_INFO,
+	carglog(carg, L_DEBUG,
 		"process %s key=%s parser=%s pid=%d reads=%" PRIu64 " body=%zu/%zu lines=%zu parsed=%d exit_parsed=%d body_at_exit=%zu\n",
 		stage,
 		carg && carg->key ? carg->key : "-",
@@ -88,7 +88,7 @@ static void process_log_body_snapshot(context_arg *carg, const char *stage)
 
 static void process_finalize(context_arg *carg)
 {
-	carglog(carg, L_INFO, "run process finalize %p with cmd %s\n", carg, carg->host);
+	carglog(carg, L_DEBUG, "run process finalize with cmd %s\n", carg->host);
 
 	if (carg->context_ttl)
 	{
@@ -236,7 +236,7 @@ void echo_read(uv_stream_t *server, ssize_t nread, const uv_buf_t* buf)
 
 	if (nread == UV_EOF)
 	{
-		carglog(carg, L_INFO,
+		carglog(carg, L_DEBUG,
 			"process lifecycle stop key=%s parser=%s pid=%d reason=stdout_eof wait_ms=%" PRIu64 " reads=%" PRIu64 " body=%zu\n",
 			carg->key ? carg->key : "-",
 			process_parser_name(carg),
@@ -289,7 +289,6 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	context_arg *carg = req->data;
 	const char *exit_reason = term_signal ? "signal" : "status";
 
-	carglog(carg, L_INFO, "Process %p with pid %d with cmd %s exited with status %" PRId64 ", signal %d\n", req, req->pid, carg->host, exit_status, term_signal);
 	carglog(carg, L_INFO,
 		"process lifecycle exit key=%s parser=%s pid=%d reason=%s wait_ms=%" PRIu64 " timeouts=%" PRIu64 " status=%" PRId64 " signal=%d parsed=%d\n",
 		carg->key ? carg->key : "-",
@@ -307,7 +306,7 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 	if (!carg->parsed && carg->full_body && carg->full_body->l && carg->parser_handler)
 		alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 	else
-		carglog(carg, L_INFO, "process exit parse skipped key=%s parser=%s (already parsed)\n",
+		carglog(carg, L_DEBUG, "process exit parse skipped key=%s parser=%s (already parsed)\n",
 			carg->key ? carg->key : "-", process_parser_name(carg));
 	carg->process_exit_parsed = 1;
 	process_log_body_snapshot(carg, "exit parse after");
@@ -465,7 +464,7 @@ static void process_stdin_write_cb(uv_write_t *req, int status)
 	/* /bin/sh -s waits for EOF on stdin; close pipe after script write. */
 	if (!uv_is_closing((uv_handle_t *)&carg->child_stdin))
 	{
-		carglog(carg, L_INFO,
+		carglog(carg, L_DEBUG,
 			"process lifecycle stop key=%s parser=%s pid=%d reason=stdin_eof_sent wait_ms=%" PRIu64 "\n",
 			carg->key ? carg->key : "-",
 			process_parser_name(carg),
@@ -502,7 +501,7 @@ char* process_client(context_arg *carg)
 {
 	if (!carg)
 	{
-		carglog(carg, L_INFO, "exec is empty\n");
+		carglog(carg, L_WARN, "exec is empty\n");
 		return NULL;
 	}
 
@@ -512,7 +511,7 @@ char* process_client(context_arg *carg)
 		return NULL;
 	}
 
-	carglog(carg, L_INFO, "exec command via %s -s: '%s'\n", process_shell_path(), carg->host);
+	carglog(carg, L_DEBUG, "exec command via %s -s: '%s'\n", process_shell_path(), carg->host);
 	carglog(carg, L_DEBUG, "exec script %zu bytes\n'%.*s'\n",
 		carg->exec_script_len,
 		(int)(carg->exec_script_len > 4096 ? 4096 : carg->exec_script_len),

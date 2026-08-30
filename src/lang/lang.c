@@ -52,7 +52,7 @@ void lang_crawl(void* arg, string *data, string *parser_data, string *response)
 		query_ds *qds = query_get(lo->carg->name);
 		if (qds) {
 			json_t *dst = json_object();
-			carglog(lo->carg, L_INFO, "found queries for datasource: %s: %p\n", lo->carg->name, qds);
+			carglog(lo->carg, L_DEBUG, "found queries for datasource: %s: %p\n", lo->carg->name, qds);
 			if (qds)
 			{
 				alligator_ht_foreach_arg(qds->hash, query_node_generate_conf, dst);

@@ -343,7 +343,7 @@ void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg)
 		json_int_t linesOk = json_is_integer(jlinesOk) ? json_integer_value(jlinesOk) : 0;
 		json_int_t linesInvalid = json_is_integer(jlinesInvalid) ? json_integer_value(jlinesInvalid) : 0;
 
-		carglog(carg, L_INFO, "dynatrace metrics ingest: linesOk=%" JSON_INTEGER_FORMAT ", linesInvalid=%" JSON_INTEGER_FORMAT "\n", linesOk, linesInvalid);
+		carglog(carg, L_DEBUG, "dynatrace metrics ingest: linesOk=%" JSON_INTEGER_FORMAT ", linesInvalid=%" JSON_INTEGER_FORMAT "\n", linesOk, linesInvalid);
 
 		json_t *jmetricErr = json_object_get(root, "error");
 		if (jmetricErr && json_is_object(jmetricErr))

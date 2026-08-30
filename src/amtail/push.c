@@ -99,7 +99,7 @@ int amtail_push(json_t *amtail)
         return 1;
     }
 
-    glog(L_INFO, "amtail_push: compiled '%s', result %p\n", name, (void *)bytecode);
+    glog(L_DEBUG, "amtail_push: compiled '%s'\n", name);
 	string_free(script_src);
 	if (!bytecode)
 	{

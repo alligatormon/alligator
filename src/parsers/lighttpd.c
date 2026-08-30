@@ -56,7 +56,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		strlcpy(module, tmp, module_copy + 1);
 		labels_hash_insert_nocache(lbl, "module", module);
 
-		carglog(carg, L_INFO, "lighttpd module: '%s', %p, %"u64"\n", module, tmp, sz);
+		carglog(carg, L_DEBUG, "lighttpd module: '%s' (len %"u64")\n", module, sz);
 
 		tmp += sz;
 		int is_requests = 0;
@@ -68,7 +68,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 			size_t type_copy = sz < (sizeof(type) - 1) ? sz : (sizeof(type) - 1);
 			strlcpy(type, tmp, type_copy + 1);
 
-			carglog(carg, L_INFO, "lighttpd type: '%s', %p, %"u64"\n", type, tmp, sz);
+			carglog(carg, L_DEBUG, "lighttpd type: '%s' (len %"u64")\n", type, sz);
 
 			tmp += sz;
 			if (!strcmp(type, "requests"))
@@ -94,7 +94,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 				size_t target_copy = sz < (sizeof(target) - 1) ? sz : (sizeof(target) - 1);
 				strlcpy(target, tmp, target_copy + 1);
 
-				carglog(carg, L_INFO, "lighttpd target: '%s', %p, %"u64"\n", target, tmp, sz);
+				carglog(carg, L_DEBUG, "lighttpd target: '%s' (len %"u64")\n", target, sz);
 
 				labels_hash_insert_nocache(lbl, "target", target);
 				tmp += sz;
@@ -106,7 +106,7 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 					size_t backend_copy = sz < (sizeof(backend) - 1) ? sz : (sizeof(backend) - 1);
 					strlcpy(backend, tmp, backend_copy + 1);
 
-					carglog(carg, L_INFO, "lighttpd backend: '%s', %p, %"u64"\n", backend, tmp, sz);
+					carglog(carg, L_DEBUG, "lighttpd backend: '%s' (len %"u64")\n", backend, sz);
 
 					labels_hash_insert_nocache(lbl, "type", type);
 					if (strcmp(backend, "load"))

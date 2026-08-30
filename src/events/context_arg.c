@@ -645,7 +645,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 {
 	context_arg *carg = calloc(1, sizeof(*carg));
 	carg->ttl = -1;
-	carglog(carg, L_INFO, "allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+	carglog(carg, L_DEBUG, "allocated context argument with hostname '%s'\n", carg->host);
 
 	aconf_mesg_set(carg, mesg, mesg_len);
 

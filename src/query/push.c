@@ -118,7 +118,7 @@ int query_push(json_t *query) {
 			return 0;
 		}
 	}
-	glog(L_INFO, "create query node make %p: '%s', expr '%s', ns '%s'\n", qn, qn->make, qn->expr, qn->ns);
+	glog(L_DEBUG, "create query node make '%s', expr '%s', ns '%s'\n", qn->make, qn->expr, qn->ns);
 	alligator_ht_insert(qds->hash, &(qn->node), qn, tommy_strhash_u32(0, qn->make));
 
 	return 1;

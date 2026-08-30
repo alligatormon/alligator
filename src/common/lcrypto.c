@@ -198,7 +198,7 @@ alligator_ht* pem_parse(char *cert, char *dn_subject, size_t dn_subject_size)
 			int size = strcspn(dn_subject+i, ", /");
 			size_t copy_size = size < (sizeof(county) - 1) ? size : (sizeof(county) - 1);
 			strlcpy(county, dn_subject+i, copy_size + 1);
-			glog(L_DEBUG, "cert: %s, county=%s\n", cert, county);
+			glog(L_DEBUG, "cert: %s, state=%s\n", cert, county);
 			labels_hash_insert_nocache(lbl, "county", county);
 			i += size;
 		}

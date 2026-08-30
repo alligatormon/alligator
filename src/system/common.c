@@ -59,6 +59,8 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "cpu_cgroup_periods_total", METRIC_TYPE_COUNTER, "Total CPU cgroup scheduling periods.");
 	namespace_metric_family_set(NULL, carg, "cpu_cgroup_throttled_periods_total", METRIC_TYPE_COUNTER, "Total throttled CPU cgroup periods.");
 	namespace_metric_family_set(NULL, carg, "cpu_cgroup_throttled_seconds_total", METRIC_TYPE_COUNTER, "Total throttled CPU time in seconds.");
+	namespace_metric_family_set(NULL, carg, "pressure_waiting_seconds_total", METRIC_TYPE_COUNTER, "PSI some-total stall time in seconds by resource (cpu, memory, io).");
+	namespace_metric_family_set(NULL, carg, "pressure_stalled_seconds_total", METRIC_TYPE_COUNTER, "PSI full-total stall time in seconds by resource (cpu, memory, io).");
 
 	namespace_metric_family_set(NULL, carg, "process_stats", METRIC_TYPE_GAUGE, "Process statistics by process labels and stat type.");
 	namespace_metric_family_set(NULL, carg, "process_memory", METRIC_TYPE_GAUGE, "Process memory values by process and memory type.");
@@ -111,6 +113,11 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "if_stat", METRIC_TYPE_GAUGE, "Network interface statistics by interface and stat type.");
 	namespace_metric_family_set(NULL, carg, "interface_stats", METRIC_TYPE_GAUGE, "Network interface statistics by interface and stat type.");
 	namespace_metric_family_set(NULL, carg, "network_stat_total", METRIC_TYPE_COUNTER, "Total network stack statistics from /proc/net/netstat by protocol and stat labels.");
+	namespace_metric_family_set(NULL, carg, "softnet_processed_total", METRIC_TYPE_COUNTER, "Softnet processed packets per CPU from /proc/net/softnet_stat.");
+	namespace_metric_family_set(NULL, carg, "softnet_dropped_total", METRIC_TYPE_COUNTER, "Softnet dropped packets per CPU from /proc/net/softnet_stat.");
+	namespace_metric_family_set(NULL, carg, "softnet_times_squeezed_total", METRIC_TYPE_COUNTER, "Softnet times_squeezed events per CPU from /proc/net/softnet_stat.");
+	namespace_metric_family_set(NULL, carg, "sockstat_sockets_used", METRIC_TYPE_GAUGE, "Total sockets in use from /proc/net/sockstat.");
+	namespace_metric_family_set(NULL, carg, "sockstat_stat_total", METRIC_TYPE_GAUGE, "Socket statistics by protocol and stat name from /proc/net/sockstat.");
 	namespace_metric_family_set(NULL, carg, "if_speed", METRIC_TYPE_GAUGE, "Network interface speed.");
 	namespace_metric_family_set(NULL, carg, "if_up", METRIC_TYPE_GAUGE, "Network interface administrative state.");
 	namespace_metric_family_set(NULL, carg, "if_duplex", METRIC_TYPE_GAUGE, "Network interface duplex mode marker.");

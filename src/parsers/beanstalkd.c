@@ -148,7 +148,7 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 		tmp += tube_name_len;
 		tmp += strspn(tmp, "\r\n");
 
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd tubes list handler\", \"tube_name\": \"%s\"}\n", carg->fd, carg->key, tube_name);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd tubes list handler\", \"tube_name\": \"%s\"}\n", carg->fd, carg->key, tube_name);
 
 		char *query = malloc(255);
 		snprintf(query, 254, "stats-tube %s\r\n", tube_name);

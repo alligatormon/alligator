@@ -82,7 +82,7 @@ void fs_read_on_open(uv_fs_t *req)
 void read_from_file(char *fname, uint64_t offset, void *callback, void *data)
 {
 	char *filename = strdup(fname);
-	glog(L_INFO, "read_from_file: trying to file open '%s' %p\n", filename, filename);
+	glog(L_DEBUG, "read_from_file: opening '%s'\n", filename);
 	uv_fs_t *open_req = alligator_cache_get(ac->uv_cache_fs, sizeof(*open_req));
 	fs_read_info *frinfo = calloc(1, sizeof(*frinfo));
 	frinfo->callback = callback;

@@ -328,7 +328,7 @@ int grok_push(json_t *grok) {
 
 		alligator_ht_insert(ac->grok, &(gps->node), gps, tommy_strhash_u32(0, gps->key));
 	}
-	glog(L_INFO, "create grok node %p: '%s', match '%s'\n", gn, gn->name, gn->match->s);
+	glog(L_DEBUG, "create grok node '%s', match '%s'\n", gn->name, gn->match->s);
 	alligator_ht_insert(gps->hash, &(gn->node), gn, tommy_strhash_u32(0, gn->name));
 
 	return 1;

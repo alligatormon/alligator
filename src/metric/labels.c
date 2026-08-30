@@ -1508,7 +1508,7 @@ uint8_t query_struct_check_expr(uint8_t op, double val, double opval)
 	else if (op == QUERY_OPERATOR_LE)
 		return val <= opval;
 
-	glog(L_ERROR, "query_struct_check_expr: unknown OP!!!\n");
+	glog(L_ERROR, "query_struct_check_expr: unknown operator %u (val=%lf, opval=%lf)\n", op, val, opval);
 	return 0;
 }
 
@@ -1531,7 +1531,7 @@ int query_struct_check_expr_none(metric_query_context *mqc, query_struct *qs)
 	else if (mqc->op == QUERY_OPERATOR_LE)
 		return qs->min < mqc->opval;
 
-	glog(L_ERROR, "query_struct_check_expr_none: unknown OP!!!\n");
+	glog(L_ERROR, "query_struct_check_expr_none: unknown operator %u for key '%s' (opval=%lf)\n", mqc->op, qs->key ? qs->key : "(null)", mqc->opval);
 	return 0;
 }
 

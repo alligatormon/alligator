@@ -112,37 +112,37 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 		size_t value_size = strcspn(metrics+i, "\n");
 		size_t value_copy = value_size < (sizeof(metric_value) - 1) ? value_size : (sizeof(metric_value) - 1);
 		strlcpy(metric_value, metrics+i, value_copy + 1);
-		carglog(carg, L_INFO, "got metric name '%s' = '%s'\n", metric_name, metric_value);
+		carglog(carg, L_DEBUG, "got metric name '%s' = '%s'\n", metric_name, metric_value);
 
 		struct tm tm = {0};
 		if (strptime(metric_value, "%Y-%m-%d %H:%M:%S", &tm)) {
 			uint64_t val = mktime(&tm);
-			carglog(carg, L_INFO, "\tvalue is timestamp: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is timestamp: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (isdigit(*metric_value)) {
 			uint64_t val = strtoull(metric_value, NULL, 10);
-			carglog(carg, L_INFO, "\tvalue is digit: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is digit: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "connected")) {
 			uint64_t val = 1;
-			carglog(carg, L_INFO, "\tvalue is conn: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is conn: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "pending")) {
 			uint64_t val = 2;
-			carglog(carg, L_INFO, "\tvalue is pend: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is pend: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else if (strstr(metric_value, "disconnected")) {
 			uint64_t val = 0;
-			carglog(carg, L_INFO, "\tvalue is disc: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is disc: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		} else {
 			uint64_t val = 1;
-			carglog(carg, L_INFO, "\tvalue is label: %"PRIu64"\n", val);
+			carglog(carg, L_DEBUG, "\tvalue is label: %"PRIu64"\n", val);
 			wazuh_metric_set(carg, metric_name);
 			metric_add_labels(metric_name, &val, DATATYPE_UINT, carg, "type", metric_value);
 		}

@@ -387,7 +387,7 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 
 	aconf_mesg_set(new_carg, buf, buflen);
 
-	carglog(carg, L_INFO, "aggregator_push_addr %p->%p(%p:%p) with key %s, hostname %s, dname '%s', rrtype: %u, port: %s tls: %d, timeout: %"u64"\n", carg, new_carg, &new_carg->connect, &new_carg->client, new_carg->key, new_carg->host, dname, rrtype, new_carg->port, new_carg->tls, new_carg->timeout);
+	carglog(carg, L_DEBUG, "aggregator_push_addr %p->%p(%p:%p) with key %s, hostname %s, dname '%s', rrtype: %u, port: %s tls: %d, timeout: %"u64"\n", carg, new_carg, &new_carg->connect, &new_carg->client, new_carg->key, new_carg->host, dname, rrtype, new_carg->port, new_carg->tls, new_carg->timeout);
 
 	new_carg->resolver_timer.data = new_carg;
 	uv_timer_init(new_carg->loop, &new_carg->resolver_timer);
@@ -434,7 +434,7 @@ string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uin
 	snprintf(key, DNS_NAME_MAXLEN - 1, "%s:%hu", dname, rrtype);
 	uint32_t key_hash = tommy_strhash_u32(0, key);
 
-	carglog(carg, L_INFO, "aggregator_get_addr '%s' %p(%p:%p) with key %s, hostname %s, dname '%s', port: %s tls: %d, timeout: %"u64"\n", key, carg, &carg->connect, &carg->client, carg->key, carg->host, dname, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_DEBUG, "aggregator_get_addr '%s' %p(%p:%p) with key %s, hostname %s, dname '%s', port: %s tls: %d, timeout: %"u64"\n", key, carg, &carg->connect, &carg->client, carg->key, carg->host, dname, carg->port, carg->tls, carg->timeout);
 
 	dns_resource_records *dns_rr = alligator_ht_search(ac->resolver, resolver_compare, key, key_hash);
 	string *data = dns_cache_pick(dns_rr);
@@ -480,7 +480,7 @@ context_arg* aggregator_push_addr_strtype(context_arg *carg, char *dname, char* 
 {
 	uint16_t rrtype = get_rrtype_by_str(strtype);
 
-	carglog(carg, L_INFO, "aggregator_push_addr_strtype %p(%p:%p) with key %s, hostname %s, dname '%s', port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, dname, carg->port, carg->tls, carg->timeout);
+	carglog(carg, L_DEBUG, "aggregator_push_addr_strtype %p(%p:%p) with key %s, hostname %s, dname '%s', port: %s tls: %d, timeout: %"u64"\n", carg, &carg->connect, &carg->client, carg->key, carg->host, dname, carg->port, carg->tls, carg->timeout);
 
 	return aggregator_push_addr(carg, dname, rrtype, rclass);
 }

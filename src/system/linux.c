@@ -38,6 +38,8 @@
 #include "system/linux/cpu.h"
 #include "system/linux/process.h"
 #include "system/linux/ipmi.h"
+#include "system/linux/pressure.h"
+#include "system/linux/proc_net.h"
 #include "system/linux/nvml.h"
 #include "system/linux/dcgm.h"
 #define LINUXFS_LINE_LENGTH 300
@@ -2125,6 +2127,7 @@ void get_system_metrics()
 		get_nfs_stats();
 		get_systemd_scopes();
 		get_distribution_name();
+		get_pressure_stats();
 		collect_power_supply();
 		if (is_baremetal_or_vm(platform)) { // exclude containers
 			get_proc_interrupts(ac->system_interrupts);
@@ -2159,6 +2162,9 @@ void get_system_metrics()
 
 		snprintf(dirname, 255, "%s/net/snmp", ac->system_procfs);
 		get_netstat_statistics(dirname);
+
+		get_softnet_stats();
+		get_sockstat_stats();
 
 		interface_stats();
 

@@ -79,7 +79,7 @@ void ntp_handler(char *ntpData, size_t size, context_arg *carg)
 	uint64_t txTm = ( time_t ) ( txTm_s - 2208988800ull );
 	double diff = nowtime - (((double)(txTm) * 1.00) + ((double)(txTm_f)/0x100000000L));
 
-	carglog(carg, L_INFO, "txTm %"PRIu64", nowtime %lf, diff %lf\n", txTm, nowtime, diff);
+	carglog(carg, L_DEBUG, "txTm %"PRIu64", nowtime %lf, diff %lf\n", txTm, nowtime, diff);
 
 	ntp_metric_set(carg, "ntp_drift_seconds");
 	metric_add_auto("ntp_drift_seconds", &diff, DATATYPE_DOUBLE, carg);

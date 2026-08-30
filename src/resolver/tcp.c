@@ -65,7 +65,7 @@ void resolver_close_tcp(uv_handle_t *handle)
 void resolver_shutdown_tcp(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = req->data;
-	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client shutdowned %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "%"u64": tcp-resolver client shut down %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
 	(carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 

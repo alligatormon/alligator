@@ -34,7 +34,7 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 
 		size_t metricname_copy = copysize < (sizeof(metricname) - 1) ? copysize : (sizeof(metricname) - 1);
 		strlcpy(metricname, metrics + cur, metricname_copy + 1);
-		carglog(carg, L_INFO, "metric name is %s\n", metricname);
+		carglog(carg, L_DEBUG, "metric name is %s\n", metricname);
 
 		metric_name_normalizer(metricname, copysize);
 
@@ -46,13 +46,13 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		copysize = strcspn(metrics + cur, "\r");
 		if (!copysize)
 		{
-			carglog(carg, L_INFO, "metric value size is 0, error\n");
+			carglog(carg, L_WARN, "metric value size is 0, error\n");
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 		size_t metricvalue_copy = copysize < (sizeof(metricvalue) - 1) ? copysize : (sizeof(metricvalue) - 1);
 		strlcpy(metricvalue, metrics + cur, metricvalue_copy + 1);
-		carglog(carg, L_INFO, "metric value is %s\n", metricvalue);
+		carglog(carg, L_DEBUG, "metric value is %s\n", metricvalue);
 
 		if (metric_value_validator(metricvalue, copysize-1))
 		{
@@ -107,7 +107,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 		// ITEM third_metric
 		if (!strncmp(field, "ITEM", 4))
 		{
-			carglog(carg, L_INFO, "memcached_dumo is item");
+			carglog(carg, L_DEBUG, "memcached cachedump: ITEM line\n");
 
 			copysize = strcspn(field + 5, " \t\n");
 			size_t metric_copy = copysize < (sizeof(metric) - 1) ? copysize : (sizeof(metric) - 1);
@@ -116,13 +116,13 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 			{
 				if (!fnmatch(pattern[j], metric, 0))
 				{
-					carglog(carg, L_INFO, "Matching key '%s' and pattern '%s': OK\n", metric, pattern[j]);
+					carglog(carg, L_DEBUG, "matching key '%s' and pattern '%s': OK\n", metric, pattern[j]);
 					string_cat(get_query, " ", 1);
 					string_cat(get_query, field + 5, copysize);
 					break;
 				}
 				else
-					carglog(carg, L_INFO, "Matching key '%s' and pattern '%s': no match\n", metric, pattern[j]);
+					carglog(carg, L_DEBUG, "matching key '%s' and pattern '%s': no match\n", metric, pattern[j]);
 			}
 		}
 
@@ -135,7 +135,7 @@ void memcached_cachedump(char *metrics, size_t size, context_arg *carg)
 	char *key = malloc(512);
 	snprintf(key, 511, "memcached_query(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
-	carglog(carg, L_INFO, "memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
+	carglog(carg, L_DEBUG, "memcached glob get query is\n'%s'\nkey '%s'\n", get_query->s, key);
 	try_again(carg, get_query->s, get_query->l, memcached_query, "memcached_query", NULL, key, carg->data);
 	free(get_query);
 	carg->parser_status = 1;
@@ -173,7 +173,7 @@ void memcached_stats_items(char *metrics, size_t size, context_arg *carg)
 	char *key = malloc(512);
 	snprintf(key, 511, "memcached_cachedump(tcp://%s:%u)/%s", carg->host, htons(carg->remote_addr.sin_port), qn->expr);
 
-	carglog(carg, L_INFO, "query is\n'%s'\nkey '%s'\n", slab_query->s, key);
+	carglog(carg, L_DEBUG, "query is\n'%s'\nkey '%s'\n", slab_query->s, key);
 	try_again(carg, slab_query->s, slab_query->l, memcached_cachedump, "memcached_cachedump", NULL, key, carg->data);
 	free(slab_query);
 	carg->parser_status = 1;
@@ -184,7 +184,7 @@ void memcached_queries_foreach(void *funcarg, void* arg)
 	context_arg *carg = (context_arg*)funcarg;
 	query_node *qn = arg;
 
-	carglog(carg, L_INFO, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
+	carglog(carg, L_DEBUG, "run datasource '%s', make '%s': '%s'\n", qn->datasource, qn->make, qn->expr);
 
 	uint64_t writelen = 0;
 	char *write_comm = NULL;
@@ -534,7 +534,7 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_DEBUG, "found queries for datasource: %s: %p\n", carg->name, qds);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, memcached_queries_foreach, carg);

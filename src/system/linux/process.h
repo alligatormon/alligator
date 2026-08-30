@@ -5,6 +5,7 @@
 void find_pid(int8_t lightweight);
 void get_pidfile_stats();
 void get_userprocess_stats();
+void cgroup_procs_scrape(char *cgroup_path);
 void clear_counts_process();
 void fill_counts_process();
 long linux_user_hz(void);

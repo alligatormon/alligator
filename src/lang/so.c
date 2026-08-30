@@ -25,11 +25,11 @@ char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, cha
 
 	if (func)
 	{
-		langlog(lo, L_INFO, "so module run '%s' '%s'\n", key, metrics_str);
+		langlog(lo, L_DEBUG, "so module run '%s' '%s'\n", key, metrics_str);
 		ret = func(script, data, arg, metrics_str, conf_str, parser_data_str, response_str, queries_str);
 	}
 
-	langlog(lo, L_INFO, "so module with key '%s' return:\n%s\n", key, ret);
+	langlog(lo, L_DEBUG, "so module with key '%s' return:\n%s\n", key, ret);
 
 	return ret;
 }

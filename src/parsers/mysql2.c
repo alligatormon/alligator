@@ -210,7 +210,7 @@ void mysql2_on_connect(uv_connect_t *req, int status) {
 		return;
 	}
 
-	carglog(carg, L_INFO, "TCP Connected to MySQL. Initializing Handshake: '%s'\n", conn->carg->host);
+	carglog(carg, L_DEBUG, "TCP connected to MySQL, starting handshake: '%s'\n", conn->carg->host);
 	conn->state = STATE_HANDSHAKE;
 	conn->seq_id = 0;
 
@@ -1169,7 +1169,7 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 		context_arg *carg = conn->carg;
 		if (conn->state == STATE_QUERY && !auth_just_finished) {
-			carglog(carg, L_INFO, "\tMySQL Parsing Result Set: %p: %s, ctx: %p\n", conn->on_row, conn->current_query ? conn->current_query : "unknown", conn->user_data);
+			carglog(carg, L_DEBUG, "MySQL parsing result set for query: %s\n", conn->current_query ? conn->current_query : "unknown");
 			mysql2_parse_universal_result(conn, data, (size_t)nread, conn->on_row, conn->user_data);
 		}
 	}

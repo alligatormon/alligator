@@ -385,7 +385,7 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	ns->expiretree = expiretree;
 	metrictree->labels_words_hash = labels_words_hash;
 	metrictree->sort_plan = sort_plan;
-	glog(L_INFO, "inserted namespace %s", key);
+	glog(L_INFO, "inserted namespace %s\n", key);
 
 	return ns;
 }

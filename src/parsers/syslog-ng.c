@@ -61,7 +61,7 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 
 		value = strtoull(cur, &cur, 10);
 
-		carglog(carg, L_INFO, "source_name: '%s', source_id: '%s', source_instance: '%s', state: '%s', type: '%s' ::: %"PRIu64"\n", source_name, source_id, source_instance, state, type, value);
+		carglog(carg, L_DEBUG, "source_name: '%s', source_id: '%s', source_instance: '%s', state: '%s', type: '%s' ::: %"PRIu64"\n", source_name, source_id, source_instance, state, type, value);
 		namespace_metric_family_set(NULL, carg, "syslogng_stats", METRIC_TYPE_GAUGE, "syslog-ng statistics value by source and state.");
 		if (!*source_id)
 			metric_add_labels4("syslogng_stats", &value, DATATYPE_UINT, carg, "source_name", source_name, "source_instance", source_instance, "state", state, "type", type);

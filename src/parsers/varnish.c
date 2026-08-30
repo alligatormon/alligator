@@ -14,7 +14,7 @@ void varnish_handler(char *metrics, size_t size, context_arg *carg)
 {
 	json_t *root;
 	json_error_t error;
-	carglog(carg, L_DEBUG, "run varnish_handler");
+	carglog(carg, L_DEBUG, "run varnish_handler\n");
 
 	root = json_loads(metrics, 0, &error);
 

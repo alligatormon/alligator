@@ -219,7 +219,7 @@ static void mongodb_run_single(context_arg *carg)
 	char **dbs = NULL, **cols = NULL;
 	size_t db_count = 0, coll_count = 0;
 	if (mongodb_wire_list_databases(client, &dbs, &db_count, err, sizeof(err))) {
-		carglog(carg, L_INFO, "mongodb listDatabases ok: count=%"u64"\n", (uint64_t)db_count);
+		carglog(carg, L_DEBUG, "mongodb listDatabases ok: count=%"u64"\n", (uint64_t)db_count);
 
 		for (size_t i = 0; i < db_count; i++) {
 			char ds[1024];

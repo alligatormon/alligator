@@ -613,9 +613,9 @@ void clickhouse_response_catch(char *metrics, size_t size, context_arg *carg)
 			strlcpy(X_ClickHouse_Exception_Code, cur, copy_len);
 		}
 
-		carglog(carg, L_INFO, "clickhouse summary %s\n", X_ClickHouse_Summary);
-		carglog(carg, L_INFO, "clickhouse exception code %s\n", X_ClickHouse_Exception_Code);
-		carglog(carg, L_INFO, "clickhouse body %s\n", metrics);
+		carglog(carg, L_DEBUG, "clickhouse summary %s\n", X_ClickHouse_Summary);
+		carglog(carg, L_DEBUG, "clickhouse exception code %s\n", X_ClickHouse_Exception_Code);
+		carglog(carg, L_DEBUG, "clickhouse body %s\n", metrics);
 	}
 }
 
@@ -741,7 +741,7 @@ void clickhouse_custom_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->name)
 	{
 		query_ds *qds = query_get(carg->name);
-		carglog(carg, L_INFO, "found queries for datasource: %s: %p\n", carg->name, qds);
+		carglog(carg, L_DEBUG, "found queries for datasource: %s\n", carg->name);
 		if (qds)
 		{
 			alligator_ht_foreach_arg(qds->hash, clickhouse_queries_foreach, carg);

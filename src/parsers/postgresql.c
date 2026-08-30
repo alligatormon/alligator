@@ -133,7 +133,7 @@ static int postgresql_poll_bind(context_arg *carg)
 	}
 
 	if (carg->dynamic_socket) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"rebind poll fd\", \"pq_fd\": %d, \"old_dup\": %d}\n",
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"rebind poll fd\", \"pq_fd\": %d, \"old_dup\": %d}\n",
 			pq_fd, carg->key, pq_fd, data->poll_dup_fd);
 		if (!postgresql_poll_abandon(carg))
 			return 0;
@@ -165,8 +165,8 @@ static int postgresql_poll_bind(context_arg *carg)
 	carg->dynamic_socket = handle;
 	carg->fd = pq_fd;
 	data->poll_dup_fd = dup_fd;
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"initiated dynamic socket\", \"message\": \"%p->%p\", \"dup_fd\": %d}\n",
-		carg->fd, carg->key, carg, carg->dynamic_socket, dup_fd);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"initiated dynamic socket\", \"dup_fd\": %d}\n",
+		carg->fd, carg->key, dup_fd);
 	return 1;
 }
 
@@ -204,7 +204,7 @@ void postgresql_query_init(PGconn *conn, char *query, query_node *qn, context_ar
 	if (!carg->pg_queue)
 		carg->pg_queue = queue_init();
 	postgresql_query_ctx *pqctx = postgresql_query_ctx_init(carg, query, callback, database_class, qn);
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query init\", \"query\": \"%s\"}\n", carg->fd, carg->key, query);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query init\", \"query\": \"%s\"}\n", carg->fd, carg->key, query);
 
 	queue_push(carg->pg_queue, pqctx);
 
@@ -242,7 +242,7 @@ void on_handle_closed(uv_handle_t* handle) {
 	}
 
 	data = carg->data;
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\", \"connection\": \"%p\"}\n",
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\"}\n",
 		carg->fd, carg->key, data ? (void *)data->conn : NULL);
 
 	if (data && data->poll_dup_fd >= 0) {
@@ -251,7 +251,7 @@ void on_handle_closed(uv_handle_t* handle) {
 	}
 
     if (data && data->conn) {
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\", \"connection\": \"%p\"}\n", carg->fd, carg->key, data->conn);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"pqfinish\"}\n", carg->fd, carg->key);
 		PQfinish(data->conn);
 		data->conn = NULL;
     }
@@ -523,7 +523,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
             } else {
 
                 if (!uv_is_closing((uv_handle_t*)handle)) {
-					carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event ALL QUERIES DONE\", \"function\": \"%s\"}\n", carg->fd, carg->key, "");
+					carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event ALL QUERIES DONE\", \"function\": \"%s\"}\n", carg->fd, carg->key, "");
 					run_close(carg);
                 }
             }
@@ -606,7 +606,7 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
 	{
-		carglog(carg, L_ERROR, "command get databases failed: %s", PQerrorMessage(conn));
+		carglog(carg, L_ERROR, "command get databases failed: %s\n", PQerrorMessage(conn));
 		postgresql_error_metric(conn, carg);
 	}
 	else
@@ -710,7 +710,7 @@ void postgresql_query_run(context_arg *carg)
 			run_close(carg);
 			return;
 		}
-		carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query sent\"}\n", carg->fd, carg->key);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql query sent\"}\n", carg->fd, carg->key);
     } else {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"PQsendQuery error\", \"message\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
 		postgresql_error_metric(data->conn, carg);
@@ -1064,10 +1064,10 @@ void postgresql_run(void* arg)
 
 
 	PGconn *conn = PQconnectStart(carg->url);
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"connection start!\", \"arg\": \"%s\", \"res\": \"%p\"}\n", carg->fd, carg->key, carg->url, conn);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"connection start\", \"arg\": \"%s\"}\n", carg->fd, carg->key, carg->url);
 
 	if (!conn) {
-		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
+		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_connect_ok_total(carg, 0);
 		postgresql_error_metric(conn, carg);
 		return;
@@ -1076,7 +1076,7 @@ void postgresql_run(void* arg)
 	data->conn = conn;
 	if (!postgresql_set_params(conn, carg))
 	{
-		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s", PQstatus(conn), PQerrorMessage(conn));
+		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_connect_ok_total(carg, 0);
 		postgresql_error_metric(conn, carg);
 		if (carg->dynamic_socket)
@@ -1087,13 +1087,13 @@ void postgresql_run(void* arg)
 		}
 		return;
 	}
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"created socket\"}\n", carg->fd, carg->key);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"created socket\"}\n", carg->fd, carg->key);
 	if (data->type == PG_TYPE_PG)
 	{
 		if (carg->name)
 		{
 			query_ds *qds = query_get(carg->name);
-			carglog(carg, L_DEBUG, "found queries for datasource: %s: %p\n", carg->name, qds);
+			carglog(carg, L_DEBUG, "found queries for datasource: %s\n", carg->name);
 			if (qds)
 			{
 				alligator_ht_foreach_arg(qds->hash, postgresql_queries_foreach, carg);
@@ -1117,7 +1117,7 @@ void postgresql_run(void* arg)
 		pgpool_queries(carg);
 	}
 
-	carglog(carg, L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start\"}\n", carg->fd, carg->key);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start\"}\n", carg->fd, carg->key);
 	if (!postgresql_poll_start_events(carg, UV_WRITABLE))
 		run_close(carg);
 }

@@ -60,7 +60,7 @@ void resolver_timeout_udp(uv_timer_t *timer)
 		return;
 
 	carg->tt_timer = NULL;
-	carglog(carg, L_INFO, "%"u64": timeout udp-resolver %p(%p:%p) with key %s, hostname %s, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": timeout udp-resolver %p(%p:%p) with key %s, hostname %s, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->timeout);
 	(carg->timeout_counter)++;
 	resolver_udp_abort(carg, &carg->udp_client);
 }
@@ -68,7 +68,7 @@ void resolver_timeout_udp(uv_timer_t *timer)
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)
 {
 	context_arg *carg = req->data;
-	carglog(carg, L_INFO, "%"u64": udp resolver read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp resolver read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	carg->read_time_finish = setrtime();
 	uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
@@ -122,7 +122,7 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 
 void resolver_send_udp(uv_udp_send_t* req, int status) {
 	context_arg *carg = req->data;
-	carglog(carg, L_INFO, "%"u64": udp resolver send %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp resolver send %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 	carg->write_time_finish = setrtime();
 
 	if (status != 0) {
@@ -143,7 +143,7 @@ void resolver_connect_udp(void *arg)
 		return;
 
 	carg->count = 0;
-	carglog(carg, L_INFO, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "%"u64": udp resolver connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
 
 	if (carg->lock) {
 		if (carg->tt_timer)

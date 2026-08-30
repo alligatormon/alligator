@@ -30,7 +30,7 @@ void scheduler_push_json(json_t *scheduler)
 	scheduler_node* sn = scheduler_get(name);
 	if (sn)
 	{
-		glog(L_ERROR, "Scheduler with name %s was already create\n", name);
+		glog(L_ERROR, "Scheduler with name %s was already created\n", name);
 		return;
 	}
 

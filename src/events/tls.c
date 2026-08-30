@@ -99,12 +99,12 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			return 0;
 		}
 		else
-			carglog(carg, L_INFO, "context %p certificate and private key loaded and verified: cert:%s, key:%s\n", carg, certfile, keyfile);
+			carglog(carg, L_DEBUG, "TLS certificate and private key loaded and verified: cert:%s, key:%s\n", certfile, keyfile);
 	}
 
 	if (ca) {
 		if (SSL_CTX_load_verify_locations(carg->ssl_ctx, ca, NULL)) {
-			carglog(carg, L_INFO, "context %p Successfully loaded CA file: %s\n", carg, ca);
+			carglog(carg, L_DEBUG, "TLS loaded CA file: %s\n", ca);
 		}
 		else {
 			char *err = openssl_get_error_string();
@@ -113,7 +113,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		}
 	} else if (verify) {
 		if (SSL_CTX_set_default_verify_paths(carg->ssl_ctx)) {
-			carglog(carg, L_INFO, "context %p Loaded default CA verify paths\n", carg);
+			carglog(carg, L_DEBUG, "TLS loaded default CA verify paths\n");
 		} else {
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "context %p Failed loading default CA verify paths: %s\n", carg, err);
@@ -133,7 +133,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			carglog(carg, L_ERROR, "context %p Failed to load CRL file: %s\n", carg, carg->rev.crl_file);
 			return 0;
 		}
-		carglog(carg, L_INFO, "context %p Successfully loaded CRL file: %s\n", carg, carg->rev.crl_file);
+		carglog(carg, L_DEBUG, "TLS loaded CRL file: %s\n", carg->rev.crl_file);
 	}
 
 	if (mode == SSLMODE_SERVER && carg->tls_verify_client)

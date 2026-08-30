@@ -21,7 +21,7 @@ void get_packages_info(void)
 
 	fd = popen("pkg query -a '%k %n %v'", "r");
 	if (!fd) {
-		carglog(ac->system_carg, L_ERROR, "pkg query failed");
+		carglog(ac->system_carg, L_ERROR, "pkg query failed\n");
 		return;
 	}
 

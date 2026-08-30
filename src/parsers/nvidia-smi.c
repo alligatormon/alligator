@@ -36,7 +36,7 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 		size_t row_size = strcspn(row, "\n");
 		size_t row_copy = row_size < (sizeof(dict) - 1) ? row_size : (sizeof(dict) - 1);
 		strlcpy(dict, row, row_copy + 1);
-		carglog(carg, L_INFO, "nvidia-smi row is '%s'(%zu)\n", dict, row_size);
+		carglog(carg, L_DEBUG, "nvidia-smi row is '%s'(%zu)\n", dict, row_size);
 		char *field = dict;
 		for (uint64_t j = 0; (field - dict < row_copy) && (row_copy != 0) && (j < 255); ++j) {
 			char str[NVIDIA_SMI_MAX_LEN];

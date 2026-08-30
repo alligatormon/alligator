@@ -764,7 +764,7 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 	}
 
 	if (carg)
-		carglog(carg, L_INFO, "parsed metrics multicollector: %"u64", accepted %"u64", rejected %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, carg->push_accepted_lines, rejected_lines, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
+		carglog(carg, L_DEBUG, "parsed metrics multicollector: %"u64", accepted %"u64", rejected %"u64", full size read: %zu; timers: parsing %lf, metric %lf, string-split %lf\n", fgets_counter, carg->push_accepted_lines, rejected_lines, size, carg->push_parsing_time / 1000000000.0, carg->push_metric_time / 1000000000.0, carg->push_split_data / 1000000000.0);
 
 	if (carg && !carg->no_metric)
 	{

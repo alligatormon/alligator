@@ -208,6 +208,7 @@ void system_test(char *binary) {
 
     http_api_v1(NULL, NULL, config);
     get_system_metrics();
+    system_fast_scrape();
 
 #ifdef __linux__
     metric_test_run(CMP_EQUAL, "process_match{name=\"beam.smp\"}", "process_match", 1);
@@ -216,10 +217,16 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "task_states{state=\"sleeping\"}", "task_states", 5);
     metric_test_run(CMP_EQUAL, "process_states{state=\"sleeping\"}", "process_states", 5);
     metric_test_run(CMP_EQUAL, "process_states{state=\"running\"}", "process_states", 0);
+    metric_test_run(CMP_GREATER, "pressure_waiting_seconds_total{resource=\"cpu\"}", "pressure_waiting_seconds_total", 0);
+    metric_test_run(CMP_GREATER, "pressure_stalled_seconds_total{resource=\"cpu\"}", "pressure_stalled_seconds_total", 0);
+    metric_test_run(CMP_GREATER, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 0);
+    metric_test_run(CMP_GREATER, "sockstat_sockets_used", "sockstat_sockets_used", 0);
+    metric_test_run(CMP_GREATER, "sockstat_stat_total{protocol=\"TCP\",stat=\"inuse\"}", "sockstat_stat_total", 0);
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
 #endif
     metric_test_run(CMP_GREATER, "cpu_usage_time", "cpu_usage_time", 0);
+    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"irq\"}", "cpu_usage_time", 0);
     metric_test_run(CMP_GREATER, "cores_num", "cores_num", 0);
 
     free(cwd);

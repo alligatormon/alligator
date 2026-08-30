@@ -120,10 +120,12 @@ void get_cpu(int8_t platform)
 	{
 		if ( !strncmp(temp, "cpu", 3) )
 		{
-			int64_t t1, t2, t3, t4, t5;
+			int64_t t1 = 0, t2 = 0, t3 = 0, t4 = 0, t5 = 0;
+			int64_t t6 = 0, t7 = 0, t8 = 0, t9 = 0, t10 = 0;
 			char cpuname[6];
 
-			sscanf(temp, "%5s %"d64" %"d64" %"d64" %"d64" %"d64"", cpuname, &t1, &t2, &t3, &t4, &t5);
+			sscanf(temp, "%5s %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64"",
+				cpuname, &t1, &t2, &t3, &t4, &t5, &t6, &t7, &t8, &t9, &t10);
 			core_num = atoll(cpuname+3);
 			if (!strcmp(cpuname, "cpu"))
 				sccs = &ac->scs->hw;
@@ -142,41 +144,67 @@ void get_cpu(int8_t platform)
 			double tsystem = t3 / (dividecpu * 100.00);
 			double tidle = t4 / (dividecpu * 100.00);
 			double tiowait = t5 / (dividecpu * 100.00);
+			double tirq = t6 / (dividecpu * 100.00);
+			double tsoftirq = t7 / (dividecpu * 100.00);
+			double tsteal = t8 / (dividecpu * 100.00);
+			double tguest = (t9 + t10) / (dividecpu * 100.00);
 
-			uint64_t t12345 = t1+t2+t3+t4+t5 - sccs->total;
-			sccs->total += t12345;
-			if (!t12345)
+			uint64_t tsum = (uint64_t)(t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10);
+			uint64_t tdelta = tsum - sccs->total;
+			sccs->total = tsum;
+			if (!tdelta)
 				continue;
 
-			t1 -= sccs->user;
-			sccs->user += t1;
-			t2 -= sccs->nice;
-			sccs->nice += t2;
-			t3 -= sccs->system;
-			sccs->system += t3;
-			t4 -= sccs->idle;
-			sccs->idle += t4;
-			t5 -= sccs->iowait;
-			sccs->iowait += t5;
+			int64_t d1 = t1 - (int64_t)sccs->user;
+			sccs->user = t1;
+			int64_t d2 = t2 - (int64_t)sccs->nice;
+			sccs->nice = t2;
+			int64_t d3 = t3 - (int64_t)sccs->system;
+			sccs->system = t3;
+			int64_t d4 = t4 - (int64_t)sccs->idle;
+			sccs->idle = t4;
+			int64_t d5 = t5 - (int64_t)sccs->iowait;
+			sccs->iowait = t5;
+			int64_t d6 = t6 - (int64_t)sccs->irq;
+			sccs->irq = t6;
+			int64_t d7 = t7 - (int64_t)sccs->softirq;
+			sccs->softirq = t7;
+			int64_t d8 = t8 - (int64_t)sccs->steal;
+			sccs->steal = t8;
+			int64_t d9 = (t9 + t10) - (int64_t)(sccs->guest + sccs->guest_nice);
+			sccs->guest = t9;
+			sccs->guest_nice = t10;
 
-			double usage = ((t1 + t3)*100.0/t12345);
+			double usage = ((d1 + d3)*100.0/tdelta);
 			if (usage<0)
 				usage = 0;
-			double user = ((t1)*100.0/t12345);
+			double user = ((d1)*100.0/tdelta);
 			if (user<0)
 				user = 0;
-			double nice = ((t2)*100.0/t12345);
+			double nice = ((d2)*100.0/tdelta);
 			if (nice<0)
 				nice = 0;
-			double system = ((t3)*100.0/t12345);
+			double system = ((d3)*100.0/tdelta);
 			if (system<0)
 				system = 0;
-			double idle = ((t4)*100.0/t12345);
+			double idle = ((d4)*100.0/tdelta);
 			if (idle<0)
 				idle = 0;
-			double iowait = ((t5)*100.0/t12345);
+			double iowait = ((d5)*100.0/tdelta);
 			if (iowait<0)
 				iowait = 0;
+			double irq = ((d6)*100.0/tdelta);
+			if (irq<0)
+				irq = 0;
+			double softirq = ((d7)*100.0/tdelta);
+			if (softirq<0)
+				softirq = 0;
+			double steal = ((d8)*100.0/tdelta);
+			if (steal<0)
+				steal = 0;
+			double guest = ((d9)*100.0/tdelta);
+			if (guest<0)
+				guest = 0;
 
 			if (!strcmp(cpuname, "cpu"))
 			{
@@ -185,6 +213,10 @@ void get_cpu(int8_t platform)
 				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
 				metric_add_labels(cpu_usage_time_name, &tidle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 				metric_add_labels(cpu_usage_time_name, &tiowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait");
+				metric_add_labels(cpu_usage_time_name, &tirq, DATATYPE_DOUBLE, ac->system_carg, "type", "irq");
+				metric_add_labels(cpu_usage_time_name, &tsoftirq, DATATYPE_DOUBLE, ac->system_carg, "type", "softirq");
+				metric_add_labels(cpu_usage_time_name, &tsteal, DATATYPE_DOUBLE, ac->system_carg, "type", "steal");
+				metric_add_labels(cpu_usage_time_name, &tguest, DATATYPE_DOUBLE, ac->system_carg, "type", "guest");
 				if (!is_cgroup && ac->system_cpuavg)
 				{
 					cpu_avg_push(usage);
@@ -197,6 +229,10 @@ void get_cpu(int8_t platform)
 				metric_add_labels2(cpu_usage_core_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", cpuname);
 				metric_add_labels2(cpu_usage_core_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", cpuname);
 				metric_add_labels2(cpu_usage_core_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &irq, DATATYPE_DOUBLE, ac->system_carg, "type", "irq", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &softirq, DATATYPE_DOUBLE, ac->system_carg, "type", "softirq", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &steal, DATATYPE_DOUBLE, ac->system_carg, "type", "steal", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &guest, DATATYPE_DOUBLE, ac->system_carg, "type", "guest", "cpu", cpuname);
 			}
 		}
 		else if ( !strncmp(temp, "processes", 9) )

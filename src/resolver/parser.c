@@ -28,7 +28,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 
 	int nparse = dns_unpack(metrics, (int)size, &resp);
 	if (nparse < 0 || (size_t)nparse != size) {
-		carglog(carg, L_ERROR, "dns_unpack: ERR_INVALID_PACKAGE: %d != %zu\n", nparse, size);
+		carglog(carg, L_ERROR, "DNS response size mismatch for '%s': parsed %d bytes, expected %zu\n", carg->key, nparse, size);
 		return rr_ttl;
 	}
 
@@ -38,8 +38,8 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 		resp.hdr.qr != DNS_RESPONSE ||
 		resp.hdr.rcode != 0) {
 
-		carglog(carg, L_ERROR, "resolve %s fail: ERR_MISMATCH txid=%u qr=%u rcode=%u (expected txid=%u qr=%u rcode=0)\n",
-			carg->host, resp.hdr.transaction_id, resp.hdr.qr, resp.hdr.rcode,
+		carglog(carg, L_ERROR, "DNS response header mismatch for '%s': txid=%u qr=%u rcode=%u (expected txid=%u qr=%u rcode=0)\n",
+			carg->key, resp.hdr.transaction_id, resp.hdr.qr, resp.hdr.rcode,
 			carg->packets_id, DNS_RESPONSE);
 		dns_free(&resp);
 		return rr_ttl;
@@ -171,7 +171,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			data = data + 4;
 			minimum = ((int64_t)data[0] << 24) | ((int64_t)data[1] << 16) | ((int64_t)data[2] << 8) | data[3];
 
-			carglog(carg, L_TRACE, "\tadd resolved address '%s' with SOA '%s', nameserver '%s, mailserver '%s', serial %"PRId64", refresh %"PRId64", retry %"PRId64", expire %"PRId64", minimum %"PRId64"\n", carg->key, qname, nsname, mxname, serial, refresh, retry, expire, minimum);
+			carglog(carg, L_TRACE, "\tadd resolved address '%s' with SOA '%s', nameserver '%s', mailserver '%s', serial %"PRId64", refresh %"PRId64", retry %"PRId64", expire %"PRId64", minimum %"PRId64"\n", carg->key, qname, nsname, mxname, serial, refresh, retry, expire, minimum);
 			metric_add_labels5("aggregator_resolve_soa_serial", &serial, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
 			metric_add_labels5("aggregator_resolve_soa_refresh", &refresh, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
 			metric_add_labels5("aggregator_resolve_soa_retry", &retry, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);

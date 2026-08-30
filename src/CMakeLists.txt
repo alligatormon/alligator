@@ -504,6 +504,8 @@ set(STATIC_FILES
 	system/linux/distribution_name.c
 	system/linux/interrupts.c
 	system/linux/power_supply.c
+	system/linux/pressure.c
+	system/linux/proc_net.c
 	system/linux/disk.c
 	system/linux/network.c
 	system/fdescriptors.c
@@ -546,6 +548,8 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/distribution_name.c
 	system/linux/interrupts.c
 	system/linux/power_supply.c
+	system/linux/pressure.c
+	system/linux/proc_net.c
 	system/linux/disk.c
 	system/linux/network.c
 )

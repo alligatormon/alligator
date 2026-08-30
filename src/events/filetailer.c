@@ -73,7 +73,7 @@ void filetailer_apply_path_glob(context_arg *carg)
 				carg->file_match = strdup(path);
 			strlcpy(path, "./", HOSTHEADER_SIZE);
 			carg->is_dir = 1;
-			carglog(carg, L_INFO, "filetailer: glob pattern '%s' in cwd './'\n",
+			carglog(carg, L_DEBUG, "filetailer: glob pattern '%s' in cwd './'\n",
 				carg->file_match ? carg->file_match : "?");
 			return;
 		}
@@ -81,7 +81,7 @@ void filetailer_apply_path_glob(context_arg *carg)
 			carg->file_match = strdup(slash + 1);
 		slash[1] = '\0';
 		carg->is_dir = 1;
-		carglog(carg, L_INFO, "filetailer: glob dir='%s' match='%s'\n",
+		carglog(carg, L_DEBUG, "filetailer: glob dir='%s' match='%s'\n",
 			path, carg->file_match ? carg->file_match : "?");
 		return;
 	}
@@ -96,7 +96,7 @@ void filetailer_apply_path_glob(context_arg *carg)
 			}
 		}
 		carg->is_dir = 1;
-		carglog(carg, L_INFO, "filetailer: dir='%s' match='%s'\n",
+		carglog(carg, L_DEBUG, "filetailer: dir='%s' match='%s'\n",
 			path, carg->file_match);
 	}
 }
@@ -210,11 +210,11 @@ static void filetailer_schedule_content_read_sz(context_arg *carg, const char *p
 				return;
 			}
 			file_stat_offset_for_read(fst, carg->state);
-			carglog(carg, L_INFO, "schedule content read: %s size %"u64" offset %"u64" state %s\n",
+			carglog(carg, L_DEBUG, "schedule content read: %s size %"u64" offset %"u64" state %s\n",
 				pathname, filesize, fst->offset, filetailer_state_name(carg->state));
 			if (filesize <= fst->offset)
 			{
-				carglog(carg, L_INFO, "skip content read (no new bytes): %s\n", pathname);
+				carglog(carg, L_DEBUG, "skip content read (no new bytes): %s\n", pathname);
 				return;
 			}
 		}
@@ -285,13 +285,13 @@ static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pa
 
 	if (fst->ino && (fst->dev != dev || fst->ino != ino))
 	{
-		carglog(carg, L_INFO, "filetailer: inode changed on %s, reset offset (stream=%d, size %"u64")\n",
+		carglog(carg, L_DEBUG, "filetailer: inode changed on %s, reset offset (stream=%d, size %"u64")\n",
 			pathname, carg->state == FILESTAT_STATE_STREAM, filesize);
 		file_stat_reset_on_rotation(fst, carg, filesize);
 	}
 	else if (fst->offset > filesize)
 	{
-		carglog(carg, L_INFO, "filetailer: offset %"u64" past end of %s (size %"u64"), clamp\n",
+		carglog(carg, L_DEBUG, "filetailer: offset %"u64" past end of %s (size %"u64"), clamp\n",
 			fst->offset, pathname, filesize);
 		file_stat_reset_on_rotation(fst, carg, filesize);
 	}
@@ -384,7 +384,7 @@ void file_stat_size_cb(uv_fs_t *req)
 	{
 		uint64_t filesize = (uint64_t)req->statbuf.st_size;
 
-		carglog(carg, L_INFO, "crawl file pathname: %s size %"u64"\n", pathname, filesize);
+		carglog(carg, L_DEBUG, "crawl file pathname: %s size %"u64"\n", pathname, filesize);
 
 		if (carg->file_stat)
 		{
@@ -448,7 +448,7 @@ void directory_crawl(void *arg)
 				char pathname[1024];
 				snprintf(pathname, 1023, "%s%s", carg->path, dirents[i].name);
 
-				carglog(carg, L_INFO, "stat open: %s\n", pathname);
+				carglog(carg, L_DEBUG, "stat open: %s\n", pathname);
 
 				uv_fs_stat(carg->loop, req_stat, pathname, file_stat_size_cb);
 			}
@@ -563,7 +563,7 @@ void file_on_open(uv_fs_t *req)
 		}
 		if (filetailer_wants_content_read(carg))
 		{
-			carglog(carg, L_INFO, "read from file %s, offset %"u64"\n", fh->pathname, offset);
+			carglog(carg, L_DEBUG, "read from file %s, offset %"u64"\n", fh->pathname, offset);
 			fh->read_offset = offset;
 			uv_fs_read(carg->loop, &fh->read, fd, &fh->buffer, 1, offset, filetailer_on_read);
 			return;
@@ -604,12 +604,12 @@ void filetailer_on_read(uv_fs_t *req) {
 		uint64_t filesize = get_file_size(fh->pathname);
 		file_stat *fst = file_stat_get_or_create(ac->file_stat, fh->pathname, carg->state);
 		if (fst && fh->read_offset > filesize) {
-			carglog(carg, L_INFO, "filetailer_on_read: file shrunk %s, offset %"u64" > size %"u64", clamp (stream=%d)\n",
+			carglog(carg, L_DEBUG, "filetailer_on_read: file shrunk %s, offset %"u64" > size %"u64", clamp (stream=%d)\n",
 					fh->pathname, fh->read_offset, filesize, carg->state == FILESTAT_STATE_STREAM);
 			file_stat_reset_on_rotation(fst, carg, filesize);
 			fh->read_offset = fst->offset;
 		} else {
-			carglog(carg, L_INFO, "filetailer_on_read: EOF reached: %s, offset %"u64", size %"u64"\n",
+			carglog(carg, L_DEBUG, "filetailer_on_read: EOF reached: %s, offset %"u64", size %"u64"\n",
 					fh->pathname, fh->read_offset, filesize);
 			if (fst && fh->read_offset < filesize)
 				filetailer_mark_more_data(carg, fh->pathname);
@@ -624,7 +624,7 @@ void filetailer_on_read(uv_fs_t *req) {
 			carg->read_bytes_counter += str_len;
 			fh->buffer.base[str_len] = '\0';
 
-			carglog(carg, L_INFO, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, (uint64_t)str_len);
+			carglog(carg, L_DEBUG, "filetailer_on_read: res OK: %s %"u64"\n", fh->pathname, (uint64_t)str_len);
 
 			file_stat_add_offset(ac->file_stat, fh->pathname, carg, str_len);
 			alligator_multiparser(fh->buffer.base, str_len, carg->parser_handler, NULL, carg);
@@ -660,7 +660,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 {
 	context_arg *carg = handle->data;
 	carg->filename = filename;
-	carglog(carg, L_INFO, "Change detected in '%s': %d\n", carg->filename, events);
+	carglog(carg, L_DEBUG, "Change detected in '%s': %d\n", carg->filename, events);
 
 	char pathname[1024];
 	if (carg->is_dir)
@@ -678,7 +678,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 		file_stat *fst = file_stat_get_or_create(ac->file_stat, pathname, carg->state);
 		if (fst) {
 			if (stat(pathname, &st) == 0) {
-				carglog(carg, L_INFO, "filetailer: rename on %s, reset offset (size %zu)\n",
+				carglog(carg, L_DEBUG, "filetailer: rename on %s, reset offset (size %zu)\n",
 					pathname, (size_t)st.st_size);
 				file_stat_reset_on_rotation(fst, carg, (uint64_t)st.st_size);
 				fst->dev = (uint64_t)st.st_dev;
@@ -689,7 +689,7 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 		}
 
 		if (!carg->is_dir) {
-			carglog(carg, L_INFO, "filetailer: re-arm watcher on rename for %s\n", carg->path);
+			carglog(carg, L_DEBUG, "filetailer: re-arm watcher on rename for %s\n", carg->path);
 			uv_fs_event_stop(&carg->fs_handle);
 			if (!uv_is_closing((uv_handle_t *)&carg->fs_handle))
 				uv_close((uv_handle_t *)&carg->fs_handle, filetailer_fs_rearm_close_cb);
@@ -735,13 +735,13 @@ char* filetailer_handler(context_arg *carg)
 	if ((carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler ||
 	     carg->parser_name || carg->log_ch_raw) && carg->notify != 2)
 	{
-		carglog(carg, L_INFO, "create file handler with carg->path %s\n", carg->path);
+		carglog(carg, L_DEBUG, "create file handler with carg->path %s\n", carg->path);
 		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
 	}
 
 	if (carg->notify)
 	{
-		carglog(carg, L_INFO, "run notify %s\n", carg->path);
+		carglog(carg, L_DEBUG, "run notify %s\n", carg->path);
 		uv_fs_event_init(loop, &carg->fs_handle);
 		uv_fs_event_start(&carg->fs_handle, on_file_change, carg->path, UV_FS_EVENT_WATCH_ENTRY);
 	}

@@ -216,15 +216,16 @@ char *get_limit_units(uint64_t units_id) {
 	}
 }
 
+// debug function to dump the nft packet, must be called with L_OFF level
 void dump_pkt(char *fbuf, int status) {
 	struct nlmsghdr *h = (struct nlmsghdr*)fbuf;
-	carglog(ac->system_carg, L_OFF, "DEBUG first len %u, status %d\n", h->nlmsg_len, status);
-	for (uint64_t i = 0; i < status; ++i) {
-		carglog(ac->system_carg, L_OFF, "DEBUG [%ld]: [%hhu]", i, fbuf[i]);
-		if (isprint(fbuf[i]))
-			carglog(ac->system_carg, L_OFF, "\t'%c'\n", fbuf[i]);
+	carglog(ac->system_carg, L_TRACE, "nftables packet dump: first len %u, status %d\n", h->nlmsg_len, status);
+	for (uint64_t i = 0; i < (uint64_t)status; ++i) {
+		carglog(ac->system_carg, L_TRACE, "nftables packet [%lu]: [%hhu]", (unsigned long)i, (unsigned char)fbuf[i]);
+		if (isprint((unsigned char)fbuf[i]))
+			carglog(ac->system_carg, L_TRACE, "\t'%c'\n", fbuf[i]);
 		else
-			carglog(ac->system_carg, L_OFF, "\n");
+			carglog(ac->system_carg, L_TRACE, "\n");
 	}
 }
 
@@ -1508,7 +1509,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			nft_str_expression *expression = NULL;
 			nft_genmsg *rawmsg = (nft_genmsg*)NLMSG_DATA(h);
 			if (h->nlmsg_type == NLMSG_DONE) {
-				carglog(ac->system_carg, L_INFO, "");
+				carglog(ac->system_carg, L_TRACE, "nftables: netlink NLMSG_DONE\n");
 				if (!setfd)
 					close(fd);
 				return;

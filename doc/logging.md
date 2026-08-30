@@ -11,12 +11,14 @@ Operator-facing destination and channel configuration is documented in [configur
 | `glog(priority, fmt, …)` | Global / no `context_arg` (startup, config parser, modules without a carg) |
 | `carglog(carg, priority, fmt, …)` | Anything with a `context_arg *` (aggregates, entrypoints, probes, parsers) |
 | `carg_or_glog(carg, priority, fmt, …)` | Null-safe: behaves like `carglog` when `carg` is set, else like `glog` |
-| `langlog(lo, priority, fmt, …)` | Lang module only |
-| `cslog(priority, fmt, …)` | Chrome CDP module only |
+| `langlog(lo, priority, fmt, …)` | Lang module only (`lo->log_level`); uses the default log channel (no `[key]` prefix) |
+| `cslog(priority, fmt, …)` | Chrome CDP module only (`chromecdp` log_level); uses the default log channel (no `[key]` prefix) |
 
 Shipping user/transformed data is separate: `carglog_raw`, `carg_emit_log`, `carg_emit_log_document` (see configuration.md). Do not use those for diagnostics.
 
 Gating: a message is emitted when configured `level >= priority`. Context `carg->log_level == 0` means inherit global `ac->log_level`.
+
+`langlog` and `cslog` gate on their module's `log_level` but always write through the default log channel (they do not use `carg->log_ch` or add a `[key]` prefix). Filter Chrome CDP output by the `chromecdp:` message prefix.
 
 ## Levels (`L_*`)
 
