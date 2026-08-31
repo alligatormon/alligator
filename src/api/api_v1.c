@@ -1179,6 +1179,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "interrupts"))
 							ac->system_interrupts = enkey;
+						else if (!strcmp(system_key, "memory"))
+							ac->system_memory = enkey;
 						else if (!strcmp(system_key, "firewall"))
 						{
 							ac->system_firewall = enkey;
@@ -1252,6 +1254,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else if (!strcmp(system_key, "dcgm"))
 						{
 							ac->system_dcgm = 1;
+						}
+						else if (!strcmp(system_key, "amdgpu"))
+						{
+							ac->system_amdgpu = 1;
+						}
+						else if (!strcmp(system_key, "macos_gpu"))
+						{
+							ac->system_macos_gpu = 1;
 						}
 #ifdef __linux__
 						else if (!strcmp(system_key, "ipmi"))

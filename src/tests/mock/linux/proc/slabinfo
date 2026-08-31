@@ -1,0 +1,4 @@
+slabinfo - version: 2.1
+# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab> : tunables flags
+kmalloc-64           100     128      64  64    1 : tunables  0  0  0 : slabdata  2  2  0
+dentry               5000    6000     192 21    1 : tunables  0  0  0 : slabdata 286 286  0

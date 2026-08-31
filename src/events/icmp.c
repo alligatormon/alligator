@@ -126,7 +126,7 @@ void icmp_metrics(context_arg *carg)
 		total_time = getrtime_mcs(carg->total_time, carg->total_time_finish, 0);
 	}
 
-	carglog(carg, L_INFO, "host %s success %"PRIu64", error %"PRIu64", percent success: %lf, percent error: %lf, resolve time: %"PRIu64", read time: %"PRIu64", total time: %"PRIu64", tries %"PRIu64"\n", carg->host, carg->sequence_success, carg->sequence_error, success_percent, error_percent, resolve_time, read_time, total_time, carg->pingloop);
+	carglog(carg, L_INFO, "icmp: summary host=%s success=%"PRIu64" error=%"PRIu64" success_pct=%lf error_pct=%lf resolve_ms=%"PRIu64" read_ms=%"PRIu64" total_ms=%"PRIu64" tries=%"PRIu64"\n", carg->host, carg->sequence_success, carg->sequence_error, success_percent, error_percent, resolve_time, read_time, total_time, carg->pingloop);
 
 	metric_add_labels2("aggregator_read_time", &read_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
 	//metric_add_labels2("aggregator_resolve_time", &resolve_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
@@ -161,15 +161,13 @@ void icmp_emit_one (context_arg* carg, icmp_packet_t* icmp)
 	uint32_t icmp_code_id = icmp->hdr.code;
 	uint32_t icmp_type_id = icmp->hdr.type;
 	uint32_t time_diff = get_monotonic_time_diff(icmp->ts, ts);
-	uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-	uint64_t resolve_time = getrtime_mcs(carg->resolve_time, carg->resolve_time_finish, 0);
 
 	++carg->sequence_done;
 	++carg->sequence_success;
 	uv_timer_stop(&carg->t_seq_timer);
-	carglog(carg, L_INFO, "host %s, code id: %"PRIu32",  type id: %"PRIu32", time diff: %"PRIu32", resolve_time: %"PRIu64", read_time: %"PRIu64", done/size %"PRIu64"/%"PRIu64"\n", carg->host, icmp_type_id, icmp_code_id, time_diff, resolve_time, read_time, carg->sequence_done, carg->pingloop);
+	carglog(carg, L_DEBUG, "icmp: reply host=%s code=%"PRIu32" type=%"PRIu32" rtt_us=%"PRIu32" done=%"PRIu64"/%"PRIu64"\n", carg->host, icmp_type_id, icmp_code_id, time_diff, carg->sequence_done, carg->pingloop);
 	if (carg->sequence_done >= carg->pingloop) {
-		carglog(carg, L_INFO, "host %s success %d, error %d\n", carg->host, carg->sequence_success, carg->sequence_error);
+		carglog(carg, L_DEBUG, "icmp: host=%s success=%d error=%d\n", carg->host, carg->sequence_success, carg->sequence_error);
 		carg->total_time_finish = setrtime();
 		icmp_metrics(carg);
 		icmp_stop_run (carg);
@@ -193,7 +191,7 @@ void socket_write_mode (context_arg *carg, int isOn) {
 void on_timeout (uv_timer_t *handle) {
 	context_arg *carg = handle->data;
 	++carg->sequence_error;
-	carglog(carg, L_INFO, "host timeout: %s\n", carg->host);
+	carglog(carg, L_WARN, "icmp: timeout host=%s\n", carg->host);
 	icmp_metrics(carg);
 	icmp_stop_run(carg);
 }
@@ -207,7 +205,7 @@ void on_seq_timer (uv_timer_t *handle) {
 	context_arg *carg = handle->data;
 	++carg->sequence_done;
 	++carg->sequence_error;
-	carglog(carg, L_INFO, "host sequence: %s: %"PRIu64"\n", carg->host, carg->sequence_done);
+	carglog(carg, L_DEBUG, "icmp: sequence host=%s done=%"PRIu64"\n", carg->host, carg->sequence_done);
 	//++carg->sequence_done;
 	socket_write_mode(carg, 1);
 	uv_timer_start(&carg->t_towrite, on_towrite, 0, carg->packets_send_period);

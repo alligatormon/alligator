@@ -19,6 +19,8 @@ system {
     ipmi;
     nvml;
     dcgm;
+    amdgpu;
+    macos_gpu;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -297,6 +299,75 @@ curl -s localhost:1111 | grep dcgm_profiling_available
 - Пакет: **`datacenter-gpu-manager`** (см. [Установка на хосте](#установка-на-хосте)).
 - Profiling даёт overhead; набор fields небольшой.
 - VRAM/power/temp — `nvml`; SM/tensor/DRAM activity — `dcgm`, когда доступен.
+
+
+## amdgpu
+Собирает метрики AMD GPU из **amdgpu sysfs** (`/sys/class/drm/cardN/device/`), без ROCm SMI и vendor-библиотеки. Linux с драйвером `amdgpu` (Radeon и Instinct). Путь в `modules { }` не нужен.
+
+```
+system {
+    amdgpu;
+}
+```
+
+JSON / API:
+
+```json
+{ "system": { "amdgpu": {} } }
+```
+
+Обходит `$sysfs/class/drm/card[0-9]+` и оставляет устройства с PCI `vendor` `0x1002` или драйвером `amdgpu`. Узлы `renderD*` и коннекторы пропускаются. Отсутствующие sysfs-файлы опускаются (как в NVML). Бинарный blob `gpu_metrics` не разбирается.
+
+`base` уже может отдавать hwmon-сенсоры amdgpu как `core_temperature_celsius`; семейство `amdgpu_*` — отдельный GPU-набор (utilization, VRAM, clocks, power).
+
+### Метрики
+
+Префикс `amdgpu_`. Labels на per-GPU series: `name`, `index`, `pci`, `unique_id`. Суффиксы единиц: `_bytes`, `_percent`, `_watt`, `_mhz`, `_celsius`, `_rpm`.
+
+| Метрика | Источник |
+|---------|----------|
+| `amdgpu_gpu_count` | Число видимых AMD GPU |
+| `amdgpu_device_info{…,vbios}` | `product_name` / PCI id, `vbios_version` |
+| `amdgpu_utilization_{gpu,memory}_percent` | `gpu_busy_percent`, `mem_busy_percent` |
+| `amdgpu_memory_vram_{total,used,free}_bytes` | `mem_info_vram_*` |
+| `amdgpu_memory_gtt_{total,used}_bytes` | `mem_info_gtt_*` |
+| `amdgpu_memory_visible_vram_{total,used}_bytes` | `mem_info_vis_vram_*` |
+| `amdgpu_clocks_{sclk,mclk}_mhz` | `pp_dpm_sclk` / `pp_dpm_mclk` (текущая строка `*`), иначе hwmon `freq*_input` |
+| `amdgpu_temperature_celsius{sensor=edge\|junction\|mem}` | Device hwmon `temp*_input` (миллиградусы) |
+| `amdgpu_power_{average,cap}_watt` | `power1_average` / `power1_cap` (µW → W) |
+| `amdgpu_fan_speed_rpm` | `fan1_input` |
+
+
+## macos_gpu
+Собирает метрики GPU macOS через публичные свойства **IOKit IOAccelerator**. Только Darwin. Apple Silicon (AGX) и Intel iGPU / AMD dGPU на Intel Mac, если те же ключи есть. Дополнительный путь к фреймворку не нужен; IOKit уже линкуется.
+
+```
+system {
+    macos_gpu;
+}
+```
+
+JSON / API:
+
+```json
+{ "system": { "macos_gpu": {} } }
+```
+
+Читает `PerformanceStatistics` (utilization, unified memory) плюс `model`, `IOClass`, `IONameMatched`, `gpu-core-count`. Приватные каналы IOReport (энергия, частота, температура GPU) не используются.
+
+### Метрики
+
+Префикс `macos_gpu_`. Labels на per-GPU series: `name`, `class`, `index`.
+
+| Метрика | Заметки |
+|---------|---------|
+| `macos_gpu_gpu_count` | Число IOAccelerator |
+| `macos_gpu_device_info{…,compat}` | `compat` — `IONameMatched` (например `gpu,t6040`) |
+| `macos_gpu_utilization_{device,renderer,tiler}_percent` | Из `PerformanceStatistics` |
+| `macos_gpu_memory_{alloc,in_use,in_use_driver}_bytes` | Unified/system memory (UMA на Apple Silicon) |
+| `macos_gpu_memory_device_{alloc,in_use}_bytes` | Выделенная VRAM, если есть (дискретные GPU) |
+| `macos_gpu_core_count` | `gpu-core-count` |
+| `macos_gpu_recovery_count` | `recoveryCount` |
 
 
 ## firewall

@@ -68,9 +68,51 @@ if ((s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
 }
 ```
 
+## Формат сообщений
+
+Используйте `subsystem: action key=value …` — структурированные пары, без дампов указателей.
+
+```c
+/* хорошо — оператор может grep по key/host */
+carglog(carg, L_DEBUG, "tcp client: connected key=%s host=%s port=%s tls=%d\n",
+    carg->key, carg->host, carg->port, carg->tls);
+
+/* плохо — непрозрачные %p */
+carglog(carg, L_DEBUG, "client %p(%p:%p) key %s\n", carg, &carg->connect, &carg->client, carg->key);
+```
+
+- **`%p`**: на `L_INFO` и выше — используйте `key=value` (`misc-alligatorLogPointer`). На `L_DEBUG`/`L_TRACE` — только для отладочных дампов.
+- **Payload**: на `L_DEBUG` обрезать до ~256 байт; полные тела — только `L_TRACE`.
+- **Префикс**: стабильное имя подсистемы (`tcp client:`, `tcp server:`, `filetailer:`, …).
+
+### Что видно на каждом уровне (типичный scrape)
+
+| Уровень | Пример |
+|---------|--------|
+| `info` | `tcp server: listening host=0.0.0.0 port=9100` · `mongodb: cycle done dbs=3 collections=12` |
+| `debug` | `tcp client: read key=… nread=4096` |
+| `warn` | `icmp: timeout host=db` · `kubernetes watch: connection closed, reconnecting` |
+| `error` | `tcp client: connect failed key=… error=Connection refused` |
+
+## Проверки CI (`clang-tidy`)
+
+Кастомные проверки в `linters/` (собираются в образ `alligatormon/clang-tidy` через `misc/Dockerfile.clang-tidy`):
+
+| Проверка | Что ловит |
+|----------|-----------|
+| `misc-alligatorLogPointer` | `%p` в логах на `L_INFO` и выше (разрешён на `L_DEBUG`/`L_TRACE`) |
+| `misc-alligatorParserInfo` | `L_INFO` в `src/parsers/*.c` (allowlist для вех scrape) |
+| `misc-alligatorFunctionDeprecated` | `printf` / `puts` / сырой `strcspn` |
+| `misc-alligatorIfStmt` | ручной `if (log_level …)` |
+
+Локально: `cmake --build build --target alligator_lint`.
+
+Подавить ложное срабатывание: `// NOLINT(misc-alligatorParserInfo)` на строке лога.
+
 ## Антипаттерны
 
 - Ручной `if (log_level > N)` с `printf` / `puts` / `perror`
 - Логирование полных тел request/response на `L_INFO` или `L_DEBUG` на горячих путях
 - Использование `glog`, когда доступен `carg` (теряются channel контекста и префикс `[key]`)
 - Восприятие числовых уровней как старой шкалы `0/1/2/3` — всегда передавайте enum `L_*`
+- `%p` на `L_INFO` и выше (проверка `misc-alligatorLogPointer`)

@@ -135,7 +135,7 @@ void threaded_loop_run(void *arg)
 	uv_timer_t timer;
 	uv_timer_init(loop, &timer);
 	uv_timer_start(&timer, threaded_loop_null_timer, 0, 1000);
-	glog(L_INFO, "\tinitialize loop %p thread %lu\n", (void *)loop, (unsigned long)pthread_self());
+	glog(L_DEBUG, "thread loop: initialize thread %lu\n", (unsigned long)pthread_self());
 	uv_run(loop, UV_RUN_DEFAULT);
 }
 

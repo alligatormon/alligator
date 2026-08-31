@@ -634,7 +634,7 @@ void on_process_spawn(void* arg)
 
 	r = uv_spawn(carg->loop, child_req, options);
 	if (r) {
-		carglog(carg, L_ERROR, "uv_spawn: %p error: %s\n", child_req, uv_strerror(r));
+		carglog(carg, L_ERROR, "process: uv_spawn failed key=%s error=%s\n", carg->key, uv_strerror(r));
 		process_spawn_failed(carg, stdin_pipe, channel);
 	}
 	else

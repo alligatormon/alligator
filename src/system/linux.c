@@ -40,8 +40,13 @@
 #include "system/linux/ipmi.h"
 #include "system/linux/pressure.h"
 #include "system/linux/proc_net.h"
+#include "system/linux/vm_stats.h"
+#include "system/linux/host_misc.h"
+#include "system/linux/disk_sysfs.h"
+#include "system/linux/fabric_sysfs.h"
 #include "system/linux/nvml.h"
 #include "system/linux/dcgm.h"
+#include "system/linux/amdgpu.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -2128,6 +2133,10 @@ void get_system_metrics()
 		get_systemd_scopes();
 		get_distribution_name();
 		get_pressure_stats();
+		get_swap_stats();
+		get_schedstat_stats();
+		get_entropy_stats();
+		get_selinux_stats();
 		collect_power_supply();
 		if (is_baremetal_or_vm(platform)) { // exclude containers
 			get_proc_interrupts(ac->system_interrupts);
@@ -2152,6 +2161,9 @@ void get_system_metrics()
 	else if (ac->system_base)
 		find_pid(1);
 
+	if (ac->system_interrupts)
+		get_softirqs_stats();
+
 	if (ac->system_network)
 	{
 		get_network_statistics_netlink();
@@ -2165,6 +2177,9 @@ void get_system_metrics()
 
 		get_softnet_stats();
 		get_sockstat_stats();
+		get_bonding_stats();
+		get_arp_stats();
+		get_ipvs_stats();
 
 		interface_stats();
 
@@ -2178,6 +2193,7 @@ void get_system_metrics()
 	{
 		get_disk_io_stat();
 		get_disk();
+		get_dmmultipath_stats();
 		if (platform == -1)
 			platform = get_platform(0);
 		if (is_baremetal_or_vm(!platform))
@@ -2227,6 +2243,9 @@ void get_system_metrics()
 
 	if (ac->system_dcgm)
 		dcgm_schedule_scrape();
+
+	if (ac->system_amdgpu)
+		amdgpu_scrape();
 
 	get_pidfile_stats();
 	get_userprocess_stats();
@@ -2304,6 +2323,28 @@ void system_slow_scrape()
 			get_smbios();
 			disks_info();
 		}
+		get_zoneinfo_stats();
+		get_numa_meminfo_stats();
+		get_watchdog_stats();
+		if (is_baremetal(platform))
+			get_rapl_stats();
+	}
+
+	if (ac->system_memory)
+		get_slabinfo_stats();
+
+	if (ac->system_network)
+	{
+		get_infiniband_stats();
+		get_fibrechannel_stats();
+	}
+
+	if (ac->system_disk)
+	{
+		get_xfs_stats();
+		get_btrfs_stats();
+		get_bcache_stats();
+		get_tape_stats();
 	}
 
 	if (ac->system_smart)

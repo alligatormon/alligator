@@ -155,54 +155,54 @@ void get_cpu(int8_t platform)
 			if (!tdelta)
 				continue;
 
-			int64_t d1 = t1 - (int64_t)sccs->user;
+			int64_t du_user = t1 - (int64_t)sccs->user;
 			sccs->user = t1;
-			int64_t d2 = t2 - (int64_t)sccs->nice;
+			int64_t du_nice = t2 - (int64_t)sccs->nice;
 			sccs->nice = t2;
-			int64_t d3 = t3 - (int64_t)sccs->system;
+			int64_t du_system = t3 - (int64_t)sccs->system;
 			sccs->system = t3;
-			int64_t d4 = t4 - (int64_t)sccs->idle;
+			int64_t du_idle = t4 - (int64_t)sccs->idle;
 			sccs->idle = t4;
-			int64_t d5 = t5 - (int64_t)sccs->iowait;
+			int64_t du_iowait = t5 - (int64_t)sccs->iowait;
 			sccs->iowait = t5;
-			int64_t d6 = t6 - (int64_t)sccs->irq;
+			int64_t du_irq = t6 - (int64_t)sccs->irq;
 			sccs->irq = t6;
-			int64_t d7 = t7 - (int64_t)sccs->softirq;
+			int64_t du_softirq = t7 - (int64_t)sccs->softirq;
 			sccs->softirq = t7;
-			int64_t d8 = t8 - (int64_t)sccs->steal;
+			int64_t du_steal = t8 - (int64_t)sccs->steal;
 			sccs->steal = t8;
-			int64_t d9 = (t9 + t10) - (int64_t)(sccs->guest + sccs->guest_nice);
+			int64_t du_guest = (t9 + t10) - (int64_t)(sccs->guest + sccs->guest_nice);
 			sccs->guest = t9;
 			sccs->guest_nice = t10;
 
-			double usage = ((d1 + d3)*100.0/tdelta);
+			double usage = ((du_user + du_system)*100.0/tdelta);
 			if (usage<0)
 				usage = 0;
-			double user = ((d1)*100.0/tdelta);
+			double user = ((du_user)*100.0/tdelta);
 			if (user<0)
 				user = 0;
-			double nice = ((d2)*100.0/tdelta);
+			double nice = ((du_nice)*100.0/tdelta);
 			if (nice<0)
 				nice = 0;
-			double system = ((d3)*100.0/tdelta);
+			double system = ((du_system)*100.0/tdelta);
 			if (system<0)
 				system = 0;
-			double idle = ((d4)*100.0/tdelta);
+			double idle = ((du_idle)*100.0/tdelta);
 			if (idle<0)
 				idle = 0;
-			double iowait = ((d5)*100.0/tdelta);
+			double iowait = ((du_iowait)*100.0/tdelta);
 			if (iowait<0)
 				iowait = 0;
-			double irq = ((d6)*100.0/tdelta);
+			double irq = ((du_irq)*100.0/tdelta);
 			if (irq<0)
 				irq = 0;
-			double softirq = ((d7)*100.0/tdelta);
+			double softirq = ((du_softirq)*100.0/tdelta);
 			if (softirq<0)
 				softirq = 0;
-			double steal = ((d8)*100.0/tdelta);
+			double steal = ((du_steal)*100.0/tdelta);
 			if (steal<0)
 				steal = 0;
-			double guest = ((d9)*100.0/tdelta);
+			double guest = ((du_guest)*100.0/tdelta);
 			if (guest<0)
 				guest = 0;
 

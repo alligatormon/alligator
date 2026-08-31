@@ -84,37 +84,37 @@ void parse_configs(char *dirpath)
 	FILE *fd = fopen(gendir, "r");
 	if (!fd)
 	{
-		glog(L_DEBUG, "Skip open %s\n", gendir);
+		glog(L_DEBUG, "config: skip path %s\n", gendir);
 
 		snprintf(gendir, 1000, "%s.yaml", dirpath);
 		fd = fopen(gendir, "r");
 		if (!fd)
 		{
-			glog(L_DEBUG, "Skip open %s\n", gendir);
+			glog(L_DEBUG, "config: skip path %s\n", gendir);
 
 			snprintf(gendir, 1000, "%s.conf", dirpath);
 			fd = fopen(gendir, "r");
 			if (!fd)
 			{
-				glog(L_DEBUG, "Skip open %s\n", gendir);
+				glog(L_DEBUG, "config: skip path %s\n", gendir);
 			}
 			else
 			{
-				glog(L_INFO, "Use config %s\n", gendir);
+				glog(L_INFO, "config: loading %s\n", gendir);
 				config_parse_entry(gendir);
 				fclose(fd);
 			}
 		}
 		else
 		{
-			glog(L_INFO, "Use config %s\n", gendir);
+			glog(L_INFO, "config: loading %s\n", gendir);
 			config_parse_entry(gendir);
 			fclose(fd);
 		}
 	}
 	else
 	{
-		glog(L_INFO, "Use config %s\n", gendir);
+		glog(L_INFO, "config: loading %s\n", gendir);
 		config_parse_entry(gendir);
 		fclose(fd);
 	}
@@ -122,7 +122,7 @@ void parse_configs(char *dirpath)
 	int rc = stat(dirpath, &path_stat);
 	if (rc)
 	{
-		glog(L_DEBUG, "1 Skip directory: %s: %d\n", dirpath, rc);
+		glog(L_DEBUG, "config: skip directory %s (stat failed: %d)\n", dirpath, rc);
 	} 
 	else if (S_ISDIR(path_stat.st_mode))
 	{
@@ -131,7 +131,7 @@ void parse_configs(char *dirpath)
 		DIR *dp = opendir(dirpath);
 		if (!dp)
 		{	
-			glog(L_DEBUG, "2 Skip directory: %s\n", dirpath);
+			glog(L_DEBUG, "config: skip directory %s (opendir failed)\n", dirpath);
 		}
 		else
 		{
@@ -142,7 +142,7 @@ void parse_configs(char *dirpath)
 
 				char filepath[1000];
 				snprintf(filepath, 1000, "%s/%s", dirpath, entry->d_name);
-				glog(L_INFO, "Use config %s\n", filepath);
+				glog(L_INFO, "config: loading %s\n", filepath);
 				config_parse_entry(filepath);
 
 			}
@@ -152,7 +152,7 @@ void parse_configs(char *dirpath)
 	}
 	else if (S_ISREG(path_stat.st_mode))
 	{
-		glog(L_INFO, "Use config %s\n", dirpath);
+		glog(L_INFO, "config: loading %s\n", dirpath);
 		config_parse_entry(dirpath);
 	}
 }

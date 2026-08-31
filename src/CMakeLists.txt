@@ -487,12 +487,14 @@ set(STATIC_FILES
 	system/macosx/network.c
 	system/macosx/sockets.c
 	system/macosx/disk.c
+	system/macosx/gpu.c
 	system/bsd/firewall.c
 	system/smbios.c
 	system/linux.c
 	system/linux/ipmi.c
 	system/linux/nvml.c
 	system/linux/dcgm.c
+	system/linux/amdgpu.c
 	system/linux/ipset.c
 	system/linux/cpu.c
 	system/linux/process.c
@@ -506,6 +508,10 @@ set(STATIC_FILES
 	system/linux/power_supply.c
 	system/linux/pressure.c
 	system/linux/proc_net.c
+	system/linux/vm_stats.c
+	system/linux/host_misc.c
+	system/linux/disk_sysfs.c
+	system/linux/fabric_sysfs.c
 	system/linux/disk.c
 	system/linux/network.c
 	system/fdescriptors.c
@@ -550,6 +556,10 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/power_supply.c
 	system/linux/pressure.c
 	system/linux/proc_net.c
+	system/linux/vm_stats.c
+	system/linux/host_misc.c
+	system/linux/disk_sysfs.c
+	system/linux/fabric_sysfs.c
 	system/linux/disk.c
 	system/linux/network.c
 )

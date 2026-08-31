@@ -9,7 +9,7 @@
 
 extern aconf *ac;
 
-static void parse_pressure_file(const char *resource)
+static void parse_pressure_file(char *resource)
 {
 	char path[512];
 	snprintf(path, sizeof(path), "%s/pressure/%s", ac->system_procfs, resource);

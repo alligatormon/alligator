@@ -73,28 +73,28 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	if (!carg->ssl_ctx) {
 		char buf[256];
 		strerror_r(errno, buf, sizeof(buf));
-		carglog(carg, L_ERROR, "context %p  SSL_new failed: %s\n", carg, buf);
+		carglog(carg, L_ERROR, "tls: SSL_CTX_new failed key=%s: %s\n", carg->key, buf);
 		return 0;
 	}
 
 	if (certfile && keyfile) {
 		if (SSL_CTX_use_certificate_file(carg->ssl_ctx, certfile, SSL_FILETYPE_PEM) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p SSL_CTX_use_certificate_file '%s' failed: %s\n", carg, certfile, err);
+			carglog(carg, L_ERROR, "tls: SSL_CTX_use_certificate_file '%s' failed key=%s: %s\n", certfile, carg->key, err);
 			free(err);
 			return 0;
 		}
 
 		if (SSL_CTX_use_PrivateKey_file(carg->ssl_ctx, keyfile, SSL_FILETYPE_PEM) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p SSL_CTX_use_PrivateKey_file '%s' failed: %s\n", carg, keyfile, err);
+			carglog(carg, L_ERROR, "tls: SSL_CTX_use_PrivateKey_file '%s' failed key=%s: %s\n", keyfile, carg->key, err);
 			free(err);
 			return 0;
 		}
 
 		if (SSL_CTX_check_private_key(carg->ssl_ctx) != 1) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p SSL_CTX_check_private_key '%s' failed: %s\n", carg, keyfile, err);
+			carglog(carg, L_ERROR, "tls: SSL_CTX_check_private_key '%s' failed key=%s: %s\n", keyfile, carg->key, err);
 			free(err);
 			return 0;
 		}
@@ -108,7 +108,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		}
 		else {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed loading CA file: %s: %s\n", carg, ca, err);
+			carglog(carg, L_ERROR, "tls: failed loading CA file '%s' key=%s: %s\n", ca, carg->key, err);
 			free(err);
 		}
 	} else if (verify) {
@@ -116,7 +116,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			carglog(carg, L_DEBUG, "TLS loaded default CA verify paths\n");
 		} else {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed loading default CA verify paths: %s\n", carg, err);
+			carglog(carg, L_ERROR, "tls: failed loading default CA verify paths key=%s: %s\n", carg->key, err);
 			free(err);
 		}
 	}
@@ -130,7 +130,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	if (carg->rev.crl_enabled && carg->rev.crl_file) {
 		X509_STORE *store = SSL_CTX_get_cert_store(carg->ssl_ctx);
 		if (!revocation_store_apply_crl(store, &carg->rev)) {
-			carglog(carg, L_ERROR, "context %p Failed to load CRL file: %s\n", carg, carg->rev.crl_file);
+			carglog(carg, L_ERROR, "tls: failed to load CRL file '%s' key=%s\n", carg->rev.crl_file, carg->key);
 			return 0;
 		}
 		carglog(carg, L_DEBUG, "TLS loaded CRL file: %s\n", carg->rev.crl_file);
@@ -151,7 +151,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		carg->ssl = SSL_new(carg->ssl_ctx);
 		if (!carg->ssl) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p SSL_new (client) failed: %s\n", carg, err);
+			carglog(carg, L_ERROR, "tls: SSL_new (client) failed key=%s: %s\n", carg->key, err);
 			free(err);
 			return 0;
 		}
@@ -160,13 +160,13 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 	if (servername && mode == SSLMODE_CLIENT) {
 		if (!SSL_set_tlsext_host_name(carg->ssl, servername)) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed to set SNI '%s': %s\n", carg, servername, err);
+			carglog(carg, L_ERROR, "tls: failed to set SNI '%s' key=%s: %s\n", servername, carg->key, err);
 			free(err);
 		}
 		/* Enforce CN/SAN match during handshake when peer verify is enabled. */
 		if (verify && !SSL_set1_host(carg->ssl, servername)) {
 			char *err = openssl_get_error_string();
-			carglog(carg, L_ERROR, "context %p Failed to set verify hostname '%s': %s\n", carg, servername, err);
+			carglog(carg, L_ERROR, "tls: failed to set verify hostname '%s' key=%s: %s\n", servername, carg->key, err);
 			free(err);
 		}
 		if (carg->rev.ocsp_stapling)
@@ -221,7 +221,7 @@ int do_tls_shutdown(context_arg *carg, SSL *ssl) {
 		return (ret == 1) ? 1 : -1;
 	} else {
 		int err = SSL_get_error(ssl, ret);
-		carglog(carg, L_ERROR, "%"u64": tls call shutdown %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, error: %d\n", carg->count++, carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+		carglog(carg, L_ERROR, "tls: shutdown failed key=%s host=%s port=%s ssl_error=%d\n", carg->key, carg->host, carg->port, err);
 		return -1;
 	}
 }
@@ -277,12 +277,12 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 			return 1;
 		case SSL_ERROR_SYSCALL:
 			if (read_size == 0) {
-				carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read: EOF from peer");
+				carglog(carg, L_ERROR, "tls: read EOF from peer key=%s host=%s port=%s\n", carg->key, carg->host, carg->port);
 			}
 			else {
 				char buf[256];
 				strerror_r(errno, buf, sizeof(buf));
-				carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL_read syscall error", buf);
+				carglog(carg, L_ERROR, "tls: read syscall error key=%s host=%s port=%s nread=%zd: %s\n", carg->key, carg->host, carg->port, read_size, buf);
 			}
 			return -1;
 		case SSL_ERROR_SSL: {
@@ -294,11 +294,11 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 
 			char msg[256];
 			ERR_error_string_n(e, msg, sizeof(msg));
-			carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "SSL protocol error", msg);
+			carglog(carg, L_ERROR, "tls: SSL protocol error key=%s host=%s port=%s nread=%zd: %s\n", carg->key, carg->host, carg->port, read_size, msg);
 			return -1;
 		}
 		default:
-			carglog(carg, L_ERROR, "%"u64": [%"PRIu64"/%lf] tls client read error %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, nread size: %zd, error: %s: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, read_size, "Unknown SSL_read error", err);
+			carglog(carg, L_ERROR, "tls: SSL_read error key=%s host=%s port=%s nread=%zd ssl_error=%d\n", carg->key, carg->host, carg->port, read_size, err);
 			return -1;
 	}
 }

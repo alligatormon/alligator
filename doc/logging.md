@@ -66,9 +66,51 @@ if ((s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
 }
 ```
 
+## Message format
+
+Use `subsystem: action key=value …` — structured key=value pairs, not pointer dumps.
+
+```c
+/* good — operator can grep by key/host */
+carglog(carg, L_DEBUG, "tcp client: connected key=%s host=%s port=%s tls=%d\n",
+    carg->key, carg->host, carg->port, carg->tls);
+
+/* bad — opaque pointers, hard to read */
+carglog(carg, L_DEBUG, "client %p(%p:%p) key %s\n", carg, &carg->connect, &carg->client, carg->key);
+```
+
+- **`%p`**: at `L_INFO` and above — use `key=value` instead (`misc-alligatorLogPointer`). At `L_DEBUG`/`L_TRACE` only for transitional dumps.
+- **Payloads**: at `L_DEBUG` truncate to ~256 bytes; full bodies only at `L_TRACE`.
+- **Prefix**: use a stable subsystem name (`tcp client:`, `tcp server:`, `filetailer:`, `mongodb:`, …).
+
+### What you see at each level (typical aggregate scrape)
+
+| Level | Example |
+|-------|---------|
+| `info` | `tcp server: listening host=0.0.0.0 port=9100 tls=0` · `mongodb: cycle done dbs=3 collections=12` · `icmp: summary host=db success=10 error=0 …` |
+| `debug` | `tcp client: read key=memcached/tcp://… nread=4096` · `memcached: matching key 'foo' …` |
+| `warn` | `icmp: timeout host=db` · `kubernetes watch: connection closed, reconnecting` |
+| `error` | `tcp client: connect failed key=… error=Connection refused` |
+
+## CI checks (`clang-tidy`)
+
+Custom checks in `linters/` (built into `alligatormon/clang-tidy` via `misc/Dockerfile.clang-tidy`):
+
+| Check | What it catches |
+|-------|-----------------|
+| `misc-alligatorLogPointer` | `%p` in diagnostic logs at `L_INFO` and above (allowed at `L_DEBUG`/`L_TRACE`) |
+| `misc-alligatorParserInfo` | `L_INFO` in `src/parsers/*.c` (allowlist for scrape milestones) |
+| `misc-alligatorFunctionDeprecated` | `printf` / `puts` / raw `strcspn` |
+| `misc-alligatorIfStmt` | `if (log_level …)` manual gating |
+
+Run locally: `cmake --build build --target alligator_lint` (or the `_lint` target for your binary name).
+
+Suppress a false positive: `// NOLINT(misc-alligatorParserInfo)` on the log line.
+
 ## Anti-patterns
 
 - Manual `if (log_level > N)` with `printf` / `puts` / `perror`
 - Logging full request/response bodies at `L_INFO` or `L_DEBUG` on hot paths
 - Using `glog` when a `carg` is available (loses per-context channel and `[key]` prefix)
 - Treating numeric levels as the old `0/1/2/3` scale — always pass `L_*` enums
+- `%p` at `L_INFO` and above (check `misc-alligatorLogPointer`)

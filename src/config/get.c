@@ -1437,9 +1437,24 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "dcgm", ctxsys);
 	}
 
+	if (ac->system_amdgpu) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "amdgpu", ctxsys);
+	}
+
+	if (ac->system_macos_gpu) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "macos_gpu", ctxsys);
+	}
+
 	if (ac->system_interrupts) {
 		json_t *ctxsys = json_object();
 		json_array_object_insert(system, "interrupts", ctxsys);
+	}
+
+	if (ac->system_memory) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "memory", ctxsys);
 	}
 
 	if (ac->system_firewall) {

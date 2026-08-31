@@ -100,7 +100,7 @@ static void spawn_rpm_command_exec(void)
 
 static void spawn_rpm_command(const char *reason)
 {
-	carglog(ac->system_carg, L_INFO, "rpm packages datasource: rpm -qa (%s)\n", reason ? reason : "unknown");
+	carglog(ac->system_carg, L_DEBUG, "rpm packages datasource: rpm -qa (%s)\n", reason ? reason : "unknown");
 	spawn_rpm_command_exec();
 }
 
@@ -257,13 +257,13 @@ static void rpm_rpmlib_after_work_cb(uv_work_t *req, int status)
 
 	if (!job->failed && job->metrics && job->metrics_len)
 	{
-		carglog(ac->system_carg, L_INFO, "rpm packages datasource: rpmlib (library: %s)\n",
+		carglog(ac->system_carg, L_DEBUG, "rpm packages datasource: rpmlib (library: %s)\n",
 			job->preferred_lib ? job->preferred_lib : "unknown");
 		rpm_handler(job->metrics, job->metrics_len, ac->system_carg);
 	}
 	else
 	{
-		carglog(ac->system_carg, L_INFO,
+		carglog(ac->system_carg, L_DEBUG,
 			"rpm packages datasource: rpmlib failed, fallback to rpm -qa (library: %s, reason: %s)\n",
 			job->preferred_lib ? job->preferred_lib : "unknown",
 			job->err[0] ? job->err : "unknown");
@@ -277,7 +277,7 @@ static void rpm_rpmlib_after_work_cb(uv_work_t *req, int status)
 
 static void schedule_rpm_rpmlib(const char *lib_path)
 {
-	carglog(ac->system_carg, L_INFO, "rpm packages datasource: rpmlib, loading library %s\n", lib_path);
+	carglog(ac->system_carg, L_DEBUG, "rpm packages datasource: rpmlib, loading library %s\n", lib_path);
 
 	rpm_rpmlib_job *job = calloc(1, sizeof(*job));
 	if (!job)

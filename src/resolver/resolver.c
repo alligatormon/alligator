@@ -310,7 +310,7 @@ static void resolver_rd_probe_free(context_arg *carg)
 context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass)
 {
 	if ((!ac->resolver_size) && (carg->transport == APROTO_RESOLVER)) {
-		carglog(ac->system_carg, L_ERROR, "specified resolver '%s' in context %p, but there is no resolver directive, therefore alligator won't resolve this\n", carg->data, carg);
+		carglog(ac->system_carg, L_ERROR, "resolver: no resolver directive for '%s' key=%s\n", carg->data, carg->key);
 		return NULL;
 	}
 

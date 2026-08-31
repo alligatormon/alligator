@@ -35,7 +35,7 @@ static void ws_client_connect(context_arg *carg);
 static void on_ws_open(ws_conn *ws)
 {
 	context_arg *carg = ws->userdata;
-	carglog(carg, L_INFO,
+	carglog(carg, L_DEBUG,
 	        "ws_client: connected to %s:%s%s\n",
 	        carg->host, carg->port,
 	        carg->query_url ? carg->query_url : "/");
@@ -63,7 +63,7 @@ static void on_ws_close(ws_conn *ws)
 	context_arg *carg = ws->userdata;
 	ws_client_state *st = carg->data;
 
-	carglog(carg, L_INFO,
+	carglog(carg, L_DEBUG,
 	        "ws_client: disconnected from %s:%s\n",
 	        carg->host, carg->port);
 	carg->close_counter++;
@@ -104,7 +104,7 @@ static void ws_client_connect(context_arg *carg)
 
 	carg->lock = 1;
 	carg->connect_time = setrtime();
-	carglog(carg, L_INFO,
+	carglog(carg, L_DEBUG,
 	        "ws_client: connecting to %s:%s%s\n",
 	        carg->host, carg->port, path);
 

@@ -5,6 +5,8 @@ Checks: >
     -clang-diagnostic-implicit-function-declaration,
     misc-alligatorFunctionDeprecated,
     misc-alligatorIfStmt,
+    misc-alligatorLogPointer,
+    misc-alligatorParserInfo,
     -bugprone-reserved-identifier,
     -cert-dcl37-c,
     -cert-dcl51-cpp,

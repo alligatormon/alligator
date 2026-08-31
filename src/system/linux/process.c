@@ -1228,7 +1228,7 @@ void stat_userprocess_cb(uv_fs_t *req) {
 	userprocess_node *gupn = alligator_ht_search(ac->system_groupprocess, userprocess_compare, &st.st_gid, st.st_gid);
 	char *pid = req->data;
 
-	carglog(ac->system_carg, L_INFO, "%s: st_uid is %"u64", st_gid is %"u64": %p/%p\n", pid, st.st_uid, st.st_gid, uupn, gupn);
+	carglog(ac->system_carg, L_DEBUG, "%s: st_uid=%"u64" st_gid=%"u64"\n", pid, st.st_uid, st.st_gid);
 
 	process_states *states = calloc(1, sizeof(*states));
 	int64_t allfilesnum = 0;

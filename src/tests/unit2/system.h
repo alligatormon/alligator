@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include <libgen.h>
 #include <limits.h>
+#include <fcntl.h>
 #include "system/common.h"
 #include "system/linux/nvml.h"
 #include "system/linux/dcgm.h"
+#include "system/linux/amdgpu.h"
+#include "system/macosx/gpu.h"
 #include "api/api.h"
 extern aconf *ac;
 void get_system_metrics();
+void system_fast_scrape();
+void system_slow_scrape();
 
 void test_system_iface_is_veth(void) {
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("veth9cb223a"));
@@ -137,12 +142,128 @@ void test_dcgm_config_enable(void)
 	ac->system_dcgm = saved;
 }
 
+void test_amdgpu_emit_metrics(void)
+{
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+	amdgpu_emit_globals(carg, 1);
+	metric_test_run(CMP_EQUAL, "amdgpu_gpu_count", "amdgpu_gpu_count", 1);
+
+	amdgpu_device_snapshot snap;
+	memset(&snap, 0, sizeof(snap));
+	strlcpy(snap.name, "Navi_21", sizeof(snap.name));
+	strlcpy(snap.index, "0", sizeof(snap.index));
+	strlcpy(snap.pci, "0000:3B:00.0", sizeof(snap.pci));
+	strlcpy(snap.unique_id, "gpu-test-uid", sizeof(snap.unique_id));
+	strlcpy(snap.vbios, "113-TEST", sizeof(snap.vbios));
+	snap.have = AMDGPU_HAVE_DEVICE_INFO | AMDGPU_HAVE_UTIL_GPU | AMDGPU_HAVE_UTIL_MEM |
+		AMDGPU_HAVE_VRAM | AMDGPU_HAVE_CLOCK_SCLK | AMDGPU_HAVE_POWER_AVG | AMDGPU_HAVE_FAN;
+	snap.util_gpu_percent = 37;
+	snap.util_memory_percent = 12;
+	snap.vram_total_bytes = 17179869184.0;
+	snap.vram_used_bytes = 2147483648.0;
+	snap.vram_free_bytes = 15032385536.0;
+	snap.clocks_sclk_mhz = 1801;
+	snap.power_average_watt = 85;
+	snap.fan_speed_rpm = 1200;
+	snap.n_temps = 1;
+	strlcpy(snap.temps[0].sensor, "edge", sizeof(snap.temps[0].sensor));
+	snap.temps[0].celsius = 45;
+
+	amdgpu_emit_device(carg, &snap);
+
+	metric_test_run(CMP_EQUAL,
+		"amdgpu_utilization_gpu_percent{name=\"Navi_21\",index=\"0\",pci=\"0000:3B:00.0\",unique_id=\"gpu-test-uid\"}",
+		"amdgpu_utilization_gpu_percent", 37);
+	metric_test_run(CMP_EQUAL,
+		"amdgpu_memory_vram_used_bytes{name=\"Navi_21\",index=\"0\",pci=\"0000:3B:00.0\",unique_id=\"gpu-test-uid\"}",
+		"amdgpu_memory_vram_used_bytes", 2147483648.0);
+	metric_test_run(CMP_EQUAL,
+		"amdgpu_power_average_watt{name=\"Navi_21\",index=\"0\",pci=\"0000:3B:00.0\",unique_id=\"gpu-test-uid\"}",
+		"amdgpu_power_average_watt", 85);
+	metric_test_run(CMP_EQUAL,
+		"amdgpu_temperature_celsius{name=\"Navi_21\",index=\"0\",pci=\"0000:3B:00.0\",unique_id=\"gpu-test-uid\",sensor=\"edge\"}",
+		"amdgpu_temperature_celsius", 45);
+	metric_test_run(CMP_EQUAL,
+		"amdgpu_device_info{name=\"Navi_21\",index=\"0\",pci=\"0000:3B:00.0\",unique_id=\"gpu-test-uid\",vbios=\"113-TEST\"}",
+		"amdgpu_device_info", 1);
+
+	free(carg);
+}
+
+void test_amdgpu_config_enable(void)
+{
+	int saved = ac->system_amdgpu;
+	ac->system_amdgpu = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"amdgpu\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_amdgpu);
+	ac->system_amdgpu = saved;
+}
+
+void test_macos_gpu_emit_metrics(void)
+{
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+	macos_gpu_emit_globals(carg, 1);
+	metric_test_run(CMP_EQUAL, "macos_gpu_gpu_count", "macos_gpu_gpu_count", 1);
+
+	macos_gpu_device_snapshot snap;
+	memset(&snap, 0, sizeof(snap));
+	strlcpy(snap.name, "Apple M4 Pro", sizeof(snap.name));
+	strlcpy(snap.class_name, "AGXAcceleratorG16X", sizeof(snap.class_name));
+	strlcpy(snap.index, "0", sizeof(snap.index));
+	strlcpy(snap.compat, "gpu,t6040", sizeof(snap.compat));
+	snap.have = MACOS_GPU_HAVE_DEVICE_INFO | MACOS_GPU_HAVE_UTIL_DEVICE |
+		MACOS_GPU_HAVE_UTIL_RENDERER | MACOS_GPU_HAVE_UTIL_TILER |
+		MACOS_GPU_HAVE_MEM_ALLOC | MACOS_GPU_HAVE_MEM_IN_USE |
+		MACOS_GPU_HAVE_CORE_COUNT | MACOS_GPU_HAVE_RECOVERY;
+	snap.util_device_percent = 10;
+	snap.util_renderer_percent = 10;
+	snap.util_tiler_percent = 9;
+	snap.memory_alloc_bytes = 7517798400.0;
+	snap.memory_in_use_bytes = 1382596608.0;
+	snap.core_count = 20;
+	snap.recovery_count = 0;
+
+	macos_gpu_emit_device(carg, &snap);
+
+	metric_test_run(CMP_EQUAL,
+		"macos_gpu_utilization_device_percent{name=\"Apple M4 Pro\",class=\"AGXAcceleratorG16X\",index=\"0\"}",
+		"macos_gpu_utilization_device_percent", 10);
+	metric_test_run(CMP_EQUAL,
+		"macos_gpu_memory_in_use_bytes{name=\"Apple M4 Pro\",class=\"AGXAcceleratorG16X\",index=\"0\"}",
+		"macos_gpu_memory_in_use_bytes", 1382596608.0);
+	metric_test_run(CMP_EQUAL,
+		"macos_gpu_core_count{name=\"Apple M4 Pro\",class=\"AGXAcceleratorG16X\",index=\"0\"}",
+		"macos_gpu_core_count", 20);
+	metric_test_run(CMP_EQUAL,
+		"macos_gpu_device_info{name=\"Apple M4 Pro\",class=\"AGXAcceleratorG16X\",index=\"0\",compat=\"gpu,t6040\"}",
+		"macos_gpu_device_info", 1);
+
+	free(carg);
+}
+
+void test_macos_gpu_config_enable(void)
+{
+	int saved = ac->system_macos_gpu;
+	ac->system_macos_gpu = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"macos_gpu\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_macos_gpu);
+	ac->system_macos_gpu = saved;
+}
+
 void system_test(char *binary) {
 	test_system_iface_is_veth();
 	test_nvml_emit_metrics();
 	test_nvml_config_enable();
 	test_dcgm_emit_metrics();
 	test_dcgm_config_enable();
+	test_amdgpu_emit_metrics();
+	test_amdgpu_config_enable();
+	test_macos_gpu_emit_metrics();
+	test_macos_gpu_config_enable();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);
@@ -160,12 +281,10 @@ void system_test(char *binary) {
         ac->system_procfs = ac->system_sysfs = ac->system_rundir = ac->system_usrdir = ac->system_etcdir = NULL;
         return;
     }
-    char *pathbin = dirname(bin_copy);
-    char *mockpath = malloc(PATH_MAX + 1);
-    char *cwd = malloc(PATH_MAX + 1);
-    if (!mockpath || !cwd) {
-        free(mockpath);
-        free(cwd);
+    char mockroot[PATH_MAX + 1];
+    mockroot[0] = '\0';
+    get_local_directory(mockroot, binary, "tests/mock/linux");
+    if (!mockroot[0] || access(mockroot, F_OK) != 0) {
         free(bin_copy);
         free(ac->system_procfs);
         free(ac->system_sysfs);
@@ -175,23 +294,22 @@ void system_test(char *binary) {
         ac->system_procfs = ac->system_sysfs = ac->system_rundir = ac->system_usrdir = ac->system_etcdir = NULL;
         return;
     }
-    if (*pathbin == '/') {
-        snprintf(mockpath, PATH_MAX, "%s/../tests/mock/linux/", pathbin);
-    }
-    else {
-        if (!getcwd(cwd, PATH_MAX + 1))
-            cwd[0] = '\0';
-        snprintf(mockpath, PATH_MAX, "%s/%s/../tests/mock/linux/", cwd, pathbin);
-    }
 
-    snprintf(ac->system_procfs, PATH_MAX, "%s/proc", mockpath);
-    snprintf(ac->system_sysfs, PATH_MAX, "%s/sys",   mockpath);
-    snprintf(ac->system_rundir, PATH_MAX, "%s/run",  mockpath);
-    snprintf(ac->system_usrdir, PATH_MAX, "%s/usr",  mockpath);
-    snprintf(ac->system_etcdir, PATH_MAX, "%s/etc",  mockpath);
+    snprintf(ac->system_procfs, PATH_MAX, "%s/proc", mockroot);
+    snprintf(ac->system_sysfs, PATH_MAX, "%s/sys", mockroot);
+    snprintf(ac->system_rundir, PATH_MAX, "%s/run", mockroot);
+    snprintf(ac->system_usrdir, PATH_MAX, "%s/usr", mockroot);
+    snprintf(ac->system_etcdir, PATH_MAX, "%s/etc", mockroot);
+
+    amdgpu_scrape();
+#ifdef __APPLE__
+    macos_gpu_scrape();
+#endif
 
 	char *config = "{  \"system\": { \
         \"base\": {},\
+        \"interrupts\": {},\
+        \"memory\": {},\
         \"disk\": {},\
         \"network\": {},\
         \"cadvisor\": {},\
@@ -209,6 +327,7 @@ void system_test(char *binary) {
     http_api_v1(NULL, NULL, config);
     get_system_metrics();
     system_fast_scrape();
+    system_slow_scrape();
 
 #ifdef __linux__
     metric_test_run(CMP_EQUAL, "process_match{name=\"beam.smp\"}", "process_match", 1);
@@ -217,19 +336,50 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "task_states{state=\"sleeping\"}", "task_states", 5);
     metric_test_run(CMP_EQUAL, "process_states{state=\"sleeping\"}", "process_states", 5);
     metric_test_run(CMP_EQUAL, "process_states{state=\"running\"}", "process_states", 0);
-    metric_test_run(CMP_GREATER, "pressure_waiting_seconds_total{resource=\"cpu\"}", "pressure_waiting_seconds_total", 0);
-    metric_test_run(CMP_GREATER, "pressure_stalled_seconds_total{resource=\"cpu\"}", "pressure_stalled_seconds_total", 0);
-    metric_test_run(CMP_GREATER, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 0);
-    metric_test_run(CMP_GREATER, "sockstat_sockets_used", "sockstat_sockets_used", 0);
-    metric_test_run(CMP_GREATER, "sockstat_stat_total{protocol=\"TCP\",stat=\"inuse\"}", "sockstat_stat_total", 0);
+    metric_test_run(CMP_EQUAL, "pressure_waiting_seconds_total{resource=\"cpu\"}", "pressure_waiting_seconds_total", 123456789 / 1000000.0);
+    metric_test_run(CMP_EQUAL, "pressure_stalled_seconds_total{resource=\"cpu\"}", "pressure_stalled_seconds_total", 987654321 / 1000000.0);
+    metric_test_run(CMP_EQUAL, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 123);
+    metric_test_run(CMP_EQUAL, "sockstat_sockets_used", "sockstat_sockets_used", 42);
+    metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"TCP\",stat=\"inuse\"}", "sockstat_stat_total", 10);
+    metric_test_run(CMP_EQUAL, "swap_device_bytes{device=\"/dev/dm-1\",type=\"size\"}", "swap_device_bytes", 1048572ULL * 1024);
+    metric_test_run(CMP_EQUAL, "schedstat_run_periods_total{cpu=\"0\"}", "schedstat_run_periods_total", 3000);
+    metric_test_run(CMP_EQUAL, "slabinfo_objects{slab=\"kmalloc-64\",type=\"active\"}", "slabinfo_objects", 100);
+    metric_test_run(CMP_EQUAL, "softirq_stat_total{cpu=\"0\",type=\"hi\"}", "softirq_stat_total", 1);
+    metric_test_run(CMP_EQUAL, "entropy_available_bits", "entropy_available_bits", 256);
+    metric_test_run(CMP_EQUAL, "selinux_enforce_mode", "selinux_enforce_mode", 1);
+    metric_test_run(CMP_EQUAL, "bonding_slaves{master=\"bond0\",type=\"total\"}", "bonding_slaves", 2);
+    metric_test_run(CMP_EQUAL, "arp_entries{device=\"eth0\"}", "arp_entries", 2);
+    metric_test_run(CMP_EQUAL, "ipvs_stat_total{stat=\"connections\"}", "ipvs_stat_total", 42);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"pages_free\"}", "zoneinfo_stat_total", 100);
+    metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
 #endif
-    metric_test_run(CMP_GREATER, "cpu_usage_time", "cpu_usage_time", 0);
-    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"irq\"}", "cpu_usage_time", 0);
+    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"user\"}", "cpu_usage_time", 0);
+    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"softirq\"}", "cpu_usage_time", 0);
+    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"idle\"}", "cpu_usage_time", 0);
     metric_test_run(CMP_GREATER, "cores_num", "cores_num", 0);
 
-    free(cwd);
-    free(mockpath);
+    metric_test_run(CMP_EQUAL, "amdgpu_gpu_count", "amdgpu_gpu_count", 1);
+    metric_test_run(CMP_EQUAL,
+        "amdgpu_utilization_gpu_percent{name=\"Radeon RX 6800 XT\",index=\"0\",pci=\"0000:03:00.0\",unique_id=\"0123456789abcdef\"}",
+        "amdgpu_utilization_gpu_percent", 37);
+    metric_test_run(CMP_EQUAL,
+        "amdgpu_memory_vram_used_bytes{name=\"Radeon RX 6800 XT\",index=\"0\",pci=\"0000:03:00.0\",unique_id=\"0123456789abcdef\"}",
+        "amdgpu_memory_vram_used_bytes", 2147483648.0);
+    metric_test_run(CMP_EQUAL,
+        "amdgpu_clocks_sclk_mhz{name=\"Radeon RX 6800 XT\",index=\"0\",pci=\"0000:03:00.0\",unique_id=\"0123456789abcdef\"}",
+        "amdgpu_clocks_sclk_mhz", 1801);
+    metric_test_run(CMP_EQUAL,
+        "amdgpu_power_average_watt{name=\"Radeon RX 6800 XT\",index=\"0\",pci=\"0000:03:00.0\",unique_id=\"0123456789abcdef\"}",
+        "amdgpu_power_average_watt", 85);
+    metric_test_run(CMP_EQUAL,
+        "amdgpu_temperature_celsius{name=\"Radeon RX 6800 XT\",index=\"0\",pci=\"0000:03:00.0\",unique_id=\"0123456789abcdef\",sensor=\"edge\"}",
+        "amdgpu_temperature_celsius", 45);
+#ifdef __APPLE__
+    metric_test_run(CMP_GREATER, "macos_gpu_gpu_count", "macos_gpu_gpu_count", 0);
+    metric_test_run(CMP_GREATER, "macos_gpu_core_count", "macos_gpu_core_count", 0);
+#endif
+
     free(bin_copy);
 }

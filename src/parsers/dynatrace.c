@@ -262,7 +262,7 @@ void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_da
 		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":0,\"linesInvalid\":0}\n");
 		size_t jl = strlen(jsonbuf);
 		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", jl, jsonbuf);
-		carglog(mc, L_INFO, "dynatrace_metrics_ingest: no lines\n");
+		carglog(mc, L_DEBUG, "dynatrace_metrics_ingest: no lines\n");
 		string_cat(response, temp_resp, strlen(temp_resp));
 		return;
 	}
@@ -307,7 +307,7 @@ void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_da
 	else
 	{
 		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":%"u64",\"linesInvalid\":%"u64"}\n", lines_ok, lines_invalid);
-		carglog(mc, L_INFO, "dynatrace_metrics_ingest: linesOk=%"u64", linesInvalid=%"u64"\n", lines_ok, lines_invalid);
+		carglog(mc, L_DEBUG, "dynatrace_metrics_ingest: linesOk=%"u64", linesInvalid=%"u64"\n", lines_ok, lines_invalid);
 	}
 
 	uint16_t code = lines_invalid ? 400 : 202;
@@ -316,7 +316,7 @@ void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_da
 	snprintf(temp_resp, sizeof(temp_resp), 	"HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", code, status, jl, jsonbuf);
 	string_cat(response, temp_resp, strlen(temp_resp));
 
-	carglog(mc, L_INFO, "dynatrace_metrics_ingest: linesOk=%"u64", linesInvalid=%"u64"\n", lines_ok, lines_invalid);
+	carglog(mc, L_DEBUG, "dynatrace_metrics_ingest: linesOk=%"u64", linesInvalid=%"u64"\n", lines_ok, lines_invalid);
 }
 
 // https://docs.dynatrace.com/docs/discover-dynatrace/references/dynatrace-api/environment-api/metric-v2/post-ingest-metrics

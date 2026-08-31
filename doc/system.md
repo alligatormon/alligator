@@ -9,6 +9,8 @@ system {
     base;
     disk;
     network;
+    interrupts;
+    memory;
     process [nginx] [bash] [/[bash]*/];
     services [nginx.service];
     services_process [php-fpm.service];
@@ -17,6 +19,8 @@ system {
     ipmi;
     nvml;
     dcgm;
+    amdgpu;
+    macos_gpu;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
     packages [nginx] [alligator];
@@ -46,6 +50,29 @@ When the kernel exposes PSI (`/proc/pressure/*`, Linux 4.20+), Alligator exports
 
 CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core`.
 
+From `/proc/swaps` (per swap device):
+
+- `swap_device_bytes{device,type="size|used|free"}` — bytes
+- `swap_device_priority{device}`
+
+From `/proc/schedstat` (per CPU, host scheduler):
+
+- `schedstat_run_time_nanoseconds_total{cpu}`
+- `schedstat_runqueue_time_nanoseconds_total{cpu}`
+- `schedstat_run_periods_total{cpu}`
+
+Also from `base` (fast scrape):
+
+- `entropy_available_bits`, `entropy_pool_size_bits` — from `/proc/sys/kernel/random/*`
+- `selinux_enabled`, `selinux_enforce_mode` — when `/sys/fs/selinux/enforce` exists
+
+Slow scrape (`base`):
+
+- `zoneinfo_stat_total{node,zone,stat}` — `/proc/zoneinfo`
+- `numa_meminfo_bytes{node,type}`, `numa_node_stat_total{node,stat}` — per-node sysfs
+- `watchdog_stat{device,type}` — `/sys/class/watchdog/*`
+- `rapl_energy_joules_total{name,index}` — `/sys/class/powercap` (bare-metal only)
+
 `load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
 
 Metric naming notes:
@@ -55,12 +82,41 @@ Metric naming notes:
 - `interface_address` omits interfaces whose name starts with `veth` (same 4-character prefix as `if_stat` / `link_status`). This avoids high-churn Docker container veth series. `iface_num` still counts all interfaces returned by the OS.
 
 
+## interrupts
+Per-CPU softirq counters from `/proc/softirqs` (normal scrape):
+
+- `softirq_stat_total{cpu,type}`
+
+When `base` is also enabled, `/proc/interrupts` is read on each scrape; with `interrupts` enabled, per-CPU IRQ breakdown is exported as `interrupts_core_count{code,description,cpu}` in addition to `interrupts_by_irq_total{code,description}`.
+
+
+## memory
+Slab caches from `/proc/slabinfo` are collected on the **slow** system scrape interval (~4 minutes), one file read per cycle:
+
+- `slabinfo_objects{slab,type="active|total"}`
+- `slabinfo_object_size_bytes{slab}`
+
+Reading `/proc/slabinfo` may require root (file mode `0400` on some kernels).
+
+
 ## disk
 Enables monitoring disk metrics, including the filesystem stats and I/O block devices stats.
+
+From `disk` scrape: `dmmultipath_stat{device,type}` — multipath DM devices (`size_bytes`, `active`, `paths`, `paths_active`).
+
+Slow scrape (`disk`): runtime stats when present — `xfs_stat_total{device,stat}`, `btrfs_stat_total{uuid,stat}`, `bcache_stat_total{uuid,stat}`, `tape_stat_total{device,stat}`.
 
 
 ## network
 Enables the monitoring of the network interfaces and sockets statistics.
+
+From `network` scrape:
+
+- `bonding_slaves{master,type="total|active"}`
+- `arp_entries{device}` — ARP table size per interface
+- `ipvs_stat_total{stat}` — when `/proc/net/ip_vs_stats` exists
+
+Slow scrape (`network`): `infiniband_stat_total{device,port,stat}`, `fibrechannel_stat_total{host,stat}` when sysfs classes exist.
 
 From `/proc/net/softnet_stat` (when present):
 
@@ -320,6 +376,75 @@ Prefix `dcgm_`. Per-GPU labels: `name`, `uuid`, `serial`, `index`. Profiling rat
 - Package: **`datacenter-gpu-manager`** (see [Host setup](#host-setup) above).
 - Profiling adds GPU overhead; field set is intentionally small.
 - Prefer `nvml` for VRAM/power/temp; use `dcgm` for SM/tensor/DRAM activity when available.
+
+
+## amdgpu
+Collects AMD GPU metrics from **amdgpu sysfs** (`/sys/class/drm/cardN/device/`), without ROCm SMI or a vendor library. Linux hosts with the in-tree `amdgpu` driver (consumer Radeon and Instinct). No `modules { }` path is required.
+
+```
+system {
+    amdgpu;
+}
+```
+
+JSON / API:
+
+```json
+{ "system": { "amdgpu": {} } }
+```
+
+Walks `$sysfs/class/drm/card[0-9]+` and keeps devices whose PCI `vendor` is `0x1002` or whose driver is `amdgpu`. `renderD*` and connector nodes are skipped. Missing sysfs files are omitted per GPU (same pattern as NVML). The binary `gpu_metrics` blob is not parsed.
+
+`base` already exports amdgpu hwmon sensors as `core_temperature_celsius` when that collector is enabled; `amdgpu_*` is the dedicated GPU family (utilization, VRAM, clocks, power).
+
+### Metrics
+
+Prefix `amdgpu_`. Per-GPU labels: `name`, `index`, `pci`, `unique_id`. Unit suffixes: `_bytes`, `_percent`, `_watt`, `_mhz`, `_celsius`, `_rpm`.
+
+| Metric | Source |
+|--------|--------|
+| `amdgpu_gpu_count` | Visible AMD GPU count |
+| `amdgpu_device_info{…,vbios}` | `product_name` / PCI id, `vbios_version` |
+| `amdgpu_utilization_{gpu,memory}_percent` | `gpu_busy_percent`, `mem_busy_percent` |
+| `amdgpu_memory_vram_{total,used,free}_bytes` | `mem_info_vram_*` |
+| `amdgpu_memory_gtt_{total,used}_bytes` | `mem_info_gtt_*` |
+| `amdgpu_memory_visible_vram_{total,used}_bytes` | `mem_info_vis_vram_*` |
+| `amdgpu_clocks_{sclk,mclk}_mhz` | `pp_dpm_sclk` / `pp_dpm_mclk` (current `*`), else hwmon `freq*_input` |
+| `amdgpu_temperature_celsius{sensor=edge\|junction\|mem}` | Device hwmon `temp*_input` (millidegrees) |
+| `amdgpu_power_{average,cap}_watt` | `power1_average` / `power1_cap` (µW → W) |
+| `amdgpu_fan_speed_rpm` | `fan1_input` |
+
+
+## macos_gpu
+Collects Mac GPU metrics via public **IOKit IOAccelerator** properties. Darwin only. Covers Apple Silicon (AGX) and also Intel iGPU / AMD dGPU on Intel Macs when those expose the same keys. No extra framework path; IOKit is already linked.
+
+```
+system {
+    macos_gpu;
+}
+```
+
+JSON / API:
+
+```json
+{ "system": { "macos_gpu": {} } }
+```
+
+Reads `PerformanceStatistics` (utilization, unified memory) plus `model`, `IOClass`, `IONameMatched`, `gpu-core-count`. Private IOReport channels (GPU energy, frequency, thermal) are not used.
+
+### Metrics
+
+Prefix `macos_gpu_`. Per-GPU labels: `name`, `class`, `index`.
+
+| Metric | Notes |
+|--------|--------|
+| `macos_gpu_gpu_count` | IOAccelerator count |
+| `macos_gpu_device_info{…,compat}` | `compat` is `IONameMatched` (e.g. `gpu,t6040`) |
+| `macos_gpu_utilization_{device,renderer,tiler}_percent` | From `PerformanceStatistics` |
+| `macos_gpu_memory_{alloc,in_use,in_use_driver}_bytes` | Unified/system memory (Apple Silicon UMA) |
+| `macos_gpu_memory_device_{alloc,in_use}_bytes` | Dedicated VRAM when present (discrete GPUs) |
+| `macos_gpu_core_count` | `gpu-core-count` |
+| `macos_gpu_recovery_count` | `recoveryCount` |
 
 
 ## firewall

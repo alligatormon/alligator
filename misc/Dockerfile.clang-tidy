@@ -10,6 +10,8 @@ RUN apt update &&\
     cd /build/llvm-project/clang-tools-extra/clang-tidy &&\
     ./add_new_check.py misc alligatorFunctionDeprecated &&\
     ./add_new_check.py misc alligatorIfStmt &&\
+    ./add_new_check.py misc alligatorLogPointer &&\
+    ./add_new_check.py misc alligatorParserInfo &&\
     cp /misc/* /build/llvm-project/clang-tools-extra/clang-tidy/misc/ &&\
     cd /build/llvm-project/build &&\
     cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" -D CMAKE_C_COMPILER=clang -D CMAKE_CXX_COMPILER=clang++ ../llvm &&\

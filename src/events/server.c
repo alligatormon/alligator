@@ -141,7 +141,7 @@ static void tcp_server_release_client(context_arg *carg)
 {
 	context_arg *srv_carg = carg->srv_carg;
 
-	carglog(carg, L_DEBUG, "%"u64": tcp server closed client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_DEBUG, "tcp server: closed client key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->close_counter)++;
 	carg->close_time_finish = setrtime();
 
@@ -216,7 +216,7 @@ void tcp_server_closed_client(uv_handle_t* handle)
 
 void tcp_server_close_client(context_arg* carg)
 {
-	carglog(carg, L_DEBUG, "%"u64": tcp server call close client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_DEBUG, "tcp server: closing client key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 
 	if (uv_is_closing((uv_handle_t*)&carg->client) == 0)
 	{
@@ -257,7 +257,7 @@ void tcp_server_shutdown_client(uv_shutdown_t* req, int status)
 {
 	context_arg* carg = (context_arg*)req->data;
 	context_arg *srv_carg = carg->srv_carg;
-	carglog(carg, L_DEBUG, "%"u64": tcp server shut down client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "tcp server: shut down client key=%s host=%s port=%s tls=%d status=%d\n", carg->key, carg->host, carg->port, carg->tls, status);
 	(srv_carg->shutdown_counter)++;
 	carg->shutdown_time_finish = setrtime();
 
@@ -275,7 +275,7 @@ static void tcp_server_http_idle_cb(uv_timer_t *handle)
 	if (!carg)
 		return;
 
-	carglog(carg, L_DEBUG, "%"u64": http idle timeout, closing client %p\n", carg->count++, carg);
+	carglog(carg, L_DEBUG, "tcp server: http idle timeout, closing client key=%s\n", carg->key);
 	tcp_server_close_client(carg);
 }
 
@@ -325,7 +325,7 @@ static void tcp_server_write_complete(context_arg *carg, int status)
 	{
 		if (http_entrypoint_should_shutdown(carg, status))
 		{
-			carglog(carg, L_DEBUG, "%"u64": tcp server call shutdown http client %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+			carglog(carg, L_DEBUG, "tcp server: shutting down http client key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 			tcp_server_begin_shutdown(carg);
 		}
 		else
@@ -342,7 +342,7 @@ void tcp_server_written(uv_write_t* req, int status)
 {
 	context_arg *carg = req->data;
 	context_arg *srv_carg = carg->srv_carg;
-	carglog(carg, L_DEBUG, "%"u64": tcp server wrote %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+	carglog(carg, L_DEBUG, "tcp server: wrote key=%s host=%s port=%s tls=%d status=%d\n", carg->key, carg->host, carg->port, carg->tls, status);
 	(srv_carg->write_counter)++;
 	carg->write_time_finish = setrtime();
 
@@ -350,7 +350,7 @@ void tcp_server_written(uv_write_t* req, int status)
 
 	if (carg->response_buffer.base)
 	{
-		carglog(carg, L_DEBUG, "%"u64": tcp server wrote call free %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, status: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+		carglog(carg, L_DEBUG, "tcp server: wrote and freeing key=%s host=%s port=%s tls=%d status=%d\n", carg->key, carg->host, carg->port, carg->tls, status);
 		free(carg->response_buffer.base);
 		carg->response_buffer = uv_buf_init(NULL, 0);
 	}
@@ -360,9 +360,9 @@ void tcp_server_written(uv_write_t* req, int status)
 void tls_server_written(uv_write_t* req, int status) {
 	context_arg *carg = req->data;
 	if (status)
-		carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d, write error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
+		carglog(carg, L_ERROR, "tcp server: write failed key=%s host=%s port=%s tls=%d status=%d error=%s\n", carg->key, carg->host, carg->port, carg->tls, status, uv_strerror(status));
 	else
-		carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] server data written %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, status: %d\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, status);
+		carglog(carg, L_DEBUG, "tcp server: wrote key=%s host=%s port=%s tls=%d status=%d\n", carg->key, carg->host, carg->port, carg->tls, status);
 	tcp_server_write_complete(carg, status);
 	free(carg->write_buffer.base);
 	carg->write_buffer.len = 0;
@@ -423,7 +423,7 @@ int do_tls_handshake_server(context_arg *carg) {
 				flush_tls_write(carg, (uv_stream_t *)&carg->client);
 			} else {
 				char *err = openssl_get_error_string();
-				carglog(carg, L_WARN, "%"u64": [%"PRIu64"/%lf] handshake receive failed %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d, error: %s\n", carg->count++, carglog_elapsed_ms(carg, carg->tls_read_time_finish), carglog_elapsed_sec(carg, carg->tls_read_time_finish), carg, &carg->connect, &carg->client, carg->key, carg->host, carg->port, carg->tls, err);
+				carglog(carg, L_WARN, "tcp server: TLS handshake failed key=%s host=%s port=%s error=%s\n", carg->key, carg->host, carg->port, err);
 				free(err);
 
 				return -1;
@@ -439,7 +439,7 @@ void tcp_server_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 {
 	context_arg* carg = (context_arg*)stream->data;
 	context_arg *srv_carg = carg->srv_carg;
-	carglog(carg, L_DEBUG, "%"u64": tcp server read %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, EOF: %d, ECONNRESET: %d, ECONNABORTED: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, (nread == UV_EOF), (nread == UV_ECONNRESET), (nread == UV_ECONNABORTED));
+	carglog(carg, L_DEBUG, "tcp server: read key=%s host=%s port=%s tls=%d nread=%zd eof=%d reset=%d aborted=%d\n", carg->key, carg->host, carg->port, carg->tls, nread, (nread == UV_EOF), (nread == UV_ECONNRESET), (nread == UV_ECONNABORTED));
 	(srv_carg->read_counter)++;
 	carg->read_time_finish = setrtime();
 	if (!carg->no_metric)
@@ -484,7 +484,7 @@ void tls_server_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
 	context_arg* carg = stream->data;
 	context_arg *srv_carg = carg->srv_carg;
-	carglog(carg, L_DEBUG, "%"u64": tls server read %p(%p:%p) with key %s, hostname %s, port: %s, tls: %d, nread: %zd, is_closing: %d, handshake over: %d\n", carg->count++, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls, nread, uv_is_closing((uv_handle_t*)&carg->client), carg->tls_handshake_done);
+	carglog(carg, L_DEBUG, "tcp server: TLS read key=%s host=%s port=%s nread=%zd closing=%d handshake_done=%d\n", carg->key, carg->host, carg->port, nread, uv_is_closing((uv_handle_t*)&carg->client), carg->tls_handshake_done);
 	(srv_carg->tls_read_counter)++;
 	carg->tls_read_time_finish = setrtime();
 
@@ -549,7 +549,7 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	context_arg *carg = malloc(sizeof(*carg));
 	memcpy(carg, srv_carg, sizeof(context_arg));
 	carg_inherited_uv_reset(carg);
-	carglog(carg, L_DEBUG, "%"u64": tcp server accepted on server %p, context %p(%p:%p) with key %s, hostname %s, port: %s and tls: %d\n", carg->count++, srv_carg, carg, &carg->server, &carg->client, carg->key, carg->host, carg->port, carg->tls);
+	carglog(carg, L_DEBUG, "tcp server: accepted client key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->conn_counter)++;
 
 	uv_tcp_init(carg->loop, &carg->client);
@@ -697,7 +697,7 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		srv_carg->server.data = srv_carg;
 
 		entrypoint_carg_replace_key(srv_carg, "tcp:%" PRIu64 ":%s:%u", i, srv_carg->host, port);
-		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
+		carglog(srv_carg, L_INFO, "tcp server: listening host=%s port=%d tls=%d\n", srv_carg->host, port, tls);
 
 		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
 		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
@@ -717,7 +717,7 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		srv_carg->server.data = srv_carg;
 
 		entrypoint_carg_replace_key(srv_carg, "tcp:0:%s:%u", srv_carg->host, port);
-		carglog(srv_carg, L_INFO, "init server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, srv_carg, srv_carg->host, port);
+		carglog(srv_carg, L_INFO, "tcp server: listening host=%s port=%d tls=%d\n", srv_carg->host, port, tls);
 
 		if (tcp_server_setup(srv_carg, loop))
 			alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));

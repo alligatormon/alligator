@@ -408,7 +408,6 @@ void directory_crawl(void *arg)
 	memset(&readdir_req, 0, sizeof(readdir_req));
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	carglog(carg, L_ERROR, "open dir: %s, status: %p\n", path, readdir_req.ptr);
 
 	if (!readdir_req.ptr)
 	{
@@ -870,7 +869,7 @@ void filetailer_write_state_foreach(void *funcarg, void *arg)
 	if (fstat->state != FILESTAT_STATE_SAVE)
 		return;
 
-	glog(L_INFO, "save file_stat: %s, %"u64", %"u64"\n", fstat->key, fstat->offset, fstat->modify);
+	glog(L_DEBUG, "filetailer: save file_stat key=%s offset=%"u64" mtime=%"u64"\n", fstat->key, fstat->offset, fstat->modify);
 
 	string_cat(str, "3", 1);
 	string_cat(str, "key", 3);
@@ -939,7 +938,7 @@ void filestat_restore_v1(char *buf, size_t len)
 			uint64_t valsize = strtoull(tmp, &tmp, 10);
 			if (*tmp == '\t' || *tmp == '\n')
 			{
-				glog(L_INFO, "filestat_restore_v1:: %s: %"u64"\n", object, valsize);
+				glog(L_DEBUG, "filetailer: restore v1 %s val=%"u64"\n", object, valsize);
 				if (!strcmp(object, "offset"))
 				{
 					offset = valsize;
@@ -950,7 +949,7 @@ void filestat_restore_v1(char *buf, size_t len)
 				char value[FILETAILER_RESTORE_FIELD_MAX];
 				size_t value_copy = valsize < (sizeof(value) - 1) ? valsize : (sizeof(value) - 1);
 				strlcpy(value, tmp, value_copy + 1);
-				glog(L_INFO, "filestat_restore_v1:: '%s': '%s'\n", object, value);
+				glog(L_DEBUG, "filetailer: restore v1 '%s'='%s'\n", object, value);
 
 				if (!strcmp(object, "key"))
 				{

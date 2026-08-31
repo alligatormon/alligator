@@ -279,7 +279,7 @@ int main(int argc, char **argv, char **envp)
 	revocation_init();
 
 	log_init();
-	glog(L_OFF, "logger started\n");
+	glog(L_INFO, "alligator: logger initialized\n");
 
 	signal_listen();
 

@@ -31,6 +31,7 @@
 #include "system/common.h"
 #include "system/macosx/parsers.h"
 #include "system/macosx/sysctl.h"
+#include "system/macosx/gpu.h"
 
 extern aconf *ac;
 
@@ -544,6 +545,9 @@ void get_system_metrics(void)
 
 	if (ac->system_services || ac->system_services_process)
 		get_services();
+
+	if (ac->system_macos_gpu)
+		macos_gpu_scrape();
 
 	get_pidfile_stats();
 	get_userprocess_stats();

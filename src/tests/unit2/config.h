@@ -3795,7 +3795,10 @@ void test_config_get_system_flags_runtime_paths()
     uint8_t saved_ipmi = ac->system_ipmi;
     uint8_t saved_nvml = ac->system_nvml;
     uint8_t saved_dcgm = ac->system_dcgm;
+    uint8_t saved_amdgpu = ac->system_amdgpu;
+    uint8_t saved_macos_gpu = ac->system_macos_gpu;
     uint8_t saved_interrupts = ac->system_interrupts;
+    uint8_t saved_memory = ac->system_memory;
     uint8_t saved_firewall = ac->system_firewall;
     uint8_t saved_ipset = ac->system_ipset;
     uint8_t saved_ipset_entries = ac->system_ipset_entries;
@@ -3816,7 +3819,10 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_ipmi = 1;
     ac->system_nvml = 1;
     ac->system_dcgm = 1;
+    ac->system_amdgpu = 1;
+    ac->system_macos_gpu = 1;
     ac->system_interrupts = 1;
+    ac->system_memory = 1;
     ac->system_firewall = 1;
     ac->system_ipset = 1;
     ac->system_cadvisor = 1;
@@ -3839,6 +3845,8 @@ void test_config_get_system_flags_runtime_paths()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "cadvisor"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "nvml"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "dcgm"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "amdgpu"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "macos_gpu"));
     json_decref(root);
 
     ac->system_ipset_entries = 1;
@@ -3854,7 +3862,10 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_ipmi = saved_ipmi;
     ac->system_nvml = saved_nvml;
     ac->system_dcgm = saved_dcgm;
+    ac->system_amdgpu = saved_amdgpu;
+    ac->system_macos_gpu = saved_macos_gpu;
     ac->system_interrupts = saved_interrupts;
+    ac->system_memory = saved_memory;
     ac->system_firewall = saved_firewall;
     ac->system_ipset = saved_ipset;
     ac->system_ipset_entries = saved_ipset_entries;

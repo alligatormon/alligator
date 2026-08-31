@@ -208,6 +208,7 @@ typedef struct aconf
 
 	int system_base;
 	int system_interrupts;
+	int system_memory;
 	int system_disk;
 	int system_network;
 	int system_process;
@@ -222,6 +223,8 @@ typedef struct aconf
 	int system_ipmi;
 	int system_nvml;
 	int system_dcgm;
+	int system_amdgpu;
+	int system_macos_gpu;
 	char *system_procfs;
 	char *system_sysfs;
 	char *system_rundir;

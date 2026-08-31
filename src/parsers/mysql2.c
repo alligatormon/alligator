@@ -1132,7 +1132,7 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 							conn->auth_waiting_rsa_key = 0;
 					}
 				} else if (payload[0] == 0x00) {
-					carglog(conn->carg, L_INFO, "mysql: '%s' Auth Successful!\n", conn->carg->host);
+					carglog(conn->carg, L_DEBUG, "mysql: auth successful host=%s\n", conn->carg->host);
 					conn->state = STATE_QUERY;
 					auth_just_finished = 1;
 					p += 4 + pkt_len;

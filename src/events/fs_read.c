@@ -66,7 +66,7 @@ void fs_read_on_open(uv_fs_t *req)
 		uv_fs_t *read_req = calloc(1, sizeof(*read_req));
 		read_req->data = frinfo;
 
-		glog(L_INFO, "fs_read_on_open: trying to file read '%s', result: %zd\n", frinfo->filename, req->result);
+		glog(L_DEBUG, "fs_read: reading '%s' fd=%zd\n", frinfo->filename, req->result);
 		uv_fs_read(uv_default_loop(), read_req, req->result, &frinfo->buffer, 1, frinfo->offset, fs_read_on_read);
 	}
 	else

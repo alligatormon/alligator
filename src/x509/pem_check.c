@@ -55,7 +55,7 @@ int tls_fs_dir_read(x509_fs_t *tls_fs, char *path)
 	uv_fs_t readdir_req;
 
 	uv_fs_opendir(NULL, &readdir_req, path, NULL);
-	glog(L_INFO, "tls open dir: %s, status: %p\n", path, readdir_req.ptr);
+	glog(L_DEBUG, "tls open dir: %s\n", path);
 
 	if (!readdir_req.ptr)
 		return 0;

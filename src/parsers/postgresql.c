@@ -1163,7 +1163,7 @@ static void postgresql_timer_item(void *carg_p)
 
 void postgresql_timer(uv_timer_t* handle) {
 	(void)handle;
-	glog(L_INFO, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run timer\", \"count\": %zu}\n", 0, "", alligator_ht_count(ac->pg_aggregator));
+	glog(L_DEBUG, "{\"action\": \"run timer\", \"count\": %zu}\n", alligator_ht_count(ac->pg_aggregator));
 	alligator_ht_foreach(ac->pg_aggregator, postgresql_timer_item);
 }
 

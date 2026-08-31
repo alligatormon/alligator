@@ -42,7 +42,7 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	metric_add_labels("unixgram_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
 
 	close(carg->fd);
-	carglog(carg, L_INFO, "deleting file %s\n", carg->local->sun_path);
+	carglog(carg, L_DEBUG, "unixgram: deleting socket file %s\n", carg->local->sun_path);
 	unlink(carg->local->sun_path);
 	free(carg->remote);
 	free(carg->local);
@@ -60,7 +60,7 @@ void do_unixgram(void *arg)
 
 	context_arg *carg = arg;
 	carglog(carg, L_DEBUG, "run %s\n", carg->key);
-	carglog(carg, L_DEBUG, "arg %p\n", carg);
+	carglog(carg, L_TRACE, "unixgram: context %p key=%s\n", carg, carg->key ? carg->key : "-");
 	//char *client_sock = malloc(255);
 
 	if (cluster_come_later(carg))
@@ -119,7 +119,7 @@ void do_unixgram(void *arg)
 		return;
 	}
 
-	carglog(carg, L_INFO, "sent %zu bytes\n", strlen(carg->mesg));
+	carglog(carg, L_DEBUG, "unixgram: sent %zu bytes key=%s\n", strlen(carg->mesg), carg->key ? carg->key : "-");
 
 	carg->poll_socket.data = carg;
 	uv_poll_init_socket(uv_default_loop(), &carg->poll_socket, s);

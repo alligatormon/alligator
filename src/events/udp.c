@@ -106,7 +106,7 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 {
 	context_arg *carg = req->data;
 	carg->read_time_finish = setrtime();
-	carglog(carg, L_DEBUG, "%"u64": udp read %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "udp: read key=%s host=%s tls=%d nread=%zd\n", carg->key, carg->host, carg->tls, nread);
 
 	/* Entrypoint server: parse datagram and keep listening. */
 	if (req == &carg->udp_server) {
@@ -189,8 +189,7 @@ void udp_timeout_timer(uv_timer_t *timer)
 	if (!carg)
 		return;
 
-	r_time timeout_now = setrtime();
-	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] timeout udp client %p(%p:%p) with key %s, hostname %s,  tls: %d, timeout: %"u64"\n", carg->count++, carglog_elapsed_ms(carg, timeout_now), carglog_elapsed_sec(carg, timeout_now), carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->timeout);
+	carglog(carg, L_WARN, "udp: timeout key=%s host=%s tls=%d timeout_ms=%"u64"\n", carg->key, carg->host, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
 
 	udp_close_client(carg, NULL);
@@ -202,7 +201,7 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
 	}
 	carg->write_time_finish = setrtime();
-	carglog(carg, L_DEBUG, "%"u64": udp sent %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "udp: sent key=%s host=%s tls=%d\n", carg->key, carg->host, carg->tls);
 
 	req->handle->data = req->data;
 
@@ -292,7 +291,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 		carg->udp_server.data = carg;
 
 		entrypoint_carg_replace_key(carg, "udp:%" PRIu64 ":%s:%u", i, carg->host, port);
-		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
+		carglog(carg, L_INFO, "udp server: listening host=%s port=%d tls=%d\n", carg->host, port, tls);
 
 		uv_thread_create(&carg->thread, udp_server_run, carg);
 		alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
@@ -313,7 +312,7 @@ void udp_server_init(uv_loop_t *loop, const char* addr, uint16_t port, uint8_t t
 		carg->udp_server.data = carg;
 
 		entrypoint_carg_replace_key(carg, "udp:0:%s:%u", carg->host, port);
-		carglog(carg, L_INFO, "init udp server with loop %p and ssl:%d and carg server: %p and ip:%s and port %d\n", loop, tls, carg, carg->host, port);
+		carglog(carg, L_INFO, "udp server: listening host=%s port=%d tls=%d\n", carg->host, port, tls);
 
 		udp_server_run(carg);
 		alligator_ht_insert(ac->entrypoints, &(carg->context_node), carg, tommy_strhash_u32(0, carg->key));
@@ -412,7 +411,7 @@ void udp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
 	carg->count = 0;
-	carglog(carg, L_DEBUG, "%"u64": udp client connect %p(%p:%p) with key %s, hostname %s,  tls: %d, lock: %d, timeout: %"u64"\n", carg->count++, carg, &carg->client, &carg->connect, carg->key, carg->host, carg->tls, carg->lock, carg->timeout);
+	carglog(carg, L_DEBUG, "udp: connecting key=%s host=%s tls=%d timeout_ms=%"u64"\n", carg->key, carg->host, carg->tls, carg->timeout);
 
 	if (carg->lock)
 		return;

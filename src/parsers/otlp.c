@@ -1135,7 +1135,7 @@ void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, c
 	{
 		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":0,\"linesInvalid\":0}\n");
 		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", strlen(jsonbuf), jsonbuf);
-		carglog(mc, L_INFO, "otlp_metrics_ingest: empty body\n");
+		carglog(mc, L_WARN, "otlp_metrics_ingest: empty body\n");
 		string_cat(response, temp_resp, strlen(temp_resp));
 		return;
 	}
@@ -1178,7 +1178,7 @@ void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, c
 	else
 	{
 		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":%" u64 ",\"linesInvalid\":%" u64 "}\n", lines_ok, lines_invalid);
-		carglog(mc, L_INFO, "otlp_metrics_ingest: linesOk=%" u64 ", linesInvalid=%" u64 "\n", lines_ok, lines_invalid);
+		carglog(mc, L_DEBUG, "otlp_metrics_ingest: linesOk=%" u64 ", linesInvalid=%" u64 "\n", lines_ok, lines_invalid);
 	}
 
 	{
