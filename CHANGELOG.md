@@ -1,6 +1,11 @@
 Changelog
 
 ## [unreleased]
+- system `packages` (breaking on Debian/Ubuntu): package metrics are collected from `/var/lib/dpkg/status` instead of the legacy `/var/lib/dpkg/available`, so only really installed packages are exported (`Status: install ok installed`/`hold ok installed`). The dpkg stanza parser is rewritten: fields are matched at the beginning of a line, `package_total` counts packages instead of loop iterations, the debian revision is taken after the last hyphen (`1.31.3-0.2.5-1.0.4-0.4.1` -> version `1.31.3-0.2.5-1.0.4`, release `0.4.1`) and the epoch is stripped from the version.
+- system `packages`: new `arch` label on `package_installed` (multi-arch packages no longer collide); empty on the rpm and pkg backends.
+- `read_whole_file()` in `events/fs_read`: reads a file up to EOF with a growing buffer. `read_from_file()` keeps the 1 MB limit but now logs a truncation error instead of silently cutting the content (`/var/lib/dpkg/status` is bigger than 1 MB on a typical host).
+- Fix: `dpkg_stat_cb()` leaked `uv_fs_t` and its path on every scrape (whole request on non-Debian hosts, where the file does not exist).
+- Fix: `rpmdb_load_failed` is registered by the rpm handler only, it is no longer exported as an empty family on Debian and FreeBSD hosts.
 - ZooKeeper parser (breaking): `mntr` Prometheus labels (`{pool="direct"}`, `{quantile="0.5"}`, `{gc="PS MarkSweep"}`, …) are exported as labels instead of being baked into the metric name (`zk_*_pool__direct__`). Grafana dashboard rebuilt to match other Alligator dashboards.
 - Query `except` skips databases by exact name or `/regex/` when `datasource` is a wildcard (`pg/*`).
 - Memcached parser (breaking): STAT fields are no longer all flat gauges. Metrics are renamed/grouped with correct types — e.g. `memcached_commands_total{command,status}`, `memcached_read_bytes_total` / `memcached_written_bytes_total`, `memcached_current_*` gauges, `memcached_uptime_seconds` counter. Aligns with prometheus/memcached_exporter semantics (`cmd_set` minus CAS). Grafana dashboard: `dashboards/alligator-memcached.json`.

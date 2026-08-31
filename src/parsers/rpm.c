@@ -9,6 +9,7 @@
 #include "common/selector.h"
 #include "common/logs.h"
 #include "common/deb.h"
+#include "metric/metric_types.h"
 #include "events/context_arg.h"
 #define RPMEXEC "exec://rpm -qa --queryformat '%{RPMTAG_INSTALLTIME} %{NAME} %{VERSION} %{RELEASE}\n'"
 #define RPMLEN 1024
@@ -21,6 +22,8 @@
 void rpm_handler(char *metrics, size_t size, context_arg *carg)
 {
 	packages_register_metric_families(ac->system_carg);
+	namespace_metric_family_set(NULL, ac->system_carg, "rpmdb_load_failed", METRIC_TYPE_GAUGE,
+		"1 if the RPM package database could not be loaded during the last scrape, 0 otherwise.");
 
 	uint64_t failedval = 0;
 	if (!metrics || !size)
@@ -60,7 +63,7 @@ void rpm_handler(char *metrics, size_t size, context_arg *carg)
 			match = 0;
  
 		if (match)
-			metric_add_labels3("package_installed", &ts, DATATYPE_INT, ac->system_carg, "name", name, "version", version, "release", release);
+			metric_add_labels4("package_installed", &ts, DATATYPE_INT, ac->system_carg, "name", name, "version", version, "release", release, "arch", "");
 
 		++pkgs;
 	}

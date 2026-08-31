@@ -388,18 +388,22 @@ cpu_usage_average_percent 4.326667
 Собирает информацию об установленных в ОС пакетах системным installer'ом и дате установки.\
 Можно указать список пакетов. Иначе собирается информация по всем пакетам в системе.
 
-На RPM-based Linux (RHEL, CentOS, Fedora и подобные) Alligator экспортирует:
+Alligator экспортирует:
 
-- `package_installed` — labels `name`, `version`, `release`; значение — время установки (Unix timestamp)
+- `package_installed` — labels `name`, `version`, `release`, `arch`; значение — время установки (Unix timestamp)
 - `package_total` — общее число установленных пакетов, увиденных при scrape
-- `rpmdb_load_failed` — `1`, когда данные пакетов не удалось загрузить, `0` иначе
+- `rpmdb_load_failed` — `1`, когда данные пакетов не удалось загрузить, `0` иначе (только на RPM-based хостах)
+
+`arch` заполняется на Debian/Ubuntu, где один и тот же пакет может быть установлен сразу для
+нескольких архитектур; на остальных backend'ах метка пустая.
 
 Пример метрики:
 
 ```
-# HELP package_installed Unix timestamp when the package was installed, labeled by name, version, and release.
+# HELP package_installed Unix timestamp when the package was installed, labeled by name, version, release and arch.
 # TYPE package_installed gauge
-package_installed {version="6.40", name="nmap-ncat", release="7.el7"} 1527797852
+package_installed {version="6.40", name="nmap-ncat", release="7.el7", arch=""} 1527797852
+package_installed {version="1.31.3-0.2.5-1.0.4", name="nginx", release="0.4.1", arch="amd64"} 1
 # HELP package_total Total number of installed packages seen during the last scrape.
 # TYPE package_total gauge
 package_total 842
@@ -465,7 +469,17 @@ rpm -qa --queryformat '%{RPMTAG_INSTALLTIME} %{NAME} %{VERSION} %{RELEASE}\n'
 
 Reason strings включают детали вроде ошибок `dlopen`, missing symbols или пустых iterator results.
 
-На Debian/Ubuntu метрики пакетов собираются из `/var/lib/dpkg/available`, когда файл существует; модуль `rpmlib` применяется только на RPM-based хостах.
+### Источник данных на Debian/Ubuntu
+
+На Debian/Ubuntu метрики пакетов собираются из `/var/lib/dpkg/status`, учитываются только станзы со
+`Status: install ok installed` (или `hold ok installed`). `/var/lib/dpkg/available` не используется: это
+легаси-кэш *доступных* в репозиториях пакетов, APT его больше не обновляет, и об установленных пакетах он
+ничего не говорит. Модуль `rpmlib` применяется только на RPM-based хостах.
+
+dpkg не хранит время установки пакета, поэтому на Debian/Ubuntu значение `package_installed` всегда
+равно `1`, информацию несёт только набор меток. Иногда вместо него берут mtime файла
+`/var/lib/dpkg/info/<пакет>.list`, но он перезаписывается при апгрейде и одинаков для всех пакетов на
+хосте, развёрнутом из образа, поэтому здесь он не экспортируется.
 
 ## cadvisor
 Реализует метрики из известного exporter'а CAdvisor.\

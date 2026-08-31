@@ -52,8 +52,8 @@ void get_packages_info(void)
 		if (!match_mapper(ac->packages_match, name, strlen(name), name))
 			continue;
 
-		metric_add_labels3("package_installed", &install_ts, DATATYPE_INT, ac->system_carg,
-			"name", name, "version", version, "release", release);
+		metric_add_labels4("package_installed", &install_ts, DATATYPE_INT, ac->system_carg,
+			"name", name, "version", version, "release", release, "arch", "");
 	}
 
 	pclose(fd);
