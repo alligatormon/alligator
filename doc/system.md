@@ -465,18 +465,22 @@ cpu_usage_average_percent 4.326667
 Collects information about packages installed in the OS by the system installer and their installation date.\
 It can specify a list of packages. Otherwise, it collects information from all packages in the system.
 
-On RPM-based Linux systems (RHEL, CentOS, Fedora, and similar), Alligator exposes:
+Alligator exposes:
 
-- `package_installed` — labels `name`, `version`, `release`; value is install time (Unix timestamp)
+- `package_installed` — labels `name`, `version`, `release`, `arch`; value is install time (Unix timestamp)
 - `package_total` — total number of installed packages seen in the scrape
-- `rpmdb_load_failed` — `1` when package data could not be loaded, `0` otherwise
+- `rpmdb_load_failed` — `1` when package data could not be loaded, `0` otherwise (RPM-based hosts only)
+
+`arch` is filled on Debian/Ubuntu, where the same package name can be installed for several
+architectures at once; on the other backends it is empty.
 
 Example metric:
 
 ```
-# HELP package_installed Unix timestamp when the package was installed, labeled by name, version, and release.
+# HELP package_installed Unix timestamp when the package was installed, labeled by name, version, release and arch.
 # TYPE package_installed gauge
-package_installed {version="6.40", name="nmap-ncat", release="7.el7"} 1527797852
+package_installed {version="6.40", name="nmap-ncat", release="7.el7", arch=""} 1527797852
+package_installed {version="1.31.3-0.2.5-1.0.4", name="nginx", release="0.4.1", arch="amd64"} 1
 # HELP package_total Total number of installed packages seen during the last scrape.
 # TYPE package_total gauge
 package_total 842
@@ -542,7 +546,17 @@ Datasource selection is logged through the system context logger (`carglog` on `
 
 Reason strings include details such as `dlopen` errors, missing symbols, or empty iterator results.
 
-On Debian/Ubuntu systems, package metrics are collected from `/var/lib/dpkg/available` when that file exists; the `rpmlib` module applies only to RPM-based hosts.
+### Debian/Ubuntu data source
+
+On Debian/Ubuntu systems, package metrics are collected from `/var/lib/dpkg/status`; only the stanzas
+with `Status: install ok installed` (or `hold ok installed`) are taken into account. `/var/lib/dpkg/available`
+is not used: it is a legacy cache of packages *available* in the repositories, it is not maintained by APT
+anymore and it says nothing about what is installed. The `rpmlib` module applies only to RPM-based hosts.
+
+dpkg does not store the installation time of a package, so on Debian/Ubuntu the value of
+`package_installed` is always `1` and only the label set carries information. The mtime of
+`/var/lib/dpkg/info/<package>.list` is sometimes used as a substitute, but it is rewritten on
+upgrades and is identical for every package on an image-built host, so it is not exported here.
 
 ## cadvisor
 Implements metrics from the well-known exporter called CAdvisor.\

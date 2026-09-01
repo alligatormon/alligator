@@ -676,18 +676,55 @@ void test_dpkg_list_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, payload);
     snprintf(payload, payload_sz,
              "Package: %s\n"
+             "Status: install ok installed\n"
+             "Architecture: amd64\n"
              "Version: %s-1ubuntu1\n"
              "\n"
              "Package: shortpkg\n"
+             "Status: install ok installed\n"
+             "Architecture: all\n"
              "Version: 2.3.4-5\n"
+             "Description: package with a field-looking description\n"
+             " Package: notapackage\n"
+             " Version: 9.9.9-9\n"
+             "\n"
+             "Package: removedpkg\n"
+             "Status: deinstall ok config-files\n"
+             "Architecture: all\n"
+             "Version: 1.0-1\n"
+             "\n"
+             "Package: nginx\n"
+             "Status: install ok installed\n"
+             "Architecture: amd64\n"
+             "Version: 1.31.3-0.2.5-1.0.4-0.4.1\n"
+             "\n"
+             "Package: epochpkg\n"
+             "Status: hold ok installed\n"
+             "Architecture: amd64\n"
+             "Version: 2:8.2.1-1ubuntu1\n"
              "\n",
              long_pkg, long_ver);
 
     dpkg_list(payload, strlen(payload));
     free(payload);
 
-    metric_test_run(CMP_GREATER, "package_total", "package_total", 0);
-    metric_test_run(CMP_GREATER, "package_installed", "package_installed", 0);
+    /* removedpkg is in config-files state and notapackage lives inside a
+       Description continuation line, so neither of them is counted */
+    metric_test_run(CMP_EQUAL, "package_total", "package_total", 4);
+
+    /* debian revision is the part after the last hyphen */
+    metric_test_run(CMP_EQUAL,
+        "package_installed{name=\"nginx\",version=\"1.31.3-0.2.5-1.0.4\",release=\"0.4.1\",arch=\"amd64\"}",
+        "package_installed", 1);
+
+    /* epoch is not a part of the upstream version */
+    metric_test_run(CMP_EQUAL,
+        "package_installed{name=\"epochpkg\",version=\"8.2.1\",release=\"1ubuntu1\",arch=\"amd64\"}",
+        "package_installed", 1);
+
+    metric_test_run(CMP_EQUAL,
+        "package_installed{name=\"shortpkg\",version=\"2.3.4\",release=\"5\",arch=\"all\"}",
+        "package_installed", 1);
 
     alligator_ht_done(ac->packages_match->hash);
     free(ac->packages_match->hash);

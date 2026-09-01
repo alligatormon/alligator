@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
+#include "common/deb.h"
 #include "common/logs.h"
+#include "common/selector.h"
 #include "events/fs_read.h"
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
@@ -10,100 +12,165 @@ extern aconf *ac;
 void packages_register_metric_families(context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "package_installed", METRIC_TYPE_GAUGE,
-		"Unix timestamp when the package was installed, labeled by name, version, and release.");
+		"Unix timestamp when the package was installed, labeled by name, version, release and arch.");
 	namespace_metric_family_set(NULL, carg, "package_total", METRIC_TYPE_GAUGE,
 		"Total number of installed packages seen during the last scrape.");
-	namespace_metric_family_set(NULL, carg, "rpmdb_load_failed", METRIC_TYPE_GAUGE,
-		"1 if the RPM package database could not be loaded during the last scrape, 0 otherwise.");
+}
+
+// Returns the value of the `name` field inside the [stanza, end) paragraph.
+// Fields are matched at the beginning of a line only, so neither Config-Version:
+// nor the text of Description: continuation lines can be picked up by mistake.
+static char *deb_field(char *stanza, char *end, const char *name, size_t namelen, size_t *vlen)
+{
+	char *p = stanza;
+
+	while (p < end)
+	{
+		char *eol = memchr(p, '\n', (size_t)(end - p));
+		if (!eol)
+			eol = end;
+
+		if (((size_t)(eol - p) > namelen) && !strncmp(p, name, namelen) && (p[namelen] == ':'))
+		{
+			char *value = p + namelen + 1;
+			while ((value < eol) && ((*value == ' ') || (*value == '\t')))
+				++value;
+
+			*vlen = (size_t)(eol - value);
+			return value;
+		}
+
+		p = eol + 1;
+	}
+
+	*vlen = 0;
+	return NULL;
+}
+
+// The Status field is "<want> <flag> <status>". Only install/hold + installed
+// means the package is present: config-files, not-installed, half-installed
+// and unpacked stanzas are still kept in /var/lib/dpkg/status.
+static int8_t deb_is_installed(const char *value, size_t vlen)
+{
+	const char *last = value + vlen;
+	const char *state = last;
+
+	while ((state > value) && (state[-1] != ' '))
+		--state;
+
+	if (((size_t)(last - state) != 9) || strncmp(state, "installed", 9))
+		return 0;
+
+	if (!strncmp(value, "install ", 8) || !strncmp(value, "hold ", 5))
+		return 1;
+
+	return 0;
+}
+
+static void deb_copy(char *dst, size_t dstsize, const char *src, size_t srclen)
+{
+	size_t copy = srclen < (dstsize - 1) ? srclen : (dstsize - 1);
+
+	if (copy)
+		memcpy(dst, src, copy);
+
+	dst[copy] = 0;
 }
 
 void dpkg_list(char *str, size_t len)
 {
 	packages_register_metric_families(ac->system_carg);
-	uint64_t i;
-	char *package;
-	char *version;
-	char *newptr;
 
-	char pkgname[255];
-	char versionname[255];
-	char releasename[255];
-	size_t sz;
-	size_t releasesz;
+	char pkgname[256];
+	char versionname[256];
+	char releasename[256];
+	char archname[64];
+
 	uint64_t pkgs = 0;
-	uint64_t datetime = 1;
+	char *p = str;
+	char *end = str + len;
 
-	for (i=0; i<len; i++)
+	while (p < end)
 	{
-		++pkgs;
-		package = strstr(str+i, "Package:");
-		if (!package)
-			break;
+		char *line = p;
+		char *stanza_end = end;
 
-		package += strcspn(package, " :");
-		package += strspn(package, " :");
-		sz = strcspn(package, "\n");
-		size_t pkg_copy = sz < (sizeof(pkgname) - 1) ? sz : (sizeof(pkgname) - 1);
-		strlcpy(pkgname, package, pkg_copy + 1);
-
-		int8_t match = 1;
-		if (!match_mapper(ac->packages_match, pkgname, sz, pkgname))
-			match = 0;
-	
-		version = strstr(str+i, "Version:");
-		if (!version)
-			break;
-
-		version += strcspn(version, " :");
-		version += strspn(version, " :");
-		sz = strcspn(version, "-");
-		releasesz = strcspn(version, "\n");
-
-		if (releasesz > sz)
+		while (line < end)
 		{
-			size_t ver_copy = sz < (sizeof(versionname) - 1) ? sz : (sizeof(versionname) - 1);
-			strlcpy(versionname, version, ver_copy + 1);
-			version += strcspn(version, "-");
-			version += strspn(version, "-");
-			sz = strcspn(version, "\n");
-			size_t rel_copy = sz < (sizeof(releasename) - 1) ? sz : (sizeof(releasename) - 1);
-			strlcpy(releasename, version, rel_copy + 1);
+			char *eol = memchr(line, '\n', (size_t)(end - line));
+			if (!eol)
+				break;
+
+			if (eol == line)
+			{
+				stanza_end = line;
+				break;
+			}
+
+			line = eol + 1;
+		}
+
+		size_t namelen = 0;
+		size_t verlen = 0;
+		size_t statuslen = 0;
+		size_t archlen = 0;
+		char *name = deb_field(p, stanza_end, "Package", 7, &namelen);
+		char *status = deb_field(p, stanza_end, "Status", 6, &statuslen);
+		char *version = deb_field(p, stanza_end, "Version", 7, &verlen);
+		char *arch = deb_field(p, stanza_end, "Architecture", 12, &archlen);
+
+		p = (stanza_end < end) ? (stanza_end + 1) : end;
+
+		if (!name || !namelen || !version || !verlen)
+			continue;
+
+		if (!status || !deb_is_installed(status, statuslen))
+			continue;
+
+		deb_copy(pkgname, sizeof(pkgname), name, namelen);
+		deb_copy(archname, sizeof(archname), arch ? arch : "", archlen);
+
+		// epoch is not a part of the upstream version: 2:8.2.1-1ubuntu1
+		char *epoch = memchr(version, ':', verlen);
+		if (epoch)
+		{
+			verlen -= (size_t)(epoch + 1 - version);
+			version = epoch + 1;
+		}
+
+		// debian revision follows the last hyphen, not the first one
+		char *revision = NULL;
+		for (size_t i = 0; i < verlen; i++)
+			if (version[i] == '-')
+				revision = version + i;
+
+		if (revision)
+		{
+			deb_copy(versionname, sizeof(versionname), version, (size_t)(revision - version));
+			deb_copy(releasename, sizeof(releasename), revision + 1, verlen - (size_t)(revision + 1 - version));
 		}
 		else
 		{
-			size_t ver_copy = releasesz < (sizeof(versionname) - 1) ? releasesz : (sizeof(versionname) - 1);
-			strlcpy(versionname, version, ver_copy + 1);
+			deb_copy(versionname, sizeof(versionname), version, verlen);
 			*releasename = 0;
 		}
 
-		glog(L_TRACE, "package: %s, version: %s, releasename: %s\n", pkgname, versionname, releasename);
+		++pkgs;
 
-		if (match)
-			metric_add_labels3("package_installed", &datetime, DATATYPE_UINT, ac->system_carg, "name", pkgname, "release", releasename, "version", versionname);
+		if (!match_mapper(ac->packages_match, pkgname, strlen(pkgname), pkgname))
+			continue;
 
-		newptr = strstr(str+i, "\n\n");
-		if (!newptr)
-			break;
+		glog(L_TRACE, "package: %s, version: %s, release: %s, arch: %s\n", pkgname, versionname, releasename, archname);
 
-		i += (newptr-(str+i));
+		// dpkg does not store the installation time
+		int64_t datetime = 1;
+		metric_add_labels4("package_installed", &datetime, DATATYPE_INT, ac->system_carg, "name", pkgname, "release", releasename, "version", versionname, "arch", archname);
 	}
+
 	metric_add_auto("package_total", &pkgs, DATATYPE_UINT, ac->system_carg);
 }
 
-//int main()
-//{
-//	//FILE *fd = fopen("/var/lib/dpkg/available", "r");
-//	FILE *fd = fopen("test.list", "r");
-//	if (!fd)
-//		return 1;
-//
-//	char buf[64*1024*1024];
-//	size_t rc = fread(buf, 1, 64*1024*1024, fd);
-//
-//	dpkg_list(buf, rc);
-//}
-
-void dpkg_callback(char *buf, size_t len, void *data)
+void dpkg_callback(char *buf, size_t len, void *data, char *filename)
 {
 	if (buf && len > 1)
 		dpkg_list(buf, len);
@@ -111,17 +178,21 @@ void dpkg_callback(char *buf, size_t len, void *data)
 
 void dpkg_stat_cb(uv_fs_t* req)
 {
-	if (req->result < 0) {
-		return;
-	}
+	ssize_t result = req->result;
+	char *path = req->data;
 
-	read_from_file(strdup(req->data), 0, dpkg_callback, NULL);
+	uv_fs_req_cleanup(req);
 	free(req);
+
+	if (result < 0)
+		return;
+
+	read_whole_file(strdup(path), dpkg_callback, NULL);
 }
 
 void dpkg_crawl(char *path)
 {
-	uv_fs_t *req = malloc(sizeof(uv_fs_t));
+	uv_fs_t *req = calloc(1, sizeof(uv_fs_t));
 	req->data = path;
 	uv_fs_stat(uv_default_loop(), req, path, dpkg_stat_cb);
 }

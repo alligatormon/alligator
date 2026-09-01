@@ -1233,7 +1233,7 @@ void get_alligator_info()
 void get_packages_info()
 {
 	get_rpm_info();
-	dpkg_crawl("/var/lib/dpkg/available");
+	dpkg_crawl(DPKG_ADMINDIR "/status");
 }
 
 static uint64_t systemd_unit_is_enabled_in_dir(char *svcdir, char *service_name)
