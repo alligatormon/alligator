@@ -39,6 +39,8 @@ LLVM_PROFILE_FILE="$PROFILE_RAW" "$TEST_BIN" pass
   -ignore-filename-regex="$EXCLUDE_REGEX" \
   > "$REPORT_OUT"
 
+# Do not use `head` here: with `set -o pipefail` it closes the pipe after 15 lines
+# and llvm-cov/sort die with SIGPIPE (exit 141), failing CI after tests already passed.
 "${LLVM_COV_CMD[@]}" report "$TEST_BIN" \
   -instr-profile="$PROFILE_DATA" \
   -ignore-filename-regex="$EXCLUDE_REGEX" \
@@ -49,6 +51,6 @@ LLVM_PROFILE_FILE="$PROFILE_RAW" "$TEST_BIN" pass
     {
       if (started && $1 ~ /\.c$/) print;
     }
-  ' | sort -k10,10n | head -n 15 > "$TOP_OUT"
+  ' | sort -k10,10n | awk 'NR <= 15' > "$TOP_OUT"
 
 python3 "$ROOT_DIR/src/tests/coverage/parse_coverage_summary.py" "$REPORT_OUT" "$MIN_LINE_COVERAGE"
