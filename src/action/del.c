@@ -14,6 +14,8 @@ void action_del(json_t *action)
 		return;
 	}
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+		return;
 
 	action_node *an = alligator_ht_search(ac->action, action_compare, name, tommy_strhash_u32(0, name));
 	if (an)

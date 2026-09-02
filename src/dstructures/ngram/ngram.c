@@ -52,7 +52,7 @@ uint64_t ngram_token_add(ngram_index_t *ngram_table, uint8_t ngram_size, const c
 
 	uint64_t results = 0;
 	for (uint64_t i = 0; i < len - ngram_size; ++i) {
-		char buf[ngram_size];
+		char buf[ngram_size + 1];
 		memcpy(buf, token + i, ngram_size);
 		buf[ngram_size] = 0;
 		results += ngram_add(ngram_table, buf, data);
@@ -83,11 +83,15 @@ uint64_t ngram_token_search(ngram_index_t *ngram_table, ngram_node_t ***ret, uin
 	}
 
 	uint64_t loop_for = len - ngram_size;
+	if (!loop_for) {
+		*ret = NULL;
+		return 0;
+	}
 	ngram_node_t **results = calloc(1, loop_for * sizeof(*results));
 	uint64_t j = 0;
 
 	for (uint64_t i = 0; i < loop_for; ++i) {
-		char buf[ngram_size];
+		char buf[ngram_size + 1];
 		memcpy(buf, token + i, ngram_size);
 		buf[ngram_size] = 0;
 		ngram_node_t *result = ngram_search(ngram_table, buf);
@@ -165,12 +169,15 @@ void ngram_clear(ngram_index_t *ngram_table, void *clear_func) {
 	alligator_ht_foreach_arg(hash, ngram_hash_free_node, ngram_table);
 	alligator_ht_done(hash);
 
+	/* alligator_ht_forfree already tommy_hashdyn_done + free(ht) */
 	alligator_ht_forfree(&ngram_table->deleted, free);
-	alligator_ht_done(&ngram_table->deleted);
+	ngram_table->deleted.ht = NULL;
 	free(ngram_table);
 }
 
 void ngram_filter_free(ngram_node_t *filtered_results) {
+	if (!filtered_results)
+		return;
 	free(filtered_results->data);
 	free(filtered_results);
 }

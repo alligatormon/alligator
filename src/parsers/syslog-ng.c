@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <stddef.h>
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
@@ -8,10 +10,22 @@ extern aconf *ac;
 
 #define SYSLOGNG_NAME_SIZE 1000
 
+static int syslogng_copy_field(char **cur, char *metrics, size_t size, char *dst, size_t dstsz)
+{
+	if (*cur - metrics >= (ptrdiff_t)size)
+		return 0;
+	size_t msize = strcspn(*cur, ";");
+	if ((*cur)[msize] != ';')
+		return 0;
+	size_t copy = msize < (dstsz - 1) ? msize : (dstsz - 1);
+	strlcpy(dst, *cur, copy + 1);
+	*cur += msize + 1;
+	return 1;
+}
+
 void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 {
 	char *cur = metrics;
-	uint64_t msize;
 	char source_name[SYSLOGNG_NAME_SIZE];
 	char source_id[SYSLOGNG_NAME_SIZE];
 	char source_instance[SYSLOGNG_NAME_SIZE];
@@ -27,37 +41,18 @@ void syslog_ng_handler(char *metrics, size_t size, context_arg *carg)
 		if (cur - metrics >= size)
 			break;
 
-		msize = strcspn(cur, ";");
-		size_t source_name_copy = msize < (sizeof(source_name) - 1) ? msize : (sizeof(source_name) - 1);
-		strlcpy(source_name, cur, source_name_copy + 1);
+		if (!syslogng_copy_field(&cur, metrics, size, source_name, sizeof(source_name)))
+			break;
 		if (strstr(source_name, ".\n"))
 			break;
-		cur += msize;
-		++cur;
-
-		msize = strcspn(cur, ";");
-		size_t source_id_copy = msize < (sizeof(source_id) - 1) ? msize : (sizeof(source_id) - 1);
-		strlcpy(source_id, cur, source_id_copy + 1);
-		cur += msize;
-		++cur;
-
-		msize = strcspn(cur, ";");
-		size_t source_instance_copy = msize < (sizeof(source_instance) - 1) ? msize : (sizeof(source_instance) - 1);
-		strlcpy(source_instance, cur, source_instance_copy + 1);
-		cur += msize;
-		++cur;
-
-		msize = strcspn(cur, ";");
-		size_t state_copy = msize < (sizeof(state) - 1) ? msize : (sizeof(state) - 1);
-		strlcpy(state, cur, state_copy + 1);
-		cur += msize;
-		++cur;
-
-		msize = strcspn(cur, ";");
-		size_t type_copy = msize < (sizeof(type) - 1) ? msize : (sizeof(type) - 1);
-		strlcpy(type, cur, type_copy + 1);
-		cur += msize;
-		++cur;
+		if (!syslogng_copy_field(&cur, metrics, size, source_id, sizeof(source_id)))
+			break;
+		if (!syslogng_copy_field(&cur, metrics, size, source_instance, sizeof(source_instance)))
+			break;
+		if (!syslogng_copy_field(&cur, metrics, size, state, sizeof(state)))
+			break;
+		if (!syslogng_copy_field(&cur, metrics, size, type, sizeof(type)))
+			break;
 
 		value = strtoull(cur, &cur, 10);
 

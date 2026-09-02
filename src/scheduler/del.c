@@ -29,15 +29,23 @@ void scheduler_del_json(json_t *scheduler)
 	if (!jname)
 		return;
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+		return;
 
 	scheduler_node *sn = alligator_ht_search(ac->scheduler, scheduler_compare, name, tommy_strhash_u32(0, name));
+	if (!sn)
+		return;
 	alligator_ht_remove_existing(ac->scheduler, &(sn->node));
 	scheduler_object_del(sn);
 }
 
 void scheduler_del(char *name)
 {
+	if (!name)
+		return;
 	scheduler_node *sn = alligator_ht_search(ac->scheduler, scheduler_compare, name, tommy_strhash_u32(0, name));
+	if (!sn)
+		return;
 	alligator_ht_remove_existing(ac->scheduler, &(sn->node));
 	scheduler_object_del(sn);
 }

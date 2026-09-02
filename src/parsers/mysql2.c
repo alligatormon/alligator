@@ -906,6 +906,7 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 		uint8_t *payload = p + 4;
 
 		if (p + 4 + pkt_len > end) break;
+		if (pkt_len < 1) break;
 
 		if (pkt_seq == 1 && payload[0] == 0x00) {
 			if (ctx) {
@@ -923,9 +924,15 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 		}
 
 		if (payload[0] == 0xFF) {
-			uint16_t err_code = payload[1] | (payload[2] << 8);
-			char *msg = (char *)(payload + 9);
-			int msg_len = pkt_len - 9;
+			uint16_t err_code = 0;
+			const char *msg = "";
+			int msg_len = 0;
+			if (pkt_len >= 3)
+				err_code = (uint16_t)(payload[1] | (payload[2] << 8));
+			if (pkt_len > 9) {
+				msg = (char *)(payload + 9);
+				msg_len = (int)(pkt_len - 9);
+			}
 			carglog(conn->carg, L_ERROR, "mysql: '%s' >>> MySQL ERROR %d: %.*s\n", conn->carg->host, err_code, msg_len, msg);
 
 			if (ctx) {
@@ -1085,6 +1092,7 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 		while (left >= 4) {
 			uint32_t pkt_len = p[0] | (p[1] << 8) | (p[2] << 16);
 			if (left < 4 + pkt_len) break;
+			if (pkt_len < 1) break;
 			uint8_t pkt_seq = p[3];
 			uint8_t *payload = p + 4;
 
@@ -1139,7 +1147,13 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 					left -= 4 + pkt_len;
 					break;
 				} else if (payload[0] == 0xFF) {
-					carglog(conn->carg, L_ERROR, "mysql: '%s' Auth Failed! Error: %s\n", conn->carg->host, (char *)(payload + 9));
+					const char *msg = "";
+					int msg_len = 0;
+					if (pkt_len > 9) {
+						msg = (char *)(payload + 9);
+						msg_len = (int)(pkt_len - 9);
+					}
+					carglog(conn->carg, L_ERROR, "mysql: '%s' Auth Failed! Error: %.*s\n", conn->carg->host, msg_len, msg);
 					uv_close((uv_handle_t*)stream, NULL);
 					if (buf->base) free(buf->base);
 					return;

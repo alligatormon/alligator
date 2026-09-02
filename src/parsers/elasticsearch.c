@@ -34,6 +34,19 @@ static inline size_t es_copy_bytes(size_t buf_size, size_t offset, size_t src_le
 	return copy + 1;
 }
 
+static inline void es_poke(char *buf, size_t bufsz, size_t idx, char ch)
+{
+	if (idx < bufsz)
+		buf[idx] = ch;
+}
+
+static inline void es_cat(char *buf, size_t bufsz, size_t off, const char *src)
+{
+	if (!src || off >= bufsz)
+		return;
+	strlcpy(buf + off, src, bufsz - off);
+}
+
 static inline void elasticsearch_metric_set(context_arg *carg, const char *metric_name)
 {
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Elasticsearch exported metric value.");
@@ -107,7 +120,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 			char copy_key[255];
 			strlcpy(copy_key, node_key, 255);
-			metric_name_normalizer(copy_key, stringlen2);
+			metric_name_normalizer(copy_key, strlen(copy_key));
 
 			size_t copy2 = es_copy_bytes(sizeof(string2), 14, stringlen2);
 			size_t copy3 = es_copy_bytes(sizeof(string3), 14, stringlen2);
@@ -129,11 +142,11 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 					char copy_key1[255];
 					strlcpy(copy_key1, node_key1, 255);
-					metric_name_normalizer(copy_key1, stringlen3);
+					metric_name_normalizer(copy_key1, strlen(copy_key1));
 
-					string3[stringlen2+14] = '_';
-					string4[stringlen2+14] = '_';
-					string5[stringlen2+14] = '_';
+					es_poke(string3, sizeof(string3), stringlen2+14, '_');
+					es_poke(string4, sizeof(string4), stringlen2+14, '_');
+					es_poke(string5, sizeof(string5), stringlen2+14, '_');
 					size_t off = stringlen2 + 1 + 14;
 					size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
 					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
@@ -150,7 +163,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 						const char *bytes_suffix = strstr(node_key1, "_in_bytes");
 						if (bytes_suffix)
 						{
-							strlcpy(string2+stringlen2+14, "_bytes", 7);
+							es_cat(string2, sizeof(string2), stringlen2+14, "_bytes");
 							bytes = 1;
 						}
 						size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key1) : strlen(node_key1);
@@ -161,7 +174,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 						if (bytes)
-							string2[stringlen2+14] = 0;
+							es_poke(string2, sizeof(string2), stringlen2+14, 0);
 					}
 					else if (type1 == JSON_REAL)
 					{
@@ -184,7 +197,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 								const char *bytes_suffix = strstr(node_key2, "_in_bytes");
 								if (bytes_suffix)
 								{
-									strlcpy(string3+stringlen3+stringlen2+1+14, "_bytes", 7);
+									es_cat(string3, sizeof(string3), stringlen3+stringlen2+1+14, "_bytes");
 									bytes = 1;
 								}
 								//metric_name_normalizer(string3, strlen(string3));
@@ -196,7 +209,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 								if (bytes)
-									string3[stringlen3+stringlen2+1+14] = 0;
+									es_poke(string3, sizeof(string3), stringlen3+stringlen2+1+14, 0);
 							}
 							else if (type2 == JSON_REAL)
 							{
@@ -211,10 +224,10 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 
 								char copy_key2[255];
 								strlcpy(copy_key2, node_key2, 255);
-								metric_name_normalizer(copy_key2, stringlen4);
+								metric_name_normalizer(copy_key2, strlen(copy_key2));
 
-								string4[stringlen2+stringlen3+14] = '_';
-								string5[stringlen2+stringlen3+14] = '_';
+								es_poke(string4, sizeof(string4), stringlen2+stringlen3+14, '_');
+								es_poke(string5, sizeof(string5), stringlen2+stringlen3+14, '_');
 								size_t off = stringlen3 + stringlen2 + 1 + 14;
 								size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
 								size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen4);
@@ -233,7 +246,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 										const char *bytes_suffix = strstr(node_key3, "_in_bytes");
 										if (bytes_suffix)
 										{
-											strlcpy(string4+stringlen4+stringlen3+stringlen2+1+14, "_bytes", 7);
+											es_cat(string4, sizeof(string4), stringlen4+stringlen3+stringlen2+1+14, "_bytes");
 											bytes = 1;
 										}
 										size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key3) : strlen(node_key3);
@@ -244,7 +257,7 @@ void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg)
 										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "name", name, "key", key_buf);
 
 										if (bytes)
-											string4[stringlen4+stringlen3+stringlen2+1+14] = 0;
+											es_poke(string4, sizeof(string4), stringlen4+stringlen3+stringlen2+1+14, 0);
 									}
 									if (type3 == JSON_REAL)
 									{
@@ -515,9 +528,9 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 				json_object_foreach(node_value, node_key1, node_value1)
 				{
 					stringlen3 = strlen(node_key1);
-					string3[stringlen2+14] = '_';
-					string4[stringlen2+14] = '_';
-					string5[stringlen2+14] = '_';
+					es_poke(string3, sizeof(string3), stringlen2+14, '_');
+					es_poke(string4, sizeof(string4), stringlen2+14, '_');
+					es_poke(string5, sizeof(string5), stringlen2+14, '_');
 					size_t off = stringlen2 + 1 + 14;
 					size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
 					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
@@ -534,7 +547,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 						const char *bytes_suffix = strstr(node_key1, "_in_bytes");
 						if (bytes_suffix)
 						{
-							strlcpy(string2+stringlen2+14, "_bytes", 7);
+							es_cat(string2, sizeof(string2), stringlen2+14, "_bytes");
 							bytes = 1;
 						}
 						size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key1) : strlen(node_key1);
@@ -545,7 +558,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 						metric_add_labels3(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 						if (bytes)
-							string2[stringlen2+14] = 0;
+							es_poke(string2, sizeof(string2), stringlen2+14, 0);
 					}
 					else if (type1 == JSON_REAL)
 					{
@@ -568,7 +581,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 								const char *bytes_suffix = strstr(node_key2, "_in_bytes");
 								if (bytes_suffix)
 								{
-									strlcpy(string3+stringlen3+stringlen2+1+14, "_bytes", 7);
+									es_cat(string3, sizeof(string3), stringlen3+stringlen2+1+14, "_bytes");
 									bytes = 1;
 								}
 								size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key2) : strlen(node_key2);
@@ -579,7 +592,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 								metric_add_labels3(string3, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 								if (bytes)
-									string3[stringlen3+stringlen2+1+14] = 0;
+									es_poke(string3, sizeof(string3), stringlen3+stringlen2+1+14, 0);
 							}
 							else if (type2 == JSON_REAL)
 							{
@@ -590,8 +603,8 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 							else if (type2 == JSON_OBJECT)
 							{
 								stringlen4 = strlen(node_key2);
-								string4[stringlen2+stringlen3+14] = '_';
-								string5[stringlen2+stringlen3+14] = '_';
+								es_poke(string4, sizeof(string4), stringlen2+stringlen3+14, '_');
+								es_poke(string5, sizeof(string5), stringlen2+stringlen3+14, '_');
 								size_t off = stringlen3 + stringlen2 + 1 + 14;
 								size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
 								size_t c5 = es_copy_bytes(sizeof(string5), off, stringlen4);
@@ -610,7 +623,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 										const char *bytes_suffix = strstr(node_key3, "_in_bytes");
 										if (bytes_suffix)
 										{
-											strlcpy(string4+stringlen4+stringlen3+stringlen2+1+14, "_bytes", 7);
+											es_cat(string4, sizeof(string4), stringlen4+stringlen3+stringlen2+1+14, "_bytes");
 											bytes = 1;
 										}
 										size_t key_size = bytes_suffix ? (size_t)(bytes_suffix - node_key3) : strlen(node_key3);
@@ -621,7 +634,7 @@ void elasticsearch_index_handler(char *metrics, size_t size, context_arg *carg)
 										metric_add_labels3(string4, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "key", key_buf);
 
 										if (bytes)
-											string4[stringlen4+stringlen3+stringlen2+1+14] = 0;
+											es_poke(string4, sizeof(string4), stringlen4+stringlen3+stringlen2+1+14, 0);
 									}
 									if (type3 == JSON_REAL)
 									{
@@ -700,8 +713,8 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 			json_object_foreach(node_value, node_key2, node_value2)
 			{
 				stringlen3 = strlen(node_key2);
-				string3[stringlen2+23] = '_';
-				string4[stringlen2+23] = '_';
+				es_poke(string3, sizeof(string3), stringlen2+23, '_');
+				es_poke(string4, sizeof(string4), stringlen2+23, '_');
 				size_t off = stringlen2 + 1 + 23;
 				size_t c3 = es_copy_bytes(sizeof(string3), off, stringlen3);
 				size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen3);
@@ -714,7 +727,7 @@ void elasticsearch_settings_handler(char *metrics, size_t size, context_arg *car
 				json_object_foreach(node_value2, node_key3, node_value3)
 				{
 					stringlen4 = strlen(node_key3);
-					string4[stringlen2+stringlen3+24] = '_';
+					es_poke(string4, sizeof(string4), stringlen2+stringlen3+24, '_');
 					size_t off = stringlen2 + stringlen3 + 1 + 24;
 					size_t c4 = es_copy_bytes(sizeof(string4), off, stringlen4);
 					if (c4) strlcpy(string4 + off, node_key3, c4);

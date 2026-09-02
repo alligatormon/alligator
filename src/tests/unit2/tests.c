@@ -1207,6 +1207,18 @@ static void test_labels_match_gen_groupkey_paths(void)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lh);
     labels_hash_free(lh);
 
+    /* token longer than tmp[255] must not overflow (always-on /json?query=) */
+    char long_token[400];
+    memset(long_token, 'A', sizeof(long_token) - 1);
+    long_token[sizeof(long_token) - 1] = 0;
+    string *long_gk = string_init_alloc(long_token, strlen(long_token));
+    string *long_gkey = labels_to_groupkey(&la, long_gk);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, long_gkey);
+    string_free(long_gkey);
+    alligator_ht *long_lh = labels_to_hash(&la, long_gk);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, long_lh == NULL);
+    string_free(long_gk);
+
     alligator_ht *res = alligator_ht_init(NULL);
     metric_node n1, n2;
     memset(&n1, 0, sizeof(n1));
@@ -2640,6 +2652,10 @@ static void run_config_query_suites(char **argv)
     api_test_lang_1();
     api_test_cluster_1();
     api_test_parser_ntp();
+    api_test_parser_mogilefs_host_no_eq();
+    api_test_parser_elasticsearch_long_key();
+    api_test_bson_nesting_limit();
+    api_test_ngram_token_nul();
     api_test_parser_nsd();
     api_test_parser_syslogng();
     api_test_parser_rsyslog();

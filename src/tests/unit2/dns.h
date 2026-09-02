@@ -210,6 +210,17 @@ static void test_dns_unpack_invalid(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, dns_unpack(buf, 4, &parsed));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
 		dns_name_decode_msg((char*)wire, (char*)wire, domain));
+
+	/* 130 one-byte labels: presentation form does not fit DNS_NAME_MAXLEN */
+	unsigned char longname[261];
+	int li;
+	for (li = 0; li < 130; li++) {
+		longname[li * 2] = 1;
+		longname[li * 2 + 1] = 'a';
+	}
+	longname[260] = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+		dns_name_decode((char*)longname, domain));
 }
 
 /* Declared in vrl/type.h; prototype here to avoid pulling the full VRL/uv

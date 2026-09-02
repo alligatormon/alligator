@@ -2,10 +2,16 @@
 #include <string.h>
 #include <math.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <common/logs.h>
 
 void maglev_init(struct maglev_lookup_hash *psrv)
 {
+	if (!psrv->lock_inited) {
+		pthread_rwlock_init(&psrv->lock, NULL);
+		psrv->lock_inited = 1;
+	}
+
 	psrv->is_use_index = -1;
 	psrv->is_modify_lock = 0;
 	psrv->p_temp = NULL;
@@ -88,8 +94,14 @@ static struct MAGLEV_SERVICE_PARAMS* __create_maglev_service_unit(struct MAGLEV_
 
 void maglev_loopup_item_clean(struct maglev_lookup_hash *psrv, int index)
 {
-	if (!psrv->item[index].hash_entry)
+	if (psrv->lock_inited)
+		pthread_rwlock_wrlock(&psrv->lock);
+
+	if (!psrv->item[index].hash_entry) {
+		if (psrv->lock_inited)
+			pthread_rwlock_unlock(&psrv->lock);
 		return;
+	}
 
 	struct MAGLEV_SERVICE_PARAMS *p_item = &psrv->item[index];
 
@@ -115,6 +127,17 @@ void maglev_loopup_item_clean(struct maglev_lookup_hash *psrv, int index)
 	p_item->hash_bucket_size = 0;
 	p_item->node_size = 0;
 	p_item->node_add_index = 0;
+
+	if (psrv->lock_inited)
+		pthread_rwlock_unlock(&psrv->lock);
+}
+
+void maglev_lock_destroy(struct maglev_lookup_hash *psrv)
+{
+	if (!psrv || !psrv->lock_inited)
+		return;
+	pthread_rwlock_destroy(&psrv->lock);
+	psrv->lock_inited = 0;
 }
 
 int maglev_update_service(struct maglev_lookup_hash *psrv, int node_size, int hash_bucket_size)
@@ -229,25 +252,33 @@ void maglev_swap_entry(struct maglev_lookup_hash *psrv)
 	if (!psrv->is_modify_lock)
 		return;
 
+	if (psrv->lock_inited)
+		pthread_rwlock_wrlock(&psrv->lock);
+
 	int i_index = (psrv->is_use_index + 1) % 2;
 
 	psrv->is_use_index = i_index;
 
 	psrv->p_temp = NULL;
 	psrv->is_modify_lock = 0;
+
+	if (psrv->lock_inited)
+		pthread_rwlock_unlock(&psrv->lock);
 }
 
 void *maglev_lookup_node(struct maglev_lookup_hash *psrv, char *key, int key_size)
 {
-	int i_index = psrv->is_use_index;
-	if (i_index < 0) {
-		return NULL;
-	}
-	if (0 >= psrv->item[ i_index ].hash_bucket_size) {
-		return NULL;
-	}
+	void *pnode_info = NULL;
+	int i_index;
 
-	void *pnode_info;
+	if (psrv->lock_inited)
+		pthread_rwlock_rdlock(&psrv->lock);
+
+	i_index = psrv->is_use_index;
+	if (i_index < 0)
+		goto out;
+	if (0 >= psrv->item[ i_index ].hash_bucket_size)
+		goto out;
 
 	unsigned int new_key = murmur2(key,key_size);
 	int M = psrv->item[i_index].hash_bucket_size;
@@ -256,6 +287,9 @@ void *maglev_lookup_node(struct maglev_lookup_hash *psrv, char *key, int key_siz
 	unsigned int hashkey = new_key % M;
 	pnode_info = *(entry + hashkey);
 
+out:
+	if (psrv->lock_inited)
+		pthread_rwlock_unlock(&psrv->lock);
 	return pnode_info;
 }
 

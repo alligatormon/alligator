@@ -3,6 +3,7 @@
 #include <main.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -236,13 +237,13 @@ threaded_loop *get_threaded_loop(char *key)
 uv_loop_t *get_threaded_loop_t(char *key)
 {
 	threaded_loop *thl = get_threaded_loop(key);
-	if (!thl)
+	uint64_t idx;
+
+	if (!thl || !thl->max)
 		return NULL;
 
-	if (thl->cur == thl->max)
-		thl->cur = 0;
-
-	return thl->loop[thl->cur++];
+	idx = atomic_fetch_add(&thl->cur, 1);
+	return thl->loop[idx % thl->max];
 }
 
 uv_loop_t *get_threaded_loop_t_or_default(char *key)

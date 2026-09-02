@@ -19,8 +19,16 @@ void cluster_push_json(json_t *cluster)
 
 	json_t *jname = json_object_get(cluster, "name");
 	if (!jname)
+	{
+		free(cn);
 		return;
+	}
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+	{
+		free(cn);
+		return;
+	}
 	cn->name = strdup(name);
 
 	cn->size = 1000;
@@ -55,9 +63,15 @@ void cluster_push_json(json_t *cluster)
 				cn->servers[j].name = strdup(data);
 
 				char namespacename[255];
-				uint16_t cur = strlcpy(namespacename, name, 255);
-				strlcpy(namespacename + cur, ":", 255);
-				strlcpy(namespacename + cur + 1, data, 255);
+				size_t cur = strlcpy(namespacename, name, sizeof(namespacename));
+				size_t remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+				if (remain > 0) {
+					strlcpy(namespacename + cur, ":", remain);
+					cur = strnlen(namespacename, sizeof(namespacename));
+					remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+					if (remain > 0)
+						strlcpy(namespacename + cur, data, remain);
+				}
 				insert_namespace(namespacename, 0);
 
 				cn->servers[j].oprec = oplog_record_init(cn->size);
@@ -102,9 +116,9 @@ void cluster_push_json(json_t *cluster)
 	if (type_key)
 	{
 		char *data = (char*)json_string_value(type_key);
-		if (!strcmp(data, "sharedlock"))
+		if (data && !strcmp(data, "sharedlock"))
 			cn->type = CLUSER_TYPE_SHAREDLOCK;
-		else if (!strcmp(data, "oplog"))
+		else if (data && !strcmp(data, "oplog"))
 			cn->type = CLUSER_TYPE_OPLOG;
 	}
 

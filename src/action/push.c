@@ -78,19 +78,24 @@ void action_push(json_t *action)
 	if (jns)
 	{
 		char *ns = (char*)json_string_value(jns);
-		an->ns = strdup(ns);
+		if (ns)
+			an->ns = strdup(ns);
 	}
 
 	json_t *jwork_dir = json_object_get(action, "work_dir");
 	if (jwork_dir)
 	{
-		an->work_dir = string_init_dupn((char*)json_string_value(jwork_dir), json_string_length(jwork_dir));
+		char *work_dir = (char*)json_string_value(jwork_dir);
+		if (work_dir)
+			an->work_dir = string_init_dupn(work_dir, json_string_length(jwork_dir));
 	}
 
 	json_t *jengine = json_object_get(action, "engine");
 	if (jengine)
 	{
-		an->engine = string_init_dupn((char*)json_string_value(jengine), json_string_length(jengine));
+		char *engine = (char*)json_string_value(jengine);
+		if (engine)
+			an->engine = string_init_dupn(engine, json_string_length(jengine));
 	}
 
 	json_t *jdry_run = json_object_get(action, "dry_run");
@@ -102,13 +107,17 @@ void action_push(json_t *action)
 	json_t *jmetric_name_transform_pattern = json_object_get(action, "metric_name_transform_pattern");
 	if (jmetric_name_transform_pattern)
 	{
-		an->metric_name_transform_pattern = strdup(json_string_value(jmetric_name_transform_pattern));
+		const char *pattern = json_string_value(jmetric_name_transform_pattern);
+		if (pattern)
+			an->metric_name_transform_pattern = strdup(pattern);
 	}
 
 	json_t *jmetric_name_transform_replacement = json_object_get(action, "metric_name_transform_replacement");
 	if (jmetric_name_transform_replacement)
 	{
-		an->metric_name_transform_replacement = strdup(json_string_value(jmetric_name_transform_replacement));
+		const char *replacement = json_string_value(jmetric_name_transform_replacement);
+		if (replacement)
+			an->metric_name_transform_replacement = strdup(replacement);
 	}
 
 	json_t *jmetricstransform = json_object_get(action, "metricstransform");

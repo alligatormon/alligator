@@ -3,10 +3,13 @@
 #define CMP_LESSER 2
 #include <jansson.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "common/http.h"
 #include "parsers/elasticsearch.h"
+#include "parsers/mongodb_wire_bson.h"
 #include "metric/metric_types.h"
+#include "dstructures/ngram/ngram.h"
 void tftp_handler(char *metrics, size_t size, context_arg *carg);
 int8_t gearmand_validator(context_arg *carg, char *data, size_t size);
 void log_handler(char *metrics, size_t size, context_arg *carg);
@@ -48,6 +51,8 @@ void squid_info_handler(char *metrics, size_t size, context_arg *carg);
 void squid_forward_handler(char *metrics, size_t size, context_arg *carg);
 void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg);
 void squid_mem_handler(char *metrics, size_t size, context_arg *carg);
+void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg);
 
 void api_test_parser_ntp() {
     char *msg = "\34\3\3\350\0\0j\243\0\0\22\202\n\3464#\352y\33\263\16\25\"$\0\0\0\0\0\0\0\0\352y Qo\353\277d\352y Qo\355\2z";
@@ -64,6 +69,11 @@ void api_test_parser_ntp() {
     metric_test_run(CMP_GREATER, "ntp_reference_timestamp_seconds", "ntp_reference_timestamp_seconds", 1000);
     metric_test_run(CMP_GREATER, "ntp_rtt_seconds", "ntp_rtt_seconds", 1000);
     metric_test_run(CMP_GREATER, "ntp_root_distance_seconds", "ntp_root_distance_seconds", 1000);
+
+    context_arg *short_carg = calloc(1, sizeof(*short_carg));
+    ntp_handler(msg, 8, short_carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, short_carg->parser_status);
+    free(short_carg);
 }
 
 void api_test_parser_nsd() {
@@ -2351,4 +2361,84 @@ void api_test_parser_named_extended()
     named_handler(xml_body, strlen(xml_body), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     free(carg);
+}
+
+void api_test_parser_mogilefs_host_no_eq()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    char msg[] = "OK host&running=1";
+    mogilefs_fsck_status(msg, sizeof(msg) - 1, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+}
+
+void api_test_parser_elasticsearch_long_key()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    carg->data = calloc(1, sizeof(elastic_settings));
+    char key[301];
+    char json[1024];
+    memset(key, 'a', 300);
+    key[300] = 0;
+    snprintf(json, sizeof(json),
+        "{\"cluster_name\":\"c\",\"_nodes\":{\"total\":1,\"successful\":1,\"failed\":0},"
+        "\"nodes\":{\"n1\":{\"name\":\"n\",\"%s\":{\"hits\":1}}}}", key);
+    elasticsearch_nodes_handler(json, strlen(json), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    if (((elastic_settings *)carg->data)->cluster_name)
+        free(((elastic_settings *)carg->data)->cluster_name);
+    free(carg->data);
+    free(carg);
+}
+
+static uint8_t *bson_wrap_doc(uint8_t *inner, size_t inner_len, size_t *out_len)
+{
+    size_t total = 4 + 1 + 1 + 1 + inner_len + 1;
+    uint8_t *out = malloc(total);
+    uint32_t doc_len = (uint32_t)total;
+    memcpy(out, &doc_len, 4);
+    out[4] = 0x03;
+    out[5] = 'a';
+    out[6] = 0;
+    memcpy(out + 7, inner, inner_len);
+    out[total - 1] = 0;
+    free(inner);
+    *out_len = total;
+    return out;
+}
+
+void api_test_bson_nesting_limit()
+{
+    uint32_t empty_len = 5;
+    uint8_t *d = malloc(5);
+    size_t len = 5;
+    json_t *j = NULL;
+    int i;
+    memcpy(d, &empty_len, 4);
+    d[4] = 0;
+    for (i = 0; i < 4; i++)
+        d = bson_wrap_doc(d, len, &len);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bson_to_json_document(d, len, &j, 0) != 0);
+    json_decref(j);
+    j = NULL;
+    for (i = 0; i < 80; i++)
+        d = bson_wrap_doc(d, len, &len);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bson_to_json_document(d, len, &j, 0));
+    if (j)
+        json_decref(j);
+    free(d);
+}
+
+void api_test_ngram_token_nul()
+{
+    ngram_index_t *idx = ngram_index_init(8);
+    ngram_node_t **ret = (ngram_node_t **)0x1;
+    uint64_t n = ngram_token_add(idx, 3, "abcdef", (void *)1);
+    uint64_t found;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n >= 1);
+    found = ngram_token_search(idx, &ret, 3, "abc");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, found);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ret == NULL);
+    ngram_clear(idx, NULL);
 }

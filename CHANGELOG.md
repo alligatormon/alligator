@@ -1,6 +1,17 @@
 Changelog
 
 ## [unreleased]
+- Fix: CIDR prefixes above 32 (IPv4) or 128 (IPv6) no longer hang the event loop in `grpow`/`ip_get_mask` (e.g. `allow 1.2.3.4/99`).
+- Fix: PromQL `by()` tokens longer than 254 bytes no longer overflow `labels_to_groupkey` / `labels_to_hash` (`/json?query=`).
+- Fix: NTP parser rejects UDP payloads shorter than 48 bytes instead of reading past the buffer.
+- Fix: DNS name decode caps output at 256 bytes and uses the compression-aware decoder for CNAME/NS/PTR/MX/SOA/TXT/SRV RDATA.
+- Fix: `/proc/net/softnet_stat` is parsed as hex (kernel format); `cpuN` labels in `/proc/stat` accept 100+ cores (`%15s`).
+- Fix: `api on` JSON config no longer `strdup`s/`strcmp`s NULL from non-string values; DELETE of a missing module/cluster/scheduler/probe/action is a no-op instead of a crash; empty cluster oplog no longer underflows `servers_size`.
+- Fix: `strlcpy` dest size is the remaining buffer (cluster namespace, `/probe` URL, ipset name, interrupt code, unbound thread key), not a source length that can walk off the destination.
+- Fix: scrape-path NUL/`strchr` guards (meminfo/vmstat empty lines, `/proc/<pid>/stat` without `)`, squid hashtable miss, syslog-ng missing `;`, power_supply inner `opendir` leak, labels word-cache free, action `string_free`, SMART drivedb filter leak).
+- Fix: MogileFS `host=` without `=` no longer underflows `strlcpy`; Elasticsearch JSON keys no longer index past 255-byte metric name buffers; MySQL ERR packets shorter than 9 bytes no longer use unbounded `%.*s`/`%s`; Cassandra CQL type nesting and MongoDB BSON document nesting are capped.
+- Fix: YAML config no longer leaks the converted buffer when `json_loads` fails; `/labels_cache` frees query args on a missing namespace; cadvisor `stat()` failures skip the entry; WebSocket aggregator delete closes the handle and frees `ws_conn` from `uv_close`.
+- Fix: ngram token add/search NUL-terminates in `ngram_size+1`; `ngram_clear` no longer double-frees the deleted-key table; maglev lookup vs rebuild uses an rwlock; CRL cache entries are refcounted; `threaded_loop` index is atomic; TCP log `write_in_flight` stays under the sink mutex.
 - system `packages` (breaking on Debian/Ubuntu): package metrics are collected from `/var/lib/dpkg/status` instead of the legacy `/var/lib/dpkg/available`, so only really installed packages are exported (`Status: install ok installed`/`hold ok installed`). The dpkg stanza parser is rewritten: fields are matched at the beginning of a line, `package_total` counts packages instead of loop iterations, the debian revision is taken after the last hyphen (`1.31.3-0.2.5-1.0.4-0.4.1` -> version `1.31.3-0.2.5-1.0.4`, release `0.4.1`) and the epoch is stripped from the version.
 - system `packages`: new `arch` label on `package_installed` (multi-arch packages no longer collide); empty on the rpm and pkg backends.
 - `read_whole_file()` in `events/fs_read`: reads a file up to EOF with a growing buffer. `read_from_file()` keeps the 1 MB limit but now logs a truncation error instead of silently cutting the content (`/var/lib/dpkg/status` is bigger than 1 MB on a typical host).

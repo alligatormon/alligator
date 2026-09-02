@@ -132,14 +132,19 @@ void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_DEBUG, "mogilefs field is '%s'\n", field);
 
 		len = strcspn(field, "=");
-		strlcpy(metric_name + 14, field, len + 1);
+		size_t name_dest = sizeof(metric_name) - 14;
+		if (len + 1 < name_dest)
+			name_dest = len + 1;
+		strlcpy(metric_name + 14, field, name_dest);
 
 		carglog(carg, L_DEBUG, "mogilefs metric is '%s'\n", metric_name);
 
 		if (!strncmp(field, "host", 4))
 		{
+			if (len >= field_len || field[len] != '=')
+				continue;
 			val = 1;
-			strlcpy(host, field + len + 1, field_len - len - 1);
+			strlcpy(host, field + len + 1, sizeof(host));
 
 			carglog(carg, L_DEBUG, "mogilefs host is '%s'\n", host);
 
@@ -192,14 +197,17 @@ void mogilefs_rebalance_status(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_DEBUG, "mogilefs field is '%s'\n", field);
 
 		len = strcspn(field, "=");
-		strlcpy(metric_name + 14, field, len + 1);
+		size_t name_dest = sizeof(metric_name) - 14;
+		if (len + 1 < name_dest)
+			name_dest = len + 1;
+		strlcpy(metric_name + 14, field, name_dest);
 
 		carglog(carg, L_DEBUG, "mogilefs metric is '%s'\n", metric_name);
 
 		if (!strncmp(field, "source_devs", 11) || !strncmp(field, "sdev_limit", 10)) { }
-		else
+		else if (field[len] == '=')
 		{
-			val = strtoull(field + len, NULL, 10);
+			val = strtoull(field + len + 1, NULL, 10);
 			mogilefs_metric_set(carg, metric_name);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 		}

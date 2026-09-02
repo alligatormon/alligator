@@ -227,11 +227,18 @@ void ata_smart_parsing(SkDisk *d, char *device)
 
 	// smart parameters
 	drive_settings_extended *dse = drivedb_search(ac->drivedb, (char*)ipd->model);
+	uint8_t dse_owned = 0;
 	if (!dse)
+	{
 		dse = calloc(1, sizeof(*dse));
-	strlcpy(dse->device, device, 255);
-	if ((ret = sk_disk_smart_parse_attributes(d, disk_dump_attributes, dse)) < 0)
-		return;
+		if (!dse)
+			return;
+		dse_owned = 1;
+	}
+	strlcpy(dse->device, device, sizeof(dse->device));
+	sk_disk_smart_parse_attributes(d, disk_dump_attributes, dse);
+	if (dse_owned)
+		free(dse);
 }
 
 void get_ata_smart_info(char *device)

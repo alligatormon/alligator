@@ -237,6 +237,24 @@ int query_struct_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
+// Copy the next comma-separated group-by token. strlcpy's third argument is
+// dest size, not source length: passing j+1 overflows tmp[255] when a PromQL
+// by() token is 255 bytes or longer (/json?query= is always on).
+static size_t labels_groupkey_token(const char *s, size_t slen, size_t i, char *tmp, size_t tmpsz)
+{
+	size_t remain = (i < slen) ? (slen - i) : 0;
+	size_t j = 0;
+
+	while (j < remain && s[i + j] && s[i + j] != ',')
+		++j;
+
+	size_t dstsz = j + 1;
+	if (dstsz > tmpsz)
+		dstsz = tmpsz;
+	strlcpy(tmp, s + i, dstsz);
+	return j;
+}
+
 string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 {
 	if (!groupkey || !groupkey->l)
@@ -245,12 +263,10 @@ string *labels_to_groupkey(labels_t *labels_list, string *groupkey)
 	}
 
 	string *label = string_init(255);
-	uint64_t j = 0;
 	char tmp[255];
 	for (uint64_t i = 0; i < groupkey->l; )
 	{
-		j = strcspn(groupkey->s + i, ",");
-		strlcpy(tmp, groupkey->s + i, j+1);
+		size_t j = labels_groupkey_token(groupkey->s, groupkey->l, i, tmp, sizeof(tmp));
 
 		labels_t *cur_labels = labels_list;
 		while (cur_labels)
@@ -281,12 +297,10 @@ alligator_ht *labels_to_hash(labels_t *labels_list, string *groupkey)
 		return lbl;
 	}
 
-	uint64_t j = 0;
 	char tmp[255];
 	for (uint64_t i = 0; i < groupkey->l; )
 	{
-		j = strcspn(groupkey->s + i, ",");
-		strlcpy(tmp, groupkey->s + i, j+1);
+		size_t j = labels_groupkey_token(groupkey->s, groupkey->l, i, tmp, sizeof(tmp));
 
 		labels_t *cur_labels = labels_list;
 		while (cur_labels)
@@ -451,6 +465,7 @@ void labels_free(labels_t *labels, metric_tree *metrictree)
 			{
 				free(labels_cache->w);
 				alligator_ht_remove_existing(labels_words_hash, &(labels_cache->node));
+				free(labels_cache);
 				++ac->metric_freed;
 			}
 		}

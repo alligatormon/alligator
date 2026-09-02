@@ -257,6 +257,8 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 		tmp += strspn(tmp, " -\t\r\n");
 
 		char *hashtable = strstr(tmp, "\n\n");
+		if (!hashtable)
+			break;
 		hash_table_offset = (hashtable - tmp);
 		if ((carg->log_level ? carg->log_level : ac->log_level) >= L_TRACE)
 		{

@@ -228,17 +228,20 @@ static int cass2_skip_string(const uint8_t **pp, const uint8_t *end) {
 	return 1;
 }
 
-static int cass2_parse_type(const uint8_t **pp, const uint8_t *end, uint16_t *out) {
+#define CASS_TYPE_DEPTH_MAX 32
+
+static int cass2_parse_type(const uint8_t **pp, const uint8_t *end, uint16_t *out, int depth) {
+	if (depth > CASS_TYPE_DEPTH_MAX) return 0;
 	if (*pp + 2 > end) return 0;
 	uint16_t id = (uint16_t)be16(*pp); *pp += 2;
 	*out = id;
-	if (id == 0x0020) return cass2_parse_type(pp, end, out);
-	if (id == 0x0022) return cass2_parse_type(pp, end, out);
+	if (id == 0x0020) return cass2_parse_type(pp, end, out, depth + 1);
+	if (id == 0x0022) return cass2_parse_type(pp, end, out, depth + 1);
 	if (id == 0x0021) {
 		uint16_t t1 = 0, t2 = 0;
-		if (!cass2_parse_type(pp, end, &t1))
+		if (!cass2_parse_type(pp, end, &t1, depth + 1))
 			return 0;
-		if (!cass2_parse_type(pp, end, &t2))
+		if (!cass2_parse_type(pp, end, &t2, depth + 1))
 			return 0;
 		return 1;
 	}
@@ -248,7 +251,7 @@ static int cass2_parse_type(const uint8_t **pp, const uint8_t *end, uint16_t *ou
 		for (int i = 0; i < n; i++) {
 			if (!cass2_skip_string(pp, end)) return 0;
 			uint16_t t = 0;
-			if (!cass2_parse_type(pp, end, &t)) return 0;
+			if (!cass2_parse_type(pp, end, &t, depth + 1)) return 0;
 		}
 	}
 	return 1;
@@ -288,7 +291,7 @@ static int cass2_parse_rows_meta(cassandra_conn_t *c, const uint8_t **pp, const 
 		if (nlen < 0 || *pp + nlen > end) return 0;
 		c->col_names[i] = strndup((const char*)*pp, (size_t)nlen);
 		*pp += nlen;
-		if (!cass2_parse_type(pp, end, &c->col_types[i])) return 0;
+		if (!cass2_parse_type(pp, end, &c->col_types[i], 0)) return 0;
 	}
 	return 1;
 }

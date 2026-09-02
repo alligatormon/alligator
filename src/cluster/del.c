@@ -56,6 +56,7 @@ void cluster_object_del(cluster_node *cn)
 
 	maglev_loopup_item_clean(&cn->m_maglev_hash, 0);
 	maglev_loopup_item_clean(&cn->m_maglev_hash, 1);
+	maglev_lock_destroy(&cn->m_maglev_hash);
 
 	free(cn);
 }
@@ -66,8 +67,12 @@ void cluster_del_json(json_t *cluster)
 	if (!jname)
 		return;
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+		return;
 
 	cluster_node *cn = alligator_ht_search(ac->cluster, cluster_compare, name, tommy_strhash_u32(0, name));
+	if (!cn)
+		return;
 	alligator_ht_remove_existing(ac->cluster, &(cn->node));
 	cluster_object_del(cn);
 }

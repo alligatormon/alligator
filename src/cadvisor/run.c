@@ -488,7 +488,8 @@ void lxc_labels()
 			snprintf(lxccgroup, 999, "%s/%s", lxcdir, rd_entry->d_name);
 
 			struct stat path_stat;
-			stat(lxccgroup, &path_stat);
+			if (stat(lxccgroup, &path_stat) != 0)
+				continue;
 
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
@@ -521,7 +522,8 @@ void nspawn_labels()
 			snprintf(nspawncgroup, 1000, "%s/%s", nspawndir, rd_entry->d_name);
 
 			struct stat path_stat;
-			stat(nspawncgroup, &path_stat);
+			if (stat(nspawncgroup, &path_stat) != 0)
+				continue;
 
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;
@@ -729,7 +731,8 @@ void cgroup_v2_machines()
 			snprintf(v2cgroup, 1000, "%s/%s", v2dir, rd_entry->d_name);
 
 			struct stat path_stat;
-			stat(v2cgroup, &path_stat);
+			if (stat(v2cgroup, &path_stat) != 0)
+				continue;
 
 			if (!S_ISDIR(path_stat.st_mode))
 				continue;

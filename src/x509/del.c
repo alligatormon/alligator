@@ -63,9 +63,11 @@ int x509_del(json_t *x509) {
 
 
 	json_t *jtype = json_object_get(x509, "type");
-	char *type = (char*)json_string_value(jtype);
+	char *type = jtype ? (char*)json_string_value(jtype) : NULL;
+	if (!name)
+		return 0;
 
-	if (!strcmp(type, "jks"))
+	if (type && !strcmp(type, "jks"))
 		return jks_del(name);
 	else
 		return tls_fs_del(name);

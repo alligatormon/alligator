@@ -5,6 +5,7 @@
 #include "resolver/resolver.h"
 
 #include <arpa/inet.h>
+#include <string.h>
 
 static char *dns_class_name(uint16_t rclass)
 {
@@ -110,39 +111,49 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			++addr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_CNAME) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
 			int rsize = dns_name_decode_ext(rr->data, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with CNAME type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "CNAME", "class", class);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
 		else if (rr->rtype == DNS_TYPE_NS) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
 			int rsize = dns_name_decode_ext(rr->data, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with NS type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "NS", "class", class);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
 		else if (rr->rtype == DNS_TYPE_PTR) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
 			int rsize = dns_name_decode_ext(rr->data, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with PTR type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "PTR", "class", class);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
 		else if (rr->rtype == DNS_TYPE_MX) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
+			if (rr->datalen < 2)
+				continue;
 			uint16_t priority_int = ntohs(*(uint16_t*)rr->data);
 			char priority[8];
 			snprintf(priority, sizeof(priority), "%hu", priority_int);
 			int rsize = dns_name_decode_ext(rr->data + 2, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with MX type to %s->%s, priority %s\n", carg->key, qname, name, priority);
 			metric_add_labels5("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "MX", "class", class, "priority", priority);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
 		else if (rr->rtype == DNS_TYPE_SOA) {
-			char nsname[256];
-			char mxname[256];
+			char nsname[DNS_NAME_MAXLEN];
+			char mxname[DNS_NAME_MAXLEN];
 			uint8_t *data = (uint8_t*)rr->data;
 			int rsize = 0;
 			int64_t serial = 0;
@@ -152,9 +163,13 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			int64_t minimum = 0;
 
 			rsize = dns_name_decode_ext((char*)data, metrics, nsname);
+			if (rsize < 0)
+				continue;
 
 			data = data + rsize;
 			rsize = dns_name_decode_ext((char*)data, metrics, mxname);
+			if (rsize < 0)
+				continue;
 
 			data = data + rsize;
 			serial = ((int64_t)data[0] << 24) | ((int64_t)data[1] << 16) | ((int64_t)data[2] << 8) | data[3];
@@ -179,18 +194,22 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			metric_add_labels5("aggregator_resolve_soa_minimum", &minimum, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
 		}
 		else if (rr->rtype == DNS_TYPE_TXT) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
 			int rsize = dns_name_decode_ext(rr->data, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with TXT type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "TXT", "class", class);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
 		else if (rr->rtype == DNS_TYPE_SRV) {
-			char name[256];
+			char name[DNS_NAME_MAXLEN];
 			int rsize = dns_name_decode_ext(rr->data, metrics, name);
+			if (rsize < 0)
+				continue;
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with SRV type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("aggregator_resolve_address", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "SRV", "class", class);
-			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, rsize, rr->ttl);
+			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
 		}
         else
 			carglog(carg, L_ERROR, "\tadd resolved address '%s' error %s: unknown type %d\n", carg->key, qname, rr->rtype);

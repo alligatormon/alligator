@@ -35,7 +35,7 @@ void collect_power_supply() {
 		carglog(ac->system_carg, L_DEBUG, "\tcheck power_supply: get dir %s\n", dpfield_path);
 		DIR *dp_field = opendir(dpfield_path);
 		if (!dp_field)
-			return;
+			continue;
 
 		snprintf(fpath, 1023, "%s/%s/type", power_supply_dir, entry->d_name);
 		getkvfile_str(fpath, type, 254);

@@ -163,41 +163,9 @@ uint64_t dns_init_strtype(char *domain, char *buf, char *rrtype, uint16_t *trans
 	return dns_init_type(domain, buf, type, transaction_id);
 }
 
-int dns_name_decode_ext(const char* buf, char *msg, char* domain) {
-    const char* p = buf;
-    int len = *p++;
-    //printf("len=%d\n", len);
-    int buflen = 1;
-    while (*p != '\0') {
-        if (len-- == 0) {
-            len = *p;
-            //printf("len=%d\n", len);
-            *domain = '.';
-        }
-        else {
-            *domain = *p;
-        }
-
-	if (*p == '\300')
-	{
-		++p;
-		p = msg + *p;
-		//uint64_t copy_size = strlcpy(domain, msg + *p, 255);
-		//buflen += copy_size;
-		//domain += copy_size;
-		//break;
-	}
-
-	if (!isalnum(*p) && *p != '-')
-		*domain = '.';
-
-        ++p;
-        ++domain;
-        ++buflen;
-    }
-    *domain = '\0';
-    ++buflen; // include last '\0'
-    return buflen;
+int dns_name_decode_ext(const char* buf, char *msg, char* domain)
+{
+	return dns_name_decode_msg(buf, msg, domain);
 }
 
 void dns_parser_push()

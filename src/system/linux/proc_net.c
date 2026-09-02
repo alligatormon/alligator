@@ -26,7 +26,7 @@ void get_softnet_stats(void)
 	while (fgets(line, sizeof(line), fd)) {
 		char cpu_label[16];
 		uint64_t processed = 0, dropped = 0, squeezed = 0;
-		int n = sscanf(line, "%" SCNu64 " %" SCNu64 " %" SCNu64, &processed, &dropped, &squeezed);
+		int n = sscanf(line, "%" SCNx64 " %" SCNx64 " %" SCNx64, &processed, &dropped, &squeezed);
 		if (n < 1)
 			continue;
 

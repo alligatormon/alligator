@@ -86,9 +86,19 @@ void test_patricia_helpers()
     assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, (uint32_t)3232238082U, ip4);
     assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, (uint32_t)4294967040U, mask4);
 
+    /* prefix > 32 used to call grpow(2, 2^64) and hang the event loop */
+    cidr_to_ip_and_mask("1.2.3.4/99", &ip4, &mask4);
+    assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, (uint32_t)0xFFFFFFFFU, mask4);
+
     cidr_to_ip_and_mask128("2001:db8::1/64", &ip6, &mask6);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ip6 > 0);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mask6 > 0);
+
+    uint128_t mask6_full = 0;
+    uint128_t mask6_clamped = 0;
+    cidr_to_ip_and_mask128("2001:db8::1/128", &ip6, &mask6_full);
+    cidr_to_ip_and_mask128("2001:db8::1/200", &ip6, &mask6_clamped);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mask6_clamped == mask6_full);
 
     patricia_t *tree = patricia_new();
     patricia_t *tree6 = patricia_new();

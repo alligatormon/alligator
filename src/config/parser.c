@@ -59,8 +59,11 @@ void config_parse_entry(char *filepath)
 			glog(L_INFO, "yaml loaded: '%s'\n", filepath);
 			config_json(json);
 			free(json);
+			string_free(context);
 			return;
 		}
+		free(json);
+		json = NULL;
 	}
 	else
 	{

@@ -12,6 +12,9 @@
 
 cluster_server_oplog *get_server_oplog_by_node(cluster_node *cn, char *replica)
 {
+	if (!cn || !cn->servers || !cn->servers_size || !replica)
+		return NULL;
+
 	uint64_t min = 0;
 	uint64_t max = cn->servers_size - 1;
 	while (min <= max)

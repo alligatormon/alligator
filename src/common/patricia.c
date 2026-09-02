@@ -536,12 +536,16 @@ uint128_t ip_to_integer(char *ip, uint8_t ip_version, char **ptr)
 
 uint128_t ip_get_mask128(uint8_t prefix)
 {
-        return UINT128_MAX - grpow(2, 128 - prefix) + 1;
+	if (prefix > 128)
+		prefix = 128;
+	return UINT128_MAX - grpow(2, 128 - prefix) + 1;
 }
 
 uint32_t ip_get_mask(uint8_t prefix)
 {
-        return UINT_MAX - grpow(2, 32 - prefix) + 1;
+	if (prefix > 32)
+		prefix = 32;
+	return UINT_MAX - grpow(2, 32 - prefix) + 1;
 }
 
 void cidr_to_ip_and_mask(char *cidr, uint32_t *ip, uint32_t *mask)

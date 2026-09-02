@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <mm_malloc.h>
+#include <pthread.h>
 
 #define  MAGLEV_HASH_SIZE_MIN   211
 #define  MAGLEV_HASH_SIZE_MAX	40009
@@ -26,6 +27,8 @@ typedef struct maglev_lookup_hash
 {
 	volatile int is_use_index;
 	volatile int is_modify_lock;
+	pthread_rwlock_t lock;
+	int lock_inited;
 
 	struct MAGLEV_SERVICE_PARAMS item[2];
 	struct MAGLEV_SERVICE_PARAMS *p_temp;
@@ -38,6 +41,7 @@ void maglev_create_ht(struct maglev_lookup_hash *psrv);
 void maglev_swap_entry(struct maglev_lookup_hash *psrv);
 void *maglev_lookup_node(struct maglev_lookup_hash *psrv, char *key, int key_size);
 void maglev_loopup_item_clean(struct maglev_lookup_hash *psrv, int index);
+void maglev_lock_destroy(struct maglev_lookup_hash *psrv);
 
 unsigned int DJBHash(char *str);
 unsigned int murmur2(char *data, int len);

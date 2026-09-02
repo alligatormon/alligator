@@ -122,9 +122,9 @@ void get_cpu(int8_t platform)
 		{
 			int64_t t1 = 0, t2 = 0, t3 = 0, t4 = 0, t5 = 0;
 			int64_t t6 = 0, t7 = 0, t8 = 0, t9 = 0, t10 = 0;
-			char cpuname[6];
+			char cpuname[16];
 
-			sscanf(temp, "%5s %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64"",
+			sscanf(temp, "%15s %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64"",
 				cpuname, &t1, &t2, &t3, &t4, &t5, &t6, &t7, &t8, &t9, &t10);
 			core_num = atoll(cpuname+3);
 			if (!strcmp(cpuname, "cpu"))

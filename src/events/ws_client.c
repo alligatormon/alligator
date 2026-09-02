@@ -61,21 +61,37 @@ static void reconnect_timer_cb(uv_timer_t *timer)
 static void on_ws_close(ws_conn *ws)
 {
 	context_arg *carg = ws->userdata;
-	ws_client_state *st = carg->data;
+	ws_client_state *st = carg ? carg->data : NULL;
 
-	carglog(carg, L_DEBUG,
-	        "ws_client: disconnected from %s:%s\n",
-	        carg->host, carg->port);
-	carg->close_counter++;
+	if (carg)
+		carglog(carg, L_DEBUG,
+		        "ws_client: disconnected from %s:%s\n",
+		        carg->host, carg->port);
 
-	aggregator_events_metric_add(carg, carg, NULL, "ws", "aggregator", carg->host);
+	if (carg)
+		carg->close_counter++;
 
-	ws_conn_free(st->conn);
-	st->conn = NULL;
-	carg->lock = 0;
+	if (carg)
+		aggregator_events_metric_add(carg, carg, NULL, "ws", "aggregator", carg->host);
 
-	if (st->closing)
+	if (st && st->conn) {
+		ws_conn_free(st->conn);
+		st->conn = NULL;
+	} else
+		ws_conn_free(ws);
+
+	if (carg)
+		carg->lock = 0;
+
+	if (!st)
 		return;
+
+	if (st->closing) {
+		if (carg)
+			carg->data = NULL;
+		free(st);
+		return;
+	}
 
 	/* Schedule reconnect */
 	uint64_t delay = carg->period ? carg->period : WS_CLIENT_RECONNECT_MS;
@@ -158,17 +174,17 @@ void ws_client_del(context_arg *carg)
 
 	st->closing = 1;
 
-	if (st->conn) {
-		ws_close(st->conn);
-		/* on_ws_close will call ws_conn_free */
-	}
-
 	if (st->reconnect_timer) {
 		uv_timer_stop(st->reconnect_timer);
 		if (!uv_is_closing((uv_handle_t *)st->reconnect_timer))
 			uv_close((uv_handle_t *)st->reconnect_timer,
 			         ws_reconnect_timer_close_cb);
 		st->reconnect_timer = NULL;
+	}
+
+	if (st->conn) {
+		ws_close(st->conn);
+		return;
 	}
 
 	free(st);

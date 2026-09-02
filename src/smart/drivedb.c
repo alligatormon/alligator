@@ -57,7 +57,10 @@ drive_settings_extended *drivedb_search(ngram_index_t *ngram_table, char *query)
 	uint64_t res = ngram_token_search(ngram_table, &results, DRIVEDB_NGRAM_LEN, query);
 	ngram_node_t *filtered_results = ngram_filter(results, res);
 	free(results);
+	if (!filtered_results)
+		return NULL;
 
+	drive_settings_extended *found = NULL;
 	for (uint64_t i = 0; i < filtered_results->count; ++i) {
 		regex_t regex;
 		drive_settings_extended *dse = filtered_results->data[i];
@@ -77,13 +80,12 @@ drive_settings_extended *drivedb_search(ngram_index_t *ngram_table, char *query)
 			dse->presets_identificators = presets_load(dse->ds.presets);
 		}
 
-		return dse;
-		// presets is -v 170,raw48,Grown_Failing_Block_Ct -v 171,raw48,Program_Fail_Count -v 172,raw48,Erase_Fail_Count -v 173,raw48,Wear_Leveling_Count -v 174,raw48,Unexpect_Power_Loss_Ct -v 181,raw16,Non4k_Aligned_Access -v 183,raw48,SATA_Iface_Downshift -v 189,raw48,Factory_Bad_Block_Ct -v 202,raw48,Percent_Lifetime_Used
+		found = dse;
+		break;
 	}
 	ngram_filter_free(filtered_results);
 
-	//ngram_clear(ngram_table, NULL);
-	return NULL;
+	return found;
 }
 
 ngram_index_t* drivedb_load() {

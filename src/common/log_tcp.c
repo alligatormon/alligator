@@ -153,7 +153,9 @@ static void log_tcp_written_cb(uv_write_t *req, int status)
 	if (!sink || sink->closing)
 		return;
 
+	pthread_mutex_lock(&sink->lock);
 	sink->write_in_flight = 0;
+	pthread_mutex_unlock(&sink->lock);
 
 	if (status != 0)
 	{
@@ -172,26 +174,28 @@ static void log_tcp_try_write(log_tcp_sink *sink)
 	uv_buf_t buf;
 	int ret;
 
-	if (!sink || sink->closing || !log_tcp_is_connected(sink) ||
-	    sink->write_in_flight)
+	if (!sink || sink->closing || !log_tcp_is_connected(sink))
 		return;
 
 	pthread_mutex_lock(&sink->lock);
-	if (sink->pending_data)
+	if (sink->write_in_flight || !sink->pending_data)
 	{
-		data = sink->pending_data;
-		len = sink->pending_len;
-		sink->pending_data = NULL;
-		sink->pending_len = 0;
-	}
-	pthread_mutex_unlock(&sink->lock);
-
-	if (!data || !len)
+		pthread_mutex_unlock(&sink->lock);
 		return;
+	}
+	data = sink->pending_data;
+	len = sink->pending_len;
+	sink->pending_data = NULL;
+	sink->pending_len = 0;
+	sink->write_in_flight = 1;
+	pthread_mutex_unlock(&sink->lock);
 
 	wr = calloc(1, sizeof(*wr));
 	if (!wr)
 	{
+		pthread_mutex_lock(&sink->lock);
+		sink->write_in_flight = 0;
+		pthread_mutex_unlock(&sink->lock);
 		free(data);
 		return;
 	}
@@ -202,11 +206,12 @@ static void log_tcp_try_write(log_tcp_sink *sink)
 	wr->req.data = wr;
 
 	buf = uv_buf_init(data, (unsigned int)len);
-	sink->write_in_flight = 1;
 	ret = uv_write(&wr->req, (uv_stream_t *)&sink->tcp, &buf, 1, log_tcp_written_cb);
 	if (ret != 0)
 	{
+		pthread_mutex_lock(&sink->lock);
 		sink->write_in_flight = 0;
+		pthread_mutex_unlock(&sink->lock);
 		free(data);
 		free(wr);
 		log_tcp_mark_disconnected(sink);
@@ -384,8 +389,10 @@ static void log_tcp_closed_cb(uv_handle_t *handle)
 	if (!sink)
 		return;
 
+	pthread_mutex_lock(&sink->lock);
 	sink->state = LOG_TCP_IDLE;
 	sink->write_in_flight = 0;
+	pthread_mutex_unlock(&sink->lock);
 	log_tcp_pending_drop(sink);
 
 	if (sink->closing)

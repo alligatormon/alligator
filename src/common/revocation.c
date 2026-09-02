@@ -44,6 +44,8 @@ typedef struct crl_cache_entry {
 	char *path;
 	time_t mtime;
 	STACK_OF(X509_CRL) *crls;
+	int refs;
+	int in_cache;
 } crl_cache_entry;
 
 typedef struct ocsp_cache_entry {
@@ -423,7 +425,20 @@ static crl_cache_entry *crl_load_file(const char *path)
 	e->path = strdup(path);
 	e->mtime = st.st_mtime;
 	e->crls = crls;
+	e->refs = 0;
+	e->in_cache = 0;
 	return e;
+}
+
+static void crl_cache_release(crl_cache_entry *e)
+{
+	if (!e)
+		return;
+	uv_mutex_lock(&rev_lock);
+	e->refs--;
+	if (e->refs <= 0 && !e->in_cache)
+		crl_entry_free(e);
+	uv_mutex_unlock(&rev_lock);
 }
 
 static crl_cache_entry *crl_cache_get(const char *path)
@@ -438,12 +453,15 @@ static crl_cache_entry *crl_cache_get(const char *path)
 	uv_mutex_lock(&rev_lock);
 	e = alligator_ht_search(crl_cache, path_compare, path, hash);
 	if (e && stat(path, &st) == 0 && e->mtime == st.st_mtime) {
+		e->refs++;
 		uv_mutex_unlock(&rev_lock);
 		return e;
 	}
 	if (e) {
 		alligator_ht_remove_existing(crl_cache, &e->node);
-		crl_entry_free(e);
+		e->in_cache = 0;
+		if (e->refs <= 0)
+			crl_entry_free(e);
 	}
 	uv_mutex_unlock(&rev_lock);
 
@@ -452,6 +470,8 @@ static crl_cache_entry *crl_cache_get(const char *path)
 		return NULL;
 
 	uv_mutex_lock(&rev_lock);
+	e->refs = 1;
+	e->in_cache = 1;
 	alligator_ht_insert(crl_cache, &e->node, e, hash);
 	uv_mutex_unlock(&rev_lock);
 	return e;
@@ -479,6 +499,7 @@ int revocation_store_apply_crl(X509_STORE *store, const revocation_policy *pol)
 	if (pol->crl_scope == REV_CRL_SCOPE_CHAIN)
 		flags |= X509_V_FLAG_CRL_CHECK_ALL;
 	X509_STORE_set_flags(store, flags);
+	crl_cache_release(e);
 	return 1;
 }
 

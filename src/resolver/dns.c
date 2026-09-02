@@ -51,10 +51,14 @@ int dns_name_decode(const char* buf, char* domain)
 int dns_name_decode_msg(const char* buf, const char* msg, char* domain)
 {
 	const char* p = buf;
-	const char* domain_start = domain;
+	char *out = domain;
+	size_t out_left = DNS_NAME_MAXLEN;
 	int consumed = 0;
 	int jumped = 0;
 	int steps = 0;
+
+	if (!buf || !domain || out_left == 0)
+		return -1;
 
 	while (1) {
 		if (++steps > 128)
@@ -77,21 +81,27 @@ int dns_name_decode_msg(const char* buf, const char* msg, char* domain)
 			++consumed;
 
 		if (len == 0) {
-			if (domain != domain_start)
-				--domain;
-			*domain = '\0';
+			if (out != domain)
+				--out;
+			*out = '\0';
 			return consumed;
 		}
 
 		if (len > 63)
 			return -1;
 
+		// label bytes + trailing '.' + NUL
+		if (out_left < (size_t)len + 2)
+			return -1;
+
 		while (len-- > 0) {
-			*domain++ = *p++;
+			*out++ = *p++;
+			--out_left;
 			if (!jumped)
 				++consumed;
 		}
-		*domain++ = '.';
+		*out++ = '.';
+		--out_left;
 	}
 }
 

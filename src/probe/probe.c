@@ -28,14 +28,32 @@ void probe_push_json(json_t *probe)
 
 	json_t *jname = json_object_get(probe, "name");
 	if (!jname)
+	{
+		free(pn);
 		return;
+	}
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+	{
+		free(pn);
+		return;
+	}
 	pn->name = strdup(name);
 
 	json_t *jprober = json_object_get(probe, "prober");
 	if (!jprober)
+	{
+		free(pn->name);
+		free(pn);
 		return;
+	}
 	char *prober = (char*)json_string_value(jprober);
+	if (!prober)
+	{
+		free(pn->name);
+		free(pn);
+		return;
+	}
 
 	pn->timeout = 5000;
 	pn->timeout = config_get_intstr_json(probe, "timeout");
@@ -45,7 +63,7 @@ void probe_push_json(json_t *probe)
 	if (jmethod)
 	{
 		char *method = (char*)json_string_value(jmethod);
-		if (!strcmp(method, "POST"))
+		if (method && !strcmp(method, "POST"))
 			pn->method = HTTP_POST;
 	}
 
@@ -180,6 +198,8 @@ void probe_del_json(json_t *probe)
 	if (!jname)
 		return;
 	char *name = (char*)json_string_value(jname);
+	if (!name)
+		return;
 
 	probe_node *pn = alligator_ht_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
 	if (pn)

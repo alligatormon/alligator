@@ -336,14 +336,14 @@ void ipset()
 				}
 				else if (type == IPSET_ATTR_SETNAME)
 				{
-					strlcpy(name, value, size - 3);
+					strlcpy(name, value, sizeof(name));
 				}
 				else if (type == IPSET_ATTR_COMMENT)
 				{
 				}
 				else if (type == IPSET_ATTR_TYPENAME)
 				{
-					strlcpy(typename, value, size - 3);
+					strlcpy(typename, value, sizeof(typename));
 					if (size > 5)
 						metric_add_labels2("ipset_typename", &okval, DATATYPE_UINT, ac->system_carg, "name", name, "typename", typename);
 				}

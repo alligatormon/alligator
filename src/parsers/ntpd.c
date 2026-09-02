@@ -70,6 +70,11 @@ double ntp_short_duration(uint32_t t)
 
 void ntp_handler(char *ntpData, size_t size, context_arg *carg)
 {
+	if (!ntpData || size < sizeof(ntp_packet))
+	{
+		carg->parser_status = 0;
+		return;
+	}
 
 	r_time now = setrtime();
 	double nowtime = (now.sec * 1.0) + ((double)(now.nsec) * 1.0 / 1000000000);

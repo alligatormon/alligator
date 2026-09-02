@@ -146,6 +146,38 @@ void get_disk()
 	endmntent(fp);
 }
 
+/* Split "key value..." from a procfs line. strip_colon copies dest size i (drops
+ * trailing ':') for /proc/meminfo; otherwise dest is i+1. Stops on NUL. */
+static int linux_proc_kv_split(char *tmp, char *key, size_t keysz, char *val, size_t valsz, int strip_colon)
+{
+	size_t n = strlen(tmp);
+	if (!n)
+		return 0;
+	if (tmp[n - 1] == '\n' || tmp[n - 1] == '\r')
+		tmp[--n] = 0;
+	if (!n)
+		return 0;
+
+	size_t i = strcspn(tmp, " ");
+	if (!i)
+		return 0;
+
+	size_t key_dest = strip_colon ? i : i + 1;
+	if (key_dest > keysz)
+		key_dest = keysz;
+	strlcpy(key, tmp, key_dest);
+
+	while (i < n && tmp[i] == ' ')
+		++i;
+	size_t swap = i;
+	i += strcspn(tmp + i, " ");
+	size_t val_dest = (i - swap) + 1;
+	if (val_dest > valsz)
+		val_dest = valsz;
+	strlcpy(val, tmp + swap, val_dest);
+	return 1;
+}
+
 
 void get_mem(int8_t platform)
 {
@@ -190,18 +222,10 @@ void get_mem(int8_t platform)
 	int64_t pgfault = 0;
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		size_t strlen_tmp = strlen(tmp) - 1;
-		tmp[strlen_tmp] = 0;
-		int i;
-		for (i=0; tmp[i]!=' '; i++);
-		strlcpy(key, tmp, i);
+		if (!linux_proc_kv_split(tmp, key, sizeof(key), val, sizeof(val), 1))
+			continue;
 
-		for (; i < strlen_tmp && tmp[i]==' '; i++);
-		int swap = i;
-		for (; i < strlen_tmp && tmp[i]!=' '; i++);
-		strlcpy(val, tmp+swap, i-swap+1);
-
-		if ( strstr(tmp+swap, "kB") )
+		if ( strstr(val, "kB") )
 			ival = 1024;
 
 		ival = ival * atoll(val);
@@ -287,15 +311,8 @@ void get_mem(int8_t platform)
 
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		tmp[strlen(tmp)-1] = 0;
-		int i;
-		for (i=0; tmp[i]!=' '; i++);
-		strlcpy(key, tmp, i+1);
-
-		for (; tmp[i]==' '; i++);
-		int swap = i;
-		for (; tmp[i] && tmp[i]!=' '; i++);
-		strlcpy(val, tmp+swap, i-swap+1);
+		if (!linux_proc_kv_split(tmp, key, sizeof(key), val, sizeof(val), 0))
+			continue;
 
 		ival = atoll(val);
 		if (!strcmp(key, "pgpgin"))
@@ -338,15 +355,8 @@ void get_mem(int8_t platform)
 	uint64_t container_memory_usage = 0;
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
-		tmp[strlen(tmp)-1] = 0;
-		int i;
-		for (i=0; tmp[i]!=' '; i++);
-		strlcpy(key, tmp, i+1);
-
-		for (; tmp[i]==' '; i++);
-		int swap = i;
-		for (; tmp[i] && tmp[i]!=' '; i++);
-		strlcpy(val, tmp+swap, i-swap+1);
+		if (!linux_proc_kv_split(tmp, key, sizeof(key), val, sizeof(val), 0))
+			continue;
 
 		ival = atoll(val);
 

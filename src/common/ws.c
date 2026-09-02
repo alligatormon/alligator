@@ -283,14 +283,8 @@ static void ws_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 
 	if (nread <= 0) {
 		free(buf->base);
-		if (nread == UV_EOF || nread == UV_ECONNRESET) {
-			uv_read_stop(stream);
-			if (ws->state != WS_STATE_CLOSED) {
-				ws->state = WS_STATE_CLOSED;
-				if (ws->on_close)
-					ws->on_close(ws);
-			}
-		}
+		if (nread == UV_EOF || nread == UV_ECONNRESET)
+			ws_close(ws);
 		return;
 	}
 
@@ -315,8 +309,7 @@ static void ws_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 		int r = ws_parse_handshake(ws, ws->rbuf, ws->rbuf_len);
 		if (r < 0) {
 			glog(L_ERROR, "ws: WebSocket handshake failed\n");
-			ws->state = WS_STATE_CLOSED;
-			if (ws->on_close) ws->on_close(ws);
+			ws_close(ws);
 			return;
 		}
 		if (ws->rbuf_len == 0)
@@ -358,8 +351,7 @@ static void ws_tcp_connected(uv_connect_t *req, int status)
 	if (status != 0) {
 		glog(L_ERROR, "ws: TCP connect to %s:%d failed: %s\n",
 		     ws->host, ws->port, uv_strerror(status));
-		ws->state = WS_STATE_CLOSED;
-		if (ws->on_close) ws->on_close(ws);
+		ws_close(ws);
 		return;
 	}
 
@@ -432,24 +424,39 @@ ws_conn *ws_connect(uv_loop_t *loop,
 
 static void ws_handle_closed(uv_handle_t *handle)
 {
-	(void)handle;
+	ws_conn *ws = handle->data;
+	if (!ws)
+		return;
+	ws->state = WS_STATE_CLOSED;
+	if (ws->on_close)
+		ws->on_close(ws);
 }
 
 void ws_close(ws_conn *ws)
 {
+	int was_open;
+
 	if (!ws || ws->state == WS_STATE_CLOSED || ws->state == WS_STATE_CLOSING)
 		return;
+	was_open = (ws->state == WS_STATE_OPEN);
 	ws->state = WS_STATE_CLOSING;
 
-	char *close_frame = malloc(2);
-	if (close_frame) {
-		close_frame[0] = (char)0x88;
-		close_frame[1] = 0x00;
-		ws_raw_send(ws, close_frame, 2);
+	if (was_open) {
+		char *close_frame = malloc(2);
+		if (close_frame) {
+			close_frame[0] = (char)0x88;
+			close_frame[1] = 0x00;
+			ws_raw_send(ws, close_frame, 2);
+		}
 	}
 
 	if (!uv_is_closing((uv_handle_t *)&ws->tcp))
 		uv_close((uv_handle_t *)&ws->tcp, ws_handle_closed);
+	else {
+		ws->state = WS_STATE_CLOSED;
+		if (ws->on_close)
+			ws->on_close(ws);
+	}
 }
 
 void ws_conn_free(ws_conn *ws)

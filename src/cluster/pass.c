@@ -7,6 +7,7 @@
 #include "common/logs.h"
 #include "metric/metric_types.h"
 #include "cluster/get.h"
+#include <string.h>
 void cluster_replica_handler(char *data, size_t size, context_arg *carg);
 
 void cluster_generate_labels(void *funcarg, void* arg)
@@ -56,8 +57,16 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 	if (cn->type == CLUSER_TYPE_SHAREDLOCK)
 		return 0;
 
+	if (!cn->servers_size)
+		return 0;
+
 	string *hash_str = maglev_key_make(cn, name, lbl);
 	cluster_server_oplog *srvoplog = maglev_lookup_node(&cn->m_maglev_hash, hash_str->s, hash_str->l);
+	if (!srvoplog)
+	{
+		string_free(hash_str);
+		return 0;
+	}
 
 	carglog(carg, L_DEBUG, "cluster_pass metric name '%s', hash '%s', rf %"PRIu64", isme: %d\n", name, hash_str->s, cn->replica_factor, srvoplog->is_me);
 
@@ -95,9 +104,15 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 
 		if (cn->servers[current_index].is_me) {
 			if (i) {
-				uint16_t cur = strlcpy(namespacename, cn->name, 255);
-				strlcpy(namespacename + cur, ":", 255);
-				strlcpy(namespacename + cur + 1, srvoplog->name, 255);
+				size_t cur = strlcpy(namespacename, cn->name, sizeof(namespacename));
+				size_t remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+				if (remain > 0) {
+					strlcpy(namespacename + cur, ":", remain);
+					cur = strnlen(namespacename, sizeof(namespacename));
+					remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
+					if (remain > 0)
+						strlcpy(namespacename + cur, srvoplog->name, remain);
+				}
 
 				carg->namespace = namespacename;
 			}

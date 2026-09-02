@@ -5,6 +5,8 @@
 #define AUTH_SIZE 1024
 #define EVENT_BUFFER 65536
 #include <uv.h>
+#include <stdint.h>
+#include <stdatomic.h>
 #include <jansson.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
@@ -54,7 +56,7 @@ typedef struct threaded_loop_slot {
 typedef struct threaded_loops {
 	uv_loop_t **loop;
 	threaded_loop_slot *slot;
-	uint64_t cur;
+	_Atomic uint64_t cur;
 	uint64_t max;
 	uv_thread_t *threads;
 	char *key;

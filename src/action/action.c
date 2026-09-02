@@ -180,16 +180,17 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 				char key_base[256];
 				snprintf(key_base, 256, "%s:clickhouse_action_query:%zu", hi->host, ms->str[i]->l);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
-				glog(log_level, "run action clickhouse %s\n", name);
-				action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
+			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
+			glog(log_level, "run action clickhouse %s\n", name);
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
-				alligator_ht_foreach_arg(env, env_struct_free, env);
-				alligator_ht_done(env);
-				free(env);
-			}
+			alligator_ht_foreach_arg(env, env_struct_free, env);
+			alligator_ht_done(env);
+			free(env);
+		}
 
-			free(body->s);
+		free(body->s);
+		body->s = NULL;
 		}
 		else if ((an->serializer == METRIC_SERIALIZER_PG) && ms)
 		{
@@ -205,16 +206,17 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 				snprintf(key_base, 256, "%s:postgresql_action_query:%zu", hi->host, ms->str[i]->l);
 				glog(log_level, "ms %s: %"u64"\n", ms->str[i]->s, ms->l);
 
-				char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
-				glog(log_level, "run action pg %s\n", name);
-				action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
+			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
+			glog(log_level, "run action pg %s\n", name);
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
-				alligator_ht_foreach_arg(env, env_struct_free, env);
-				alligator_ht_done(env);
-				free(env);
-			}
+			alligator_ht_foreach_arg(env, env_struct_free, env);
+			alligator_ht_done(env);
+			free(env);
+		}
 
-			free(body->s);
+		free(body->s);
+		body->s = NULL;
 		}
 		else
 		{
@@ -234,6 +236,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, body);
 			size_t http_data_size = action_http_query_size_with_body(http_data, body->l);
 			free(body->s);
+			body->s = NULL;
 			glog(log_level, "run action http %s\n", name);
 			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, NULL, 0, NULL, env, scheduler_name);
 			alligator_ht_foreach_arg(env, env_struct_free, env);
@@ -294,7 +297,8 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 	if (ms)
 		string_tokens_free(ms);
 
-	free(body);
+	if (body)
+		string_free(body);
 }
 
 void action_namespaced_run(char *action_name, char *key, metric_query_context *mqc)

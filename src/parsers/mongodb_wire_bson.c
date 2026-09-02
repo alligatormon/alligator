@@ -353,9 +353,15 @@ int mongodb_parse_find_expr(const char *expr, mongodb_query_expr_t *out)
 	return 0;
 }
 
-static int bson_to_json_value(const uint8_t *data, size_t len, size_t *off, uint8_t type, json_t **out)
+#define BSON_MAX_NEST 64
+
+static int bson_to_json_document_at(const uint8_t *data, size_t len, json_t **out, int as_array, int depth);
+
+static int bson_to_json_value(const uint8_t *data, size_t len, size_t *off, uint8_t type, json_t **out, int depth)
 {
 	if (!data || !off || !out || *off > len)
+		return 0;
+	if (depth > BSON_MAX_NEST)
 		return 0;
 
 	switch (type) {
@@ -382,14 +388,14 @@ static int bson_to_json_value(const uint8_t *data, size_t len, size_t *off, uint
 		return 1;
 	}
 	case 0x03: {
-		int used = bson_to_json_document(data + *off, len - *off, out, 0);
+		int used = bson_to_json_document_at(data + *off, len - *off, out, 0, depth + 1);
 		if (!used)
 			return 0;
 		*off += (size_t)used;
 		return 1;
 	}
 	case 0x04: {
-		int used = bson_to_json_document(data + *off, len - *off, out, 1);
+		int used = bson_to_json_document_at(data + *off, len - *off, out, 1, depth + 1);
 		if (!used)
 			return 0;
 		*off += (size_t)used;
@@ -463,9 +469,19 @@ static int bson_to_json_value(const uint8_t *data, size_t len, size_t *off, uint
 
 int bson_to_json_document(const uint8_t *data, size_t len, json_t **out, int as_array)
 {
+	return bson_to_json_document_at(data, len, out, as_array, 0);
+}
+
+static int bson_to_json_document_at(const uint8_t *data, size_t len, json_t **out, int as_array, int depth)
+{
 	int32_t doc_len = 0;
 	size_t pos = 0;
-	json_t *root = as_array ? json_array() : json_object();
+	json_t *root;
+
+	if (depth > BSON_MAX_NEST)
+		return 0;
+
+	root = as_array ? json_array() : json_object();
 
 	if (!len || !data || !out || len < 5 || !root)
 		return 0;
@@ -491,7 +507,7 @@ int bson_to_json_document(const uint8_t *data, size_t len, json_t **out, int as_
 			return 0;
 		}
 		pos += key_len + 1;
-		if (!bson_to_json_value(data, (size_t)doc_len, &pos, type, &val)) {
+		if (!bson_to_json_value(data, (size_t)doc_len, &pos, type, &val, depth)) {
 			json_decref(root);
 			return 0;
 		}

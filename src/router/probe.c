@@ -27,6 +27,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		string_cat(response, http_data->uri, http_data->uri_size);
 		string_cat(response, "'", 1);
 
+		http_args_free(args);
 		return;
 	}
 
@@ -41,6 +42,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		string_cat(response, http_data->uri, http_data->uri_size);
 		string_cat(response, "'", 1);
 
+		http_args_free(args);
 		return;
 	}
 
@@ -62,11 +64,13 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		string_cat(response, http_data->uri, http_data->uri_size);
 		string_cat(response, "'", 1);
 
+		http_args_free(args);
 		return;
 	}
 
-	url_size = strlcpy(url, pn->scheme, 1024);
-	url_size += strlcpy(url + url_size, target, 1024 - url_size);
+	url_size = snprintf(url, sizeof(url), "%s%s", pn->scheme, target);
+	if (url_size >= sizeof(url))
+		url_size = sizeof(url) - 1;
 
 	host_aggregator_info *hi = parse_url(url, url_size);
 	context_arg *new_carg;

@@ -105,9 +105,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			}
 			if (!strcmp(key, "log_dest"))
 			{
+				const char *dest = json_string_value(value);
+				if (!dest)
+					continue;
 				if (ac->log_dest)
 					free(ac->log_dest);
-				ac->log_dest = strdup(json_string_value(value));
+				ac->log_dest = strdup(dest);
 				ac->update_log_dest = 1;
 			}
 			if (!strcmp(key, "log_channel"))
@@ -117,13 +120,18 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			}
 			if (!strcmp(key, "process_shell"))
 			{
+				const char *shell = json_string_value(value);
+				if (!shell)
+					continue;
 				if (ac->process_shell)
 					free(ac->process_shell);
-				ac->process_shell = strdup(json_string_value(value));
+				ac->process_shell = strdup(shell);
 			}
 			if (!strcmp(key, "log_form"))
 			{
 				const char *form = json_string_value(value);
+				if (!form)
+					continue;
 				ac->log_form = FORM_SIMPLE;
 				if (!strcmp(form, "syslog")) {
 					ac->log_form = FORM_SYSLOG;
@@ -146,9 +154,12 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 			}
 			if (!strcmp(key, "log_time_format"))
 			{
+				const char *fmt = json_string_value(value);
+				if (!fmt)
+					continue;
 				if (ac->log_time_format)
 					free(ac->log_time_format);
-				ac->log_time_format = strdup(json_string_value(value));
+				ac->log_time_format = strdup(fmt);
 			}
 			if (!strcmp(key, "aggregate_period"))
 			{
@@ -264,6 +275,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					if (method == HTTP_METHOD_DELETE)
 					{
 						module_t *module = alligator_ht_search(ac->modules, module_compare, module_key, tommy_strhash_u32(0, module_key));
+						if (!module)
+							continue;
 						free(module->key);
 						free(module->path);
 						alligator_ht_remove_existing(ac->modules, &(module->node));
@@ -273,6 +286,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					char *path = (char*)json_string_value(module_path);
+					if (!path)
+						continue;
 
 					module_t *module = calloc(1, sizeof(*module));
 					module->key = strdup(module_key);
@@ -1564,12 +1579,16 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						continue;
 
 					char *handler = (char*)json_string_value(jhandler);
+					if (!handler)
+						continue;
 
 					json_t *jurl = json_object_get(aggregate, "url");
 					if (!jurl)
 						continue;
 
 					char *url = (char*)json_string_value(jurl);
+					if (!url)
+						continue;
 
 					uint8_t follow_redirects = config_get_intstr_json(aggregate, "follow_redirects");
 

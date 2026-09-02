@@ -25,7 +25,6 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 	char tmp3[UNBOUND_NAME_SIZE];
 	char tmp4[UNBOUND_NAME_SIZE];
 	uint64_t copysize;
-	uint64_t copysize2;
 	char *argindex;
 	uint64_t val = 0;
 	double dval;
@@ -41,13 +40,17 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 
 		if (!strncmp(tmp, "thread", 6))
 		{
-			copysize = strcspn(tmp, ".")+1;
-			strlcpy(tmp2, tmp, copysize);
+			char *dot = strchr(tmp, '.');
+			if (!dot)
+				continue;
+			size_t thread_len = (size_t)(dot - tmp);
+			size_t thread_dest = thread_len + 1;
+			if (thread_dest > sizeof(tmp2))
+				thread_dest = sizeof(tmp2);
+			strlcpy(tmp2, tmp, thread_dest);
+			strlcpy(tmp3, dot + 1, sizeof(tmp3));
 
-			copysize2 = strlen(tmp+copysize)+1;
-			strlcpy(tmp3, tmp+copysize, copysize2);
-
-			if (!strncmp(tmp+copysize, "recursion.time.avg", 18))
+			if (!strncmp(dot + 1, "recursion.time.avg", 18))
 			{
 				dval = strtof(metrics+i, NULL);
 				metric_add_labels("unbound_recursion_time_avg", &dval, DATATYPE_DOUBLE, carg, "thread", tmp2);

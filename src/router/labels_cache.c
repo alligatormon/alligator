@@ -20,6 +20,7 @@ void labels_cache_router(string *response, http_reply_data* http_data, context_a
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
 		string_cat(response, "\r\n{}\n", 5);
+		http_args_free(args);
 		return;
 	}
 
