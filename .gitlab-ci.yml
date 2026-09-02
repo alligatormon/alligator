@@ -434,7 +434,7 @@ deploy_ubuntu2604:
     TZ: Etc/UTC
   script:
   - apt update
-  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl libvirt-dev smartmontools
+  - apt -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang golang-go curl libvirt-dev smartmontools gnupg
   - update-smart-drivedb
   - git submodule sync --recursive
   - git submodule update --init --recursive
