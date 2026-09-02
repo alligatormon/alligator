@@ -338,7 +338,7 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "process_states{state=\"running\"}", "process_states", 0);
     metric_test_run(CMP_EQUAL, "pressure_waiting_seconds_total{resource=\"cpu\"}", "pressure_waiting_seconds_total", 123456789 / 1000000.0);
     metric_test_run(CMP_EQUAL, "pressure_stalled_seconds_total{resource=\"cpu\"}", "pressure_stalled_seconds_total", 987654321 / 1000000.0);
-    metric_test_run(CMP_EQUAL, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 123);
+    metric_test_run(CMP_EQUAL, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 0x123);
     metric_test_run(CMP_EQUAL, "sockstat_sockets_used", "sockstat_sockets_used", 42);
     metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"TCP\",stat=\"inuse\"}", "sockstat_stat_total", 10);
     metric_test_run(CMP_EQUAL, "swap_device_bytes{device=\"/dev/dm-1\",type=\"size\"}", "swap_device_bytes", 1048572ULL * 1024);
