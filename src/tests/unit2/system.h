@@ -353,6 +353,10 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"pages_free\"}", "zoneinfo_stat_total", 100);
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"protection_0\"}", "zoneinfo_stat_total", 0);
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"protection_4\"}", "zoneinfo_stat_total", 7631);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"start_pfn\"}", "zoneinfo_stat_total", 1);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"vm_stats_threshold\"}", "zoneinfo_stat_total", 7);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA32\",stat=\"start_pfn\"}", "zoneinfo_stat_total", 1048576);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA32\",stat=\"vm_stats_threshold\"}", "zoneinfo_stat_total", 42);
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"total\"}", "memory_usage_hw", 2036900ULL * 1024);
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"usage\"}", "memory_usage_hw", (2036900ULL - 1439972ULL) * 1024);
     metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);

@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Fix: `zoneinfo_stat_total` `stat` labels no longer keep a trailing colon from `/proc/zoneinfo` (`start_pfn:`, `vm_stats_threshold:`).
 - CentOS 7 package build stays on GCC 4.8 (`-std=gnu99`). clang 3.4 C11 atomics emit illegal `futex` op `0x7e7f` (kernel 3.10 `ENOSYS` busy-loop). `threaded_loop.cur` uses `common/atomic.h` (`__sync_fetch_and_add` when C11 atomics are unsafe/missing).
 - Fix: `maglev_init` treats only `lock_inited == 1` as a live rwlock, so stack garbage no longer skips `pthread_rwlock_init` (CentOS 7 `wrlock` spin in `alligator_tests`).
 - Fix: CIDR prefixes above 32 (IPv4) or 128 (IPv6) no longer hang the event loop in `grpow`/`ip_get_mask` (e.g. `allow 1.2.3.4/99`).

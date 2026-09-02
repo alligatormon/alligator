@@ -18,7 +18,7 @@ static void normalize_stat_name(char *dst, size_t dstlen, const char *src)
 	size_t j = 0;
 	for (size_t i = 0; src[i] && j + 1 < dstlen; ++i) {
 		char c = src[i];
-		if (c == ' ' || c == '-' || c == '/')
+		if (c == ' ' || c == '-' || c == '/' || c == ':')
 			c = '_';
 		else if (isupper((unsigned char)c))
 			c = (char)tolower((unsigned char)c);
