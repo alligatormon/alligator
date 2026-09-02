@@ -198,7 +198,7 @@ void get_mem(int8_t platform)
 	char key[LINUXFS_LINE_LENGTH];
 	char key_map[LINUXFS_LINE_LENGTH];
 	char val[LINUXFS_LINE_LENGTH];
-	int64_t ival = 1;
+	int64_t ival;
 	int64_t oom_kill = 0;
 	int64_t totalswap = 1;
 	int64_t freeswap = 1;
@@ -225,10 +225,9 @@ void get_mem(int8_t platform)
 		if (!linux_proc_kv_split(tmp, key, sizeof(key), val, sizeof(val), 1))
 			continue;
 
-		if ( strstr(val, "kB") )
-			ival = 1024;
-
-		ival = ival * atoll(val);
+		ival = atoll(val);
+		if (strstr(tmp, "kB"))
+			ival *= 1024;
 
 		if	( !strcmp(key, "MemTotal") ) {
 			strlcpy(key_map, "total", 6);
@@ -446,12 +445,14 @@ void get_mem(int8_t platform)
 	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
 
 	usagemem = is_cgroup ? container_memory_usage : usagemem;
-	double percentused = (double)usagemem*100/(double)memtotal;
-	double percentfree = 100 - percentused;
+	if (memtotal > 0) {
+		double percentused = (double)usagemem * 100.0 / (double)memtotal;
+		double percentfree = 100.0 - percentused;
+		metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
+		metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
+	}
 	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
 	metric_add_labels("memory_usage", &memtotal, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
-	metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
 
 	// check oom control
 	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.oom_control", ac->system_sysfs);

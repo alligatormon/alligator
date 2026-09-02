@@ -6,7 +6,7 @@
 #define EVENT_BUFFER 65536
 #include <uv.h>
 #include <stdint.h>
-#include <stdatomic.h>
+#include "common/atomic.h"
 #include <jansson.h>
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
@@ -56,7 +56,7 @@ typedef struct threaded_loop_slot {
 typedef struct threaded_loops {
 	uv_loop_t **loop;
 	threaded_loop_slot *slot;
-	_Atomic uint64_t cur;
+	alligator_atomic_u64 cur;
 	uint64_t max;
 	uv_thread_t *threads;
 	char *key;
@@ -72,7 +72,8 @@ typedef struct metric_datatypes {
 
 typedef struct amtail_variable amtail_variable;
 
-typedef struct context_arg
+/* selector.h already has: typedef struct context_arg context_arg; (C99 forbids a second typedef). */
+struct context_arg
 {
 	char *name;
 	struct sockaddr_in remote_addr;
@@ -423,7 +424,7 @@ typedef struct context_arg
 	tommy_node node;
 	tommy_node context_node;
 	tommy_node ping_node;
-} context_arg;
+};
 
 context_arg *carg_copy(context_arg *src);
 context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void *handler, char *parser_name, char *mesg, size_t mesg_len, void *data, void *expect_function, uint8_t headers_pass, uv_loop_t *loop, alligator_ht *env, uint64_t follow_redirects, char *stdin_s, size_t stdin_l);

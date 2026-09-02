@@ -1,6 +1,7 @@
 Node 0, zone      DMA
   pages free     100
   nr_free_pages  100
+  protection: (0, 2697, 7631, 7631, 7631)
 Node 0, zone    DMA32
   pages free     5000
   nr_free_pages  5000

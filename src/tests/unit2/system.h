@@ -351,6 +351,10 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "arp_entries{device=\"eth0\"}", "arp_entries", 2);
     metric_test_run(CMP_EQUAL, "ipvs_stat_total{stat=\"connections\"}", "ipvs_stat_total", 42);
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"pages_free\"}", "zoneinfo_stat_total", 100);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"protection_0\"}", "zoneinfo_stat_total", 0);
+    metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"protection_4\"}", "zoneinfo_stat_total", 7631);
+    metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"total\"}", "memory_usage_hw", 2036900ULL * 1024);
+    metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"usage\"}", "memory_usage_hw", (2036900ULL - 1439972ULL) * 1024);
     metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);

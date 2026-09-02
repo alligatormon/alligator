@@ -59,7 +59,7 @@ Used to select the column in SQL responses. The column name will be used as the 
 
 
 ## except
-Skips databases by name when `datasource` is a wildcard (`pg/*`, `mysql/*`, and similar). Bare names are exact matches (hashtable). Tokens wrapped in `/…/` are PCRE (same convention as `system { process …; }`), unanchored unless the pattern includes `^`/`$`. Empty `except` skips nothing. Matching uses the database (or keyspace) name, not the full datasource key. System databases such as `template0` are not skipped unless listed.
+Skips databases by name when `datasource` is a wildcard (`pg/*`, `mysql/*`, and similar). Also drops result rows whose database-name label (`dbname`, `datname`, or `psql_database`) matches, including non-wildcard datasources such as `pg` whose SQL returns one row per database. Bare names are exact matches (hashtable). Tokens wrapped in `/…/` are PCRE (same convention as `system { process …; }`), unanchored unless the pattern includes `^`/`$`. Empty `except` skips nothing. Matching uses the database (or keyspace) name, not the full datasource key. System databases such as `template0` are not skipped unless listed.
 
 If several query blocks share the same wildcard datasource with different `except` lists, a database is skipped only for the queries that match it. A per-database connection is skipped only when every query on that datasource excepts the database.
 

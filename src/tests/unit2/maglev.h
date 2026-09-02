@@ -3,6 +3,7 @@
 void test_maglev_core_paths()
 {
     maglev_lookup_hash m;
+    memset(&m, 0, sizeof(m));
     maglev_init(&m);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, m.is_use_index);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, m.is_modify_lock);
@@ -40,6 +41,7 @@ void test_maglev_core_paths()
 
     /* lookup on uninitialized object */
     maglev_lookup_hash m2;
+    memset(&m2, 0, sizeof(m2));
     maglev_init(&m2);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, maglev_lookup_node(&m2, "k", 1) != NULL);
 
@@ -47,4 +49,6 @@ void test_maglev_core_paths()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, murmur2("abcd", 4) > 0);
 
     maglev_loopup_item_clean(&m, m.is_use_index);
+    maglev_lock_destroy(&m);
+    maglev_lock_destroy(&m2);
 }

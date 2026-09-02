@@ -3,6 +3,7 @@
 #include "query/promql.h"
 #include "metric/query.h"
 #include "metric/labels.h"
+#include "common/logs.h"
 #include "main.h"
 
 void query_field_set_foreach(void *funcarg, void* arg)
@@ -29,8 +30,26 @@ void query_field_set_foreach(void *funcarg, void* arg)
 	qf->type = DATATYPE_NONE;
 }
 
+static void query_field_reset_foreach(void *funcarg, void* arg)
+{
+	query_field *qf = arg;
+	(void)funcarg;
+	qf->i = 0;
+	qf->u = 0;
+	qf->d = 0;
+	qf->type = DATATYPE_NONE;
+}
+
 void query_set_values(query_node *qn)
 {
+	if (!qn || !qn->qf_hash)
+		return;
+	if (query_except_match_row(qn)) {
+		if (qn->carg)
+			carglog(qn->carg, L_DEBUG, "skip query make '%s': except matched result database label\n", qn->make ? qn->make : "");
+		alligator_ht_foreach_arg(qn->qf_hash, query_field_reset_foreach, qn);
+		return;
+	}
 	alligator_ht_foreach_arg(qn->qf_hash, query_field_set_foreach, qn);
 }
 

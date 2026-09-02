@@ -251,8 +251,6 @@ static void cassandra_exec_cb(cassandra_row_t *row, void *ud) {
 	if (!row)
 		return;
 	alligator_ht *hash = alligator_ht_init(NULL);
-	if (carg->ns)
-		labels_hash_insert_nocache(hash, "dbname", carg->ns);
 
 	for (int i = 0; i < row->column_count; i++) {
 		if (!row->fields[i])
@@ -281,6 +279,9 @@ static void cassandra_exec_cb(cassandra_row_t *row, void *ud) {
 			free(res);
 		}
 	}
+
+	if (carg->ns)
+		labels_hash_insert_nocache(hash, "dbname", carg->ns);
 
 	qn->labels = hash;
 	qn->carg = carg;

@@ -28,7 +28,7 @@ query {
 }
 ```
 
-`datasource pg/*` выполняет query на каждой базе экземпляра. `except` в блоке query пропускает имена (точные и `/regex/`). Template и прочие системные базы не пропускаются, пока их нет в `except`. См. [query except](../query.md).
+`datasource pg/*` выполняет query на каждой базе экземпляра. `except` в блоке query пропускает имена (точные и `/regex/`). Тот же список отбрасывает строки результата с label `dbname` / `datname` / `psql_database`, поэтому он работает и с `datasource pg`, если SQL перечисляет базы в результате. Template и прочие системные базы не пропускаются, пока их нет в `except`. См. [query except](../query.md).
 
 
 # PgBouncer

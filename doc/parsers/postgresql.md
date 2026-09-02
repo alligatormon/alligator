@@ -26,7 +26,7 @@ query {
 }
 ```
 
-`datasource pg/*` runs the query on every database listed from the instance. Use `except` on the query block to skip names (exact and `/regex/`). Template and other system databases are not skipped unless listed in `except`. See [query except](../query.md).
+`datasource pg/*` runs the query on every database listed from the instance. Use `except` on the query block to skip names (exact and `/regex/`). The same list also drops result rows whose `dbname` / `datname` / `psql_database` label matches, so it works with `datasource pg` queries that enumerate databases in SQL. Template and other system databases are not skipped unless listed in `except`. See [query except](../query.md).
 
 
 # PgBouncer

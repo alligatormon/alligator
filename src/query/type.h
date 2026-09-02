@@ -47,6 +47,7 @@ query_field* query_field_get(alligator_ht *qf_hash, char *key);
 alligator_ht* query_get_field(json_t *jfield);
 query_node *query_get_node(query_ds *qds, char *make);
 int query_except_match(query_node *qn, const char *name);
+int query_except_match_row(query_node *qn);
 int query_ds_except_db(query_ds *qds, const char *dbname);
 void query_node_del(query_node *qn);
 void query_set_values(query_node *qn);

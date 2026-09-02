@@ -1,4 +1,6 @@
 #include "query/type.h"
+#include "metric/labels.h"
+#include "metric/metrictree.h"
 #include "main.h"
 #include <string.h>
 
@@ -77,6 +79,32 @@ int query_except_match(query_node *qn, const char *name)
 		return 0;
 
 	return match_mapper(qn->except, (char *)name, strlen(name), (char *)name) == 1;
+}
+
+static const char *query_label_value(alligator_ht *hash, const char *name)
+{
+	labels_container *lc;
+
+	if (!hash || !name || !ac || !ac->metrictree_hashfunc_get)
+		return NULL;
+	lc = alligator_ht_search(hash, labels_hash_compare, (char *)name, ac->metrictree_hashfunc_get(name));
+	return lc ? lc->key : NULL;
+}
+
+int query_except_match_row(query_node *qn)
+{
+	static const char *names[] = { "dbname", "datname", "psql_database", NULL };
+	size_t i;
+
+	if (!qn || !qn->except || !qn->labels)
+		return 0;
+
+	for (i = 0; names[i]; i++) {
+		const char *v = query_label_value(qn->labels, names[i]);
+		if (v && query_except_match(qn, v))
+			return 1;
+	}
+	return 0;
 }
 
 typedef struct query_except_scan

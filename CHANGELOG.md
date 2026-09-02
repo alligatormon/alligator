@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- CentOS 7 package build stays on GCC 4.8 (`-std=gnu99`). clang 3.4 C11 atomics emit illegal `futex` op `0x7e7f` (kernel 3.10 `ENOSYS` busy-loop). `threaded_loop.cur` uses `common/atomic.h` (`__sync_fetch_and_add` when C11 atomics are unsafe/missing).
+- Fix: `maglev_init` treats only `lock_inited == 1` as a live rwlock, so stack garbage no longer skips `pthread_rwlock_init` (CentOS 7 `wrlock` spin in `alligator_tests`).
 - Fix: CIDR prefixes above 32 (IPv4) or 128 (IPv6) no longer hang the event loop in `grpow`/`ip_get_mask` (e.g. `allow 1.2.3.4/99`).
 - Fix: PromQL `by()` tokens longer than 254 bytes no longer overflow `labels_to_groupkey` / `labels_to_hash` (`/json?query=`).
 - Fix: NTP parser rejects UDP payloads shorter than 48 bytes instead of reading past the buffer.
@@ -19,6 +21,7 @@ Changelog
 - Fix: `rpmdb_load_failed` is registered by the rpm handler only, it is no longer exported as an empty family on Debian and FreeBSD hosts.
 - ZooKeeper parser (breaking): `mntr` Prometheus labels (`{pool="direct"}`, `{quantile="0.5"}`, `{gc="PS MarkSweep"}`, …) are exported as labels instead of being baked into the metric name (`zk_*_pool__direct__`). Grafana dashboard rebuilt to match other Alligator dashboards.
 - Query `except` skips databases by exact name or `/regex/` when `datasource` is a wildcard (`pg/*`).
+- Fix: query `except` also drops result rows whose `dbname` / `datname` / `psql_database` labels match, so it applies to non-wildcard datasources (`pg`) that enumerate databases in SQL.
 - Memcached parser (breaking): STAT fields are no longer all flat gauges. Metrics are renamed/grouped with correct types — e.g. `memcached_commands_total{command,status}`, `memcached_read_bytes_total` / `memcached_written_bytes_total`, `memcached_current_*` gauges, `memcached_uptime_seconds` counter. Aligns with prometheus/memcached_exporter semantics (`cmd_set` minus CAS). Grafana dashboard: `dashboards/alligator-memcached.json`.
 - NATS parser: stop dumping every JSON field as a metric. String fields (`tls_version`, `lang`, `uptime`, …) are no longer gauges with value `1`; `/connz` exports aggregates only (no per-`cid` series); `http_req_stats` uses `nats_varz_http_req_stats{endpoint=…}`. Identity strings use `{value="…"} 1`.
 - `json_query`: fields listed in `pquery` `[…]` label blocks are labels only and are not emitted as separate series.

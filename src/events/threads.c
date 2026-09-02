@@ -3,7 +3,6 @@
 #include <main.h>
 #include <inttypes.h>
 #include <pthread.h>
-#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -242,7 +241,7 @@ uv_loop_t *get_threaded_loop_t(char *key)
 	if (!thl || !thl->max)
 		return NULL;
 
-	idx = atomic_fetch_add(&thl->cur, 1);
+	idx = alligator_atomic_fetch_add_u64(&thl->cur, 1);
 	return thl->loop[idx % thl->max];
 }
 

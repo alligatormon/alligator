@@ -329,9 +329,6 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 	{
 		alligator_ht *hash = alligator_ht_init(NULL);
 
-		if (carg->ns)
-			labels_hash_insert_nocache(hash, "dbname", carg->ns);
-
 		for (j=0; j<PQnfields(r); ++j)
 		{
 			char *colname = PQfname(r, j);
@@ -392,6 +389,8 @@ void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *data
 				}
 			}
 		}
+		if (carg->ns)
+			labels_hash_insert_nocache(hash, "dbname", carg->ns);
 		qn->labels = hash;
 		qn->carg = carg;
 		query_set_values(qn);

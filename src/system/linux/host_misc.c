@@ -33,6 +33,38 @@ static void normalize_stat_name(char *dst, size_t dstlen, const char *src)
 	dst[j] = '\0';
 }
 
+static void emit_zoneinfo_protection(char *node, char *zone, char *line)
+{
+	char *paren = strchr(line, '(');
+	if (!paren)
+		return;
+	++paren;
+	char *end = strchr(paren, ')');
+	if (!end)
+		return;
+	*end = '\0';
+
+	unsigned idx = 0;
+	for (char *tok = paren; *tok; ) {
+		while (*tok == ' ' || *tok == ',')
+			++tok;
+		if (!*tok)
+			break;
+		char *comma = strchr(tok, ',');
+		if (comma)
+			*comma = '\0';
+		uint64_t val = strtoull(tok, NULL, 10);
+		char stat[64];
+		snprintf(stat, sizeof(stat), "protection_%u", idx);
+		metric_add_labels3("zoneinfo_stat_total", &val, DATATYPE_UINT,
+			ac->system_carg, "node", node, "zone", zone, "stat", stat);
+		++idx;
+		if (!comma)
+			break;
+		tok = comma + 1;
+	}
+}
+
 void get_softirqs_stats(void)
 {
 	char path[512];
@@ -252,6 +284,12 @@ void get_zoneinfo_stats(void)
 		size_t blen = strlen(buf);
 		while (blen && (buf[blen - 1] == '\n' || buf[blen - 1] == ' ' || buf[blen - 1] == '\t'))
 			buf[--blen] = '\0';
+
+		if (strstr(buf, "protection:")) {
+			if (node[0] && zone[0])
+				emit_zoneinfo_protection(node, zone, buf);
+			continue;
+		}
 
 		char *last_space = NULL;
 		for (char *p = buf; *p; ++p) {

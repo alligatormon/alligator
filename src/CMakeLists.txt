@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 1.15.3)
+set(VERSION 1.15.4)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
@@ -201,9 +201,10 @@ if("${LIBUV_DRIVER}" STREQUAL "")
 endif()
 
 IF(${distro}.${disversion} MATCHES "centos.7")
-#set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -fstack-protector-all -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wunreachable-code -O3 -std=gnu11 -pthread")
-set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wunreachable-code -O3 -std=gnu99 -pthread")
-# Keep auto-selected libuv target/library; no centos-specific override here.
+# GCC 4.8 + gnu99. Do not use clang 3.4: C11 atomics emit futex op 0x7e7f
+# which kernel 3.10 rejects (ENOSYS) and the process spins. <stdatomic.h>
+# is provided by common/atomic.h via __sync_fetch_and_add.
+set(CMAKE_C_FLAGS "-Werror -Wall -Wno-implicit-function-declaration -Wno-char-subscripts -Wno-error=format-extra-args -Wno-error=format -Wno-variadic-macros -Wno-error=unused-result -Wno-undef -Wno-unreachable-code -O3 -std=gnu99 -pthread")
 ELSEIF(${distro}.${disversion} MATCHES "centos.9")
 set(CMAKE_C_COMPILER "/usr/bin/clang")
 set(CMAKE_C_FLAGS "-Werror -Wall -Wno-error=unused-result -Wno-error=undef -Wno-undef -Wunreachable-code -Wno-visibility -std=gnu11 -pthread")
@@ -723,7 +724,7 @@ set_target_properties(${TESTS} PROPERTIES
 	INSTALL_RPATH ""
 	INSTALL_RPATH_USE_LINK_PATH FALSE
 )
-IF(CMAKE_C_COMPILER_ID MATCHES "Clang")
+IF(CMAKE_C_COMPILER_ID MATCHES "Clang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 3.8)
 set_target_properties(${TESTS} PROPERTIES
     COMPILE_FLAGS "-fprofile-instr-generate -fcoverage-mapping"
     LINK_FLAGS "-fprofile-instr-generate"
@@ -733,7 +734,7 @@ set_target_properties(${COMMON_TESTS} PROPERTIES
     LINK_FLAGS "-fprofile-instr-generate"
 )
 # to check coverage report use the: ./build/alligator_tests pass; llvm-profdata merge -sparse default.profraw -o default.profdata; llvm-cov report -instr-profile=default.profdata build/alligator_tests
-ENDIF(CMAKE_C_COMPILER_ID MATCHES "Clang")
+ENDIF()
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	target_link_libraries(${HEAD} ${COMMON} uv_a jansson libpq.a libpgcommon.a libpgport.a libxxhash.a)

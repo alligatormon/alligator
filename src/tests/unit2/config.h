@@ -4116,6 +4116,51 @@ void test_query_except_parse_match_dump()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_db2);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_re);
     json_decref(dst);
+
+    json_t *jpush_row = json_object();
+    json_object_set_new(jpush_row, "make", json_string("ut_except_row"));
+    json_object_set_new(jpush_row, "expr", json_string("SELECT 1"));
+    json_object_set_new(jpush_row, "datasource", json_string("ut_pg"));
+    json_t *jex_row = json_array();
+    json_array_append_new(jex_row, json_string("template0"));
+    json_array_append_new(jex_row, json_string("template1"));
+    json_array_append_new(jex_row, json_string("postgres"));
+    json_object_set_new(jpush_row, "except", jex_row);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_push(jpush_row));
+    json_decref(jpush_row);
+
+    query_ds *qds_row = query_get("ut_pg");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qds_row);
+    query_node *qn_row = query_get_node(qds_row, "ut_except_row");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qn_row);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match_row(qn_row));
+
+    alligator_ht *lbl_row = alligator_ht_init(NULL);
+    qn_row->labels = lbl_row;
+    labels_hash_insert_nocache(lbl_row, "dbname", "template1");
+    labels_hash_insert_nocache(lbl_row, "psql_database", "template1");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_except_match_row(qn_row));
+    labels_hash_free(lbl_row);
+
+    lbl_row = alligator_ht_init(NULL);
+    qn_row->labels = lbl_row;
+    labels_hash_insert_nocache(lbl_row, "dbname", "app");
+    labels_hash_insert_nocache(lbl_row, "psql_database", "app");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match_row(qn_row));
+    labels_hash_free(lbl_row);
+
+    lbl_row = alligator_ht_init(NULL);
+    qn_row->labels = lbl_row;
+    labels_hash_insert_nocache(lbl_row, "psql_database", "postgres");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_except_match_row(qn_row));
+    labels_hash_free(lbl_row);
+
+    lbl_row = alligator_ht_init(NULL);
+    qn_row->labels = lbl_row;
+    labels_hash_insert_nocache(lbl_row, "psql_queryid", "postgres");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, query_except_match_row(qn_row));
+    labels_hash_free(lbl_row);
+    qn_row->labels = NULL;
 }
 
 void test_config_tls_revocation_keys()

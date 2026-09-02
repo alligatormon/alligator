@@ -33,6 +33,9 @@ void get_proc_interrupts(int extended_mode)
 			}
 			else if (!i) {
 				strlcpy(code, field, sizeof(code));
+				size_t clen = strlen(code);
+				if (clen && code[clen - 1] == ':')
+					code[clen - 1] = '\0';
 				carglog(ac->system_carg, L_TRACE, "\t\tget_proc_interrupts: set code to [%lu]: '%s'\n", i, code);
 			}
 			else if (i < columns) {

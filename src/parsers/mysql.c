@@ -129,8 +129,6 @@ static void mysql_exec_cb(mysql_row_t *row, void *ud)
 		return;
 
 	alligator_ht *hash = alligator_ht_init(NULL);
-	if (carg->ns)
-		labels_hash_insert_nocache(hash, "dbname", carg->ns);
 
 	for (int i = 0; i < row->column_count; i++) {
 		if (!row->fields[i])
@@ -191,6 +189,9 @@ static void mysql_exec_cb(mysql_row_t *row, void *ud)
 		carglog(carg, L_TRACE, "\tmysql: '%s' field '%s': '%s'\n", carg->host, colname, res);
 		free(res);
 	}
+
+	if (carg->ns)
+		labels_hash_insert_nocache(hash, "dbname", carg->ns);
 
 	qn->labels = hash;
 	qn->carg = carg;

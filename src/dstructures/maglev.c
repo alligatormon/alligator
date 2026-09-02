@@ -7,7 +7,9 @@
 
 void maglev_init(struct maglev_lookup_hash *psrv)
 {
-	if (!psrv->lock_inited) {
+	/* Only 1 means a live rwlock. Stack garbage that is merely non-zero used to
+	 * skip pthread_rwlock_init; wrlock then spins on CentOS 7 glibc. */
+	if (psrv->lock_inited != 1) {
 		pthread_rwlock_init(&psrv->lock, NULL);
 		psrv->lock_inited = 1;
 	}
