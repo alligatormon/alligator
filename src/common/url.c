@@ -40,7 +40,8 @@ void url_get_auth_data(host_aggregator_info *hi, char **tmp)
 
 	char *delim = memchr(*tmp, ':', end - *tmp);
 	if (!delim) {
-		hi->user = strdup(*tmp);
+		/* user-only auth (e.g. SNMP community in udp://community@host:161/oid) */
+		hi->user = strndup(*tmp, end - *tmp);
 	}
 	else {
 		size_t sz;
