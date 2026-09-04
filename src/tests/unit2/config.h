@@ -631,9 +631,19 @@ void test_url_parse_more_edges()
     hi = parse_url(u2, strlen(u2));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_TCP, hi->proto);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "user@example.com", hi->user);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "user", hi->user);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "example.com", hi->host);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", hi->query);
+    url_free(hi);
+
+    char u2snmp[] = "udp://public@192.168.0.1:161/walk/1.3.6.1.2.1.1";
+    hi = parse_url(u2snmp, strlen(u2snmp));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UDP, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "public", hi->user);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "192.168.0.1", hi->host);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "161", hi->port);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "walk/1.3.6.1.2.1.1", hi->query);
     url_free(hi);
 
     char u3[] = "http://unix:/var/run/alligator.sock:localhost/metrics";
