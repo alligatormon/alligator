@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Fix: `exec://` oneshots (system `firewall` / iptables) no longer use-after-free when the next scrape or process crawl timer races the deferred `process_finalize` timer.
 - Fix: `zoneinfo_stat_total` `stat` labels no longer keep a trailing colon from `/proc/zoneinfo` (`start_pfn:`, `vm_stats_threshold:`).
 - CentOS 7 package build stays on GCC 4.8 (`-std=gnu99`). clang 3.4 C11 atomics emit illegal `futex` op `0x7e7f` (kernel 3.10 `ENOSYS` busy-loop). `threaded_loop.cur` uses `common/atomic.h` (`__sync_fetch_and_add` when C11 atomics are unsafe/missing).
 - Fix: `maglev_init` treats only `lock_inited == 1` as a live rwlock, so stack garbage no longer skips `pthread_rwlock_init` (CentOS 7 `wrlock` spin in `alligator_tests`).

@@ -88,7 +88,19 @@ static void process_log_body_snapshot(context_arg *carg, const char *stage)
 
 static void process_finalize(context_arg *carg)
 {
+	if (!carg)
+		return;
+
+	/* Drop the pending flag first so process_client_del can actually free. */
+	carg->process_finalize_pending = 0;
+	carg->process_release_scheduled = 0;
+	carg->process_released = 0;
+
 	carglog(carg, L_DEBUG, "run process finalize with cmd %s\n", carg->host);
+
+	/* Respawned while the deferred timer was queued: leave the live child alone. */
+	if (carg->lock)
+		return;
 
 	if (carg->context_ttl)
 	{
@@ -100,9 +112,6 @@ static void process_finalize(context_arg *carg)
 			return;
 		}
 	}
-
-	carg->process_release_scheduled = 0;
-	carg->process_released = 0;
 
 	/* Deferred external delete request while process was active. */
 	if (carg->remove_from_hash)
@@ -127,8 +136,13 @@ static void process_try_release(context_arg *carg)
 		return;
 	if ((carg->process_released & PROCESS_RELEASE_ALL) != PROCESS_RELEASE_ALL)
 		return;
+	if (carg->process_finalize_pending)
+		return;
 
+	/* Keep carg alive until process_finalize: process_spawn_cb and a new
+	 * iptables oneshot can otherwise carg_free during this 0-delay window. */
 	carg->process_release_scheduled = 0;
+	carg->process_finalize_pending = 1;
 
 	if (!carg->loop)
 	{
@@ -545,8 +559,9 @@ void process_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	/* Never free a process context while libuv child/pipe handles are active. */
-	if (carg->lock || carg->process_release_scheduled)
+	/* Never free a process context while libuv child/pipe handles are active
+	 * or while process_finalize is queued on a 0-delay timer. */
+	if (carg->lock || carg->process_release_scheduled || carg->process_finalize_pending)
 	{
 		carg->remove_from_hash = 1;
 		return;
@@ -567,8 +582,8 @@ void on_process_spawn(void* arg)
 	context_arg *carg = arg;
 	if (carg->lock)
 		return;
-	/* Previous child/pipe handles are still in close pipeline. */
-	if (carg->process_release_scheduled)
+	/* Previous child/pipe handles are still in close pipeline, or finalize is queued. */
+	if (carg->process_release_scheduled || carg->process_finalize_pending)
 		return;
 	if (cluster_come_later(carg))
 		return;
@@ -585,6 +600,7 @@ void on_process_spawn(void* arg)
 	carg->parsed = 0;
 	carg->parser_status = 0;
 	carg->process_release_scheduled = 0;
+	carg->process_finalize_pending = 0;
 	carg->process_released = 0;
 	carg->process_exit_parsed = 0;
 	carg->process_body_at_exit = 0;
@@ -667,6 +683,10 @@ void for_on_process_spawn(void *arg)
 {
 	context_arg *carg = arg;
 	if (carg->period && carg->read_counter)
+		return;
+	/* Oneshots are started from aggregator_oneshot_start(); the crawl timer
+	 * must not respawn them in the deferred-finalize window. */
+	if (carg->context_ttl)
 		return;
 
 	on_process_spawn(arg);

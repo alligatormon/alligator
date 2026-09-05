@@ -152,6 +152,8 @@ struct context_arg
 	uint8_t process_spawner_registered;
 	/* Deferred free after uv_spawn pipes/process handles finish closing. */
 	uint8_t process_release_scheduled;
+	/* Set from process_try_release until process_finalize; carg must stay alive. */
+	uint8_t process_finalize_pending;
 	uint8_t process_released;
 	/* Diagnostic: set after _on_exit parses stdout (process.c). */
 	uint8_t process_exit_parsed;

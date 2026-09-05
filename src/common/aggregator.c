@@ -133,6 +133,11 @@ int smart_aggregator(context_arg *carg)
 			return 0; // err, need for carg_free
 		}
 		if (existing->context_ttl || carg->context_ttl) {
+			if (existing->lock || existing->process_release_scheduled || existing->process_finalize_pending) {
+				carglog(carg, L_INFO,
+					"smart_aggregator: skip oneshot replace of in-flight key '%s'\n", key);
+				return 0; // err, need for carg_free
+			}
 			existing->remove_from_hash = 1;
 			smart_aggregator_del(existing);
 		}
@@ -209,6 +214,8 @@ typedef struct oneshot_retry_ctx {
 void aggregator_oneshot_start(context_arg *carg)
 {
 	if (!carg || carg->lock || carg->remove_from_hash)
+		return;
+	if (carg->process_release_scheduled || carg->process_finalize_pending)
 		return;
 
 	switch (carg->transport) {
