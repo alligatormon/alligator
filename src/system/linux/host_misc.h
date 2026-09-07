@@ -2,6 +2,7 @@
 
 void get_softirqs_stats(void);
 void get_entropy_stats(void);
+void get_ksm_stats(void);
 void get_selinux_stats(void);
 void get_watchdog_stats(void);
 void get_rapl_stats(void);

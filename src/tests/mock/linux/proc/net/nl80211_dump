@@ -1,0 +1,3 @@
+interface	wlan0	3	2412
+bss	wlan0	aa:bb:cc:dd:ee:ff	ExampleNet	client
+station	wlan0	11:22:33:44:55:66	-45	1000	2000	10	20	3	1	0	3600	100	130	144

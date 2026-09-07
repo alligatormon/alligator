@@ -22,6 +22,17 @@ aggregate {
 }
 ```
 
+HashiCorp Vault (отдельного handler нет — тот же Prometheus parser, токен через `env=`):
+
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:8200/v1/sys/metrics?format=prometheus
+        env=X-Vault-Token:${VAULT_TOKEN};
+}
+```
+
+Подробности: [vault.md](vault.md).
+
 Из файла (опционально state / notify для filetailer):
 
 ```

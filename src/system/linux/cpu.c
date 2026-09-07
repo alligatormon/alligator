@@ -2,11 +2,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <dirent.h>
+#include "common/selector.h"
 #include "main.h"
 #include "metric/labels.h"
 #include "common/logs.h"
 #include "system/common.h"
-#include <unistd.h>
 #define LINUXFS_LINE_LENGTH 300
 
 extern aconf *ac;
@@ -362,3 +365,133 @@ void get_cpu(int8_t platform)
 	uint64_t sec = ts_end.sec;
 	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
 }
+
+#ifdef __linux__
+
+static int cpuidle_is_state_dir(const char *name)
+{
+	size_t i;
+
+	if (!name || strncmp(name, "state", 5) || !name[5])
+		return 0;
+	for (i = 5; name[i]; ++i) {
+		if (!isdigit((unsigned char)name[i]))
+			return 0;
+	}
+	return 1;
+}
+
+static int cpuidle_read_u64(const char *path, uint64_t *out)
+{
+	FILE *fd;
+	char buf[64];
+	char *end = NULL;
+	unsigned long long v;
+
+	fd = fopen(path, "r");
+	if (!fd)
+		return 0;
+	if (!fgets(buf, sizeof(buf), fd)) {
+		fclose(fd);
+		return 0;
+	}
+	fclose(fd);
+
+	errno = 0;
+	v = strtoull(buf, &end, 10);
+	if (end == buf || errno == ERANGE)
+		return 0;
+	*out = (uint64_t)v;
+	return 1;
+}
+
+static void cpuidle_read_state(const char *statedir, const char *cpu, const char *statedirname)
+{
+	char path[1024];
+	char state[64];
+	uint64_t val;
+
+	snprintf(path, sizeof(path), "%s/name", statedir);
+	if (!getkvfile_str(path, state, sizeof(state)) || !state[0])
+		strlcpy(state, statedirname, sizeof(state));
+
+	snprintf(path, sizeof(path), "%s/time", statedir);
+	if (cpuidle_read_u64(path, &val)) {
+		double sec = (double)val / 1000000.0;
+		metric_add_labels2("cpu_cstate_seconds_total", &sec, DATATYPE_DOUBLE, ac->system_carg,
+			"cpu", (char *)cpu, "state", state);
+	}
+
+	snprintf(path, sizeof(path), "%s/usage", statedir);
+	if (cpuidle_read_u64(path, &val)) {
+		metric_add_labels2("cpu_cstate_usage_total", &val, DATATYPE_UINT, ac->system_carg,
+			"cpu", (char *)cpu, "state", state);
+	}
+
+	snprintf(path, sizeof(path), "%s/disable", statedir);
+	if (cpuidle_read_u64(path, &val)) {
+		metric_add_labels2("cpu_cstate_disabled", &val, DATATYPE_UINT, ac->system_carg,
+			"cpu", (char *)cpu, "state", state);
+	}
+}
+
+static void cpuidle_read_cpu(const char *cpudir, const char *cpuname)
+{
+	char idledir[768];
+	DIR *dp;
+	struct dirent *ent;
+	char cpu[16];
+
+	strlcpy(cpu, cpuname + 3, sizeof(cpu));
+	snprintf(idledir, sizeof(idledir), "%s/%s/cpuidle", cpudir, cpuname);
+	dp = opendir(idledir);
+	if (!dp)
+		return;
+
+	while ((ent = readdir(dp))) {
+		char statedir[1024];
+
+		if (!cpuidle_is_state_dir(ent->d_name))
+			continue;
+		snprintf(statedir, sizeof(statedir), "%s/%s", idledir, ent->d_name);
+		cpuidle_read_state(statedir, cpu, ent->d_name);
+	}
+	closedir(dp);
+}
+
+void get_linux_cpuidle(void)
+{
+	char cpudir[512];
+	char fpath[768];
+	char name[64];
+	DIR *dp;
+	struct dirent *ent;
+	uint64_t one = 1;
+
+	if (!ac || !ac->system_sysfs || !ac->system_carg)
+		return;
+
+	snprintf(cpudir, sizeof(cpudir), "%s/devices/system/cpu", ac->system_sysfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: cpuidle '%s'\n", cpudir);
+
+	snprintf(fpath, sizeof(fpath), "%s/cpuidle/current_driver", cpudir);
+	if (getkvfile_str(fpath, name, sizeof(name)) && name[0])
+		metric_add_labels("cpu_cstate_driver", &one, DATATYPE_UINT, ac->system_carg, "driver", name);
+
+	snprintf(fpath, sizeof(fpath), "%s/cpuidle/current_governor", cpudir);
+	if (getkvfile_str(fpath, name, sizeof(name)) && name[0])
+		metric_add_labels("cpu_cstate_governor", &one, DATATYPE_UINT, ac->system_carg, "governor", name);
+
+	dp = opendir(cpudir);
+	if (!dp)
+		return;
+
+	while ((ent = readdir(dp))) {
+		if (strncmp(ent->d_name, "cpu", 3) || !isdigit((unsigned char)ent->d_name[3]))
+			continue;
+		cpuidle_read_cpu(cpudir, ent->d_name);
+	}
+	closedir(dp);
+}
+
+#endif

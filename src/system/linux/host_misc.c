@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <inttypes.h>
 #include "main.h"
 #include "common/logs.h"
@@ -142,6 +143,69 @@ void get_entropy_stats(void)
 		pool = (uint64_t)v;
 		metric_add_auto("entropy_pool_size_bits", &pool, DATATYPE_UINT, ac->system_carg);
 	}
+}
+
+static int ksm_read_int(const char *path, int64_t *out)
+{
+	char buf[64];
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return 0;
+	if (!fgets(buf, sizeof(buf), fd)) {
+		fclose(fd);
+		return 0;
+	}
+	fclose(fd);
+
+	char *end = NULL;
+	errno = 0;
+	int64_t v = strtoll(buf, &end, 10);
+	if (end == buf || errno == ERANGE)
+		return 0;
+	while (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')
+		++end;
+	if (*end)
+		return 0;
+	*out = v;
+	return 1;
+}
+
+static int ksm_is_counter(const char *name)
+{
+	return !strcmp(name, "full_scans") || !strcmp(name, "pages_scanned");
+}
+
+void get_ksm_stats(void)
+{
+	char dirpath[512];
+	snprintf(dirpath, sizeof(dirpath), "%s/kernel/mm/ksm", ac->system_sysfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: ksm '%s'\n", dirpath);
+
+	DIR *dir = opendir(dirpath);
+	if (!dir)
+		return;
+
+	struct dirent *ent;
+	while ((ent = readdir(dir))) {
+		if (ent->d_name[0] == '.')
+			continue;
+#ifdef DT_DIR
+		if (ent->d_type == DT_DIR)
+			continue;
+#endif
+		char fpath[768];
+		snprintf(fpath, sizeof(fpath), "%s/%s", dirpath, ent->d_name);
+		int64_t val = 0;
+		if (!ksm_read_int(fpath, &val))
+			continue;
+		if (ksm_is_counter(ent->d_name))
+			metric_add_labels("ksm_stat_total", &val, DATATYPE_INT, ac->system_carg,
+				"stat", ent->d_name);
+		else
+			metric_add_labels("ksm", &val, DATATYPE_INT, ac->system_carg,
+				"stat", ent->d_name);
+	}
+	closedir(dir);
 }
 
 void get_selinux_stats(void)

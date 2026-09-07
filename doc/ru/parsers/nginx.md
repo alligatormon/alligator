@@ -2,9 +2,35 @@
 
 # Nginx
 
-Версия Nginx с открытым исходным кодом не предоставляет метрики. Рекомендуется использовать модуль [VTS](https://github.com/vozlt/nginx-module-vts/tree/master) для получения метрик.
+Open-source Nginx отдаёт классическую страницу **stub_status**. Alligator собирает её handler'ом **`nginx`**.
 
-Кроме того, полезно мониторить статистику процесса, запущенные сервисы и открытые порты со следующей конфигурацией:
+Включите в контексте `http` / `server`:
+
+```
+location /nginx_status {
+    stub_status;
+    allow 127.0.0.1;
+    deny all;
+}
+```
+
+Сбор:
+
+```
+aggregate {
+    nginx http://127.0.0.1/nginx_status;
+}
+```
+
+### Metrics
+
+- `nginx_connections{state="active|reading|writing|waiting"}`
+- `nginx_accepts_total`, `nginx_handled_total`, `nginx_requests_total`
+
+Имя handler — **`nginx`** (исходник `src/parsers/nginx.c`). Unit tests: [`src/tests/unit2/parsers.h`](../../../src/tests/unit2/parsers.h) (`api_test_parser_nginx_stub_status`).
+
+Полезно также мониторить процесс, systemd unit и открытые порты:
+
 ```
 system {
     process nginx;
@@ -24,23 +50,27 @@ query {
 }
 ```
 
+Команда `nginx -t` возвращает статус проверки конфигурации:
 
-Команда `nginx -t` возвращает статус проверки конфигурации и формирует следующую метрику:
 ```
 aggregate {
 	process 'exec:///sbin/nginx -t';
 }
 ```
-Это создаст метрику на основе кода выхода Nginx и две метрики о проверке конфигурации:
+
+Это создаёт метрики по коду выхода:
+
 ```
 alligator_process_exit_status {proto="shell", key="exec:process:/sbin/nginx -t:/", type="aggregator"} 0
 alligator_process_term_signal {proto="shell", key="exec:process:/sbin/nginx -t:/", type="aggregator"} 0
 ```
 
 ## nginx upstream check module
+
 Alligator также поддерживает сбор метрик из [upstream check module](https://github.com/yaoweibin/nginx_upstream_check_module), который широко используется для активных проверок работоспособности.
 
 Следующая конфигурация должна быть указана в контексте server для включения передачи метрик:
+
 ```
 location /status {
     check_status;
@@ -48,10 +78,13 @@ location /status {
 ```
 
 Чтобы включить сбор статистики из upstream check module, используйте следующую опцию:
+
 ```
 aggregate {
 	nginx_upstream_check http://localhost/status;
 }
 ```
+
+Handler **`nginx_upstream_check`** отделён от **`nginx`** (stub_status).
 
 Для проверки сертификатов X509 в файловой системе см. описание в [контексте x509](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).

@@ -1,0 +1,9 @@
+11 0 0x01 7 336 0 0
+name type data
+dataset_name 7 pool1/ignored
+nread 4 999999
+nwritten 4 888888
+reads 4 777
+writes 4 666
+nunlinks 4 1
+nunlinked 4 1

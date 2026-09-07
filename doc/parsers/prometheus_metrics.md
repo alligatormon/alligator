@@ -22,6 +22,17 @@ aggregate {
 }
 ```
 
+HashiCorp Vault (no dedicated handler — same Prometheus parser, token via `env=`):
+
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:8200/v1/sys/metrics?format=prometheus
+        env=X-Vault-Token:${VAULT_TOKEN};
+}
+```
+
+See [vault.md](vault.md) for TLS and Vault telemetry notes.
+
 From a file (optional state / notify for filetailer):
 
 ```

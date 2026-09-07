@@ -1,0 +1,4 @@
+Ip6InReceives                    100
+Ip6InHdrErrors                   1
+Udp6InDatagrams                  20
+Icmp6InMsgs                      5

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include "main.h"
 #include "common/logs.h"
 #include "common/selector.h"
@@ -44,10 +45,8 @@ void get_softnet_stats(void)
 	fclose(fd);
 }
 
-void get_sockstat_stats(void)
+static void parse_sockstat_file(const char *path)
 {
-	char path[512];
-	snprintf(path, sizeof(path), "%s/net/sockstat", ac->system_procfs);
 	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: sockstat '%s'\n", path);
 
 	FILE *fd = fopen(path, "r");
@@ -97,6 +96,15 @@ void get_sockstat_stats(void)
 		}
 	}
 	fclose(fd);
+}
+
+void get_sockstat_stats(void)
+{
+	char path[512];
+	snprintf(path, sizeof(path), "%s/net/sockstat", ac->system_procfs);
+	parse_sockstat_file(path);
+	snprintf(path, sizeof(path), "%s/net/sockstat6", ac->system_procfs);
+	parse_sockstat_file(path);
 }
 
 void get_bonding_stats(void)
@@ -166,6 +174,38 @@ void get_bonding_stats(void)
 			ac->system_carg, "master", master, "type", "total");
 		metric_add_labels2("bonding_slaves", &active, DATATYPE_UINT,
 			ac->system_carg, "master", master, "type", "active");
+
+		char bond_dir[768];
+		char val[64];
+		snprintf(bond_dir, sizeof(bond_dir), "%s/class/net/%s/bonding", ac->system_sysfs, master);
+		struct {
+			char *file;
+			char *stat;
+		} lacp[] = {
+			{ "ad_num_ports", "ad_num_ports" },
+			{ "ad_actor_key", "ad_actor_key" },
+			{ "ad_partner_key", "ad_partner_key" },
+			{ "ad_aggregator", "ad_aggregator" },
+		};
+		for (size_t i = 0; i < sizeof(lacp) / sizeof(lacp[0]); ++i) {
+			char fpath[900];
+			snprintf(fpath, sizeof(fpath), "%s/%s", bond_dir, lacp[i].file);
+			int64_t n = getkvfile(fpath);
+			if (n >= 0)
+				metric_add_labels2("bonding_lacp", &n, DATATYPE_INT, ac->system_carg,
+					"master", master, "stat", lacp[i].stat);
+		}
+		{
+			char fpath[900];
+			snprintf(fpath, sizeof(fpath), "%s/mode", bond_dir);
+			if (getkvfile_str(fpath, val, sizeof(val)) > 0) {
+				/* mode is often "4" or "802.3ad 4" — export numeric prefix */
+				int64_t mode = atoll(val);
+				metric_add_labels2("bonding_lacp", &mode, DATATYPE_INT, ac->system_carg,
+					"master", master, "stat", "mode");
+			}
+		}
+
 		master = end;
 	}
 }
@@ -289,6 +329,161 @@ void get_ipvs_stats(void)
 		metric_add_labels("ipvs_stat_total", &val, DATATYPE_UINT,
 			ac->system_carg, "stat", stat);
 	}
+}
+
+void get_snmp6_stats(void)
+{
+	char path[512];
+	snprintf(path, sizeof(path), "%s/net/snmp6", ac->system_procfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: snmp6 '%s'\n", path);
+
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return;
+
+	char line[512];
+	while (fgets(line, sizeof(line), fd)) {
+		char key[128];
+		int64_t val = 0;
+		if (sscanf(line, "%127s %" SCNd64, key, &val) != 2)
+			continue;
+		char proto[64];
+		char *stat = key;
+		if (!strncmp(key, "Ip6", 3)) {
+			strlcpy(proto, "Ip6", sizeof(proto));
+			stat = key + 3;
+		} else if (!strncmp(key, "Icmp6", 5)) {
+			strlcpy(proto, "Icmp6", sizeof(proto));
+			stat = key + 5;
+		} else if (!strncmp(key, "Udp6", 4)) {
+			strlcpy(proto, "Udp6", sizeof(proto));
+			stat = key + 4;
+		} else if (!strncmp(key, "UdpLite6", 8)) {
+			strlcpy(proto, "UdpLite6", sizeof(proto));
+			stat = key + 8;
+		} else {
+			strlcpy(proto, "snmp6", sizeof(proto));
+		}
+		metric_add_labels2("network_stat_total", &val, DATATYPE_INT, ac->system_carg,
+			"proto", proto, "stat", stat);
+	}
+	fclose(fd);
+}
+
+void get_synproxy_stats(void)
+{
+	char path[512];
+	snprintf(path, sizeof(path), "%s/net/stat/synproxy", ac->system_procfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: synproxy '%s'\n", path);
+
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return;
+
+	char header[512];
+	char body[512];
+	if (!fgets(header, sizeof(header), fd) || !fgets(body, sizeof(body), fd)) {
+		fclose(fd);
+		return;
+	}
+
+	char *hcur = header;
+	char *bcur = body;
+	hcur += strspn(hcur, " \t");
+	bcur += strspn(bcur, " \t");
+	while (*hcur && *hcur != '\n' && *bcur && *bcur != '\n') {
+		char stat[64];
+		size_t hlen = strcspn(hcur, " \t\n");
+		if (!hlen)
+			break;
+		if (hlen >= sizeof(stat))
+			hlen = sizeof(stat) - 1;
+		strlcpy(stat, hcur, hlen + 1);
+		uint64_t val = strtoull(bcur, NULL, 16);
+		metric_add_labels("synproxy_stat_total", &val, DATATYPE_UINT, ac->system_carg, "stat", stat);
+		hcur += hlen;
+		hcur += strspn(hcur, " \t");
+		bcur += strcspn(bcur, " \t\n");
+		bcur += strspn(bcur, " \t");
+	}
+	fclose(fd);
+}
+
+void get_wireless_stats(void)
+{
+	if (!ac || !ac->system_procfs)
+		return;
+
+	char path[512];
+	snprintf(path, sizeof(path), "%s/net/wireless", ac->system_procfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: wireless '%s'\n", path);
+
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return;
+
+	char line[512];
+	if (!fgets(line, sizeof(line), fd) || !fgets(line, sizeof(line), fd)) {
+		fclose(fd);
+		return;
+	}
+
+	while (fgets(line, sizeof(line), fd)) {
+		char *fields[16];
+		int n = 0;
+		char *cur = line;
+		while (n < 16) {
+			cur += strspn(cur, " \t\n\r");
+			if (!*cur)
+				break;
+			fields[n++] = cur;
+			cur += strcspn(cur, " \t\n\r");
+			if (*cur)
+				*cur++ = '\0';
+		}
+		if (n < 11)
+			continue;
+
+		char *ifname = fields[0];
+		size_t ilen = strlen(ifname);
+		if (ilen && ifname[ilen - 1] == ':')
+			ifname[ilen - 1] = '\0';
+		if (!*ifname)
+			continue;
+
+		int64_t status = strtoll(fields[1], NULL, 16);
+		int64_t link = atoll(fields[2]);
+		int64_t level = atoll(fields[3]);
+		int64_t noise = atoll(fields[4]);
+		uint64_t nwid = strtoull(fields[5], NULL, 10);
+		uint64_t crypt = strtoull(fields[6], NULL, 10);
+		uint64_t frag = strtoull(fields[7], NULL, 10);
+		uint64_t retry = strtoull(fields[8], NULL, 10);
+		uint64_t misc = strtoull(fields[9], NULL, 10);
+		uint64_t beacon = strtoull(fields[10], NULL, 10);
+
+		metric_add_labels2("wireless_quality", &status, DATATYPE_INT,
+			ac->system_carg, "ifname", ifname, "type", "status");
+		metric_add_labels2("wireless_quality", &link, DATATYPE_INT,
+			ac->system_carg, "ifname", ifname, "type", "link");
+		metric_add_labels2("wireless_quality", &level, DATATYPE_INT,
+			ac->system_carg, "ifname", ifname, "type", "level");
+		metric_add_labels2("wireless_quality", &noise, DATATYPE_INT,
+			ac->system_carg, "ifname", ifname, "type", "noise");
+		metric_add_labels2("wireless_discarded_total", &nwid, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "nwid");
+		metric_add_labels2("wireless_discarded_total", &crypt, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "crypt");
+		metric_add_labels2("wireless_discarded_total", &frag, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "frag");
+		metric_add_labels2("wireless_discarded_total", &retry, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "retry");
+		metric_add_labels2("wireless_discarded_total", &misc, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "misc");
+		metric_add_labels2("wireless_discarded_total", &beacon, DATATYPE_UINT,
+			ac->system_carg, "ifname", ifname, "type", "beacon");
+	}
+	fclose(fd);
 }
 
 #endif

@@ -13,4 +13,9 @@ md0 : active raid1 sda4[0] sdd4[3] sdc4[2] sdb4[1]
 md1 : active raid0 sda3[0] sdd3[3] sdc3[2] sdb3[1]
       16760832 blocks super 1.2 512k chunks
 
+md4 : active raid1 sde1[0] sdf1[1]
+      1048576 blocks super 1.2 [2/1] [U_]
+      [=======>.............]  recovery = 42.5% (445644/1048576) finish=1.2min speed=12345K/sec
+
 unused devices: <none>
+

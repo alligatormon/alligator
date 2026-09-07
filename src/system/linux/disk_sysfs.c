@@ -233,6 +233,88 @@ void get_dmmultipath_stats(void)
 	closedir(dir);
 }
 
+static int lvm_split_vg_lv(const char *dmname, char *vg, size_t vglen, char *lv, size_t lvlen)
+{
+	/* LVM encodes '-' in names as '--'. Split on the first single '-'. */
+	size_t i = 0, vg_i = 0, lv_i = 0;
+	int in_lv = 0;
+	for (; dmname[i]; ++i) {
+		if (!in_lv && dmname[i] == '-' && dmname[i + 1] != '-') {
+			in_lv = 1;
+			continue;
+		}
+		char c = dmname[i];
+		if (c == '-' && dmname[i + 1] == '-') {
+			++i;
+			c = '-';
+		}
+		if (!in_lv) {
+			if (vg_i + 1 < vglen)
+				vg[vg_i++] = c;
+		} else {
+			if (lv_i + 1 < lvlen)
+				lv[lv_i++] = c;
+		}
+	}
+	vg[vg_i] = '\0';
+	lv[lv_i] = '\0';
+	return in_lv && vg_i && lv_i;
+}
+
+void get_lvm_stats(void)
+{
+	char root[512];
+	snprintf(root, sizeof(root), "%s/block", ac->system_sysfs);
+	DIR *dir = opendir(root);
+	if (!dir)
+		return;
+
+	struct dirent *ent;
+	while ((ent = readdir(dir)) != NULL) {
+		if (strncmp(ent->d_name, "dm-", 3))
+			continue;
+
+		char block_path[768];
+		snprintf(block_path, sizeof(block_path), "%s/%s", root, ent->d_name);
+
+		char uuid[256] = "";
+		char uuid_path[900];
+		snprintf(uuid_path, sizeof(uuid_path), "%s/dm/uuid", block_path);
+		if (getkvfile_str(uuid_path, uuid, sizeof(uuid)) <= 0)
+			continue;
+		if (strncmp(uuid, "LVM-", 4))
+			continue;
+
+		char dmname[256] = "";
+		char name_path[900];
+		snprintf(name_path, sizeof(name_path), "%s/dm/name", block_path);
+		if (getkvfile_str(name_path, dmname, sizeof(dmname)) <= 0)
+			continue;
+
+		char vg[128], lv[128];
+		if (!lvm_split_vg_lv(dmname, vg, sizeof(vg), lv, sizeof(lv))) {
+			strlcpy(vg, dmname, sizeof(vg));
+			strlcpy(lv, "-", sizeof(lv));
+		}
+
+		char size_path[900];
+		snprintf(size_path, sizeof(size_path), "%s/size", block_path);
+		int64_t sectors = getkvfile(size_path);
+		if (sectors >= 0) {
+			uint64_t bytes = (uint64_t)sectors * 512ULL;
+			metric_add_labels3("lvm_lv_size_bytes", &bytes, DATATYPE_UINT,
+				ac->system_carg, "vg", vg, "lv", lv, "device", ent->d_name);
+		}
+
+		snprintf(size_path, sizeof(size_path), "%s/dm/suspended", block_path);
+		int64_t suspended = getkvfile(size_path);
+		if (suspended >= 0)
+			metric_add_labels3("lvm_lv_suspended", &suspended, DATATYPE_INT,
+				ac->system_carg, "vg", vg, "lv", lv, "device", ent->d_name);
+	}
+	closedir(dir);
+}
+
 void get_tape_stats(void)
 {
 	char root[512];

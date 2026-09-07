@@ -11,6 +11,8 @@ system {
     base;
     disk;
     network;
+    nfs;
+    zfs;
     process [nginx] [bash] [/[bash]*/];
     services [nginx.service];
     services_process [php-fpm.service];
@@ -43,6 +45,50 @@ system {
 ## base
 Включает мониторинг базовых ресурсов ОС и железа, включая CPU, память и температуры материнской платы и компонентов. Также включаются ресурсы ОС: loadavg, openfiles, interrupts и context switches.
 
+Когда ядро отдаёт PSI (`/proc/pressure/*`, Linux 4.20+), Alligator экспортирует:
+
+- `pressure_waiting_seconds_total{resource="cpu|memory|io|irq"}` — накопленное **some** stall time (counter)
+- `pressure_stalled_seconds_total{resource="cpu|memory|io|irq"}` — накопленное **full** stall time (counter)
+- `pressure_waiting_avg_percent{resource,window}` / `pressure_stalled_avg_percent{resource,window}` — kernel `avg10` / `avg60` / `avg300` stall percent (`window="10|60|300"`)
+
+`irq` — Linux 6.1+ (`/proc/pressure/irq`, обычно только **full**). Отсутствующие PSI-файлы пропускаются.
+
+Из `/proc/vmstat` (полный dump; существующие `memory_stat` / `pgscan_total` / `pgsteal_total` сохраняются):
+
+- `vmstat_pages{stat}` — текущие page counts (`nr_*` и `*_threshold`)
+- `vmstat_stat_total{stat}` — накопительные VM events (pgfault, THP, compact, balloon, workingset, …)
+
+Из `/proc/sys/fs` (вместе с `open_files_system` / `max_files` из `file-nr`):
+
+- `sysctl_fs{stat}` — `inode_nr`, `inode_free_nr`, `inode_preshrink_nr`, `dentry_nr`, `dentry_unused_nr`, `dentry_age_limit`, `dentry_want_pages`, `aio_nr`, `aio_max_nr`, `dquot_nr`, `dquot_max`, `super_nr`, `super_max`
+
+Из `/sys/kernel/mm/ksm` (пропускается, если KSM не собран в ядре; нечисловые файлы вроде `advisor_mode` игнорируются):
+
+- `ksm{stat}` — gauges и tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `sleep_millisecs`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm_stat_total{stat}` — накопительные counters (`full_scans`, `pages_scanned`)
+
+Из `/sys/block/zram*` (нет устройств — skip; нет per-device файла вроде `bd_stat` — skip):
+
+- `zram_bytes{device,stat}` — размеры в байтах: `disksize`, `orig_data_size`, `compr_data_size`, `mem_used_total`, `mem_limit`, `mem_used_max`; backing-device `bd_count` / `bd_reads` / `bd_writes` (ядро отдаёт 4K-единицы, Alligator — байты)
+- `zram_stat{device,stat}` — gauges: `same_pages`, `huge_pages`, `initstate`
+- `zram_stat_total{device,stat}` — counters: `pages_compacted`, `huge_pages_since`, `failed_reads`, `failed_writes`, `invalid_io`, `notify_free`
+- `zram_comp_algorithm{device,algorithm}` — значение `1` для активного компрессора (имя в скобках в `comp_algorithm`)
+
+Block-layer I/O zram по-прежнему в `disk_io` при `disk`. Коэффициент сжатия:
+
+```promql
+zram_bytes{stat="orig_data_size"}
+/
+zram_bytes{stat="compr_data_size"}
+```
+
+Дополнительно из `base`:
+
+- `cpu_frequency_hertz{cpu,type}` — `scaling_cur|scaling_min|scaling_max|cpuinfo_max` из sysfs cpufreq (kHz → Hz)
+- `cpu_throttle_count{cpu}`, `cpu_throttle_seconds_total{cpu}` — thermal throttle, если есть
+- `cpu_cstate_seconds_total{cpu,state}`, `cpu_cstate_usage_total{cpu,state}`, `cpu_cstate_disabled{cpu,state}` — C-state'ы Linux cpuidle из `/sys/devices/system/cpu/cpuN/cpuidle/stateM/` (`time` мкс → секунды, `usage`, `disable`). Нет каталога `cpuidle` (часто VM/контейнер) — skip. Драйвер/governor: `cpu_cstate_driver{driver}`, `cpu_cstate_governor{governor}`
+- на bare-metal: `hwmon_power_watt{name,component,hwmon}`, `hwmon_fan_rpm{name,component,hwmon}` вместе с `core_temperature_celsius`
+
 Заметки по именованию метрик:
 
 - Метрика uptime хоста — `system_uptime_seconds`.
@@ -53,9 +99,77 @@ system {
 ## disk
 Включает мониторинг disk-метрик, включая статистику файловых систем и I/O блочных устройств.
 
+Из scrape `disk`: `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM volume'ы (`/sys/block/dm-*/dm/uuid` начинается с `LVM-`). `disk_usage` включает mount'ы с fstype `zfs`.
+
+
+## nfs
+Опциональная статистика NFS. Не включается через `base`/`disk`.
+
+```
+system {
+    nfs;
+}
+```
+
+Хостовые RPC-итоги из `/proc/net/rpc/nfs` и `/proc/net/rpc/nfsd` (`nfsstat -c` / `-s`): `nfs_client_*` / `nfs_server_*`.
+
+Per-mount статистика клиента из `/proc/self/mountstats` (node_exporter `mountstats`, Telegraf `nfsclient`). У NFSv4 много per-op series, поэтому флаг отдельный.
+
+Читает `{procfs}/self/mountstats`. Не-NFS mount'ы пропускаются. Несколько `xprt:` (`nconnect`) суммируются по protocol (idle = min, max slots = max).
+
+- `nfs_mount_age_seconds{export,mountpoint}`
+- `nfs_mount_bytes_total{export,mountpoint,type}` — syscall / server / pages
+- `nfs_mount_event_total{export,mountpoint,type}` — VFS/cache events
+- `nfs_mount_transport_total{export,mountpoint,protocol,type}`
+- `nfs_mount_ops_total{export,mountpoint,operation,type}` — `ops`, `trans`, `timeouts`, …
+- `nfs_mount_ops_seconds_total{export,mountpoint,operation,type}` — `queue` / `rtt` / `exe` в **секундах** (в файле миллисекунды)
+
+По умолчанию операции: `READ`, `WRITE`, `GETATTR`, `LOOKUP`, `ACCESS`, `READDIR`, `READDIRPLUS`, `COMMIT`.
+
+
+## zfs
+Опциональная статистика OpenZFS из `/proc/spl/kstat/zfs` (Linux SPL). Не включается через `base`/`disk`. Нет файла — skip. Без libzfs и без CLI `zpool`/`zfs`.
+
+```
+system {
+    zfs;
+}
+```
+
+- `zfs_arc_stat{stat}` / `zfs_arc_bytes{stat}` — ARC (hits/misses vs size/`c`)
+- `zfs_zpool_state{pool,state}` — one-hot health пула (`online`, `degraded`, …)
+- `zfs_dmu_tx_stat{stat}` / `zfs_zil_stat{stat}` — TXG throttle и ZIL
+
+Per-dataset `objset-*` **не** собираются (cardinality). Смонтированные ZFS dataset'ы уже есть в `disk_usage` при `disk`.
+
+
+## wifi
+Опциональная nl80211-статистика станций/BSS (node_exporter `node_wifi_*`). Не включается через `network`.
+
+```
+system {
+    wifi;
+}
+```
+
+- `wifi_interface_frequency_hertz{ifname}`
+- `wifi_station_info{ifname,bssid,ssid,mode}` — `mode`: `client` / `ad-hoc` / `unknown`
+- `wifi_station_signal_dbm{ifname,mac}`, bitrate / bytes / packets / retries / beacon loss / connected / inactive
+
+Качество WEXT остаётся в `wireless_*` при `network`. В режиме AP cardinality растёт с числом клиентов (cap 256 станций на iface). Тестовый dump: `{procfs}/net/nl80211_dump`.
+
 
 ## network
 Включает мониторинг сетевых интерфейсов и статистики сокетов.
+
+Из scrape `network`:
+
+- `bonding_lacp{master,stat}` — `mode`, `ad_num_ports`, `ad_actor_key`, `ad_partner_key`, `ad_aggregator`
+- `network_stat_total{proto,stat}` из `/proc/net/snmp6`
+- `synproxy_stat_total{stat}` — `/proc/net/stat/synproxy`
+- `wireguard_device_listen_port{device}`, `wireguard_device_peers{device}`
+- `wireguard_peer_rx_bytes` / `wireguard_peer_tx_bytes` / `wireguard_peer_last_handshake_seconds` — Generic Netlink `WG_CMD_GET_DEVICE`
+- `wireless_quality{ifname,type}` / `wireless_discarded_total{ifname,type}` — `/proc/net/wireless` (WEXT; нет файла — skip). Трафик интерфейса остаётся в `if_stat`. SSID/bitrate/RSSI станций — опциональный [`wifi`](#wifi) (nl80211).
 
 `if_stat`, `if_speed` и `link_status` пропускают интерфейсы, чьё имя начинается с `veth` (эфемерные пары Docker/LXC). Тот же skip по префиксу применяется к `interface_address` из `base`. Другие имена, случайно начинающиеся с `veth` (например `vethernet`), тоже пропускаются.
 

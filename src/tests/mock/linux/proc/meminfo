@@ -36,9 +36,9 @@ Percpu:            11008 kB
 AnonHugePages:      2048 kB
 ShmemHugePages:        0 kB
 ShmemPmdMapped:        0 kB
-HugePages_Total:       0
-HugePages_Free:        0
-HugePages_Rsvd:        0
+HugePages_Total:       8
+HugePages_Free:        6
+HugePages_Rsvd:        1
 HugePages_Surp:        0
 Hugepagesize:       2048 kB
 Hugetlb:               0 kB
