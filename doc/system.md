@@ -9,6 +9,9 @@ system {
     base;
     disk;
     network;
+    ethtool;
+    nfs;
+    zfs;
     interrupts;
     memory;
     process [nginx] [bash] [/[bash]*/];
@@ -45,8 +48,40 @@ Enables monitoring of the base OS and hardware resources, including CPU, memory,
 
 When the kernel exposes PSI (`/proc/pressure/*`, Linux 4.20+), Alligator exports:
 
-- `pressure_waiting_seconds_total{resource="cpu|memory|io"}` — cumulative **some** stall time (counter)
-- `pressure_stalled_seconds_total{resource="cpu|memory|io"}` — cumulative **full** stall time (counter)
+- `pressure_waiting_seconds_total{resource="cpu|memory|io|irq"}` — cumulative **some** stall time (counter)
+- `pressure_stalled_seconds_total{resource="cpu|memory|io|irq"}` — cumulative **full** stall time (counter)
+- `pressure_waiting_avg_percent{resource,window}` / `pressure_stalled_avg_percent{resource,window}` — kernel `avg10` / `avg60` / `avg300` stall percent (`window="10|60|300"`)
+
+`irq` is Linux 6.1+ (`/proc/pressure/irq`, typically **full** only). Missing PSI files are skipped silently.
+
+From `/proc/vmstat` (full dump; existing `memory_stat` / `pgscan_total` / `pgsteal_total` stay):
+
+- `vmstat_pages{stat}` — current page counts (`nr_*` and `*_threshold`)
+- `vmstat_stat_total{stat}` — cumulative VM events (pgfault, THP, compact, balloon, workingset, …)
+
+From `/proc/sys/fs` (with `open_files_system` / `max_files` from `file-nr`):
+
+- `sysctl_fs{stat}` — `inode_nr`, `inode_free_nr`, `inode_preshrink_nr`, `dentry_nr`, `dentry_unused_nr`, `dentry_age_limit`, `dentry_want_pages`, `aio_nr`, `aio_max_nr`, `dquot_nr`, `dquot_max`, `super_nr`, `super_max`
+
+From `/sys/kernel/mm/ksm` (skipped if KSM is not compiled in; non-numeric files such as `advisor_mode` are ignored):
+
+- `ksm{stat}` — gauges and tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `sleep_millisecs`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm_stat_total{stat}` — cumulative counters (`full_scans`, `pages_scanned`)
+
+From `/sys/block/zram*` (skipped if no zram devices; missing per-device files such as `bd_stat` are skipped):
+
+- `zram_bytes{device,stat}` — sizes in bytes: `disksize`, `orig_data_size`, `compr_data_size`, `mem_used_total`, `mem_limit`, `mem_used_max`; backing-device `bd_count` / `bd_reads` / `bd_writes` (kernel 4K units converted to bytes)
+- `zram_stat{device,stat}` — gauges: `same_pages`, `huge_pages`, `initstate`
+- `zram_stat_total{device,stat}` — counters: `pages_compacted`, `huge_pages_since`, `failed_reads`, `failed_writes`, `invalid_io`, `notify_free`
+- `zram_comp_algorithm{device,algorithm}` — value `1` for the active compressor (the name in brackets in `comp_algorithm`)
+
+Block-layer I/O for zram still appears in `disk_io` when `disk` is enabled. Compression ratio:
+
+```promql
+zram_bytes{stat="orig_data_size"}
+/
+zram_bytes{stat="compr_data_size"}
+```
 
 CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core`.
 
@@ -65,6 +100,15 @@ Also from `base` (fast scrape):
 
 - `entropy_available_bits`, `entropy_pool_size_bits` — from `/proc/sys/kernel/random/*`
 - `selinux_enabled`, `selinux_enforce_mode` — when `/sys/fs/selinux/enforce` exists
+- `cpu_frequency_hertz{cpu,type}` — `scaling_cur|scaling_min|scaling_max|cpuinfo_max` from sysfs cpufreq (kHz → Hz)
+- `cpu_throttle_count{cpu}`, `cpu_throttle_seconds_total{cpu}` — thermal throttle counters when present
+- `cpu_cstate_seconds_total{cpu,state}`, `cpu_cstate_usage_total{cpu,state}`, `cpu_cstate_disabled{cpu,state}` — Linux cpuidle C-states from `/sys/devices/system/cpu/cpuN/cpuidle/stateM/` (`time` µs → seconds, `usage`, `disable`). Missing `cpuidle` dirs (typical in VMs/containers) are skipped. Driver/governor: `cpu_cstate_driver{driver}`, `cpu_cstate_governor{governor}`
+
+C-state residency share (Netdata charts this as a percentage; Alligator exports counters):
+
+```promql
+rate(cpu_cstate_seconds_total[5m])
+```
 
 Slow scrape (`base`):
 
@@ -72,6 +116,11 @@ Slow scrape (`base`):
 - `numa_meminfo_bytes{node,type}`, `numa_node_stat_total{node,stat}` — per-node sysfs
 - `watchdog_stat{device,type}` — `/sys/class/watchdog/*`
 - `rapl_energy_joules_total{name,index}` — `/sys/class/powercap` (bare-metal only)
+
+On bare-metal, `get_thermal()` also exports hwmon power and fans (same walk as `core_temperature_celsius`):
+
+- `hwmon_power_watt{name,component,hwmon}` — `power*_input` (microwatts → watts)
+- `hwmon_fan_rpm{name,component,hwmon}` — `fan*_input`
 
 `load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
 
@@ -102,9 +151,14 @@ Reading `/proc/slabinfo` may require root (file mode `0400` on some kernels).
 ## disk
 Enables monitoring disk metrics, including the filesystem stats and I/O block devices stats.
 
-From `disk` scrape: `dmmultipath_stat{device,type}` — multipath DM devices (`size_bytes`, `active`, `paths`, `paths_active`).
+From `disk` scrape:
+
+- `dmmultipath_stat{device,type}` — multipath DM devices (`size_bytes`, `active`, `paths`, `paths_active`)
+- `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM device-mapper volumes (`/sys/block/dm-*/dm/uuid` starts with `LVM-`)
 
 Slow scrape (`disk`): runtime stats when present — `xfs_stat_total{device,stat}`, `btrfs_stat_total{uuid,stat}`, `bcache_stat_total{uuid,stat}`, `tape_stat_total{device,stat}`.
+
+`disk_usage` / `disk_inodes` include ZFS mounts (`fstype` `zfs`) along with ext*, xfs, btrfs, and tmpfs. ARC and pool health are opt-in `system { zfs; }`.
 
 
 ## network
@@ -113,8 +167,13 @@ Enables the monitoring of the network interfaces and sockets statistics.
 From `network` scrape:
 
 - `bonding_slaves{master,type="total|active"}`
+- `bonding_lacp{master,stat}` — `mode`, `ad_num_ports`, `ad_actor_key`, `ad_partner_key`, `ad_aggregator` from sysfs bonding
 - `arp_entries{device}` — ARP table size per interface
 - `ipvs_stat_total{stat}` — when `/proc/net/ip_vs_stats` exists
+- `network_stat_total{proto,stat}` from `/proc/net/snmp6` (`Ip6`, `Icmp6`, `Udp6`, `UdpLite6`)
+- `synproxy_stat_total{stat}` — `/proc/net/stat/synproxy` (hex counters)
+- `wireguard_device_listen_port{device}`, `wireguard_device_peers{device}`
+- `wireguard_peer_rx_bytes{device,public_key}`, `wireguard_peer_tx_bytes{device,public_key}`, `wireguard_peer_last_handshake_seconds{device,public_key}` — Generic Netlink `WG_CMD_GET_DEVICE`, or a test dump at `$procfs/net/wireguard_dump`
 
 Slow scrape (`network`): `infiniband_stat_total{device,port,stat}`, `fibrechannel_stat_total{host,stat}` when sysfs classes exist.
 
@@ -124,12 +183,125 @@ From `/proc/net/softnet_stat` (when present):
 - `softnet_dropped_total{cpu}`
 - `softnet_times_squeezed_total{cpu}`
 
-From `/proc/net/sockstat`:
+From `/proc/net/sockstat` and `/proc/net/sockstat6` (when present):
 
-- `sockstat_sockets_used`
-- `sockstat_stat_total{protocol,stat}` — e.g. `protocol="TCP", stat="inuse|orphan|tw|alloc|mem"`
+- `sockstat_sockets_used` — IPv4 only (`sockets: used` is not in sockstat6)
+- `sockstat_stat_total{protocol,stat}` — e.g. `protocol="TCP", stat="inuse|orphan|tw|alloc|mem"`; IPv6 uses `TCP6`/`UDP6`/`UDPLITE6`/`RAW6`/`FRAG6` (and `stat="memory"` for FRAG6)
+
+From `/proc/net/wireless` (when present; missing file is skipped):
+
+- `wireless_quality{ifname,type}` — gauges: `status` (hex from the kernel, exported as int), `link`, `level` (dBm), `noise` (dBm; `-256` means the driver did not report noise)
+- `wireless_discarded_total{ifname,type}` — counters: `nwid`, `crypt`, `frag`, `retry`, `misc`, `beacon`
+
+This is Wireless Extensions (`iwconfig` / Telegraf `inputs.wireless` / Netdata `proc_net_wireless`). Interface traffic remains in `if_stat`. For SSID / bitrate / per-station RSSI see opt-in [`wifi`](#wifi) (nl80211).
 
 `if_stat`, `if_speed`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted.
+
+
+## ethtool
+Opt-in NIC driver / IEEE statistics (high cardinality — not enabled by `network`).
+
+```
+system {
+    ethtool;
+}
+```
+
+Slow scrape collects (skips `lo` and `veth*`):
+
+- `ethtool_std_stat{ifname,group,stat}` — IEEE / RMON / MAC-control groups via genetlink family `ethtool` (`ETHTOOL_MSG_STATS_GET`, Linux ~5.8+). Groups: `eth_phy`, `eth_mac`, `eth_ctrl`, `rmon`.
+- `ethtool_rmon_hist{ifname,direction,bucket_low,bucket_hi}` — RMON size histograms from the same genetlink reply.
+- `ethtool_stat{ifname,stat}` — driver-defined counters (`ethtool -S` / node_exporter `node_ethtool_*`) via classic `SIOCETHTOOL` (`ETHTOOL_GSTRINGS` + `ETHTOOL_GSTATS`). Cap 512 keys per iface.
+
+Note: genetlink `STATS_GET` is **not** a reimplementation of ioctl `ETHTOOL_GSTATS`; both paths are collected when `ethtool` is enabled. On NICs like igb/ixgbe expect hundreds–thousands of series (per-queue / VEB / TC counters).
+
+
+## wifi
+Opt-in nl80211 Wi-Fi station/BSS statistics (node_exporter `node_wifi_*`). Not enabled by `network`.
+
+```
+system {
+    wifi;
+}
+```
+
+Regular scrape. Live path: `NL80211_CMD_GET_INTERFACE` dump, then per-iface `GET_STATION` and `GET_SCAN` (associated BSS only). Tests / fixtures: `{procfs}/net/nl80211_dump`. Caps: 64 interfaces, 256 stations per iface.
+
+- `wifi_interface_frequency_hertz{ifname}` — operating frequency (kernel MHz × 1e6)
+- `wifi_station_info{ifname,bssid,ssid,mode}` — gauge `1`; `mode` is `client` / `ad-hoc` / `unknown`
+- `wifi_station_signal_dbm{ifname,mac}`
+- `wifi_station_receive_bits_per_second{ifname,mac}` / `wifi_station_transmit_bits_per_second{ifname,mac}`
+- `wifi_station_receive_bytes_total{ifname,mac}` / `wifi_station_transmit_bytes_total{ifname,mac}`
+- `wifi_station_receive_packets_total{ifname,mac}` / `wifi_station_transmit_packets_total{ifname,mac}`
+- `wifi_station_transmit_retries_total{ifname,mac}` / `wifi_station_transmit_failed_total{ifname,mac}`
+- `wifi_station_beacon_loss_total{ifname,mac}`
+- `wifi_station_connected_seconds_total{ifname,mac}` / `wifi_station_inactive_seconds{ifname,mac}`
+
+WEXT quality/discards stay in `wireless_*` under `network`. AP mode can be high cardinality (one series set per client MAC).
+
+
+## nfs
+Opt-in NFS statistics. Not enabled by `base` or `disk`.
+
+```
+system {
+    nfs;
+}
+```
+
+Host-wide RPC totals from `/proc/net/rpc/nfs` and `/proc/net/rpc/nfsd` (same as `nfsstat -c` / `-s`, node_exporter `nfs`/`nfsd`, Netdata NFS client/server):
+
+- `nfs_client_*` / `nfs_server_*` — network, RPC, and per-protocol op counters (`proto_v3_stat`, `proto_v4_stat_op`, reply cache, threads, …)
+
+Per-mount client stats from `/proc/self/mountstats` (node_exporter `mountstats`, Telegraf `nfsclient`). NFSv4 per-operation series are high cardinality, which is why this stays opt-in.
+
+Reads `{procfs}/self/mountstats`. Non-NFS mounts are skipped. Missing files are skipped. Multiple `xprt:` lines (`nconnect`) are summed per protocol (idle = min, max RPC slots = max).
+
+- `nfs_mount_age_seconds{export,mountpoint}` — mount age
+- `nfs_mount_info{export,mountpoint,protocol}` — presence (value 1)
+- `nfs_mount_bytes_total{export,mountpoint,type}` — `read`, `write`, `direct_read`, `direct_write`, `server_read`, `server_write`, `read_pages`, `write_pages`
+- `nfs_mount_event_total{export,mountpoint,type}` — VFS/cache events (`inode_revalidate`, `short_read`, …)
+- `nfs_mount_transport_total{export,mountpoint,protocol,type}` — `bind`, `connect`, `sends`, `receives`, `bad_xid`, `backlog`, `sending_queue`, `pending_queue`
+- `nfs_mount_transport_idle_seconds{export,mountpoint,protocol}` — seconds since last RPC (TCP)
+- `nfs_mount_transport_max_slots{export,mountpoint,protocol}`
+- `nfs_mount_ops_total{export,mountpoint,operation,type}` — `ops`, `trans`, `timeouts`, `bytes_sent`, `bytes_recv`, `errors` (errors if the kernel prints a 9th field)
+- `nfs_mount_ops_seconds_total{export,mountpoint,operation,type}` — cumulative `queue` / `rtt` / `exe` in **seconds** (kernel values are milliseconds)
+
+Default operations: `READ`, `WRITE`, `GETATTR`, `LOOKUP`, `ACCESS`, `READDIR`, `READDIRPLUS`, `COMMIT`. Average RTT:
+
+```promql
+rate(nfs_mount_ops_seconds_total{type="rtt",operation="READ"}[5m])
+/
+rate(nfs_mount_ops_total{type="ops",operation="READ"}[5m])
+```
+
+
+## zfs
+Opt-in OpenZFS statistics from `/proc/spl/kstat/zfs` (Linux SPL). Not enabled by `base` or `disk`. Missing kstat files and a missing kstat directory are skipped.
+
+```
+system {
+    zfs;
+}
+```
+
+Reads `{procfs}/spl/kstat/zfs`. No libzfs and no `zpool`/`zfs` CLI.
+
+- `zfs_arc_stat{stat}` — ARC counters (`hits`, `misses`, demand/prefetch hits, `memory_throttle_count`, …)
+- `zfs_arc_bytes{stat}` — ARC gauges (`size`, `c`, `c_min`, `c_max`, `mru_size`, `mfu_size`, L2 size, …)
+- `zfs_zpool_state{pool,state}` — one-hot pool health (`online`, `degraded`, `faulted`, `offline`, `removed`, `unavail`, `suspended`) from `<pool>/state`
+- `zfs_dmu_tx_stat{stat}` — TXG assign/delay/dirty throttle from `dmu_tx`
+- `zfs_zil_stat{stat}` — intent log from `zil`
+
+Per-dataset `objset-*` files are **not** collected (high cardinality). Mounted ZFS datasets already appear in `disk_usage` when `disk` is enabled.
+
+ARC hit ratio:
+
+```promql
+rate(zfs_arc_stat{stat="hits"}[5m])
+/
+(rate(zfs_arc_stat{stat="hits"}[5m]) + rate(zfs_arc_stat{stat="misses"}[5m]))
+```
 
 
 ## process

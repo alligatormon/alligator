@@ -481,6 +481,12 @@ void filetailer_directory_file_crawl(void *arg)
 		uv_timer_start(carg->period_timer, filetailer_directory_file_crawl_repeat_period, carg->period, carg->period);
 	}
 
+	if (carg->parser_name && !strcmp(carg->parser_name, "postfix")) {
+		if (carg->parser_handler)
+			alligator_multiparser(carg->host, strlen(carg->host), carg->parser_handler, NULL, carg);
+		return;
+	}
+
 	if (carg->is_dir)
 		directory_crawl(arg);
 	else
@@ -727,6 +733,9 @@ char* filetailer_handler(context_arg *carg)
 	filetailer_apply_path_glob(carg);
 
 	if (carg->path[strlen(carg->path)-1] == '/')
+		carg->is_dir = 1;
+	/* postfix walks the spool itself; treat the URL as a directory root. */
+	if (carg->parser_name && !strcmp(carg->parser_name, "postfix"))
 		carg->is_dir = 1;
 
 	carg->fs_handle.data = carg;

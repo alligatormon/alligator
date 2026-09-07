@@ -225,7 +225,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "udp://unix:/", 11, APROTO_UDP, APROTO_UNIX, "unix", 0);
 	url_set_proto(hi, &tmp, "dtls://unix:/", 12, APROTO_DTLS, APROTO_UNIX, "unix", 1);
 	url_set_proto(hi, &tmp, "unix://", 7, APROTO_TCP, APROTO_UNIX, "unix", 0);
-	url_set_proto(hi, &tmp, "unixgram://", 7, APROTO_UDP, APROTO_UNIX, "unixgram", 0);
+	url_set_proto(hi, &tmp, "unixgram://", 11, APROTO_UDP, APROTO_UNIXGRAM, "unixgram", 0);
 	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP, "tcp", 0);
 	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS, "tcp", 1);
 	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP, "tcp", 0);
@@ -246,7 +246,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 
 	url_set_default_port(hi);
 
-	if (hi->transport == APROTO_UNIX)
+	if (hi->transport == APROTO_UNIX || hi->transport == APROTO_UNIXGRAM)
 		url_get_unix_path(hi, &tmp);
 
 	if (tmp == (void*)1)

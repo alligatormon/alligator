@@ -2652,6 +2652,10 @@ static void run_config_query_suites(char **argv)
     api_test_lang_1();
     api_test_cluster_1();
     api_test_parser_ntp();
+    api_test_parser_nginx_stub_status();
+    api_test_parser_fail2ban();
+    api_test_parser_chrony();
+    api_test_parser_postfix();
     api_test_parser_mogilefs_host_no_eq();
     api_test_parser_elasticsearch_long_key();
     api_test_bson_nesting_limit();

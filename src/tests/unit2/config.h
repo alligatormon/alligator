@@ -1158,6 +1158,14 @@ void test_url_parse_more_edges()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9443", hi->port);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/", hi->query);
     url_free(hi);
+
+    char u5[] = "unixgram:///var/run/chrony/chronyd.sock";
+    hi = parse_url(u5, strlen(u5));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UDP, hi->proto);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UNIXGRAM, hi->transport);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/run/chrony/chronyd.sock", hi->host);
+    url_free(hi);
 }
 
 void test_match_rules_hash_paths()
@@ -3844,6 +3852,9 @@ void test_config_get_system_flags_runtime_paths()
     uint8_t saved_dcgm = ac->system_dcgm;
     uint8_t saved_amdgpu = ac->system_amdgpu;
     uint8_t saved_macos_gpu = ac->system_macos_gpu;
+    uint8_t saved_nfs = ac->system_nfs;
+    uint8_t saved_wifi = ac->system_wifi;
+    uint8_t saved_zfs = ac->system_zfs;
     uint8_t saved_interrupts = ac->system_interrupts;
     uint8_t saved_memory = ac->system_memory;
     uint8_t saved_firewall = ac->system_firewall;
@@ -3868,6 +3879,9 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_dcgm = 1;
     ac->system_amdgpu = 1;
     ac->system_macos_gpu = 1;
+    ac->system_nfs = 1;
+    ac->system_wifi = 1;
+    ac->system_zfs = 1;
     ac->system_interrupts = 1;
     ac->system_memory = 1;
     ac->system_firewall = 1;
@@ -3894,6 +3908,9 @@ void test_config_get_system_flags_runtime_paths()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "dcgm"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "amdgpu"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "macos_gpu"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "nfs"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "wifi"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(system, "zfs"));
     json_decref(root);
 
     ac->system_ipset_entries = 1;
@@ -3911,6 +3928,9 @@ void test_config_get_system_flags_runtime_paths()
     ac->system_dcgm = saved_dcgm;
     ac->system_amdgpu = saved_amdgpu;
     ac->system_macos_gpu = saved_macos_gpu;
+    ac->system_nfs = saved_nfs;
+    ac->system_wifi = saved_wifi;
+    ac->system_zfs = saved_zfs;
     ac->system_interrupts = saved_interrupts;
     ac->system_memory = saved_memory;
     ac->system_firewall = saved_firewall;

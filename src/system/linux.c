@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <inttypes.h>
 #include <dirent.h>
+#include <ctype.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
 #include <sys/types.h>
@@ -47,6 +48,12 @@
 #include "system/linux/nvml.h"
 #include "system/linux/dcgm.h"
 #include "system/linux/amdgpu.h"
+#include "system/linux/wireguard.h"
+#include "system/linux/ethtool.h"
+#include "system/linux/nfs_mountstats.h"
+#include "system/linux/wifi.h"
+#include "system/linux/zfs.h"
+#include "system/linux/zram.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -72,7 +79,7 @@ int is_baremetal(int8_t platform) {
 
 void print_mount(const struct mntent *fs)
 {
-	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strcmp(fs->mnt_dir, "/"))
+	if (!strcmp(fs->mnt_type,"tmpfs") || !strcmp(fs->mnt_type,"xfs") || !strcmp(fs->mnt_type,"ext4") || !strcmp(fs->mnt_type,"btrfs") || !strcmp(fs->mnt_type,"ext3") || !strcmp(fs->mnt_type,"ext2") || !strcmp(fs->mnt_type,"zfs") || !strcmp(fs->mnt_dir, "/"))
 	{
 		if (!strncmp(fs->mnt_dir, "/dev", 4) || !strncmp(fs->mnt_dir, "/proc", 5) || !strncmp(fs->mnt_dir, "/sys", 4) || !strncmp(fs->mnt_dir, "/run", 4) || !strncmp(fs->mnt_type, "overlay", 7))
 			return;
@@ -292,6 +299,30 @@ void get_mem(int8_t platform)
 			strlcpy(key_map, "shmem", sizeof(key_map));
 			shmem = ival;
 		}
+		else if ( !strcmp(key, "HugePages_Total") ) {
+			metric_add_auto("hugepages_total", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
+		else if ( !strcmp(key, "HugePages_Free") ) {
+			metric_add_auto("hugepages_free", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
+		else if ( !strcmp(key, "HugePages_Rsvd") ) {
+			metric_add_auto("hugepages_rsvd", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
+		else if ( !strcmp(key, "HugePages_Surp") ) {
+			metric_add_auto("hugepages_surp", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
+		else if ( !strcmp(key, "Hugepagesize") ) {
+			metric_add_auto("hugepages_size_bytes", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
+		else if ( !strcmp(key, "AnonHugePages") ) {
+			metric_add_auto("anon_hugepages_bytes", &ival, DATATYPE_INT, ac->system_carg);
+			continue;
+		}
 		else	continue;
 
 		metric_add_labels("memory_usage_hw", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
@@ -302,6 +333,41 @@ void get_mem(int8_t platform)
 	metric_add_labels("memory_usage_hw", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
 	
 	fclose(fd);
+
+	{
+		char hpdir[512];
+		snprintf(hpdir, sizeof(hpdir), "%s/kernel/mm/hugepages", ac->system_sysfs);
+		DIR *hp = opendir(hpdir);
+		if (hp) {
+			struct dirent *hent;
+			while ((hent = readdir(hp))) {
+				if (strncmp(hent->d_name, "hugepages-", 10))
+					continue;
+				char fpath[768];
+				snprintf(fpath, sizeof(fpath), "%s/%s/nr_hugepages", hpdir, hent->d_name);
+				int64_t nr = getkvfile(fpath);
+				if (nr >= 0)
+					metric_add_labels2("hugepages_nr", &nr, DATATYPE_INT, ac->system_carg,
+						"size", hent->d_name + 10, "type", "total");
+				snprintf(fpath, sizeof(fpath), "%s/%s/free_hugepages", hpdir, hent->d_name);
+				nr = getkvfile(fpath);
+				if (nr >= 0)
+					metric_add_labels2("hugepages_nr", &nr, DATATYPE_INT, ac->system_carg,
+						"size", hent->d_name + 10, "type", "free");
+				snprintf(fpath, sizeof(fpath), "%s/%s/resv_hugepages", hpdir, hent->d_name);
+				nr = getkvfile(fpath);
+				if (nr >= 0)
+					metric_add_labels2("hugepages_nr", &nr, DATATYPE_INT, ac->system_carg,
+						"size", hent->d_name + 10, "type", "reserved");
+				snprintf(fpath, sizeof(fpath), "%s/%s/surplus_hugepages", hpdir, hent->d_name);
+				nr = getkvfile(fpath);
+				if (nr >= 0)
+					metric_add_labels2("hugepages_nr", &nr, DATATYPE_INT, ac->system_carg,
+						"size", hent->d_name + 10, "type", "surplus");
+			}
+			closedir(hp);
+		}
+	}
 
 	snprintf(pathbuf, 255, "%s/vmstat", ac->system_procfs);
 	fd = fopen(pathbuf, "r");
@@ -314,6 +380,11 @@ void get_mem(int8_t platform)
 			continue;
 
 		ival = atoll(val);
+		if (!strncmp(key, "nr_", 3) || strstr(key, "_threshold"))
+			metric_add_labels("vmstat_pages", &ival, DATATYPE_INT, ac->system_carg, "stat", key);
+		else
+			metric_add_labels("vmstat_stat_total", &ival, DATATYPE_INT, ac->system_carg, "stat", key);
+
 		if (!strcmp(key, "pgpgin"))
 			pgpgin = ival;
 		else if (!strcmp(key, "pgpgout"))
@@ -584,48 +655,85 @@ void get_netstat_statistics(char *ns_file)
 }
 
 
+static int read_procfs_int_fields(const char *relpath, int64_t *out, int maxn)
+{
+	char path[512];
+	snprintf(path, sizeof(path), "%s/%s", ac->system_procfs, relpath);
+	FILE *fd = fopen(path, "r");
+	if (!fd)
+		return 0;
+
+	char buf[LINUXFS_LINE_LENGTH];
+	if (!fgets(buf, sizeof(buf), fd)) {
+		fclose(fd);
+		return 0;
+	}
+	fclose(fd);
+
+	int n = 0;
+	char *p = buf;
+	while (n < maxn) {
+		p += strspn(p, " \t\r\n");
+		if (!*p)
+			break;
+		out[n++] = atoll(p);
+		p += strcspn(p, " \t\r\n");
+	}
+	return n;
+}
+
+static void sysctl_fs_emit(const char *stat, int64_t val)
+{
+	metric_add_labels("sysctl_fs", &val, DATATYPE_INT, ac->system_carg, "stat", (char *)stat);
+}
+
 void get_nofile_stat()
 {
 	carglog(ac->system_carg, L_TRACE, "system scrape metrics: base: nofile_stat\n");
 
-	char filenr[255];
-	snprintf(filenr, 255, "%s/sys/fs/file-nr", ac->system_procfs);
-	FILE *fd = fopen(filenr, "r");
-	if (!fd) {
+	int64_t fields[8];
+	int n = read_procfs_int_fields("sys/fs/file-nr", fields, 3);
+	if (!n) {
+		char filenr[512];
+		snprintf(filenr, sizeof(filenr), "%s/sys/fs/file-nr", ac->system_procfs);
 		system_scrape_fopen_fail(filenr, 0);
-		return;
+	} else {
+		if (n >= 1)
+			metric_add_auto("open_files_system", &fields[0], DATATYPE_INT, ac->system_carg);
+		if (n >= 3)
+			metric_add_auto("max_files", &fields[2], DATATYPE_INT, ac->system_carg);
 	}
 
-	char buf[LINUXFS_LINE_LENGTH];
-	if(!fgets(buf, LINUXFS_LINE_LENGTH, fd))
-	{
-		fclose(fd);
-		return;
-	}
-	int64_t stat[3];
+	n = read_procfs_int_fields("sys/fs/inode-state", fields, 3);
+	if (n >= 1)
+		sysctl_fs_emit("inode_nr", fields[0]);
+	if (n >= 2)
+		sysctl_fs_emit("inode_free_nr", fields[1]);
+	if (n >= 3)
+		sysctl_fs_emit("inode_preshrink_nr", fields[2]);
 
-	int64_t file_open = 0;
-	int64_t kern_file_max = 0;
-	int64_t i, j;
-	size_t len = strlen(buf);
-	for (i=0, j=0; i<len; i++, j++)
-	{
-		int64_t val = atoll(buf+i);
-		stat[j] = val;
+	n = read_procfs_int_fields("sys/fs/dentry-state", fields, 4);
+	if (n >= 1)
+		sysctl_fs_emit("dentry_nr", fields[0]);
+	if (n >= 2)
+		sysctl_fs_emit("dentry_unused_nr", fields[1]);
+	if (n >= 3)
+		sysctl_fs_emit("dentry_age_limit", fields[2]);
+	if (n >= 4)
+		sysctl_fs_emit("dentry_want_pages", fields[3]);
 
-		i += strcspn(buf+i, " \t");
+	static const char *single_files[] = {
+		"aio-nr", "aio-max-nr", "dquot-nr", "dquot-max", "super-nr", "super-max"
+	};
+	static const char *single_stats[] = {
+		"aio_nr", "aio_max_nr", "dquot_nr", "dquot_max", "super_nr", "super_max"
+	};
+	for (size_t i = 0; i < sizeof(single_files) / sizeof(single_files[0]); i++) {
+		char rel[64];
+		snprintf(rel, sizeof(rel), "sys/fs/%s", single_files[i]);
+		if (read_procfs_int_fields(rel, fields, 1) >= 1)
+			sysctl_fs_emit(single_stats[i], fields[0]);
 	}
-	if (j>0)
-	{
-		file_open = stat[0];
-		metric_add_auto("open_files_system", &file_open, DATATYPE_INT, ac->system_carg);
-	}
-	if (j>2)
-	{
-		kern_file_max = stat[2];
-		metric_add_auto("max_files", &kern_file_max, DATATYPE_INT, ac->system_carg);
-	}
-	fclose(fd);
 }
 
 void get_disk_io_stat()
@@ -829,6 +937,37 @@ void get_mdadm()
 			metric_add_labels("raid_status", &vl, DATATYPE_INT, ac->system_carg, "array", name);
 		else
 			metric_add_labels("raid_status", &nvl, DATATYPE_INT, ac->system_carg, "array", name);
+
+		long pos = ftell(fd);
+		if (pos >= 0 && fgets(str1, LINUXFS_LINE_LENGTH, fd)) {
+			char *rec = strstr(str1, "recovery = ");
+			if (!rec)
+				rec = strstr(str1, "resync = ");
+			if (rec) {
+				double pct = atof(rec + (strstr(str1, "recovery = ") ? 11 : 9));
+				metric_add_labels("raid_rebuild_percent", &pct, DATATYPE_DOUBLE, ac->system_carg, "array", name);
+				char *fin = strstr(str1, "finish=");
+				if (fin) {
+					double minutes = atof(fin + 7);
+					double finish_s = minutes * 60.0;
+					metric_add_labels("raid_rebuild_finish_seconds", &finish_s, DATATYPE_DOUBLE, ac->system_carg, "array", name);
+				}
+				char *spd = strstr(str1, "speed=");
+				if (spd) {
+					double speed = atof(spd + 6);
+					char *unit = spd + 6;
+					unit += strspn(unit, "0123456789.");
+					uint64_t speed_b = (uint64_t)speed;
+					if (*unit == 'K' || *unit == 'k')
+						speed_b *= 1024ULL;
+					else if (*unit == 'M' || *unit == 'm')
+						speed_b *= 1024ULL * 1024ULL;
+					metric_add_labels("raid_rebuild_speed_bytes", &speed_b, DATATYPE_UINT, ac->system_carg, "array", name);
+				}
+			} else {
+				fseek(fd, pos, SEEK_SET);
+			}
+		}
 	}
 }
 
@@ -988,7 +1127,7 @@ void get_thermal()
 			if ( monentry->d_name[0] == '.' )
 				continue;
 
-			if ((tmp = strstr(monentry->d_name, "_label")))
+			if ((tmp = strstr(monentry->d_name, "_label")) && !strncmp(monentry->d_name, "temp", 4))
 			{
 				// get component name
 				snprintf(fname, 1023, "%s/%s", monname, monentry->d_name);
@@ -1009,11 +1148,95 @@ void get_thermal()
 				int64_t temp_c = temp / 1000;
 				metric_add_labels3("core_temperature_celsius", &temp_c, DATATYPE_INT, ac->system_carg, "name", name, "component", devname, "hwmon", entry->d_name);
 			}
+			else if (!strncmp(monentry->d_name, "power", 5) && strstr(monentry->d_name, "_input"))
+			{
+				char component[255];
+				char labelpath[1024];
+				char prefix[64];
+				char *inp = strstr(monentry->d_name, "_input");
+				size_t plen = (size_t)(inp - monentry->d_name);
+				if (plen >= sizeof(prefix))
+					plen = sizeof(prefix) - 1;
+				strlcpy(prefix, monentry->d_name, plen + 1);
+				snprintf(labelpath, sizeof(labelpath), "%s/%s_label", monname, prefix);
+				if (getkvfile_str(labelpath, component, sizeof(component)) <= 0)
+					strlcpy(component, prefix, sizeof(component));
+				snprintf(fname, sizeof(fname), "%s/%s", monname, monentry->d_name);
+				int64_t uw = getkvfile(fname);
+				if (uw >= 0) {
+					double watt = (double)uw / 1000000.0;
+					metric_add_labels3("hwmon_power_watt", &watt, DATATYPE_DOUBLE, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
+				}
+			}
+			else if (!strncmp(monentry->d_name, "fan", 3) && strstr(monentry->d_name, "_input"))
+			{
+				char component[255];
+				char labelpath[1024];
+				char prefix[64];
+				size_t plen = (size_t)(strstr(monentry->d_name, "_input") - monentry->d_name);
+				if (plen >= sizeof(prefix))
+					plen = sizeof(prefix) - 1;
+				strlcpy(prefix, monentry->d_name, plen + 1);
+				snprintf(labelpath, sizeof(labelpath), "%s/%s_label", monname, prefix);
+				if (getkvfile_str(labelpath, component, sizeof(component)) <= 0)
+					strlcpy(component, prefix, sizeof(component));
+				snprintf(fname, sizeof(fname), "%s/%s", monname, monentry->d_name);
+				int64_t rpm = getkvfile(fname);
+				if (rpm >= 0)
+					metric_add_labels3("hwmon_fan_rpm", &rpm, DATATYPE_INT, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
+			}
 		}
 
 		closedir(mondp);
 	}
 
+	closedir(dp);
+}
+
+void get_linux_cpufreq(void)
+{
+	char cpudir[512];
+	snprintf(cpudir, sizeof(cpudir), "%s/devices/system/cpu", ac->system_sysfs);
+	DIR *dp = opendir(cpudir);
+	if (!dp)
+		return;
+
+	struct dirent *ent;
+	while ((ent = readdir(dp))) {
+		if (strncmp(ent->d_name, "cpu", 3) || !isdigit((unsigned char)ent->d_name[3]))
+			continue;
+		char cpu[16];
+		strlcpy(cpu, ent->d_name + 3, sizeof(cpu));
+		char fpath[768];
+		struct {
+			char *file;
+			char *type;
+		} freqs[] = {
+			{ "cpufreq/scaling_cur_freq", "scaling_cur" },
+			{ "cpufreq/scaling_min_freq", "scaling_min" },
+			{ "cpufreq/scaling_max_freq", "scaling_max" },
+			{ "cpufreq/cpuinfo_max_freq", "cpuinfo_max" },
+		};
+		for (size_t i = 0; i < sizeof(freqs) / sizeof(freqs[0]); ++i) {
+			snprintf(fpath, sizeof(fpath), "%s/%s/%s", cpudir, ent->d_name, freqs[i].file);
+			int64_t khz = getkvfile(fpath);
+			if (khz < 0)
+				continue;
+			double hz = (double)khz * 1000.0;
+			metric_add_labels2("cpu_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg,
+				"cpu", cpu, "type", freqs[i].type);
+		}
+		snprintf(fpath, sizeof(fpath), "%s/%s/thermal_throttle/core_throttle_count", cpudir, ent->d_name);
+		int64_t count = getkvfile(fpath);
+		if (count >= 0)
+			metric_add_labels("cpu_throttle_count", &count, DATATYPE_INT, ac->system_carg, "cpu", cpu);
+		snprintf(fpath, sizeof(fpath), "%s/%s/thermal_throttle/core_throttle_total_time_ms", cpudir, ent->d_name);
+		int64_t ms = getkvfile(fpath);
+		if (ms >= 0) {
+			double sec = (double)ms / 1000.0;
+			metric_add_labels("cpu_throttle_seconds_total", &sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpu);
+		}
+	}
 	closedir(dp);
 }
 
@@ -1949,14 +2172,14 @@ void parse_nfs_stats(char *name, char *mname)
 		else if (!strncmp(token, "th", 2))
 		{
 			strlcpy(metric_name + mname_size, "threads_count", 1024 - mname_size);
+			++i;
 			str_get_next(str, token, 1024, " \t\n\r", &i);
-			//printf("\t{'%s'}:: '%s'\n", metric_name, token);
 			uint64_t val = strtoull(token, NULL, 10);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
 
 			strlcpy(metric_name + mname_size, "threads_full_count", 1024 - mname_size);
+			++i;
 			str_get_next(str, token, 1024, " \t\n\r", &i);
-			//printf("\t{'%s'}:: '%s'\n", metric_name, token);
 			val = strtoull(token, NULL, 10);
 			metric_add_auto(metric_name, &val, DATATYPE_UINT, ac->system_carg);
 		}
@@ -2140,13 +2363,14 @@ void get_system_metrics()
 		get_utsname();
 		get_utmp_info();
 		get_drbd_info();
-		get_nfs_stats();
 		get_systemd_scopes();
 		get_distribution_name();
 		get_pressure_stats();
 		get_swap_stats();
 		get_schedstat_stats();
 		get_entropy_stats();
+		get_ksm_stats();
+		get_zram_stats();
 		get_selinux_stats();
 		collect_power_supply();
 		if (is_baremetal_or_vm(platform)) { // exclude containers
@@ -2160,6 +2384,8 @@ void get_system_metrics()
 		}
 		else
 			throttle_stat();
+		get_linux_cpufreq();
+		get_linux_cpuidle();
 	}
 
 	// find_pid before system_network!
@@ -2191,6 +2417,10 @@ void get_system_metrics()
 		get_bonding_stats();
 		get_arp_stats();
 		get_ipvs_stats();
+		get_snmp6_stats();
+		get_synproxy_stats();
+		get_wireguard_stats();
+		get_wireless_stats();
 
 		interface_stats();
 
@@ -2205,11 +2435,22 @@ void get_system_metrics()
 		get_disk_io_stat();
 		get_disk();
 		get_dmmultipath_stats();
+		get_lvm_stats();
 		if (platform == -1)
 			platform = get_platform(0);
-		if (is_baremetal_or_vm(!platform))
-			get_mdadm();
+		get_mdadm();
 	}
+
+	if (ac->system_nfs) {
+		get_nfs_stats();
+		get_nfs_mountstats();
+	}
+
+	if (ac->system_wifi)
+		get_wifi_stats();
+
+	if (ac->system_zfs)
+		get_zfs_stats();
 
 	if (ac->fdesc)
 	{
@@ -2349,6 +2590,9 @@ void system_slow_scrape()
 		get_infiniband_stats();
 		get_fibrechannel_stats();
 	}
+
+	if (ac->system_ethtool)
+		get_ethtool_stats();
 
 	if (ac->system_disk)
 	{

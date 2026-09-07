@@ -254,6 +254,33 @@ void test_macos_gpu_config_enable(void)
 	ac->system_macos_gpu = saved;
 }
 
+void test_nfs_config_enable(void)
+{
+	int saved = ac->system_nfs;
+	ac->system_nfs = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"nfs\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_nfs);
+	ac->system_nfs = saved;
+}
+
+void test_wifi_config_enable(void)
+{
+	int saved = ac->system_wifi;
+	ac->system_wifi = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"wifi\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_wifi);
+	ac->system_wifi = saved;
+}
+
+void test_zfs_config_enable(void)
+{
+	int saved = ac->system_zfs;
+	ac->system_zfs = 0;
+	http_api_v1(NULL, NULL, "{ \"system\": { \"zfs\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_zfs);
+	ac->system_zfs = saved;
+}
+
 void system_test(char *binary) {
 	test_system_iface_is_veth();
 	test_nvml_emit_metrics();
@@ -264,6 +291,9 @@ void system_test(char *binary) {
 	test_amdgpu_config_enable();
 	test_macos_gpu_emit_metrics();
 	test_macos_gpu_config_enable();
+	test_nfs_config_enable();
+	test_wifi_config_enable();
+	test_zfs_config_enable();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);
@@ -312,6 +342,9 @@ void system_test(char *binary) {
         \"memory\": {},\
         \"disk\": {},\
         \"network\": {},\
+        \"nfs\": {},\
+        \"wifi\": {},\
+        \"zfs\": {},\
         \"cadvisor\": {},\
         \"cpuavg\": {\
           \"period\": 5\
@@ -330,6 +363,17 @@ void system_test(char *binary) {
     system_slow_scrape();
 
 #ifdef __linux__
+    metric_test_run(CMP_EQUAL, "cpu_cstate_seconds_total{cpu=\"0\",state=\"POLL\"}", "cpu_cstate_seconds_total", 1.0);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_seconds_total{cpu=\"0\",state=\"C1\"}", "cpu_cstate_seconds_total", 2.5);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_seconds_total{cpu=\"0\",state=\"C6\"}", "cpu_cstate_seconds_total", 8.0);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_usage_total{cpu=\"0\",state=\"POLL\"}", "cpu_cstate_usage_total", 50);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_usage_total{cpu=\"0\",state=\"C1\"}", "cpu_cstate_usage_total", 1000);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_usage_total{cpu=\"0\",state=\"C6\"}", "cpu_cstate_usage_total", 200);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_disabled{cpu=\"0\",state=\"POLL\"}", "cpu_cstate_disabled", 0);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_disabled{cpu=\"0\",state=\"C1\"}", "cpu_cstate_disabled", 0);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_disabled{cpu=\"0\",state=\"C6\"}", "cpu_cstate_disabled", 1);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_driver{driver=\"intel_idle\"}", "cpu_cstate_driver", 1);
+    metric_test_run(CMP_EQUAL, "cpu_cstate_governor{governor=\"menu\"}", "cpu_cstate_governor", 1);
     metric_test_run(CMP_EQUAL, "process_match{name=\"beam.smp\"}", "process_match", 1);
     metric_test_run(CMP_EQUAL, "task_states{state=\"running\"}", "task_states", 1);
     metric_test_run(CMP_EQUAL, "task_states{state=\"uninterruptible\"}", "task_states", 1);
@@ -338,9 +382,120 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "process_states{state=\"running\"}", "process_states", 0);
     metric_test_run(CMP_EQUAL, "pressure_waiting_seconds_total{resource=\"cpu\"}", "pressure_waiting_seconds_total", 123456789 / 1000000.0);
     metric_test_run(CMP_EQUAL, "pressure_stalled_seconds_total{resource=\"cpu\"}", "pressure_stalled_seconds_total", 987654321 / 1000000.0);
+    metric_test_run(CMP_EQUAL, "pressure_waiting_avg_percent{resource=\"cpu\",window=\"10\"}", "pressure_waiting_avg_percent", 1);
+    metric_test_run(CMP_EQUAL, "pressure_waiting_avg_percent{resource=\"cpu\",window=\"60\"}", "pressure_waiting_avg_percent", 2);
+    metric_test_run(CMP_EQUAL, "pressure_waiting_avg_percent{resource=\"cpu\",window=\"300\"}", "pressure_waiting_avg_percent", 3);
+    metric_test_run(CMP_EQUAL, "pressure_stalled_avg_percent{resource=\"cpu\",window=\"10\"}", "pressure_stalled_avg_percent", 4);
+    metric_test_run(CMP_EQUAL, "pressure_stalled_seconds_total{resource=\"irq\"}", "pressure_stalled_seconds_total", 555555555 / 1000000.0);
+    metric_test_run(CMP_EQUAL, "pressure_stalled_avg_percent{resource=\"irq\",window=\"60\"}", "pressure_stalled_avg_percent", 8);
+    metric_test_run(CMP_EQUAL, "vmstat_pages{stat=\"nr_free_pages\"}", "vmstat_pages", 310331);
+    metric_test_run(CMP_EQUAL, "vmstat_stat_total{stat=\"thp_fault_alloc\"}", "vmstat_stat_total", 33);
+    metric_test_run(CMP_EQUAL, "vmstat_stat_total{stat=\"pgfault\"}", "vmstat_stat_total", 67152638);
+    metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"inode_nr\"}", "sysctl_fs", 35952);
+    metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"dentry_nr\"}", "sysctl_fs", 64340);
+    metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"aio_nr\"}", "sysctl_fs", 12);
+    metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"aio_max_nr\"}", "sysctl_fs", 65536);
+    metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"super_max\"}", "sysctl_fs", 256);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_shared\"}", "ksm", 100);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_sharing\"}", "ksm", 250);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_unshared\"}", "ksm", 40);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_volatile\"}", "ksm", 10);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"run\"}", "ksm", 1);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"sleep_millisecs\"}", "ksm", 20);
+    metric_test_run(CMP_EQUAL, "ksm{stat=\"general_profit\"}", "ksm", -4096);
+    metric_test_run(CMP_EQUAL, "ksm_stat_total{stat=\"full_scans\"}", "ksm_stat_total", 42);
+    metric_test_run(CMP_EQUAL, "ksm_stat_total{stat=\"pages_scanned\"}", "ksm_stat_total", 999);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"disksize\"}", "zram_bytes", 134217728);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"orig_data_size\"}", "zram_bytes", 104857600);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"compr_data_size\"}", "zram_bytes", 31457280);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"mem_used_total\"}", "zram_bytes", 33554432);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"mem_limit\"}", "zram_bytes", 0);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"mem_used_max\"}", "zram_bytes", 37748736);
+    metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram0\",stat=\"same_pages\"}", "zram_stat", 128);
+    metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram0\",stat=\"huge_pages\"}", "zram_stat", 10);
+    metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram0\",stat=\"initstate\"}", "zram_stat", 1);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"pages_compacted\"}", "zram_stat_total", 42);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"huge_pages_since\"}", "zram_stat_total", 25);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"failed_reads\"}", "zram_stat_total", 3);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"failed_writes\"}", "zram_stat_total", 5);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"invalid_io\"}", "zram_stat_total", 1);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram0\",stat=\"notify_free\"}", "zram_stat_total", 100);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"bd_count\"}", "zram_bytes", 10ULL * 4096);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"bd_reads\"}", "zram_bytes", 2ULL * 4096);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram0\",stat=\"bd_writes\"}", "zram_bytes", 8ULL * 4096);
+    metric_test_run(CMP_EQUAL, "zram_comp_algorithm{device=\"zram0\",algorithm=\"lz4\"}", "zram_comp_algorithm", 1);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram1\",stat=\"disksize\"}", "zram_bytes", 67108864);
+    metric_test_run(CMP_EQUAL, "zram_bytes{device=\"zram1\",stat=\"orig_data_size\"}", "zram_bytes", 4096);
+    metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram1\",stat=\"same_pages\"}", "zram_stat", 1);
+    metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram1\",stat=\"initstate\"}", "zram_stat", 0);
+    metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram1\",stat=\"failed_reads\"}", "zram_stat_total", 0);
+    metric_test_run(CMP_EQUAL, "zram_comp_algorithm{device=\"zram1\",algorithm=\"lzo-rle\"}", "zram_comp_algorithm", 1);
+    metric_test_run(CMP_EQUAL, "open_files_system", "open_files_system", 800);
+    metric_test_run(CMP_EQUAL, "max_files", "max_files", 524288);
     metric_test_run(CMP_EQUAL, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 0x123);
     metric_test_run(CMP_EQUAL, "sockstat_sockets_used", "sockstat_sockets_used", 42);
     metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"TCP\",stat=\"inuse\"}", "sockstat_stat_total", 10);
+    metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"TCP6\",stat=\"inuse\"}", "sockstat_stat_total", 17);
+    metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"UDP6\",stat=\"inuse\"}", "sockstat_stat_total", 9);
+    metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"FRAG6\",stat=\"memory\"}", "sockstat_stat_total", 0);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"status\"}", "wireless_quality", 0);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"link\"}", "wireless_quality", 64);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"level\"}", "wireless_quality", -46);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"noise\"}", "wireless_quality", -256);
+    metric_test_run(CMP_EQUAL, "wireless_discarded_total{ifname=\"wlan0\",type=\"retry\"}", "wireless_discarded_total", 818);
+    metric_test_run(CMP_EQUAL, "wireless_discarded_total{ifname=\"wlan0\",type=\"misc\"}", "wireless_discarded_total", 566);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan1\",type=\"status\"}", "wireless_quality", 1);
+    metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan1\",type=\"level\"}", "wireless_quality", -40);
+    metric_test_run(CMP_EQUAL, "wireless_discarded_total{ifname=\"wlan1\",type=\"nwid\"}", "wireless_discarded_total", 1);
+    metric_test_run(CMP_EQUAL, "wireless_discarded_total{ifname=\"wlan1\",type=\"beacon\"}", "wireless_discarded_total", 6);
+    metric_test_run(CMP_EQUAL, "wifi_interface_frequency_hertz{ifname=\"wlan0\"}", "wifi_interface_frequency_hertz", 2412ULL * 1000000ULL);
+    metric_test_run(CMP_EQUAL, "wifi_station_info{ifname=\"wlan0\",bssid=\"aa:bb:cc:dd:ee:ff\",ssid=\"ExampleNet\",mode=\"client\"}", "wifi_station_info", 1);
+    metric_test_run(CMP_EQUAL, "wifi_station_signal_dbm{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_signal_dbm", -45);
+    metric_test_run(CMP_EQUAL, "wifi_station_receive_bytes_total{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_receive_bytes_total", 1000);
+    metric_test_run(CMP_EQUAL, "wifi_station_transmit_bytes_total{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_transmit_bytes_total", 2000);
+    metric_test_run(CMP_EQUAL, "wifi_station_transmit_retries_total{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_transmit_retries_total", 3);
+    metric_test_run(CMP_EQUAL, "wifi_station_connected_seconds_total{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_connected_seconds_total", 3600);
+    metric_test_run(CMP_EQUAL, "wifi_station_inactive_seconds{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_inactive_seconds", 0.1);
+    metric_test_run(CMP_EQUAL, "wifi_station_receive_bits_per_second{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_receive_bits_per_second", 130ULL * 100000ULL);
+    metric_test_run(CMP_EQUAL, "wifi_station_transmit_bits_per_second{ifname=\"wlan0\",mac=\"11:22:33:44:55:66\"}", "wifi_station_transmit_bits_per_second", 144ULL * 100000ULL);
+    metric_test_run(CMP_EQUAL, "nfs_server_threads_count", "nfs_server_threads_count", 8);
+    metric_test_run(CMP_EQUAL, "nfs_mount_age_seconds{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\"}", "nfs_mount_age_seconds", 78);
+    metric_test_run(CMP_EQUAL, "nfs_mount_bytes_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",type=\"read\"}", "nfs_mount_bytes_total", 143698);
+    metric_test_run(CMP_EQUAL, "nfs_mount_bytes_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",type=\"server_read\"}", "nfs_mount_bytes_total", 23907);
+    metric_test_run(CMP_EQUAL, "nfs_mount_event_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",type=\"inode_revalidate\"}", "nfs_mount_event_total", 6);
+    metric_test_run(CMP_EQUAL, "nfs_mount_event_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",type=\"dnode_revalidate\"}", "nfs_mount_event_total", 306);
+    metric_test_run(CMP_EQUAL, "nfs_mount_transport_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",protocol=\"tcp\",type=\"sends\"}", "nfs_mount_transport_total", 125);
+    metric_test_run(CMP_EQUAL, "nfs_mount_transport_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",protocol=\"tcp\",type=\"bind\"}", "nfs_mount_transport_total", 2);
+    metric_test_run(CMP_EQUAL, "nfs_mount_transport_idle_seconds{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",protocol=\"tcp\"}", "nfs_mount_transport_idle_seconds", 10);
+    metric_test_run(CMP_EQUAL, "nfs_mount_transport_max_slots{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",protocol=\"tcp\"}", "nfs_mount_transport_max_slots", 3);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",operation=\"GETATTR\",type=\"ops\"}", "nfs_mount_ops_total", 6);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_seconds_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",operation=\"GETATTR\",type=\"rtt\"}", "nfs_mount_ops_seconds_total", 0.004);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",operation=\"WRITE\",type=\"trans\"}", "nfs_mount_ops_total", 2);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_seconds_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",operation=\"WRITE\",type=\"exe\"}", "nfs_mount_ops_seconds_total", 0.015);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"server.example.org:/export\",mountpoint=\"/mnt/nfs\",operation=\"READDIRPLUS\",type=\"ops\"}", "nfs_mount_ops_total", 3);
+    metric_test_run(CMP_EQUAL, "nfs_mount_age_seconds{export=\"192.168.1.1:/srv/v4\",mountpoint=\"/mnt/nfs4\"}", "nfs_mount_age_seconds", 100);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"192.168.1.1:/srv/v4\",mountpoint=\"/mnt/nfs4\",operation=\"READ\",type=\"ops\"}", "nfs_mount_ops_total", 1298);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_seconds_total{export=\"192.168.1.1:/srv/v4\",mountpoint=\"/mnt/nfs4\",operation=\"READ\",type=\"rtt\"}", "nfs_mount_ops_seconds_total", 79386 / 1000.0);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"192.168.1.1:/srv/v4\",mountpoint=\"/mnt/nfs4\",operation=\"ACCESS\",type=\"ops\"}", "nfs_mount_ops_total", 10);
+    metric_test_run(CMP_EQUAL, "nfs_mount_bytes_total{export=\"192.168.1.1:/srv/v4\",mountpoint=\"/mnt/nfs4\",type=\"write\"}", "nfs_mount_bytes_total", 20);
+    metric_test_run(CMP_EQUAL, "nfs_mount_transport_total{export=\"udp.example.org:/udp\",mountpoint=\"/mnt/udp\",protocol=\"udp\",type=\"sends\"}", "nfs_mount_transport_total", 50);
+    metric_test_run(CMP_EQUAL, "nfs_mount_ops_total{export=\"udp.example.org:/udp\",mountpoint=\"/mnt/udp\",operation=\"READ\",type=\"ops\"}", "nfs_mount_ops_total", 1);
+    metric_test_run(CMP_EQUAL, "zfs_arc_bytes{stat=\"size\"}", "zfs_arc_bytes", 1603939792);
+    metric_test_run(CMP_EQUAL, "zfs_arc_bytes{stat=\"c\"}", "zfs_arc_bytes", 1643208777);
+    metric_test_run(CMP_EQUAL, "zfs_arc_bytes{stat=\"c_min\"}", "zfs_arc_bytes", 33554432);
+    metric_test_run(CMP_EQUAL, "zfs_arc_bytes{stat=\"mru_size\"}", "zfs_arc_bytes", 402593792);
+    metric_test_run(CMP_EQUAL, "zfs_arc_bytes{stat=\"memory_available_bytes\"}", "zfs_arc_bytes", -12345);
+    metric_test_run(CMP_EQUAL, "zfs_arc_stat{stat=\"hits\"}", "zfs_arc_stat", 8772612);
+    metric_test_run(CMP_EQUAL, "zfs_arc_stat{stat=\"misses\"}", "zfs_arc_stat", 604635);
+    metric_test_run(CMP_EQUAL, "zfs_arc_stat{stat=\"memory_throttle_count\"}", "zfs_arc_stat", 0);
+    metric_test_run(CMP_EQUAL, "zfs_dmu_tx_stat{stat=\"dmu_tx_assigned\"}", "zfs_dmu_tx_stat", 3532844);
+    metric_test_run(CMP_EQUAL, "zfs_dmu_tx_stat{stat=\"dmu_tx_dirty_throttle\"}", "zfs_dmu_tx_stat", 5);
+    metric_test_run(CMP_EQUAL, "zfs_zil_stat{stat=\"zil_commit_count\"}", "zfs_zil_stat", 10);
+    metric_test_run(CMP_EQUAL, "zfs_zil_stat{stat=\"zil_itx_count\"}", "zfs_zil_stat", 42);
+    metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool1\",state=\"online\"}", "zfs_zpool_state", 1);
+    metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool1\",state=\"degraded\"}", "zfs_zpool_state", 0);
+    metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool2\",state=\"degraded\"}", "zfs_zpool_state", 1);
+    metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool2\",state=\"online\"}", "zfs_zpool_state", 0);
     metric_test_run(CMP_EQUAL, "swap_device_bytes{device=\"/dev/dm-1\",type=\"size\"}", "swap_device_bytes", 1048572ULL * 1024);
     metric_test_run(CMP_EQUAL, "schedstat_run_periods_total{cpu=\"0\"}", "schedstat_run_periods_total", 3000);
     metric_test_run(CMP_EQUAL, "slabinfo_objects{slab=\"kmalloc-64\",type=\"active\"}", "slabinfo_objects", 100);
@@ -360,6 +515,27 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"total\"}", "memory_usage_hw", 2036900ULL * 1024);
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"usage\"}", "memory_usage_hw", (2036900ULL - 1439972ULL) * 1024);
     metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);
+    metric_test_run(CMP_EQUAL, "hugepages_total", "hugepages_total", 8);
+    metric_test_run(CMP_EQUAL, "hugepages_free", "hugepages_free", 6);
+    metric_test_run(CMP_EQUAL, "hugepages_size_bytes", "hugepages_size_bytes", 2048ULL * 1024);
+    metric_test_run(CMP_EQUAL, "anon_hugepages_bytes", "anon_hugepages_bytes", 2048ULL * 1024);
+    metric_test_run(CMP_EQUAL, "hugepages_nr{size=\"2048kB\",type=\"total\"}", "hugepages_nr", 8);
+    metric_test_run(CMP_EQUAL, "network_stat_total{proto=\"Ip6\",stat=\"InReceives\"}", "network_stat_total", 100);
+    metric_test_run(CMP_EQUAL, "synproxy_stat_total{stat=\"entries\"}", "synproxy_stat_total", 10);
+    metric_test_run(CMP_EQUAL, "raid_rebuild_percent{array=\"md4\"}", "raid_rebuild_percent", 42.5);
+    metric_test_run(CMP_EQUAL, "raid_rebuild_finish_seconds{array=\"md4\"}", "raid_rebuild_finish_seconds", 72.0);
+    metric_test_run(CMP_EQUAL, "raid_rebuild_speed_bytes{array=\"md4\"}", "raid_rebuild_speed_bytes", 12345ULL * 1024);
+    metric_test_run(CMP_EQUAL, "bonding_lacp{master=\"bond0\",stat=\"mode\"}", "bonding_lacp", 4);
+    metric_test_run(CMP_EQUAL, "bonding_lacp{master=\"bond0\",stat=\"ad_num_ports\"}", "bonding_lacp", 2);
+    metric_test_run(CMP_EQUAL, "cpu_frequency_hertz{cpu=\"0\",type=\"scaling_cur\"}", "cpu_frequency_hertz", 1800000.0 * 1000.0);
+    metric_test_run(CMP_EQUAL, "cpu_throttle_count{cpu=\"0\"}", "cpu_throttle_count", 3);
+    metric_test_run(CMP_EQUAL, "cpu_throttle_seconds_total{cpu=\"0\"}", "cpu_throttle_seconds_total", 1.5);
+    metric_test_run(CMP_EQUAL, "hwmon_power_watt{name=\"intel5500\",component=\"PKG\",hwmon=\"hwmon0\"}", "hwmon_power_watt", 25.0);
+    metric_test_run(CMP_EQUAL, "hwmon_fan_rpm{name=\"intel5500\",component=\"fan1\",hwmon=\"hwmon0\"}", "hwmon_fan_rpm", 1200);
+    metric_test_run(CMP_EQUAL, "lvm_lv_size_bytes{vg=\"vg0\",lv=\"lvroot\",device=\"dm-10\"}", "lvm_lv_size_bytes", 1048576);
+    metric_test_run(CMP_EQUAL, "wireguard_device_listen_port{device=\"wg0\"}", "wireguard_device_listen_port", 51820);
+    metric_test_run(CMP_EQUAL, "wireguard_device_peers{device=\"wg0\"}", "wireguard_device_peers", 1);
+    metric_test_run(CMP_EQUAL, "wireguard_peer_rx_bytes{device=\"wg0\",public_key=\"xyzpubkey=\"}", "wireguard_peer_rx_bytes", 1000);
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
 #endif

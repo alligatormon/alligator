@@ -164,6 +164,8 @@ int smart_aggregator(context_arg *carg)
 		carg_free(carg);
 		carg = new_carg;
 	}
+	else if (carg->transport == APROTO_UNIXGRAM)
+		type = unixgram_client(carg);
 	else if (carg->transport == APROTO_UNIX)
 		type = unix_tcp_client(carg);
 	else if (carg->transport == APROTO_TCP)
@@ -176,8 +178,6 @@ int smart_aggregator(context_arg *carg)
 		type = icmp_client(carg);
 	else if (carg->transport == APROTO_PROCESS)
 		type = process_client(carg);
-	//else if (carg->proto == APROTO_UNIXGRAM)
-	//	do_unixgram_client_carg(carg);
 	else if (carg->transport == APROTO_FILE)
 		type = filetailer_handler(carg);
 	else if (carg->transport == APROTO_PG)
@@ -225,6 +225,9 @@ void aggregator_oneshot_start(context_arg *carg)
 			break;
 		case APROTO_UNIX:
 			unix_client_connect(carg);
+			break;
+		case APROTO_UNIXGRAM:
+			unixgram_client_connect(carg);
 			break;
 		case APROTO_UDP:
 			udp_client_connect(carg);
@@ -301,6 +304,8 @@ void smart_aggregator_del(context_arg *carg)
 {
 	if (carg->resolver)
 		resolver_del(carg);
+	else if (carg->transport == APROTO_UNIXGRAM)
+		unixgram_client_del(carg);
 	else if (carg->transport == APROTO_UNIX)
 		unix_tcp_client_del(carg);
 	else if (carg->transport == APROTO_TCP)
@@ -313,8 +318,6 @@ void smart_aggregator_del(context_arg *carg)
 		icmp_client_del(carg);
 	else if (carg->transport == APROTO_PROCESS)
 		process_client_del(carg);
-	//else if (carg->proto == APROTO_UNIXGRAM)
-	//	do_unixgram_client_carg(carg);
 	else if (carg->transport == APROTO_FILE)
 		filetailer_handler_del(carg);
 	else if (carg->transport == APROTO_PG)
@@ -620,6 +623,10 @@ void aggregate_ctx_init()
 	sd_consul_configuration_parser_push();
 	sd_consul_discovery_parser_push();
 	nginx_upstream_check_parser_push();
+	nginx_parser_push();
+	fail2ban_parser_push();
+	chrony_parser_push();
+	postfix_parser_push();
 	json_parser_push();
 	json_query_push();
 	consul_parser_push();

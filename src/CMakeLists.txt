@@ -307,6 +307,10 @@ set(STATIC_FILES
 	parsers/dynatrace.c
 	parsers/otlp.c
 	parsers/nginx_upstream_check.c
+	parsers/nginx.c
+	parsers/fail2ban.c
+	parsers/chrony.c
+	parsers/postfix.c
 	parsers/monit.c
 	parsers/rsyslog_impstats.c
 	parsers/gdnsd.c
@@ -509,6 +513,12 @@ set(STATIC_FILES
 	system/linux/power_supply.c
 	system/linux/pressure.c
 	system/linux/proc_net.c
+	system/linux/wireguard.c
+	system/linux/ethtool.c
+	system/linux/nfs_mountstats.c
+	system/linux/wifi.c
+	system/linux/zfs.c
+	system/linux/zram.c
 	system/linux/vm_stats.c
 	system/linux/host_misc.c
 	system/linux/disk_sysfs.c
@@ -557,6 +567,12 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/power_supply.c
 	system/linux/pressure.c
 	system/linux/proc_net.c
+	system/linux/wireguard.c
+	system/linux/ethtool.c
+	system/linux/nfs_mountstats.c
+	system/linux/wifi.c
+	system/linux/zfs.c
+	system/linux/zram.c
 	system/linux/vm_stats.c
 	system/linux/host_misc.c
 	system/linux/disk_sysfs.c

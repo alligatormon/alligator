@@ -5,8 +5,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "common/http.h"
+#include "common/url.h"
 #include "parsers/elasticsearch.h"
+#include <arpa/inet.h>
+#include <math.h>
 #include "parsers/mongodb_wire_bson.h"
 #include "metric/metric_types.h"
 #include "dstructures/ngram/ngram.h"
@@ -40,6 +45,7 @@ string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg, void *env, voi
 int8_t beanstalkd_validator(context_arg *carg, char *data, size_t size);
 string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* nginx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
 void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg);
 void redis_query(char *metrics, size_t size, context_arg *carg);
@@ -74,6 +80,226 @@ void api_test_parser_ntp() {
     ntp_handler(msg, 8, short_carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, short_carg->parser_status);
     free(short_carg);
+}
+
+static void parser_push_roundtrip(const char *key, void (*push)(void))
+{
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    push();
+    aggregate_context *ctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, (char *)key, tommy_strhash_u32(0, key));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)key, ctx->handler[0].key);
+    aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, (char *)key, tommy_strhash_u32(0, key));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
+    free(rm->handler);
+    free(rm->key);
+    free(rm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+}
+
+void api_test_parser_nginx_stub_status()
+{
+    char *msg =
+        "Active connections: 3\n"
+        "server accepts handled requests\n"
+        " 10 9 25\n"
+        "Reading: 1 Writing: 2 Waiting: 0\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    nginx_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_connections{state=\"active\"}", "nginx_connections", 3);
+    metric_test_run(CMP_EQUAL, "nginx_connections{state=\"reading\"}", "nginx_connections", 1);
+    metric_test_run(CMP_EQUAL, "nginx_connections{state=\"writing\"}", "nginx_connections", 2);
+    metric_test_run(CMP_EQUAL, "nginx_connections{state=\"waiting\"}", "nginx_connections", 0);
+    metric_test_run(CMP_EQUAL, "nginx_accepts_total", "nginx_accepts_total", 10);
+    metric_test_run(CMP_EQUAL, "nginx_handled_total", "nginx_handled_total", 9);
+    metric_test_run(CMP_EQUAL, "nginx_requests_total", "nginx_requests_total", 25);
+    free(carg);
+
+    context_arg *bad = calloc(1, sizeof(*bad));
+    nginx_handler("not stub_status", 15, bad);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bad->parser_status);
+    free(bad);
+
+    parser_push_roundtrip("nginx", nginx_parser_push);
+}
+
+void api_test_parser_fail2ban()
+{
+    char *msg =
+        "Status for the jail: sshd\n"
+        "|- Filter\n"
+        "|  |- Currently failed: 4\n"
+        "|  `- File list:        /var/log/auth.log\n"
+        "`- Actions\n"
+        "   |- Currently banned: 2\n"
+        "   `- Banned IP list:   1.2.3.4\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    fail2ban_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "fail2ban_failed{jail=\"sshd\"}", "fail2ban_failed", 4);
+    metric_test_run(CMP_EQUAL, "fail2ban_banned{jail=\"sshd\"}", "fail2ban_banned", 2);
+    free(carg);
+
+    char *overview =
+        "Status\n"
+        "|- Number of jail:      3\n"
+        "`- Jail list:           sshd, postfix, dovecot\n";
+    carg = calloc(1, sizeof(*carg));
+    fail2ban_handler(overview, strlen(overview), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "fail2ban_jails", "fail2ban_jails", 3);
+    free(carg);
+    parser_push_roundtrip("fail2ban", fail2ban_parser_push);
+}
+
+extern string* chrony_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+
+static uint32_t test_chrony_float_hton(double x)
+{
+	int32_t exp, coef, neg;
+	const int32_t exp_bits = 7;
+	const int32_t coef_bits = 25;
+	const int32_t exp_min = -(1 << (exp_bits - 1));
+	const int32_t exp_max = -exp_min - 1;
+	const int32_t coef_max = (1 << (coef_bits - 1)) - 1;
+
+	if (x < 0.0) {
+		x = -x;
+		neg = 1;
+	} else {
+		neg = 0;
+	}
+
+	if (x < 1.0e-100) {
+		exp = coef = 0;
+	} else if (x > 1.0e100) {
+		exp = exp_max;
+		coef = coef_max + neg;
+	} else {
+		exp = (int32_t)(log(x) / log(2.0) + 1);
+		coef = (int32_t)(x * pow(2.0, -exp + coef_bits) + 0.5);
+		if (coef < 1)
+			coef = 1;
+		while (coef > coef_max + neg) {
+			coef >>= 1;
+			exp++;
+		}
+		if (exp > exp_max) {
+			exp = exp_max;
+			coef = coef_max + neg;
+		} else if (exp < exp_min) {
+			exp = coef = 0;
+		}
+	}
+	if (neg)
+		coef = (int32_t)((uint32_t)-coef << exp_bits >> exp_bits);
+	return htonl(((uint32_t)exp << coef_bits) | (uint32_t)coef);
+}
+
+static void test_chrony_put_u16(char *p, uint16_t v)
+{
+	uint16_t n = htons(v);
+	memcpy(p, &n, sizeof(n));
+}
+
+static void test_chrony_put_u32(char *p, uint32_t v)
+{
+	memcpy(p, &v, sizeof(v));
+}
+
+void api_test_parser_chrony()
+{
+    char *msg =
+        "Reference ID    : 8.8.8.8 (dns.google)\n"
+        "Stratum         : 2\n"
+        "Last offset     : +0.0015 seconds\n"
+        "RMS offset      : 0.0004 seconds\n"
+        "Frequency       : 10.5 ppm slow\n"
+        "Skew            : 0.05 ppm\n"
+        "Root delay      : 0.02 seconds\n"
+        "Root dispersion : 0.001 seconds\n"
+        "Update interval : 64.0 seconds\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    chrony_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "chrony_stratum", "chrony_stratum", 2);
+    metric_test_run(CMP_EQUAL, "chrony_last_offset_seconds", "chrony_last_offset_seconds", 0.0015);
+    metric_test_run(CMP_EQUAL, "chrony_rms_offset_seconds", "chrony_rms_offset_seconds", 0.0004);
+    metric_test_run(CMP_EQUAL, "chrony_frequency_ppm", "chrony_frequency_ppm", -10.5);
+    metric_test_run(CMP_EQUAL, "chrony_skew_ppm", "chrony_skew_ppm", 0.05);
+    metric_test_run(CMP_EQUAL, "chrony_root_delay_seconds", "chrony_root_delay_seconds", 0.02);
+    metric_test_run(CMP_EQUAL, "chrony_root_dispersion_seconds", "chrony_root_dispersion_seconds", 0.001);
+    metric_test_run(CMP_EQUAL, "chrony_update_interval_seconds", "chrony_update_interval_seconds", 64.0);
+    free(carg);
+
+    char cmd[104];
+    memset(cmd, 0, sizeof(cmd));
+    cmd[0] = 6;
+    cmd[1] = 2;
+    test_chrony_put_u16(cmd + 4, 33);
+    test_chrony_put_u16(cmd + 6, 5);
+    test_chrony_put_u16(cmd + 8, 0);
+    test_chrony_put_u16(cmd + 52, 2);
+    test_chrony_put_u32(cmd + 72, test_chrony_float_hton(1.0));
+    test_chrony_put_u32(cmd + 80, test_chrony_float_hton(-10.0));
+    test_chrony_put_u32(cmd + 100, test_chrony_float_hton(64.0));
+    carg = calloc(1, sizeof(*carg));
+    chrony_handler(cmd, sizeof(cmd), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "chrony_stratum", "chrony_stratum", 2);
+    metric_test_run(CMP_EQUAL, "chrony_last_offset_seconds", "chrony_last_offset_seconds", 1);
+    metric_test_run(CMP_EQUAL, "chrony_frequency_ppm", "chrony_frequency_ppm", -10);
+    metric_test_run(CMP_EQUAL, "chrony_update_interval_seconds", "chrony_update_interval_seconds", 64);
+    free(carg);
+
+    host_aggregator_info hi;
+    memset(&hi, 0, sizeof(hi));
+    hi.transport = APROTO_UNIXGRAM;
+    hi.proto = APROTO_UDP;
+    string *req = chrony_mesg(&hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 104, req->l);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6, (unsigned char)req->s[0]);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (unsigned char)req->s[1]);
+    string_free(req);
+
+    parser_push_roundtrip("chrony", chrony_parser_push);
+}
+
+void api_test_parser_postfix()
+{
+    char tmpl[] = "/tmp/alligator-postfix-XXXXXX";
+    char *dir = mkdtemp(tmpl);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dir);
+    char qdir[512];
+    snprintf(qdir, sizeof(qdir), "%s/active", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(qdir, 0755));
+    char fpath[600];
+    snprintf(fpath, sizeof(fpath), "%s/msg1", qdir);
+    FILE *fp = fopen(fpath, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fwrite("hello", 1, 5, fp);
+    fclose(fp);
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    strlcpy(carg->host, dir, sizeof(carg->host));
+    postfix_handler(dir, strlen(dir), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "postfix_queue_length{queue=\"active\"}", "postfix_queue_length", 1);
+    metric_test_run(CMP_EQUAL, "postfix_queue_size_bytes{queue=\"active\"}", "postfix_queue_size_bytes", 5);
+    metric_test_run(CMP_GREATER, "postfix_queue_oldest_seconds{queue=\"active\"}", "postfix_queue_oldest_seconds", -1);
+    free(carg);
+
+    unlink(fpath);
+    rmdir(qdir);
+    rmdir(dir);
+    parser_push_roundtrip("postfix", postfix_parser_push);
 }
 
 void api_test_parser_nsd() {

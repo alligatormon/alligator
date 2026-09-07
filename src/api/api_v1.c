@@ -1190,6 +1190,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							ac->system_disk = enkey;
 						else if (!strcmp(system_key, "network"))
 							ac->system_network = enkey;
+						else if (!strcmp(system_key, "ethtool"))
+							ac->system_ethtool = enkey;
+						else if (!strcmp(system_key, "nfs"))
+							ac->system_nfs = enkey;
+						else if (!strcmp(system_key, "wifi"))
+							ac->system_wifi = enkey;
+						else if (!strcmp(system_key, "zfs"))
+							ac->system_zfs = enkey;
 						else if (!strcmp(system_key, "smart"))
 							ac->system_smart = enkey;
 						else if (!strcmp(system_key, "interrupts"))

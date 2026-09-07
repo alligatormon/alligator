@@ -1417,6 +1417,26 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "network", ctxsys);
 	}
 
+	if (ac->system_ethtool) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "ethtool", ctxsys);
+	}
+
+	if (ac->system_nfs) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "nfs", ctxsys);
+	}
+
+	if (ac->system_wifi) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "wifi", ctxsys);
+	}
+
+	if (ac->system_zfs) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "zfs", ctxsys);
+	}
+
 	if (ac->system_smart) {
 		json_t *ctxsys = json_object();
 		json_array_object_insert(system, "smart", ctxsys);

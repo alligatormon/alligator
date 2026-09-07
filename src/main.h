@@ -211,6 +211,10 @@ typedef struct aconf
 	int system_memory;
 	int system_disk;
 	int system_network;
+	int system_ethtool;
+	int system_nfs;
+	int system_wifi;
+	int system_zfs;
 	int system_process;
 	int system_smart;
 	int system_packages;

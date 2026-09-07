@@ -1,6 +1,9 @@
 Changelog
 
 ## [unreleased]
+- `system { base; }`: zram from `/sys/block/zram*` (`zram_bytes`, `zram_stat`, `zram_stat_total`, `zram_comp_algorithm`). Missing devices and files are skipped.
+- Opt-in `system { zfs; }`: Linux OpenZFS from `/proc/spl/kstat/zfs` (`zfs_arc_stat` / `zfs_arc_bytes`, `zfs_zpool_state`, `zfs_dmu_tx_stat`, `zfs_zil_stat`). Per-dataset `objset-*` is not collected. `disk_usage` now includes `zfs` mounts.
+- Opt-in `system { nfs; }`: host-wide NFS RPC from `/proc/net/rpc/nfs{,d}` (`nfs_client_*` / `nfs_server_*`, previously under `base`) plus per-mount `/proc/self/mountstats` (`nfs_mount_*`).
 - Fix: `exec://` oneshots (system `firewall` / iptables) no longer use-after-free when the next scrape or process crawl timer races the deferred `process_finalize` timer.
 - Fix: `zoneinfo_stat_total` `stat` labels no longer keep a trailing colon from `/proc/zoneinfo` (`start_pfn:`, `vm_stats_threshold:`).
 - CentOS 7 package build stays on GCC 4.8 (`-std=gnu99`). clang 3.4 C11 atomics emit illegal `futex` op `0x7e7f` (kernel 3.10 `ENOSYS` busy-loop). `threaded_loop.cur` uses `common/atomic.h` (`__sync_fetch_and_add` when C11 atomics are unsafe/missing).
