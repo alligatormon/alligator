@@ -88,6 +88,28 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 	{
 		const char *key;
 		json_t *value;
+
+		/* Apply named log channels before entrypoint/aggregate so
+		 * log_channel[_raw|_out] references resolve to real sinks, not default. */
+		value = json_object_get(root, "log_channel");
+		if (value)
+		{
+			log_channels_config_json(value);
+			ac->update_log_dest = 1;
+		}
+		value = json_object_get(root, "log_dest");
+		if (value)
+		{
+			const char *dest = json_string_value(value);
+			if (dest)
+			{
+				if (ac->log_dest)
+					free(ac->log_dest);
+				ac->log_dest = strdup(dest);
+				ac->update_log_dest = 1;
+			}
+		}
+
 		json_object_foreach(root, key, value)
 		{
 			if (!strcmp(key, "log_level"))
@@ -103,20 +125,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						ac->system_carg->log_level = ac->log_level;
 				}
 			}
-			if (!strcmp(key, "log_dest"))
+			if (!strcmp(key, "log_dest") || !strcmp(key, "log_channel"))
 			{
-				const char *dest = json_string_value(value);
-				if (!dest)
-					continue;
-				if (ac->log_dest)
-					free(ac->log_dest);
-				ac->log_dest = strdup(dest);
-				ac->update_log_dest = 1;
-			}
-			if (!strcmp(key, "log_channel"))
-			{
-				log_channels_config_json(value);
-				ac->update_log_dest = 1;
+				/* already applied above */
+				continue;
 			}
 			if (!strcmp(key, "process_shell"))
 			{
@@ -701,15 +713,30 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					json_t *carg_log_channel = json_object_get(entrypoint, "log_channel");
 					if (carg_log_channel && json_typeof(carg_log_channel) == JSON_STRING)
-						carg->log_ch = log_channel_get(json_string_value(carg_log_channel));
+					{
+						const char *chname = json_string_value(carg_log_channel);
+						carg->log_ch = log_channel_get(chname);
+						if (carg->log_ch && carg->log_ch->is_default && chname && strcmp(chname, "default"))
+							glog(L_WARN, "entrypoint: log_channel '%s' not found, using default\n", chname);
+					}
 
 					json_t *carg_log_channel_raw = json_object_get(entrypoint, "log_channel_raw");
 					if (carg_log_channel_raw && json_typeof(carg_log_channel_raw) == JSON_STRING)
-						carg->log_ch_raw = log_channel_get(json_string_value(carg_log_channel_raw));
+					{
+						const char *chname = json_string_value(carg_log_channel_raw);
+						carg->log_ch_raw = log_channel_get(chname);
+						if (carg->log_ch_raw && carg->log_ch_raw->is_default && chname && strcmp(chname, "default"))
+							glog(L_WARN, "entrypoint: log_channel_raw '%s' not found, using default\n", chname);
+					}
 
 					json_t *carg_log_channel_out = json_object_get(entrypoint, "log_channel_out");
 					if (carg_log_channel_out && json_typeof(carg_log_channel_out) == JSON_STRING)
-						carg->log_ch_out = log_channel_get(json_string_value(carg_log_channel_out));
+					{
+						const char *chname = json_string_value(carg_log_channel_out);
+						carg->log_ch_out = log_channel_get(chname);
+						if (carg->log_ch_out && carg->log_ch_out->is_default && chname && strcmp(chname, "default"))
+							glog(L_WARN, "entrypoint: log_channel_out '%s' not found, using default\n", chname);
+					}
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
@@ -752,6 +779,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else
 							glog(L_FATAL, "unknown entrypoint handler '%s'; falling back to the default prometheus handler\n", str_handler);
 					}
+
+					if (carg->log_ch_out &&
+					    carg->parser_handler != &grok_handler &&
+					    carg->parser_handler != &amtail_handler &&
+					    carg->parser_handler != &vrl_handler)
+						glog(L_WARN, "entrypoint %s: log_channel_out is set but handler is not grok/mtail/vrl; transformed logs will not be emitted (use handler grok or log_channel_raw for passthrough)\n",
+						    carg->key ? carg->key : "?");
 
 					json_t *json_namespace = json_object_get(entrypoint, "namespace");
 					if (json_namespace)

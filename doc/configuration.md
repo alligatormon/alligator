@@ -162,7 +162,7 @@ Recommended formats for Kafka consumers: `log_format json` or `log_format elasti
 
 TCP log destinations connect asynchronously via libuv. If the remote side is not connected or a write is already in progress, log lines are dropped. Reconnection is retried in the background every few seconds.
 
-HTTP destinations (`http://host:port/path`) POST logs to Elasticsearch-compatible endpoints using the bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels default to `log_format elastic`.
+HTTP destinations (`http://host:port/path`) POST logs to Elasticsearch-compatible endpoints using the bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels default to `log_format elastic`. Bulk actions use `create` (not `index`) so OpenSearch/ES **data streams** accept writes; plain indices without an explicit `_id` work the same.
 
 For Logstash TCP inputs with a JSON codec, use `tcp://` with `log_format elastic` — each log line is a JSON document terminated by newline.
 
@@ -275,6 +275,96 @@ No call → no log to `log_channel_out` (metrics still work).
 
 **grok:** on successful match, if `log_channel_out` is set, emit one flat JSON document
 with named captures plus `message` (the matched line). Metrics are unchanged.
+
+`handler log` only supports passthrough via `log_channel_raw`. For rewritten fields you need
+`handler grok` (or `mtail` / `vrl`) together with `log_channel_out`.
+
+#### Example: rewrite syslog headers and ship to OpenSearch / Elasticsearch
+
+Receive RFC5424-style syslog over UDP, parse PRI / timestamp / host / program / pid / message,
+and POST ECS-style bulk documents to an OpenSearch-compatible `_bulk` endpoint.
+HTTP Basic credentials may be embedded in the channel `dest` URL (`http://user:pass@host/...`).
+Bulk actions use `create` (compatible with data streams and plain indices without `_id`).
+
+Input line example:
+
+```text
+<6>2026-09-09T19:03:15+03:00 app01.prod.example.com inventoryd[830815]: : stock sync failed sku=42
+```
+
+```conf
+grok_patterns /etc/grok-patterns/patterns.conf;
+
+grok {
+    key app_syslog;
+    name app_syslog;
+    match '^<%{NONNEGINT:syslog_pri}>%{TIMESTAMP_ISO8601:syslog_ts} %{SYSLOGHOST:host} %{PROG:process_name}(?:\[%{POSINT:process_pid}\])?:\s*(?::\s*)?%{GREEDYDATA:message}$';
+}
+
+log_channel {
+    name app-syslog-os;
+    dest "http://writer:secret@logs.example.com:9200/app-logs/_bulk";
+    log_format elastic;
+    log_index "app-logs-%Y.%m";
+}
+
+entrypoint {
+    handler grok;
+    grok app_syslog;
+    allow 127.0.0.1;
+    udp 127.0.0.1:1514;
+    log_channel_out app-syslog-os;
+}
+```
+
+JSON equivalent:
+
+```json
+{
+  "grok_patterns": ["/etc/grok-patterns/patterns.conf"],
+  "grok": [
+    {
+      "key": "app_syslog",
+      "name": "app_syslog",
+      "match": "^<%{NONNEGINT:syslog_pri}>%{TIMESTAMP_ISO8601:syslog_ts} %{SYSLOGHOST:host} %{PROG:process_name}(?:\\[%{POSINT:process_pid}\\])?:\\s*(?::\\s*)?%{GREEDYDATA:message}$"
+    }
+  ],
+  "log_channel": [
+    {
+      "name": "app-syslog-os",
+      "dest": "http://writer:secret@logs.example.com:9200/app-logs/_bulk",
+      "log_format": "elastic",
+      "log_index": "app-logs-%Y.%m"
+    }
+  ],
+  "entrypoint": [
+    {
+      "handler": "grok",
+      "grok": "app_syslog",
+      "allow": ["127.0.0.1"],
+      "udp": ["127.0.0.1:1514"],
+      "log_channel_out": "app-syslog-os"
+    }
+  ]
+}
+```
+
+On a match, the shipped document includes captures such as `syslog_pri`, `syslog_ts`, `host`,
+`process_name`, `process_pid`, and `message`, plus `@timestamp` / channel metadata from
+`log_format elastic`.
+
+Verify:
+
+```bash
+printf '%s\n' '<6>2026-09-09T19:03:15+03:00 app01.prod.example.com inventoryd[830815]: : stock sync failed sku=42' \
+  | nc -u -w1 127.0.0.1 1514
+curl -s localhost:1111/conf | jq '.log_channel, (.entrypoint[] | select(.key|test("1514")))'
+curl -s localhost:1111/metrics | grep 'alligator_log_channel_.*kind="out"'
+```
+
+`alligator_log_channel_sent_total{kind="out",channel="app-syslog-os"}` should increase.
+If it stays at zero, the grok `match` did not hit the line (raw passthrough would still work
+with `handler log` + `log_channel_raw`, but without field extraction).
 
 ```json
 {

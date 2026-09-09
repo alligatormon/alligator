@@ -200,7 +200,8 @@ char *log_elastic_format_bulk_msg(const log_channel *ch, context_arg *carg, int 
 	action = json_object();
 	meta = json_object();
 	json_object_set_new(meta, "_index", json_string(index));
-	json_object_set_new(action, "index", meta);
+	/* create: required for OpenSearch/ES data streams; fine for plain indices without _id */
+	json_object_set_new(action, "create", meta);
 	free(index);
 
 	action_json = log_jansson_dumps_compact(action, &action_len);

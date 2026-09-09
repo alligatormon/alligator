@@ -494,7 +494,7 @@ static int log_channel_open_dest(log_channel *ch, char *dest)
 		ch->port = (int)strtoull(hi->port, NULL, 10);
 		if (ch->log_format == LOG_FORMAT_INHERIT)
 			ch->log_format = LOG_FORMAT_ELASTIC;
-		log_http_sink_open(ch, ch->host, ch->port, hi->query);
+		log_http_sink_open(ch, ch->host, ch->port, hi->query, hi->auth);
 		url_free(hi);
 	} else if (!strncmp(dest, "kafka://", 8)) {
 		log_kafka_sink_open(ch, dest);
@@ -754,6 +754,8 @@ void log_channels_reopen(void)
 
 static int log_channel_parse_bool(json_t *value)
 {
+	if (!value)
+		return LOG_CHANNEL_INHERIT;
 	if (json_is_true(value))
 		return 1;
 	if (json_is_false(value))
@@ -844,6 +846,56 @@ void log_channels_config_json(json_t *value)
 				log_channel_open(ch);
 		}
 	}
+}
+
+static void log_channels_generate_conf_foreach(void *funcarg, void *arg)
+{
+	json_t *arr = funcarg;
+	log_channel *ch = arg;
+	json_t *item;
+
+	if (!arr || !ch || ch->is_default || !ch->name || !ch->dest)
+		return;
+
+	item = json_object();
+	json_object_set_new(item, "name", json_string(ch->name));
+	json_object_set_new(item, "dest", json_string(ch->dest));
+	if (ch->log_format == LOG_FORMAT_ELASTIC)
+		json_object_set_new(item, "log_format", json_string("elastic"));
+	else if (ch->log_format == LOG_FORMAT_JSON)
+		json_object_set_new(item, "log_format", json_string("json"));
+	else if (ch->log_format == LOG_FORMAT_PLAIN)
+		json_object_set_new(item, "log_format", json_string("plain"));
+	if (ch->log_index && ch->log_index[0])
+		json_object_set_new(item, "log_index", json_string(ch->log_index));
+	if (ch->kafka_key && ch->kafka_key[0])
+		json_object_set_new(item, "kafka_key", json_string(ch->kafka_key));
+	if (ch->kafka_options)
+		json_object_set(item, "kafka_options", ch->kafka_options);
+	if (ch->form == FORM_SYSLOG)
+		json_object_set_new(item, "log_form", json_string("syslog"));
+	if (ch->time != LOG_CHANNEL_INHERIT)
+		json_object_set_new(item, "log_time", ch->time ? json_true() : json_false());
+	if (ch->time_format && ch->time_format[0])
+		json_object_set_new(item, "log_time_format", json_string(ch->time_format));
+	json_array_append_new(arr, item);
+}
+
+void log_channels_generate_conf(json_t *dst)
+{
+	json_t *arr;
+
+	if (!dst || !ac || !ac->log_channels)
+		return;
+
+	arr = json_array();
+	alligator_ht_foreach_arg(ac->log_channels, log_channels_generate_conf_foreach, arr);
+	if (json_array_size(arr) == 0)
+	{
+		json_decref(arr);
+		return;
+	}
+	json_object_set_new(dst, "log_channel", arr);
 }
 
 uint64_t get_log_level_by_name(const char *val, size_t len) {
@@ -1054,7 +1106,8 @@ void log_channel_write_document_kind(log_channel *ch, context_arg *carg, json_t 
 		if (index)
 			json_object_set_new(meta, "_index", json_string(index));
 		free(index);
-		json_object_set_new(action, "index", meta);
+		/* create: required for OpenSearch/ES data streams; fine for plain indices without _id */
+		json_object_set_new(action, "create", meta);
 		action_json = log_jansson_dumps_compact(action, &action_len);
 		doc_json = log_jansson_dumps_compact(out_doc, &doc_len);
 		json_decref(action);

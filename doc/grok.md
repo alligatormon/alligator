@@ -35,6 +35,10 @@ emits one **flat** JSON document to that channel: named captures plus `message`
 (the matched line). Metrics are still produced as usual (dual sink).
 This is an Alligator extension — not part of Elastic Grok itself.
 
+Requires `handler grok` on the entrypoint (not `handler log`). For a full UDP syslog →
+OpenSearch rewrite example see
+[configuration.md — Transformed log sink](configuration.md#transformed-log-sink-log_channel_out).
+
 
 ## bucket
 Default: -\

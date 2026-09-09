@@ -162,7 +162,7 @@ TCP log destinations подключаются асинхронно через li
 
 TCP log destinations подключаются асинхронно через libuv. Если remote side не connected или write in progress, log lines drop-ятся. Reconnection retry в background каждые несколько секунд.
 
-HTTP destinations (`http://host:port/path`) POST logs в Elasticsearch-compatible endpoints через bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels по умолчанию `log_format elastic`.
+HTTP destinations (`http://host:port/path`) POST logs в Elasticsearch-compatible endpoints через bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels по умолчанию `log_format elastic`. Bulk actions используют `create` (не `index`), чтобы OpenSearch/ES **data streams** принимали запись; обычные индексы без явного `_id` работают так же.
 
 Для Logstash TCP inputs с JSON codec используйте `tcp://` с `log_format elastic` — каждая log line JSON document, terminated newline.
 
@@ -275,6 +275,96 @@ aggregate {
 
 **grok:** при successful match, если `log_channel_out` set, emit one flat JSON document
 с named captures плюс `message` (matched line). Metrics unchanged.
+
+`handler log` поддерживает только passthrough через `log_channel_raw`. Для rewritten fields
+нужен `handler grok` (или `mtail` / `vrl`) вместе с `log_channel_out`.
+
+#### Пример: rewrite syslog headers и ship в OpenSearch / Elasticsearch
+
+Приём RFC5424-style syslog по UDP, разбор PRI / timestamp / host / program / pid / message
+и POST ECS-style bulk documents в OpenSearch-compatible `_bulk` endpoint.
+HTTP Basic credentials можно указать в URL channel `dest` (`http://user:pass@host/...`).
+Bulk actions используют `create` (совместимо с data streams и обычными индексами без `_id`).
+
+Пример входной строки:
+
+```text
+<6>2026-09-09T19:03:15+03:00 app01.prod.example.com inventoryd[830815]: : stock sync failed sku=42
+```
+
+```conf
+grok_patterns /etc/grok-patterns/patterns.conf;
+
+grok {
+    key app_syslog;
+    name app_syslog;
+    match '^<%{NONNEGINT:syslog_pri}>%{TIMESTAMP_ISO8601:syslog_ts} %{SYSLOGHOST:host} %{PROG:process_name}(?:\[%{POSINT:process_pid}\])?:\s*(?::\s*)?%{GREEDYDATA:message}$';
+}
+
+log_channel {
+    name app-syslog-os;
+    dest "http://writer:secret@logs.example.com:9200/app-logs/_bulk";
+    log_format elastic;
+    log_index "app-logs-%Y.%m";
+}
+
+entrypoint {
+    handler grok;
+    grok app_syslog;
+    allow 127.0.0.1;
+    udp 127.0.0.1:1514;
+    log_channel_out app-syslog-os;
+}
+```
+
+Эквивалент в JSON:
+
+```json
+{
+  "grok_patterns": ["/etc/grok-patterns/patterns.conf"],
+  "grok": [
+    {
+      "key": "app_syslog",
+      "name": "app_syslog",
+      "match": "^<%{NONNEGINT:syslog_pri}>%{TIMESTAMP_ISO8601:syslog_ts} %{SYSLOGHOST:host} %{PROG:process_name}(?:\\[%{POSINT:process_pid}\\])?:\\s*(?::\\s*)?%{GREEDYDATA:message}$"
+    }
+  ],
+  "log_channel": [
+    {
+      "name": "app-syslog-os",
+      "dest": "http://writer:secret@logs.example.com:9200/app-logs/_bulk",
+      "log_format": "elastic",
+      "log_index": "app-logs-%Y.%m"
+    }
+  ],
+  "entrypoint": [
+    {
+      "handler": "grok",
+      "grok": "app_syslog",
+      "allow": ["127.0.0.1"],
+      "udp": ["127.0.0.1:1514"],
+      "log_channel_out": "app-syslog-os"
+    }
+  ]
+}
+```
+
+При match отправляется document с captures (`syslog_pri`, `syslog_ts`, `host`,
+`process_name`, `process_pid`, `message`) плюс `@timestamp` / metadata из
+`log_format elastic`.
+
+Проверка:
+
+```bash
+printf '%s\n' '<6>2026-09-09T19:03:15+03:00 app01.prod.example.com inventoryd[830815]: : stock sync failed sku=42' \
+  | nc -u -w1 127.0.0.1 1514
+curl -s localhost:1111/conf | jq '.log_channel, (.entrypoint[] | select(.key|test("1514")))'
+curl -s localhost:1111/metrics | grep 'alligator_log_channel_.*kind="out"'
+```
+
+`alligator_log_channel_sent_total{kind="out",channel="app-syslog-os"}` должен расти.
+Если остаётся ноль — grok `match` не попал в строку (raw passthrough всё ещё работает
+с `handler log` + `log_channel_raw`, но без извлечения полей).
 
 ```json
 {

@@ -82,6 +82,7 @@ int context_allows_raw_log(const struct context_arg *carg);
  */
 void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);
+void log_channels_generate_conf(json_t *dst);
 void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options);
 
 enum {

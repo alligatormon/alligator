@@ -38,6 +38,10 @@ Alligator нормализует имена в стиле Elastic (`[process][na
 (совпавшая строка). Метрики по-прежнему создаются как обычно (двойной приёмник).
 Это расширение Alligator — не часть самого Elastic Grok.
 
+На entrypoint нужен `handler grok` (не `handler log`). Полный пример UDP syslog →
+OpenSearch см. в
+[configuration.md — Transformed log sink](configuration.md#transformed-log-sink-log_channel_out).
+
 
 ## bucket
 По умолчанию: -\

@@ -29,6 +29,7 @@ struct log_http_sink {
 	uv_getaddrinfo_t getaddrinfo_req;
 	char *host;
 	char *path;
+	char *auth_basic_b64;
 	int port;
 	int state;
 	uint8_t write_in_flight;
@@ -116,14 +117,18 @@ static char *log_http_build_request(log_http_sink *sink, const char *body, size_
 	char *req;
 	size_t hdrlen;
 	int n;
+	const char *auth_header = "";
 
 	if (!sink || !body || !bodylen || !outlen)
 		return NULL;
 
+	if (sink->auth_basic_b64 && sink->auth_basic_b64[0])
+		auth_header = sink->auth_basic_b64;
+
 	n = snprintf(NULL, 0,
-	    "POST %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/x-ndjson\r\nContent-Length: %zu\r\nConnection: keep-alive\r\n\r\n",
+	    "POST %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/x-ndjson\r\nContent-Length: %zu\r\nConnection: keep-alive\r\n%s\r\n",
 	    sink->path ? sink->path : "/", sink->host ? sink->host : "localhost",
-	    sink->port, bodylen);
+	    sink->port, bodylen, auth_header);
 	if (n < 0)
 		return NULL;
 
@@ -133,9 +138,9 @@ static char *log_http_build_request(log_http_sink *sink, const char *body, size_
 		return NULL;
 
 	snprintf(req, hdrlen + 1,
-	    "POST %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/x-ndjson\r\nContent-Length: %zu\r\nConnection: keep-alive\r\n\r\n",
+	    "POST %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/x-ndjson\r\nContent-Length: %zu\r\nConnection: keep-alive\r\n%s\r\n",
 	    sink->path ? sink->path : "/", sink->host ? sink->host : "localhost",
-	    sink->port, bodylen);
+	    sink->port, bodylen, auth_header);
 	memcpy(req + hdrlen, body, bodylen);
 	req[hdrlen + bodylen] = '\0';
 	*outlen = hdrlen + bodylen;
@@ -477,6 +482,7 @@ static void log_http_sink_destroy(log_http_sink *sink)
 	pthread_mutex_destroy(&sink->lock);
 	free(sink->host);
 	free(sink->path);
+	free(sink->auth_basic_b64);
 	free(sink);
 }
 
@@ -509,9 +515,10 @@ static log_http_sink *log_http_sink_create(void)
 	return sink;
 }
 
-void log_http_sink_open(log_channel *ch, const char *host, int port, const char *path)
+void log_http_sink_open(log_channel *ch, const char *host, int port, const char *path, const char *auth_basic_b64)
 {
 	log_http_sink *sink;
+	char *auth_header = NULL;
 
 	if (!ch || !host || !host[0] || port <= 0)
 		return;
@@ -531,8 +538,22 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 		free(sink->host);
 	if (sink->path)
 		free(sink->path);
+	if (sink->auth_basic_b64)
+		free(sink->auth_basic_b64);
+
+	if (auth_basic_b64 && auth_basic_b64[0])
+	{
+		int n = snprintf(NULL, 0, "Authorization: Basic %s\r\n", auth_basic_b64);
+		if (n > 0)
+		{
+			auth_header = calloc(1, (size_t)n + 1);
+			if (auth_header)
+				snprintf(auth_header, (size_t)n + 1, "Authorization: Basic %s\r\n", auth_basic_b64);
+		}
+	}
 	sink->host = strdup(host);
 	sink->path = path && path[0] ? strdup(path) : strdup("/");
+	sink->auth_basic_b64 = auth_header;
 	sink->port = port;
 	sink->closing = 0;
 

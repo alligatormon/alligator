@@ -233,6 +233,30 @@ static int os_volume_status(const char *s)
 	return os_map_named(names, sizeof(names) / sizeof(names[0]), s);
 }
 
+static int os_is_leap(int y)
+{
+	return (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
+}
+
+static int64_t os_timegm(const struct tm *tm)
+{
+	static const int cum[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+	int y = tm->tm_year + 1900;
+	int m = tm->tm_mon;
+	int i;
+	int64_t days = 0;
+
+	if (m < 0 || m > 11)
+		return 0;
+	for (i = 1970; i < y; i++)
+		days += os_is_leap(i) ? 366 : 365;
+	days += cum[m];
+	if (m > 1 && os_is_leap(y))
+		days++;
+	days += tm->tm_mday - 1;
+	return days * 86400LL + (int64_t)tm->tm_hour * 3600 + tm->tm_min * 60 + tm->tm_sec;
+}
+
 static int64_t os_parse_time(const char *s)
 {
 	struct tm tm;
@@ -244,7 +268,7 @@ static int64_t os_parse_time(const char *s)
 	p = strptime(s, "%Y-%m-%dT%H:%M:%S", &tm);
 	if (!p)
 		return 0;
-	return (int64_t)timegm(&tm);
+	return os_timegm(&tm);
 }
 
 static void os_join_url(char *dst, size_t n, const char *base, const char *path)

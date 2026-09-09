@@ -21,6 +21,7 @@
 #include "amtail/type.h"
 #include "vrl/type.h"
 #include "grok/type.h"
+#include "parsers/multiparser.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -1330,6 +1331,30 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "name", name);
 	}
 
+	if (carg->parser_handler == &log_handler)
+		json_array_object_insert(ctx, "handler", json_string("log"));
+	else if (carg->parser_handler == &grok_handler)
+		json_array_object_insert(ctx, "handler", json_string("grok"));
+	else if (carg->parser_handler == &amtail_handler)
+		json_array_object_insert(ctx, "handler", json_string("mtail"));
+	else if (carg->parser_handler == &vrl_handler)
+		json_array_object_insert(ctx, "handler", json_string("vrl"));
+	else if (carg->parser_handler == &rsyslog_impstats_handler)
+		json_array_object_insert(ctx, "handler", json_string("rsyslog-impstats"));
+	else if (carg->parser_handler == &auditd_handler)
+		json_array_object_insert(ctx, "handler", json_string("auditd"));
+	else if (carg->parser_handler == &lang_parser_handler)
+		json_array_object_insert(ctx, "handler", json_string("lang"));
+	else if (carg->parser_name)
+		json_array_object_insert(ctx, "handler", json_string(carg->parser_name));
+
+	if (carg->log_ch && carg->log_ch->name && !carg->log_ch->is_default)
+		json_array_object_insert(ctx, "log_channel", json_string(carg->log_ch->name));
+	if (carg->log_ch_raw && carg->log_ch_raw->name && !carg->log_ch_raw->is_default)
+		json_array_object_insert(ctx, "log_channel_raw", json_string(carg->log_ch_raw->name));
+	if (carg->log_ch_out && carg->log_ch_out->name && !carg->log_ch_out->is_default)
+		json_array_object_insert(ctx, "log_channel_out", json_string(carg->log_ch_out->name));
+
 	if (carg->metric_aggregation)
 	{
 		if (carg->metric_aggregation == ENTRYPOINT_AGGREGATION_COUNT)
@@ -1787,6 +1812,7 @@ json_t *config_get()
 	cgarg.dst = dst;
 
 	config_global_get(dst);
+	log_channels_generate_conf(dst);
 	alligator_ht_foreach_arg(ac->aggregators, aggregator_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->lang_aggregator, lang_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->fs_x509, fs_x509_generate_conf, dst);
