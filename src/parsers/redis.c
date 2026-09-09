@@ -42,7 +42,7 @@ void redis_query(char *metrics, size_t size, context_arg *carg)
 		uint64_t cur = i;
 		cur += strcspn(metrics + cur, " \n");
 		cur += strspn(metrics + cur, " \n");
-		carglog(carg, L_DEBUG, "metric name is %s\n", redis_keys[j]);
+		carglog(carg, L_DEBUG, "redis: metric name='%s'\n", redis_keys[j]);
 
 		metric_name_normalizer(redis_keys[j], strlen(redis_keys[j]));
 
@@ -108,7 +108,7 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 		// ITEM third_metric
 		if ((*field != '$') && (*field != '*'))
 		{
-			carglog(carg, L_TRACE, "is item\n");
+			carglog(carg, L_TRACE, "redis: KEYS entry is an item name (not size prefix)\n");
 
 			copysize = strcspn(field, " \t\n");
 			string_cat(get_query, " ", 1);

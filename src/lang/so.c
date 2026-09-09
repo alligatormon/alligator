@@ -25,11 +25,11 @@ char* so_run_script(void* (*func)(char *, char*, char*, char*, char*, char*, cha
 
 	if (func)
 	{
-		langlog(lo, L_DEBUG, "so module run '%s' '%s'\n", key, metrics_str);
+		langlog(lo, L_DEBUG, "lang so: run key='%s' metrics='%s'\n", key, metrics_str);
 		ret = func(script, data, arg, metrics_str, conf_str, parser_data_str, response_str, queries_str);
 	}
 
-	langlog(lo, L_DEBUG, "so module with key '%s' return:\n%s\n", key, ret);
+	langlog(lo, L_DEBUG, "lang so: key='%s' returned:\n%s\n", key, ret);
 
 	return ret;
 }
@@ -40,7 +40,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 
 	if (!lo->module)
 	{
-		langlog(lo, L_ERROR, "No defined module for key '%s', module: %s\n", lo->key, lo->module ? lo->module : "");
+		langlog(lo, L_ERROR, "lang so: no module name configured for key='%s'\n", lo->key);
 		return NULL;
 	}
 
@@ -49,7 +49,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 
 	if (!lo->lib)
 	{
-		langlog(lo, L_ERROR, "No defined library in configuration\n");
+		langlog(lo, L_ERROR, "lang so: shared library module '%s' is not loaded in configuration\n", lo->module);
 		return NULL;
 	}
 
@@ -58,7 +58,7 @@ char* so_run(lang_options *lo, char* script, char *file, char *data, char *arg, 
 		lo->func = (void*)module_load(lo->lib->path, lo->method, &lo->func_lib);
 		if (!lo->func)
 		{
-			langlog(lo, L_ERROR, "Cannot get '%s' from '%s'\n", lo->method, lo->module);
+			langlog(lo, L_ERROR, "lang so: cannot resolve symbol '%s' in module '%s'\n", lo->method, lo->module);
 			return NULL;
 		}
 	}

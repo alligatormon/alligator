@@ -1,0 +1,6 @@
+openvpn_connected_clients
+openvpn_client_received_bytes_total
+openvpn_client_sent_bytes_total
+openvpn_status_updated_seconds
+openvpn_max_bcast_mcast_queue_length
+openvpn_route_last_ref_seconds

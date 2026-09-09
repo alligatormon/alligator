@@ -13,6 +13,9 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include "parsers/mongodb_wire_bson.h"
+#include "parsers/kafka.h"
+#include "resolver/dns.h"
+#include "resolver/resolver.h"
 #include "metric/metric_types.h"
 #include "dstructures/ngram/ngram.h"
 void tftp_handler(char *metrics, size_t size, context_arg *carg);
@@ -82,7 +85,7 @@ void api_test_parser_ntp() {
     free(short_carg);
 }
 
-static void parser_push_roundtrip(const char *key, void (*push)(void))
+static void parser_push_roundtrip_n(const char *key, void (*push)(void), int handlers, const char *handler0_key)
 {
     alligator_ht *saved_ctx = ac->aggregate_ctx;
     ac->aggregate_ctx = alligator_ht_init(NULL);
@@ -90,8 +93,8 @@ static void parser_push_roundtrip(const char *key, void (*push)(void))
     push();
     aggregate_context *ctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, (char *)key, tommy_strhash_u32(0, key));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ctx);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ctx->handlers);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)key, ctx->handler[0].key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, handlers, ctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)handler0_key, ctx->handler[0].key);
     aggregate_context *rm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, (char *)key, tommy_strhash_u32(0, key));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, rm);
     free(rm->handler);
@@ -100,6 +103,11 @@ static void parser_push_roundtrip(const char *key, void (*push)(void))
     alligator_ht_done(ac->aggregate_ctx);
     free(ac->aggregate_ctx);
     ac->aggregate_ctx = saved_ctx;
+}
+
+static void parser_push_roundtrip(const char *key, void (*push)(void))
+{
+    parser_push_roundtrip_n(key, push, 1, key);
 }
 
 void api_test_parser_nginx_stub_status()
@@ -156,6 +164,527 @@ void api_test_parser_fail2ban()
     metric_test_run(CMP_EQUAL, "fail2ban_jails", "fail2ban_jails", 3);
     free(carg);
     parser_push_roundtrip("fail2ban", fail2ban_parser_push);
+}
+
+void api_test_parser_openvpn()
+{
+    char *v2 =
+        ">INFO:OpenVPN Management Interface Version 3\n"
+        "SUCCESS: nclients=2,bytesin=999,bytesout=888\n"
+        "TITLE,OpenVPN 2.5.9\n"
+        "TIME,Thu Sep  8 23:00:00 2026,1694200000\n"
+        "HEADER,CLIENT_LIST,Common Name,Real Address,Virtual Address,Virtual IPv6 Address,Bytes Received,Bytes Sent,Connected Since,Connected Since (time_t),Username,Client ID,Peer ID,Data Channel Cipher\n"
+        "CLIENT_LIST,ovpn_ut_alice,1.2.3.4:1194,10.8.0.2,,12345,67890,Thu Sep  8 22:00:00 2026,1694196000,alice,0,0,AES-256-GCM\n"
+        "CLIENT_LIST,ovpn_ut_bob,5.6.7.8:1194,10.8.0.3,,100,200,Thu Sep  8 22:10:00 2026,1694196600,UNDEF,1,1,AES-256-GCM\n"
+        "HEADER,ROUTING_TABLE,Virtual Address,Common Name,Real Address,Last Ref,Last Ref (time_t)\n"
+        "ROUTING_TABLE,10.8.0.2,ovpn_ut_alice,1.2.3.4:1194,Thu Sep  8 22:55:00 2026,1694199900\n"
+        "GLOBAL_STATS,Max bcast/mcast queue length,3\n"
+        "END\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    openvpn_handler(v2, strlen(v2), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openvpn_connected_clients", "openvpn_connected_clients", 2);
+    metric_test_run(CMP_EQUAL, "openvpn_status_updated_seconds", "openvpn_status_updated_seconds", 1694200000);
+    metric_test_run(CMP_EQUAL, "openvpn_max_bcast_mcast_queue_length", "openvpn_max_bcast_mcast_queue_length", 3);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_in_total", "openvpn_bytes_in_total", 999);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_out_total", "openvpn_bytes_out_total", 888);
+    metric_test_run(CMP_EQUAL, "openvpn_client_received_bytes_total{common_name=\"ovpn_ut_alice\"}", "openvpn_client_received_bytes_total", 12345);
+    metric_test_run(CMP_EQUAL, "openvpn_client_sent_bytes_total{common_name=\"ovpn_ut_alice\"}", "openvpn_client_sent_bytes_total", 67890);
+    metric_test_run(CMP_EQUAL, "openvpn_client_connected_since_seconds{common_name=\"ovpn_ut_alice\"}", "openvpn_client_connected_since_seconds", 1694196000);
+    metric_test_run(CMP_EQUAL, "openvpn_client_received_bytes_total{common_name=\"ovpn_ut_bob\",username=\"UNDEF\"}", "openvpn_client_received_bytes_total", 100);
+    metric_test_run(CMP_EQUAL, "openvpn_route_last_ref_seconds{common_name=\"ovpn_ut_alice\",virtual_address=\"10.8.0.2\"}", "openvpn_route_last_ref_seconds", 1694199900);
+    free(carg);
+
+    char *v3 =
+        "TITLE\tOpenVPN 2.6.0\n"
+        "TIME\tThu Sep  8 23:00:00 2026\t1694201111\n"
+        "HEADER\tCLIENT_LIST\tCommon Name\tReal Address\tVirtual Address\tVirtual IPv6 Address\tBytes Received\tBytes Sent\tConnected Since\tConnected Since (time_t)\tUsername\tClient ID\tPeer ID\tData Channel Cipher\n"
+        "CLIENT_LIST\tovpn_ut_tab\t9.9.9.9:1194\t10.8.0.9\t\t42\t43\tThu Sep  8 22:00:00 2026\t1694197000\tcarol\t0\t0\tAES-256-GCM\n"
+        "GLOBAL_STATS\tMax bcast/mcast queue length\t1\n"
+        "END\n";
+    carg = calloc(1, sizeof(*carg));
+    openvpn_handler(v3, strlen(v3), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openvpn_connected_clients", "openvpn_connected_clients", 1);
+    metric_test_run(CMP_EQUAL, "openvpn_status_updated_seconds", "openvpn_status_updated_seconds", 1694201111);
+    metric_test_run(CMP_EQUAL, "openvpn_client_received_bytes_total{common_name=\"ovpn_ut_tab\"}", "openvpn_client_received_bytes_total", 42);
+    metric_test_run(CMP_EQUAL, "openvpn_client_sent_bytes_total{common_name=\"ovpn_ut_tab\",username=\"carol\"}", "openvpn_client_sent_bytes_total", 43);
+    free(carg);
+
+    char *v1 =
+        "OpenVPN CLIENT LIST\n"
+        "Updated,Thu Sep  8 23:00:00 2026\n"
+        "Common Name,Real Address,Bytes Received,Bytes Sent,Connected Since\n"
+        "ovpn_ut_v1,10.0.0.1:1194,11,22,Thu Sep  8 22:00:00 2026\n"
+        "ROUTING TABLE\n"
+        "Virtual Address,Common Name,Real Address,Last Ref\n"
+        "10.8.0.4,ovpn_ut_v1,10.0.0.1:1194,Thu Sep  8 22:55:00 2026\n"
+        "GLOBAL STATS\n"
+        "Max bcast/mcast queue length,7\n"
+        "END\n";
+    carg = calloc(1, sizeof(*carg));
+    openvpn_handler(v1, strlen(v1), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openvpn_connected_clients", "openvpn_connected_clients", 1);
+    metric_test_run(CMP_EQUAL, "openvpn_client_received_bytes_total{common_name=\"ovpn_ut_v1\"}", "openvpn_client_received_bytes_total", 11);
+    metric_test_run(CMP_EQUAL, "openvpn_client_sent_bytes_total{common_name=\"ovpn_ut_v1\"}", "openvpn_client_sent_bytes_total", 22);
+    metric_test_run(CMP_EQUAL, "openvpn_max_bcast_mcast_queue_length", "openvpn_max_bcast_mcast_queue_length", 7);
+    free(carg);
+
+    char *cli =
+        "OpenVPN STATISTICS\n"
+        "Updated,Thu Sep  8 23:00:00 2026\n"
+        "TUN/TAP read bytes,100\n"
+        "TUN/TAP write bytes,200\n"
+        "TCP/UDP read bytes,300\n"
+        "TCP/UDP write bytes,400\n"
+        "Auth read bytes,50\n"
+        "pre-compress bytes,1\n"
+        "post-compress bytes,2\n"
+        "pre-decompress bytes,3\n"
+        "post-decompress bytes,4\n"
+        "END\n";
+    carg = calloc(1, sizeof(*carg));
+    openvpn_handler(cli, strlen(cli), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tun_tap_read\"}", "openvpn_bytes", 100);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tun_tap_write\"}", "openvpn_bytes", 200);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tcp_udp_read\"}", "openvpn_bytes", 300);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tcp_udp_write\"}", "openvpn_bytes", 400);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"auth_read\"}", "openvpn_bytes", 50);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"post_decompress\"}", "openvpn_bytes", 4);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    openvpn_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    openvpn_handler("not a status dump", 17, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, openvpn_validator(carg, v2, strlen(v2)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, openvpn_validator(carg, "partial", 7));
+    free(carg);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    hi->proto = APROTO_FILE;
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, openvpn_mesg(hi, NULL, NULL, NULL));
+    hi->proto = APROTO_TCP;
+    string *msg = openvpn_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "load-stats\nstatus 2\nquit\n", msg->s);
+    string_free(msg);
+    hi->pass = "secret";
+    msg = openvpn_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "secret\nload-stats\nstatus 2\nquit\n", msg->s);
+    string_free(msg);
+    free(hi);
+
+    parser_push_roundtrip("openvpn", openvpn_parser_push);
+}
+
+void api_test_parser_opennebula()
+{
+    char *hosts =
+        "<HOST_POOL>"
+        "<HOST><ID>0</ID><NAME>one_ut_hv1</NAME><STATE>2</STATE><CLUSTER>prod</CLUSTER>"
+        "<HOST_SHARE><TOTAL_CPU>400</TOTAL_CPU><MAX_CPU>400</MAX_CPU><CPU_USAGE>150</CPU_USAGE>"
+        "<FREE_CPU>250</FREE_CPU><TOTAL_MEM>8192</TOTAL_MEM><MEM_USAGE>2048</MEM_USAGE><MAX_MEM>8192</MAX_MEM>"
+        "</HOST_SHARE></HOST>"
+        "<HOST><ID>1</ID><NAME>one_ut_hv2</NAME><STATE>3</STATE><CLUSTER_ID>7</CLUSTER_ID>"
+        "<HOST_SHARE><TOTAL_CPU>800</TOTAL_CPU><MAX_CPU>700</MAX_CPU><CPU_USAGE>10</CPU_USAGE>"
+        "<FREE_CPU>690</FREE_CPU><TOTAL_MEM>16384</TOTAL_MEM><MEM_USAGE>100</MEM_USAGE><MAX_MEM>15000</MAX_MEM>"
+        "</HOST_SHARE></HOST>"
+        "</HOST_POOL>";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    opennebula_hosts_handler(hosts, strlen(hosts), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_status{hostname=\"one_ut_hv1\",cluster=\"prod\"}", "opennebula_monitoring_host_status", 2);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_total{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_cpu_total", 400);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_max{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_cpu_max", 400);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_used{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_cpu_used", 150);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_free_cpu{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_host_free_cpu", 250);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_total{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_total", 8192);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_allocated{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_allocated", 2048);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_max{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_max", 8192);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_status{hostname=\"one_ut_hv2\",cluster=\"7\"}", "opennebula_monitoring_host_status", 3);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_max{hostname=\"one_ut_hv2\"}", "opennebula_monitoring_cpu_max", 700);
+    free(carg);
+
+    char *hosts_rpc =
+        "<?xml version='1.0'?><methodResponse><params><param><value><array><data>"
+        "<value><boolean>1</boolean></value><value><string>"
+        "&lt;HOST_POOL&gt;&lt;HOST&gt;&lt;NAME&gt;one_ut_rpc&lt;/NAME&gt;&lt;STATE&gt;2&lt;/STATE&gt;"
+        "&lt;CLUSTER&gt;lab&lt;/CLUSTER&gt;&lt;HOST_SHARE&gt;&lt;TOTAL_CPU&gt;100&lt;/TOTAL_CPU&gt;"
+        "&lt;MAX_CPU&gt;100&lt;/MAX_CPU&gt;&lt;CPU_USAGE&gt;25&lt;/CPU_USAGE&gt;&lt;FREE_CPU&gt;75&lt;/FREE_CPU&gt;"
+        "&lt;TOTAL_MEM&gt;1024&lt;/TOTAL_MEM&gt;&lt;MEM_USAGE&gt;128&lt;/MEM_USAGE&gt;&lt;MAX_MEM&gt;1024&lt;/MAX_MEM&gt;"
+        "&lt;/HOST_SHARE&gt;&lt;/HOST&gt;&lt;/HOST_POOL&gt;"
+        "</string></value><value><i4>0</i4></value>"
+        "</data></array></value></param></params></methodResponse>";
+    carg = calloc(1, sizeof(*carg));
+    opennebula_hosts_handler(hosts_rpc, strlen(hosts_rpc), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_status{hostname=\"one_ut_rpc\",cluster=\"lab\"}", "opennebula_monitoring_host_status", 2);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_free_cpu{hostname=\"one_ut_rpc\"}", "opennebula_monitoring_host_free_cpu", 75);
+    free(carg);
+
+    char *vms =
+        "<VM_POOL><VM><ID>5</ID><UNAME>oneadmin</UNAME><NAME>one_ut_vm1</NAME><STATE>3</STATE>"
+        "<TEMPLATE><CPU><![CDATA[2.5]]></CPU><MEMORY>4096</MEMORY></TEMPLATE></VM></VM_POOL>";
+    carg = calloc(1, sizeof(*carg));
+    opennebula_vms_handler(vms, strlen(vms), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_status{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_status", 3);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_cpu{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_cpu", 2.5);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_memory{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_memory", 4096);
+    free(carg);
+
+    char *vnets =
+        "<VNET_POOL><VNET><NAME>one_ut_net</NAME><USED_LEASES>3</USED_LEASES>"
+        "<AR_POOL><AR><SIZE>256</SIZE></AR><AR><SIZE>16</SIZE></AR></AR_POOL></VNET></VNET_POOL>";
+    carg = calloc(1, sizeof(*carg));
+    opennebula_vnets_handler(vnets, strlen(vnets), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vnet_total{vnet=\"one_ut_net\"}", "opennebula_monitoring_vnet_total", 272);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vnet_leases{vnet=\"one_ut_net\"}", "opennebula_monitoring_vnet_leases", 3);
+    free(carg);
+
+    char *ds =
+        "<DATASTORE_POOL><DATASTORE><NAME>one_ut_ds</NAME><STATE>0</STATE>"
+        "<TOTAL_MB>100000</TOTAL_MB><FREE_MB>40000</FREE_MB><USED_MB>60000</USED_MB></DATASTORE></DATASTORE_POOL>";
+    carg = calloc(1, sizeof(*carg));
+    opennebula_datastores_handler(ds, strlen(ds), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_status{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_status", 0);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_total{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_total", 100000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_free{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_free", 40000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_used{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_used", 60000);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    opennebula_hosts_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    opennebula_hosts_handler("not xml-rpc", 11, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    host_aggregator_info *hi = parse_url("https://oneadmin:secret@127.0.0.1:2633", strlen("https://oneadmin:secret@127.0.0.1:2633"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    string *msg = opennebula_hosts_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "POST ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "/RPC2") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "one.hostpool.info") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "oneadmin:secret") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "Content-Type: text/xml") != NULL);
+    string_free(msg);
+    msg = opennebula_vms_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "one.vmpool.info") != NULL);
+    string_free(msg);
+    msg = opennebula_vnets_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "one.vnpool.info") != NULL);
+    string_free(msg);
+    msg = opennebula_datastores_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "one.datastorepool.info") != NULL);
+    string_free(msg);
+    url_free(hi);
+
+    parser_push_roundtrip_n("opennebula", opennebula_parser_push, 4, "opennebula_hosts");
+}
+
+static string *os_mock_file(char *binary, char *pathbuf, const char *name)
+{
+    char extra[PATH_MAX];
+
+    snprintf(extra, sizeof(extra), "tests/mock/openstack/%s", name);
+    get_local_directory(pathbuf, binary, extra);
+    return get_file_content(pathbuf, 0);
+}
+
+void api_test_parser_openstack(char *binary)
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    char *pathbuf = malloc(PATH_MAX + 1);
+    string *msg;
+    host_aggregator_info *hi;
+    json_t *cfg;
+    void *settings;
+    aggregate_context actx;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pathbuf);
+
+    msg = os_mock_file(binary, pathbuf, "identity_domains.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_identity_domains_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "identity_users.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_identity_users_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "identity_groups.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_identity_groups_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "identity_projects.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_identity_projects_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "identity_regions.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_identity_regions_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_flavors.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_flavors_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_availability_zones.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_az_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_security_groups.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_secgroups_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_services.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_services_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_hypervisors.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_hypervisors_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "nova_os_servers.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_nova_servers_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_networks.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_networks_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_subnets.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_subnets_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_ports.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_ports_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_floating_ips.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_floatingips_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_routers.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_routers_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_security_groups.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_secgroups_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "neutron_agents.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_neutron_agents_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "cinder_volumes.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_cinder_volumes_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "cinder_snapshots.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_cinder_snapshots_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "cinder_backups.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_cinder_backups_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "cinder_os_services.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_cinder_services_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "cinder_scheduler_stats_pools.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_cinder_pools_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "glance_images.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    openstack_glance_images_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    msg = os_mock_file(binary, pathbuf, "auth_token.json");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto os_done;
+    carg->parser_status = 0;
+    openstack_auth_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+
+    metric_test_run(CMP_EQUAL, "openstack_identity_domains", "openstack_identity_domains", 1);
+    metric_test_run(CMP_EQUAL, "openstack_identity_domain_info{id=\"default\",name=\"Default\"}", "openstack_identity_domain_info", 1);
+    metric_test_run(CMP_EQUAL, "openstack_identity_users", "openstack_identity_users", 2);
+    metric_test_run(CMP_EQUAL, "openstack_identity_groups", "openstack_identity_groups", 2);
+    metric_test_run(CMP_EQUAL, "openstack_identity_projects", "openstack_identity_projects", 8);
+    metric_test_run(CMP_EQUAL, "openstack_identity_regions", "openstack_identity_regions", 1);
+    metric_test_run(CMP_EQUAL, "openstack_identity_catalog_services", "openstack_identity_catalog_services", 5);
+    metric_test_run(CMP_EQUAL, "openstack_identity_up", "openstack_identity_up", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_flavors", "openstack_nova_flavors", 8);
+    metric_test_run(CMP_EQUAL, "openstack_nova_flavor{id=\"1\",name=\"m1.tiny\"}", "openstack_nova_flavor", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_availability_zones", "openstack_nova_availability_zones", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_security_groups", "openstack_nova_security_groups", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_total_vms", "openstack_nova_total_vms", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_server_status{name=\"new-server-test\"}", "openstack_nova_server_status", 0);
+    metric_test_run(CMP_EQUAL, "openstack_nova_running_vms{hostname=\"fake-mini\"}", "openstack_nova_running_vms", 1);
+    metric_test_run(CMP_EQUAL, "openstack_nova_vcpus_available{hostname=\"host1\"}", "openstack_nova_vcpus_available", 4);
+    metric_test_run(CMP_EQUAL, "openstack_nova_vcpus_used{hostname=\"host1\"}", "openstack_nova_vcpus_used", 0);
+    metric_test_run(CMP_EQUAL, "openstack_nova_memory_available_bytes{hostname=\"host1\"}", "openstack_nova_memory_available_bytes", 8589934592);
+    metric_test_run(CMP_EQUAL, "openstack_nova_memory_used_bytes{hostname=\"host1\"}", "openstack_nova_memory_used_bytes", 536870912);
+    metric_test_run(CMP_EQUAL, "openstack_nova_up", "openstack_nova_up", 1);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_networks", "openstack_neutron_networks", 2);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_subnets", "openstack_neutron_subnets", 4);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_ports", "openstack_neutron_ports", 3);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_ports_no_ips", "openstack_neutron_ports_no_ips", 1);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_ports_lb_not_active", "openstack_neutron_ports_lb_not_active", 1);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_floating_ips", "openstack_neutron_floating_ips", 4);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_routers", "openstack_neutron_routers", 2);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_routers_not_active", "openstack_neutron_routers_not_active", 1);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_security_groups", "openstack_neutron_security_groups", 1);
+    metric_test_run(CMP_EQUAL, "openstack_neutron_up", "openstack_neutron_up", 1);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_volumes", "openstack_cinder_volumes", 2);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_volume_gb{name=\"test-volume-attachments\"}", "openstack_cinder_volume_gb", 2);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_volume_status_counter{status=\"in-use\"}", "openstack_cinder_volume_status_counter", 1);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_volume_status_counter{status=\"available\"}", "openstack_cinder_volume_status_counter", 1);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_snapshots", "openstack_cinder_snapshots", 1);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_backups", "openstack_cinder_backups", 2);
+    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_free_gb{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_free_gb", 600);
+    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_total_gb{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_total_gb", 1600);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_up", "openstack_cinder_up", 1);
+    metric_test_run(CMP_EQUAL, "openstack_glance_images", "openstack_glance_images", 2);
+    metric_test_run(CMP_EQUAL, "openstack_glance_image_bytes{name=\"cirros-0.3.2-x86_64-disk\"}", "openstack_glance_image_bytes", 13167616);
+    metric_test_run(CMP_EQUAL, "openstack_glance_up", "openstack_glance_up", 1);
+
+    carg->parser_status = 0;
+    openstack_auth_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    openstack_identity_domains_handler("not-json", 8, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+
+    hi = parse_url("http://admin:secret@127.0.0.1:5000", strlen("http://admin:secret@127.0.0.1:5000"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    cfg = json_loads("{\"project\":\"demo\",\"user_domain\":\"Default\",\"project_domain\":\"Default\"}", 0, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+    settings = openstack_data_func(hi, NULL, cfg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, settings);
+    memset(&actx, 0, sizeof(actx));
+    actx.data = settings;
+    msg = openstack_auth_mesg(hi, &actx, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "POST ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "/v3/auth/tokens") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "application/json") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "\"name\":\"demo\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "\"name\":\"admin\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "\"password\":\"secret\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "Authorization: Basic") == NULL);
+    string_free(msg);
+    free(settings);
+    json_decref(cfg);
+    url_free(hi);
+
+    hi = parse_url("http://admin:secret@127.0.0.1:5000/v3", strlen("http://admin:secret@127.0.0.1:5000/v3"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    msg = openstack_auth_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(msg->s, "/v3/auth/tokens") != NULL);
+    string_free(msg);
+    url_free(hi);
+
+    parser_push_roundtrip("openstack", openstack_parser_push);
+
+os_done:
+    free(pathbuf);
+    free(carg);
 }
 
 extern string* chrony_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
@@ -272,6 +801,210 @@ void api_test_parser_chrony()
     parser_push_roundtrip("chrony", chrony_parser_push);
 }
 
+static int test_dnsmasq_pack_txt(char *buf, int buflen, const char *qname, const char *txt)
+{
+    dns_t pkt;
+    dns_rr_t question;
+    dns_rr_t answer;
+    char rdata[256];
+    size_t tlen;
+
+    memset(&pkt, 0, sizeof(pkt));
+    memset(&question, 0, sizeof(question));
+    memset(&answer, 0, sizeof(answer));
+    tlen = strlen(txt);
+    if (tlen > 255)
+        tlen = 255;
+    rdata[0] = (char)tlen;
+    memcpy(rdata + 1, txt, tlen);
+
+    pkt.hdr.transaction_id = 7;
+    pkt.hdr.qr = DNS_RESPONSE;
+    pkt.hdr.rd = 1;
+    pkt.hdr.ra = 1;
+    pkt.hdr.nquestion = 1;
+    pkt.hdr.nanswer = 1;
+    strlcpy(question.name, qname, DNS_NAME_MAXLEN);
+    question.rtype = DNS_TYPE_TXT;
+    question.rclass = DNS_CLASS_CHAOS;
+    strlcpy(answer.name, qname, DNS_NAME_MAXLEN);
+    answer.rtype = DNS_TYPE_TXT;
+    answer.rclass = DNS_CLASS_CHAOS;
+    answer.ttl = 0;
+    answer.data = rdata;
+    answer.datalen = (uint16_t)(tlen + 1);
+    pkt.questions = &question;
+    pkt.answers = &answer;
+    return dns_pack(&pkt, buf, buflen);
+}
+
+void api_test_parser_dnsmasq()
+{
+    char buf[512];
+    int n;
+    context_arg *carg;
+    host_aggregator_info hi;
+
+    n = test_dnsmasq_pack_txt(buf, (int)sizeof(buf), "hits.bind", "42");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n > (int)sizeof(dnshdr_t));
+    carg = calloc(1, sizeof(*carg));
+    dnsmasq_handler(buf, (size_t)n, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "dnsmasq_hits", "dnsmasq_hits", 42);
+    free(carg);
+
+    n = test_dnsmasq_pack_txt(buf, (int)sizeof(buf), "cachesize.bind", "150");
+    carg = calloc(1, sizeof(*carg));
+    dnsmasq_handler(buf, (size_t)n, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "dnsmasq_cachesize", "dnsmasq_cachesize", 150);
+    free(carg);
+
+    n = test_dnsmasq_pack_txt(buf, (int)sizeof(buf), "servers.bind", "8.8.8.8#53 10 2");
+    carg = calloc(1, sizeof(*carg));
+    dnsmasq_handler(buf, (size_t)n, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries", 10);
+    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries_failed{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries_failed", 2);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    dnsmasq_handler("not dns", 7, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    memset(&hi, 0, sizeof(hi));
+    hi.proto = APROTO_UDP;
+    hi.transport = APROTO_UDP;
+    {
+        string *req = dnsmasq_mesg(&hi, NULL, NULL, NULL);
+        dns_t parsed;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dns_unpack(req->s, (int)req->l, &parsed) == (int)req->l);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DNS_QUERY, parsed.hdr.qr);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, parsed.hdr.nquestion);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cachesize.bind", parsed.questions[0].name);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DNS_TYPE_TXT, parsed.questions[0].rtype);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, DNS_CLASS_CHAOS, parsed.questions[0].rclass);
+        dns_free(&parsed);
+        string_free(req);
+    }
+
+    parser_push_roundtrip_n("dnsmasq", dnsmasq_parser_push, 7, "dnsmasq_cachesize");
+}
+
+void api_test_parser_dnsmasq_dhcp()
+{
+    char *leases =
+        "duid 00:01:00:01:aa:bb\n"
+        "2000000000 00:11:22:33:44:55 192.168.1.10 host1 *\n"
+        "10 aa:bb:cc:dd:ee:ff 192.168.1.11 host2 *\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    dnsmasq_dhcp_handler(leases, strlen(leases), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "dnsmasq_dhcp_leases", "dnsmasq_dhcp_leases", 2);
+    metric_test_run(CMP_EQUAL, "dnsmasq_dhcp_leases_active", "dnsmasq_dhcp_leases_active", 1);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    dnsmasq_dhcp_handler("not a lease file", 16, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    parser_push_roundtrip("dnsmasq_dhcp", dnsmasq_dhcp_parser_push);
+}
+
+static void test_freeradius_put_u16(unsigned char *p, uint16_t v)
+{
+    uint16_t n = htons(v);
+    memcpy(p, &n, sizeof(n));
+}
+
+static void test_freeradius_put_u32(unsigned char *p, uint32_t v)
+{
+    uint32_t n = htonl(v);
+    memcpy(p, &n, sizeof(n));
+}
+
+void api_test_parser_freeradius()
+{
+    char *radmin =
+        "Statistics\n"
+        "  Authentication:\n"
+        "    requests = 12\n"
+        "    responses = 11\n"
+        "    accepts = 10\n"
+        "    rejects = 1\n"
+        "    challenges = 0\n"
+        "    dup = 2\n"
+        "  Accounting:\n"
+        "    requests = 4\n"
+        "    responses = 4\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    freeradius_handler(radmin, strlen(radmin), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "freeradius_access_requests_total", "freeradius_access_requests_total", 12);
+    metric_test_run(CMP_EQUAL, "freeradius_access_accepts_total", "freeradius_access_accepts_total", 10);
+    metric_test_run(CMP_EQUAL, "freeradius_access_rejects_total", "freeradius_access_rejects_total", 1);
+    metric_test_run(CMP_EQUAL, "freeradius_auth_duplicate_requests_total", "freeradius_auth_duplicate_requests_total", 2);
+    metric_test_run(CMP_EQUAL, "freeradius_accounting_requests_total", "freeradius_accounting_requests_total", 4);
+    free(carg);
+
+    {
+        char *dump =
+            "Received response ID 1, code 2, length 80\n"
+            "\tFreeRADIUS-Total-Access-Requests = 99\n"
+            "\tFreeRADIUS-Total-Access-Accepts = 80\n"
+            "\tFreeRADIUS-Queue-Len-Auth = 3\n";
+        carg = calloc(1, sizeof(*carg));
+        freeradius_handler(dump, strlen(dump), carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+        metric_test_run(CMP_EQUAL, "freeradius_access_requests_total", "freeradius_access_requests_total", 99);
+        metric_test_run(CMP_EQUAL, "freeradius_access_accepts_total", "freeradius_access_accepts_total", 80);
+        metric_test_run(CMP_EQUAL, "freeradius_queue_len_auth", "freeradius_queue_len_auth", 3);
+        free(carg);
+    }
+
+    {
+        unsigned char pkt[40];
+        memset(pkt, 0, sizeof(pkt));
+        pkt[0] = 2;
+        pkt[1] = 1;
+        test_freeradius_put_u16(pkt + 2, 32);
+        pkt[20] = 26;
+        pkt[21] = 12;
+        test_freeradius_put_u32(pkt + 22, 24757);
+        pkt[26] = 128;
+        pkt[27] = 6;
+        test_freeradius_put_u32(pkt + 28, 7);
+        carg = calloc(1, sizeof(*carg));
+        freeradius_handler((char *)pkt, 32, carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+        metric_test_run(CMP_EQUAL, "freeradius_access_requests_total", "freeradius_access_requests_total", 7);
+        free(carg);
+    }
+
+    carg = calloc(1, sizeof(*carg));
+    freeradius_handler("hello world", 11, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    {
+        host_aggregator_info hi;
+        memset(&hi, 0, sizeof(hi));
+        hi.proto = APROTO_UDP;
+        hi.transport = APROTO_UDP;
+        hi.user = (char *)"adminsecret";
+        string *req = freeradius_mesg(&hi, NULL, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 50, req->l);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (unsigned char)req->s[0]);
+        string_free(req);
+    }
+
+    parser_push_roundtrip("freeradius", freeradius_parser_push);
+}
+
 void api_test_parser_postfix()
 {
     char tmpl[] = "/tmp/alligator-postfix-XXXXXX";
@@ -300,6 +1033,132 @@ void api_test_parser_postfix()
     rmdir(qdir);
     rmdir(dir);
     parser_push_roundtrip("postfix", postfix_parser_push);
+}
+
+void api_test_parser_openclaw()
+{
+    char tmpl[] = "/tmp/alligator-openclaw-XXXXXX";
+    char *dir = mkdtemp(tmpl);
+    char p[640], f1[700], f2[700], f3[700], f4[700], f5[700];
+    FILE *fp;
+    context_arg *carg;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dir);
+    snprintf(p, sizeof(p), "%s/agents", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+    snprintf(p, sizeof(p), "%s/agents/main", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+    snprintf(p, sizeof(p), "%s/agents/main/sessions", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+    snprintf(p, sizeof(p), "%s/cron", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+    snprintf(p, sizeof(p), "%s/workspace", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+    snprintf(p, sizeof(p), "%s/workspace/memory", dir);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, mkdir(p, 0755));
+
+    snprintf(f1, sizeof(f1), "%s/agents/main/sessions/sessions.json", dir);
+    fp = fopen(f1, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("{"
+        "\"abc\":{\"sessionId\":\"abc\",\"label\":\"chat\",\"updatedAt\":2000000000000},"
+        "\"cron1\":{\"sessionId\":\"cron1\",\"label\":\"Cron: daily-report\",\"updatedAt\":2000000000000}"
+        "}", fp);
+    fclose(fp);
+
+    snprintf(f3, sizeof(f3), "%s/agents/main/sessions/cron1.jsonl", dir);
+    fp = fopen(f3, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("{\"usage\":{\"input\":5,\"output\":7,\"cacheRead\":0,\"cacheWrite\":0,\"totalTokens\":12,\"cost\":2}}\n", fp);
+    fclose(fp);
+
+    /* Newest jsonl wins for agent_state; write the chat session last. */
+    snprintf(f2, sizeof(f2), "%s/agents/main/sessions/abc.jsonl", dir);
+    fp = fopen(f2, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("{\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"toolCall\"}]},"
+        "\"usage\":{\"input\":10,\"output\":20,\"cacheRead\":1,\"cacheWrite\":2,\"totalTokens\":33,\"cost\":{\"total\":1}}}\n", fp);
+    fclose(fp);
+
+    snprintf(f4, sizeof(f4), "%s/cron/jobs.json", dir);
+    fp = fopen(f4, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("{\"jobs\":[{\"id\":\"1234567890abcdef\",\"name\":\"daily-report\",\"enabled\":true,"
+        "\"createdAtMs\":1700000000000,\"state\":{\"lastRunAtMs\":1700000100000,\"nextRunAtMs\":1700000200000,"
+        "\"consecutiveErrors\":0,\"lastDurationMs\":2000,\"lastDelivered\":true}}]}", fp);
+    fclose(fp);
+
+    snprintf(f5, sizeof(f5), "%s/workspace/SOUL.md", dir);
+    fp = fopen(f5, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("hello", fp);
+    fclose(fp);
+    snprintf(p, sizeof(p), "%s/workspace/memory/notes.md", dir);
+    fp = fopen(p, "w");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fp);
+    fputs("abcdefghi", fp);
+    fclose(fp);
+
+    carg = calloc(1, sizeof(*carg));
+    strlcpy(carg->host, dir, sizeof(carg->host));
+    openclaw_handler(dir, strlen(dir), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openclaw_active_sessions", "openclaw_active_sessions", 2);
+    metric_test_run(CMP_EQUAL, "openclaw_agent_sessions{agent_name=\"main\"}", "openclaw_agent_sessions", 2);
+    metric_test_run(CMP_EQUAL, "openclaw_agent_state{agent_name=\"main\"}", "openclaw_agent_state", 1);
+    metric_test_run(CMP_GREATER, "openclaw_agent_last_activity_timestamp_seconds{agent_name=\"main\"}", "openclaw_agent_last_activity_timestamp_seconds", 1000000000);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_jobs_total", "openclaw_cron_jobs_total", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_jobs_enabled", "openclaw_cron_jobs_enabled", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_enabled{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_enabled", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_last_run_at_seconds{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_last_run_at_seconds", 1700000100);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_next_run_at_seconds{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_next_run_at_seconds", 1700000200);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_consecutive_errors{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_consecutive_errors", 0);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_last_duration_seconds{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_last_duration_seconds", 2);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_last_delivered{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_last_delivered", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_job_created_at_seconds{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_created_at_seconds", 1700000000);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_session_tokens_last{agent=\"main\",cron_name=\"daily-report\",token_type=\"input\"}", "openclaw_cron_session_tokens_last", 5);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_session_cost_last_usd{agent=\"main\",cron_name=\"daily-report\"}", "openclaw_cron_session_cost_last_usd", 2);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_session_total_tokens_last{agent=\"main\",cron_name=\"daily-report\"}", "openclaw_cron_session_total_tokens_last", 12);
+    metric_test_run(CMP_EQUAL, "openclaw_agent_session_last_tokens{agent=\"main\",token_type=\"input\"}", "openclaw_agent_session_last_tokens", 10);
+    metric_test_run(CMP_EQUAL, "openclaw_agent_session_last_cost_usd{agent=\"main\"}", "openclaw_agent_session_last_cost_usd", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_agent_session_avg_tokens{agent=\"main\",token_type=\"output\"}", "openclaw_agent_session_avg_tokens", 20);
+    metric_test_run(CMP_EQUAL, "openclaw_md_file_bytes{workspace=\"main\",filename=\"SOUL.md\"}", "openclaw_md_file_bytes", 5);
+    metric_test_run(CMP_EQUAL, "openclaw_md_file_tokens_estimated{workspace=\"main\",filename=\"SOUL.md\"}", "openclaw_md_file_tokens_estimated", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_md_file_bytes{workspace=\"main\",filename=\"memory/notes.md\"}", "openclaw_md_file_bytes", 9);
+    metric_test_run(CMP_EQUAL, "openclaw_md_workspace_bytes{workspace=\"main\"}", "openclaw_md_workspace_bytes", 14);
+    metric_test_run(CMP_EQUAL, "openclaw_md_workspace_tokens_estimated{workspace=\"main\"}", "openclaw_md_workspace_tokens_estimated", 4);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    openclaw_handler("", 0, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, openclaw_mesg(hi, NULL, NULL, NULL));
+    free(hi);
+
+    unlink(f1);
+    unlink(f2);
+    unlink(f3);
+    unlink(f4);
+    unlink(f5);
+    snprintf(p, sizeof(p), "%s/workspace/memory/notes.md", dir);
+    unlink(p);
+    snprintf(p, sizeof(p), "%s/workspace/memory", dir);
+    rmdir(p);
+    snprintf(p, sizeof(p), "%s/workspace", dir);
+    rmdir(p);
+    snprintf(p, sizeof(p), "%s/cron", dir);
+    rmdir(p);
+    snprintf(p, sizeof(p), "%s/agents/main/sessions", dir);
+    rmdir(p);
+    snprintf(p, sizeof(p), "%s/agents/main", dir);
+    rmdir(p);
+    snprintf(p, sizeof(p), "%s/agents", dir);
+    rmdir(p);
+    rmdir(dir);
+    parser_push_roundtrip("openclaw", openclaw_parser_push);
 }
 
 void api_test_parser_nsd() {
@@ -2667,4 +3526,29 @@ void api_test_ngram_token_nul()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, found);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ret == NULL);
     ngram_clear(idx, NULL);
+}
+
+void api_test_parser_kafka_query_and_filters()
+{
+    char out[64];
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        kafka_query_param("topic_filter=^app&group_filter=cg-.*", "topic_filter", out, sizeof(out)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^app", out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        kafka_query_param("topic_filter=^app&sasl.mechanism=PLAIN", "sasl.mechanism", out, sizeof(out)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "PLAIN", out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        kafka_query_param("topic_filter=^app", "missing", out, sizeof(out)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        kafka_query_param(NULL, "topic_filter", out, sizeof(out)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        kafka_query_param("?group_filter=cg-.*&topic_exclude=^__", "group_filter", out, sizeof(out)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cg-.*", out);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, kafka_name_allowed("app-events", ".*", "^$"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, kafka_name_allowed("app-events", "^app", "^$"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed("__consumer_offsets", "^app", "^$"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed("internal", ".*", "^internal$"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed(NULL, ".*", "^$"));
 }

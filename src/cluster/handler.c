@@ -19,7 +19,7 @@
 
 void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 {
-	carglog(carg, L_DEBUG, "=======\ncluster_sync_handler (%s/%zu) metrics:\n%s\n", carg->key, size, metrics);
+	carglog(carg, L_DEBUG, "cluster_sync_handler: key=%s size=%zu payload:\n%s\n", carg->key, size, metrics);
 
 	char field[LABEL_LEN];
 	char replica[LABEL_LEN];

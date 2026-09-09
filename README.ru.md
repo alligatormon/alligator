@@ -164,6 +164,7 @@ aggregate {
 - [redis](doc/ru/parsers/redis.md)
 - [clickhouse](doc/ru/parsers/clickhouse.md)
 - [zookeeper](doc/ru/parsers/zookeeper.md)
+- [kafka](doc/ru/parsers/kafka.md)
 - [memcached](doc/ru/parsers/memcached.md)
 - [beanstalkd](doc/ru/parsers/beanstalkd.md)
 - [gearmand](doc/ru/parsers/gearmand.md)
@@ -190,9 +191,14 @@ aggregate {
 - [gdnsd](doc/ru/parsers/gdnsd.md)
 - [tftp](doc/ru/parsers/tftp.md)
 - [unbound](doc/ru/parsers/unbound.md)
+- [dnsmasq](doc/ru/parsers/dnsmasq.md)
 - [syslog-ng](doc/ru/parsers/syslog-ng.md)
 - [elasticsearch](doc/ru/parsers/elasticsearch.md)
 - [opentsdb](doc/ru/parsers/opentsdb.md)
+- [openvpn](doc/ru/parsers/openvpn.md)
+- [opennebula](doc/ru/parsers/opennebula.md)
+- [openstack](doc/ru/parsers/openstack.md)
+- [openclaw](doc/ru/parsers/openclaw.md)
 - [hadoop](doc/ru/parsers/hadoop.md)
 - [snmp](doc/ru/parsers/snmp.md)
 - [aerospike](doc/ru/parsers/aerospike.md)
@@ -214,6 +220,7 @@ aggregate {
 - [pgpool](doc/ru/parsers/postgresql.md#pgpool)
 - [varnish](doc/ru/parsers/varnish.md)
 - [wazuh](doc/ru/parsers/wazuh.md)
+- [freeradius](doc/ru/parsers/freeradius.md)
 
 
 ## Persistence

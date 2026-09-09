@@ -552,7 +552,7 @@ void grok_handler_callback(void *funcarg, void* arg)
 				metric_update(count_name, hash, &ctx->splited_lbl_size, DATATYPE_UINT, ctx->carg);
 			}
 			else {
-				carglog(ctx->carg, L_ERROR, "Error: not found splited_counter variable (expected amount of splited counters: %lu, real: %lu), maybe it had been used already?\n", i, ctx->gds->splited_counter_names ? ctx->gds->splited_counter_names->l : 0);
+				carglog(ctx->carg, L_ERROR, "grok: missing splited_counter name at index %lu (config has %lu names); each split counter needs a matching name\n", i, ctx->gds->splited_counter_names ? ctx->gds->splited_counter_names->l : 0);
 			}
 		}
 		for (uint64_t i = 0; i < alligator_ht_count(ctx->gds->gmm_splited_le) && ctx->gds->splited_le_names; ++i) {

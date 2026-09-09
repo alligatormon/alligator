@@ -117,7 +117,7 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 				carg->namespace = namespacename;
 			}
 
-			carglog(carg, L_DEBUG, "\tit's ME! namespace is '%s'\n", carg->namespace);
+			carglog(carg, L_DEBUG, "cluster: this instance owns namespace '%s'\n", carg->namespace);
 
 			alligator_ht *hash = labels_dup(lbl);
 			if (dt_type == METRIC_TYPE_COUNTER || dt_type == METRIC_TYPE_HISTOGRAM)

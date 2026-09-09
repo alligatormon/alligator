@@ -207,7 +207,7 @@ int vrl_push(json_t *cfg)
 
 	char *ml_err = NULL;
 	if (!parse_multiline(cfg, vn, &ml_err)) {
-		glog(L_ERROR, "vrl_push: %s\n", ml_err ? ml_err : "multiline error");
+		glog(L_ERROR, "vrl_push: multiline config error: %s\n", ml_err ? ml_err : "unknown error");
 		free(ml_err);
 		vrl_node_free(vn);
 		return 0;

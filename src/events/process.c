@@ -515,7 +515,7 @@ char* process_client(context_arg *carg)
 {
 	if (!carg)
 	{
-		carglog(carg, L_WARN, "exec is empty\n");
+		carglog(carg, L_WARN, "exec: context_arg is NULL, cannot start process\n");
 		return NULL;
 	}
 

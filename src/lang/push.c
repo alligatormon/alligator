@@ -123,7 +123,7 @@ int lang_push(json_t *lang)
 	else
 		lo->log_level = ac->log_level;
 
-	langlog(lo, L_DEBUG, "lang push key %s\n", lo->key);
+	langlog(lo, L_DEBUG, "lang: registered module key='%s'\n", lo->key);
 
 	alligator_ht_insert(ac->lang_aggregator, &(lo->node), lo, tommy_strhash_u32(0, lo->key));
 
@@ -132,7 +132,7 @@ int lang_push(json_t *lang)
 
 void lang_push_options(lang_options *lo)
 {
-	langlog(lo, L_DEBUG, "lang push key %s\n", lo->key);
+	langlog(lo, L_DEBUG, "lang: registered module key='%s'\n", lo->key);
 
 	alligator_ht_insert(ac->lang_aggregator, &(lo->node), lo, tommy_strhash_u32(0, lo->key));
 }

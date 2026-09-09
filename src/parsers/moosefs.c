@@ -42,7 +42,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(ip, token, MOOSEFS_METRIC_SIZE);
 				else if ((k == 2) || (k == 3)) // version and state
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs: %s='%s'\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					uint64_t val = 1;
@@ -51,7 +51,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if ((k >= 9) && (k <= 11)) //   last_meta_save:- last_save_duration:- last_save_status:-
 				{
-					carglog(carg, L_DEBUG, "moosefs2 \t%s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs: %s='%s'\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);
@@ -78,7 +78,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k == 2)
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", param, token);
+					carglog(carg, L_DEBUG, "moosefs: %s='%s'\n", param, token);
 
 					if (!strncmp(param, "CPU_used", 8))
 						break;
@@ -107,7 +107,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(param, token, MOOSEFS_METRIC_SIZE);
 				else if (k > 1)
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs: %s='%s'\n", objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -134,7 +134,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k == 2)
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs %s:%s\n", param, token);
+					carglog(carg, L_DEBUG, "moosefs: %s='%s'\n", param, token);
 
 					strlcpy(metric_name + mname_size, param, MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -165,7 +165,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(id, token, MOOSEFS_METRIC_SIZE);
 				else if ((k == 4) || (k == 5) || (k == 7)) // labels and version and maintenance
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs :(%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs: chunk_server host=%s port=%s id=%s %s='%s'\n", host, port, id, objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					int64_t val = strtoll(token, NULL, 10);
@@ -174,7 +174,7 @@ void moosefs_mfscli_handler(char *metrics, size_t size, context_arg *carg)
 				}
 				else if (k > 6)
 				{
-					carglog(carg, L_DEBUG, "\tmoosefs (%s:%s:%s)%s:%s\n", host, port, id, objname[k], token);
+					carglog(carg, L_DEBUG, "moosefs: chunk_server host=%s port=%s id=%s %s='%s'\n", host, port, id, objname[k], token);
 
 					strlcpy(metric_name + mname_size, objname[k], MOOSEFS_METRIC_SIZE - mname_size);
 					double val = strtod(token, NULL);

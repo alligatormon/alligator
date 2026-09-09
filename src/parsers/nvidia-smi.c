@@ -100,7 +100,7 @@ void nvidia_smi_handler(char *metrics, size_t size, context_arg *carg)
 					metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
 				}
 				else {
-					carglog(carg, L_DEBUG, "[%lu/%lu/%s]: '%s'\n", i, j, columns[j], str);
+					carglog(carg, L_DEBUG, "nvidia-smi: row=%lu col=%lu name='%s' value='%s'\n", i, j, columns[j], str);
 					strlcpy(metric_name + metric_prefix_len, columns[j], sizeof(metric_name) - metric_prefix_len);
 					prometheus_metric_name_normalizer(metric_name, strlen(metric_name));
 					double value;

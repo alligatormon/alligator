@@ -1,0 +1,8 @@
+TITLE,OpenVPN 2.5.9
+TIME,Thu Sep  8 23:00:00 2026,1694200000
+HEADER,CLIENT_LIST,Common Name,Real Address,Virtual Address,Virtual IPv6 Address,Bytes Received,Bytes Sent,Connected Since,Connected Since (time_t),Username,Client ID,Peer ID,Data Channel Cipher
+CLIENT_LIST,ovpn_sys_alice,1.2.3.4:1194,10.8.0.2,,12345,67890,Thu Sep  8 22:00:00 2026,1694196000,alice,0,0,AES-256-GCM
+HEADER,ROUTING_TABLE,Virtual Address,Common Name,Real Address,Last Ref,Last Ref (time_t)
+ROUTING_TABLE,10.8.0.2,ovpn_sys_alice,1.2.3.4:1194,Thu Sep  8 22:55:00 2026,1694199900
+GLOBAL_STATS,Max bcast/mcast queue length,3
+END

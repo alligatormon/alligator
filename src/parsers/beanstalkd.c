@@ -42,7 +42,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	uint64_t val = 1;
 
 	if (strncmp(tmp, "OK", 2)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd stats-tube: expected OK, got unexpected response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
 		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
@@ -53,7 +53,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	tmp += strcspn(tmp, "\r\n");
 	tmp += strspn(tmp, "\r\n");
 	if (strncmp(tmp, "---", 3)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd stats-tube: expected YAML document start (---)\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
 		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
@@ -64,7 +64,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	tmp += strspn(tmp, "\r\n");
 
 	if (strncmp(tmp, "name:", 5)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd stats tube response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd stats-tube: expected name: field\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
 		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_stats_tube", "reason", "unexpected response");
@@ -112,7 +112,7 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 	char *tmp = metrics;
 
 	if (strncmp(tmp, "OK", 2)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd tubes list response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd list-tubes: expected OK, got unexpected response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
 		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_tubes_list", "reason", "unexpected response");
@@ -124,7 +124,7 @@ void beanstalkd_tubes_list_handler(char *metrics, size_t size, context_arg *carg
 	tmp += strspn(tmp, "\r\n");
 
 	if (strncmp(tmp, "---\n", 4)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event unexpected beanstalkd tubes list response\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"beanstalkd list-tubes: expected YAML document start (---)\", \"response\": \"%s\"}\n", carg->fd, carg->key, tmp);
 		carg->parser_status = 0;
 		beanstalkd_metric_set(carg, "beanstalkd_error", METRIC_TYPE_COUNTER);
 		metric_add_labels2("beanstalkd_error", &val, DATATYPE_UINT, carg, "name", "beanstalkd_tubes_list", "reason", "unexpected response");

@@ -33,6 +33,26 @@ aggregate {
 
 Подробности: [vault.md](vault.md).
 
+OpenClaw Gateway (нативный Prometheus, bearer через `env=`; не открывайте публичный `/metrics`):
+
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:18789/api/diagnostics/prometheus
+        'env=Authorization:Bearer ${OPENCLAW_GATEWAY_TOKEN}';
+}
+```
+
+Отдавайте scrape через `entrypoint` Alligator, чтобы scraper'ы не хранили Gateway operator token. `auth` на `entrypoint` опционален (без `auth bearer` порт открыт для scrape; при необходимости добавьте `auth` / TLS / `allow`/`deny`). Метрики сессий/cron/workspace с диска — отдельный handler [`openclaw`](openclaw.md).
+
+JMX брокера Kafka через sidecar [jmx_exporter](https://github.com/prometheus/jmx_exporter) (метрики JVM/request; offset партиций и lag consumer — парсер `kafka`, [kafka.md](kafka.md)):
+
+```
+aggregate {
+    kafka kafka://127.0.0.1:9092;
+    prometheus_metrics http://127.0.0.1:5556/metrics;
+}
+```
+
 Из файла (опционально state / notify для filetailer):
 
 ```

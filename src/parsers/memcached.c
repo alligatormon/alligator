@@ -27,14 +27,14 @@ void memcached_query(char *metrics, size_t size, context_arg *carg)
 		uint64_t copysize = strcspn(metrics + cur, " \n");
 		if (!copysize)
 		{
-			carglog(carg, L_ERROR, "memcached metric name size is 0, error\n");
+			carglog(carg, L_ERROR, "memcached: empty metric name\n");
 			break;
 		}
 		//printf("cur = %d, copysize = %d\n", cur, copysize);
 
 		size_t metricname_copy = copysize < (sizeof(metricname) - 1) ? copysize : (sizeof(metricname) - 1);
 		strlcpy(metricname, metrics + cur, metricname_copy + 1);
-		carglog(carg, L_DEBUG, "metric name is %s\n", metricname);
+		carglog(carg, L_DEBUG, "memcached: metric name='%s'\n", metricname);
 
 		metric_name_normalizer(metricname, copysize);
 

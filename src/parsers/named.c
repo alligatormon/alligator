@@ -161,7 +161,7 @@ void named_get_value(context_arg *carg, char *metrics, char *resource, char *nod
 
 		char mname[255];
 		snprintf(mname, 254, "%s_%s", resource, name);
-		carglog(carg, L_DEBUG, "named %s: %"u64"\n", mname, value);
+		carglog(carg, L_DEBUG, "named: metric '%s'=%"u64"\n", mname, value);
 		namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_GAUGE, "BIND named XML statistics gauge value.");
 
 		if (ctx_name && id)

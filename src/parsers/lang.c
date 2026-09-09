@@ -11,8 +11,7 @@
 
 void lang_parser_handler(char *metrics, size_t size, context_arg *carg)
 {
-	carglog(carg, L_TRACE, "====lang_parser_handler===============\n");
-	carglog(carg, L_TRACE, "'%s'\n", metrics);
+	carglog(carg, L_TRACE, "lang_parser: payload:\n'%s'\n", metrics);
 	carglog(carg, L_TRACE, "carg->lang '%s'\n", carg->lang);
 
 	string *request = string_init_add_auto(metrics);

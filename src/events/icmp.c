@@ -241,13 +241,13 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			context_arg *test_carg = alligator_ht_search(ac->ping_hash, ping_struct_compare, &carg->ping_key, tommy_inthash_u32(carg->ping_key));
 			if (!test_carg)
 			{
-				carglog(carg, L_DEBUG, "echo id %s:%p: %"PRIu32"\n", carg->host, carg, carg->ping_key);
+				carglog(carg, L_DEBUG, "icmp: register echo id=%"PRIu32" host=%s carg=%p\n", carg->ping_key, carg->host, carg);
 				alligator_ht_insert(ac->ping_hash, &(carg->ping_node), carg, tommy_inthash_u32(carg->ping_key));
 			}
 
 			if ( sendto(carg->fd, i_p, sizeof(*i_p), 0, (const struct sockaddr *)&carg->remote_addr, sizeof(*sa)) <= 0 ) {
 				icmp_stop_run(carg);
-				carglog(carg, L_ERROR, "sendto: %s\n", strerror(errno));
+				carglog(carg, L_ERROR, "icmp: sendto failed: %s\n", strerror(errno));
 				return;
 			}
 			carg->check_receive = 1;
@@ -277,13 +277,13 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			if (!carg)
 				return;
 
-			carglog(carg, L_DEBUG, "echo get id %s:%p: %"PRIu32"\n", carg->host, carg, key);
+			carglog(carg, L_DEBUG, "icmp: lookup echo id=%"PRIu32" host=%s carg=%p\n", key, carg->host, carg);
 			dump_packet(carg, i_p);
 
 			if (i_p->hdr.un.echo.id == carg->packets_id && i_p->hdr.type != ICMP_ECHO && carg->check_receive) {
 				if ( sa1->sin_addr.s_addr == carg->remote_addr.sin_addr.s_addr ) {
 					carg->check_receive = 0;
-					carglog(carg, L_DEBUG,	"======");
+					carglog(carg, L_DEBUG, "icmp: matching reply from expected peer, emit sample\n");
 					icmp_emit_one(carg, i_p);
 				}
 			}

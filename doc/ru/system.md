@@ -598,6 +598,8 @@ dpkg не хранит время установки пакета, поэтом�
 ## cadvisor
 Реализует метрики из известного exporter'а CAdvisor.\
 
+Помимо Docker/containerd/podman/LXC/systemd-nspawn, cAdvisor снимает **домены libvirt KVM/QEMU**, если задан `modules { libvirt <path>; }`. Это путь к живым CPU/памяти/диску/сети гостей OpenNebula и OpenStack на гипервизоре; парсер [opennebula](parsers/opennebula.md) даёт только выделенные значения из XML-RPC, [openstack](parsers/openstack.md) — только инвентарь Nova API.
+
 Пример использования в конфигурационном файле:
 ```
 system {
@@ -620,6 +622,23 @@ system {
 
 ### docker
 Задаёт socket docker daemon. По умолчанию `http://unix:/var/run/docker.sock:/containers/json`.
+
+### libvirt
+Опционально. Путь к `libvirt.so` в top-level блоке `modules` (как у `rpmlib` / `nvml`). Автопоиск soname не выполняется.
+
+```
+modules {
+    libvirt /usr/lib64/libvirt.so.0;
+}
+
+system {
+    cadvisor;
+}
+```
+
+Если библиотека загрузилась, cAdvisor перечисляет домены libvirt и отдаёт `container_*` с лейблом `libvirt_id` (RSS/usage памяти, число vCPU, лимиты block I/O, статистика NIC). KVM-гости OpenNebula обычно видны как `one-<id>` ([opennebula](parsers/opennebula.md)); OpenStack — как `instance-<id>` ([openstack](parsers/openstack.md)).
+
+Без `modules.libvirt` scrape Docker/LXC/nspawn/cgroup всё равно идёт; пропускается только API доменов libvirt.
 
 
 ## pidfile, userprocess, groupprocess, cgroup

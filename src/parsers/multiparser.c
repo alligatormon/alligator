@@ -365,9 +365,9 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 {
 	if (carg)
 	{
-		carglog(carg, L_TRACE, "========================================================================\n");
-		carglog(carg, L_TRACE, "handler (%p) parsing (%zu):\n'%s'\n", handler, slen, buf);
-		carglog(carg, L_TRACE, "========================================================================\n");
+		carglog(carg, L_TRACE, "multiparser: begin handler=%p buflen=%zu\n", handler, slen);
+		carglog(carg, L_TRACE, "multiparser: buffer:\n'%s'\n", buf);
+		carglog(carg, L_TRACE, "multiparser: end\n");
 	}
 	if (!buf)
 		return;

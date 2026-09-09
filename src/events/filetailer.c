@@ -42,6 +42,15 @@ static int filetailer_path_has_glob(const char *s)
 	return strchr(s, '*') || strchr(s, '?') || strchr(s, '[');
 }
 
+/* Parsers that walk a directory tree themselves (do not filetail contents). */
+static int filetailer_parser_walks_root(context_arg *carg)
+{
+	if (!carg || !carg->parser_name)
+		return 0;
+	return !strcmp(carg->parser_name, "postfix")
+	    || !strcmp(carg->parser_name, "openclaw");
+}
+
 /* Return 1 if basename should be processed for this carg. */
 static int filetailer_basename_matches(context_arg *carg, const char *basename)
 {
@@ -481,7 +490,7 @@ void filetailer_directory_file_crawl(void *arg)
 		uv_timer_start(carg->period_timer, filetailer_directory_file_crawl_repeat_period, carg->period, carg->period);
 	}
 
-	if (carg->parser_name && !strcmp(carg->parser_name, "postfix")) {
+	if (filetailer_parser_walks_root(carg)) {
 		if (carg->parser_handler)
 			alligator_multiparser(carg->host, strlen(carg->host), carg->parser_handler, NULL, carg);
 		return;
@@ -734,8 +743,8 @@ char* filetailer_handler(context_arg *carg)
 
 	if (carg->path[strlen(carg->path)-1] == '/')
 		carg->is_dir = 1;
-	/* postfix walks the spool itself; treat the URL as a directory root. */
-	if (carg->parser_name && !strcmp(carg->parser_name, "postfix"))
+	/* postfix/openclaw walk the tree themselves; treat the URL as a directory root. */
+	if (filetailer_parser_walks_root(carg))
 		carg->is_dir = 1;
 
 	carg->fs_handle.data = carg;

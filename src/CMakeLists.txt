@@ -335,7 +335,13 @@ set(STATIC_FILES
 	parsers/lighttpd.c
 	parsers/httpd.c
 	parsers/nsd.c
+	parsers/openvpn.c
+	parsers/openclaw.c
+	parsers/opennebula.c
+	parsers/openstack.c
 	parsers/named.c
+	parsers/dnsmasq.c
+	parsers/freeradius.c
 	parsers/kubernetes.c
 	parsers/kubernetes_common.c
 	parsers/kubernetes_operator.c
@@ -354,6 +360,7 @@ set(STATIC_FILES
 	parsers/bson.c
 	parsers/cassandra.c
 	parsers/cassandra2.c
+	parsers/kafka.c
 	parsers/keepalived.c
 	parsers/lang.c
 	parsers/nvidia-smi.c

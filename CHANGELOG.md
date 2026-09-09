@@ -1,6 +1,9 @@
 Changelog
 
 ## [unreleased]
+- OpenClaw parser: filesystem scrape of `~/.openclaw` (`openclaw file://~/.openclaw`) with openclaw-exporter-compatible session/cron/workspace metrics. Native Gateway Prometheus (`/api/diagnostics/prometheus`) stays on `prometheus_metrics` plus entrypoint `auth`.
+- OpenNebula parser: XML-RPC scrape of hosts/VMs/vnets/datastores (`opennebula https://oneadmin:secret@opennebula:2633`) with nebula_exporter-compatible `opennebula_monitoring_*` metrics.
+- Kafka parser: native librdkafka broker scrape (`kafka kafka://127.0.0.1:9092`) with kafka_exporter-compatible topic/offset/consumer-group metrics. JVM and broker internals stay on jmx_exporter + `prometheus_metrics`.
 - `system { base; }`: zram from `/sys/block/zram*` (`zram_bytes`, `zram_stat`, `zram_stat_total`, `zram_comp_algorithm`). Missing devices and files are skipped.
 - Opt-in `system { zfs; }`: Linux OpenZFS from `/proc/spl/kstat/zfs` (`zfs_arc_stat` / `zfs_arc_bytes`, `zfs_zpool_state`, `zfs_dmu_tx_stat`, `zfs_zil_stat`). Per-dataset `objset-*` is not collected. `disk_usage` now includes `zfs` mounts.
 - Opt-in `system { nfs; }`: host-wide NFS RPC from `/proc/net/rpc/nfs{,d}` (`nfs_client_*` / `nfs_server_*`, previously under `base`) plus per-mount `/proc/self/mountstats` (`nfs_mount_*`).

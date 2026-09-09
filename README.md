@@ -164,6 +164,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [redis](https://github.com/alligatormon/alligator/blob/master/doc/parsers/redis.md)
 - [clickhouse](https://github.com/alligatormon/alligator/blob/master/doc/parsers/clickhouse.md)
 - [zookeeper](https://github.com/alligatormon/alligator/blob/master/doc/parsers/zookeeper.md)
+- [kafka](https://github.com/alligatormon/alligator/blob/master/doc/parsers/kafka.md)
 - [memcached](https://github.com/alligatormon/alligator/blob/master/doc/parsers/memcached.md)
 - [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md)
 - [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
@@ -190,9 +191,14 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [gdnsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gdnsd.md)
 - [tftp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/tftp.md)
 - [unbound](https://github.com/alligatormon/alligator/blob/master/doc/parsers/unbound.md)
+- [dnsmasq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/dnsmasq.md)
 - [syslog-ng](https://github.com/alligatormon/alligator/blob/master/doc/parsers/syslog-ng.md)
 - [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
 - [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md)
+- [openvpn](doc/parsers/openvpn.md)
+- [opennebula](doc/parsers/opennebula.md)
+- [openstack](doc/parsers/openstack.md)
+- [openclaw](doc/parsers/openclaw.md)
 - [hadoop](https://github.com/alligatormon/alligator/blob/master/doc/parsers/hadoop.md)
 - [snmp](https://github.com/alligatormon/alligator/blob/master/doc/parsers/snmp.md)
 - [aerospike](https://github.com/alligatormon/alligator/blob/master/doc/parsers/aerospike.md)
@@ -214,6 +220,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [pgpool](https://github.com/alligatormon/alligator/blob/master/doc/parsers/postgresql.md#pgpool)
 - [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
 - [wazuh](https://github.com/alligatormon/alligator/blob/master/doc/parsers/wazuh.md)
+- [freeradius](https://github.com/alligatormon/alligator/blob/master/doc/parsers/freeradius.md)
 
 
 ## Persistence

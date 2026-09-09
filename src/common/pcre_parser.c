@@ -156,7 +156,7 @@ void pcre_match(regex_match *rematch, const char *regex_match_string)
 				val = strdup("1");
 
 			strlcat(metric_v, val, sizeof(metric_v));
-			glog(L_DEBUG, "%s\n", metric_v);
+			glog(L_DEBUG, "pcre: metric='%s'\n", metric_v);
 			free(val);
 
 			//if (

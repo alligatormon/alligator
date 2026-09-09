@@ -101,7 +101,7 @@ void sd_consul_discovery(char *conf, size_t conf_len, context_arg *carg)
 	json_t *value;
 	json_object_foreach(root, name, value)
 	{
-		carglog(carg, L_DEBUG, "service id: %s\n", name);
+		carglog(carg, L_DEBUG, "service discovery: service id='%s'\n", name);
 		json_t *meta = json_object_get(value, "Meta");
 		if (meta)
 		{

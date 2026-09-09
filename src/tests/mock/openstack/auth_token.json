@@ -1,0 +1,5 @@
+HTTP/1.1 201 Created
+X-Subject-Token: tok-unit-test
+Content-Type: application/json
+
+{"token":{"catalog":[{"type":"identity","name":"keystone","endpoints":[{"interface":"public","region":"RegionOne","url":"http://identity.example:5000/v3"}]},{"type":"compute","name":"nova","endpoints":[{"interface":"public","region":"RegionOne","url":"http://compute.example:8774/v2.1"}]},{"type":"network","name":"neutron","endpoints":[{"interface":"public","region":"RegionOne","url":"http://network.example:9696"}]},{"type":"volumev3","name":"cinder","endpoints":[{"interface":"public","region":"RegionOne","url":"http://volume.example:8776/v3"}]},{"type":"image","name":"glance","endpoints":[{"interface":"public","region":"RegionOne","url":"http://image.example:9292"}]}]}}

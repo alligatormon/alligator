@@ -17,7 +17,7 @@ static inline void couchbase_metric_set(context_arg *carg, const char *metric_na
 
 void couchbase_bucket_metric_get(context_arg *carg, char *metric_name, const char *bucketType, const char *name, const char *uuid, json_t *value)
 {
-	carglog(carg, L_DEBUG, "couchbase metric name is %s\n", metric_name);
+	carglog(carg, L_DEBUG, "couchbase: metric name='%s'\n", metric_name);
 	couchbase_metric_set(carg, metric_name);
 
 	int type = json_typeof(value);
@@ -45,7 +45,7 @@ void couchbase_bucket_metric_get(context_arg *carg, char *metric_name, const cha
 
 void couchbase_bucket_node_metric_get(context_arg *carg, char *metric_name, const char *bucketType, const char *name, const char *uuid, const char *nodeUUID, const char *hostname, json_t *value)
 {
-	carglog(carg, L_DEBUG, "couchbase metric name is %s\n", metric_name);
+	carglog(carg, L_DEBUG, "couchbase: metric name='%s'\n", metric_name);
 	couchbase_metric_set(carg, metric_name);
 
 	int type = json_typeof(value);

@@ -45,6 +45,11 @@ echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://pac
 echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu/ noble main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
+### Ubuntu 26.04:
+```
+echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu/ resolute main' | tee /etc/apt/sources.list.d/alligator.list
+```
+
 ## Debian
 ### Debian 11
 ```

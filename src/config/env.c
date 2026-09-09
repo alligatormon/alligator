@@ -326,7 +326,7 @@ void parse_env(char **envp)
 
 		if (node)
 		{
-			glog(L_DEBUG, ">> value is %s\n", value);
+			glog(L_DEBUG, "env config value: %s\n", value);
 			env_node_value(node, strdup(value));
 		}
 	}

@@ -733,6 +733,8 @@ upgrades and is identical for every package on an image-built host, so it is not
 ## cadvisor
 Implements metrics from the well-known exporter called CAdvisor.\
 
+Besides Docker/containerd/podman/LXC/systemd-nspawn, cAdvisor scrapes **libvirt KVM/QEMU domains** when `modules { libvirt <path>; }` is set. That is the path for live guest CPU/memory/disk/NIC stats of OpenNebula and OpenStack VMs on the hypervisor; the [opennebula](parsers/opennebula.md) parser only has allocated template values from XML-RPC, and [openstack](parsers/openstack.md) only has Nova API inventory.
+
 Example of use in the configuration file:
 ```
 system {
@@ -755,6 +757,23 @@ system {
 
 ### docker
 Specifies the socket of the docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.
+
+### libvirt
+Optional. Path to `libvirt.so` in the top-level `modules` block (same pattern as `rpmlib` / `nvml`). There is no automatic soname search.
+
+```
+modules {
+    libvirt /usr/lib64/libvirt.so.0;
+}
+
+system {
+    cadvisor;
+}
+```
+
+When the library loads, cAdvisor lists libvirt domains and exports `container_*` metrics with a `libvirt_id` label (memory RSS/usage, vCPU count, block I/O limits, NIC stats). OpenNebula KVM guests typically appear as `one-<id>` ([opennebula](parsers/opennebula.md)); OpenStack KVM guests as `instance-<id>` ([openstack](parsers/openstack.md)).
+
+Without `modules.libvirt`, Docker/LXC/nspawn/cgroup scrapes still run; only the libvirt domain API is skipped.
 
 
 ## pidfile, userprocess, groupprocess, cgroup

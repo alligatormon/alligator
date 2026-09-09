@@ -156,7 +156,7 @@ rnode *patricia_insert(patricia_t *tree, uint32_t key, uint32_t mask, void *data
     if (next) {
         if (node->data) {
             if ((key != 0) && (mask != 0)) {
-                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'\n", s_ip);
+                glog(L_WARN, "patricia_insert: ACL already contains '%s', replacing entry\n", s_ip);
             }
             free(node->data);
             node->data = data;
@@ -211,7 +211,7 @@ rnode *patricia_insert128(patricia_t *tree, uint128_t key, uint128_t mask, void 
     if (next) {
         if (node->data) {
             if ((key != 0) && (mask != 0)) {
-                glog(L_WARN, "patricia_insert128 warning: the same address already had been added to ACL: '%s'\n", s_ip);
+                glog(L_WARN, "patricia_insert128: ACL already contains '%s', replacing entry\n", s_ip);
             }
             free(node->data);
             node->data = data;
@@ -269,7 +269,7 @@ void* patricia_delete(patricia_t *tree, uint32_t key, uint32_t mask, char *s_ip)
                 return node->data;
             }
             else {
-                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'\n", s_ip);
+                glog(L_WARN, "patricia_delete: refusing to remove default/zero route '%s'\n", s_ip);
                 return NULL;
             }
         }
@@ -307,7 +307,7 @@ void* patricia_delete128(patricia_t *tree, uint128_t key, uint128_t mask, char *
                 return node->data;
             }
             else {
-                glog(L_WARN, "patricia_insert warning: the same address already had been added to ACL: '%s'\n", s_ip);
+                glog(L_WARN, "patricia_delete128: refusing to remove default/zero route '%s'\n", s_ip);
                 return NULL;
             }
         }

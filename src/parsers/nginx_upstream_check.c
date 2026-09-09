@@ -123,46 +123,43 @@ void nginx_upstream_check_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		carglog(carg, L_TRACE, "server is '%s'\n", server);
-		carglog(carg, L_TRACE, "upstream is '%s'\n", upstream);
-		carglog(carg, L_TRACE, "type is '%s'\n", type);
-		carglog(carg, L_TRACE, "status is '%s'\n", status);
+		carglog(carg, L_TRACE, "nginx_upstream_check: server='%s' upstream='%s' type='%s' status='%s'\n",
+			server, upstream, type, status);
 		if (!*server)
 			continue;
-		carglog(carg, L_TRACE, "validate server is not null\n");
-
+		carglog(carg, L_TRACE, "nginx_upstream_check: server field present\n");
 		if (!*upstream)
 			continue;
-		carglog(carg, L_TRACE, "validate upstream is not null\n");
+		carglog(carg, L_TRACE, "nginx_upstream_check: upstream field present\n");
 
 		if (!metric_label_validator(type, type_len))
 		{
-			carglog(carg, L_TRACE, "validate type is ERR\n");
+			carglog(carg, L_TRACE, "nginx_upstream_check: type label invalid, skip line\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		carglog(carg, L_TRACE, "validate type is OK\n");
+		carglog(carg, L_TRACE, "nginx_upstream_check: type label ok\n");
 		if (!metric_label_validator(status, status_len))
 		{
-			carglog(carg, L_TRACE, "validate status is ERR\n");
+			carglog(carg, L_TRACE, "nginx_upstream_check: status label invalid, skip line\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		carglog(carg, L_TRACE, "validate status is OK\n");
+		carglog(carg, L_TRACE, "nginx_upstream_check: status label ok\n");
 		if (!metric_label_validator(server, server_len))
 		{
-			carglog(carg, L_WARN, "validate server is ERR\n");
+			carglog(carg, L_WARN, "nginx_upstream_check: server label invalid, skip line\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		carglog(carg, L_TRACE, "validate server is OK\n");
+		carglog(carg, L_TRACE, "nginx_upstream_check: server label ok\n");
 		if (!metric_label_validator(upstream, upstream_len))
 		{
-			carglog(carg, L_TRACE, "validate upstream is ERR\n");
+			carglog(carg, L_TRACE, "nginx_upstream_check: upstream label invalid, skip line\n");
 			i += strcspn(metrics+i, "\n")+1;
 			continue;
 		}
-		carglog(carg, L_TRACE, "validate upstream is OK\n");
+		carglog(carg, L_TRACE, "nginx_upstream_check: upstream label ok\n");
 
 		uint64_t val = 1;
 		uint64_t nval = 0;

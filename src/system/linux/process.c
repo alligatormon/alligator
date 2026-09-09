@@ -766,17 +766,17 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 		carglog(ac->system_carg, L_DEBUG, "%s check for match: '%s' by procname\n", __FUNCTION__, procname);
 		if (!match_mapper(ac->process_match, procname, procname_size, procname))
 		{
-			carglog(ac->system_carg, L_DEBUG, "not matched, %s check for match '%s' by cmdline\n", __FUNCTION__, cmdline);
+			carglog(ac->system_carg, L_DEBUG, "process: '%s' not matched by procname, try cmdline\n", procname);
 			if (!match_mapper(ac->process_match, cmdline, cmdline_size, procname))
 			{
-				carglog(ac->system_carg, L_DEBUG, "not matched\n");
+				carglog(ac->system_carg, L_DEBUG, "process: '%s' not matched by cmdline either\n", procname);
 				match = 0;
 			}
 			else
-				carglog(ac->system_carg, L_DEBUG, "matched\n");
+				carglog(ac->system_carg, L_DEBUG, "process: '%s' matched by cmdline\n", procname);
 		}
 		else
-			carglog(ac->system_carg, L_DEBUG, "matched\n");
+			carglog(ac->system_carg, L_DEBUG, "process: '%s' matched by procname\n", procname);
 	}
 
 	snprintf(dir, FILENAME_MAX, "%s/%s/stat", ac->system_procfs, pid);

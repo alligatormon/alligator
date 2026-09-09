@@ -322,9 +322,9 @@ void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn
 	int64_t is_valid = x509_cert_eval(x509, untrusted, 1, (uint64_t)valid_from, (uint64_t)valid_to, now.sec,
 		ca_file, 0, NULL, pol, &reason, &ocsp_st, &ocsp_next);
 	glog(L_DEBUG, "cert: %s, certsubject: %s\n", cert, dn_subject);
-	glog(L_DEBUG, "cert: %s, complete for: %u.\n", cert, now.sec);
-	glog(L_DEBUG, "cert: %s, valid from: %"d64".\n", cert, valid_from);
-	glog(L_DEBUG, "cert: %s, %"d64" exp\n", cert, expdays);
+	glog(L_DEBUG, "cert: %s, checked_at=%u\n", cert, now.sec);
+	glog(L_DEBUG, "cert: %s, valid_from=%"d64"\n", cert, valid_from);
+	glog(L_DEBUG, "cert: %s, expire_days=%"d64"\n", cert, expdays);
 	glog(L_DEBUG, "cert: %s, valid: %"d64" reason=%s\n", cert, is_valid, reason);
 	alligator_ht *notafter_lbl = labels_dup(lbl);
 	alligator_ht *expiredays_lbl = labels_dup(lbl);
@@ -508,9 +508,9 @@ int x509_parse_cert(context_arg *carg, X509 *cert, char *cert_name, char *target
 
 	if (have_times) {
 		int64_t expdays =  ((int64_t)valid_to-(int64_t)now.sec)/86400;
-		carg_or_glog(carg, L_DEBUG, "cert: %s, complete for: %u.\n", cert_name, now.sec);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, valid from: %"d64".\n", cert_name, valid_from);
-		carg_or_glog(carg, L_DEBUG, "cert: %s, %"d64" exp\n", cert_name, expdays);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, checked_at=%u\n", cert_name, now.sec);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, valid_from=%"d64"\n", cert_name, valid_from);
+		carg_or_glog(carg, L_DEBUG, "cert: %s, expire_days=%"d64"\n", cert_name, expdays);
 		carg_or_glog(carg, L_DEBUG, "cert: %s, version: %d\n", cert_name, X509_get_version(cert) + 1);
 		carg_or_glog(carg, L_DEBUG, "cert: %s, valid: %"d64" reason=%s\n", cert_name, is_valid, reason);
 		alligator_ht *notafter_lbl = labels_dup(lbl);

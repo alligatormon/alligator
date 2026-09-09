@@ -1166,6 +1166,32 @@ void test_url_parse_more_edges()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UNIXGRAM, hi->transport);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/run/chrony/chronyd.sock", hi->host);
     url_free(hi);
+
+    char kafka_u1[] = "kafka://127.0.0.1:9092";
+    hi = parse_url(kafka_u1, strlen(kafka_u1));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KAFKA, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "127.0.0.1", hi->host);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9092", hi->port);
+    url_free(hi);
+
+    char kafka_u2[] = "kafka://user:secret@broker.example";
+    hi = parse_url(kafka_u2, strlen(kafka_u2));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KAFKA, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "broker.example", hi->host);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9092", hi->port);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "user", hi->user);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "secret", hi->pass);
+    url_free(hi);
+
+    char kafka_u3[] = "kafka://127.0.0.1:9093?topic_filter=^app&sasl.mechanism=SCRAM-SHA-256";
+    hi = parse_url(kafka_u3, strlen(kafka_u3));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "127.0.0.1", hi->host);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9093", hi->port);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "topic_filter=^app&sasl.mechanism=SCRAM-SHA-256", hi->query);
+    url_free(hi);
 }
 
 void test_match_rules_hash_paths()

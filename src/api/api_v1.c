@@ -81,7 +81,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 		code = 400;
 		snprintf(status, 100, "Bad Request");
 		snprintf(respbody, 1000, "json error on line %d: %s\n", error.line, error.text);
-		glog(L_DEBUG, "%s", respbody);
+		glog(L_DEBUG, "api_v1: %s", respbody);
 	}
 
 	if (root)
@@ -750,7 +750,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						else if (!strcmp(str_handler, "vrl"))
 							carg->parser_handler =  &vrl_handler;
 						else
-							glog(L_FATAL, "Don't know entrypoint handler '%s', alligator will be automatically reconfigured to simple prometheus handler\n", str_handler);
+							glog(L_FATAL, "unknown entrypoint handler '%s'; falling back to the default prometheus handler\n", str_handler);
 					}
 
 					json_t *json_namespace = json_object_get(entrypoint, "namespace");
@@ -1172,7 +1172,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					code = 400;
 					snprintf(status, 100, "Bad Request");
 					snprintf(respbody, 1000, "{\"error\": \"tag system is not an object\"}\n");
-					glog(L_DEBUG, "%s", respbody);
+					glog(L_DEBUG, "api_v1: %s", respbody);
 				}
 				else
 				{
@@ -1568,7 +1568,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					code = 202;
 					snprintf(status, 100, "Accepted");
 					snprintf(respbody, 1000, "{\"success\": \"accepted\"}\n");
-					glog(L_DEBUG, "%s", respbody);
+					glog(L_DEBUG, "api_v1: %s", respbody);
 				}
 			}
 			if (!strcmp(key, "aggregate"))

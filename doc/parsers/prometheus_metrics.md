@@ -33,6 +33,26 @@ aggregate {
 
 See [vault.md](vault.md) for TLS and Vault telemetry notes.
 
+OpenClaw Gateway (native Prometheus, bearer via `env=`; prefer this over a public `/metrics`):
+
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:18789/api/diagnostics/prometheus
+        'env=Authorization:Bearer ${OPENCLAW_GATEWAY_TOKEN}';
+}
+```
+
+Re-export from Alligator so scrapers never hold the Gateway operator token. `entrypoint` `auth` is optional (omit `auth bearer` for an open scrape port, or add it / TLS / `allow`/`deny` if you want Alligator protected). Filesystem session/cron/workspace metrics use the dedicated [`openclaw`](openclaw.md) handler.
+
+Kafka broker JMX via [jmx_exporter](https://github.com/prometheus/jmx_exporter) sidecar (JVM/request metrics; partition offsets and consumer lag come from the `kafka` parser instead — [kafka.md](kafka.md)):
+
+```
+aggregate {
+    kafka kafka://127.0.0.1:9092;
+    prometheus_metrics http://127.0.0.1:5556/metrics;
+}
+```
+
 From a file (optional state / notify for filetailer):
 
 ```

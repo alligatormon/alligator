@@ -204,7 +204,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 
 				char key_base[256];
 				snprintf(key_base, 256, "%s:postgresql_action_query:%zu", hi->host, ms->str[i]->l);
-				glog(log_level, "ms %s: %"u64"\n", ms->str[i]->s, ms->l);
+				glog(log_level, "action postgresql query (%zu parts): %s\n", ms->l, ms->str[i]->s);
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 			glog(log_level, "run action pg %s\n", name);

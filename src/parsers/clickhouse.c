@@ -663,13 +663,13 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
 				if (qf)
 				{
-					carglog(carg, L_DEBUG, "\tvalue '%s'\n", ch_field);
+					carglog(carg, L_DEBUG, "clickhouse: query field value='%s'\n", ch_field);
 					qf->d = strtod(ch_field, NULL);
 					qf->type = DATATYPE_DOUBLE;
 				}
 				else
 				{
-					carglog(carg, L_DEBUG, "\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					carglog(carg, L_DEBUG, "clickhouse: label field '%s'='%s'\n", column_types[i].colname, ch_field);
 					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
 				}
 			}
@@ -678,13 +678,13 @@ void clickhouse_custom_execute_handler(char *metrics, size_t size, context_arg *
 				query_field *qf = query_field_get(qn->qf_hash, column_types[i].colname);
 				if (qf)
 				{
-					carglog(carg, L_DEBUG, "\tvalue '%s'\n", ch_field);
+					carglog(carg, L_DEBUG, "clickhouse: query field value='%s'\n", ch_field);
 					qf->i = strtoll(ch_field, NULL, 10);
 					qf->type = DATATYPE_INT;
 				}
 				else
 				{
-					carglog(carg, L_DEBUG, "\tfield '%s': '%s'\n", column_types[i].colname, ch_field);
+					carglog(carg, L_DEBUG, "clickhouse: label field '%s'='%s'\n", column_types[i].colname, ch_field);
 					labels_hash_insert_nocache(hash, column_types[i].colname, ch_field);
 				}
 			}

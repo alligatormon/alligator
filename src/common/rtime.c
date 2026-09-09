@@ -34,7 +34,7 @@ void getrtime(r_time t1, r_time t2)
 {
 	int64_t delta_ns = rtime_delta_ns_signed(t1, t2);
 	double delta_sec = (double)delta_ns / 1000000000.0;
-	glog(L_TRACE, "complete for: %.09f sec\n", delta_sec);
+	glog(L_TRACE, "rtime delta: %.09f sec\n", delta_sec);
 }
 
 uint64_t getrtime_ns(r_time t1, r_time t2)

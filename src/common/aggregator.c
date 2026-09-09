@@ -664,8 +664,15 @@ void aggregate_ctx_init()
 	lighttpd_parser_push();
 	httpd_parser_push();
 	nsd_parser_push();
+	openvpn_parser_push();
+	openclaw_parser_push();
+	opennebula_parser_push();
+	openstack_parser_push();
 	dummy_parser_push();
 	named_parser_push();
+	dnsmasq_parser_push();
+	dnsmasq_dhcp_parser_push();
+	freeradius_parser_push();
 	kubernetes_ingress_parser_push();
 	kubernetes_endpoint_parser_push();
 	kubernetes_operator_parser_push();
@@ -679,6 +686,7 @@ void aggregate_ctx_init()
 	mogilefs_parser_push();
 	moosefs_parser_push();
 	mongodb_parser_push();
+	kafka_parser_push();
 	keepalived_parser_push();
 	dns_parser_push();
 	influxdb_parser_push();

@@ -745,13 +745,13 @@ void get_jail_stat()
 
 	if (jailparam_init(&param[0], "lastjid") == -1 || jailparam_init(&param[1], "jid") == -1 || jailparam_init(&param[2], "name") == -1)
 	{
-		carglog(ac->system_carg, L_ERROR, "jailparam_init: %s\n", jail_errmsg);
+		carglog(ac->system_carg, L_ERROR, "freebsd jail: jailparam_init failed: %s\n", jail_errmsg);
 		return;
 	}
 
 	if (jailparam_import_raw(&param[0], &lastjid, sizeof lastjid) == -1 || jailparam_import_raw(&param[1], &jid, sizeof jid) == -1 || jailparam_import_raw(&param[2], name, sizeof name) == -1)
 	{
-		carglog(ac->system_carg, L_ERROR, "jailparam_import_raw: %s\n", jail_errmsg);
+		carglog(ac->system_carg, L_ERROR, "freebsd jail: jailparam_import_raw failed: %s\n", jail_errmsg);
 		return;
 	}
 

@@ -1474,7 +1474,7 @@ void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32
 			if (errno == EINTR)
 				return;
 
-			carglog(ac->system_carg, L_ERROR, "OVERRUN\n");
+			carglog(ac->system_carg, L_ERROR, "nftables: netlink recvmsg failed: %s\n", strerror(errno));
 			return;
 		}
 		if (status == 0) {

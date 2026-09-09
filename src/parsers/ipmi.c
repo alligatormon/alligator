@@ -155,7 +155,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(name, sizeof(name), metrics+i, newind);
 		ipmi_set_null_sep(name, newind < sizeof(name) ? newind : sizeof(name) - 1);
-		carglog(carg, L_DEBUG, "name is '%s'\n", name);
+		carglog(carg, L_DEBUG, "ipmi: sensor='%s'\n", name);
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
@@ -168,7 +168,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 		}
 
-		carglog(carg, L_DEBUG, "\tcur is '%lf'\n", cur);
+		carglog(carg, L_DEBUG, "ipmi: reading='%lf'\n", cur);
 		i += newind;
 		i += strspn(metrics+i, " |\t");
 
@@ -182,7 +182,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(measure, sizeof(measure), metrics+i, newind);
 		ipmi_set_null_sep(measure, newind < sizeof(measure) ? newind : sizeof(measure) - 1);
-		carglog(carg, L_DEBUG, "\tmeasure is '%s'\n", measure);
+		carglog(carg, L_DEBUG, "ipmi: unit='%s'\n", measure);
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
@@ -199,7 +199,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
 		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
-		carglog(carg, L_DEBUG, "\tstate is '%s'\n", state);
+		carglog(carg, L_DEBUG, "ipmi: state='%s'\n", state);
 		uint64_t state_int = 0;
 		if ((state[0] == 'o') && (state[1] == 'k'))
 			state_int = 1;
@@ -213,7 +213,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &lower_non_recoverable);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tlower_non_recoverable is '%lf'\n", lower_non_recoverable);
+			carglog(carg, L_DEBUG, "ipmi: lower_non_recoverable='%lf'\n", lower_non_recoverable);
 			ipmi_metric_set(carg, "ipmi_sensor_lower_non_recoverable");
 			metric_add_labels2("ipmi_sensor_lower_non_recoverable", &lower_non_recoverable, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -224,7 +224,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &lower_critical);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tlower_critical is '%lf'\n", lower_critical);
+			carglog(carg, L_DEBUG, "ipmi: lower_critical='%lf'\n", lower_critical);
 			ipmi_metric_set(carg, "ipmi_sensor_lower_critical");
 			metric_add_labels2("ipmi_sensor_lower_critical", &lower_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -235,7 +235,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &lower_non_critical);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tlower_non_critical is '%lf'\n", lower_non_critical);
+			carglog(carg, L_DEBUG, "ipmi: lower_non_critical='%lf'\n", lower_non_critical);
 			ipmi_metric_set(carg, "ipmi_sensor_lower_non_critical");
 			metric_add_labels2("ipmi_sensor_lower_non_critical", &lower_non_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -246,7 +246,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &upper_non_recoverable);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tupper_non_recoverable is '%lf'\n", upper_non_recoverable);
+			carglog(carg, L_DEBUG, "ipmi: upper_non_recoverable='%lf'\n", upper_non_recoverable);
 			ipmi_metric_set(carg, "ipmi_sensor_non_recoverable");
 			metric_add_labels2("ipmi_sensor_non_recoverable", &upper_non_recoverable, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -257,7 +257,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &upper_critical);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tupper_critical is '%lf'\n", upper_critical);
+			carglog(carg, L_DEBUG, "ipmi: upper_critical='%lf'\n", upper_critical);
 			ipmi_metric_set(carg, "ipmi_sensor_upper_critical");
 			metric_add_labels2("ipmi_sensor_upper_critical", &upper_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -268,7 +268,7 @@ void ipmi_sensor_handler(char *metrics, size_t size, context_arg *carg)
 		newline = ipmi_get_double(metrics+i, &newind, &upper_non_critical);
 		if (!newline)
 		{
-			carglog(carg, L_DEBUG, "\tupper_non_critical is '%lf'\n", upper_non_critical);
+			carglog(carg, L_DEBUG, "ipmi: upper_non_critical='%lf'\n", upper_non_critical);
 			ipmi_metric_set(carg, "ipmi_sensor_upper_non_critical");
 			metric_add_labels2("ipmi_sensor_upper_non_critical", &upper_non_critical, DATATYPE_DOUBLE, carg, "name",  name, "measure", measure);
 		}
@@ -308,7 +308,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 		}
 
 		num = strtoul(metrics+i, NULL, 16);
-		carglog(carg, L_DEBUG, "num is '%"u64"'\n", num);
+		carglog(carg, L_DEBUG, "ipmi: count='%"u64"'\n", num);
 		i += newind;
 		i += strspn(metrics+i, " |\t");
 
@@ -327,7 +327,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(resource, sizeof(resource), metrics+i, newind);
 		ipmi_set_null_sep(resource, newind < sizeof(resource) ? newind : sizeof(resource) - 1);
-		carglog(carg, L_DEBUG, "\tresource is '%s'\n", resource);
+		carglog(carg, L_DEBUG, "ipmi: resource='%s'\n", resource);
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
@@ -342,7 +342,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(key, sizeof(key), metrics+i, newind);
 		ipmi_set_null_sep(key, newind < sizeof(key) ? newind : sizeof(key) - 1);
-		carglog(carg, L_DEBUG, "\tkey is '%s'\n", key);
+		carglog(carg, L_DEBUG, "ipmi: key='%s'\n", key);
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
@@ -357,7 +357,7 @@ void ipmi_elist_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
 		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
-		carglog(carg, L_DEBUG, "\tstate is '%s'\n", state);
+		carglog(carg, L_DEBUG, "ipmi: state='%s'\n", state);
 
 		i += newind;
 		i += strspn(metrics+i, " |\t");
@@ -406,7 +406,7 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 		ipmi_copy_field(name + 5, sizeof(name) - 5, metrics+i, newind);
 		size_t newsize = ipmi_set_null_sep(name + 5, newind < (sizeof(name) - 5) ? newind : (sizeof(name) - 6));
 		metric_name_normalizer(name+5, newsize);
-		carglog(carg, L_DEBUG, "name is '%s'\n", name);
+		carglog(carg, L_DEBUG, "ipmi: sensor='%s'\n", name);
 
 		i += newind;
 		i += strspn(metrics+i, " :\t");
@@ -421,7 +421,7 @@ void ipmi_chassis_status_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
 		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
-		carglog(carg, L_DEBUG, "\tstate is '%s'\n", state);
+		carglog(carg, L_DEBUG, "ipmi: state='%s'\n", state);
 		if (!strcmp(state, "on") || !strcmp(state, "true"))
 		{
 			val = 1;
@@ -477,7 +477,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 		ipmi_copy_field(name + 5, sizeof(name) - 5, metrics+i, newind);
 		size_t newsize = ipmi_set_null_sep(name + 5, newind < (sizeof(name) - 5) ? newind : (sizeof(name) - 6));
 		metric_name_normalizer(name+5, newsize);
-		carglog(carg, L_DEBUG, "name is '%s'\n", name);
+		carglog(carg, L_DEBUG, "ipmi: sensor='%s'\n", name);
 
 
 		if (!strcmp(name, "ipmi_last_add_time") || !strcmp(name, "ipmi_last_del_time"))
@@ -505,7 +505,7 @@ void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg)
 
 		val = strtoull(metrics+i, NULL, 10);
 		dval = strtod(metrics+i, NULL);
-		carglog(carg, L_DEBUG, "\tdata is '%"u64"/%lf'\n", val, dval);
+		carglog(carg, L_DEBUG, "ipmi: value='%"u64"/%lf'\n", val, dval);
 
 		if (!strcmp(name, "ipmi_version"))
 		{
@@ -547,7 +547,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 		i += newind;
 		i += strspn(metrics+i, " :\t");
 
-		carglog(carg, L_DEBUG, "name is '%s'\n", name);
+		carglog(carg, L_DEBUG, "ipmi: sensor='%s'\n", name);
 
 		// state
 		newind = strcspn(metrics+i, "\n\r");
@@ -559,7 +559,7 @@ void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg)
 
 		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
 		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
-		carglog(carg, L_DEBUG, "\tstate is '%s'\n", state);
+		carglog(carg, L_DEBUG, "ipmi: state='%s'\n", state);
 
 		if (!strcmp(name, "IP Address Source"))
 			labels_hash_insert_nocache(hash, "source", state);
@@ -609,7 +609,7 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 		i += newind;
 		i += strspn(metrics+i, " :\t");
 
-		carglog(carg, L_DEBUG, "name is '%s'\n", name);
+		carglog(carg, L_DEBUG, "ipmi: sensor='%s'\n", name);
 
 
 		// state
@@ -622,7 +622,7 @@ void ipmi_dcmi_power_reading_handler(char *metrics, size_t size, context_arg *ca
 
 		ipmi_copy_field(state, sizeof(state), metrics+i, newind);
 		ipmi_set_null_sep(state, newind < sizeof(state) ? newind : sizeof(state) - 1);
-		carglog(carg, L_DEBUG, "\tstate is '%s'\n", state);
+		carglog(carg, L_DEBUG, "ipmi: state='%s'\n", state);
 
 
 		double dval = strtod(state, NULL);

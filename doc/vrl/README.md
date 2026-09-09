@@ -3,16 +3,6 @@
 avrl is the C reimplementation of Vector Remap Language. In alligator it is
 linked as a **separate static library** (`avrl_static`) with glue under `src/vrl/`.
 
-## Source resolution (better than flat-amtail listing)
-
-CMake looks for avrl in this order:
-
-1. `src/external/avrl/` — git submodule (preferred for releases)
-2. `../avrl/` — sibling checkout (local development)
-
-Current branch uses git submodule `src/external/avrl`.
-`depbuild.sh` rsyncs it to the remote builder (same pattern as amtail).
-
 ## Config
 
 ```

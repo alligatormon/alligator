@@ -122,6 +122,8 @@ void url_set_default_port(host_aggregator_info *hi)
 		strlcpy(hi->port, "80", 3);
 	if (hi->proto == APROTO_WSS)
 		strlcpy(hi->port, "443", 4);
+	if (hi->proto == APROTO_KAFKA)
+		strlcpy(hi->port, "9092", 5);
 }
 
 void url_get_port(host_aggregator_info *hi, char **tmp)
@@ -194,16 +196,16 @@ void url_dump(host_aggregator_info *hi)
 		glog(L_DEBUG, "proto: resolver\n");
 
 
-	glog(L_DEBUG, "port: %s\n", hi->port);
+	glog(L_DEBUG, "url parse: port=%s\n", hi->port);
 
 	if (hi->host)
-		glog(L_DEBUG, "address: %s\n", hi->host);
+		glog(L_DEBUG, "url parse: address=%s\n", hi->host);
 	if (hi->host_header)
-		glog(L_DEBUG, "header 'Host': %s\n", hi->host_header);
+		glog(L_DEBUG, "url parse: Host header=%s\n", hi->host_header);
 	if (hi->query)
-		glog(L_DEBUG, "query: %s\n", hi->query);
+		glog(L_DEBUG, "url parse: query=%s\n", hi->query);
 	if (hi->auth)
-		glog(L_DEBUG, "auth enable\n");
+		glog(L_DEBUG, "url parse: auth enabled\n");
 }
 
 // http://example.com
@@ -243,6 +245,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "resolver://", 11, APROTO_RESOLVER, APROTO_RESOLVER, "resolver", 0);
 	url_set_proto(hi, &tmp, "wss://",  6, APROTO_WSS, APROTO_WSS, "wss", 1);
 	url_set_proto(hi, &tmp, "ws://",   5, APROTO_WS,  APROTO_WS,  "ws",  0);
+	url_set_proto(hi, &tmp, "kafka://", 8, APROTO_KAFKA, APROTO_KAFKA, "kafka", 0);
 
 	url_set_default_port(hi);
 

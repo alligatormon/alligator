@@ -38,11 +38,11 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t val;
 	for (uint64_t i = 0; i < size; i++)
 	{
-		carglog(carg, L_TRACE, "=========\n");
+		carglog(carg, L_TRACE, "lighttpd: next metric line\n");
 		size_t dbg_sz = strcspn(tmp, "\n");
 		size_t dbg_copy = dbg_sz < (sizeof(debug_string) - 1) ? dbg_sz : (sizeof(debug_string) - 1);
 		strlcpy(debug_string, tmp, dbg_copy + 1);
-		carglog(carg, L_TRACE, "lighttpd metric '%s', %p\n", debug_string, tmp);
+		carglog(carg, L_TRACE, "lighttpd: parsing line '%s'\n", debug_string);
 
 		lbl = calloc(1, sizeof(*lbl));
 		alligator_ht_init(lbl);

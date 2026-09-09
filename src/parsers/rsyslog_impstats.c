@@ -9,8 +9,7 @@
 
 void rsyslog_impstats_handler(char *metrics, size_t size, context_arg *carg)
 {
-	carglog(carg, L_TRACE, "===================\n");
-	carglog(carg, L_TRACE, "'%s'\n", metrics);
+	carglog(carg, L_TRACE, "rsyslog_impstats: payload:\n'%s'\n", metrics);
 	char field1[255];
 	char field2[255];
 	char field3[255];

@@ -191,7 +191,7 @@ void action_push(json_t *action)
 			an->content_type_json = 1;
 			an->parser = otlp_response_catch;
 			an->parser_name = strdup("otlp_response_catch");
-			glog(L_DEBUG, "an %p serializer is '%s', %p, '%s'\n", an, srlz, an->parser, an->parser_name);
+			glog(L_DEBUG, "action '%s': serializer='%s' parser=%p ('%s')\n", an->name ? an->name : "?", srlz, an->parser, an->parser_name);
 		}
 		else if(!strcmp(srlz, "otlp_protobuf"))
 		{
@@ -213,7 +213,7 @@ void action_push(json_t *action)
 			an->content_type_plain = 1;
 			an->parser = dynatrace_response_catch;
 			an->parser_name = strdup("dynatrace_response_catch");
-			glog(L_DEBUG, "an %p serializer is '%s', %p, '%s'\n", an, srlz, an->parser, an->parser_name);
+			glog(L_DEBUG, "action '%s': serializer='%s' parser=%p ('%s')\n", an->name ? an->name : "?", srlz, an->parser, an->parser_name);
 		}
 		else if(!strcmp(srlz, "carbon2"))
 			an->serializer = METRIC_SERIALIZER_CARBON2;

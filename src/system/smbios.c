@@ -258,13 +258,13 @@ int smbios_read_memory(int memfd, off_t offset, size_t len, uint8_t **buf) {
 	ssize_t nbytes;
 
 	if (lseek(memfd, offset, SEEK_SET) < 0) {
-		carglog(ac->system_carg, L_ERROR, "%s: lseek\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR, "smbios_read_memory: lseek to offset %lld failed: %s\n", (long long)offset, strerror(errno));
 		return(0);
 	}
 
 	nbytes = read(memfd, *buf, len);
 	if (nbytes < 0) {
-		carglog(ac->system_carg, L_ERROR,"%s: read\n", __FUNCTION__);
+		carglog(ac->system_carg, L_ERROR, "smbios_read_memory: read %zu bytes failed: %s\n", len, strerror(errno));
 		return(0);
 	}
 	if ((size_t)nbytes != len) {
