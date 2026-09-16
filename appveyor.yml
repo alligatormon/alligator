@@ -1,0 +1,20 @@
+# CMake/Conan project — not a Visual Studio .sln.
+# Native Windows is not a supported target (Linux / FreeBSD / macOS).
+# This file only switches AppVeyor from MSBuild to Script so clone/CI can finish.
+version: "{build}"
+image: Visual Studio 2022
+clone_depth: 1
+shallow_clone: true
+
+install:
+  - git submodule update --init --recursive
+
+build: off
+
+build_script:
+  - ps: |
+      Write-Host "Alligator has no .sln; skip MSBuild."
+      Write-Host "Packages: GitHub Actions (macOS/FreeBSD) and GitLab (Linux)."
+      git rev-parse --short HEAD
+      if (-not (Test-Path src\CMakeLists.txt)) { throw "missing src/CMakeLists.txt" }
+      if (-not (Test-Path src\tests\mock\windows-ntfs-skip.tar)) { throw "missing windows-ntfs-skip.tar" }
