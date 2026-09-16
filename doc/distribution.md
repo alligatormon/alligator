@@ -59,8 +59,21 @@ echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://pac
 echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
+## macOS
+macOS packages are Apple Silicon (arm64) `.app` bundles (unsigned). Download from [GitHub Releases](https://github.com/alligatormon/alligator/releases) (`Alligator.app.zip` and/or `alligator-<version>-macOS*`). They are not published to Packagecloud.
+
+CI: [`.github/workflows/macos.yml`](../.github/workflows/macos.yml) on GitHub-hosted `macos-15` runners.
+
 ## FreeBSD
-Alligator builds on FreeBSD from source (see **Build** below). CI uses a VirtualBox VM — see [ci-freebsd-virtualbox.md](ci-freebsd-virtualbox.md). There is no official package repository entry yet.
+Download `alligator-<version>-FreeBSD.pkg` from [GitHub Releases](https://github.com/alligatormon/alligator/releases) and install:
+
+```
+pkg add alligator-<version>-FreeBSD.pkg
+```
+
+There is no official FreeBSD ports/pkg repository entry yet. You can also build from source (see **Build** below).
+
+CI: [`.github/workflows/freebsd.yml`](../.github/workflows/freebsd.yml) runs a FreeBSD 14 VM on a GitHub-hosted Ubuntu runner. A self-managed VirtualBox GitLab runner is optional — see [ci-freebsd-virtualbox.md](ci-freebsd-virtualbox.md).
 
 # Build
 CMake is used as build system. Dependencies are supplied with conan and git submodules.

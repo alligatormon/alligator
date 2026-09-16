@@ -12,7 +12,7 @@ Alligator — агрегатор метрик системы и прикладн
 
 
 # Установка
-Alligator поддерживает GNU/Linux и FreeBSD.
+Alligator поддерживает GNU/Linux, FreeBSD и macOS.
 Инструкции по установке — в [distribution](doc/ru/distribution.md).
 
 Больше примеров — в [тестах](https://github.com/alligatormon/alligator/tree/master/src/tests/system).

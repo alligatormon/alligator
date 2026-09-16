@@ -1,0 +1,62 @@
+name: FreeBSD package
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-freebsd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: "14"
+          usesh: true
+          copyback: true
+          mem: 12288
+          cache-after-prepare: true
+          prepare: |
+            pkg update
+            pkg install -y \
+              git \
+              cmake \
+              gmake \
+              python3 \
+              py311-pip \
+              autoconf \
+              automake \
+              libtool \
+              pkgconf \
+              llvm \
+              go \
+              ruby \
+              bash
+          run: sh misc/freebsd/ci-build.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: alligator-freebsd
+          if-no-files-found: error
+          path: |
+            src/build/alligator-*-FreeBSD.pkg
+            src/build/*.pkg
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src/build/alligator-*-FreeBSD.pkg
+          fail_on_unmatched_files: false

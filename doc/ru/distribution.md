@@ -61,8 +61,21 @@ echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://pac
 echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://packagecloud.io/amoshi/alligator/ubuntu bookworm main' | tee /etc/apt/sources.list.d/alligator.list
 ```
 
+## macOS
+Пакеты macOS — Apple Silicon (arm64) бандлы `.app` (без подписи). Скачивайте с [GitHub Releases](https://github.com/alligatormon/alligator/releases) (`Alligator.app.zip` и/или `alligator-<version>-macOS*`). В Packagecloud они не публикуются.
+
+CI: [`.github/workflows/macos.yml`](../../.github/workflows/macos.yml) на GitHub-hosted раннерах `macos-15`.
+
 ## FreeBSD
-Alligator собирается на FreeBSD из исходников (см. **Сборка** ниже). CI использует виртуальную машину VirtualBox — см. [ci-freebsd-virtualbox.md](../ci-freebsd-virtualbox.md). Официального репозитория пакетов пока нет.
+Скачайте `alligator-<version>-FreeBSD.pkg` с [GitHub Releases](https://github.com/alligatormon/alligator/releases) и установите:
+
+```
+pkg add alligator-<version>-FreeBSD.pkg
+```
+
+Официальной записи в ports/pkg пока нет. Можно собрать из исходников (см. **Сборка** ниже).
+
+CI: [`.github/workflows/freebsd.yml`](../../.github/workflows/freebsd.yml) запускает VM FreeBSD 14 на GitHub-hosted Ubuntu. Self-managed GitLab runner с VirtualBox опционален — см. [ci-freebsd-virtualbox.md](../ci-freebsd-virtualbox.md).
 
 # Сборка
 В качестве системы сборки используется CMake. Зависимости поставляются через conan и git submodules.

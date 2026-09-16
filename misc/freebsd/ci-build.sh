@@ -1,5 +1,6 @@
 #!/bin/sh
-# Release build for FreeBSD (GitLab job script or manual). Expects repo root as CWD.
+# Release build for FreeBSD (GitHub Actions, GitLab job, or manual).
+# Expects repo root as CWD.
 set -eu
 
 export ASSUME_ALWAYS_YES=YES

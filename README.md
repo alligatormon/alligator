@@ -12,7 +12,7 @@ Alligator is an aggregator for system and software metrics. It is an incredibly 
 
 
 # Installation
-Alligator supports GNU/Linux and FreeBSD.
+Alligator supports GNU/Linux, FreeBSD, and macOS.
 For installation instructions, see the [distribution](doc/distribution.md) doc.
 
 For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
