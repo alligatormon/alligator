@@ -2,6 +2,8 @@ name: macOS package
 
 on:
   push:
+    branches:
+      - master
     tags:
       - '*.*.*'
   workflow_dispatch:
