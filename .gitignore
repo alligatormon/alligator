@@ -47,9 +47,3 @@ src/external/deactivate_conanbuildenv.sh
 src/external/deactivate_conanrun.sh
 src/tests/coverage/coverage_report.txt
 src/tests/coverage/coverage_top15.txt
-# Unpacked from windows-ntfs-skip.tar (':' / '\' are illegal on Windows NTFS).
-src/tests/mock/couchbase/pools/default/buckets/@fts/nodes/172.17.0.4:8091/
-src/tests/mock/couchbase/pools/default/buckets/@index/nodes/172.17.0.4:8091/
-src/tests/mock/couchbase/pools/default/buckets/@query/nodes/172.17.0.4:8091/
-src/tests/mock/couchbase/pools/default/buckets/travel-sample/nodes/172.17.0.4:8091/
-src/tests/mock/linux/sys/fs/cgroup/machine.slice/machine-qemu\\x2d1\\x2done\\x2d98.scope/

@@ -1,7 +1,6 @@
 #!/bin/sh
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
 . /app/src/tests/system/common.sh
-sh "$APPDIR/tests/mock/unpack-windows-skip.sh"
 DIR="couchbase"
 
 nginx -p /app/src/ -c tests/mock/$DIR/nginx.conf

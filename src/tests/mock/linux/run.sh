@@ -4,7 +4,6 @@ chmod +x /usr/sbin/iptables
 
 [ -z "$1" ] && APPDIR="/app/src/" || APPDIR="$1"
 . /app/src/tests/system/common.sh
-sh "$APPDIR/tests/mock/unpack-windows-skip.sh"
 
 $APPDIR/bin/alligator $APPDIR/tests/mock/linux/alligator.conf&
 sleep 15
