@@ -1,3 +1,5 @@
+sh tests/mock/unpack-windows-skip.sh
+
 TESTS=`printf "%s " tests/system/*/run.sh`
 for TEST in $TESTS; do
 	echo $TEST

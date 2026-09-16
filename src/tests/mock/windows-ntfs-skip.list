@@ -1,0 +1,5 @@
+couchbase/pools/default/buckets/@fts/nodes/172.17.0.4:8091
+couchbase/pools/default/buckets/@index/nodes/172.17.0.4:8091
+couchbase/pools/default/buckets/@query/nodes/172.17.0.4:8091
+couchbase/pools/default/buckets/travel-sample/nodes/172.17.0.4:8091
+linux/sys/fs/cgroup/machine.slice/machine-qemu\x2d1\x2done\x2d98.scope
