@@ -345,14 +345,16 @@ static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator
 		if (next > key_len + 1)
 			next = key_len + 1;
 
+		/* next - start - 2 may be 0 for empty captures (e.g. cache_status="").
+		 * Still emit the label; skipping would hide empty values and break series. */
 		size_t value_len = next - start - 2;
-		if (!value_len)
-			continue;
 
 		if (!labels)
 			labels = alligator_ht_init(NULL);
 
-		char *value = amtail_resolve_label_value(var->key->s + start, value_len, variables);
+		char *value = value_len
+			? amtail_resolve_label_value(var->key->s + start, value_len, variables)
+			: strdup("");
 		if (!value)
 			continue;
 		labels_hash_insert_nocache(labels, var->by[i]->s, value);

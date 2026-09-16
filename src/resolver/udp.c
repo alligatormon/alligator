@@ -12,13 +12,18 @@
 
 static void resolver_udp_stop_timer(context_arg *carg)
 {
+	uv_timer_t *timer;
+
 	if (!carg || !carg->tt_timer)
 		return;
 
-	uv_timer_stop(carg->tt_timer);
-	carg->tt_timer->data = NULL;
-	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+	/* Clear ownership before recycle so timeout/halt/detach cannot push the
+	 * same handle into uv_cache_timer twice (valgrind Invalid free on shutdown). */
+	timer = carg->tt_timer;
 	carg->tt_timer = NULL;
+	uv_timer_stop(timer);
+	timer->data = NULL;
+	alligator_cache_push(ac->uv_cache_timer, timer);
 }
 
 static void resolver_udp_closed(uv_handle_t *handle)
@@ -52,14 +57,20 @@ void resolver_udp_halt(context_arg *carg)
 
 void resolver_timeout_udp(uv_timer_t *timer)
 {
+	context_arg *carg = timer->data;
+
 	uv_timer_stop(timer);
+
+	/* Same ownership rule as resolver_timeout_tcp / tcp_timeout_timer: drop
+	 * carg->tt_timer before cache push so abort/teardown cannot recycle twice. */
+	if (carg && carg->tt_timer == timer)
+		carg->tt_timer = NULL;
+	timer->data = NULL;
 	alligator_cache_push(ac->uv_cache_timer, timer);
 
-	context_arg *carg = timer->data;
 	if (!carg)
 		return;
 
-	carg->tt_timer = NULL;
 	carglog(carg, L_WARN, "udp-resolver: timeout key=%s host=%s timeout_ms=%"u64"\n", carg->key, carg->host, carg->timeout);
 	(carg->timeout_counter)++;
 	resolver_udp_abort(carg, &carg->udp_client);

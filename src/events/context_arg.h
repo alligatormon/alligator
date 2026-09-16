@@ -437,6 +437,9 @@ void env_struct_duplicate_foreach(void *funcarg, void* arg);
 void env_struct_free(void *funcarg, void* arg);
 void carg_inherited_uv_reset(context_arg *carg);
 void carg_uv_detach_timers(context_arg *carg);
+/* Stop/close embedded UV handles still registered on carg->loop. Caller must
+ * drain the loop (uv_run) before carg_free() so close callbacks finish first. */
+void carg_close_embedded_uv_handles(context_arg *carg);
 void carg_free(context_arg *carg);
 void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len);
 void env_struct_push_alloc(alligator_ht* hash, char *k, char *v);

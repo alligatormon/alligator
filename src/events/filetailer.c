@@ -14,6 +14,7 @@
 #include "main.h"
 #include "common/logs.h"
 #include "common/stop.h"
+#include "common/aggregator.h"
 #include "dstructures/ht.h"
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
@@ -843,6 +844,11 @@ void filetailer_handler_del(context_arg *carg)
 		return;
 
 	carg->lock = 1;
+
+	/* Always unlink from aggregators before carg_free — leaving context_node
+	 * inside a freed block corrupts tommy bucket lists on later remove/search
+	 * (shutdown SIGSEGV in aggregators_free). */
+	aggregators_ht_unlink(carg);
 
 	if (ac && ac->file_aggregator)
 		alligator_ht_remove_existing(ac->file_aggregator, &(carg->node));

@@ -257,8 +257,8 @@ void carg_uv_detach_timers(context_arg *carg)
 	carg_timer_detach_and_close(&carg->tt_timer);
 	carg_timer_detach_and_close(&carg->period_timer);
 
-	/* Embedded timers (on-stack inside context_arg); don't uv_close to avoid
-	 * use-after-free when the context is freed. */
+	/* Embedded timers live inside context_arg. Only stop here; uv_close + drain
+	 * before free is carg_close_embedded_uv_handles() (shutdown paths). */
 	if (carg->resolver_timer.loop && !uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
 		uv_timer_stop(&carg->resolver_timer);
 	}
@@ -274,6 +274,42 @@ void carg_uv_detach_timers(context_arg *carg)
 	    !uv_is_closing((uv_handle_t *)&carg->filetailer_restart_idle)) {
 		uv_idle_stop(&carg->filetailer_restart_idle);
 		carg->filetailer_restart_idle_active = 0;
+	}
+}
+
+static void carg_close_embedded_timer(uv_timer_t *timer)
+{
+	if (!timer || !timer->loop || uv_is_closing((uv_handle_t *)timer))
+		return;
+	uv_timer_stop(timer);
+	timer->data = NULL;
+	uv_close((uv_handle_t *)timer, NULL);
+}
+
+void carg_close_embedded_uv_handles(context_arg *carg)
+{
+	if (!carg)
+		return;
+
+	carg_uv_detach_timers(carg);
+
+	carg_close_embedded_timer(&carg->resolver_timer);
+	carg_close_embedded_timer(&carg->t_timeout);
+	carg_close_embedded_timer(&carg->t_towrite);
+	carg_close_embedded_timer(&carg->t_seq_timer);
+
+	if (carg->filetailer_restart_idle.loop &&
+	    !uv_is_closing((uv_handle_t *)&carg->filetailer_restart_idle)) {
+		uv_idle_stop(&carg->filetailer_restart_idle);
+		uv_close((uv_handle_t *)&carg->filetailer_restart_idle, NULL);
+		carg->filetailer_restart_idle_active = 0;
+	}
+
+	if (carg->notify &&
+	    carg->fs_handle.loop &&
+	    !uv_is_closing((uv_handle_t *)&carg->fs_handle)) {
+		uv_fs_event_stop(&carg->fs_handle);
+		uv_close((uv_handle_t *)&carg->fs_handle, NULL);
 	}
 }
 

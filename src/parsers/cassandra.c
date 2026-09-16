@@ -442,6 +442,7 @@ char* cassandra_client(context_arg* carg) {
 void cassandra_client_del(context_arg* carg) {
 	if (!carg)
 		return;
+	aggregators_ht_unlink(carg);
 	alligator_ht_remove_existing(ac->cass_aggregator, &(carg->node));
 	carg_free(carg);
 }

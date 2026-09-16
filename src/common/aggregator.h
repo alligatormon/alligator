@@ -62,6 +62,9 @@ void smart_aggregator_del(context_arg *carg);
 int smart_aggregator(context_arg *carg);
 void smart_aggregator_del_key(char *key);
 void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, char *host, char *port, char *query);
+/* Unlink carg from ac->aggregators while the context_arg block is still live.
+ * Tommy stores context_node inside that block; freeing first corrupts the table. */
+void aggregators_ht_unlink(context_arg *carg);
 void aggregators_free();
 void aggregate_ctx_free();
 void entrypoints_free();

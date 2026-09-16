@@ -48,11 +48,22 @@ void *alligator_cache_get(tommy_list *uv_cache, size_t size)
 
 int alligator_cache_push(tommy_list *uv_cache, void *data)
 {
+	tommy_node *node;
+
 	if (!uv_cache)
 		return 0;
 
 	if (!data)
 		return 0;
+
+	/* Reject duplicate data pointers: timeout/halt/detach races otherwise
+	 * insert the same uv_timer_t twice and alligator_cache_full_free
+	 * double-frees it (valgrind Invalid free on shutdown). */
+	for (node = tommy_list_head(uv_cache); node; node = node->next) {
+		alligator_cache *existing = node->data;
+		if (existing && existing->data == data)
+			return 0;
+	}
 
 	alligator_cache *acache = calloc(1, sizeof(*acache));
 	//printf("[%zu] create acache %p with size %zu and data %p\n", tommy_list_count(uv_cache), acache, sizeof(*acache), data);

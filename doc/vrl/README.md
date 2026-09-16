@@ -18,6 +18,7 @@ aggregate {
         condition_pattern=^\s
         multiline_mode=continue_through
         log_level=info;
+    vrl kafka://127.0.0.1:9092/app-logs?group.id=alligator-vrl name=app_logs;
 }
 
 entrypoint {
@@ -26,6 +27,8 @@ entrypoint {
     vrl app_logs;
 }
 ```
+
+Kafka topic consume: [kafka_logs.md](../parsers/kafka_logs.md).
 
 ### Multiline (Vector-compatible, shared with mtail and grok)
 

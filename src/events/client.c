@@ -17,6 +17,7 @@
 #include "events/proxy.h"
 #include "common/rtime.h"
 #include "common/revocation.h"
+#include "common/stop.h"
 extern aconf* ac;
 
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
@@ -130,7 +131,9 @@ void tcp_client_closed(uv_handle_t *handle)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			smart_aggregator_del(carg);
+			/* aggregators_free snapshots carg pointers; do not free here on stop. */
+			if (!alligator_stop_requested())
+				smart_aggregator_del(carg);
 		}
 	}
 	else {
@@ -867,7 +870,7 @@ void unix_tcp_client_del(context_arg *carg)
 	carg->lock = 1;
 
 	if (carg->remove_from_hash)
-		alligator_ht_remove_existing(ac->uggregator, &(carg->context_node));
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
 
 	alligator_ht_remove_existing(ac->uggregator, &(carg->node));
 	carg_free(carg);

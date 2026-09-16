@@ -140,6 +140,7 @@ grok_patterns /etc/grok-patterns/patterns.conf;
 ```
 aggregate {
     grok file:///var/log/dmesg name=dmesg state=stream;
+    grok kafka://127.0.0.1:9092/app-logs?group.id=alligator-grok name=dmesg;
 }
 grok_patterns /etc/grok-patterns/patterns.conf;
 grok {
@@ -148,6 +149,8 @@ grok {
   match '%{TIMESTAMP}] %{WORD:process}';
 }
 ```
+
+Потребление топика Kafka: [kafka_logs.md](parsers/kafka_logs.md).
 
 Альтернативно можно использовать локальную UDP-точку, которая разбирает логи в метрики:
 ```

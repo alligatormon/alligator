@@ -14,12 +14,16 @@ oplog_record *oplog_record_init(uint64_t size)
 	oplog_record *oplog = calloc(1, sizeof(*oplog));
 	oplog->size = size;
 	oplog->container = calloc(size, sizeof(oplog_node));
+	pthread_rwlock_init(&oplog->rwlock, NULL);
 
 	return oplog;
 }
 
 void oplog_record_free(oplog_record *oplog)
 {
+	if (!oplog)
+		return;
+
 	pthread_rwlock_wrlock(&oplog->rwlock);
 	for (uint64_t i = 0; i < oplog->size; i++)
 	{
@@ -28,8 +32,10 @@ void oplog_record_free(oplog_record *oplog)
 			string_free(data);
 	}
 	free(oplog->container);
-	free(oplog);
+	oplog->container = NULL;
 	pthread_rwlock_unlock(&oplog->rwlock);
+	pthread_rwlock_destroy(&oplog->rwlock);
+	free(oplog);
 }
 
 oplog_node* oplog_record_insert(oplog_record *oplog, string *data)

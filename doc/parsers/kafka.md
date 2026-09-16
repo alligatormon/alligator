@@ -6,6 +6,8 @@ The `kafka` parser talks to Kafka **brokers** over the native protocol using **l
 
 This is **not** a full substitute for broker internals. Kafka exposes most JVM, request, network, log, and replica-manager metrics only over **JMX**. Collect those with [Prometheus jmx_exporter](https://github.com/prometheus/jmx_exporter) as a sidecar (or Java agent) and scrape the exposition with Alligator `prometheus_metrics`.
 
+To **consume application log lines** (or OpenMetrics text) from a topic and parse them with grok / mtail / vrl / `prometheus_metrics`, use a topic URL on those handlers — see [kafka_logs.md](kafka_logs.md).
+
 | Source | What you get |
 |--------|----------------|
 | `kafka` (this parser, librdkafka) | Cluster brokers, topic partitions, high/low offsets, leader/replicas/ISR, under-replicated flag, consumer-group members/offsets/lag |

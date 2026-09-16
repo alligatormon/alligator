@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Fix: shutdown no longer SIGSEGVs in `aggregators_free` when a file (or mysql/cassandra/resolver/postgresql) aggregator is `carg_free`'d while its Tommy `context_node` is still in `ac->aggregators`.
 - OpenClaw parser: filesystem scrape of `~/.openclaw` (`openclaw file://~/.openclaw`) with openclaw-exporter-compatible session/cron/workspace metrics. Native Gateway Prometheus (`/api/diagnostics/prometheus`) stays on `prometheus_metrics` plus entrypoint `auth`.
 - OpenNebula parser: XML-RPC scrape of hosts/VMs/vnets/datastores (`opennebula https://oneadmin:secret@opennebula:2633`) with nebula_exporter-compatible `opennebula_monitoring_*` metrics.
 - Kafka parser: native librdkafka broker scrape (`kafka kafka://127.0.0.1:9092`) with kafka_exporter-compatible topic/offset/consumer-group metrics. JVM and broker internals stay on jmx_exporter + `prometheus_metrics`.

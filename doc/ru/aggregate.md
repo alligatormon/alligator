@@ -30,7 +30,7 @@ Aggregator включает асинхронные методы для полу�
 - file (file://). Включает чтение файла для получения body.
 - exec (exec://). Включает выполнение внешней программы и передачу stdout в parser.
 - WebSocket (ws://) и WebSocket over TLS (wss://). Включает постоянного WebSocket-клиента, передающего каждый полученный text frame в parser.
-- Kafka (`kafka://`). Нативный драйвер librdkafka для парсера `kafka` (metadata брокера, offsets, consumer groups). Это не scrape body; см. [kafka.md](parsers/kafka.md).
+- Kafka (`kafka://`). Два применения: (1) парсер `kafka` опрашивает брокеры (metadata/offsets/lag) — [kafka.md](parsers/kafka.md); (2) с `grok` / `mtail` / `vrl` / `prometheus_metrics` / `log` и путём топика (`kafka://brokers/topic`) Alligator потребляет сообщения и передаёт payload в парсер — [kafka_logs.md](parsers/kafka_logs.md).
 
 Parser получает body после работы aggregator и разбирает его в метрики.
 

@@ -484,6 +484,7 @@ void resolver_del(context_arg *carg)
 	if (!carg)
 		return;
 
+	aggregators_ht_unlink(carg);
 	carg_uv_detach_timers(carg);
 	resolver_rd_probe_free(carg);
 	free(carg->data);

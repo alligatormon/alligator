@@ -261,6 +261,7 @@ set(STATIC_FILES
 	events/icmp.c
 	events/general.c
 	events/filetailer.c
+	events/kafka_consumer.c
 	events/fs_write.c
 	events/fs_read.c
 	events/system_scrape.c

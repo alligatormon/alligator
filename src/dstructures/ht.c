@@ -86,6 +86,9 @@ void *alligator_ht_remove_existing(alligator_ht *h, alligator_ht_node* node)
 {
 	void *ret = NULL;
 
+	if (!h || !h->ht || !node)
+		return NULL;
+
 	pthread_rwlock_wrlock(&h->rwlock);
 	ret = tommy_hashdyn_remove_existing(h->ht, node);
 	pthread_rwlock_unlock(&h->rwlock);
@@ -112,7 +115,8 @@ void alligator_ht_done(alligator_ht *h)
 		return;
 
 	pthread_rwlock_wrlock(&h->rwlock);
-	tommy_hashdyn_done(h->ht);
+	if (h->ht)
+		tommy_hashdyn_done(h->ht);
 	pthread_rwlock_unlock(&h->rwlock);
 
 	free(h->ht);

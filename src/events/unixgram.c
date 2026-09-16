@@ -16,6 +16,7 @@
 #include "common/rtime.h"
 #include "dstructures/uv_cache.h"
 #include "common/aggregator.h"
+#include "common/stop.h"
 #include "main.h"
 
 extern aconf* ac;
@@ -54,7 +55,8 @@ static void unixgram_session_finish(context_arg *carg)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			smart_aggregator_del(carg);
+			if (!alligator_stop_requested())
+				smart_aggregator_del(carg);
 		}
 	}
 	else if (carg->period && carg->period_timer) {

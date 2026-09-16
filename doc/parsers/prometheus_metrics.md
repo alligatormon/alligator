@@ -12,8 +12,10 @@ Any aggregator transport with body content, typically:
 http://host/metrics
 https://host/metrics
 file:///path/to/metrics.txt
+kafka://127.0.0.1:9092/prom-text?group.id=alligator-prom
 ```
 
+Kafka topic consume (OpenMetrics text on the topic): see [kafka_logs.md](kafka_logs.md).
 ### Example
 
 ```

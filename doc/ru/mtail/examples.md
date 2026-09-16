@@ -129,7 +129,36 @@ Content-Type: application/json
 
 Это важно для доставки логов по TCP/HTTP chunked, когда записи могут разбиваться между пакетами.
 
-## 7) Примеры скриптов upstream Google mtail
+## 7) `zip()` по массивам `split()` (расширение amtail)
+
+`zip` обходит несколько именованных массивов `split()` синхронно (как Python `zip`, до самой короткой; arity ≤ 8):
+
+```
+gauge upstream_rt by server
+counter upstream_st by server
+
+/(?P<rt>[^ ]+) (?P<st>[^ ]+) (?P<sv>[^ ]+)/ {
+  $responses = split(",", $rt)
+  $statuses = split(",", $st)
+  $servers = split(",", $sv)
+  zip($servers, $responses, $statuses) as ($server, $rtv, $stv) {
+    upstream_rt[$server] = $rtv
+    upstream_st[$server] = $stv
+  }
+}
+```
+
+Пустой источник → `split` count `0` → тело `zip` не выполняется. Для одного массива: `range($arr) as $x { }`.
+
+JSON access-логи nginx (retries по `","`, fallback / вторая группа по `" : "`): см. примеры amtail
+
+- [`examples/zip_basic.mtail`](https://github.com/alligatormon/amtail/blob/main/examples/zip_basic.mtail)
+- [`examples/nginx_json_upstream.mtail`](https://github.com/alligatormon/amtail/blob/main/examples/nginx_json_upstream.mtail)
+- обзор: [`examples/README.md`](https://github.com/alligatormon/amtail/blob/main/examples/README.md)
+
+(Также в `src/external/amtail/examples/` этого репозитория.)
+
+## 8) Примеры скриптов upstream Google mtail
 
 Готовые программы mtail см. в официальном каталоге примеров:
 

@@ -2667,6 +2667,7 @@ static void run_config_query_suites(char **argv)
     api_test_bson_nesting_limit();
     api_test_ngram_token_nul();
     api_test_parser_kafka_query_and_filters();
+    api_test_kafka_consumer_split_query();
     api_test_parser_nsd();
     api_test_parser_syslogng();
     api_test_parser_rsyslog();

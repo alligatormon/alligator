@@ -127,7 +127,36 @@ The mtail handler processes text streams line by line (`\n` separated):
 
 This behavior is important for TCP/HTTP chunked log delivery where records can split across packets.
 
-## 7) Upstream Google mtail Script Examples
+## 7) `zip()` over `split()` arrays (amtail extension)
+
+`zip` walks several named `split()` arrays in lockstep (shortest wins; arity ≤ 8):
+
+```
+gauge upstream_rt by server
+counter upstream_st by server
+
+/(?P<rt>[^ ]+) (?P<st>[^ ]+) (?P<sv>[^ ]+)/ {
+  $responses = split(",", $rt)
+  $statuses = split(",", $st)
+  $servers = split(",", $sv)
+  zip($servers, $responses, $statuses) as ($server, $rtv, $stv) {
+    upstream_rt[$server] = $rtv
+    upstream_st[$server] = $stv
+  }
+}
+```
+
+Empty source → `split` count `0` → `zip` body does not run. For a single array use `range($arr) as $x { }`.
+
+Nginx JSON access logs (retries on `","`, fallback / second group on `" : "`): see amtail examples
+
+- [`examples/zip_basic.mtail`](https://github.com/alligatormon/amtail/blob/main/examples/zip_basic.mtail)
+- [`examples/nginx_json_upstream.mtail`](https://github.com/alligatormon/amtail/blob/main/examples/nginx_json_upstream.mtail)
+- overview: [`examples/README.md`](https://github.com/alligatormon/amtail/blob/main/examples/README.md)
+
+(Also under `src/external/amtail/examples/` in this repo.)
+
+## 8) Upstream Google mtail Script Examples
 
 For ready-to-use mtail programs, see the official examples directory:
 

@@ -51,6 +51,44 @@ int alligator_stop_requested(void)
 	return g_stop_requested ? 1 : 0;
 }
 
+static void alligator_timer_stop_if_active(uv_timer_t *timer)
+{
+	if (timer && timer->loop && !uv_is_closing((uv_handle_t *)timer))
+		uv_timer_stop(timer);
+}
+
+/* Nested uv_run during teardown (wait_idle / filetailer close drain) must not
+ * re-enter periodic crawlers after their hashtables are freed. */
+static void alligator_stop_periodic_timers(void)
+{
+	if (!ac)
+		return;
+
+	alligator_timer_stop_if_active(&ac->puppeteer_timer);
+	alligator_timer_stop_if_active(&ac->chromecdp_timer);
+	alligator_timer_stop_if_active(&ac->system_scrape_timer_general);
+	alligator_timer_stop_if_active(&ac->system_scrape_timer_fast);
+	alligator_timer_stop_if_active(&ac->system_scrape_timer_slow);
+	alligator_timer_stop_if_active(&ac->filetailer_timer);
+	alligator_timer_stop_if_active(&ac->tls_fs_timer);
+	alligator_timer_stop_if_active(&ac->query_timer);
+	alligator_timer_stop_if_active(&ac->cluster_timer);
+	alligator_timer_stop_if_active(&ac->process_timer);
+	alligator_timer_stop_if_active(&ac->tcp_client_timer);
+	alligator_timer_stop_if_active(&ac->udp_client_timer);
+	alligator_timer_stop_if_active(&ac->udgregator_timer);
+	alligator_timer_stop_if_active(&ac->pg_timer);
+	alligator_timer_stop_if_active(&ac->cass_timer);
+	alligator_timer_stop_if_active(&ac->my_timer);
+	alligator_timer_stop_if_active(&ac->zk_timer);
+	alligator_timer_stop_if_active(&ac->general_timer);
+	alligator_timer_stop_if_active(&ac->expire_timer);
+	alligator_timer_stop_if_active(&ac->dump_timer);
+#ifdef __linux__
+	alligator_timer_stop_if_active(&ac->icmp_client_timer);
+#endif
+}
+
 void alligator_shutdown_after_loop(void)
 {
 	if (!g_stop_requested)
@@ -58,6 +96,7 @@ void alligator_shutdown_after_loop(void)
 
 	glog(L_INFO, "Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
 	glog(L_INFO, "Don't forget to start me again, otherwise the alligator will bite you :)\n");
+	alligator_stop_periodic_timers();
 	ipmi_wait_idle();
 	nvml_wait_idle();
 	dcgm_wait_idle();
@@ -65,10 +104,13 @@ void alligator_shutdown_after_loop(void)
 	tls_fs_free();
 	puppeteer_done();
 	filetailer_shutdown();
+	/* Entrypoints first: their shutdown drains uv_run. Aggregators must not be
+	 * freed before that drain, or libuv still touches handles inside freed
+	 * context_arg (valgrind: Invalid write in uv_run / entrypoint_shutdown). */
+	entrypoints_free();
 	aggregators_free();
 	aggregate_ctx_free();
 	file_stat_free(ac->file_stat);
-	entrypoints_free();
 	namespace_free(0, NULL);
 	cluster_del_all();
 	scheduler_del_all();

@@ -108,7 +108,17 @@ void query_foreach_done(void *funcarg, void* arg)
 
 void query_stop()
 {
+	if (!ac)
+		return;
+
+	if (ac->query_timer.loop && !uv_is_closing((uv_handle_t *)&ac->query_timer))
+		uv_timer_stop(&ac->query_timer);
+
+	if (!ac->query)
+		return;
+
 	alligator_ht_foreach_arg(ac->query, query_foreach_done, NULL);
 	alligator_ht_done(ac->query);
 	free(ac->query);
+	ac->query = NULL;
 }

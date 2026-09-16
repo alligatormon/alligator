@@ -24,6 +24,22 @@ void on_scrape_free(void* arg)
 }
 
 void system_scrape_free() {
+	if (!ac)
+		return;
+
+	if (ac->system_scrape_timer_general.loop &&
+	    !uv_is_closing((uv_handle_t *)&ac->system_scrape_timer_general))
+		uv_timer_stop(&ac->system_scrape_timer_general);
+	if (ac->system_scrape_timer_fast.loop &&
+	    !uv_is_closing((uv_handle_t *)&ac->system_scrape_timer_fast))
+		uv_timer_stop(&ac->system_scrape_timer_fast);
+	if (ac->system_scrape_timer_slow.loop &&
+	    !uv_is_closing((uv_handle_t *)&ac->system_scrape_timer_slow))
+		uv_timer_stop(&ac->system_scrape_timer_slow);
+
+	if (!ac->system_aggregator)
+		return;
+
 	alligator_ht_foreach(ac->system_aggregator, on_scrape_free);
 }
 

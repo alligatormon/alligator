@@ -12,8 +12,10 @@
 http://host/metrics
 https://host/metrics
 file:///path/to/metrics.txt
+kafka://127.0.0.1:9092/prom-text?group.id=alligator-prom
 ```
 
+Потребление топика Kafka (OpenMetrics-текст в топике): см. [kafka_logs.md](kafka_logs.md).
 ### Пример
 
 ```

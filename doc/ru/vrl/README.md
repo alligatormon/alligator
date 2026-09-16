@@ -20,6 +20,7 @@ aggregate {
         condition_pattern=^\s
         multiline_mode=continue_through
         log_level=info;
+    vrl kafka://127.0.0.1:9092/app-logs?group.id=alligator-vrl name=app_logs;
 }
 
 entrypoint {
@@ -29,6 +30,7 @@ entrypoint {
 }
 ```
 
+Потребление топика Kafka: [kafka_logs.md](../parsers/kafka_logs.md).
 ### Multiline (совместимо с Vector, общее для mtail и grok)
 
 Тот же assembler, что у file sources Vector (`start_pattern` + `condition_pattern` + `mode`).

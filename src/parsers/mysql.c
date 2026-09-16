@@ -468,6 +468,7 @@ void mysql_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
+	aggregators_ht_unlink(carg);
 	alligator_ht_remove_existing(ac->my_aggregator, &(carg->node));
 	carg_free(carg);
 }

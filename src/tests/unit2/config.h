@@ -838,6 +838,45 @@ void test_aggregator_helper_paths()
     free(ac->aggregators);
     ac->aggregators = saved;
     free(key);
+
+    /* aggregators_free: file del must unlink context_node before carg_free so a
+     * second aggregator in the same table is not removed via a dangling tommy node. */
+    {
+        alligator_ht *saved_aggr = ac->aggregators;
+        alligator_ht *saved_file = ac->file_aggregator;
+        context_arg *f1;
+        context_arg *f2;
+
+        ac->aggregators = alligator_ht_init(NULL);
+        ac->file_aggregator = alligator_ht_init(NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregators);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->file_aggregator);
+
+        f1 = calloc(1, sizeof(*f1));
+        f2 = calloc(1, sizeof(*f2));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f1);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f2);
+        f1->transport = APROTO_FILE;
+        f2->transport = APROTO_FILE;
+        f1->key = strdup("file:ut:1");
+        f2->key = strdup("file:ut:2");
+        alligator_ht_insert(ac->aggregators, &f1->context_node, f1, tommy_strhash_u32(0, f1->key));
+        alligator_ht_insert(ac->aggregators, &f2->context_node, f2, tommy_strhash_u32(0, f2->key));
+        alligator_ht_insert(ac->file_aggregator, &f1->node, f1, tommy_strhash_u32(0, f1->key));
+        alligator_ht_insert(ac->file_aggregator, &f2->node, f2, tommy_strhash_u32(0, f2->key));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)alligator_ht_count(ac->aggregators));
+
+        aggregators_free();
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)alligator_ht_count(ac->aggregators));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)alligator_ht_count(ac->file_aggregator));
+
+        alligator_ht_done(ac->aggregators);
+        alligator_ht_done(ac->file_aggregator);
+        free(ac->aggregators);
+        free(ac->file_aggregator);
+        ac->aggregators = saved_aggr;
+        ac->file_aggregator = saved_file;
+    }
 }
 
 void test_config_global_get_extended()
@@ -1191,6 +1230,15 @@ void test_url_parse_more_edges()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "127.0.0.1", hi->host);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9093", hi->port);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "topic_filter=^app&sasl.mechanism=SCRAM-SHA-256", hi->query);
+    url_free(hi);
+
+    char kafka_u4[] = "kafka://127.0.0.1:9092/app-logs?group.id=alligator-grok";
+    hi = parse_url(kafka_u4, strlen(kafka_u4));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KAFKA, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "127.0.0.1", hi->host);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9092", hi->port);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "app-logs?group.id=alligator-grok", hi->query);
     url_free(hi);
 }
 

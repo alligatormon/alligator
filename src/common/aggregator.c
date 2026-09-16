@@ -17,6 +17,7 @@
 #include "events/process.h"
 #include "events/icmp.h"
 #include "events/ws_client.h"
+#include "events/kafka_consumer.h"
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
 #include "scheduler/type.h"
@@ -188,6 +189,8 @@ int smart_aggregator(context_arg *carg)
 		type = cassandra_client(carg);
 	else if (carg->transport == APROTO_WS || carg->transport == APROTO_WSS)
 		type = ws_client(carg);
+	else if (carg->transport == APROTO_KAFKA)
+		type = kafka_consumer_handler(carg);
 
 	if (type && !carg->key)
 	{
@@ -300,6 +303,13 @@ void aggregator_oneshot_retry_host(const char *host)
 	free(ctx.list);
 }
 
+void aggregators_ht_unlink(context_arg *carg)
+{
+	if (!carg || !ac || !ac->aggregators)
+		return;
+	alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+}
+
 void smart_aggregator_del(context_arg *carg)
 {
 	if (carg->resolver)
@@ -328,6 +338,8 @@ void smart_aggregator_del(context_arg *carg)
 		cassandra_client_del(carg);
 	else if (carg->transport == APROTO_WS || carg->transport == APROTO_WSS)
 		ws_client_del(carg);
+	else if (carg->transport == APROTO_KAFKA)
+		kafka_consumer_handler_del(carg);
 }
 
 void smart_aggregator_del_key(char *key)
@@ -732,19 +744,116 @@ void aggregate_ctx_free()
 	free(ac->aggregate_ctx);
 }
 
-void aggregators_free_foreach(void *funcarg, void* arg)
+typedef struct aggregators_collect_ctx {
+	context_arg **list;
+	size_t n;
+	size_t cap;
+} aggregators_collect_ctx;
+
+static void aggregators_collect_cb(void *funcarg, void *arg)
 {
+	aggregators_collect_ctx *ctx = funcarg;
 	context_arg *carg = arg;
-	smart_aggregator_del(carg);
-	//if (!carg->lock)
-	//{
-	//	carg_free(carg);
-	//}
+
+	if (!carg)
+		return;
+
+	if (ctx->n >= ctx->cap) {
+		size_t ncap = ctx->cap ? ctx->cap * 2 : 8;
+		context_arg **nb = realloc(ctx->list, ncap * sizeof(*nb));
+		if (!nb)
+			return;
+		ctx->list = nb;
+		ctx->cap = ncap;
+	}
+	ctx->list[ctx->n++] = carg;
+}
+
+static void aggregators_drain(uv_loop_t *loop)
+{
+	unsigned i;
+
+	if (!loop)
+		return;
+	/* Close callbacks (and nested timer recycles) can take more than a few
+	 * NOWAIT turns when many aggregators shut down together. */
+	for (i = 0; i < 512; ++i) {
+		if (!uv_run(loop, UV_RUN_NOWAIT))
+			break;
+	}
 }
 
 void aggregators_free()
 {
-	alligator_ht_foreach_arg(ac->aggregators, aggregators_free_foreach, NULL);
+	aggregators_collect_ctx ctx = { NULL, 0, 0 };
+	char **keys = NULL;
+	size_t i;
+
+	if (!ac || !ac->aggregators)
+		return;
+
+	alligator_ht_foreach_arg(ac->aggregators, aggregators_collect_cb, &ctx);
+
+	keys = calloc(ctx.n ? ctx.n : 1, sizeof(*keys));
+	if (!keys && ctx.n) {
+		free(ctx.list);
+		return;
+	}
+
+	/* Close embedded UV handles first and drain so carg_free does not leave
+	 * dangling handles on the loop for a later nested uv_run (entrypoints). */
+	for (i = 0; i < ctx.n; ++i) {
+		context_arg *carg = ctx.list[i];
+		if (!carg)
+			continue;
+		carg->remove_from_hash = 1;
+		if (carg->key)
+			keys[i] = strdup(carg->key);
+		carg_close_embedded_uv_handles(carg);
+		if (carg->lock) {
+			r_time time = setrtime();
+			carg->context_ttl = time.sec;
+		}
+	}
+	aggregators_drain(ac->loop);
+
+	for (i = 0; i < ctx.n; ++i) {
+		context_arg *carg = ctx.list[i];
+		if (!carg)
+			continue;
+		/* Do not memset embedded uv_timer_t here: a still-closing handle
+		 * would leave libuv writing into zeroed/freed memory on the next
+		 * drain. Handles were closed above; carg_free tears the block down. */
+		smart_aggregator_del(carg);
+	}
+	aggregators_drain(ac->loop);
+
+	/* Close callbacks under alligator_stop_requested() defer carg_free so this
+	 * snapshot stays valid. Free anything still linked in aggregators.
+	 * Search only by copied keys: *_del must unlink context_node before
+	 * carg_free, otherwise this walk hits a tommy_node inside a freed block
+	 * (SIGSEGV in tommy_hashdyn_remove_existing / alligator_ht_search). */
+	for (i = 0; i < ctx.n; ++i) {
+		context_arg *carg;
+		uint32_t hash;
+
+		if (!keys[i])
+			continue;
+		hash = tommy_strhash_u32(0, keys[i]);
+		carg = alligator_ht_search(ac->aggregators, aggregator_compare, keys[i], hash);
+		if (carg) {
+			carg->lock = 0;
+			carg->process_release_scheduled = 0;
+			carg->process_finalize_pending = 0;
+			carg->remove_from_hash = 1;
+			smart_aggregator_del(carg);
+		}
+		free(keys[i]);
+	}
+	aggregators_drain(ac->loop);
+
+	free(keys);
+	free(ctx.list);
 }
 
 void entrypoint_free_foreach(void *funcarg, void* arg)

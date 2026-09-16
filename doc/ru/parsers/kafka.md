@@ -6,6 +6,8 @@
 
 Это **не** полная замена внутренним метрикам брокера. Большую часть JVM, request, network, log и replica-manager Kafka отдаёт только по **JMX**. Их нужно снимать [Prometheus jmx_exporter](https://github.com/prometheus/jmx_exporter) как sidecar (или Java agent) и забирать exposition парсером Alligator `prometheus_metrics`.
 
+Чтобы **потреблять строки логов** (или OpenMetrics-текст) из топика и разбирать их grok / mtail / vrl / `prometheus_metrics`, укажите URL с топиком на этих handler'ах — см. [kafka_logs.md](kafka_logs.md).
+
 | Источник | Что получаете |
 |----------|----------------|
 | `kafka` (этот парсер, librdkafka) | Брокеры кластера, партиции топиков, high/low offset, leader/replicas/ISR, under-replicated, members/offset/lag consumer-group |

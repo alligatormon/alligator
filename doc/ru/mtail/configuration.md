@@ -187,6 +187,7 @@ aggregate {
 ```
 aggregate {
     mtail file:///var/log/maillog name=postfix log_level=info notify=only state=stream;
+    mtail kafka://127.0.0.1:9092/maillog?group.id=alligator-mtail name=postfix;
 }
 
 mtail {
@@ -195,7 +196,7 @@ mtail {
 }
 ```
 
-Используйте, когда Alligator читает логи из файла и разбирает их программой mtail, выбранной через `name=postfix`.
+Используйте, когда Alligator читает логи из файла (или топика Kafka — [kafka_logs.md](../parsers/kafka_logs.md)) и разбирает их программой mtail, выбранной через `name=postfix`.
 
 ### Пример 2: Несколько скриптов и выделенные порты
 

@@ -1207,6 +1207,7 @@ void postgresql_client_del(context_arg* carg)
 	if (!carg)
 		return;
 
+	aggregators_ht_unlink(carg);
 	alligator_ht_remove_existing(ac->pg_aggregator, &(carg->node));
 	carg->remove_from_hash = 1;
 	if (carg->dynamic_socket) {

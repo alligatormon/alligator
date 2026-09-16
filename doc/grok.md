@@ -137,6 +137,7 @@ The examples of usage will be provided in the documentation, which will appear s
 ```
 aggregate {
     grok file:///var/log/dmesg name=dmesg state=stream;
+    grok kafka://127.0.0.1:9092/app-logs?group.id=alligator-grok name=dmesg;
 }
 grok_patterns /etc/grok-patterns/patterns.conf;
 grok {
@@ -145,6 +146,8 @@ grok {
   match '%{TIMESTAMP}] %{WORD:process}';
 }
 ```
+
+Kafka topic consume: [kafka_logs.md](parsers/kafka_logs.md).
 
 Alternatively, you can use this as a local UDP endpoint that parses logs into metrics:
 ```

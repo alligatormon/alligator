@@ -1,6 +1,7 @@
 #include <jansson.h>
 #include "main.h"
 #include "common/logs.h"
+#include "common/stop.h"
 #include "puppeteer/puppeteer.h"
 #include "common/json_query.h"
 #define PUPPETEER_CMD "exec://node /var/lib/alligator/puppeteer-alligator.js"
@@ -103,6 +104,9 @@ void puppeteer_foreach_run(void *funcarg, void* arg)
 
 }
 void puppeteer_crawl(uv_timer_t* handle) {
+	(void)handle;
+	if (alligator_stop_requested() || !ac || !ac->puppeteer)
+		return;
 	if (!alligator_ht_count(ac->puppeteer))
 		return;
 
@@ -146,7 +150,17 @@ void puppeteer_foreach_done(void *funcarg, void* arg)
 
 void puppeteer_done()
 {
+	if (!ac)
+		return;
+
+	if (ac->puppeteer_timer.loop && !uv_is_closing((uv_handle_t *)&ac->puppeteer_timer))
+		uv_timer_stop(&ac->puppeteer_timer);
+
+	if (!ac->puppeteer)
+		return;
+
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_foreach_done, NULL);
 	alligator_ht_done(ac->puppeteer);
 	free(ac->puppeteer);
+	ac->puppeteer = NULL;
 }

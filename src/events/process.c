@@ -11,6 +11,7 @@
 #include "cluster/later.h"
 #include "parsers/multiparser.h"
 #include "common/logs.h"
+#include "common/stop.h"
 extern aconf* ac;
 
 static const char *process_shell_path(void)
@@ -108,7 +109,11 @@ static void process_finalize(context_arg *carg)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			smart_aggregator_del(carg);
+			/* During shutdown aggregators_free owns the final carg_free; freeing
+			 * here leaves dangling pointers in its snapshot list and UAF in
+			 * tommy hash remove/resize. */
+			if (!alligator_stop_requested())
+				smart_aggregator_del(carg);
 			return;
 		}
 	}
@@ -116,7 +121,8 @@ static void process_finalize(context_arg *carg)
 	/* Deferred external delete request while process was active. */
 	if (carg->remove_from_hash)
 	{
-		process_client_del(carg);
+		if (!alligator_stop_requested())
+			process_client_del(carg);
 		return;
 	}
 }
@@ -203,14 +209,15 @@ static void process_close_or_released(context_arg *carg, uv_handle_t *handle, ui
 	if (carg->process_released & bit)
 		return;
 
-	if (uv_is_closing(handle))
-		return;
-
 	if (!handle->loop)
 	{
 		process_mark_released(carg, bit);
 		return;
 	}
+
+	/* Already closing: wait for process_uv_handle_closed — do not mark early. */
+	if (uv_is_closing(handle))
+		return;
 
 	uv_close(handle, process_uv_handle_closed);
 }
@@ -350,20 +357,13 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	uv_read_stop((uv_stream_t *)&carg->channel);
 
-	if (!uv_is_closing((uv_handle_t *)&carg->child_stdin))
-		uv_close((uv_handle_t *)&carg->child_stdin, process_uv_handle_closed);
-	else
-		process_mark_released(carg, PROCESS_RELEASE_STDIN);
-
-	if (!uv_is_closing((uv_handle_t *)&carg->channel))
-		uv_close((uv_handle_t *)&carg->channel, process_uv_handle_closed);
-	else
-		process_mark_released(carg, PROCESS_RELEASE_CHANNEL);
-
-	if (!uv_is_closing((uv_handle_t *)req))
-		uv_close((uv_handle_t *)req, process_uv_handle_closed);
-	else
-		process_mark_released(carg, PROCESS_RELEASE_CHILD);
+	/* If a handle is already closing, wait for its close callback — do not
+	 * mark released early. Marking early lets process_finalize carg_free
+	 * while libuv still writes the handle (valgrind: Invalid write in uv_run
+	 * into freed context_arg from iptables/process oneshots). */
+	process_close_or_released(carg, (uv_handle_t *)&carg->child_stdin, PROCESS_RELEASE_STDIN);
+	process_close_or_released(carg, (uv_handle_t *)&carg->channel, PROCESS_RELEASE_CHANNEL);
+	process_close_or_released(carg, (uv_handle_t *)req, PROCESS_RELEASE_CHILD);
 
 	carg_uv_detach_timers(carg);
 	process_try_release(carg);
@@ -567,12 +567,13 @@ void process_client_del(context_arg *carg)
 		return;
 	}
 
-	// if not in callback
-	if (carg->remove_from_hash)
-		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+	/* Always unlink from aggregators before free — leaving a tommy_node inside
+	 * a freed context_arg corrupts hash resize on later removes. */
+	aggregators_ht_unlink(carg);
 
 	if (carg->process_spawner_registered)
 		alligator_ht_remove_existing(ac->process_spawner, &(carg->node));
+	carg->process_spawner_registered = 0;
 	carg_free(carg);
 }
 

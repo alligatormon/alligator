@@ -28,7 +28,7 @@ The aggregator indludes async methods to get stats using various schemas/protoco
 - file (file://). Enables the file read to get body.
 - exec (exec://). Enables the execution of an external program and read the stdout to the parser.
 - WebSocket (ws://) and WebSocket over TLS (wss://). Enables a persistent WebSocket client that passes each received text frame to the parser.
-- Kafka (`kafka://`). Native librdkafka driver used by the `kafka` parser (broker metadata, offsets, consumer groups). Not a body scrape; see [kafka.md](parsers/kafka.md).
+- Kafka (`kafka://`). Two uses: (1) the `kafka` parser talks to brokers for metadata/offsets/lag — [kafka.md](parsers/kafka.md); (2) with `grok` / `mtail` / `vrl` / `prometheus_metrics` / `log` and a topic path (`kafka://brokers/topic`), Alligator consumes messages and feeds payloads to the parser — [kafka_logs.md](parsers/kafka_logs.md).
 
 The parser gets the body after the aggregator works on it and parses it into metrics.
 

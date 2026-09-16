@@ -14,6 +14,7 @@
 #include <math.h>
 #include "parsers/mongodb_wire_bson.h"
 #include "parsers/kafka.h"
+#include "events/kafka_consumer.h"
 #include "resolver/dns.h"
 #include "resolver/resolver.h"
 #include "metric/metric_types.h"
@@ -3551,4 +3552,35 @@ void api_test_parser_kafka_query_and_filters()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed("__consumer_offsets", "^app", "^$"));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed("internal", ".*", "^internal$"));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed(NULL, ".*", "^$"));
+}
+
+void api_test_kafka_consumer_split_query()
+{
+    char *topic = NULL;
+    char *opts = NULL;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        kafka_consumer_split_query("app-logs", &topic, &opts));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "app-logs", topic);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, opts);
+    free(topic);
+    topic = NULL;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        kafka_consumer_split_query("app-logs?group.id=alligator-grok&auto.offset.reset=earliest",
+            &topic, &opts));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "app-logs", topic);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+        "group.id=alligator-grok&auto.offset.reset=earliest", opts);
+    free(topic);
+    free(opts);
+    topic = NULL;
+    opts = NULL;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        kafka_consumer_split_query("", &topic, &opts));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        kafka_consumer_split_query(NULL, &topic, &opts));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
+        kafka_consumer_split_query("?group.id=x", &topic, &opts));
 }
