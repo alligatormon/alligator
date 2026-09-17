@@ -848,12 +848,15 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 IF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	# CLI/daemon: put the binary on PATH. /usr/bin is SIP-protected on macOS.
-	install(TARGETS ${HEAD} RUNTIME DESTINATION /usr/local/bin)
-	install(FILES grok-patterns/patterns.conf DESTINATION /usr/local/etc/grok-patterns)
+	# Relative destinations only: productbuild does not remap absolute
+	# DESTINATION (same as Bundle). Prefix "/" so the pkg still contains
+	# /usr/local/bin/alligator. /usr/bin is SIP-protected.
+	install(TARGETS ${HEAD} RUNTIME DESTINATION usr/local/bin)
+	install(FILES grok-patterns/patterns.conf DESTINATION usr/local/etc/grok-patterns)
 	install(FILES "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js"
-		DESTINATION /var/lib/alligator)
+		DESTINATION var/lib/alligator)
 	set(CPACK_GENERATOR "productbuild")
+	set(CPACK_SET_DESTDIR ON)
 	set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-macOS")
 	set(CPACK_PRODUCTBUILD_IDENTIFIER "io.alligator.metrics")
