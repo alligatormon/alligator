@@ -872,7 +872,11 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-macOS")
 ENDIF()
 
-install(DIRECTORY DESTINATION /var/lib/alligator/)
+# Absolute /var/lib/alligator is for Linux packages (RPM/DEB + DESTDIR).
+# CPack Bundle on macOS does not remap it and tries to mkdir on the host.
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	install(DIRECTORY DESTINATION /var/lib/alligator/)
+ENDIF()
 
 set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
 							/usr/lib/systemd

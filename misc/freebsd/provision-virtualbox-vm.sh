@@ -11,7 +11,7 @@ pkg install -y \
 	cmake \
 	gmake \
 	python3 \
-	py311-pip \
+	devel/py-pip \
 	autoconf \
 	automake \
 	libtool \
