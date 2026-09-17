@@ -872,7 +872,13 @@ set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION	/usr/bin
 							/usr/lib/systemd
 							/usr/lib/systemd/system)
 
-set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/../LICENSE")
+# productbuild only accepts .txt/.rtf/.html licenses (not extensionless LICENSE).
+configure_file(
+	"${PROJECT_SOURCE_DIR}/../LICENSE"
+	"${CMAKE_BINARY_DIR}/LICENSE.txt"
+	COPYONLY
+)
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_BINARY_DIR}/LICENSE.txt")
 set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
 include(CPack)
 
