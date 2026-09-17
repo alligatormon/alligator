@@ -62,7 +62,22 @@ echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://pac
 ```
 
 ## macOS
-Пакеты macOS — Apple Silicon (arm64) бандлы `.app` (без подписи). Скачивайте с [GitHub Releases](https://github.com/alligatormon/alligator/releases) (`Alligator.app.zip` и/или `alligator-<version>-macOS*`). В Packagecloud они не публикуются.
+CLI-пакет для Apple Silicon (arm64). Скачайте `alligator-<version>-macOS.pkg` с [GitHub Releases](https://github.com/alligatormon/alligator/releases). В Packagecloud не публикуется. `/usr/bin` закрыт SIP; установщик кладёт бинарник в `/usr/local/bin`.
+
+```
+xattr -cr alligator-*-macOS.pkg
+sudo installer -pkg alligator-*-macOS.pkg -target /
+alligator --version
+```
+
+Или скопируйте подписанный артефакт `alligator-macos-arm64`:
+
+```
+sudo install -m 755 alligator-macos-arm64 /usr/local/bin/alligator
+xattr -cr /usr/local/bin/alligator
+```
+
+Сборка подписана ad-hoc, без нотаризации Apple. «Open» в Finder для `.app` (и карантин у скачанного файла) даёт *Apple could not verify … malware*. Ставьте из Terminal, как выше, либо разрешите pkg в **System Settings → Privacy & Security**. Нотаризация требует платного Apple Developer ID.
 
 CI: [`.github/workflows/macos.yml`](../../.github/workflows/macos.yml) на GitHub-hosted раннерах `macos-15`.
 

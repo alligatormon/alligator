@@ -60,7 +60,22 @@ echo 'deb [signed-by=/usr/share/keyrings/alligator-packagecloud.gpg] https://pac
 ```
 
 ## macOS
-macOS packages are Apple Silicon (arm64) `.app` bundles (unsigned). Download from [GitHub Releases](https://github.com/alligatormon/alligator/releases) (`Alligator.app.zip` and/or `alligator-<version>-macOS*`). They are not published to Packagecloud.
+Apple Silicon (arm64) CLI package. Download `alligator-<version>-macOS.pkg` from [GitHub Releases](https://github.com/alligatormon/alligator/releases). It is not published to Packagecloud. `/usr/bin` is SIP-protected; the installer puts the binary in `/usr/local/bin`.
+
+```
+xattr -cr alligator-*-macOS.pkg
+sudo installer -pkg alligator-*-macOS.pkg -target /
+alligator --version
+```
+
+Or copy the signed `alligator-macos-arm64` artifact:
+
+```
+sudo install -m 755 alligator-macos-arm64 /usr/local/bin/alligator
+xattr -cr /usr/local/bin/alligator
+```
+
+The build is ad-hoc signed, not Apple-notarized. Finder “Open” on a `.app` (or a quarantined download) shows *Apple could not verify … malware*. Install from Terminal as above, or allow the pkg under **System Settings → Privacy & Security**. Notarization needs a paid Apple Developer ID.
 
 CI: [`.github/workflows/macos.yml`](../.github/workflows/macos.yml) on GitHub-hosted `macos-15` runners.
 

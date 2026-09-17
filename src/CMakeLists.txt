@@ -848,32 +848,19 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 IF(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	set(MACOS_MISC_DIR "${CMAKE_SOURCE_DIR}/../misc/macos")
-	if(NOT EXISTS "${MACOS_MISC_DIR}/Alligator.icns")
-		execute_process(
-			COMMAND "${MACOS_MISC_DIR}/build_icns.sh"
-			WORKING_DIRECTORY "${MACOS_MISC_DIR}"
-			COMMAND_ERROR_IS_FATAL ANY
-		)
-	endif()
-	configure_file(
-		"${MACOS_MISC_DIR}/Info.plist.in"
-		"${CMAKE_BINARY_DIR}/macos/Info.plist"
-		@ONLY
-	)
-	install(TARGETS ${HEAD} RUNTIME DESTINATION MacOS)
-	install(FILES grok-patterns/patterns.conf DESTINATION Resources/etc/grok-patterns)
+	# CLI/daemon: put the binary on PATH. /usr/bin is SIP-protected on macOS.
+	install(TARGETS ${HEAD} RUNTIME DESTINATION /usr/local/bin)
+	install(FILES grok-patterns/patterns.conf DESTINATION /usr/local/etc/grok-patterns)
 	install(FILES "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js"
-		DESTINATION Resources/var/lib/alligator)
-	set(CPACK_GENERATOR "Bundle")
-	set(CPACK_BUNDLE_NAME "Alligator")
-	set(CPACK_BUNDLE_PLIST "${CMAKE_BINARY_DIR}/macos/Info.plist")
-	set(CPACK_BUNDLE_ICON "${MACOS_MISC_DIR}/Alligator.icns")
+		DESTINATION /var/lib/alligator)
+	set(CPACK_GENERATOR "productbuild")
+	set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-macOS")
+	set(CPACK_PRODUCTBUILD_IDENTIFIER "io.alligator.metrics")
 ENDIF()
 
-# Absolute /var/lib/alligator is for Linux packages (RPM/DEB + DESTDIR).
-# CPack Bundle on macOS does not remap it and tries to mkdir on the host.
+# Empty /var/lib/alligator dir for Linux packages (RPM/DEB + DESTDIR).
+# Darwin productbuild already creates it by installing puppeteer-alligator.js.
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	install(DIRECTORY DESTINATION /var/lib/alligator/)
 ENDIF()

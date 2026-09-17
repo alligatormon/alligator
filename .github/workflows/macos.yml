@@ -47,29 +47,18 @@ jobs:
           conan profile detect --force
           conan install . --build=missing -s build_type=Release
           conan build external/
-          ../misc/macos/build_icns.sh
           cmake -S . -B build \
             -DCMAKE_TOOLCHAIN_FILE=build/Release/generators/conan_toolchain.cmake \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j"$(sysctl -n hw.ncpu)"
           ./build/alligator --version
-          (cd build && cpack -G Bundle)
-          ls -la build/alligator-*-macOS* build/*.dmg 2>/dev/null || true
-          APP=""
-          if [ -d build/Alligator.app ]; then
-            APP=build/Alligator.app
-          elif [ -d build/_CPack_Packages/Darwin/Bundle/Alligator.app ]; then
-            APP=build/_CPack_Packages/Darwin/Bundle/Alligator.app
-          else
-            APP=$(find build/_CPack_Packages -name Alligator.app -type d | head -n 1)
-          fi
-          if [ -n "$APP" ]; then
-            ls -la "$APP"
-            ditto -c -k --keepParent "$APP" build/Alligator.app.zip
-          elif ! ls build/*.dmg >/dev/null 2>&1; then
-            echo "CPack produced neither Alligator.app nor a .dmg" >&2
-            exit 1
-          fi
+          codesign --force --sign - --identifier io.alligator.metrics ./build/alligator
+          codesign --verify --verbose ./build/alligator
+          (cd build && cpack -G productbuild)
+          ARCH="$(uname -m)"
+          cp ./build/alligator "./build/alligator-macos-${ARCH}"
+          ls -la build/*.pkg "./build/alligator-macos-${ARCH}"
+          test -n "$(ls -1 build/*.pkg 2>/dev/null)"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -77,16 +66,16 @@ jobs:
           name: alligator-macos
           if-no-files-found: error
           path: |
-            src/build/alligator-*-macOS*
-            src/build/*.dmg
-            src/build/Alligator.app.zip
+            src/build/alligator-*-macOS*.pkg
+            src/build/*.pkg
+            src/build/alligator-macos-*
 
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src/build/alligator-*-macOS*
-            src/build/*.dmg
-            src/build/Alligator.app.zip
+            src/build/alligator-*-macOS*.pkg
+            src/build/*.pkg
+            src/build/alligator-macos-*
           fail_on_unmatched_files: false

@@ -13,6 +13,7 @@ pkg install -y \
 	gmake \
 	python3 \
 	devel/py-pip \
+	databases/py-sqlite3 \
 	autoconf \
 	automake \
 	libtool \
