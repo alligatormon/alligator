@@ -25,6 +25,8 @@ pkg install -y \
 python3 -m pip install --user --upgrade pip
 python3 -m pip install --user conan==2.26.1
 
+# vmactions copies the GitHub checkout into the VM as a different uid than root.
+git config --global --add safe.directory '*'
 git submodule sync --recursive
 git submodule update --init --recursive
 cd src

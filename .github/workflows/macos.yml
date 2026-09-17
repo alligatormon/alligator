@@ -54,10 +54,21 @@ jobs:
           cmake --build build -j"$(sysctl -n hw.ncpu)"
           ./build/alligator --version
           (cd build && cpack -G Bundle)
-          ls -la build/Alligator.app
-          ls -la build/alligator-*-macOS* build/*.dmg build/*.pkg 2>/dev/null || true
+          ls -la build/alligator-*-macOS* build/*.dmg 2>/dev/null || true
+          APP=""
           if [ -d build/Alligator.app ]; then
-            ditto -c -k --keepParent build/Alligator.app build/Alligator.app.zip
+            APP=build/Alligator.app
+          elif [ -d build/_CPack_Packages/Darwin/Bundle/Alligator.app ]; then
+            APP=build/_CPack_Packages/Darwin/Bundle/Alligator.app
+          else
+            APP=$(find build/_CPack_Packages -name Alligator.app -type d | head -n 1)
+          fi
+          if [ -n "$APP" ]; then
+            ls -la "$APP"
+            ditto -c -k --keepParent "$APP" build/Alligator.app.zip
+          elif ! ls build/*.dmg >/dev/null 2>&1; then
+            echo "CPack produced neither Alligator.app nor a .dmg" >&2
+            exit 1
           fi
 
       - name: Upload artifacts
