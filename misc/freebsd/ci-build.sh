@@ -5,6 +5,7 @@ set -eu
 
 export ASSUME_ALWAYS_YES=YES
 export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
+export MAKE=gmake
 
 pkg update
 pkg install -y \

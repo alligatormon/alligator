@@ -8,3 +8,6 @@ m4/1.4.19
 autoconf/2.71
 automake/1.16.5
 libtool/2.4.7
+
+[conf]
+tools.gnu:make_program=gmake
