@@ -11,11 +11,13 @@
 #include <net/if_media.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/icmp_var.h>
 #include <netinet/ip_var.h>
 #include <netinet/tcp_var.h>
 #include <netinet/udp_var.h>
+#ifndef ICMP_MAXTYPE
+#define ICMP_MAXTYPE 40
+#endif
+#include <netinet/icmp_var.h>
 #include "main.h"
 #include "common/logs.h"
 
