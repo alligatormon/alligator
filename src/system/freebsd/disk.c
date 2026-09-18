@@ -1,12 +1,14 @@
 #ifdef __FreeBSD__
-#include "main.h"
-#include "common/logs.h"
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 #include <libgeom.h>
+#include "main.h"
+#include "common/logs.h"
 
 extern aconf *ac;
 
@@ -57,6 +59,7 @@ void disks_info(void)
 {
 	struct gmesh mesh;
 	struct gclass *cp;
+	struct ggeom *gp;
 	struct gprovider *pp;
 	uint64_t disks_num = 0;
 
@@ -67,12 +70,14 @@ void disks_info(void)
 		if (strcmp(cp->lg_name, "DISK") != 0)
 			continue;
 
-		LIST_FOREACH(pp, &cp->lg_prov, lg_prov) {
-			if (!pp->lg_name || pp->lg_name[0] == '\0')
-				continue;
+		LIST_FOREACH(gp, &cp->lg_geom, lg_geom) {
+			LIST_FOREACH(pp, &gp->lg_provider, lg_provider) {
+				if (!pp->lg_name || pp->lg_name[0] == '\0')
+					continue;
 
-			emit_disk_ident(pp);
-			disks_num++;
+				emit_disk_ident(pp);
+				disks_num++;
+			}
 		}
 	}
 

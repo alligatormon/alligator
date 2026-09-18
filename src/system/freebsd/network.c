@@ -1,22 +1,23 @@
 #ifdef __FreeBSD__
-#include "main.h"
-#include "common/logs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
 #include <net/if.h>
-#include <net/if_mib.h>
 #include <net/if_media.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
+#include <netinet/icmp_var.h>
 #include <netinet/ip_var.h>
 #include <netinet/tcp_var.h>
 #include <netinet/udp_var.h>
-#include <netinet/icmp_var.h>
-#include <netinet/ip_icmp.h>
-#include <sys/sysctl.h>
+#include "main.h"
+#include "common/logs.h"
 
 extern aconf *ac;
 
@@ -42,7 +43,7 @@ void get_netstat_statistics(void)
 		emit_stat("Tcp", "Conndrops", (int64_t)tcpstat.tcps_conndrops);
 		emit_stat("Tcp", "Closed", (int64_t)tcpstat.tcps_closed);
 		emit_stat("Tcp", "Segstimed", (int64_t)tcpstat.tcps_segstimed);
-		emit_stat("Tcp", "Received", (int64_t)tcpstat.tcps_rcvdpack);
+		emit_stat("Tcp", "Received", (int64_t)tcpstat.tcps_rcvpack);
 		emit_stat("Tcp", "Sent", (int64_t)tcpstat.tcps_sndpack);
 	}
 
@@ -61,7 +62,7 @@ void get_netstat_statistics(void)
 		emit_stat("Ip", "OutRequests", (int64_t)ipstat.ips_localout);
 		emit_stat("Ip", "OutDiscards", (int64_t)ipstat.ips_odropped);
 		emit_stat("Ip", "ReasmReqds", (int64_t)ipstat.ips_fragmented);
-		emit_stat("Ip", "InHdrErrors", (int64_t)ipstat.ips_badvers + ipstat.ips_badhlens);
+		emit_stat("Ip", "InHdrErrors", (int64_t)ipstat.ips_badvers + ipstat.ips_badhlen);
 	}
 
 	len = sizeof(icmpstat);
