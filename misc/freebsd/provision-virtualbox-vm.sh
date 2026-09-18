@@ -17,6 +17,9 @@ pkg install -y \
 	automake \
 	libtool \
 	pkgconf \
+	flex \
+	bison \
+	m4 \
 	llvm \
 	go \
 	ruby \

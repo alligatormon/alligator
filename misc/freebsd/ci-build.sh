@@ -18,6 +18,9 @@ pkg install -y \
 	automake \
 	libtool \
 	pkgconf \
+	flex \
+	bison \
+	m4 \
 	llvm \
 	go \
 	ruby \
@@ -33,7 +36,8 @@ git submodule update --init --recursive
 cd src
 
 conan profile detect --force
-conan install . --build=missing -s build_type=Release
+conan install . --build=missing -s build_type=Release \
+	-pr:a default -pr:a ../misc/freebsd/conan-platform.profile
 conan build external/
 
 cmake -S . -B build \

@@ -42,6 +42,9 @@ jobs:
               automake \
               libtool \
               pkgconf \
+              flex \
+              bison \
+              m4 \
               llvm \
               go \
               ruby \
