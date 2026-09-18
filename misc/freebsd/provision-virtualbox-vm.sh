@@ -11,8 +11,6 @@ pkg install -y \
 	cmake \
 	gmake \
 	python3 \
-	devel/py-pip \
-	databases/py-sqlite3 \
 	autoconf \
 	automake \
 	libtool \
@@ -25,6 +23,8 @@ pkg install -y \
 	ruby \
 	bash \
 	sudo
+PYVER=$(python3 -c 'import sys; print("%d%d" % (sys.version_info.major, sys.version_info.minor))')
+pkg install -y "py${PYVER}-pip" "py${PYVER}-sqlite3"
 
 if ! pw usershow gitlab >/dev/null 2>&1; then
 	pw useradd gitlab -m -s /usr/local/bin/bash

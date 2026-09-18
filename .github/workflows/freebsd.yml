@@ -36,8 +36,6 @@ jobs:
               cmake \
               gmake \
               python3 \
-              devel/py-pip \
-              databases/py-sqlite3 \
               autoconf \
               automake \
               libtool \
@@ -49,6 +47,8 @@ jobs:
               go \
               ruby \
               bash
+            PYVER=$(python3 -c 'import sys; print("%d%d" % (sys.version_info.major, sys.version_info.minor))')
+            pkg install -y "py${PYVER}-pip" "py${PYVER}-sqlite3"
           run: sh misc/freebsd/ci-build.sh
 
       - name: Upload artifacts

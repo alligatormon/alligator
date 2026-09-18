@@ -12,8 +12,6 @@ pkg install -y \
 	cmake \
 	gmake \
 	python3 \
-	devel/py-pip \
-	databases/py-sqlite3 \
 	autoconf \
 	automake \
 	libtool \
@@ -25,6 +23,8 @@ pkg install -y \
 	go \
 	ruby \
 	bash
+PYVER=$(python3 -c 'import sys; print("%d%d" % (sys.version_info.major, sys.version_info.minor))')
+pkg install -y "py${PYVER}-pip" "py${PYVER}-sqlite3"
 
 # GNU m4 from pkg is /usr/local/bin/gm4; base /usr/bin/m4 is BSD and
 # fails Conan autoconf ("need GNU m4 1.4 or later").
