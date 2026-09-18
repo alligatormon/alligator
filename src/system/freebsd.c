@@ -51,6 +51,7 @@
 #include "common/rtime.h"
 #include "common/selector.h"
 #include "common/logs.h"
+#include "system/common.h"
 #include "system/freebsd/parsers.h"
 #include "system/freebsd/sysctl.h"
 
@@ -338,7 +339,7 @@ void get_vmstat()
 	get_sysctl_stat_u64("kern.maxproc", "processes_max");
 }
 
-static void cpu_core_interval_push(system_cpu_cores_stats *sccs, const char *cpuname,
+static void cpu_core_interval_push(system_cpu_cores_stats *sccs, char *cpuname,
 	uint64_t t_user, uint64_t t_nice, uint64_t t_system, uint64_t t_intr, uint64_t t_idle)
 {
 	uint64_t t_total = t_user + t_nice + t_system + t_intr + t_idle;
@@ -554,7 +555,7 @@ void disk_io_stats()
 }
 
 
-static const char *link_state_name(uint8_t link_state)
+static char *link_state_name(uint8_t link_state)
 {
 	switch (link_state) {
 	case LINK_STATE_UP:
@@ -575,7 +576,7 @@ void get_iface_statistics()
 
 	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
 		struct if_data *ifd;
-		const char *state;
+		char *state;
 		int64_t marker;
 		int64_t ipackets, opackets, ibytes, obytes;
 		int64_t ierrors, oerrors, iqdrops;

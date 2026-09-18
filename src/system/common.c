@@ -1,6 +1,7 @@
 #include "main.h"
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
+#include "common/selector.h"
 #include <string.h>
 
 int system_iface_is_veth(const char *name)
@@ -380,8 +381,11 @@ void hw_cpu_info()
 	while (i--)
 	{
 		char socket_num[3];
+		char model[256];
 		snprintf(socket_num, sizeof(socket_num), "%d", i);
-		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", normalize_spaces(cinfo[i].model), "socket", socket_num);
+		strlcpy(model, cinfo[i].model ? cinfo[i].model : "", sizeof(model));
+		normalize_spaces(model);
+		metric_add_labels2("cpu_model", &val, DATATYPE_UINT, ac->system_carg, "model", model, "socket", socket_num);
 	}
 	uv_free_cpu_info(cinfo, count);
 }
