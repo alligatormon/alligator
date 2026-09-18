@@ -1,4 +1,6 @@
-#define _XOPEN_SOURCE 700
+#if defined(__linux__)
+#define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
