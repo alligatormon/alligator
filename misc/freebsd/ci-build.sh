@@ -56,5 +56,5 @@ cmake -S . -B build \
 	-DCMAKE_MAKE_PROGRAM=gmake
 cmake --build build -j"$(sysctl -n hw.ncpu)"
 ./build/alligator --version
-cd build && cpack -G FreeBSD
+cd build && cpack -G FREEBSD
 ls -la alligator-*.pkg 2>/dev/null || ls -la *.pkg
