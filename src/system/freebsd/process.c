@@ -266,8 +266,10 @@ static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 	freebsd_fd_counts fds;
 
 	snprintf(pidstr, sizeof(pidstr), "%d", proc->ki_pid);
-	utime = (double)proc->ki_utime / 1000000.0;
-	stime = (double)proc->ki_stime / 1000000.0;
+	utime = (double)proc->ki_rusage.ru_utime.tv_sec
+		+ (double)proc->ki_rusage.ru_utime.tv_usec / 1000000.0;
+	stime = (double)proc->ki_rusage.ru_stime.tv_sec
+		+ (double)proc->ki_rusage.ru_stime.tv_usec / 1000000.0;
 	total_time = utime + stime;
 
 	metric_add_labels3("process_cpu_seconds_total", &utime, DATATYPE_DOUBLE, ac->system_carg,

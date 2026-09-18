@@ -13,13 +13,13 @@
 #include <sys/sysctl.h>
 #include <sys/utsname.h>
 #include <sys/rctl.h>
-#include <utmp.h>
+#include <utmpx.h>
 
 extern aconf *ac;
 
 #define INTRNAME_LEN 20
 
-static void emit_platform_label(const char *platform, int8_t mode)
+static void emit_platform_label(char *platform, int8_t mode)
 {
 	int64_t vl = 1;
 
@@ -68,7 +68,7 @@ int8_t get_platform(int8_t mode)
 void get_kernel_version(int8_t platform)
 {
 	struct utsname un;
-	const char *platform_name = "unknown";
+	char *platform_name = "unknown";
 	int64_t vl = 1;
 	char *p;
 	uint8_t i;
@@ -169,7 +169,7 @@ void get_distribution_name(void)
 	}
 }
 
-static void utmp_parse(struct utmp *log)
+static void utmp_parse(struct utmpx *log)
 {
 	if (!log || log->ut_type != USER_PROCESS)
 		return;
@@ -189,20 +189,15 @@ static void utmp_parse(struct utmp *log)
 
 void get_utmp_info(void)
 {
-	FILE *file;
-	struct utmp log;
+	struct utmpx *log;
 	uint64_t btmp_size = get_file_size("/var/log/btmp");
 
 	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
 
-	file = fopen("/var/run/utmp", "rb");
-	if (!file)
-		return;
-
-	while (fread(&log, sizeof(log), 1, file) == 1)
-		utmp_parse(&log);
-
-	fclose(file);
+	setutxent();
+	while ((log = getutxent()) != NULL)
+		utmp_parse(log);
+	endutxent();
 }
 
 void get_memory_usage_hw(void)

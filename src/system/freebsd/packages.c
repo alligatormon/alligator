@@ -15,7 +15,7 @@ void get_packages_info(void)
 	FILE *fd;
 	char line[1024];
 	uint64_t pkgs = 0;
-	const char *release = "";
+	char *release = "";
 
 	packages_register_metric_families(ac->system_carg);
 
