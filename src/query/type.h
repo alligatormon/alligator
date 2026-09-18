@@ -30,6 +30,8 @@ typedef struct query_node
 	char *datasource;
 	context_arg *carg;
 	alligator_ht *labels;
+	alligator_ht *add_labels;
+	json_t *metricstransform;
 	match_rules *except;
 
 	tommy_node node;

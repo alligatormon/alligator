@@ -147,6 +147,7 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 		return NULL;
 
 	sc->serializer = serializer;
+	sc->openmetrics = 1;
 	sc->an = an;
 	sc->ns = ns;
 	if (serializer == METRIC_SERIALIZER_OPENMETRICS)
@@ -310,17 +311,26 @@ void json_add_label_foreach(void *funcarg, void *arg)
 	json_array_object_insert(jlabels, labelscont->name, value);
 }
 
-static void serializer_openmetrics_emit_family_headers(serializer_context *sc, const char *metric_key)
+static void serializer_openmetrics_emit_family_headers(serializer_context *sc, const char *stored_key, const char *export_key)
 {
 	char family_buf[256];
+	char stored_buf[256];
 	metric_family_metadata *meta = NULL;
 	const char *family_name;
 	size_t family_name_len;
+	const char *export_for_family;
 
-	if (!sc || !sc->str || !metric_key)
+	if (!sc || !sc->str || !stored_key)
 		return;
 
-	family_name = prom_family_exposition_resolve(sc->ns, metric_key, &meta, family_buf, sizeof(family_buf));
+	export_for_family = (export_key && *export_key) ? export_key : stored_key;
+	family_name = prom_family_exposition_resolve(sc->ns, export_for_family, &meta, family_buf, sizeof(family_buf));
+	if (!meta && stored_key && strcmp(export_for_family, stored_key) != 0)
+	{
+		metric_family_metadata *stored_meta = NULL;
+		prom_family_exposition_resolve(sc->ns, stored_key, &stored_meta, stored_buf, sizeof(stored_buf));
+		meta = stored_meta;
+	}
 	family_name_len = strlen(family_name);
 	if (sc->last_family[0] && !strcmp(sc->last_family, family_name))
 		return;
@@ -338,7 +348,7 @@ static void serializer_openmetrics_emit_family_headers(serializer_context *sc, c
 	string_cat(sc->str, (char *)family_name, family_name_len);
 	string_cat(sc->str, " ", 1);
 	{
-		const char *metric_type = prom_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, 1);
+		const char *metric_type = prom_type_exposition_keyword(meta ? meta->type : METRIC_TYPE_UNTYPED, sc->openmetrics);
 		string_cat(sc->str, (char *)metric_type, strlen(metric_type));
 	}
 	string_cat(sc->str, "\n", 1);
@@ -649,7 +659,7 @@ void serialize_openmetrics(metric_node *x, serializer_context *sc, alligator_ht 
 	char *new_name = metric_transform_name(labels->key, sc->an);
 	const char *metric_name_for_transform = new_name ? new_name : labels->key;
 	char *metric_transform_alt = metric_transform_alt_for_include(metric_name_for_transform, labels->key);
-	serializer_openmetrics_emit_family_headers(sc, labels->key);
+	serializer_openmetrics_emit_family_headers(sc, labels->key, metric_name_for_transform);
 	if (new_name)
 	{
 		string_cat(res, new_name, strlen(new_name));

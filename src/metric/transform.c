@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 #include <strings.h>
 
 static void metric_transform_vlog(context_arg *carg, action_node *an,
@@ -134,12 +135,12 @@ static int metric_transform_append(char **dst, size_t *len, size_t *cap, const c
     return 1;
 }
 
-char* metric_transform_name(char *name, action_node *an)
+char* metric_transform_name_pattern(char *name, char *pattern, char *replacement, pcre **compiled, context_arg *carg, action_node *an)
 {
-    if (!name || !an)
+    if (!name)
         return NULL;
 
-    if (!an->metric_name_transform_pattern || !an->metric_name_transform_replacement)
+    if (!pattern || !replacement)
         return NULL;
 
     size_t name_len = strlen(name);
@@ -149,27 +150,27 @@ char* metric_transform_name(char *name, action_node *an)
 
     strcpy(new_name, name);
 
-    if (!an->metric_name_transform_pattern || !an->metric_name_transform_replacement)
-        return new_name;
-
-    if (!an->metric_name_transform_compiled)
+    pcre *re = compiled ? *compiled : NULL;
+    if (!re)
     {
         const char *error = NULL;
         int erroffset = 0;
-        an->metric_name_transform_compiled = pcre_compile(
-            an->metric_name_transform_pattern,
+        re = pcre_compile(
+            pattern,
             0,
             &error,
             &erroffset,
             NULL
         );
+        if (compiled)
+            *compiled = re;
     }
 
-    if (!an->metric_name_transform_compiled)
+    if (!re)
         return new_name;
 
     int ovector[90];
-    int rc = pcre_exec(an->metric_name_transform_compiled, NULL, name, name_len, 0, 0, ovector, 90);
+    int rc = pcre_exec(re, NULL, name, name_len, 0, 0, ovector, 90);
     if (rc < 0)
         return new_name;
 
@@ -180,7 +181,6 @@ char* metric_transform_name(char *name, action_node *an)
         return new_name;
     result[0] = '\0';
 
-    char *replacement = an->metric_name_transform_replacement;
     size_t replacement_len = strlen(replacement);
 
     for (size_t i = 0; i < replacement_len; ++i)
@@ -221,9 +221,33 @@ char* metric_transform_name(char *name, action_node *an)
     }
 
     if (strcmp(name, result) != 0)
-        metric_transform_info(NULL, an, "metricstransform: metric name '%s' -> '%s'\n", name, result);
+        metric_transform_info(carg, an, "metricstransform: metric name '%s' -> '%s'\n", name, result);
     free(new_name);
     return result;
+}
+
+char* metric_transform_name(char *name, action_node *an)
+{
+    if (!name || !an)
+        return NULL;
+
+    return metric_transform_name_pattern(name, an->metric_name_transform_pattern,
+        an->metric_name_transform_replacement, &an->metric_name_transform_compiled, NULL, an);
+}
+
+void action_node_bind_carg_transforms(action_node *an, context_arg *carg)
+{
+    if (!an)
+        return;
+    memset(an, 0, sizeof(*an));
+    if (!carg)
+        return;
+    an->labels = carg->labels;
+    an->metricstransform = carg->metricstransform;
+    an->metric_name_transform_pattern = carg->metric_name_transform_pattern;
+    an->metric_name_transform_replacement = carg->metric_name_transform_replacement;
+    an->metric_name_transform_compiled = carg->metric_name_transform_compiled;
+    an->log_level = carg->log_level;
 }
 
 char *metric_transform_alt_for_include(const char *export_name, const char *tree_metric_key)

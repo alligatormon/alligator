@@ -43,6 +43,7 @@ typedef struct namespace_struct
 
 typedef struct serializer_context {
 	int serializer;
+	int openmetrics;
 	action_node *an;
 	namespace_struct *ns;
 	char *last_metric; // for SQL-like databases
@@ -85,6 +86,8 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 serializer_context *serializer_init(int serializer, string *str, char delimiter, string *engine, string *index_template, action_node *an, namespace_struct *ns);
 void dynatrace_action_counter_state_free(action_node *an);
 char* metric_transform_name(char *name, action_node *an);
+char* metric_transform_name_pattern(char *name, char *pattern, char *replacement, pcre **compiled, context_arg *carg, action_node *an);
+void action_node_bind_carg_transforms(action_node *an, context_arg *carg);
 char *metric_transform_alt_for_include(const char *export_name, const char *tree_metric_key);
 void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an);
 char* metric_transform_label_value(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
@@ -99,7 +102,7 @@ string* namespace_print(char *namespace, namespace_struct *arg_ns);
 void free_namespaces();
 void namespace_free(char *namespace, namespace_struct *arg_ns);
 void metrictree_gen(metric_tree *tree, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval, metric_query_context *mqc);
-void metric_str_build (char *namespace, string *str, int openmetrics);
+void metric_str_build (char *namespace, string *str, int openmetrics, context_arg *carg);
 void metric_node_serialize(metric_node *x, serializer_context *sc);
 void serializer_do(serializer_context *sc, string *str);
 void metrictree_serialize_query(metric_tree *tree, labels_t* labels, string *groupkey, serializer_context *sc, size_t labels_count, metric_query_context *mqc);

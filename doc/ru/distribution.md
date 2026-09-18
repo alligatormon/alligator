@@ -79,7 +79,7 @@ xattr -cr /usr/local/bin/alligator
 
 Сборка подписана ad-hoc, без нотаризации Apple. «Open» в Finder для `.app` (и карантин у скачанного файла) даёт *Apple could not verify … malware*. Ставьте из Terminal, как выше, либо разрешите pkg в **System Settings → Privacy & Security**. Нотаризация требует платного Apple Developer ID.
 
-CI: [`.github/workflows/macos.yml`](../../.github/workflows/macos.yml) на GitHub-hosted раннерах `macos-15`.
+CI: [`.github/workflows/macos.yml`](../../.github/workflows/macos.yml) на GitHub-hosted раннерах `macos-15`, по тегам версии (`*.*.*`). `.pkg` сохраняется как artifact workflow и прикрепляется к [GitHub Release](https://github.com/alligatormon/alligator/releases).
 
 ## FreeBSD
 Скачайте `alligator-<version>-FreeBSD.pkg` с [GitHub Releases](https://github.com/alligatormon/alligator/releases) и установите:
@@ -90,7 +90,7 @@ pkg add alligator-<version>-FreeBSD.pkg
 
 Официальной записи в ports/pkg пока нет. Можно собрать из исходников (см. **Сборка** ниже).
 
-CI: [`.github/workflows/freebsd.yml`](../../.github/workflows/freebsd.yml) запускает VM FreeBSD 14 на GitHub-hosted Ubuntu. Self-managed GitLab runner с VirtualBox опционален — см. [ci-freebsd-virtualbox.md](../ci-freebsd-virtualbox.md).
+CI: [`.github/workflows/freebsd.yml`](../../.github/workflows/freebsd.yml) запускает VM FreeBSD 14 на GitHub-hosted Ubuntu по тегам версии (`*.*.*`). `.pkg` — artifact workflow и вложение GitHub Release. Self-managed GitLab runner с VirtualBox опционален — см. [ci-freebsd-virtualbox.md](../ci-freebsd-virtualbox.md).
 
 # Сборка
 В качестве системы сборки используется CMake. Зависимости поставляются через conan и git submodules.

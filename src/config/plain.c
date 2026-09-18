@@ -426,6 +426,16 @@ static void plain_context_env_line(json_t *env_obj, string *tok)
 	free(vbuf);
 }
 
+static int plain_context_supports_metricstransform(const char *context_name)
+{
+	return context_name && (
+		!strcmp(context_name, "action") ||
+		!strcmp(context_name, "x509") ||
+		!strcmp(context_name, "query") ||
+		!strcmp(context_name, "probe") ||
+		!strcmp(context_name, "lang"));
+}
+
 /* Native plain metricstransform (no JSON): metricstransform { include M match_type strict label L regex R replacement S; } */
 static void plain_mtx_stmt_parse(config_parser_stat *wstokens, uint64_t a, uint64_t b, json_t *transforms)
 {
@@ -1123,6 +1133,47 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							json_array_object_insert(operator_json, "log_channel_out", log_channel_out_entrypoint);
 						}
 					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "metric_name_transform_pattern"))
+					{
+						if (!json_object_get(operator_json, "metric_name_transform_pattern"))
+						{
+							++i;
+							if (i < token_count)
+								json_array_object_insert(operator_json, "metric_name_transform_pattern", json_string(wstokens[i].token->s));
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "metric_name_transform_replacement"))
+					{
+						if (!json_object_get(operator_json, "metric_name_transform_replacement"))
+						{
+							++i;
+							if (i < token_count)
+								json_array_object_insert(operator_json, "metric_name_transform_replacement", json_string(wstokens[i].token->s));
+						}
+					}
+					else if (!strcmp(context_name, "system") && !strcmp(wstokens[i].token->s, "add_label"))
+					{
+						json_t *add_label_obj = json_object_get(context_json, "add_label");
+						if (!add_label_obj)
+						{
+							add_label_obj = json_object();
+							json_array_object_insert(context_json, "add_label", add_label_obj);
+						}
+						operator_json = add_label_obj;
+					}
+					else if (!strcmp(context_name, "system") && !strcmp(wstokens[i].token->s, "metricstransform"))
+					{
+						if (!json_object_get(context_json, "metricstransform"))
+						{
+							uint64_t j = i;
+							json_t *mtx = plain_metricstransform_parse(wstokens, &j, token_count);
+							if (mtx)
+							{
+								json_array_object_insert(context_json, "metricstransform", mtx);
+								i = j;
+							}
+						}
+					}
 					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
 					{
 						++i;
@@ -1532,7 +1583,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						for (; i < token_count; i++)
 						{
 							json_t *arg_value = NULL;
-							if (!strcmp(context_name, "action") &&
+							if (plain_context_supports_metricstransform(context_name) &&
 							    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
 							{
 								if (!json_object_get(operator_json, "metricstransform"))
@@ -1548,13 +1599,13 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								continue;
 							}
 							if (wstokens[i].operator ||
-							    (!strcmp(context_name, "action") &&
+							    (plain_context_supports_metricstransform(context_name) &&
 							     wstokens[i].context && wstokens[i].token->s &&
 							     strcmp(wstokens[i].token->s, context_name)))
 							{
 								strlcpy(operator_name, wstokens[i].token->s, 255);
 
-								if (!strcmp(context_name, "action") && !strcmp(operator_name, "metricstransform"))
+								if (plain_context_supports_metricstransform(context_name) && !strcmp(operator_name, "metricstransform"))
 								{
 									if (!json_object_get(operator_json, "metricstransform"))
 									{
@@ -2126,6 +2177,12 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						plain_context_env_line(add_label_entrypoint, wstokens[i].token);
 					}
+					else if (!strcmp(context_name, "system") && !strcmp(operator_name, "add_label"))
+					{
+						json_t *add_label_obj = json_object_get(context_json, "add_label");
+						if (add_label_obj)
+							plain_context_env_line(add_label_obj, wstokens[i].token);
+					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "deny"))
 					{
 						json_t *arg_json = json_string(wstokens[i].token->s);
@@ -2250,14 +2307,27 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
-				else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && plain_metricstransform_has_native_block(wstokens, i, token_count))
+				else if ((!strcmp(context_name, "entrypoint") || !strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp") || !strcmp(context_name, "system")) && plain_metricstransform_has_native_block(wstokens, i, token_count))
 				{
 					if (!operator_json && (!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")))
 						{
 							operator_json = json_object();
 							json_array_object_insert(context_json, "", operator_json);
 						}
-						if (operator_json && !json_object_get(operator_json, "metricstransform"))
+						if (!strcmp(context_name, "system"))
+						{
+							if (!json_object_get(context_json, "metricstransform"))
+							{
+								uint64_t j = i;
+								json_t *mtx = plain_metricstransform_parse(wstokens, &j, token_count);
+								if (mtx)
+								{
+									json_array_object_insert(context_json, "metricstransform", mtx);
+									i = j;
+								}
+							}
+						}
+						else if (operator_json && !json_object_get(operator_json, "metricstransform"))
 						{
 							uint64_t j = i;
 							json_t *mtx = plain_metricstransform_parse(wstokens, &j, token_count);

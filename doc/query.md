@@ -130,3 +130,18 @@ query {
 	datasource mysql;
 }
 ```
+
+## add_label
+Attaches extra labels to series produced by this query. Parser-provided labels (SQL columns) win on key collision.
+
+```
+query {
+    expr 'count({__name__=~"^socket_stat"})';
+    make socket_stat_series;
+    datasource internal;
+    add_label source:query;
+}
+```
+
+## metricstransform
+Same native block / JSON as on [aggregate](aggregate.md). Applied when the query writes metrics.

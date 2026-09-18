@@ -17,29 +17,7 @@ For installation instructions, see the [distribution](doc/distribution.md) doc.
 
 For more examples check URL with [tests](https://github.com/alligatormon/alligator/tree/master/src/tests/system)
 
-# Unit tests and coverage
-The `src/tests/unit2/` suite is organized by feature headers (for example `netlib.h`, `http.h`, `parsers.h`) and is intended to keep test coverage close to the related production code.
-
-Coverage flow (scope: `src/**/*.c`, excluding `src/tests/**`, `src/external/**`, and `src/build/**`):
-```
-cd src
-./tests/coverage/run_coverage.sh
-```
-
-Artifacts:
-- `src/tests/coverage/coverage_report.txt` - full `llvm-cov report` output
-- `src/tests/coverage/coverage_top15.txt` - 15 lowest-covered C files in scope
-- `doc/coverage-baseline.md` - baseline snapshot and threshold ramp
-
-Testing principles are documented in `doc/testing.md`.
-
-To enforce a minimum in local runs:
-```
-cd src
-MIN_LINE_COVERAGE=50 ./tests/coverage/run_coverage.sh
-```
-
-> Note: building tests requires project dependencies (for example `jansson`) and initialized external sources/submodules.
+Unit tests and coverage: [testing](doc/testing.md).
 
 # Command line
 

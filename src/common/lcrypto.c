@@ -303,9 +303,9 @@ static time_t ASN1_GetTimeT(ASN1_TIME* time){
 	return mktime(&t);
 }
 
-void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn_issuer, char *serial, int64_t valid_from, int64_t valid_to, X509 *x509, STACK_OF(X509) *untrusted, const char *ca_file, const revocation_policy *pol)
+void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn_issuer, char *serial, int64_t valid_from, int64_t valid_to, X509 *x509, STACK_OF(X509) *untrusted, const char *ca_file, const revocation_policy *pol, context_arg *carg)
 {
-	x509_metric_families_set(NULL);
+	x509_metric_families_set(carg);
 
 	labels_hash_insert_nocache(lbl, "issuer", dn_issuer);
 	glog(L_DEBUG, "cert: %s, issuer: %s\n", cert, dn_issuer);
@@ -330,21 +330,21 @@ void pem_create_metric(alligator_ht *lbl, char *cert, char *dn_subject, char *dn
 	alligator_ht *expiredays_lbl = labels_dup(lbl);
 	alligator_ht *valid_lbl = labels_dup(lbl);
 	labels_hash_insert_nocache(valid_lbl, "reason", (char *)reason);
-	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, NULL);
-	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, NULL);
-	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, NULL);
+	metric_add("x509_cert_not_before", lbl, &valid_from, DATATYPE_INT, carg);
+	metric_add("x509_cert_not_after", notafter_lbl, &valid_to, DATATYPE_INT, carg);
+	metric_add("x509_cert_expire_days", expiredays_lbl, &expdays, DATATYPE_INT, carg);
 	if (pol && (pol->crl_enabled || pol->ocsp_enabled)) {
 		alligator_ht *rev_lbl = labels_dup(valid_lbl);
 		int64_t rev_val = (ocsp_st == REV_REVOKED) ? 0 : 1;
 		labels_hash_insert_nocache(rev_lbl, "source", pol->ocsp_enabled ? "ocsp" : "crl");
 		labels_hash_insert_nocache(rev_lbl, "status", (char *)rev_status_str(ocsp_st));
-		metric_add("x509_cert_revocation_status", rev_lbl, &rev_val, DATATYPE_INT, NULL);
+		metric_add("x509_cert_revocation_status", rev_lbl, &rev_val, DATATYPE_INT, carg);
 		if (ocsp_next) {
 			alligator_ht *next_lbl = labels_dup(valid_lbl);
-			metric_add("x509_cert_ocsp_next_update", next_lbl, &ocsp_next, DATATYPE_INT, NULL);
+			metric_add("x509_cert_ocsp_next_update", next_lbl, &ocsp_next, DATATYPE_INT, carg);
 		}
 	}
-	metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, NULL);
+	metric_add("x509_cert_valid", valid_lbl, &is_valid, DATATYPE_INT, carg);
 }
 
 void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename)
@@ -355,6 +355,7 @@ void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char
 	char *password = fctx ? fctx->password : NULL;
 	const char *ca_file = fctx ? fctx->ca_file : NULL;
 	const revocation_policy *pol = fctx ? fctx->pol : NULL;
+	context_arg *carg = fctx ? fctx->carg : NULL;
 	EVP_PKEY *pkey;
 	X509 *cert;
 	STACK_OF(X509) *ca = NULL;
@@ -388,7 +389,7 @@ void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char
 	time_t not_after = ASN1_GetTimeT(X509_get_notAfter(cert));
 	time_t not_before = ASN1_GetTimeT(X509_get_notBefore(cert));
 
-	pem_create_metric(lbl, filename, subj, issuer, serial->s, not_before, not_after, cert, ca, ca_file, pol);
+	pem_create_metric(lbl, filename, subj, issuer, serial->s, not_before, not_after, cert, ca, ca_file, pol, carg);
 
 	string_free(serial);
 	free(subj);
@@ -548,6 +549,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
 	x509_parse_fctx *fctx = data;
 	const char *ca_file = fctx ? fctx->ca_file : NULL;
 	const revocation_policy *pol = fctx ? fctx->pol : NULL;
+	context_arg *carg = fctx ? fctx->carg : NULL;
 	if (!pem_cert || !cert_size)
 		return 0;
 
@@ -565,7 +567,7 @@ int libcrypto_pem_check_cert(char *pem_cert, size_t cert_size, void *data, char 
         return 0;
 	}
 
-	x509_parse_cert(NULL, cert, NULL, filename, ca_file, NULL, pol);
+	x509_parse_cert(carg, cert, NULL, filename, ca_file, NULL, pol);
     X509_free(cert);
     return 1;
 }

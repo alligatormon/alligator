@@ -174,6 +174,16 @@ context_arg *carg_copy(context_arg *src)
 	if (src->metricstransform)
 		carg->metricstransform = json_incref(src->metricstransform);
 
+	carg->metric_name_transform_compiled = NULL;
+	if (src->metric_name_transform_pattern)
+		carg->metric_name_transform_pattern = strdup(src->metric_name_transform_pattern);
+	else
+		carg->metric_name_transform_pattern = NULL;
+	if (src->metric_name_transform_replacement)
+		carg->metric_name_transform_replacement = strdup(src->metric_name_transform_replacement);
+	else
+		carg->metric_name_transform_replacement = NULL;
+
 	if (src->mm)
 		carg->mm = mapping_copy(src->mm);
 
@@ -491,6 +501,22 @@ void carg_free(context_arg *carg)
 		carg->metricstransform = NULL;
 	}
 
+	if (carg->metric_name_transform_pattern)
+	{
+		free(carg->metric_name_transform_pattern);
+		carg->metric_name_transform_pattern = NULL;
+	}
+	if (carg->metric_name_transform_replacement)
+	{
+		free(carg->metric_name_transform_replacement);
+		carg->metric_name_transform_replacement = NULL;
+	}
+	if (carg->metric_name_transform_compiled)
+	{
+		pcre_free(carg->metric_name_transform_compiled);
+		carg->metric_name_transform_compiled = NULL;
+	}
+
 	if (carg->loop_allocated) {
 		uv_loop_close(carg->loop);
 		free(carg->loop);
@@ -635,6 +661,74 @@ void parse_add_label(context_arg *carg, json_t *root) {
 		}
 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);
+	}
+}
+
+void parse_metricstransform(context_arg *carg, json_t *root)
+{
+	if (!carg || !root)
+		return;
+
+	json_t *json_metricstransform = json_object_get(root, "metricstransform");
+	json_t *parsed = NULL;
+	if (json_metricstransform && (json_is_object(json_metricstransform) || json_is_array(json_metricstransform)))
+		parsed = json_incref(json_metricstransform);
+	else if (json_metricstransform && json_is_string(json_metricstransform))
+	{
+		const char *mtx_str = json_string_value(json_metricstransform);
+		json_error_t error;
+		json_t *mtx_obj = mtx_str ? json_loads(mtx_str, 0, &error) : NULL;
+		if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
+			parsed = mtx_obj;
+		else
+		{
+			if (mtx_obj)
+				json_decref(mtx_obj);
+			carglog(carg, L_WARN, "context '%s': metricstransform string parse failed: %s\n",
+				carg->key ? carg->key : "unknown",
+				error.text[0] ? error.text : "unknown");
+		}
+	}
+	else if (json_metricstransform)
+	{
+		carglog(carg, L_WARN, "context '%s': metricstransform exists but has unsupported type=%d\n",
+			carg->key ? carg->key : "unknown",
+			json_typeof(json_metricstransform));
+	}
+
+	if (!parsed)
+		return;
+	if (carg->metricstransform)
+		json_decref(carg->metricstransform);
+	carg->metricstransform = parsed;
+}
+
+void parse_metric_name_transform(context_arg *carg, json_t *root)
+{
+	if (!carg || !root)
+		return;
+
+	json_t *jp = json_object_get(root, "metric_name_transform_pattern");
+	if (jp && json_is_string(jp))
+	{
+		const char *pattern = json_string_value(jp);
+		if (carg->metric_name_transform_pattern)
+			free(carg->metric_name_transform_pattern);
+		carg->metric_name_transform_pattern = pattern ? strdup(pattern) : NULL;
+		if (carg->metric_name_transform_compiled)
+		{
+			pcre_free(carg->metric_name_transform_compiled);
+			carg->metric_name_transform_compiled = NULL;
+		}
+	}
+
+	json_t *jr = json_object_get(root, "metric_name_transform_replacement");
+	if (jr && json_is_string(jr))
+	{
+		const char *replacement = json_string_value(jr);
+		if (carg->metric_name_transform_replacement)
+			free(carg->metric_name_transform_replacement);
+		carg->metric_name_transform_replacement = replacement ? strdup(replacement) : NULL;
 	}
 }
 
@@ -984,36 +1078,8 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 		carg->log_ch_out = log_channel_get(json_string_value(json_log_channel_out));
 
 	parse_add_label(carg, root);
-
-	json_t *json_metricstransform = root ? json_object_get(root, "metricstransform") : NULL;
-	if (json_metricstransform && (json_is_object(json_metricstransform) || json_is_array(json_metricstransform)))
-	{
-		carg->metricstransform = json_incref(json_metricstransform);
-	}
-	else if (json_metricstransform && json_is_string(json_metricstransform))
-	{
-		const char *mtx_str = json_string_value(json_metricstransform);
-		json_error_t error;
-		json_t *mtx_obj = mtx_str ? json_loads(mtx_str, 0, &error) : NULL;
-		if (mtx_obj && (json_is_object(mtx_obj) || json_is_array(mtx_obj)))
-		{
-			carg->metricstransform = mtx_obj;
-		}
-		else
-		{
-			if (mtx_obj)
-				json_decref(mtx_obj);
-			carglog(carg, L_WARN, "context '%s': metricstransform string parse failed: %s\n",
-				carg->key ? carg->key : "unknown",
-				error.text[0] ? error.text : "unknown");
-		}
-	}
-	else if (json_metricstransform)
-	{
-		carglog(carg, L_WARN, "context '%s': metricstransform exists but has unsupported type=%d\n",
-			carg->key ? carg->key : "unknown",
-			json_typeof(json_metricstransform));
-	}
+	parse_metricstransform(carg, root);
+	parse_metric_name_transform(carg, root);
 
 	json_t *json_stdin = json_object_get(root, "stdin");
 	if (json_stdin)

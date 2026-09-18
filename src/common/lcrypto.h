@@ -3,11 +3,12 @@
 #include "common/revocation.h"
 #include <openssl/x509.h>
 
-/* Optional context for filesystem PEM/PFX callbacks (password + ca_file + revocation). */
+/* Optional context for filesystem PEM/PFX callbacks (password + ca_file + revocation + labels). */
 typedef struct x509_parse_fctx {
 	char *password;
 	char *ca_file;
 	revocation_policy *pol;
+	context_arg *carg;
 } x509_parse_fctx;
 
 void libcrypto_p12_check_cert(char *pem_cert, size_t cert_size, void *data, char *filename);

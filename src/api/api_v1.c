@@ -999,6 +999,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							json_decref(mtx_obj);
 					}
 
+					parse_metric_name_transform(carg, entrypoint);
+
 					json_t *json_auth = json_object_get(entrypoint, "auth");
 					if (json_auth)
 					{
@@ -1210,6 +1212,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				}
 				else
 				{
+					parse_add_label(ac->system_carg, value);
+					parse_metricstransform(ac->system_carg, value);
 					const char *system_key;
 					json_t *sys_value;
 					json_object_foreach(value, system_key, sys_value)

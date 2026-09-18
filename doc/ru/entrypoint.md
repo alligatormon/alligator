@@ -61,6 +61,10 @@ entrypoint {
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
     format [openmetrics|prometheus]; # metrics exposition format for prometheus handler (default: openmetrics)
+    add_label <name>:<value>;
+    metric_name_transform_pattern <pcre>;
+    metric_name_transform_replacement <string>;
+    metricstransform { ... };
     # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
     # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
@@ -491,8 +495,12 @@ entrypoint {
 По умолчанию: -\
 Множественное: да
 
-Используйте `add_label <name>:<value>;` внутри `entrypoint`, чтобы добавить export labels ко всем метрикам с этого endpoint (например, `add_label exported_application:myapp;`).
-Несколько директив `add_label` сливаются в один объект в JSON config output.
+Используйте `add_label <name>:<value>;` внутри `entrypoint`, чтобы добавить labels на этом endpoint.
+
+- **Prometheus / OpenMetrics pull** (`GET /`): labels добавляются на scrape на проводе. Сохранённые series не меняются.
+- **Push handlers** (statsd/graphite/pushgateway): тот же hash сливается на ingest, поэтому сохранённые series включают labels.
+
+Несколько директив `add_label` сливаются в один объект в JSON config output. Labels коллектора побеждают, если ключ уже есть.
 
 Следующая конфигурация — пример добавления labels для метрик, полученных на порту 80:
 ```
@@ -508,7 +516,10 @@ entrypoint {
 По умолчанию: -\
 Множественное: нет
 
-`metricstransform` переписывает **ключи и/или значения labels** при ingest метрик, принятых этим entrypoint (например, pushgateway/statsd/graphite handlers). Преобразованные labels сохраняются в Alligator как переименованные или переписанные.
+`metricstransform` переписывает **ключи и/или значения labels**.
+
+- **Push handlers**: на ingest; переписанные labels сохраняются.
+- **Prometheus / OpenMetrics pull**: на scrape по сохранённым labels (export rewrite). Matching использует сохранённое имя метрики **или** переписанное export-имя, как у [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex).
 
 Значение — OTel-collector-like JSON object (или array) с правилами `transforms`, `operations` и `value_actions`. JSON может также использовать `new_label` или `label_key_actions` на каждой operation для переименования ключей (см. [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)); native plain block поддерживает `new_label`, но не `label_key_actions` (для regex-based key edits используйте JSON).
 
@@ -534,9 +545,26 @@ entrypoint {
 }
 ```
 
-Применяется в момент добавления метрики, поэтому преобразованные labels сразу сохраняются в Alligator.
+## metric_name_transform_pattern / metric_name_transform_replacement
+По умолчанию: -\
+Множественное: нет
 
-Metric-name matching для этих правил использует **только** имя на ingest и в storage. В отличие от [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) на export time, entrypoints не применяют `metric_name_transform`, поэтому нет отдельного «on-the-wire» имени для matching.
+PCRE-перепись **имён метрик на Prometheus/OpenMetrics scrape** (`GET /`). Сохранённые имена не меняются (PromQL по-прежнему использует исходные имена). Заголовки `# HELP` / `# TYPE` используют export-имя; type metadata берётся из сохранённого имени, если у export-имени нет family record.
+
+Та же семантика `$1`, что у [action](https://github.com/alligatormon/alligator/blob/master/doc/action.md) name transform.
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 1111;
+    add_label env:prod;
+    metric_name_transform_pattern ^x509_cert_(.*)$;
+    metric_name_transform_replacement cert_$1;
+    metricstransform {
+        include ^.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+    };
+}
+```
 
 ## mapping
 По умолчанию: -\

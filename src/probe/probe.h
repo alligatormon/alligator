@@ -1,12 +1,17 @@
 #pragma once
 #include "dstructures/tommy.h"
 #include <jansson.h>
+#include <pcre.h>
 
 typedef struct probe_node
 {
 	char *name;
 
 	alligator_ht *labels;
+	json_t *metricstransform;
+	char *metric_name_transform_pattern;
+	char *metric_name_transform_replacement;
+	pcre *metric_name_transform_compiled;
 	alligator_ht *env;
 	uint64_t follow_redirects;
 	//char *compression;

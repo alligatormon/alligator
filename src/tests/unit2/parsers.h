@@ -1257,7 +1257,7 @@ void api_test_parser_rsyslog()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
 
     string *out = string_init(65536);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE rsyslog_stats gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP rsyslog_stats Rsyslog impstats value by module, origin, action, and key.\n") != NULL);
@@ -1316,7 +1316,7 @@ void api_test_parser_wazuh()
     metric_test_run(CMP_EQUAL, "wazuh_analysisd_events_processed", "wazuh_analysisd_events_processed", 1234);
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_agentd_status gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_agentd_status Wazuh API exported metric value.\n") != NULL);
@@ -1376,7 +1376,7 @@ void api_test_parser_ipmi_metric_normalization_metadata() {
     namespace_metric_family_set(NULL, ac->system_carg, "ipmi_version", METRIC_TYPE_GAUGE, "IPMI chassis or SEL information field converted to a numeric value.");
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP system_uptime_seconds System uptime in seconds.\n") != NULL);
@@ -1459,7 +1459,7 @@ void api_test_parser_zookeeper() {
     metric_test_run(CMP_EQUAL, "zk_total_watches", "zk_total_watches", 15);
 
     string *out = string_init(16384);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE zk_mode gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP zk_avg_latency ZooKeeper exported metric value.\n") != NULL);
@@ -1523,7 +1523,7 @@ void api_test_parser_sentinel()
     metric_test_run(CMP_EQUAL, "sentinel_sentinels", "sentinel_sentinels", 3);
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE sentinel_slaves gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP sentinel_sentinel_masters Redis Sentinel exported metric value.\n") != NULL);
@@ -1582,7 +1582,7 @@ void api_test_parser_aerospike()
     metric_test_run(CMP_EQUAL, "aerospike_client", "aerospike_client", 5);
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE aerospike_uptime gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP aerospike_status Aerospike exported metric value.\n") != NULL);
@@ -3042,7 +3042,7 @@ void api_test_openmetrics_help_type_ordering()
     free(carg);
 
     string *out = string_init(1024);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     char *help_counter = strstr(out->s, "# HELP ut_order_metric_total test help text\n");
@@ -3086,7 +3086,7 @@ void api_test_openmetrics_type_suffix_and_normalization()
     free(carg);
 
     string *out = string_init(2048);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     /* Names are normalized from '-' to '_'; one TYPE line per histogram/summary family. */
@@ -3122,7 +3122,7 @@ void api_test_openmetrics_histogram_type_on_components()
     free(carg);
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE widget_oauth_login_time histogram\n") != NULL);
@@ -3154,7 +3154,7 @@ void api_test_openmetrics_metadata_overwrite()
     free(carg);
 
     string *out = string_init(1024);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP ut_overwrite_metric second help\n") != NULL);
@@ -3184,7 +3184,7 @@ void api_test_multicollector_mixed_formats()
     free(carg);
 
     string *out = string_init(4096);
-    metric_str_build(NULL, out, 1);
+    metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_gauge_metric") != NULL);
     string_free(out);

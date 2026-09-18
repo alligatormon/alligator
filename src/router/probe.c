@@ -8,6 +8,7 @@
 #include "metric/query.h"
 #include "query/promql.h"
 #include "probe/probe.h"
+#include "action/type.h"
 #include "common/logs.h"
 #include "events/proxy.h"
 
@@ -115,6 +116,9 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		new_carg->labels = labels;
 	}
 
+	if (pn->metricstransform)
+		new_carg->metricstransform = json_incref(pn->metricstransform);
+
 	if (pn->loop)
 		new_carg->pingloop = pn->loop;
 
@@ -128,7 +132,22 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	metric_query_context *mqc = query_context_new(NULL);
 	query_context_set_label(mqc, "host", target);
-	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, NULL);
+	action_node an_stack;
+	action_node *an = NULL;
+	if ((pn->labels && alligator_ht_count(pn->labels)) || pn->metricstransform ||
+	    (pn->metric_name_transform_pattern && pn->metric_name_transform_replacement))
+	{
+		memset(&an_stack, 0, sizeof(an_stack));
+		an_stack.labels = pn->labels;
+		an_stack.metricstransform = pn->metricstransform;
+		an_stack.metric_name_transform_pattern = pn->metric_name_transform_pattern;
+		an_stack.metric_name_transform_replacement = pn->metric_name_transform_replacement;
+		an_stack.metric_name_transform_compiled = pn->metric_name_transform_compiled;
+		an = &an_stack;
+	}
+	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, an);
+	if (an)
+		pn->metric_name_transform_compiled = an_stack.metric_name_transform_compiled;
 	query_context_free(mqc);
 
 	char *content_length = malloc(255);

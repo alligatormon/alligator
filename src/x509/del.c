@@ -3,6 +3,7 @@
 #include "common/logs.h"
 #include "scheduler/type.h"
 #include "main.h"
+#include "events/context_arg.h"
 #include <string.h>
 
 int x509_fs_compare(const void* arg, const void* obj)
@@ -21,6 +22,8 @@ void tls_fs_del_node(x509_fs_t *tls_fs)
 	free(tls_fs->password);
 	free(tls_fs->ca_file);
 	revocation_policy_free(&tls_fs->rev);
+	if (tls_fs->carg)
+		carg_free(tls_fs->carg);
 	free(tls_fs);
 }
 

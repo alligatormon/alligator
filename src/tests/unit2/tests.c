@@ -24,6 +24,9 @@
 #include "action/type.h"
 #include "common/reject.h"
 #include "api/api.h"
+#include "x509/type.h"
+#include "query/type.h"
+#include "probe/probe.h"
 
 void api_router(string *response, http_reply_data *http_data, context_arg *carg);
 
@@ -2221,6 +2224,122 @@ static void test_metric_transform_extended_paths(void)
     json_decref(mtx);
 }
 
+static int ut_x509_fs_compare(const void *arg, const void *obj)
+{
+    return strcmp((char *)arg, ((x509_fs_t *)obj)->name);
+}
+
+static void test_metric_str_build_scrape_transforms(void)
+{
+    int64_t v = 7;
+    metric_add_labels("x509_cert_expire_days", &v, DATATYPE_INT, NULL, "serial", "abc");
+
+    context_arg carg = {0};
+    carg.labels = alligator_ht_init(NULL);
+    labels_hash_insert_nocache(carg.labels, "env", "prod");
+    carg.metric_name_transform_pattern = "^x509_cert_(.*)$";
+    carg.metric_name_transform_replacement = "cert_$1";
+
+    json_error_t error;
+    json_t *mtx = json_loads(
+        "{\"transforms\":[{\"include\":\"^.*$\",\"match_type\":\"regexp\","
+        "\"operations\":[{\"action\":\"update_label\",\"label\":\"serial\","
+        "\"value_actions\":[{\"regex\":\"^(.*)$\",\"replacement\":\"SN-$1\"}]}]}]}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mtx);
+    carg.metricstransform = mtx;
+
+    string *om = string_new();
+    metric_str_build(NULL, om, 1, &carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, om->s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(om->s, "cert_expire_days") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(om->s, "env=\"prod\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(om->s, "serial=\"SN-abc\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(om->s, "# HELP cert_expire_days") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(om->s, "# HELP x509_cert_expire_days") != NULL);
+
+    if (carg.metric_name_transform_compiled)
+        pcre_free(carg.metric_name_transform_compiled);
+    labels_hash_free(carg.labels);
+    json_decref(mtx);
+    string_free(om);
+}
+
+static void test_x509_system_probe_query_add_label(void)
+{
+    json_error_t error;
+    if (!ac->fs_x509)
+        ac->fs_x509 = alligator_ht_init(NULL);
+    if (!ac->probe)
+        ac->probe = alligator_ht_init(NULL);
+    if (!ac->query)
+        ac->query = alligator_ht_init(NULL);
+    if (!ac->system_carg)
+        ac->system_carg = calloc(1, sizeof(context_arg));
+
+    json_t *jx509 = json_loads(
+        "{\"name\":\"ut-x509-labels\",\"path\":\"/tmp\",\"match\":[\".crt\"],\"period\":\"0\","
+        "\"add_label\":{\"source\":\"nginx\"}}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jx509);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jx509));
+    x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-labels", tommy_strhash_u32(0, "ut-x509-labels"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs->carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs->carg->labels);
+    labels_container *src = alligator_ht_search(tls_fs->carg->labels, labels_hash_compare, "source", ac->metrictree_hashfunc_get("source"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nginx", src->key);
+    x509_del(jx509);
+    json_decref(jx509);
+
+    json_t *jsys = json_object();
+    json_t *add = json_object();
+    json_object_set_new(add, "dc", json_string("linx"));
+    json_object_set_new(jsys, "add_label", add);
+    parse_add_label(ac->system_carg, jsys);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->system_carg->labels);
+    labels_container *dc = alligator_ht_search(ac->system_carg->labels, labels_hash_compare, "dc", ac->metrictree_hashfunc_get("dc"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "linx", dc->key);
+    int64_t sysv = 1;
+    metric_add_auto("ut_system_label_metric", &sysv, DATATYPE_INT, ac->system_carg);
+    string *sysout = string_new();
+    metric_str_build(NULL, sysout, 1, NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(sysout->s, "ut_system_label_metric") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(sysout->s, "dc=\"linx\"") != NULL);
+    string_free(sysout);
+    json_decref(jsys);
+
+    json_t *jprobe = json_loads(
+        "{\"name\":\"ut-probe-labels\",\"prober\":\"icmp\",\"add_label\":{\"probe\":\"icmp\"}}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jprobe);
+    probe_push_json(jprobe);
+    probe_node *pn = probe_get("ut-probe-labels");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->labels);
+    labels_container *pl = alligator_ht_search(pn->labels, labels_hash_compare, "probe", ac->metrictree_hashfunc_get("probe"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pl);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "icmp", pl->key);
+    probe_del_json(jprobe);
+    json_decref(jprobe);
+
+    json_t *jquery = json_loads(
+        "{\"make\":\"ut_query_labels\",\"expr\":\"up\",\"datasource\":\"ut-query-labels-ds\","
+        "\"add_label\":{\"source\":\"query\"}}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jquery);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, query_push(jquery));
+    query_ds *qds = query_get("ut-query-labels-ds");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qds);
+    query_node *qn = query_get_node(qds, "ut_query_labels");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qn);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, qn->add_labels);
+    labels_container *ql = alligator_ht_search(qn->add_labels, labels_hash_compare, "source", ac->metrictree_hashfunc_get("source"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ql);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "query", ql->key);
+    query_del(jquery);
+    json_decref(jquery);
+}
+
 static void test_serializer_extra_formats(void)
 {
     int64_t v = 42;
@@ -2474,8 +2593,8 @@ static void test_metric_str_build_named_namespaces(void)
 
         string *om = string_new();
         string *legacy = string_new();
-        metric_str_build(ns_names[n], om, 1);
-        metric_str_build(ns_names[n], legacy, 0);
+        metric_str_build(ns_names[n], om, 1, NULL);
+        metric_str_build(ns_names[n], legacy, 0, NULL);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, om->l > 0);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, legacy->l > 0);
         string_free(om);
@@ -2490,8 +2609,8 @@ static void test_metric_str_build_default_namespace(void)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, om);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, legacy);
 
-    metric_str_build(NULL, om, 1);
-    metric_str_build(NULL, legacy, 0);
+    metric_str_build(NULL, om, 1, NULL);
+    metric_str_build(NULL, legacy, 0, NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, om->l > 0);
 
     string *printed = namespace_print(NULL, NULL);
@@ -2809,6 +2928,8 @@ static void run_helpers_and_events_suites(void)
     test_labels_cmp_and_cat_paths();
     test_metric_transform_paths();
     test_metric_transform_extended_paths();
+    test_metric_str_build_scrape_transforms();
+    test_x509_system_probe_query_add_label();
     test_serializer_extra_formats();
     test_serializer_graphite_format();
     test_serializer_influx_format();

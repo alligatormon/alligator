@@ -132,3 +132,18 @@ query {
 	datasource mysql;
 }
 ```
+
+## add_label
+Добавляет extra labels к series, которые создаёт этот query. Labels из parser (SQL columns) побеждают при коллизии ключа.
+
+```
+query {
+    expr 'count({__name__=~"^socket_stat"})';
+    make socket_stat_series;
+    datasource internal;
+    add_label source:query;
+}
+```
+
+## metricstransform
+Тот же native block / JSON, что у [aggregate](../aggregate.md). Применяется, когда query пишет метрики.

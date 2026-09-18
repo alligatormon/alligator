@@ -402,6 +402,11 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
 	}
 
+	if (carg->metric_name_transform_pattern)
+		json_array_object_insert(ctx, "metric_name_transform_pattern", json_string(carg->metric_name_transform_pattern));
+	if (carg->metric_name_transform_replacement)
+		json_array_object_insert(ctx, "metric_name_transform_replacement", json_string(carg->metric_name_transform_replacement));
+
 	if (carg->buffer_request_size)
 	{
 		json_t *buffer_request_size = json_integer(carg->buffer_request_size);
@@ -626,6 +631,18 @@ void lang_generate_conf(void *funcarg, void* arg)
 			sertype = json_string("none");
 		json_array_object_insert(ctx, "serializer", sertype);
 	}
+
+	if (lo->carg)
+	{
+		if (lo->carg->labels)
+			alligator_ht_foreach_arg(lo->carg->labels, labels_kv_deserialize, ctx);
+		if (lo->carg->metricstransform)
+		{
+			json_t *metricstransform = json_deep_copy(lo->carg->metricstransform);
+			if (metricstransform)
+				json_array_object_insert(ctx, "metricstransform", metricstransform);
+		}
+	}
 }
 
 void fs_x509_generate_conf(void *funcarg, void* arg)
@@ -670,6 +687,17 @@ void fs_x509_generate_conf(void *funcarg, void* arg)
 	{
 		json_t *ca_file = json_string(tls_fs->ca_file);
 		json_array_object_insert(ctx, "ca_file", ca_file);
+	}
+	if (tls_fs->carg)
+	{
+		if (tls_fs->carg->labels)
+			alligator_ht_foreach_arg(tls_fs->carg->labels, labels_kv_deserialize, ctx);
+		if (tls_fs->carg->metricstransform)
+		{
+			json_t *metricstransform = json_deep_copy(tls_fs->carg->metricstransform);
+			if (metricstransform)
+				json_array_object_insert(ctx, "metricstransform", metricstransform);
+		}
 	}
 	revocation_policy_export_json(ctx, &tls_fs->rev, 0);
 }
@@ -837,6 +865,16 @@ void query_node_generate_conf(void *funcarg, void* arg)
 			node = node->next;
 		}
 		json_array_object_insert(ctx, "except", except);
+	}
+
+	if (qn->add_labels)
+		alligator_ht_foreach_arg(qn->add_labels, labels_kv_deserialize, ctx);
+
+	if (qn->metricstransform)
+	{
+		json_t *metricstransform = json_deep_copy(qn->metricstransform);
+		if (metricstransform)
+			json_array_object_insert(ctx, "metricstransform", metricstransform);
 	}
 }
 
@@ -1087,6 +1125,18 @@ void probe_generate_conf(void *funcarg, void* arg)
 
 	if (pn->labels)
 		alligator_ht_foreach_arg(pn->labels, labels_kv_deserialize, ctx);
+
+	if (pn->metricstransform)
+	{
+		json_t *metricstransform = json_deep_copy(pn->metricstransform);
+		if (metricstransform)
+			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
+
+	if (pn->metric_name_transform_pattern)
+		json_array_object_insert(ctx, "metric_name_transform_pattern", json_string(pn->metric_name_transform_pattern));
+	if (pn->metric_name_transform_replacement)
+		json_array_object_insert(ctx, "metric_name_transform_replacement", json_string(pn->metric_name_transform_replacement));
 
 	if (pn->env)
 		alligator_ht_foreach_arg(pn->env, env_struct_conf_deserialize, ctx);
@@ -1384,6 +1434,11 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
 	}
 
+	if (carg->metric_name_transform_pattern)
+		json_array_object_insert(ctx, "metric_name_transform_pattern", json_string(carg->metric_name_transform_pattern));
+	if (carg->metric_name_transform_replacement)
+		json_array_object_insert(ctx, "metric_name_transform_replacement", json_string(carg->metric_name_transform_replacement));
+
 	if (carg->buffer_request_size)
 	{
 		json_t *buffer_request_size = json_integer(carg->buffer_request_size);
@@ -1570,6 +1625,18 @@ void system_config_get(json_t *dst)
 	if (ac->system_etcdir) {
 		json_t *ctxsys = json_string(ac->system_etcdir);
 		json_array_object_insert(system, "etcdir", ctxsys);
+	}
+
+	if (ac->system_carg)
+	{
+		if (ac->system_carg->labels)
+			alligator_ht_foreach_arg(ac->system_carg->labels, labels_kv_deserialize, system);
+		if (ac->system_carg->metricstransform)
+		{
+			json_t *metricstransform = json_deep_copy(ac->system_carg->metricstransform);
+			if (metricstransform)
+				json_array_object_insert(system, "metricstransform", metricstransform);
+		}
 	}
 }
 

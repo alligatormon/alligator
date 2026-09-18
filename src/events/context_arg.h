@@ -166,6 +166,9 @@ struct context_arg
 	alligator_ht *labels;
 	alligator_ht *env;
 	json_t *metricstransform;
+	char *metric_name_transform_pattern;
+	char *metric_name_transform_replacement;
+	pcre *metric_name_transform_compiled;
 
 	// counters
 	uint64_t open_counter;
@@ -453,6 +456,8 @@ void carg_emit_log(context_arg *carg, const char *data, size_t len);
 void carg_emit_log_document(context_arg *carg, json_t *doc);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
+void parse_metricstransform(context_arg *carg, json_t *root);
+void parse_metric_name_transform(context_arg *carg, json_t *root);
 
 /* Init carg->ml_lb once; attach multiline assembler if ml_enabled. */
 int carg_linebuf_ensure(context_arg *carg);

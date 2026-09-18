@@ -1,4 +1,5 @@
 #include "query/type.h"
+#include "metric/labels.h"
 #include "common/logs.h"
 #include "main.h"
 extern aconf *ac;
@@ -21,10 +22,12 @@ void query_node_del(query_node *qn)
 		free(qn->ns);
 	if (qn->datasource)
 		free(qn->datasource);
-	if (qn->action)
-		free(qn->action);
 	if (qn->labels)
 		labels_hash_free(qn->labels);
+	if (qn->add_labels)
+		labels_hash_free(qn->add_labels);
+	if (qn->metricstransform)
+		json_decref(qn->metricstransform);
 
 	if (qn->qf_hash)
 	{
@@ -80,6 +83,7 @@ int query_del(json_t *query)
 		uint64_t count = alligator_ht_count(qds->hash);
 		if (!count)
 		{
+			alligator_ht_remove_existing(ac->query, &(qds->node));
 			alligator_ht_done(qds->hash);
 			free(qds->hash);
 			free(qds->datasource);
@@ -97,12 +101,7 @@ void query_foreach_done(void *funcarg, void* arg)
 	alligator_ht_foreach_arg(qds->hash, query_node_foreach_done, NULL);
 	alligator_ht_done(qds->hash);
 	free(qds->hash);
-
-	//alligator_ht_foreach_arg(qn->qf_hash, query_hash_foreach_done, NULL);
-	//alligator_ht_done(qn->qf_hash);
-	//free(qn->qf_hash);
-
-	//free(qn);
+	free(qds->datasource);
 	free(qds);
 }
 

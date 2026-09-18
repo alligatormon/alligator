@@ -19,6 +19,7 @@ probe {
     prober http;
     follow_redirects 5;
     valid_status_codes 2xx;
+    add_label probe:http;
 }
 
 probe {
@@ -58,7 +59,9 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 | `tls_verify` | `on` — проверять серверный сертификат |
 | `http_proxy_url` / `proxy` | HTTP proxy для запроса |
 | `env` | Дополнительные HTTP-заголовки (`env=Header:value`) |
-| `add_label` | Метки на emit-метриках |
+| `add_label` | Labels на emit-метриках при ingest; также на `/probe` OpenMetrics export |
+| `metricstransform` | Перепись ключей/значений labels на ingest и на `/probe` export |
+| `metric_name_transform_pattern` / `metric_name_transform_replacement` | PCRE-перепись имени на `/probe` OpenMetrics ответе |
 
 ## Примеры
 

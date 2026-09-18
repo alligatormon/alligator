@@ -2,8 +2,6 @@ name: FreeBSD package
 
 on:
   push:
-    branches:
-      - master
     tags:
       - '*.*.*'
   workflow_dispatch:

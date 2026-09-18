@@ -39,6 +39,7 @@ system {
     usrdir /path/to/dir;
     etcdir /path/to/dir;
     log_level off;
+    add_label env:prod;
 }
 ```
 
@@ -669,6 +670,19 @@ system {
     log_level debug;
 }
 ```
+
+## add_label
+Добавляет extra labels к host-метрикам из `system { … }` (CPU, disk, SMART и т. д.). Labels коллектора побеждают при коллизии ключа.
+
+```
+system {
+    base;
+    add_label env:prod;
+}
+```
+
+## metricstransform
+Тот же native block / JSON, что у [aggregate](../aggregate.md). Применяется на ingest для `system` метрик.
 
 
 # Dashboard

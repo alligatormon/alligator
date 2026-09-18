@@ -1,3 +1,33 @@
+**Language / Язык:** [English](testing.md) | [Русский](ru/testing.md)
+
+# Unit tests and coverage
+
+The `src/tests/unit2/` suite is organized by feature headers (for example `netlib.h`, `http.h`, `parsers.h`) and is intended to keep test coverage close to the related production code.
+
+> Note: building tests requires project dependencies (for example `jansson`) and initialized external sources/submodules.
+
+## Running coverage
+
+Coverage flow (scope: `src/**/*.c`, excluding `src/tests/**`, `src/external/**`, and `src/build/**`):
+
+```
+cd src
+./tests/coverage/run_coverage.sh
+```
+
+Artifacts:
+
+- `src/tests/coverage/coverage_report.txt` - full `llvm-cov report` output
+- `src/tests/coverage/coverage_top15.txt` - 15 lowest-covered C files in scope
+- [coverage-baseline.md](coverage-baseline.md) - baseline snapshot and threshold ramp
+
+To enforce a minimum in local runs:
+
+```
+cd src
+MIN_LINE_COVERAGE=50 ./tests/coverage/run_coverage.sh
+```
+
 # Unit Testing Principles
 
 This document defines the default testing contract for unit tests in `src/tests/unit2`.

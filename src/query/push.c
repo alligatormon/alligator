@@ -1,5 +1,6 @@
 #include "query/type.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -99,13 +100,21 @@ int query_push(json_t *query) {
 	qn->make = strdup(make);
 	qn->datasource = strdup(datasource); // part of query ds
 
+	{
+		context_arg tmp = {0};
+		parse_add_label(&tmp, query);
+		parse_metricstransform(&tmp, query);
+		qn->add_labels = tmp.labels;
+		qn->metricstransform = tmp.metricstransform;
+	}
+
 	query_ds *qds = alligator_ht_search(ac->query, queryds_compare, qn->datasource, tommy_strhash_u32(0, qn->datasource));
 	if (!qds)
 	{
 		qds = calloc(1, sizeof(*qds));
 		qds->hash = calloc(1, sizeof(alligator_ht));
 		alligator_ht_init(qds->hash);
-		qds->datasource = qn->datasource;
+		qds->datasource = strdup(qn->datasource);
 		alligator_ht_insert(ac->query, &(qds->node), qds, tommy_strhash_u32(0, qds->datasource));
 	}
 	else if (query_get_node(qds, qn->make))

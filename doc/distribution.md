@@ -77,7 +77,7 @@ xattr -cr /usr/local/bin/alligator
 
 The build is ad-hoc signed, not Apple-notarized. Finder “Open” on a `.app` (or a quarantined download) shows *Apple could not verify … malware*. Install from Terminal as above, or allow the pkg under **System Settings → Privacy & Security**. Notarization needs a paid Apple Developer ID.
 
-CI: [`.github/workflows/macos.yml`](../.github/workflows/macos.yml) on GitHub-hosted `macos-15` runners.
+CI: [`.github/workflows/macos.yml`](../.github/workflows/macos.yml) on GitHub-hosted `macos-15` runners, on version tags (`*.*.*`). The `.pkg` is a workflow artifact and is attached to the [GitHub Release](https://github.com/alligatormon/alligator/releases).
 
 ## FreeBSD
 Download `alligator-<version>-FreeBSD.pkg` from [GitHub Releases](https://github.com/alligatormon/alligator/releases) and install:
@@ -88,7 +88,7 @@ pkg add alligator-<version>-FreeBSD.pkg
 
 There is no official FreeBSD ports/pkg repository entry yet. You can also build from source (see **Build** below).
 
-CI: [`.github/workflows/freebsd.yml`](../.github/workflows/freebsd.yml) runs a FreeBSD 14 VM on a GitHub-hosted Ubuntu runner. A self-managed VirtualBox GitLab runner is optional — see [ci-freebsd-virtualbox.md](ci-freebsd-virtualbox.md).
+CI: [`.github/workflows/freebsd.yml`](../.github/workflows/freebsd.yml) runs a FreeBSD 14 VM on a GitHub-hosted Ubuntu runner, on version tags (`*.*.*`). The `.pkg` is a workflow artifact and is attached to the GitHub Release. A self-managed VirtualBox GitLab runner is optional — see [ci-freebsd-virtualbox.md](ci-freebsd-virtualbox.md).
 
 # Build
 CMake is used as build system. Dependencies are supplied with conan and git submodules.

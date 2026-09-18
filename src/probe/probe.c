@@ -4,6 +4,7 @@
 #include "common/http.h"
 #include "common/json_query.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 #include "main.h"
 
 int probe_compare(const void* arg, const void* obj)
@@ -189,6 +190,18 @@ void probe_push_json(json_t *probe)
 
 	glog(L_INFO, "create probe node name '%s' and prober '%s'\n", pn->name, prober);
 
+	{
+		context_arg tmp = {0};
+		parse_add_label(&tmp, probe);
+		parse_metricstransform(&tmp, probe);
+		parse_metric_name_transform(&tmp, probe);
+		pn->labels = tmp.labels;
+		pn->metricstransform = tmp.metricstransform;
+		pn->metric_name_transform_pattern = tmp.metric_name_transform_pattern;
+		pn->metric_name_transform_replacement = tmp.metric_name_transform_replacement;
+		pn->metric_name_transform_compiled = tmp.metric_name_transform_compiled;
+	}
+
 	alligator_ht_insert(ac->probe, &(pn->node), pn, tommy_strhash_u32(0, pn->name));
 }
 
@@ -231,6 +244,16 @@ void probe_del_json(json_t *probe)
 			free(pn->server_name);
 		if (pn->http_proxy_url)
 			free(pn->http_proxy_url);
+		if (pn->labels)
+			labels_hash_free(pn->labels);
+		if (pn->metricstransform)
+			json_decref(pn->metricstransform);
+		if (pn->metric_name_transform_pattern)
+			free(pn->metric_name_transform_pattern);
+		if (pn->metric_name_transform_replacement)
+			free(pn->metric_name_transform_replacement);
+		if (pn->metric_name_transform_compiled)
+			pcre_free(pn->metric_name_transform_compiled);
 		free(pn);
 	}
 }

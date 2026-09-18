@@ -19,6 +19,7 @@ probe {
     prober http;
     follow_redirects 5;
     valid_status_codes 2xx;
+    add_label probe:http;
 }
 
 probe {
@@ -58,7 +59,9 @@ The handler builds a full URL (`http://`, `https://`, `tcp://`, `icmp://`, …) 
 | `tls_verify` | `on` — verify server certificate |
 | `http_proxy_url` / `proxy` | HTTP proxy URL for the probe request |
 | `env` | Extra HTTP headers (`env=Header:value`) |
-| `add_label` | Labels attached to emitted metrics |
+| `add_label` | Labels attached to emitted metrics at ingest; also applied on `/probe` OpenMetrics export |
+| `metricstransform` | Label key/value rewrite at ingest and on `/probe` export |
+| `metric_name_transform_pattern` / `metric_name_transform_replacement` | PCRE name rewrite on the `/probe` OpenMetrics response |
 
 ## Examples
 

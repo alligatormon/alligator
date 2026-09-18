@@ -6,6 +6,7 @@
 #include "scheduler/type.h"
 #include "common/units.h"
 #include "common/revocation.h"
+#include "events/context_arg.h"
 
 
 int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *ca_file, char *type, uint64_t period, json_t *x509) {
@@ -29,6 +30,10 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *passw
 	tls_fs->fctx.password = tls_fs->password;
 	tls_fs->fctx.ca_file = tls_fs->ca_file;
 	tls_fs->fctx.pol = &tls_fs->rev;
+	tls_fs->carg = calloc(1, sizeof(context_arg));
+	parse_add_label(tls_fs->carg, x509);
+	parse_metricstransform(tls_fs->carg, x509);
+	tls_fs->fctx.carg = tls_fs->carg;
 
 	if (type && !strcmp(type, "pfx"))
 		tls_fs->type = X509_TYPE_PFX;
@@ -47,7 +52,7 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *passw
 
 
 
-int jks_push(char *name, char *path, string_tokens *tokens_match, char *password, char *passtr, uint64_t period) {
+int jks_push(char *name, char *path, string_tokens *tokens_match, char *password, char *passtr, uint64_t period, json_t *x509) {
 	string *match = string_tokens_join(tokens_match, ",", 1);
 	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match->s, password, passtr);
 
@@ -67,6 +72,8 @@ int jks_push(char *name, char *path, string_tokens *tokens_match, char *password
 	lo->carg_allocated = 1;
 	lo->carg->log_level = ac->system_carg->log_level;
 	lo->carg->no_metric = 1;
+	parse_add_label(lo->carg, x509);
+	parse_metricstransform(lo->carg, x509);
 
 	if (!passtr)
 	{
@@ -156,7 +163,7 @@ int x509_push(json_t *x509) {
 		period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 
 	if (type && !strcmp(type, "jks")) {
-		int ret = jks_push(name, path, tokens_match, password, NULL, period);
+		int ret = jks_push(name, path, tokens_match, password, NULL, period, x509);
 		free(path);
 		if (tokens_match)
 			string_tokens_free(tokens_match);

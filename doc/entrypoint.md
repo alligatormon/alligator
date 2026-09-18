@@ -59,6 +59,10 @@ entrypoint {
     pingloop <number>;
     metric_aggregation [off|count]; # for counting histograms and counter datatypes as aggregation gateway
     format [openmetrics|prometheus]; # metrics exposition format for prometheus handler (default: openmetrics)
+    add_label <name>:<value>;
+    metric_name_transform_pattern <pcre>;
+    metric_name_transform_replacement <string>;
+    metricstransform { ... };
     # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
     # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
@@ -489,8 +493,12 @@ Specifies the number of threads working in this entrypoint.
 Default: -\
 Plural: yes
 
-Use `add_label <name>:<value>;` inside `entrypoint` to append exported labels to all metrics from that endpoint (for example, `add_label exported_application:myapp;`).
-Multiple `add_label` directives are merged into a single object in JSON config output.
+Use `add_label <name>:<value>;` inside `entrypoint` to attach labels on this endpoint.
+
+- **Prometheus / OpenMetrics pull** (`GET /`): labels are applied at scrape time on the wire. Stored series are unchanged.
+- **Push handlers** (statsd/graphite/pushgateway): the same hash is merged at ingest, so stored series include the labels.
+
+Multiple `add_label` directives are merged into a single object in JSON config output. Collector labels win when a key already exists.
 
 The following configuration is an example of adding labels for metrics received on port 80:
 ```
@@ -506,7 +514,10 @@ entrypoint {
 Default: -\
 Plural: no
 
-`metricstransform` rewrites **label keys and/or values** on metric ingest for data accepted by this entrypoint (for example, pushgateway/statsd/graphite handlers). Transformed labels are stored in Alligator as renamed or rewritten.
+`metricstransform` rewrites **label keys and/or values**.
+
+- **Push handlers**: applied at ingest; rewritten labels are stored.
+- **Prometheus / OpenMetrics pull**: applied at scrape time on stored labels (export rewrite). Matching uses the stored metric name **or** the rewritten export name, same dual-name matching as [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex).
 
 The value is an OTel-collector-like JSON object (or array) with `transforms`, `operations`, and `value_actions` rules. JSON may also use `new_label` or `label_key_actions` on each operation for key renames (see [action.md § metricstransform](https://github.com/alligatormon/alligator/blob/master/doc/action.md#metricstransform)); the native plain block supports `new_label` but not `label_key_actions` (use JSON for regex-based key edits).
 
@@ -532,9 +543,26 @@ entrypoint {
 }
 ```
 
-This applies at metric add time, so transformed labels are stored in Alligator immediately.
+## metric_name_transform_pattern / metric_name_transform_replacement
+Default: -\
+Plural: no
 
-Metric-name matching for these rules uses **only** the name as ingested and stored. Unlike [actions](https://github.com/alligatormon/alligator/blob/master/doc/action.md#matching-metric-names-include-metric-metric-regex) at export time, entrypoints do not apply `metric_name_transform`, so there is no separate “on-the-wire” name to match against.
+PCRE rewrite of metric **names on Prometheus/OpenMetrics scrape** (`GET /`). Stored names are not changed (PromQL still uses the original names). `# HELP` / `# TYPE` family headers use the export name; type metadata is looked up from the stored name when the export name has no family record.
+
+Same `$1` replacement semantics as [action](https://github.com/alligatormon/alligator/blob/master/doc/action.md) name transform.
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 1111;
+    add_label env:prod;
+    metric_name_transform_pattern ^x509_cert_(.*)$;
+    metric_name_transform_replacement cert_$1;
+    metricstransform {
+        include ^.*$ match_type regexp label instance regex '^([^:]+):?.*$' replacement '$1';
+    };
+}
+```
 
 ## mapping
 Default: -\

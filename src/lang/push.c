@@ -1,5 +1,6 @@
 #include "lang/type.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -122,6 +123,15 @@ int lang_push(json_t *lang)
 		lo->log_level = slang_log_level;
 	else
 		lo->log_level = ac->log_level;
+
+	if (json_object_get(lang, "add_label") || json_object_get(lang, "metricstransform"))
+	{
+		lo->carg = calloc(1, sizeof(context_arg));
+		lo->carg_allocated = 1;
+		lo->carg->log_level = lo->log_level;
+		parse_add_label(lo->carg, lang);
+		parse_metricstransform(lo->carg, lang);
+	}
 
 	langlog(lo, L_DEBUG, "lang: registered module key='%s'\n", lo->key);
 

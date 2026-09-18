@@ -20,6 +20,7 @@
 typedef struct prometheus_metrics_body_ctx {
 	string *body;
 	int openmetrics;
+	context_arg *carg;
 } prometheus_metrics_body_ctx;
 
 static const char *http_method_str(uint8_t method)
@@ -152,7 +153,7 @@ void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
 
 
 		if (cn->servers[i].ttl < time_now.sec) {
-			metric_str_build(namespacename, body, openmetrics);
+			metric_str_build(namespacename, body, openmetrics, ctx->carg);
 		}
 	}
 }
@@ -225,11 +226,11 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 		if (omp && !strcmp(omp, "1"))
 			openmetrics = 1;
 
-		prometheus_metrics_body_ctx body_ctx = { .body = body, .openmetrics = openmetrics };
+		prometheus_metrics_body_ctx body_ctx = { .body = body, .openmetrics = openmetrics, .carg = carg };
 		if (!namespace)
 			alligator_ht_foreach_arg(ac->cluster, prometheus_response_cluster_namespaces, &body_ctx);
 
-		metric_str_build(namespace, body, openmetrics);
+		metric_str_build(namespace, body, openmetrics, carg);
 		if (openmetrics)
 			string_cat(body, "# EOF\n", 6);
 

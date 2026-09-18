@@ -1,8 +1,9 @@
 #include "main.h"
 #include "metric/metric_types.h"
-#include "metrictree.h"
-#include "expiretree.h"
-#include "labels.h"
+#include "metric/metrictree.h"
+#include "metric/expiretree.h"
+#include "metric/labels.h"
+#include "metric/namespace.h"
 #include "query/promql.h"
 #include "common/logs.h"
 #include <inttypes.h>
@@ -445,7 +446,29 @@ void metrictree_str_build(metric_node *x, string *str, namespace_struct *ns, cha
 		metrictree_str_build(x->child[RIGHT], str, ns, last_family, last_family_size, openmetrics);
 }
 
-void metric_str_build (char *namespace, string *str, int openmetrics)
+static int carg_has_scrape_transforms(context_arg *carg)
+{
+	if (!carg)
+		return 0;
+	if (carg->labels && alligator_ht_count(carg->labels))
+		return 1;
+	if (carg->metricstransform)
+		return 1;
+	if (carg->metric_name_transform_pattern && carg->metric_name_transform_replacement)
+		return 1;
+	return 0;
+}
+
+static void metrictree_str_build_serialize(metric_node *x, serializer_context *sc)
+{
+	if (x->child[LEFT])
+		metrictree_str_build_serialize(x->child[LEFT], sc);
+	metric_node_serialize(x, sc);
+	if (x->child[RIGHT])
+		metrictree_str_build_serialize(x->child[RIGHT], sc);
+}
+
+void metric_str_build (char *namespace, string *str, int openmetrics, context_arg *carg)
 {
 	extern aconf *ac;
 
@@ -456,9 +479,26 @@ void metric_str_build (char *namespace, string *str, int openmetrics)
 
 	if (tree && tree->root)
 	{
-		char last_family[256] = "";
 		pthread_rwlock_rdlock(tree->rwlock);
-		metrictree_str_build(tree->root, str, ns, last_family, sizeof(last_family), openmetrics);
+		if (carg_has_scrape_transforms(carg))
+		{
+			action_node an_stack;
+			action_node_bind_carg_transforms(&an_stack, carg);
+			serializer_context *sc = serializer_init(METRIC_SERIALIZER_OPENMETRICS, str, 0, NULL, NULL, &an_stack, ns);
+			if (sc)
+			{
+				sc->openmetrics = openmetrics;
+				metrictree_str_build_serialize(tree->root, sc);
+				serializer_free(sc);
+			}
+			if (carg)
+				carg->metric_name_transform_compiled = an_stack.metric_name_transform_compiled;
+		}
+		else
+		{
+			char last_family[256] = "";
+			metrictree_str_build(tree->root, str, ns, last_family, sizeof(last_family), openmetrics);
+		}
 		string_cat(str, "alligator_metrics_exposed_total ", 32);
 		string_int(str, (tree->count + 1));
 		string_cat(str, "\n", 1);

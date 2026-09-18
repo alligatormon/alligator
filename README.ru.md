@@ -17,29 +17,7 @@ Alligator поддерживает GNU/Linux, FreeBSD и macOS.
 
 Больше примеров — в [тестах](https://github.com/alligatormon/alligator/tree/master/src/tests/system).
 
-# Модульные тесты и покрытие
-Набор `src/tests/unit2/` организован по заголовкам функциональности (например `netlib.h`, `http.h`, `parsers.h`) и держит тесты рядом с production-кодом.
-
-Запуск покрытия (область: `src/**/*.c`, без `src/tests/**`, `src/external/**`, `src/build/**`):
-```
-cd src
-./tests/coverage/run_coverage.sh
-```
-
-Артефакты:
-- `src/tests/coverage/coverage_report.txt` — полный вывод `llvm-cov report`
-- `src/tests/coverage/coverage_top15.txt` — 15 файлов с наименьшим покрытием
-- `doc/coverage-baseline.md` — базовый снимок и пороги
-
-Принципы тестирования — в `doc/testing.md` (English).
-
-Минимальный порог локально:
-```
-cd src
-MIN_LINE_COVERAGE=50 ./tests/coverage/run_coverage.sh
-```
-
-> Сборка тестов требует зависимостей проекта (например `jansson`) и инициализированных submodules.
+Модульные тесты и покрытие: [testing](doc/ru/testing.md).
 
 # Командная строка
 

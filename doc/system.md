@@ -40,6 +40,7 @@ system {
     usrdir /path/to/dir;
     etcdir /path/to/dir;
     log_level off;
+    add_label env:prod;
 }
 ```
 
@@ -804,6 +805,19 @@ system {
     log_level debug;
 }
 ```
+
+## add_label
+Attaches extra labels to host metrics collected through `system { … }` (CPU, disk, SMART, and so on). Collector labels win on key collision.
+
+```
+system {
+    base;
+    add_label env:prod;
+}
+```
+
+## metricstransform
+Same native block / JSON as on [aggregate](aggregate.md). Applied at ingest for `system` metrics.
 
 
 # Dashboard
