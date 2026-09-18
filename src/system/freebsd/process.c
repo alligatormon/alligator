@@ -11,9 +11,13 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/sysctl.h>
+#include <sys/user.h>
+#include <sys/proc.h>
 #include <sys/resource.h>
-#include <libproc.h>
+#include <libutil.h>
 
 extern aconf *ac;
 
@@ -64,15 +68,18 @@ static int freebsd_get_cmdline(pid_t pid, char *buf, size_t bufsz)
 
 static rlim_t freebsd_get_rlimit_val(pid_t pid, int which)
 {
-	struct proc *p = NULL;
-	rlim_t lim = 0;
+	int mib[5];
+	struct rlimit rl;
+	size_t len = sizeof(rl);
 
-	if (!proc_open(pid, P_PID, &p))
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROC;
+	mib[2] = KERN_PROC_RLIMIT;
+	mib[3] = pid;
+	mib[4] = which;
+	if (sysctl(mib, 5, &rl, &len, NULL, 0) == -1)
 		return 0;
-	if (proc_getrlimit(p, which, &lim) != 0)
-		lim = 0;
-	proc_close(p);
-	return lim;
+	return rl.rlim_cur;
 }
 
 static void freebsd_count_fds(pid_t pid, freebsd_fd_counts *cnt)
@@ -105,8 +112,8 @@ static void freebsd_count_fds(pid_t pid, freebsd_fd_counts *cnt)
 	free(files);
 }
 
-static void freebsd_emit_process_state(const struct kinfo_proc *proc, const char *name,
-	const char *pidstr, int8_t emit_per_process)
+static void freebsd_emit_process_state(struct kinfo_proc *proc, char *name,
+	char *pidstr, int8_t emit_per_process)
 {
 	int64_t val = 1, unval = 0;
 
@@ -156,7 +163,7 @@ static void freebsd_emit_process_state(const struct kinfo_proc *proc, const char
 	}
 }
 
-static void freebsd_emit_process_io(const struct kinfo_proc *proc, const char *name, const char *pidstr)
+static void freebsd_emit_process_io(struct kinfo_proc *proc, char *name, char *pidstr)
 {
 	int64_t read_syscalls = (int64_t)proc->ki_rusage.ru_inblock;
 	int64_t write_syscalls = (int64_t)proc->ki_rusage.ru_oublock;
@@ -177,8 +184,8 @@ static void freebsd_emit_process_io(const struct kinfo_proc *proc, const char *n
 		"name", name, "op", "write", "pid", pidstr);
 }
 
-static void freebsd_emit_process_rlimits(const struct kinfo_proc *proc, const char *name,
-	const char *pidstr, const freebsd_fd_counts *fds)
+static void freebsd_emit_process_rlimits(struct kinfo_proc *proc, char *name,
+	char *pidstr, const freebsd_fd_counts *fds)
 {
 	rlim_t openfiles, stacksize, datasize, rsssize, vmemsize;
 	uint64_t uopen, ustack, udata, urss, uvmem;
@@ -233,7 +240,7 @@ static void freebsd_emit_process_rlimits(const struct kinfo_proc *proc, const ch
 	}
 }
 
-static void freebsd_emit_fd_breakdown(const char *name, const char *pidstr, const freebsd_fd_counts *fds)
+static void freebsd_emit_fd_breakdown(char *name, char *pidstr, const freebsd_fd_counts *fds)
 {
 	int64_t val;
 
@@ -249,7 +256,7 @@ static void freebsd_emit_fd_breakdown(const char *name, const char *pidstr, cons
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_other", "pid", pidstr);
 }
 
-static void freebsd_emit_proc_metrics(const struct kinfo_proc *proc, int8_t full)
+static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 {
 	char pidstr[16];
 	double utime, stime, total_time;
@@ -291,7 +298,7 @@ static void freebsd_emit_proc_metrics(const struct kinfo_proc *proc, int8_t full
 	freebsd_emit_process_rlimits(proc, proc->ki_comm, pidstr, &fds);
 }
 
-static int8_t freebsd_process_matches(const struct kinfo_proc *proc, char *cmdline, size_t cmdline_size)
+static int8_t freebsd_process_matches(struct kinfo_proc *proc, char *cmdline, size_t cmdline_size)
 {
 	size_t procname_size = strlen(proc->ki_comm);
 

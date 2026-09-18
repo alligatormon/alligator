@@ -10,8 +10,11 @@
 #include <unistd.h>
 #include <signal.h>
 #include <dirent.h>
+#include <limits.h>
+#include <sys/types.h>
 #include <sys/stat.h>
-#include <libproc.h>
+#include <sys/user.h>
+#include <libutil.h>
 
 extern aconf *ac;
 
@@ -135,7 +138,7 @@ static uint64_t rc_service_running(const char *name)
 	return rc_service_pid(name) > 0 ? 1 : 0;
 }
 
-static void get_service_tasks_status(const char *servicename, const char *type, const char *username)
+static void get_service_tasks_status(char *servicename, char *type, char *username)
 {
 	pid_t pid = rc_service_pid(servicename);
 	uint64_t cnt = 0;
