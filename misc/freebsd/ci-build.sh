@@ -4,7 +4,7 @@
 set -eu
 
 export ASSUME_ALWAYS_YES=YES
-export PATH="${HOME}/.local/bin:${PATH}"
+export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
 
 pkg update
 pkg install -y \
@@ -25,6 +25,15 @@ pkg install -y \
 	go \
 	ruby \
 	bash
+
+# GNU m4 from pkg is /usr/local/bin/gm4; base /usr/bin/m4 is BSD and
+# fails Conan autoconf ("need GNU m4 1.4 or later").
+if [ -x /usr/local/bin/gm4 ]; then
+	export M4=/usr/local/bin/gm4
+	if [ ! -e /usr/local/bin/m4 ]; then
+		ln -s gm4 /usr/local/bin/m4
+	fi
+fi
 
 python3 -m pip install --user --upgrade pip
 python3 -m pip install --user conan==2.26.1
