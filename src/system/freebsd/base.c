@@ -10,7 +10,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <kvm.h>
+#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/sysctl.h>
+#include <sys/vmmeter.h>
 #include <sys/utsname.h>
 #include <sys/rctl.h>
 #include <utmpx.h>
