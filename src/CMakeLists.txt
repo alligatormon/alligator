@@ -125,6 +125,11 @@ target_include_directories(avrl_static
 	PRIVATE ${CMAKE_SOURCE_DIR}
 )
 target_link_libraries(avrl_static PUBLIC pcre::libpcre jansson::jansson)
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+	# AF_INET/AF_INET6 live in <sys/socket.h>. FreeBSD's <arpa/inet.h>
+	# does not pull that in (Linux glibc does).
+	target_compile_options(avrl_static PRIVATE -include sys/socket.h)
+endif()
 if(AVRL_WITH_OPENSSL)
 	target_compile_definitions(avrl_static PUBLIC AVRL_WITH_OPENSSL=1)
 	if(TARGET openssl::openssl)
