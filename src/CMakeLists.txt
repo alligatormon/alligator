@@ -497,6 +497,9 @@ set(STATIC_FILES
 	system/freebsd/packages.c
 	system/freebsd/process.c
 	system/freebsd/base.c
+	system/freebsd/network.c
+	system/freebsd/sockets.c
+	system/freebsd/disk.c
 	system/macosx.c
 	system/macosx/sysctl.c
 	system/macosx/services.c
@@ -619,6 +622,7 @@ set(_DARWIN_SYSTEM_SOURCES
 	system/macosx/network.c
 	system/macosx/sockets.c
 	system/macosx/disk.c
+	system/macosx/gpu.c
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(REMOVE_ITEM STATIC_FILES ${_DARWIN_SYSTEM_SOURCES})
@@ -689,6 +693,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_COMMON_LIBS libatasmart.a -ludev)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+	list(APPEND ALLIGATOR_COMMON_LIBS kvm util geom devstat jail m)
 endif()
 add_library(${COMMON} STATIC ${STATIC_FILES} ${SYSTEMD_FILES})
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

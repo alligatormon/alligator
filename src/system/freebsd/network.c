@@ -20,7 +20,7 @@
 
 extern aconf *ac;
 
-static void emit_stat(const char *proto, const char *stat, int64_t val)
+static void emit_stat(char *proto, char *stat, int64_t val)
 {
 	metric_add_labels2("network_stat_total", &val, DATATYPE_INT, ac->system_carg, "proto", proto, "stat", stat);
 }
