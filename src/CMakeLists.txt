@@ -622,7 +622,6 @@ set(_DARWIN_SYSTEM_SOURCES
 	system/macosx/network.c
 	system/macosx/sockets.c
 	system/macosx/disk.c
-	system/macosx/gpu.c
 )
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	list(REMOVE_ITEM STATIC_FILES ${_DARWIN_SYSTEM_SOURCES})
