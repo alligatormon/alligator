@@ -7,10 +7,28 @@
 #include "common/ws.h"
 #include "common/base64.h"
 #include "common/logs.h"
+#include "events/context_arg.h"
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
+static void ws_env_header_size(void *funcarg, void *arg)
+{
+	env_struct *es = arg;
+	size_t *n = funcarg;
+	if (es && es->k && es->v)
+		*n += strlen(es->k) + strlen(es->v) + 4;
+}
+
+static void ws_env_header_cat(void *funcarg, void *arg)
+{
+	env_struct *es = arg;
+	char **p = funcarg;
+	int n;
+
+	if (!es || !es->k || !es->v || !p || !*p)
+		return;
+	n = sprintf(*p, "%s: %s\r\n", es->k, es->v);
+	if (n > 0)
+		*p += n;
+}
 
 static void ws_gen_key(char out[29])
 {
@@ -359,7 +377,12 @@ static void ws_tcp_connected(uv_connect_t *req, int status)
 	ws->tcp.data = ws;
 	uv_read_start((uv_stream_t *)&ws->tcp, ws_alloc_cb, ws_read_cb);
 
-	size_t req_len = 256 + strlen(ws->path) + strlen(ws->host) + strlen(ws->sec_key);
+	size_t extra = 0;
+	context_arg *carg = ws->userdata;
+	if (carg && carg->env)
+		alligator_ht_foreach_arg(carg->env, ws_env_header_size, &extra);
+
+	size_t req_len = 256 + strlen(ws->path) + strlen(ws->host) + strlen(ws->sec_key) + extra;
 	char *http_req = malloc(req_len);
 	if (!http_req) return;
 
@@ -369,9 +392,20 @@ static void ws_tcp_connected(uv_connect_t *req, int status)
 	    "Upgrade: websocket\r\n"
 	    "Connection: Upgrade\r\n"
 	    "Sec-WebSocket-Key: %s\r\n"
-	    "Sec-WebSocket-Version: 13\r\n"
-	    "\r\n",
+	    "Sec-WebSocket-Version: 13\r\n",
 	    ws->path, ws->host, ws->port, ws->sec_key);
+	if (n < 0)
+		n = 0;
+	if (carg && carg->env) {
+		char *p = http_req + n;
+		alligator_ht_foreach_arg(carg->env, ws_env_header_cat, &p);
+		n = (int)(p - http_req);
+	}
+	if (n + 3 < (int)req_len) {
+		memcpy(http_req + n, "\r\n", 2);
+		n += 2;
+		http_req[n] = 0;
+	}
 
 	ws_raw_send(ws, http_req, (size_t)n);
 }

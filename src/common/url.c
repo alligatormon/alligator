@@ -60,10 +60,36 @@ void url_get_auth_data(host_aggregator_info *hi, char **tmp)
 // 3 == ? (args indication)
 int8_t url_get_hostname(host_aggregator_info *hi, char **tmp)
 {
-	char *slash = strstr(*tmp, "/");
-	char *colon = strstr(*tmp, ":");
-	char *params = strstr(*tmp, "?");
+	char *slash;
+	char *colon;
+	char *params;
 	int8_t rc = 0;
+
+	if (*tmp && **tmp == '[') {
+		char *rb = strchr(*tmp, ']');
+		if (rb) {
+			hi->host_header = strndup(*tmp + 1, (size_t)(rb - *tmp - 1));
+			*tmp = rb + 1;
+			if (**tmp == ':') {
+				*tmp += 1;
+				rc = 1;
+			} else if (**tmp == '/') {
+				rc = 2;
+			} else if (**tmp == '?') {
+				rc = 3;
+			} else if (!**tmp) {
+				*tmp = NULL;
+				rc = 0;
+			}
+			if (!hi->host && hi->host_header)
+				hi->host = strdup(hi->host_header);
+			return rc;
+		}
+	}
+
+	slash = strstr(*tmp, "/");
+	colon = strstr(*tmp, ":");
+	params = strstr(*tmp, "?");
 
 	if ((hi->proto == APROTO_FILE) || (hi->proto == APROTO_PROCESS))
 	{

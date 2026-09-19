@@ -5,6 +5,7 @@
 #define AUTH_SIZE 1024
 #define EVENT_BUFFER 65536
 #include <uv.h>
+#include <sys/socket.h>
 #include <stdint.h>
 #include "common/atomic.h"
 #include <jansson.h>
@@ -77,6 +78,10 @@ struct context_arg
 {
 	char *name;
 	struct sockaddr_in remote_addr;
+	struct sockaddr_storage ping_addr;
+	socklen_t ping_addr_len;
+	uint8_t ping_ipv6;
+	uint8_t ip_version;
 	struct sockaddr_in *local_addr;
 	//uv_connect_t *connect;
 	uv_tcp_t *socket;
@@ -128,6 +133,23 @@ struct context_arg
 	uint8_t read_count;
 	uint64_t pingloop;
 	double pingpercent_success;
+	char *probe_payload;
+	size_t probe_payload_len;
+	uint32_t icmp_payload_size;
+	int icmp_ttl;
+	int icmp_tos;
+	uint64_t icmp_interval_ms;
+	uint8_t icmp_continuous;
+	uint8_t icmp_last_ttl;
+	uint64_t icmp_duplicates;
+	uint32_t icmp_last_rtt_ms;
+	uint8_t probe_qr_idx;
+	uint8_t probe_qr_done;
+	uint8_t probe_regex_fail;
+	uint8_t negative_test;
+	uint64_t *hist_buckets;
+	double hist_sum;
+	uint64_t hist_count;
 
 	uint64_t buffer_request_size;
 	uint64_t buffer_response_size;

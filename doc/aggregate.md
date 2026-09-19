@@ -301,7 +301,7 @@ Plural: no\
 Possible values:
 - {number}
 
-Pingloop allows a blackbox handler to ping resource more than once.
+Pingloop allows a blackbox handler to ping resource more than once. Last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss` are overwritten each run; `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` accumulate.
 
 
 ## log\_level

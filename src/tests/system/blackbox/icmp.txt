@@ -1,6 +1,14 @@
 aggregator_packet_received {host="8.8.8.8", type="icmp}
+aggregator_packet_received_total {host="8.8.8.8", type="icmp}
 aggregator_packet_loss {host="8.8.8.8", type="icmp}
-aggregator_packet_loss_percent {host="8.8.8.8", type="icmp}
+aggregator_packet_loss_ratio {host="8.8.8.8", type="icmp}
+aggregator_packet_loss_total {host="8.8.8.8", type="icmp}
 aggregator_read_time {host="8.8.8.8", type="icmp}
-aggregator_packet_received_percent {host="8.8.8.8", type="icmp}
-probe_success {host="8.8.8.8", proto="icmp", key="8.8.8.8:0:2", type="blackbox", module="icmp", prober="icmp}
+aggregator_packet_received_ratio {host="8.8.8.8", type="icmp}
+aggregator_packet_sent_total {host="8.8.8.8", type="icmp}
+aggregator_resolve_time {host="8.8.8.8", type="icmp}
+alligator_icmp_rtt_seconds {host="8.8.8.8", type="icmp}
+alligator_icmp_reply_hop_limit {host="8.8.8.8", type="icmp}
+alligator_probe_timeout_seconds
+alligator_probe_ip_protocol
+probe_success {host="8.8.8.8", proto="icmp", key="probe:icmp:icmp:blackbox_null:8.8.8.8:

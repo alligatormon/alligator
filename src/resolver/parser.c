@@ -1,10 +1,13 @@
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "common/logs.h"
+#include "common/selector.h"
 #include "main.h"
 #include "resolver/resolver.h"
+#include "probe/probe.h"
 
 #include <arpa/inet.h>
+#include <stdio.h>
 #include <string.h>
 
 static char *dns_class_name(uint16_t rclass)
@@ -30,6 +33,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	int nparse = dns_unpack(metrics, (int)size, &resp);
 	if (nparse < 0 || (size_t)nparse != size) {
 		carglog(carg, L_ERROR, "DNS response size mismatch for '%s': parsed %d bytes, expected %zu\n", carg->key, nparse, size);
+		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
 
@@ -37,26 +41,29 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	uint64_t addr_cnt = 0;
 	if (resp.hdr.transaction_id != carg->packets_id ||
 		resp.hdr.qr != DNS_RESPONSE ||
-		resp.hdr.rcode != 0) {
+		!probe_rcode_is_valid(probe_from_carg(carg), resp.hdr.rcode)) {
 
-		carglog(carg, L_ERROR, "DNS response header mismatch for '%s': txid=%u qr=%u rcode=%u (expected txid=%u qr=%u rcode=0)\n",
+		carglog(carg, L_ERROR, "DNS response header mismatch for '%s': txid=%u qr=%u rcode=%u (expected txid=%u qr=%u valid rcode)\n",
 			carg->key, resp.hdr.transaction_id, resp.hdr.qr, resp.hdr.rcode,
 			carg->packets_id, DNS_RESPONSE);
 		dns_free(&resp);
+		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
 
-	if (resp.hdr.nanswer == 0)
+	if (resp.hdr.nanswer == 0 && resp.hdr.rcode == 0)
 	{
 		carglog(carg, L_WARN, "resolve %s: empty answer (txid=%u rcode=%u)\n",
 			carg->host, resp.hdr.transaction_id, resp.hdr.rcode);
 		dns_free(&resp);
+		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
 
 	if (!resp.hdr.nquestion || !resp.questions[0].name[0]) {
 		carglog(carg, L_ERROR, "dns parse '%s': missing question name in response\n", carg->key);
 		dns_free(&resp);
+		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
 
@@ -226,7 +233,46 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	if (carg->resolver)
 		carglog(carg, L_DEBUG, "dns probe '%s': metric ttl %"PRIu64" sec\n", carg->key, carg->curr_ttl);
 
-	dns_free(&resp);
-	carg->parsed = 1;
-	return rr_ttl;
+	{
+		probe_node *pn = probe_from_carg(carg);
+		uint64_t probe_val = 1;
+		if (pn && (pn->fail_if_answer_matches_regexp_size || pn->fail_if_answer_not_matches_regexp_size)) {
+			string *ans = string_init(2048);
+			dns_rr_t *rr2 = resp.answers;
+			int i;
+			if (ans) {
+				for (i = 0; i < resp.hdr.nanswer; ++i, ++rr2) {
+					char *type = get_str_by_rrtype(rr2->rtype);
+					char data[DNS_NAME_MAXLEN];
+					const char *rrname = rr2->name[0] ? rr2->name : qname;
+					data[0] = 0;
+					if (rr2->rtype == DNS_TYPE_A && rr2->datalen == 4) {
+						snprintf(data, sizeof(data), "%hhu.%hhu.%hhu.%hhu",
+							(unsigned char)rr2->data[0], (unsigned char)rr2->data[1],
+							(unsigned char)rr2->data[2], (unsigned char)rr2->data[3]);
+					} else if (rr2->rtype == DNS_TYPE_AAAA && rr2->datalen == 16) {
+						uint8_t *d = (uint8_t *)rr2->data;
+						snprintf(data, sizeof(data),
+							"%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx",
+							d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7],
+							d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+					} else if (rr2->rtype == DNS_TYPE_MX && rr2->datalen >= 2) {
+						dns_name_decode_ext(rr2->data + 2, metrics, data);
+					} else if (rr2->rtype == DNS_TYPE_CNAME || rr2->rtype == DNS_TYPE_NS ||
+					           rr2->rtype == DNS_TYPE_PTR || rr2->rtype == DNS_TYPE_TXT ||
+					           rr2->rtype == DNS_TYPE_SRV) {
+						dns_name_decode_ext(rr2->data, metrics, data);
+					}
+					string_sprintf(ans, "%s %s %s\n", rrname, type ? type : "?", data);
+				}
+				if (probe_dns_eval_answers(pn, ans->s ? ans->s : "", ans->l, &probe_val))
+					carg->probe_regex_fail = 1;
+				string_free(ans);
+			}
+		}
+		dns_free(&resp);
+		carg->parsed = 1;
+		probe_metric_success(carg, probe_val);
+		return rr_ttl;
+	}
 }

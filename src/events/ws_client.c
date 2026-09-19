@@ -10,6 +10,7 @@
 #include "common/url.h"
 #include "parsers/multiparser.h"
 #include "main.h"
+#include "probe/probe.h"
 
 extern aconf *ac;
 
@@ -40,6 +41,8 @@ static void on_ws_open(ws_conn *ws)
 	        carg->host, carg->port,
 	        carg->query_url ? carg->query_url : "/");
 	carg->conn_counter++;
+	carg->parser_status = 1;
+	probe_metric_success(carg, 1);
 }
 
 static void on_ws_message(ws_conn *ws, const char *data, size_t len)
@@ -70,6 +73,9 @@ static void on_ws_close(ws_conn *ws)
 
 	if (carg)
 		carg->close_counter++;
+
+	if (carg && !carg->parser_status)
+		probe_metric_success(carg, 0);
 
 	if (carg)
 		aggregator_events_metric_add(carg, carg, NULL, "ws", "aggregator", carg->host);
@@ -128,6 +134,7 @@ static void ws_client_connect(context_arg *carg)
 	                       on_ws_open, on_ws_message, on_ws_close, carg);
 	if (!st->conn) {
 		carg->lock = 0;
+		probe_metric_success(carg, 0);
 		/* Retry after delay */
 		uint64_t delay = carg->period ? carg->period : WS_CLIENT_RECONNECT_MS;
 		uv_timer_start(st->reconnect_timer, reconnect_timer_cb, delay, 0);

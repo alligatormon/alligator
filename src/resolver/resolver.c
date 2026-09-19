@@ -356,6 +356,10 @@ context_arg* aggregator_push_addr(context_arg *carg, char *dname, uint16_t rrtyp
 		new_carg->period = carg->period;
 	if (carg->timeout)
 		new_carg->timeout = carg->timeout;
+	if (carg->name)
+		new_carg->name = strdup(carg->name);
+	if (carg->ip_version)
+		new_carg->ip_version = carg->ip_version;
 
 	aconf_mesg_set(new_carg, buf, buflen);
 

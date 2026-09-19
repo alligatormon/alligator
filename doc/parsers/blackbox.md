@@ -26,6 +26,18 @@ aggregate {
 }
 ```
 
+ICMP `loop` (or aggregate `pingloop`) overwrites last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss`. Counters `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` accumulate across bursts. Prometheus blackbox_exporter sends one echo and has no packet counters.
+
+Continuous ICMP (smokeping_prober-style) uses `interval` instead of a burst:
+
+```
+aggregate {
+    blackbox icmp://8.8.8.8 interval=1000;
+}
+```
+
+That emits `alligator_icmp_response_duration_seconds_{bucket,sum,count}`. Optional `payload_size`, `ttl`, `tos`, `negative_test` are accepted on the same aggregate object. On-demand checks stay on **`probe`** + async `GET /probe` (see [probe.md](../probe.md)).
+
 ### Blackbox in entrypoint
 
 On-demand checks use **`probe`** modules and `GET /probe?module=…&target=…` instead of scheduled `aggregate` scrapes. See [probe.md](../probe.md).

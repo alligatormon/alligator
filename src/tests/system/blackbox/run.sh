@@ -8,6 +8,7 @@ sleep 1
 curl -s 'http://127.0.0.1:1111/probe?target=r0.ru&module=http_23xx'
 curl -s 'http://127.0.0.1:1111/probe?target=yandex.ru&module=http_2xx_nfr'
 curl -s 'http://127.0.0.1:1111/probe?target=8.8.8.8&module=icmp'
+curl -s 'http://127.0.0.1:1111/probe?target=github.com:22&module=ssh_banner'
 sleep 25
 
 

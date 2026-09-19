@@ -14,6 +14,7 @@
 #include "events/proxy.h"
 #include "events/uv_alloc.h"
 #include "common/stop.h"
+#include "probe/probe.h"
 
 extern aconf *ac;
 
@@ -23,6 +24,8 @@ extern aconf *ac;
 void udp_client_repeat_period(uv_timer_t *timer);
 static void udp_socks_tcp_closed(uv_handle_t *handle);
 static void udp_session_finish(context_arg *carg);
+void udp_on_send(uv_udp_send_t* req, int status);
+void udp_timeout_timer(uv_timer_t *timer);
 
 static void udp_session_finish(context_arg *carg)
 {
@@ -47,6 +50,56 @@ static void udp_session_finish(context_arg *carg)
 		uv_timer_stop(carg->period_timer);
 		uv_timer_start(carg->period_timer, udp_client_repeat_period, carg->period, 0);
 	}
+}
+
+static void udp_client_closed(uv_handle_t *handle);
+
+static int udp_send_probe_packet(context_arg *carg)
+{
+	int r;
+
+	if (!carg)
+		return -1;
+	r = uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1,
+		(struct sockaddr *)&carg->remote_addr, udp_on_send);
+	if (r) {
+		carglog(carg, L_ERROR, "udp: send error %s\n", uv_strerror(r));
+		return -1;
+	}
+	carg->write_time = setrtime();
+	return 0;
+}
+
+static void udp_blackbox_emit(context_arg *carg, int last_ok)
+{
+	uint64_t val;
+
+	if (!carg || carg->parser_handler != blackbox_null)
+		return;
+	if (carg->pingloop <= 1)
+		val = last_ok ? 1 : 0;
+	else {
+		double pct = carg->pingloop ? (carg->sequence_success * 1.0 / carg->pingloop) : 0.0;
+		val = (pct >= carg->pingpercent_success) ? 1 : 0;
+	}
+	probe_metric_success(carg, val);
+}
+
+static int udp_blackbox_reply_ok(context_arg *carg, const char *reply, ssize_t nread)
+{
+	int ok;
+
+	if (nread <= 0 || !carg->parser_status)
+		return 0;
+	ok = 1;
+	if (carg->probe_payload && carg->probe_payload_len) {
+		if (!probe_udp_payload_ok(reply, (size_t)nread, carg->probe_payload, carg->probe_payload_len)) {
+			carglog(carg, L_ERROR, "udp: payload integrity mismatch host=%s got=%zd expected=%zu\n",
+				carg->host, nread, carg->probe_payload_len);
+			ok = 0;
+		}
+	}
+	return ok;
 }
 
 static void udp_client_closed(uv_handle_t *handle)
@@ -135,8 +188,13 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 		udp_close_client(carg, buf);
 		return;
 	}
-	if (nread == 0 && buf && buf->base)
+	if (nread == 0)
 	{
+		if (carg->parser_handler == blackbox_null && carg->pingloop > 1 && !addr) {
+			if (buf && buf->base)
+				free(buf->base);
+			return;
+		}
 		udp_close_client(carg, buf);
 		return;
 	}
@@ -170,6 +228,29 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	}
 
 	alligator_multiparser((char *)parse_base, parse_len, carg->parser_handler, NULL, carg);
+	if (parse_len > 0 && carg->parser_handler == blackbox_null) {
+		int ok = udp_blackbox_reply_ok(carg, parse_base, parse_len);
+		if (ok)
+			carg->sequence_success++;
+		else
+			carg->sequence_error++;
+		carg->sequence_done++;
+		if (carg->pingloop > 1 && carg->sequence_done < carg->pingloop &&
+		    !(carg->proxy && carg->proxy->type == PROXY_TYPE_SOCKS5)) {
+			if (buf && buf->base)
+				free(buf->base);
+			if (carg->tt_timer)
+				uv_timer_start(carg->tt_timer, udp_timeout_timer, carg->timeout, 0);
+			if (udp_send_probe_packet(carg) < 0) {
+				carg->sequence_error += carg->pingloop - carg->sequence_done;
+				carg->sequence_done = carg->pingloop;
+				udp_blackbox_emit(carg, 0);
+				udp_close_client(carg, NULL);
+			}
+			return;
+		}
+		udp_blackbox_emit(carg, ok);
+	}
 
 	if (nread > 0 && !carg->no_metric && !carg->lock)
 		entrypoint_read_metrics_throttled_push(carg, carg, "udp", 1, carg->key);
@@ -193,6 +274,14 @@ void udp_timeout_timer(uv_timer_t *timer)
 
 	carglog(carg, L_WARN, "udp: timeout key=%s host=%s tls=%d timeout_ms=%"u64"\n", carg->key, carg->host, carg->tls, carg->timeout);
 	(carg->timeout_counter)++;
+	if (carg->parser_handler == blackbox_null) {
+		if (carg->sequence_done < carg->pingloop) {
+			carg->sequence_error += carg->pingloop - carg->sequence_done;
+			carg->sequence_done = carg->pingloop;
+		}
+		udp_blackbox_emit(carg, 0);
+	} else if (!carg->parser_status)
+		probe_metric_success(carg, 0);
 
 	udp_close_client(carg, NULL);
 }
@@ -201,6 +290,8 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	context_arg *carg = req->data;
 	if (status != 0) {
 		carglog(carg, L_ERROR, "send_cb error: %s\n", uv_strerror(status));
+		if (carg->parser_handler == blackbox_null)
+			probe_metric_success(carg, 0);
 	}
 	carg->write_time_finish = setrtime();
 	carglog(carg, L_DEBUG, "udp: sent key=%s host=%s tls=%d\n", carg->key, carg->host, carg->tls);
@@ -428,6 +519,10 @@ void udp_client_connect(void *arg)
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 	proxy_handshake_reset(carg);
+	carg->sequence_id = 0;
+	carg->sequence_done = 0;
+	carg->sequence_success = 0;
+	carg->sequence_error = 0;
 
 	if (carg->period && !carg->close_counter) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));

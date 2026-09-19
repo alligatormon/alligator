@@ -50,13 +50,27 @@ char* gen_http_query(int http_type, char *method_query, char *append_query, char
 	}
 
 
-	char method[5];
+	char method[8];
 	switch (http_type)
 	{
-		case HTTP_POST: strlcpy(method, "POST", 5);
-			 break;
-		default: strlcpy(method, "GET", 4);
-			 break;
+		case HTTP_POST:
+			strlcpy(method, "POST", sizeof(method));
+			break;
+		case HTTP_HEAD:
+			strlcpy(method, "HEAD", sizeof(method));
+			break;
+		case HTTP_PUT:
+			strlcpy(method, "PUT", sizeof(method));
+			break;
+		case HTTP_DELETE:
+			strlcpy(method, "DELETE", sizeof(method));
+			break;
+		case HTTP_PATCH:
+			strlcpy(method, "PATCH", sizeof(method));
+			break;
+		default:
+			strlcpy(method, "GET", sizeof(method));
+			break;
 	}
 
 	char *version_http = httpver ? httpver : "1.0";

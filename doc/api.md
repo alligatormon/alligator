@@ -274,6 +274,12 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
       "valid_status_codes": ["2xx"]
     },
     {
+      "name": "dns_a",
+      "prober": "dns",
+      "url": "udp://8.8.8.8:53",
+      "type": "a"
+    },
+    {
       "name": "icmp",
       "prober": "icmp",
       "timeout": "5s",

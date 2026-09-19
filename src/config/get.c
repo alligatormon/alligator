@@ -1021,6 +1021,18 @@ void probe_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "body", body);
 	}
 
+	if (pn->url)
+	{
+		json_t *url = json_string(pn->url);
+		json_array_object_insert(ctx, "url", url);
+	}
+
+	if (pn->query_type)
+	{
+		json_t *query_type = json_string(pn->query_type);
+		json_array_object_insert(ctx, "type", query_type);
+	}
+
 	if (pn->prober_str)
 	{
 		json_t *prober_str = json_string(pn->prober_str);
@@ -1108,9 +1120,79 @@ void probe_generate_conf(void *funcarg, void* arg)
 		jmethod = json_string("GET");
 	else if (pn->method == HTTP_POST)
 		jmethod = json_string("POST");
+	else if (pn->method == HTTP_HEAD)
+		jmethod = json_string("HEAD");
+	else if (pn->method == HTTP_PUT)
+		jmethod = json_string("PUT");
+	else if (pn->method == HTTP_DELETE)
+		jmethod = json_string("DELETE");
+	else if (pn->method == HTTP_PATCH)
+		jmethod = json_string("PATCH");
 	else
 		jmethod = json_string("none");
 	json_array_object_insert(ctx, "method", jmethod);
+
+	if (pn->query_name)
+		json_array_object_insert(ctx, "query_name", json_string(pn->query_name));
+	if (pn->fail_if_ssl)
+		json_array_object_insert(ctx, "fail_if_ssl", json_string("on"));
+	if (pn->fail_if_not_ssl)
+		json_array_object_insert(ctx, "fail_if_not_ssl", json_string("on"));
+	if (pn->negative_test)
+		json_array_object_insert(ctx, "negative_test", json_string("on"));
+	if (pn->icmp_payload_size)
+		json_array_object_insert(ctx, "payload_size", json_integer(pn->icmp_payload_size));
+	if (pn->icmp_ttl)
+		json_array_object_insert(ctx, "ttl", json_integer(pn->icmp_ttl));
+	if (pn->icmp_tos)
+		json_array_object_insert(ctx, "tos", json_integer(pn->icmp_tos));
+	if (pn->icmp_interval)
+		json_array_object_insert(ctx, "interval", json_integer(pn->icmp_interval));
+
+	if (pn->query_response_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "query_response", arr);
+		for (uint64_t i = 0; i < pn->query_response_size; i++) {
+			json_t *st = json_object();
+			if (pn->query_response[i].expect)
+				json_object_set_new(st, "expect", json_string(pn->query_response[i].expect));
+			if (pn->query_response[i].send)
+				json_object_set_new(st, "send", json_string(pn->query_response[i].send));
+			if (pn->query_response[i].expect_bytes)
+				json_object_set_new(st, "expect_bytes", json_string(pn->query_response[i].expect_bytes));
+			if (pn->query_response[i].starttls)
+				json_object_set_new(st, "starttls", json_true());
+			json_array_append_new(arr, st);
+		}
+	}
+
+	if (pn->valid_rcodes_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "valid_rcodes", arr);
+		for (uint64_t i = 0; i < pn->valid_rcodes_size; i++)
+			json_array_object_insert(arr, NULL, json_string(pn->valid_rcodes[i]));
+	}
+
+	if (pn->fail_if_answer_matches_regexp_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "fail_if_answer_matches_regexp", arr);
+		for (uint64_t i = 0; i < pn->fail_if_answer_matches_regexp_size; i++)
+			json_array_object_insert(arr, NULL, json_string(pn->fail_if_answer_matches_regexp[i]));
+	}
+
+	if (pn->fail_if_answer_not_matches_regexp_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "fail_if_answer_not_matches_regexp", arr);
+		for (uint64_t i = 0; i < pn->fail_if_answer_not_matches_regexp_size; i++)
+			json_array_object_insert(arr, NULL, json_string(pn->fail_if_answer_not_matches_regexp[i]));
+	}
+
+	if (pn->payload)
+		json_array_object_insert(ctx, "payload", json_string(pn->payload));
 
 	if (pn->valid_status_codes_size)
 	{
@@ -1122,6 +1204,31 @@ void probe_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(valid_status_codes, NULL, vss);
 		}
 	}
+
+	if (pn->fail_if_body_matches_regexp_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "fail_if_body_matches_regexp", arr);
+		for (uint64_t i = 0; i < pn->fail_if_body_matches_regexp_size; i++)
+			json_array_object_insert(arr, NULL, json_string(pn->fail_if_body_matches_regexp[i]));
+	}
+
+	if (pn->fail_if_body_not_matches_regexp_size)
+	{
+		json_t *arr = json_array();
+		json_array_object_insert(ctx, "fail_if_body_not_matches_regexp", arr);
+		for (uint64_t i = 0; i < pn->fail_if_body_not_matches_regexp_size; i++)
+			json_array_object_insert(arr, NULL, json_string(pn->fail_if_body_not_matches_regexp[i]));
+	}
+
+	if (pn->probe_ip_version[0])
+	{
+		json_t *ipver = json_integer(pn->probe_ip_version[0]);
+		json_array_object_insert(ctx, "probe_ip_version", ipver);
+	}
+
+	if (pn->unixgram)
+		json_array_object_insert(ctx, "unixgram", json_string("on"));
 
 	if (pn->labels)
 		alligator_ht_foreach_arg(pn->labels, labels_kv_deserialize, ctx);

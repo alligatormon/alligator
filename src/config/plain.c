@@ -436,6 +436,73 @@ static int plain_context_supports_metricstransform(const char *context_name)
 		!strcmp(context_name, "lang"));
 }
 
+static int plain_probe_nested_name(const char *name)
+{
+	return name && (
+		!strcmp(name, "query_response") ||
+		!strcmp(name, "fail_if_header_matches") ||
+		!strcmp(name, "fail_if_header_not_matches") ||
+		!strcmp(name, "fail_if_json_matches_regexp") ||
+		!strcmp(name, "fail_if_json_not_exists"));
+}
+
+static json_t *plain_parse_probe_nested_block(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
+{
+	json_t *arr;
+	json_t *step = NULL;
+	uint64_t i;
+	const char *block_name;
+
+	if (!wstokens || !idx || *idx >= token_count || !wstokens[*idx].token || !wstokens[*idx].token->s)
+		return NULL;
+	block_name = wstokens[*idx].token->s;
+	if (!plain_probe_nested_name(block_name))
+		return NULL;
+
+	arr = json_array();
+	i = *idx + 1;
+	for (; i < token_count; i++) {
+		const char *op;
+
+		if (wstokens[i].end) {
+			if (step)
+				json_array_append_new(arr, step);
+			*idx = i;
+			return arr;
+		}
+		if (wstokens[i].start)
+			continue;
+		if (!wstokens[i].operator || !wstokens[i].token || !wstokens[i].token->s)
+			continue;
+		op = wstokens[i].token->s;
+		if (!step)
+			step = json_object();
+		else if (json_object_get(step, op) &&
+			 (!strcmp(op, "expect") || !strcmp(op, "send") || !strcmp(op, "expect_bytes") || !strcmp(op, "starttls") ||
+			  !strcmp(op, "header") || !strcmp(op, "path"))) {
+			json_array_append_new(arr, step);
+			step = json_object();
+		}
+		if (i + 1 < token_count && wstokens[i + 1].argument && wstokens[i + 1].token && wstokens[i + 1].token->s) {
+			i++;
+			if (!strcmp(op, "starttls") || !strcmp(op, "allow_missing")) {
+				if (!strcmp(wstokens[i].token->s, "on") || !strcmp(wstokens[i].token->s, "true") || !strcmp(wstokens[i].token->s, "1"))
+					json_object_set_new(step, op, json_true());
+				else
+					json_object_set_new(step, op, json_false());
+			} else {
+				json_object_set_new(step, op, json_string(wstokens[i].token->s));
+			}
+		} else if (!strcmp(op, "starttls")) {
+			json_object_set_new(step, op, json_true());
+		}
+	}
+	if (step)
+		json_array_append_new(arr, step);
+	*idx = i ? i - 1 : *idx;
+	return arr;
+}
+
 /* Native plain metricstransform (no JSON): metricstransform { include M match_type strict label L regex R replacement S; } */
 static void plain_mtx_stmt_parse(config_parser_stat *wstokens, uint64_t a, uint64_t b, json_t *transforms)
 {
@@ -1583,6 +1650,18 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						for (; i < token_count; i++)
 						{
 							json_t *arg_value = NULL;
+							if (!strcmp(context_name, "probe") && wstokens[i].token && wstokens[i].token->s &&
+							    plain_probe_nested_name(wstokens[i].token->s))
+							{
+								uint64_t j = i;
+								json_t *nested = plain_parse_probe_nested_block(wstokens, &j, token_count);
+								if (nested)
+								{
+									json_array_object_insert(operator_json, wstokens[i].token->s, nested);
+									i = j;
+								}
+								continue;
+							}
 							if (plain_context_supports_metricstransform(context_name) &&
 							    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metricstransform"))
 							{
@@ -1641,7 +1720,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									continue;
 								}
 
-								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "jpath") || !strcmp(operator_name, "except") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key") || !strcmp(operator_name, "match"))
+								if (!strcmp(operator_name, "field") || !strcmp(operator_name, "jpath") || !strcmp(operator_name, "except") || !strcmp(operator_name, "valid_status_codes") || !strcmp(operator_name, "valid_rcodes") || !strcmp(operator_name, "fail_if_body_matches_regexp") || !strcmp(operator_name, "fail_if_body_not_matches_regexp") || !strcmp(operator_name, "fail_if_answer_matches_regexp") || !strcmp(operator_name, "fail_if_answer_not_matches_regexp") || !strcmp(operator_name, "servers") || !strcmp(operator_name, "sharding_key") || !strcmp(operator_name, "match"))
 								{
 									json_t *arg_json = json_object_get(operator_json, operator_name);
 									if (!arg_json)

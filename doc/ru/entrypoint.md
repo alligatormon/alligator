@@ -438,7 +438,7 @@ Idle timeout для HTTP keep-alive подключений на stream entrypoin
 Возможные значения:
 - {number}
 
-Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза.
+Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза. Gauge последнего залпа `aggregator_packet_received` / `aggregator_packet_loss` перезаписываются каждый запуск; `aggregator_packet_received_total`, `aggregator_packet_loss_total` и `aggregator_packet_sent_total` копятся.
 
 
 ## metric_aggregation

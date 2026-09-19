@@ -18,6 +18,7 @@
 #include "common/aggregator.h"
 #include "common/stop.h"
 #include "main.h"
+#include "probe/probe.h"
 
 extern aconf* ac;
 
@@ -124,6 +125,8 @@ void unixgram_cb(uv_poll_t* handle, int status, int events)
 	(carg->read_counter)++;
 	carg->read_bytes_counter += (uint64_t)size;
 	alligator_multiparser(buf, size, carg->parser_handler, NULL, carg);
+	if (carg->parser_handler == blackbox_null && carg->parser_status)
+		probe_metric_success(carg, 1);
 	unixgram_close_client(carg);
 }
 
@@ -183,12 +186,6 @@ void unixgram_client_connect(void *arg)
 	carg->curr_ttl = carg->ttl;
 	carg->fd = -1;
 
-	if (!carg->mesg || !carg->mesg_len) {
-		carglog(carg, L_ERROR, "unixgram: empty request path=%s\n", carg->host);
-		carg->lock = 0;
-		return;
-	}
-
 	if (!carg->loop)
 		carg->loop = uv_default_loop();
 
@@ -206,6 +203,7 @@ void unixgram_client_connect(void *arg)
 	if ((s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
 		carglog(carg, L_ERROR, "unixgram socket: %s\n", strerror(errno));
 		unixgram_cleanup_addrs(carg);
+		probe_metric_success(carg, 0);
 		carg->lock = 0;
 		return;
 	}
@@ -216,17 +214,27 @@ void unixgram_client_connect(void *arg)
 	{
 		carglog(carg, L_ERROR, "unixgram bind %s: %s\n", local->sun_path, strerror(errno));
 		unixgram_cleanup_addrs(carg);
+		probe_metric_success(carg, 0);
 		carg->lock = 0;
 		return;
 	}
 
-	send_len = carg->mesg_len;
-	if (sendto(s, carg->mesg, send_len, 0, (struct sockaddr *)remote, remote_len) == -1)
 	{
-		carglog(carg, L_ERROR, "unixgram sendto %s: %s\n", carg->host, strerror(errno));
-		unixgram_cleanup_addrs(carg);
-		carg->lock = 0;
-		return;
+		const char *payload = carg->mesg;
+		static char dummy = '.';
+		send_len = carg->mesg_len;
+		if (!payload || !send_len) {
+			payload = &dummy;
+			send_len = 1;
+		}
+		if (sendto(s, payload, send_len, 0, (struct sockaddr *)remote, remote_len) == -1)
+		{
+			carglog(carg, L_ERROR, "unixgram sendto %s: %s\n", carg->host, strerror(errno));
+			unixgram_cleanup_addrs(carg);
+			probe_metric_success(carg, 0);
+			carg->lock = 0;
+			return;
+		}
 	}
 
 	carg->write_time_finish = setrtime();
@@ -259,6 +267,8 @@ static void unixgram_timeout_timer(uv_timer_t *timer)
 	carglog(carg, L_WARN, "unixgram: timeout key=%s path=%s timeout_ms=%"u64"\n",
 		carg->key ? carg->key : "-", carg->host, carg->timeout);
 	(carg->timeout_counter)++;
+	if (!carg->parser_status)
+		probe_metric_success(carg, 0);
 	unixgram_close_client(carg);
 }
 

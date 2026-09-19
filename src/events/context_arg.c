@@ -2,6 +2,7 @@
 #include "events/tls.h"
 #include "events/proxy.h"
 #include "dstructures/uv_cache.h"
+#include "probe/probe.h"
 #include "main.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -27,6 +28,8 @@ context_arg *carg_copy(context_arg *src)
 	carg->full_body = NULL;
 	carg->mesg = NULL;
 	carg->mesg_len = 0;
+	carg->probe_payload = NULL;
+	carg->probe_payload_len = 0;
 	carg->buffer = NULL;
 	carg->loop = NULL;
 	carg->loop_allocated = 0;
@@ -48,6 +51,9 @@ context_arg *carg_copy(context_arg *src)
 	carg->log_ch_raw_tail = NULL;
 	carg->srv_carg = NULL;
 	carg->oneshot_await = NULL;
+	carg->hist_buckets = NULL;
+	carg->hist_sum = 0;
+	carg->hist_count = 0;
 	carg->entrypoint_stop_async_ready = 0;
 	alligator_linebuf_init(&carg->ml_lb);
 	carg->ml_lb_ready = 0;
@@ -146,6 +152,10 @@ context_arg *carg_copy(context_arg *src)
 	if (src->bind_address)
 		carg->bind_address = strdup(src->bind_address);
 	carg->bind_port = src->bind_port;
+	if (src->probe_payload) {
+		carg->probe_payload = strdup(src->probe_payload);
+		carg->probe_payload_len = src->probe_payload_len;
+	}
 
 	carg->proxy = proxy_settings_copy(src->proxy);
 	carg->proxy_phase = PROXY_PHASE_NONE;
@@ -339,6 +349,12 @@ void carg_free(context_arg *carg)
 	if (carg->mesg)
 		free(carg->mesg);
 
+	if (carg->probe_payload) {
+		free(carg->probe_payload);
+		carg->probe_payload = NULL;
+		carg->probe_payload_len = 0;
+	}
+
 	if (carg->key)
 		free(carg->key);
 
@@ -396,6 +412,9 @@ void carg_free(context_arg *carg)
 		carg->local_addr = NULL;
 	}
 
+	if (carg->hist_buckets)
+		free(carg->hist_buckets);
+
 	if (carg->amtail_touch_buf)
 		free(carg->amtail_touch_buf);
 
@@ -419,6 +438,9 @@ void carg_free(context_arg *carg)
 	carg->remote_addr.sin_addr.s_addr = 0;
 	carg->remote_addr.sin_port = 0;
 	carg->remote_addr.sin_family = 0;
+	memset(&carg->ping_addr, 0, sizeof(carg->ping_addr));
+	carg->ping_addr_len = 0;
+	carg->ping_ipv6 = 0;
 
 	if (carg->cluster)
 		free(carg->cluster);
@@ -666,6 +688,8 @@ void parse_add_label(context_arg *carg, json_t *root) {
 
 		labels_hash_insert_nocache(carg->labels, (char*)name, key);
 	}
+	if (carg->labels && carg->host[0])
+		probe_labels_subst_target(carg->labels, carg->host);
 }
 
 void parse_metricstransform(context_arg *carg, json_t *root)
@@ -989,6 +1013,72 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	int64_t int_pingloop = json_integer_value(json_pingloop);
 	if (json_pingloop)
 		carg->pingloop = int_pingloop;
+	{
+		json_t *jloop = json_object_get(root, "loop");
+		if (jloop) {
+			if (json_is_string(jloop))
+				carg->pingloop = strtoull(json_string_value(jloop), NULL, 10);
+			else
+				carg->pingloop = (uint64_t)json_integer_value(jloop);
+		}
+		json_t *jpct = json_object_get(root, "percent");
+		if (jpct) {
+			if (json_is_string(jpct))
+				carg->pingpercent_success = strtod(json_string_value(jpct), NULL);
+			else if (json_typeof(jpct) == JSON_REAL)
+				carg->pingpercent_success = json_real_value(jpct);
+			else
+				carg->pingpercent_success = (double)json_integer_value(jpct);
+		}
+		json_t *jpayload = json_object_get(root, "payload");
+		if (jpayload && json_is_string(jpayload)) {
+			const char *s = json_string_value(jpayload);
+			if (s && *s) {
+				carg->probe_payload = strdup(s);
+				carg->probe_payload_len = strlen(s);
+				if (!carg->mesg_len) {
+					char *p = strdup(s);
+					carg->mesg = p;
+					carg->mesg_len = carg->probe_payload_len;
+					carg->request_buffer = uv_buf_init(p, carg->mesg_len);
+					if (carg->buffer) {
+						carg->buffer->base = p;
+						carg->buffer->len = carg->mesg_len;
+					}
+					carg->write = 1;
+				}
+			}
+		}
+	}
+
+	{
+		json_t *jsize = json_object_get(root, "payload_size");
+		if (!jsize)
+			jsize = json_object_get(root, "size");
+		if (jsize) {
+			if (json_is_string(jsize))
+				carg->icmp_payload_size = (uint32_t)strtoul(json_string_value(jsize), NULL, 10);
+			else
+				carg->icmp_payload_size = (uint32_t)json_integer_value(jsize);
+		}
+		json_t *jttl = json_object_get(root, "ttl");
+		if (jttl)
+			carg->icmp_ttl = (int)json_integer_value(jttl);
+		json_t *jtos = json_object_get(root, "tos");
+		if (jtos)
+			carg->icmp_tos = (int)json_integer_value(jtos);
+		json_t *jintv = json_object_get(root, "interval");
+		if (jintv) {
+			if (json_is_string(jintv))
+				carg->icmp_interval_ms = (uint64_t)get_ms_from_human_range(json_string_value(jintv), json_string_length(jintv));
+			else
+				carg->icmp_interval_ms = (uint64_t)json_integer_value(jintv);
+			if (carg->icmp_interval_ms)
+				carg->icmp_continuous = 1;
+		}
+		if (config_json_is_on(json_object_get(root, "negative_test")))
+			carg->negative_test = 1;
+	}
 
 	json_t *json_state = json_object_get(root, "state");
 	char *state = (char*)json_string_value(json_state);

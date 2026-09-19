@@ -27,3 +27,7 @@ uint64_t urlencode(char *dest, size_t dest_cap, char *src, size_t src_len);
 void http_args_free(alligator_ht *arg);
 #define HTTP_GET 0
 #define HTTP_POST 1
+#define HTTP_HEAD 2
+#define HTTP_PUT 3
+#define HTTP_DELETE 4
+#define HTTP_PATCH 5

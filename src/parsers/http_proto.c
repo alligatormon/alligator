@@ -14,6 +14,7 @@
 #include "common/selector.h"
 #include "common/json_query.h"
 #include "common/units.h"
+#include "common/rtime.h"
 #include "api/api.h"
 
 void http_reply_data_free(http_reply_data* http)
@@ -228,19 +229,40 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	metric_add_labels6("aggregator_http_headers_size_bytes", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
 	metric_add_labels6("aggregator_http_body_size_bytes", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
 
-	if (carg->data && carg->parser_handler == blackbox_null)
+	if (carg->parser_handler == blackbox_null)
 	{
-		probe_node *pn = carg->data;
-		if (pn->valid_status_codes)
+		probe_node *pn = probe_from_carg(carg);
+		if (pn)
 		{
-			uint64_t val = 0;
-			uint64_t valid_status_codes_size = pn->valid_status_codes_size;
-			for (uint64_t i = 0; i < valid_status_codes_size; i++)
+			uint64_t val = 1;
+			if (pn->valid_status_codes)
 			{
-				if (!strncmp(code, pn->valid_status_codes[i], strspn(pn->valid_status_codes[i], "0123456789")))
-					val = 1;
+				val = 0;
+				uint64_t valid_status_codes_size = pn->valid_status_codes_size;
+				for (uint64_t i = 0; i < valid_status_codes_size; i++)
+				{
+					if (!strncmp(code, pn->valid_status_codes[i], strspn(pn->valid_status_codes[i], "0123456789")))
+						val = 1;
+				}
 			}
-			metric_add_labels6("probe_success", &val, DATATYPE_UINT, carg, "proto", "http", "type", "blackbox", "host", carg->host, "key", carg->key, "prober", pn->prober_str, "module", pn->name);
+			if (val)
+				probe_http_eval_ssl(pn, carg->tls, &val);
+			if (val)
+				probe_http_eval_headers(pn, hrdata->headers, &val);
+			if (val && hrdata->body && (pn->fail_if_body_matches_regexp_size || pn->fail_if_body_not_matches_regexp_size)) {
+				if (probe_http_eval_body(pn, hrdata->body, hrdata->body_size, &val))
+					carg->probe_regex_fail = 1;
+			}
+			if (val)
+				probe_json_validate(pn, hrdata->body, hrdata->body_size, &val);
+			{
+				uint64_t connect_us = getrtime_mcs(carg->connect_time, carg->connect_time_finish, 0);
+				uint64_t tls_us = getrtime_mcs(carg->tls_connect_time, carg->tls_connect_time_finish, 0);
+				uint64_t read_us = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
+				double lat = (connect_us + tls_us + read_us) / 1000000.0;
+				probe_histogram_observe(carg, "alligator_http_request_duration_seconds", NULL, lat);
+			}
+			probe_metric_success(carg, val);
 		}
 	}
 }

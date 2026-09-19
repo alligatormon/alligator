@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- Probe/blackbox metrics no longer emit blackbox_exporter `probe_*` aliases when a native series already exists. HTTP status/body/cert/phase timings stay on `aggregator_http_code`, `aggregator_http_body_size_bytes`, `x509_cert_not_after`, and `alligator_*_duration_microseconds`. ICMP last-echo RTT is `alligator_icmp_rtt_seconds`; hop-limit is one series `alligator_icmp_reply_hop_limit`. DNS resolve is `aggregator_resolve_time` (microseconds). Timeout/IP family gauges are `alligator_probe_timeout_seconds` / `alligator_probe_ip_protocol` from the resolved socket family, not a hostname colon heuristic. Kept unique: `probe_success`, `probe_failed_due_to_regex`, `probe_expect_info`.
+- ICMP `aggregator_packet_received_percent` / `aggregator_packet_loss_percent` renamed to `aggregator_packet_received_ratio` / `aggregator_packet_loss_ratio` (values stay 0–1).
 - Diagnostic logs no longer dump DNS query wire bytes as `%s` (`FREE context argument ... with mesg`). Unprintable payloads are logged as `[binary N bytes]`.
 - UDP `dns` probes that share `bind_address=<port>` use one local socket keyed by IP:port. Replies are demultiplexed by DNS transaction id, then by the question name in the packet. `EADDRINUSE` on a later probe reuses the existing socket instead of logging a fatal bind error.
 - Explicit `dns udp://... resolve=<domain>` probes export `name` on `resolver_read_time_mcs_quantile` / `resolver_write_time_mcs_quantile` / `resolver_response_time_mcs_quantile` so timing is per domain, not only per nameserver.

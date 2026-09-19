@@ -46,6 +46,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 char *mask_password(const char *url);
 uint64_t count_nl(char *buffer, uint64_t size);
@@ -1283,6 +1285,326 @@ void test_url_parse_more_edges()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9092", hi->port);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "app-logs?group.id=alligator-grok", hi->query);
     url_free(hi);
+
+    char icmp6[] = "icmp://[2001:db8::1]";
+    hi = parse_url(icmp6, strlen(icmp6));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_ICMP, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "2001:db8::1", hi->host);
+    url_free(hi);
+
+    char icmp6p[] = "icmp://[::1]";
+    hi = parse_url(icmp6p, strlen(icmp6p));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "::1", hi->host);
+    url_free(hi);
+}
+
+void test_probe_blackbox_modules()
+{
+    json_error_t error;
+
+    if (!ac->probe)
+        ac->probe = alligator_ht_init(NULL);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET6, probe_ip_family("2001:db8::1", 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET6, probe_ip_family("::1", 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET6, probe_ip_family("[::1]", 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET, probe_ip_family("8.8.8.8", 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_UNSPEC, probe_ip_family("example.com:443", 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET6, probe_ip_family("example.com", 6));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_INET, probe_ip_family("example.com", 4));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AF_UNSPEC, probe_ip_family("example.com", 0));
+
+    json_t *jhttp = json_loads(
+        "{\"name\":\"ut-probe-hdr\",\"prober\":\"http\",\"env\":{\"X-Alligator-Probe\":\"1\"},"
+        "\"method\":\"POST\",\"body\":\"ping\",\"timeout\":\"5s\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jhttp);
+    probe_push_json(jhttp);
+    probe_node *pn = probe_get("ut-probe-hdr");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, HTTP_POST, pn->method);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ping", pn->body);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5000, (int)pn->timeout);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->env);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->valid_status_codes_size);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "2xx", pn->valid_status_codes[0]);
+    char *q = gen_http_query(pn->method, "/", NULL, "example.com", "alligator", NULL, NULL, pn->env, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, q);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(q, "X-Alligator-Probe: 1") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(q, "POST /") != NULL);
+    free(q);
+
+    json_t *dst = json_object();
+    probe_generate_conf(dst, pn);
+    json_t *probe = json_object_get(dst, "probe");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, probe);
+    json_t *p0 = json_array_get(probe, 0);
+    json_t *jenv = json_object_get(p0, "env");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jenv);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "1", json_string_value(json_object_get(jenv, "X-Alligator-Probe")));
+    json_decref(dst);
+    probe_del_json(jhttp);
+    json_decref(jhttp);
+
+    json_t *jhdr = json_loads(
+        "{\"name\":\"ut-probe-header-alias\",\"prober\":\"http\",\"header\":{\"X-Via\":\"header\"}}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jhdr);
+    probe_push_json(jhdr);
+    pn = probe_get("ut-probe-header-alias");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->env);
+    probe_del_json(jhdr);
+    json_decref(jhdr);
+
+    json_t *jdns = json_loads(
+        "{\"name\":\"ut-probe-dns\",\"prober\":\"dns\",\"url\":\"udp://8.8.8.8:53\",\"type\":\"aaaa\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jdns);
+    probe_push_json(jdns);
+    pn = probe_get("ut-probe-dns");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_RESOLVER, pn->prober);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "dns", pn->prober_str);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "aaaa", pn->query_type);
+    probe_del_json(jdns);
+    json_decref(jdns);
+
+    json_t *jws = json_loads("{\"name\":\"ut-probe-ws\",\"prober\":\"websocket\",\"tls\":\"on\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jws);
+    probe_push_json(jws);
+    pn = probe_get("ut-probe-ws");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_WSS, pn->prober);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "wss://", pn->scheme);
+    probe_del_json(jws);
+    json_decref(jws);
+
+    json_t *junix = json_loads("{\"name\":\"ut-probe-unix\",\"prober\":\"unix\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, junix);
+    probe_push_json(junix);
+    pn = probe_get("ut-probe-unix");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UNIX, pn->prober);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "unix://", pn->scheme);
+    probe_del_json(junix);
+    json_decref(junix);
+
+    json_t *jgram = json_loads("{\"name\":\"ut-probe-unixgram\",\"prober\":\"unix\",\"unixgram\":\"on\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jgram);
+    probe_push_json(jgram);
+    pn = probe_get("ut-probe-unixgram");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_UNIXGRAM, pn->prober);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "unixgram://", pn->scheme);
+    probe_del_json(jgram);
+    json_decref(jgram);
+
+    json_t *jhttpunix = json_loads(
+        "{\"name\":\"ut-probe-httpunix\",\"prober\":\"unix\",\"url\":\"http://unix:\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jhttpunix);
+    probe_push_json(jhttpunix);
+    pn = probe_get("ut-probe-httpunix");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://unix:", pn->scheme);
+    probe_del_json(jhttpunix);
+    json_decref(jhttpunix);
+
+    json_t *jqr = json_loads(
+        "{\"name\":\"ut-ssh-banner\",\"prober\":\"tcp\","
+        "\"query_response\":[{\"expect\":\"^SSH-2.0-\",\"send\":\"SSH-2.0-blackbox-ssh-check\"}]}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jqr);
+    probe_push_json(jqr);
+    pn = probe_get("ut-ssh-banner");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->query_response_size);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^SSH-2.0-", pn->query_response[0].expect);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "SSH-2.0-blackbox-ssh-check", pn->query_response[0].send);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->query_response[0].expect_re);
+    probe_del_json(jqr);
+    json_decref(jqr);
+
+    json_t *jknobs = json_loads(
+        "{\"name\":\"ut-http-knobs\",\"prober\":\"http\",\"method\":\"HEAD\","
+        "\"fail_if_ssl\":\"on\",\"fail_if_not_ssl\":\"off\",\"negative_test\":\"on\","
+        "\"query_name\":\"example.com\",\"valid_rcodes\":[\"NOERROR\",\"NXDOMAIN\"],"
+        "\"fail_if_header_matches\":[{\"header\":\"X-Foo\",\"regexp\":\"bad\",\"allow_missing\":\"on\"}],"
+        "\"fail_if_body_matches_regexp\":[\"evil\"],"
+        "\"payload_size\":96,\"ttl\":32,\"tos\":16,\"interval\":\"1s\"}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jknobs);
+    probe_push_json(jknobs);
+    pn = probe_get("ut-http-knobs");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, HTTP_HEAD, pn->method);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->fail_if_ssl);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pn->fail_if_not_ssl);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->negative_test);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "example.com", pn->query_name);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)pn->valid_rcodes_size);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_rcode_is_valid(pn, 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_rcode_is_valid(pn, 3));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_rcode_is_valid(pn, 2));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->fail_if_header_matches_size);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "X-Foo", pn->fail_if_header_matches[0].header);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->fail_if_header_matches[0].allow_missing);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->fail_if_body_matches_re);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->fail_if_body_matches_re[0]);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 96, (int)pn->icmp_payload_size);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 32, pn->icmp_ttl);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 16, pn->icmp_tos);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)pn->icmp_interval);
+    {
+        uint64_t val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_http_eval_ssl(pn, 1, &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_http_eval_ssl(pn, 0, &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_http_eval_headers(pn, "X-Bar: 1\r\n", &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_http_eval_headers(pn, "X-Foo: bad-value\r\n", &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_http_eval_body(pn, "xxx evil yyy", 12, &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+        q = gen_http_query(pn->method, "/", NULL, "example.com", "alligator", NULL, NULL, NULL, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, q);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(q, "HEAD /") != NULL);
+        free(q);
+    }
+    probe_del_json(jknobs);
+    json_decref(jknobs);
+
+    json_t *jput = json_loads("{\"name\":\"ut-http-put\",\"prober\":\"http\",\"method\":\"PUT\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jput);
+    probe_push_json(jput);
+    pn = probe_get("ut-http-put");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, HTTP_PUT, pn->method);
+    probe_del_json(jput);
+    json_decref(jput);
+
+    json_t *jjsonv = json_loads(
+        "{\"name\":\"ut-json-val\",\"prober\":\"http\","
+        "\"fail_if_json_not_exists\":[{\"path\":\"status\"}],"
+        "\"fail_if_json_matches_regexp\":[{\"path\":\"status\",\"regexp\":\"fail\"}]}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jjsonv);
+    probe_push_json(jjsonv);
+    pn = probe_get("ut-json-val");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    {
+        uint64_t val = 1;
+        const char *okjson = "{\"status\":\"ok\"}";
+        const char *emptyjson = "{}";
+        const char *failjson = "{\"status\":\"fail\"}";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)pn->json_checks_size);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_json_validate(pn, okjson, strlen(okjson), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_json_validate(pn, emptyjson, strlen(emptyjson), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_json_validate(pn, failjson, strlen(failjson), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+    }
+    probe_del_json(jjsonv);
+    json_decref(jjsonv);
+
+    {
+        context_arg hcarg;
+        memset(&hcarg, 0, sizeof(hcarg));
+        strlcpy(hcarg.host, "ut-hist", sizeof(hcarg.host));
+        hcarg.key = (char *)"probe:ut:hist";
+        probe_histogram_observe(&hcarg, "alligator_icmp_response_duration_seconds", NULL, 0.01);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hcarg.hist_buckets);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)hcarg.hist_count);
+        free(hcarg.hist_buckets);
+    }
+
+    json_t *judp = json_loads(
+        "{\"name\":\"ut-udp-payload\",\"prober\":\"udp\",\"payload\":\"alligator-probe\",\"loop\":3,\"percent\":0.66}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, judp);
+    probe_push_json(judp);
+    pn = probe_get("ut-udp-payload");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alligator-probe", pn->payload);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)pn->loop);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_udp_payload_ok("alligator-probe", 16, pn->payload, strlen(pn->payload)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_udp_payload_ok("xxalligator-probeyy", 20, pn->payload, strlen(pn->payload)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_udp_payload_ok("nope", 4, pn->payload, strlen(pn->payload)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_udp_payload_ok("x", 1, NULL, 0));
+    probe_del_json(judp);
+    json_decref(judp);
+
+    json_t *jdnsre = json_loads(
+        "{\"name\":\"ut-dns-ans\",\"prober\":\"dns\",\"query_name\":\"example.com\","
+        "\"fail_if_answer_matches_regexp\":[\"evil\"],"
+        "\"fail_if_answer_not_matches_regexp\":[\"example\\\\.com A \"]}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jdnsre);
+    probe_push_json(jdnsre);
+    pn = probe_get("ut-dns-ans");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->fail_if_answer_matches_regexp_size);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->fail_if_answer_matches_re);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->fail_if_answer_matches_re[0]);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->fail_if_answer_not_matches_regexp_size);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->fail_if_answer_not_matches_re[0]);
+    {
+        uint64_t val = 1;
+        const char *okans = "example.com A 93.184.216.34\n";
+        const char *evil = "example.com A evil\n";
+        const char *miss = "other.net A 1.2.3.4\n";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_dns_eval_answers(pn, okans, strlen(okans), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_dns_eval_answers(pn, evil, strlen(evil), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+        val = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_dns_eval_answers(pn, miss, strlen(miss), &val));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)val);
+    }
+    probe_del_json(jdnsre);
+    json_decref(jdnsre);
+
+    json_t *jlbl = json_loads(
+        "{\"name\":\"ut-target-lbl\",\"prober\":\"http\",\"add_label\":{\"instance\":\"@target@\",\"site\":\"@target.host@\"}}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jlbl);
+    probe_push_json(jlbl);
+    pn = probe_get("ut-target-lbl");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->labels);
+    {
+        char *s = probe_subst_target("instance=@target@", "example.com:443");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, s);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "instance=example.com:443", s);
+        free(s);
+        s = probe_subst_target("site=@target.host@", "example.com:443");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, s);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "site=example.com", s);
+        free(s);
+        s = probe_subst_target("h=@target.host@", "[2001:db8::1]:53");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, s);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "h=2001:db8::1", s);
+        free(s);
+        alligator_ht *lbl = labels_dup(pn->labels);
+        probe_labels_subst_target(lbl, "example.com:8080");
+        labels_container *lc = alligator_ht_search(lbl, labels_hash_compare, "instance", ac->metrictree_hashfunc_get("instance"));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lc);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "example.com:8080", lc->key);
+        lc = alligator_ht_search(lbl, labels_hash_compare, "site", ac->metrictree_hashfunc_get("site"));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, lc);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "example.com", lc->key);
+        labels_hash_free(lbl);
+    }
+    probe_del_json(jlbl);
+    json_decref(jlbl);
 }
 
 void test_match_rules_hash_paths()
@@ -1359,6 +1681,19 @@ void test_http_common_helpers()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req, "GET /metrics HTTP/1.0\r\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req, "Host: localhost\r\n") != NULL);
+    free(req);
+
+    req = gen_http_query(HTTP_HEAD, "/", NULL, "example.org", "ua", NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req, "HEAD / HTTP/") != NULL);
+    free(req);
+    req = gen_http_query(HTTP_PATCH, "/", NULL, "example.org", "ua", NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req, "PATCH / HTTP/") != NULL);
+    free(req);
+    req = gen_http_query(HTTP_DELETE, "/", NULL, "example.org", "ua", NULL, NULL, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req, "DELETE / HTTP/") != NULL);
     free(req);
 
     alligator_ht *env = alligator_ht_init(NULL);

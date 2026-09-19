@@ -16,6 +16,18 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "aggregator_http_headers_size_bytes", METRIC_TYPE_GAUGE, "HTTP response headers size in bytes observed by aggregator parser.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_http_requests_total", METRIC_TYPE_COUNTER, "Total HTTP requests observed by aggregator parser by response code.");
 	namespace_metric_family_set(NULL, NULL, "probe_success", METRIC_TYPE_GAUGE, "Blackbox probe success where 1 means the probe passed configured checks.");
+	namespace_metric_family_set(NULL, NULL, "probe_failed_due_to_regex", METRIC_TYPE_GAUGE, "Set when a TCP/HTTP regex expect or body matcher failed.");
+	namespace_metric_family_set(NULL, NULL, "probe_expect_info", METRIC_TYPE_GAUGE, "TCP query_response expect step matched.");
+	namespace_metric_family_set(NULL, NULL, "alligator_probe_timeout_seconds", METRIC_TYPE_GAUGE, "Configured probe timeout in seconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_probe_ip_protocol", METRIC_TYPE_GAUGE, "Resolved IP protocol (4 or 6) from socket or getaddrinfo family.");
+	namespace_metric_family_set(NULL, NULL, "alligator_icmp_rtt_seconds", METRIC_TYPE_GAUGE, "Last ICMP echo round-trip time in seconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_icmp_reply_hop_limit", METRIC_TYPE_GAUGE, "TTL/hop-limit of the last ICMP echo reply.");
+	namespace_metric_family_set(NULL, NULL, "alligator_icmp_response_duration_seconds", METRIC_TYPE_HISTOGRAM, "ICMP echo RTT histogram in seconds.");
+	namespace_metric_family_set(NULL, NULL, "aggregator_resolve_time", METRIC_TYPE_GAUGE, "DNS resolve duration in microseconds.");
+	namespace_metric_family_set(NULL, NULL, "aggregator_packet_received_ratio", METRIC_TYPE_GAUGE, "ICMP echo reply ratio in the last burst (0–1).");
+	namespace_metric_family_set(NULL, NULL, "aggregator_packet_loss_ratio", METRIC_TYPE_GAUGE, "ICMP echo loss ratio in the last burst (0–1).");
+	namespace_metric_family_set(NULL, NULL, "alligator_http_request_duration_seconds", METRIC_TYPE_HISTOGRAM, "HTTP probe request duration histogram in seconds.");
+	namespace_metric_family_set(NULL, NULL, "aggregator_packet_duplicate", METRIC_TYPE_GAUGE, "Duplicate ICMP echo replies in the last burst.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_resolve_address", METRIC_TYPE_GAUGE, "DNS record presence marker for resolved names and resource record data.");
 	namespace_metric_family_set(NULL, NULL, "aggregator_resolve_address_rr_count", METRIC_TYPE_GAUGE, "Number of DNS resource records in a resolve response by query and type.");
 

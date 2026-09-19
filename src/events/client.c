@@ -18,6 +18,8 @@
 #include "common/rtime.h"
 #include "common/revocation.h"
 #include "common/stop.h"
+#include "probe/probe.h"
+#include "common/url.h"
 extern aconf* ac;
 
 #define carglog_elapsed_ms(carg, when) getrtime_elapsed_ms((carg)->connect_time, (when))
@@ -29,6 +31,69 @@ void tcp_client_shutdown(uv_shutdown_t *req, int status);
 void tcp_timeout_timer(uv_timer_t *timer);
 void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
 void tls_client_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+void tcp_client_written(uv_write_t *req, int status);
+void tls_client_written(uv_write_t *req, int status);
+void tcp_client_fail_session(context_arg *carg);
+int do_client_tls_handshake(context_arg *carg);
+static void tcp_client_begin_shutdown(context_arg *carg, uv_stream_t *stream);
+
+static int probe_emit_tcp_success(context_arg *carg)
+{
+	if (!carg || carg->parser_handler != blackbox_null)
+		return 0;
+	if (carg->proto == APROTO_HTTP || carg->proto == APROTO_HTTPS)
+		return 0;
+	if (probe_qr_active(carg))
+		return 0;
+	return 1;
+}
+
+static void probe_qr_write(context_arg *carg, const char *data, size_t len)
+{
+	if (!carg || !data || !len)
+		return;
+	if (carg->tls && carg->tls_handshake_done) {
+		tls_write(carg, carg->connect.handle ? carg->connect.handle : (uv_stream_t *)&carg->client,
+			(char *)data, (uint64_t)len, tls_client_written);
+		return;
+	}
+	uv_buf_t buf = uv_buf_init((char *)data, len);
+	memset(&carg->write_req, 0, sizeof(carg->write_req));
+	carg->write_req.data = carg;
+	carg->write_time = setrtime();
+	(void)uv_write(&carg->write_req, (uv_stream_t *)&carg->client, &buf, 1, tcp_client_written);
+	carg->write_bytes_counter += len;
+	(carg->write_counter)++;
+}
+
+static void probe_qr_starttls(context_arg *carg)
+{
+	const char *sni;
+
+	if (!carg)
+		return;
+	carg->tls = 1;
+	if (carg->ssl)
+		return;
+	sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
+	if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
+		probe_metric_success(carg, 0);
+		tcp_client_fail_session(carg);
+		return;
+	}
+	uv_read_stop((uv_stream_t *)&carg->client);
+	carg->tls_read_time = setrtime();
+	uv_read_start((uv_stream_t *)&carg->client, tls_client_alloc, tls_client_read);
+	do_client_tls_handshake(carg);
+}
+
+static int probe_qr_maybe_done(context_arg *carg)
+{
+	if (!carg || !carg->probe_qr_done)
+		return 0;
+	tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
+	return 1;
+}
 
 /* Notify oneshot/parser when the TCP session ends with no HTTP body
  * (connect refused, idle timeout, etc.). Without this, handlers like
@@ -200,6 +265,17 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 
 	if (nread > 0)
 	{
+		if (probe_qr_active(carg)) {
+			int rc = probe_qr_on_read(carg, base, (size_t)nread, probe_qr_write, probe_qr_starttls);
+			if (rc > 0)
+				tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
+			else if (rc < 0) {
+				carg->probe_regex_fail = 1;
+				probe_metric_success(carg, 0);
+				tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
+			}
+			return;
+		}
 		uint64_t chunksize = 0;
 		int64_t chunk_ret = -2;
 		if (base)
@@ -344,12 +420,18 @@ int do_client_tls_handshake(context_arg *carg) {
 	}
 	if (!carg->tls_handshake_done) {
 		int hs_ret = SSL_do_handshake(carg->ssl);
-		if (hs_ret == 1) {
+			if (hs_ret == 1) {
 			carglog(carg, L_DEBUG, "tcp client: TLS handshake complete key=%s host=%s port=%s\n", carg->key, carg->host, carg->port);
 			carg->tls_handshake_done = 1;
 			if (!carg->tls_connect_time_finish.sec && !carg->tls_connect_time_finish.nsec)
 				carg->tls_connect_time_finish = setrtime();
 			handshake_done_now = 1;
+			if (probe_emit_tcp_success(carg))
+				probe_metric_success(carg, 1);
+			if (probe_qr_active(carg)) {
+				probe_qr_on_tls_ready(carg, probe_qr_write, probe_qr_starttls);
+				probe_qr_maybe_done(carg);
+			}
 			X509 *cert = SSL_get_peer_certificate(carg->ssl);
 			if (cert) {
 				const char *verify_host = carg->tls_server_name ? carg->tls_server_name : carg->host;
@@ -386,6 +468,8 @@ int do_client_tls_handshake(context_arg *carg) {
 				char *err = openssl_get_error_string();
 				carglog(carg, L_WARN, "tcp client: TLS handshake failed key=%s host=%s port=%s error=%s\n", carg->key, carg->host, carg->port, err);
 				free(err);
+				if (probe_emit_tcp_success(carg))
+					probe_metric_success(carg, 0);
 
 				return -1;
 			}
@@ -415,9 +499,10 @@ void tls_client_read(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 	BIO_write(carg->rbio, buf->base, nread);
 	int handshaked = do_client_tls_handshake(carg);
 	if (handshaked > 0) {
-		//tls_write(carg, carg->mesg, carg->mesg_len, client_tcp_write_cb);
-		tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written);
-		carglog(carg, L_DEBUG, "tcp client: TLS handshake done, request sent key=%s host=%s port=%s nread=%zd\n", carg->key, carg->host, carg->port, nread);
+		if (!probe_qr_active(carg)) {
+			tls_write(carg, carg->connect.handle, carg->request_buffer.base, carg->request_buffer.len, tls_client_written);
+			carglog(carg, L_DEBUG, "tcp client: TLS handshake done, request sent key=%s host=%s port=%s nread=%zd\n", carg->key, carg->host, carg->port, nread);
+		}
 	} else if (!handshaked) {
 		string *buffer = string_new();
 		int read_size = 0;
@@ -467,6 +552,8 @@ void tcp_client_start_app(context_arg *carg)
 	if (carg->proxy_phase == PROXY_PHASE_DONE) {
 		uint64_t ok = 1;
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		if (probe_emit_tcp_success(carg) && !carg->tls)
+			probe_metric_success(carg, 1);
 	}
 
 	memset(&carg->write_req, 0, sizeof(carg->write_req));
@@ -476,6 +563,8 @@ void tcp_client_start_app(context_arg *carg)
 		if (!carg->ssl) {
 			const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
 			if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
+				if (probe_emit_tcp_success(carg) || probe_qr_active(carg))
+					probe_metric_success(carg, 0);
 				tcp_client_fail_session(carg);
 				return;
 			}
@@ -483,10 +572,21 @@ void tcp_client_start_app(context_arg *carg)
 		carg->tls_read_time = setrtime();
 		uv_read_start((uv_stream_t *)&carg->client, tls_client_alloc, tls_client_read);
 		do_client_tls_handshake(carg);
+		if (probe_qr_active(carg) && !carg->tls_handshake_done)
+			return;
+		if (probe_qr_active(carg)) {
+			probe_qr_on_connect(carg, probe_qr_write, probe_qr_starttls);
+			probe_qr_maybe_done(carg);
+			return;
+		}
 		return;
 	}
 
 	uv_read_start((uv_stream_t *)&carg->client, tcp_alloc, tcp_client_read);
+	if (probe_qr_on_connect(carg, probe_qr_write, probe_qr_starttls)) {
+		probe_qr_maybe_done(carg);
+		return;
+	}
 	carglog(carg, L_TRACE, "write request key %s plain bytes %"PRIu64" preview %.*s\n", carg->key, carg->request_buffer.len, (int)(carg->request_buffer.len > 80 ? 80 : (int)carg->request_buffer.len), carg->request_buffer.base ? carg->request_buffer.base : "");
 	carg->write_time = setrtime();
 	(void)uv_write(&carg->write_req, (uv_stream_t *)&carg->client, &carg->request_buffer, 1, tcp_client_written);
@@ -506,6 +606,8 @@ void tls_connected(uv_connect_t* req, int status)
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		carglog(carg, L_ERROR, "tls client connect failed key %s host %s: %s\n",
 			carg->key ? carg->key : "?", carg->host, uv_strerror(status));
+		if (probe_emit_tcp_success(carg))
+			probe_metric_success(carg, 0);
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_closed((uv_handle_t*)&carg->client);
 		return;
@@ -532,6 +634,8 @@ void tcp_connected(uv_connect_t* req, int status)
 		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		carglog(carg, L_ERROR, "tcp client connect failed key %s host %s port %s: %s\n",
 			carg->key ? carg->key : "?", carg->host, carg->port, uv_strerror(status));
+		if (probe_emit_tcp_success(carg))
+			probe_metric_success(carg, 0);
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
 		return;
@@ -547,6 +651,8 @@ void tcp_connected(uv_connect_t* req, int status)
 	}
 
 	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	if (probe_emit_tcp_success(carg) && !carg->tls)
+		probe_metric_success(carg, 1);
 	tcp_client_start_app(carg);
 }
 
@@ -575,15 +681,25 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	(carg->timeout_counter)++;
 
 	if (!carg->parsed) {
-		if (carg->full_body && carg->full_body->l)
+		if (probe_qr_active(carg)) {
+			carg->probe_regex_fail = 1;
+			probe_metric_success(carg, 0);
+		} else if (carg->full_body && carg->full_body->l)
 			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 		else
 			tcp_client_notify_handler_empty(carg);
 	}
 	tcp_client_close((uv_handle_t *)&carg->client);
 
-	if ((carg->proto == APROTO_HTTP) || (carg->proto == APROTO_HTTPS))
+	if ((carg->proto == APROTO_HTTP) || (carg->proto == APROTO_HTTPS)) {
+		if (!carg->parsed)
+			probe_metric_success(carg, 0);
 		http_null_metrics(carg);
+	} else if (probe_emit_tcp_success(carg) &&
+		   ((carg->tls && !carg->tls_handshake_done) ||
+		    (!carg->connect_time_finish.sec && !carg->connect_time_finish.nsec))) {
+		probe_metric_success(carg, 0);
+	}
 }
 
 void tcp_client_connect(void *arg)
