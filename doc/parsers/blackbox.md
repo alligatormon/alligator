@@ -48,3 +48,5 @@ probe {
 ```
 curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 ```
+
+`http_2xx` is not built in: define the `probe` block first, or `/probe` returns HTTP 400.

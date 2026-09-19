@@ -37,6 +37,8 @@ Request:
 curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 ```
 
+There are **no built-in modules**. `http_2xx` in the example only works after you define `probe { name http_2xx; … }`. A missing `module` returns HTTP 400 (`no such module '…'`).
+
 - `module` — `name` from a `probe` block (required)
 - `target` — host, host:port, or path suffix appended to the module scheme (required)
 

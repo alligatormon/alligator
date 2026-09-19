@@ -50,3 +50,5 @@ probe {
 ```
 curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 ```
+
+`http_2xx` не встроен: сначала задайте блок `probe`, иначе `/probe` вернёт HTTP 400.

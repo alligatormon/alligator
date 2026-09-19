@@ -197,10 +197,10 @@ static void test_resolver_udp_match_pending_txid_and_qname(void)
 	memset(&yandex, 0, sizeof(yandex));
 	google.packets_id = 0x1234;
 	google.data = "google.com";
-	google.key = "udp://81.19.73.11/google.com:IN:a";
+	google.key = "udp://8.8.8.8/google.com:IN:a";
 	yandex.packets_id = 0x2222;
 	yandex.data = "yandex.ru";
-	yandex.key = "udp://81.19.83.11/yandex.ru:IN:a";
+	yandex.key = "udp://8.8.8.8/yandex.ru:IN:a";
 
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
 		resolver_udp_pending_add(pending, &google));

@@ -24,6 +24,7 @@
 #define TEST_AUTH_BEARER_RES_2_3 0
 
 #include <stdlib.h>
+#include <string.h>
 #include "main.h"
 #include "common/selector.h"
 #include "events/context_arg.h"
@@ -31,6 +32,8 @@
 #include "common/auth.h"
 #include "parsers/http_proto.h"
 #include "parsers/multiparser.h"
+#include "common/http_entrypoint.h"
+#include "dstructures/ht.h"
 int http_parser(char *buf, size_t len, string *response, context_arg *carg);
 string* tcp_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* blackbox_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
@@ -313,6 +316,41 @@ void test_http_parser_route_and_auth_edges()
 
     carg->metrics_openmetrics_set = 0;
     carg->metrics_openmetrics = 0;
+
+    /* GET /probe with unknown module: HTTP 400 + Content-Length so keep-alive clients do not hang */
+    {
+        alligator_ht *saved_probe = ac->probe;
+        char *hdr_end;
+        char *cl;
+        size_t declared;
+        size_t actual;
+
+        ac->probe = alligator_ht_init(NULL);
+        string_null(response);
+        char *req_probe = "GET /probe?module=http_2xx&target=example.com HTTP/1.1\r\n\r\n";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_probe, strlen(req_probe), response, carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "400 Bad Request") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "no such module 'http_2xx'") != NULL);
+        hdr_end = strstr(response->s, "\r\n\r\n");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hdr_end);
+        cl = strstr(response->s, "Content-Length:");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cl);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cl < hdr_end);
+        declared = (size_t)strtoull(cl + strlen("Content-Length:"), NULL, 10);
+        actual = response->l - (size_t)(hdr_end + 4 - response->s);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)declared, (int)actual);
+
+        string_null(response);
+        char *req_probe_nomod = "GET /probe?target=example.com HTTP/1.1\r\n\r\n";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_probe_nomod, strlen(req_probe_nomod), response, carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "400 Bad Request") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "no arg 'module'") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Length:") != NULL);
+
+        alligator_ht_done(ac->probe);
+        free(ac->probe);
+        ac->probe = saved_probe;
+    }
 
     /* unauthorized (auth required header missing) */
     string_null(response);

@@ -14,5 +14,7 @@ char *http_entrypoint_prepare_response(context_arg *carg, char *body, size_t len
 int http_entrypoint_should_shutdown(context_arg *carg, int write_status);
 void http_entrypoint_reset_request_state(context_arg *carg);
 void http_entrypoint_consume_request(context_arg *carg);
+/* Append Content-Length and final CRLF, then optional body (keep-alive safe). */
+void http_entrypoint_finish_body(string *response, const char *body, size_t body_len);
 /* Append Content-Length: 0 and final CRLF for responses with no body (keep-alive safe). */
 void http_entrypoint_finish_empty_body(string *response);

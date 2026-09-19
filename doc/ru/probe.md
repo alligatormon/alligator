@@ -37,6 +37,8 @@ probe {
 curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 ```
 
+Встроенных модулей **нет**. Имя `http_2xx` из примера работает только после `probe { name http_2xx; … }`. Неизвестный `module` возвращает HTTP 400 (`no such module '…'`).
+
 - `module` — `name` из блока `probe` (обязательно)
 - `target` — host, host:port или суффикс пути, добавляемый к scheme модуля (обязательно)
 

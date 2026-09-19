@@ -1,6 +1,7 @@
 #include "parsers/http_proto.h"
 #include "common/selector.h"
 #include "events/context_arg.h"
+#include <stdio.h>
 #include <string.h>
 #include <common/http.h>
 #include "parsers/multiparser.h"
@@ -10,24 +11,36 @@
 #include "probe/probe.h"
 #include "action/type.h"
 #include "common/logs.h"
+#include "common/http_entrypoint.h"
 #include "events/proxy.h"
 
 #define HTTP_PROBE_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define HTTP_PROBE_HANDLER_ERR "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 
+static void probe_reply_error(string *response, context_arg *carg, const char *body, size_t body_len)
+{
+	string_cat(response, HTTP_PROBE_HANDLER_ERR, strlen(HTTP_PROBE_HANDLER_ERR));
+	if (carg && carg->env)
+		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+	http_entrypoint_finish_body(response, body, body_len);
+}
+
 void probe_router(string *response, http_reply_data* http_data, context_arg *carg)
 {
 	alligator_ht *args = http_get_args(http_data->uri, http_data->uri_size);
+	char errbuf[1024];
+	int n;
 
 	http_arg *harg = alligator_ht_search(args, http_arg_compare, "module", tommy_strhash_u32(0, "module"));
 	if (!harg)
 	{
 		carglog(carg, L_WARN, "no arg 'module' in query '%s'\n", http_data->uri);
-
-		string_cat(response, "no arg 'module' in query '", 26);
-		string_cat(response, http_data->uri, http_data->uri_size);
-		string_cat(response, "'", 1);
-
+		n = snprintf(errbuf, sizeof(errbuf), "no arg 'module' in query '%s'", http_data->uri);
+		if (n < 0)
+			n = 0;
+		if ((size_t)n >= sizeof(errbuf))
+			n = (int)sizeof(errbuf) - 1;
+		probe_reply_error(response, carg, errbuf, (size_t)n);
 		http_args_free(args);
 		return;
 	}
@@ -38,11 +51,12 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	if (!harg)
 	{
 		carglog(carg, L_WARN, "no arg 'target' in query '%s'\n", http_data->uri);
-
-		string_cat(response, "no arg 'target' in query '", 26);
-		string_cat(response, http_data->uri, http_data->uri_size);
-		string_cat(response, "'", 1);
-
+		n = snprintf(errbuf, sizeof(errbuf), "no arg 'target' in query '%s'", http_data->uri);
+		if (n < 0)
+			n = 0;
+		if ((size_t)n >= sizeof(errbuf))
+			n = (int)sizeof(errbuf) - 1;
+		probe_reply_error(response, carg, errbuf, (size_t)n);
 		http_args_free(args);
 		return;
 	}
@@ -55,16 +69,12 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	if (!pn)
 	{
 		carglog(carg, L_WARN, "no such module '%s' in query '%s'\n", module, http_data->uri);
-		string_cat(response, HTTP_PROBE_HANDLER_ERR, strlen(HTTP_PROBE_HANDLER_ERR));
-		if (carg->env)
-			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
-		string_cat(response, "\r\n", 2);
-		string_cat(response, "no such module '", 16);
-		string_cat(response, module, strlen(module));
-		string_cat(response, "' in query'", 11);
-		string_cat(response, http_data->uri, http_data->uri_size);
-		string_cat(response, "'", 1);
-
+		n = snprintf(errbuf, sizeof(errbuf), "no such module '%s' in query'%s'", module, http_data->uri);
+		if (n < 0)
+			n = 0;
+		if ((size_t)n >= sizeof(errbuf))
+			n = (int)sizeof(errbuf) - 1;
+		probe_reply_error(response, carg, errbuf, (size_t)n);
 		http_args_free(args);
 		return;
 	}

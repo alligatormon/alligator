@@ -16,7 +16,12 @@ int probe_compare(const void* arg, const void* obj)
 
 probe_node* probe_get(char *name)
 {
-	probe_node *pn = alligator_ht_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
+	probe_node *pn;
+
+	if (!ac || !ac->probe || !name)
+		return NULL;
+
+	pn = alligator_ht_search(ac->probe, probe_compare, name, tommy_strhash_u32(0, name));
 	if (pn)
 		return pn;
 	else

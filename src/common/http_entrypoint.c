@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "common/http_entrypoint.h"
@@ -142,15 +143,28 @@ void http_entrypoint_reset_request_state(context_arg *carg)
 	carg->parser_status = 0;
 }
 
-void http_entrypoint_finish_empty_body(string *response)
+void http_entrypoint_finish_body(string *response, const char *body, size_t body_len)
 {
+	char cl[64];
+	int n;
+
 	if (!response || !response->s || !response->l)
 		return;
 
-	if (!strstr(response->s, "Content-Length:"))
-		string_cat(response, "Content-Length: 0\r\n", 19);
+	if (!strstr(response->s, "Content-Length:")) {
+		n = snprintf(cl, sizeof(cl), "Content-Length: %zu\r\n", body_len);
+		if (n > 0)
+			string_cat(response, cl, (size_t)n);
+	}
 
 	string_cat(response, "\r\n", 2);
+	if (body && body_len)
+		string_cat(response, (char *)body, body_len);
+}
+
+void http_entrypoint_finish_empty_body(string *response)
+{
+	http_entrypoint_finish_body(response, NULL, 0);
 }
 
 void http_entrypoint_consume_request(context_arg *carg)
