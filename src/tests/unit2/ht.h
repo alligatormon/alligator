@@ -113,6 +113,25 @@ void test_ht_reinit_and_remove_miss_paths()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
         alligator_ht_remove(h, ht_test_compare, "missing", alligator_ht_strhash("missing", 7, 0)) != NULL);
 
+    /* Node lives in another table: remove_existing must no-op, not SIGSEGV
+     * in tommy_list_remove_existing (NULL->prev at offset 8). */
+    {
+        alligator_ht *other = alligator_ht_init(NULL);
+        ht_test_node *foreign = calloc(1, sizeof(*foreign));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, other);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, foreign);
+        foreign->key = strdup("foreign");
+        foreign->value = 9;
+        alligator_ht_insert(other, &foreign->node, foreign, alligator_ht_strhash(foreign->key, strlen(foreign->key), 0));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, alligator_ht_remove_existing(h, &foreign->node) != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)alligator_ht_count(other));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, alligator_ht_remove_existing(other, &foreign->node));
+        free(foreign->key);
+        free(foreign);
+        alligator_ht_done(other);
+        free(other);
+    }
+
     alligator_ht_done(h);
     /* reinit same object path */
     alligator_ht_init(h);

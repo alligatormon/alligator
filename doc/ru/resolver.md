@@ -66,3 +66,5 @@ aggregate {
 	dns udp://8.8.4.4:53 resolve=yahoo.com type=aaaa;
 }
 ```
+
+Несколько UDP-проверок могут использовать один `bind_address=<port>`: один локальный сокет, ответы разбираются по DNS transaction id и по имени из question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен.

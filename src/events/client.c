@@ -131,8 +131,8 @@ void tcp_client_closed(uv_handle_t *handle)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			/* aggregators_free snapshots carg pointers; do not free here on stop. */
-			if (!alligator_stop_requested())
+			/* aggregators_free snapshots carg pointers; do not free here. */
+			if (!aggregator_defer_close_del())
 				smart_aggregator_del(carg);
 		}
 	}

@@ -109,10 +109,10 @@ static void process_finalize(context_arg *carg)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			/* During shutdown aggregators_free owns the final carg_free; freeing
-			 * here leaves dangling pointers in its snapshot list and UAF in
-			 * tommy hash remove/resize. */
-			if (!alligator_stop_requested())
+			/* aggregators_free owns the final carg_free (shutdown and tests).
+			 * Unlinking here against a swapped/empty table SIGSEGVs in
+			 * tommy_list_remove_existing (NULL->prev at 0x8). */
+			if (!aggregator_defer_close_del())
 				smart_aggregator_del(carg);
 			return;
 		}
@@ -121,7 +121,7 @@ static void process_finalize(context_arg *carg)
 	/* Deferred external delete request while process was active. */
 	if (carg->remove_from_hash)
 	{
-		if (!alligator_stop_requested())
+		if (!aggregator_defer_close_del())
 			process_client_del(carg);
 		return;
 	}

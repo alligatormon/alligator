@@ -65,6 +65,9 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 /* Unlink carg from ac->aggregators while the context_arg block is still live.
  * Tommy stores context_node inside that block; freeing first corrupts the table. */
 void aggregators_ht_unlink(context_arg *carg);
+/* 1 while aggregators_free() is draining/freeing, or alligator_stop_requested().
+ * Close/finalize callbacks must not smart_aggregator_del: the snapshot owns carg. */
+int aggregator_defer_close_del(void);
 void aggregators_free();
 void aggregate_ctx_free();
 void entrypoints_free();

@@ -877,6 +877,37 @@ void test_aggregator_helper_paths()
         ac->aggregators = saved_aggr;
         ac->file_aggregator = saved_file;
     }
+
+    /* Leftover process node stays in the real aggregators table while a test
+     * swaps ac->aggregators and calls aggregators_ht_unlink / aggregators_free.
+     * Unlink must not remove from the live table or SIGSEGV. */
+    {
+        alligator_ht *saved_aggr = ac->aggregators;
+        alligator_ht *scratch;
+        context_arg *orphan;
+        context_arg *found;
+
+        orphan = calloc(1, sizeof(*orphan));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, orphan);
+        orphan->transport = APROTO_PROCESS;
+        orphan->key = strdup("exec:ut:orphan-ht");
+        alligator_ht_insert(ac->aggregators, &orphan->context_node, orphan, tommy_strhash_u32(0, orphan->key));
+
+        scratch = alligator_ht_init(NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, scratch);
+        ac->aggregators = scratch;
+        aggregators_ht_unlink(orphan);
+        alligator_ht_done(scratch);
+        free(scratch);
+        ac->aggregators = saved_aggr;
+
+        found = alligator_ht_search(ac->aggregators, aggregator_compare, orphan->key, tommy_strhash_u32(0, orphan->key));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, found);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, found == orphan);
+        aggregators_ht_unlink(orphan);
+        free(orphan->key);
+        free(orphan);
+    }
 }
 
 void test_config_global_get_extended()

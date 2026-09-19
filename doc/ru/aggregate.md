@@ -91,14 +91,16 @@ aggregate {
 - `bind_address=<ip>` — bind только по локальному IP (порт выбирает ОС)
 - `bind_address=<ip>:<port>` — bind по локальному IP и локальному порту
 
+Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен.
+
 Например:
 
 ```
 aggregate {
     blackbox https://example.com bind_address=1234;
     blackbox https://example.com bind_address=:1234;
-    dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=0.0.0.0;
-    dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=192.0.2.1:1234;
+    dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=1112;
+    dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=1112;
 }
 ```
 

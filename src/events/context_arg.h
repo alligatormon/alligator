@@ -110,6 +110,10 @@ struct context_arg
 	struct phr_chunked_decoder chunked_dec;
 	char *bind_address;
 	uint16_t bind_port;
+	/* UDP DNS probes that share bind_address:port: 1 if this carg uses the shared socket. */
+	uint8_t resolver_udp_shared;
+	/* resolver_udp_pending* while a shared-socket query is in flight. */
+	void *resolver_udp_pending;
 
 	// chunk body read
 	string *full_body;

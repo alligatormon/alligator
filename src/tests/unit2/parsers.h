@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <utime.h>
+#include <time.h>
 #include "common/http.h"
 #include "common/url.h"
 #include "parsers/elasticsearch.h"
@@ -1080,6 +1082,15 @@ void api_test_parser_openclaw()
     fputs("{\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"toolCall\"}]},"
         "\"usage\":{\"input\":10,\"output\":20,\"cacheRead\":1,\"cacheWrite\":2,\"totalTokens\":33,\"cost\":{\"total\":1}}}\n", fp);
     fclose(fp);
+    /* Coarse mtime filesystems (ext4 1s) otherwise tie cron1.jsonl and this file. */
+    {
+        struct utimbuf ub;
+        time_t now = time(NULL);
+
+        ub.actime = now + 2;
+        ub.modtime = now + 2;
+        utime(f2, &ub);
+    }
 
     snprintf(f4, sizeof(f4), "%s/cron/jobs.json", dir);
     fp = fopen(f4, "w");

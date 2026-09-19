@@ -265,6 +265,19 @@ static void metric_test_run_impl(int cmp_type, char *query, char *metric_name, d
                         dsample_value = json_real_value(sample_value);
 
                     int rc = 0;
+                    int pass = 0;
+                    if (cmp_type == CMP_EQUAL)
+                        pass = ((int128_t)expected_val == (int128_t)dsample_value);
+                    else if (cmp_type == CMP_GREATER)
+                        pass = expected_val < dsample_value;
+                    else if (cmp_type == CMP_LESSER)
+                        pass = expected_val > dsample_value;
+                    if (!pass) {
+                        FILE *mout = ut_report ? ut_report : stderr;
+                        fprintf(mout, "metric_test_run query='%s' metric='%s' cmp=%d actual=%g expected=%g\n",
+                            query ? query : "", metric_name ? metric_name : "", cmp_type, dsample_value, expected_val);
+                        fflush(mout);
+                    }
                     if (cmp_type == CMP_EQUAL)
                         rc = assert_equal_int(__FILE__, __FUNCTION__, __LINE__, expected_val, dsample_value);
                     else if (cmp_type == CMP_GREATER)

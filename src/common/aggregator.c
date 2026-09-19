@@ -36,6 +36,7 @@
 #include "metric/labels.h"
 #include "events/future.h"
 #include "events/proxy.h"
+#include "common/stop.h"
 
 extern aconf *ac;
 
@@ -301,6 +302,13 @@ void aggregator_oneshot_retry_host(const char *host)
 	for (i = 0; i < ctx.n; ++i)
 		aggregator_oneshot_start(ctx.list[i]);
 	free(ctx.list);
+}
+
+static int g_aggregators_freeing;
+
+int aggregator_defer_close_del(void)
+{
+	return alligator_stop_requested() || g_aggregators_freeing;
 }
 
 void aggregators_ht_unlink(context_arg *carg)
@@ -792,11 +800,13 @@ void aggregators_free()
 	if (!ac || !ac->aggregators)
 		return;
 
+	g_aggregators_freeing = 1;
 	alligator_ht_foreach_arg(ac->aggregators, aggregators_collect_cb, &ctx);
 
 	keys = calloc(ctx.n ? ctx.n : 1, sizeof(*keys));
 	if (!keys && ctx.n) {
 		free(ctx.list);
+		g_aggregators_freeing = 0;
 		return;
 	}
 
@@ -854,6 +864,7 @@ void aggregators_free()
 
 	free(keys);
 	free(ctx.list);
+	g_aggregators_freeing = 0;
 }
 
 void entrypoint_free_foreach(void *funcarg, void* arg)

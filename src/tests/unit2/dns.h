@@ -163,6 +163,67 @@ static void test_dns_response_pack_roundtrip(void)
 	free(resp.answers);
 }
 
+static void test_resolver_udp_match_pending_txid_and_qname(void)
+{
+	alligator_ht *pending = alligator_ht_init(NULL);
+	context_arg google;
+	context_arg yandex;
+	unsigned char google_pkt[] = {
+		0x12, 0x34, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+		0x06, 'g','o','o','g','l','e', 0x03, 'c','o','m', 0x00,
+		0x00, 0x01, 0x00, 0x01,
+		0xc0, 0x0c,
+		0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
+		0x8e, 0xfb, 0x38, 0x60
+	};
+	unsigned char yandex_pkt[] = {
+		0x22, 0x22, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+		0x06, 'y','a','n','d','e','x', 0x02, 'r','u', 0x00,
+		0x00, 0x01, 0x00, 0x01,
+		0xc0, 0x0c,
+		0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
+		0x4d, 0x4d, 0x00, 0x01
+	};
+	unsigned char google_qname_only[] = {
+		0x00, 0x01, 0x81, 0x80, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+		0x06, 'g','o','o','g','l','e', 0x03, 'c','o','m', 0x00,
+		0x00, 0x01, 0x00, 0x01,
+		0xc0, 0x0c,
+		0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
+		0x8e, 0xfb, 0x38, 0x60
+	};
+
+	memset(&google, 0, sizeof(google));
+	memset(&yandex, 0, sizeof(yandex));
+	google.packets_id = 0x1234;
+	google.data = "google.com";
+	google.key = "udp://81.19.73.11/google.com:IN:a";
+	yandex.packets_id = 0x2222;
+	yandex.data = "yandex.ru";
+	yandex.key = "udp://81.19.83.11/yandex.ru:IN:a";
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_udp_pending_add(pending, &google));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_udp_pending_add(pending, &yandex));
+
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
+		resolver_udp_match_pending(pending, (char *)google_pkt, sizeof(google_pkt)));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_udp_match_pending(pending, (char *)google_pkt, sizeof(google_pkt)) == &google);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_udp_match_pending(pending, (char *)yandex_pkt, sizeof(yandex_pkt)) == &yandex);
+
+	/* Unknown txid still maps by QNAME from the question section. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_udp_match_pending(pending, (char *)google_qname_only, sizeof(google_qname_only)) == &google);
+
+	resolver_udp_pending_del(pending, &google);
+	resolver_udp_pending_del(pending, &yandex);
+	alligator_ht_done(pending);
+	free(pending);
+}
+
 static void test_dns_handler_parse_response(void)
 {
 	unsigned char pkt[] = {
@@ -297,6 +358,7 @@ void test_resolver_dns_pack_unpack(void)
 	test_dns_query_pack_unpack();
 	test_dns_init_type_and_strtype();
 	test_dns_response_pack_roundtrip();
+	test_resolver_udp_match_pending_txid_and_qname();
 	test_dns_handler_parse_response();
 	test_dns_unpack_invalid();
 	test_vrl_dns_reverse_name();

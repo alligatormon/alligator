@@ -85,12 +85,21 @@ void *alligator_ht_remove(alligator_ht *h, int (*compare_func)(const void *arg, 
 void *alligator_ht_remove_existing(alligator_ht *h, alligator_ht_node* node)
 {
 	void *ret = NULL;
+	tommy_hashdyn_node *cur;
 
-	if (!h || !h->ht || !node)
+	if (!h || !h->ht || !node || !h->ht->bucket)
 		return NULL;
 
 	pthread_rwlock_wrlock(&h->rwlock);
-	ret = tommy_hashdyn_remove_existing(h->ht, node);
+	/* tommy_list_remove_existing assumes node is on this bucket. A node from
+	 * another table (unit tests swap ac->aggregators) or a double-unlink hits
+	 * an empty bucket with node->next == NULL and stores through NULL->prev
+	 * (offset 8). */
+	cur = h->ht->bucket[node->index & h->ht->bucket_mask];
+	while (cur && cur != node)
+		cur = cur->next;
+	if (cur == node)
+		ret = tommy_hashdyn_remove_existing(h->ht, node);
 	pthread_rwlock_unlock(&h->rwlock);
 
 	return ret;

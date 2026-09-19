@@ -519,6 +519,7 @@ void resolver_probes_halt(void)
 		return;
 
 	alligator_ht_foreach_arg(ac->aggregators, resolver_probes_halt_foreach, NULL);
+	resolver_udp_binds_halt();
 }
 
 void resolver_stop_foreach(void *funcarg, void* arg)

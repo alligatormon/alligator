@@ -55,7 +55,7 @@ static void unixgram_session_finish(context_arg *carg)
 		if (time.sec >= carg->context_ttl)
 		{
 			carg->remove_from_hash = 1;
-			if (!alligator_stop_requested())
+			if (!aggregator_defer_close_del())
 				smart_aggregator_del(carg);
 		}
 	}

@@ -89,14 +89,16 @@ Supported formats are:
 - `bind_address=<ip>` - bind only by local IP (port is chosen by OS)
 - `bind_address=<ip>:<port>` - bind by both local IP and local port
 
+Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `aggregator_resolve_address`). You do not need a unique source port per domain.
+
 For instance:
 
 ```
 aggregate {
     blackbox https://example.com bind_address=1234;
     blackbox https://example.com bind_address=:1234;
-    dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=0.0.0.0;
-    dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=192.0.2.1:1234;
+    dns udp://8.8.8.8:53 resolve=google.com type=a add_label=check:dns bind_address=1112;
+    dns udp://8.8.4.4:53 resolve=yahoo.com type=a add_label=check:dns bind_address=1112;
 }
 ```
 

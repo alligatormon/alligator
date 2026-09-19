@@ -490,13 +490,11 @@ static void openclaw_agent_state(const char *path, int64_t mtime, int64_t *state
 static void openclaw_collect_agent(context_arg *carg, const char *home, const char *agent, uint64_t *total_sessions)
 {
 	char sessdir[OPENCLAW_PATH_MAX];
-	char latest_path[OPENCLAW_PATH_MAX] = "";
 	uv_fs_t req;
 	uv_dirent_t dirents[256];
 	uv_dir_t *rdir;
 	uint64_t sessions = 0;
 	int64_t latest_mtime_ns = -1;
-	int64_t latest_mtime_sec = 0;
 	int64_t state = 0, ts = 0;
 	openclaw_session_list list;
 	openclaw_usage last = {0};
@@ -539,13 +537,24 @@ static void openclaw_collect_agent(context_arg *carg, const char *home, const ch
 			snprintf(child, sizeof(child), "%s/%s", sessdir, name);
 			if (openclaw_uv_stat(child, &st) >= 0 && S_ISREG(st.st_mode)) {
 				int64_t mtime_ns;
+				int64_t mtime_sec;
 
 				sessions++;
-				mtime_ns = (int64_t)st.st_mtim.tv_sec * 1000000000LL + (int64_t)st.st_mtim.tv_nsec;
-				if (mtime_ns >= latest_mtime_ns) {
+				mtime_sec = (int64_t)st.st_mtim.tv_sec;
+				mtime_ns = mtime_sec * 1000000000LL + (int64_t)st.st_mtim.tv_nsec;
+				/* Equal mtimes are common on 1s filesystems; take the more
+				 * active state so readdir order cannot hide a toolCall. */
+				if (mtime_ns > latest_mtime_ns) {
 					latest_mtime_ns = mtime_ns;
-					latest_mtime_sec = (int64_t)st.st_mtim.tv_sec;
-					strlcpy(latest_path, child, sizeof(latest_path));
+					openclaw_agent_state(child, mtime_sec, &state, &ts);
+				} else if (mtime_ns == latest_mtime_ns) {
+					int64_t st2 = 0, ts2 = 0;
+
+					openclaw_agent_state(child, mtime_sec, &st2, &ts2);
+					if (st2 > state) {
+						state = st2;
+						ts = ts2;
+					}
 				}
 			}
 			free((void *)name);
@@ -553,9 +562,6 @@ static void openclaw_collect_agent(context_arg *carg, const char *home, const ch
 	}
 	uv_fs_closedir(NULL, &req, req.ptr, NULL);
 	uv_fs_req_cleanup(&req);
-
-	if (latest_path[0])
-		openclaw_agent_state(latest_path, latest_mtime_sec, &state, &ts);
 
 	*total_sessions += sessions;
 	metric_add_labels("openclaw_agent_sessions", &sessions, DATATYPE_UINT, carg, "agent_name", (char *)agent);

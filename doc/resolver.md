@@ -64,3 +64,5 @@ aggregate {
 	dns udp://8.8.4.4:53 resolve=yahoo.com type=aaaa;
 }
 ```
+
+Several UDP probes may share one `bind_address=<port>`. They use a single local socket; replies are matched by DNS transaction id and the question name in the packet (`aggregator_resolve_address` `name` label). Unique source ports per domain are not required.
