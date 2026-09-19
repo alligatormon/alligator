@@ -392,7 +392,12 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 
 	new->labels = labels_dup(carg->labels);
 
-	carglog(carg, L_TRACE, "try_again allocated context argument %p with hostname '%s' with mesg '%s'\n", carg, carg->host, carg->mesg);
+	{
+		char mesg_preview[160];
+		carglog(carg, L_TRACE, "try_again allocated context argument %p with hostname '%s' with mesg '%s'\n",
+			carg, carg->host,
+			log_printable_preview(mesg_preview, sizeof(mesg_preview), carg->mesg, carg->mesg_len));
+	}
 
 	url_free(hi);
 
@@ -464,7 +469,12 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 			http_request_apply_proxy(new);
 	}
 
-	carg_or_glog(carg, L_TRACE, "aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n", new, new->host, new->mesg);
+	{
+		char mesg_preview[160];
+		carg_or_glog(carg, L_TRACE, "aggregator_oneshot allocated context argument %p with hostname '%s' with mesg '%s'\n",
+			new, new->host,
+			log_printable_preview(mesg_preview, sizeof(mesg_preview), new->mesg, new->mesg_len));
+	}
 
 	url_free(hi);
 

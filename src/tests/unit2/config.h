@@ -114,6 +114,18 @@ void test_logs_helpers()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "trace", get_log_level_by_id(L_TRACE));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, get_log_level_by_id(777) != NULL);
 
+    {
+        char preview[64];
+        unsigned char dns_qid[4] = { 0x00, 0x58, 0x01, 0x00 };
+
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "GET /metrics",
+            log_printable_preview(preview, sizeof(preview), "GET /metrics", 0));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "",
+            log_printable_preview(preview, sizeof(preview), NULL, 0));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "[binary 4 bytes]",
+            log_printable_preview(preview, sizeof(preview), (char *)dns_qid, sizeof(dns_qid)));
+    }
+
     ac->log_dest = NULL;
     log_init();
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, fileno(stdout), ac->log_socket);

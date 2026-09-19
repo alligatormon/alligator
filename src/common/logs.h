@@ -70,6 +70,9 @@ void log_channel_write_document(log_channel *ch, struct context_arg *carg, json_
 void log_channel_write_document_kind(log_channel *ch, struct context_arg *carg, json_t *doc, const char *kind);
 void log_channel_account(const log_channel *ch, const char *kind, const char *result, const char *reason);
 int context_allows_raw_log(const struct context_arg *carg);
+/* Copy src into dst for diagnostic logs. Printable ASCII (plus tab/CR/LF) is
+ * kept; if any other byte is present (DNS wire, etc.) dst is "[binary N bytes]". */
+const char *log_printable_preview(char *dst, size_t dstsz, const char *src, size_t srclen);
 
 /*
  * Diagnostic logging entry points (all funnel into wrlog() in logs.c):

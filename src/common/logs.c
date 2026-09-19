@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
 #include <common/selector.h>
@@ -1230,4 +1231,37 @@ void glog(int priority, const char *format, ...)
 	va_start(args, format);
 	wrlog(NULL, NULL, ac->log_level, priority, format, args);
 	va_end(args);
+}
+
+static int log_byte_is_printable(unsigned char c)
+{
+	return c == '\t' || c == '\n' || c == '\r' || (isprint(c) && c != '\0');
+}
+
+const char *log_printable_preview(char *dst, size_t dstsz, const char *src, size_t srclen)
+{
+	size_t i;
+
+	if (!dst || dstsz == 0)
+		return "";
+
+	dst[0] = '\0';
+	if (!src)
+		return dst;
+
+	if (!srclen)
+		srclen = strlen(src);
+
+	for (i = 0; i < srclen; i++) {
+		if (!log_byte_is_printable((unsigned char)src[i])) {
+			snprintf(dst, dstsz, "[binary %zu bytes]", srclen);
+			return dst;
+		}
+	}
+
+	if (srclen >= dstsz)
+		srclen = dstsz - 1;
+	memcpy(dst, src, srclen);
+	dst[srclen] = '\0';
+	return dst;
 }

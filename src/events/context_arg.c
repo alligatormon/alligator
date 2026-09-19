@@ -330,7 +330,11 @@ void carg_free(context_arg *carg)
 
 	carg_uv_detach_timers(carg);
 
-	carglog(carg, L_DEBUG, "FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n", carg, carg->host, carg->key, carg->key, carg->mesg);
+	char mesg_preview[160];
+
+	carglog(carg, L_DEBUG, "FREE context argument %p with hostname '%s', key '%s'(%p), with mesg '%s'\n",
+		carg, carg->host, carg->key, carg->key,
+		log_printable_preview(mesg_preview, sizeof(mesg_preview), carg->mesg, carg->mesg_len));
 
 	if (carg->mesg)
 		free(carg->mesg);

@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Diagnostic logs no longer dump DNS query wire bytes as `%s` (`FREE context argument ... with mesg`). Unprintable payloads are logged as `[binary N bytes]`.
 - UDP `dns` probes that share `bind_address=<port>` use one local socket keyed by IP:port. Replies are demultiplexed by DNS transaction id, then by the question name in the packet. `EADDRINUSE` on a later probe reuses the existing socket instead of logging a fatal bind error.
 - Explicit `dns udp://... resolve=<domain>` probes export `name` on `resolver_read_time_mcs_quantile` / `resolver_write_time_mcs_quantile` / `resolver_response_time_mcs_quantile` so timing is per domain, not only per nameserver.
 - Fix: shutdown no longer SIGSEGVs in `aggregators_free` when a file (or mysql/cassandra/resolver/postgresql) aggregator is `carg_free`'d while its Tommy `context_node` is still in `ac->aggregators`.
