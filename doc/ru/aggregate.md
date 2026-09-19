@@ -91,7 +91,7 @@ aggregate {
 - `bind_address=<ip>` — bind только по локальному IP (порт выбирает ОС)
 - `bind_address=<ip>:<port>` — bind по локальному IP и локальному порту
 
-Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен.
+Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен. Квантили времени resolver (`resolver_read_time_mcs_quantile`, `resolver_write_time_mcs_quantile`, `resolver_response_time_mcs_quantile`) тоже несут метку `name` этого домена.
 
 Например:
 

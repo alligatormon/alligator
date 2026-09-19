@@ -66,3 +66,11 @@ aggregate {
 ```
 
 Several UDP probes may share one `bind_address=<port>`. They use a single local socket; replies are matched by DNS transaction id and the question name in the packet (`aggregator_resolve_address` `name` label). Unique source ports per domain are not required.
+
+Explicit `dns udp://... resolve=<domain>` probes also put that domain on resolver timing quantiles:
+
+```
+resolver_read_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 32
+resolver_response_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 32
+resolver_write_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 0
+```

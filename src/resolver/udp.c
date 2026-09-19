@@ -38,7 +38,13 @@ struct resolver_udp_bind {
 };
 
 static alligator_ht *resolver_udp_binds;
+static resolver_udp_bind *resolver_udp_port_binds[65536];
 static uint8_t resolver_udp_binds_stopping;
+
+static void resolver_udp_bind_key(char *key, size_t keysz, const char *ip, uint16_t port)
+{
+	snprintf(key, keysz, "%s:%u", ip ? ip : "0.0.0.0", port);
+}
 
 static void resolver_udp_stop_timer(context_arg *carg)
 {
@@ -194,6 +200,8 @@ static void resolver_udp_bind_closed(uv_handle_t *handle)
 		free(bind->pending);
 		bind->pending = NULL;
 	}
+	if (bind->bind_port && resolver_udp_port_binds[bind->bind_port] == bind)
+		resolver_udp_port_binds[bind->bind_port] = NULL;
 	free(bind);
 }
 
@@ -223,6 +231,8 @@ static void resolver_udp_binds_halt_foreach(void *funcarg, void *arg)
 
 void resolver_udp_binds_halt(void)
 {
+	memset(resolver_udp_port_binds, 0, sizeof(resolver_udp_port_binds));
+
 	if (!resolver_udp_binds)
 		return;
 
@@ -234,12 +244,50 @@ void resolver_udp_binds_halt(void)
 	resolver_udp_binds_stopping = 0;
 }
 
+static resolver_udp_bind *resolver_udp_bind_lookup(const char *ip, uint16_t port)
+{
+	char key[96];
+	uint32_t key_hash;
+	resolver_udp_bind *bind;
+
+	if (!port)
+		return NULL;
+
+	bind = resolver_udp_port_binds[port];
+	if (bind && !bind->closing && !strcmp(bind->bind_ip, ip))
+		return bind;
+
+	if (!resolver_udp_binds)
+		return NULL;
+
+	resolver_udp_bind_key(key, sizeof(key), ip, port);
+	key_hash = tommy_strhash_u32(0, key);
+	bind = alligator_ht_search(resolver_udp_binds, resolver_udp_bind_compare, key, key_hash);
+	if (bind && !bind->closing)
+		return bind;
+	return NULL;
+}
+
+static void resolver_udp_bind_discard(resolver_udp_bind *bind)
+{
+	if (!bind)
+		return;
+	bind->closing = 1;
+	if (bind->udp.loop && !uv_is_closing((uv_handle_t *)&bind->udp)) {
+		bind->udp.data = bind;
+		uv_close((uv_handle_t *)&bind->udp, resolver_udp_bind_closed);
+	} else {
+		resolver_udp_bind_closed((uv_handle_t *)&bind->udp);
+	}
+}
+
 static resolver_udp_bind *resolver_udp_bind_get(context_arg *carg)
 {
 	const char *ip;
 	char key[96];
 	uint32_t key_hash;
 	resolver_udp_bind *bind;
+	resolver_udp_bind *existing;
 	struct sockaddr_in *local = NULL;
 	int bind_ret;
 	int recv_ret;
@@ -248,15 +296,15 @@ static resolver_udp_bind *resolver_udp_bind_get(context_arg *carg)
 		return NULL;
 
 	ip = carg->bind_address ? carg->bind_address : "0.0.0.0";
-	snprintf(key, sizeof(key), "%p:%s:%u", (void *)carg->loop, ip, carg->bind_port);
-	key_hash = tommy_strhash_u32(0, key);
+	bind = resolver_udp_bind_lookup(ip, carg->bind_port);
+	if (bind)
+		return bind;
 
 	if (!resolver_udp_binds)
 		resolver_udp_binds = alligator_ht_init(NULL);
 
-	bind = alligator_ht_search(resolver_udp_binds, resolver_udp_bind_compare, key, key_hash);
-	if (bind && !bind->closing)
-		return bind;
+	resolver_udp_bind_key(key, sizeof(key), ip, carg->bind_port);
+	key_hash = tommy_strhash_u32(0, key);
 
 	bind = calloc(1, sizeof(*bind));
 	if (!bind)
@@ -272,26 +320,32 @@ static resolver_udp_bind *resolver_udp_bind_get(context_arg *carg)
 	bind->udp.data = bind;
 
 	if (!carg_set_socket_addr(&local, carg->bind_address, carg->bind_port)) {
-		uv_close((uv_handle_t *)&bind->udp, resolver_udp_bind_closed);
+		resolver_udp_bind_discard(bind);
 		return NULL;
 	}
 
 	bind_ret = uv_udp_bind(&bind->udp, (const struct sockaddr *)local, 0);
 	free(local);
 	if (bind_ret) {
+		existing = resolver_udp_bind_lookup(ip, carg->bind_port);
+		resolver_udp_bind_discard(bind);
+		if (existing) {
+			carglog(carg, L_DEBUG, "udp-resolver: reuse shared bind %s:%u for key=%s\n", ip, carg->bind_port, carg->key);
+			return existing;
+		}
 		carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", ip, carg->bind_port, uv_strerror(bind_ret));
-		uv_close((uv_handle_t *)&bind->udp, resolver_udp_bind_closed);
 		return NULL;
 	}
 
 	recv_ret = uv_udp_recv_start(&bind->udp, alloc_buffer, resolver_read_udp);
 	if (recv_ret && recv_ret != UV_EALREADY) {
 		carglog(carg, L_ERROR, "udp-resolver: recv_start %s:%d error %s\n", ip, carg->bind_port, uv_strerror(recv_ret));
-		uv_close((uv_handle_t *)&bind->udp, resolver_udp_bind_closed);
+		resolver_udp_bind_discard(bind);
 		return NULL;
 	}
 
 	alligator_ht_insert(resolver_udp_binds, &bind->node, bind, key_hash);
+	resolver_udp_port_binds[carg->bind_port] = bind;
 	carglog(carg, L_INFO, "udp-resolver: shared bind %s:%u for key=%s\n", ip, carg->bind_port, carg->key);
 	return bind;
 }

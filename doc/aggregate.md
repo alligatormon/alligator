@@ -89,7 +89,7 @@ Supported formats are:
 - `bind_address=<ip>` - bind only by local IP (port is chosen by OS)
 - `bind_address=<ip>:<port>` - bind by both local IP and local port
 
-Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `aggregator_resolve_address`). You do not need a unique source port per domain.
+Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `aggregator_resolve_address`). You do not need a unique source port per domain. Resolver timing quantiles (`resolver_read_time_mcs_quantile`, `resolver_write_time_mcs_quantile`, `resolver_response_time_mcs_quantile`) also carry `name` for that domain.
 
 For instance:
 
