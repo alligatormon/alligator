@@ -8,13 +8,34 @@
 #include "common/revocation.h"
 #include "events/context_arg.h"
 
+static string_tokens *x509_json_to_tokens(json_t *jtokens)
+{
+	string_tokens *tokens = NULL;
 
-int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *password, char *ca_file, char *type, uint64_t period, json_t *x509) {
+	if (!jtokens)
+		return NULL;
+	if (json_is_array(jtokens)) {
+		uint64_t n = json_array_size(jtokens);
+		for (uint64_t i = 0; i < n; i++) {
+			if (!tokens)
+				tokens = string_tokens_new();
+			json_t *str = json_array_get(jtokens, i);
+			string_tokens_push_dupn(tokens, (char *)json_string_value(str), json_string_length(str));
+		}
+	} else if (json_is_string(jtokens)) {
+		tokens = string_tokens_new();
+		string_tokens_push_dupn(tokens, (char *)json_string_value(jtokens), json_string_length(jtokens));
+	}
+	return tokens;
+}
+
+int tls_fs_push(char *name, char *path, string_tokens *tokens_match, string_tokens *tokens_except, char *password, char *ca_file, char *type, uint64_t period, json_t *x509) {
 	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, and password/passtr %p\n", name, path, password);
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
 	tls_fs->name = strdup(name);
 	tls_fs->path = strdup(path);
 	tls_fs->match = tokens_match;
+	tls_fs->except = tokens_except;
 	tls_fs->period = period;
 
 	if (password)
@@ -52,13 +73,18 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, char *passw
 
 
 
-int jks_push(char *name, char *path, string_tokens *tokens_match, char *password, char *passtr, uint64_t period, json_t *x509) {
+int jks_push(char *name, char *path, string_tokens *tokens_match, string_tokens *tokens_except, char *password, char *passtr, uint64_t period, json_t *x509) {
 	string *match = string_tokens_join(tokens_match, ",", 1);
-	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, and password/passtr %p/%p\n", name, path, match->s, password, passtr);
+	string *except = tokens_except && tokens_except->l ? string_tokens_join(tokens_except, ",", 1) : NULL;
+	glog(L_DEBUG, "run jks_push with name %s, path %s, match %s, except %s, and password/passtr %p/%p\n",
+		name, path, match->s, except ? except->s : "", password, passtr);
 
 	if (!password && !passtr)
 	{
 		glog(L_INFO, "no set password for jks: %s\n", name);
+		string_free(match);
+		if (except)
+			string_free(except);
 		return 0;
 	}
 
@@ -77,9 +103,10 @@ int jks_push(char *name, char *path, string_tokens *tokens_match, char *password
 
 	if (!passtr)
 	{
-		size_t len = strlen(path) + match->l + strlen(password) + 3;
-		passtr = malloc (len + 1);
-		snprintf(passtr, len, "%s %s %s", path, match->s, password);
+		const char *except_s = except ? except->s : "";
+		size_t len = strlen(path) + match->l + strlen(password) + strlen(except_s) + 4;
+		passtr = malloc(len + 1);
+		snprintf(passtr, len + 1, "%s %s %s %s", path, match->s, password, except_s);
 	}
 
 	lo->arg = passtr;
@@ -107,10 +134,53 @@ int jks_push(char *name, char *path, string_tokens *tokens_match, char *password
 	}
 
 	string_free(match);
+	if (except)
+		string_free(except);
 
 	return 1;
 }
 
+
+/* Basename-only glob markers (same as aggregate filetailer). */
+static int x509_path_has_glob(const char *s)
+{
+	if (!s || !*s)
+		return 0;
+	return strchr(s, '*') || strchr(s, '?') || strchr(s, '[');
+}
+
+/* If path basename contains a glob, truncate path to the directory and
+ * optionally return the basename pattern (caller owns *pattern_out).
+ * Returns 1 when a basename glob was found. */
+static int x509_apply_path_basename_glob(char *path, char **pattern_out)
+{
+	char *slash;
+	char *base;
+
+	if (!path || !x509_path_has_glob(path))
+		return 0;
+
+	slash = strrchr(path, '/');
+	if (!slash) {
+		/* Pattern only — crawl cwd. */
+		if (pattern_out && !*pattern_out)
+			*pattern_out = strdup(path);
+		path[0] = '.';
+		path[1] = '\0';
+		return 1;
+	}
+
+	base = slash + 1;
+	if (pattern_out && !*pattern_out && *base)
+		*pattern_out = strdup(base);
+	*slash = '\0';
+	/* Empty dir after truncate (e.g. slash-star.pem at root) → root. */
+	if (!path[0]) {
+		path[0] = '/';
+		path[1] = '\0';
+	}
+	return 1;
+}
 
 int x509_push(json_t *x509) {
 	json_t *jname = json_object_get(x509, "name");
@@ -132,20 +202,28 @@ int x509_push(json_t *x509) {
 		--path_len;
 	path[path_len] = 0;
 
-	json_t *jmatch = json_object_get(x509, "match");
-	if (!jmatch) {
-		glog(L_INFO, "not specified param 'match' in x509 context\n");
-		return 0;
-	}
+	char *path_glob_pattern = NULL;
+	x509_apply_path_basename_glob(path, &path_glob_pattern);
 
-	uint64_t match_size = json_array_size(jmatch);
-	string_tokens *tokens_match = NULL;
-	for (uint64_t i = 0; i < match_size; i++)
-	{
+	string_tokens *tokens_match = x509_json_to_tokens(json_object_get(x509, "match"));
+	string_tokens *tokens_except = x509_json_to_tokens(json_object_get(x509, "except"));
+
+	/* Explicit match wins; path basename glob only seeds match when empty. */
+	if ((!tokens_match || !tokens_match->l) && path_glob_pattern) {
 		if (!tokens_match)
 			tokens_match = string_tokens_new();
-		json_t *str = json_array_get(jmatch, i);
-		string_tokens_push_dupn(tokens_match, (char*)json_string_value(str), json_string_length(str));
+		string_tokens_push_dupn(tokens_match, path_glob_pattern, strlen(path_glob_pattern));
+	}
+	free(path_glob_pattern);
+
+	if (!tokens_match || !tokens_match->l) {
+		glog(L_INFO, "not specified param 'match' in x509 context (and path has no basename glob)\n");
+		if (tokens_match)
+			string_tokens_free(tokens_match);
+		if (tokens_except)
+			string_tokens_free(tokens_except);
+		free(path);
+		return 0;
 	}
 
 	json_t *jpassword = json_object_get(x509, "password");
@@ -163,15 +241,17 @@ int x509_push(json_t *x509) {
 		period = get_ms_from_human_range(json_string_value(json_period), json_string_length(json_period));
 
 	if (type && !strcmp(type, "jks")) {
-		int ret = jks_push(name, path, tokens_match, password, NULL, period, x509);
+		int ret = jks_push(name, path, tokens_match, tokens_except, password, NULL, period, x509);
 		free(path);
 		if (tokens_match)
 			string_tokens_free(tokens_match);
+		if (tokens_except)
+			string_tokens_free(tokens_except);
 		return ret;
 	}
 	else
 	{
-		int ret = tls_fs_push(name, path, tokens_match, password, ca_file, type, period, x509);
+		int ret = tls_fs_push(name, path, tokens_match, tokens_except, password, ca_file, type, period, x509);
 		free(path);
 		return ret;
 	}

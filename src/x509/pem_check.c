@@ -1,6 +1,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#include <fnmatch.h>
 #include "common/rtime.h"
 #include "x509/type.h"
 #include "common/lcrypto.h"
@@ -31,15 +32,51 @@ char *read_file(char *name)
 	return pem_cert;
 }
 
+static int x509_pattern_has_glob(const char *s)
+{
+	if (!s || !*s)
+		return 0;
+	return strchr(s, '*') || strchr(s, '?') || strchr(s, '[');
+}
+
+static const char *x509_basename(const char *path)
+{
+	const char *slash;
+
+	if (!path || !*path)
+		return path;
+	slash = strrchr(path, '/');
+	return slash ? slash + 1 : path;
+}
+
+/* Glob patterns use fnmatch on basename; legacy patterns use substring on the full path. */
+static int x509_fname_matches(const char *fname, const char *pattern)
+{
+	if (!fname || !pattern || !*pattern)
+		return 0;
+	if (x509_pattern_has_glob(pattern))
+		return fnmatch(pattern, x509_basename(fname), 0) == 0;
+	return strstr(fname, pattern) != NULL;
+}
+
 void fs_cert_check(x509_fs_t *tls_fs, char *fname)
 {
 	void *func = libcrypto_pem_check_cert;
 	if (tls_fs->type == X509_TYPE_PFX)
 		func = libcrypto_p12_check_cert;
 
+	if (tls_fs->except) {
+		for (uint64_t i = 0; i < tls_fs->except->l; ++i) {
+			if (x509_fname_matches(fname, tls_fs->except->str[i]->s)) {
+				free(fname);
+				return;
+			}
+		}
+	}
+
 	int found = 0;
 	for (uint64_t i = 0; i < tls_fs->match->l; ++i) {
-		if (strstr(fname, tls_fs->match->str[i]->s)) {
+		if (x509_fname_matches(fname, tls_fs->match->str[i]->s)) {
 			read_from_file(fname, 0, func, &tls_fs->fctx);
 			found = 1;
 			break;

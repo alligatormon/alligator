@@ -2353,6 +2353,83 @@ static void test_x509_system_probe_query_add_label(void)
     json_decref(jquery);
 }
 
+static void test_x509_path_basename_glob(void)
+{
+    json_error_t error;
+    if (!ac->fs_x509)
+        ac->fs_x509 = alligator_ht_init(NULL);
+
+    /* path basename glob, no match → directory + seeded pattern */
+    json_t *jglob = json_loads(
+        "{\"name\":\"ut-x509-path-glob\",\"path\":\"/tmp/certs/*.pem\",\"period\":\"0\"}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jglob);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jglob));
+    x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-path-glob",
+        tommy_strhash_u32(0, "ut-x509-path-glob"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/certs", tls_fs->path);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs->match);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tls_fs->match->l == 1);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "*.pem", tls_fs->match->str[0]->s);
+    x509_del(jglob);
+    json_decref(jglob);
+
+    /* explicit match wins over basename glob; path still truncated */
+    json_t *jboth = json_loads(
+        "{\"name\":\"ut-x509-path-glob-match\",\"path\":\"/tmp/certs/*.pem\","
+        "\"match\":[\".crt\"],\"period\":\"0\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jboth);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jboth));
+    tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-path-glob-match",
+        tommy_strhash_u32(0, "ut-x509-path-glob-match"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/certs", tls_fs->path);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tls_fs->match->l == 1);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, ".crt", tls_fs->match->str[0]->s);
+    x509_del(jboth);
+    json_decref(jboth);
+
+    /* legacy path + substring match unchanged */
+    json_t *jlegacy = json_loads(
+        "{\"name\":\"ut-x509-legacy-match\",\"path\":\"/tmp\",\"match\":[\".crt\"],\"period\":\"0\"}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jlegacy);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jlegacy));
+    tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-legacy-match",
+        tommy_strhash_u32(0, "ut-x509-legacy-match"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp", tls_fs->path);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, ".crt", tls_fs->match->str[0]->s);
+    x509_del(jlegacy);
+    json_decref(jlegacy);
+
+    /* no match and no basename glob → reject */
+    json_t *jbad = json_loads(
+        "{\"name\":\"ut-x509-no-match\",\"path\":\"/tmp\",\"period\":\"0\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jbad);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, x509_push(jbad));
+    json_decref(jbad);
+
+    /* except patterns stored; same hybrid rules as match */
+    json_t *jexcept = json_loads(
+        "{\"name\":\"ut-x509-except\",\"path\":\"/tmp/certs/*.pem\","
+        "\"except\":[\"*_key.pem\",\"_key.pem\"],\"period\":\"0\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jexcept);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jexcept));
+    tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-except",
+        tommy_strhash_u32(0, "ut-x509-except"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/certs", tls_fs->path);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "*.pem", tls_fs->match->str[0]->s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs->except);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tls_fs->except->l == 2);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "*_key.pem", tls_fs->except->str[0]->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "_key.pem", tls_fs->except->str[1]->s);
+    x509_del(jexcept);
+    json_decref(jexcept);
+}
+
 static void test_serializer_extra_formats(void)
 {
     int64_t v = 42;
@@ -2947,6 +3024,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_transform_extended_paths();
     test_metric_str_build_scrape_transforms();
     test_x509_system_probe_query_add_label();
+    test_x509_path_basename_glob();
     test_serializer_extra_formats();
     test_serializer_graphite_format();
     test_serializer_influx_format();

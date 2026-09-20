@@ -18,7 +18,10 @@ void tls_fs_del_node(x509_fs_t *tls_fs)
 {
 	free(tls_fs->name);
 	free(tls_fs->path);
-	free(tls_fs->match);
+	if (tls_fs->match)
+		string_tokens_free(tls_fs->match);
+	if (tls_fs->except)
+		string_tokens_free(tls_fs->except);
 	free(tls_fs->password);
 	free(tls_fs->ca_file);
 	revocation_policy_free(&tls_fs->rev);

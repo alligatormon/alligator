@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 )
 
 var match_keys []string
+var except_keys []string
 var password []byte
 var Mstring string
 
@@ -106,14 +108,35 @@ func readCert(path string) {
 	}
 }
 
+func patternHasGlob(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
+func nameMatches(name, token string) bool {
+	if token == "" {
+		return false
+	}
+	if patternHasGlob(token) {
+		ok, err := path.Match(token, name)
+		return err == nil && ok
+	}
+	return strings.Contains(name, token)
+}
+
 func lookCerts(fullpath string, d fs.DirEntry, err error) error {
 	if err != nil {
 		log.Println("parseJks lookCerts error:", lookCerts)
 		return err
 	}
 	if !d.IsDir() {
+		name := d.Name()
+		for _, token := range except_keys {
+			if nameMatches(name, token) {
+				return nil
+			}
+		}
 		for _, token := range match_keys {
-			if strings.Contains(d.Name(), token) {
+			if nameMatches(name, token) {
 				readCert(fullpath)
 			}
 		}
@@ -124,11 +147,15 @@ func lookCerts(fullpath string, d fs.DirEntry, err error) error {
 //export alligator_call
 func alligator_call(script *C.char, data *C.char, arg *C.char, metrics *C.char, conf *C.char, parser_data_str *C.char, response_str *C.char, queries_str *C.char) *C.char {
 	strArg := C.GoString(arg)
-	// example of arg is '/app/src/tests/system/jks .jks password'
+	// example of arg is '/app/src/tests/system/jks .jks password' or with except: '... .jks password *_key.jks'
 	argc := strings.Split(strArg, " ")
 
 	match_keys = strings.Split(argc[1], ",")
 	password = []byte(argc[2])
+	except_keys = nil
+	if len(argc) > 3 && argc[3] != "" {
+		except_keys = strings.Split(argc[3], ",")
+	}
 	Mstring = ""
 
 	filepath.WalkDir(argc[0], lookCerts)

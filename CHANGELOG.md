@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- x509: optional `except` patterns (same hybrid substring/fnmatch rules as `match`) to skip files such as `*_key.pem` after a broad `*.pem` match. Also applied in parseJks.
+- x509: basename glob in `path` (e.g. `/etc/ssl/*.pem`) splits into directory + fnmatch pattern; `match` optional when path has a basename glob. Patterns with `*?[` use `fnmatch` on basename; legacy substring `match` (e.g. `.crt`) unchanged. Same hybrid matching in parseJks.
 - Cassandra, MySQL, and PostgreSQL aggregators export the same session I/O counters as TCP (`alligator_session_reads_total` / `alligator_session_read_bytes_total` / writes). Cassandra and MySQL count native-protocol wire bytes; PostgreSQL write bytes are query payload and read bytes come from `FIONREAD` before `PQconsumeInput`. Handshake success/failure now increments `alligator_session_connects_total` for Cassandra and MySQL (PostgreSQL already did). PostgreSQL also sets `alligator_parser_ok` on scrape close.
 - Session I/O metrics renamed to `alligator_session_*` with durations in seconds and a `stage` label (`connect`, `write`, `read`, `tls_handshake`, `tls_write`, `tls_read`, `shutdown`, `total`). Parser result is `alligator_parser_ok` / `alligator_parser_duration_seconds`. Filetailer opens are `alligator_filetailer_opens_total`. Event/HTTP series no longer emit the packed `key` label (`tcp:parser:host:port/path` or `udp://ns/qname:IN:type`); identity is `host`/`parser`/`port`/`path`/`module`, and DNS questions use `name`/`class`/`qtype`.
 - HTTP L7: `aggregator_http_*` → `alligator_http_response_status_code` / `alligator_http_response_header_bytes` / `alligator_http_response_body_bytes` / `alligator_http_requests_total`.

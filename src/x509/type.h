@@ -12,6 +12,7 @@ typedef struct x509_fs_t {
 	char *name;
 	char *path;
 	string_tokens *match;
+	string_tokens *except;
 	char *password;
 	char *ca_file;
 	uint8_t type;
