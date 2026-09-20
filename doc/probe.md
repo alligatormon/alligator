@@ -55,7 +55,8 @@ The handler builds a full URL (`http://`, `https://`, `tcp://`, `icmp://`, `ws:/
 | `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` → `tls://`), WSS (`prober websocket` → `wss://`), or `tls://unix:` (`prober unix`) |
 | `timeout` | Probe timeout applied to the async work (default `5s`) |
 | `method` | HTTP method: `GET` (default), `POST`, `HEAD`, `PUT`, `DELETE`, `PATCH` |
-| `body` | HTTP request body |
+| `body` | HTTP request body (inline). Mutually exclusive with `body_file` |
+| `body_file` | Path to a file read as the HTTP request body on each `/probe` kick (blackbox_exporter-compatible). If both `body` and `body_file` are set, `body_file` is used |
 | `url` | Nameserver URL for `prober dns` (`udp://8.8.8.8:53`, `resolver://`, …) or unix scheme override (`http://unix:`, `unixgram://`) |
 | `type` | DNS query type for `prober dns` (`a`, `aaaa`, …; default `a`) |
 | `query_name` | If set, blackbox-compatible DNS mode: `target` is the **nameserver**, `query_name` is the name to resolve. Default Alligator mode is the opposite (`target` = name, `url` = server) |
@@ -102,6 +103,19 @@ probe {
 ```
 
 `loop` writes last-burst gauges `alligator_icmp_replies` / `alligator_icmp_losses` (a healthy `loop 10` stays `10` / `0`). Counters `alligator_icmp_replies_total`, `alligator_icmp_losses_total`, and `alligator_icmp_echoes_total` increase by that burst. Prometheus blackbox_exporter has neither: it sends one echo and uses `probe_success`.
+
+HTTPS POST from a file (read at kick time):
+
+```
+probe {
+    name http_post_file;
+    tls on;
+    prober http;
+    method POST;
+    body_file /etc/alligator/probe-body.json;
+    env Content-Type:application/json;
+}
+```
 
 HTTPS POST:
 
@@ -234,7 +248,7 @@ Native Alligator names (`alligator_*`, `aggregator_*`, `x509_*`). There is no bl
 | `alligator_probe_ip_protocol` | 4 or 6 from the resolved socket / getaddrinfo family |
 | `x509_cert_not_after` | TLS certificate notAfter (Unix seconds) |
 | `alligator_icmp_rtt_seconds` | Last ICMP echo RTT in seconds |
-| `alligator_icmp_reply_hop_limit` | TTL/hop-limit of the last echo reply (`type=icmp`, `host`) |
+| `alligator_icmp_reply_hop_limit` | TTL/hop-limit of the last echo reply (`type=icmp`, `host`). IPv4 uses the IP header TTL; IPv6 uses `recvmsg` ancillary data (`IPV6_HOPLIMIT`) |
 | `alligator_icmp_reply_ratio` / `alligator_icmp_loss_ratio` | Last-burst reply/loss ratio in **0–1** (not percent) |
 
 Continuous ICMP (`interval` on `probe` or `aggregate { blackbox icmp://… interval=… }`) emits a classic histogram `alligator_icmp_response_duration_seconds_{bucket,sum,count}`.

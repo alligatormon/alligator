@@ -1327,6 +1327,134 @@ void test_probe_blackbox_modules()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ping", pn->body);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5000, (int)pn->timeout);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn->env);
+
+    {
+        char bf_path[] = "/tmp/alligator-ut2-body-file.json";
+        FILE *bf = fopen(bf_path, "w");
+        json_t *jbf;
+        json_t *jboth;
+        json_t *jmiss;
+        string *req;
+        char js[512];
+
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, bf);
+        fputs("{\"from\":\"file\"}", bf);
+        fclose(bf);
+
+        snprintf(js, sizeof(js),
+            "{\"name\":\"ut-http-bodyfile\",\"prober\":\"http\",\"method\":\"POST\",\"body_file\":\"%s\"}",
+            bf_path);
+        jbf = json_loads(js, 0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jbf);
+        probe_push_json(jbf);
+        pn = probe_get("ut-http-bodyfile");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, bf_path, pn->body_file);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, pn->body);
+        req = probe_http_request_body(pn);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "{\"from\":\"file\"}", req->s);
+        {
+            char *q = gen_http_query(pn->method, "/", NULL, "example.com", "alligator", NULL, NULL, NULL, NULL, req);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, q);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(q, "POST /") != NULL);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(q, "{\"from\":\"file\"}") != NULL);
+            free(q);
+        }
+        string_free(req);
+        {
+            json_t *dump = json_object();
+            probe_generate_conf(dump, pn);
+            json_t *parr = json_object_get(dump, "probe");
+            json_t *p0 = parr ? json_array_get(parr, 0) : NULL;
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p0);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, bf_path, json_string_value(json_object_get(p0, "body_file")));
+            json_decref(dump);
+        }
+        probe_del_json(jbf);
+        json_decref(jbf);
+
+        snprintf(js, sizeof(js),
+            "{\"name\":\"ut-http-bf-both\",\"prober\":\"http\",\"body\":\"inline\",\"body_file\":\"%s\"}",
+            bf_path);
+        jboth = json_loads(js, 0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jboth);
+        probe_push_json(jboth);
+        pn = probe_get("ut-http-bf-both");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, pn->body);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, bf_path, pn->body_file);
+        req = probe_http_request_body(pn);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "{\"from\":\"file\"}", req->s);
+        string_free(req);
+        probe_del_json(jboth);
+        json_decref(jboth);
+
+        jmiss = json_loads(
+            "{\"name\":\"ut-http-bf-miss\",\"prober\":\"http\",\"body_file\":\"/no/such/alligator-body-file\"}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jmiss);
+        probe_push_json(jmiss);
+        pn = probe_get("ut-http-bf-miss");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+        req = probe_http_request_body(pn);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, req);
+        probe_del_json(jmiss);
+        json_decref(jmiss);
+        unlink(bf_path);
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, icmp_cmsg_hop_limit(NULL));
+#ifdef IPV6_HOPLIMIT
+        {
+            char cbuf[CMSG_SPACE(sizeof(int))];
+            struct msghdr msg;
+            struct cmsghdr *cmsg;
+            int hop = 57;
+
+            memset(&msg, 0, sizeof(msg));
+            memset(cbuf, 0, sizeof(cbuf));
+            msg.msg_control = cbuf;
+            msg.msg_controllen = sizeof(cbuf);
+            cmsg = CMSG_FIRSTHDR(&msg);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cmsg);
+            cmsg->cmsg_level = IPPROTO_IPV6;
+            cmsg->cmsg_type = IPV6_HOPLIMIT;
+            cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+            memcpy(CMSG_DATA(cmsg), &hop, sizeof(hop));
+            msg.msg_controllen = CMSG_SPACE(sizeof(int));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 57, icmp_cmsg_hop_limit(&msg));
+        }
+#endif
+#ifdef IP_TTL
+        {
+            char cbuf[CMSG_SPACE(sizeof(int))];
+            struct msghdr msg;
+            struct cmsghdr *cmsg;
+            int hop = 64;
+
+            memset(&msg, 0, sizeof(msg));
+            memset(cbuf, 0, sizeof(cbuf));
+            msg.msg_control = cbuf;
+            msg.msg_controllen = sizeof(cbuf);
+            cmsg = CMSG_FIRSTHDR(&msg);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cmsg);
+            cmsg->cmsg_level = IPPROTO_IP;
+            cmsg->cmsg_type = IP_TTL;
+            cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+            memcpy(CMSG_DATA(cmsg), &hop, sizeof(hop));
+            msg.msg_controllen = CMSG_SPACE(sizeof(int));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 64, icmp_cmsg_hop_limit(&msg));
+        }
+#endif
+        {
+            struct msghdr msg;
+            memset(&msg, 0, sizeof(msg));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, icmp_cmsg_hop_limit(&msg));
+        }
+        pn = probe_get("ut-probe-hdr");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    }
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pn->valid_status_codes_size);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "2xx", pn->valid_status_codes[0]);
     char *q = gen_http_query(pn->method, "/", NULL, "example.com", "alligator", NULL, NULL, pn->env, NULL, NULL);

@@ -1021,6 +1021,12 @@ void probe_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "body", body);
 	}
 
+	if (pn->body_file)
+	{
+		json_t *body_file = json_string(pn->body_file);
+		json_array_object_insert(ctx, "body_file", body_file);
+	}
+
 	if (pn->url)
 	{
 		json_t *url = json_string(pn->url);

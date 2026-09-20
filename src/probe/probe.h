@@ -46,6 +46,7 @@ typedef struct probe_node
 	uint8_t method;
 	char *source_ip_address;
 	char *body;
+	char *body_file;
 	char *scheme;
 	char *url;
 	char *query_type;
@@ -127,6 +128,8 @@ int probe_qr_active(context_arg *carg);
 int probe_qr_on_connect(context_arg *carg, probe_qr_write_cb wr, probe_qr_starttls_cb stls);
 int probe_qr_on_read(context_arg *carg, const char *data, size_t n, probe_qr_write_cb wr, probe_qr_starttls_cb stls);
 int probe_qr_on_tls_ready(context_arg *carg, probe_qr_write_cb wr, probe_qr_starttls_cb stls);
+string *probe_http_request_body(probe_node *pn);
+int icmp_cmsg_hop_limit(struct msghdr *msg);
 int probe_http_eval_body(probe_node *pn, const char *body, size_t body_size, uint64_t *val);
 int probe_dns_eval_answers(probe_node *pn, const char *answers, size_t answers_size, uint64_t *val);
 int probe_udp_payload_ok(const char *reply, size_t reply_len, const char *payload, size_t payload_len);

@@ -182,13 +182,23 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	}
 	else if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
 	{
-		string *body = NULL;
-		if (pn->body)
-			body = string_init_dup(pn->body);
+		string *req_body = probe_http_request_body(pn);
+		if (pn->body_file && pn->body_file[0] && !req_body) {
+			n = snprintf(errbuf, sizeof(errbuf), "cannot read body_file '%s'", pn->body_file);
+			if (n < 0)
+				n = 0;
+			if ((size_t)n >= sizeof(errbuf))
+				n = (int)sizeof(errbuf) - 1;
+			carglog(carg, L_ERROR, "probe '%s': cannot read body_file '%s'\n", pn->name ? pn->name : "", pn->body_file);
+			probe_reply_error(response, carg, errbuf, (size_t)n);
+			url_free(hi);
+			http_args_free(args);
+			return;
+		}
 		char *http_host = hostname ? hostname : hi->host;
-		char *http_query = gen_http_query(pn->method, hi->query, NULL, http_host, "alligator", hi->auth, NULL, pn->env, NULL, body);
-		if (body)
-			string_free(body);
+		char *http_query = gen_http_query(pn->method, hi->query, NULL, http_host, "alligator", hi->auth, NULL, pn->env, NULL, req_body);
+		if (req_body)
+			string_free(req_body);
 		new_carg = context_arg_json_fill(NULL, hi, blackbox_null, "blackbox_null", http_query, 0, NULL, NULL, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
 	}
 	else

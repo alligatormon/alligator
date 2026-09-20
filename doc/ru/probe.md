@@ -55,7 +55,8 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 | `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` → `tls://`), WSS (`prober websocket` → `wss://`) или `tls://unix:` (`prober unix`) |
 | `timeout` | Таймаут проверки, применяется к async-работе (по умолчанию `5s`) |
 | `method` | HTTP-метод: `GET` (по умолчанию), `POST`, `HEAD`, `PUT`, `DELETE`, `PATCH` |
-| `body` | Тело HTTP-запроса |
+| `body` | Тело HTTP-запроса (inline). Взаимоисключающе с `body_file` |
+| `body_file` | Путь к файлу, который читается как тело HTTP-запроса на каждый kick `/probe` (совместимо с blackbox_exporter). Если заданы и `body`, и `body_file`, используется `body_file` |
 | `url` | URL nameserver для `prober dns` (`udp://8.8.8.8:53`, `resolver://`, …) или схема unix (`http://unix:`, `unixgram://`) |
 | `type` | Тип DNS-запроса для `prober dns` (`a`, `aaaa`, …; по умолчанию `a`) |
 | `query_name` | Если задан — режим blackbox: `target` это **nameserver**, `query_name` — имя для резолва. По умолчанию Alligator наоборот (`target` = имя, `url` = сервер) |
@@ -102,6 +103,19 @@ probe {
 ```
 
 `loop` пишет gauge последнего залпа `alligator_icmp_replies` / `alligator_icmp_losses` (при успешном `loop 10` это всегда `10` / `0`). Счётчики `alligator_icmp_replies_total`, `alligator_icmp_losses_total` и `alligator_icmp_echoes_total` увеличиваются на этот залп. В Prometheus blackbox_exporter таких метрик нет: один echo и `probe_success`.
+
+HTTPS POST из файла (чтение при kick):
+
+```
+probe {
+    name http_post_file;
+    tls on;
+    prober http;
+    method POST;
+    body_file /etc/alligator/probe-body.json;
+    env Content-Type:application/json;
+}
+```
 
 HTTPS POST:
 
@@ -221,7 +235,7 @@ curl 'http://127.0.0.1:1111/probe?module=http_target&target=example.com:443'
 | `alligator_probe_ip_protocol` | 4 или 6 по семейству сокета / getaddrinfo |
 | `x509_cert_not_after` | notAfter TLS-сертификата (Unix seconds) |
 | `alligator_icmp_rtt_seconds` | RTT последнего ICMP echo в секундах |
-| `alligator_icmp_reply_hop_limit` | TTL/hop-limit последнего ответа (`type=icmp`, `host`) |
+| `alligator_icmp_reply_hop_limit` | TTL/hop-limit последнего ответа (`type=icmp`, `host`). IPv4 — TTL из IP-заголовка; IPv6 — ancillary data `recvmsg` (`IPV6_HOPLIMIT`) |
 | `alligator_icmp_reply_ratio` / `alligator_icmp_loss_ratio` | Доля ответов/потерь последнего залпа **0–1** (не проценты) |
 
 Непрерывный ICMP (`interval`) пишет гистограмму `alligator_icmp_response_duration_seconds_*`. HTTP — `alligator_http_request_duration_seconds_*`. Вне скоупа: gRPC, HTTP/2, HTTP/3, CEL, libjq, OAuth2.

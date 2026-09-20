@@ -1,25 +1,59 @@
+#ifdef __APPLE__
+#ifndef __APPLE_USE_RFC_3542
+#define __APPLE_USE_RFC_3542 1
+#endif
+#endif
 #include "events/context_arg.h"
+#include "probe/probe.h"
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+int icmp_cmsg_hop_limit(struct msghdr *msg)
+{
+	struct cmsghdr *cmsg;
+
+	if (!msg || !msg->msg_control || !msg->msg_controllen)
+		return -1;
+
+	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg)) {
+#ifdef IPV6_HOPLIMIT
+		if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT &&
+		    cmsg->cmsg_len >= CMSG_LEN(sizeof(int))) {
+			int hop;
+			memcpy(&hop, CMSG_DATA(cmsg), sizeof(hop));
+			return hop;
+		}
+#endif
+#ifdef IP_TTL
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_TTL &&
+		    cmsg->cmsg_len >= CMSG_LEN(sizeof(int))) {
+			int hop;
+			memcpy(&hop, CMSG_DATA(cmsg), sizeof(hop));
+			return hop;
+		}
+#endif
+	}
+	return -1;
+}
+
 #ifdef __linux__
 #include <uv.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/socket.h>
 #include <netdb.h>
-#include <netinet/in.h>
+#include <sys/uio.h>
 #include </usr/include/netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <inttypes.h>
-#include <netinet/in.h>
 #include "dstructures/tommy.h"
 #include "common/logs.h"
 #include "common/rtime.h"
-#include "probe/probe.h"
 #include "parsers/multiparser.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
@@ -344,10 +378,14 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 	
 	if (events & UV_READABLE) {
 		struct sockaddr_storage r_addr;
-		socklen_t len = sizeof(r_addr);
-		size_t size;
 		void *recv_buf;
 		size_t recv_cap;
+		char cbuf[CMSG_SPACE(sizeof(int))];
+		struct msghdr msg;
+		struct iovec iov;
+		ssize_t nrecv;
+
+		memset(&r_addr, 0, sizeof(r_addr));
 
 		if (carg->ping_ipv6) {
 			recv_buf = &pckt.icmp_req;
@@ -357,7 +395,19 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			recv_cap = sizeof(pckt);
 		}
 
-		if ((size = recvfrom(carg->fd, recv_buf, recv_cap, 0, (struct sockaddr *)&r_addr, &len)) > 0 ) {
+		memset(&msg, 0, sizeof(msg));
+		memset(cbuf, 0, sizeof(cbuf));
+		iov.iov_base = recv_buf;
+		iov.iov_len = recv_cap;
+		msg.msg_name = &r_addr;
+		msg.msg_namelen = sizeof(r_addr);
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+		msg.msg_control = cbuf;
+		msg.msg_controllen = sizeof(cbuf);
+
+		nrecv = recvmsg(carg->fd, &msg, 0);
+		if (nrecv > 0) {
 			i_p = carg->ping_ipv6 ? &pckt.icmp_req : &pckt.icmp_res.pckt;
 			uint32_t key = i_p->hdr.un.echo.id;
 
@@ -388,8 +438,8 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 					}
 					rcarg->check_receive = 0;
 					carglog(rcarg, L_DEBUG, "icmp: matching reply from expected peer, emit sample\n");
-					int hop = -1;
-					if (!rcarg->ping_ipv6)
+					int hop = icmp_cmsg_hop_limit(&msg);
+					if (hop < 0 && !rcarg->ping_ipv6)
 						hop = pckt.icmp_res.iphdr.ip_ttl;
 					icmp_emit_one(rcarg, i_p, hop);
 				}
@@ -445,6 +495,13 @@ void icmp_start(void *arg)
 			carg->lock = 0;
 			return;
 		}
+#ifdef IPV6_RECVHOPLIMIT
+		{
+			int on = 1;
+			if (setsockopt(sd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on)) != 0)
+				carglog(carg, L_WARN, "icmp: IPV6_RECVHOPLIMIT failed: %s\n", strerror(errno));
+		}
+#endif
 		if (tos_val)
 			setsockopt(sd, IPPROTO_IPV6, IPV6_TCLASS, &tos_val, sizeof(tos_val));
 	} else if ( setsockopt(sd, SOL_IP, IP_TTL, &ttl_val, sizeof(ttl_val)) != 0) {

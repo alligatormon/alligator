@@ -439,6 +439,7 @@ static void probe_node_free(probe_node *pn)
 	free(pn->query_type);
 	free(pn->query_name);
 	free(pn->body);
+	free(pn->body_file);
 	probe_free_str_array(pn->valid_status_codes, pn->valid_status_codes_size);
 	probe_free_str_array(pn->fail_if_body_matches_regexp, pn->fail_if_body_matches_regexp_size);
 	probe_free_pcre_array(pn->fail_if_body_matches_re, pn->fail_if_body_matches_regexp_size);
@@ -809,6 +810,17 @@ int probe_qr_on_read(context_arg *carg, const char *data, size_t n, probe_qr_wri
 	if (probe_qr_pump_sends(carg, pn, wr, stls))
 		return 1;
 	return 0;
+}
+
+string *probe_http_request_body(probe_node *pn)
+{
+	if (!pn)
+		return NULL;
+	if (pn->body_file && pn->body_file[0])
+		return get_file_content(pn->body_file, 1);
+	if (pn->body)
+		return string_init_dup(pn->body);
+	return NULL;
 }
 
 int probe_http_eval_body(probe_node *pn, const char *body, size_t body_size, uint64_t *val)
@@ -1320,6 +1332,20 @@ void probe_push_json(json_t *probe)
 		const char *body = json_string_value(jbody);
 		if (body)
 			pn->body = strdup(body);
+	}
+
+	{
+		json_t *jbody_file = json_object_get(probe, "body_file");
+		if (jbody_file && json_is_string(jbody_file)) {
+			const char *body_file = json_string_value(jbody_file);
+			if (body_file && *body_file)
+				pn->body_file = strdup(body_file);
+		}
+	}
+	if (pn->body && pn->body_file) {
+		glog(L_ERROR, "probe '%s': setting body and body_file both is invalid; using body_file\n", pn->name);
+		free(pn->body);
+		pn->body = NULL;
 	}
 
 	jsrc = json_object_get(probe, "source_ip_address");
