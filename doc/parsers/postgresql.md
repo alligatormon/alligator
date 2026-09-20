@@ -55,6 +55,8 @@ aggregate {
 
 Connect and query failures increment `postgresql_error{name,reason}`. `reason` is a closed set of classified types, not the raw libpq or pooler text (session ids, routes, hosts, and IPs stay out of labels).
 
+Each connect attempt (success or failure) also updates shared session metrics: gauge `alligator_session_connect_ok` (last attempt 1/0) and counter `alligator_session_connects_total`. Labels match other aggregators (`proto`, `type`, `host`, `parser`, `port`).
+
 libpq wraps pooler/server FATAL with a prefix such as `connection to server at "host" (ip), port N failed:`. The classifier matches the inner product message first; that wrapper is not a type by itself. Bare TCP failures with no inner FATAL become `cannot_reach_server`.
 
 Full `PQerrorMessage` / `PQresultErrorMessage` text stays in alligator error logs (`L_ERROR`).

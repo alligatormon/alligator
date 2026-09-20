@@ -16,8 +16,8 @@ aggregate {
 
 Проверка `lighttpd -tt` генерирует метрику из кода выхода lighttpd и создаёт две метрики о проверке конфигурации:
 ```
-alligator_process_exit_status {proto="shell", key="exec:process:/usr/sbin/lighttpd -tt -f /etc/lighttpd/lighttpd.conf:/", type="aggregator"} 0
-alligator_process_term_signal {proto="shell", key="exec:process:/usr/sbin/lighttpd -tt -f /etc/lighttpd/lighttpd.conf:/", type="aggregator"} 0
+alligator_process_exit_status {proto="shell", type="aggregator", host="/usr/sbin/lighttpd -tt -f /etc/lighttpd/lighttpd.conf", parser="process"} 0
+alligator_process_term_signal {proto="shell", type="aggregator", host="/usr/sbin/lighttpd -tt -f /etc/lighttpd/lighttpd.conf", parser="process"} 0
 ```
 
 Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:

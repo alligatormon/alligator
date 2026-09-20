@@ -3630,3 +3630,24 @@ void api_test_postgresql_error_reason()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "other",
         postgresql_error_reason("ERROR:  syntax error at or near \"SELCT\""));
 }
+
+void api_test_postgresql_session_connect_metrics()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->parser_name = "postgresql";
+    snprintf(carg->host, sizeof(carg->host), "%s", "127.0.0.1");
+    snprintf(carg->port, sizeof(carg->port), "%s", "5432");
+
+    postgresql_connect_ok(carg, 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->conn_counter);
+    metric_test_run(CMP_EQUAL, "alligator_session_connect_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connect_ok", 0);
+    metric_test_run(CMP_EQUAL, "alligator_session_connects_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connects_total", 1);
+
+    postgresql_connect_ok(carg, 1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, carg->conn_counter);
+    metric_test_run(CMP_EQUAL, "alligator_session_connect_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connect_ok", 1);
+    metric_test_run(CMP_EQUAL, "alligator_session_connects_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connects_total", 2);
+
+    free(carg);
+}

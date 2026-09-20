@@ -61,8 +61,8 @@ aggregate {
 Это создаёт метрики по коду выхода:
 
 ```
-alligator_process_exit_status {proto="shell", key="exec:process:/sbin/nginx -t:/", type="aggregator"} 0
-alligator_process_term_signal {proto="shell", key="exec:process:/sbin/nginx -t:/", type="aggregator"} 0
+alligator_process_exit_status {proto="shell", type="aggregator", host="/sbin/nginx -t", parser="process"} 0
+alligator_process_term_signal {proto="shell", type="aggregator", host="/sbin/nginx -t", parser="process"} 0
 ```
 
 ## nginx upstream check module

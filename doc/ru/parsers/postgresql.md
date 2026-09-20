@@ -57,6 +57,8 @@ aggregate {
 
 Сбои подключения и запросов увеличивают `postgresql_error{name,reason}`. `reason` — закрытый набор классифицированных типов, а не сырой текст libpq или пулера (идентификаторы сессий, маршруты, хосты и IP в label не попадают).
 
+Каждая попытка подключения (успех или сбой) также обновляет общие session-метрики: gauge `alligator_session_connect_ok` (последняя попытка 1/0) и counter `alligator_session_connects_total`. Label совпадают с другими агрегаторами (`proto`, `type`, `host`, `parser`, `port`).
+
 libpq оборачивает FATAL пулера/сервера префиксом вида `connection to server at "host" (ip), port N failed:`. Классификатор сначала ищет внутреннее сообщение продукта; сам префикс типом не является. Голый TCP-сбой без внутреннего FATAL даёт `cannot_reach_server`.
 
 Полный текст `PQerrorMessage` / `PQresultErrorMessage` остаётся в логах alligator (`L_ERROR`).

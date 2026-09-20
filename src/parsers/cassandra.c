@@ -12,6 +12,7 @@
 #include "common/logs.h"
 #include "parsers/cassandra2.h"
 #include "main.h"
+#include "events/metrics.h"
 
 typedef struct cassandra_data {
 	cassandra_conn_t *conn;
@@ -395,12 +396,12 @@ void cassandra_run(void* arg) {
 	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "Alligator parser status.");
 
 	if (!cassandra2_start_connect(&data->conn, carg)) {
-		metric_add_labels5("alligator_session_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
-		metric_add_labels5("alligator_parser_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+		alligator_session_connect_ok_set(carg, unval);
+		alligator_parser_ok_set(carg, unval, "tcp", carg->host);
 		return;
 	}
 
-	metric_add_labels5("alligator_session_connect_ok", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+	alligator_session_connect_ok_set(carg, val);
 	carg->parser_status = 1;
 
 	if (carg->running)
@@ -417,7 +418,7 @@ void cassandra_run(void* arg) {
 		return;
 	}
 	pthread_detach(th);
-	metric_add_labels5("alligator_parser_ok", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
 }
 
 void cassandra_timer(uv_timer_t* handle) {

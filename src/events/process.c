@@ -13,6 +13,7 @@
 #include "common/logs.h"
 #include "common/stop.h"
 #include "common/rtime.h"
+#include "events/metrics.h"
 extern aconf* ac;
 
 static const char *process_shell_path(void)
@@ -339,16 +340,24 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	if (!carg->no_exit_status)
 	{
-		metric_add_labels3("alligator_process_exit_status", &exit_status, DATATYPE_INT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
-		metric_add_labels3("alligator_process_term_signal", &tsignal, DATATYPE_INT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
+		alligator_ht *lbl = alligator_event_labels(carg, "shell", "aggregator", carg->host[0] ? carg->host : carg->key);
+		alligator_event_metric("alligator_process_exit_status", &exit_status, DATATYPE_INT, carg, lbl);
+		alligator_event_metric("alligator_process_term_signal", &tsignal, DATATYPE_INT, carg, lbl);
+		labels_hash_free(lbl);
 	}
 
 	if (!carg->no_metric)
 	{
-		metric_add_labels3("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
+		alligator_ht *lbl = alligator_event_labels(carg, "shell", "aggregator", carg->host[0] ? carg->host : carg->key);
+		alligator_ht *hash;
+		double read_s;
 
-		double read_s = getrtime_mcs_seconds(carg->read_time, carg->read_time_finish);
-		metric_add_labels4("alligator_session_duration_seconds", &read_s, DATATYPE_DOUBLE, carg, "proto", "shell", "type", "aggregator", "key", carg->key, "stage", "read");
+		alligator_event_metric("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, lbl);
+		read_s = getrtime_mcs_seconds(carg->read_time, carg->read_time_finish);
+		hash = labels_dup(lbl);
+		labels_hash_insert(hash, "stage", "read");
+		metric_add("alligator_session_duration_seconds", hash, &read_s, DATATYPE_DOUBLE, carg);
+		labels_hash_free(lbl);
 	}
 
 	carg->lock = 0;

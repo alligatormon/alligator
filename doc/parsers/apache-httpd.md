@@ -20,8 +20,8 @@ aggregate {
 
 The checking of `apachectl configtest` generates the metric from exit status of httpd and made two metrics about configuration validation:
 ```
-alligator_process_exit_status {proto="shell", key="exec:process:/usr/sbin/apachectl configtest:/", type="aggregator"} 0
-alligator_process_term_signal {proto="shell", key="exec:process:/usr/sbin/apachectl configtest:/", type="aggregator"} 0
+alligator_process_exit_status {proto="shell", type="aggregator", host="/usr/sbin/apachectl configtest", parser="process"} 0
+alligator_process_term_signal {proto="shell", type="aggregator", host="/usr/sbin/apachectl configtest", parser="process"} 0
 ```
 
 It is also useful to check process statistics, running services and open ports:

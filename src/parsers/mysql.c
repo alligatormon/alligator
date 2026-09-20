@@ -4,6 +4,7 @@
 #include "common/logs.h"
 #include "metric/metric_types.h"
 #include "main.h"
+#include "events/metrics.h"
 #include "parsers/mysql2.h"
 #include <pthread.h>
 #include <unistd.h>
@@ -402,19 +403,13 @@ void mysql_run(void* arg)
 		carglog(carg, L_DEBUG, "go away from mysql_run\n");
 		namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
 		namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
-		metric_add_labels5("alligator_session_connect_ok", &unval, DATATYPE_UINT, carg,
-						   "proto", "tcp", "type", "aggregator",
-						   "host", carg->host, "key", carg->key, "parser", "mysql");
-		metric_add_labels5("alligator_parser_ok", &unval, DATATYPE_UINT, carg,
-						   "proto", "tcp", "type", "aggregator",
-						   "host", carg->host, "key", carg->key, "parser", "mysql");
+		alligator_session_connect_ok_set(carg, unval);
+		alligator_parser_ok_set(carg, unval, "tcp", carg->host);
 		return;
 	}
 
 	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
-	metric_add_labels5("alligator_session_connect_ok", &val, DATATYPE_UINT, carg,
-					   "proto", "tcp", "type", "aggregator",
-					   "host", carg->host, "key", carg->key, "parser", "mysql");
+	alligator_session_connect_ok_set(carg, val);
 	carg->parser_status = 1;
 
 	if (carg->running)
@@ -433,7 +428,7 @@ void mysql_run(void* arg)
 	pthread_detach(th);
 
 	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
-	metric_add_labels5("alligator_parser_ok", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
+	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
 }
 
 

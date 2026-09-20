@@ -1,1 +1,1 @@
-alligator_parser_ok key="tcp:http:google.com:443"
+alligator_parser_ok 

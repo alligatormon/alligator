@@ -15,6 +15,7 @@
 #include "common/logs.h"
 #include "common/stop.h"
 #include "common/aggregator.h"
+#include "events/metrics.h"
 #include "dstructures/ht.h"
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
@@ -362,10 +363,14 @@ void filetailer_close(uv_fs_t *req) {
 	file_handler_struct_free(fh);
 
 	(carg->close_counter)++;
-	metric_add_labels4("alligator_filetailer_opens_total", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_session_closes_total", &carg->close_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_session_read_bytes_total", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	{
+		alligator_ht *lbl = alligator_event_labels(carg, "file", "aggregator", carg->host);
+		alligator_event_metric("alligator_filetailer_opens_total", &carg->open_counter, DATATYPE_UINT, carg, lbl);
+		alligator_event_metric("alligator_session_closes_total", &carg->close_counter, DATATYPE_UINT, carg, lbl);
+		alligator_event_metric("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, lbl);
+		alligator_event_metric("alligator_session_read_bytes_total", &carg->read_bytes_counter, DATATYPE_UINT, carg, lbl);
+		labels_hash_free(lbl);
+	}
 
 
 	if (carg->period)

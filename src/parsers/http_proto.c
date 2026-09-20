@@ -16,6 +16,7 @@
 #include "common/units.h"
 #include "common/rtime.h"
 #include "api/api.h"
+#include "events/metrics.h"
 
 void http_reply_data_free(http_reply_data* http)
 {
@@ -201,15 +202,22 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 
 void http_null_metrics(context_arg *carg)
 {
+	alligator_ht *lbl;
 	uint64_t count = 1;
 	uint64_t status = 0;
 	uint64_t http_code = 0;
 	char code[2];
 	strlcpy(code, "0", 2);
-	metric_update_labels7("alligator_http_requests_total", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
-	metric_add_labels6("alligator_http_response_status_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "port", carg->port, "key", carg->key, "parser", carg->parser_name);
-	metric_add_labels6("alligator_http_response_header_bytes", &status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("alligator_http_response_body_bytes", &status, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
+	lbl = alligator_event_labels(carg, "tcp", "aggregator", carg->host);
+	{
+		alligator_ht *req = labels_dup(lbl);
+		labels_hash_insert(req, "code", code);
+		metric_update("alligator_http_requests_total", req, &count, DATATYPE_UINT, carg);
+	}
+	alligator_event_metric("alligator_http_response_status_code", &http_code, DATATYPE_UINT, carg, lbl);
+	alligator_event_metric("alligator_http_response_header_bytes", &status, DATATYPE_UINT, carg, lbl);
+	alligator_event_metric("alligator_http_response_body_bytes", &status, DATATYPE_UINT, carg, lbl);
+	labels_hash_free(lbl);
 }
 
 void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
@@ -217,6 +225,7 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	if (!hrdata)
 		return;
 
+	alligator_ht *lbl;
 	uint64_t count = 1;
 	//printf("version=%d\ncode=%d\nmesg='%s'\nheaders='%p'\nbody='%p', content-length: %d, chunked: %d, headers size: %zu, body size: %zu\n", hrdata->http_version, hrdata->http_code, hrdata->mesg, hrdata->headers, hrdata->body, hrdata->content_length, hrdata->chunked_expect, hrdata->headers_size, hrdata->body_size);
 
@@ -224,10 +233,16 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 	snprintf(code, 6, "%"PRId16, hrdata->http_code);
 	uint64_t http_code = hrdata->http_code;
 
-	metric_update_labels7("alligator_http_requests_total", &count, DATATYPE_UINT, carg, "code", code, "host", carg->host, "port", carg->port, "type", "aggregator", "proto", "tcp", "parser", carg->parser_name, "key", carg->key);
-	metric_add_labels6("alligator_http_response_status_code", &http_code, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("alligator_http_response_header_bytes", &hrdata->headers_size, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name, "port", carg->port);
-	metric_add_labels6("alligator_http_response_body_bytes", &hrdata->body_size, DATATYPE_UINT, carg, "host", carg->host, "port", carg->port, "parser", carg->parser_name, "key", carg->key, "proto", "tcp", "type", "aggregator");
+	lbl = alligator_event_labels(carg, "tcp", "aggregator", carg->host);
+	{
+		alligator_ht *req = labels_dup(lbl);
+		labels_hash_insert(req, "code", code);
+		metric_update("alligator_http_requests_total", req, &count, DATATYPE_UINT, carg);
+	}
+	alligator_event_metric("alligator_http_response_status_code", &http_code, DATATYPE_UINT, carg, lbl);
+	alligator_event_metric("alligator_http_response_header_bytes", &hrdata->headers_size, DATATYPE_UINT, carg, lbl);
+	alligator_event_metric("alligator_http_response_body_bytes", &hrdata->body_size, DATATYPE_UINT, carg, lbl);
+	labels_hash_free(lbl);
 
 	if (carg->parser_handler == blackbox_null)
 	{

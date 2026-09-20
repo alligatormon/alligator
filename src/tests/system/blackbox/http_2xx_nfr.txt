@@ -1,34 +1,34 @@
 alligator_http_response_body_bytes {host="yandex.ru", port="443} 
 alligator_http_response_header_bytes {host="yandex.ru", port="443} 
 alligator_http_requests_total {host="yandex.ru", code="200", port="443} 
-alligator_http_response_status_code {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null} 
-alligator_session_closes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_connects_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_connect_ok {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="connect"} 
-alligator_parser_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_parser_ok {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", parser="blackbox_null} 
-alligator_session_reads_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_read_bytes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="read"} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="total"} 
-alligator_session_shutdowns_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_timeouts_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="tls_handshake"} 
-alligator_session_tls_handshakes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_tls_reads_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_tls_read_bytes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="tls_read"} 
-alligator_session_tls_writes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_tls_written_bytes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="tls_write"} 
-alligator_session_writes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_written_bytes_total {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator} 
-alligator_session_duration_seconds {host="yandex.ru", proto="tcp", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="aggregator", stage="write"} 
+alligator_http_response_status_code {host="yandex.ru", proto="tcp", type="aggregator", parser="blackbox_null} 
+alligator_session_closes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_connects_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_connect_ok {host="yandex.ru", proto="tcp", type="aggregator", parser="blackbox_null} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="connect"} 
+alligator_parser_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_parser_ok {host="yandex.ru", proto="tcp", type="aggregator", parser="blackbox_null} 
+alligator_session_reads_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_read_bytes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="read"} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="total"} 
+alligator_session_shutdowns_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_timeouts_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="tls_handshake"} 
+alligator_session_tls_handshakes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_tls_reads_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_tls_read_bytes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="tls_read"} 
+alligator_session_tls_writes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_tls_written_bytes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="tls_write"} 
+alligator_session_writes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_written_bytes_total {host="yandex.ru", proto="tcp", type="aggregator} 
+alligator_session_duration_seconds {host="yandex.ru", proto="tcp", type="aggregator", stage="write"} 
 alligator_http_request_duration_seconds
 alligator_probe_timeout_seconds
 alligator_probe_ip_protocol
-probe_success {host="yandex.ru", proto="http", key="probe:http_2xx_nfr:tcp:blackbox_null:yandex.ru:443/", type="blackbox", module="http_2xx_nfr", prober="http} 
+probe_success {host="yandex.ru", proto="http", type="blackbox", module="http_2xx_nfr", prober="http} 
 x509_cert_expire_days {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"
 x509_cert_not_after {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"
 x509_cert_not_before {host="yandex.ru", common_name="yandex.ru", cert="yandex.ru"

@@ -459,7 +459,7 @@ static void resolver_udp_apply_reply(context_arg *carg, ssize_t nread, const uv_
 	dns_handler(buf->base, nread, carg);
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-	metric_add_labels5("alligator_parser_ok", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	alligator_parser_ok_set(carg, carg->parsed, "tcp", carg->host);
 }
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)

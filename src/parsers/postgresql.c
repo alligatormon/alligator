@@ -15,6 +15,7 @@
 #include "metric/metric_types.h"
 #include "dstructures/queue.h"
 #include "events/context_arg.h"
+#include "events/metrics.h"
 #include <main.h>
 
 
@@ -497,13 +498,13 @@ void postgresql_error_metric(PGconn *conn, context_arg *carg)
 	postgresql_error_metric_msg(carg, errmsg);
 }
 
-static inline void postgresql_connect_ok(context_arg *carg, uint64_t ok)
+void postgresql_connect_ok(context_arg *carg, uint64_t ok)
 {
 	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+	namespace_metric_family_set(NULL, carg, "alligator_session_connects_total", METRIC_TYPE_COUNTER, "Total connection attempts by key/proto/type/host.");
 
-	metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg,
-		"proto", "tcp", "type", "aggregator",
-		"host", carg->host, "key", carg->key, "parser", "postgresql");
+	alligator_session_connects_inc(carg);
+	alligator_session_connect_ok_set(carg, ok);
 }
 
 void on_handle_closed(uv_handle_t* handle) {

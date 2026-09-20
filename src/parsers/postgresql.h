@@ -13,6 +13,7 @@
 char* postgresql_client(context_arg* carg);
 void postgresql_run(void* arg);
 const char *postgresql_error_reason(const char *errmsg);
+void postgresql_connect_ok(context_arg *carg, uint64_t ok);
 
 typedef struct pq_library {
 	uv_lib_t *PQclear_lib;

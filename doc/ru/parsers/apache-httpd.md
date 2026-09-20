@@ -22,8 +22,8 @@ aggregate {
 
 Проверка `apachectl configtest` генерирует метрику из кода выхода httpd и создаёт две метрики о проверке конфигурации:
 ```
-alligator_process_exit_status {proto="shell", key="exec:process:/usr/sbin/apachectl configtest:/", type="aggregator"} 0
-alligator_process_term_signal {proto="shell", key="exec:process:/usr/sbin/apachectl configtest:/", type="aggregator"} 0
+alligator_process_exit_status {proto="shell", type="aggregator", host="/usr/sbin/apachectl configtest", parser="process"} 0
+alligator_process_term_signal {proto="shell", type="aggregator", host="/usr/sbin/apachectl configtest", parser="process"} 0
 ```
 
 Также полезно проверять статистику процесса, запущенные сервисы и открытые порты:

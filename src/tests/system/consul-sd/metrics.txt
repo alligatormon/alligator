@@ -1,1 +1,1 @@
-alligator_parser_ok {proto="tcp", key="tcp:uwsgi:127.0.0.2:2332", type="aggregator", host="127.0.0.2", parser="uwsgi", name="web"} 0
+alligator_parser_ok {proto="tcp", type="aggregator", host="127.0.0.2", parser="uwsgi", name="web"} 0

@@ -42,7 +42,7 @@ static void resolver_closed_tcp(uv_handle_t *handle)
 	carg->close_time_finish = setrtime();
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-	metric_add_labels5("alligator_parser_ok", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	alligator_parser_ok_set(carg, carg->parsed, "tcp", carg->host);
 
 	carg->lock = 0;
 	string_null(carg->full_body);
@@ -181,7 +181,7 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 	if (status < 0)
 	{
 		ok = 0;
-		metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		alligator_session_connect_ok_set(carg, ok);
 		carg->lock = 0;
 		if (carg->tt_timer) {
 			uv_timer_stop(carg->tt_timer);
@@ -192,7 +192,7 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 		return;
 	}
 
-	metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	alligator_session_connect_ok_set(carg, ok);
 
 	carg->write_time = setrtime();
 
