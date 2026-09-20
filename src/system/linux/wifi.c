@@ -246,7 +246,7 @@ void wifi_parse_dump(const char *buf, size_t size)
 		const char *nl = memchr(p, '\n', (size_t)(end - p));
 		size_t linelen = nl ? (size_t)(nl - p) : (size_t)(end - p);
 		char line[1024];
-		char *cols[16];
+		char *cols[16] = {0};
 		int ncol = 0;
 		char *save;
 

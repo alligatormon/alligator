@@ -424,11 +424,17 @@ deploy_debian11:
     DEBIAN_FRONTEND: noninteractive
     TZ: Etc/UTC
   script:
-  # Debian 11 LTS ended 2026-08-31; packages moved to archive.debian.org
+  # Debian 11 LTS ended 2026-08-31; archive.debian.org has no bullseye-security,
+  # which breaks apt against images with late LTS packages. Pin a consistent snapshot.
   - |
-    sed -i 's|deb.debian.org|archive.debian.org|g; s|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
+    SNAP=20260830T000000Z
+    cat > /etc/apt/sources.list <<EOF
+    deb http://snapshot.debian.org/archive/debian/${SNAP}/ bullseye main
+    deb http://snapshot.debian.org/archive/debian-security/${SNAP}/ bullseye-security main
+    deb http://snapshot.debian.org/archive/debian/${SNAP}/ bullseye-updates main
+    EOF
     echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid
-    sed -i '/bullseye-security/d;/debian-security/d' /etc/apt/sources.list || true
+    echo 'Acquire::Retries "3";' >> /etc/apt/apt.conf.d/99no-check-valid
   - apt-get update
   - apt-get -y install git cmake make libtool rake python3-pip gcc g++ libsystemd-dev libudev-dev clang curl wget libyaml-0-2 pkg-config libvirt-dev smartmontools
   - apt-get -y install --only-upgrade m4
