@@ -276,7 +276,26 @@ Available values:
 - false
 - only
 
-Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the global file aggregator scheduler (`file_aggregator_repeat`). With `notify=false` (default), new file bytes are picked up on each global file crawl tick (`file_aggregator_repeat` in `system` config, default 10s); all pending lines since the last saved offset are read in one batch per tick and forwarded line by line. Do not confuse global `file_aggregator_repeat` with per-aggregate `period` (a separate per-file timer).
+Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the global file aggregator scheduler (`file_aggregator_repeat`). With `notify=false` (default), new file bytes are discovered on each global file crawl tick (`file_aggregator_repeat` in `system` config, default 10s). Do not confuse global `file_aggregator_repeat` with per-aggregate `period` (a separate per-file timer).
+
+### How catch-up works (directory globs)
+
+Each physical read is capped at about 1 MB. When more bytes remain (`offset < size`), that file’s `read_dirty` flag stays set and the path is recorded in a **per-aggregate pending set**. An idle drain starts **at most one** open→read→close chain per turn and **round-robins** across dirty files so one hot log cannot starve siblings. Re-notify / re-crawl while a path is already pending is a no-op (flag, not an unbounded queue).
+
+On a live log, EOF keeps moving; alligator follows in bounded slices and yields to the event loop between chunks. Metric `alligator_filetailer_lag_bytes{path=…}` is `size - offset` after each close (capacity signal when the writer outruns the parser).
+
+**Ops tip for hot logs:** prefer a dedicated aggregate for the hottest file (own carg / own pending set), e.g. `embeds.rambler.ru.log`, instead of only `file:///spool/logs/nginx/*log`. Optional `notify=true` on that single-file aggregate cuts discovery latency; it is not required once catch-up is fair and crawl ≤10s.
+
+```
+# Hot file alone (recommended on busy fronts)
+aggregate {
+    mtail 'file:///spool/logs/nginx/embeds.rambler.ru.log' name=nginx_json state=stream;
+}
+# Remainder of the directory
+aggregate {
+    mtail 'file:///spool/logs/nginx/*log' name=nginx_json state=stream;
+}
+```
 
 
 ## state

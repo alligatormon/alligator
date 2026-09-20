@@ -1,6 +1,7 @@
 #include "events/context_arg.h"
 #include "events/tls.h"
 #include "events/proxy.h"
+#include "events/filetailer.h"
 #include "dstructures/uv_cache.h"
 #include "probe/probe.h"
 #include "main.h"
@@ -77,7 +78,8 @@ context_arg *carg_copy(context_arg *src)
 	carg->amtail_touch_seq = 0;
 	carg->amtail_last_ttl_refresh_sec = 0;
 	carg->filetailer_restart_idle_active = 0;
-	carg->filetailer_restart_path[0] = '\0';
+	carg->filetailer_pending = NULL;
+	carg->filetailer_rr_after[0] = '\0';
 	carg->entrypoint_read_metric_last_push_sec = 0;
 	carg->http_idle_timer = NULL;
 	carg->http_idle_timer_active = 0;
@@ -555,6 +557,7 @@ void carg_free(context_arg *carg)
 	alligator_ht_forfree(carg->auth_basic, http_auth_foreach_free);
 	alligator_ht_forfree(carg->auth_bearer, http_auth_foreach_free);
 	alligator_ht_forfree(carg->auth_other, http_auth_foreach_free);
+	filetailer_pending_free(carg);
 
 	patricia_free(carg->net_tree_acl);
 	patricia_free(carg->net6_tree_acl);

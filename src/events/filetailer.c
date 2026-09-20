@@ -17,6 +17,7 @@
 #include "common/aggregator.h"
 #include "events/metrics.h"
 #include "dstructures/ht.h"
+#include "metric/labels.h"
 extern aconf* ac;
 void filetailer_on_read(uv_fs_t *req);
 void file_on_open(uv_fs_t *req);
@@ -173,7 +174,8 @@ static uint8_t filetailer_is_parser_read(context_arg *carg)
 	return filetailer_wants_content_read(carg) && !carg->checksum && !carg->calc_lines;
 }
 
-/* returns 1 when the chain has to be restarted (new events arrived while it was running) */
+/* returns 1 when the chain has to be restarted (new events arrived while it was running).
+ * read_dirty stays set until filetailer_start_chain begins for that path. */
 static uint8_t filetailer_gate_release(context_arg *carg, const char *pathname, uint8_t allow_restart)
 {
 	if (!filetailer_is_parser_read(carg))
@@ -184,13 +186,158 @@ static uint8_t filetailer_gate_release(context_arg *carg, const char *pathname, 
 		return 0;
 
 	fstat->read_inflight = 0;
-	if (fstat->read_dirty)
-	{
-		fstat->read_dirty = 0;
-		return allow_restart;
-	}
+	if (fstat->read_dirty && allow_restart)
+		return 1;
 
 	return 0;
+}
+
+typedef struct filetailer_pending_entry {
+	char *path;
+	alligator_ht_node node;
+} filetailer_pending_entry;
+
+static int filetailer_pending_compare(const void *arg, const void *obj)
+{
+	const char *s1 = (const char *)arg;
+	const char *s2 = ((const filetailer_pending_entry *)obj)->path;
+	return strcmp(s1, s2);
+}
+
+static void filetailer_pending_entry_free(void *arg)
+{
+	filetailer_pending_entry *e = arg;
+	if (!e)
+		return;
+	free(e->path);
+	free(e);
+}
+
+void filetailer_pending_free(context_arg *carg)
+{
+	if (!carg || !carg->filetailer_pending)
+		return;
+	alligator_ht_foreach(carg->filetailer_pending, filetailer_pending_entry_free);
+	alligator_ht_done(carg->filetailer_pending);
+	free(carg->filetailer_pending);
+	carg->filetailer_pending = NULL;
+	carg->filetailer_rr_after[0] = '\0';
+}
+
+size_t filetailer_pending_count(context_arg *carg)
+{
+	if (!carg || !carg->filetailer_pending)
+		return 0;
+	return alligator_ht_count(carg->filetailer_pending);
+}
+
+void filetailer_pending_add(context_arg *carg, const char *pathname)
+{
+	filetailer_pending_entry *e;
+	uint32_t key_hash;
+
+	if (!carg || !pathname || !pathname[0])
+		return;
+
+	if (!carg->filetailer_pending)
+		carg->filetailer_pending = alligator_ht_init(NULL);
+	if (!carg->filetailer_pending)
+		return;
+
+	key_hash = tommy_strhash_u32(0, pathname);
+	e = alligator_ht_search(carg->filetailer_pending, filetailer_pending_compare, pathname, key_hash);
+	if (e)
+		return;
+
+	e = calloc(1, sizeof(*e));
+	if (!e)
+		return;
+	e->path = strdup(pathname);
+	if (!e->path) {
+		free(e);
+		return;
+	}
+	alligator_ht_insert(carg->filetailer_pending, &e->node, e, key_hash);
+}
+
+typedef struct filetailer_pick_ctx {
+	context_arg *carg;
+	filetailer_pending_entry *first;
+	filetailer_pending_entry *after;
+	int seen_rr;
+} filetailer_pick_ctx;
+
+static void filetailer_pending_pick_foreach(void *funcarg, void *arg)
+{
+	filetailer_pick_ctx *ctx = funcarg;
+	filetailer_pending_entry *e = arg;
+	file_stat *fst;
+
+	if (!ctx || !e || !e->path || !ctx->carg)
+		return;
+
+	fst = file_stat_get_or_create(ac->file_stat, e->path, ctx->carg->state);
+	if (!fst || !fst->read_dirty || fst->read_inflight)
+		return;
+
+	if (!ctx->first)
+		ctx->first = e;
+
+	if (ctx->carg->filetailer_rr_after[0] &&
+	    strcmp(e->path, ctx->carg->filetailer_rr_after) == 0) {
+		ctx->seen_rr = 1;
+		return;
+	}
+
+	if (ctx->carg->filetailer_rr_after[0] && !ctx->seen_rr)
+		return;
+
+	if (!ctx->after)
+		ctx->after = e;
+}
+
+char *filetailer_pending_pick_next(context_arg *carg)
+{
+	filetailer_pick_ctx ctx = {0};
+	filetailer_pending_entry *pick;
+
+	if (!carg || !carg->filetailer_pending || !ac || !ac->file_stat)
+		return NULL;
+
+	ctx.carg = carg;
+	alligator_ht_foreach_arg(carg->filetailer_pending, filetailer_pending_pick_foreach, &ctx);
+	pick = ctx.after ? ctx.after : ctx.first;
+	if (!pick || !pick->path)
+		return NULL;
+
+	strlcpy(carg->filetailer_rr_after, pick->path, sizeof(carg->filetailer_rr_after));
+	return strdup(pick->path);
+}
+
+static void filetailer_pending_remove(context_arg *carg, const char *pathname)
+{
+	filetailer_pending_entry *e;
+	uint32_t key_hash;
+
+	if (!carg || !carg->filetailer_pending || !pathname || !pathname[0])
+		return;
+
+	key_hash = tommy_strhash_u32(0, pathname);
+	e = alligator_ht_remove(carg->filetailer_pending, filetailer_pending_compare, pathname, key_hash);
+	if (e)
+		filetailer_pending_entry_free(e);
+}
+
+static int filetailer_pending_has_runnable(context_arg *carg)
+{
+	filetailer_pick_ctx ctx = {0};
+
+	if (!carg || !carg->filetailer_pending || !ac || !ac->file_stat)
+		return 0;
+
+	ctx.carg = carg;
+	alligator_ht_foreach_arg(carg->filetailer_pending, filetailer_pending_pick_foreach, &ctx);
+	return ctx.first != NULL;
 }
 
 static void filetailer_release_open_fd(context_arg *carg, file_handle *fh, int fd)
@@ -203,7 +350,7 @@ static void filetailer_release_open_fd(context_arg *carg, file_handle *fh, int f
 }
 
 /* Periodic crawl (file_aggregator_repeat) or inotify: read new bytes when present.
- * Offset-tracked reads chain until EOF so one poll tick can batch many lines. */
+ * Offset-tracked reads chain via per-file read_dirty + fair idle drain (≤1 chain/turn). */
 static void filetailer_schedule_content_read_sz(context_arg *carg, const char *pathname, uint64_t filesize)
 {
 	file_stat *fst;
@@ -218,6 +365,7 @@ static void filetailer_schedule_content_read_sz(context_arg *carg, const char *p
 		if (fst) {
 			if (fst->read_inflight) {
 				fst->read_dirty = 1;
+				filetailer_pending_add(carg, pathname);
 				return;
 			}
 			file_stat_offset_for_read(fst, carg->state);
@@ -247,27 +395,37 @@ static void filetailer_mark_more_data(context_arg *carg, const char *pathname)
 	file_stat *fstat = file_stat_get_or_create(ac->file_stat, pathname, carg->state);
 	if (fstat)
 		fstat->read_dirty = 1;
+	filetailer_pending_add(carg, pathname);
 }
+
+static void filetailer_arm_restart_idle(context_arg *carg);
 
 static void filetailer_restart_idle_cb(uv_idle_t *handle)
 {
 	context_arg *carg = handle->data;
+	char *path;
+
 	if (!carg || alligator_stop_requested() || carg->lock)
 		return;
 
 	carg->filetailer_restart_idle_active = 0;
 	uv_idle_stop(handle);
 
-	if (carg->filetailer_restart_path[0])
-		filetailer_start_chain(carg, carg->filetailer_restart_path);
+	/* Fair budget: at most one open→read→close chain per idle turn. */
+	path = filetailer_pending_pick_next(carg);
+	if (path) {
+		filetailer_start_chain(carg, path);
+		free(path);
+	}
+
+	if (filetailer_pending_has_runnable(carg))
+		filetailer_arm_restart_idle(carg);
 }
 
-static void filetailer_schedule_restart(context_arg *carg, const char *pathname)
+static void filetailer_arm_restart_idle(context_arg *carg)
 {
-	if (!carg || !pathname || !pathname[0] || alligator_stop_requested() || carg->lock)
+	if (!carg || alligator_stop_requested() || carg->lock)
 		return;
-
-	strlcpy(carg->filetailer_restart_path, pathname, sizeof(carg->filetailer_restart_path));
 
 	if (carg->filetailer_restart_idle_active)
 		return;
@@ -278,6 +436,15 @@ static void filetailer_schedule_restart(context_arg *carg, const char *pathname)
 	carg->filetailer_restart_idle.data = carg;
 	carg->filetailer_restart_idle_active = 1;
 	uv_idle_start(&carg->filetailer_restart_idle, filetailer_restart_idle_cb);
+}
+
+static void filetailer_schedule_restart(context_arg *carg, const char *pathname)
+{
+	if (!carg || !pathname || !pathname[0] || alligator_stop_requested() || carg->lock)
+		return;
+
+	filetailer_pending_add(carg, pathname);
+	filetailer_arm_restart_idle(carg);
 }
 
 static uint64_t filetailer_sync_offset_from_fd(context_arg *carg, const char *pathname, int fd)
@@ -327,18 +494,24 @@ void filetailer_start_chain(context_arg *carg, const char *pathname)
 			if (fstat->read_inflight)
 			{
 				fstat->read_dirty = 1;
+				filetailer_pending_add(carg, pathname);
 				return;
 			}
 			fstat->read_inflight = 1;
 			fstat->read_dirty = 0;
+			filetailer_pending_remove(carg, pathname);
 		}
 	}
 
 	file_handle *fh = file_handler_struct_init(carg);
 	if (!fh)
 	{
-		if (fstat)
+		if (fstat) {
 			fstat->read_inflight = 0;
+			fstat->read_dirty = 1;
+			filetailer_pending_add(carg, pathname);
+			filetailer_arm_restart_idle(carg);
+		}
 		return;
 	}
 
@@ -364,11 +537,23 @@ void filetailer_close(uv_fs_t *req) {
 
 	(carg->close_counter)++;
 	{
+		file_stat *fst = file_stat_get_or_create(ac->file_stat, pathname, carg->state);
+		uint64_t filesize = get_file_size(pathname);
+		uint64_t lag = 0;
 		alligator_ht *lbl = alligator_event_labels(carg, "file", "aggregator", carg->host);
 		alligator_event_metric("alligator_filetailer_opens_total", &carg->open_counter, DATATYPE_UINT, carg, lbl);
 		alligator_event_metric("alligator_session_closes_total", &carg->close_counter, DATATYPE_UINT, carg, lbl);
 		alligator_event_metric("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, lbl);
 		alligator_event_metric("alligator_session_read_bytes_total", &carg->read_bytes_counter, DATATYPE_UINT, carg, lbl);
+		if (fst && filesize > fst->offset)
+			lag = filesize - fst->offset;
+		{
+			alligator_ht *plbl = alligator_event_labels(carg, "file", "aggregator", carg->host);
+			if (plbl)
+				labels_hash_insert_nocache(plbl, "path", (char *)pathname);
+			alligator_event_metric("alligator_filetailer_lag_bytes", &lag, DATATYPE_UINT, carg, plbl);
+			labels_hash_free(plbl);
+		}
 		labels_hash_free(lbl);
 	}
 

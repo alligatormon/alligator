@@ -379,7 +379,12 @@ struct context_arg
 	void *vrl_stream;
 	uv_idle_t filetailer_restart_idle;
 	uint8_t filetailer_restart_idle_active;
-	char filetailer_restart_path[1024];
+	/* Paths with read_dirty that need another open→read→close (directory
+	 * aggregates). Replaces the old single filetailer_restart_path which
+	 * lost catch-up when sibling files overwrote the slot. */
+	alligator_ht *filetailer_pending;
+	/* Last path started by the fair idle drain (round-robin cursor). */
+	char filetailer_rr_after[1024];
 	uint8_t remove_from_hash; // enable if deleting 1 object
 
 	char *url;

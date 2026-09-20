@@ -35,8 +35,7 @@ void filestat_read_callback(char *buf, size_t len, void *data, char *filename);
 void *file_handler_struct_init(context_arg *carg);
 void file_handler_struct_free(void *fh);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
-void filetailer_apply_path_glob(context_arg *carg);
-uint8_t filetailer_wants_content_read(context_arg *carg);
+#include "events/filetailer.h"
 char* unix_tcp_client(context_arg* carg);
 void unix_tcp_client_del(context_arg *carg);
 void tcp_client_del(context_arg *carg);
@@ -1010,6 +1009,61 @@ static void test_filetailer_helpers_paths(void)
         file_stat_get_offset(ac->file_stat, "/tmp/c.log", FILESTAT_STATE_SAVE));
 
     free(buf);
+    file_stat_free(ac->file_stat);
+    ac->file_stat = saved_file_stat;
+}
+
+/* Multi-file catch-up: pending set keeps both paths (no single-slot overwrite),
+ * round-robin pick yields between files, and duplicate add does not grow. */
+static void test_filetailer_pending_multifile_catchup(void)
+{
+    alligator_ht *saved_file_stat = ac->file_stat;
+    context_arg carg = {0};
+    file_stat *fa;
+    file_stat *fb;
+    char *p1;
+    char *p2;
+    char *p3;
+
+    ac->file_stat = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->file_stat);
+
+    fa = file_stat_get_or_create(ac->file_stat, "/tmp/a.log", FILESTAT_STATE_STREAM);
+    fb = file_stat_get_or_create(ac->file_stat, "/tmp/b.log", FILESTAT_STATE_STREAM);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fa);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fb);
+    fa->read_dirty = 1;
+    fb->read_dirty = 1;
+    fa->read_inflight = 0;
+    fb->read_inflight = 0;
+
+    filetailer_pending_add(&carg, "/tmp/a.log");
+    filetailer_pending_add(&carg, "/tmp/b.log");
+    filetailer_pending_add(&carg, "/tmp/a.log"); /* idempotent */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)filetailer_pending_count(&carg));
+
+    p1 = filetailer_pending_pick_next(&carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p1);
+    p2 = filetailer_pending_pick_next(&carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(p1, p2) != 0);
+
+    /* Growing-EOF fairness: while A is in-flight, pick must yield B. */
+    if (!strcmp(p1, "/tmp/a.log"))
+        fa->read_inflight = 1;
+    else
+        fb->read_inflight = 1;
+    p3 = filetailer_pending_pick_next(&carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p3);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(p3, p1) != 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, p2, p3);
+
+    free(p1);
+    free(p2);
+    free(p3);
+    filetailer_pending_free(&carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)filetailer_pending_count(&carg));
+
     file_stat_free(ac->file_stat);
     ac->file_stat = saved_file_stat;
 }
@@ -3039,6 +3093,7 @@ static void run_helpers_and_events_suites(void)
     test_serializer_datatypes_outputs();
     test_filestat_restore_v1_paths();
     test_filetailer_helpers_paths();
+    test_filetailer_pending_multifile_catchup();
     test_client_registry_paths();
     test_metric_str_build_named_namespaces();
     test_metric_str_build_default_namespace();

@@ -278,7 +278,15 @@ aggregate {
 - false
 - only
 
-Включает механизмы inotify для отслеживания изменений файлов в каталоге. При `only` директива запускает чтение файлов только по уведомлениям и отключает глобальный планировщик file aggregator (`file_aggregator_repeat`). При `notify=false` (по умолчанию) новые байты файла подхватываются на каждом глобальном tick crawl файлов (`file_aggregator_repeat` в конфиге `system`, по умолчанию 10s); все pending-строки с последнего сохранённого offset читаются одним batch за tick и передаются построчно. Не путайте глобальный `file_aggregator_repeat` с per-aggregate `period` (отдельный таймер на файл).
+Включает механизмы inotify для отслеживания изменений файлов в каталоге. При `only` директива запускает чтение файлов только по уведомлениям и отключает глобальный планировщик file aggregator (`file_aggregator_repeat`). При `notify=false` (по умолчанию) новые байты файла обнаруживаются на каждом глобальном tick crawl файлов (`file_aggregator_repeat` в конфиге `system`, по умолчанию 10s). Не путайте глобальный `file_aggregator_repeat` с per-aggregate `period` (отдельный таймер на файл).
+
+### Как работает catch-up (glob по каталогу)
+
+Каждое физическое чтение ограничено примерно 1 МБ. Если байты ещё остались (`offset < size`), у файла остаётся флаг `read_dirty`, а путь попадает в **per-aggregate pending set**. Idle-drain за один turn запускает **не более одной** цепочки open→read→close и идёт **round-robin** по dirty-файлам, чтобы горячий лог не голодал соседей. Повторный notify/crawl при уже pending пути — no-op (флаг, а не безразмерная очередь).
+
+На живом логе EOF всё время двигается; alligator догоняет ограниченными порциями и отдаёт управление event loop между чанками. Метрика `alligator_filetailer_lag_bytes{path=…}` — `size - offset` после каждого close (сигнал о нехватке CPU/парсера).
+
+**Ops:** для горячих логов лучше отдельный aggregate на самый нагруженный файл (свой carg), например `embeds.rambler.ru.log`, а не только `file:///spool/logs/nginx/*log`. Опционально `notify=true` на таком single-file aggregate.
 
 
 ## state
