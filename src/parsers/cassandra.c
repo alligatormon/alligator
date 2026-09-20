@@ -391,16 +391,16 @@ void cassandra_run(void* arg) {
 	context_arg *carg = arg;
 	cassandra_data *data = carg->data;
 
-	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
-	namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status.");
+	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "Alligator parser status.");
 
 	if (!cassandra2_start_connect(&data->conn, carg)) {
-		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
-		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+		metric_add_labels5("alligator_session_connect_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+		metric_add_labels5("alligator_parser_ok", &unval, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok_total", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+	metric_add_labels5("alligator_session_connect_ok", &val, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
 	carg->parser_status = 1;
 
 	if (carg->running)
@@ -417,7 +417,7 @@ void cassandra_run(void* arg) {
 		return;
 	}
 	pthread_detach(th);
-	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
+	metric_add_labels5("alligator_parser_ok", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "cassandra");
 }
 
 void cassandra_timer(uv_timer_t* handle) {

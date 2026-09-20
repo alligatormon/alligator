@@ -16,6 +16,7 @@
 #include <math.h>
 #include "parsers/mongodb_wire_bson.h"
 #include "parsers/kafka.h"
+#include "parsers/postgresql.h"
 #include "events/kafka_consumer.h"
 #include "resolver/dns.h"
 #include "resolver/resolver.h"
@@ -3594,4 +3595,38 @@ void api_test_kafka_consumer_split_query()
         kafka_consumer_split_query(NULL, &topic, &opts));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1,
         kafka_consumer_split_query("?group.id=x", &topic, &opts));
+}
+
+void api_test_postgresql_error_reason()
+{
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "route_not_found",
+        postgresql_error_reason(
+            "connection to server at \"0node0028.db.rambler.tech\" (10.128.7.14), port 9000 failed:\n"
+            "ERROR:  odyssey: c088a0a325c57: route for 'adblock_stage....' is not found"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "backend_connect_failed",
+        postgresql_error_reason("failed to connect to remote server s1abc01234567"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pool_size_reached",
+        postgresql_error_reason("too many active clients for user (pool_size for user a.b reached 10)"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "database_missing",
+        postgresql_error_reason("no such database: foo"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "auth_failed",
+        postgresql_error_reason("password authentication failed"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "too_many_connections",
+        postgresql_error_reason("Sorry, too many clients already"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "all_backends_down",
+        postgresql_error_reason("all backend nodes are down, pgpool requires at least one valid node"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "connection_refused",
+        postgresql_error_reason("connection to server at \"x\" (1.2.3.4), port 5432 failed: Connection refused"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "timeout",
+        postgresql_error_reason("timeout expired"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "auth_failed",
+        postgresql_error_reason("password authentication failed for user \"u\""));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hba_rejected",
+        postgresql_error_reason("no pg_hba.conf entry for host \"1.2.3.4\", user \"u\", database \"d\", no encryption"));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "unknown",
+        postgresql_error_reason(""));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "unknown",
+        postgresql_error_reason(NULL));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "other",
+        postgresql_error_reason("ERROR:  syntax error at or near \"SELCT\""));
 }

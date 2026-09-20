@@ -1,66 +1,66 @@
-alligator_close_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_close_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_close_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_connect_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_connect_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_connect_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_connect_ok_total {proto="tcp",  type="aggregator", host="yandex.ru", parser="tcp"}
-alligator_connect_ok_total {proto="tcp",  type="aggregator", host="google.com", parser="tcp"}
-alligator_connect_ok_total {proto="tcp",  type="aggregator", host="ya.ru", parser="tcp"}
-alligator_connect_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_connect_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_connect_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_execute_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_execute_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_execute_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_parser_status {proto="tcp",  type="aggregator", host="yandex.ru", parser="tcp"}
-alligator_parser_status {proto="tcp",  type="aggregator", host="google.com", parser="tcp"}
-alligator_parser_status {proto="tcp",  type="aggregator", host="ya.ru", parser="tcp"}
-alligator_read_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_read_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_read_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_read_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_read_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_read_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_read_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_read_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_read_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_shutdown_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_shutdown_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_shutdown_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_timeout_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_timeout_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_timeout_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_connect_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_tls_connect_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_tls_connect_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_tls_init_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_tls_init_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_tls_init_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_read_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_tls_read_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_tls_read_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_read_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_tls_read_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_tls_read_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_read_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_tls_read_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_tls_read_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_tls_write_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_tls_write_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_tls_write_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_write_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_tls_write_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_tls_write_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_tls_write_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_tls_write_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_tls_write_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
-alligator_write_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_write_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_write_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_write_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
-alligator_write_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
-alligator_write_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
-alligator_write_duration_microseconds {proto="tcp", type="aggregator", host="google.com"}
-alligator_write_duration_microseconds {proto="tcp", type="aggregator", host="ya.ru"}
-alligator_write_duration_microseconds {proto="tcp", type="aggregator", host="yandex.ru"}
+alligator_session_closes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_closes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_closes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_connects_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_connects_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_connects_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_connect_ok {proto="tcp",  type="aggregator", host="yandex.ru", parser="tcp"}
+alligator_session_connect_ok {proto="tcp",  type="aggregator", host="google.com", parser="tcp"}
+alligator_session_connect_ok {proto="tcp",  type="aggregator", host="ya.ru", parser="tcp"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="connect"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="connect"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="connect"}
+alligator_parser_duration_seconds {proto="tcp", type="aggregator", host="google.com"}
+alligator_parser_duration_seconds {proto="tcp", type="aggregator", host="ya.ru"}
+alligator_parser_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru"}
+alligator_parser_ok {proto="tcp",  type="aggregator", host="yandex.ru", parser="tcp"}
+alligator_parser_ok {proto="tcp",  type="aggregator", host="google.com", parser="tcp"}
+alligator_parser_ok {proto="tcp",  type="aggregator", host="ya.ru", parser="tcp"}
+alligator_session_reads_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_reads_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_reads_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_read_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_read_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_read_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="read"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="read"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="read"}
+alligator_session_shutdowns_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_shutdowns_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_shutdowns_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_timeouts_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_timeouts_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_timeouts_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="tls_handshake"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="tls_handshake"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="tls_handshake"}
+alligator_session_tls_handshakes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_tls_handshakes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_tls_handshakes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_tls_reads_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_tls_reads_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_tls_reads_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_tls_read_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_tls_read_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_tls_read_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="tls_read"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="tls_read"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="tls_read"}
+alligator_session_tls_writes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_tls_writes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_tls_writes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_tls_written_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_tls_written_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_tls_written_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="tls_write"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="tls_write"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="tls_write"}
+alligator_session_writes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_writes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_writes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_written_bytes_total {proto="tcp",  type="aggregator", host="yandex.ru"}
+alligator_session_written_bytes_total {proto="tcp",  type="aggregator", host="google.com"}
+alligator_session_written_bytes_total {proto="tcp",  type="aggregator", host="ya.ru"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="google.com", stage="write"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="ya.ru", stage="write"}
+alligator_session_duration_seconds {proto="tcp", type="aggregator", host="yandex.ru", stage="write"}

@@ -400,19 +400,19 @@ void mysql_run(void* arg)
 	/* Start connect on loop thread, run await in worker thread */
 	if (!mysql2_start_connect(&data->conn, carg)) {
 		carglog(carg, L_DEBUG, "go away from mysql_run\n");
-		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
-		namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status flag.");
-		metric_add_labels5("alligator_connect_ok_total", &unval, DATATYPE_UINT, carg,
+		namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+		namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
+		metric_add_labels5("alligator_session_connect_ok", &unval, DATATYPE_UINT, carg,
 						   "proto", "tcp", "type", "aggregator",
 						   "host", carg->host, "key", carg->key, "parser", "mysql");
-		metric_add_labels5("alligator_parser_status", &unval, DATATYPE_UINT, carg,
+		metric_add_labels5("alligator_parser_ok", &unval, DATATYPE_UINT, carg,
 						   "proto", "tcp", "type", "aggregator",
 						   "host", carg->host, "key", carg->key, "parser", "mysql");
 		return;
 	}
 
-	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
-	metric_add_labels5("alligator_connect_ok_total", &val, DATATYPE_UINT, carg,
+	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+	metric_add_labels5("alligator_session_connect_ok", &val, DATATYPE_UINT, carg,
 					   "proto", "tcp", "type", "aggregator",
 					   "host", carg->host, "key", carg->key, "parser", "mysql");
 	carg->parser_status = 1;
@@ -432,8 +432,8 @@ void mysql_run(void* arg)
 	}
 	pthread_detach(th);
 
-	namespace_metric_family_set(NULL, carg, "alligator_parser_status", METRIC_TYPE_GAUGE, "Alligator parser status flag.");
-	metric_add_labels5("alligator_parser_status", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
+	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
+	metric_add_labels5("alligator_parser_ok", &carg->parser_status, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mysql");
 }
 
 

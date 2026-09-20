@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <errno.h>
 #include <libpq-fe.h>
 #include <sys/stat.h>
@@ -210,24 +211,297 @@ void postgresql_query_init(PGconn *conn, char *query, query_node *qn, context_ar
 
 }
 
-void postgresql_error_metric(PGconn *conn, context_arg *carg)
+/* strcasestr is not ISO C99; match PQerrorMessage case-insensitively. */
+static const char *pg_strcasestr(const char *haystack, const char *needle)
 {
-	namespace_metric_family_set(NULL, carg, "postgresql_error", METRIC_TYPE_COUNTER, "PostgreSQL error counter by reason.");
+	size_t i, j;
+	size_t hlen, nlen;
 
-	char reason[255];
-	const char *errmsg = (conn && PQerrorMessage(conn)) ? PQerrorMessage(conn) : "unknown_error";
-	const char *carg_name = (carg && carg->name) ? carg->name : "unknown";
-	uint64_t reason_size = strlcpy(reason, errmsg, 255);
-	uint64_t val = 1;
-	prometheus_metric_name_normalizer(reason, reason_size);
-	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg, "name",  (char*)carg_name, "reason", reason);
+	if (!haystack || !needle)
+		return NULL;
+	hlen = strlen(haystack);
+	nlen = strlen(needle);
+	if (!nlen)
+		return haystack;
+	for (i = 0; i + nlen <= hlen; i++)
+	{
+		for (j = 0; j < nlen; j++)
+		{
+			if (tolower((unsigned char)haystack[i + j]) != tolower((unsigned char)needle[j]))
+				break;
+		}
+		if (j == nlen)
+			return haystack + i;
+	}
+	return NULL;
 }
 
-static inline void postgresql_connect_ok_total(context_arg *carg, uint64_t ok)
+static int pg_err_has(const char *errmsg, const char *needle)
 {
-	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator successful backend connection attempts.");
+	return pg_strcasestr(errmsg, needle) != NULL;
+}
 
-	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg,
+static int pg_err_has_any(const char *errmsg, const char *const *needles)
+{
+	size_t i;
+
+	for (i = 0; needles[i]; i++)
+	{
+		if (pg_err_has(errmsg, needles[i]))
+			return 1;
+	}
+	return 0;
+}
+
+const char *postgresql_error_reason(const char *errmsg)
+{
+	static const char *all_backends_down[] = {
+		"all backend nodes are down",
+		"pgpool is not accepting any new connections",
+		NULL
+	};
+	static const char *backend_connect_failed[] = {
+		"failed to connect to remote server",
+		"unable to connect to backend",
+		"failed to create a backend",
+		NULL
+	};
+	static const char *backend_login_failed[] = {
+		"server login failed",
+		"server login has been failing",
+		NULL
+	};
+	static const char *backend_connect_failed_generic[] = {
+		"connect failed",
+		"cannot connect",
+		"server DNS lookup failed",
+		NULL
+	};
+	static const char *hba_rejected[] = {
+		"no pg_hba.conf entry",
+		"pg_hba.conf rejects",
+		"no pool_hba.conf entry",
+		"host based authentication rejected",
+		"host rejected",
+		"login rejected",
+		"unix socket login rejected",
+		NULL
+	};
+	static const char *auth_failed[] = {
+		"password authentication failed",
+		"SASL authentication failed",
+		"authentication failed",
+		"certificate authentication failed",
+		"ldap authentication failed",
+		"PAM authentication failed",
+		"empty password",
+		"no password supplied",
+		"incorrect user",
+		NULL
+	};
+	static const char *pool_size_reached[] = {
+		"too many active clients for user",
+		"pool_size for",
+		NULL
+	};
+	static const char *too_many_connections[] = {
+		"too many client tcp connections",
+		"too many tcp connections",
+		"client connections exceeded",
+		"no more connections allowed",
+		"sorry, too many clients already",
+		"too many connections",
+		"remaining connection slots are reserved",
+		NULL
+	};
+	static const char *idle_in_transaction_timeout[] = {
+		"idle in transaction",
+		"idle-in-transaction",
+		"idle_in_transaction",
+		NULL
+	};
+	static const char *idle_timeout[] = {
+		"idle timeout",
+		"client_idle_timeout",
+		"client_idle_limit",
+		"idle session timeout",
+		NULL
+	};
+	static const char *timeout[] = {
+		"timeout expired",
+		"timed out",
+		"query_wait_timeout",
+		"query_timeout",
+		"client_login_timeout",
+		"connect timeout",
+		"canceling authentication due to timeout",
+		"authentication timeout",
+		NULL
+	};
+	static const char *ssl_required[] = {
+		"SSL is required",
+		"SSL required",
+		"TLS connection required",
+		"server does not support SSL, but SSL was required",
+		NULL
+	};
+	static const char *ssl_error[] = {
+		"TLS startup failed",
+		"server refused SSL",
+		"certificate verify failed",
+		"SSL",
+		NULL
+	};
+	static const char *shutdown[] = {
+		"pooler is shutting down",
+		"Odyssey is gracefully shutting down",
+		"server shutting down",
+		NULL
+	};
+	static const char *system_not_ready[] = {
+		"the database system is starting up",
+		"not accepting connections",
+		"shutting down",
+		"in recovery mode",
+		NULL
+	};
+	static const char *protocol_error[] = {
+		"unsupported frontend protocol",
+		"invalid startup packet",
+		"unexpected message type",
+		"old V2 protocol",
+		NULL
+	};
+	static const char *host_not_found[] = {
+		"could not translate host name",
+		"Name or service not known",
+		NULL
+	};
+	static const char *connection_reset[] = {
+		"Connection reset",
+		"Broken pipe",
+		NULL
+	};
+	static const char *network_unreachable[] = {
+		"No route to host",
+		"Network is unreachable",
+		NULL
+	};
+	static const char *server_closed[] = {
+		"server closed the connection unexpectedly",
+		"SSL SYSCALL error: EOF",
+		NULL
+	};
+	static const char *cannot_reach_server[] = {
+		"connection to server",
+		"could not connect",
+		"connection to server on socket",
+		NULL
+	};
+
+	if (!errmsg || !*errmsg)
+		return "unknown";
+
+	if (pg_err_has(errmsg, "route for") && pg_err_has(errmsg, "is not found"))
+		return "route_not_found";
+	if (pg_err_has(errmsg, "client routing failed"))
+		return "routing_failed";
+	if (pg_err_has(errmsg, "can't find suitable host for tsa"))
+		return "tsa_host_not_found";
+	if (pg_err_has_any(errmsg, all_backends_down))
+		return "all_backends_down";
+	if (pg_err_has(errmsg, "failed to get remote server connection"))
+		return "backend_attach_failed";
+	if (pg_err_has_any(errmsg, backend_connect_failed))
+		return "backend_connect_failed";
+	if (pg_err_has_any(errmsg, backend_login_failed))
+		return "backend_login_failed";
+	if (pg_err_has_any(errmsg, backend_connect_failed_generic))
+		return "backend_connect_failed";
+	if (pg_err_has_any(errmsg, hba_rejected))
+		return "hba_rejected";
+	if (pg_err_has_any(errmsg, auth_failed))
+		return "auth_failed";
+	if (pg_err_has(errmsg, "user blocked"))
+		return "user_blocked";
+	if (pg_err_has_any(errmsg, pool_size_reached))
+		return "pool_size_reached";
+	if (pg_err_has_any(errmsg, too_many_connections))
+		return "too_many_connections";
+	if (pg_err_has_any(errmsg, idle_in_transaction_timeout))
+		return "idle_in_transaction_timeout";
+	if (pg_err_has_any(errmsg, idle_timeout))
+		return "idle_timeout";
+	if (pg_err_has_any(errmsg, timeout))
+		return "timeout";
+	if (pg_err_has(errmsg, "no such database") ||
+	    (pg_err_has(errmsg, "database") && pg_err_has(errmsg, "does not exist")))
+		return "database_missing";
+	if (pg_err_has(errmsg, "database") && pg_err_has(errmsg, "is disabled"))
+		return "database_disabled";
+	if (pg_err_has(errmsg, "no such user") ||
+	    (pg_err_has(errmsg, "role") && pg_err_has(errmsg, "does not exist")))
+		return "role_missing";
+	if (pg_err_has(errmsg, "not permitted to log in"))
+		return "role_cannot_login";
+	if (pg_err_has(errmsg, "permission denied"))
+		return "permission_denied";
+	if (pg_err_has_any(errmsg, ssl_required))
+		return "ssl_required";
+	if (pg_err_has_any(errmsg, server_closed))
+		return "server_closed";
+	if (pg_err_has_any(errmsg, ssl_error))
+		return "ssl_error";
+	if (pg_err_has_any(errmsg, shutdown))
+		return "shutdown";
+	if (pg_err_has_any(errmsg, system_not_ready))
+		return "system_not_ready";
+	if (pg_err_has(errmsg, "soft out of memory"))
+		return "soft_oom";
+	if (pg_err_has(errmsg, "replication lag"))
+		return "replication_lag_rejected";
+	if (pg_err_has_any(errmsg, protocol_error))
+		return "protocol_error";
+	if (pg_err_has_any(errmsg, host_not_found))
+		return "host_not_found";
+	if (pg_err_has(errmsg, "Connection refused"))
+		return "connection_refused";
+	if (pg_err_has_any(errmsg, connection_reset))
+		return "connection_reset";
+	if (pg_err_has_any(errmsg, network_unreachable))
+		return "network_unreachable";
+	if (pg_err_has_any(errmsg, cannot_reach_server))
+		return "cannot_reach_server";
+	return "other";
+}
+
+static void postgresql_error_metric_msg(context_arg *carg, const char *errmsg)
+{
+	const char *reason;
+	const char *carg_name;
+	uint64_t val = 1;
+
+	namespace_metric_family_set(NULL, carg, "postgresql_error", METRIC_TYPE_COUNTER,
+		"PostgreSQL error counter by classified reason.");
+
+	reason = postgresql_error_reason(errmsg);
+	carg_name = (carg && carg->name) ? carg->name : "unknown";
+	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg,
+		"name", (char *)carg_name, "reason", (char *)reason);
+}
+
+void postgresql_error_metric(PGconn *conn, context_arg *carg)
+{
+	const char *errmsg = (conn && PQerrorMessage(conn)) ? PQerrorMessage(conn) : NULL;
+
+	postgresql_error_metric_msg(carg, errmsg);
+}
+
+static inline void postgresql_connect_ok(context_arg *carg, uint64_t ok)
+{
+	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+
+	metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg,
 		"proto", "tcp", "type", "aggregator",
 		"host", carg->host, "key", carg->key, "parser", "postgresql");
 }
@@ -425,7 +699,7 @@ void update_poll_state(context_arg *carg) {
 	if (poll_status != PGRES_POLLING_FAILED && poll_status != PGRES_POLLING_OK) {
 		if (!postgresql_poll_bind(carg)) {
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state rebind failed\"}\n", carg->fd, carg->key);
-			postgresql_connect_ok_total(carg, 0);
+			postgresql_connect_ok(carg, 0);
 			postgresql_error_metric(data->conn, carg);
 			run_close(carg);
 			return;
@@ -451,7 +725,7 @@ void update_poll_state(context_arg *carg) {
 		case PGRES_POLLING_OK:
 			PQsetnonblocking(data->conn, 1);
 			carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update_poll_state\", \"set\": \"connection ok\"}\n", carg->fd, carg->key);
-			postgresql_connect_ok_total(carg, 1);
+			postgresql_connect_ok(carg, 1);
 			carg->parser_status = 1;
 			if (!postgresql_poll_bind(carg)) {
 				run_close(carg);
@@ -462,7 +736,7 @@ void update_poll_state(context_arg *carg) {
 
 		case PGRES_POLLING_FAILED:
 			carg->parser_status = 0;
-			postgresql_connect_ok_total(carg, 0);
+			postgresql_connect_ok(carg, 0);
 			postgresql_error_metric(data->conn, carg);
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"update poll state PGRES_POLLING_FAILED\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
 			run_close(carg);
@@ -541,7 +815,9 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 				return;
 			}
         } else if (res_status == PGRES_FATAL_ERROR) {
-			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PGRES_FATAL_ERROR\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQresultErrorMessage(res));
+			const char *errmsg = PQresultErrorMessage(res);
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PGRES_FATAL_ERROR\", \"function\": \"%s\"}\n", carg->fd, carg->key, errmsg ? errmsg : "");
+			postgresql_error_metric_msg(carg, errmsg);
 			PQclear(res);
 			run_close(carg);
 			return;
@@ -1067,7 +1343,7 @@ void postgresql_run(void* arg)
 
 	if (!conn) {
 		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
-		postgresql_connect_ok_total(carg, 0);
+		postgresql_connect_ok(carg, 0);
 		postgresql_error_metric(conn, carg);
 		return;
 	}
@@ -1076,7 +1352,7 @@ void postgresql_run(void* arg)
 	if (!postgresql_set_params(conn, carg))
 	{
 		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
-		postgresql_connect_ok_total(carg, 0);
+		postgresql_connect_ok(carg, 0);
 		postgresql_error_metric(conn, carg);
 		if (carg->dynamic_socket)
 			run_close(carg);

@@ -362,10 +362,10 @@ void filetailer_close(uv_fs_t *req) {
 	file_handler_struct_free(fh);
 
 	(carg->close_counter)++;
-	metric_add_labels4("alligator_open_total", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_close_total", &carg->close_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_read_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
-	metric_add_labels4("alligator_read_bytes_total", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_filetailer_opens_total", &carg->open_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_session_closes_total", &carg->close_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
+	metric_add_labels4("alligator_session_read_bytes_total", &carg->read_bytes_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "file", "type", "aggregator", "host", carg->host);
 
 
 	if (carg->period)

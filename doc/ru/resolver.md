@@ -35,27 +35,27 @@ aggregate {
 ```
 После этого будут сгенерированы следующие метрики:
 ```
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-aggregator_resolve_address {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
-resolver_read_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53"} 32
-resolver_read_time_mcs_quantile {quantile="0.95", host="udp://8.8.8.8:53"} 68
-resolver_read_time_mcs_quantile {quantile="0.99", host="udp://8.8.8.8:53"} 68
-resolver_response_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53"} 32
-resolver_response_time_mcs_quantile {quantile="0.95", host="udp://8.8.8.8:53"} 68
-resolver_response_time_mcs_quantile {quantile="0.99", host="udp://8.8.8.8:53"} 68
-resolver_write_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53"} 0
-resolver_write_time_mcs_quantile {quantile="0.95", host="udp://8.8.8.8:53"} 0
-resolver_write_time_mcs_quantile {quantile="0.99", host="udp://8.8.8.8:53"} 0
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_rr_info {host="udp://8.8.8.8:53", class="IN", type="A", name="google.com"} 1
+alligator_dns_read_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53"} 0.000032
+alligator_dns_read_duration_seconds {quantile="0.95", host="udp://8.8.8.8:53"} 0.000068
+alligator_dns_read_duration_seconds {quantile="0.99", host="udp://8.8.8.8:53"} 0.000068
+alligator_dns_response_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53"} 0.000032
+alligator_dns_response_duration_seconds {quantile="0.95", host="udp://8.8.8.8:53"} 0.000068
+alligator_dns_response_duration_seconds {quantile="0.99", host="udp://8.8.8.8:53"} 0.000068
+alligator_dns_write_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53"} 0
+alligator_dns_write_duration_seconds {quantile="0.95", host="udp://8.8.8.8:53"} 0
+alligator_dns_write_duration_seconds {quantile="0.99", host="udp://8.8.8.8:53"} 0
 ```
 
 ## Явное указание DNS-сервера
@@ -67,12 +67,12 @@ aggregate {
 }
 ```
 
-Несколько UDP-проверок могут использовать один `bind_address=<port>`: один локальный сокет, ответы разбираются по DNS transaction id и по имени из question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен.
+Несколько UDP-проверок могут использовать один `bind_address=<port>`: один локальный сокет, ответы разбираются по DNS transaction id и по имени из question пакета (метка `name` у `alligator_dns_rr_info`). Отдельный исходный порт на каждый домен не нужен.
 
 Явные проверки `dns udp://... resolve=<domain>` также ставят этот домен на квантили времени resolver:
 
 ```
-resolver_read_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 32
-resolver_response_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 32
-resolver_write_time_mcs_quantile {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 0
+alligator_dns_read_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 0.000032
+alligator_dns_response_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 0.000032
+alligator_dns_write_duration_seconds {quantile="0.90", host="udp://8.8.8.8:53", name="google.com"} 0
 ```

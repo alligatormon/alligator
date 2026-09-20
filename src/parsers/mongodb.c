@@ -203,18 +203,18 @@ static void mongodb_run_single(context_arg *carg)
 
 	if (!mongodb_wire_client_open(&client, carg->url, err, sizeof(err))) {
 		carglog(carg, L_ERROR, "mongodb connect failed: %s\n", err);
-		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
-		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+		namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+		metric_add_labels5("alligator_session_connect_ok", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 	if (!client) {
-		namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
-		metric_add_labels5("alligator_connect_ok_total", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+		namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+		metric_add_labels5("alligator_session_connect_ok", &bad, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 		return;
 	}
 
-	namespace_metric_family_set(NULL, carg, "alligator_connect_ok_total", METRIC_TYPE_COUNTER, "Alligator upstream connectivity status.");
-	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
+	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
+	metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", "mongodb");
 
 	char **dbs = NULL, **cols = NULL;
 	size_t db_count = 0, coll_count = 0;

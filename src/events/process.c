@@ -12,6 +12,7 @@
 #include "parsers/multiparser.h"
 #include "common/logs.h"
 #include "common/stop.h"
+#include "common/rtime.h"
 extern aconf* ac;
 
 static const char *process_shell_path(void)
@@ -344,10 +345,10 @@ static void _on_exit(uv_process_t *req, int64_t exit_status, int term_signal)
 
 	if (!carg->no_metric)
 	{
-		metric_add_labels3("alligator_read_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
+		metric_add_labels3("alligator_session_reads_total", &carg->read_counter, DATATYPE_UINT, carg, "key", carg->key, "proto", "shell", "type", "aggregator");
 
-		uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-		metric_add_labels3("alligator_read_duration_microseconds", &read_time, DATATYPE_UINT, carg, "proto", "shell", "type", "aggregator", "key", carg->key);
+		double read_s = getrtime_mcs_seconds(carg->read_time, carg->read_time_finish);
+		metric_add_labels4("alligator_session_duration_seconds", &read_s, DATATYPE_DOUBLE, carg, "proto", "shell", "type", "aggregator", "key", carg->key, "stage", "read");
 	}
 
 	carg->lock = 0;

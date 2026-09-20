@@ -220,7 +220,7 @@ More information about units that user can specify in configuration can be obtai
 Default: 10 (seconds)\
 Plural: no
 
-Minimum wall-clock interval between updates to `alligator_read_total` and `alligator_read_bytes_total` for stream entrypoints (TCP, TLS, and Unix stream servers) while connections are active, and for UDP entrypoints **without** metric aggregation lock. Counters still increase on every read or datagram; this option only limits how often those series are written to the metric tree. Omitted or zero in JSON uses the default of 10 seconds. UDP listeners with lock continue to flush through `aggregator_events_metric_add` on each datagram as before.
+Minimum wall-clock interval between updates to `alligator_session_reads_total` and `alligator_session_read_bytes_total` for stream entrypoints (TCP, TLS, and Unix stream servers) while connections are active, and for UDP entrypoints **without** metric aggregation lock. Counters still increase on every read or datagram; this option only limits how often those series are written to the metric tree. Omitted or zero in JSON uses the default of 10 seconds. UDP listeners with lock continue to flush through `aggregator_events_metric_add` on each datagram as before.
 
 Plain configuration accepts an integer number of seconds. JSON entrypoints also accept a string or real value parsed like other duration fields (see `mtail_full_export_interval`).
 
@@ -436,7 +436,7 @@ Plural: no\
 Possible values:
 - {number}
 
-Pingloop allows a blackbox handler to ping resource more than once. Last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss` are overwritten each run; `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` accumulate.
+Pingloop allows a blackbox handler to ping resource more than once. Last-burst gauges `alligator_icmp_replies` / `alligator_icmp_losses` are overwritten each run; `alligator_icmp_replies_total`, `alligator_icmp_losses_total`, and `alligator_icmp_echoes_total` accumulate.
 
 
 ## metric_aggregation

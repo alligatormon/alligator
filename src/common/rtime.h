@@ -9,6 +9,10 @@ typedef struct r_time
 
 r_time setrtime();
 uint64_t getrtime_mcs(r_time t1, r_time t2, int debug);
+static inline double getrtime_mcs_seconds(r_time t1, r_time t2)
+{
+	return getrtime_mcs(t1, t2, 0) / 1000000.0;
+}
 uint64_t getrtime_now_ms(r_time t1);
 uint64_t getrtime_elapsed_ms(r_time start, r_time end);
 double getrtime_sec_float(r_time t2, r_time t1);

@@ -561,10 +561,11 @@ static void probe_emit_native_aux(context_arg *carg, probe_node *pn)
 	probe_emit_alias_dbl(carg, "alligator_probe_timeout_seconds", timeout_s, pn);
 	probe_emit_alias_u64(carg, "alligator_probe_ip_protocol", ipproto, pn);
 
-	/* ICMP emits aggregator_resolve_time from icmp_metrics with type=icmp labels. */
+	/* ICMP emits alligator_dns_resolve_duration_seconds from icmp_metrics with type=icmp labels. */
 	if (resolve_us && !(pn && pn->prober == APROTO_ICMP)) {
-		namespace_metric_family_set(NULL, carg, "aggregator_resolve_time", METRIC_TYPE_GAUGE, "DNS resolve duration in microseconds.");
-		probe_emit_alias_u64(carg, "aggregator_resolve_time", resolve_us, pn);
+		double resolve_s = resolve_us / 1000000.0;
+		namespace_metric_family_set(NULL, carg, "alligator_dns_resolve_duration_seconds", METRIC_TYPE_GAUGE, "DNS resolve duration in seconds.");
+		probe_emit_alias_dbl(carg, "alligator_dns_resolve_duration_seconds", resolve_s, pn);
 	}
 }
 

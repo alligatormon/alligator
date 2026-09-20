@@ -91,7 +91,7 @@ aggregate {
 - `bind_address=<ip>` — bind только по локальному IP (порт выбирает ОС)
 - `bind_address=<ip>:<port>` — bind по локальному IP и локальному порту
 
-Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `aggregator_resolve_address`). Отдельный исходный порт на каждый домен не нужен. Квантили времени resolver (`resolver_read_time_mcs_quantile`, `resolver_write_time_mcs_quantile`, `resolver_response_time_mcs_quantile`) тоже несут метку `name` этого домена.
+Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `alligator_dns_rr_info`). Отдельный исходный порт на каждый домен не нужен. Квантили времени resolver (`alligator_dns_read_duration_seconds`, `alligator_dns_write_duration_seconds`, `alligator_dns_response_duration_seconds`) тоже несут метку `name` этого домена.
 
 Например:
 
@@ -303,7 +303,7 @@ aggregate {
 Возможные значения:
 - {number}
 
-Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза. Gauge последнего залпа `aggregator_packet_received` / `aggregator_packet_loss` перезаписываются каждый запуск; `aggregator_packet_received_total`, `aggregator_packet_loss_total` и `aggregator_packet_sent_total` копятся.
+Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза. Gauge последнего залпа `alligator_icmp_replies` / `alligator_icmp_losses` перезаписываются каждый запуск; `alligator_icmp_replies_total`, `alligator_icmp_losses_total` и `alligator_icmp_echoes_total` копятся.
 
 
 ## log\_level

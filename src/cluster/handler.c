@@ -153,9 +153,9 @@ void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *car
 	if (ttl < time_now.sec)
 	{
 		okval = 0;
-		metric_add_labels2("aggregator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
-		metric_add_labels2("aggregator_cluster_primary_ttl", &ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
-		metric_add_labels2("aggregator_cluster_primary_settime", &settime, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+		metric_add_labels2("alligator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+		metric_add_labels2("alligator_cluster_primary_ttl", &ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+		metric_add_labels2("alligator_cluster_primary_settime", &settime, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
 		return;
 	}
 
@@ -172,8 +172,8 @@ void cluster_aggregate_sync_handler(char *metrics, size_t size, context_arg *car
 	else
 		carglog(carg, L_DEBUG, "set old cluster primary %s to %s\n", cn->shared_lock_instance->s, instance);
 
-	metric_add_labels2("aggregator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
-	metric_add_labels2("aggregator_cluster_primary_ttl", &ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
-	metric_add_labels2("aggregator_cluster_primary_settime", &settime, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+	metric_add_labels2("alligator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+	metric_add_labels2("alligator_cluster_primary_ttl", &ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
+	metric_add_labels2("alligator_cluster_primary_settime", &settime, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", cn->name);
 	++cn->update_count;
 }

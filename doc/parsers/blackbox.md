@@ -26,7 +26,7 @@ aggregate {
 }
 ```
 
-ICMP `loop` (or aggregate `pingloop`) overwrites last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss`. Counters `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` accumulate across bursts. Prometheus blackbox_exporter sends one echo and has no packet counters.
+ICMP `loop` (or aggregate `pingloop`) overwrites last-burst gauges `alligator_icmp_replies` / `alligator_icmp_losses`. Counters `alligator_icmp_replies_total`, `alligator_icmp_losses_total`, and `alligator_icmp_echoes_total` accumulate across bursts. Prometheus blackbox_exporter sends one echo and has no packet counters.
 
 Continuous ICMP (smokeping_prober-style) uses `interval` instead of a burst:
 

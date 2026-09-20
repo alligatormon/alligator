@@ -222,7 +222,7 @@ curl -sS -d "restore_test 1" -H "X-Expire-Time: 1d" 127.0.0.1:1111
 По умолчанию: 10 (seconds)\
 Множественное: нет
 
-Минимальный wall-clock интервал между обновлениями `alligator_read_total` и `alligator_read_bytes_total` для stream entrypoints (TCP, TLS и Unix stream servers) при активных подключениях, и для UDP entrypoints **без** metric aggregation lock. Счётчики по-прежнему растут на каждом read или datagram; эта опция только ограничивает, как часто эти series записываются в metric tree. Опущенное или нулевое значение в JSON использует default 10 seconds. UDP listeners с lock по-прежнему сбрасывают через `aggregator_events_metric_add` на каждом datagram.
+Минимальный wall-clock интервал между обновлениями `alligator_session_reads_total` и `alligator_session_read_bytes_total` для stream entrypoints (TCP, TLS и Unix stream servers) при активных подключениях, и для UDP entrypoints **без** metric aggregation lock. Счётчики по-прежнему растут на каждом read или datagram; эта опция только ограничивает, как часто эти series записываются в metric tree. Опущенное или нулевое значение в JSON использует default 10 seconds. UDP listeners с lock по-прежнему сбрасывают через `aggregator_events_metric_add` на каждом datagram.
 
 Plain configuration принимает целое число секунд. JSON entrypoints также принимают string или real value, разбираемые как другие duration fields (см. `mtail_full_export_interval`).
 
@@ -438,7 +438,7 @@ Idle timeout для HTTP keep-alive подключений на stream entrypoin
 Возможные значения:
 - {number}
 
-Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза. Gauge последнего залпа `aggregator_packet_received` / `aggregator_packet_loss` перезаписываются каждый запуск; `aggregator_packet_received_total`, `aggregator_packet_loss_total` и `aggregator_packet_sent_total` копятся.
+Pingloop позволяет blackbox handler'у пинговать ресурс более одного раза. Gauge последнего залпа `alligator_icmp_replies` / `alligator_icmp_losses` перезаписываются каждый запуск; `alligator_icmp_replies_total`, `alligator_icmp_losses_total` и `alligator_icmp_echoes_total` копятся.
 
 
 ## metric_aggregation

@@ -101,7 +101,7 @@ probe {
 }
 ```
 
-`loop` writes last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss` (a healthy `loop 10` stays `10` / `0`). Counters `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` increase by that burst. Prometheus blackbox_exporter has neither: it sends one echo and uses `probe_success`.
+`loop` writes last-burst gauges `alligator_icmp_replies` / `alligator_icmp_losses` (a healthy `loop 10` stays `10` / `0`). Counters `alligator_icmp_replies_total`, `alligator_icmp_losses_total`, and `alligator_icmp_echoes_total` increase by that burst. Prometheus blackbox_exporter has neither: it sends one echo and uses `probe_success`.
 
 HTTPS POST:
 
@@ -226,17 +226,16 @@ Native Alligator names (`alligator_*`, `aggregator_*`, `x509_*`). There is no bl
 | `probe_success` | 1 when the module checks passed (inverted by `negative_test`) |
 | `probe_failed_due_to_regex` | Set when a TCP/HTTP regex expect or body matcher failed |
 | `probe_expect_info` | TCP `query_response` expect step matched |
-| `aggregator_http_code` | HTTP status code |
-| `aggregator_http_body_size_bytes` | HTTP body size |
-| `alligator_*_duration_microseconds` | Connect / TLS / read / write / request stages |
-| `alligator_request_duration_microseconds` | End-to-end request time (connect through close) |
-| `aggregator_resolve_time` | DNS resolve duration in microseconds |
+| `alligator_http_response_status_code` | HTTP status code |
+| `alligator_http_response_body_bytes` | HTTP body size |
+| `alligator_session_duration_seconds` | Session stage duration in seconds (`stage=connect|write|read|tls_handshake|tls_write|tls_read|shutdown|total`) |
+| `alligator_dns_resolve_duration_seconds` | DNS resolve duration in seconds |
 | `alligator_probe_timeout_seconds` | Configured module timeout |
 | `alligator_probe_ip_protocol` | 4 or 6 from the resolved socket / getaddrinfo family |
 | `x509_cert_not_after` | TLS certificate notAfter (Unix seconds) |
 | `alligator_icmp_rtt_seconds` | Last ICMP echo RTT in seconds |
 | `alligator_icmp_reply_hop_limit` | TTL/hop-limit of the last echo reply (`type=icmp`, `host`) |
-| `aggregator_packet_received_ratio` / `aggregator_packet_loss_ratio` | Last-burst reply/loss ratio in **0–1** (not percent) |
+| `alligator_icmp_reply_ratio` / `alligator_icmp_loss_ratio` | Last-burst reply/loss ratio in **0–1** (not percent) |
 
 Continuous ICMP (`interval` on `probe` or `aggregate { blackbox icmp://… interval=… }`) emits a classic histogram `alligator_icmp_response_duration_seconds_{bucket,sum,count}`.
 

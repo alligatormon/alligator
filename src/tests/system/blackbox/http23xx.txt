@@ -1,30 +1,30 @@
-aggregator_http_requests_total {host="r0.ru", code="301", port="80} 
-aggregator_http_headers_size_bytes {host="r0.ru", port="80} 
-aggregator_http_body_size_bytes {host="r0.ru", port="80} 
-aggregator_http_code {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_close_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_connect_ok_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_execute_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_parser_status {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
-alligator_read_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_read_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_request_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_shutdown_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_timeout_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_connect_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_init_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_read_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_tls_write_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
-alligator_write_duration_microseconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_http_requests_total {host="r0.ru", code="301", port="80} 
+alligator_http_response_header_bytes {host="r0.ru", port="80} 
+alligator_http_response_body_bytes {host="r0.ru", port="80} 
+alligator_http_response_status_code {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
+alligator_session_closes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_connects_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="connect"} 
+alligator_session_connect_ok {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
+alligator_parser_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_parser_ok {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", parser="blackbox_null} 
+alligator_session_reads_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_read_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="read"} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="total"} 
+alligator_session_shutdowns_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_timeouts_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="tls_handshake"} 
+alligator_session_tls_handshakes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_tls_reads_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_tls_read_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="tls_read"} 
+alligator_session_tls_writes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_tls_written_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="tls_write"} 
+alligator_session_writes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_written_bytes_total {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator} 
+alligator_session_duration_seconds {host="r0.ru", proto="tcp", key="probe:http_23xx:tcp:blackbox_null:r0.ru:80/", type="aggregator", stage="write"} 
 alligator_http_request_duration_seconds
 alligator_probe_timeout_seconds
 alligator_probe_ip_protocol

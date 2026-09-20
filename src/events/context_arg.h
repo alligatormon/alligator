@@ -211,7 +211,7 @@ struct context_arg
 	uint64_t tls_write_bytes_counter;
 	uint64_t read_bytes_counter;
 	uint64_t tls_read_bytes_counter;
-	/* Minimum seconds between alligator_read_total / alligator_read_bytes_total pushes; 0 = default 10. */
+	/* Minimum seconds between alligator_session_reads_total / alligator_session_read_bytes_total pushes; 0 = default 10. */
 	uint32_t read_metric_interval_sec;
 	uint64_t entrypoint_read_metric_last_push_sec;
 	/* HTTP entrypoint: allow multiple requests per TCP connection. */

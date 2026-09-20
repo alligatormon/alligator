@@ -163,25 +163,24 @@ void icmp_metrics(context_arg *carg)
 
 	carglog(carg, L_INFO, "icmp: summary host=%s success=%"PRIu64" error=%"PRIu64" success_pct=%lf error_pct=%lf resolve_ms=%"PRIu64" read_ms=%"PRIu64" total_ms=%"PRIu64" tries=%"PRIu64"\n", carg->host, carg->sequence_success, carg->sequence_error, success_percent, error_percent, resolve_time, read_time, total_time, carg->pingloop);
 
-	namespace_metric_family_set(NULL, carg, "aggregator_read_time", METRIC_TYPE_GAUGE, "Last ICMP burst read time in microseconds.");
-	namespace_metric_family_set(NULL, carg, "aggregator_resolve_time", METRIC_TYPE_GAUGE, "DNS resolve duration in microseconds.");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_received", METRIC_TYPE_GAUGE, "ICMP echo replies in the last burst.");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_received_ratio", METRIC_TYPE_GAUGE, "ICMP echo reply ratio in the last burst (0–1).");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_loss", METRIC_TYPE_GAUGE, "ICMP echoes lost in the last burst.");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_loss_ratio", METRIC_TYPE_GAUGE, "ICMP echo loss ratio in the last burst (0–1).");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_received_total", METRIC_TYPE_COUNTER, "ICMP echo replies received across bursts.");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_loss_total", METRIC_TYPE_COUNTER, "ICMP echoes lost across bursts.");
-	namespace_metric_family_set(NULL, carg, "aggregator_packet_sent_total", METRIC_TYPE_COUNTER, "ICMP echoes attempted across bursts.");
+	namespace_metric_family_set(NULL, carg, "alligator_dns_resolve_duration_seconds", METRIC_TYPE_GAUGE, "DNS resolve duration in seconds.");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_replies", METRIC_TYPE_GAUGE, "ICMP echo replies in the last burst.");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_reply_ratio", METRIC_TYPE_GAUGE, "ICMP echo reply ratio in the last burst (0–1).");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_losses", METRIC_TYPE_GAUGE, "ICMP echoes lost in the last burst.");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_loss_ratio", METRIC_TYPE_GAUGE, "ICMP echo loss ratio in the last burst (0–1).");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_replies_total", METRIC_TYPE_COUNTER, "ICMP echo replies received across bursts.");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_losses_total", METRIC_TYPE_COUNTER, "ICMP echoes lost across bursts.");
+	namespace_metric_family_set(NULL, carg, "alligator_icmp_echoes_total", METRIC_TYPE_COUNTER, "ICMP echoes attempted across bursts.");
 	namespace_metric_family_set(NULL, carg, "alligator_icmp_rtt_seconds", METRIC_TYPE_GAUGE, "Last ICMP echo round-trip time in seconds.");
 	namespace_metric_family_set(NULL, carg, "alligator_icmp_reply_hop_limit", METRIC_TYPE_GAUGE, "TTL/hop-limit of the last ICMP echo reply.");
 	namespace_metric_family_set(NULL, carg, "probe_success", METRIC_TYPE_GAUGE, "Whether the last ICMP burst met the success percent.");
 
-	metric_add_labels2("aggregator_read_time", &read_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_add_labels2("aggregator_resolve_time", &resolve_time, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_add_labels2("aggregator_packet_received", &carg->sequence_success, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_add_labels2("aggregator_packet_received_ratio", &success_percent, DATATYPE_DOUBLE, carg, "type", "icmp", "host", carg->host);
-	metric_add_labels2("aggregator_packet_loss", &carg->sequence_error, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_add_labels2("aggregator_packet_loss_ratio", &error_percent, DATATYPE_DOUBLE, carg, "type", "icmp", "host", carg->host);
+	double resolve_s = resolve_time / 1000000.0;
+	metric_add_labels2("alligator_dns_resolve_duration_seconds", &resolve_s, DATATYPE_DOUBLE, carg, "type", "icmp", "host", carg->host);
+	metric_add_labels2("alligator_icmp_replies", &carg->sequence_success, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+	metric_add_labels2("alligator_icmp_reply_ratio", &success_percent, DATATYPE_DOUBLE, carg, "type", "icmp", "host", carg->host);
+	metric_add_labels2("alligator_icmp_losses", &carg->sequence_error, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+	metric_add_labels2("alligator_icmp_loss_ratio", &error_percent, DATATYPE_DOUBLE, carg, "type", "icmp", "host", carg->host);
 
 	if (carg->icmp_last_rtt_ms) {
 		double rtt_s = carg->icmp_last_rtt_ms / 1000.0;
@@ -193,9 +192,9 @@ void icmp_metrics(context_arg *carg)
 	}
 
 	uint64_t sent = carg->sequence_success + carg->sequence_error;
-	metric_update_labels2("aggregator_packet_received_total", &carg->sequence_success, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_update_labels2("aggregator_packet_loss_total", &carg->sequence_error, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
-	metric_update_labels2("aggregator_packet_sent_total", &sent, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+	metric_update_labels2("alligator_icmp_replies_total", &carg->sequence_success, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+	metric_update_labels2("alligator_icmp_losses_total", &carg->sequence_error, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+	metric_update_labels2("alligator_icmp_echoes_total", &sent, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
 
 	if (carg->parser_handler == blackbox_null)
 	{
@@ -203,8 +202,8 @@ void icmp_metrics(context_arg *carg)
 		if (success_percent >= carg->pingpercent_success)
 			val = 1;
 		if (carg->icmp_duplicates) {
-			namespace_metric_family_set(NULL, carg, "aggregator_packet_duplicate", METRIC_TYPE_GAUGE, "Duplicate ICMP echo replies in the last burst.");
-			metric_add_labels2("aggregator_packet_duplicate", &carg->icmp_duplicates, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
+			namespace_metric_family_set(NULL, carg, "alligator_icmp_duplicates", METRIC_TYPE_GAUGE, "Duplicate ICMP echo replies in the last burst.");
+			metric_add_labels2("alligator_icmp_duplicates", &carg->icmp_duplicates, DATATYPE_UINT, carg, "type", "icmp", "host", carg->host);
 		}
 		probe_metric_success(carg, val);
 	}

@@ -10,6 +10,7 @@
 #include "main.h"
 #include "common/stop.h"
 #include "metric/percentile_heap.h"
+#include "common/rtime.h"
 
 static void resolver_closed_tcp(uv_handle_t *handle);
 
@@ -41,7 +42,7 @@ static void resolver_closed_tcp(uv_handle_t *handle)
 	carg->close_time_finish = setrtime();
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_parser_ok", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->lock = 0;
 	string_null(carg->full_body);
@@ -116,15 +117,15 @@ void resolver_read_tcp(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 			resolver_data *rd = carg->rd;
 			if (rd)
 			{
-				uint64_t read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-				uint64_t write_time = getrtime_mcs(carg->write_time, carg->write_time_finish, 0);
-				uint64_t response_time = getrtime_mcs(carg->write_time, carg->read_time_finish, 0);
-				heap_insert(rd->read_time, read_time);
-				heap_insert(rd->write_time, write_time);
-				heap_insert(rd->response_time, response_time);
-				calc_percentiles(carg, rd->read_time, NULL, "resolver_read_time_mcs_quantile", rd->labels);
-				calc_percentiles(carg, rd->write_time, NULL, "resolver_write_time_mcs_quantile", rd->labels);
-				calc_percentiles(carg, rd->response_time, NULL, "resolver_response_time_mcs_quantile", rd->labels);
+				double read_s = getrtime_mcs_seconds(carg->read_time, carg->read_time_finish);
+				double write_s = getrtime_mcs_seconds(carg->write_time, carg->write_time_finish);
+				double response_s = getrtime_mcs_seconds(carg->write_time, carg->read_time_finish);
+				heap_insert(rd->read_time, read_s);
+				heap_insert(rd->write_time, write_s);
+				heap_insert(rd->response_time, response_s);
+				calc_percentiles(carg, rd->read_time, NULL, "alligator_dns_read_duration_seconds", rd->labels);
+				calc_percentiles(carg, rd->write_time, NULL, "alligator_dns_write_duration_seconds", rd->labels);
+				calc_percentiles(carg, rd->response_time, NULL, "alligator_dns_response_duration_seconds", rd->labels);
 			}
 
 			if (carg->lock)
@@ -180,7 +181,7 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 	if (status < 0)
 	{
 		ok = 0;
-		metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+		metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 		carg->lock = 0;
 		if (carg->tt_timer) {
 			uv_timer_stop(carg->tt_timer);
@@ -191,7 +192,7 @@ void resolver_connected_tcp(uv_connect_t* req, int status)
 		return;
 	}
 
-	metric_add_labels5("alligator_connect_ok_total", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_session_connect_ok", &ok, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 
 	carg->write_time = setrtime();
 

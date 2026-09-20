@@ -187,9 +187,9 @@ string* cluster_set_sharedlock(char *replica, char *name, void *data)
 		cn->ttl = time_now.sec + 60;
 	}
 
-	metric_add_labels2("aggregator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
-	metric_add_labels2("aggregator_cluster_primary_ttl", &cn->ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
-	metric_add_labels2("aggregator_cluster_primary_settime", &cn->shared_lock_set_time, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
+	metric_add_labels2("alligator_cluster_primary_server", &okval, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
+	metric_add_labels2("alligator_cluster_primary_ttl", &cn->ttl, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
+	metric_add_labels2("alligator_cluster_primary_settime", &cn->shared_lock_set_time, DATATYPE_UINT, carg, "primary", cn->shared_lock_instance->s, "cluster", name);
 
 	retlock = cluster_get_sharedlock_string(cn, locked);
 

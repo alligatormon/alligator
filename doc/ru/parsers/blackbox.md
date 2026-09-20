@@ -28,7 +28,7 @@ aggregate {
 }
 ```
 
-ICMP `loop` (или aggregate `pingloop`) перезаписывает gauge последнего залпа `aggregator_packet_received` / `aggregator_packet_loss`. Счётчики `aggregator_packet_received_total`, `aggregator_packet_loss_total` и `aggregator_packet_sent_total` копятся между залпами. Prometheus blackbox_exporter шлёт один echo и не имеет packet counters.
+ICMP `loop` (или aggregate `pingloop`) перезаписывает gauge последнего залпа `alligator_icmp_replies` / `alligator_icmp_losses`. Счётчики `alligator_icmp_replies_total`, `alligator_icmp_losses_total` и `alligator_icmp_echoes_total` копятся между залпами. Prometheus blackbox_exporter шлёт один echo и не имеет packet counters.
 
 Непрерывный ICMP в стиле smokeping_prober использует `interval` вместо залпа:
 

@@ -12,6 +12,8 @@
 #include "common/logs.h"
 #include "main.h"
 #include <arpa/inet.h>
+#include "metric/percentile_heap.h"
+#include "common/rtime.h"
 
 #define RESOLVER_UDP_BIND_MAGIC 0x55444e53u /* 'UDNS' */
 
@@ -425,16 +427,16 @@ void resolver_timeout_udp(uv_timer_t *timer)
 static void resolver_udp_apply_reply(context_arg *carg, ssize_t nread, const uv_buf_t *buf)
 {
 	resolver_data *rd = carg->rd;
-	uint64_t read_time;
-	uint64_t write_time;
-	uint64_t response_time;
+	double read_time;
+	double write_time;
+	double response_time;
 
 	carglog(carg, L_DEBUG, "udp-resolver: read key=%s host=%s tls=%d nread=%zd\n", carg->key, carg->host, carg->tls, nread);
 
 	carg->read_time_finish = setrtime();
-	read_time = getrtime_mcs(carg->read_time, carg->read_time_finish, 0);
-	write_time = getrtime_mcs(carg->write_time, carg->write_time_finish, 0);
-	response_time = getrtime_mcs(carg->write_time, carg->read_time_finish, 0);
+	read_time = getrtime_mcs_seconds(carg->read_time, carg->read_time_finish);
+	write_time = getrtime_mcs_seconds(carg->write_time, carg->write_time_finish);
+	response_time = getrtime_mcs_seconds(carg->write_time, carg->read_time_finish);
 	carg->close_time = setrtime();
 	carg->close_time_finish = setrtime();
 
@@ -443,9 +445,9 @@ static void resolver_udp_apply_reply(context_arg *carg, ssize_t nread, const uv_
 		heap_insert(rd->read_time, read_time);
 		heap_insert(rd->write_time, write_time);
 		heap_insert(rd->response_time, response_time);
-		calc_percentiles(carg, rd->read_time, NULL, "resolver_read_time_mcs_quantile", rd->labels);
-		calc_percentiles(carg, rd->write_time, NULL, "resolver_write_time_mcs_quantile", rd->labels);
-		calc_percentiles(carg, rd->response_time, NULL, "resolver_response_time_mcs_quantile", rd->labels);
+		calc_percentiles(carg, rd->read_time, NULL, "alligator_dns_read_duration_seconds", rd->labels);
+		calc_percentiles(carg, rd->write_time, NULL, "alligator_dns_write_duration_seconds", rd->labels);
+		calc_percentiles(carg, rd->response_time, NULL, "alligator_dns_response_duration_seconds", rd->labels);
 	}
 
 	(carg->conn_counter)++;
@@ -457,7 +459,7 @@ static void resolver_udp_apply_reply(context_arg *carg, ssize_t nread, const uv_
 	dns_handler(buf->base, nread, carg);
 
 	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-	metric_add_labels5("alligator_parser_status", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
+	metric_add_labels5("alligator_parser_ok", &carg->parsed, DATATYPE_UINT, carg, "proto", "tcp", "type", "aggregator", "host", carg->host, "key", carg->key, "parser", carg->parser_name);
 }
 
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags)

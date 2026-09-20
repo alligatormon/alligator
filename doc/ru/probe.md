@@ -101,7 +101,7 @@ probe {
 }
 ```
 
-`loop` пишет gauge последнего залпа `aggregator_packet_received` / `aggregator_packet_loss` (при успешном `loop 10` это всегда `10` / `0`). Счётчики `aggregator_packet_received_total`, `aggregator_packet_loss_total` и `aggregator_packet_sent_total` увеличиваются на этот залп. В Prometheus blackbox_exporter таких метрик нет: один echo и `probe_success`.
+`loop` пишет gauge последнего залпа `alligator_icmp_replies` / `alligator_icmp_losses` (при успешном `loop 10` это всегда `10` / `0`). Счётчики `alligator_icmp_replies_total`, `alligator_icmp_losses_total` и `alligator_icmp_echoes_total` увеличиваются на этот залп. В Prometheus blackbox_exporter таких метрик нет: один echo и `probe_success`.
 
 HTTPS POST:
 
@@ -213,17 +213,16 @@ curl 'http://127.0.0.1:1111/probe?module=http_target&target=example.com:443'
 | `probe_success` | 1, если проверки модуля прошли (инверсия через `negative_test`) |
 | `probe_failed_due_to_regex` | Выставляется при провале TCP/HTTP regex expect или body matcher |
 | `probe_expect_info` | Совпал шаг `query_response` expect |
-| `aggregator_http_code` | HTTP status code |
-| `aggregator_http_body_size_bytes` | Размер HTTP-тела |
-| `alligator_*_duration_microseconds` | Стадии connect / TLS / read / write / request |
-| `alligator_request_duration_microseconds` | Сквозное время запроса (connect до close) |
-| `aggregator_resolve_time` | Длительность DNS resolve в микросекундах |
+| `alligator_http_response_status_code` | HTTP status code |
+| `alligator_http_response_body_bytes` | Размер HTTP-тела |
+| `alligator_session_duration_seconds` | Длительность стадии сессии в секундах (`stage=connect|write|read|tls_handshake|tls_write|tls_read|shutdown|total`) |
+| `alligator_dns_resolve_duration_seconds` | Длительность DNS resolve в секундах |
 | `alligator_probe_timeout_seconds` | Настроенный timeout модуля |
 | `alligator_probe_ip_protocol` | 4 или 6 по семейству сокета / getaddrinfo |
 | `x509_cert_not_after` | notAfter TLS-сертификата (Unix seconds) |
 | `alligator_icmp_rtt_seconds` | RTT последнего ICMP echo в секундах |
 | `alligator_icmp_reply_hop_limit` | TTL/hop-limit последнего ответа (`type=icmp`, `host`) |
-| `aggregator_packet_received_ratio` / `aggregator_packet_loss_ratio` | Доля ответов/потерь последнего залпа **0–1** (не проценты) |
+| `alligator_icmp_reply_ratio` / `alligator_icmp_loss_ratio` | Доля ответов/потерь последнего залпа **0–1** (не проценты) |
 
 Непрерывный ICMP (`interval`) пишет гистограмму `alligator_icmp_response_duration_seconds_*`. HTTP — `alligator_http_request_duration_seconds_*`. Вне скоупа: gRPC, HTTP/2, HTTP/3, CEL, libjq, OAuth2.
 

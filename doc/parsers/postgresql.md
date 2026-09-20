@@ -50,3 +50,25 @@ aggregate {
 	pgpool postgresql://postgres@localhost:9999/postgres;
 }
 ```
+
+## `postgresql_error`
+
+Connect and query failures increment `postgresql_error{name,reason}`. `reason` is a closed set of classified types, not the raw libpq or pooler text (session ids, routes, hosts, and IPs stay out of labels).
+
+libpq wraps pooler/server FATAL with a prefix such as `connection to server at "host" (ip), port N failed:`. The classifier matches the inner product message first; that wrapper is not a type by itself. Bare TCP failures with no inner FATAL become `cannot_reach_server`.
+
+Full `PQerrorMessage` / `PQresultErrorMessage` text stays in alligator error logs (`L_ERROR`).
+
+Closed `reason` values:
+
+- `route_not_found`, `routing_failed`, `tsa_host_not_found`, `all_backends_down`
+- `backend_attach_failed`, `backend_connect_failed`, `backend_login_failed`
+- `hba_rejected`, `auth_failed`, `user_blocked`
+- `pool_size_reached`, `too_many_connections`
+- `idle_in_transaction_timeout`, `idle_timeout`, `timeout`
+- `database_missing`, `database_disabled`, `role_missing`, `role_cannot_login`, `permission_denied`
+- `ssl_required`, `ssl_error`
+- `system_not_ready`, `shutdown`, `soft_oom`, `replication_lag_rejected`, `protocol_error`
+- `host_not_found`, `connection_refused`, `connection_reset`, `network_unreachable`, `server_closed`
+- `cannot_reach_server`
+- `unknown` (empty message), `other`

@@ -1,30 +1,27 @@
-aggregator_packet_loss {type="icmp", host="8.8.8.8"} 0
-aggregator_packet_loss {type="icmp", host="google.com"} 0
-aggregator_packet_loss {type="icmp", host="yandex.ru"} 0
-aggregator_packet_loss_ratio {type="icmp", host="8.8.8.8"} 0.000000
-aggregator_packet_loss_ratio {type="icmp", host="google.com"} 0.000000
-aggregator_packet_loss_ratio {type="icmp", host="yandex.ru"} 0.000000
-aggregator_packet_loss_total {type="icmp", host="8.8.8.8"}
-aggregator_packet_loss_total {type="icmp", host="google.com"}
-aggregator_packet_loss_total {type="icmp", host="yandex.ru"}
-aggregator_packet_received {type="icmp", host="8.8.8.8"} 100
-aggregator_packet_received {type="icmp", host="google.com"} 100
-aggregator_packet_received {type="icmp", host="yandex.ru"} 100
-aggregator_packet_received_ratio {type="icmp", host="8.8.8.8"} 1.000000
-aggregator_packet_received_ratio {type="icmp", host="google.com"} 1.000000
-aggregator_packet_received_ratio {type="icmp", host="yandex.ru"} 1.000000
-aggregator_packet_received_total {type="icmp", host="8.8.8.8"}
-aggregator_packet_received_total {type="icmp", host="google.com"}
-aggregator_packet_received_total {type="icmp", host="yandex.ru"}
-aggregator_packet_sent_total {type="icmp", host="8.8.8.8"}
-aggregator_packet_sent_total {type="icmp", host="google.com"}
-aggregator_packet_sent_total {type="icmp", host="yandex.ru"}
-aggregator_read_time {type="icmp", host="8.8.8.8"}
-aggregator_read_time {type="icmp", host="google.com"}
-aggregator_read_time {type="icmp", host="yandex.ru"}
-aggregator_resolve_time {type="icmp", host="8.8.8.8"}
-aggregator_resolve_time {type="icmp", host="google.com"}
-aggregator_resolve_time {type="icmp", host="yandex.ru"}
+alligator_icmp_losses {type="icmp", host="8.8.8.8"} 0
+alligator_icmp_losses {type="icmp", host="google.com"} 0
+alligator_icmp_losses {type="icmp", host="yandex.ru"} 0
+alligator_icmp_loss_ratio {type="icmp", host="8.8.8.8"} 0.000000
+alligator_icmp_loss_ratio {type="icmp", host="google.com"} 0.000000
+alligator_icmp_loss_ratio {type="icmp", host="yandex.ru"} 0.000000
+alligator_icmp_losses_total {type="icmp", host="8.8.8.8"}
+alligator_icmp_losses_total {type="icmp", host="google.com"}
+alligator_icmp_losses_total {type="icmp", host="yandex.ru"}
+alligator_icmp_replies {type="icmp", host="8.8.8.8"} 100
+alligator_icmp_replies {type="icmp", host="google.com"} 100
+alligator_icmp_replies {type="icmp", host="yandex.ru"} 100
+alligator_icmp_reply_ratio {type="icmp", host="8.8.8.8"} 1.000000
+alligator_icmp_reply_ratio {type="icmp", host="google.com"} 1.000000
+alligator_icmp_reply_ratio {type="icmp", host="yandex.ru"} 1.000000
+alligator_icmp_replies_total {type="icmp", host="8.8.8.8"}
+alligator_icmp_replies_total {type="icmp", host="google.com"}
+alligator_icmp_replies_total {type="icmp", host="yandex.ru"}
+alligator_icmp_echoes_total {type="icmp", host="8.8.8.8"}
+alligator_icmp_echoes_total {type="icmp", host="google.com"}
+alligator_icmp_echoes_total {type="icmp", host="yandex.ru"}
+alligator_dns_resolve_duration_seconds {type="icmp", host="8.8.8.8"}
+alligator_dns_resolve_duration_seconds {type="icmp", host="google.com"}
+alligator_dns_resolve_duration_seconds {type="icmp", host="yandex.ru"}
 alligator_icmp_response_duration_seconds_count {host="1.1.1.1"
 alligator_icmp_rtt_seconds {type="icmp", host="1.1.1.1"
 alligator_icmp_reply_hop_limit {type="icmp", host="1.1.1.1"

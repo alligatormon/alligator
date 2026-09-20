@@ -89,7 +89,7 @@ Supported formats are:
 - `bind_address=<ip>` - bind only by local IP (port is chosen by OS)
 - `bind_address=<ip>:<port>` - bind by both local IP and local port
 
-Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `aggregator_resolve_address`). You do not need a unique source port per domain. Resolver timing quantiles (`resolver_read_time_mcs_quantile`, `resolver_write_time_mcs_quantile`, `resolver_response_time_mcs_quantile`) also carry `name` for that domain.
+Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `alligator_dns_rr_info`). You do not need a unique source port per domain. Resolver timing quantiles (`alligator_dns_read_duration_seconds`, `alligator_dns_write_duration_seconds`, `alligator_dns_response_duration_seconds`) also carry `name` for that domain.
 
 For instance:
 
@@ -301,7 +301,7 @@ Plural: no\
 Possible values:
 - {number}
 
-Pingloop allows a blackbox handler to ping resource more than once. Last-burst gauges `aggregator_packet_received` / `aggregator_packet_loss` are overwritten each run; `aggregator_packet_received_total`, `aggregator_packet_loss_total`, and `aggregator_packet_sent_total` accumulate.
+Pingloop allows a blackbox handler to ping resource more than once. Last-burst gauges `alligator_icmp_replies` / `alligator_icmp_losses` are overwritten each run; `alligator_icmp_replies_total`, `alligator_icmp_losses_total`, and `alligator_icmp_echoes_total` accumulate.
 
 
 ## log\_level
