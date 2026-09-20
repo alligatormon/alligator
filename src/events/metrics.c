@@ -115,6 +115,30 @@ void alligator_parser_ok_set(context_arg *carg, uint64_t ok, const char *proto, 
 	labels_hash_free(lbl);
 }
 
+void alligator_session_account_read(context_arg *carg, ssize_t nread)
+{
+	if (!carg)
+		return;
+	(carg->read_counter)++;
+	if (nread > 0)
+		carg->read_bytes_counter += (uint64_t)nread;
+	if (!carg->read_time.sec && !carg->read_time.nsec)
+		carg->read_time = setrtime();
+	carg->read_time_finish = setrtime();
+}
+
+void alligator_session_account_write(context_arg *carg, size_t nwrite)
+{
+	if (!carg)
+		return;
+	(carg->write_counter)++;
+	if (nwrite)
+		carg->write_bytes_counter += nwrite;
+	if (!carg->write_time.sec && !carg->write_time.nsec)
+		carg->write_time = setrtime();
+	carg->write_time_finish = setrtime();
+}
+
 void entrypoint_read_metrics_throttled_push(context_arg *src, context_arg *carg, const char *proto, uint8_t labels_entrypoint, const char *host_label)
 {
 	static const char type_entrypoint[] = "entrypoint";

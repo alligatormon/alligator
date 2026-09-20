@@ -27,6 +27,8 @@ query {
 
 Numeric columns listed in `field` become metrics. Other columns can be used as labels when they are not listed in `field`.
 
+Each scrape also exports alligator session I/O series (`alligator_session_reads_total`, `alligator_session_read_bytes_total`, writes, `alligator_session_connects_total`, `alligator_session_connect_ok`, `alligator_parser_ok`) with the same labels as other TCP aggregators (`proto`, `type`, `host`, `parser`, `port`).
+
 ## Push metrics to Cassandra
 
 Export internal metrics on a schedule:

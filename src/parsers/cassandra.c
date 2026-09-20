@@ -13,6 +13,7 @@
 #include "parsers/cassandra2.h"
 #include "main.h"
 #include "events/metrics.h"
+#include "common/rtime.h"
 
 typedef struct cassandra_data {
 	cassandra_conn_t *conn;
@@ -361,7 +362,9 @@ static void cassandra_worker_thread(void *arg) {
 		uv_sleep(100);
 
 	if (conn && cassandra2_is_ready(conn)) {
+		carg->exec_time = setrtime();
 		cassandra_run_all_await(carg);
+		carg->exec_time_finish = setrtime();
 	}
 	else if (conn && cassandra2_is_failed(conn)) {
 		// downgrades v5->v4 after failure.
@@ -369,8 +372,11 @@ static void cassandra_worker_thread(void *arg) {
 			conn = data->conn;
 			while (conn && !cassandra2_is_ready(conn) && !cassandra2_is_failed(conn))
 				uv_sleep(100);
-			if (conn && cassandra2_is_ready(conn))
+			if (conn && cassandra2_is_ready(conn)) {
+				carg->exec_time = setrtime();
 				cassandra_run_all_await(carg);
+				carg->exec_time_finish = setrtime();
+			}
 			else
 				carg->parser_status = 0;
 		}
@@ -382,13 +388,15 @@ static void cassandra_worker_thread(void *arg) {
 		carg->parser_status = 0;
 	}
 
+	carg->close_time = setrtime();
+	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
+	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	carg->running = 0;
 	free(wa);
 }
 
 void cassandra_run(void* arg) {
 	uint64_t unval = 0;
-	uint64_t val = 1;
 	context_arg *carg = arg;
 	cassandra_data *data = carg->data;
 
@@ -396,12 +404,11 @@ void cassandra_run(void* arg) {
 	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "Alligator parser status.");
 
 	if (!cassandra2_start_connect(&data->conn, carg)) {
-		alligator_session_connect_ok_set(carg, unval);
 		alligator_parser_ok_set(carg, unval, "tcp", carg->host);
+		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 		return;
 	}
 
-	alligator_session_connect_ok_set(carg, val);
 	carg->parser_status = 1;
 
 	if (carg->running)
@@ -418,7 +425,6 @@ void cassandra_run(void* arg) {
 		return;
 	}
 	pthread_detach(th);
-	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
 }
 
 void cassandra_timer(uv_timer_t* handle) {

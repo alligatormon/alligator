@@ -30,3 +30,5 @@ query {
 ### Metrics
 
 Имена метрик берутся из `make` / `field` в `query` (например `mysql_db_size` / `mysql_database_size`). См. [query.md](../query.md).
+
+Каждый scrape также отдаёт session I/O серии alligator (`alligator_session_reads_total`, `alligator_session_read_bytes_total`, writes, `alligator_session_connects_total`, `alligator_session_connect_ok`, `alligator_parser_ok`) с теми же label, что и у других TCP-агрегаторов (`proto`, `type`, `host`, `parser`, `port`).

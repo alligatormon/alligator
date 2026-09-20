@@ -3,6 +3,8 @@
 #include <uv.h>
 #include "main.h"
 #include "common/logs.h"
+#include "common/rtime.h"
+#include "events/metrics.h"
 #include "parsers/cassandra2.h"
 
 #define CASS_OP_ERROR		0x00
@@ -52,6 +54,7 @@ struct cassandra_conn_t {
 	int startup_sent;
 	int auth_sent;
 	int options_sent;
+	int connect_accounted;
 
 	int stream_id;
 	int current_stream;
@@ -120,6 +123,16 @@ static void cass2_free_meta(cassandra_conn_t *c) {
 	c->col_count = 0;
 }
 
+static void cass2_account_connect(cassandra_conn_t *c, uint64_t ok)
+{
+	if (!c || !c->carg || c->connect_accounted)
+		return;
+	c->connect_accounted = 1;
+	c->carg->connect_time_finish = setrtime();
+	alligator_session_connects_inc(c->carg);
+	alligator_session_connect_ok_set(c->carg, ok);
+}
+
 static void cass2_on_write_completed(uv_write_t* req, int status) {
 	(void)status;
 	free(req->data);
@@ -152,6 +165,7 @@ static void cass2_write_raw(cassandra_conn_t *c, const uint8_t *buf, size_t len)
 		return;
 	}
 	w->data = copy;
+	alligator_session_account_write(c->carg, len);
 	uv_write(w, (uv_stream_t*)&c->handle, &b, 1, cass2_on_write_completed);
 }
 
@@ -210,11 +224,16 @@ static void cass2_send_auth_response(cassandra_conn_t *c) {
 static void cass2_on_connect_timeout(uv_timer_t *t) {
 	cassandra_conn_t *c = t->data;
 	c->state = CASS_STATE_FAILED;
+	if (c->carg)
+		c->carg->timeout_counter++;
+	cass2_account_connect(c, 0);
 	uv_close((uv_handle_t*)&c->handle, NULL);
 }
 
 static void cass2_on_query_timeout(uv_timer_t *t) {
 	cassandra_conn_t *c = t->data;
+	if (c->carg)
+		c->carg->timeout_counter++;
 	if (c->active_query)
 		c->active_query->timed_out = 1;
 	cass2_fail_query(c, 0);
@@ -341,6 +360,7 @@ static void cass2_handle_frame(cassandra_conn_t *c, uint8_t version, uint8_t opc
 		if (c->requested_proto == 5)
 			c->requested_proto = 4;
 		c->state = CASS_STATE_FAILED;
+		cass2_account_connect(c, 0);
 		cass2_fail_query(c, 0);
 		return;
 	}
@@ -357,6 +377,7 @@ static void cass2_handle_frame(cassandra_conn_t *c, uint8_t version, uint8_t opc
 		}
 		if (opcode == CASS_OP_AUTH_SUCCESS || opcode == CASS_OP_READY) {
 			c->state = CASS_STATE_READY;
+			cass2_account_connect(c, 1);
 			return;
 		}
 		return;
@@ -411,6 +432,8 @@ static void cass2_on_read(uv_stream_t *s, ssize_t nread, const uv_buf_t *buf) {
 		return;
 	}
 
+	alligator_session_account_read(c->carg, nread);
+
 	if (c->rbuf_len + (size_t)nread > c->rbuf_cap) {
 		size_t new_cap = c->rbuf_cap ? c->rbuf_cap * 2 : 4096;
 		while (new_cap < c->rbuf_len + (size_t)nread) new_cap *= 2;
@@ -454,6 +477,7 @@ static void cass2_on_connect(uv_connect_t *req, int status) {
 	uv_timer_stop(&c->connect_timer);
 	if (status < 0) {
 		c->state = CASS_STATE_FAILED;
+		cass2_account_connect(c, 0);
 		return;
 	}
 	c->state = CASS_STATE_HANDSHAKE;
@@ -468,7 +492,11 @@ int cassandra2_start_connect(cassandra_conn_t **pconn, context_arg *carg) {
 
 	if (!*pconn) {
 		cassandra_conn_t *c = cass2_conn_new(carg->loop, 5);
-		if (!c) return 0;
+		if (!c) {
+			alligator_session_connects_inc(carg);
+			alligator_session_connect_ok_set(carg, 0);
+			return 0;
+		}
 		*pconn = c;
 	}
 
@@ -483,7 +511,10 @@ int cassandra2_start_connect(cassandra_conn_t **pconn, context_arg *carg) {
 	if (c->state == CASS_STATE_FAILED) {
 		int next_proto = (c->requested_proto == 5) ? 4 : c->requested_proto;
 		cassandra_conn_t *n = cass2_conn_new(carg->loop, next_proto);
-		if (!n) return 0;
+		if (!n) {
+			cass2_account_connect(c, 0);
+			return 0;
+		}
 		n->carg = carg;
 		strlcpy(n->user, carg->user, sizeof(n->user));
 		strlcpy(n->password, carg->password, sizeof(n->password));
@@ -493,22 +524,30 @@ int cassandra2_start_connect(cassandra_conn_t **pconn, context_arg *carg) {
 	int port = cass2_port_from_carg(carg);
 	if (port < 0) {
 		c->state = CASS_STATE_FAILED;
+		cass2_account_connect(c, 0);
 		return 0;
 	}
 	struct sockaddr_in dest;
 	uv_ip4_addr(carg->host, port, &dest);
 	uv_connect_t *cr = malloc(sizeof(*cr));
-	if (!cr) return 0;
+	if (!cr) {
+		c->state = CASS_STATE_FAILED;
+		cass2_account_connect(c, 0);
+		return 0;
+	}
 	cr->data = c;
 	c->state = CASS_STATE_CONNECTING;
 	if (c->requested_proto != 4)
 		c->requested_proto = 5;
 	c->ready_proto = 0;
 	c->startup_sent = c->auth_sent = c->options_sent = 0;
+	c->connect_accounted = 0;
+	carg->connect_time = setrtime();
 	uv_timer_start(&c->connect_timer, cass2_on_connect_timeout, CASS_CONNECT_TIMEOUT_MS, 0);
 	if (uv_tcp_connect(cr, &c->handle, (const struct sockaddr*)&dest, cass2_on_connect) < 0) {
 		free(cr);
 		c->state = CASS_STATE_FAILED;
+		cass2_account_connect(c, 0);
 		return 0;
 	}
 

@@ -2775,6 +2775,7 @@ static void run_parser_suites(char **argv)
     test_postgresql_poll_dup_survives_socket_replace();
     api_test_postgresql_error_reason();
     api_test_postgresql_session_connect_metrics();
+    api_test_session_io_metrics();
 }
 
 static void run_config_query_suites(char **argv)

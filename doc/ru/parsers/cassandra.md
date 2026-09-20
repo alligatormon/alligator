@@ -29,6 +29,8 @@ query {
 
 Числовые столбцы, перечисленные в `field`, становятся метриками. Остальные столбцы могут использоваться как метки, если они не указаны в `field`.
 
+Каждый scrape также отдаёт session I/O серии alligator (`alligator_session_reads_total`, `alligator_session_read_bytes_total`, writes, `alligator_session_connects_total`, `alligator_session_connect_ok`, `alligator_parser_ok`) с теми же label, что и у других TCP-агрегаторов (`proto`, `type`, `host`, `parser`, `port`).
+
 ## Push метрик в Cassandra
 
 Экспортируйте внутренние метрики по расписанию:

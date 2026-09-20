@@ -30,3 +30,5 @@ query {
 ### Metrics
 
 Metric names come from the `make` / `field` settings in `query` (for example `mysql_db_size` / `mysql_database_size`). See [query.md](../query.md).
+
+Each scrape also exports alligator session I/O series (`alligator_session_reads_total`, `alligator_session_read_bytes_total`, writes, `alligator_session_connects_total`, `alligator_session_connect_ok`, `alligator_parser_ok`) with the same labels as other TCP aggregators (`proto`, `type`, `host`, `parser`, `port`).

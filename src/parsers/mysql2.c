@@ -13,6 +13,8 @@
 #include "main.h"
 #include "parsers/mysql2.h"
 #include "common/logs.h"
+#include "common/rtime.h"
+#include "events/metrics.h"
 
 
 typedef enum {
@@ -56,6 +58,7 @@ struct mysql_conn_t {
 	int	 col_names_i;
 	uint8_t *col_types;
 	uint16_t *col_flags;
+	int connect_accounted;
 };
 
 typedef struct query_context_t {
@@ -129,12 +132,25 @@ void mysql2_on_write_completed(uv_write_t *req, int status) {
 	free(req);
 }
 
+static void mysql2_account_connect(mysql_conn_t *conn, uint64_t ok)
+{
+	if (!conn || !conn->carg || conn->connect_accounted)
+		return;
+	conn->connect_accounted = 1;
+	conn->carg->connect_time_finish = setrtime();
+	alligator_session_connects_inc(conn->carg);
+	alligator_session_connect_ok_set(conn->carg, ok);
+}
+
 void mysql2_on_connect_timeout(uv_timer_t *timer) {
 	mysql_conn_t *conn = (mysql_conn_t *)timer->data;
 	context_arg *carg = conn->carg;
 	carglog(carg, L_ERROR, "MySQL connection timeout\n");
 	uv_timer_stop(timer);
 	conn->state = STATE_CONNECT_FAILED;
+	if (carg)
+		carg->timeout_counter++;
+	mysql2_account_connect(conn, 0);
 	uv_close((uv_handle_t *)&conn->handle, NULL);
 }
 
@@ -204,6 +220,7 @@ void mysql2_on_connect(uv_connect_t *req, int status) {
 			carglog(conn->carg, L_ERROR, "mysql: '%s' Connection timeout\n", conn->carg->host);
 		else
 			carglog(conn->carg, L_ERROR, "mysql: '%s' Connect error: %s\n", conn->carg->host, uv_err_name(status));
+		mysql2_account_connect(conn, 0);
 		uv_close((uv_handle_t *)&conn->connect_timer, NULL);
 		uv_close((uv_handle_t *)&conn->query_timer, NULL);
 		uv_close((uv_handle_t *)&conn->async_query_trigger, NULL);
@@ -285,6 +302,8 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 	conn->state = STATE_HANDSHAKE;
 	conn->seq_id = 0;
 	conn->carg = carg;
+	conn->connect_accounted = 0;
+	carg->connect_time = setrtime();
 
 	conn->connect_timer.data = conn;
 	uv_timer_start(&conn->connect_timer, mysql2_on_connect_timeout, CONNECT_TIMEOUT_MS, 0);
@@ -293,6 +312,8 @@ int mysql2_connect(mysql_conn_t **pconn, context_arg *carg)
 	if (r < 0) {
 		carglog(carg, L_ERROR, "mysql2 uv_tcp_connect %s:%d: %s\n", carg->host, port, uv_strerror(r));
 		free(connect_req);
+		conn->state = STATE_CONNECT_FAILED;
+		mysql2_account_connect(conn, 0);
 		return 0;
 	}
 
@@ -335,6 +356,8 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 		mysql_conn_t *conn = calloc(1, sizeof(mysql_conn_t));
 		if (!conn) {
 			carglog(carg, L_ERROR, "mysql2 conn alloc failed\n");
+			alligator_session_connects_inc(carg);
+			alligator_session_connect_ok_set(carg, 0);
 			return 0;
 		}
 
@@ -349,6 +372,8 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 		if (!conn->ssl_ctx) {
 			mysql2_log_ssl_ctx_fail(carg);
 			free(conn);
+			alligator_session_connects_inc(carg);
+			alligator_session_connect_ok_set(carg, 0);
 			return 0;
 		}
 
@@ -373,9 +398,11 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	if (conn->state == STATE_HANDSHAKE || conn->state == STATE_AUTH)
 		return 1;
 
+	conn->carg = carg;
 	int port = mysql2_port_from_carg(carg);
 	if (port < 0) {
 		conn->state = STATE_CONNECT_FAILED;
+		mysql2_account_connect(conn, 0);
 		return 0;
 	}
 
@@ -385,13 +412,16 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	uv_connect_t *connect_req = malloc(sizeof(uv_connect_t));
 	if (!connect_req) {
 		carglog(carg, L_ERROR, "mysql2 connect_req alloc failed\n");
+		conn->state = STATE_CONNECT_FAILED;
+		mysql2_account_connect(conn, 0);
 		return 0;
 	}
 	connect_req->data = conn;
 
 	conn->state = STATE_HANDSHAKE;
 	conn->seq_id = 0;
-	conn->carg = carg;
+	conn->connect_accounted = 0;
+	carg->connect_time = setrtime();
 
 	conn->connect_timer.data = conn;
 	uv_timer_start(&conn->connect_timer, mysql2_on_connect_timeout, CONNECT_TIMEOUT_MS, 0);
@@ -400,6 +430,8 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	if (r < 0) {
 		carglog(carg, L_ERROR, "mysql2 uv_tcp_connect %s:%d: %s\n", carg->host, port, uv_strerror(r));
 		free(connect_req);
+		conn->state = STATE_CONNECT_FAILED;
+		mysql2_account_connect(conn, 0);
 		return 0;
 	}
 
@@ -472,6 +504,7 @@ static void mysql2_send_mysql_packet(mysql_conn_t *conn, const uint8_t *payload,
 		return;
 	}
 	req->data = pkt;
+	alligator_session_account_write(conn->carg, total_len);
 	uv_write(req, (uv_stream_t *)&conn->handle, &buf, 1, mysql2_on_write_completed);
 }
 
@@ -492,6 +525,7 @@ void send_mysql_packet_immediate(mysql_conn_t *conn, const uint8_t *payload, siz
 	memcpy(buf + 4, payload, payload_len);
 	uv_buf_t b = uv_buf_init((char *)buf, total_len);
 	int n = uv_try_write((uv_stream_t *)&conn->handle, &b, 1);
+	alligator_session_account_write(conn->carg, total_len);
 	if (n < 0 || (size_t)n < total_len) {
 		uint8_t *pkt = malloc(total_len);
 		if (pkt) {
@@ -609,6 +643,7 @@ void send_query(mysql_conn_t *conn, const char *sql, mysql_row_cb cb, void *user
 	}
 	req->data = pkt;
 
+	alligator_session_account_write(conn->carg, total_len);
 	uv_write(req, (uv_stream_t*)&conn->handle, &buf, 1, mysql2_on_write_completed);
 }
 
@@ -783,6 +818,7 @@ void mysql2_send_auth_packet(mysql_conn_t *conn, const uint8_t *scramble) {
 	}
 	req->data = full_pkt;
 
+	alligator_session_account_write(conn->carg, total_len);
 	int r = uv_write(req, (uv_stream_t*)&conn->handle, &buf, 1, mysql2_on_write_completed);
 	if (r < 0) {
 		carglog(conn->carg, L_ERROR, "mysql: '%s' Write error: %s\n", conn->carg->host, uv_strerror(r));
@@ -1040,6 +1076,8 @@ void mysql2_on_query_timeout(uv_timer_t *timer) {
 	query_context_t *ctx = (query_context_t *)timer->data;
 	mysql_conn_t *conn = ctx->conn;
 	uv_timer_stop(timer);
+	if (conn->carg)
+		conn->carg->timeout_counter++;
 	mysql2_free_metadata(conn);
 	uv_mutex_lock(&ctx->mutex);
 	ctx->done = 1;
@@ -1078,11 +1116,14 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 
 	if (nread < 0) {
 		carglog(conn->carg, L_ERROR, "Read error or connection closed\n");
+		if (conn->state != STATE_QUERY)
+			mysql2_account_connect(conn, 0);
 		uv_close((uv_handle_t*)stream, NULL);
 		return;
 	}
 
 	if (nread > 0) {
+		alligator_session_account_read(conn->carg, nread);
 		uint8_t *data = (uint8_t*)buf->base;
 		size_t left = (size_t)nread;
 		uint8_t *p = data;
@@ -1142,6 +1183,7 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 				} else if (payload[0] == 0x00) {
 					carglog(conn->carg, L_DEBUG, "mysql: auth successful host=%s\n", conn->carg->host);
 					conn->state = STATE_QUERY;
+					mysql2_account_connect(conn, 1);
 					auth_just_finished = 1;
 					p += 4 + pkt_len;
 					left -= 4 + pkt_len;
@@ -1154,6 +1196,8 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 						msg_len = (int)(pkt_len - 9);
 					}
 					carglog(conn->carg, L_ERROR, "mysql: '%s' Auth Failed! Error: %.*s\n", conn->carg->host, msg_len, msg);
+					conn->state = STATE_CONNECT_FAILED;
+					mysql2_account_connect(conn, 0);
 					uv_close((uv_handle_t*)stream, NULL);
 					if (buf->base) free(buf->base);
 					return;

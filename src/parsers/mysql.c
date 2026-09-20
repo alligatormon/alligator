@@ -6,6 +6,7 @@
 #include "main.h"
 #include "events/metrics.h"
 #include "parsers/mysql2.h"
+#include "common/rtime.h"
 #include <pthread.h>
 #include <unistd.h>
 #include <uv.h>
@@ -87,14 +88,19 @@ static void mysql_worker_thread(void *arg)
 	}
 
 	if (conn && mysql2_is_ready(conn)) {
+		carg->exec_time = setrtime();
 		if (data->type == MY_TYPE_MYSQL)
 			mysql_run_all_await(carg);
 		else if (data->type == MY_TYPE_SPHINXSEARCH)
 			sphinxsearch_run_all_await(carg);
+		carg->exec_time_finish = setrtime();
 	} else {
 		carg->parser_status = 0;
 	}
 
+	carg->close_time = setrtime();
+	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
+	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	carg->running = 0;
 	free(wa);
 }
@@ -394,7 +400,6 @@ void sphinxsearch_run_all_await(context_arg *carg)
 void mysql_run(void* arg)
 {
 	uint64_t unval = 0;
-	uint64_t val = 1;
 	context_arg *carg = arg;
 	my_data *data = carg->data;
 
@@ -403,13 +408,12 @@ void mysql_run(void* arg)
 		carglog(carg, L_DEBUG, "go away from mysql_run\n");
 		namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
 		namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
-		alligator_session_connect_ok_set(carg, unval);
 		alligator_parser_ok_set(carg, unval, "tcp", carg->host);
+		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 		return;
 	}
 
 	namespace_metric_family_set(NULL, carg, "alligator_session_connect_ok", METRIC_TYPE_GAUGE, "1 if the last backend connection attempt succeeded, 0 otherwise.");
-	alligator_session_connect_ok_set(carg, val);
 	carg->parser_status = 1;
 
 	if (carg->running)
@@ -428,7 +432,6 @@ void mysql_run(void* arg)
 	pthread_detach(th);
 
 	namespace_metric_family_set(NULL, carg, "alligator_parser_ok", METRIC_TYPE_GAUGE, "1 if the last parser run succeeded, 0 otherwise.");
-	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
 }
 
 

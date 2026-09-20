@@ -17,6 +17,7 @@
 #include "parsers/mongodb_wire_bson.h"
 #include "parsers/kafka.h"
 #include "parsers/postgresql.h"
+#include "events/metrics.h"
 #include "events/kafka_consumer.h"
 #include "resolver/dns.h"
 #include "resolver/resolver.h"
@@ -3643,11 +3644,41 @@ void api_test_postgresql_session_connect_metrics()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->conn_counter);
     metric_test_run(CMP_EQUAL, "alligator_session_connect_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connect_ok", 0);
     metric_test_run(CMP_EQUAL, "alligator_session_connects_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connects_total", 1);
+    metric_test_run(CMP_EQUAL, "alligator_parser_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_parser_ok", 0);
 
     postgresql_connect_ok(carg, 1);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, carg->conn_counter);
     metric_test_run(CMP_EQUAL, "alligator_session_connect_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connect_ok", 1);
     metric_test_run(CMP_EQUAL, "alligator_session_connects_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_connects_total", 2);
+
+    free(carg);
+}
+
+void api_test_session_io_metrics()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->parser_name = "postgresql";
+    snprintf(carg->host, sizeof(carg->host), "%s", "127.0.0.1");
+    snprintf(carg->port, sizeof(carg->port), "%s", "5432");
+
+    alligator_session_account_read(carg, 100);
+    alligator_session_account_read(carg, 50);
+    alligator_session_account_write(carg, 20);
+    alligator_session_account_write(carg, 0);
+    carg->parser_status = 1;
+    aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)carg->read_counter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 150, (int)carg->read_bytes_counter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)carg->write_counter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 20, (int)carg->write_bytes_counter);
+
+    metric_test_run(CMP_EQUAL, "alligator_session_reads_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_reads_total", 2);
+    metric_test_run(CMP_EQUAL, "alligator_session_read_bytes_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_read_bytes_total", 150);
+    metric_test_run(CMP_EQUAL, "alligator_session_writes_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_writes_total", 2);
+    metric_test_run(CMP_EQUAL, "alligator_session_written_bytes_total{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_session_written_bytes_total", 20);
+    metric_test_run(CMP_EQUAL, "alligator_parser_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_parser_ok", 1);
 
     free(carg);
 }

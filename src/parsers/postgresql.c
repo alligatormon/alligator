@@ -5,6 +5,7 @@
 #include <libpq-fe.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 #include "dstructures/queue.h"
 #include "events/context_arg.h"
 #include "events/metrics.h"
+#include "common/rtime.h"
 #include <main.h>
 
 
@@ -505,6 +507,21 @@ void postgresql_connect_ok(context_arg *carg, uint64_t ok)
 
 	alligator_session_connects_inc(carg);
 	alligator_session_connect_ok_set(carg, ok);
+	carg->connect_time_finish = setrtime();
+	if (!ok)
+		alligator_parser_ok_set(carg, 0, "tcp", carg->host);
+}
+
+static int postgresql_socket_avail(PGconn *conn)
+{
+	int avail = 0;
+	int fd = conn ? PQsocket(conn) : -1;
+
+	if (fd >= 0)
+		(void)ioctl(fd, FIONREAD, &avail);
+	if (avail < 0)
+		return 0;
+	return avail;
 }
 
 void on_handle_closed(uv_handle_t* handle) {
@@ -573,6 +590,9 @@ static void run_close_internal(void *arg) {
 	}
 
 	uv_poll_stop(carg->dynamic_socket);
+	alligator_parser_ok_set(carg, carg->parser_status, "tcp", carg->host);
+	carg->close_time = setrtime();
+	aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 	uv_close((uv_handle_t*)carg->dynamic_socket, on_handle_closed);
 }
 
@@ -777,12 +797,16 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 		return;
 	}
 
-    if (!PQconsumeInput(data->conn)) {
-		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PQconsumeInput error\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
-		postgresql_error_metric(data->conn, carg);
-		run_close(carg);
-        return;
-    }
+	{
+		int avail = postgresql_socket_avail(data->conn);
+		if (!PQconsumeInput(data->conn)) {
+			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PQconsumeInput error\", \"function\": \"%s\"}\n", carg->fd, carg->key, PQerrorMessage(data->conn));
+			postgresql_error_metric(data->conn, carg);
+			run_close(carg);
+			return;
+		}
+		alligator_session_account_read(carg, avail);
+	}
 
     while (!PQisBusy(data->conn)) {
         PGresult *res = PQgetResult(data->conn);
@@ -982,6 +1006,8 @@ void postgresql_query_run(context_arg *carg)
 	pg_data *data = carg->data;
 
     if (PQsendQuery(data->conn, pqctx->query)) {
+		if (pqctx->query)
+			alligator_session_account_write(carg, strlen(pqctx->query));
 		if (!postgresql_poll_start_events(carg, UV_READABLE)) {
 			run_close(carg);
 			return;
@@ -1340,12 +1366,14 @@ void postgresql_run(void* arg)
 
 
 	PGconn *conn = PQconnectStart(carg->url);
+	carg->connect_time = setrtime();
 	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"connection start\", \"arg\": \"%s\"}\n", carg->fd, carg->key, carg->url);
 
 	if (!conn) {
 		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_connect_ok(carg, 0);
 		postgresql_error_metric(conn, carg);
+		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 		return;
 	}
 
@@ -1360,6 +1388,7 @@ void postgresql_run(void* arg)
 		else {
 			PQfinish(conn);
 			data->conn = NULL;
+			aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
 		}
 		return;
 	}

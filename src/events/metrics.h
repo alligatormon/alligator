@@ -1,5 +1,7 @@
 #pragma once
+#include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include "events/context_arg.h"
 #include "dstructures/ht.h"
 
@@ -13,3 +15,5 @@ void alligator_event_metric(const char *name, void *value, int8_t dtype, context
 void alligator_session_connect_ok_set(context_arg *carg, uint64_t ok);
 void alligator_session_connects_inc(context_arg *carg);
 void alligator_parser_ok_set(context_arg *carg, uint64_t ok, const char *proto, const char *host);
+void alligator_session_account_read(context_arg *carg, ssize_t nread);
+void alligator_session_account_write(context_arg *carg, size_t nwrite);
