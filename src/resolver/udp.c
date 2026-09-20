@@ -19,6 +19,7 @@
 
 typedef struct resolver_udp_bind resolver_udp_bind;
 void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags);
+static void resolver_udp_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
 
 typedef struct resolver_udp_pending {
 	uint16_t txid;
@@ -46,6 +47,26 @@ static uint8_t resolver_udp_binds_stopping;
 static void resolver_udp_bind_key(char *key, size_t keysz, const char *ip, uint16_t port)
 {
 	snprintf(key, keysz, "%s:%u", ip ? ip : "0.0.0.0", port);
+}
+
+/* Dedicated alloc: bind->udp.data is resolver_udp_bind, not context_arg. */
+static void resolver_udp_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf)
+{
+	(void)handle;
+	buf->base = calloc(1, size);
+	buf->len = buf->base ? size : 0;
+}
+
+static int resolver_udp_recv_start(uv_udp_t *udp)
+{
+	int recv_ret;
+
+	if (!udp)
+		return UV_EINVAL;
+	recv_ret = uv_udp_recv_start(udp, resolver_udp_alloc, resolver_read_udp);
+	if (recv_ret && recv_ret != UV_EALREADY)
+		return recv_ret;
+	return 0;
 }
 
 static void resolver_udp_stop_timer(context_arg *carg)
@@ -339,8 +360,8 @@ static resolver_udp_bind *resolver_udp_bind_get(context_arg *carg)
 		return NULL;
 	}
 
-	recv_ret = uv_udp_recv_start(&bind->udp, alloc_buffer, resolver_read_udp);
-	if (recv_ret && recv_ret != UV_EALREADY) {
+	recv_ret = resolver_udp_recv_start(&bind->udp);
+	if (recv_ret) {
 		carglog(carg, L_ERROR, "udp-resolver: recv_start %s:%d error %s\n", ip, carg->bind_port, uv_strerror(recv_ret));
 		resolver_udp_bind_discard(bind);
 		return NULL;
@@ -495,10 +516,10 @@ void resolver_read_udp(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const 
 	}
 	if (nread == 0)
 	{
+		/* libuv reports EAGAIN as nread=0, addr=NULL. Do not tear down
+		 * the socket; recv is started before send so this is expected. */
 		if (buf && buf->base)
 			free(buf->base);
-		if (!shared && carg)
-			resolver_udp_abort(carg, req);
 		return;
 	}
 
@@ -548,7 +569,8 @@ void resolver_send_udp(uv_udp_send_t* req, int status) {
 	}
 	if (!carg->resolver_udp_shared) {
 		req->handle->data = req->data;
-		uv_udp_recv_start(req->handle, alloc_buffer, resolver_read_udp);
+		if (resolver_udp_recv_start(req->handle))
+			resolver_udp_abort(carg, req->handle);
 	}
 	carg->read_time = setrtime();
 }
@@ -642,6 +664,13 @@ void resolver_connect_udp(void *arg)
 			resolver_udp_abort(carg, &carg->udp_client);
 			return;
 		}
+	}
+
+	/* Recv must be armed before send: a fast reply (or POLLIN with send
+	 * completion) hits uv__udp_recvmsg while recv_cb is still NULL. */
+	if (resolver_udp_recv_start(&carg->udp_client)) {
+		resolver_udp_abort(carg, &carg->udp_client);
+		return;
 	}
 
 	if (resolver_udp_send_query(carg, &carg->udp_client)) {

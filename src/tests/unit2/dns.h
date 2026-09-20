@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include "main.h"
 #include "resolver/dns.h"
+#include "events/uv_alloc.h"
 #include "resolver/resolver.h"
 #include "events/context_arg.h"
 
@@ -224,6 +225,26 @@ static void test_resolver_udp_match_pending_txid_and_qname(void)
 	free(pending);
 }
 
+static void test_alloc_buffer_ignores_non_carg_handle_data(void)
+{
+	unsigned char blob[8192];
+	uv_handle_t handle;
+	uv_buf_t buf;
+
+	/* Shared DNS binds store resolver_udp_bind* in handle->data. alloc_buffer
+	 * used to treat that as context_arg and bzero a garbage uvbuf pointer,
+	 * which zeroed recv_cb (SIGSEGV at 0x0 in uv__udp_recvmsg). */
+	memset(blob, 0xff, sizeof(blob));
+	memset(&handle, 0, sizeof(handle));
+	handle.data = blob;
+	alloc_buffer(&handle, 128, &buf);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, buf.base);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 128, (int)buf.len);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, buf.base == (char *)blob);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (unsigned char)buf.base[0]);
+	free(buf.base);
+}
+
 static void test_dns_handler_parse_response(void)
 {
 	unsigned char pkt[] = {
@@ -359,6 +380,7 @@ void test_resolver_dns_pack_unpack(void)
 	test_dns_init_type_and_strtype();
 	test_dns_response_pack_roundtrip();
 	test_resolver_udp_match_pending_txid_and_qname();
+	test_alloc_buffer_ignores_non_carg_handle_data();
 	test_dns_handler_parse_response();
 	test_dns_unpack_invalid();
 	test_vrl_dns_reverse_name();

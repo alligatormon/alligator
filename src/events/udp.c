@@ -26,6 +26,19 @@ static void udp_socks_tcp_closed(uv_handle_t *handle);
 static void udp_session_finish(context_arg *carg);
 void udp_on_send(uv_udp_send_t* req, int status);
 void udp_timeout_timer(uv_timer_t *timer);
+void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct sockaddr *addr, unsigned flags);
+
+static int udp_client_recv_start(uv_udp_t *udp)
+{
+	int r;
+
+	if (!udp)
+		return UV_EINVAL;
+	r = uv_udp_recv_start(udp, alloc_buffer, udp_on_read);
+	if (r && r != UV_EALREADY)
+		return r;
+	return 0;
+}
 
 static void udp_session_finish(context_arg *carg)
 {
@@ -190,7 +203,13 @@ void udp_on_read(uv_udp_t *req, ssize_t nread, const uv_buf_t *buf, const struct
 	}
 	if (nread == 0)
 	{
-		if (carg->parser_handler == blackbox_null && carg->pingloop > 1 && !addr) {
+		/* libuv EAGAIN: nread=0, addr=NULL. Recv is armed before send. */
+		if (!addr) {
+			if (buf && buf->base)
+				free(buf->base);
+			return;
+		}
+		if (carg->parser_handler == blackbox_null && carg->pingloop > 1) {
 			if (buf && buf->base)
 				free(buf->base);
 			return;
@@ -297,8 +316,7 @@ void udp_on_send(uv_udp_send_t* req, int status) {
 	carglog(carg, L_DEBUG, "udp: sent key=%s host=%s tls=%d\n", carg->key, carg->host, carg->tls);
 
 	req->handle->data = req->data;
-
-	uv_udp_recv_start(req->handle, alloc_buffer, udp_on_read);
+	udp_client_recv_start(req->handle);
 	carg->read_time = setrtime();
 	//free(req);
 }
@@ -495,6 +513,10 @@ void udp_client_socks_relay_start(context_arg *carg)
 	if (carg->write_buffer.base && carg->write_buffer.base != carg->request_buffer.base)
 		free(carg->write_buffer.base);
 	carg->write_buffer = uv_buf_init((char *)wrapped, n);
+	if (udp_client_recv_start(&carg->udp_client)) {
+		udp_client_socks_fail(carg);
+		return;
+	}
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->write_buffer, 1,
 		(struct sockaddr *)&carg->proxy_udp_relay, udp_on_send);
 	carg->write_time = setrtime();
@@ -587,9 +609,14 @@ void udp_client_connect(void *arg)
 		int bind_ret = uv_udp_bind(&carg->udp_client, (const struct sockaddr *)carg->local_addr, 0);
 		if (bind_ret) {
 			carglog(carg, L_FATAL, "Bind udp socket '%s:%d' error %s\n", carg->bind_address ? carg->bind_address : "0.0.0.0", carg->bind_port, uv_strerror(bind_ret));
-			carg->lock = 0;
+			udp_close_client(carg, NULL);
 			return;
 		}
+	}
+
+	if (udp_client_recv_start(&carg->udp_client)) {
+		udp_close_client(carg, NULL);
+		return;
 	}
 
 	uv_udp_send(&carg->udp_send, &carg->udp_client, &carg->request_buffer, 1, (struct sockaddr *)&carg->remote_addr, udp_on_send);

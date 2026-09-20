@@ -373,7 +373,7 @@ void filetailer_close(uv_fs_t *req) {
 	}
 
 
-	if (carg->period)
+	if (carg->period && carg->period_timer)
 		uv_timer_set_repeat(carg->period_timer, carg->period);
 
 	if (filetailer_gate_release(carg, pathname, 1))
@@ -489,7 +489,7 @@ void filetailer_directory_file_crawl(void *arg)
 {
 	context_arg *carg = arg;
 
-	if (carg->period && !carg->close_counter) {
+	if (carg->period && !carg->period_timer) {
 		carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
 		carg->period_timer->data = carg;
 		uv_timer_init(carg->loop, carg->period_timer);
