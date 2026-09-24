@@ -278,6 +278,8 @@ Available values:
 
 Enables the inotify mechanisms to check for updates of files within the directory. When set to `only`, the directive runs the file reader using notifications only and disables the global file aggregator scheduler (`file_aggregator_repeat`). With `notify=false` (default), new file bytes are discovered on each global file crawl tick (`file_aggregator_repeat` in `system` config, default 10s). Do not confuse global `file_aggregator_repeat` with per-aggregate `period` (a separate per-file timer).
 
+Log rotation and truncate are detected on crawl as well: if the file shrinks or its inode changes, alligator reopens and resets the offset (via `filetailer_sync_offset_from_fd`). `notify=true` only reduces discovery latency (and schedules a read on `UV_RENAME`); it is not required for rotation reopen.
+
 ### How catch-up works (directory globs)
 
 Each physical read is capped at about 1 MB. When more bytes remain (`offset < size`), that file’s `read_dirty` flag stays set and the path is recorded in a **per-aggregate pending set**. An idle drain starts **at most one** open→read→close chain per turn and **round-robins** across dirty files so one hot log cannot starve siblings. Re-notify / re-crawl while a path is already pending is a no-op (flag, not an unbounded queue).

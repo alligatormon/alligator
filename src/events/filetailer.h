@@ -12,6 +12,10 @@ void filestat_restore();
 /* Used by unit tests; also called from filetailer_handler. */
 void filetailer_apply_path_glob(context_arg *carg);
 uint8_t filetailer_wants_content_read(context_arg *carg);
+/* 1 = open (new bytes, truncate, or inode change); 0 = true EOF, skip.
+ * Used by schedule and unit tests; inode check needs pathname when size==offset. */
+typedef struct file_stat file_stat;
+uint8_t filetailer_should_schedule_open(file_stat *fst, const char *pathname, uint64_t filesize);
 /* Per-file catch-up pending set (directory aggregates). */
 void filetailer_pending_add(context_arg *carg, const char *pathname);
 void filetailer_pending_free(context_arg *carg);

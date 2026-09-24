@@ -349,6 +349,28 @@ static void filetailer_release_open_fd(context_arg *carg, file_handle *fh, int f
 	file_handler_struct_free(fh);
 }
 
+/* True when crawl/notify should open: growth, shrink/truncate, or inode change.
+ * Skip only true EOF (same size and same inode). Rotation reopen runs in
+ * filetailer_sync_offset_from_fd after open — this gate must not block that. */
+uint8_t filetailer_should_schedule_open(file_stat *fst, const char *pathname, uint64_t filesize)
+{
+	struct stat st;
+
+	if (!fst)
+		return 1;
+	if (filesize > fst->offset)
+		return 1;
+	if (filesize < fst->offset)
+		return 1;
+
+	/* filesize == offset: reopen if the path points at a different inode */
+	if (fst->ino && pathname && pathname[0] && lstat(pathname, &st) == 0) {
+		if (fst->dev != (uint64_t)st.st_dev || fst->ino != (uint64_t)st.st_ino)
+			return 1;
+	}
+	return 0;
+}
+
 /* Periodic crawl (file_aggregator_repeat) or inotify: read new bytes when present.
  * Offset-tracked reads chain via per-file read_dirty + fair idle drain (≤1 chain/turn). */
 static void filetailer_schedule_content_read_sz(context_arg *carg, const char *pathname, uint64_t filesize)
@@ -371,7 +393,7 @@ static void filetailer_schedule_content_read_sz(context_arg *carg, const char *p
 			file_stat_offset_for_read(fst, carg->state);
 			carglog(carg, L_DEBUG, "schedule content read: %s size %"u64" offset %"u64" state %s\n",
 				pathname, filesize, fst->offset, filetailer_state_name(carg->state));
-			if (filesize <= fst->offset)
+			if (!filetailer_should_schedule_open(fst, pathname, filesize))
 			{
 				carglog(carg, L_DEBUG, "skip content read (no new bytes): %s\n", pathname);
 				return;
@@ -901,7 +923,8 @@ void on_file_change(uv_fs_event_t *handle, const char *filename, int events, int
 		}
 	}
 
-	if (events & UV_CHANGE)
+	/* RENAME alone must schedule a read; do not wait for a separate UV_CHANGE. */
+	if ((events & UV_RENAME) || (events & UV_CHANGE))
 		filetailer_schedule_content_read(carg, pathname);
 
 	if ((events & UV_CHANGE) && carg->file_stat)

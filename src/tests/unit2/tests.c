@@ -7,6 +7,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 #include <events/context_arg.h>
 #include "metric/namespace.h"
 #include "metric/labels.h"
@@ -1066,6 +1067,67 @@ static void test_filetailer_pending_multifile_catchup(void)
 
     file_stat_free(ac->file_stat);
     ac->file_stat = saved_file_stat;
+}
+
+/* Schedule gate: reopen on shrink / inode change; skip only true EOF. */
+static void test_filetailer_schedule_open_on_rotation(void)
+{
+    char path[] = "/tmp/alligator-ft-rot-XXXXXX";
+    int fd;
+    file_stat fst = {0};
+    struct stat st;
+
+    fd = mkstemp(path);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, fd >= 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (int)write(fd, "hello-world\n", 12));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fstat(fd, &st));
+    close(fd);
+
+    fst.offset = 12;
+    fst.dev = (uint64_t)st.st_dev;
+    fst.ino = (uint64_t)st.st_ino;
+
+    /* Same size, same inode → true EOF, skip */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        filetailer_should_schedule_open(&fst, path, 12));
+
+    /* Growth → open */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        filetailer_should_schedule_open(&fst, path, 100));
+
+    /* Shrink / copytruncate (same inode, smaller size) → open */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        filetailer_should_schedule_open(&fst, path, 0));
+
+    /* Rename rotation: offset still large, new empty file at path */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, truncate(path, 0));
+    fst.offset = 5000000;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        filetailer_should_schedule_open(&fst, path, 0));
+
+    /* Same size as offset but different inode → open */
+    {
+        char path2[] = "/tmp/alligator-ft-rot2-XXXXXX";
+        int fd2 = mkstemp(path2);
+        struct stat st2;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, fd2 >= 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (int)write(fd2, "xxxxxxxxxxxx", 12));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fstat(fd2, &st2));
+        close(fd2);
+
+        fst.offset = 12;
+        fst.dev = (uint64_t)st.st_dev;
+        fst.ino = (uint64_t)st.st_ino; /* old inode */
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            filetailer_should_schedule_open(&fst, path2, 12));
+        unlink(path2);
+    }
+
+    /* NULL fst → open */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        filetailer_should_schedule_open(NULL, path, 0));
+
+    unlink(path);
 }
 
 static void test_promql_parser_matrix(void)
@@ -3094,6 +3156,7 @@ static void run_helpers_and_events_suites(void)
     test_filestat_restore_v1_paths();
     test_filetailer_helpers_paths();
     test_filetailer_pending_multifile_catchup();
+    test_filetailer_schedule_open_on_rotation();
     test_client_registry_paths();
     test_metric_str_build_named_namespaces();
     test_metric_str_build_default_namespace();
