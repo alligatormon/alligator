@@ -217,8 +217,8 @@ static void process_close_or_released(context_arg *carg, uv_handle_t *handle, ui
 		return;
 	}
 
-	/* Already closing: wait for process_uv_handle_closed — do not mark early. */
 	if (uv_is_closing(handle))
+		process_mark_released(carg, bit);
 		return;
 
 	uv_close(handle, process_uv_handle_closed);
