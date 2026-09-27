@@ -368,6 +368,7 @@ gld_done:
 #include "json_query.h"
 #include "validator.h"
 #include "protobuf_wire.h"
+#include "cadvisor_parsers.h"
 #include "system.h"
 #include "config.h"
 #include "ht.h"
@@ -2954,6 +2955,7 @@ static void run_parser_suites(char **argv)
     api_test_multicollector_mixed_formats();
     api_test_multicollector_pushgateway();
     api_test_multicollector_histogram_help();
+    api_test_multicollector_empty_label_value();
     api_test_parser_redis_and_dynatrace();
     api_test_parser_redis_info();
     api_test_parser_redis_query();

@@ -1701,6 +1701,16 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "cadvisor", ctxsys);
 	}
 
+	if (ac->system_perf_events) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "perf_events", ctxsys);
+	}
+
+	if (ac->system_memory_bandwidth) {
+		json_t *ctxsys = json_object();
+		json_array_object_insert(system, "memory_bandwidth", ctxsys);
+	}
+
 	if (ac->system_packages) {
 		json_t *ctxsys = json_array();
 		json_array_object_insert(system, "packages", ctxsys);

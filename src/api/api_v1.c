@@ -1329,6 +1329,14 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						{
 							ac->system_ipmi = 1;
 						}
+						else if (!strcmp(system_key, "perf_events"))
+						{
+							ac->system_perf_events = enkey;
+						}
+						else if (!strcmp(system_key, "memory_bandwidth"))
+						{
+							ac->system_memory_bandwidth = enkey;
+						}
 						else if (!strcmp(system_key, "cadvisor"))
 						{
 							ac->system_cadvisor = enkey;

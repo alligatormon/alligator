@@ -294,6 +294,8 @@ void system_test(char *binary) {
 	test_nfs_config_enable();
 	test_wifi_config_enable();
 	test_zfs_config_enable();
+	test_cadvisor_parsers();
+	test_perf_events_memory_bandwidth_config();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);

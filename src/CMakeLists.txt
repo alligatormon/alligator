@@ -528,6 +528,8 @@ set(STATIC_FILES
 	system/linux/interrupts.c
 	system/linux/power_supply.c
 	system/linux/pressure.c
+	system/linux/perf_events.c
+	system/linux/memory_bandwidth.c
 	system/linux/proc_net.c
 	system/linux/wireguard.c
 	system/linux/ethtool.c
@@ -556,6 +558,7 @@ set(STATIC_FILES
 	cadvisor/run.c
 	cadvisor/ns.c
 	cadvisor/metrics.c
+	cadvisor/parsers.c
 	dstructures/uv_cache.c
 	dstructures/queue.c
 	dstructures/ht.c
@@ -582,6 +585,8 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/interrupts.c
 	system/linux/power_supply.c
 	system/linux/pressure.c
+	system/linux/perf_events.c
+	system/linux/memory_bandwidth.c
 	system/linux/proc_net.c
 	system/linux/wireguard.c
 	system/linux/ethtool.c

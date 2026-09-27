@@ -1,5 +1,7 @@
 #pragma once
 #include "dstructures/tommy.h"
+#include <stddef.h>
+#include <stdint.h>
 #ifdef __linux__
 #include "system/linux/network.h"
 #endif
@@ -7,17 +9,20 @@
 #include "events/context_arg.h"
 
 void cadvisor_register_metric_families(context_arg *carg);
-//typedef struct ifindexnames
-//{
-//	char *key;
-//	char *value;
-//	
-//	tommy_node node;
-//} ifindexnames;
-
-//int ifindexnames_compare(const void* arg, const void* obj);
-//alligator_ht* network_index_scrape();
 void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
+
+typedef struct cadvisor_label_pair {
+	const char *name;
+	const char *value;
+} cadvisor_label_pair;
+
+void add_cadvisor_metric_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
+void add_cadvisor_metric_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
+void add_cadvisor_metric_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *name1, char *value1, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
+void add_cadvisor_metric_labels_uint(char *mname, uint64_t val, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id, const cadvisor_label_pair *extra, size_t nextra);
+void add_cadvisor_metric_labels_int(char *mname, int64_t val, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id, const cadvisor_label_pair *extra, size_t nextra);
+void add_cadvisor_metric_labels_double(char *mname, double val, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id, const cadvisor_label_pair *extra, size_t nextra);
+
 #ifdef __linux__
 typedef struct cadvisor_net_emit_ctx {
 	char *cntid;

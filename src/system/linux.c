@@ -40,6 +40,8 @@
 #include "system/linux/process.h"
 #include "system/linux/ipmi.h"
 #include "system/linux/pressure.h"
+#include "system/linux/perf_events.h"
+#include "system/linux/memory_bandwidth.h"
 #include "system/linux/proc_net.h"
 #include "system/linux/vm_stats.h"
 #include "system/linux/host_misc.h"
@@ -2481,6 +2483,12 @@ void get_system_metrics()
 	if (ac->system_cadvisor)
 		cadvisor_metrics();
 
+	if (ac->system_perf_events)
+		get_perf_events_stats();
+
+	if (ac->system_memory_bandwidth)
+		get_memory_bandwidth_stats();
+
 	if (ac->system_services || ac->system_services_process)
 		get_services();
 
@@ -2506,6 +2514,8 @@ void get_system_metrics()
 
 void system_free()
 {
+	perf_events_cleanup();
+
 	if (ac->fdesc)
 	{
 		alligator_ht_foreach_arg(ac->fdesc, process_fdescriptors_free, ac->fdesc);

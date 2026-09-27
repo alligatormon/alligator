@@ -3219,6 +3219,42 @@ void api_test_multicollector_pushgateway()
     free(carg);
 }
 
+void api_test_multicollector_empty_label_value()
+{
+    char *msg =
+        "ut_empty_label{error=\"push_metrics_error\",reason=\"\",scope=\"common\"} 11\n"
+        "ut_empty_first{reason=\"\",scope=\"common\"} 2\n";
+
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    multicollector(NULL, msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    free(carg);
+
+    string *out = string_init(4096);
+    metric_str_build(NULL, out, 1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_empty_label") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_empty_first") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "reason=\"\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "error=\"push_metrics_error\"") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "scope=\"common\"") != NULL);
+    string_free(out);
+
+    char *bad = "ut_empty_label_bad{reason=\"unterminated} 1\n";
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    multicollector(NULL, bad, strlen(bad), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    out = string_init(4096);
+    metric_str_build(NULL, out, 1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "ut_empty_label_bad") != NULL);
+    string_free(out);
+}
+
 void api_test_multicollector_histogram_help()
 {
     context_arg *carg = calloc(1, sizeof(*carg));

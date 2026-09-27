@@ -203,6 +203,9 @@ int multicollector_get_quotes(uint64_t *cur, const char *str, const size_t size,
 	strlcpy(s2, str+*cur, copy_size + 1);
 	*cur = *cur + syms + 1;
 
+	/* Empty "" is a valid Prometheus label value. Callers treat 0 as failure. */
+	if (!syms)
+		return 1;
 	return syms;
 }
 

@@ -74,6 +74,9 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "pressure_stalled_seconds_total", METRIC_TYPE_COUNTER, "PSI full-total stall time in seconds by resource (cpu, memory, io, irq).");
 	namespace_metric_family_set(NULL, carg, "pressure_waiting_avg_percent", METRIC_TYPE_GAUGE, "PSI some stall average percent by resource and window (10, 60, 300).");
 	namespace_metric_family_set(NULL, carg, "pressure_stalled_avg_percent", METRIC_TYPE_GAUGE, "PSI full stall average percent by resource and window (10, 60, 300).");
+	namespace_metric_family_set(NULL, carg, "perf_events_total", METRIC_TYPE_COUNTER, "Host perf_event counters by event name and CPU.");
+	namespace_metric_family_set(NULL, carg, "perf_events_scaling_ratio", METRIC_TYPE_GAUGE, "perf_event time_running/time_enabled scaling ratio by event and CPU.");
+	namespace_metric_family_set(NULL, carg, "memory_bandwidth_bytes_total", METRIC_TYPE_COUNTER, "Intel resctrl MBM byte counters by node and scope (total or local).");
 	namespace_metric_family_set(NULL, carg, "vmstat_pages", METRIC_TYPE_GAUGE, "Current VM page counts from /proc/vmstat (nr_* and *_threshold keys).");
 	namespace_metric_family_set(NULL, carg, "vmstat_stat_total", METRIC_TYPE_COUNTER, "Cumulative VM event counters from /proc/vmstat by stat name.");
 	namespace_metric_family_set(NULL, carg, "sysctl_fs", METRIC_TYPE_GAUGE, "Kernel filesystem sysctl values from /proc/sys/fs (inode, dentry, aio, dquot, super).");
@@ -413,6 +416,8 @@ void system_initialize()
 	ac->system_disk = 0;
 	ac->system_process = 0;
 	ac->system_cadvisor = 0;
+	ac->system_perf_events = 0;
+	ac->system_memory_bandwidth = 0;
 	ac->system_services_process = 0;
 	ac->system_smart = 0;
 	ac->system_nvml = 0;
