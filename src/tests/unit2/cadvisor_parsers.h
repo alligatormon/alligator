@@ -58,7 +58,6 @@ void test_cadvisor_parsers(void)
 
 	char upper[128];
 
-	assert_near_double(__FILE__, __FUNCTION__, __LINE__, 1.5, cadvisor_diskstats_ms_to_seconds(1500));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
 		cadvisor_overlay_upperdir("lowerdir=/a,upperdir=/var/lib/docker/overlay2/abc/diff,workdir=/w", upper, sizeof(upper)));
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/lib/docker/overlay2/abc/diff", upper);
@@ -107,6 +106,39 @@ void test_cadvisor_parsers(void)
 	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__,
 		(void *)cadvisor_io_cost_metric_name("rbytes"));
 
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_oom_events_total",
+		cadvisor_memory_events_metric_name("oom"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_memory_oom_kill",
+		cadvisor_memory_events_metric_name("oom_kill"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_memory_events_oom_group_kill_total",
+		cadvisor_memory_events_metric_name("oom_group_kill"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_memory_events_low_total",
+		cadvisor_memory_events_metric_name("low"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_memory_events_high_total",
+		cadvisor_memory_events_metric_name("high"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"container_memory_events_max_total",
+		cadvisor_memory_events_metric_name("max"));
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__,
+		(void *)cadvisor_memory_events_metric_name("unknown"));
+
+	{
+		uint64_t cfg = 0;
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+			cadvisor_parse_perf_event_config("event=0x04,umask=0x03\n", &cfg));
+		assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 0x304ULL, cfg);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+			cadvisor_parse_perf_event_config("config=0x1a2", &cfg));
+		assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 0x1a2ULL, cfg);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+			cadvisor_parse_perf_event_config("scale=1.0", &cfg));
+	}
+
 	if (mkdtemp(tmpdir)) {
 		snprintf(empty_dir, sizeof(empty_dir), "%s/empty", tmpdir);
 		mkdir(empty_dir, 0755);
@@ -138,4 +170,19 @@ void test_perf_events_memory_bandwidth_config(void)
 #endif
 	ac->system_perf_events = saved_perf;
 	ac->system_memory_bandwidth = saved_mb;
+
+	{
+		int saved_cadvisor = ac->system_cadvisor;
+		int saved_cperf = ac->cadvisor_perf_events;
+		ac->cadvisor_perf_events = 0;
+		http_api_v1(NULL, NULL, "{ \"system\": { \"cadvisor\": { \"perf_events\": true } } }");
+#ifdef __linux__
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_cadvisor);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->cadvisor_perf_events);
+#else
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->cadvisor_perf_events);
+#endif
+		ac->system_cadvisor = saved_cadvisor;
+		ac->cadvisor_perf_events = saved_cperf;
+	}
 }

@@ -541,6 +541,8 @@ set(STATIC_FILES
 	system/linux/host_misc.c
 	system/linux/disk_sysfs.c
 	system/linux/fabric_sysfs.c
+	system/linux/qdisc.c
+	system/linux/dcb.c
 	system/linux/disk.c
 	system/linux/network.c
 	system/fdescriptors.c
@@ -559,6 +561,7 @@ set(STATIC_FILES
 	cadvisor/ns.c
 	cadvisor/metrics.c
 	cadvisor/parsers.c
+	cadvisor/perf_resctrl.c
 	dstructures/uv_cache.c
 	dstructures/queue.c
 	dstructures/ht.c
@@ -598,6 +601,8 @@ set(_LINUX_SYSTEM_SOURCES
 	system/linux/host_misc.c
 	system/linux/disk_sysfs.c
 	system/linux/fabric_sysfs.c
+	system/linux/qdisc.c
+	system/linux/dcb.c
 	system/linux/disk.c
 	system/linux/network.c
 )

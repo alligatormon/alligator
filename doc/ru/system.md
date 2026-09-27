@@ -621,6 +621,17 @@ system {
 }
 ```
 
+### perf_events
+Выключено по умолчанию. `container_perf_events_total`, `container_perf_events_scaling_ratio`, `container_perf_uncore_events_total` и `container_perf_uncore_events_scaling_ratio` снимаются только с этой опцией. Core-события дают серию на контейнер, CPU и событие.
+
+```
+system {
+    cadvisor perf_events;
+}
+```
+
+`perf_events=1` и `perf_events=on` — тот же переключатель. Это не `system { perf_events; }`: тот остаётся host-коллектором.
+
 ### docker
 Задаёт socket docker daemon. По умолчанию `http://unix:/var/run/docker.sock:/containers/json`.
 

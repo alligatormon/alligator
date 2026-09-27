@@ -11,10 +11,133 @@
 #include "system/linux/amdgpu.h"
 #include "system/macosx/gpu.h"
 #include "api/api.h"
+#ifdef __linux__
+#include <sys/socket.h>
+#include <linux/rtnetlink.h>
+#include <linux/pkt_sched.h>
+#include <linux/dcbnl.h>
+#include "system/linux/qdisc.h"
+#include "system/linux/dcb.h"
+#endif
 extern aconf *ac;
 void get_system_metrics();
 void system_fast_scrape();
 void system_slow_scrape();
+
+#ifdef __linux__
+#ifndef TCA_STATS2
+#define TCA_STATS2 7
+#endif
+#ifndef TCA_STATS_BASIC
+#define TCA_STATS_BASIC 1
+#endif
+#ifndef TCA_STATS_QUEUE
+#define TCA_STATS_QUEUE 3
+#endif
+#ifndef DCB_ATTR_IEEE
+#define DCB_ATTR_IEEE 13
+#endif
+#ifndef DCB_ATTR_IEEE_PFC
+#define DCB_ATTR_IEEE_PFC 2
+#endif
+#ifndef DCB_CMD_IEEE_GET
+#define DCB_CMD_IEEE_GET 21
+#endif
+#ifndef IEEE_8021QAZ_MAX_TCS
+#define IEEE_8021QAZ_MAX_TCS 8
+#endif
+
+static size_t ut_put_rta(char *buf, size_t off, size_t cap, uint16_t type, const void *data, size_t dlen)
+{
+	size_t alen = RTA_LENGTH(dlen);
+	struct rtattr *rta;
+	if (off + RTA_ALIGN(alen) > cap)
+		return off;
+	rta = (struct rtattr *)(buf + off);
+	rta->rta_type = type;
+	rta->rta_len = (unsigned short)alen;
+	if (dlen && data)
+		memcpy(RTA_DATA(rta), data, dlen);
+	return off + RTA_ALIGN(alen);
+}
+
+void test_qdisc_parse_attrs_emit(void)
+{
+	char attrs[256];
+	char nested[64];
+	size_t noff = 0;
+	size_t off = 0;
+	uint64_t bytes = 12345;
+	uint32_t packets = 67;
+	uint32_t qlen = 3, backlog = 1500, drops = 9, requeues = 2, overlimits = 1;
+	unsigned char basic[12];
+	unsigned char queue[20];
+
+	memcpy(basic, &bytes, 8);
+	memcpy(basic + 8, &packets, 4);
+	memcpy(queue + 0, &qlen, 4);
+	memcpy(queue + 4, &backlog, 4);
+	memcpy(queue + 8, &drops, 4);
+	memcpy(queue + 12, &requeues, 4);
+	memcpy(queue + 16, &overlimits, 4);
+
+	noff = ut_put_rta(nested, noff, sizeof(nested), TCA_STATS_BASIC, basic, sizeof(basic));
+	noff = ut_put_rta(nested, noff, sizeof(nested), TCA_STATS_QUEUE, queue, sizeof(queue));
+
+	off = ut_put_rta(attrs, off, sizeof(attrs), TCA_KIND, "fq_codel", strlen("fq_codel") + 1);
+	off = ut_put_rta(attrs, off, sizeof(attrs), TCA_STATS2, nested, noff);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		qdisc_parse_attrs_emit("eth0", TC_H_ROOT, attrs, off));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		qdisc_parse_attrs_emit("eth0", 0, attrs, off));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		qdisc_parse_attrs_emit("veth0", TC_H_ROOT, attrs, off));
+
+	metric_test_run(CMP_EQUAL, "qdisc_bytes_total{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_bytes_total", 12345);
+	metric_test_run(CMP_EQUAL, "qdisc_packets_total{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_packets_total", 67);
+	metric_test_run(CMP_EQUAL, "qdisc_drops_total{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_drops_total", 9);
+	metric_test_run(CMP_EQUAL, "qdisc_requeues_total{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_requeues_total", 2);
+	metric_test_run(CMP_EQUAL, "qdisc_overlimits_total{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_overlimits_total", 1);
+	metric_test_run(CMP_EQUAL, "qdisc_queue_length{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_queue_length", 3);
+	metric_test_run(CMP_EQUAL, "qdisc_backlog_bytes{device=\"eth0\",kind=\"fq_codel\"}", "qdisc_backlog_bytes", 1500);
+}
+
+void test_dcb_parse_ieee_emit(void)
+{
+	char buf[512];
+	char ieee_nested[256];
+	size_t ioff = 0;
+	size_t off = 0;
+	struct dcbmsg dcb;
+	struct ieee_pfc pfc;
+	int i;
+
+	memset(&dcb, 0, sizeof(dcb));
+	dcb.dcb_family = AF_UNSPEC;
+	dcb.cmd = DCB_CMD_IEEE_GET;
+	memset(&pfc, 0, sizeof(pfc));
+	pfc.pfc_cap = 8;
+	pfc.pfc_en = 0xff;
+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; ++i) {
+		pfc.requests[i] = (uint64_t)(100 + i);
+		pfc.indications[i] = (uint64_t)(200 + i);
+	}
+
+	ioff = ut_put_rta(ieee_nested, ioff, sizeof(ieee_nested), DCB_ATTR_IEEE_PFC, &pfc, sizeof(pfc));
+
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, &dcb, sizeof(dcb));
+	off = NLMSG_ALIGN(sizeof(dcb));
+	off = ut_put_rta(buf, off, sizeof(buf), DCB_ATTR_IEEE, ieee_nested, ioff);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dcb_parse_ieee_emit("eth0", buf, off));
+	metric_test_run(CMP_EQUAL, "dcb_pfc_sent_total{device=\"eth0\",prio=\"0\"}", "dcb_pfc_sent_total", 100);
+	metric_test_run(CMP_EQUAL, "dcb_pfc_sent_total{device=\"eth0\",prio=\"7\"}", "dcb_pfc_sent_total", 107);
+	metric_test_run(CMP_EQUAL, "dcb_pfc_received_total{device=\"eth0\",prio=\"0\"}", "dcb_pfc_received_total", 200);
+	metric_test_run(CMP_EQUAL, "dcb_pfc_received_total{device=\"eth0\",prio=\"3\"}", "dcb_pfc_received_total", 203);
+}
+#endif
 
 void test_system_iface_is_veth(void) {
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, system_iface_is_veth("veth9cb223a"));
@@ -360,6 +483,10 @@ void system_test(char *binary) {
     }";
 
     http_api_v1(NULL, NULL, config);
+#ifdef __linux__
+	test_qdisc_parse_attrs_emit();
+	test_dcb_parse_ieee_emit();
+#endif
     get_system_metrics();
     system_fast_scrape();
     system_slow_scrape();
@@ -440,6 +567,11 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"TCP6\",stat=\"inuse\"}", "sockstat_stat_total", 17);
     metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"UDP6\",stat=\"inuse\"}", "sockstat_stat_total", 9);
     metric_test_run(CMP_EQUAL, "sockstat_stat_total{protocol=\"FRAG6\",stat=\"memory\"}", "sockstat_stat_total", 0);
+    metric_test_run(CMP_EQUAL, "tcp_mem_pages{type=\"min\"}", "tcp_mem_pages", 4096);
+    metric_test_run(CMP_EQUAL, "tcp_mem_pages{type=\"pressure\"}", "tcp_mem_pages", 8192);
+    metric_test_run(CMP_EQUAL, "tcp_mem_pages{type=\"max\"}", "tcp_mem_pages", 16384);
+    metric_test_run(CMP_EQUAL, "infiniband_port_state{device=\"mlx5_0\",port=\"1\"}", "infiniband_port_state", 4);
+    metric_test_run(CMP_EQUAL, "infiniband_port_phys_state{device=\"mlx5_0\",port=\"1\"}", "infiniband_port_phys_state", 5);
     metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"status\"}", "wireless_quality", 0);
     metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"link\"}", "wireless_quality", 64);
     metric_test_run(CMP_EQUAL, "wireless_quality{ifname=\"wlan0\",type=\"level\"}", "wireless_quality", -46);

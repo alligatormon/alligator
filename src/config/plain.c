@@ -1265,6 +1265,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							if (wstokens[i].operator)
 							{
 								strlcpy(arg_name, wstokens[i].token->s, 255);
+								if (!strcmp(object_context, "cadvisor") && !strcmp(arg_name, "perf_events"))
+									json_array_object_insert(operator_json, "perf_events", json_true());
 							}
 
 							else if (wstokens[i].argument)
@@ -1298,6 +1300,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										json_array_object_insert(operator_json, arg_name, arg_value);
 									}
 								}
+								else if (!strcmp(object_context, "cadvisor") && !strcmp(wstokens[i].token->s, "perf_events"))
+									json_array_object_insert(operator_json, "perf_events", json_true());
 							}
 
 							if (wstokens[i].semicolon)

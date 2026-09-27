@@ -56,6 +56,8 @@
 #include "system/linux/wifi.h"
 #include "system/linux/zfs.h"
 #include "system/linux/zram.h"
+#include "system/linux/qdisc.h"
+#include "system/linux/dcb.h"
 #define LINUXFS_LINE_LENGTH 300
 #define d64 PRId64
 #define LINUX_MEMORY 1
@@ -129,6 +131,9 @@ void print_mount(const struct mntent *fs)
 
 				int64_t one = 1;
 				metric_add_labels2("disk_filesystem", &one, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "fs", fs->mnt_type);
+
+				int64_t readonly = (buf.f_flag & ST_RDONLY) ? 1 : 0;
+				metric_add_labels("disk_readonly", &readonly, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir);
 			}
 
 			close(f_d);
@@ -2406,6 +2411,8 @@ void get_system_metrics()
 	if (ac->system_network)
 	{
 		get_network_statistics_netlink();
+		get_qdisc_stats();
+		get_dcb_pfc_stats();
 		char dirname[255];
 
 		snprintf(dirname, 255, "%s/net/netstat", ac->system_procfs);
@@ -2416,6 +2423,7 @@ void get_system_metrics()
 
 		get_softnet_stats();
 		get_sockstat_stats();
+		get_tcp_mem_stats();
 		get_bonding_stats();
 		get_arp_stats();
 		get_ipvs_stats();

@@ -102,6 +102,28 @@ void get_infiniband_stats(void)
 			snprintf(hw, sizeof(hw), "%s/%s/hw_counters", ports, port->d_name);
 			walk_counter_dir("infiniband_stat_total", "device", dev->d_name,
 				"port", port->d_name, "stat", NULL, hw);
+
+			{
+				char state_path[1024];
+				uint8_t err = 0;
+				int64_t state;
+
+				snprintf(state_path, sizeof(state_path), "%s/%s/state", ports, port->d_name);
+				state = getkvfile_ext(state_path, &err);
+				if (!err) {
+					uint64_t v = (uint64_t)state;
+					metric_add_labels2("infiniband_port_state", &v, DATATYPE_UINT,
+						ac->system_carg, "device", (char *)dev->d_name, "port", (char *)port->d_name);
+				}
+
+				snprintf(state_path, sizeof(state_path), "%s/%s/phys_state", ports, port->d_name);
+				state = getkvfile_ext(state_path, &err);
+				if (!err) {
+					uint64_t v = (uint64_t)state;
+					metric_add_labels2("infiniband_port_phys_state", &v, DATATYPE_UINT,
+						ac->system_carg, "device", (char *)dev->d_name, "port", (char *)port->d_name);
+				}
+			}
 		}
 		closedir(pdir);
 	}

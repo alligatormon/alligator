@@ -28,6 +28,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "disk_inodes", METRIC_TYPE_GAUGE, "Filesystem inode counts by mountpoint and type.");
 	namespace_metric_family_set(NULL, carg, "disk_inodes_percent", METRIC_TYPE_GAUGE, "Filesystem inode usage percentage by mountpoint and type.");
 	namespace_metric_family_set(NULL, carg, "disk_filesystem", METRIC_TYPE_GAUGE, "Filesystem type marker by mountpoint and fs labels.");
+	namespace_metric_family_set(NULL, carg, "disk_readonly", METRIC_TYPE_GAUGE, "Whether a filesystem mount is read-only (1) from statvfs ST_RDONLY.");
 	namespace_metric_family_set(NULL, carg, "disk_io", METRIC_TYPE_GAUGE, "Disk I/O values by device and metric subtype.");
 	namespace_metric_family_set(NULL, carg, "disk_io_await_seconds_total", METRIC_TYPE_COUNTER, "Cumulative disk I/O wait time in seconds by device and operation type.");
 	namespace_metric_family_set(NULL, carg, "xfs_stat_total", METRIC_TYPE_COUNTER, "XFS runtime statistics by device and stat name.");
@@ -150,6 +151,16 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "softnet_times_squeezed_total", METRIC_TYPE_COUNTER, "Softnet times_squeezed events per CPU from /proc/net/softnet_stat.");
 	namespace_metric_family_set(NULL, carg, "sockstat_sockets_used", METRIC_TYPE_GAUGE, "Total sockets in use from /proc/net/sockstat.");
 	namespace_metric_family_set(NULL, carg, "sockstat_stat_total", METRIC_TYPE_GAUGE, "Socket statistics by protocol and stat name from /proc/net/sockstat and /proc/net/sockstat6.");
+	namespace_metric_family_set(NULL, carg, "tcp_mem_pages", METRIC_TYPE_GAUGE, "TCP memory limit in pages from /proc/sys/net/ipv4/tcp_mem by type (min, pressure, max).");
+	namespace_metric_family_set(NULL, carg, "qdisc_bytes_total", METRIC_TYPE_COUNTER, "Root qdisc transmitted bytes by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_packets_total", METRIC_TYPE_COUNTER, "Root qdisc transmitted packets by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_drops_total", METRIC_TYPE_COUNTER, "Root qdisc dropped packets by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_requeues_total", METRIC_TYPE_COUNTER, "Root qdisc requeues by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_overlimits_total", METRIC_TYPE_COUNTER, "Root qdisc overlimits by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_queue_length", METRIC_TYPE_GAUGE, "Root qdisc current queue length by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "qdisc_backlog_bytes", METRIC_TYPE_GAUGE, "Root qdisc backlog in bytes by device and kind from RTM_GETQDISC.");
+	namespace_metric_family_set(NULL, carg, "dcb_pfc_sent_total", METRIC_TYPE_COUNTER, "IEEE DCB PFC pause frames sent by device and priority.");
+	namespace_metric_family_set(NULL, carg, "dcb_pfc_received_total", METRIC_TYPE_COUNTER, "IEEE DCB PFC pause frames received by device and priority.");
 	namespace_metric_family_set(NULL, carg, "wireless_quality", METRIC_TYPE_GAUGE, "Wireless Extensions quality from /proc/net/wireless (status, link, level dBm, noise dBm).");
 	namespace_metric_family_set(NULL, carg, "wireless_discarded_total", METRIC_TYPE_COUNTER, "Wireless discarded / missed packets from /proc/net/wireless (nwid, crypt, frag, retry, misc, beacon).");
 	namespace_metric_family_set(NULL, carg, "wifi_interface_frequency_hertz", METRIC_TYPE_GAUGE, "nl80211 interface operating frequency in hertz.");
@@ -204,6 +215,8 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "arp_entries", METRIC_TYPE_GAUGE, "ARP table entry count by network device.");
 	namespace_metric_family_set(NULL, carg, "ipvs_stat_total", METRIC_TYPE_COUNTER, "IPVS aggregate statistics from /proc/net/ip_vs_stats.");
 	namespace_metric_family_set(NULL, carg, "infiniband_stat_total", METRIC_TYPE_COUNTER, "InfiniBand port counter from sysfs.");
+	namespace_metric_family_set(NULL, carg, "infiniband_port_state", METRIC_TYPE_GAUGE, "InfiniBand port logical state from sysfs state (integer before colon).");
+	namespace_metric_family_set(NULL, carg, "infiniband_port_phys_state", METRIC_TYPE_GAUGE, "InfiniBand port physical state from sysfs phys_state (integer before colon).");
 	namespace_metric_family_set(NULL, carg, "fibrechannel_stat_total", METRIC_TYPE_COUNTER, "Fibre Channel host statistics from sysfs.");
 	namespace_metric_family_set(NULL, carg, "ethtool_std_stat", METRIC_TYPE_COUNTER, "Standard IEEE/RMON NIC statistics from ethtool genetlink (Linux 5.8+).");
 	namespace_metric_family_set(NULL, carg, "ethtool_rmon_hist", METRIC_TYPE_COUNTER, "RMON packet-size histogram buckets from ethtool genetlink.");
@@ -416,6 +429,7 @@ void system_initialize()
 	ac->system_disk = 0;
 	ac->system_process = 0;
 	ac->system_cadvisor = 0;
+	ac->cadvisor_perf_events = 0;
 	ac->system_perf_events = 0;
 	ac->system_memory_bandwidth = 0;
 	ac->system_services_process = 0;

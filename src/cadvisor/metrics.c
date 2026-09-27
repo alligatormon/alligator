@@ -199,8 +199,10 @@ void cadvisor_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "container_memory_pgsteal_total", METRIC_TYPE_COUNTER, "Number of pages reclaimed.");
 	namespace_metric_family_set(NULL, carg, "container_memory_workingset_refault_file_total", METRIC_TYPE_COUNTER, "Number of refaults of previously evicted file pages.");
 	namespace_metric_family_set(NULL, carg, "container_memory_workingset_refault_anon_total", METRIC_TYPE_COUNTER, "Number of refaults of previously evicted anonymous pages.");
+	namespace_metric_family_set(NULL, carg, "container_memory_events_low_total", METRIC_TYPE_COUNTER, "Number of times the memory usage went under the low threshold.");
 	namespace_metric_family_set(NULL, carg, "container_memory_events_high_total", METRIC_TYPE_COUNTER, "Number of times the memory usage hit the high limit.");
 	namespace_metric_family_set(NULL, carg, "container_memory_events_max_total", METRIC_TYPE_COUNTER, "Number of times the memory usage hit the max limit.");
+	namespace_metric_family_set(NULL, carg, "container_memory_events_oom_group_kill_total", METRIC_TYPE_COUNTER, "Number of times a group OOM kill was performed.");
 	namespace_metric_family_set(NULL, carg, "container_oom_events_total", METRIC_TYPE_COUNTER, "Number of OOM events observed.");
 	namespace_metric_family_set(NULL, carg, "container_memory_migrate", METRIC_TYPE_GAUGE, "Whether memory migrate is enabled for the cpuset.");
 	namespace_metric_family_set(NULL, carg, "container_memory_numa_pages", METRIC_TYPE_GAUGE, "NUMA page counts by type, scope and node.");
@@ -222,6 +224,13 @@ void cadvisor_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "container_pressure_memory_stalled_seconds_total", METRIC_TYPE_COUNTER, "Container memory PSI full total in seconds.");
 	namespace_metric_family_set(NULL, carg, "container_pressure_io_waiting_seconds_total", METRIC_TYPE_COUNTER, "Container IO PSI some total in seconds.");
 	namespace_metric_family_set(NULL, carg, "container_pressure_io_stalled_seconds_total", METRIC_TYPE_COUNTER, "Container IO PSI full total in seconds.");
+
+	namespace_metric_family_set(NULL, carg, "container_perf_events_total", METRIC_TYPE_COUNTER, "Scaled cgroup perf event count.");
+	namespace_metric_family_set(NULL, carg, "container_perf_events_scaling_ratio", METRIC_TYPE_GAUGE, "Perf event time_running / time_enabled.");
+	namespace_metric_family_set(NULL, carg, "container_perf_uncore_events_total", METRIC_TYPE_COUNTER, "Scaled uncore perf event count for the root cgroup.");
+	namespace_metric_family_set(NULL, carg, "container_perf_uncore_events_scaling_ratio", METRIC_TYPE_GAUGE, "Uncore perf event time_running / time_enabled.");
+	namespace_metric_family_set(NULL, carg, "container_memory_bandwidth_bytes", METRIC_TYPE_GAUGE, "Resctrl MBM total bytes for the container.");
+	namespace_metric_family_set(NULL, carg, "container_memory_bandwidth_local_bytes", METRIC_TYPE_GAUGE, "Resctrl MBM local bytes for the container.");
 
 	/* Network (cgroup net_cls / per-interface stats). */
 	namespace_metric_family_set(NULL, carg, "container_network_receive_bytes_total", METRIC_TYPE_COUNTER, "Cumulative count of bytes received.");
@@ -533,11 +542,13 @@ static void cadvisor_emit_diskstat_uint(const char *mname, uint64_t val, int kee
 	add_cadvisor_metric_uint((char *)mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
 
-static void cadvisor_emit_diskstat_seconds(const char *mname, uint64_t ms, disk_list_id *dlid, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
+/* /proc/diskstats time columns are milliseconds. cAdvisor's Prometheus exporter
+ * divides those raw counters by 1e9, the same scale as blkio nanoseconds. */
+static void cadvisor_emit_diskstat_seconds(const char *mname, uint64_t raw, disk_list_id *dlid, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
-	if (!ms)
+	if (!raw)
 		return;
-	add_cadvisor_metric_double((char *)mname, cadvisor_diskstats_ms_to_seconds(ms), cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_double((char *)mname, cadvisor_ns_to_seconds(raw), cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
 
 /* cAdvisor attaches /proc/diskstats to the container rootfs device only.
@@ -1891,18 +1902,15 @@ void cgroupv2_memory_info(char *prefix, char *cntid, char *name, char *image, ch
 	if (fd) {
 		while(fgets(buf, 1000, fd))
 		{
+			const char *mname;
+
 			tmp = buf;
 			tmp += strcspn(tmp, " \t");
 			tmp += strspn(tmp, " \t");
 			val = strtoull(tmp, NULL, 10);
-			if (!strncmp(buf, "oom_kill", 8))
-				add_cadvisor_metric_uint("container_memory_oom_kill", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
-			else if (!strncmp(buf, "high", 4))
-				add_cadvisor_metric_uint("container_memory_events_high_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
-			else if (!strncmp(buf, "max", 3))
-				add_cadvisor_metric_uint("container_memory_events_max_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
-			else if (!strncmp(buf, "oom", 3))
-				add_cadvisor_metric_uint("container_oom_events_total", val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
+			mname = cadvisor_memory_events_metric_name(buf);
+			if (mname)
+				add_cadvisor_metric_uint((char *)mname, val, cntid, name, image, cad_id, NULL, NULL, kubenamespace, kubepod, kubecontainer, NULL);
 		}
 		fclose(fd);
 	}
@@ -2225,6 +2233,7 @@ void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, c
 	if (!libvirt_id)
 		cgroupv2_memory_info(slice, cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer);
 	get_start_time(slice, cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	cadvisor_hw_scrape(cgroupPath, cntid, name, image, kubenamespace, kubepod, kubecontainer, libvirt_id);
 
 	r_time now = setrtime();
 	uint64_t last_seen = now.sec;

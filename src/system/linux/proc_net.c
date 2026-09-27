@@ -107,6 +107,30 @@ void get_sockstat_stats(void)
 	parse_sockstat_file(path);
 }
 
+void get_tcp_mem_stats(void)
+{
+	char path[512];
+	FILE *fd;
+	uint64_t min_pages = 0, pressure_pages = 0, max_pages = 0;
+
+	snprintf(path, sizeof(path), "%s/sys/net/ipv4/tcp_mem", ac->system_procfs);
+	carglog(ac->system_carg, L_TRACE, "system scrape metrics: network: tcp_mem '%s'\n", path);
+
+	fd = fopen(path, "r");
+	if (!fd)
+		return;
+
+	if (fscanf(fd, "%" SCNu64 " %" SCNu64 " %" SCNu64, &min_pages, &pressure_pages, &max_pages) == 3) {
+		metric_add_labels("tcp_mem_pages", &min_pages, DATATYPE_UINT,
+			ac->system_carg, "type", "min");
+		metric_add_labels("tcp_mem_pages", &pressure_pages, DATATYPE_UINT,
+			ac->system_carg, "type", "pressure");
+		metric_add_labels("tcp_mem_pages", &max_pages, DATATYPE_UINT,
+			ac->system_carg, "type", "max");
+	}
+	fclose(fd);
+}
+
 void get_bonding_stats(void)
 {
 	char masters_path[512];

@@ -800,6 +800,7 @@ void cgroup_v2_machines()
 
 void cadvisor_metrics()
 {
+	cadvisor_hw_scrape("/", "/", "/", NULL, NULL, NULL, NULL, NULL);
 	runc_labels(ac->system_rundir, "%s/runc");
 	runc_labels(ac->system_rundir, "%s/containerd/runc/k8s.io/");
 	//runc_labels(ac->system_rundir, "%s/docker/runtime-runc/moby/");

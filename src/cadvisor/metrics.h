@@ -10,6 +10,7 @@
 
 void cadvisor_register_metric_families(context_arg *carg);
 void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
+void cadvisor_hw_scrape(char *cgroup_path, char *cntid, char *name, char *image, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id);
 
 typedef struct cadvisor_label_pair {
 	const char *name;

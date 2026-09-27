@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-double cadvisor_diskstats_ms_to_seconds(uint64_t ms);
 double cadvisor_ns_to_seconds(uint64_t ns);
 double cadvisor_usec_to_seconds(uint64_t usec);
 double cadvisor_ticks_to_seconds(uint64_t ticks, long hz);
@@ -21,8 +20,14 @@ int cadvisor_parse_snmp_tcp_pair(const char *header_line, const char *value_line
 /* Returns metric name for an io.stat cost.* key, or NULL if not a cost key. */
 const char *cadvisor_io_cost_metric_name(const char *key);
 
+/* Returns metric name for a memory.events key, or NULL if unknown. */
+const char *cadvisor_memory_events_metric_name(const char *key);
+
 /* Copy overlay mount upperdir= path into out. Returns 1 on success. */
 int cadvisor_overlay_upperdir(const char *opts, char *out, size_t outsz);
 
 /* 1 if path exists and has at least one non-dot entry. */
 int cadvisor_dir_has_entries(const char *path);
+
+/* Parse a PMU event file body into perf_event_attr.config. */
+int cadvisor_parse_perf_event_config(const char *text, uint64_t *config);

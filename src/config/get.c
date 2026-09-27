@@ -1698,6 +1698,8 @@ void system_config_get(json_t *dst)
 
 	if (ac->system_cadvisor) {
 		json_t *ctxsys = json_object();
+		if (ac->cadvisor_perf_events)
+			json_array_object_insert(ctxsys, "perf_events", json_true());
 		json_array_object_insert(system, "cadvisor", ctxsys);
 	}
 

@@ -222,6 +222,7 @@ typedef struct aconf
 	int system_ipset;
 	int system_ipset_entries;
 	int system_cadvisor;
+	int cadvisor_perf_events;
 	int system_perf_events;
 	int system_memory_bandwidth;
 	int system_services;

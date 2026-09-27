@@ -7,11 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-double cadvisor_diskstats_ms_to_seconds(uint64_t ms)
-{
-	return (double)ms / 1000.0;
-}
-
 double cadvisor_ns_to_seconds(uint64_t ns)
 {
 	return (double)ns / 1000000000.0;
@@ -191,6 +186,26 @@ const char *cadvisor_io_cost_metric_name(const char *key)
 	return NULL;
 }
 
+const char *cadvisor_memory_events_metric_name(const char *key)
+{
+	if (!key)
+		return NULL;
+	/* oom_group_kill and oom_kill before the oom prefix */
+	if (!strncmp(key, "oom_group_kill", 14))
+		return "container_memory_events_oom_group_kill_total";
+	if (!strncmp(key, "oom_kill", 8))
+		return "container_memory_oom_kill";
+	if (!strncmp(key, "oom", 3))
+		return "container_oom_events_total";
+	if (!strncmp(key, "low", 3))
+		return "container_memory_events_low_total";
+	if (!strncmp(key, "high", 4))
+		return "container_memory_events_high_total";
+	if (!strncmp(key, "max", 3))
+		return "container_memory_events_max_total";
+	return NULL;
+}
+
 int cadvisor_overlay_upperdir(const char *opts, char *out, size_t outsz)
 {
 	const char *p;
@@ -207,6 +222,50 @@ int cadvisor_overlay_upperdir(const char *opts, char *out, size_t outsz)
 		return 0;
 	memcpy(out, p, n);
 	out[n] = '\0';
+	return 1;
+}
+
+int cadvisor_parse_perf_event_config(const char *text, uint64_t *config)
+{
+	char buf[512];
+	char *save = NULL;
+	char *tok;
+	size_t n;
+	int have = 0;
+	int have_raw = 0;
+	uint64_t event = 0, umask = 0, cmask = 0, raw = 0;
+
+	if (!text || !config)
+		return 0;
+	n = 0;
+	while (text[n] && n + 1 < sizeof(buf)) {
+		buf[n] = text[n];
+		++n;
+	}
+	buf[n] = '\0';
+
+	for (tok = strtok_r(buf, ", \t\r\n", &save); tok; tok = strtok_r(NULL, ", \t\r\n", &save)) {
+		if (!strncmp(tok, "config=", 7)) {
+			raw = strtoull(tok + 7, NULL, 0);
+			have_raw = 1;
+			have = 1;
+		} else if (!strncmp(tok, "event=", 6)) {
+			event = strtoull(tok + 6, NULL, 0);
+			have = 1;
+		} else if (!strncmp(tok, "umask=", 6)) {
+			umask = strtoull(tok + 6, NULL, 0);
+			have = 1;
+		} else if (!strncmp(tok, "cmask=", 6)) {
+			cmask = strtoull(tok + 6, NULL, 0);
+			have = 1;
+		}
+	}
+	if (!have)
+		return 0;
+	if (have_raw)
+		*config = raw;
+	else
+		*config = event | (umask << 8) | (cmask << 24);
 	return 1;
 }
 

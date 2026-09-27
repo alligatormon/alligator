@@ -1351,6 +1351,21 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 							parse_add_label(ac->cadvisor_carg, sys_value);
 
+							{
+								json_t *perf = json_object_get(sys_value, "perf_events");
+								int on = 0;
+								if (json_is_true(perf) || json_is_object(perf) || json_is_array(perf))
+									on = 1;
+								else if (json_is_integer(perf))
+									on = json_integer_value(perf) != 0;
+								else if (json_is_string(perf)) {
+									const char *s = json_string_value(perf);
+									if (s && strcmp(s, "0") && strcmp(s, "off") && strcmp(s, "false") && strcmp(s, "no"))
+										on = 1;
+								}
+								ac->cadvisor_perf_events = enkey ? on : 0;
+							}
+
 							json_t *json_log_level = json_object_get(sys_value, "log_level");
 							if (json_log_level) {
 								if (json_typeof(json_log_level) == JSON_STRING)

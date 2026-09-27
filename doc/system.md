@@ -756,6 +756,17 @@ system {
 }
 ```
 
+### perf_events
+Off by default. `container_perf_events_total`, `container_perf_events_scaling_ratio`, `container_perf_uncore_events_total`, and `container_perf_uncore_events_scaling_ratio` are emitted only when this option is set. Core events are one series per container, CPU, and event.
+
+```
+system {
+    cadvisor perf_events;
+}
+```
+
+`perf_events=1` and `perf_events=on` are the same switch. This is separate from `system { perf_events; }`, which stays the host collector.
+
 ### docker
 Specifies the socket of the docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.
 
