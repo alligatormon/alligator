@@ -542,19 +542,24 @@ static void cadvisor_emit_diskstat_uint(const char *mname, uint64_t val, int kee
 	add_cadvisor_metric_uint((char *)mname, val, cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
 
-/* /proc/diskstats time columns are milliseconds. cAdvisor's Prometheus exporter
- * divides those raw counters by 1e9, the same scale as blkio nanoseconds. */
+/* /proc/diskstats time columns are milliseconds, not nanoseconds. */
+static double cadvisor_diskstats_ms_to_seconds(uint64_t ms)
+{
+	return (double)ms / 1000.0;
+}
+
 static void cadvisor_emit_diskstat_seconds(const char *mname, uint64_t raw, disk_list_id *dlid, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
 	if (!raw)
 		return;
-	add_cadvisor_metric_double((char *)mname, cadvisor_ns_to_seconds(raw), cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
+	add_cadvisor_metric_double((char *)mname, cadvisor_diskstats_ms_to_seconds(raw), cntid, name, image, cad_id, "device", dlid->devname, kubenamespace, kubepod, kubecontainer, libvirt_id);
 }
 
 /* cAdvisor attaches /proc/diskstats to the container rootfs device only.
  * cgroup v1 already has merged/sectors/service time/queued from blkio, so the
  * filesystem half there is weighted time plus in-flight I/O. cgroup v2 io.stat
- * has none of those, so the rootfs device supplies them. */
+ * has no time field, so the rootfs device supplies read and write seconds.
+ * That row is the whole LV: every container whose / sits on it shares it. */
 static void cadvisor_emit_rootfs_diskstats(disk_list_id *dlid, int cgroupver, char *cntid, char *name, char *image, char *cad_id, char *kubenamespace, char *kubepod, char *kubecontainer, char *libvirt_id)
 {
 	if (!dlid || !dlid->have_dstats)
@@ -1605,11 +1610,15 @@ typedef struct {
 	char *libvirt_id;
 } snmp_emit_ctx;
 
-static void snmp_tcp_cb(const char *field, uint64_t val, void *arg)
+static void snmp_tcp_cb(const char *field, uint64_t val, int negative, void *arg)
 {
 	snmp_emit_ctx *ctx = arg;
-	add_cadvisor_metric_uint("container_network_advance_tcp_stats_total", val, ctx->cntid, ctx->name, ctx->image, ctx->cad_id,
-		"tcp_state", (char *)field, ctx->kubenamespace, ctx->kubepod, ctx->kubecontainer, ctx->libvirt_id);
+	if (negative)
+		add_cadvisor_metric_int("container_network_advance_tcp_stats_total", -(int64_t)val, ctx->cntid, ctx->name, ctx->image, ctx->cad_id,
+			"tcp_state", (char *)field, ctx->kubenamespace, ctx->kubepod, ctx->kubecontainer, ctx->libvirt_id);
+	else
+		add_cadvisor_metric_uint("container_network_advance_tcp_stats_total", val, ctx->cntid, ctx->name, ctx->image, ctx->cad_id,
+			"tcp_state", (char *)field, ctx->kubenamespace, ctx->kubepod, ctx->kubecontainer, ctx->libvirt_id);
 }
 
 static void cgroup_advance_tcp_stats(uint64_t pid, char *cntid, char *name, char *image, char *cad_id,

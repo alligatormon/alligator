@@ -13,7 +13,8 @@ int cadvisor_parse_numa_stat_line(const char *line, int cgroup_v2, cadvisor_numa
 int cadvisor_parse_pressure_line(const char *line, char *kind, size_t kindsz,
 	double *avg10, double *avg60, double *avg300, uint64_t *total_usec);
 
-typedef void (*cadvisor_snmp_tcp_cb)(const char *field, uint64_t val, void *arg);
+/* negative is 1 when the SNMP field was signed (MaxConn is -1). val is then the magnitude. */
+typedef void (*cadvisor_snmp_tcp_cb)(const char *field, uint64_t val, int negative, void *arg);
 int cadvisor_parse_snmp_tcp_pair(const char *header_line, const char *value_line,
 	cadvisor_snmp_tcp_cb cb, void *arg);
 

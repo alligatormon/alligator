@@ -38,13 +38,21 @@ static void test_numa_cb(const char *type, const char *scope, const char *node, 
 static int cadvisor_snmp_count;
 static char cadvisor_snmp_last_field[64];
 static uint64_t cadvisor_snmp_last_val;
+static int cadvisor_snmp_last_negative;
+static int cadvisor_snmp_maxconn_negative;
+static uint64_t cadvisor_snmp_maxconn_val;
 
-static void test_snmp_cb(const char *field, uint64_t val, void *arg)
+static void test_snmp_cb(const char *field, uint64_t val, int negative, void *arg)
 {
 	(void)arg;
 	++cadvisor_snmp_count;
 	strlcpy(cadvisor_snmp_last_field, field, sizeof(cadvisor_snmp_last_field));
 	cadvisor_snmp_last_val = val;
+	cadvisor_snmp_last_negative = negative;
+	if (!strcmp(field, "maxconn")) {
+		cadvisor_snmp_maxconn_negative = negative;
+		cadvisor_snmp_maxconn_val = val;
+	}
 }
 
 void test_cadvisor_parsers(void)
@@ -97,6 +105,22 @@ void test_cadvisor_parsers(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, cadvisor_snmp_count);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "insegs", cadvisor_snmp_last_field);
 	assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 99ULL, cadvisor_snmp_last_val);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, cadvisor_snmp_last_negative);
+
+	cadvisor_snmp_count = 0;
+	cadvisor_snmp_maxconn_negative = 0;
+	cadvisor_snmp_maxconn_val = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		cadvisor_parse_snmp_tcp_pair(
+			"Tcp: RtoAlgorithm MaxConn InSegs",
+			"Tcp: 1 -1 99",
+			test_snmp_cb, NULL));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, cadvisor_snmp_count);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cadvisor_snmp_maxconn_negative);
+	assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 1ULL, cadvisor_snmp_maxconn_val);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "insegs", cadvisor_snmp_last_field);
+	assert_equal_uint(__FILE__, __FUNCTION__, __LINE__, 99ULL, cadvisor_snmp_last_val);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, cadvisor_snmp_last_negative);
 
 	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__,
 		(void *)cadvisor_io_cost_metric_name("cost.usage"));

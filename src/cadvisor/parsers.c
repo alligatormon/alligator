@@ -158,12 +158,26 @@ int cadvisor_parse_snmp_tcp_pair(const char *header_line, const char *value_line
 	while (htok && vtok) {
 		char field[64];
 		size_t i;
-		uint64_t val = strtoull(vtok, NULL, 10);
+		int negative = 0;
+		uint64_t val;
+
+		/* MaxConn is -1 when there is no connection limit. strtoull wraps that to 2^64-1. */
+		if (vtok[0] == '-') {
+			int64_t sval = strtoll(vtok, NULL, 10);
+			negative = 1;
+			if (sval >= 0)
+				val = (uint64_t)sval;
+			else if (sval == INT64_MIN)
+				val = (uint64_t)INT64_MAX + 1;
+			else
+				val = (uint64_t)(-sval);
+		} else
+			val = strtoull(vtok, NULL, 10);
 
 		for (i = 0; htok[i] && i + 1 < sizeof(field); ++i)
 			field[i] = (char)tolower((unsigned char)htok[i]);
 		field[i] = '\0';
-		cb(field, val, arg);
+		cb(field, val, negative, arg);
 		emitted = 1;
 		htok = strtok_r(NULL, " \t\n", &hsave);
 		vtok = strtok_r(NULL, " \t\n", &vsave);
