@@ -1,6 +1,8 @@
 Changelog
 
 ## [unreleased]
+- Elasticsearch parser: fix third-level metric name builder off-by-one (`elasticsearch_os_cpu_load_average`, `elasticsearch_indexing_pressure_memory_*`, `elasticsearch_jvm_buffer_pools_*`, `*_segments_segment_replication`), collapse repeated/trailing underscores, read `/_stats` `_shards` (incl. `skipped`), and stop exporting `/_cluster/stats` string leaves / `_`-keys / `nodes.network_types` as gauges. Skip `timestamp`, `max_unsafe_auto_id_timestamp`, and `resource_usage_stats`. Emit green/yellow/red for index and shard status; add JVM GC/pools, disk watermarks (`/_cluster/settings`), `timed_out`, `node_role`, per-path `fs.data`, and boolean leaves such as `is_throttled`.
+- Grafana dashboard `dashboards/alligator-elasticsearch.json` updated for elasticsearch parser metric renames and new cluster/health/JVM/disk panels (classic Grafana; layout/queries from work `dashboard.json`).
 - Fix: filetailer directory aggregates no longer lose catch-up when sibling files overwrite a single restart path. Pending paths are tracked per aggregate; idle drain runs at most one ~1MB open→read→close chain per turn with round-robin fairness. Expose `alligator_filetailer_lag_bytes{path=…}` (`size - offset`). Prefer a dedicated aggregate for hot logs (see `doc/aggregate.md` notify / catch-up).
 - x509: optional `except` patterns (same hybrid substring/fnmatch rules as `match`) to skip files such as `*_key.pem` after a broad `*.pem` match. Also applied in parseJks.
 - x509: basename glob in `path` (e.g. `/etc/ssl/*.pem`) splits into directory + fnmatch pattern; `match` optional when path has a basename glob. Patterns with `*?[` use `fnmatch` on basename; legacy substring `match` (e.g. `.crt`) unchanged. Same hybrid matching in parseJks.

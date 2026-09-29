@@ -67,6 +67,7 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg);
 void squid_mem_handler(char *metrics, size_t size, context_arg *carg);
 void mogilefs_fsck_status(char *metrics, size_t size, context_arg *carg);
 void elasticsearch_nodes_handler(char *metrics, size_t size, context_arg *carg);
+void elasticsearch_cluster_settings_handler(char *metrics, size_t size, context_arg *carg);
 
 void api_test_parser_ntp() {
     char *msg = "\34\3\3\350\0\0j\243\0\0\22\202\n\3464#\352y\33\263\16\25\"$\0\0\0\0\0\0\0\0\352y Qo\353\277d\352y Qo\355\2z";
@@ -2471,6 +2472,17 @@ void api_test_parser_elasticsearch(char *binary) {
     string_free(msg);
     carg->parser_status = 0;
 
+    get_local_directory(nodes_json_path, binary, "tests/mock/elasticsearch/cluster_settings.json");
+    msg = get_file_content(nodes_json_path, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg))
+        goto es_path_done;
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)msg->s))
+        goto es_path_done;
+    elasticsearch_cluster_settings_handler(msg->s, msg->l, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    string_free(msg);
+    carg->parser_status = 0;
+
     metric_test_run(CMP_EQUAL, "elasticsearch_active_primary_shards", "elasticsearch_active_primary_shards", 4);
     metric_test_run(CMP_EQUAL, "elasticsearch_active_shards", "elasticsearch_active_shards", 423);
     metric_test_run(CMP_EQUAL, "elasticsearch_active_shards_percent_as_number", "elasticsearch_active_shards_percent_as_number", 100);
@@ -2529,7 +2541,6 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_count_total", "elasticsearch_cluster_nodes_count_total", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_count_voting_only", "elasticsearch_cluster_nodes_count_voting_only", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_discovery_types_zen", "elasticsearch_cluster_nodes_discovery_types_zen", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_cluster__nodes_failed", "elasticsearch_cluster__nodes_failed", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_fs_available_in_bytes", "elasticsearch_cluster_nodes_fs_available_in_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_fs_free_in_bytes", "elasticsearch_cluster_nodes_fs_free_in_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_fs_total_in_bytes", "elasticsearch_cluster_nodes_fs_total_in_bytes", 0);
@@ -2550,16 +2561,14 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_process_open_file_descriptors_avg", "elasticsearch_cluster_nodes_process_open_file_descriptors_avg", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_process_open_file_descriptors_max", "elasticsearch_cluster_nodes_process_open_file_descriptors_max", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_nodes_process_open_file_descriptors_min", "elasticsearch_cluster_nodes_process_open_file_descriptors_min", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_cluster__nodes_successful", "elasticsearch_cluster__nodes_successful", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_cluster__nodes_total", "elasticsearch_cluster__nodes_total", 0);
     metric_test_run(CMP_GREATER, "elasticsearch_cluster_status", "elasticsearch_cluster_status", -1);
     metric_test_run(CMP_EQUAL, "elasticsearch_cluster_timestamp", "elasticsearch_cluster_timestamp", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_delayed_unassigned_shards", "elasticsearch_delayed_unassigned_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_discovery_cluster_state_queue", "elasticsearch_discovery_cluster_state_queue", 0);
     metric_test_run(CMP_GREATER, "elasticsearch_discovery_published_cluster_states", "elasticsearch_discovery_published_cluster_states", -1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_fs", "elasticsearch_fs", 1726235801708);
     metric_test_run(CMP_GREATER, "elasticsearch_fs_io_stat_total", "elasticsearch_fs_io_stat_total", 35562);
     metric_test_run(CMP_GREATER, "elasticsearch_fs_total_bytes", "elasticsearch_fs_total_bytes", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_fs_path_total_bytes", "elasticsearch_fs_path_total_bytes", 63189069824);
     metric_test_run(CMP_GREATER, "elasticsearch_http", "elasticsearch_http", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_active_primary_shards", "elasticsearch_indice_active_primary_shards", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_active_shards", "elasticsearch_indice_active_shards", 3);
@@ -2577,7 +2586,9 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_active_shards", "elasticsearch_indice_shard_active_shards", 3);
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_initializing_shards", "elasticsearch_indice_shard_initializing_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_relocating_shards", "elasticsearch_indice_shard_relocating_shards", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status", "elasticsearch_indice_shard_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"green\"}", "elasticsearch_indice_shard_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"yellow\"}", "elasticsearch_indice_shard_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"red\"}", "elasticsearch_indice_shard_status", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_unassigned_shards", "elasticsearch_indice_shard_unassigned_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_indexing", "elasticsearch_indices_indexing", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_merges", "elasticsearch_indices_merges", 0);
@@ -2592,7 +2603,9 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_indices_segments", "elasticsearch_indices_segments", -92236854776001);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_segments_bytes", "elasticsearch_indices_segments_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_store_bytes", "elasticsearch_indices_store_bytes", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status", "elasticsearch_indice_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"green\"}", "elasticsearch_indice_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"yellow\"}", "elasticsearch_indice_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"red\"}", "elasticsearch_indice_status", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_translog", "elasticsearch_indices_translog", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_translog_bytes", "elasticsearch_indices_translog_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_warmer", "elasticsearch_indices_warmer", 0);
@@ -2603,14 +2616,22 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_ingest_total", "elasticsearch_ingest_total", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_initializing_shards", "elasticsearch_initializing_shards", 0);
     metric_test_run(CMP_GREATER, "elasticsearch_jvm", "elasticsearch_jvm", 43656526450);
-    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pool_direct", "elasticsearch_jvm_buffer_pool_direct", 253);
-    metric_test_run(CMP_GREATER, "elasticsearch_jvm_buffer_pool_direct_bytes", "elasticsearch_jvm_buffer_pool_direct_bytes", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pool_mapped", "elasticsearch_jvm_buffer_pool_mapped", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pool_mapped_bytes", "elasticsearch_jvm_buffer_pool_mapped_bytes", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pools_direct", "elasticsearch_jvm_buffer_pools_direct", 253);
+    metric_test_run(CMP_GREATER, "elasticsearch_jvm_buffer_pools_direct_bytes", "elasticsearch_jvm_buffer_pools_direct_bytes", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pools_mapped", "elasticsearch_jvm_buffer_pools_mapped", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pools_mapped_bytes", "elasticsearch_jvm_buffer_pools_mapped_bytes", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_buffer_pools_mapped_non_volatile_memory", "elasticsearch_jvm_buffer_pools_mapped_non_volatile_memory", 2);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_gc_collectors{gc=\"young\",key=\"collection_count\"}", "elasticsearch_jvm_gc_collectors", 164890);
+    metric_test_run(CMP_EQUAL, "elasticsearch_jvm_mem_pools_bytes{pool=\"young\",key=\"used\"}", "elasticsearch_jvm_mem_pools_bytes", 12113149952);
     metric_test_run(CMP_GREATER, "elasticsearch_jvm_classes", "elasticsearch_jvm_classes", 488);
     metric_test_run(CMP_EQUAL, "elasticsearch_jvm_mem", "elasticsearch_jvm_mem", 39);
     metric_test_run(CMP_GREATER, "elasticsearch_jvm_mem_bytes", "elasticsearch_jvm_mem_bytes", 132529407);
     metric_test_run(CMP_GREATER, "elasticsearch_jvm_threads", "elasticsearch_jvm_threads", 243);
+    metric_test_run(CMP_EQUAL, "elasticsearch_node_role{role=\"master\"}", "elasticsearch_node_role", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_disk_watermark_low_percent", "elasticsearch_disk_watermark_low_percent", 85);
+    metric_test_run(CMP_EQUAL, "elasticsearch_disk_watermark_high_percent", "elasticsearch_disk_watermark_high_percent", 90);
+    metric_test_run(CMP_EQUAL, "elasticsearch_disk_watermark_flood_stage_bytes", "elasticsearch_disk_watermark_flood_stage_bytes", 107374182400);
+    metric_test_run(CMP_EQUAL, "elasticsearch_disk_threshold_enabled", "elasticsearch_disk_threshold_enabled", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_nodes_failed", "elasticsearch_nodes_failed", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_nodes_successful", "elasticsearch_nodes_successful", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_nodes_total", "elasticsearch_nodes_total", 1);
@@ -2618,10 +2639,10 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_EQUAL, "elasticsearch_number_of_in_flight_fetch", "elasticsearch_number_of_in_flight_fetch", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_number_of_nodes", "elasticsearch_number_of_nodes", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_number_of_pending_tasks", "elasticsearch_number_of_pending_tasks", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_os", "elasticsearch_os", 1726235801707);
-    metric_test_run(CMP_GREATER, "elasticsearch_os_cgrou_cpu", "elasticsearch_os_cgrou_cpu", -2);
-    metric_test_run(CMP_EQUAL, "elasticsearch_os_cgrou_cpuacct", "elasticsearch_os_cgrou_cpuacct", 74957665140927376);
-    metric_test_run(CMP_GREATER, "elasticsearch_os_cp_load_average", "elasticsearch_os_cp_load_average", 1.2);
+    metric_test_run(CMP_EQUAL, "elasticsearch_timed_out", "elasticsearch_timed_out", 0);
+    metric_test_run(CMP_GREATER, "elasticsearch_os_cgroup_cpu", "elasticsearch_os_cgroup_cpu", -2);
+    metric_test_run(CMP_EQUAL, "elasticsearch_os_cgroup_cpuacct", "elasticsearch_os_cgroup_cpuacct", 74957665140927376);
+    metric_test_run(CMP_GREATER, "elasticsearch_os_cpu_load_average", "elasticsearch_os_cpu_load_average", 1.2);
     metric_test_run(CMP_EQUAL, "elasticsearch_os_cpu", "elasticsearch_os_cpu", 1);
     metric_test_run(CMP_GREATER, "elasticsearch_os_mem", "elasticsearch_os_mem", 3);
     metric_test_run(CMP_GREATER, "elasticsearch_os_mem_bytes", "elasticsearch_os_mem_bytes", 4914302975);
@@ -2633,6 +2654,16 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_primaries_flush", "elasticsearch_primaries_flush", -1);
     metric_test_run(CMP_EQUAL, "elasticsearch_primaries_get", "elasticsearch_primaries_get", 0);
     metric_test_run(CMP_GREATER, "elasticsearch_primaries_indexing", "elasticsearch_primaries_indexing", -1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_primaries_indexing{key=\"is_throttled\"}", "elasticsearch_primaries_indexing", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indices_indexing{key=\"is_throttled\"}", "elasticsearch_indices_indexing", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indexing_pressure_memory_current_bytes{key=\"all\"}", "elasticsearch_indexing_pressure_memory_current_bytes", 100);
+    metric_test_run(CMP_EQUAL, "elasticsearch_search_backpressure_search_task{key=\"cancellation_count\"}", "elasticsearch_search_backpressure_search_task", 2);
+    metric_test_run(CMP_EQUAL, "elasticsearch_search_backpressure_search_task_cancellation_stats{key=\"cancellation_count\"}", "elasticsearch_search_backpressure_search_task_cancellation_stats", 5);
+    metric_test_run(CMP_EQUAL, "elasticsearch_search_backpressure_search_shard_task_cancellation_stats{key=\"cancellation_count\"}", "elasticsearch_search_backpressure_search_shard_task_cancellation_stats", 7);
+    metric_test_run(CMP_EQUAL, "elasticsearch_indices_segments_segment_replication{key=\"max_bytes_behind\"}", "elasticsearch_indices_segments_segment_replication", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_primaries_segments_segment_replication{key=\"max_bytes_behind\"}", "elasticsearch_primaries_segments_segment_replication", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_total_segments_segment_replication{key=\"max_bytes_behind\"}", "elasticsearch_total_segments_segment_replication", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_thread_pool_plugin_custom{key=\"threads\"}", "elasticsearch_thread_pool_plugin_custom", 1);
     metric_test_run(CMP_GREATER, "elasticsearch_primaries_merges", "elasticsearch_primaries_merges", -1);
     metric_test_run(CMP_GREATER, "elasticsearch_primaries_merges_bytes", "elasticsearch_primaries_merges_bytes", -1);
     metric_test_run(CMP_EQUAL, "elasticsearch_primaries_query_cache", "elasticsearch_primaries_query_cache", 0);
@@ -2659,8 +2690,8 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_settings_index_version_created", "elasticsearch_settings_index_version_created", -1);
     metric_test_run(CMP_EQUAL, "elasticsearch_settings_index_version_upgraded", "elasticsearch_settings_index_version_upgraded", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_shards_failed", "elasticsearch_shards_failed", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_shards_successful", "elasticsearch_shards_successful", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_shards_total", "elasticsearch_shards_total", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_shards_successful", "elasticsearch_shards_successful", 19);
+    metric_test_run(CMP_EQUAL, "elasticsearch_shards_total", "elasticsearch_shards_total", 19);
     metric_test_run(CMP_EQUAL, "elasticsearch_task_max_waiting_in_queue_millis", "elasticsearch_task_max_waiting_in_queue_millis", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_thread_pool_analyze", "elasticsearch_thread_pool_analyze", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_thread_pool_ccr", "elasticsearch_thread_pool_ccr", 0);
