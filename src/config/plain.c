@@ -2371,6 +2371,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										json_t *label_value = json_string(wstokens[i].token->s);
 										json_array_object_insert(label_json, label_name, label_value);
 									}
+									else if (!strcmp(mapping_name, "percentile_buffer_min") ||
+										!strcmp(mapping_name, "percentile_calc_every"))
+									{
+										arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
+									}
 									else
 									{
 										arg_json = json_string(wstokens[i].token->s);

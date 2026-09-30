@@ -236,6 +236,24 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						ac->system_carg->ttl = 600;
 				}
 			}
+			if (!strcmp(key, "percentile_buffer_min"))
+			{
+				if (json_typeof(value) == JSON_STRING)
+					ac->percentile_buffer_min = strtoll(json_string_value(value), NULL, 10);
+				else
+					ac->percentile_buffer_min = json_integer_value(value);
+				if (ac->percentile_buffer_min < 0)
+					ac->percentile_buffer_min = 0;
+			}
+			if (!strcmp(key, "percentile_calc_every"))
+			{
+				if (json_typeof(value) == JSON_STRING)
+					ac->percentile_calc_every = strtoll(json_string_value(value), NULL, 10);
+				else
+					ac->percentile_calc_every = json_integer_value(value);
+				if (ac->percentile_calc_every < 0)
+					ac->percentile_calc_every = 0;
+			}
 			if (!strcmp(key, "workers"))
 			{
 				if (json_typeof(value) == JSON_STRING) {

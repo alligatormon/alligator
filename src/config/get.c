@@ -118,6 +118,16 @@ void config_global_get(json_t *dst)
 		json_t *ttl = json_integer(ac->ttl);
 		json_array_object_insert(dst, "ttl", ttl);
 	}
+	if (ac->percentile_buffer_min)
+	{
+		json_t *pmin = json_integer(ac->percentile_buffer_min);
+		json_array_object_insert(dst, "percentile_buffer_min", pmin);
+	}
+	if (ac->percentile_calc_every)
+	{
+		json_t *pce = json_integer(ac->percentile_calc_every);
+		json_array_object_insert(dst, "percentile_calc_every", pce);
+	}
 
 	if (ac->process_shell)
 	{

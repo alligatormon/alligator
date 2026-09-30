@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "common/logs.h"
 #include "metric/percentile_heap.h"
@@ -83,18 +84,22 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 	metric_node *mnode = node;
 	context_arg *carg = arg;
 	int64_t i;
-	double *arr = pb->arr;
 	size_t n = pb->n;
+	/* 0 = every insert (resolved at init from mapping or global) */
+	int64_t every = pb->calc_every > 0 ? pb->calc_every : 1;
+	int need_sort = !pb->sorted || pb->inserts_since_calc >= every;
 
-	buildmaxheap(arr, n);
-	heapSort(arr, pb->sortsize);
-	//for (i = 0; i < n; i++)
-	//{
-	//	printf("%"d64" ", arr[i]);
-	//	if ((i == 0) || (i == 2) || (i == 6) || (i == 14) || (i == 30) || (i == 62) || (i == 126) || (i == 254) || (i == 510) || (i == 1022) || (i == 2046) || (i == 4094))
-	//		printf("\n\n");
-	//}
-	//puts("");
+	if (need_sort)
+	{
+		/* Snapshot collect ring so concurrent heap_insert cannot clobber the sort. */
+		memcpy(pb->sort_arr, pb->arr, n * sizeof(double));
+		buildmaxheap(pb->sort_arr, n);
+		heapSort(pb->sort_arr, pb->sortsize);
+		pb->inserts_since_calc = 0;
+		pb->sorted = 1;
+	}
+
+	double *arr = pb->sort_arr;
 
 	char quantilekey[30];
 	for (i=0; i<pb->percentile_size; i++)
@@ -106,8 +111,6 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 		{
 			hash = alligator_ht_init(NULL);
 			labels_t *labels = mnode->labels;
-			//printf("labels: %p\n", labels);
-			//printf("labels->key: %p\n", labels->key);
 			snprintf(metric_name, 255, "%s_quantile", labels->key);
 			labels = labels->next;
 
@@ -116,7 +119,6 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 				if (!labels->key)
 					continue;
 				labels_hash_insert(hash, labels->name, labels->key);
-				//printf("labels name %s, key %s\n", labels->name, labels->key);
 			}
 		}
 		else
@@ -127,13 +129,11 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 
 		if ( pb->percentile[i] == -1 )
 		{
-			//printf("p1.0[%"d64"]   %f\n", pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			labels_hash_insert(hash, "quantile", "1.0");
 			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
-			//printf("p0.%"d64"[%"d64"]   %f\n", pb->percentile[i], pb->ipercentile[i], arr[pb->ipercentile[i]]);
 			snprintf(quantilekey, 30, "0.%"d64"", pb->percentile[i]);
 			labels_hash_insert(hash, "quantile", quantilekey);
 			metric_add(metric_name, hash, &arr[pb->ipercentile[i]], DATATYPE_DOUBLE, carg);
@@ -143,7 +143,7 @@ void calc_percentiles(void *arg, percentile_buffer *pb, void *node, char *custom
 
 void heap_insert(percentile_buffer *pb, double key)
 {
-	if (pb->cur >= pb->n)
+	if (pb->cur >= (int64_t)pb->n)
 		pb->cur = 0;
 
 	pb->arr[pb->cur] = key;
@@ -157,10 +157,14 @@ void heap_insert(percentile_buffer *pb, double key)
 	}
 
 	++pb->cur;
+	++pb->inserts_since_calc;
 }
 
 void free_percentile_buffer(percentile_buffer *pb)
 {
+	if (!pb)
+		return;
+
 	if (pb->ipercentile)
 		free(pb->ipercentile);
 
@@ -170,10 +174,13 @@ void free_percentile_buffer(percentile_buffer *pb)
 	if (pb->arr)
 		free(pb->arr);
 
+	if (pb->sort_arr)
+		free(pb->sort_arr);
+
 	free(pb);
 }
 
-percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
+percentile_buffer* init_percentile_buffer_opts(int64_t *percentile, size_t n, int64_t buffer_min, int64_t calc_every)
 {
 	percentile_buffer *pb = calloc(1, sizeof(*pb));
 	int default_percentile = 0;
@@ -209,7 +216,19 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 		percentilelong = 1;
 
 	int8_t digits = (int64_t)log10(percentilelong) + 1;
-	pb->n = pow(10, digits);
+	size_t natural_n = (size_t)pow(10, digits);
+	pb->n = natural_n;
+
+	/* Resolve floor: mapping override (-1 unset) → global ac fallback */
+	int64_t resolved_min = buffer_min;
+	if (resolved_min < 0)
+		resolved_min = ac ? ac->percentile_buffer_min : 0;
+	/*
+	 * Floor only: e.g. quantiles 0.9 → natural 10, with percentile_buffer_min 1000
+	 * grows to 1000 while label stays "0.9". Fine specs like 0.9000 stay at 10000.
+	 */
+	if (resolved_min > 0 && (size_t)resolved_min > pb->n)
+		pb->n = (size_t)resolved_min;
 
 	int64_t percentilemax = 0;
 	for (i=0; i<n; i++)
@@ -220,7 +239,16 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 		{
 			int8_t percdigits = (int64_t)log10(pb->percentile[i]);
 			int64_t curpercentile = pb->percentile[i]*pow(10, digits - percdigits - 1);
-			pb->ipercentile[i] = pb->n - curpercentile;
+			int64_t natural_ip = (int64_t)natural_n - curpercentile;
+			if (pb->n == natural_n)
+				pb->ipercentile[i] = natural_ip;
+			else
+				pb->ipercentile[i] = (natural_ip * (int64_t)pb->n) / (int64_t)natural_n;
+
+			if (pb->ipercentile[i] < 0)
+				pb->ipercentile[i] = 0;
+			if (pb->ipercentile[i] >= (int64_t)pb->n)
+				pb->ipercentile[i] = (int64_t)pb->n - 1;
 
 			if (percentilemax < pb->ipercentile[i])
 				percentilemax = pb->ipercentile[i];
@@ -228,15 +256,25 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 	}
 
 	pb->cur = 0;
+	pb->inserts_since_calc = 0;
+	pb->sorted = 0;
+	/* Resolve calc interval: mapping override → global; 0 = every insert */
+	int64_t resolved_every = calc_every;
+	if (resolved_every < 0)
+		resolved_every = ac ? ac->percentile_calc_every : 0;
+	if (resolved_every < 0)
+		resolved_every = 0;
+	pb->calc_every = resolved_every;
 	for (i=1; i<percentilemax; i*=2);
 	if (i >= pb->n)
 		pb->sortsize = pb->n;
 	else
 		pb->sortsize = i;
 
-	glog(L_TRACE, "init_percentile_buffer: sortsize %"d64" for diff %"d64"\n", pb->sortsize, percentilemax);
+	glog(L_TRACE, "init_percentile_buffer: n %zu natural %zu sortsize %"d64" calc_every %"d64" for diff %"d64"\n",
+		pb->n, natural_n, pb->sortsize, pb->calc_every, percentilemax);
 
-	pb->arr = calloc(pb->n, sizeof(int64_t));
+	pb->arr = calloc(pb->n, sizeof(double));
 	if (!pb->arr) {
 		free(pb->ipercentile);
 		free(pb->percentile);
@@ -244,7 +282,21 @@ percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
 		return NULL;
 	}
 
+	pb->sort_arr = calloc(pb->n, sizeof(double));
+	if (!pb->sort_arr) {
+		free(pb->arr);
+		free(pb->ipercentile);
+		free(pb->percentile);
+		free(pb);
+		return NULL;
+	}
+
 	return pb;
+}
+
+percentile_buffer* init_percentile_buffer(int64_t *percentile, size_t n)
+{
+	return init_percentile_buffer_opts(percentile, n, -1, -1);
 }
 
 int64_t* percentile_init_3n(int64_t n1, int64_t n2, int64_t n3)
@@ -256,23 +308,3 @@ int64_t* percentile_init_3n(int64_t n1, int64_t n2, int64_t n3)
 
 	return percentile;
 }
-
-// ADD PERCEntiLES CONF
-//	int64_t *percentile = calloc(4, sizeof(int64_t));
-//	percentile[0] = 999;
-//	percentile[1] = 99;
-//	percentile[2] = 90;
-//	percentile[3] = -1;
-//
-// INIT PERCENTILE BUFFER
-//	percentile_buffer *pb = init_percentile_buffer(percentile, 4);
-//
-// INSERT VALUE TO HEAP
-//	int64_t a = 10;
-//	heap_insert(pb, a);
-//
-// CALC PERCENTILES
-//	calc_percentiles(pb);
-//
-// FREE PERCENTILE BUFFER
-//	free_percentile_buffer(pb);

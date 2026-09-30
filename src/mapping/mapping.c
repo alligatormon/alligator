@@ -239,7 +239,8 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		if (mm->percentile)
 		{
 			if (!mnode->percentile_buf)
-				mnode->percentile_buf = init_percentile_buffer(mm->percentile, mm->percentile_size);
+				mnode->percentile_buf = init_percentile_buffer_opts(mm->percentile, mm->percentile_size,
+					mm->percentile_buffer_min, mm->percentile_calc_every);
 
 			if (mnode->percentile_buf) {
 				//printf("inserted heap %p with dval %f\n", mnode->percentile_buf, dval);

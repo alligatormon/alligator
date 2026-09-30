@@ -171,6 +171,8 @@ aconf* configuration()
 	ac->log_time_format = NULL;
 	log_channels_init();
 	ac->ttl = 300;
+	ac->percentile_buffer_min = 0;
+	ac->percentile_calc_every = 0;
 	ac->persistence_period = 10000;
 
 	ac->metrictree_hashfunc = xxh3_run;

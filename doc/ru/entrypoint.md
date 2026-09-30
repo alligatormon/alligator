@@ -78,6 +78,8 @@ entrypoint {
         buckets <buckets 1> <buckets 2> ... <buckets N>;
         le <le 1> <le 2> ... <le N>;
         quantiles <quantile 1> <quantile 2> ... <quantile N>;
+        percentile_buffer_min <N>;
+        percentile_calc_every <N>;
         match [glob];
     }
 }
@@ -594,6 +596,8 @@ Mapping включает поддержку функций агрегации и
 ## quantile
 Включает расчёт quantiles по значениям метрик.
 
+Размер кольца выводится из точности квантиля (`0.9` → 10, `0.90` → 100, `0.900` → 1000, `0.9000` → 10000). Опциональные per-mapping `percentile_buffer_min` / `percentile_calc_every` перекрывают одноимённые global; если в mapping не заданы — берутся global. `percentile_buffer_min` поднимает размер без смены label `quantile=` (только нижняя граница; более точные спецификации не уменьшаются). `percentile_calc_every` ограничивает частоту snapshot+heapsort (collect и sort — разные буферы).
+
 Пример использования statsd mapping:
 ```
 entrypoint {
@@ -618,6 +622,8 @@ entrypoint {
                 name "$1"_"$2";
                 label label_name_"$1" "$2"_key;
                 quantiles 0.999 0.95 0.9;
+                percentile_buffer_min 1000;
+                percentile_calc_every 100;
                 match glob;
         }
 }

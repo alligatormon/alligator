@@ -12,6 +12,7 @@
 #include "metric/namespace.h"
 #include "metric/labels.h"
 #include "metric/metrictree.h"
+#include "metric/percentile_heap.h"
 #include "common/patricia.h"
 #include "parsers/multiparser.h"
 #include "metric/query.h"
@@ -28,6 +29,7 @@
 #include "x509/type.h"
 #include "query/type.h"
 #include "probe/probe.h"
+#include "mapping/type.h"
 
 void api_router(string *response, http_reply_data *http_data, context_arg *carg);
 
@@ -1648,6 +1650,121 @@ static void test_labels_initiate_and_update_paths(void)
     (void)0; /* heap corruption in pass mode when combined with metric_update */
 }
 
+static void test_percentile_buffer_min_and_double_buffer(void)
+{
+    int64_t saved_min = ac->percentile_buffer_min;
+    int64_t saved_every = ac->percentile_calc_every;
+
+    ac->percentile_buffer_min = 0;
+    ac->percentile_calc_every = 0;
+    percentile_buffer *pb_nat = init_percentile_buffer(percentile_init_3n(9, 5, -1), 2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_nat);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)pb_nat->n);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_nat->sort_arr);
+    free_percentile_buffer(pb_nat);
+
+    /* Floor only: 0.9 stays label 0.9 but ring grows to 1000 */
+    ac->percentile_buffer_min = 1000;
+    percentile_buffer *pb_min = init_percentile_buffer(percentile_init_3n(9, 5, -1), 2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_min);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)pb_min->n);
+    /* p0.9 natural ip=1 on n=10 → scaled 100 on n=1000 */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)pb_min->ipercentile[0]);
+    /* p0.5 natural ip=5 → scaled 500 */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 500, (int)pb_min->ipercentile[1]);
+    free_percentile_buffer(pb_min);
+
+    /* Finer digit-derived size is not shrunk by the floor */
+    ac->percentile_buffer_min = 1000;
+    percentile_buffer *pb_fine = init_percentile_buffer(percentile_init_3n(9000, -1, -1), 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_fine);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10000, (int)pb_fine->n);
+    free_percentile_buffer(pb_fine);
+
+    /* Deferred heapsort: sort once every N inserts, collect buffer untouched by sort */
+    ac->percentile_buffer_min = 0;
+    ac->percentile_calc_every = 3;
+    percentile_buffer *pb = init_percentile_buffer(percentile_init_3n(9, 5, -1), 2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb);
+    heap_insert(pb, 10);
+    heap_insert(pb, 20);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)pb->inserts_since_calc);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pb->sorted);
+    calc_percentiles(NULL, pb, NULL, "ut_pct_skip", NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pb->sorted);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pb->inserts_since_calc);
+    double keep0 = pb->sort_arr[0];
+    heap_insert(pb, 999);
+    calc_percentiles(NULL, pb, NULL, "ut_pct_skip", NULL);
+    /* second calc before every=3 should reuse snapshot */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pb->inserts_since_calc);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, keep0 == pb->sort_arr[0] ? 1 : 0);
+    heap_insert(pb, 30);
+    heap_insert(pb, 40);
+    calc_percentiles(NULL, pb, NULL, "ut_pct_skip", NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pb->inserts_since_calc);
+    free_percentile_buffer(pb);
+
+    ac->percentile_buffer_min = saved_min;
+    ac->percentile_calc_every = saved_every;
+
+    /* Per-mapping overrides via init_percentile_buffer_opts; -1 falls back to global */
+    ac->percentile_buffer_min = 10;
+    ac->percentile_calc_every = 1;
+    percentile_buffer *pb_map = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 1000, 5);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_map);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)pb_map->n);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, (int)pb_map->calc_every);
+    free_percentile_buffer(pb_map);
+
+    percentile_buffer *pb_fb = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, -1, -1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_fb);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)pb_fb->n);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pb_fb->calc_every);
+    free_percentile_buffer(pb_fb);
+
+    /* Explicit 0 on mapping disables global floor / every-N */
+    ac->percentile_buffer_min = 1000;
+    ac->percentile_calc_every = 50;
+    percentile_buffer *pb_zero = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 0, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_zero);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)pb_zero->n);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pb_zero->calc_every);
+    free_percentile_buffer(pb_zero);
+
+    ac->percentile_buffer_min = saved_min;
+    ac->percentile_calc_every = saved_every;
+
+    /* JSON mapping parse: unset stays -1; set values are kept */
+    json_t *mj = json_object();
+    json_object_set_new(mj, "template", json_string("rms_*"));
+    json_t *qarr = json_array();
+    json_array_append_new(qarr, json_real(0.9));
+    json_array_append_new(qarr, json_real(0.5));
+    json_object_set_new(mj, "quantiles", qarr);
+    json_object_set_new(mj, "percentile_buffer_min", json_integer(1000));
+    json_object_set_new(mj, "percentile_calc_every", json_integer(100));
+    mapping_metric *mm = json_mapping_parser(mj);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)mm->percentile_buffer_min);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)mm->percentile_calc_every);
+    json_t *mj_out = mapping_metric_to_json(mm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)json_integer_value(json_object_get(mj_out, "percentile_buffer_min")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)json_integer_value(json_object_get(mj_out, "percentile_calc_every")));
+    json_decref(mj_out);
+    mapping_free_recurse(mm);
+    json_decref(mj);
+
+    json_t *mj2 = json_object();
+    json_object_set_new(mj2, "template", json_string("other_*"));
+    mapping_metric *mm2 = json_mapping_parser(mj2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->percentile_buffer_min);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->percentile_calc_every);
+    mapping_free_recurse(mm2);
+    json_decref(mj2);
+}
+
 static void test_metric_update_labels_multi_paths(void)
 {
     static volatile int skip = 0;
@@ -3137,6 +3254,7 @@ static void run_helpers_and_events_suites(void)
     test_labels_metric_add_labels6_to_10();
     test_metric_update_labels_multi_paths();
     test_labels_initiate_and_update_paths();
+    test_percentile_buffer_min_and_double_buffer();
     test_labels_cmp_and_cat_paths();
     test_metric_transform_paths();
     test_metric_transform_extended_paths();

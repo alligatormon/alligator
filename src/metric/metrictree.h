@@ -25,13 +25,22 @@ typedef struct sort_order_node {
 	uint32_t hash;
 } sort_order_node;
 
+#define SORTPLAN_MAX 65535
+
+/*
+ * The sort plan is shared by all threads of a namespace and is append-only:
+ * entries [0, size) are immutable once published. `size` must be read with
+ * an acquire load and written (under `lock`) with a release store.
+ * Growing the plan (labels_new_plan_node) requires holding `lock`.
+ */
 typedef struct sortplan
 {
-	char *plan[65535];
-	uint64_t hash[65535];
-	uint64_t len[65535];
+	char *plan[SORTPLAN_MAX];
+	uint64_t hash[SORTPLAN_MAX];
+	uint64_t len[SORTPLAN_MAX];
 	alligator_ht* check_collisions;
 	size_t size;
+	pthread_mutex_t lock;
 } sortplan;
 
 typedef struct labels_t
@@ -140,6 +149,9 @@ typedef struct mapping_metric
 
 	int64_t *percentile;
 	int64_t percentile_size;
+	/* -1 = unset → fall back to global ac->percentile_*; 0+ = explicit */
+	int64_t percentile_buffer_min;
+	int64_t percentile_calc_every;
 	double *bucket;
 	int64_t bucket_size;
 	double *le;

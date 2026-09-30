@@ -97,7 +97,7 @@ uint64_t hash_cmp(uint64_t l, uint64_t r) {
 int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 {
 	int64_t i;
-	size_t plan_size = sort_plan->size;
+	size_t plan_size = __atomic_load_n(&sort_plan->size, __ATOMIC_ACQUIRE);
 	for (i=0; i<plan_size && labels1 && labels2; i++)
 	{
 		if (!labels1->key && !labels2->key)
@@ -136,7 +136,7 @@ int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size
 		++labels_count;
 
 	int64_t i;
-	size_t plan_size = sort_plan->size;
+	size_t plan_size = __atomic_load_n(&sort_plan->size, __ATOMIC_ACQUIRE);
 	for (i=0; i<plan_size && labels_count; i++)
 	{
 		if (!labels1)
@@ -515,21 +515,41 @@ int check_collisions_compare(const void* arg, const void* obj)
 	return strcmp(name, sp_colls->name);
 }
 
+void labels_free_node(void *funcarg, void* arg);
+
+/* Context for labels_new_plan_node(); the caller must hold sort_plan->lock. */
+typedef struct labels_plan_ctx
+{
+	sortplan *sort_plan;
+	labels_t *tail;     /* last node of the chain being built */
+	size_t plan_size;   /* chain length == sort_plan->size the chain was built against */
+} labels_plan_ctx;
+
 void labels_new_plan_node(void *funcarg, void* arg)
 {
-// TODO: theoretical due to multithreaded model it can leads to the simultaneously changing of sort_plan and it can leads to the issues
 	labels_container *labelscont = arg;
+	labels_plan_ctx *ctx = funcarg;
 	if (!labelscont)
 		return;
 
+	sortplan *sort_plan = ctx->sort_plan;
+	size_t size = __atomic_load_n(&sort_plan->size, __ATOMIC_RELAXED); // writers are serialized by sort_plan->lock
+
+	// the chain position must be equal to the sort plan index
+	if (size != ctx->plan_size || size >= SORTPLAN_MAX)
+	{
+		glog(L_ERROR, "can't add label '%s' to the sort plan: plan size %zu, chain size %zu, limit %d\n", labelscont->name, size, ctx->plan_size, SORTPLAN_MAX);
+		labels_free_node(NULL, labelscont);
+		return;
+	}
+
 	// add element to labelscont
-	labels_t *cur = funcarg;
-	sortplan *sort_plan = cur->sort_plan;
-	while(cur->next)
-		cur = cur->next;
-	cur->next = malloc(sizeof(labels_t));
-	cur = cur->next;
+	labels_t *cur = malloc(sizeof(labels_t));
 	memset(cur, 0, sizeof(*cur));
+	ctx->tail->next = cur;
+	ctx->tail = cur;
+	ctx->plan_size++;
+	cur->sort_plan = sort_plan;
 	cur->name = strdup(labelscont->name);
 	cur->name_len = strlen(cur->name);
 	cur->name_hash = ac->metrictree_hashfunc(cur->name, cur->name_len, 0);
@@ -541,10 +561,10 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	cur->allocatedname = 1;
 	cur->allocatedkey = 1;
 
-	// add element to sortplan
-	sort_plan->plan[sort_plan->size] = cur->name;
-	sort_plan->hash[sort_plan->size] = cur->name_hash;
-	sort_plan->len[sort_plan->size] = cur->name_len;
+	// add element to sortplan: fill the entry first and publish it by the size increment
+	sort_plan->plan[size] = cur->name;
+	sort_plan->hash[size] = cur->name_hash;
+	sort_plan->len[size] = cur->name_len;
 
 	sortplan_collision *sp_colls = alligator_ht_search(sort_plan->check_collisions, check_collisions_compare, cur->name, cur->name_hash);
 	if (sp_colls) {
@@ -554,15 +574,16 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	}
 	else {
 		sortplan_collision *sp_colls = malloc(sizeof(*sp_colls));
-		sp_colls->index = sort_plan->size;
+		sp_colls->index = size;
 		sp_colls->name = cur->name;
-		alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[sort_plan->size]);
+		alligator_ht_insert(sort_plan->check_collisions, &(sp_colls->node), sp_colls, sort_plan->hash[size]);
 	}
 
+	// publish the new entry to the lock-free readers
+	__atomic_store_n(&sort_plan->size, size + 1, __ATOMIC_RELEASE);
 
-	++(sort_plan->size);
-
-	free(labelscont);
+	// name and key were copied to the chain node, release the original ones
+	labels_free_node(NULL, labelscont);
 }
 
 void labels_head_free(labels_t *labels)
@@ -592,6 +613,33 @@ void labels_merge(alligator_ht *dst, alligator_ht *src)
 	alligator_ht_foreach_arg(src, labels_merge_for, dst);
 }
 
+typedef struct labels_plan_check
+{
+	sortplan *sort_plan;
+	int missing;
+} labels_plan_check;
+
+static void labels_plan_check_for(void *funcarg, void* arg)
+{
+	labels_plan_check *chk = funcarg;
+	labels_container *labelscont = arg;
+
+	if (chk->missing || !labelscont || !labelscont->name)
+		return;
+
+	uint32_t name_hash = ac->metrictree_hashfunc_get(labelscont->name);
+	if (!alligator_ht_search(chk->sort_plan->check_collisions, check_collisions_compare, labelscont->name, name_hash))
+		chk->missing = 1;
+}
+
+// returns 1 if the hash contains a label name that is not in the sort plan yet, so the plan has to be extended
+static int labels_plan_needs_growth(sortplan *sort_plan, alligator_ht *hash)
+{
+	labels_plan_check chk = { sort_plan, 0 };
+	alligator_ht_foreach_arg(hash, labels_plan_check_for, &chk);
+	return chk.missing;
+}
+
 labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del)
 {
 	if (!hash)
@@ -600,13 +648,34 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	}
 
 	sortplan *sort_plan = ns->metrictree->sort_plan;
-	size_t chain_len = sort_plan->size;
+
+	/*
+	 * The sort plan is shared between all threads and is append-only. The chain must be
+	 * built against one consistent plan size, and growing the plan must be serialized.
+	 * Fast path: all label names are already in the plan, entries [0, plan_size) are
+	 * immutable, so no lock is needed.
+	 * Slow path: new label names will extend the plan, hold sort_plan->lock from the size
+	 * snapshot until the new names are appended.
+	 */
+	int plan_locked = 0;
+	if (!no_del && labels_plan_needs_growth(sort_plan, hash))
+	{
+		pthread_mutex_lock(&sort_plan->lock);
+		plan_locked = 1;
+	}
+
+	size_t plan_size = __atomic_load_n(&sort_plan->size, __ATOMIC_ACQUIRE);
+	size_t chain_len = plan_size;
 	if (chain_len == 0)
 		chain_len = 1;
 
 	labels_t *block = calloc(chain_len, sizeof(labels_t));
 	if (!block)
+	{
+		if (plan_locked)
+			pthread_mutex_unlock(&sort_plan->lock);
 		return NULL;
+	}
 
 	labels_t *labels = block;
 	labels->slab_alloc = block;
@@ -631,7 +700,7 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	labels_t *cur = labels;
 
 	uint64_t i;
-	for (i=1; i<sort_plan->size; i++)
+	for (i=1; i<plan_size; i++)
 	{
 		cur->next = cur + 1;
 		cur = cur->next;
@@ -671,10 +740,15 @@ labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, 
 	cur->next = 0;
 	if (!no_del)
 	{
-		alligator_ht_foreach_arg(hash, labels_new_plan_node, cur);
+		// names that are still in the hash are new for the sort plan
+		labels_plan_ctx ctx = { sort_plan, cur, plan_size ? plan_size : 1 };
+		alligator_ht_foreach_arg(hash, labels_new_plan_node, &ctx);
 		alligator_ht_done(hash);
 		free(hash);
 	}
+
+	if (plan_locked)
+		pthread_mutex_unlock(&sort_plan->lock);
 
 	return labels;
 }

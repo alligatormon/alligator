@@ -104,6 +104,11 @@ json_t *mapping_metric_to_json(mapping_metric *mm)
 		json_object_set_new(obj, "quantiles", quantiles);
 	}
 
+	if (mm->percentile_buffer_min >= 0)
+		json_object_set_new(obj, "percentile_buffer_min", json_integer(mm->percentile_buffer_min));
+	if (mm->percentile_calc_every >= 0)
+		json_object_set_new(obj, "percentile_calc_every", json_integer(mm->percentile_calc_every));
+
 	if (mm->label_head)
 	{
 		json_t *label = json_object();
@@ -130,9 +135,25 @@ json_t *mapping_metric_list_to_json(mapping_metric *mm)
 	return arr;
 }
 
+static int64_t mapping_json_int64(json_t *value)
+{
+	if (!value)
+		return -1;
+	if (json_is_string(value))
+		return strtoll(json_string_value(value), NULL, 10);
+	if (json_is_integer(value))
+		return json_integer_value(value);
+	if (json_is_real(value))
+		return (int64_t)json_real_value(value);
+	return -1;
+}
+
 mapping_metric* json_mapping_parser(json_t *mapping)
 {
 	mapping_metric *mm = calloc(1, sizeof(*mm));
+	/* -1 = unset → fall back to global ac->percentile_* at buffer init */
+	mm->percentile_buffer_min = -1;
+	mm->percentile_calc_every = -1;
 	if (!mapping)
 		return mm;
 
@@ -227,6 +248,22 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 		mm->percentile_size = percentile_size;
 	}
 
+	json_t *pmin = json_object_get(mapping, "percentile_buffer_min");
+	if (pmin)
+	{
+		mm->percentile_buffer_min = mapping_json_int64(pmin);
+		if (mm->percentile_buffer_min < -1)
+			mm->percentile_buffer_min = -1;
+	}
+
+	json_t *pce = json_object_get(mapping, "percentile_calc_every");
+	if (pce)
+	{
+		mm->percentile_calc_every = mapping_json_int64(pce);
+		if (mm->percentile_calc_every < -1)
+			mm->percentile_calc_every = -1;
+	}
+
 	json_t *label = json_object_get(mapping, "label");
 	if (label)
 	{
@@ -283,6 +320,8 @@ mapping_metric* mapping_copy(mapping_metric *src)
 		mm->template_len = src->template_len;
 		mm->match = src->match;
 		mm->wildcard = src->wildcard;
+		mm->percentile_buffer_min = src->percentile_buffer_min;
+		mm->percentile_calc_every = src->percentile_calc_every;
 
 		if (src->glob_size)
 		{
@@ -344,6 +383,8 @@ mapping_metric* mapping_copy(mapping_metric *src)
 
 		mm->next = calloc(1, sizeof(*mm));
 		mm = mm->next;
+		mm->percentile_buffer_min = -1;
+		mm->percentile_calc_every = -1;
 		src = src->next;
 	}
 

@@ -62,6 +62,8 @@
 |-----------|------------|
 | `log_level`, `log_dest`, `log_channel`, `log_form`, `log_time`, `log_time_format` | Логирование по умолчанию и именованные каналы |
 | `ttl` | Глобальный TTL метрик (секунды) |
+| `percentile_buffer_min` | Нижняя граница размера кольца для quantiles (по умолчанию 0). Позволяет оставить label `0.9` при `quantiles 0.9`, но выделить например 1000 слотов; не уменьшает более точные размеры (`0.9000` → 10000). Также принимается в `mapping` (не задано → этот global) |
+| `percentile_calc_every` | Heapsort не чаще чем раз в N вставок в percentile buffer (0/не задано = на каждую вставку). Перед сортировкой collect-кольцо копируется в sort-буфер. Также принимается в `mapping` (не задано → этот global) |
 | `aggregate_period` | Интервал scrape для `aggregate` |
 | `system_collect_period` | Интервал сбора метрик хоста |
 | `tls_collect_period` | Интервал файлового коллектора `x509` |

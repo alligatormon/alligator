@@ -289,6 +289,10 @@ typedef struct aconf
 	alligator_ht *log_channels;
 	struct sockaddr_in logsoaddr;
 	int64_t ttl; // global TTL for metrics
+	/* Floor for quantile ring size (0 = digit-derived only). Does not shrink finer specs. */
+	int64_t percentile_buffer_min;
+	/* Heapsort at most every N inserts into a percentile buffer (0/1 = every insert). */
+	int64_t percentile_calc_every;
 
 	// persistence settings
 	char* persistence_dir;

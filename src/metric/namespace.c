@@ -370,6 +370,7 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
 	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
+	pthread_mutex_init(&sort_plan->lock, NULL);
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
 
@@ -457,6 +458,7 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 	alligator_ht_done(ns->metrictree->sort_plan->check_collisions);
 	free(ns->metrictree->sort_plan->check_collisions);
 
+	pthread_mutex_destroy(&ns->metrictree->sort_plan->lock);
 	free(ns->metrictree->sort_plan);
 	alligator_ht_done(ns->metrictree->labels_words_hash);
 	free(ns->metrictree->labels_words_hash);
@@ -500,6 +502,7 @@ void ts_initialize()
 	alligator_ht* labels_words_hash = alligator_ht_init(NULL);
 
 	sortplan *sort_plan = calloc(1, sizeof(*sort_plan));
+	pthread_mutex_init(&sort_plan->lock, NULL);
 	sort_plan->plan[0] = MAIN_METRIC_NAME;
 	sort_plan->hash[0] = MAIN_METRIC_HASH;
 

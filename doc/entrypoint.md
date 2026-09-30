@@ -76,6 +76,8 @@ entrypoint {
         buckets <buckets 1> <buckets 2> ... <buckets N>;
         le <le 1> <le 2> ... <le N>;
         quantiles <quantile 1> <quantile 2> ... <quantile N>;
+        percentile_buffer_min <N>;
+        percentile_calc_every <N>;
         match [glob];
     }
 }
@@ -592,6 +594,8 @@ Enables the separation of input metrics into multiple LE buckets.
 ## quantile
 Enables the calculation of quantiles using the metric values.
 
+Ring size is derived from quantile precision (`0.9` → 10, `0.90` → 100, `0.900` → 1000, `0.9000` → 10000). Optional per-mapping `percentile_buffer_min` / `percentile_calc_every` override the globals of the same name; when omitted on a mapping, the global values are used. `percentile_buffer_min` raises ring size without changing the `quantile=` label (floor only; finer specs are not shrunk). `percentile_calc_every` limits how often the ring is snapshotted and heapsorted (collect and sort use separate buffers).
+
 Example of using statsd mapping:
 ```
 entrypoint {
@@ -616,6 +620,8 @@ entrypoint {
                 name "$1"_"$2";
                 label label_name_"$1" "$2"_key;
                 quantiles 0.999 0.95 0.9;
+                percentile_buffer_min 1000;
+                percentile_calc_every 100;
                 match glob;
         }
 }

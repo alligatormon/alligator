@@ -970,7 +970,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 16,
         "x": 0,
         "y": 18
       },
@@ -1050,140 +1050,8 @@
         }
       ],
       "title": "Disk watermarks (%)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "000000001"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "showValues": false,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 18
-      },
-      "id": 107,
-      "options": {
-        "alertThreshold": true,
-        "legend": {
-          "calcs": [
-            "mean",
-            "lastNotNull",
-            "max",
-            "min"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.2.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "000000001"
-          },
-          "editorMode": "code",
-          "expr": "max by (cluster) (elasticsearch_disk_watermark_low_bytes{instance=\"$instance\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "low {{ cluster }}",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "000000001"
-          },
-          "editorMode": "code",
-          "expr": "max by (cluster) (elasticsearch_disk_watermark_high_bytes{instance=\"$instance\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "high {{ cluster }}",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "000000001"
-          },
-          "editorMode": "code",
-          "expr": "max by (cluster) (elasticsearch_disk_watermark_flood_stage_bytes{instance=\"$instance\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "flood_stage {{ cluster }}",
-          "range": true,
-          "refId": "C"
-        }
-      ],
-      "title": "Disk watermarks (bytes abs)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Percent-form cluster disk watermarks (emitted when settings are like 85% / 0.85). Absolute byte watermarks are only emitted for size settings like 100gb."
     },
     {
       "datasource": {
@@ -3848,7 +3716,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_thread_pool_search{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (elasticsearch_thread_pool_search{key=~\"active|largest|threads|queue\", instance=\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ name }} search {{ key }}",
@@ -3861,7 +3729,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_thread_pool_write{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (elasticsearch_thread_pool_write{key=~\"active|largest|threads|queue\", instance=\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ name }} write {{ key }}",
@@ -3874,7 +3742,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_thread_pool_generic{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (elasticsearch_thread_pool_generic{key=~\"active|largest|threads|queue\", instance=\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ name }} generic {{ key }}",
@@ -3887,7 +3755,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_thread_pool_fetch_shard_started{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (elasticsearch_thread_pool_fetch_shard_started{key=~\"active|largest|threads|queue\", instance=\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ name }} fetch_shard_started {{ key }}",
@@ -3900,7 +3768,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_thread_pool_fetch_shard_store{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (elasticsearch_thread_pool_fetch_shard_store{key=~\"active|largest|threads|queue\", instance=\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ name }} fetch_shard_store {{ key }}",
@@ -3908,8 +3776,9 @@
           "refId": "E"
         }
       ],
-      "title": "Thread pools (search/write/generic)",
-      "type": "timeseries"
+      "title": "Thread pool gauges (search/write/generic)",
+      "type": "timeseries",
+      "description": "Gauge keys: active, largest, threads, queue. Completed/rejected are on the rate panel."
     },
     {
       "datasource": {
@@ -3968,7 +3837,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -4006,10 +3876,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_search{key=\"rejected\", instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_thread_pool_search{key=~\"completed|rejected\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "search rejected {{ name }}",
+          "legendFormat": "{{ name }} search {{ key }}",
           "range": true,
           "refId": "A"
         },
@@ -4019,10 +3889,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_write{key=\"rejected\", instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_thread_pool_write{key=~\"completed|rejected\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "write rejected {{ name }}",
+          "legendFormat": "{{ name }} write {{ key }}",
           "range": true,
           "refId": "B"
         },
@@ -4032,10 +3902,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_generic{key=\"rejected\", instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_thread_pool_generic{key=~\"completed|rejected\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "generic rejected {{ name }}",
+          "legendFormat": "{{ name }} generic {{ key }}",
           "range": true,
           "refId": "C"
         },
@@ -4045,10 +3915,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_search{key=\"queue\", instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_thread_pool_fetch_shard_started{key=~\"completed|rejected\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "search queue {{ name }}",
+          "legendFormat": "{{ name }} fetch_shard_started {{ key }}",
           "range": true,
           "refId": "D"
         },
@@ -4058,29 +3928,17 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_write{key=\"queue\", instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_thread_pool_fetch_shard_store{key=~\"completed|rejected\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "write queue {{ name }}",
+          "legendFormat": "{{ name }} fetch_shard_store {{ key }}",
           "range": true,
           "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "000000001"
-          },
-          "editorMode": "code",
-          "expr": "sum by (name) (elasticsearch_thread_pool_generic{key=\"queue\", instance=\"$instance\"})",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "generic queue {{ name }}",
-          "range": true,
-          "refId": "F"
         }
       ],
-      "title": "Thread pool rejected / queue",
-      "type": "timeseries"
+      "title": "Thread pool completed/rejected rate",
+      "type": "timeseries",
+      "description": "Counter keys treated as counters: completed, rejected (rate)."
     },
     {
       "datasource": {
@@ -9642,7 +9500,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -9680,7 +9539,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_search_backpressure_search_task{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_search_backpressure_search_task_cancellation_stats{key=~\"cancellation_count|cancellation_limit_reached_count\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "search_task {{ key }} {{ name }}",
@@ -9693,16 +9552,30 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, key) (elasticsearch_search_backpressure_search_shard_task{instance=\"$instance\"})",
+          "expr": "sum by (name, key) (rate(elasticsearch_search_backpressure_search_shard_task_cancellation_stats{key=~\"cancellation_count|cancellation_limit_reached_count\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "shard_task {{ key }} {{ name }}",
           "range": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "000000001"
+          },
+          "editorMode": "code",
+          "expr": "sum by (name, key) (rate(elasticsearch_segment_replication_backpressure{key=\"total_rejected_requests\", instance=\"$instance\"}[$interval]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "seg_repl rejected {{ name }}",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "Search backpressure",
-      "type": "timeseries"
+      "title": "Search / segment backpressure",
+      "type": "timeseries",
+      "description": "cancellation_stats and segment_replication_backpressure (cumulative gauges as counters \u2192 rate)."
     },
     {
       "datasource": {
@@ -10174,7 +10047,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (host, dev, type) (rate(disk_io{instance=\"$instance\"}[$interval]))",
+          "expr": "sum by (host, dev, type) (rate(disk_io{type=~\"transfers_.*\", instance=\"$instance\"}[$interval]))",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ type }} {{ host }} {{ dev }}",
@@ -10182,9 +10055,118 @@
           "refId": "A"
         }
       ],
-      "title": "Disk I/O",
+      "title": "Disk I/O operations",
       "type": "timeseries",
-      "description": "Host disk I/O from Alligator system { disk; }: disk_io{dev,type} (transfers_*/bytes_*). Prefer this over elasticsearch_fs_io_stat_total."
+      "description": "Host disk I/O ops from Alligator system { disk; }: disk_io{dev,type=~\"transfers_.*\"}. Prefer this over elasticsearch_fs_io_stat_total."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "000000001"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 186
+      },
+      "id": 121,
+      "options": {
+        "alertThreshold": true,
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max",
+            "min"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.2.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "000000001"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, dev, type) (rate(disk_io{type=~\"bytes_.*\", instance=\"$instance\"}[$interval]))",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{ type }} {{ host }} {{ dev }}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Disk I/O bytes",
+      "type": "timeseries",
+      "description": "Host disk I/O bytes from Alligator system { disk; }: disk_io{dev,type=~\"bytes_.*\"}. Prefer this over elasticsearch_fs_io_stat_total."
     }
   ],
   "preload": false,

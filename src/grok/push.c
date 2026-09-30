@@ -77,6 +77,8 @@ int grok_push(json_t *grok) {
 				uint64_t percentiles_size = json_array_size(quantile);
 				if (percentiles_size > 2) {
 					mm = calloc(1, sizeof(*mm));
+					mm->percentile_buffer_min = -1;
+					mm->percentile_calc_every = -1;
 
 					json_t *jname = json_array_get(quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
@@ -238,6 +240,8 @@ int grok_push(json_t *grok) {
 				uint64_t splited_percentiles_size = json_array_size(splited_quantile);
 				if (splited_percentiles_size > 2) {
 					mm = calloc(1, sizeof(*mm));
+					mm->percentile_buffer_min = -1;
+					mm->percentile_calc_every = -1;
 
 					json_t *jname = json_array_get(splited_quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
