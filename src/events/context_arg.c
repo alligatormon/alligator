@@ -845,7 +845,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->curr_ttl = -1;
 	carg->buffer_request_size = 1553500;
 	carg->buffer_response_size = 1553500;
-	carg->full_body = string_init(1553500);
+	carg->full_body = string_init(carg->buffer_request_size);
 
 	json_t *json_buffer_request_size = json_object_get(root, "buffer_request_size");
 	if (json_buffer_request_size) {

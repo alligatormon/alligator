@@ -101,6 +101,8 @@ struct context_arg
 	//char *port;
 	uint16_t lock; // lock for aggregator scrape
 	uint8_t data_lock; // lock for parser scrape
+	/* Oneshot is waiting on async getaddrinfo; skip crawl re-resolve spam. */
+	uint8_t dns_awaiting;
 	uint8_t proto;
 	uint8_t transport;
 	char *transport_string;

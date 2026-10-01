@@ -56,6 +56,8 @@ int aggregator_oneshot_await(context_arg *carg, char *url, size_t url_len, char 
  * aggregator_oneshot_retry_host() so hostname oneshots do not wait for crawl. */
 void aggregator_oneshot_start(context_arg *carg);
 void aggregator_oneshot_retry_host(const char *host);
+/* Free unlocked oneshots for host after getaddrinfo failure (dead OTLP/HTTP sinks). */
+void aggregator_oneshot_abandon_host(const char *host);
 int smart_aggregator_default_key(char *key, const char *transport_string, const char *parser_name, const char *host, const char *port, const char *query);
 void smart_aggregator_key_normalize(char *key);
 void smart_aggregator_del(context_arg *carg);

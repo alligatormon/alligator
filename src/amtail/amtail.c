@@ -11,6 +11,7 @@
 #include "metric/namespace.h"
 #include "main.h"
 #include "common/rtime.h"
+#include "common/validator.h"
 #include <ctype.h>
 #include <inttypes.h>
 #include <math.h>
@@ -357,6 +358,7 @@ static alligator_ht *amtail_variable_make_labels(amtail_variable *var, alligator
 			: strdup("");
 		if (!value)
 			continue;
+		metric_label_value_validator_normalizer(value, strlen(value));
 		labels_hash_insert_nocache(labels, var->by[i]->s, value);
 		free(value);
 	}

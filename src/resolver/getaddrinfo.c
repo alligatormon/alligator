@@ -18,6 +18,10 @@ void resolver_getaddrinfo(uv_getaddrinfo_t* req, int status, struct addrinfo* re
 	{
 		glog(L_ERROR, "getaddrinfo resolve failed for hostname %s: %s\n",
 			host ? host : "(null)", uv_strerror(status));
+		/* Drop waiting oneshots so they stop holding buffers and stop
+		 * re-resolving on the aggregator crawl until the next schedule. */
+		if (host)
+			aggregator_oneshot_abandon_host(host);
 		uv_freeaddrinfo(res);
 		free(host);
 		free(req);

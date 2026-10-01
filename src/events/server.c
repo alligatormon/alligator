@@ -112,7 +112,7 @@ static int tcp_server_try_dispatch(context_arg *carg)
 	http_entrypoint_negotiate(carg, hrdata);
 	http_reply_data_free(hrdata);
 
-	str = string_init(carg->buffer_response_size);
+	str = string_init(carg->buffer_response_size ? carg->buffer_response_size : 1024);
 	alligator_multiparser(pastr, paslen, carg->parser_handler, str, carg);
 
 	if (!str->l)

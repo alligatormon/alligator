@@ -299,8 +299,36 @@ void aggregator_oneshot_retry_host(const char *host)
 		return;
 
 	alligator_ht_foreach_arg(ac->aggregators, aggregator_oneshot_retry_collect, &ctx);
-	for (i = 0; i < ctx.n; ++i)
+	for (i = 0; i < ctx.n; ++i) {
+		ctx.list[i]->dns_awaiting = 0;
 		aggregator_oneshot_start(ctx.list[i]);
+	}
+	free(ctx.list);
+}
+
+void aggregator_oneshot_abandon_host(const char *host)
+{
+	oneshot_retry_ctx ctx = { .host = host };
+	size_t i;
+
+	if (!host || !host[0] || !ac || !ac->aggregators)
+		return;
+
+	/* Drop unlocked oneshots waiting on a hostname that failed to resolve.
+	 * Leaving them in the hash re-fired getaddrinfo on every crawl (~10s) and
+	 * retained I/O buffers until the next scheduler replace. Never touch
+	 * permanent aggregators (context_ttl == 0). */
+	alligator_ht_foreach_arg(ac->aggregators, aggregator_oneshot_retry_collect, &ctx);
+	for (i = 0; i < ctx.n; ++i) {
+		context_arg *carg = ctx.list[i];
+		if (!carg->context_ttl)
+			continue;
+		carglog(carg, L_INFO, "oneshot abandon after DNS failure key=%s host=%s\n",
+			carg->key ? carg->key : "?", host);
+		carg->remove_from_hash = 1;
+		carg->dns_awaiting = 0;
+		smart_aggregator_del(carg);
+	}
 	free(ctx.list);
 }
 

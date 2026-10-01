@@ -711,6 +711,9 @@ void tcp_client_connect(void *arg)
 		return;
 	if (cluster_come_later(carg))
 		return;
+	/* Oneshot already kicked getaddrinfo; wait for success/fail callback. */
+	if (carg->context_ttl && carg->dns_awaiting)
+		return;
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 
@@ -728,8 +731,12 @@ void tcp_client_connect(void *arg)
 			conn_port = carg->proxy->numport;
 		}
 		string *data = aggregator_get_addr(carg, dns_host, DNS_TYPE_A, DNS_CLASS_IN);
-		if (!data)
+		if (!data) {
+			if (carg->context_ttl)
+				carg->dns_awaiting = 1;
 			return;
+		}
+		carg->dns_awaiting = 0;
 
 		if (carg->period && !carg->close_counter) {
 			carg->period_timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));

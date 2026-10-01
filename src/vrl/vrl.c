@@ -8,6 +8,7 @@
 #include "metric/metric_types.h"
 #include "main.h"
 #include "json.h"
+#include "common/validator.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -163,6 +164,7 @@ static alligator_ht *labels_from_vrl_object(vrl_value *labels)
 		char *s = vrl_value_to_string(e->val, NULL);
 		if (!s)
 			continue;
+		metric_label_value_validator_normalizer(s, strlen(s));
 		/* labels_hash_insert_nocache copies; free our temp */
 		char *k = strndup(e->key, e->key_len);
 		labels_hash_insert_nocache(ht, k, s);

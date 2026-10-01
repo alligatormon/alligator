@@ -625,8 +625,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					json_t *entrypoint = json_array_get(value, i);
 
 					context_arg *carg = calloc(1, sizeof(*carg)); // TODO: memory leak
-					carg->buffer_request_size = 6553500;
-					carg->buffer_response_size = 6553500;
+					carg->buffer_request_size = 1024;
+					carg->buffer_response_size = 1024;
 					carg->http_keepalive = 1;
 					carg->http_idle_timeout_sec = 75;
 
