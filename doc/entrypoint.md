@@ -594,7 +594,6 @@ Enables the separation of input metrics into multiple buckets.
 Enables the separation of input metrics into multiple LE buckets.
 
 ## quantile
-Enables the calculation of quantiles using the metric values. Design and empty-window timing: [quantile-window.md](quantile-window.md).
 
 Ring size is derived from quantile precision (`0.9` → 10, `0.90` → 100, `0.900` → 1000, `0.9000` → 10000). Optional per-mapping `percentile_buffer_min` / `percentile_calc_every` override the globals of the same name; when omitted on a mapping, the global values are used. `percentile_buffer_min` raises ring size without changing the `quantile=` label (floor only; finer specs are not shrunk). `percentile_calc_every` limits how often the ring is snapshotted and heapsorted (collect and sort use separate buffers).
 
