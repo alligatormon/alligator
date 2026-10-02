@@ -78,6 +78,8 @@ entrypoint {
         quantiles <quantile 1> <quantile 2> ... <quantile N>;
         percentile_buffer_min <N>;
         percentile_calc_every <N>;
+        quantile_window <seconds>;
+        quantile_window_empty delete|zero;
         match [glob];
     }
 }
@@ -592,9 +594,11 @@ Enables the separation of input metrics into multiple buckets.
 Enables the separation of input metrics into multiple LE buckets.
 
 ## quantile
-Enables the calculation of quantiles using the metric values.
+Enables the calculation of quantiles using the metric values. Design and empty-window timing: [quantile-window.md](quantile-window.md).
 
 Ring size is derived from quantile precision (`0.9` → 10, `0.90` → 100, `0.900` → 1000, `0.9000` → 10000). Optional per-mapping `percentile_buffer_min` / `percentile_calc_every` override the globals of the same name; when omitted on a mapping, the global values are used. `percentile_buffer_min` raises ring size without changing the `quantile=` label (floor only; finer specs are not shrunk). `percentile_calc_every` limits how often the ring is snapshotted and heapsorted (collect and sort use separate buffers).
+
+`quantile_window` (seconds, or a duration such as `60s`) restricts the quantile to samples newer than that window. `0` or unset keeps the legacy sample-count ring. The effective window is `min(quantile_window, ring_size / insert_rate)`: if inserts wrap the ring first, the window is shorter than configured. Inserts recalculate at most once a second (`percentile_calc_every` is ignored) and the expire sweep refreshes every windowed series, so a sample that ages out drops off within about one 10s tick. `quantile_window_empty` chooses an empty window: `delete` (default) removes the `*_quantile` series on that sweep; `zero` keeps emitting `0` until the source metric itself expires. `zero` is not the default because a latency of 0 reads as "fast". Both settings are accepted globally and per `mapping` (mapping unset → global fallback). An unknown policy or duration is a warning and falls back to `delete` or `0`.
 
 Example of using statsd mapping:
 ```

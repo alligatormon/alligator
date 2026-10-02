@@ -91,6 +91,8 @@ void namespaces_expire_foreach(void *funcarg, void* arg)
 	namespace_struct *ns = arg;
 	r_time time = setrtime();
 	expire_purge(time.sec, NULL, ns);
+	/* After purge releases the tree lock: idle windowed quantiles emit 0. */
+	quantile_window_sweep(ns);
 }
 
 

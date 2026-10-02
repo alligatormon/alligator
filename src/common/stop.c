@@ -124,6 +124,8 @@ void alligator_shutdown_after_loop(void)
 	alligator_cache_full_free(ac->uv_cache_timer);
 	alligator_cache_full_free(ac->uv_cache_fs);
 
+	/* Sweep walks namespace nodes. Stop it before those nodes are freed. */
+	alligator_timer_stop_if_active(&ac->expire_timer);
 	free_namespaces();
 	main_free();
 

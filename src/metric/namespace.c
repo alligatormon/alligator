@@ -358,6 +358,9 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)
 		pthread_mutex_init(ns->max_emit_lock, NULL);
+	ns->quantile_window_lock = calloc(1, sizeof(*ns->quantile_window_lock));
+	if (ns->quantile_window_lock)
+		pthread_mutex_init(ns->quantile_window_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 
 	metric_tree *metrictree = calloc(1, sizeof(*metrictree));
@@ -443,6 +446,10 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 		pthread_mutex_destroy(ns->max_emit_lock);
 		free(ns->max_emit_lock);
 	}
+	if (ns->quantile_window_lock) {
+		pthread_mutex_destroy(ns->quantile_window_lock);
+		free(ns->quantile_window_lock);
+	}
 	free(ns->key);
 	free(ns->expiretree->rwlock);
 	free(ns->expiretree);
@@ -489,6 +496,9 @@ void ts_initialize()
 	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)
 		pthread_mutex_init(ns->max_emit_lock, NULL);
+	ns->quantile_window_lock = calloc(1, sizeof(*ns->quantile_window_lock));
+	if (ns->quantile_window_lock)
+		pthread_mutex_init(ns->quantile_window_lock, NULL);
 	alligator_ht_insert(ac->_namespace, &(ns->node), ns, tommy_strhash_u32(0, ns->key));
 	ac->nsdefault = ns;
 

@@ -39,6 +39,8 @@ typedef struct namespace_struct
 	expire_tree *expiretree;
 	metric_tree *metrictree;
 	alligator_ht *metric_families;
+	metric_node *quantile_window_head;
+	pthread_mutex_t *quantile_window_lock;
 } namespace_struct;
 
 typedef struct serializer_context {
@@ -66,6 +68,13 @@ typedef struct query_pass {
 } query_pass;
 
 void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
+/* Merge carg labels and apply metricstransform. name must be a writable buffer. */
+void metric_apply_context_labels(char *name, alligator_ht *labels, context_arg *carg);
+/* ttl_override > 0 bypasses get_ttl. ns_override NULL uses the carg namespace. */
+void metric_add_ttl(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg, namespace_struct *ns_override, int64_t ttl_override);
+void quantile_window_register(namespace_struct *ns, metric_node *mnode);
+void quantile_window_detach(metric_node *mnode);
+void quantile_window_sweep(namespace_struct *ns);
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg);
 void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1);
 void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2);

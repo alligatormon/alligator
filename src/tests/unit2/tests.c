@@ -13,6 +13,7 @@
 #include "metric/labels.h"
 #include "metric/metrictree.h"
 #include "metric/percentile_heap.h"
+#include "common/rtime.h"
 #include "common/patricia.h"
 #include "parsers/multiparser.h"
 #include "metric/query.h"
@@ -30,6 +31,8 @@
 #include "query/type.h"
 #include "probe/probe.h"
 #include "mapping/type.h"
+#include "mapping/mapping.h"
+#include <pthread.h>
 
 void api_router(string *response, http_reply_data *http_data, context_arg *carg);
 
@@ -1711,13 +1714,13 @@ static void test_percentile_buffer_min_and_double_buffer(void)
     /* Per-mapping overrides via init_percentile_buffer_opts; -1 falls back to global */
     ac->percentile_buffer_min = 10;
     ac->percentile_calc_every = 1;
-    percentile_buffer *pb_map = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 1000, 5);
+    percentile_buffer *pb_map = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 1000, 5, -1, -1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_map);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)pb_map->n);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, (int)pb_map->calc_every);
     free_percentile_buffer(pb_map);
 
-    percentile_buffer *pb_fb = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, -1, -1);
+    percentile_buffer *pb_fb = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, -1, -1, -1, -1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_fb);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)pb_fb->n);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pb_fb->calc_every);
@@ -1726,7 +1729,7 @@ static void test_percentile_buffer_min_and_double_buffer(void)
     /* Explicit 0 on mapping disables global floor / every-N */
     ac->percentile_buffer_min = 1000;
     ac->percentile_calc_every = 50;
-    percentile_buffer *pb_zero = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 0, 0);
+    percentile_buffer *pb_zero = init_percentile_buffer_opts(percentile_init_3n(9, 5, -1), 2, 0, 0, -1, -1);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb_zero);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)pb_zero->n);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pb_zero->calc_every);
@@ -1744,13 +1747,19 @@ static void test_percentile_buffer_min_and_double_buffer(void)
     json_object_set_new(mj, "quantiles", qarr);
     json_object_set_new(mj, "percentile_buffer_min", json_integer(1000));
     json_object_set_new(mj, "percentile_calc_every", json_integer(100));
+    json_object_set_new(mj, "quantile_window", json_string("60s"));
+    json_object_set_new(mj, "quantile_window_empty", json_string("zero"));
     mapping_metric *mm = json_mapping_parser(mj);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)mm->percentile_buffer_min);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)mm->percentile_calc_every);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 60, (int)mm->quantile_window);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, QUANTILE_WINDOW_EMPTY_ZERO, (int)mm->quantile_window_empty);
     json_t *mj_out = mapping_metric_to_json(mm);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)json_integer_value(json_object_get(mj_out, "percentile_buffer_min")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)json_integer_value(json_object_get(mj_out, "percentile_calc_every")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 60, (int)json_integer_value(json_object_get(mj_out, "quantile_window")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_object_get(mj_out, "quantile_window_empty") && !strcmp(json_string_value(json_object_get(mj_out, "quantile_window_empty")), "zero"));
     json_decref(mj_out);
     mapping_free_recurse(mm);
     json_decref(mj);
@@ -1761,8 +1770,242 @@ static void test_percentile_buffer_min_and_double_buffer(void)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm2);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->percentile_buffer_min);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->percentile_calc_every);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->quantile_window);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)mm2->quantile_window_empty);
     mapping_free_recurse(mm2);
     json_decref(mj2);
+}
+
+static metric_node *ut_find_named(const char *name, const char *quantile)
+{
+    namespace_struct *ns = ac->nsdefault;
+    alligator_ht *hash = alligator_ht_init(NULL);
+    if (quantile)
+        labels_hash_insert(hash, "quantile", (char *)quantile);
+    labels_t *labels = labels_initiate(ns, hash, (char *)name, NULL, ns, 0);
+    metric_node *m = labels ? metric_find(ns->metrictree, labels) : NULL;
+    if (labels)
+        labels_head_free(labels);
+    return m;
+}
+
+static int ut_qw_sweep_stop;
+
+static void *ut_qw_sweeper(void *arg)
+{
+    while (!__atomic_load_n(&ut_qw_sweep_stop, __ATOMIC_ACQUIRE))
+        quantile_window_sweep(arg);
+    return NULL;
+}
+
+static void *ut_qw_inserter(void *arg)
+{
+    int i;
+    for (i = 0; i < 1000; i++)
+        heap_insert(arg, (double)(i % 100));
+    return NULL;
+}
+
+static void test_quantile_window(void)
+{
+    r_time now = setrtime();
+    int64_t saved_min = ac->percentile_buffer_min;
+    int64_t saved_every = ac->percentile_calc_every;
+    int64_t saved_win = ac->quantile_window;
+    ac->percentile_buffer_min = 0;
+    ac->percentile_calc_every = 0;
+    ac->quantile_window = 0;
+
+    /* Samples older than the window are excluded. p50 of the one fresh value is 100. */
+    percentile_buffer *pb = init_percentile_buffer_opts(percentile_init_3n(5, -1, -1), 1, 0, 0, 60, QUANTILE_WINDOW_EMPTY_DELETE);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 60, (int)pb->window_sec);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)pb->calc_every);
+    heap_insert_at(pb, 1, now.sec - 120);
+    heap_insert_at(pb, 1, now.sec - 120);
+    heap_insert_at(pb, 1, now.sec - 120);
+    heap_insert_at(pb, 1, now.sec - 120);
+    heap_insert_at(pb, 100, now.sec);
+    calc_percentiles(NULL, pb, NULL, "ut_qw_old", NULL);
+    metric_node *mold = ut_find_named("ut_qw_old", "0.5");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mold);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mold->d == 100.0 ? 1 : 0);
+    if (mold->expire_node)
+    {
+        int64_t left = mold->expire_node->key - now.sec;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, left >= 50 && left <= 70);
+    }
+    free_percentile_buffer(pb);
+
+    /* Five fresh samples in a 1000-slot ring: p50 is 30, not a cold-start zero. */
+    percentile_buffer *pb2 = init_percentile_buffer_opts(percentile_init_3n(5, -1, -1), 1, 1000, 100, 60, QUANTILE_WINDOW_EMPTY_DELETE);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)pb2->n);
+    heap_insert_at(pb2, 10, now.sec);
+    heap_insert_at(pb2, 20, now.sec);
+    heap_insert_at(pb2, 30, now.sec);
+    heap_insert_at(pb2, 40, now.sec);
+    heap_insert_at(pb2, 50, now.sec);
+    calc_percentiles(NULL, pb2, NULL, "ut_qw_fresh", NULL);
+    metric_node *mfresh = ut_find_named("ut_qw_fresh", "0.5");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mfresh);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mfresh->d == 30.0 ? 1 : 0);
+    free_percentile_buffer(pb2);
+
+    /* Zero policy: a sweep with only stale samples emits 0. */
+    int64_t gv = 1;
+    metric_add_auto("ut_qw_src", &gv, DATATYPE_INT, NULL);
+    metric_node *src = ut_find_named("ut_qw_src", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src);
+    src->percentile_buf = init_percentile_buffer_opts(percentile_init_3n(5, -1, -1), 1, 0, 0, 60, QUANTILE_WINDOW_EMPTY_ZERO);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src->percentile_buf);
+    src->percentile_buf->ns = ac->nsdefault;
+    heap_insert_at(src->percentile_buf, 50, now.sec - 1000);
+    quantile_window_register(ac->nsdefault, src);
+    quantile_window_sweep(ac->nsdefault);
+    metric_node *mzero = ut_find_named("ut_qw_src_quantile", "0.5");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mzero);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mzero->d == 0.0 ? 1 : 0);
+    quantile_window_detach(src);
+    free_percentile_buffer(src->percentile_buf);
+    src->percentile_buf = NULL;
+
+    /* Delete policy: a sweep drops a sample that has left the window, then
+       deletes the series once nothing remains. */
+    metric_add_auto("ut_qw_age", &gv, DATATYPE_INT, NULL);
+    src = ut_find_named("ut_qw_age", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src);
+    src->percentile_buf = init_percentile_buffer_opts(percentile_init_3n(9, -1, -1), 1, 0, 0, 60, QUANTILE_WINDOW_EMPTY_DELETE);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src->percentile_buf);
+    src->percentile_buf->ns = ac->nsdefault;
+    heap_insert_at(src->percentile_buf, 10, now.sec);
+    heap_insert_at(src->percentile_buf, 1000, now.sec);
+    calc_percentiles(NULL, src->percentile_buf, src, NULL, NULL);
+    {
+        metric_node *mage = ut_find_named("ut_qw_age_quantile", "0.9");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mage);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mage->d == 1000.0 ? 1 : 0);
+        src->percentile_buf->ts[1] = now.sec - 120;
+        quantile_window_register(ac->nsdefault, src);
+        quantile_window_sweep(ac->nsdefault);
+        mage = ut_find_named("ut_qw_age_quantile", "0.9");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mage);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mage->d == 10.0 ? 1 : 0);
+        src->percentile_buf->ts[0] = now.sec - 120;
+        quantile_window_sweep(ac->nsdefault);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ut_find_named("ut_qw_age", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_find_named("ut_qw_age_quantile", "0.9") == NULL);
+    }
+    metric_delete(ac->nsdefault->metrictree, src->labels, ac->nsdefault->expiretree);
+
+    /* One mapping, two series: expiring one must not free the shared quantile array. */
+    {
+        json_t *own = json_object();
+        json_t *oq = json_array();
+        context_arg *carg;
+        metric_node *a;
+        metric_node *b;
+        int64_t *shared;
+        json_object_set_new(own, "template", json_string("*"));
+        json_array_append_new(oq, json_real(0.5));
+        json_object_set_new(own, "quantiles", oq);
+        json_object_set_new(own, "quantile_window", json_integer(60));
+        json_object_set_new(own, "quantile_window_empty", json_string("nope"));
+        {
+            mapping_metric *mm = json_mapping_parser(own);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mm);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, QUANTILE_WINDOW_EMPTY_DELETE, (int)mm->quantile_window_empty);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, (int)mm->percentile[0]);
+            shared = mm->percentile;
+            carg = calloc(1, sizeof(*carg));
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+            carg->mm = mm;
+            metric_add_auto("ut_own_a", &gv, DATATYPE_INT, NULL);
+            metric_add_auto("ut_own_b", &gv, DATATYPE_INT, NULL);
+            a = ut_find_named("ut_own_a", NULL);
+            b = ut_find_named("ut_own_b", NULL);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, a);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, b);
+            mapping_processing(carg, a, 10);
+            mapping_processing(carg, b, 20);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, a->percentile_buf);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, b->percentile_buf);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, a->percentile_buf->percentile != shared);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, b->percentile_buf->percentile != shared);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, a->percentile_buf->percentile != b->percentile_buf->percentile);
+            metric_delete(ac->nsdefault->metrictree, a->labels, ac->nsdefault->expiretree);
+            b = ut_find_named("ut_own_b", NULL);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, b);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, (int)shared[0]);
+            mapping_processing(carg, b, 30);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, (int)shared[0]);
+            metric_delete(ac->nsdefault->metrictree, b->labels, ac->nsdefault->expiretree);
+            mapping_free_recurse(mm);
+            free(carg);
+        }
+        json_decref(own);
+        json_t *neg = json_object();
+        json_object_set_new(neg, "template", json_string("neg"));
+        json_object_set_new(neg, "quantile_window", json_integer(-4));
+        {
+            mapping_metric *mn = json_mapping_parser(neg);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mn);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)mn->quantile_window);
+            mapping_free_recurse(mn);
+        }
+        json_decref(neg);
+    }
+
+    /* Sweep while the source metric is deleted. */
+    metric_add_auto("ut_qw_race", &gv, DATATYPE_INT, NULL);
+    src = ut_find_named("ut_qw_race", NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src);
+    src->percentile_buf = init_percentile_buffer_opts(percentile_init_3n(5, -1, -1), 1, 0, 0, 60, QUANTILE_WINDOW_EMPTY_DELETE);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src->percentile_buf);
+    src->percentile_buf->ns = ac->nsdefault;
+    heap_insert_at(src->percentile_buf, 7, now.sec);
+    calc_percentiles(NULL, src->percentile_buf, src, NULL, NULL);
+    quantile_window_register(ac->nsdefault, src);
+    {
+        pthread_t th;
+        ut_qw_sweep_stop = 0;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_create(&th, NULL, ut_qw_sweeper, ac->nsdefault));
+        usleep(20000);
+        metric_delete(ac->nsdefault->metrictree, src->labels, ac->nsdefault->expiretree);
+        __atomic_store_n(&ut_qw_sweep_stop, 1, __ATOMIC_RELEASE);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_join(th, NULL));
+    }
+
+    /* Concurrent inserts stay inside the ring. */
+    {
+        percentile_buffer *pb3 = init_percentile_buffer_opts(percentile_init_3n(5, -1, -1), 1, 0, 0, 60, QUANTILE_WINDOW_EMPTY_DELETE);
+        pthread_t t1, t2;
+        uint64_t i;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pb3);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_create(&t1, NULL, ut_qw_inserter, pb3));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_create(&t2, NULL, ut_qw_inserter, pb3));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_join(t1, NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pthread_join(t2, NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)pb3->n, (int)pb3->filled);
+        for (i = 0; i < pb3->n; i++)
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pb3->arr[i] >= 0 && pb3->arr[i] <= 99);
+        free_percentile_buffer(pb3);
+    }
+
+    /* Plain config round-trip into JSON. */
+    const char *pconf = "entrypoint { handler prometheus; tcp 19002; mapping { template rms_storage_meta; quantiles 0.9 0.5; quantile_window 60s; quantile_window_empty delete; } }\n";
+    string *plain = string_new();
+    string_cat(plain, (char *)pconf, strlen(pconf));
+    char *json_s = config_plain_to_json(plain);
+    string_free(plain);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(json_s, "quantile_window") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(json_s, "60") != NULL);
+    free(json_s);
+
+    ac->percentile_buffer_min = saved_min;
+    ac->percentile_calc_every = saved_every;
+    ac->quantile_window = saved_win;
 }
 
 static void test_metric_update_labels_multi_paths(void)
@@ -3255,6 +3498,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_update_labels_multi_paths();
     test_labels_initiate_and_update_paths();
     test_percentile_buffer_min_and_double_buffer();
+    test_quantile_window();
     test_labels_cmp_and_cat_paths();
     test_metric_transform_paths();
     test_metric_transform_extended_paths();

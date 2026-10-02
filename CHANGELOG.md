@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- Mapping quantiles: optional `quantile_window` (seconds) keeps only samples inside a sliding window, so a sparse metric's p50/p90 is not stuck on hours-old values or a cold zero-filled ring. `quantile_window_empty delete` (default) removes the `*_quantile` series on the expire sweep once the window is empty; `zero` keeps emitting 0 until the source metric expires. Accepted globally and per `mapping`. Inserts recalculate at most once a second; the expire sweep refreshes every windowed series.
 - Fix: default `buffer_request_size` / `buffer_response_size` lowered from multi-MB (`1553500` / `6553500`) to `1024`; buffers still grow via `string_cat`. Preallocation plus DNS-failed oneshots (e.g. OTLP to an unresolvable host) drove RSS to the cgroup limit and OOMKilled pushgateway pods.
 - Fix: `getaddrinfo` failure abandons unlocked oneshots for that hostname and `dns_awaiting` skips crawl re-resolve spam while a lookup is in flight.
 - Quantile rings: `percentile_buffer_min` floors ring size so `quantiles 0.9` can use a 1000-slot buffer while keeping label `quantile="0.9"` (finer digit-derived sizes such as `0.9000` → 10000 are unchanged). Collect and heapsort use separate buffers; `percentile_calc_every` limits how often heapsort runs. Both settings are accepted globally and per `mapping` (mapping unset → global fallback).

@@ -109,6 +109,12 @@ typedef struct metric_node
 	labels_t *labels;
 	int color;
 	struct expire_node *expire_node;
+	/* Sliding-window quantile sweep list (delete and zero policies). */
+	struct metric_node *window_next;
+	struct metric_node *window_prev;
+	struct namespace_struct *window_ns;
+	uint8_t window_registered;
+	uint8_t window_sweeping;
 } metric_node;
 
 typedef struct expire_node 
@@ -152,6 +158,10 @@ typedef struct mapping_metric
 	/* -1 = unset → fall back to global ac->percentile_*; 0+ = explicit */
 	int64_t percentile_buffer_min;
 	int64_t percentile_calc_every;
+	/* -1 = unset → global. 0 = legacy sample ring. >0 = sliding window seconds. */
+	int64_t quantile_window;
+	/* -1 = unset → global. QUANTILE_WINDOW_EMPTY_DELETE or _ZERO. */
+	int8_t quantile_window_empty;
 	double *bucket;
 	int64_t bucket_size;
 	double *le;

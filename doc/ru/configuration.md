@@ -63,7 +63,9 @@
 | `log_level`, `log_dest`, `log_channel`, `log_form`, `log_time`, `log_time_format` | Логирование по умолчанию и именованные каналы |
 | `ttl` | Глобальный TTL метрик (секунды) |
 | `percentile_buffer_min` | Нижняя граница размера кольца для quantiles (по умолчанию 0). Позволяет оставить label `0.9` при `quantiles 0.9`, но выделить например 1000 слотов; не уменьшает более точные размеры (`0.9000` → 10000). Также принимается в `mapping` (не задано → этот global) |
-| `percentile_calc_every` | Heapsort не чаще чем раз в N вставок в percentile buffer (0/не задано = на каждую вставку). Перед сортировкой collect-кольцо копируется в sort-буфер. Также принимается в `mapping` (не задано → этот global) |
+| `percentile_calc_every` | Heapsort не чаще чем раз в N вставок в percentile buffer (0/не задано = на каждую вставку). Перед сортировкой collect-кольцо копируется в sort-буфер. Также принимается в `mapping` (не задано → этот global). Не применяется, если задан `quantile_window` |
+| `quantile_window` | Скользящее окно в секундах для quantiles в mapping (0 = кольцо по числу сэмплов). Также принимается в `mapping` (не задано → этот global). Фактическое окно — `min(окно, размер_кольца / частота_вставок)`. Вставки пересчитывают квантиль не чаще раза в секунду, остальное обновляет expire sweep |
+| `quantile_window_empty` | `delete` (по умолчанию) или `zero`, если в окне нет сэмплов. `delete` удаляет серии `*_quantile` на ближайшем expire sweep; `zero` продолжает отдавать 0. Также принимается в `mapping`. Неизвестное значение — предупреждение и `delete` |
 | `aggregate_period` | Интервал scrape для `aggregate` |
 | `system_collect_period` | Интервал сбора метрик хоста |
 | `tls_collect_period` | Интервал файлового коллектора `x509` |

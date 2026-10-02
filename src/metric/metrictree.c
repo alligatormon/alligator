@@ -221,7 +221,11 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 				   expire entry and free it. No reinsert (would dangle onto freed memory). */
 				expire_delete(expiretree, q->expire_node->key, q);
 				tree->count--;
+				/* Detach before labels_free: a sweep may be reading this node. */
+				quantile_window_detach(q);
 				labels_free(q->labels, tree);
+				if (q->percentile_buf)
+					free_percentile_buffer(q->percentile_buf);
 				p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
 				free ( q );
 				ret = 1;
@@ -238,6 +242,9 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 				expire_delete(expiretree, f->expire_node->key, f);
 				expire_insert(expiretree, q_key, f);
 				tree->count--;
+				/* Detach before labels_free: a sweep may be reading either node. */
+				quantile_window_detach(f);
+				quantile_window_detach(q);
 				labels_free(f->labels, tree);
 				if (f->percentile_buf)
 					free_percentile_buffer(f->percentile_buf);
@@ -248,6 +255,9 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 				f->percentile_buf = q->percentile_buf;
 				f->u = q->u; /* bit-exact union copy (d/i/s/list share storage) */
 				q->percentile_buf = NULL;
+				if (f->percentile_buf && f->percentile_buf->window_sec > 0 &&
+					f->percentile_buf->ns)
+					quantile_window_register(f->percentile_buf->ns, f);
 				//q->s = NULL;
 				//q->list = NULL;
 				p->child[p->child[RIGHT] == q] = q->child[q->child[LEFT] == NULL];
@@ -729,6 +739,7 @@ void metrictree_free(metric_node *x)
 		metrictree_free(x->child[LEFT]);
 	if ( x->child[RIGHT] )
 		metrictree_free(x->child[RIGHT]);
+	quantile_window_detach(x);
 	if ( x->percentile_buf ) {
         free_percentile_buffer(x->percentile_buf);
     }

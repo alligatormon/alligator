@@ -63,7 +63,9 @@ These appear outside context blocks (plain config) or as top-level JSON keys:
 | `log_level`, `log_dest`, `log_channel`, `log_form`, `log_time`, `log_time_format` | Logging defaults and named channels |
 | `ttl` | Global metric TTL (seconds) |
 | `percentile_buffer_min` | Floor for quantile ring size (default 0). Lets `quantiles 0.9` keep label `0.9` while using e.g. 1000 slots; does not shrink finer digit-derived sizes (`0.9000` → 10000). Also accepted per `mapping` (unset → this global) |
-| `percentile_calc_every` | Heapsort at most every N inserts into a percentile buffer (0/unset = every insert). Collect ring is snapshotted to a sort buffer before sorting. Also accepted per `mapping` (unset → this global) |
+| `percentile_calc_every` | Heapsort at most every N inserts into a percentile buffer (0/unset = every insert). Collect ring is snapshotted to a sort buffer before sorting. Also accepted per `mapping` (unset → this global). Ignored when `quantile_window` is set |
+| `quantile_window` | Sliding window in seconds for mapping quantiles (0 = sample-count ring). Also accepted per `mapping` (unset → this global). Effective window is `min(window, ring_size / insert_rate)`. Inserts recalculate at most once a second; the expire sweep refreshes the rest |
+| `quantile_window_empty` | `delete` (default) or `zero` when the window has no samples. `delete` removes the `*_quantile` series on the next expire sweep; `zero` keeps emitting 0. Also accepted per `mapping`. Unknown values warn and use `delete` |
 | `aggregate_period` | Default scrape interval for `aggregate` targets |
 | `system_collect_period` | Host metrics scrape interval |
 | `tls_collect_period` | Filesystem `x509` collector interval |

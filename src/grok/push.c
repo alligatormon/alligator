@@ -79,6 +79,8 @@ int grok_push(json_t *grok) {
 					mm = calloc(1, sizeof(*mm));
 					mm->percentile_buffer_min = -1;
 					mm->percentile_calc_every = -1;
+					mm->quantile_window = -1;
+					mm->quantile_window_empty = -1;
 
 					json_t *jname = json_array_get(quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));
@@ -242,6 +244,8 @@ int grok_push(json_t *grok) {
 					mm = calloc(1, sizeof(*mm));
 					mm->percentile_buffer_min = -1;
 					mm->percentile_calc_every = -1;
+					mm->quantile_window = -1;
+					mm->quantile_window_empty = -1;
 
 					json_t *jname = json_array_get(splited_quantile, 0);
 					mm->metric_name = strdup((char*)json_string_value(jname));

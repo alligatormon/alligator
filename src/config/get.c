@@ -128,6 +128,16 @@ void config_global_get(json_t *dst)
 		json_t *pce = json_integer(ac->percentile_calc_every);
 		json_array_object_insert(dst, "percentile_calc_every", pce);
 	}
+	if (ac->quantile_window)
+	{
+		json_t *qw = json_integer(ac->quantile_window);
+		json_array_object_insert(dst, "quantile_window", qw);
+	}
+	if (ac->quantile_window_empty == QUANTILE_WINDOW_EMPTY_ZERO)
+	{
+		json_t *qe = json_string("zero");
+		json_array_object_insert(dst, "quantile_window_empty", qe);
+	}
 
 	if (ac->process_shell)
 	{

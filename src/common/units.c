@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <assert.h>
 
 int64_t from_human_get_size(const char *hrange, size_t hsize, uint64_t *cur) {
@@ -58,6 +59,45 @@ int64_t get_sec_from_human_range(const char *hrange, size_t hsize) {
 	if ((strcspn(hrange, "wmshd")) == hsize)
 		return strtoll(hrange, NULL, 10);
 	return get_ms_from_human_range(hrange, hsize) / 1000;
+}
+
+int quantile_window_parse(const char *s, size_t n, int64_t *out)
+{
+	size_t i = 0;
+	int any = 0;
+
+	if (out)
+		*out = 0;
+	if (!s || !out || n == 0)
+		return 0;
+	if (s[0] == '+' || s[0] == '-')
+		i = 1;
+	while (i < n) {
+		unsigned char c = (unsigned char)s[i];
+		if (!isdigit(c))
+			return 0;
+		any = 1;
+		while (i < n && isdigit((unsigned char)s[i]))
+			i++;
+		if (i >= n)
+			break;
+		if (i + 1 < n && tolower((unsigned char)s[i]) == 'm' && tolower((unsigned char)s[i + 1]) == 's') {
+			i += 2;
+			continue;
+		}
+		{
+			int u = tolower((unsigned char)s[i]);
+			if (u == 's' || u == 'm' || u == 'h' || u == 'd' || u == 'w') {
+				i++;
+				continue;
+			}
+		}
+		return 0;
+	}
+	if (!any)
+		return 0;
+	*out = get_sec_from_human_range(s, n);
+	return 1;
 }
 
 //#define TEST_1 "1h12m"

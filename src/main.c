@@ -173,6 +173,8 @@ aconf* configuration()
 	ac->ttl = 300;
 	ac->percentile_buffer_min = 0;
 	ac->percentile_calc_every = 0;
+	ac->quantile_window = 0;
+	ac->quantile_window_empty = QUANTILE_WINDOW_EMPTY_DELETE;
 	ac->persistence_period = 10000;
 
 	ac->metrictree_hashfunc = xxh3_run;

@@ -38,6 +38,13 @@ static inline void metric_apply_context_transform(char *name, alligator_ht *labe
 	metric_transform_labels(name, NULL, labels, transform_carg->metricstransform, transform_carg, NULL);
 }
 
+void metric_apply_context_labels(char *name, alligator_ht *labels, context_arg *carg)
+{
+	if (carg && carg->labels)
+		labels_merge(labels, carg->labels);
+	metric_apply_context_transform(name, labels, carg);
+}
+
 int64_t get_ttl(context_arg *carg)
 {
 	if (!carg) {
@@ -1130,14 +1137,14 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 	}
 }
 
-void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
+void metric_add_ttl(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg, namespace_struct *ns_override, int64_t ttl_override)
 {
 	//r_time start = setrtime();
 
 	if (numbercheck(name))
 		return;
 
-	namespace_struct *ns = get_namespace_by_carg(carg);
+	namespace_struct *ns = ns_override ? ns_override : get_namespace_by_carg(carg);
 
 	if (!labels)
 	{
@@ -1150,7 +1157,7 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 
 	metric_tree *tree = ns->metrictree;
 	expire_tree *expiretree = ns->expiretree;
-	int64_t ttl = get_ttl(carg);
+	int64_t ttl = ttl_override > 0 ? ttl_override : get_ttl(carg);
 
 	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0); // TODO: nodel:0 can make many new allocations in json_query
 	metric_node* mnode = metric_find(tree, labels_list);
@@ -1170,6 +1177,11 @@ void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, cont
 	}
 	//r_time end = setrtime();
 	//getrtime(start, end);
+}
+
+void metric_add(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
+{
+	metric_add_ttl(name, labels, value, type, carg, NULL, -1);
 }
 
 void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)

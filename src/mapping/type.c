@@ -1,5 +1,6 @@
 #include "common/selector.h"
 #include "common/logs.h"
+#include "common/units.h"
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -108,6 +109,10 @@ json_t *mapping_metric_to_json(mapping_metric *mm)
 		json_object_set_new(obj, "percentile_buffer_min", json_integer(mm->percentile_buffer_min));
 	if (mm->percentile_calc_every >= 0)
 		json_object_set_new(obj, "percentile_calc_every", json_integer(mm->percentile_calc_every));
+	if (mm->quantile_window >= 0)
+		json_object_set_new(obj, "quantile_window", json_integer(mm->quantile_window));
+	if (mm->quantile_window_empty >= 0)
+		json_object_set_new(obj, "quantile_window_empty", json_string(mm->quantile_window_empty == QUANTILE_WINDOW_EMPTY_ZERO ? "zero" : "delete"));
 
 	if (mm->label_head)
 	{
@@ -154,6 +159,8 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 	/* -1 = unset → fall back to global ac->percentile_* at buffer init */
 	mm->percentile_buffer_min = -1;
 	mm->percentile_calc_every = -1;
+	mm->quantile_window = -1;
+	mm->quantile_window_empty = -1;
 	if (!mapping)
 		return mm;
 
@@ -264,6 +271,46 @@ mapping_metric* json_mapping_parser(json_t *mapping)
 			mm->percentile_calc_every = -1;
 	}
 
+	json_t *qwin = json_object_get(mapping, "quantile_window");
+	if (qwin)
+	{
+		int64_t sec = 0;
+		if (json_is_string(qwin))
+		{
+			const char *s = json_string_value(qwin);
+			size_t n = json_string_length(qwin);
+			if (!quantile_window_parse(s, n, &sec))
+			{
+				glog(L_WARN, "quantile_window: cannot parse '%s', using 0\n", s ? s : "");
+				sec = 0;
+			}
+		}
+		else
+			sec = mapping_json_int64(qwin);
+		if (sec < 0)
+		{
+			glog(L_WARN, "quantile_window: negative value %lld, using 0\n", (long long)sec);
+			sec = 0;
+		}
+		mm->quantile_window = sec;
+	}
+
+	json_t *qempty = json_object_get(mapping, "quantile_window_empty");
+	if (qempty)
+	{
+		if (json_is_string(qempty))
+			mm->quantile_window_empty = quantile_window_empty_parse_string(json_string_value(qempty));
+		else if (mapping_json_int64(qempty) == QUANTILE_WINDOW_EMPTY_ZERO)
+			mm->quantile_window_empty = QUANTILE_WINDOW_EMPTY_ZERO;
+		else if (mapping_json_int64(qempty) == QUANTILE_WINDOW_EMPTY_DELETE)
+			mm->quantile_window_empty = QUANTILE_WINDOW_EMPTY_DELETE;
+		else
+		{
+			glog(L_WARN, "quantile_window_empty: unknown value, using delete\n");
+			mm->quantile_window_empty = QUANTILE_WINDOW_EMPTY_DELETE;
+		}
+	}
+
 	json_t *label = json_object_get(mapping, "label");
 	if (label)
 	{
@@ -322,6 +369,8 @@ mapping_metric* mapping_copy(mapping_metric *src)
 		mm->wildcard = src->wildcard;
 		mm->percentile_buffer_min = src->percentile_buffer_min;
 		mm->percentile_calc_every = src->percentile_calc_every;
+		mm->quantile_window = src->quantile_window;
+		mm->quantile_window_empty = src->quantile_window_empty;
 
 		if (src->glob_size)
 		{
@@ -385,6 +434,8 @@ mapping_metric* mapping_copy(mapping_metric *src)
 		mm = mm->next;
 		mm->percentile_buffer_min = -1;
 		mm->percentile_calc_every = -1;
+		mm->quantile_window = -1;
+		mm->quantile_window_empty = -1;
 		src = src->next;
 	}
 

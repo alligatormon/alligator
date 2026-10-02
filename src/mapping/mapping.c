@@ -1,5 +1,7 @@
 #include "main.h"
 #include "mapping/mapping.h"
+#include <stdlib.h>
+#include <string.h>
 
 void free_extracted_fields(char *fields[], int field_count);
 
@@ -239,13 +241,34 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		if (mm->percentile)
 		{
 			if (!mnode->percentile_buf)
-				mnode->percentile_buf = init_percentile_buffer_opts(mm->percentile, mm->percentile_size,
-					mm->percentile_buffer_min, mm->percentile_calc_every);
+			{
+				/* Each buffer owns its quantile array. mm->percentile is shared
+				   across every series of this mapping and must stay alive. */
+				int64_t *pct = NULL;
+				if (mm->percentile && mm->percentile_size > 0)
+				{
+					pct = malloc(sizeof(int64_t) * (size_t)mm->percentile_size);
+					if (!pct)
+					{
+						free_extracted_fields(fields, num_fields);
+						mm = mm->next;
+						continue;
+					}
+					memcpy(pct, mm->percentile, sizeof(int64_t) * (size_t)mm->percentile_size);
+				}
+				mnode->percentile_buf = init_percentile_buffer_opts(pct, mm->percentile_size,
+					mm->percentile_buffer_min, mm->percentile_calc_every,
+					mm->quantile_window, mm->quantile_window_empty);
+			}
 
 			if (mnode->percentile_buf) {
+				if (!mnode->percentile_buf->ns)
+					mnode->percentile_buf->ns = get_namespace_by_carg(carg);
 				//printf("inserted heap %p with dval %f\n", mnode->percentile_buf, dval);
 				heap_insert(mnode->percentile_buf, dval);
 				calc_percentiles(carg, mnode->percentile_buf, mnode, NULL, NULL);
+				if (mnode->percentile_buf->window_sec > 0)
+					quantile_window_register(mnode->percentile_buf->ns, mnode);
 			}
 		}
 		else if (mm->le)

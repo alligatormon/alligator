@@ -293,6 +293,10 @@ typedef struct aconf
 	int64_t percentile_buffer_min;
 	/* Heapsort at most every N inserts into a percentile buffer (0/1 = every insert). */
 	int64_t percentile_calc_every;
+	/* Sliding window for mapping quantiles, seconds. 0 = sample-count ring. */
+	int64_t quantile_window;
+	/* QUANTILE_WINDOW_EMPTY_DELETE (0) or QUANTILE_WINDOW_EMPTY_ZERO (1). */
+	int8_t quantile_window_empty;
 
 	// persistence settings
 	char* persistence_dir;

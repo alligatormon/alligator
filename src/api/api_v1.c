@@ -254,6 +254,42 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 				if (ac->percentile_calc_every < 0)
 					ac->percentile_calc_every = 0;
 			}
+			if (!strcmp(key, "quantile_window"))
+			{
+				int64_t sec = 0;
+				if (json_typeof(value) == JSON_STRING)
+				{
+					const char *s = json_string_value(value);
+					size_t n = json_string_length(value);
+					if (!quantile_window_parse(s, n, &sec))
+					{
+						glog(L_WARN, "quantile_window: cannot parse '%s', using 0\n", s ? s : "");
+						sec = 0;
+					}
+				}
+				else
+					sec = json_integer_value(value);
+				if (sec < 0)
+				{
+					glog(L_WARN, "quantile_window: negative value %lld, using 0\n", (long long)sec);
+					sec = 0;
+				}
+				ac->quantile_window = sec;
+			}
+			if (!strcmp(key, "quantile_window_empty"))
+			{
+				if (json_typeof(value) == JSON_STRING)
+					ac->quantile_window_empty = quantile_window_empty_parse_string(json_string_value(value));
+				else if (json_typeof(value) == JSON_INTEGER && json_integer_value(value) == QUANTILE_WINDOW_EMPTY_ZERO)
+					ac->quantile_window_empty = QUANTILE_WINDOW_EMPTY_ZERO;
+				else if (json_typeof(value) == JSON_INTEGER && json_integer_value(value) == QUANTILE_WINDOW_EMPTY_DELETE)
+					ac->quantile_window_empty = QUANTILE_WINDOW_EMPTY_DELETE;
+				else
+				{
+					glog(L_WARN, "quantile_window_empty: unknown value, using delete\n");
+					ac->quantile_window_empty = QUANTILE_WINDOW_EMPTY_DELETE;
+				}
+			}
 			if (!strcmp(key, "workers"))
 			{
 				if (json_typeof(value) == JSON_STRING) {

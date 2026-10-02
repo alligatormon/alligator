@@ -5,6 +5,7 @@
 #include "common/json_query.h"
 #include "common/selector.h"
 #include "common/logs.h"
+#include "common/units.h"
 #include "main.h"
 
 typedef struct config_parser_stat {
@@ -2375,6 +2376,20 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										!strcmp(mapping_name, "percentile_calc_every"))
 									{
 										arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
+									}
+									else if (!strcmp(mapping_name, "quantile_window"))
+									{
+										int64_t sec = 0;
+										if (!quantile_window_parse(wstokens[i].token->s, wstokens[i].token->l, &sec) || sec < 0)
+										{
+											glog(L_WARN, "quantile_window: cannot parse '%s', using 0\n", wstokens[i].token->s ? wstokens[i].token->s : "");
+											sec = 0;
+										}
+										arg_json = json_integer(sec);
+									}
+									else if (!strcmp(mapping_name, "quantile_window_empty"))
+									{
+										arg_json = json_string(wstokens[i].token->s);
 									}
 									else
 									{
