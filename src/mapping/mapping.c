@@ -224,6 +224,9 @@ void mapping_processing(context_arg *carg, metric_node *mnode, double dval)
 		return;
 	if (!carg->mm)
 		return;
+	/* An insert under memory pressure returns no node. */
+	if (!mnode || !mnode->labels)
+		return;
 
 	mapping_metric *mm = carg->mm;
 	for (; mm; ) {

@@ -63,27 +63,42 @@ metric_node *make_node (metric_tree *tree, labels_t *labels, int8_t type, void *
 }
 
 
-metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
+static metric_node *metric_find_locked(metric_tree *tree, labels_t *labels)
 {
-	pthread_rwlock_wrlock(tree->rwlock);
+	if (!tree || !tree->root)
+		return NULL;
+
+	metric_node *x = tree->root;
+	while (x)
+	{
+		int rc1 = labels_cmp(tree->sort_plan, x->labels, labels);
+		if (rc1 > 0)
+			x = x->child[LEFT];
+		else if (rc1 < 0)
+			x = x->child[RIGHT];
+		else
+			return x;
+	}
+	return NULL;
+}
+
+/* Caller holds tree->rwlock. */
+static metric_node *metric_insert_locked(metric_tree *tree, labels_t *labels, int8_t type, void *value, expire_tree *expiretree, int64_t ttl)
+{
 	metric_node *ret = NULL;
 	if ( tree->root == NULL )
 	{
 		tree->root = ret = make_node(tree, labels, type, value, expiretree);
 		tree->count++;
-		if (tree->root == NULL) {
-			pthread_rwlock_unlock(tree->rwlock);
+		if (tree->root == NULL)
 			return NULL;
-		}
 	}
 	else
 	{
 		/* RB sentinel: heap avoids stack faults when caller stack is already deep (e.g. unit tests). */
 		metric_node *head = calloc(1, sizeof(*head));
-		if (!head) {
-			pthread_rwlock_unlock(tree->rwlock);
+		if (!head)
 			return NULL;
-		}
 		metric_node *g, *t;
 		metric_node *p, *q;
 		int dir = 0, last = 0;
@@ -102,7 +117,6 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 				flag = 1;
 				if ( q == NULL ) {
 					free(head);
-					pthread_rwlock_unlock(tree->rwlock);
 					return NULL;
 				}
 			}
@@ -142,27 +156,50 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 
 	r_time time = setrtime();
 
-	expire_insert(expiretree, time.sec+ttl, ret);
+	expire_arm(expiretree, time.sec+ttl, ret);
+	return ret;
+}
+
+metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)
+{
+	pthread_rwlock_wrlock(tree->rwlock);
+	metric_node *ret = metric_insert_locked(tree, labels, type, value, expiretree, ttl);
 	pthread_rwlock_unlock(tree->rwlock);
 	return ret;
 }
 
-int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
+metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, expire_tree *expiretree, int64_t ttl, int add)
+{
+	/* Hold the write lock from the lookup through the value/expire update.
+	   expire_purge frees the node; a find that drops the lock first leaves
+	   metric_set/metric_gset writing a freed metric back into the expire tree. */
+	pthread_rwlock_wrlock(tree->rwlock);
+	metric_node *mnode = metric_find_locked(tree, labels);
+	if (mnode)
+	{
+		if (add)
+			metric_gset(mnode, type, value, expiretree, ttl);
+		else
+			metric_set(mnode, type, value, expiretree, ttl);
+		pthread_rwlock_unlock(tree->rwlock);
+		labels_head_free(labels);
+		return mnode;
+	}
+
+	mnode = metric_insert_locked(tree, labels, type, value, expiretree, ttl);
+	pthread_rwlock_unlock(tree->rwlock);
+	return mnode;
+}
+
+/* expire_locked: caller already holds expiretree->rwlock (the purge does). */
+static int metric_delete_inner (metric_tree *tree, labels_t *labels, expire_tree *expiretree, int expire_locked)
 {
 	int ret = 0;
-	int lock = 0;
-	if (!tree->purging) {
-		pthread_rwlock_wrlock(tree->rwlock);
-		lock = 1;
-	}
 	if ( tree->root != NULL ) 
 	{
 		metric_node *head = calloc(1, sizeof(*head));
-		if (!head) {
-			if (lock)
-				pthread_rwlock_unlock(tree->rwlock);
+		if (!head)
 			return 0;
-		}
 		metric_node *q, *p, *g;
 		metric_node *f = NULL;
 		int dir = 1;
@@ -219,7 +256,10 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			{
 				/* Matched node is the node physically removed: drop its single
 				   expire entry and free it. No reinsert (would dangle onto freed memory). */
-				expire_delete(expiretree, q->expire_node->key, q);
+				if (expire_locked)
+					expire_forget_locked(expiretree, q);
+				else
+					expire_forget(expiretree, q);
 				tree->count--;
 				/* Detach before labels_free: a sweep may be reading this node. */
 				quantile_window_detach(q);
@@ -237,10 +277,17 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 				   metric pointer, so delete both entries and reinsert f with q's
 				   key. Labels alone are not enough — value/type must move too,
 				   otherwise the surviving metric keeps the deleted node's sample. */
-				uint64_t q_key = q->expire_node->key;
-				expire_delete(expiretree, q_key, q);
-				expire_delete(expiretree, f->expire_node->key, f);
-				expire_insert(expiretree, q_key, f);
+				int64_t q_key = q->expire_node ? q->expire_node->key : 0;
+				if (expire_locked)
+				{
+					expire_forget_locked(expiretree, q);
+					expire_arm_locked(expiretree, q_key, f);
+				}
+				else
+				{
+					expire_forget(expiretree, q);
+					expire_arm(expiretree, q_key, f);
+				}
 				tree->count--;
 				/* Detach before labels_free: a sweep may be reading either node. */
 				quantile_window_detach(f);
@@ -272,22 +319,30 @@ int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
 			tree->root->color = BLACK;
 	}
 
-	if (lock) {
-		pthread_rwlock_unlock(tree->rwlock);
-	}
 	return ret;
+}
+
+int metric_delete (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
+{
+	pthread_rwlock_wrlock(tree->rwlock);
+	int ret = metric_delete_inner(tree, labels, expiretree, 0);
+	pthread_rwlock_unlock(tree->rwlock);
+	return ret;
+}
+
+int metric_delete_locked (metric_tree *tree, labels_t *labels, expire_tree *expiretree)
+{
+	return metric_delete_inner(tree, labels, expiretree, 1);
 }
 
 static void metric_refresh_expire(metric_node *mnode, expire_tree *expiretree, int64_t ttl)
 {
 	r_time time = setrtime();
 	int64_t new_key = time.sec + ttl;
-	/* Expiry uses second resolution; delete+insert in the RB-tree is redundant if the key is unchanged. */
+	/* Expiry uses second resolution; re-arming is redundant if the key is unchanged. */
 	if (mnode->expire_node && mnode->expire_node->key == new_key)
 		return;
-	if (mnode->expire_node)
-		expire_delete(expiretree, mnode->expire_node->key, mnode);
-	expire_insert(expiretree, new_key, mnode);
+	expire_arm(expiretree, new_key, mnode);
 }
 
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl)

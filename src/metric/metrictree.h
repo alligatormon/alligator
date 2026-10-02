@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <pthread.h>
 #include "metric/labels.h"
 #include "metric/percentile_heap.h"
 #include "common/selector.h"
@@ -133,7 +134,6 @@ typedef struct metric_tree
 	sortplan *sort_plan;
 	alligator_ht* labels_words_hash;
 	pthread_rwlock_t *rwlock;
-	int purging;
 } metric_tree;
 
 typedef struct mapping_label
@@ -189,6 +189,11 @@ typedef struct query_struct {
 
 //void metric_add_labels5(char *name, void* value, int8_t type, char *namespace, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5);
 int metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
+/* Caller holds both the metric tree and the expire tree write locks. */
+int metric_delete_locked (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
+/* Find-or-insert under one write lock. add=1 accumulates (counter), add=0 replaces.
+   On update, labels is freed. On insert, the tree takes ownership of labels. */
+metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, struct expire_tree *expiretree, int64_t ttl, int add);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
 int64_t metric_get_double(void *value, int8_t type);
 void metrictree_get(metric_node *x, labels_t* labels, string *str);

@@ -2505,6 +2505,137 @@ static void test_action_query_foreach_and_http_paths(void)
     ac->action = saved_action;
 }
 
+/* A label set that extends another one is a distinct series. The sort plan grows
+   when "b" first appears, so the {a=1} chain stays shorter than the plan and used
+   to compare equal to {a=1,b=2}, silently merging the two. */
+static void test_labels_cmp_extended_label_set_is_distinct(void)
+{
+    insert_namespace("ut_pfx", 0);
+    namespace_struct *ns = get_namespace("ut_pfx");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+    context_arg carg = {0};
+    carg.namespace = "ut_pfx";
+
+    int64_t v1 = 10;
+    metric_add_labels("ut_pfx_m", &v1, DATATYPE_INT, &carg, "a", "1");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+
+    int64_t v2 = 20;
+    metric_add_labels2("ut_pfx_m", &v2, DATATYPE_INT, &carg, "a", "1", "b", "2");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+
+    /* Updating the shorter series must not touch the longer one. */
+    int64_t v3 = 30;
+    metric_add_labels("ut_pfx_m", &v3, DATATYPE_INT, &carg, "a", "1");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+
+    alligator_ht *h2 = alligator_ht_init(NULL);
+    labels_hash_insert(h2, "a", "1");
+    labels_hash_insert(h2, "b", "2");
+    labels_t *l2 = labels_initiate(ns, h2, "ut_pfx_m", NULL, ns, 0);
+    metric_node *m2 = metric_find(ns->metrictree, l2);
+    labels_head_free(l2);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m2);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 20, m2->i);
+}
+
+/* Every expire node must be the one its metric points back at. A second node
+   for the same metric, or a metric still pointing at a freed node, breaks it. */
+static int expire_backptr_broken(expire_node *x)
+{
+    int bad = 0;
+    if (!x)
+        return 0;
+    if (!x->metric || x->metric->expire_node != x)
+        ++bad;
+    bad += expire_backptr_broken(x->child[0]);
+    bad += expire_backptr_broken(x->child[1]);
+    return bad;
+}
+
+/* expire_delete removing the node it matched (f == q) used to leave the metric
+   pointing at the freed node, so the next metric_set read a dangling key. */
+static void test_expire_delete_clears_metric_backptr(void)
+{
+    insert_namespace("ut_expire_backptr", 0);
+    namespace_struct *ns = get_namespace("ut_expire_backptr");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    context_arg carg = {0};
+    carg.namespace = "ut_expire_backptr";
+    int64_t v = 1;
+    metric_add_labels("ut_backptr_m", &v, DATATYPE_INT, &carg, "id", "1");
+
+    alligator_ht *hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", "1");
+    labels_t *labels = labels_initiate(ns, hash, "ut_backptr_m", NULL, ns, 0);
+    metric_node *m = metric_find(ns->metrictree, labels);
+    labels_head_free(labels);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+
+    expire_forget(ns->expiretree, m);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+
+    /* The refresh must re-arm the metric instead of reading the freed node. */
+    int64_t v2 = 2;
+    metric_set(m, DATATYPE_INT, &v2, ns->expiretree, 60);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_broken(ns->expiretree->root));
+}
+
+static void *expire_race_writer(void *arg)
+{
+    context_arg *carg = arg;
+    static const char *ids[] = {
+        "0","1","2","3","4","5","6","7","8","9",
+        "a","b","c","d","e","f","g","h","i","j",
+        "k","l","m","n","o","p","q","r","s","t"
+    };
+    const int nids = (int)(sizeof(ids) / sizeof(ids[0]));
+
+    for (int n = 0; n < 500; n++) {
+        int64_t v = n;
+        char *id = (char *)ids[n % nids];
+        metric_add_labels("ut_expire_race_count", &v, DATATYPE_INT, carg, "id", id);
+        alligator_ht *lbl = alligator_ht_init(NULL);
+        labels_hash_insert_nocache(lbl, "id", id);
+        metric_update("ut_expire_race_count", lbl, &v, DATATYPE_DOUBLE, carg);
+    }
+    return NULL;
+}
+
+static void test_expire_purge_concurrent_update(void)
+{
+    insert_namespace("ut_expire_race", 0);
+    namespace_struct *ns = get_namespace("ut_expire_race");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    context_arg carg = {0};
+    carg.namespace = "ut_expire_race";
+    carg.ttl = 1;
+
+    pthread_t writers[2];
+    for (int i = 0; i < 2; i++)
+        pthread_create(&writers[i], NULL, expire_race_writer, &carg);
+
+    for (int i = 0; i < 40; i++)
+        expire_purge(INT64_MAX, NULL, ns);
+
+    for (int i = 0; i < 2; i++)
+        pthread_join(writers[i], NULL);
+
+    expire_purge(INT64_MAX, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_broken(ns->expiretree->root));
+    /* A purge that reaches every metric leaves no expired entry behind, so the
+       blind bulk delete that used to clean up after it is not needed. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_count_expired(ns->expiretree->root, INT64_MAX));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+}
+
 static void test_metrictree_delete_paths(void)
 {
     insert_namespace("ut_mtree_del", 0);
@@ -3489,6 +3620,9 @@ static void run_helpers_and_events_suites(void)
     test_http_api_v1_lang_x509_put_only();
     test_http_api_v1_comprehensive_put();
     test_action_query_foreach_and_http_paths();
+    test_labels_cmp_extended_label_set_is_distinct();
+    test_expire_delete_clears_metric_backptr();
+    test_expire_purge_concurrent_update();
     test_metrictree_delete_paths();
     test_metric_query_gen_paths();
     test_metric_query_gen_extended();
