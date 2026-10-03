@@ -120,10 +120,13 @@ typedef struct metric_node
 
 typedef struct expire_node 
 {
-	int color;
 	int64_t key;
 	metric_node *metric;
-	struct expire_node *child[2];
+	struct expire_node *next;
+	struct expire_node *prev;
+	/* Which wheel list this node is linked into. */
+	uint8_t level;
+	uint16_t slot;
 } expire_node;
 
 typedef struct metric_tree 

@@ -75,6 +75,8 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_push_parsed_lines_count", METRIC_TYPE_GAUGE, "Number of parsed lines in the most recent push payload.");
 	namespace_metric_family_set(NULL, NULL, "alligator_push_parsing_duration_nanoseconds", METRIC_TYPE_GAUGE, "Time spent parsing push payload in nanoseconds.");
 	namespace_metric_family_set(NULL, NULL, "alligator_push_split_duration_nanoseconds", METRIC_TYPE_GAUGE, "Time spent splitting push payload into lines in nanoseconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_expire_backptr_violations", METRIC_TYPE_GAUGE, "Expire entries whose metric does not point back at them.");
+	namespace_metric_family_set(NULL, NULL, "alligator_sortplan_entries", METRIC_TYPE_GAUGE, "Number of label names in the namespace sort plan.");
 }
 
 void general_loop_cb(uv_timer_t* handle)
@@ -91,6 +93,13 @@ void namespaces_expire_foreach(void *funcarg, void* arg)
 	namespace_struct *ns = arg;
 	r_time time = setrtime();
 	expire_purge(time.sec, NULL, ns);
+	/* Sample after purge drops its locks. 0 is a healthy tree. */
+	{
+		uint64_t violations = expire_backptr_violations(ns->expiretree);
+		uint64_t plan_entries = ns->metrictree && ns->metrictree->sort_plan ? ns->metrictree->sort_plan->size : 0;
+		metric_add_labels("alligator_expire_backptr_violations", &violations, DATATYPE_UINT, NULL, "namespace", ns->key);
+		metric_add_labels("alligator_sortplan_entries", &plan_entries, DATATYPE_UINT, NULL, "namespace", ns->key);
+	}
 	/* After purge releases the tree lock: idle windowed quantiles emit 0. */
 	quantile_window_sweep(ns);
 }
