@@ -23,6 +23,7 @@
 #include "grok/type.h"
 #include "parsers/multiparser.h"
 #include "main.h"
+#include "metric/metric_dump.h"
 extern aconf *ac;
 
 typedef struct config_get_arg
@@ -181,6 +182,16 @@ void config_global_get(json_t *dst)
 
 		json_array_object_insert(ctx, "directory", persistence_dir);
 		json_array_object_insert(ctx, "period", persistence_period);
+		persistence_promql_lock();
+		if (ac->persistence_promql_count && ac->persistence_promql)
+		{
+			json_t *promql = json_array();
+			size_t i;
+			for (i = 0; i < ac->persistence_promql_count; i++)
+				json_array_append_new(promql, json_string(ac->persistence_promql[i] ? ac->persistence_promql[i] : ""));
+			json_array_object_insert(ctx, "promql", promql);
+		}
+		persistence_promql_unlock();
 	}
 }
 

@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <events/context_arg.h>
 #include "metric/namespace.h"
+#include "metric/metric_dump.h"
 #include "metric/labels.h"
 #include "metric/metrictree.h"
 #include "metric/percentile_heap.h"
@@ -3899,6 +3900,124 @@ static metric_node *restore_edge_find(namespace_struct *ns, const char *id)
     return m;
 }
 
+static metric_node *persist_filter_find(const char *name, const char *kind)
+{
+    namespace_struct *ns = ac->nsdefault;
+    alligator_ht *hash = alligator_ht_init(NULL);
+    if (kind)
+        labels_hash_insert(hash, "kind", (char *)kind);
+    labels_t *labels = labels_initiate(ns, hash, (char *)name, NULL, ns, 0);
+    metric_node *m = metric_find(ns->metrictree, labels);
+    labels_head_free(labels);
+    return m;
+}
+
+static void persist_filter_expect(int keep_yes, int keep_no, int keep_other)
+{
+    namespace_struct *ns = ac->nsdefault;
+    metric_node *yes = persist_filter_find("ut_persist_m", "yes");
+    metric_node *no = persist_filter_find("ut_persist_m", "no");
+    metric_node *other = persist_filter_find("ut_persist_other", NULL);
+    metric_dump_filter *filter;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, yes);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, no);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, other);
+
+    filter = metric_dump_filter_build(ns);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, filter);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, keep_yes, metric_dump_series_selected(filter, yes->labels));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, keep_no, metric_dump_series_selected(filter, no->labels));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, keep_other, metric_dump_series_selected(filter, other->labels));
+    metric_dump_filter_free(filter);
+}
+
+static void persist_filter_api(char *saved_dir, const char *body)
+{
+    char *prev = ac->persistence_dir;
+    string *resp = string_new();
+    http_api_v1(resp, NULL, body);
+    string_free(resp);
+    if (prev && prev != saved_dir && prev != ac->persistence_dir)
+        free(prev);
+}
+
+/* metric_dump_node keeps a series only when metric_dump_series_selected says so. */
+static void test_persistence_promql_filter(void)
+{
+    context_arg carg = {0};
+    int64_t v = 1;
+    char *saved_dir = ac->persistence_dir;
+    uint64_t saved_period = ac->persistence_period;
+    string *resp;
+    http_reply_data hd = {0};
+
+    metric_add_labels("ut_persist_m", &v, DATATYPE_INT, &carg, "kind", "yes");
+    metric_add_labels("ut_persist_m", &v, DATATYPE_INT, &carg, "kind", "no");
+    metric_add_auto("ut_persist_other", &v, DATATYPE_INT, &carg);
+
+    persist_filter_expect(1, 1, 1);
+
+    persist_filter_api(saved_dir,
+        "{\"persistence\":{\"directory\":\"/tmp/ut_persist_promql\","
+        "\"promql\":[\"ut_persist_m{kind=\\\"yes\\\"}\",\"ut_persist_other\"]}}");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ac->persistence_promql_count);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql_mqc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_persist_m{kind=\"yes\"}", ac->persistence_promql[0]);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_persist_other", ac->persistence_promql[1]);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql_mqc[0]);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql_mqc[1]);
+    persist_filter_expect(1, 0, 1);
+
+    /* The dump filter must keep matching after the config list is freed. */
+    {
+        namespace_struct *ns = ac->nsdefault;
+        metric_node *yes = persist_filter_find("ut_persist_m", "yes");
+        metric_node *no = persist_filter_find("ut_persist_m", "no");
+        metric_node *other = persist_filter_find("ut_persist_other", NULL);
+        metric_dump_filter *held = metric_dump_filter_build(ns);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, held);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_dump_filter_aliases_config(held));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_dump_series_selected(held, yes->labels));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_dump_series_selected(held, no->labels));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_dump_series_selected(held, other->labels));
+        persistence_promql_free();
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->persistence_promql_count);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql_mqc);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_dump_series_selected(held, yes->labels));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_dump_series_selected(held, no->labels));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_dump_series_selected(held, other->labels));
+        metric_dump_filter_free(held);
+    }
+
+    persist_filter_api(saved_dir,
+        "{\"persistence\":{\"directory\":\"/tmp/ut_persist_promql\",\"promql\":[]}}");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->persistence_promql_count);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql);
+    persist_filter_expect(1, 1, 1);
+
+    persist_filter_api(saved_dir,
+        "{\"persistence\":{\"directory\":\"/tmp/ut_persist_promql\","
+        "\"promql\":[\"{__name__=~\\\"(\\\"}\"]}}");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->persistence_promql_count);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql_mqc[0]);
+    persist_filter_expect(0, 0, 0);
+
+    resp = string_new();
+    hd.method = HTTP_METHOD_DELETE;
+    hd.body = (char *)"{\"persistence\":{}}";
+    hd.body_size = strlen(hd.body);
+    http_api_v1(resp, &hd, NULL);
+    string_free(resp);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->persistence_promql_count);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ac->persistence_dir);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ac->persistence_promql);
+    ac->persistence_dir = saved_dir;
+    ac->persistence_period = saved_period;
+    persist_filter_expect(1, 1, 1);
+}
+
 /* The startup reader used to stop at 1 MB. read_whole_file() is async on
    uv_default_loop(), which this process already uses, so pumping it would run
    other handles too. Feed the restore parser a buffer that crosses that cap. */
@@ -4009,6 +4128,8 @@ static void run_helpers_and_events_suites(void)
     test_config_tls_revocation_keys();
     test_config_plain_globals_and_channels();
     test_config_plain_persistence_block();
+    test_config_plain_persistence_promql();
+    test_config_plain_persistence_promql_unquoted();
     test_config_plain_more_top_level_blocks();
     test_config_plain_grok_mtail_chromecdp_blocks();
     test_config_plain_aggregate_rich_variants();
@@ -4119,6 +4240,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_str_build_named_namespaces();
     test_metric_str_build_default_namespace();
     test_metric_restore_json_past_1mb();
+    test_persistence_promql_filter();
 }
 
 int main(int argc, char **argv) {

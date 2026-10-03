@@ -3819,6 +3819,76 @@ void test_config_plain_persistence_block()
     json_decref(root);
 }
 
+void test_config_plain_persistence_promql()
+{
+    const char *conf =
+        "persistence {\n"
+        " directory /tmp/alligator-ut;\n"
+        " promql 'metric_name{label=\"x\"}';\n"
+        " promql other_metric;\n"
+        "}\n";
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *persistence = json_object_get(root, "persistence");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, persistence);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/alligator-ut",
+        json_string_value(json_object_get(persistence, "directory")));
+    json_t *promql = json_object_get(persistence, "promql");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, promql);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_array(promql));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_array_size(promql));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "metric_name{label=\"x\"}",
+        json_string_value(json_array_get(promql, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "other_metric",
+        json_string_value(json_array_get(promql, 1)));
+    json_decref(root);
+}
+
+void test_config_plain_persistence_promql_unquoted()
+{
+    const char *conf =
+        "persistence {\n"
+        "    promql node_cpu_seconds_total{mode=\"idle\"};\n"
+        "    directory /var/lib/alligator;\n"
+        "    period 30;\n"
+        "}\n";
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *persistence = json_object_get(root, "persistence");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, persistence);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/var/lib/alligator",
+        json_string_value(json_object_get(persistence, "directory")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 30,
+        (int)json_integer_value(json_object_get(persistence, "period")));
+    json_t *promql = json_object_get(persistence, "promql");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, promql);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_array(promql));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(promql));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "node_cpu_seconds_total{mode=\"idle\"}",
+        json_string_value(json_array_get(promql, 0)));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "directory"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "period"));
+    json_decref(root);
+}
+
 void test_config_plain_more_top_level_blocks()
 {
     const char *fragments[] = {

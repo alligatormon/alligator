@@ -209,6 +209,9 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2);
 void labels_print(labels_t *labels, int l);
 void labels_cat(labels_t *labels, int l, string *s, int64_t ttl, int color);
 int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count);
+/* 1 when node_labels matches the instant selector in mqc. 0 is not a match.
+   Same name + labels_match test as metrictree_gen_scan / metrictree_serialize_query_node. */
+int metric_selector_match(sortplan *sort_plan, labels_t *node_labels, labels_t *query_labels, size_t labels_count, metric_query_context *mqc);
 void labels_gen_metric(labels_t *labels_list, int l, metric_node *x, string *groupkey, alligator_ht *res_hash, double opval);
 int metric_name_match(labels_t *labels1, labels_t *labels2);
 void labels_head_free(labels_t *labels);

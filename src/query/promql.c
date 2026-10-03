@@ -400,6 +400,8 @@ static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char
 		promql_skip_ws(&cur, end);
 		if (matcher == PROMQL_MATCH_SKIP)
 		{
+			if (mqc)
+				mqc->selector_partial = 1;
 			while (cur < end && *cur != ',')
 			{
 				if (*cur == '"')
@@ -488,8 +490,12 @@ static void promql_parse_labels(alligator_ht *lbl, const char *begin, const char
 		else if (matcher == PROMQL_MATCH_EQ)
 			labels_hash_insert_nocache(lbl, key, value);
 		else
+		{
+			if (mqc)
+				mqc->selector_partial = 1;
 			glog(L_DEBUG, "promql: label matcher %s on '%s' is ignored (only __name__=~ / __name__!~ are supported)\n",
 				matcher == PROMQL_MATCH_RE_NEG ? "!~" : "=~", key);
+		}
 
 		while (cur < end && *cur != ',')
 			++cur;
@@ -631,6 +637,8 @@ metric_query_context *promql_parser(alligator_ht* lbl, char *query, size_t size)
 				const char *rb = promql_find_matching(lb, selector_end, '{', '}');
 				if (rb)
 					promql_parse_labels(lbl, lb + 1, rb, mqc);
+				else
+					mqc->selector_partial = 1;
 			}
 		}
 	}

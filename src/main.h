@@ -301,6 +301,12 @@ typedef struct aconf
 	// persistence settings
 	char* persistence_dir;
 	uint64_t persistence_period;
+	/* PromQL instant selectors. Count 0 (or a null list) persists every series.
+	   A non-zero count with no compiled context is an explicit filter that matched
+	   nothing usable: metric_dump writes no series. */
+	char **persistence_promql;
+	metric_query_context **persistence_promql_mqc;
+	size_t persistence_promql_count;
 
 	uint64_t (*metrictree_hashfunc)(const char*, uint32_t, uint32_t);
 	uint64_t (*metrictree_hashfunc_get)(const char*);

@@ -206,8 +206,11 @@ It's a directive that specifies the directory for saving metrics between restart
 ```
 persistence {
     directory /var/lib/alligator;
+    promql 'metric_name{label="x"}';
+    promql other_metric;
 }
 ```
+`promql` is optional and repeatable. Each value is one PromQL instant selector: a bare name, a quoted string, or unquoted with braces (`node_cpu_seconds_total{mode="idle"}`). Together they become a JSON array. A series is written to `metric_dump` only when it matches at least one selector. If `promql` is absent or the array is empty, every series is written. An invalid selector is logged and skipped; if every selector is invalid, the dump file is empty. Restore still loads whatever is already in the file. Label matchers are the ones the built-in PromQL parser applies: equality, and `__name__` regex (`=~` / `!~`). Aggregations, value comparisons, and other label matchers are not selectors for this filter.
 
 ## Modules
 The `modules` context allows loading `.so` files into memory.

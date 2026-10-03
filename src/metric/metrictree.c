@@ -598,6 +598,15 @@ static int metrictree_query_uses_regex(metric_query_context *mqc)
 	return mqc && (mqc->name_re || mqc->name_re_invalid);
 }
 
+int metric_selector_match(sortplan *sort_plan, labels_t *node_labels, labels_t *query_labels, size_t labels_count, metric_query_context *mqc)
+{
+	if (!sort_plan || !node_labels || !query_labels || !mqc)
+		return 0;
+	if (!metrictree_query_name_ok(node_labels, query_labels, mqc))
+		return 0;
+	return !labels_match(sort_plan, node_labels, query_labels, labels_count);
+}
+
 void metrictree_gen_scan(metric_node *x, sortplan* sort_plan, labels_t* labels, string *groupkey, alligator_ht *hash, size_t labels_count, double opval, metric_query_context *mqc)
 {
 	if (!x)

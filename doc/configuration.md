@@ -74,7 +74,9 @@ These appear outside context blocks (plain config) or as top-level JSON keys:
 | `workers` | libuv thread pool size (`auto` or integer) |
 | `metrictree_hashfunc` | Metric tree hash: `lookup3`, `murmur`, `crc32`, `XXH3` |
 | `process_shell` | Shell for process spawner (default `/bin/sh`) |
-| `persistence` | `{ directory, period }` — metric persistence directory and flush interval |
+| `persistence` | `{ directory, period, promql }` — metric persistence directory, flush interval, and optional PromQL selectors |
+
+`promql` is an array of PromQL instant selectors (`"promql": ["metric_name{label=\"x\"}", "other_metric"]`). In plain config repeat `promql` inside the `persistence` block. A selector may be a bare name (`other_metric`), a quoted string, or unquoted with braces (`node_cpu_seconds_total{mode="idle"}`). Absent or empty means every series is written to `metric_dump`. A series is written when it matches any selector. Invalid selectors are skipped; if all of them are invalid, nothing is written.
 
 See [Available units for time data](#available-units-for-time-data-in-configuration-file) for duration syntax.
 

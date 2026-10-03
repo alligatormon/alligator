@@ -30,6 +30,8 @@ typedef struct metric_query_context {
 	void *name_re; /* pcre* compiled from __name__=~ / __name__!~ */
 	uint8_t name_re_neg;
 	uint8_t name_re_invalid;
+	/* Set when a matcher was seen but not applied (label =~ / !~ / !=, unclosed '{'). */
+	uint8_t selector_partial;
 	uint8_t op;
 	double opval;
 } metric_query_context;

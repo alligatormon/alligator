@@ -17,10 +17,84 @@ typedef struct config_parser_stat {
 	uint8_t start; // start of context {
 	uint8_t operator; // is operator
 	uint8_t argument; // is argument
+	uint8_t promql_value; // next token is one persistence promql selector
 	uint64_t length; // length of word
 	uint64_t fact_length; // length of word and control symbols
 	string *token;
 } config_parser_stat;
+
+/* One unquoted persistence selector, through ';' or the end of the line.
+   '{' / '}' inside the selector are not block delimiters. A '}' at brace
+   depth 0 is the persistence block closer and is left for the next token. */
+static int plain_promql_argument(char *str, config_parser_stat *ret)
+{
+	uint64_t i = 0;
+	int depth = 0;
+	char q = 0;
+	int saw_semi = 0;
+
+	for (; str[i]; i++)
+	{
+		char c = str[i];
+		if (q)
+		{
+			if (c == '\\' && str[i + 1])
+			{
+				i++;
+				continue;
+			}
+			if (c == q)
+				q = 0;
+			continue;
+		}
+		if (c == '\'' || c == '"')
+		{
+			q = c;
+			continue;
+		}
+		if (c == '{')
+		{
+			depth++;
+			continue;
+		}
+		if (c == '}')
+		{
+			if (depth == 0)
+				break;
+			depth--;
+			continue;
+		}
+		if (c == ';' && depth == 0)
+		{
+			saw_semi = 1;
+			break;
+		}
+		if ((c == '\n' || c == '\r') && depth == 0)
+			break;
+	}
+
+	if (i == 0 && !saw_semi)
+		return 0;
+
+	uint64_t len = i;
+	while (len > 0 && (str[len - 1] == ' ' || str[len - 1] == '\t'))
+		len--;
+
+	ret->length = len;
+	ret->fact_length = saw_semi ? i + 1 : i;
+	if (!ret->fact_length)
+		return 0;
+	ret->semicolon = 1;
+	ret->start = 0;
+	ret->end = 0;
+	ret->quotas1 = 0;
+	ret->quotas2 = 0;
+	ret->context = 0;
+	ret->operator = 0;
+	ret->argument = len ? 1 : 0;
+	ret->promql_value = 0;
+	return 1;
+}
 
 char *plain_skip_spaces(char *str, char *sep)
 {
@@ -64,6 +138,7 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		ret->semicolon = 0;
 		ret->start = 0;
 		ret->end = 0;
+		ret->promql_value = 0;
 	}
 
 	if (!ret->operator && !ret->argument && !ret->context && !ret->start && !ret->semicolon && !ret->quotas1 && !ret->quotas2 && !ret->end)
@@ -87,7 +162,16 @@ void plain_get_word(char *str, config_parser_stat *ret)
 			st = strcspn(str+sq2, "{");
 		}
 
-		if (st < sm) {
+		/* A selector's '{' is not a nested block. Keep `promql` an operator
+		   so the value can be read through the closing '}'. */
+		if (ret->length == 6 && !strncmp(str, "promql", 6))
+		{
+			ret->context = 0;
+			ret->operator = 1;
+			ret->promql_value = 1;
+			ret->fact_length = ret->length;
+		}
+		else if (st < sm) {
 			ret->context = 1;
 			ret->operator = 0;
 		}
@@ -114,6 +198,16 @@ void plain_get_word(char *str, config_parser_stat *ret)
 		{
 			ret->context = 0;
 		}
+	}
+
+	if (ret->argument && ret->promql_value)
+	{
+		if (str[0] == '\'' || str[0] == '"')
+			ret->promql_value = 0;
+		else if (plain_promql_argument(str, ret))
+			return;
+		else
+			ret->promql_value = 0;
 	}
 
 	size_t tmp_copy = ret->fact_length < (sizeof(tmp) - 1) ? ret->fact_length : (sizeof(tmp) - 1);
@@ -1242,10 +1336,33 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							}
 						}
 					}
+					else if (!strcmp(context_name, "persistence") && operator_name && !strcmp(operator_name, "promql"))
+					{
+						json_t *promql_arr = json_object_get(context_json, "promql");
+						if (!promql_arr || json_typeof(promql_arr) != JSON_ARRAY)
+						{
+							promql_arr = json_array();
+							json_array_object_insert(context_json, "promql", promql_arr);
+						}
+						if (i + 1 < token_count)
+						{
+							++i;
+							if (wstokens[i].token && wstokens[i].token->s)
+								json_array_object_insert(promql_arr, NULL, json_string(wstokens[i].token->s));
+							/* The selector's '}' is part of the value, not the block end. */
+							wstokens[i].end = 0;
+							wstokens[i].start = 0;
+						}
+					}
 					else if (!strcmp(context_name, "persistence") || !strcmp(context_name, "modules") || !strcmp(wstokens[i].token->s, "sysfs") || !strcmp(wstokens[i].token->s, "procfs") || !strcmp(wstokens[i].token->s, "rundir") || !strcmp(wstokens[i].token->s, "usrdir") || !strcmp(wstokens[i].token->s, "etcdir"))
 					{
 						++i;
-						json_t *arg_json = json_string(wstokens[i].token->s);
+						json_t *arg_json;
+						if (!strcmp(context_name, "persistence") && operator_name && !strcmp(operator_name, "period") &&
+						    wstokens[i].token && wstokens[i].token->s && sisdigit(wstokens[i].token->s))
+							arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
+						else
+							arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, operator_name, arg_json);
 					}
 					else if (json_typeof(context_json) == JSON_OBJECT && (!strcmp(wstokens[i].token->s, "log_level") || !strcmp(wstokens[i].token->s, "log_channel") || !strcmp(wstokens[i].token->s, "log_channel_raw") || !strcmp(wstokens[i].token->s, "log_channel_out")))

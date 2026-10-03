@@ -16,6 +16,7 @@
 #include "probe/probe.h"
 #include "scheduler/type.h"
 #include "common/mkdirp.h"
+#include "metric/metric_dump.h"
 #include "common/json_query.h"
 #include "common/reject.h"
 #include "parsers/multiparser.h"
@@ -610,6 +611,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 						free(ac->persistence_dir);
 						ac->persistence_dir = NULL;
 					}
+					persistence_promql_free();
 					continue;
 				}
 
@@ -626,7 +628,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					ac->persistence_period = json_integer_value(period)*1000;
 				else
 					ac->persistence_period = 300;
-					
+
+				persistence_promql_apply(json_object_get(value, "promql"));
 			}
 			if (!strcmp(key, "lang"))
 			{

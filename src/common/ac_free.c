@@ -1,4 +1,5 @@
 #include "main.h"
+#include "metric/metric_dump.h"
 #include "amtail/type.h"
 #include "vrl/type.h"
 #include "events/context_arg.h"
@@ -98,6 +99,7 @@ void main_free()
 
 	signal_stop();
 
+	persistence_promql_free();
 	free(ac);
 	ac = NULL;
 }

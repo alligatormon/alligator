@@ -74,7 +74,9 @@
 | `workers` | Размер thread pool libuv (`auto` или число) |
 | `metrictree_hashfunc` | Хеш дерева метрик: `lookup3`, `murmur`, `crc32`, `XXH3` |
 | `process_shell` | Shell для process spawner (по умолчанию `/bin/sh`) |
-| `persistence` | `{ directory, period }` — каталог и интервал сохранения метрик |
+| `persistence` | `{ directory, period, promql }` — каталог, интервал сохранения метрик и необязательные PromQL-селекторы |
+
+`promql` — массив PromQL instant selectors (`"promql": ["metric_name{label=\"x\"}", "other_metric"]`). В plain-конфиге `promql` повторяется внутри блока `persistence`. Селектор может быть голым именем (`other_metric`), строкой в кавычках или без кавычек со скобками (`node_cpu_seconds_total{mode="idle"}`). Нет поля или пустой массив — в `metric_dump` пишутся все серии. Серия пишется, если совпала хотя бы с одним селектором. Неверные селекторы пропускаются; если неверны все, не пишется ничего.
 
 Синтаксис интервалов — в разделе [единицы времени](#available-units-for-time-data-in-configuration-file).
 
