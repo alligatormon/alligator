@@ -866,7 +866,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					json_t *json_tls_verify = json_object_get(entrypoint, "tls_verify");
 					if (json_tls_verify)
+					{
+						carg->tls_verify_defined = 1;
 						carg->tls_verify = config_json_is_on(json_tls_verify) ? 1 : 0;
+					}
 
 					json_t *json_tls_verify_client = json_object_get(entrypoint, "tls_verify_client");
 					if (json_tls_verify_client)

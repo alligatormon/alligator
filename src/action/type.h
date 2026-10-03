@@ -32,6 +32,12 @@ typedef struct action_node
 	char *metric_name_transform_pattern;
 	char *metric_name_transform_replacement;
 	pcre *metric_name_transform_compiled;
+	/* Optional client TLS for HTTPS actions (OTLP mTLS, etc.). */
+	char *tls_cert_file;
+	char *tls_key_file;
+	char *tls_ca_file;
+	uint8_t tls_verify;
+	uint8_t tls_verify_defined;
 	int log_level;
 	struct log_channel *log_ch;
 	alligator_ht *dynatrace_counter_last;
@@ -42,6 +48,7 @@ typedef struct action_node
 action_node* action_get(char *name);
 char *action_aggregator_key(const char *scheduler_name, const char *url, size_t url_len, const char *parser_name, const char *base_override);
 void action_run_process(char *name, char *namespace, metric_query_context *mqc, const char *scheduler_name);
+void action_node_free(action_node *an);
 void action_del(json_t *action);
 void action_push(json_t *action);
 void action_query_foreach_process(query_struct *qs, action_node *an, void *val, int type);

@@ -26,6 +26,10 @@ action {
     follow_redirects <redirects>;
     engine <engine>;
     index_template <index_template>;
+    tls_certificate <path>;
+    tls_key <path>;
+    tls_ca <path>;
+    tls_verify [on|off];
 }
 ```
 
@@ -186,6 +190,36 @@ action {
   name to-otlp;
   serializer otlp_protobuf;
   expr http://localhost:4318/v1/metrics;
+}
+```
+
+## tls\_certificate / tls\_key / tls\_ca / tls\_verify
+Default: -\
+Plural: no
+
+Optional **client TLS** for HTTPS `action` exports (OTLP mTLS and other HTTPS serializers). Paths are PEM files. Use an `https://` `expr` so the client opens a TLS connection; plain `http://` ignores these fields.
+
+- `tls_certificate` / `tls_key` — client certificate and private key presented to the peer (mTLS). Set both. A certificate without a key, a key without a certificate, or an empty path, is logged at configure time and the action is not installed. A previous action with the same name is left in place.
+- `tls_ca` — optional CA bundle used when verifying the server certificate. A CA with no client certificate is valid.
+- `tls_verify` — `on` checks the server certificate. When unset, verification is turned on if `tls_ca` is set, and left off otherwise. Explicit `off` disables verification. Explicit `tls_verify on` with no `tls_ca` verifies against OpenSSL's default CA paths (`SSL_CTX_set_default_verify_paths`). The client certificate is still presented when both files are set, including when verification is off: this process authenticates to whoever answers `expr`. Followed redirects keep these TLS settings. SNI is the host of the next URL.
+
+```
+scheduler {
+  name sched-otlp;
+  period 45s;
+  datasource internal;
+  action to-otlp;
+}
+
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr https://collector.example:4318/v1/metrics;
+  tls_certificate /secrets/tls.crt;
+  tls_key /secrets/tls.key;
+  tls_ca /secrets/ca.crt;
+  tls_verify on;
+  add_label deployment:alligator;
 }
 ```
 

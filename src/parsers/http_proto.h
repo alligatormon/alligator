@@ -48,5 +48,8 @@ char* http_proto_proxer(char *metrics, size_t size, char *instance);
 void env_serialize_http_answer(void *funcarg, void* arg);
 void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata);
 void http_null_metrics(context_arg *carg);
+/* Redirect aggregate document, or NULL when this reply is not followed.
+   Caller owns the json_t. Does not open a socket. */
+json_t *http_follow_redirect_aggregate(context_arg *carg, http_reply_data *hrdata);
 void http_follow_redirect(context_arg *carg, http_reply_data *hrdata);
 http_reply_data* http_reply_data_clone(http_reply_data* http);

@@ -4,6 +4,7 @@
 #include "parsers/multiparser.h"
 #include "common/json_query.h"
 #include "common/logs.h"
+#include "common/revocation.h"
 
 void action_parse_add_label(action_node *an, json_t *root) {
     json_t *json_add_label = json_object_get(root, "add_label");
@@ -36,19 +37,6 @@ void action_push(json_t *action)
 	{
 		glog(L_ERROR, "create action failed, 'name' is not a string\n");
 		return;
-	}
-
-	/* Hash search returns the first bucket entry; new inserts go to the tail.
-	   Re-pushing the same action name without deleting leaves stale nodes and
-	   action_get() keeps returning the old config (e.g. without metricstransform). */
-	while (action_get(name))
-	{
-		json_t *prev = json_object();
-		if (!prev)
-			break;
-		json_object_set_new(prev, "name", json_string(name));
-		action_del(prev);
-		json_decref(prev);
 	}
 
 	//json_t *jdatasource = json_object_get(action, "datasource");
@@ -156,6 +144,61 @@ void action_push(json_t *action)
 		an->index_template = string_init_dupn((char*)json_string_value(jindex_template), json_string_length(jindex_template));
 	}
 
+	int tls_cert_empty = 0;
+	int tls_key_empty = 0;
+
+	json_t *jtls_cert = json_object_get(action, "tls_certificate");
+	if (jtls_cert && json_is_string(jtls_cert))
+	{
+		const char *tls_cert = json_string_value(jtls_cert);
+		if (tls_cert && tls_cert[0])
+			an->tls_cert_file = strdup(tls_cert);
+		else if (tls_cert)
+			tls_cert_empty = 1;
+	}
+
+	json_t *jtls_key = json_object_get(action, "tls_key");
+	if (jtls_key && json_is_string(jtls_key))
+	{
+		const char *tls_key = json_string_value(jtls_key);
+		if (tls_key && tls_key[0])
+			an->tls_key_file = strdup(tls_key);
+		else if (tls_key)
+			tls_key_empty = 1;
+	}
+
+	json_t *jtls_ca = json_object_get(action, "tls_ca");
+	if (jtls_ca && json_is_string(jtls_ca))
+	{
+		const char *tls_ca = json_string_value(jtls_ca);
+		/* "" is unset. A non-NULL empty path would turn verify on and then
+		   fail SSL_CTX_load_verify_locations without the default trust store. */
+		if (tls_ca && tls_ca[0])
+			an->tls_ca_file = strdup(tls_ca);
+	}
+
+	json_t *jtls_verify = json_object_get(action, "tls_verify");
+	if (jtls_verify)
+	{
+		an->tls_verify_defined = 1;
+		an->tls_verify = config_json_is_on(jtls_verify) ? 1 : 0;
+	}
+
+	if (tls_cert_empty || tls_key_empty ||
+	    (an->tls_cert_file && !an->tls_key_file) || (!an->tls_cert_file && an->tls_key_file))
+	{
+		glog(L_ERROR, "action '%s': tls_certificate and tls_key must both be set for client TLS; action not installed\n", name);
+		action_node_free(an);
+		return;
+	}
+
+	/* CA bundle with no explicit tls_verify means check the server certificate.
+	   Explicit tls_verify off still disables verification. */
+	if (!an->tls_verify_defined && an->tls_ca_file)
+	{
+		an->tls_verify_defined = 1;
+		an->tls_verify = 1;
+	}
 
 	action_parse_add_label(an, action);
 
@@ -242,6 +285,21 @@ void action_push(json_t *action)
 
 	an->name = strdup(name);
 	//an->datasource = strdup(datasource);
+
+	/* Hash search returns the first bucket entry; new inserts go to the tail.
+	   Re-pushing the same action name without deleting leaves stale nodes and
+	   action_get() keeps returning the old config (e.g. without metricstransform).
+	   Delete only after the new node is valid, so a rejected TLS pair keeps
+	   the previous action. */
+	while (action_get(name))
+	{
+		json_t *prev = json_object();
+		if (!prev)
+			break;
+		json_object_set_new(prev, "name", json_string(name));
+		action_del(prev);
+		json_decref(prev);
+	}
 
 	glog(L_DEBUG, "create action node name '%s', expr '%s'\n", an->name, an->expr ? an->expr : "");
 

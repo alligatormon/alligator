@@ -27,6 +27,9 @@ int actx_compare(const void* arg, const void* obj);
 int aggregator_compare(const void* arg, const void* obj);
 void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, void *data);
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env);
+/* Copy client certificate, key, CA, and an explicit tls_verify onto dst.
+   tls_server_name is left alone so the URL host stays the SNI. */
+void aggregator_oneshot_apply_tls(context_arg *dst, context_arg *src);
 
 /* Sequential oneshot: same transport as aggregator_oneshot(), then pump the
  * shared libuv loop (uva_await in events/future.c) until the parser handler

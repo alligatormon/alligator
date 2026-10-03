@@ -922,6 +922,39 @@ void test_aggregator_helper_paths()
         free(orphan->key);
         free(orphan);
     }
+
+    /* Explicit tls_verify off must overwrite a default-on context.
+       Parent SNI must not be copied onto the follow-up. */
+    {
+        context_arg src = {0};
+        context_arg dst = {0};
+
+        src.tls_cert_file = "/secrets/tls.crt";
+        src.tls_key_file = "/secrets/tls.key";
+        src.tls_ca_file = "/secrets/ca.crt";
+        src.tls_verify = 0;
+        src.tls_verify_defined = 1;
+        src.tls_server_name = "keystone.example";
+        dst.tls_verify = 1;
+        aggregator_oneshot_apply_tls(&dst, &src);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", dst.tls_cert_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", dst.tls_key_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", dst.tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, dst.tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dst.tls_verify_defined);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, dst.tls_server_name);
+        free(dst.tls_cert_file);
+        free(dst.tls_key_file);
+        free(dst.tls_ca_file);
+
+        memset(&src, 0, sizeof(src));
+        memset(&dst, 0, sizeof(dst));
+        src.tls_verify = 0;
+        dst.tls_verify = 1;
+        aggregator_oneshot_apply_tls(&dst, &src);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, dst.tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, dst.tls_verify_defined);
+    }
 }
 
 void test_config_global_get_extended()
@@ -2114,6 +2147,11 @@ void test_config_generators_batch()
     an.follow_redirects = 1;
     an.dry_run = 1;
     an.serializer = METRIC_SERIALIZER_INFLUXDB;
+    an.tls_cert_file = "/secrets/tls.crt";
+    an.tls_key_file = "/secrets/tls.key";
+    an.tls_ca_file = "/secrets/ca.crt";
+    an.tls_verify = 0;
+    an.tls_verify_defined = 1;
     action_generate_conf(dst, &an);
 
     json_t *action = json_object_get(dst, "action");
@@ -2123,6 +2161,10 @@ void test_config_generators_batch()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alert_web", json_string_value(json_object_get(action0, "name")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "influxdb", json_string_value(json_object_get(action0, "serializer")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_true(json_object_get(action0, "dry_run")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", json_string_value(json_object_get(action0, "tls_certificate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", json_string_value(json_object_get(action0, "tls_key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(action0, "tls_ca")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "off", json_string_value(json_object_get(action0, "tls_verify")));
 
     probe_node pn = {0};
     char *statuses[] = {"200", "302"};
@@ -3338,6 +3380,337 @@ void test_entrypoint_plain_rich_parse()
         json_string_value(json_array_get(tls, 0)));
 
     json_decref(root);
+}
+
+void test_action_tls_plain_parse()
+{
+    const char *conf =
+        "action {\n"
+        "  name to-otlp;\n"
+        "  serializer otlp_protobuf;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_certificate /secrets/tls.crt;\n"
+        "  tls_key /secrets/tls.key;\n"
+        "  tls_ca /secrets/ca.crt;\n"
+        "  tls_verify off;\n"
+        "}\n";
+    string *s = string_new();
+    json_error_t error;
+    json_t *root;
+    json_t *action;
+    json_t *a0;
+    char *json_s;
+
+    string_cat(s, (char *)conf, strlen(conf));
+    json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+    root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    action = json_object_get(root, "action");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, action);
+    a0 = json_array_get(action, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, a0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "to-otlp", json_string_value(json_object_get(a0, "name")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://collector.example:4318/v1/metrics", json_string_value(json_object_get(a0, "expr")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", json_string_value(json_object_get(a0, "tls_certificate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", json_string_value(json_object_get(a0, "tls_key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(a0, "tls_ca")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "off", json_string_value(json_object_get(a0, "tls_verify")));
+    json_decref(root);
+}
+
+static void ut_action_apply_plain(const char *conf)
+{
+    string *s = string_new();
+    char *json_s;
+
+    string_cat(s, (char *)conf, strlen(conf));
+    json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+    http_api_v1(NULL, NULL, json_s);
+    free(json_s);
+}
+
+void test_action_tls_empty_plain_reject(void)
+{
+    alligator_ht *saved_action = ac->action;
+    action_node *an;
+    json_t *del;
+
+    ac->action = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->action);
+
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-keep;\n"
+        "  serializer otlp_protobuf;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_certificate /secrets/tls.crt;\n"
+        "  tls_key /secrets/tls.key;\n"
+        "  tls_ca /secrets/ca.crt;\n"
+        "  tls_verify on;\n"
+        "}\n");
+    an = action_get("to-otlp-keep");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-keep;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_certificate \"\";\n"
+        "  tls_key \"\";\n"
+        "}\n");
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-keep;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_certificate \"\";\n"
+        "  tls_key /secrets/other.key;\n"
+        "}\n");
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-keep;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_certificate /secrets/other.crt;\n"
+        "  tls_key \"\";\n"
+        "}\n");
+    an = action_get("to-otlp-keep");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-ca-only;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_ca /secrets/ca.crt;\n"
+        "}\n");
+    an = action_get("to-otlp-ca-only");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_cert_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+    /* Quoted "" arrives as an empty JSON string and is unset, not a CA. */
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-empty-ca;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_ca \"\";\n"
+        "}\n");
+    an = action_get("to-otlp-empty-ca");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_cert_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_key_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify_defined);
+
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-empty-ca-verify;\n"
+        "  expr https://collector.example:4318/v1/metrics;\n"
+        "  tls_ca \"\";\n"
+        "  tls_verify on;\n"
+        "}\n");
+    an = action_get("to-otlp-empty-ca-verify");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+    /* Empty CA is a valid update, so it replaces the previous CA-only action. */
+    ut_action_apply_plain(
+        "action {\n"
+        "  name to-otlp-ca-only;\n"
+        "  expr https://replaced.example/v1/metrics;\n"
+        "  tls_ca \"\";\n"
+        "}\n");
+    an = action_get("to-otlp-ca-only");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://replaced.example/v1/metrics", an->expr);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify_defined);
+
+    del = json_object();
+    json_array_object_insert(del, "name", json_string("to-otlp-keep"));
+    action_del(del);
+    json_decref(del);
+    del = json_object();
+    json_array_object_insert(del, "name", json_string("to-otlp-ca-only"));
+    action_del(del);
+    json_decref(del);
+    del = json_object();
+    json_array_object_insert(del, "name", json_string("to-otlp-empty-ca"));
+    action_del(del);
+    json_decref(del);
+    del = json_object();
+    json_array_object_insert(del, "name", json_string("to-otlp-empty-ca-verify"));
+    action_del(del);
+    json_decref(del);
+    alligator_ht_done(ac->action);
+    free(ac->action);
+    ac->action = saved_action;
+}
+
+/* Inner object of the document http_follow_redirect posts. TLS is copied
+   inside that builder; calling the copy helper directly would not lock it. */
+static json_t *ut_http_follow_redirect_obj(context_arg *src)
+{
+    http_reply_data hrdata = {0};
+    json_t *root;
+    json_t *arr;
+    json_t *obj;
+    const char *url = "https://next.example/v1/metrics";
+
+    src->follow_redirects = 2;
+    src->parser_name = "otlp";
+    src->url = "https://origin.example/v1";
+    hrdata.http_code = 302;
+    hrdata.location = (char *)url;
+    root = http_follow_redirect_aggregate(src, &hrdata);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root))
+        return NULL;
+    arr = json_object_get(root, "aggregate");
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, arr)) {
+        json_decref(root);
+        return NULL;
+    }
+    obj = json_array_get(arr, 0);
+    if (!assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, obj)) {
+        json_decref(root);
+        return NULL;
+    }
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)url, json_string_value(json_object_get(obj, "url")));
+    json_incref(obj);
+    json_decref(root);
+    return obj;
+}
+
+void test_http_follow_redirect_copy_tls(void)
+{
+    context_arg src = {0};
+    json_t *obj;
+    host_aggregator_info *hi;
+    context_arg *next;
+    const char *url = "https://next.example/v1/metrics";
+
+    src.tls_cert_file = "/secrets/tls.crt";
+    src.tls_key_file = "/secrets/tls.key";
+    src.tls_ca_file = "/secrets/ca.crt";
+    src.tls_verify = 0;
+    src.tls_verify_defined = 1;
+    src.tls_server_name = "keystone.example";
+    obj = ut_http_follow_redirect_obj(&src);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", json_string_value(json_object_get(obj, "tls_certificate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", json_string_value(json_object_get(obj, "tls_key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(obj, "tls_ca")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "off", json_string_value(json_object_get(obj, "tls_verify")));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_server_name"));
+
+    hi = parse_url((char *)url, strlen(url));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    next = context_arg_json_fill(obj, hi, NULL, "otlp", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 1, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, next);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", next->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", next->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", next->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, next->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, next->tls_verify_defined);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_server_name);
+    carg_free(next);
+    url_free(hi);
+    json_decref(obj);
+
+    /* CA without an explicit flag must not invent tls_verify. */
+    memset(&src, 0, sizeof(src));
+    src.tls_ca_file = "/secrets/ca.crt";
+    obj = ut_http_follow_redirect_obj(&src);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(obj, "tls_ca")));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_certificate"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_key"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_verify"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_server_name"));
+    hi = parse_url((char *)url, strlen(url));
+    next = context_arg_json_fill(obj, hi, NULL, "otlp", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 1, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, next);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", next->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, next->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, next->tls_verify_defined);
+    carg_free(next);
+    url_free(hi);
+    json_decref(obj);
+
+    /* No TLS on the parent: redirect aggregate gains no TLS keys. */
+    memset(&src, 0, sizeof(src));
+    obj = ut_http_follow_redirect_obj(&src);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_certificate"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_key"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_ca"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_verify"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_server_name"));
+    json_decref(obj);
+
+    memset(&src, 0, sizeof(src));
+    src.tls_cert_file = "/secrets/tls.crt";
+    src.tls_key_file = "/secrets/tls.key";
+    src.tls_verify = 1;
+    src.tls_verify_defined = 1;
+    src.tls_server_name = "keystone.example";
+    obj = ut_http_follow_redirect_obj(&src);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", json_string_value(json_object_get(obj, "tls_certificate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", json_string_value(json_object_get(obj, "tls_key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(obj, "tls_verify")));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_ca"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_server_name"));
+    hi = parse_url((char *)url, strlen(url));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    next = context_arg_json_fill(obj, hi, NULL, "otlp", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 1, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, next);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", next->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", next->tls_key_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, next->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, next->tls_verify_defined);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_server_name);
+    carg_free(next);
+    url_free(hi);
+    json_decref(obj);
+
+    /* CA plus verify already implied on the parent (defined, on, no client cert). */
+    memset(&src, 0, sizeof(src));
+    src.tls_ca_file = "/secrets/ca.crt";
+    src.tls_verify = 1;
+    src.tls_verify_defined = 1;
+    obj = ut_http_follow_redirect_obj(&src);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(obj, "tls_ca")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(obj, "tls_verify")));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_certificate"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_key"));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(obj, "tls_server_name"));
+    hi = parse_url((char *)url, strlen(url));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    next = context_arg_json_fill(obj, hi, NULL, "otlp", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 1, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, next);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", next->tls_ca_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_cert_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_key_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, next->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, next->tls_verify_defined);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, next->tls_server_name);
+    carg_free(next);
+    url_free(hi);
+    json_decref(obj);
 }
 
 void test_config_plain_top_level_blocks()

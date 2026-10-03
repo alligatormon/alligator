@@ -5,6 +5,49 @@
 #include "events/context_arg.h"
 #include "metric/namespace.h"
 
+void action_node_free(action_node *an)
+{
+	if (!an)
+		return;
+
+	if (an->expr)
+		free(an->expr);
+	if (an->name)
+		free(an->name);
+	if (an->ns)
+		free(an->ns);
+	if (an->af_hash)
+		free(an->af_hash);
+	if (an->work_dir)
+		string_free(an->work_dir);
+	if (an->engine)
+		string_free(an->engine);
+	if (an->index_template)
+		string_free(an->index_template);
+	if (an->parser_name)
+		free(an->parser_name);
+	if (an->env)
+		env_free(an->env);
+	if (an->labels)
+		labels_hash_free(an->labels);
+	if (an->metric_name_transform_pattern)
+		free(an->metric_name_transform_pattern);
+	if (an->metric_name_transform_replacement)
+		free(an->metric_name_transform_replacement);
+	if (an->metric_name_transform_compiled)
+		pcre_free(an->metric_name_transform_compiled);
+	if (an->tls_cert_file)
+		free(an->tls_cert_file);
+	if (an->tls_key_file)
+		free(an->tls_key_file);
+	if (an->tls_ca_file)
+		free(an->tls_ca_file);
+	if (an->metricstransform)
+		json_decref(an->metricstransform);
+	dynatrace_action_counter_state_free(an);
+	free(an);
+}
+
 void action_del(json_t *action)
 {
 	json_t *jname = json_object_get(action, "name");
@@ -21,39 +64,7 @@ void action_del(json_t *action)
 	if (an)
 	{
 		alligator_ht_remove_existing(ac->action, &(an->node));
-
-		if (an->expr)
-			free(an->expr);
-		if (an->name)
-			free(an->name);
-		if (an->ns)
-			free(an->ns);
-		if (an->af_hash)
-			free(an->af_hash);
-		if (an->work_dir)
-			string_free(an->work_dir);
-		if (an->engine)
-			string_free(an->engine);
-		if (an->index_template)
-			string_free(an->index_template);
-		if (an->parser_name)
-			free(an->parser_name);
-		if (an->env)
-			env_free(an->env);
-		if (an->labels)
-			labels_hash_free(an->labels);
-		//if (an->datasource)
-		//	free(an->datasource);
-		if (an->metric_name_transform_pattern)
-			free(an->metric_name_transform_pattern);
-		if (an->metric_name_transform_replacement)
-			free(an->metric_name_transform_replacement);
-		if (an->metric_name_transform_compiled)
-			pcre_free(an->metric_name_transform_compiled);
-		if (an->metricstransform)
-			json_decref(an->metricstransform);
-		dynatrace_action_counter_state_free(an);
-		free(an);
+		action_node_free(an);
 	}
 
 	uint64_t count = alligator_ht_count(ac->action);

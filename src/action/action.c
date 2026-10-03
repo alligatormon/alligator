@@ -135,12 +135,23 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 
 	context_arg carg_hint = {0};
 	context_arg *oneshot_carg = NULL;
-	if (an->log_level_defined || an->log_ch)
+	if (an->log_level_defined || an->log_ch ||
+	    an->tls_cert_file || an->tls_key_file || an->tls_ca_file || an->tls_verify_defined)
 	{
-		if (an->log_level_defined)
-			carg_hint.log_level = an->log_level;
+		/* log_level 0 is L_OFF. Leave it only when the action set it; otherwise
+		   carglog and direct readers inherit the process level. */
+		carg_hint.log_level = an->log_level_defined ? an->log_level : ac->log_level;
 		carg_hint.log_ch = an->log_ch;
 		carg_hint.ttl = ac->ttl;
+		/* Borrow paths for the oneshot hint; aggregator_oneshot strdup's them. */
+		carg_hint.tls_cert_file = an->tls_cert_file;
+		carg_hint.tls_key_file = an->tls_key_file;
+		carg_hint.tls_ca_file = an->tls_ca_file;
+		if (an->tls_verify_defined)
+		{
+			carg_hint.tls_verify = an->tls_verify;
+			carg_hint.tls_verify_defined = 1;
+		}
 		oneshot_carg = &carg_hint;
 	}
 

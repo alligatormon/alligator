@@ -314,67 +314,89 @@ void http_get_auth_data(http_reply_data *hr_data, char *auth_header)
 	}
 }
 
+static void http_follow_redirect_copy_tls(json_t *obj, context_arg *carg)
+{
+	if (!obj || !carg)
+		return;
+	/* Client cert, key, and CA. Omit tls_verify unless it was set: a CA with
+	   no explicit flag must stay unset so CA-implies-verify is not invented
+	   for aggregates. Do not copy tls_server_name; SNI stays the redirect host. */
+	if (carg->tls_cert_file)
+		json_array_object_insert(obj, "tls_certificate", json_string(carg->tls_cert_file));
+	if (carg->tls_key_file)
+		json_array_object_insert(obj, "tls_key", json_string(carg->tls_key_file));
+	if (carg->tls_ca_file)
+		json_array_object_insert(obj, "tls_ca", json_string(carg->tls_ca_file));
+	if (carg->tls_verify_defined)
+		json_array_object_insert(obj, "tls_verify", json_string(carg->tls_verify ? "on" : "off"));
+}
+
+json_t *http_follow_redirect_aggregate(context_arg *carg, http_reply_data *hrdata)
+{
+	char *location = NULL;
+	json_t *aggregate_root;
+	json_t *aggregate_arr;
+	json_t *aggregate_obj;
+
+	if (!hrdata || !carg)
+		return NULL;
+	if (!carg->follow_redirects)
+		return NULL;
+	if (hrdata->http_code != 301 && hrdata->http_code != 302 && hrdata->http_code != 307 && hrdata->http_code != 308)
+		return NULL;
+	if (!hrdata->location)
+		return NULL;
+
+	if (*hrdata->location == '/')
+	{
+		char *tmp = strstr(carg->url, "://");
+		if (!tmp)
+			return NULL;
+		tmp += strspn(tmp, "/");
+		tmp += strcspn(tmp, "/");
+		size_t url_len = tmp - carg->url;
+		size_t location_len = url_len + strlen(hrdata->location) + 1;
+		location = malloc(location_len);
+		strlcpy(location, carg->host, url_len + 1);
+		strlcpy(location + url_len, hrdata->location, location_len - url_len);
+	}
+	else
+		location = strdup(hrdata->location);
+	carglog(carg, L_DEBUG, "http follow_redirect: resolved next URL '%s'\n", location);
+
+	aggregate_root = json_object();
+	aggregate_arr = json_array();
+	aggregate_obj = json_object();
+	json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
+	json_array_object_insert(aggregate_arr, "", aggregate_obj);
+	json_array_object_insert(aggregate_obj, "handler", json_string(carg->parser_name));
+	json_array_object_insert(aggregate_obj, "url", json_string(location));
+	json_array_object_insert(aggregate_obj, "follow_redirects", json_integer(carg->follow_redirects-1));
+	json_array_object_insert(aggregate_obj, "timeout", json_integer(carg->timeout));
+	json_array_object_insert(aggregate_obj, "log_level", json_integer(carg->log_level));
+	json_array_object_insert(aggregate_obj, "add_label", labels_to_json(carg->labels));
+	if (carg->proxy && carg->proxy->url)
+		json_array_object_insert(aggregate_obj, "proxy", json_string(carg->proxy->url));
+	http_follow_redirect_copy_tls(aggregate_obj, carg);
+	free(location);
+	return aggregate_root;
+}
+
 void http_follow_redirect(context_arg *carg, http_reply_data *hrdata)
 {
+	json_t *aggregate_root;
+	char *dvalue;
+
 	carglog(carg, L_DEBUG, "http follow_redirect: Location='%s'\n", hrdata->location);
-	if (!hrdata)
+	aggregate_root = http_follow_redirect_aggregate(carg, hrdata);
+	if (!aggregate_root)
 		return;
 
-	if (!carg->follow_redirects)
-		return;
-
-	if (hrdata->http_code == 301 || hrdata->http_code == 302 || hrdata->http_code == 307 || hrdata->http_code == 308)
-	{
-		if (!hrdata->location)
-			return;
-
-		char *location = NULL;
-		if (*hrdata->location == '/')
-		{
-			char *tmp = strstr(carg->url, "://");
-			if (!tmp)
-				return;
-			tmp += strspn(tmp, "/");
-			tmp += strcspn(tmp, "/");
-			size_t url_len = tmp - carg->url;
-			size_t location_len = url_len + strlen(hrdata->location) + 1;
-			location = malloc(location_len);
-			strlcpy(location, carg->host, url_len + 1);
-			strlcpy(location + url_len, hrdata->location, location_len - url_len);
-		}
-		else
-		{
-			location = strdup(hrdata->location);
-		}
-		carglog(carg, L_DEBUG, "http follow_redirect: resolved next URL '%s'\n", location);
-
-		json_t *aggregate_root = json_object();
-		json_t *aggregate_arr = json_array();
-		json_t *aggregate_obj = json_object();
-		json_t *aggregate_handler = json_string(carg->parser_name);
-		json_t *aggregate_url = json_string(location);
-		json_t *aggregate_follow_redirects = json_integer(carg->follow_redirects-1);
-		json_t *aggregate_timeout = json_integer(carg->timeout);
-		json_t *aggregate_log_level = json_integer(carg->log_level);
-		json_t *aggregate_add_label = labels_to_json(carg->labels);
-		json_array_object_insert(aggregate_root, "aggregate", aggregate_arr);
-		json_array_object_insert(aggregate_arr, "", aggregate_obj);
-		json_array_object_insert(aggregate_obj, "handler", aggregate_handler);
-
-		json_array_object_insert(aggregate_obj, "url", aggregate_url);
-		json_array_object_insert(aggregate_obj, "follow_redirects", aggregate_follow_redirects);
-		json_array_object_insert(aggregate_obj, "timeout", aggregate_timeout);
-		json_array_object_insert(aggregate_obj, "log_level", aggregate_log_level);
-		json_array_object_insert(aggregate_obj, "add_label", aggregate_add_label);
-		if (carg->proxy && carg->proxy->url)
-			json_array_object_insert(aggregate_obj, "proxy", json_string(carg->proxy->url));
-
-		char *dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
-		carglog(carg, L_DEBUG, "http follow_redirect: re-aggregate config:\n%s\n", dvalue);
-		http_api_v1(NULL, NULL, dvalue);
-		free(dvalue);
-		json_decref(aggregate_root);
-	}
+	dvalue = json_dumps(aggregate_root, JSON_INDENT(2));
+	carglog(carg, L_DEBUG, "http follow_redirect: re-aggregate config:\n%s\n", dvalue);
+	http_api_v1(NULL, NULL, dvalue);
+	free(dvalue);
+	json_decref(aggregate_root);
 }
 
 http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_header)

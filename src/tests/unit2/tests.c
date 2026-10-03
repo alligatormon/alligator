@@ -498,6 +498,40 @@ static void test_context_arg_json_fill_paths(void)
     env_free(env);
     json_decref(root);
     url_free(hi);
+
+    /* Empty tls_ca is unset. A real path is stored and does not imply verify. */
+    hi = parse_url("https://collector.example:4318/v1/metrics", strlen("https://collector.example:4318/v1/metrics"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    root = json_loads("{\"tls_ca\":\"\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    carg = context_arg_json_fill(root, hi, NULL, "dummy_parser", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->tls_verify_defined);
+    carg_free(carg);
+    json_decref(root);
+
+    root = json_loads("{\"tls_ca\":\"\",\"tls_verify\":\"on\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    carg = context_arg_json_fill(root, hi, NULL, "dummy_parser", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->tls_verify_defined);
+    carg_free(carg);
+    json_decref(root);
+
+    root = json_loads("{\"tls_ca\":\"/secrets/ca.crt\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    carg = context_arg_json_fill(root, hi, NULL, "dummy_parser", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", carg->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->tls_verify_defined);
+    carg_free(carg);
+    json_decref(root);
+    url_free(hi);
 }
 
 static void test_context_arg_copy_and_env_paths(void)
@@ -3898,6 +3932,9 @@ static void run_helpers_and_events_suites(void)
     test_log_channel_out_plain_parse();
     test_puppeteer_option_kv_plain_parse();
     test_entrypoint_plain_rich_parse();
+    test_action_tls_plain_parse();
+    test_action_tls_empty_plain_reject();
+    test_http_follow_redirect_copy_tls();
     test_config_plain_top_level_blocks();
     test_config_tls_revocation_keys();
     test_config_plain_globals_and_channels();

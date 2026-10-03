@@ -419,6 +419,7 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 		new->timeout = carg->timeout;
 
 	new->labels = labels_dup(carg->labels);
+	aggregator_oneshot_apply_tls(new, carg);
 
 	{
 		char mesg_preview[160];
@@ -433,6 +434,25 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 		carg_free(new);
 	else
 		aggregator_oneshot_start(new);
+}
+
+void aggregator_oneshot_apply_tls(context_arg *dst, context_arg *src)
+{
+	if (!dst || !src)
+		return;
+	/* Client cert, key, and CA. SNI stays the URL host: copying tls_server_name
+	   would pin follow-up requests (OpenStack catalog) to the parent name. */
+	if (src->tls_cert_file && !dst->tls_cert_file)
+		dst->tls_cert_file = strdup(src->tls_cert_file);
+	if (src->tls_key_file && !dst->tls_key_file)
+		dst->tls_key_file = strdup(src->tls_key_file);
+	if (src->tls_ca_file && !dst->tls_ca_file)
+		dst->tls_ca_file = strdup(src->tls_ca_file);
+	if (src->tls_verify_defined)
+	{
+		dst->tls_verify = src->tls_verify;
+		dst->tls_verify_defined = 1;
+	}
 }
 
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env)
@@ -491,6 +511,7 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 		new->labels = labels_dup(carg->labels);
 	if (carg && carg->oneshot_await)
 		new->oneshot_await = carg->oneshot_await;
+	aggregator_oneshot_apply_tls(new, carg);
 	if (new && carg && carg->proxy && !new->proxy) {
 		new->proxy = proxy_settings_copy(carg->proxy);
 		if (new->proxy)

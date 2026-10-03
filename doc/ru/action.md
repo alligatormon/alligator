@@ -29,6 +29,10 @@ action {
     follow_redirects <redirects>;
     engine <engine>;
     index_template <index_template>;
+    tls_certificate <path>;
+    tls_key <path>;
+    tls_ca <path>;
+    tls_verify [on|off];
 }
 ```
 
@@ -189,6 +193,36 @@ action {
   name to-otlp;
   serializer otlp_protobuf;
   expr http://localhost:4318/v1/metrics;
+}
+```
+
+## tls\_certificate / tls\_key / tls\_ca / tls\_verify
+По умолчанию: -\
+Plural: no
+
+Опциональный **клиентский TLS** для HTTPS `action` (OTLP mTLS и другие HTTPS-сериализаторы). Пути — PEM-файлы. Для TLS-соединения указывайте `https://` в `expr`; при `http://` эти поля игнорируются.
+
+- `tls_certificate` / `tls_key` — клиентский сертификат и ключ (mTLS). Нужны оба. Сертификат без ключа, ключ без сертификата или пустой путь пишется в лог при разборе конфигурации, и action не устанавливается. Предыдущий action с тем же именем остаётся.
+- `tls_ca` — опциональный CA для проверки сертификата сервера. CA без клиентского сертификата допустим.
+- `tls_verify` — `on` проверяет сертификат сервера. Если не задано, проверка включается при наличии `tls_ca` и остаётся выключенной без него. Явный `off` отключает проверку. Явный `tls_verify on` без `tls_ca` проверяет сертификат по стандартным путям CA OpenSSL (`SSL_CTX_set_default_verify_paths`). Клиентский сертификат всё равно предъявляется, если заданы оба файла, в том числе при выключенной проверке: процесс аутентифицируется тому, кто ответил на `expr`. При редиректе эти настройки TLS сохраняются. SNI — хост следующего URL.
+
+```
+scheduler {
+  name sched-otlp;
+  period 45s;
+  datasource internal;
+  action to-otlp;
+}
+
+action {
+  name to-otlp;
+  serializer otlp_protobuf;
+  expr https://collector.example:4318/v1/metrics;
+  tls_certificate /secrets/tls.crt;
+  tls_key /secrets/tls.key;
+  tls_ca /secrets/ca.crt;
+  tls_verify on;
+  add_label deployment:alligator;
 }
 ```
 

@@ -49,7 +49,13 @@ void api_test_action_1() {
 			{ \"name\": \"run-local\", \"expr\": \"exec://systemctl restart sshd\", \"ns\": \"default\", \"work_dir\": \"/root\"}, \
 			{ \"name\": \"to-pushgateway\", \"expr\": \"tcp://localhost:9091/metrics\", \"datasource\": \"internal\", \"serializer\": \"openmetrics\"}, \
 			{ \"name\": \"to-clickhouse\", \"expr\": \"http://localhost:8123/\", \"datasource\": \"internal\", \"serializer\": \"clickhouse\", \"engine\": \"ENGINE=MergeTree ORDER BY timestamp\"}, \
-			{ \"name\": \"to-elastic\", \"expr\": \"http://localhost:9200/_bulk\", \"datasource\": \"internal\", \"serializer\": \"elasticsearch\", \"index_template\": \"alligator-%Y-%m-%d\", \"follow_redirects\": 12 } \
+			{ \"name\": \"to-elastic\", \"expr\": \"http://localhost:9200/_bulk\", \"datasource\": \"internal\", \"serializer\": \"elasticsearch\", \"index_template\": \"alligator-%Y-%m-%d\", \"follow_redirects\": 12 }, \
+			{ \"name\": \"to-otlp-mtls\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/tls.crt\", \"tls_key\": \"/secrets/tls.key\", \"tls_ca\": \"/secrets/ca.crt\", \"tls_verify\": \"on\" }, \
+			{ \"name\": \"to-otlp-ca\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/tls.crt\", \"tls_key\": \"/secrets/tls.key\", \"tls_ca\": \"/secrets/ca.crt\" }, \
+			{ \"name\": \"to-otlp-insecure\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/tls.crt\", \"tls_key\": \"/secrets/tls.key\", \"tls_ca\": \"/secrets/ca.crt\", \"tls_verify\": \"off\" }, \
+			{ \"name\": \"to-otlp-client\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/tls.crt\", \"tls_key\": \"/secrets/tls.key\" }, \
+			{ \"name\": \"to-otlp-cert-only\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/tls.crt\" }, \
+			{ \"name\": \"to-otlp-key-only\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_key\": \"/secrets/tls.key\" } \
 		] \
 	}\
 	";
@@ -83,6 +89,148 @@ void api_test_action_1() {
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alligator-%Y-%m-%d", an->index_template->s);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://localhost:9200/_bulk", an->expr);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, an->follow_redirects);
+
+    an = action_get("to-otlp-mtls");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, METRIC_SERIALIZER_OTLP_PROTOBUF, an->serializer);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://collector.example:4318/v1/metrics", an->expr);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+    an = action_get("to-otlp-ca");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+    an = action_get("to-otlp-insecure");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+    an = action_get("to-otlp-client");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify_defined);
+
+    an = action_get("to-otlp-cert-only");
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an);
+    an = action_get("to-otlp-key-only");
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an);
+
+    /* A rejected pair must not replace an action that was already installed. */
+    {
+        extern void action_generate_conf(void *funcarg, void *arg);
+        json_t *dst;
+        json_t *arr;
+        json_t *row;
+        char *bad = "{\"action\": [ \
+            { \"name\": \"to-otlp-mtls\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/only.crt\" } \
+        ]}";
+
+        http_api_v1(NULL, NULL, bad);
+        an = action_get("to-otlp-mtls");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+
+        dst = json_object();
+        action_generate_conf(dst, an);
+        arr = json_object_get(dst, "action");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, arr);
+        row = json_array_get(arr, 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", json_string_value(json_object_get(row, "tls_certificate")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", json_string_value(json_object_get(row, "tls_key")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", json_string_value(json_object_get(row, "tls_ca")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(row, "tls_verify")));
+        json_decref(dst);
+
+        an = action_get("to-otlp-insecure");
+        dst = json_object();
+        action_generate_conf(dst, an);
+        row = json_array_get(json_object_get(dst, "action"), 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "off", json_string_value(json_object_get(row, "tls_verify")));
+        json_decref(dst);
+    }
+
+    /* Empty cert and/or key is the same rejection. A CA with no client cert stays valid. */
+    {
+        char *empty_both = "{\"action\": [ \
+            { \"name\": \"to-otlp-mtls\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"\", \"tls_key\": \"\" } \
+        ]}";
+        char *empty_cert = "{\"action\": [ \
+            { \"name\": \"to-otlp-mtls\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"\", \"tls_key\": \"/secrets/tls.key\" } \
+        ]}";
+        char *empty_key = "{\"action\": [ \
+            { \"name\": \"to-otlp-mtls\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_certificate\": \"/secrets/only.crt\", \"tls_key\": \"\" } \
+        ]}";
+        char *ca_only = "{\"action\": [ \
+            { \"name\": \"to-otlp-ca-only\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_ca\": \"/secrets/ca.crt\" } \
+        ]}";
+
+        http_api_v1(NULL, NULL, empty_both);
+        http_api_v1(NULL, NULL, empty_cert);
+        http_api_v1(NULL, NULL, empty_key);
+        an = action_get("to-otlp-mtls");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", an->tls_cert_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", an->tls_key_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+
+        http_api_v1(NULL, NULL, ca_only);
+        an = action_get("to-otlp-ca-only");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_cert_file);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_key_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", an->tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+    }
+
+    /* Empty tls_ca installs as no CA. Explicit verify on still uses the system store. */
+    {
+        char *empty_ca = "{\"action\": [ \
+            { \"name\": \"to-otlp-empty-ca\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_ca\": \"\" } \
+        ]}";
+        char *empty_ca_verify = "{\"action\": [ \
+            { \"name\": \"to-otlp-empty-ca-verify\", \"expr\": \"https://collector.example:4318/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_ca\": \"\", \"tls_verify\": \"on\" } \
+        ]}";
+        char *replace_empty = "{\"action\": [ \
+            { \"name\": \"to-otlp-ca-only\", \"expr\": \"https://replaced.example/v1/metrics\", \"serializer\": \"otlp_protobuf\", \"tls_ca\": \"\" } \
+        ]}";
+
+        http_api_v1(NULL, NULL, empty_ca);
+        an = action_get("to-otlp-empty-ca");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_cert_file);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_key_file);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify_defined);
+
+        http_api_v1(NULL, NULL, empty_ca_verify);
+        an = action_get("to-otlp-empty-ca-verify");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, an->tls_verify_defined);
+
+        http_api_v1(NULL, NULL, replace_empty);
+        an = action_get("to-otlp-ca-only");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://replaced.example/v1/metrics", an->expr);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, an->tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, an->tls_verify_defined);
+    }
 }
 
     char *name;

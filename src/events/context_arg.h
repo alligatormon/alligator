@@ -315,6 +315,8 @@ struct context_arg
 	char *tls_key_file;
 	char *tls_server_name;
 	uint8_t tls_verify;
+	/* 1 when tls_verify was set by config. 0 is a real "off", not "unset". */
+	uint8_t tls_verify_defined;
 	uint8_t tls_verify_client;
 	revocation_policy rev;
 	uint64_t rev_gen;

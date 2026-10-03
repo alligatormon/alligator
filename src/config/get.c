@@ -1023,6 +1023,15 @@ void action_generate_conf(void *funcarg, void* arg)
 		if (metricstransform)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
 	}
+
+	if (an->tls_cert_file)
+		json_array_object_insert(ctx, "tls_certificate", json_string(an->tls_cert_file));
+	if (an->tls_key_file)
+		json_array_object_insert(ctx, "tls_key", json_string(an->tls_key_file));
+	if (an->tls_ca_file)
+		json_array_object_insert(ctx, "tls_ca", json_string(an->tls_ca_file));
+	if (an->tls_verify_defined)
+		json_array_object_insert(ctx, "tls_verify", an->tls_verify ? json_string("on") : json_string("off"));
 }
 
 void probe_generate_conf(void *funcarg, void* arg)

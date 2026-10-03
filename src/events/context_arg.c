@@ -907,12 +907,16 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 	json_t *json_ca = json_object_get(root, "tls_ca");
 	char *str_ca = (char*)json_string_value(json_ca);
-	if (str_ca)
+	/* Same emptiness test as action tls_ca: "" is unset, a path still loads. */
+	if (str_ca && str_ca[0])
 		carg->tls_ca_file = strdup(str_ca);
 
 	json_t *json_tls_verify = json_object_get(root, "tls_verify");
 	if (json_tls_verify)
+	{
+		carg->tls_verify_defined = 1;
 		carg->tls_verify = config_json_is_on(json_tls_verify) ? 1 : 0;
+	}
 
 	json_t *json_tls_verify_client = json_object_get(root, "tls_verify_client");
 	if (json_tls_verify_client)
