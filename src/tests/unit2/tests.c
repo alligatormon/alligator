@@ -2658,6 +2658,262 @@ static void test_expire_wheel_timed_purge(void)
         expire_backptr_violations(ns->expiretree));
 }
 
+static metric_node *ut_metric_by_id(namespace_struct *ns, char *name, char *id)
+{
+    alligator_ht *hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", id);
+    labels_t *labels = labels_initiate(ns, hash, name, NULL, ns, 0);
+    metric_node *m = metric_find(ns->metrictree, labels);
+    labels_head_free(labels);
+    return m;
+}
+
+/* A purge behind the cursor rebases the wheel onto that earlier clock.
+   The series stays until its own key. */
+static void test_expire_wheel_cursor_rebase(void)
+{
+    const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
+    insert_namespace("ut_wheel_rebase", 0);
+    namespace_struct *ns = get_namespace("ut_wheel_rebase");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    context_arg carg = {0};
+    carg.namespace = "ut_wheel_rebase";
+    carg.ttl = 100;
+    int64_t v = 1;
+    r_time now;
+    int64_t cursor;
+    int64_t past;
+    int64_t key;
+    metric_node *m;
+
+    now = setrtime();
+    expire_purge((uint64_t)now.sec, NULL, ns);
+    cursor = ns->expiretree->cursor;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cursor > 50);
+
+    metric_add_labels("ut_wheel_rebase_m", &v, DATATYPE_INT, &carg, "id", "future");
+    m = ut_metric_by_id(ns, "ut_wheel_rebase_m", "future");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, m->expire_node->key > cursor);
+
+    past = cursor - 50;
+    expire_purge((uint64_t)past, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, past, ns->expiretree->cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_count_expired(ns->expiretree, ns->expiretree->cursor));
+
+    m = ut_metric_by_id(ns, "ut_wheel_rebase_m", "future");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+    key = m->expire_node->key;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, key > ns->expiretree->cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, key - ns->expiretree->cursor <= span1);
+    expire_purge((uint64_t)key, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_count_expired(ns->expiretree, INT64_MAX));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
+}
+
+/* A TTL of one level-3 span must leave `far` after the cursor moves one
+   second, then expire when the slow path reaches its key. A longer key
+   stays. A purge a whole span ahead would take the big-jump reschedule
+   path and pass even if `far` is never cascaded. */
+static void test_expire_wheel_far_horizon(void)
+{
+    const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
+    const int64_t span3 = span1 * EXPIRE_LVN_SIZE * EXPIRE_LVN_SIZE;
+    insert_namespace("ut_wheel_far", 0);
+    namespace_struct *ns = get_namespace("ut_wheel_far");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    context_arg carg = {0};
+    carg.namespace = "ut_wheel_far";
+    int64_t v = 1;
+    r_time now;
+    int64_t cursor;
+    metric_node *span3_m;
+    metric_node *long_m;
+    alligator_ht *hash;
+
+    now = setrtime();
+    expire_purge((uint64_t)now.sec, NULL, ns);
+    cursor = ns->expiretree->cursor;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cursor > 0);
+
+    hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", "span3");
+    metric_add_ttl("ut_wheel_far_m", hash, &v, DATATYPE_INT, &carg, ns, span3);
+    hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", "longer");
+    metric_add_ttl("ut_wheel_far_m", hash, &v, DATATYPE_INT, &carg, ns, span3 + span1);
+
+    now = setrtime();
+    /* One second past the arming clock, still inside the slow-advance window. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int64_t)now.sec + 1 > cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        (int64_t)now.sec + 1 - cursor <= span1);
+    expire_purge((uint64_t)now.sec + 1, NULL, ns);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
+
+    span3_m = ut_metric_by_id(ns, "ut_wheel_far_m", "span3");
+    long_m = ut_metric_by_id(ns, "ut_wheel_far_m", "longer");
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, span3_m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, span3_m->expire_node);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, long_m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, long_m->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        span3_m->expire_node->level != EXPIRE_LV_FAR);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR,
+        long_m->expire_node->level);
+
+    /* Reach the span3 key in level-1 steps. One purge at that key would
+       big-jump and delete it even if `far` were never cascaded. */
+    {
+        int64_t span3_key = span3_m->expire_node->key;
+        int64_t long_key = long_m->expire_node->key;
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, long_key > span3_key);
+        cursor = ns->expiretree->cursor;
+        while (cursor + span1 < span3_key) {
+            int64_t step = cursor + span1;
+            expire_purge((uint64_t)step, NULL, ns);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, step, ns->expiretree->cursor);
+            cursor = ns->expiretree->cursor;
+        }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, span3_key - cursor > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, span3_key - cursor <= span1);
+        span3_m = ut_metric_by_id(ns, "ut_wheel_far_m", "span3");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, span3_m);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, span3_m->expire_node);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, span3_key, span3_m->expire_node->key);
+
+        expire_purge((uint64_t)span3_key, NULL, ns);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, span3_key, ns->expiretree->cursor);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__,
+            ut_metric_by_id(ns, "ut_wheel_far_m", "span3"));
+        long_m = ut_metric_by_id(ns, "ut_wheel_far_m", "longer");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, long_m);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, long_m->expire_node);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, long_key, long_m->expire_node->key);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            long_m->expire_node->key > ns->expiretree->cursor);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            expire_backptr_violations(ns->expiretree));
+    }
+}
+
+/* ttl 0 is the never-expire sentinel. It stays on `far` across a slow
+   advance, a clock step backward, and a rebuild jump. A short series armed
+   while the cursor is ahead lands on `due` and survives that backward purge
+   until its own key. */
+static void test_expire_wheel_immortal_ttl(void)
+{
+    const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
+    const int64_t span3 = span1 * EXPIRE_LVN_SIZE * EXPIRE_LVN_SIZE;
+    insert_namespace("ut_wheel_immortal", 0);
+    namespace_struct *ns = get_namespace("ut_wheel_immortal");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    context_arg carg = {0};
+    carg.namespace = "ut_wheel_immortal";
+    carg.ttl = 0;
+    carg.curr_ttl = 0;
+    int64_t v = 1;
+    r_time now;
+    int64_t cursor;
+    int64_t immortal_key;
+    int64_t due_key;
+    metric_node *immortal;
+    metric_node *due_m;
+    alligator_ht *hash;
+
+    now = setrtime();
+    expire_purge((uint64_t)now.sec, NULL, ns);
+    cursor = ns->expiretree->cursor;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, cursor > 50);
+
+    metric_add_labels("ut_wheel_immortal_m", &v, DATATYPE_INT, &carg, "id", "forever");
+    immortal = ut_metric_by_id(ns, "ut_wheel_immortal_m", "forever");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal->expire_node);
+    immortal_key = immortal->expire_node->key;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR, immortal->expire_node->level);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, immortal_key - cursor > span3);
+
+    /* Slow path, so the far cascade runs and must leave the sentinel alone. */
+    expire_purge((uint64_t)cursor + 1, NULL, ns);
+    immortal = ut_metric_by_id(ns, "ut_wheel_immortal_m", "forever");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, immortal_key, immortal->expire_node->key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR, immortal->expire_node->level);
+
+    /* Arm under the ahead cursor: key is still in the future, so it parks on `due`. */
+    expire_purge((uint64_t)cursor + 30, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, cursor + 30, ns->expiretree->cursor);
+    hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", "due");
+    metric_add_ttl("ut_wheel_immortal_m", hash, &v, DATATYPE_INT, &carg, ns, 5);
+    due_m = ut_metric_by_id(ns, "ut_wheel_immortal_m", "due");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, due_m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, due_m->expire_node);
+    due_key = due_m->expire_node->key;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_DUE, due_m->expire_node->level);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, due_key > cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, due_key < ns->expiretree->cursor);
+
+    expire_purge((uint64_t)cursor, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, cursor, ns->expiretree->cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+    immortal = ut_metric_by_id(ns, "ut_wheel_immortal_m", "forever");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, immortal_key, immortal->expire_node->key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR, immortal->expire_node->level);
+    due_m = ut_metric_by_id(ns, "ut_wheel_immortal_m", "due");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, due_m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, due_m->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, due_key, due_m->expire_node->key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, due_m->expire_node->level != EXPIRE_LV_DUE);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, due_key > ns->expiretree->cursor);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, expire_backptr_violations(ns->expiretree));
+
+    expire_purge((uint64_t)due_key, NULL, ns);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__,
+        ut_metric_by_id(ns, "ut_wheel_immortal_m", "due"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+    immortal = ut_metric_by_id(ns, "ut_wheel_immortal_m", "forever");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, immortal_key, immortal->expire_node->key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR, immortal->expire_node->level);
+
+    /* Past the slow-advance window: rebuild, and the sentinel stays on `far`. */
+    cursor = ns->expiretree->cursor;
+    expire_purge((uint64_t)cursor + (uint64_t)span1 + 1, NULL, ns);
+    immortal = ut_metric_by_id(ns, "ut_wheel_immortal_m", "forever");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, immortal->expire_node);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, immortal_key, immortal->expire_node->key);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, EXPIRE_LV_FAR, immortal->expire_node->level);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
+}
+
 static void test_expire_purge_concurrent_update(void)
 {
     insert_namespace("ut_expire_race", 0);
@@ -3715,6 +3971,9 @@ static void run_helpers_and_events_suites(void)
     test_labels_cmp_extended_label_set_is_distinct();
     test_metric_label_set_property();
     test_expire_wheel_timed_purge();
+    test_expire_wheel_cursor_rebase();
+    test_expire_wheel_far_horizon();
+    test_expire_wheel_immortal_ttl();
     test_expire_delete_clears_metric_backptr();
     test_expire_purge_concurrent_update();
     test_metrictree_delete_paths();

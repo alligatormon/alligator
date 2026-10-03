@@ -8,6 +8,8 @@
  */
 #define EXPIRE_LV0_SIZE 256
 #define EXPIRE_LVN_SIZE 64
+#define EXPIRE_LV_DUE 0
+#define EXPIRE_LV_FAR 5
 
 typedef struct expire_tree 
 {
@@ -17,6 +19,7 @@ typedef struct expire_tree
 	struct expire_node *lv2[EXPIRE_LVN_SIZE];
 	struct expire_node *lv3[EXPIRE_LVN_SIZE];
 	struct expire_node *far;
+	struct expire_node *far_tail;
 	int64_t cursor;
 	int64_t count;
 	pthread_rwlock_t *rwlock;

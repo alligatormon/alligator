@@ -15,20 +15,19 @@
  * Level 1: 64 slots of 256 seconds   (~4.5 h).
  * Level 2: 64 slots of 16384 seconds (~4.5 h * 64, ~12 days).
  * Level 3: 64 slots of that span     (~2 years).
- * Beyond that, and "never expire" keys, sit on `far` and are not scanned
- * on the normal purge path.
+ * Keys at or beyond that horizon, and "never expire" keys, sit on `far`
+ * sorted by expiry. The slow advance path cascades the prefix that has
+ * entered the level-3 horizon. Never-expire keys stay on `far`.
  */
 #define EXPIRE_SPAN0 256
 #define EXPIRE_SPAN1 (EXPIRE_SPAN0 * EXPIRE_LVN_SIZE)
 #define EXPIRE_SPAN2 (EXPIRE_SPAN1 * EXPIRE_LVN_SIZE)
 #define EXPIRE_SPAN3 (EXPIRE_SPAN2 * EXPIRE_LVN_SIZE)
 
-#define EXPIRE_LV_DUE 0
 #define EXPIRE_LV0    1
 #define EXPIRE_LV1    2
 #define EXPIRE_LV2    3
 #define EXPIRE_LV3    4
-#define EXPIRE_LV_FAR 5
 
 static expire_node **expire_bucket(expire_tree *tree, expire_node *n)
 {
@@ -65,8 +64,46 @@ static void expire_unlink(expire_tree *tree, expire_node *n)
 		return;
 	if (n->next)
 		n->next->prev = n->prev;
+	if (n->level == EXPIRE_LV_FAR && tree->far_tail == n)
+		tree->far_tail = n->prev;
 	n->next = NULL;
 	n->prev = NULL;
+}
+
+/* `far` stays sorted by expiry key. Append is O(1) when the new key is at
+   least the tail (the never-expire sentinel always hits this). Otherwise
+   walk from the head only across earlier keys. */
+static void expire_insert_far(expire_tree *tree, expire_node *n)
+{
+	expire_node *prev = NULL;
+	expire_node *cur;
+
+	if (!tree->far_tail || n->key >= tree->far_tail->key) {
+		n->prev = tree->far_tail;
+		n->next = NULL;
+		if (tree->far_tail)
+			tree->far_tail->next = n;
+		else
+			tree->far = n;
+		tree->far_tail = n;
+		return;
+	}
+
+	cur = tree->far;
+	while (cur && cur->key <= n->key) {
+		prev = cur;
+		cur = cur->next;
+	}
+	n->prev = prev;
+	n->next = cur;
+	if (cur)
+		cur->prev = n;
+	else
+		tree->far_tail = n;
+	if (prev)
+		prev->next = n;
+	else
+		tree->far = n;
 }
 
 static int64_t expire_base(expire_tree *tree)
@@ -114,7 +151,7 @@ static void expire_schedule(expire_tree *tree, expire_node *n)
 	}
 	n->level = EXPIRE_LV_FAR;
 	n->slot = 0;
-	expire_push(&tree->far, n);
+	expire_insert_far(tree, n);
 }
 
 static void expire_cascade(expire_tree *tree, expire_node **head)
@@ -149,6 +186,7 @@ static void expire_reschedule_all(expire_tree *tree)
 	uint64_t i;
 	expire_take_bucket(&tree->due, &acc);
 	expire_take_bucket(&tree->far, &acc);
+	tree->far_tail = NULL;
 	for (i = 0; i < EXPIRE_LV0_SIZE; i++)
 		expire_take_bucket(&tree->lv0[i], &acc);
 	for (i = 0; i < EXPIRE_LVN_SIZE; i++) {
@@ -163,7 +201,16 @@ static void expire_reschedule_all(expire_tree *tree)
 	}
 }
 
-/* Move the cursor forward to `now`, cascading higher levels as their slots open. */
+/* Move the cursor to `now`, cascading higher levels as their slots open.
+   The per-second walk covers at most one level-1 span. A longer forward
+   jump rebuilds the wheel at `now`. A backward step only moves the cursor:
+   slot indexes are absolute, and a node left in too low a level is
+   rescheduled when that slot is visited, so it cannot expire early.
+   Leaving the cursor ahead of the clock parks newly armed keys on `due`.
+   The cursor must move back before the purge rehomes those entries, or
+   `expire_schedule` puts the same node back on `due` until the guard runs
+   out. A non-positive `now` is ignored once the cursor is set: `expire_base`
+   treats cursor <= 0 as unset and would schedule against the wall clock. */
 static void expire_wheel_advance(expire_tree *tree, int64_t now)
 {
 	if (tree->cursor <= 0) {
@@ -171,8 +218,12 @@ static void expire_wheel_advance(expire_tree *tree, int64_t now)
 		expire_reschedule_all(tree);
 		return;
 	}
-	if (now < tree->cursor)
+	if (now <= 0)
 		return;
+	if (now < tree->cursor) {
+		tree->cursor = now;
+		return;
+	}
 	if (now - tree->cursor > EXPIRE_SPAN1) {
 		tree->cursor = now;
 		expire_reschedule_all(tree);
@@ -202,6 +253,13 @@ static void expire_wheel_advance(expire_tree *tree, int64_t now)
 			slot = next;
 		}
 	}
+
+	/* Same bound as the level-3 branch, so a popped node cannot land back on `far`. */
+	while (tree->far && tree->far->key - tree->cursor < EXPIRE_SPAN3) {
+		expire_node *n = tree->far;
+		expire_unlink(tree, n);
+		expire_schedule(tree, n);
+	}
 }
 
 static void expire_drain_all(expire_tree *tree)
@@ -210,6 +268,7 @@ static void expire_drain_all(expire_tree *tree)
 	uint64_t i;
 	expire_take_bucket(&tree->due, &acc);
 	expire_take_bucket(&tree->far, &acc);
+	tree->far_tail = NULL;
 	for (i = 0; i < EXPIRE_LV0_SIZE; i++)
 		expire_take_bucket(&tree->lv0[i], &acc);
 	for (i = 0; i < EXPIRE_LVN_SIZE; i++) {
@@ -395,8 +454,6 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	uint64_t orphans = 0;
 	r_time start, end;
 
-	glog(L_INFO, "run expire purge on namespace %s/%s\n", namespace, ns->key);
-
 	if (!ns) {
 		if (!namespace)
 			ns = ac->nsdefault;
@@ -405,6 +462,8 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 	}
 	if (!ns || !ns->metrictree || !ns->expiretree)
 		return;
+
+	glog(L_DEBUG, "run expire purge on namespace %s/%s\n", namespace ? namespace : "-", ns->key);
 
 	tree = ns->metrictree;
 	expiretree = ns->expiretree;
@@ -452,6 +511,8 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 			{
 				expire_unlink(expiretree, n);
 				free(n);
+				if (expiretree->count > 0)
+					expiretree->count--;
 			}
 			orphans++;
 		}

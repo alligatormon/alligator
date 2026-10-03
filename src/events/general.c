@@ -93,10 +93,10 @@ void namespaces_expire_foreach(void *funcarg, void* arg)
 	namespace_struct *ns = arg;
 	r_time time = setrtime();
 	expire_purge(time.sec, NULL, ns);
-	/* Sample after purge drops its locks. 0 is a healthy tree. */
 	{
 		uint64_t violations = expire_backptr_violations(ns->expiretree);
-		uint64_t plan_entries = ns->metrictree && ns->metrictree->sort_plan ? ns->metrictree->sort_plan->size : 0;
+		uint64_t plan_entries = ns->metrictree && ns->metrictree->sort_plan
+			? __atomic_load_n(&ns->metrictree->sort_plan->size, __ATOMIC_ACQUIRE) : 0;
 		metric_add_labels("alligator_expire_backptr_violations", &violations, DATATYPE_UINT, NULL, "namespace", ns->key);
 		metric_add_labels("alligator_sortplan_entries", &plan_entries, DATATYPE_UINT, NULL, "namespace", ns->key);
 	}
