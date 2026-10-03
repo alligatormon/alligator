@@ -1335,6 +1335,26 @@ static void test_labels_match_gen_groupkey_paths(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(&sp, &la, &lb, 1) != 0);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_name_match(&la, &lb) != 0);
 
+    /* Stored chain ends before a selector key. That is not a match, and an
+       empty selector slot in that position does not constrain the series. */
+    {
+        sortplan sp3;
+        labels_t stored[2], query[3];
+        memset(&sp3, 0, sizeof(sp3));
+        sp3.size = 3;
+        memset(stored, 0, sizeof(stored));
+        memset(query, 0, sizeof(query));
+        stored[0].key = "m"; stored[0].key_len = 1; stored[0].next = &stored[1];
+        stored[1].key = "1"; stored[1].key_len = 1;
+        query[0].key = "m"; query[0].key_len = 1; query[0].next = &query[1];
+        query[1].key = "1"; query[1].key_len = 1; query[1].next = &query[2];
+        query[2].key = "9"; query[2].key_len = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(&sp3, stored, query, 2) != 0);
+        query[2].key = NULL;
+        query[2].key_len = 0;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, labels_match(&sp3, stored, query, 1));
+    }
+
     string *gk = string_init_alloc("env", 3);
     string *gkey = labels_to_groupkey(&la, gk);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gkey);
@@ -2505,6 +2525,8 @@ static void test_action_query_foreach_and_http_paths(void)
     ac->action = saved_action;
 }
 
+static int metric_order_broken(metric_node *x, labels_t **prev, sortplan *plan);
+
 /* A label set that extends another one is a distinct series. The sort plan grows
    when "b" first appears, so the {a=1} chain stays shorter than the plan and used
    to compare equal to {a=1,b=2}, silently merging the two. */
@@ -2537,19 +2559,23 @@ static void test_labels_cmp_extended_label_set_is_distinct(void)
     labels_head_free(l2);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m2);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 20, m2->i);
+
+    labels_t *prev = NULL;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        metric_order_broken(ns->metrictree->root, &prev, ns->metrictree->sort_plan));
 }
 
-/* Every expire node must be the one its metric points back at. A second node
-   for the same metric, or a metric still pointing at a freed node, breaks it. */
-static int expire_backptr_broken(expire_node *x)
+/* In-order walk: each series must sort strictly after the previous one. */
+static int metric_order_broken(metric_node *x, labels_t **prev, sortplan *plan)
 {
     int bad = 0;
     if (!x)
         return 0;
-    if (!x->metric || x->metric->expire_node != x)
+    bad += metric_order_broken(x->child[0], prev, plan);
+    if (*prev && labels_cmp(plan, *prev, x->labels) >= 0)
         ++bad;
-    bad += expire_backptr_broken(x->child[0]);
-    bad += expire_backptr_broken(x->child[1]);
+    *prev = x->labels;
+    bad += metric_order_broken(x->child[1], prev, plan);
     return bad;
 }
 
@@ -2582,7 +2608,7 @@ static void test_expire_delete_clears_metric_backptr(void)
     metric_set(m, DATATYPE_INT, &v2, ns->expiretree, 60);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        expire_backptr_broken(ns->expiretree->root));
+        expire_backptr_violations(ns->expiretree));
 }
 
 static void *expire_race_writer(void *arg)
@@ -2604,6 +2630,32 @@ static void *expire_race_writer(void *arg)
         metric_update("ut_expire_race_count", lbl, &v, DATATYPE_DOUBLE, carg);
     }
     return NULL;
+}
+
+/* A short TTL expires on a later second, and a purge in the past leaves it. */
+static void test_expire_wheel_timed_purge(void)
+{
+    insert_namespace("ut_wheel", 0);
+    namespace_struct *ns = get_namespace("ut_wheel");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+    context_arg carg = {0};
+    carg.namespace = "ut_wheel";
+    carg.ttl = 1;
+    int64_t v = 1;
+    r_time now;
+    metric_add_labels("ut_wheel_m", &v, DATATYPE_INT, &carg, "id", "1");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+
+    now = setrtime();
+    expire_purge(now.sec > 5 ? (uint64_t)(now.sec - 5) : 0, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count);
+
+    expire_purge((uint64_t)now.sec + 30, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_count_expired(ns->expiretree, INT64_MAX));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
 }
 
 static void test_expire_purge_concurrent_update(void)
@@ -2628,12 +2680,52 @@ static void test_expire_purge_concurrent_update(void)
 
     expire_purge(INT64_MAX, NULL, ns);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        expire_backptr_broken(ns->expiretree->root));
-    /* A purge that reaches every metric leaves no expired entry behind, so the
-       blind bulk delete that used to clean up after it is not needed. */
+        expire_backptr_violations(ns->expiretree));
+    /* A purge that reaches every metric leaves no expired entry behind. */
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        expire_count_expired(ns->expiretree->root, INT64_MAX));
+        expire_count_expired(ns->expiretree, INT64_MAX));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+}
+
+/* Random label sets, including ones that extend a shorter set, stay distinct,
+   ordered, and fully removable. */
+static void test_metric_label_set_property(void)
+{
+    insert_namespace("ut_prop", 0);
+    namespace_struct *ns = get_namespace("ut_prop");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+    context_arg carg = {0};
+    carg.namespace = "ut_prop";
+    carg.ttl = 30;
+
+    static const char *vals[] = {"0", "1", "2"};
+    uint32_t state = 0x12345678;
+    int i;
+    for (i = 0; i < 40; i++) {
+        state = state * 1664525u + 1013904223u;
+        int64_t v = i + 1;
+        const char *va = vals[state % 3];
+        const char *vb = vals[(state >> 4) % 3];
+        const char *vc = vals[(state >> 8) % 3];
+        if (state & 1)
+            metric_add_labels("ut_prop_m", &v, DATATYPE_INT, &carg, "a", (char *)va);
+        else if (state & 2)
+            metric_add_labels2("ut_prop_m", &v, DATATYPE_INT, &carg, "a", (char *)va, "b", (char *)vb);
+        else
+            metric_add_labels3("ut_prop_m", &v, DATATYPE_INT, &carg, "a", (char *)va, "b", (char *)vb, "c", (char *)vc);
+    }
+
+    labels_t *prev = NULL;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        metric_order_broken(ns->metrictree->root, &prev, ns->metrictree->sort_plan));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->metrictree->count > 1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_backptr_violations(ns->expiretree));
+
+    expire_purge(INT64_MAX, NULL, ns);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        expire_count_expired(ns->expiretree, INT64_MAX));
 }
 
 static void test_metrictree_delete_paths(void)
@@ -3621,6 +3713,8 @@ static void run_helpers_and_events_suites(void)
     test_http_api_v1_comprehensive_put();
     test_action_query_foreach_and_http_paths();
     test_labels_cmp_extended_label_set_is_distinct();
+    test_metric_label_set_property();
+    test_expire_wheel_timed_purge();
     test_expire_delete_clears_metric_backptr();
     test_expire_purge_concurrent_update();
     test_metrictree_delete_paths();
@@ -3680,7 +3774,10 @@ int main(int argc, char **argv) {
         if (devnull >= 0)
         {
             dup2(devnull, STDOUT_FILENO);
-            dup2(devnull, STDERR_FILENO);
+            /* Sanitizer reports go to stderr. Swallowing them hides the only
+               signal those builds exist to produce. */
+            if (!getenv("ASAN_OPTIONS") && !getenv("TSAN_OPTIONS") && !getenv("UBSAN_OPTIONS"))
+                dup2(devnull, STDERR_FILENO);
             close(devnull);
         }
     }

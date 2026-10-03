@@ -97,10 +97,6 @@ uint8_t numbercheck(char *str)
 	return 1;
 }
 
-uint64_t hash_cmp(uint64_t l, uint64_t r) {
-	return l - r;
-}
-
 /*
  * Positional compare against the sort plan. A chain is built for the plan size
  * current at its creation, so an older chain is shorter than the plan after it
@@ -137,59 +133,43 @@ int labels_cmp(sortplan *sort_plan, labels_t *labels1, labels_t *labels2)
 	return 0;
 }
 
+/*
+ * Selector match. labels1 is the stored series, labels2 is the query.
+ * A missing chain node is an empty slot, same as labels_cmp: the plan index
+ * and the chain stay aligned. An empty selector slot does not constrain the
+ * series. A selector key with no stored key is not a match.
+ * Return 0 when every constrained selector slot matched. Callers treat 0 as a hit.
+ */
 int labels_match(sortplan* sort_plan, labels_t *labels1, labels_t *labels2, size_t labels_count)
 {
+	size_t i;
+	size_t plan_size;
+
 	if (labels_count && labels2 && labels2->key_len)
 		++labels_count;
 
-	int64_t i;
-	size_t plan_size = __atomic_load_n(&sort_plan->size, __ATOMIC_ACQUIRE);
+	plan_size = __atomic_load_n(&sort_plan->size, __ATOMIC_ACQUIRE);
 	for (i=0; i<plan_size && labels_count; i++)
 	{
-		if (!labels1)
-		{
-			return -1;
-		}
+		char *key1 = labels1 ? labels1->key : NULL;
+		char *key2 = labels2 ? labels2->key : NULL;
 
 		if (!labels2)
-		{
 			return 0;
-		}
 
-		if (hash_cmp(sort_plan->hash[i], labels1->name_hash))
-			return -1;
-		if (hash_cmp(sort_plan->hash[i], labels2->name_hash))
-			return 1;
-
-		if (!labels1->key && !labels2->key)
+		if (key2)
 		{
-			// equal
-			labels1 = labels1->next;
-			labels2 = labels2->next;
-			continue;
-		}
-		if (!labels1->key)
-		{
-			// TODO??? maybe next???
-			continue;
-		}
-		if (!labels2->key)
-		{
-			labels1 = labels1->next;
-			labels2 = labels2->next;
-			continue;
-		}
-		int ret = strcmp(labels1->key, labels2->key);
-		if (ret)
-			return ret;
-		else {
+			if (!key1 || strcmp(key1, key2))
+				return (int)labels_count;
 			--labels_count;
-			labels1 = labels1->next;
-			labels2 = labels2->next;
-			continue;
 		}
+
+		if (labels1)
+			labels1 = labels1->next;
+		if (labels2)
+			labels2 = labels2->next;
 	}
-	return labels_count;
+	return (int)labels_count;
 }
 
 int metric_name_match(labels_t *labels1, labels_t *labels2)

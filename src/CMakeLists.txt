@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-set(VERSION 2.1.0)
+set(VERSION 2.1.1)
 project(alligator VERSION ${VERSION})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
@@ -226,6 +226,17 @@ ENDIF(${distro}.${disversion} MATCHES "centos.7")
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	# Clang treats undeclared strlcpy/strlcat as hard errors; some TUs never include selector.h.
 	add_compile_options(-include "${CMAKE_CURRENT_SOURCE_DIR}/common/strlcpy.h")
+endif()
+
+# -DALLIGATOR_SANITIZE=address|undefined|thread
+# ASan does not initialize on this macOS toolchain (sanitizer_malloc_mac.inc).
+# Use a Linux builder. `alligator_tests pass` keeps stderr when a sanitizer
+# environment variable is set, so the report is not redirected to /dev/null.
+set(ALLIGATOR_SANITIZE "" CACHE STRING "Compiler sanitizer to link (address, undefined, thread)")
+if(ALLIGATOR_SANITIZE)
+	message(STATUS "Sanitizer: ${ALLIGATOR_SANITIZE}")
+	add_compile_options(-fsanitize=${ALLIGATOR_SANITIZE} -fno-omit-frame-pointer -g)
+	add_link_options(-fsanitize=${ALLIGATOR_SANITIZE})
 endif()
 include_directories(/usr/include)
 include_directories(/usr/local/include)
