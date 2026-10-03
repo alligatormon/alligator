@@ -225,5 +225,6 @@ void metric_restore()
 
 	char dirtoread[255];
 	snprintf(dirtoread, 255, "%s/metric_dump", ac->persistence_dir);
-	read_from_file(strdup(dirtoread), 0, restore_callback, NULL);
+	/* read_from_file stops at MAX_FILE_SIZE (1 MB) and drops the tail. */
+	read_whole_file(strdup(dirtoread), restore_callback, NULL);
 }

@@ -37,6 +37,7 @@
 void api_router(string *response, http_reply_data *http_data, context_arg *carg);
 
 void filestat_restore_v1(char *buf, size_t len);
+void restore_callback(char *buf, size_t len, void *data);
 void filestat_read_callback(char *buf, size_t len, void *data, char *filename);
 void *file_handler_struct_init(context_arg *carg);
 void file_handler_struct_free(void *fh);
@@ -3888,6 +3889,75 @@ static void run_config_query_suites(char **argv)
     test_config();
 }
 
+static metric_node *restore_edge_find(namespace_struct *ns, const char *id)
+{
+    alligator_ht *hash = alligator_ht_init(NULL);
+    labels_hash_insert(hash, "id", (char *)id);
+    labels_t *labels = labels_initiate(ns, hash, "ut_restore_edge", NULL, ns, 0);
+    metric_node *m = metric_find(ns->metrictree, labels);
+    labels_head_free(labels);
+    return m;
+}
+
+/* The startup reader used to stop at 1 MB. read_whole_file() is async on
+   uv_default_loop(), which this process already uses, so pumping it would run
+   other handles too. Feed the restore parser a buffer that crosses that cap. */
+static void test_metric_restore_json_past_1mb(void)
+{
+    const size_t old_reader_cap = 1000000;
+    char head[256];
+    char tail[256];
+    char *buf;
+    size_t pad_x;
+    size_t tail_off;
+    size_t len;
+    int head_n;
+    int tail_n;
+    r_time now;
+    int64_t expire;
+    metric_node *head_m;
+    metric_node *tail_m;
+
+    insert_namespace("ut_restore_big", 0);
+    namespace_struct *ns = get_namespace("ut_restore_big");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    now = setrtime();
+    expire = (int64_t)now.sec + 86400;
+    head_n = snprintf(head, sizeof(head),
+        "{\"namespace\":\"ut_restore_big\",\"name\":\"ut_restore_edge\",\"type\":%d,\"expire\":%" PRId64 ",\"labels\":{\"id\":\"head\"},\"value\":7}\n",
+        DATATYPE_INT, expire);
+    tail_n = snprintf(tail, sizeof(tail),
+        "{\"namespace\":\"ut_restore_big\",\"name\":\"ut_restore_edge\",\"type\":%d,\"expire\":%" PRId64 ",\"labels\":{\"id\":\"tail\"},\"value\":42}\n",
+        DATATYPE_INT, expire);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, head_n > 0 && head_n < (int)sizeof(head));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tail_n > 0 && tail_n < (int)sizeof(tail));
+
+    pad_x = old_reader_cap;
+    tail_off = (size_t)head_n + pad_x + 1;
+    len = tail_off + (size_t)tail_n;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tail_off > old_reader_cap);
+
+    buf = malloc(len + 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, buf);
+    memcpy(buf, head, (size_t)head_n);
+    memset(buf + head_n, 'x', pad_x);
+    buf[head_n + pad_x] = '\n';
+    memcpy(buf + tail_off, tail, (size_t)tail_n);
+    buf[len] = 0;
+
+    restore_callback(buf, len, NULL);
+    free(buf);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+    head_m = restore_edge_find(ns, "head");
+    tail_m = restore_edge_find(ns, "tail");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, head_m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tail_m);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, head_m->i);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 42, tail_m->i);
+}
+
 static void run_helpers_and_events_suites(void)
 {
     test_logs_helpers();
@@ -4048,6 +4118,7 @@ static void run_helpers_and_events_suites(void)
     test_client_registry_paths();
     test_metric_str_build_named_namespaces();
     test_metric_str_build_default_namespace();
+    test_metric_restore_json_past_1mb();
 }
 
 int main(int argc, char **argv) {
