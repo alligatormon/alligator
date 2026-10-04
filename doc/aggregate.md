@@ -92,6 +92,13 @@ Supported formats are:
 
 Several UDP `dns` probes may use the same local port. They share one socket. Each reply is matched by DNS transaction id, and if that is missing, by the question name in the packet (`name` on `alligator_dns_rr_info`). You do not need a unique source port per domain. Resolver timing quantiles (`alligator_dns_read_duration_seconds`, `alligator_dns_write_duration_seconds`, `alligator_dns_response_duration_seconds`) also carry `name` for that domain.
 
+When `system { network; }` is enabled, prefer an explicit local port for `udp://` aggregates (`bind_address=<port>`, e.g. `bind_address=1112`). Without it, the OS picks a new ephemeral source port for each UDP socket, and `socket_stat` grows with many high-cardinality series such as:
+
+```
+socket_stat{proto="udp",state="LISTEN",src="0.0.0.0",src_port="64239",dst_port="0",dst="0.0.0.0",process="alligator"} 1
+socket_stat{proto="udp",state="LISTEN",src="0.0.0.0",src_port="64276",dst_port="0",dst="0.0.0.0",process="alligator"} 1
+```
+
 For instance:
 
 ```

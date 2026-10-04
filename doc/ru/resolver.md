@@ -67,7 +67,7 @@ aggregate {
 }
 ```
 
-Несколько UDP-проверок могут использовать один `bind_address=<port>`: один локальный сокет, ответы разбираются по DNS transaction id и по имени из question пакета (метка `name` у `alligator_dns_rr_info`). Отдельный исходный порт на каждый домен не нужен.
+Несколько UDP-проверок могут использовать один `bind_address=<port>`: один локальный сокет, ответы разбираются по DNS transaction id и по имени из question пакета (метка `name` у `alligator_dns_rr_info`). Отдельный исходный порт на каждый домен не нужен. При включённом `system { network; }` явный bind-порт также не даёт `socket_stat` разрастаться по эфемерным UDP-портам (см. [aggregate — bind_address](aggregate.md#bind_address)).
 
 Явные проверки `dns udp://... resolve=<domain>` также ставят этот домен на квантили времени resolver:
 

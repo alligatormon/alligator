@@ -94,6 +94,13 @@ aggregate {
 
 Несколько UDP-проверок `dns` могут использовать один и тот же локальный порт: они делят один сокет. Ответ сопоставляется по DNS transaction id, а если его нет — по имени из секции question пакета (метка `name` у `alligator_dns_rr_info`). Отдельный исходный порт на каждый домен не нужен. Квантили времени resolver (`alligator_dns_read_duration_seconds`, `alligator_dns_write_duration_seconds`, `alligator_dns_response_duration_seconds`) тоже несут метку `name` этого домена.
 
+Если включена статистика `system { network; }`, для aggregate `udp://` лучше явно задавать локальный порт (`bind_address=<port>`, например `bind_address=1112`). Без этого ОС выделяет новый эфемерный source port на каждый UDP-сокет, и `socket_stat` разрастается сериями с высокой кардинальностью, например:
+
+```
+socket_stat{proto="udp",state="LISTEN",src="0.0.0.0",src_port="64239",dst_port="0",dst="0.0.0.0",process="alligator"} 1
+socket_stat{proto="udp",state="LISTEN",src="0.0.0.0",src_port="64276",dst_port="0",dst="0.0.0.0",process="alligator"} 1
+```
+
 Например:
 
 ```

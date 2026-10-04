@@ -167,6 +167,8 @@ Slow scrape (`disk`): runtime stats when present — `xfs_stat_total{device,stat
 ## network
 Enables the monitoring of the network interfaces and sockets statistics.
 
+`socket_stat` includes alligator’s own listen sockets. For `udp://` aggregates without `bind_address`, the OS assigns ephemeral source ports, so cardinality can grow with every scrape. Prefer an explicit port (for example `bind_address=1112`); see [aggregate — bind_address](aggregate.md#bind_address).
+
 From `network` scrape:
 
 - `bonding_slaves{master,type="total|active"}`

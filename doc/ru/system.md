@@ -165,6 +165,8 @@ system {
 ## network
 Включает мониторинг сетевых интерфейсов и статистики сокетов.
 
+`socket_stat` включает и собственные listen-сокеты alligator. Для aggregate `udp://` без `bind_address` ОС выдаёт эфемерные source ports, и кардинальность растёт с каждым scrape. Лучше задавать явный порт (например `bind_address=1112`); см. [aggregate — bind_address](aggregate.md#bind_address).
+
 Из scrape `network`:
 
 - `bonding_lacp{master,stat}` — `mode`, `ad_num_ports`, `ad_actor_key`, `ad_partner_key`, `ad_aggregator`

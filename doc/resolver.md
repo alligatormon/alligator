@@ -65,7 +65,7 @@ aggregate {
 }
 ```
 
-Several UDP probes may share one `bind_address=<port>`. They use a single local socket; replies are matched by DNS transaction id and the question name in the packet (`alligator_dns_rr_info` `name` label). Unique source ports per domain are not required.
+Several UDP probes may share one `bind_address=<port>`. They use a single local socket; replies are matched by DNS transaction id and the question name in the packet (`alligator_dns_rr_info` `name` label). Unique source ports per domain are not required. With `system { network; }` an explicit bind port also keeps `socket_stat` from growing on ephemeral UDP ports (see [aggregate — bind_address](aggregate.md#bind_address)).
 
 Explicit `dns udp://... resolve=<domain>` probes also put that domain on resolver timing quantiles:
 
