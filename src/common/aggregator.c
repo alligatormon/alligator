@@ -18,6 +18,7 @@
 #include "events/icmp.h"
 #include "events/ws_client.h"
 #include "events/kafka_consumer.h"
+#include "events/kmsg.h"
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
 #include "scheduler/type.h"
@@ -182,6 +183,8 @@ int smart_aggregator(context_arg *carg)
 		type = process_client(carg);
 	else if (carg->transport == APROTO_FILE)
 		type = filetailer_handler(carg);
+	else if (carg->transport == APROTO_KMSG)
+		type = kmsg_handler(carg);
 	else if (carg->transport == APROTO_PG)
 		type = postgresql_client(carg);
 	else if (carg->transport == APROTO_MY)
@@ -366,6 +369,8 @@ void smart_aggregator_del(context_arg *carg)
 		process_client_del(carg);
 	else if (carg->transport == APROTO_FILE)
 		filetailer_handler_del(carg);
+	else if (carg->transport == APROTO_KMSG)
+		kmsg_handler_del(carg);
 	else if (carg->transport == APROTO_PG)
 		postgresql_client_del(carg);
 	else if (carg->transport == APROTO_MY)

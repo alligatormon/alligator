@@ -28,6 +28,7 @@ Aggregator включает асинхронные методы для полу�
 - UDP (udp://). Включает UDP-клиент для получения body.
 - unix (unix://) и unixgram (unixgram://). Включает клиентов Unix-socket поверх SOCK\_STREAM и SOCK\_DGRAM для получения body.
 - file (file://). Включает чтение файла для получения body.
+- kernel log (`kmsg://`). Читает `/dev/kmsg` для `grok` / `mtail` / `vrl`. Не `file:///dev/kmsg`. См. [kmsg.md](../kmsg.md).
 - exec (exec://). Включает выполнение внешней программы и передачу stdout в parser.
 - WebSocket (ws://) и WebSocket over TLS (wss://). Включает постоянного WebSocket-клиента, передающего каждый полученный text frame в parser.
 - Kafka (`kafka://`). Два применения: (1) парсер `kafka` опрашивает брокеры (metadata/offsets/lag) — [kafka.md](parsers/kafka.md); (2) с `grok` / `mtail` / `vrl` / `prometheus_metrics` / `log` и путём топика (`kafka://brokers/topic`) Alligator потребляет сообщения и передаёт payload в парсер — [kafka_logs.md](parsers/kafka_logs.md).
@@ -326,7 +327,7 @@ Pingloop позволяет blackbox handler'у пинговать ресурс 
 По умолчанию: -\
 Множественное: нет
 
-Для транспортов file и socket (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`) пересылает входящие данные **построчно** (newline-delimited) в именованный log channel. Каждая строка остаётся целой внутри `message`; `log_format` / `log_time` channel'а добавляют только JSON/elastic-обёртку или префикс timestamp. Используйте с `handler log` для чистой доставки логов или вместе с grok/mtail, когда метрики парсятся отдельно. См. [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
+Для транспортов file, kmsg и socket (`file://`, `kmsg://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`) пересылает входящие данные **построчно** (newline-delimited) в именованный log channel. Каждая строка остаётся целой внутри `message`; `log_format` / `log_time` channel'а добавляют только JSON/elastic-обёртку или префикс timestamp. Используйте с `handler log` для чистой доставки логов или вместе с grok/mtail, когда метрики парсятся отдельно. См. [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
 
 Простой пример: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
 

@@ -224,6 +224,14 @@ typedef struct aconf
 	int system_cadvisor;
 	int cadvisor_perf_events;
 	int system_perf_events;
+	int system_perf_functions;
+	uint64_t system_perf_functions_freq;
+	uint64_t system_perf_functions_top;
+	double system_perf_functions_sys_percent;
+	char **system_perf_functions_allow;
+	size_t system_perf_functions_allow_n;
+	double system_cpu_system_percent;
+	int system_cpu_system_percent_valid;
 	int system_memory_bandwidth;
 	int system_services;
 	int system_services_process;

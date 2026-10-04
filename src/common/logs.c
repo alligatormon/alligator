@@ -964,6 +964,7 @@ int context_allows_raw_log(const context_arg *carg)
 
 	switch (carg->transport) {
 	case APROTO_FILE:
+	case APROTO_KMSG:
 	case APROTO_TCP:
 	case APROTO_UDP:
 	case APROTO_UNIX:
@@ -981,12 +982,14 @@ int context_allows_raw_log(const context_arg *carg)
 		    !strncmp(carg->key, "unix:", 5) ||
 		    !strncmp(carg->key, "unixgram:", 9) ||
 		    !strncmp(carg->key, "tls:", 4) ||
-		    !strncmp(carg->key, "file://", 7))
+		    !strncmp(carg->key, "file://", 7) ||
+		    !strncmp(carg->key, "kmsg://", 7))
 			return 1;
 	}
 
 	if (carg->transport_string) {
 		if (!strcmp(carg->transport_string, "file") ||
+		    !strcmp(carg->transport_string, "kmsg") ||
 		    !strcmp(carg->transport_string, "tcp") ||
 		    !strcmp(carg->transport_string, "udp") ||
 		    !strcmp(carg->transport_string, "unix") ||

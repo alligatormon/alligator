@@ -31,6 +31,7 @@
 #include "common/base64.h"
 #include "cluster/type.h"
 #include "system/common.h"
+#include "system/linux/perf_functions.h"
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "puppeteer/puppeteer.h"
@@ -1458,6 +1459,59 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								free(ac->system_avg_metrics);
 
 							ac->system_avg_metrics = calloc(1, sizeof(double)*ac->system_cpuavg_period);
+						}
+						else if (!strcmp(system_key, "perf_functions"))
+						{
+							uint64_t freq = 99;
+							uint64_t top = 20;
+							double sys_percent = 0;
+							json_t *jf;
+							json_t *fns;
+							size_t n = 0, i, kept = 0;
+							const char **names = NULL;
+
+							jf = json_object_get(sys_value, "freq");
+							if (json_is_integer(jf) && json_integer_value(jf) > 0)
+								freq = (uint64_t)json_integer_value(jf);
+							else if (json_is_real(jf) && json_real_value(jf) > 0)
+								freq = (uint64_t)json_real_value(jf);
+							else if (json_is_string(jf) && json_string_value(jf))
+								freq = strtoull(json_string_value(jf), NULL, 10);
+
+							jf = json_object_get(sys_value, "top");
+							if (json_is_integer(jf) && json_integer_value(jf) > 0)
+								top = (uint64_t)json_integer_value(jf);
+							else if (json_is_real(jf) && json_real_value(jf) > 0)
+								top = (uint64_t)json_real_value(jf);
+							else if (json_is_string(jf) && json_string_value(jf))
+								top = strtoull(json_string_value(jf), NULL, 10);
+
+							jf = json_object_get(sys_value, "sys_percent");
+							if (json_is_integer(jf))
+								sys_percent = (double)json_integer_value(jf);
+							else if (json_is_real(jf))
+								sys_percent = json_real_value(jf);
+							else if (json_is_string(jf) && json_string_value(jf))
+								sys_percent = strtod(json_string_value(jf), NULL);
+
+							fns = json_object_get(sys_value, "functions");
+							n = json_array_size(fns);
+							if (n) {
+								names = calloc(n, sizeof(*names));
+								if (names) {
+									for (i = 0; i < n; i++) {
+										json_t *item = json_array_get(fns, i);
+										const char *s = json_string_value(item);
+										if (s)
+											names[kept++] = s;
+									}
+								}
+							}
+							if (!enkey)
+								perf_functions_config_set(0, freq, top, sys_percent, NULL, 0);
+							else
+								perf_functions_config_set(1, freq, top, sys_percent, names, names ? kept : 0);
+							free(names);
 						}
 						else if (!strcmp(system_key, "packages"))
 						{

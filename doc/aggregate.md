@@ -26,6 +26,7 @@ The aggregator indludes async methods to get stats using various schemas/protoco
 - UDP (udp://). Enables the UDP client to get body.
 - unix (unix://) and unixgram (unixgram://). Enables the Unix-socket over SOCK\_STREAM and SOCK\_DGRAM clients to get the body.
 - file (file://). Enables the file read to get body.
+- kernel log (`kmsg://`). Reads `/dev/kmsg` for `grok` / `mtail` / `vrl`. Not `file:///dev/kmsg`. See [kmsg.md](kmsg.md).
 - exec (exec://). Enables the execution of an external program and read the stdout to the parser.
 - WebSocket (ws://) and WebSocket over TLS (wss://). Enables a persistent WebSocket client that passes each received text frame to the parser.
 - Kafka (`kafka://`). Two uses: (1) the `kafka` parser talks to brokers for metadata/offsets/lag — [kafka.md](parsers/kafka.md); (2) with `grok` / `mtail` / `vrl` / `prometheus_metrics` / `log` and a topic path (`kafka://brokers/topic`), Alligator consumes messages and feeds payloads to the parser — [kafka_logs.md](parsers/kafka_logs.md).
@@ -335,7 +336,7 @@ Specify of the level of logging for the aggregator. Units for this option are ex
 Default: -\
 Plural: no
 
-For file and socket transports (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards incoming data **line by line** (newline-delimited) to the named log channel. Each line is kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
+For file, kmsg, and socket transports (`file://`, `kmsg://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards incoming data **line by line** (newline-delimited) to the named log channel. Each line is kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
 
 Plain example: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
 

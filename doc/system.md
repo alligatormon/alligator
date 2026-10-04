@@ -26,6 +26,8 @@ system {
     macos_gpu;
     firewall [ipset=[entries|on]];
     cpuavg period=5;
+    perf_functions freq=99 top=20 sys_percent=40;
+    perf_functions [nf_hook_slow] [tcp_v4_rcv] sys_percent=40;
     packages [nginx] [alligator];
     cadvisor [option1] [option2] .. [optionN];
 
@@ -731,6 +733,28 @@ dpkg does not store the installation time of a package, so on Debian/Ubuntu the 
 `/var/lib/dpkg/info/<package>.list` is sometimes used as a substitute, but it is rewritten on
 upgrades and is identical for every package on an image-built host, so it is not exported here.
 
+## perf_functions
+Off by default. Samples kernel-mode instruction pointers with a software cpu-clock and publishes the leaf symbol. This does not change `perf_events_total` or `perf_events_scaling_ratio`, and those series do not grow a `function` label.
+
+```
+system {
+    perf_functions freq=99 top=20 sys_percent=40;
+    perf_functions [nf_hook_slow] [tcp_v4_rcv] sys_percent=40;
+}
+```
+
+Linux only. Kernel leaf samples only (`PERF_SAMPLE_IP`): `exclude_user=1`, `exclude_kernel=0`, `exclude_hv=1`, `exclude_idle=1`. Idle and halt symbols are not sampled, including when `sys_percent` is 0 and the sampler stays open. No user stacks, no call chains, no ELF/DWARF, no kprobes, no eBPF. Counts are host-wide, not per CPU and not per process.
+
+`freq` is the sample rate in Hz (default 99). `kernel.perf_event_max_sample_rate` can reject it; Alligator retries a lower rate, logs, and keeps running. Each CPU data ring is at most 128 pages (about 32768 samples). Alligator sizes that ring for one system scrape at `freq`. If that interval does not fit, it lowers the effective rate so the interval fits and logs that rate once. A scrape that is still late enough to overflow the ring adds the skipped samples to `perf_kernel_samples_dropped_total` and keeps sampling; the file descriptors stay open. `top` (default 20) is how many symbols discovery mode publishes. Names in square brackets are an allowlist: one series per name, including zeros, so `rate()` stays stable. An empty allowlist publishes the top N symbols by sample count since the file descriptor was opened, not the last scrape. Symbols that fall out of that ranking go stale with the usual TTL. Those counters reset when the file descriptor closes (the percent stays under the threshold for about 60 seconds, or the collector is disabled); Prometheus will see a counter reset.
+
+`sys_percent` is the aggregate `/proc/stat` `system` share from the 1 second scrape. It is not `irq` and not `softirq`. A host whose “sys” in `top` is actually `si` does not arm this. Sampling starts when that percent is greater than or equal to the threshold. `0` (the default) always samples. The file descriptor opens only after the threshold and stays open for about 60 seconds after the percent falls back below it, then closes, so idle cost is about zero. The fd opens on the scrape that crosses the line; that ring is still empty. The first counts are the next interval, about one general scrape after the spike.
+
+Privileges: this open is cpu-wide (`pid = -1`), so an unprivileged process needs `perf_event_paranoid <= 0`. Root or `CAP_PERFMON` / `CAP_SYS_ADMIN` still works. Resolving names needs a readable `/proc/kallsyms` (`kptr_restrict`). The counting collector can succeed on a host where this sampler returns `EACCES` or unresolved zeros. `/proc/kallsyms` is parsed once and refreshed about once a minute, not on every scrape. A module loaded after that refresh is an unresolved IP until the next refresh.
+
+- `perf_kernel_samples_total{function}` — leaf samples resolved to that symbol since the fd was opened, not since the last scrape. The counter resets when the fd closes
+- `perf_kernel_samples_dropped_total` — samples not stored: IP missing from kallsyms, the 8192-symbol table is full, `PERF_RECORD_LOST`, or a ring window skipped after an overrun
+- `perf_kernel_sampling` — 1 while the fd is open, 0 otherwise
+
 ## cadvisor
 Implements metrics from the well-known exporter called CAdvisor.\
 
@@ -765,7 +789,7 @@ system {
 }
 ```
 
-`perf_events=1` and `perf_events=on` are the same switch. This is separate from `system { perf_events; }`, which stays the host collector.
+`perf_events=1` and `perf_events=on` are the same switch. This is separate from `system { perf_events; }`, which stays the host counting collector (`perf_events_total`, `perf_events_scaling_ratio`, no `function` label). Kernel leaf names are `perf_functions`, above.
 
 ### docker
 Specifies the socket of the docker daemon. The default is `http://unix:/var/run/docker.sock:/containers/json`.

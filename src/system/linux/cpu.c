@@ -153,6 +153,7 @@ void get_cpu(int8_t platform)
 			double tguest = (t9 + t10) / (dividecpu * 100.00);
 
 			uint64_t tsum = (uint64_t)(t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10);
+			int had_prev = sccs->total != 0;
 			uint64_t tdelta = tsum - sccs->total;
 			sccs->total = tsum;
 			if (!tdelta)
@@ -211,6 +212,10 @@ void get_cpu(int8_t platform)
 
 			if (!strcmp(cpuname, "cpu"))
 			{
+				if (had_prev) {
+					ac->system_cpu_system_percent = system;
+					ac->system_cpu_system_percent_valid = 1;
+				}
 				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
@@ -364,6 +369,58 @@ void get_cpu(int8_t platform)
 
 	uint64_t sec = ts_end.sec;
 	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
+}
+
+void cpu_note_system_percent(void)
+{
+	static uint64_t prev_system;
+	static uint64_t prev_total;
+	static int have_prev;
+	char path[255];
+	char line[LINUXFS_LINE_LENGTH];
+	FILE *fd;
+	int64_t t1 = 0, t2 = 0, t3 = 0, t4 = 0, t5 = 0, t6 = 0, t7 = 0, t8 = 0, t9 = 0, t10 = 0;
+	char cpuname[16];
+	uint64_t total;
+	uint64_t dtotal;
+	int64_t dsys;
+	double pct;
+
+	if (!ac || !ac->system_procfs)
+		return;
+	snprintf(path, sizeof(path), "%s/stat", ac->system_procfs);
+	fd = fopen(path, "r");
+	if (!fd)
+		return;
+	cpuname[0] = 0;
+	while (fgets(line, sizeof(line), fd)) {
+		if (!strncmp(line, "cpu ", 4)) {
+			sscanf(line, "%15s %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64" %"d64"",
+				cpuname, &t1, &t2, &t3, &t4, &t5, &t6, &t7, &t8, &t9, &t10);
+			break;
+		}
+	}
+	fclose(fd);
+	if (strcmp(cpuname, "cpu"))
+		return;
+	total = (uint64_t)(t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10);
+	if (!have_prev) {
+		prev_system = (uint64_t)t3;
+		prev_total = total;
+		have_prev = 1;
+		return;
+	}
+	dtotal = total - prev_total;
+	dsys = (int64_t)t3 - (int64_t)prev_system;
+	prev_system = (uint64_t)t3;
+	prev_total = total;
+	if (!dtotal)
+		return;
+	pct = (double)dsys * 100.0 / (double)dtotal;
+	if (pct < 0)
+		pct = 0;
+	ac->system_cpu_system_percent = pct;
+	ac->system_cpu_system_percent_valid = 1;
 }
 
 #ifdef __linux__

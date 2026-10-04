@@ -30,6 +30,8 @@ entrypoint {
 
 Kafka topic consume: [kafka_logs.md](../parsers/kafka_logs.md).
 
+Kernel ring: `vrl kmsg:// name=app_logs;` — same decoded lines as mtail and grok. See [kmsg.md](../kmsg.md).
+
 ### Multiline (Vector-compatible, shared with mtail and grok)
 
 Same assembler as Vector file sources (`start_pattern` + `condition_pattern` + `mode`).

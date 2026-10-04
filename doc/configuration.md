@@ -233,7 +233,7 @@ Context logs written via `carglog` are prefixed with `[context_key]` or `[channe
 
 ### Raw stream passthrough (`log_channel_raw`)
 
-On **entrypoint** and **aggregate** contexts that read user data from **files or sockets** (`file://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), `log_channel_raw` forwards incoming payload to a named channel **line by line** (split on `\n`; a trailing `\r` is stripped). Bytes that do not end with a newline are buffered until the next read. The **message body is not rewritten** (no `carglog`-style `[channel/key]` prefix); channel settings only add an outer envelope:
+On **entrypoint** and **aggregate** contexts that read user data from **files, kmsg, or sockets** (`file://`, `kmsg://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), `log_channel_raw` forwards incoming payload to a named channel **line by line** (split on `\n`; a trailing `\r` is stripped). Bytes that do not end with a newline are buffered until the next read. The **message body is not rewritten** (no `carglog`-style `[channel/key]` prefix); channel settings only add an outer envelope:
 
 - `log_format plain` + `log_time off` — each line sent as a separate write (payload without the newline)
 - `log_format plain` + `log_time on` — channel timestamp prefix, then one line per write

@@ -149,6 +149,8 @@ grok {
 
 Kafka topic consume: [kafka_logs.md](parsers/kafka_logs.md).
 
+Kernel ring: `grok kmsg:// name=kernel_grok;` — same decoded lines as mtail and vrl. See [kmsg.md](kmsg.md).
+
 Alternatively, you can use this as a local UDP endpoint that parses logs into metrics:
 ```
 entrypoint {

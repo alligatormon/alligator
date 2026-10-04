@@ -6,6 +6,8 @@
 #include <limits.h>
 #include <fcntl.h>
 #include "system/common.h"
+#include "config/plain.h"
+#include "system/linux/perf_functions.h"
 #include "system/linux/nvml.h"
 #include "system/linux/dcgm.h"
 #include "system/linux/amdgpu.h"
@@ -404,7 +406,316 @@ void test_zfs_config_enable(void)
 	ac->system_zfs = saved;
 }
 
+void test_perf_functions_config_and_pure(void)
+{
+	uint64_t attempts[3];
+	size_t natt;
+	uint64_t addr = 0;
+	char name[64];
+	perf_kallsym syms[3];
+	perf_fn_count items[5];
+	size_t idx[3];
+	size_t nsel;
+	int64_t below = 0;
+	int saved_base = ac->system_base;
+	string *s;
+	char *json_s;
+	const char *plain =
+		"system {\n"
+		"    perf_functions [nf_hook_slow] [tcp_v4_rcv] sys_percent=40 freq=49 top=3;\n"
+		"}\n";
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->system_perf_functions);
+
+	http_api_v1(NULL, NULL, "{ \"system\": { \"perf_functions\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_perf_functions);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 99, (int)ac->system_perf_functions_freq);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 20, (int)ac->system_perf_functions_top);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)ac->system_perf_functions_sys_percent);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)ac->system_perf_functions_allow_n);
+
+	http_api_v1(NULL, NULL, "{ \"system\": { \"perf_functions\": { \"freq\": 50, \"top\": 7, \"sys_percent\": 40, \"functions\": [\"nf_hook_slow\", \"tcp_v4_rcv\"] } } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 50, (int)ac->system_perf_functions_freq);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, (int)ac->system_perf_functions_top);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 40, (int)ac->system_perf_functions_sys_percent);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)ac->system_perf_functions_allow_n);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf_hook_slow", ac->system_perf_functions_allow[0]);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_rcv", ac->system_perf_functions_allow[1]);
+
+	s = string_init(256);
+	string_cat(s, (char *)plain, strlen(plain));
+	json_s = config_plain_to_json(s);
+	string_free(s);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+	http_api_v1(NULL, NULL, json_s);
+	free(json_s);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ac->system_perf_functions);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 49, (int)ac->system_perf_functions_freq);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)ac->system_perf_functions_top);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 40, (int)ac->system_perf_functions_sys_percent);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)ac->system_perf_functions_allow_n);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf_hook_slow", ac->system_perf_functions_allow[0]);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_rcv", ac->system_perf_functions_allow[1]);
+
+	perf_functions_config_set(0, 99, 20, 0, NULL, 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->system_perf_functions);
+	http_api_v1(NULL, NULL, "{ \"system\": { \"base\": {} } }");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ac->system_perf_functions);
+	ac->system_base = saved_base;
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_kallsyms_parse_line("ffffffff81001230 T tcp_v4_rcv\n", &addr, name, sizeof(name)));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_rcv", name);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_kallsyms_parse_line("ffffffffa0123456 t nf_hook_slow\t[nf_conntrack]\n", &addr, name, sizeof(name)));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf_hook_slow", name);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_kallsyms_parse_line("ffffffff8100abcd W weak_fn\n", &addr, name, sizeof(name)));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "weak_fn", name);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_kallsyms_parse_line("0000000000000000 t hidden\n", &addr, name, sizeof(name)));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_kallsyms_parse_line("ffffffff81000000 D not_text\n", &addr, name, sizeof(name)));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_kallsyms_parse_line("not a line\n", &addr, name, sizeof(name)));
+
+	syms[0].addr = 0x1000;
+	syms[0].name = (char *)"tcp_v4_rcv";
+	syms[1].addr = 0x2000;
+	syms[1].name = (char *)"nf_hook_slow";
+	syms[2].addr = 0x5000;
+	syms[2].name = (char *)"spin";
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_rcv", perf_kallsyms_resolve(syms, 3, 0x1000));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_rcv", perf_kallsyms_resolve(syms, 3, 0x1800));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf_hook_slow", perf_kallsyms_resolve(syms, 3, 0x2000));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf_hook_slow", perf_kallsyms_resolve(syms, 3, 0x4fff));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "spin", perf_kallsyms_resolve(syms, 3, 0x5000));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "spin", perf_kallsyms_resolve(syms, 3, 0x5000 + 1024));
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, perf_kallsyms_resolve(syms, 3, 0x500));
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, perf_kallsyms_resolve(syms, 3, 0x5000 + (1024 * 1024) + 1));
+
+	{
+		perf_kallsym *tab = NULL;
+		char *blob = NULL;
+		size_t ntab = 0, blen = 0;
+		size_t base, one, two;
+		const char *text1 =
+			"ffffffff81000000 T alpha_fn\n"
+			"ffffffff81001000 t beta_fn\t[mod]\n"
+			"ffffffff81000000 D not_text\n";
+		const char *text2 = "ffffffff81002000 T gamma_fn\n";
+
+		base = perf_kallsyms_bytes_live();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_kallsyms_table_set(&tab, &ntab, &blob, &blen, text1));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)ntab);
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alpha_fn", perf_kallsyms_resolve(tab, ntab, 0xffffffff81000000ULL));
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "beta_fn", perf_kallsyms_resolve(tab, ntab, 0xffffffff81001000ULL));
+		one = perf_kallsyms_bytes_live();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, one > base);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_kallsyms_table_set(&tab, &ntab, &blob, &blen, text2));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)ntab);
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "gamma_fn", perf_kallsyms_resolve(tab, ntab, 0xffffffff81002000ULL));
+		assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, perf_kallsyms_resolve(tab, ntab, 0xffffffff81000000ULL));
+		two = perf_kallsyms_bytes_live();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, two < one);
+		perf_kallsyms_table_free(tab, ntab, blob, blen);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)base, (int)perf_kallsyms_bytes_live());
+	}
+
+	items[0].name = "spin";
+	items[0].count = 3;
+	items[1].name = "tcp";
+	items[1].count = 8;
+	items[2].name = "nf";
+	items[2].count = 8;
+	items[3].name = "idle";
+	items[3].count = 0;
+	items[4].name = "copy";
+	items[4].count = 1;
+	nsel = perf_functions_select_top(items, 5, 2, idx);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)nsel);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nf", items[idx[0]].name);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp", items[idx[1]].name);
+	nsel = perf_functions_select_top(items, 5, 3, idx);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)nsel);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "spin", items[idx[2]].name);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_gate_decide(0, 0, 0, 0, &below, 1000, 60));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)below);
+	below = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_gate_decide(40, 1, 40, 0, &below, 1000, 60));
+	below = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_gate_decide(39, 1, 40, 0, &below, 1000, 60));
+	below = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_gate_decide(0, 0, 40, 0, &below, 1000, 60));
+	below = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_gate_decide(10, 1, 40, 1, &below, 1000, 60));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)below);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_gate_decide(10, 1, 40, 1, &below, 1059, 60));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000, (int)below);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_gate_decide(10, 1, 40, 1, &below, 1060, 60));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)below);
+	below = 50;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_gate_decide(80, 1, 40, 1, &below, 2000, 60));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)below);
+
+	natt = perf_functions_freq_attempts(99, attempts, 3);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)natt);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 99, (int)attempts[0]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 49, (int)attempts[1]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)attempts[2]);
+	natt = perf_functions_freq_attempts(49, attempts, 3);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)natt);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 49, (int)attempts[0]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)attempts[1]);
+	natt = perf_functions_freq_attempts(1, attempts, 3);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)natt);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)attempts[0]);
+	natt = perf_functions_freq_attempts(0, attempts, 3);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 99, (int)attempts[0]);
+
+	{
+		unsigned char buf[64];
+		unsigned char ring[32];
+		unsigned char rec[16];
+		perf_fn_ring_step step;
+		uint32_t type;
+		uint16_t misc, size;
+		uint64_t ip, id, lost;
+		uint64_t pages = 0;
+		uint64_t eff;
+		uint64_t cap_slots;
+		const char *plain_half =
+			"system {\n"
+			"    perf_functions sys_percent=0.5;\n"
+			"}\n";
+		double sp;
+		size_t bi;
+
+		memset(buf, 0, sizeof(buf));
+		type = PERF_FN_RECORD_SAMPLE;
+		misc = PERF_FN_MISC_KERNEL;
+		size = 16;
+		ip = 0xabc;
+		memcpy(buf + 0, &type, 4);
+		memcpy(buf + 4, &misc, 2);
+		memcpy(buf + 6, &size, 2);
+		memcpy(buf + 8, &ip, 8);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 16, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 16, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)step.dropped);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.take_ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0xabc, (int)step.ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_ring_step(buf, 4096, 16, step.tail, &step));
+
+		memset(buf, 0, sizeof(buf));
+		type = PERF_FN_RECORD_LOST;
+		misc = 0;
+		size = 24;
+		id = 3;
+		lost = 11;
+		memcpy(buf + 0, &type, 4);
+		memcpy(buf + 4, &misc, 2);
+		memcpy(buf + 6, &size, 2);
+		memcpy(buf + 8, &id, 8);
+		memcpy(buf + 16, &lost, 8);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 24, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 24, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 11, (int)step.dropped);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, step.take_ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, step.skip_window);
+
+		memset(buf, 0, sizeof(buf));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 64, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 64, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, (int)step.dropped);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_ring_step(buf, 4096, 64, step.tail, &step));
+
+		memset(buf, 0, sizeof(buf));
+		type = PERF_FN_RECORD_SAMPLE;
+		misc = PERF_FN_MISC_KERNEL;
+		size = 32;
+		memcpy(buf + 0, &type, 4);
+		memcpy(buf + 4, &misc, 2);
+		memcpy(buf + 6, &size, 2);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 20, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 20, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)step.dropped);
+
+		memset(buf, 0, sizeof(buf));
+		type = PERF_FN_RECORD_SAMPLE;
+		size = 5000;
+		memcpy(buf + 0, &type, 4);
+		memcpy(buf + 6, &size, 2);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 100, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6, (int)step.dropped);
+
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 4096 + 160, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4096 + 160, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (4096 + 160) / 16, (int)step.dropped);
+
+		memset(buf, 0, sizeof(buf));
+		type = PERF_FN_RECORD_SAMPLE;
+		misc = PERF_FN_MISC_KERNEL;
+		size = 16;
+		ip = 0x1000;
+		memcpy(buf + 0, &type, 4);
+		memcpy(buf + 4, &misc, 2);
+		memcpy(buf + 6, &size, 2);
+		memcpy(buf + 8, &ip, 8);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 64, 0, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 16, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.take_ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(buf, 4096, 64, step.tail, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 64, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.skip_window);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_ring_step(buf, 4096, 64, step.tail, &step));
+
+		memset(ring, 0, sizeof(ring));
+		memset(rec, 0, sizeof(rec));
+		type = PERF_FN_RECORD_SAMPLE;
+		misc = PERF_FN_MISC_KERNEL;
+		size = 16;
+		ip = 0x55aa;
+		memcpy(rec + 0, &type, 4);
+		memcpy(rec + 4, &misc, 2);
+		memcpy(rec + 6, &size, 2);
+		memcpy(rec + 8, &ip, 8);
+		for (bi = 0; bi < sizeof(rec); bi++)
+			ring[(28 + bi) % 32] = rec[bi];
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, perf_functions_ring_step(ring, 32, 44, 28, &step));
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 44, (int)step.tail);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, step.take_ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0x55aa, (int)step.ip);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, step.skip_window);
+
+		eff = perf_functions_ring_fit(99, 10000, 4096, &pages);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 99, (int)eff);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 8, (int)pages);
+		eff = perf_functions_ring_fit(100000, 10000, 4096, &pages);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3276, (int)eff);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)PERF_FUNCTIONS_RING_PAGES_MAX, (int)pages);
+		cap_slots = (PERF_FUNCTIONS_RING_PAGES_MAX * 4096) / PERF_FUNCTIONS_SAMPLE_REC;
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)((eff * 10000) / 1000 <= cap_slots));
+
+		s = string_init(256);
+		string_cat(s, (char *)plain_half, strlen(plain_half));
+		json_s = config_plain_to_json(s);
+		string_free(s);
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+		http_api_v1(NULL, NULL, json_s);
+		free(json_s);
+		sp = ac->system_perf_functions_sys_percent;
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, sp > 0.49 && sp < 0.51);
+		below = 0;
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, perf_functions_gate_decide(0, 1, sp, 0, &below, 1000, 60));
+	}
+
+	perf_functions_config_set(0, 99, 20, 0, NULL, 0);
+}
+
 void system_test(char *binary) {
+	test_perf_functions_config_and_pure();
 	test_system_iface_is_veth();
 	test_nvml_emit_metrics();
 	test_nvml_config_enable();

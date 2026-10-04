@@ -1748,6 +1748,25 @@ void system_config_get(json_t *dst)
 		json_array_object_insert(system, "perf_events", ctxsys);
 	}
 
+	if (ac->system_perf_functions) {
+		json_t *ctxsys = json_object();
+		json_t *fns = json_array();
+		size_t i;
+		double sp = ac->system_perf_functions_sys_percent;
+		json_array_object_insert(ctxsys, "freq", json_integer((json_int_t)ac->system_perf_functions_freq));
+		json_array_object_insert(ctxsys, "top", json_integer((json_int_t)ac->system_perf_functions_top));
+		if (sp == (double)(json_int_t)sp)
+			json_array_object_insert(ctxsys, "sys_percent", json_integer((json_int_t)sp));
+		else
+			json_array_object_insert(ctxsys, "sys_percent", json_real(sp));
+		for (i = 0; i < ac->system_perf_functions_allow_n; i++) {
+			if (ac->system_perf_functions_allow[i])
+				json_array_append_new(fns, json_string(ac->system_perf_functions_allow[i]));
+		}
+		json_array_object_insert(ctxsys, "functions", fns);
+		json_array_object_insert(system, "perf_functions", ctxsys);
+	}
+
 	if (ac->system_memory_bandwidth) {
 		json_t *ctxsys = json_object();
 		json_array_object_insert(system, "memory_bandwidth", ctxsys);

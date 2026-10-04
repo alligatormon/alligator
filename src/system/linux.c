@@ -41,6 +41,7 @@
 #include "system/linux/ipmi.h"
 #include "system/linux/pressure.h"
 #include "system/linux/perf_events.h"
+#include "system/linux/perf_functions.h"
 #include "system/linux/memory_bandwidth.h"
 #include "system/linux/proc_net.h"
 #include "system/linux/vm_stats.h"
@@ -2494,6 +2495,9 @@ void get_system_metrics()
 	if (ac->system_perf_events)
 		get_perf_events_stats();
 
+	if (ac->system_perf_functions)
+		get_perf_functions_stats();
+
 	if (ac->system_memory_bandwidth)
 		get_memory_bandwidth_stats();
 
@@ -2523,6 +2527,7 @@ void get_system_metrics()
 void system_free()
 {
 	perf_events_cleanup();
+	perf_functions_cleanup();
 
 	if (ac->fdesc)
 	{
@@ -2576,6 +2581,8 @@ void system_fast_scrape()
 		get_cpu(get_platform(0));
 		get_scaling_current_cpu_freq();
 	}
+	else if (ac->system_perf_functions)
+		cpu_note_system_percent();
 }
 
 void system_slow_scrape()

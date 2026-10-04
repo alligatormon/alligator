@@ -196,6 +196,8 @@ mtail {
 
 Use this when Alligator reads logs from a file (or a Kafka topic — [kafka_logs.md](../parsers/kafka_logs.md)) and parses them with an mtail program selected by `name=postfix`.
 
+Kernel messages use `kmsg://` (not `file:///dev/kmsg`). See [kmsg.md](../kmsg.md) for the line format and a copy-pasteable lockup / hung-task / page-allocation mtail program.
+
 ### Example 2: Multiple scripts and dedicated ports
 
 ```

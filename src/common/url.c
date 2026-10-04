@@ -91,7 +91,8 @@ int8_t url_get_hostname(host_aggregator_info *hi, char **tmp)
 	colon = strstr(*tmp, ":");
 	params = strstr(*tmp, "?");
 
-	if ((hi->proto == APROTO_FILE) || (hi->proto == APROTO_PROCESS))
+	/* kmsg is a device path, like file:// — do not split on ':' or '/'. */
+	if ((hi->proto == APROTO_FILE) || (hi->proto == APROTO_PROCESS) || (hi->proto == APROTO_KMSG))
 	{
 		hi->host_header = strdup(*tmp);
 		*tmp = NULL;
@@ -197,6 +198,8 @@ void url_dump(host_aggregator_info *hi)
 		glog(L_DEBUG, "transport: run process\n");
 	if (hi->transport == APROTO_FILE)
 		glog(L_DEBUG, "transport: open file\n");
+	if (hi->transport == APROTO_KMSG)
+		glog(L_DEBUG, "transport: kmsg\n");
 	if (hi->transport == APROTO_ICMP)
 		glog(L_DEBUG, "transport: icmp\n");
 
@@ -212,6 +215,8 @@ void url_dump(host_aggregator_info *hi)
 		glog(L_DEBUG, "proto: run process\n");
 	if (hi->proto == APROTO_FILE)
 		glog(L_DEBUG, "proto: open file\n");
+	if (hi->proto == APROTO_KMSG)
+		glog(L_DEBUG, "proto: kmsg\n");
 	if (hi->proto == APROTO_ICMP)
 		glog(L_DEBUG, "proto: icmp\n");
 	if (hi->proto == APROTO_FCGI)
@@ -264,6 +269,7 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "icmp://", 7, APROTO_ICMP, APROTO_ICMP, "icmp", 0);
 	url_set_proto(hi, &tmp, "exec://", 7, APROTO_PROCESS, APROTO_PROCESS, "exec", 0);
 	url_set_proto(hi, &tmp, "file://", 7, APROTO_FILE, APROTO_FILE, "file", 0);
+	url_set_proto(hi, &tmp, "kmsg://", 7, APROTO_KMSG, APROTO_KMSG, "kmsg", 0);
 	url_set_proto(hi, &tmp, "postgresql://", 13, APROTO_PG, APROTO_PG, "postgresql", 0);
 	url_set_proto(hi, &tmp, "mysql://", 8, APROTO_MY, APROTO_MY, "mysql", 0);
 	url_set_proto(hi, &tmp, "cassandra://", 12, APROTO_CASSANDR, APROTO_CASSANDR, "cassandra", 0);

@@ -2,6 +2,7 @@
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
 #include "common/selector.h"
+#include "system/linux/perf_functions.h"
 #include <string.h>
 
 int system_iface_is_veth(const char *name)
@@ -77,6 +78,9 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "pressure_stalled_avg_percent", METRIC_TYPE_GAUGE, "PSI full stall average percent by resource and window (10, 60, 300).");
 	namespace_metric_family_set(NULL, carg, "perf_events_total", METRIC_TYPE_COUNTER, "Host perf_event counters by event name and CPU.");
 	namespace_metric_family_set(NULL, carg, "perf_events_scaling_ratio", METRIC_TYPE_GAUGE, "perf_event time_running/time_enabled scaling ratio by event and CPU.");
+	namespace_metric_family_set(NULL, carg, "perf_kernel_samples_total", METRIC_TYPE_COUNTER, "Kernel leaf samples resolved to a function since the sampler fd was opened. Resets when the fd closes.");
+	namespace_metric_family_set(NULL, carg, "perf_kernel_samples_dropped_total", METRIC_TYPE_COUNTER, "Kernel samples not stored: unresolved IP, symbol table full, PERF_RECORD_LOST, or a skipped ring window.");
+	namespace_metric_family_set(NULL, carg, "perf_kernel_sampling", METRIC_TYPE_GAUGE, "1 while the kernel function sampler is open, 0 otherwise.");
 	namespace_metric_family_set(NULL, carg, "memory_bandwidth_bytes_total", METRIC_TYPE_COUNTER, "Intel resctrl MBM byte counters by node and scope (total or local).");
 	namespace_metric_family_set(NULL, carg, "vmstat_pages", METRIC_TYPE_GAUGE, "Current VM page counts from /proc/vmstat (nr_* and *_threshold keys).");
 	namespace_metric_family_set(NULL, carg, "vmstat_stat_total", METRIC_TYPE_COUNTER, "Cumulative VM event counters from /proc/vmstat by stat name.");
@@ -431,6 +435,7 @@ void system_initialize()
 	ac->system_cadvisor = 0;
 	ac->cadvisor_perf_events = 0;
 	ac->system_perf_events = 0;
+	perf_functions_config_set(0, 99, 20, 0, NULL, 0);
 	ac->system_memory_bandwidth = 0;
 	ac->system_services_process = 0;
 	ac->system_smart = 0;

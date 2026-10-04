@@ -44,6 +44,8 @@ void *file_handler_struct_init(context_arg *carg);
 void file_handler_struct_free(void *fh);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
 #include "events/filetailer.h"
+#include "events/kmsg.h"
+#include <errno.h>
 char* unix_tcp_client(context_arg* carg);
 void unix_tcp_client_del(context_arg *carg);
 void tcp_client_del(context_arg *carg);
@@ -4077,6 +4079,246 @@ static void test_metric_restore_json_past_1mb(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 42, tail_m->i);
 }
 
+static int kmsg_feed(kmsg_acc *acc, const char *data, size_t n, char *out, size_t cap, size_t *out_len)
+{
+    if (n && kmsg_acc_append(acc, data, n) != 0)
+        return -1;
+    return kmsg_acc_emit(acc, out, cap, out_len);
+}
+
+static void kmsg_capture(char *metrics, size_t size, context_arg *carg)
+{
+    char *dst = carg ? carg->mesg : NULL;
+    size_t cap;
+
+    (void)carg;
+    if (!dst || !metrics || !size)
+        return;
+    cap = carg->mesg_len;
+    if (size >= cap)
+        size = cap - 1;
+    memcpy(dst, metrics, size);
+    dst[size] = '\0';
+}
+
+static void test_kmsg_reader(void)
+{
+    static const char *parsers[] = { "grok", "mtail", "vrl" };
+    static const char *needles[] = {
+        "BUG: soft lockup",
+        "Watchdog detected hard LOCKUP",
+        "hard lockup",
+        "INFO: task",
+        "blocked for more than",
+        "hung task",
+        "page allocation failure",
+    };
+    const char *records =
+        "6,339,5140900,-;BUG: soft lockup - CPU#0 stuck for 22s! [kworker/0:1:9]\n"
+        " SUBSYSTEM=watchdog\n"
+        "0,340,5141900,-,caller=T1;Watchdog detected hard LOCKUP on cpu 1\n"
+        "1,341,5142000,-;page allocation failure: order:0, mode:0x100cca\n"
+        "3,342,5143000,-;INFO: task bash:1 blocked for more than 120 seconds.\n"
+        "4,343,5144000,+;hung task: blocked tasks\n"
+        "2,344,5145000,-;NMI watchdog: hard lockup on cpu 3\n";
+    const char *escaped = "6,9,1,-;soft\\x20lockup\n";
+    char *out;
+    size_t out_len;
+    kmsg_acc *acc;
+    size_t i;
+    char url_default[] = "kmsg://";
+    char url_dev[] = "kmsg:///dev/kmsg";
+    host_aggregator_info *hi;
+    context_arg carg;
+    char captured[2048];
+    char path[] = "/tmp/alligator-kmsg-seek-XXXXXX";
+    int fd;
+    char stale[] = "stale ring record\n";
+    char buf[32];
+    int pfd[2];
+    const char *partial = "6,7,8,-;BUG: soft lockup - CPU#2 stuck for 23s! [sh:2]\n";
+    size_t poff;
+
+    out = calloc(1, 8192);
+    acc = calloc(1, sizeof(*acc));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, acc);
+
+    out_len = 0;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6, kmsg_feed(acc, records, strlen(records), out, 8192, &out_len));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)acc->len);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(out, "SUBSYSTEM="));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(out, "caller="));
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, strstr(out, "5140900"));
+    for (i = 0; i < sizeof(needles) / sizeof(needles[0]); i++)
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out, needles[i]));
+
+    /* Split record: header and body arrive in separate reads. */
+    acc->len = 0;
+    out_len = 0;
+    out[0] = '\0';
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kmsg_feed(acc, records, 12, out, 8192, &out_len));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, acc->len > 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6,
+        kmsg_feed(acc, records + 12, strlen(records) - 12, out, 8192, &out_len));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out, "BUG: soft lockup"));
+
+    acc->len = 0;
+    out_len = 0;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, kmsg_feed(acc, escaped, strlen(escaped), out, 8192, &out_len));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "soft lockup\n", out);
+
+    /* One byte at a time, the way a short read delivers a record. */
+    acc->len = 0;
+    out_len = 0;
+    out[0] = '\0';
+    for (i = 0; i < strlen(escaped); i++)
+        kmsg_feed(acc, escaped + i, 1, out, 8192, &out_len);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "soft lockup\n", out);
+
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, KMSG_DEFAULT_PATH, (char *)kmsg_device_path(NULL));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, KMSG_DEFAULT_PATH, (char *)kmsg_device_path(""));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/dev/kmsg", (char *)kmsg_device_path("/dev/kmsg"));
+
+    hi = parse_url(url_default, strlen(url_default));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KMSG, hi->proto);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KMSG, hi->transport);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kmsg", hi->transport_string);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", hi->host);
+    url_free(hi);
+
+    hi = parse_url(url_dev, strlen(url_dev));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KMSG, hi->proto);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/dev/kmsg", hi->host);
+    url_free(hi);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_DATA, kmsg_io_classify(8, 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_AGAIN, kmsg_io_classify(-1, EAGAIN));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_LOST, kmsg_io_classify(-1, EPIPE));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_RETRY, kmsg_io_classify(-1, EINTR));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_REOPEN, kmsg_io_classify(-1, EINVAL));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, KMSG_IO_REOPEN, kmsg_io_classify(0, 0));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, kmsg_seek_end(-1));
+
+    /* SEEK_END skips bytes already in the file. /dev/kmsg uses the same call
+     * to mean "after the last record". */
+    fd = mkstemp(path);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, fd >= 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)strlen(stale), (int)write(fd, stale, strlen(stale)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)lseek(fd, 0, SEEK_SET));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kmsg_seek_end(fd));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)read(fd, buf, sizeof(buf)));
+    close(fd);
+    unlink(path);
+
+    /* Non-blocking read of a pipe: short reads still frame one record. */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pipe(pfd));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, fcntl(pfd[0], F_SETFL, O_NONBLOCK));
+    acc->len = 0;
+    out_len = 0;
+    out[0] = '\0';
+    poff = 0;
+    while (poff < strlen(partial)) {
+        size_t chunk = 3;
+        ssize_t w;
+        if (chunk > strlen(partial) - poff)
+            chunk = strlen(partial) - poff;
+        w = write(pfd[1], partial + poff, chunk);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, w > 0);
+        poff += (size_t)w;
+    }
+    close(pfd[1]);
+    for (;;) {
+        ssize_t n = read(pfd[0], buf, 4);
+        int cls = kmsg_io_classify(n, errno);
+        if (cls == KMSG_IO_RETRY)
+            continue;
+        if (cls == KMSG_IO_DATA) {
+            kmsg_feed(acc, buf, (size_t)n, out, 8192, &out_len);
+            continue;
+        }
+        break;
+    }
+    close(pfd[0]);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out, "BUG: soft lockup - CPU#2"));
+
+    /* grok, mtail, and vrl share this submit path; the handler is whatever
+     * the aggregate selected. */
+    memset(&carg, 0, sizeof(carg));
+    carg.mesg = captured;
+    carg.mesg_len = sizeof(captured);
+    carg.parser_handler = kmsg_capture;
+    carg.transport = APROTO_KMSG;
+    carg.transport_string = "kmsg";
+    for (i = 0; i < 3; i++) {
+        captured[0] = '\0';
+        carg.parser_name = (char *)parsers[i];
+        kmsg_submit_text(&carg, out, strlen(out));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(captured, "BUG: soft lockup"));
+    }
+
+    {
+        const char *conf =
+            "aggregate {\n"
+            "  grok kmsg:// name=kernel_grok;\n"
+            "  mtail kmsg:///dev/kmsg name=kernel;\n"
+            "  vrl kmsg:// name=kernel_vrl;\n"
+            "}\n";
+        string *s = string_new();
+        char *json_s;
+        json_error_t error;
+        json_t *root;
+        json_t *aggregate;
+        int saw_grok = 0, saw_mtail = 0, saw_vrl = 0;
+
+        string_cat(s, (char *)conf, strlen(conf));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        root = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        aggregate = json_object_get(root, "aggregate");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)json_array_size(aggregate));
+        for (i = 0; i < json_array_size(aggregate); i++) {
+            json_t *item = json_array_get(aggregate, i);
+            const char *handler = json_string_value(json_object_get(item, "handler"));
+            const char *url = json_string_value(json_object_get(item, "url"));
+            char urlbuf[64];
+            host_aggregator_info *parsed;
+
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, handler);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, url);
+            strlcpy(urlbuf, url, sizeof(urlbuf));
+            parsed = parse_url(urlbuf, strlen(urlbuf));
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, parsed);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_KMSG, parsed->proto);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, KMSG_DEFAULT_PATH, (char *)kmsg_device_path(parsed->host));
+            url_free(parsed);
+            if (!strcmp(handler, "grok")) {
+                saw_grok = 1;
+                assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kmsg://", (char *)url);
+            } else if (!strcmp(handler, "mtail")) {
+                saw_mtail = 1;
+                assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kmsg:///dev/kmsg", (char *)url);
+            } else if (!strcmp(handler, "vrl")) {
+                saw_vrl = 1;
+                assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kmsg://", (char *)url);
+            }
+        }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_grok);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_mtail);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_vrl);
+        json_decref(root);
+    }
+
+    free(out);
+    free(acc);
+}
+
 static void run_helpers_and_events_suites(void)
 {
     test_logs_helpers();
@@ -4236,6 +4478,7 @@ static void run_helpers_and_events_suites(void)
     test_filetailer_helpers_paths();
     test_filetailer_pending_multifile_catchup();
     test_filetailer_schedule_open_on_rotation();
+    test_kmsg_reader();
     test_client_registry_paths();
     test_metric_str_build_named_namespaces();
     test_metric_str_build_default_namespace();

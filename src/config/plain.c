@@ -1104,6 +1104,36 @@ static json_t* plain_json_or_string(const char *value)
 	return json_string(value);
 }
 
+static void plain_perf_functions_add_name(json_t *obj, const char *raw)
+{
+	const char *s;
+	size_t n;
+	json_t *arr;
+	char *name;
+
+	if (!obj || !raw)
+		return;
+	s = raw;
+	n = strlen(raw);
+	if (n >= 2 && s[0] == '[' && s[n - 1] == ']') {
+		s++;
+		n -= 2;
+	}
+	if (!n)
+		return;
+	arr = json_object_get(obj, "functions");
+	if (!arr) {
+		arr = json_array();
+		json_array_object_insert(obj, "functions", arr);
+	}
+	name = calloc(1, n + 1);
+	if (!name)
+		return;
+	memcpy(name, s, n);
+	json_array_append_new(arr, json_string(name));
+	free(name);
+}
+
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 {
 	json_t *root = json_object();
@@ -1371,7 +1401,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 						json_t *arg_json = json_string(wstokens[i].token->s);
 						json_array_object_insert(context_json, operator_name, arg_json);
 					}
-					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg") || !strcmp(wstokens[i].token->s, "firewall"))
+					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg") || !strcmp(wstokens[i].token->s, "firewall") || !strcmp(wstokens[i].token->s, "perf_functions"))
 					{
 						operator_json = json_object();
 
@@ -1389,6 +1419,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 
 							else if (wstokens[i].argument)
 							{
+								if (!strcmp(object_context, "perf_functions") && wstokens[i].token && wstokens[i].token->s && wstokens[i].token->s[0] == '[')
+									plain_perf_functions_add_name(operator_json, wstokens[i].token->s);
+								else
+								{
 								uint64_t sep = strcspn(wstokens[i].token->s, "=");
 								if (sep < wstokens[i].token->l)
 								{
@@ -1413,13 +1447,23 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 									//	json_array_object_insert(pquery_array, "", kv_value);
 									//}
 									else {
-										arg_value = json_integer_string_set(wstokens[i].token->s+sep+1);
+										char *raw = wstokens[i].token->s + sep + 1;
+										if (!strcmp(object_context, "perf_functions") && !strcmp(arg_name, "sys_percent")) {
+											char *end = NULL;
+											double d = strtod(raw, &end);
+											if (end != raw && end && !*end)
+												arg_value = json_real(d);
+											else
+												arg_value = json_integer_string_set(raw);
+										} else
+											arg_value = json_integer_string_set(raw);
 
 										json_array_object_insert(operator_json, arg_name, arg_value);
 									}
 								}
 								else if (!strcmp(object_context, "cadvisor") && !strcmp(wstokens[i].token->s, "perf_events"))
 									json_array_object_insert(operator_json, "perf_events", json_true());
+								}
 							}
 
 							if (wstokens[i].semicolon)

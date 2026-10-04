@@ -31,6 +31,8 @@ entrypoint {
 ```
 
 Потребление топика Kafka: [kafka_logs.md](../parsers/kafka_logs.md).
+
+Кольцо ядра: `vrl kmsg:// name=app_logs;` — [kmsg.md](../../kmsg.md).
 ### Multiline (совместимо с Vector, общее для mtail и grok)
 
 Тот же assembler, что у file sources Vector (`start_pattern` + `condition_pattern` + `mode`).

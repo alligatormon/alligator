@@ -198,6 +198,8 @@ mtail {
 
 Используйте, когда Alligator читает логи из файла (или топика Kafka — [kafka_logs.md](../parsers/kafka_logs.md)) и разбирает их программой mtail, выбранной через `name=postfix`.
 
+Ядро: `mtail kmsg:// name=kernel;` — [kmsg.md](../../kmsg.md).
+
 ### Пример 2: Несколько скриптов и выделенные порты
 
 ```

@@ -152,6 +152,8 @@ grok {
 
 Потребление топика Kafka: [kafka_logs.md](parsers/kafka_logs.md).
 
+Кольцо ядра: `grok kmsg:// name=kernel_grok;` — [kmsg.md](../kmsg.md).
+
 Альтернативно можно использовать локальную UDP-точку, которая разбирает логи в метрики:
 ```
 entrypoint {

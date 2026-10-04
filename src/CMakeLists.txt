@@ -277,6 +277,7 @@ set(STATIC_FILES
 	events/icmp.c
 	events/general.c
 	events/filetailer.c
+	events/kmsg.c
 	events/kafka_consumer.c
 	events/fs_write.c
 	events/fs_read.c
@@ -540,6 +541,7 @@ set(STATIC_FILES
 	system/linux/power_supply.c
 	system/linux/pressure.c
 	system/linux/perf_events.c
+	system/linux/perf_functions.c
 	system/linux/memory_bandwidth.c
 	system/linux/proc_net.c
 	system/linux/wireguard.c
