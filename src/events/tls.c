@@ -303,9 +303,9 @@ int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size) {
 	}
 }
 
-void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback) {
+int tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback) {
 	if (!len)
-		return;
+		return -1;
 
 	if (!carg->tls_write_time.sec && !carg->tls_write_time.nsec)
 		carg->tls_write_time = setrtime();
@@ -329,9 +329,13 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 
 	size_t tls_bytes = 0;
 	size_t pending = BIO_ctrl_pending(carg->wbio);
+	char *cipher;
 	if (!pending)
-		return;
-	carg->write_buffer = uv_buf_init(calloc(1, pending), pending);
+		return -1;
+	cipher = calloc(1, pending);
+	if (!cipher)
+		return -1;
+	carg->write_buffer = uv_buf_init(cipher, pending);
 	BIO_read_ex(carg->wbio, carg->write_buffer.base, pending, &tls_bytes);
 	carg->write_buffer.len = tls_bytes;
 
@@ -341,7 +345,9 @@ void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t l
 		free(carg->write_buffer.base);
 		carg->write_buffer.base = 0;
 		carg->write_buffer.len = 0;
+		return -1;
 	}
 	r_time tls_write_now = setrtime();
 	carglog(carg, L_DEBUG, "%"u64": [%"PRIu64"/%lf] client bytes written %p(%p:%p) with key %s, parser name %s, hostname %s, port: %s tls: %d, status: %d, size: %"PRIu64"\n", carg->count++, carglog_elapsed_ms(carg, tls_write_now), carglog_elapsed_sec(carg, tls_write_now), carg, &carg->connect, &carg->client, carg->key, carg->parser_name, carg->host, carg->port, carg->tls, ret > -1, carg->write_buffer.len);
+	return 0;
 }

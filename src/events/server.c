@@ -39,6 +39,7 @@ static int tcp_server_send_response(context_arg *carg, string *str)
 	char *write_body;
 	int write_allocated = 0;
 	int ret = 0;
+	int transferred = 0;
 
 	write_body = http_entrypoint_prepare_response(carg, str->s, str->l, &write_allocated);
 	carg->write_req.data = carg;
@@ -51,18 +52,26 @@ static int tcp_server_send_response(context_arg *carg, string *str)
 		{
 			size_t wlen = write_allocated ? strlen(write_body) : str->l;
 
+			/* Plaintext stays in response_buffer until the write callback.
+			 * tls_write only queues ciphertext. Non-zero means that
+			 * callback will not run, so free the plaintext here. */
+			carg->response_buffer = uv_buf_init(write_body, wlen);
 			if (!carg->tls)
-			{
-				carg->response_buffer = uv_buf_init(write_body, wlen);
 				ret = uv_write(&carg->write_req, (uv_stream_t*)&carg->client, (const struct uv_buf_t *)&carg->response_buffer, 1, tcp_server_written);
+			else
+				ret = tls_write(carg, (uv_stream_t*)&carg->client, write_body, wlen, tls_server_written);
+			if (ret)
+			{
+				free(carg->response_buffer.base);
+				carg->response_buffer = uv_buf_init(NULL, 0);
+				carg->http_write_pending = 0;
+				/* rewrite is a separate malloc; original stays for string_free.
+				 * otherwise response_buffer was str->s and is already freed. */
+				if (!write_allocated)
+					str->s = NULL;
 			}
 			else
-			{
-				if (write_allocated)
-					carg->response_buffer = uv_buf_init(write_body, wlen);
-				tls_write(carg, (uv_stream_t*)&carg->client, write_body, wlen, tls_server_written);
-				ret = 0;
-			}
+				transferred = 1;
 		}
 	}
 	else
@@ -73,7 +82,8 @@ static int tcp_server_send_response(context_arg *carg, string *str)
 	}
 
 	carg->buffer_response_size = str->m;
-	if (!write_allocated)
+	/* Only detach str->s when ownership moved to response_buffer. */
+	if (transferred && !write_allocated)
 		str->s = NULL;
 	string_free(str);
 	return ret;

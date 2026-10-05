@@ -6,7 +6,8 @@ void tls_client_cleanup(context_arg *carg, uint8_t clean_context);
 char *openssl_get_error_string();
 int x509_parse_cert(context_arg *carg, X509 *cert_ctx, char *cert_name, char *target,
 	const char *ca_file, const char *check_hostname, const revocation_policy *pol);
-void tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback);
+/* Returns 0 if a uv_write was queued (callback will run), -1 otherwise. */
+int tls_write(context_arg *carg, uv_stream_t *stream, char *message, uint64_t len, void *callback);
 void flush_tls_write(context_arg *carg, uv_stream_t *stream);
 int do_tls_shutdown(context_arg *carg, SSL *ssl);
 int tls_io_check_shutdown_need(context_arg *carg, int err, int read_size);
