@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 #include "main.h"
 #include "common/logs.h"
 #include "common/selector.h"
@@ -261,42 +262,81 @@ void get_watchdog_stats(void)
 	closedir(dir);
 }
 
-static void read_rapl_zone(const char *path, const char *name, int index)
+static int read_rapl_zone(const char *path, const char *name, int index)
 {
 	char energy_path[1024];
+	uint8_t err = 0;
 	snprintf(energy_path, sizeof(energy_path), "%s/energy_uj", path);
-	int64_t uj = getkvfile(energy_path);
-	if (uj < 0)
-		return;
+	int64_t uj = getkvfile_ext(energy_path, &err);
+	if (err || uj < 0)
+		return 0;
 
 	double joules = uj / 1000000.0;
 	char idx[16];
 	snprintf(idx, sizeof(idx), "%d", index);
 	metric_add_labels2("rapl_energy_joules_total", &joules, DATATYPE_DOUBLE,
 		ac->system_carg, "name", (char *)name, "index", idx);
+	return 1;
 }
 
-static void walk_rapl_dir(const char *dirpath, int *index)
+/* powercap zones symlink "subsystem" back to /sys/class/powercap and "device"
+ * back to the parent. Following either re-enters the same tree until ELOOP. */
+#define RAPL_WALK_MAX_DEPTH 16
+#define RAPL_VISIT_MAX 512
+
+typedef struct {
+	dev_t dev;
+	ino_t ino;
+} rapl_visit;
+
+static int rapl_visit_add(rapl_visit *seen, int *nseen, dev_t dev, ino_t ino)
 {
-	DIR *dir = opendir(dirpath);
+	for (int i = 0; i < *nseen; i++) {
+		if (seen[i].dev == dev && seen[i].ino == ino)
+			return 0;
+	}
+	if (*nseen >= RAPL_VISIT_MAX)
+		return 0;
+	seen[*nseen].dev = dev;
+	seen[*nseen].ino = ino;
+	(*nseen)++;
+	return 1;
+}
+
+static int rapl_skip_name(const char *name)
+{
+	return !strcmp(name, "subsystem") || !strcmp(name, "device");
+}
+
+static void walk_rapl_dir(const char *dirpath, const char *name, int *index, int depth, rapl_visit *seen, int *nseen)
+{
+	struct stat st;
+	DIR *dir;
+	struct dirent *ent;
+
+	if (depth > RAPL_WALK_MAX_DEPTH)
+		return;
+	if (stat(dirpath, &st) < 0 || !S_ISDIR(st.st_mode))
+		return;
+	if (!rapl_visit_add(seen, nseen, st.st_dev, st.st_ino))
+		return;
+
+	if (name && read_rapl_zone(dirpath, name, *index))
+		(*index)++;
+
+	dir = opendir(dirpath);
 	if (!dir)
 		return;
 
-	struct dirent *ent;
 	while ((ent = readdir(dir)) != NULL) {
+		char sub[1024];
+
 		if (ent->d_name[0] == '.')
 			continue;
-		char sub[1024];
+		if (rapl_skip_name(ent->d_name))
+			continue;
 		snprintf(sub, sizeof(sub), "%s/%s", dirpath, ent->d_name);
-		char energy_path[1100];
-		snprintf(energy_path, sizeof(energy_path), "%s/energy_uj", sub);
-		FILE *test = fopen(energy_path, "r");
-		if (test) {
-			fclose(test);
-			read_rapl_zone(sub, ent->d_name, (*index)++);
-		} else {
-			walk_rapl_dir(sub, index);
-		}
+		walk_rapl_dir(sub, ent->d_name, index, depth + 1, seen, nseen);
 	}
 	closedir(dir);
 }
@@ -304,9 +344,12 @@ static void walk_rapl_dir(const char *dirpath, int *index)
 void get_rapl_stats(void)
 {
 	char root[512];
-	snprintf(root, sizeof(root), "%s/class/powercap", ac->system_sysfs);
+	rapl_visit seen[RAPL_VISIT_MAX];
+	int nseen = 0;
 	int index = 0;
-	walk_rapl_dir(root, &index);
+
+	snprintf(root, sizeof(root), "%s/class/powercap", ac->system_sysfs);
+	walk_rapl_dir(root, NULL, &index, 0, seen, &nseen);
 }
 
 void get_zoneinfo_stats(void)

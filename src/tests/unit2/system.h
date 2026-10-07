@@ -20,6 +20,7 @@
 #include <linux/dcbnl.h>
 #include "system/linux/qdisc.h"
 #include "system/linux/dcb.h"
+#include "system/linux/host_misc.h"
 #endif
 extern aconf *ac;
 void get_system_metrics();
@@ -957,6 +958,9 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA\",stat=\"vm_stats_threshold\"}", "zoneinfo_stat_total", 7);
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA32\",stat=\"start_pfn\"}", "zoneinfo_stat_total", 1048576);
     metric_test_run(CMP_EQUAL, "zoneinfo_stat_total{node=\"0\",zone=\"DMA32\",stat=\"vm_stats_threshold\"}", "zoneinfo_stat_total", 42);
+    get_rapl_stats();
+    metric_test_run(CMP_EQUAL, "rapl_energy_joules_total{name=\"intel-rapl:0\"}", "rapl_energy_joules_total", 5);
+    metric_test_run(CMP_EQUAL, "rapl_energy_joules_total{name=\"intel-rapl:0:0\"}", "rapl_energy_joules_total", 2);
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"total\"}", "memory_usage_hw", 2036900ULL * 1024);
     metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"usage\"}", "memory_usage_hw", (2036900ULL - 1439972ULL) * 1024);
     metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);
