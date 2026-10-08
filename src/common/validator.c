@@ -196,8 +196,8 @@ int metric_label_validator(char *str, size_t sz)
 
 void metric_label_value_validator_normalizer(char *str, size_t sz)
 {
-	int64_t i;
-	for (i=0; i<sz; i++)
+	size_t i;
+	for (i=0; i<sz && str[i]; i++)
 		if (str[i] == '\\')
 			str[i] = '_';
 		else if (str[i] == '"')

@@ -23,9 +23,9 @@ void sd_etcd_node(json_t *rnode)
 		json_t *value = json_object_get(node, "value");
 		if (value)
 		{
-			char *dvalue = (char*)json_string_value(value);
-			http_api_v1(NULL, NULL, dvalue);
-			free(dvalue);
+			const char *dvalue = json_string_value(value);
+			if (dvalue)
+				http_api_v1(NULL, NULL, (char*)dvalue);
 		}
 
 		//json_t *key = json_object_get(node, "key");
