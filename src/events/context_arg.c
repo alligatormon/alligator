@@ -29,6 +29,13 @@ context_arg *carg_copy(context_arg *src)
 	carg->full_body = NULL;
 	carg->mesg = NULL;
 	carg->mesg_len = 0;
+	/* Resolve name is owned by the source. Duplicate it; borrowed parser data stays shared and unflagged. */
+	if (src->data_allocated && src->data) {
+		carg->data = strdup((char *)src->data);
+		carg->data_allocated = carg->data ? 1 : 0;
+	} else {
+		carg->data_allocated = 0;
+	}
 	carg->probe_payload = NULL;
 	carg->probe_payload_len = 0;
 	carg->buffer = NULL;
@@ -351,6 +358,12 @@ void carg_free(context_arg *carg)
 	if (carg->mesg)
 		free(carg->mesg);
 
+	if (carg->data_allocated) {
+		free(carg->data);
+		carg->data = NULL;
+		carg->data_allocated = 0;
+	}
+
 	if (carg->probe_payload) {
 		free(carg->probe_payload);
 		carg->probe_payload = NULL;
@@ -572,6 +585,18 @@ void aconf_mesg_set(context_arg *carg, char *mesg, size_t mesg_len)
 {
 	if (!mesg_len && mesg)
 		mesg_len = strlen(mesg);
+
+	/* buffer->base aliases mesg. Free the wrapper, then the previous message
+	 * once, when this call replaces it. Callers that already freed either
+	 * pointer must NULL it first. */
+	if (carg->buffer) {
+		free(carg->buffer);
+		carg->buffer = NULL;
+	}
+	if (carg->mesg && carg->mesg != mesg) {
+		free(carg->mesg);
+		carg->mesg = NULL;
+	}
 
 	carg->buffer = malloc(sizeof(uv_buf_t));
 	carg->mesg = mesg; // old scheme
@@ -840,6 +865,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	carg->buflen = 1;
 	carg->expect_function = expect_function;
 	carg->data = data;
+	carg->data_allocated = 0;
 	//carg->tt_timer = malloc(sizeof(uv_timer_t));
 	carg->write = 2;
 	carg->curr_ttl = -1;
@@ -1312,6 +1338,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 
 		carg->key = malloc(255);
 		carg->data = strdup(json_string_value(json_resolve));
+		carg->data_allocated = carg->data ? 1 : 0;
 		snprintf(carg->key, 254, "%s://%s/%s:%s:%s", carg->transport_string, carg->host, (char*)carg->data, "IN", rrtype);
 
 		uint16_t transaction_id;

@@ -4,6 +4,7 @@
 #include "common/file_stat.h"
 #include "x509/type.h"
 #include "puppeteer/puppeteer.h"
+#include "chromecdp/chromecdp.h"
 #include "common/aggregator.h"
 #include "metric/namespace.h"
 #include "cluster/type.h"
@@ -103,6 +104,7 @@ void alligator_shutdown_after_loop(void)
 	metric_dump(1);
 	tls_fs_free();
 	puppeteer_done();
+	cdp_done();
 	filetailer_shutdown();
 	/* Entrypoints first: their shutdown drains uv_run. Aggregators must not be
 	 * freed before that drain, or libuv still touches handles inside freed

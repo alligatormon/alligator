@@ -256,6 +256,8 @@ struct context_arg
 	uint64_t push_accepted_lines;
 
 	void *data; // for parser-data
+	/* 1 when data is a strdup owned by this carg (resolve name). Borrowed parser pointers stay 0. */
+	uint8_t data_allocated;
 	/* Internal: aggregator_oneshot_await wait token. Do not set from parsers. */
 	void *oneshot_await;
 	char *ns; // for parsers ns

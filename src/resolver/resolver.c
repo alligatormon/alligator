@@ -213,10 +213,7 @@ void resolver_query_refresh(context_arg *carg)
 	uint64_t buflen = dns_init_type(carg->data, buf, rrtype, &transaction_id);
 	carg->packets_id = transaction_id;
 
-	if (carg->mesg)
-		free(carg->mesg);
-	if (carg->buffer)
-		free(carg->buffer);
+	/* aconf_mesg_set frees the previous mesg and buffer. */
 	aconf_mesg_set(carg, buf, buflen);
 }
 
@@ -496,6 +493,8 @@ void resolver_del(context_arg *carg)
 	carg_uv_detach_timers(carg);
 	resolver_rd_probe_free(carg);
 	free(carg->data);
+	carg->data = NULL;
+	carg->data_allocated = 0;
 	carg_free(carg);
 }
 

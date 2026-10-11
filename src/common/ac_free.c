@@ -100,6 +100,8 @@ void main_free()
 	signal_stop();
 
 	persistence_promql_free();
+	free(ac->cadvisor_tcpudpbuf);
+	ac->cadvisor_tcpudpbuf = NULL;
 	free(ac);
 	ac = NULL;
 }

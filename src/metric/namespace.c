@@ -465,6 +465,16 @@ void namespaces_free_foreach(void *funcarg, void* arg)
 	alligator_ht_done(ns->metrictree->sort_plan->check_collisions);
 	free(ns->metrictree->sort_plan->check_collisions);
 
+	/* plan[0] is the MAIN_METRIC_NAME literal. Entries 1..size-1 are the
+	 * strdup'd names from labels_new_plan_node. The chain nodes point at the
+	 * word cache; labels_cache_fill deliberately does not free these. */
+	{
+		sortplan *sp = ns->metrictree->sort_plan;
+		size_t i;
+		for (i = 1; i < sp->size; ++i)
+			free(sp->plan[i]);
+	}
+
 	pthread_mutex_destroy(&ns->metrictree->sort_plan->lock);
 	free(ns->metrictree->sort_plan);
 	alligator_ht_done(ns->metrictree->labels_words_hash);

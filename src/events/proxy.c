@@ -447,7 +447,6 @@ int http_request_apply_proxy(context_arg *carg)
 	size_t new_len;
 	char *eoh;
 	size_t prefix;
-	char *old;
 	size_t rest_off;
 
 	if (!carg || !carg->proxy || carg->proxy->type != PROXY_TYPE_HTTP)
@@ -508,13 +507,8 @@ int http_request_apply_proxy(context_arg *carg)
 	}
 	out[new_len] = 0;
 
-	old = carg->mesg;
-	if (carg->buffer) {
-		free(carg->buffer);
-		carg->buffer = NULL;
-	}
+	/* aconf_mesg_set frees the previous mesg and buffer. `out` is a new buffer. */
 	aconf_mesg_set(carg, out, new_len);
-	free(old);
 	return 1;
 }
 

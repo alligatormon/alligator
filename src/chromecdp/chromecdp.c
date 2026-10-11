@@ -83,6 +83,7 @@ typedef struct chromecdp_state {
 static chromecdp_state g_cdp_state;
 static uv_timer_t      g_chrome_ready_timer;
 static int             g_chrome_ready_timer_inited;
+static int             g_chromecdp_shutdown;
 
 void cslog(int priority, const char *format, ...)
 {
@@ -126,6 +127,9 @@ static void chromecdp_chrome_ready_cb(uv_timer_t *handle)
 	(void)handle;
 	chromecdp_state *cs = &g_cdp_state;
 
+	/* cdp_done already stopped this timer; do not start discovery on the drain. */
+	if (g_chromecdp_shutdown)
+		return;
 	if (!cs->chrome_running)
 		return;
 	if (cs->disc || cs->cdp)
@@ -598,7 +602,13 @@ static void disc_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_t *buf)
 static void disc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 {
 	(void)buf;
-	chromecdp_disc *disc = (chromecdp_disc *)stream->data;
+	chromecdp_disc *disc;
+
+	/* cdp_done already uv_close'd this socket. Do not close it again or connect. */
+	if (g_chromecdp_shutdown)
+		return;
+
+	disc = (chromecdp_disc *)stream->data;
 
 	if (nread <= 0) {
 		uv_read_stop(stream);
@@ -668,7 +678,13 @@ static void disc_write_done_cb(uv_write_t *req, int status)
 
 static void disc_connected(uv_connect_t *req, int status)
 {
-	chromecdp_disc *disc = (chromecdp_disc *)req->data;
+	chromecdp_disc *disc;
+
+	/* cdp_done already uv_close'd this socket. A cancelled connect must not close it again. */
+	if (g_chromecdp_shutdown)
+		return;
+
+	disc = (chromecdp_disc *)req->data;
 
 	if (status != 0) {
 		cslog(L_ERROR, "chromecdp: discovery connect failed: %s\n",
@@ -1098,22 +1114,53 @@ static void cdp_foreach_free(void *funcarg, void *arg)
 
 void cdp_done(void)
 {
+	cdp_session *cdp;
+	chromecdp_disc *disc;
+
+	/* Drain runs after uv_stop. Callbacks must no-op before any handle is closed. */
+	g_chromecdp_shutdown = 1;
+
+	if (!ac)
+		return;
+
 	chromecdp_batch_timer_stop(&g_cdp_state);
+	if (g_chrome_ready_timer_inited)
+		uv_timer_stop(&g_chrome_ready_timer);
 	chromecdp_crawl_queue_free(&g_cdp_state);
 
-	alligator_ht_foreach_arg(ac->chromecdp, cdp_foreach_free, NULL);
-	alligator_ht_done(ac->chromecdp);
-	free(ac->chromecdp);
-	ac->chromecdp = NULL;
+	/* Hash is created in configuration(); absent when chromecdp was never set up. */
+	if (ac->chromecdp) {
+		alligator_ht_foreach_arg(ac->chromecdp, cdp_foreach_free, NULL);
+		alligator_ht_done(ac->chromecdp);
+		free(ac->chromecdp);
+		ac->chromecdp = NULL;
+	}
 
 	/* Kill Chrome if we started it */
 	if (g_cdp_state.chrome_running)
 		uv_process_kill(&g_cdp_state.chrome_proc, SIGTERM);
 
-	if (g_cdp_state.cdp) {
-		cdp_session_close(g_cdp_state.cdp);
-		cdp_session_free(g_cdp_state.cdp);
+	/* Stop page timers before the session is freed; their drain callbacks read page->cdp. */
+	chromecdp_abandon_all_pages(&g_cdp_state);
+
+	cdp = g_cdp_state.cdp;
+	if (cdp) {
+		/* ws_handle_closed still runs on the drain and must see a live ws. */
+		if (cdp->ws) {
+			cdp->ws->on_open    = NULL;
+			cdp->ws->on_message = NULL;
+			cdp->ws->on_close   = NULL;
+			cdp->ws->userdata   = NULL;
+		}
+		cdp_session_close(cdp);
+		cdp_session_free(cdp);
 		g_cdp_state.cdp = NULL;
+	}
+
+	disc = g_cdp_state.disc;
+	if (disc && !uv_is_closing((uv_handle_t *)&disc->tcp)) {
+		uv_read_stop((uv_stream_t *)&disc->tcp);
+		uv_close((uv_handle_t *)&disc->tcp, disc_close_cb);
 	}
 }
 

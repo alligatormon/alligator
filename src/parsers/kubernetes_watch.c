@@ -183,10 +183,15 @@ static void kubernetes_watch_set_mesg(context_arg *carg, kubernetes_watch_state 
 	if (!query)
 		return;
 
-	free(st->mesg);
-	st->mesg = strdup(query);
-	aconf_mesg_set(carg, st->mesg, strlen(st->mesg));
-	free(query);
+	/* st->mesg aliases carg->mesg. aconf_mesg_set frees the previous one. */
+	{
+		char *fresh = strdup(query);
+		free(query);
+		if (!fresh)
+			return;
+		aconf_mesg_set(carg, fresh, strlen(fresh));
+		st->mesg = fresh;
+	}
 }
 
 static void kubernetes_watch_reconnect(uv_timer_t *timer)

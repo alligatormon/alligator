@@ -690,6 +690,18 @@ int actx_compare(const void* arg, const void* obj)
 
 void aggregate_ctx_init()
 {
+	/* ts_initialize() allocates an empty table so tests can parser_push()
+	 * before main reaches here. Drop that table. A later ts_initialize()
+	 * allocates only when aggregate_ctx is NULL, so it will not replace
+	 * this one. A table that already holds parsers is left in place. */
+	if (ac->aggregate_ctx && !alligator_ht_count(ac->aggregate_ctx)) {
+		alligator_ht_done(ac->aggregate_ctx);
+		free(ac->aggregate_ctx);
+		ac->aggregate_ctx = NULL;
+	}
+	if (ac->aggregate_ctx)
+		return;
+
 	ac->aggregate_ctx = calloc(1, sizeof(alligator_ht));
 	alligator_ht_init(ac->aggregate_ctx);
 

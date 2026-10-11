@@ -849,6 +849,23 @@ string* nft_expression_deserialize(nft_str_expression* expression) {
 	//return exp;
 }
 
+/* Count of match strings replaced inside one nftables_handler() scrape. */
+static uint64_t nft_target_replaced;
+
+/* Consecutive matches in one rule overwrite `target` before nft_add_expr
+ * copies it: the free at the end of a match group is skipped while the next
+ * netlink expression is payload, cmp, lookup, or immediate. The previous
+ * string is still owned here. */
+static void nft_replace_target(char **target, char *next)
+{
+	if (target && *target) {
+		free(*target);
+		nft_target_replaced++;
+	}
+	if (target)
+		*target = next;
+}
+
 nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *data, uint64_t size, int8_t *verdict, alligator_ht *label_expression) {
 	char *curdt;
 	uint64_t i = 0;
@@ -1031,7 +1048,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 					cmpop = cmpdata;
 				} else if (cmptype == NFTA_CMP_DATA) {
 					if (meta == NFT_META_IIFNAME) {
-						target = strndup(expr->data + expr->namelen+j+8, 10);
+						nft_replace_target(&target, strndup(expr->data + expr->namelen+j+8, 10));
 					} else if (meta == NFT_META_NFPROTO) {
 						int proto_id = expr->data[expr->namelen+j+8];
 						if (proto_id == NFPROTO_IPV4)
@@ -1065,7 +1082,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 						payload_base = -1;
 						int mask_bytes = to_uint16(expr->data + expr->namelen+j+4);
 						int8_t prefix = (mask_bytes - 4) * 8;
-						target = toIpv4(expr->data + expr->namelen+j+8, prefix);
+						nft_replace_target(&target, toIpv4(expr->data + expr->namelen+j+8, prefix));
 					} else if (payload_base == NFT_PAYLOAD_TRANSPORT_HEADER) {
 						if (proto && (!strcmp(proto, "tcp") || !strcmp(proto, "udp")))
 							port = to_uint16_swap(expr->data + expr->namelen+j+8);
@@ -1078,7 +1095,7 @@ nft_str_expression* parse_expressions(int fd, char *table, char *chain, char *da
 						uint16_t len = nl_get_len(expr->data + k);
 						uint16_t type = nl_get_type(expr->data + k);
 						if ((type == 3) && (len == 12)) {
-							target = toIpv4(expr->data + expr->namelen+j+8, -1);
+							nft_replace_target(&target, toIpv4(expr->data + expr->namelen+j+8, -1));
 						}
 					}
 				}
@@ -1827,6 +1844,7 @@ int nftables_handler()
 		return 0;
 
 	pid_t pid = getpid();
+	nft_target_replaced = 0;
 
 	// get rules
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8|NFT_MSG_GETRULE), (NLM_F_REQUEST|NLM_F_ACK|NLM_F_ECHO|NLM_F_DUMP), pid, 1, NFPROTO_UNSPEC, NULL, 0, NULL);
@@ -1840,6 +1858,11 @@ int nftables_handler()
 	nftables_send_query(fd, (NFNL_SUBSYS_NFTABLES<<8)|NFT_MSG_GETOBJ, NLM_F_REQUEST|NLM_F_ACK|NLM_F_DUMP, pid, 1, NFPROTO_INET, NULL, 0, NULL);
 
 	close(fd);
+	if (nft_target_replaced) {
+		carglog(ac->system_carg, L_INFO,
+			"nftables: replaced %"PRIu64" intermediate match strings in this scrape; a rule had consecutive payload/cmp matches (typically ip saddr then ip daddr; a set lookup or tcp dport only when a later compare assigns a new address or iifname), so the previous address string was replaced\n",
+			nft_target_replaced);
+	}
     return 1;
 }
 //int main() {

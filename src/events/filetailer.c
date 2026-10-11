@@ -1214,26 +1214,23 @@ void filestat_read_callback(char *buf, size_t len, void *data, char *filename)
 	}
 }
 
-void filestat_stat_cb(uv_fs_t* req)
-{
-	if (req->result < 0) {
-		free(req->data);
-		free(req);
-		return;
-	}
-
-	read_from_file(strdup(req->data), 0, filestat_read_callback, NULL);
-	free(req->data);
-	free(req);
-}
-
 void filestat_restore()
 {
 	char path[255];
+	uv_fs_t req;
 	const char *dir = ac->persistence_dir ? ac->persistence_dir : "/var/lib/alligator";
+	int rc;
+
 	snprintf(path, sizeof(path), "%s/file_stat", dir);
 
-	uv_fs_t *req = malloc(sizeof(uv_fs_t));
-	req->data = strdup(path);
-	uv_fs_stat(uv_default_loop(), req, req->data, filestat_stat_cb);
+	/* Synchronous. An async uv_fs_stat is still queued when shutdown calls
+	 * exit(0), so the callback that freed req->data never ran. libuv runs
+	 * the request inline when the callback is NULL (loop may be NULL). */
+	memset(&req, 0, sizeof(req));
+	rc = uv_fs_stat(NULL, &req, path, NULL);
+	uv_fs_req_cleanup(&req);
+	if (rc < 0)
+		return;
+
+	read_from_file(strdup(path), 0, filestat_read_callback, NULL);
 }
