@@ -68,10 +68,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 	const char *body = http_data ? http_data->body : configbody;
 	uint8_t method = http_data ? http_data->method : HTTP_METHOD_PUT;
 	uint16_t code = 200;
-	char temp_resp[1200];
 	char respbody[1000];
 	char status[100];
-	temp_resp[0] = '\0';
 	respbody[0] = '\0';
 	snprintf(status, 100, "OK");
 	//printf("http_api_v1 is %s\n", body);
@@ -1884,7 +1882,19 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 	if (response)
 	{
-		snprintf(temp_resp, 1200, "HTTP/1.1 %"u16" %s\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n%s\n", code, status, respbody);
-		string_cat(response, temp_resp, strlen(temp_resp));
+		size_t body_len = strlen(respbody) + 1;
+		char headers[512];
+		int n = snprintf(headers, sizeof(headers),
+			"HTTP/1.1 %"u16" %s\r\n"
+			"Server: alligator\r\n"
+			"Content-Type: text/plain\r\n"
+			"Connection: close\r\n"
+			"Content-Length: %zu\r\n"
+			"\r\n",
+			code, status, body_len);
+		if (n > 0 && (size_t)n < sizeof(headers))
+			string_cat(response, headers, (size_t)n);
+		string_cat(response, respbody, strlen(respbody));
+		string_cat(response, "\n", 1);
 	}
 }

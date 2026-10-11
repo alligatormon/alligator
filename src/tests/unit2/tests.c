@@ -1501,6 +1501,106 @@ static void test_api_router_paths(void)
     string_free(resp);
 }
 
+static int http_status_line_count(const char *s)
+{
+    int n = 0;
+    const char *p = s;
+
+    if (!p)
+        return 0;
+    while ((p = strstr(p, "HTTP/1.1 ")) != NULL) {
+        n++;
+        p += 9;
+    }
+    return n;
+}
+
+static void assert_http_content_length(const char *file, const char *func, int line, string *resp)
+{
+    char *hdr_end;
+    char *cl;
+    size_t declared;
+    size_t actual;
+
+    assert_ptr_notnull(file, func, line, resp);
+    assert_ptr_notnull(file, func, line, resp->s);
+    hdr_end = strstr(resp->s, "\r\n\r\n");
+    cl = strstr(resp->s, "Content-Length:");
+    assert_ptr_notnull(file, func, line, hdr_end);
+    assert_ptr_notnull(file, func, line, cl);
+    assert_equal_int(file, func, line, 1, cl < hdr_end);
+    declared = (size_t)strtoull(cl + strlen("Content-Length:"), NULL, 10);
+    actual = resp->l - (size_t)(hdr_end + 4 - resp->s);
+    assert_equal_int(file, func, line, (int)declared, (int)actual);
+}
+
+static void test_http_post_api_no_push_202(void)
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    string *resp;
+    char *ok_body =
+        "HTTP/1.1 200 OK\r\n"
+        "Server: alligator\r\n"
+        "Content-Type: text/plain\r\n"
+        "Connection: close\r\n"
+        "Content-Length: 1\r\n"
+        "\r\n"
+        "\n";
+    char *req_ok =
+        "POST /api/v1/ HTTP/1.1\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: 2\r\n"
+        "\r\n"
+        "{}";
+    char *req_bad =
+        "POST /api/v1/ HTTP/1.1\r\n"
+        "Content-Type: application/json\r\n"
+        "Content-Length: 1\r\n"
+        "\r\n"
+        "{";
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->auth_header = "Authorization";
+    carg->api_enable = 1;
+
+    resp = string_new();
+    http_api_v1(NULL, NULL, "{}");
+    http_api_v1(resp, NULL, "{}");
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, ok_body, resp->s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_status_line_count(resp->s));
+    assert_http_content_length(__FILE__, __FUNCTION__, __LINE__, resp);
+    string_free(resp);
+
+    resp = string_new();
+    http_api_v1(resp, NULL, "{");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "HTTP/1.1 400 Bad Request\r\n") == resp->s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "Content-Type: text/plain\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "Connection: close\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "json error on line ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_status_line_count(resp->s));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(resp->s, "202 Accepted") != NULL);
+    assert_http_content_length(__FILE__, __FUNCTION__, __LINE__, resp);
+    string_free(resp);
+
+    resp = string_new();
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_ok, strlen(req_ok), resp, carg));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, ok_body, resp->s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_status_line_count(resp->s));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(resp->s, "202 Accepted") != NULL);
+    assert_http_content_length(__FILE__, __FUNCTION__, __LINE__, resp);
+    string_free(resp);
+
+    resp = string_new();
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req_bad, strlen(req_bad), resp, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "HTTP/1.1 400 Bad Request\r\n") == resp->s);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_status_line_count(resp->s));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(resp->s, "202 Accepted") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(resp->s, "Content-Type: application/json") != NULL);
+    assert_http_content_length(__FILE__, __FUNCTION__, __LINE__, resp);
+    string_free(resp);
+    free(carg);
+}
+
 static void test_http_api_v1_runtime_paths(void)
 {
     uint8_t saved_log = ac->log_level;
@@ -4422,6 +4522,7 @@ static void run_helpers_and_events_suites(void)
     test_labels_hash_insert_and_groupkey_paths();
     test_reject_metric_paths();
     test_api_router_paths();
+    test_http_post_api_no_push_202();
     test_http_api_v1_runtime_paths();
     test_http_api_v1_system_and_persistence();
     test_http_api_v1_plain_action_query_chunk();

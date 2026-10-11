@@ -68,7 +68,7 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 	{
 		api_router(response, http_data, carg);
 	}
-	if (!strncmp(http_data->uri, "/v1/metrics", 11))
+	else if (!strncmp(http_data->uri, "/v1/metrics", 11))
 	{
 		otlp_metrics_ingest_handler(response, http_data, NULL, carg);
 	}
