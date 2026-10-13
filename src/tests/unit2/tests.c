@@ -45,6 +45,7 @@ void file_handler_struct_free(void *fh);
 void filetailer_write_state_foreach(void *funcarg, void *arg);
 #include "events/filetailer.h"
 #include "events/kmsg.h"
+#include "events/tls.h"
 #include <errno.h>
 char* unix_tcp_client(context_arg* carg);
 void unix_tcp_client_del(context_arg *carg);
@@ -4419,6 +4420,80 @@ static void test_kmsg_reader(void)
     free(acc);
 }
 
+static int tls_ut_ctx_freed;
+static char tls_ut_ctx_marker;
+
+static void tls_ut_ctx_ex_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad,
+	int idx, long argl, void *argp)
+{
+	(void)parent;
+	(void)ad;
+	(void)idx;
+	(void)argl;
+	(void)argp;
+	if (ptr == &tls_ut_ctx_marker)
+		tls_ut_ctx_freed++;
+}
+
+/* No handshake: init twice (replace must free the previous SSL_CTX) and fail
+ * after SSL_CTX_new (a failed init must not leave an owned context). */
+static void test_tls_context_init_no_leak(void)
+{
+	context_arg *carg;
+	int idx;
+	const char *missing = "/no/such/alligator-ut.pem";
+
+	tls_init();
+	idx = CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_SSL_CTX, 0, NULL, NULL, NULL, tls_ut_ctx_ex_free);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, idx >= 0);
+
+	carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	carg->key = "ut-tls";
+	tls_ut_ctx_freed = 0;
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		tls_context_init(carg, SSLMODE_CLIENT, 0, NULL, NULL, NULL, "example.test", NULL));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->rbio);
+	SSL_CTX_set_ex_data(carg->ssl_ctx, idx, &tls_ut_ctx_marker);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		tls_context_init(carg, SSLMODE_CLIENT, 0, NULL, NULL, NULL, "example.test", NULL));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, tls_ut_ctx_freed);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+	SSL_CTX_set_ex_data(carg->ssl_ctx, idx, &tls_ut_ctx_marker);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		tls_context_init(carg, SSLMODE_CLIENT, 0, NULL, missing, missing, NULL, NULL));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, tls_ut_ctx_freed);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->rbio);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->wbio);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		tls_context_init(carg, SSLMODE_CLIENT, 0, NULL, missing, missing, NULL, NULL));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, tls_ut_ctx_freed);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		tls_context_init(carg, SSLMODE_SERVER, 0, NULL, NULL, NULL, NULL, NULL));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+	SSL_CTX_set_ex_data(carg->ssl_ctx, idx, &tls_ut_ctx_marker);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		tls_context_init(carg, SSLMODE_SERVER, 0, NULL, missing, missing, NULL, NULL));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, tls_ut_ctx_freed);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl_ctx);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->ssl);
+
+	free(carg);
+}
+
 static void run_helpers_and_events_suites(void)
 {
     test_logs_helpers();
@@ -4502,6 +4577,7 @@ static void run_helpers_and_events_suites(void)
     test_config_plain_to_json_smoke();
     test_context_arg_json_fill_paths();
     test_context_arg_copy_and_env_paths();
+    test_tls_context_init_no_leak();
     test_parse_add_label_paths();
     test_action_push_get_del_paths();
     test_action_run_process_dry_paths();

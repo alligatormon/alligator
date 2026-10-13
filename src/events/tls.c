@@ -1,4 +1,5 @@
 #include "events/context_arg.h"
+#include "events/tls.h"
 #include "common/logs.h"
 #include "common/lcrypto.h"
 #include "common/revocation.h"
@@ -69,6 +70,12 @@ void ssl_info_callback(const SSL *ssl, int where, int ret) {
 
 int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const char *ca, const char * certfile, const char* keyfile, const char *servername, const char *crl)
 {
+	/* DNS retry calls this again after a failed connect cleared carg->lock
+	 * without tcp_client_closed. Drop the previous SSL (and the BIOs it owns)
+	 * before SSL_CTX_free, same order as tls_client_cleanup. */
+	if (carg->ssl || carg->ssl_ctx)
+		tls_client_cleanup(carg, 1);
+
 	carg->ssl_ctx = SSL_CTX_new(TLS_method());
 	if (!carg->ssl_ctx) {
 		char buf[256];
@@ -82,6 +89,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "tls: SSL_CTX_use_certificate_file '%s' failed key=%s: %s\n", certfile, carg->key, err);
 			free(err);
+			tls_client_cleanup(carg, 1);
 			return 0;
 		}
 
@@ -89,6 +97,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "tls: SSL_CTX_use_PrivateKey_file '%s' failed key=%s: %s\n", keyfile, carg->key, err);
 			free(err);
+			tls_client_cleanup(carg, 1);
 			return 0;
 		}
 
@@ -96,6 +105,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "tls: SSL_CTX_check_private_key '%s' failed key=%s: %s\n", keyfile, carg->key, err);
 			free(err);
+			tls_client_cleanup(carg, 1);
 			return 0;
 		}
 		else
@@ -131,6 +141,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 		X509_STORE *store = SSL_CTX_get_cert_store(carg->ssl_ctx);
 		if (!revocation_store_apply_crl(store, &carg->rev)) {
 			carglog(carg, L_ERROR, "tls: failed to load CRL file '%s' key=%s\n", carg->rev.crl_file, carg->key);
+			tls_client_cleanup(carg, 1);
 			return 0;
 		}
 		carglog(carg, L_DEBUG, "TLS loaded CRL file: %s\n", carg->rev.crl_file);
@@ -153,6 +164,7 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			char *err = openssl_get_error_string();
 			carglog(carg, L_ERROR, "tls: SSL_new (client) failed key=%s: %s\n", carg->key, err);
 			free(err);
+			tls_client_cleanup(carg, 1);
 			return 0;
 		}
 	}
@@ -200,9 +212,12 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 void tls_client_cleanup(context_arg *carg, uint8_t clean_context)
 {
 	if (carg->ssl) {
+		/* SSL_set_bio transferred rbio/wbio to the SSL object. */
 		SSL_free(carg->ssl);
 		carg->ssl = NULL;
 	}
+	carg->rbio = NULL;
+	carg->wbio = NULL;
 
 	if (clean_context && carg->ssl_ctx) {
 		SSL_CTX_free(carg->ssl_ctx);

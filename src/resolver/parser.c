@@ -38,7 +38,8 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	}
 
 	dns_rr_t* rr = resp.answers;
-	uint64_t addr_cnt = 0;
+	uint64_t addr_cnt = 0; /* A/AAAA only: gate oneshot retry */
+	uint64_t rr_cnt = 0;   /* successfully parsed RRs → alligator_dns_rr_count */
 	if (resp.hdr.transaction_id != carg->packets_id ||
 		resp.hdr.qr != DNS_RESPONSE ||
 		!probe_rcode_is_valid(probe_from_carg(carg), resp.hdr.rcode)) {
@@ -101,8 +102,9 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 
 				carglog(carg, L_TRACE, "\tadd resolved address '%s' with A type to %s->%s\n", carg->key, qname, ipAddress);
 				metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", ipAddress, "type", "A", "class", class);
+				++rr_cnt;
+				++addr_cnt;
 			}
-			++addr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_AAAA) {
 			if (rr->datalen == 16) {
@@ -114,8 +116,9 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 
 				carglog(carg, L_TRACE, "\tadd resolved address '%s' with AAAA type to %s->%s\n", carg->key, qname, ipAddress);
 				metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", ipAddress, "type", "AAAA", "class", class);
+				++rr_cnt;
+				++addr_cnt;
 			}
-			++addr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_CNAME) {
 			char name[DNS_NAME_MAXLEN];
@@ -125,6 +128,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with CNAME type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "CNAME", "class", class);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_NS) {
 			char name[DNS_NAME_MAXLEN];
@@ -134,6 +138,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with NS type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "NS", "class", class);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_PTR) {
 			char name[DNS_NAME_MAXLEN];
@@ -143,6 +148,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with PTR type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "PTR", "class", class);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_MX) {
 			char name[DNS_NAME_MAXLEN];
@@ -157,6 +163,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with MX type to %s->%s, priority %s\n", carg->key, qname, name, priority);
 			metric_add_labels5("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "MX", "class", class, "priority", priority);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_SOA) {
 			char nsname[DNS_NAME_MAXLEN];
@@ -199,6 +206,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			metric_add_labels5("alligator_dns_soa_retry_seconds", &retry, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
 			metric_add_labels5("alligator_dns_soa_expire_seconds", &expire, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
 			metric_add_labels5("alligator_dns_soa_minimum_seconds", &minimum, DATATYPE_INT, carg, "name", qname, "nameserver", nsname, "mailserver", mxname, "type", "SOA", "class", class);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_TXT) {
 			char name[DNS_NAME_MAXLEN];
@@ -208,6 +216,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with TXT type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "TXT", "class", class);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
 		else if (rr->rtype == DNS_TYPE_SRV) {
 			char name[DNS_NAME_MAXLEN];
@@ -217,12 +226,13 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 			carglog(carg, L_TRACE, "\tadd resolved address '%s' with SRV type to %s->%s\n", carg->key, qname, name);
 			metric_add_labels4("alligator_dns_rr_info", &val, DATATYPE_UINT, carg, "name", qname, "data", name, "type", "SRV", "class", class);
 			dns_record_rule_push(qname, rr->rtype, rr->data, rr->datalen, name, strlen(name), rr->ttl);
+			++rr_cnt;
 		}
         else
 			carglog(carg, L_ERROR, "\tadd resolved address '%s' error %s: unknown type %d\n", carg->key, qname, rr->rtype);
 	}
 
-	metric_add_labels3("alligator_dns_rr_count", &addr_cnt, DATATYPE_UINT, carg, "name", qname, "class", qclass, "type", qtype);
+	metric_add_labels3("alligator_dns_rr_count", &rr_cnt, DATATYPE_UINT, carg, "name", qname, "class", qclass, "type", qtype);
 
 	if (addr_cnt)
 		aggregator_oneshot_retry_host(qname);

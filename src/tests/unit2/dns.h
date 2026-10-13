@@ -255,6 +255,22 @@ static void test_dns_handler_parse_response(void)
 		0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
 		0x4a, 0x7d, 0xcd, 0x64
 	};
+	/* MX response for corpmail.ru with two answers (prio 10 and 5 → inmx.rambler.ru) */
+	unsigned char mx_pkt[] = {
+		0x12, 0x34, 0x81, 0x80, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+		0x08, 'c','o','r','p','m','a','i','l', 0x02, 'r','u', 0x00,
+		0x00, 0x0f, 0x00, 0x01,
+		/* answer 1: MX priority 10 inmx.rambler.ru */
+		0xc0, 0x0c,
+		0x00, 0x0f, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x13,
+		0x00, 0x0a,
+		0x04, 'i','n','m','x', 0x07, 'r','a','m','b','l','e','r', 0x02, 'r','u', 0x00,
+		/* answer 2: MX priority 5, compress exchange to answer1 RDATA name (offset 43) */
+		0xc0, 0x0c,
+		0x00, 0x0f, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
+		0x00, 0x05,
+		0xc0, 0x2b
+	};
 	context_arg carg;
 	uint64_t ttl;
 
@@ -273,6 +289,12 @@ static void test_dns_handler_parse_response(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.parsed);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 300, (int)ttl);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 300, (int)carg.curr_ttl);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_rr_count{name=\"google.com\",type=\"A\",class=\"IN\"}",
+		"alligator_dns_rr_count", 1);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_rr_info{name=\"google.com\",type=\"A\",data=\"74.125.205.100\"}",
+		"alligator_dns_rr_info", 1);
 
 	carg.resolver = 1;
 	carg.parsed = 0;
@@ -280,6 +302,28 @@ static void test_dns_handler_parse_response(void)
 	ttl = dns_handler((char*)pkt, sizeof(pkt), &carg);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.parsed);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 30, (int)carg.curr_ttl);
+
+	/* MX: rr_count must match successfully emitted rr_info rows (not stay 0). */
+	memset(&carg, 0, sizeof(carg));
+	carg.ttl = -1;
+	carg.curr_ttl = -1;
+	carg.packets_id = 0x1234;
+	carg.rrtype = "MX";
+	carg.key = "udp://127.0.0.1:53/corpmail.ru:IN:15";
+	strlcpy(carg.host, "127.0.0.1", HOSTHEADER_SIZE);
+
+	ttl = dns_handler((char*)mx_pkt, sizeof(mx_pkt), &carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.parsed);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 300, (int)ttl);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_rr_count{name=\"corpmail.ru\",type=\"MX\",class=\"IN\"}",
+		"alligator_dns_rr_count", 2);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_rr_info{name=\"corpmail.ru\",type=\"MX\",data=\"inmx.rambler.ru\",priority=\"10\"}",
+		"alligator_dns_rr_info", 1);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_rr_info{name=\"corpmail.ru\",type=\"MX\",data=\"inmx.rambler.ru\",priority=\"5\"}",
+		"alligator_dns_rr_info", 1);
 }
 
 static void test_dns_unpack_invalid(void)
