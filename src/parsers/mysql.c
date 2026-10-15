@@ -185,12 +185,12 @@ static void mysql_exec_cb(mysql_row_t *row, void *ud)
 					break;
 
 				default:
-					metric_label_value_validator_normalizer(res, row->lengths[i]);
+					metric_label_value_validator_normalizer(res, strlen(res));
 					labels_hash_insert_nocache(hash, colname, res);
 					break;
 			}
 		} else {
-			metric_label_value_validator_normalizer(res, row->lengths[i]);
+			metric_label_value_validator_normalizer(res, strlen(res));
 			labels_hash_insert_nocache(hash, colname, res);
 		}
 		carglog(carg, L_TRACE, "\tmysql: '%s' field '%s': '%s'\n", carg->host, colname, res);
@@ -326,10 +326,14 @@ static void sphinxsearch_row_cb(mysql_row_t *row, void *ud)
 	if (!strcmp(qtype, "status") || !strcmp(qtype, "variables") || !strcmp(qtype, "plan")) {
 		if (num_fields < 2)
 			return;
-		char *Counter = (char*)row->fields[0];
-		char *Value   = (char*)row->fields[1];
-		if (!Counter || !Value)
+		if (!row->fields[0] || !row->fields[1])
 			return;
+		/* fields point into the packet buffer and are not NUL-terminated */
+		char Counter[255], Value[64];
+		size_t cl = row->lengths[0] < sizeof(Counter) - 1 ? row->lengths[0] : sizeof(Counter) - 1;
+		size_t vl = row->lengths[1] < sizeof(Value) - 1 ? row->lengths[1] : sizeof(Value) - 1;
+		memcpy(Counter, row->fields[0], cl); Counter[cl] = 0;
+		memcpy(Value, row->fields[1], vl); Value[vl] = 0;
 
 		snprintf(mname, sizeof(mname), "sphinxsearch_%s_%s", qtype, Counter);
 		if (isdigit((unsigned char)*Value)) {
@@ -348,9 +352,12 @@ static void sphinxsearch_row_cb(mysql_row_t *row, void *ud)
 
 	/* THREADS / PROFILE (упрощённо: только числовые поля с метками) */
 	for (unsigned int i = 0; i < num_fields; i++) {
-		char *res = (char*)row->fields[i];
-		if (!res)
+		if (!row->fields[i])
 			continue;
+		/* fields point into the packet buffer and are not NUL-terminated */
+		char res[64];
+		size_t rl = row->lengths[i] < sizeof(res) - 1 ? row->lengths[i] : sizeof(res) - 1;
+		memcpy(res, row->fields[i], rl); res[rl] = 0;
 
 		snprintf(mname, sizeof(mname), "sphinxsearch_%s_col%u", qtype, i);
 		if (isdigit((unsigned char)*res)) {

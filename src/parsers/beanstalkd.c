@@ -78,7 +78,7 @@ void beanstalkd_stats_tube(char *metrics, size_t size, context_arg *carg)
 	size_t tube_copy = tube_name_len < sizeof(tube_name) ? tube_name_len : sizeof(tube_name) - 1;
 	memcpy(tube_name, tmp, tube_copy);
 	tube_name[tube_copy] = 0;
-	metric_label_value_validator_normalizer(tube_name, tube_name_len);
+	metric_label_value_validator_normalizer(tube_name, tube_copy);
 	tmp += tube_name_len;
 	tmp += strcspn(tmp, "\r\n");
 	tmp += strspn(tmp, "\r\n");

@@ -845,6 +845,14 @@ uint64_t mysql2_read_lei_safe(uint8_t **ptr, uint8_t *end) {
 		*ptr += 3; return v;
 	}
 
+	if (first == 0xFE) {
+		if (*ptr + 8 > end) return 0;
+		uint64_t v = 0;
+		for (int b = 7; b >= 0; b--)
+			v = (v << 8) | (*ptr)[b];
+		*ptr += 8; return v;
+	}
+
 	return 0;
 }
 
@@ -1034,7 +1042,14 @@ void mysql2_parse_universal_result(mysql_conn_t *conn, uint8_t *data, size_t len
 
 				for (int i = 0; i < conn->col_count; i++) {
 					if (f_ptr >= r_end) { ok = 0; break; }
+					if (*f_ptr == 0xFB) { /* SQL NULL */
+						f_ptr++;
+						fields[i] = NULL;
+						lengths[i] = 0;
+						continue;
+					}
 					lengths[i] = mysql2_read_lei_safe(&f_ptr, r_end);
+					if (lengths[i] > (uint64_t)(r_end - f_ptr)) { ok = 0; break; }
 					fields[i] = f_ptr;
 					f_ptr += lengths[i];
 				}
