@@ -19,7 +19,7 @@ static void threaded_loop_slot_enqueue(threaded_loop_slot *slot, void (*fn)(void
 {
 	threaded_loop_work *w;
 
-	if (!slot || slot->work_lock_ready != 2 || !fn)
+	if (!slot || alligator_atomic_load_int(&slot->work_lock_ready) != 2 || !fn)
 		return;
 
 	w = malloc(sizeof(*w));
@@ -120,17 +120,17 @@ void threaded_loop_run(void *arg)
 		uv_loop_close(loop);
 		return;
 	}
-	slot->work_lock_ready = 1;
+	alligator_atomic_store_int(&slot->work_lock_ready, 1);
 	tommy_list_init(&slot->work_list);
 	if (uv_async_init(loop, &slot->async, threaded_loop_async_cb)) {
 		glog(L_ERROR, "threaded_loop: uv_async_init failed\n");
 		uv_mutex_destroy(&slot->work_lock);
-		slot->work_lock_ready = 0;
+		alligator_atomic_store_int(&slot->work_lock_ready, 0);
 		uv_loop_close(loop);
 		return;
 	}
 	slot->async.data = slot;
-	slot->work_lock_ready = 2;
+	alligator_atomic_store_int(&slot->work_lock_ready, 2);
 
 	uv_timer_t timer;
 	uv_timer_init(loop, &timer);
@@ -158,7 +158,7 @@ threaded_loop *create_threaded_loop(char *key, uint64_t max)
 	/* Ensure each worker has initialized its async+mutex before we allow queue_work(). */
 	for (uint64_t i = 0; i < max; ++i) {
 		uint64_t spins = 0;
-		while (thl->slot[i].work_lock_ready != 2) {
+		while (alligator_atomic_load_int(&thl->slot[i].work_lock_ready) != 2) {
 			usleep(1000);
 			if (++spins > 10000) { /* ~10s */
 				glog(L_ERROR, "threaded_loop: worker slot %"PRIu64" init timeout\n", i);
@@ -180,7 +180,7 @@ int del_threaded_loop(threaded_loop *thl)
 
 	for (uint64_t i = 0; i < thl->max; ++i) {
 		uv_thread_join(&thl->threads[i]);
-		if (thl->slot[i].work_lock_ready) {
+		if (alligator_atomic_load_int(&thl->slot[i].work_lock_ready)) {
 			while (!tommy_list_empty(&thl->slot[i].work_list)) {
 				tommy_node *hn = tommy_list_head(&thl->slot[i].work_list);
 				threaded_loop_work *w = (threaded_loop_work *)hn->data;
@@ -188,7 +188,7 @@ int del_threaded_loop(threaded_loop *thl)
 				free(w);
 			}
 			uv_mutex_destroy(&thl->slot[i].work_lock);
-			thl->slot[i].work_lock_ready = 0;
+			alligator_atomic_store_int(&thl->slot[i].work_lock_ready, 0);
 		}
 		free(thl->loop[i]);
 	}
@@ -274,7 +274,7 @@ int threaded_loop_queue_work(uv_loop_t *loop, void (*fn)(void *), void *arg)
 	slot = threaded_loop_slot_by_loop(loop);
 	if (!slot)
 		return -2;
-	if (slot->work_lock_ready != 2)
+	if (alligator_atomic_load_int(&slot->work_lock_ready) != 2)
 		return -4;
 	w = malloc(sizeof(*w));
 	if (!w)
