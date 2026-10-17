@@ -180,7 +180,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	{
 		dsv_router(response, http_data, carg);
 	}
-	else if (!strncmp(http_data->uri, "/conf", 4))
+	else if (!strncmp(http_data->uri, "/conf", 5))
 	{
 		conf_router(response, http_data, carg);
 	}

@@ -30,3 +30,17 @@ static inline uint64_t alligator_atomic_fetch_add_u64(alligator_atomic_u64 *p, u
 	return __sync_fetch_and_add(p, v);
 }
 #endif
+
+/*
+ * Readiness flags shared between threads (one thread publishes, others poll):
+ * store with release, load with acquire. __atomic builtins exist since GCC 4.7
+ * and clang 3.1 and compile to plain moves on x86_64 for int (no libcall).
+ */
+static inline int alligator_atomic_load_int(const int *p)
+{
+	return __atomic_load_n(p, __ATOMIC_ACQUIRE);
+}
+static inline void alligator_atomic_store_int(int *p, int v)
+{
+	__atomic_store_n(p, v, __ATOMIC_RELEASE);
+}
