@@ -89,6 +89,7 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg);
 void metric_update_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2);
 void metric_update_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3);
+void metric_update_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4);
 void metric_update_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7);
 void metric_gset(metric_node *mnode, int8_t type, void* value, expire_tree *expiretree, int64_t ttl);
 labels_t* labels_initiate(namespace_struct *ns, alligator_ht *hash, char *name, char *namespace, namespace_struct *arg_ns, uint8_t no_del);

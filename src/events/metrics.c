@@ -2,8 +2,10 @@
 #include "events/context_arg.h"
 #include "events/metrics.h"
 #include "common/rtime.h"
+#include "common/stop.h"
 #include "metric/percentile_heap.h"
 #include "metric/labels.h"
+#include "metric/metric_types.h"
 #include "metric/namespace.h"
 #include "probe/probe.h"
 #include "resolver/resolver.h"
@@ -113,6 +115,37 @@ void alligator_parser_ok_set(context_arg *carg, uint64_t ok, const char *proto, 
 	lbl = alligator_event_labels(carg, proto, "aggregator", host);
 	alligator_event_metric("alligator_parser_ok", &ok, DATATYPE_UINT, carg, lbl);
 	labels_hash_free(lbl);
+}
+
+void alligator_dns_resolution_status_set(context_arg *carg, const char *name, const char *type, const char *class, const char *result, uint64_t ok)
+{
+	char *qname;
+	char *qtype;
+	char *qclass;
+	char *qresult;
+	uint64_t one = 1;
+
+	/* Metrics are torn down during shutdown; resolver release_all also fails
+	 * probes there and must not touch the metric tree. */
+	if (!carg || !name || !name[0] || !ac || alligator_stop_requested())
+		return;
+
+	qname = (char *)name;
+	qtype = (char *)(type && type[0] ? type : "unknown");
+	qclass = (char *)(class && class[0] ? class : "IN");
+	qresult = (char *)(result && result[0] ? result : (ok ? "success" : "failure"));
+
+	namespace_metric_family_set(NULL, carg, "alligator_dns_resolution_status", METRIC_TYPE_GAUGE,
+		"1 if the last DNS resolution for this name returned usable records, 0 otherwise.");
+	namespace_metric_family_set(NULL, carg, "alligator_dns_resolutions_total", METRIC_TYPE_COUNTER,
+		"DNS resolution attempts by outcome.");
+
+	metric_add_labels3("alligator_dns_resolution_status", &ok, DATATYPE_UINT, carg,
+		"name", qname, "type", qtype, "class", qclass);
+	metric_update_labels4("alligator_dns_resolutions_total", &one, DATATYPE_UINT, carg,
+		"name", qname, "type", qtype, "class", qclass, "result", qresult);
+
+	carg->dns_status_reported = 1;
 }
 
 void alligator_session_account_read(context_arg *carg, ssize_t nread)

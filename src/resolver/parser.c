@@ -4,6 +4,7 @@
 #include "common/selector.h"
 #include "main.h"
 #include "resolver/resolver.h"
+#include "events/metrics.h"
 #include "probe/probe.h"
 
 #include <arpa/inet.h>
@@ -27,12 +28,17 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	dns_t resp;
 	memset(&resp, 0, sizeof(resp));
 	carg->parsed = 0;
+	carg->dns_usable = 0;
+	carg->dns_status_reported = 0;
 
 	uint64_t rr_ttl = 3600;
+	char *status_name = (carg->data && ((char *)carg->data)[0]) ? (char *)carg->data : carg->host;
+	char *status_type = carg->rrtype ? carg->rrtype : "A";
 
 	int nparse = dns_unpack(metrics, (int)size, &resp);
 	if (nparse < 0 || (size_t)nparse != size) {
 		carglog(carg, L_ERROR, "DNS response size mismatch for '%s': parsed %d bytes, expected %zu\n", carg->key, nparse, size);
+		alligator_dns_resolution_status_set(carg, status_name, status_type, "IN", "malformed", 0);
 		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
@@ -47,6 +53,8 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_ERROR, "DNS response header mismatch for '%s': txid=%u qr=%u rcode=%u (expected txid=%u qr=%u valid rcode)\n",
 			carg->key, resp.hdr.transaction_id, resp.hdr.qr, resp.hdr.rcode,
 			carg->packets_id, DNS_RESPONSE);
+		alligator_dns_resolution_status_set(carg, status_name, status_type, "IN",
+			resp.hdr.rcode == 3 ? "nxdomain" : (resp.hdr.rcode == 2 ? "servfail" : "invalid"), 0);
 		dns_free(&resp);
 		probe_metric_success(carg, 0);
 		return rr_ttl;
@@ -57,6 +65,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 		carglog(carg, L_WARN, "resolve %s: empty answer (txid=%u rcode=%u)\n",
 			carg->host, resp.hdr.transaction_id, resp.hdr.rcode);
 		dns_free(&resp);
+		alligator_dns_resolution_status_set(carg, status_name, status_type, "IN", "empty", 0);
 		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
@@ -64,6 +73,7 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 	if (!resp.hdr.nquestion || !resp.questions[0].name[0]) {
 		carglog(carg, L_ERROR, "dns parse '%s': missing question name in response\n", carg->key);
 		dns_free(&resp);
+		alligator_dns_resolution_status_set(carg, status_name, status_type, "IN", "malformed", 0);
 		probe_metric_success(carg, 0);
 		return rr_ttl;
 	}
@@ -236,6 +246,9 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg)
 
 	if (addr_cnt)
 		aggregator_oneshot_retry_host(qname);
+	carg->dns_usable = addr_cnt ? 1 : 0;
+	alligator_dns_resolution_status_set(carg, qname, qtype, qclass,
+		rr_cnt ? "success" : "empty", rr_cnt ? 1 : 0);
 
 	if (carg->curr_ttl < RESOLVER_METRIC_MIN_TTL_SEC)
 		carg->curr_ttl = RESOLVER_METRIC_MIN_TTL_SEC;

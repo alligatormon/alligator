@@ -1,3 +1,5 @@
+alligator_dns_resolution_status
+alligator_dns_resolutions_total
 alligator_dns_rr_info {class="IN", type="AAAA", name="yandex.ru"}
 alligator_dns_rr_info {class="IN", type="CNAME", name="www.dnsimple.com"}
 alligator_dns_rr_info {host="udp://77.88.8.1:53", class="IN", type="A", name="google.com"}

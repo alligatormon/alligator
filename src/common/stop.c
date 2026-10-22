@@ -52,6 +52,12 @@ int alligator_stop_requested(void)
 	return g_stop_requested ? 1 : 0;
 }
 
+/* Unit tests only: set/clear without halt/uv_stop side effects. */
+void alligator_stop_requested_set_for_test(int v)
+{
+	g_stop_requested = v ? 1 : 0;
+}
+
 static void alligator_timer_stop_if_active(uv_timer_t *timer)
 {
 	if (timer && timer->loop && !uv_is_closing((uv_handle_t *)timer))
@@ -109,6 +115,14 @@ void alligator_shutdown_after_loop(void)
 	/* Entrypoints first: their shutdown drains uv_run. Aggregators must not be
 	 * freed before that drain, or libuv still touches handles inside freed
 	 * context_arg (valgrind: Invalid write in uv_run / entrypoint_shutdown). */
+	/* Close shared UDP resolver binds and drain now: an in-flight
+	 * uv_udp_send holds req->data = a permanent dns carg, so its ECANCELED
+	 * send_cb must run before aggregators_free(). */
+	resolver_udp_binds_halt();
+	for (unsigned i = 0; i < 64; ++i) {
+		if (!uv_run(ac->loop, UV_RUN_NOWAIT))
+			break;
+	}
 	entrypoints_free();
 	aggregators_free();
 	aggregate_ctx_free();
@@ -120,6 +134,9 @@ void alligator_shutdown_after_loop(void)
 	query_stop();
 	system_free();
 	system_scrape_free();
+	/* After uv_stop: drain resolver closes / ECANCELED sends. Must not run
+	 * from alligator_stop (signal cb) — nested uv_run hangs SIGINT. */
+	resolver_ephemeral_shutdown();
 	resolver_stop();
 	lang_stop();
 	grok_stop();

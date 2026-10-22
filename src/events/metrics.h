@@ -15,5 +15,8 @@ void alligator_event_metric(const char *name, void *value, int8_t dtype, context
 void alligator_session_connect_ok_set(context_arg *carg, uint64_t ok);
 void alligator_session_connects_inc(context_arg *carg);
 void alligator_parser_ok_set(context_arg *carg, uint64_t ok, const char *proto, const char *host);
+/* DNS-layer outcome, emitted before the parser/connection code can run so an
+ * unreachable resolver is visible even though no probe/parser metric exists. */
+void alligator_dns_resolution_status_set(context_arg *carg, const char *name, const char *type, const char *class, const char *result, uint64_t ok);
 void alligator_session_account_read(context_arg *carg, ssize_t nread);
 void alligator_session_account_write(context_arg *carg, size_t nwrite);

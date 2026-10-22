@@ -4653,7 +4653,7 @@ void test_config_get_aggregator_rich_runtime_paths()
     carg->state = FILESTAT_STATE_SAVE;
     carg->notify = 1;
     carg->script = "/tmp/script.sh";
-    carg->bind_address = "10.0.0.1";
+    carg->bind_address = strdup("10.0.0.1");
     carg->bind_port = 8080;
     carg->buffer_request_size = 4096;
     carg->buffer_response_size = 8192;
@@ -4693,6 +4693,7 @@ void test_config_get_aggregator_rich_runtime_paths()
     free(carg->pquery[0]);
     free(carg->pquery);
     labels_hash_free(carg->labels);
+    free(carg->bind_address);
     free(carg->key);
     free(carg);
     free(carg2->key);

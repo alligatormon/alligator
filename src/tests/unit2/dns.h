@@ -5,6 +5,7 @@
 #include "events/uv_alloc.h"
 #include "resolver/resolver.h"
 #include "events/context_arg.h"
+#include "common/stop.h"
 
 static void test_dns_name_encode_decode(void)
 {
@@ -255,16 +256,16 @@ static void test_dns_handler_parse_response(void)
 		0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
 		0x4a, 0x7d, 0xcd, 0x64
 	};
-	/* MX response for corpmail.ru with two answers (prio 10 and 5 → inmx.rambler.ru) */
+	/* MX response for example.com with two answers (prio 10 and 5 → mx1.example.com) */
 	unsigned char mx_pkt[] = {
 		0x12, 0x34, 0x81, 0x80, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
-		0x08, 'c','o','r','p','m','a','i','l', 0x02, 'r','u', 0x00,
+		0x07, 'e','x','a','m','p','l','e', 0x03, 'c','o','m', 0x00,
 		0x00, 0x0f, 0x00, 0x01,
-		/* answer 1: MX priority 10 inmx.rambler.ru */
+		/* answer 1: MX priority 10 mx1.example.com */
 		0xc0, 0x0c,
 		0x00, 0x0f, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x13,
 		0x00, 0x0a,
-		0x04, 'i','n','m','x', 0x07, 'r','a','m','b','l','e','r', 0x02, 'r','u', 0x00,
+		0x03, 'm','x','1', 0x07, 'e','x','a','m','p','l','e', 0x03, 'c','o','m', 0x00,
 		/* answer 2: MX priority 5, compress exchange to answer1 RDATA name (offset 43) */
 		0xc0, 0x0c,
 		0x00, 0x0f, 0x00, 0x01, 0x00, 0x00, 0x01, 0x2c, 0x00, 0x04,
@@ -295,6 +296,10 @@ static void test_dns_handler_parse_response(void)
 	metric_test_run(CMP_EQUAL,
 		"alligator_dns_rr_info{name=\"google.com\",type=\"A\",data=\"74.125.205.100\"}",
 		"alligator_dns_rr_info", 1);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.dns_status_reported);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_resolution_status{name=\"google.com\",type=\"A\",class=\"IN\"}",
+		"alligator_dns_resolution_status", 1);
 
 	carg.resolver = 1;
 	carg.parsed = 0;
@@ -309,21 +314,58 @@ static void test_dns_handler_parse_response(void)
 	carg.curr_ttl = -1;
 	carg.packets_id = 0x1234;
 	carg.rrtype = "MX";
-	carg.key = "udp://127.0.0.1:53/corpmail.ru:IN:15";
+	carg.key = "udp://127.0.0.1:53/example.com:IN:15";
 	strlcpy(carg.host, "127.0.0.1", HOSTHEADER_SIZE);
 
 	ttl = dns_handler((char*)mx_pkt, sizeof(mx_pkt), &carg);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.parsed);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 300, (int)ttl);
 	metric_test_run(CMP_EQUAL,
-		"alligator_dns_rr_count{name=\"corpmail.ru\",type=\"MX\",class=\"IN\"}",
+		"alligator_dns_rr_count{name=\"example.com\",type=\"MX\",class=\"IN\"}",
 		"alligator_dns_rr_count", 2);
 	metric_test_run(CMP_EQUAL,
-		"alligator_dns_rr_info{name=\"corpmail.ru\",type=\"MX\",data=\"inmx.rambler.ru\",priority=\"10\"}",
+		"alligator_dns_rr_info{name=\"example.com\",type=\"MX\",data=\"mx1.example.com\",priority=\"10\"}",
 		"alligator_dns_rr_info", 1);
 	metric_test_run(CMP_EQUAL,
-		"alligator_dns_rr_info{name=\"corpmail.ru\",type=\"MX\",data=\"inmx.rambler.ru\",priority=\"5\"}",
+		"alligator_dns_rr_info{name=\"example.com\",type=\"MX\",data=\"mx1.example.com\",priority=\"5\"}",
 		"alligator_dns_rr_info", 1);
+	/* Generic types count as resolved even without A/AAAA answers. */
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_resolution_status{name=\"example.com\",type=\"MX\",class=\"IN\"}",
+		"alligator_dns_resolution_status", 1);
+	metric_test_run(CMP_EQUAL,
+		"alligator_dns_resolutions_total{name=\"example.com\",type=\"MX\",class=\"IN\",result=\"success\"}",
+		"alligator_dns_resolutions_total", 1);
+
+	/* Empty answer: the target never reaches the parser, so the DNS-layer
+	 * status must report the failure on its own. */
+	{
+		unsigned char empty_pkt[] = {
+			0x12, 0x34, 0x81, 0x80, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x05, 'e','m','p','t','y', 0x04, 't','e','s','t', 0x00,
+			0x00, 0x01, 0x00, 0x01
+		};
+		memset(&carg, 0, sizeof(carg));
+		carg.ttl = -1;
+		carg.curr_ttl = -1;
+		carg.packets_id = 0x1234;
+		carg.rrtype = "A";
+		carg.data = "empty.test";
+		carg.key = "udp://127.0.0.1:53/empty.test:IN:1";
+		strlcpy(carg.host, "127.0.0.1", HOSTHEADER_SIZE);
+
+		ttl = dns_handler((char*)empty_pkt, sizeof(empty_pkt), &carg);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg.parsed);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg.dns_usable);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.dns_status_reported);
+		metric_test_run(CMP_EQUAL,
+			"alligator_dns_resolution_status{name=\"empty.test\",type=\"A\",class=\"IN\"}",
+			"alligator_dns_resolution_status", 0);
+		metric_test_run(CMP_EQUAL,
+			"alligator_dns_resolutions_total{name=\"empty.test\",type=\"A\",class=\"IN\",result=\"empty\"}",
+			"alligator_dns_resolutions_total", 1);
+		(void)ttl;
+	}
 }
 
 static void test_dns_unpack_invalid(void)
@@ -416,6 +458,1154 @@ static void test_resolver_cache_lookup(void)
 		resolver_cache_lookup("expired.example.org", DNS_TYPE_A) == NULL);
 }
 
+/* Failed resolver retry must not keep a context_arg per attempt. The timer is
+ * closed before uv_run, so this never sends a packet to 192.0.2.1. */
+static void test_resolver_drain_closes(void)
+{
+	unsigned i;
+
+	for (i = 0; i < 32; ++i) {
+		if (!uv_run(ac->loop, UV_RUN_NOWAIT))
+			break;
+	}
+}
+
+static void test_resolver_ephemeral_retry_frees(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	alligator_ht *saved_ag;
+	alligator_ht *tmp_ag = NULL;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	/* Second miss while the first probe is in flight must not allocate. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (probe) {
+		saved_ag = ac->aggregators;
+		if (!ac->aggregators) {
+			tmp_ag = alligator_ht_init(NULL);
+			ac->aggregators = tmp_ag;
+		}
+		alligator_ht_insert(ac->aggregators, &probe->context_node, probe, tommy_strhash_u32(0, probe->key));
+		/* Registered permanent-style entry must survive a failed-attempt release. */
+		resolver_ephemeral_release(probe);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+			resolver_ephemeral_lookup(name, DNS_TYPE_A) == probe);
+		alligator_ht_remove_existing(ac->aggregators, &probe->context_node);
+		ac->aggregators = saved_ag;
+
+		resolver_ephemeral_release(probe);
+		/* Slot stays until close_cbs finish so a concurrent crawl cannot overlap. */
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+			aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+		test_resolver_drain_closes();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	}
+
+	/* Crawl retry allocates one new probe, then that attempt is freed too. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	if (probe)
+		resolver_ephemeral_release(probe);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "brand.example", client->host);
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+	if (tmp_ag) {
+		alligator_ht_done(tmp_ag);
+		pthread_rwlock_destroy(&tmp_ag->rwlock);
+		free(tmp_ag);
+	}
+}
+
+/* TCP write/read sync failures call resolver_ephemeral_release (cannot drive
+ * uv_write failure without a live peer). Assert that same path unsticks the
+ * name so aggregator_get_addr can allocate a fresh probe. */
+static void test_resolver_ephemeral_tcp_write_fail_unsticks(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-tcp.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		probe && (probe->transport == APROTO_TCP || probe->proto == APROTO_TCP));
+
+	/* Same cleanup as resolver_writed_tcp / resolver_connected_tcp failures. */
+	if (probe)
+		resolver_ephemeral_release(probe);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+
+	/* Name must be lookupable again (not stuck in-flight). */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	if (probe)
+		resolver_ephemeral_release(probe);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* Permanent dns TCP aggregates must uv_close after sync connect failures so the
+ * repeating resolver_timer can safely init a new handle on the next period. */
+static void test_resolver_tcp_permanent_fail_closes(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "tcp://192.0.2.1:53";
+	host_aggregator_info *hi;
+	context_arg *seed;
+	context_arg *probe;
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	seed = hi ? context_arg_json_fill(NULL, hi, dns_handler, "dns_handler", NULL, 0,
+		strdup("permanent-tcp.example"), NULL, 0, ac->loop, NULL, 1, NULL, 0) : NULL;
+	url_free(hi);
+	if (!seed || !ac->resolver_size) {
+		if (seed)
+			carg_free(seed);
+		goto restore;
+	}
+	seed->rrtype = "A";
+	seed->rrclass = DNS_CLASS_IN;
+	seed->resolver = 1;
+
+	probe = aggregator_push_addr_strtype(seed, seed->data, seed->rrtype, seed->rrclass);
+	free(seed->data);
+	seed->data = NULL;
+	carg_free(seed);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe)
+		goto restore;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe->resolver_ephemeral);
+
+	/* Stop the repeating kickoff; simulate a post-uv_tcp_init sync failure. */
+	uv_timer_stop(&probe->resolver_timer);
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	probe->lock = 1;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, resolver_tcp_halt(probe));
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe->lock);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		probe->client.loop && probe->client.type != UV_UNKNOWN_HANDLE &&
+		!uv_is_closing((uv_handle_t *)&probe->client));
+
+	if (probe->resolver_timer.loop &&
+	    !uv_is_closing((uv_handle_t *)&probe->resolver_timer)) {
+		uv_timer_stop(&probe->resolver_timer);
+		probe->resolver_timer.data = NULL;
+		uv_close((uv_handle_t *)&probe->resolver_timer, resolver_timer_handle_closed);
+	}
+	test_resolver_drain_closes();
+	free(probe->data);
+	probe->data = NULL;
+	carg_free(probe);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* Permanent TCP success must halt (not only lock=0). Re-entry with a live
+ * client and lock==0 must close, never memset/uv_tcp_init over the handle. */
+static void test_resolver_tcp_permanent_success_halts(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "tcp://192.0.2.1:53";
+	host_aggregator_info *hi;
+	context_arg *seed;
+	context_arg *probe;
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	seed = hi ? context_arg_json_fill(NULL, hi, dns_handler, "dns_handler", NULL, 0,
+		strdup("permanent-tcp-ok.example"), NULL, 0, ac->loop, NULL, 1, NULL, 0) : NULL;
+	url_free(hi);
+	if (!seed || !ac->resolver_size) {
+		if (seed)
+			carg_free(seed);
+		goto restore;
+	}
+	seed->rrtype = "A";
+	seed->rrclass = DNS_CLASS_IN;
+	seed->resolver = 1;
+
+	probe = aggregator_push_addr_strtype(seed, seed->data, seed->rrtype, seed->rrclass);
+	free(seed->data);
+	seed->data = NULL;
+	carg_free(seed);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe)
+		goto restore;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe->resolver_ephemeral);
+
+	uv_timer_stop(&probe->resolver_timer);
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	/* Buggy success path: lock cleared while client still live. */
+	probe->lock = 0;
+	resolver_connect_tcp(probe);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		uv_is_closing((uv_handle_t *)&probe->client) ||
+		!(probe->client.loop && probe->client.type != UV_UNKNOWN_HANDLE));
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe->lock);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		probe->client.loop && probe->client.type != UV_UNKNOWN_HANDLE &&
+		!uv_is_closing((uv_handle_t *)&probe->client));
+
+	if (probe->resolver_timer.loop &&
+	    !uv_is_closing((uv_handle_t *)&probe->resolver_timer)) {
+		uv_timer_stop(&probe->resolver_timer);
+		probe->resolver_timer.data = NULL;
+		uv_close((uv_handle_t *)&probe->resolver_timer, resolver_timer_handle_closed);
+	}
+	test_resolver_drain_closes();
+	free(probe->data);
+	probe->data = NULL;
+	carg_free(probe);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* connect_tcp re-entry with lock+open client must release ephemeral probes
+ * (bare halt would leave them stuck in resolver_ephemeral_ht). */
+static void test_resolver_ephemeral_connect_tcp_reentry_releases(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-tcp-reentry.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	/* Simulate prior attempt still owning the TCP handle + lock (no tt_timer). */
+	uv_timer_stop(&probe->resolver_timer);
+	if (probe->tt_timer) {
+		uv_timer_stop(probe->tt_timer);
+		probe->tt_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, probe->tt_timer);
+		probe->tt_timer = NULL;
+	}
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	probe->lock = 1;
+
+	resolver_connect_tcp(probe);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_freeing);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* connect_udp re-entry with lock+open dedicated udp_client must release
+ * ephemeral probes (bare halt / memset would UAF or stick in the ht). */
+static void test_resolver_ephemeral_connect_udp_reentry_releases(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-udp-reentry.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	uv_timer_stop(&probe->resolver_timer);
+	if (probe->tt_timer) {
+		uv_timer_stop(probe->tt_timer);
+		probe->tt_timer->data = NULL;
+		alligator_cache_push(ac->uv_cache_timer, probe->tt_timer);
+		probe->tt_timer = NULL;
+	}
+	memset(&probe->udp_client, 0, sizeof(probe->udp_client));
+	probe->udp_client.data = probe;
+	uv_udp_init(ac->loop, &probe->udp_client);
+	probe->lock = 1;
+	probe->resolver_udp_shared = 0;
+
+	resolver_connect_udp(probe);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_freeing);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* Release while TCP client is already closing must wait for close_cb (no
+ * sync-free / UAF). */
+static void test_resolver_ephemeral_release_while_closing(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-closing.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	uv_timer_stop(&probe->resolver_timer);
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	/* Bare halt starts close with resolver_closed_tcp; release must count the
+	 * already-closing client and wait (not sync-free). */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, resolver_tcp_halt(probe));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		uv_is_closing((uv_handle_t *)&probe->client));
+
+	resolver_ephemeral_release(probe);
+	/* Must not have sync-freed: still tracked until close_cbs finish. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_freeing);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_closes >= 1);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* After TCP close_cb finishes, client must be inert: halt returns 0 and release
+ * must not wait on a phantom close (would stick forever in ephemeral ht). */
+static void test_resolver_ephemeral_release_after_tcp_closed(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-after-closed.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	uv_timer_stop(&probe->resolver_timer);
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, resolver_tcp_halt(probe));
+	test_resolver_drain_closes();
+	/* Close_cb must have zeroed the handle (same as UDP). */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, resolver_tcp_halt(probe));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		probe->client.loop && probe->client.type != UV_UNKNOWN_HANDLE);
+
+	resolver_ephemeral_release(probe);
+	/* Only the live resolver_timer should be outstanding — not a dead TCP. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_closes);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* Shared-bind release must wait for an in-flight uv_udp_send before carg_free.
+ * Simulate send_active without a peer: release sets wait_send, then send_cb path
+ * (note_closed via wait_send) plus timer drain frees the probe. */
+static void test_resolver_ephemeral_shared_send_waits(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-shared-send.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	/* Pretend a shared-bind send is still queued (no peer needed). */
+	probe->resolver_udp_shared = 1;
+	probe->resolver_udp_send_active = 1;
+	resolver_ephemeral_release(probe);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_freeing);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_wait_send);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_closes >= 1);
+	/* Still tracked while wait_send/timer close are outstanding. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == probe);
+
+	/* Same completion path as resolver_send_udp when wait_send is set. */
+	probe->resolver_udp_send_active = 0;
+	probe->resolver_ephemeral_wait_send = 0;
+	resolver_ephemeral_note_closed(probe);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* After probes_halt / stop, get_addr must not allocate a new ephemeral probe
+ * (would miss release_all and be orphaned by ht_destroy). */
+static void test_resolver_ephemeral_no_alloc_after_stop(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	const char *name = "ephemeral-after-stop.example";
+	resolver_data *rd;
+	int was_stop;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	was_stop = alligator_stop_requested();
+	alligator_stop_requested_set_for_test(1);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+	alligator_stop_requested_set_for_test(was_stop);
+	carg_free(client);
+
+restore:
+	alligator_stop_requested_set_for_test(0);
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* resolver_closed_tcp must free length-prefix write_buffer so release/close
+ * cannot leak when writed_tcp does not run. */
+static void test_resolver_ephemeral_tcp_write_buffer_freed_on_close(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-write-buf.example";
+	resolver_data *rd;
+	char *owned;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("tcp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	uv_timer_stop(&probe->resolver_timer);
+	memset(&probe->client, 0, sizeof(probe->client));
+	probe->client.data = probe;
+	uv_tcp_init(ac->loop, &probe->client);
+	owned = malloc(2);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, owned != NULL);
+	if (!owned) {
+		resolver_ephemeral_release(probe);
+		test_resolver_drain_closes();
+		carg_free(client);
+		goto restore;
+	}
+	owned[0] = 0;
+	owned[1] = 42;
+	probe->write_buffer = uv_buf_init(owned, 2);
+
+	resolver_ephemeral_release(probe);
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+/* Signal-path probes_halt must not free while uv_udp_send is still owned by
+ * libuv (UAF). Post-loop resolver_ephemeral_shutdown finishes wait_send only
+ * after send is no longer active (ECANCELED / send_cb). */
+static void test_resolver_ephemeral_halt_drains_wait_send(void)
+{
+	resolver_data *saved_slots[255];
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://brand.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "ephemeral-halt-wait.example";
+	resolver_data *rd;
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (!probe) {
+		carg_free(client);
+		goto restore;
+	}
+
+	probe->resolver_udp_shared = 1;
+	probe->resolver_udp_send_active = 1;
+	resolver_ephemeral_release(probe);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_wait_send);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+
+	/* Signal-equivalent path: arm only — must not free while send_active. */
+	resolver_probes_halt();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_wait_send);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_udp_send_active);
+
+	/* Post-loop path must not force-free while send still active (UAF). */
+	resolver_ephemeral_shutdown();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->resolver_ephemeral_wait_send);
+
+	/* Simulate ECANCELED / send_cb: clear active, then shutdown finishes wait. */
+	probe->resolver_udp_send_active = 0;
+	resolver_ephemeral_shutdown();
+	test_resolver_drain_closes();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		resolver_ephemeral_lookup(name, DNS_TYPE_A) == NULL);
+
+	/* Stuck wait_send with no in-flight send: post-loop cancel must drain. */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (probe) {
+		probe->resolver_udp_shared = 1;
+		probe->resolver_udp_send_active = 0;
+		resolver_ephemeral_release(probe);
+		/* Manually arm wait_send without send_active (stuck state). */
+		if (probe->resolver_ephemeral_freeing && !probe->resolver_ephemeral_wait_send) {
+			probe->resolver_ephemeral_wait_send = 1;
+			probe->resolver_ephemeral_closes++;
+		}
+		resolver_probes_halt();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)resolver_ephemeral_count());
+		resolver_ephemeral_shutdown();
+		test_resolver_drain_closes();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	}
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
+static void test_dns_resolution_failure_metrics(void)
+{
+	resolver_data *saved_slots[255];
+	resolver_data *rd;
+	uint8_t saved_size;
+	json_t *js;
+	char url[] = "http://fail.example/";
+	host_aggregator_info *hi;
+	context_arg *client;
+	context_arg *probe;
+	const char *name = "unreachable.example";
+
+	if (!ac || !ac->loop)
+		return;
+
+	saved_size = ac->resolver_size;
+	memcpy(saved_slots, ac->srv_resolver, sizeof(saved_slots));
+	memset(ac->srv_resolver, 0, sizeof(ac->srv_resolver));
+	ac->resolver_size = 0;
+	if (!ac->resolver)
+		ac->resolver = alligator_ht_init(NULL);
+
+	js = json_string("udp://192.0.2.1:53");
+	resolver_push_json(js);
+	json_decref(js);
+
+	hi = parse_url(url, strlen(url));
+	client = hi ? context_arg_json_fill(NULL, hi, NULL, "blackbox", NULL, 0, NULL, NULL, 0, ac->loop, NULL, 0, NULL, 0) : NULL;
+	url_free(hi);
+	if (!client || !ac->resolver_size) {
+		if (client)
+			carg_free(client);
+		goto restore;
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		aggregator_get_addr(client, (char *)name, DNS_TYPE_A, DNS_CLASS_IN) == NULL);
+	probe = resolver_ephemeral_lookup(name, DNS_TYPE_A);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe != NULL);
+	if (probe) {
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe->dns_status_reported);
+		/* Transport failure never reaches dns_handler: the fail path must
+		 * still leave a 0 gauge and an error counter for the name. */
+		resolver_ephemeral_fail(probe);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe->dns_status_reported);
+		metric_test_run(CMP_EQUAL,
+			"alligator_dns_resolution_status{name=\"unreachable.example\",type=\"A\",class=\"IN\"}",
+			"alligator_dns_resolution_status", 0);
+		metric_test_run(CMP_EQUAL,
+			"alligator_dns_resolutions_total{name=\"unreachable.example\",type=\"A\",class=\"IN\",result=\"error\"}",
+			"alligator_dns_resolutions_total", 1);
+		test_resolver_drain_closes();
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)resolver_ephemeral_count());
+	}
+	carg_free(client);
+
+restore:
+	if (ac->resolver_size) {
+		rd = ac->srv_resolver[0];
+		ac->srv_resolver[0] = NULL;
+		ac->resolver_size = 0;
+		if (rd) {
+			url_free(rd->hi);
+			labels_hash_free(rd->labels);
+			free_percentile_buffer(rd->response_time);
+			free_percentile_buffer(rd->read_time);
+			free_percentile_buffer(rd->write_time);
+			free(rd);
+		}
+	}
+	memcpy(ac->srv_resolver, saved_slots, sizeof(saved_slots));
+	ac->resolver_size = saved_size;
+}
+
 void test_resolver_dns_pack_unpack(void)
 {
 	test_dns_name_encode_decode();
@@ -429,4 +1619,17 @@ void test_resolver_dns_pack_unpack(void)
 	test_dns_unpack_invalid();
 	test_vrl_dns_reverse_name();
 	test_resolver_cache_lookup();
+	test_resolver_ephemeral_retry_frees();
+	test_resolver_ephemeral_tcp_write_fail_unsticks();
+	test_resolver_tcp_permanent_fail_closes();
+	test_resolver_tcp_permanent_success_halts();
+	test_resolver_ephemeral_connect_tcp_reentry_releases();
+	test_resolver_ephemeral_connect_udp_reentry_releases();
+	test_resolver_ephemeral_release_while_closing();
+	test_resolver_ephemeral_release_after_tcp_closed();
+	test_resolver_ephemeral_shared_send_waits();
+	test_resolver_ephemeral_halt_drains_wait_send();
+	test_resolver_ephemeral_no_alloc_after_stop();
+	test_resolver_ephemeral_tcp_write_buffer_freed_on_close();
+	test_dns_resolution_failure_metrics();
 }

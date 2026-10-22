@@ -43,6 +43,17 @@ uint64_t dns_handler(char *metrics, size_t size, context_arg *carg);
 string *resolver_get_api_response();
 int is_ip_addr(char *str);
 string* aggregator_get_addr(context_arg *carg, char *dname, uint16_t rrtype, uint32_t rclass);
+/* In-flight hostname probes from aggregator_get_addr (not permanent dns aggregates). */
+size_t resolver_ephemeral_count(void);
+context_arg *resolver_ephemeral_lookup(const char *dname, uint16_t rrtype);
+/* Close live handles, then carg_free. No-op if carg is in ac->aggregators. */
+void resolver_ephemeral_release(context_arg *carg);
+/* Failed attempt: abandon oneshot clients waiting on the probe's hostname,
+ * then resolver_ephemeral_release(). Use on every no-answer outcome. */
+void resolver_ephemeral_fail(context_arg *carg);
+void resolver_ephemeral_note_closed(context_arg *carg);
+/* uv_close cb for carg->resolver_timer: memset + note_closed if ephemeral freeing. */
+void resolver_timer_handle_closed(uv_handle_t *handle);
 /* Read-only cache lookup: return a cached, non-expired record for
  * "<dname>:<rrtype>" or NULL. Unlike aggregator_get_addr() this never starts
  * an async probe (used by embedders that manage their own resolution kickoff). */
@@ -57,10 +68,15 @@ uint64_t dns_init_strtype(char *domain, char *buf, char *rrtype, uint16_t *trans
 void resolver_query_refresh(context_arg *carg);
 void resolver_connect_udp(void *arg);
 void resolver_connect_tcp(void *arg);
-void resolver_udp_halt(context_arg *carg);
-void resolver_tcp_halt(context_arg *carg);
+/* Stop timers / pending; uv_close live client if any. Returns 1 if a close
+ * callback will run (caller must wait), 0 otherwise. */
+int resolver_udp_halt(context_arg *carg);
+int resolver_tcp_halt(context_arg *carg);
 void resolver_probe_halt(context_arg *carg);
+/* Signal-safe: arm ephemeral/permanent probe closes. No nested uv_run. */
 void resolver_probes_halt(void);
+/* Post-loop only (after uv_stop): halt shared UDP binds, drain, finish wait_sends. */
+void resolver_ephemeral_shutdown(void);
 void resolver_udp_binds_halt(void);
 int resolver_udp_pending_add(alligator_ht *pending, context_arg *carg);
 void resolver_udp_pending_del(alligator_ht *pending, context_arg *carg);

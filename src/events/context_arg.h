@@ -119,6 +119,11 @@ struct context_arg
 	uint16_t bind_port;
 	/* UDP DNS probes that share bind_address:port: 1 if this carg uses the shared socket. */
 	uint8_t resolver_udp_shared;
+	/* 1 while uv_udp_send on this carg is queued (shared or dedicated). */
+	uint8_t resolver_udp_send_active;
+	/* 1 if carg->rd was allocated for this probe and must be freed with it.
+	 * 0 when rd aliases ac->srv_resolver[i] (crawl / APROTO_RESOLVER paths). */
+	uint8_t resolver_rd_owned;
 	/* resolver_udp_pending* while a shared-socket query is in flight. */
 	void *resolver_udp_pending;
 
@@ -437,6 +442,19 @@ struct context_arg
 	char *rrtype;
 	uint32_t rrclass;
 	uint8_t resolver;
+	/* Hostname probe from aggregator_get_addr, not a permanent dns aggregate. */
+	uint8_t resolver_ephemeral;
+	uint8_t resolver_ephemeral_freeing;
+	/* 1 when the latest DNS reply contained at least one usable A/AAAA RR
+	 * (waiters were restarted); 0 for NXDOMAIN/SERVFAIL/empty/malformed. */
+	uint8_t dns_usable;
+	/* 1 once alligator_dns_resolution_status was emitted for this attempt;
+	 * prevents duplicate outcome rows from the read and fail paths. */
+	uint8_t dns_status_reported;
+	/* Outstanding uv_close / shared-send completions before carg_free. */
+	uint8_t resolver_ephemeral_closes;
+	/* Release is waiting for resolver_send_udp (shared bind; no udp_client close). */
+	uint8_t resolver_ephemeral_wait_send;
 	void *rd; //resolver_data
 	r_time resolve_time;
 	r_time resolve_time_finish;

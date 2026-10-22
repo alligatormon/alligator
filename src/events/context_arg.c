@@ -257,6 +257,17 @@ void carg_inherited_uv_reset(context_arg *carg)
 	carg->http_idle_timer_active = 0;
 	carg->tt_timer = NULL;
 	carg->period_timer = NULL;
+	/* Resolver ownership/accounting is per-carg and must not be inherited. */
+	carg->resolver_udp_pending = NULL;
+	carg->resolver_udp_shared = 0;
+	carg->resolver_udp_send_active = 0;
+	carg->resolver_rd_owned = 0;
+	carg->resolver_ephemeral = 0;
+	carg->resolver_ephemeral_freeing = 0;
+	carg->resolver_ephemeral_closes = 0;
+	carg->resolver_ephemeral_wait_send = 0;
+	carg->dns_usable = 0;
+	carg->dns_status_reported = 0;
 }
 
 static void carg_timer_recycle_cb(uv_handle_t *handle)
@@ -290,8 +301,10 @@ void carg_uv_detach_timers(context_arg *carg)
 	 * before free is carg_close_embedded_uv_handles() (shutdown paths). */
 	if (carg->resolver_timer.loop && !uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
 		uv_timer_stop(&carg->resolver_timer);
+		carg->resolver_timer.data = NULL;
 	}
-	carg->resolver_timer.data = NULL;
+	/* If already closing, leave data so resolver_timer_handle_closed can still
+	 * drain ephemeral note_closed (nulling here stuck probes in the ht). */
 
 	if (carg->http_idle_timer) {
 		carg_timer_detach_and_close(&carg->http_idle_timer);
@@ -306,13 +319,21 @@ void carg_uv_detach_timers(context_arg *carg)
 	}
 }
 
+static void carg_embedded_timer_closed(uv_handle_t *handle)
+{
+	/* Non-resolver embedded timers: inert after close so a later stop/close
+	 * does not touch a fully closed handle (libuv abort). */
+	if (handle)
+		memset(handle, 0, sizeof(uv_timer_t));
+}
+
 static void carg_close_embedded_timer(uv_timer_t *timer)
 {
 	if (!timer || !timer->loop || uv_is_closing((uv_handle_t *)timer))
 		return;
 	uv_timer_stop(timer);
 	timer->data = NULL;
-	uv_close((uv_handle_t *)timer, NULL);
+	uv_close((uv_handle_t *)timer, carg_embedded_timer_closed);
 }
 
 void carg_close_embedded_uv_handles(context_arg *carg)
@@ -322,7 +343,17 @@ void carg_close_embedded_uv_handles(context_arg *carg)
 
 	carg_uv_detach_timers(carg);
 
-	carg_close_embedded_timer(&carg->resolver_timer);
+	/* resolver_timer uses the ephemeral-aware close_cb so a release that
+	 * sees timer_live==2 can wait on note_closed instead of sticking. */
+	if (carg->resolver_timer.loop &&
+	    !uv_is_closing((uv_handle_t *)&carg->resolver_timer)) {
+		uv_timer_stop(&carg->resolver_timer);
+		if (carg->resolver_ephemeral_freeing)
+			carg->resolver_timer.data = carg;
+		else
+			carg->resolver_timer.data = NULL;
+		uv_close((uv_handle_t *)&carg->resolver_timer, resolver_timer_handle_closed);
+	}
 	carg_close_embedded_timer(&carg->t_timeout);
 	carg_close_embedded_timer(&carg->t_towrite);
 	carg_close_embedded_timer(&carg->t_seq_timer);
@@ -348,6 +379,10 @@ void carg_free(context_arg *carg)
 		return;
 
 	carg_uv_detach_timers(carg);
+
+	/* Drop any shared-UDP pending node first: bind teardown walks nodes and
+	 * dereferences their carg back-pointer, so it must not outlive us. */
+	resolver_udp_pending_del(NULL, carg);
 
 	char mesg_preview[160];
 
@@ -425,6 +460,11 @@ void carg_free(context_arg *carg)
 	{
 		free(carg->local_addr);
 		carg->local_addr = NULL;
+	}
+
+	if (carg->bind_address) {
+		free(carg->bind_address);
+		carg->bind_address = NULL;
 	}
 
 	if (carg->hist_buckets)
@@ -1276,7 +1316,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 				carg->bind_port = strtoull(colon + 1, NULL, 10);
 				if (colon - bind_address > 0)
 				{
-					carg->bind_address = strdup(strndup(bind_address, colon - bind_address));
+					carg->bind_address = strndup(bind_address, (size_t)(colon - bind_address));
 				}
 			}
 			else
