@@ -993,6 +993,8 @@ void action_generate_conf(void *funcarg, void* arg)
 			sertype = json_string("otlp");
 		else if (an->serializer == METRIC_SERIALIZER_OTLP_PROTOBUF)
 			sertype = json_string("otlp_protobuf");
+		else if (an->serializer == METRIC_SERIALIZER_OTLP_GRPC)
+			sertype = json_string("otlp_grpc");
 		else if (an->serializer == METRIC_SERIALIZER_OPENMETRICS)
 			sertype = json_string("openmetrics");
 		else if (an->serializer == METRIC_SERIALIZER_CLICKHOUSE)

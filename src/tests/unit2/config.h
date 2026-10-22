@@ -2411,13 +2411,14 @@ void test_config_generators_serializer_matrix()
     /* action serializer matrix */
     const int serializers[] = {
         METRIC_SERIALIZER_JSON, METRIC_SERIALIZER_OTLP, METRIC_SERIALIZER_OTLP_PROTOBUF,
+        METRIC_SERIALIZER_OTLP_GRPC,
         METRIC_SERIALIZER_OPENMETRICS, METRIC_SERIALIZER_CLICKHOUSE, METRIC_SERIALIZER_ELASTICSEARCH,
         METRIC_SERIALIZER_DSV, METRIC_SERIALIZER_CARBON2, METRIC_SERIALIZER_GRAPHITE,
         METRIC_SERIALIZER_STATSD, METRIC_SERIALIZER_DOGSTATSD, METRIC_SERIALIZER_DYNATRACE,
         METRIC_SERIALIZER_INFLUXDB, METRIC_SERIALIZER_PG, METRIC_SERIALIZER_CASSANDRA, 9999
     };
     const char *expected[] = {
-        "json", "otlp", "otlp_protobuf",
+        "json", "otlp", "otlp_protobuf", "otlp_grpc",
         "openmetrics", "clickhouse", "elasticsearch",
         "dsv", "carbon2", "graphite",
         "statsd", "dogstatsd", "dynatrace",

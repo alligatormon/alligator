@@ -105,11 +105,12 @@ Available serializers include:
 - openmetrics
 - otlp
 - otlp\_protobuf
+- otlp\_grpc
 
 In case of a simple HTTP request, the body will be passed in the HTTP POST body.
 This option also specifies the database connector that will be used for connection.
 
-OTLP implementation supported only HTTP protocol with json and protobuf encoding.
+OTLP supports HTTP (`otlp` JSON, `otlp_protobuf`) and unary gRPC metrics export (`otlp_grpc`) over TLS with ALPN `h2`.
 
 
 For example, next script will send all metrics to the pushgateway and statsd repeatedly:
@@ -191,13 +192,28 @@ action {
   serializer otlp_protobuf;
   expr http://localhost:4318/v1/metrics;
 }
+
+scheduler {
+  name sched-otlp-grpc;
+  period 15s;
+  datasource internal;
+  action to-otlp-grpc;
+}
+
+action {
+  name to-otlp-grpc;
+  serializer otlp_grpc;
+  expr https://localhost:4317;
+}
 ```
+
+`serializer otlp_grpc` sends unary `MetricsService/Export` over HTTP/2 (gRPC framing, `Content-Type: application/grpc`). The path is fixed to `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Prefer `https://` with ALPN `h2` (same as otel-collector `exporters.otlp` gRPC); cleartext `http://` uses HTTP/2 prior knowledge (no upgrade). Optional `env` headers (for example `Authorization`) are included in the request. MVP limits: metrics only; no gzip; no connection pooling (oneshot per export); no send flow-control (framed payload must be ≤ 65535 bytes); response HPACK is static-table only (dynamic-table `grpc-status` may not decode).
 
 ## tls\_certificate / tls\_key / tls\_ca / tls\_verify
 Default: -\
 Plural: no
 
-Optional **client TLS** for HTTPS `action` exports (OTLP mTLS and other HTTPS serializers). Paths are PEM files. Use an `https://` `expr` so the client opens a TLS connection; plain `http://` ignores these fields.
+Optional **client TLS** for HTTPS `action` exports (OTLP mTLS, OTLP/gRPC, and other HTTPS serializers). Paths are PEM files. Use an `https://` `expr` so the client opens a TLS connection; plain `http://` ignores these fields. For `otlp_grpc`, Alligator also offers ALPN `h2` on the TLS handshake.
 
 - `tls_certificate` / `tls_key` — client certificate and private key presented to the peer (mTLS). Set both. A certificate without a key, a key without a certificate, or an empty path, is logged at configure time and the action is not installed. A previous action with the same name is left in place.
 - `tls_ca` — optional CA bundle used when verifying the server certificate. A CA with no client certificate is valid.

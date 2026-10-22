@@ -13,6 +13,7 @@
 #include "events/context_arg.h"
 #include "parsers/multiparser.h"
 #include "common/http.h"
+#include "common/http2_grpc.h"
 #include "lang/type.h"
 
 static void action_merge_action_env(alligator_ht *dst, action_node *an)
@@ -99,13 +100,13 @@ char *action_aggregator_key(const char *scheduler_name, const char *url, size_t 
 	return key;
 }
 
-static context_arg *action_run_oneshot(action_node *an, context_arg *oneshot_carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, char *key_base, void *data, char *s_stdin, size_t l_stdin, string *work_dir, alligator_ht *env, const char *scheduler_name)
+static context_arg *action_run_oneshot(action_node *an, context_arg *oneshot_carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *expect_function, char *key_base, void *data, char *s_stdin, size_t l_stdin, string *work_dir, alligator_ht *env, const char *scheduler_name)
 {
 	if (an->dry_run)
 		return NULL;
 
 	char *key = action_aggregator_key(scheduler_name, url, url_len, parser_name, key_base);
-	return aggregator_oneshot(oneshot_carg, url, url_len, mesg, mesg_len, handler, parser_name, NULL, key, an->follow_redirects, data, s_stdin, l_stdin, work_dir, env);
+	return aggregator_oneshot(oneshot_carg, url, url_len, mesg, mesg_len, handler, parser_name, expect_function, key, an->follow_redirects, data, s_stdin, l_stdin, work_dir, env);
 }
 
 // custom mqc
@@ -136,7 +137,8 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 	context_arg carg_hint = {0};
 	context_arg *oneshot_carg = NULL;
 	if (an->log_level_defined || an->log_ch ||
-	    an->tls_cert_file || an->tls_key_file || an->tls_ca_file || an->tls_verify_defined)
+	    an->tls_cert_file || an->tls_key_file || an->tls_ca_file || an->tls_verify_defined ||
+	    an->serializer == METRIC_SERIALIZER_OTLP_GRPC)
 	{
 		/* log_level 0 is L_OFF. Leave it only when the action set it; otherwise
 		   carglog and direct readers inherit the process level. */
@@ -152,6 +154,8 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 			carg_hint.tls_verify = an->tls_verify;
 			carg_hint.tls_verify_defined = 1;
 		}
+		if (an->serializer == METRIC_SERIALIZER_OTLP_GRPC)
+			carg_hint.tls_alpn_h2 = 1;
 		oneshot_carg = &carg_hint;
 	}
 
@@ -172,7 +176,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 	if (!strncmp(an->expr, "exec://", 7))
 	{
 		glog(log_level, "run action exec %s with cmd: '%s' from directory '%s'\n", name, an->expr, work_dir);
-		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, body->s, body->l, work_dir, an->env, scheduler_name);
+		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, NULL, 0, NULL, "NULL", NULL, NULL, NULL, body->s, body->l, work_dir, an->env, scheduler_name);
 	}
 	else if (!strncmp(an->expr, "http", 4))
 	{
@@ -193,7 +197,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 			glog(log_level, "run action clickhouse %s\n", name);
-			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
@@ -219,7 +223,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 
 			char *http_data = gen_http_query(HTTP_POST, hi->query, NULL, hi->host, "alligator", NULL, "1.0", env, NULL, ms->str[i]);
 			glog(log_level, "run action pg %s\n", name);
-			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", key_base, NULL, NULL, 0, NULL, env, scheduler_name);
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, strlen(http_data), clickhouse_response_catch, "clickhouse_response_catch", NULL, key_base, NULL, NULL, 0, NULL, env, scheduler_name);
 
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
@@ -228,6 +232,74 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 
 		free(body->s);
 		body->s = NULL;
+		}
+		else if (an->serializer == METRIC_SERIALIZER_OTLP_GRPC)
+		{
+			string *framed = NULL;
+			char *http2_req = NULL;
+			size_t http2_len = 0;
+			char authority[512];
+			alligator_ht *env = alligator_ht_init(NULL);
+			int scheme_https = hi->tls ? 1 : 0;
+
+			action_merge_action_env(env, an);
+
+			if (hi->port[0]
+				&& !((scheme_https && !strcmp(hi->port, "443"))
+					|| (!scheme_https && !strcmp(hi->port, "80"))))
+				snprintf(authority, sizeof(authority), "%s:%s", hi->host ? hi->host : "localhost", hi->port);
+			else
+				snprintf(authority, sizeof(authority), "%s", hi->host ? hi->host : "localhost");
+
+			framed = otlp_grpc_frame_wrap(body->s, body->l);
+			free(body->s);
+			body->s = NULL;
+			if (!framed)
+			{
+				glog(L_ERROR, "action '%s': otlp_grpc frame wrap failed\n", name);
+				alligator_ht_foreach_arg(env, env_struct_free, env);
+				alligator_ht_done(env);
+				free(env);
+			}
+			else if (framed->l > 65535)
+			{
+				/* MVP: oneshot writes DATA before reading peer WINDOW_UPDATE; sending
+				 * more than the default 65535 connection window is a protocol error. */
+				glog(L_ERROR, "action '%s': otlp_grpc framed payload %zu bytes exceeds HTTP/2 default window (65535); refuse export (no flow-control in MVP)\n", name, framed->l);
+				string_free(framed);
+				alligator_ht_foreach_arg(env, env_struct_free, env);
+				alligator_ht_done(env);
+				free(env);
+			}
+			else
+			{
+				if (framed->l > 60000)
+					glog(L_WARN, "action '%s': otlp_grpc framed payload %zu bytes is near the 64KiB HTTP/2 window limit\n", name, framed->l);
+				http2_req = otlp_grpc_http2_request_build(authority, OTLP_GRPC_METRICS_PATH,
+					scheme_https, framed->s, framed->l, env, &http2_len);
+				string_free(framed);
+				if (!http2_req || !http2_len)
+				{
+					glog(L_ERROR, "action '%s': otlp_grpc HTTP/2 request build failed\n", name);
+					free(http2_req);
+					alligator_ht_foreach_arg(env, env_struct_free, env);
+					alligator_ht_done(env);
+					free(env);
+				}
+				else
+				{
+					glog(log_level, "run action otlp_grpc %s authority=%s path=%s bytes=%zu\n",
+						name, authority, OTLP_GRPC_METRICS_PATH, http2_len);
+					action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len,
+						http2_req, http2_len,
+						an->parser, an->parser_name,
+						otlp_grpc_expect_complete,
+						NULL, NULL, NULL, 0, NULL, env, scheduler_name);
+					alligator_ht_foreach_arg(env, env_struct_free, env);
+					alligator_ht_done(env);
+					free(env);
+				}
+			}
 		}
 		else
 		{
@@ -249,7 +321,7 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 			free(body->s);
 			body->s = NULL;
 			glog(log_level, "run action http %s\n", name);
-			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, NULL, 0, NULL, env, scheduler_name);
+			action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, http_data, http_data_size, an->parser, an->parser_name, NULL, NULL, NULL, NULL, 0, NULL, env, scheduler_name);
 			alligator_ht_foreach_arg(env, env_struct_free, env);
 			alligator_ht_done(env);
 			free(env);
@@ -295,14 +367,14 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 	else if (!strncmp(an->expr, "udp", 3))
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
-		context_arg *carg = action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
+		context_arg *carg = action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
 		if (carg)
 			carg->timeout = 1000;
 	}
 	else
 	{
 		glog(log_level, "run action any %s with expr: '%s'\n", name, an->expr);
-		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
+		action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len, body->s, body->l, NULL, "NULL", NULL, NULL, NULL, NULL, 0, NULL, an->env, scheduler_name);
 	}
 
 	if (ms)

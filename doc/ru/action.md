@@ -108,11 +108,12 @@ action {
 - openmetrics
 - otlp
 - otlp\_protobuf
+- otlp\_grpc
 
 При простом HTTP-запросе тело передаётся в теле HTTP POST.
 Эта опция также задаёт коннектор базы данных, который будет использоваться для подключения.
 
-Реализация OTLP поддерживает только HTTP-протокол с кодировкой json и protobuf.
+OTLP поддерживает HTTP (`otlp` JSON, `otlp_protobuf`) и unary gRPC-экспорт метрик (`otlp_grpc`) по TLS с ALPN `h2`.
 
 
 Например, следующий скрипт будет периодически отправлять все метрики в pushgateway и statsd:
@@ -194,13 +195,28 @@ action {
   serializer otlp_protobuf;
   expr http://localhost:4318/v1/metrics;
 }
+
+scheduler {
+  name sched-otlp-grpc;
+  period 15s;
+  datasource internal;
+  action to-otlp-grpc;
+}
+
+action {
+  name to-otlp-grpc;
+  serializer otlp_grpc;
+  expr https://localhost:4317;
+}
 ```
+
+`serializer otlp_grpc` отправляет unary `MetricsService/Export` по HTTP/2 (gRPC framing, `Content-Type: application/grpc`). Путь фиксирован: `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Предпочтительно `https://` с ALPN `h2` (как otel-collector `exporters.otlp` gRPC); для cleartext `http://` используется HTTP/2 prior knowledge (без upgrade). Опциональные заголовки `env` (например `Authorization`) попадают в запрос. Ограничения MVP: только метрики; без gzip; без пула соединений (oneshot на каждый экспорт); без send flow-control (framed payload ≤ 65535 байт); HPACK ответа — только static table (dynamic-table `grpc-status` может не декодироваться).
 
 ## tls\_certificate / tls\_key / tls\_ca / tls\_verify
 По умолчанию: -\
 Plural: no
 
-Опциональный **клиентский TLS** для HTTPS `action` (OTLP mTLS и другие HTTPS-сериализаторы). Пути — PEM-файлы. Для TLS-соединения указывайте `https://` в `expr`; при `http://` эти поля игнорируются.
+Опциональный **клиентский TLS** для HTTPS `action` (OTLP mTLS, OTLP/gRPC и другие HTTPS-сериализаторы). Пути — PEM-файлы. Для TLS-соединения указывайте `https://` в `expr`; при `http://` эти поля игнорируются. Для `otlp_grpc` Alligator также предлагает ALPN `h2` при TLS handshake.
 
 - `tls_certificate` / `tls_key` — клиентский сертификат и ключ (mTLS). Нужны оба. Сертификат без ключа, ключ без сертификата или пустой путь пишется в лог при разборе конфигурации, и action не устанавливается. Предыдущий action с тем же именем остаётся.
 - `tls_ca` — опциональный CA для проверки сертификата сервера. CA без клиентского сертификата допустим.

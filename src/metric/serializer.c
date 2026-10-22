@@ -182,7 +182,8 @@ serializer_context *serializer_init(int serializer, string *str, char delimiter,
 		sc->json = json_array();
 	else if (serializer == METRIC_SERIALIZER_OTLP)
 		sc->json = otlp_export_metrics_root_new();
-	else if (serializer == METRIC_SERIALIZER_OTLP_PROTOBUF)
+	else if (serializer == METRIC_SERIALIZER_OTLP_PROTOBUF
+		|| serializer == METRIC_SERIALIZER_OTLP_GRPC)
 		sc->str = str;
 	else if (serializer == METRIC_SERIALIZER_DSV)
 	{
@@ -1861,7 +1862,8 @@ void metric_node_serialize(metric_node *x, serializer_context *sc)
 	{
 		serialize_otlp(x, sc, add_labels);
 	}
-	else if (sc->serializer == METRIC_SERIALIZER_OTLP_PROTOBUF)
+	else if (sc->serializer == METRIC_SERIALIZER_OTLP_PROTOBUF
+		|| sc->serializer == METRIC_SERIALIZER_OTLP_GRPC)
 	{
 		otlp_protobuf_serialize(x, sc, add_labels);
 	}

@@ -378,6 +378,7 @@ gld_done:
 #include "json_query.h"
 #include "validator.h"
 #include "protobuf_wire.h"
+#include "common/http2_grpc.h"
 #include "cadvisor_parsers.h"
 #include "system.h"
 #include "config.h"
@@ -799,7 +800,7 @@ static void test_action_push_serializer_matrix(void)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->action);
 
     const char *serializers[] = {
-        "json", "otlp", "otlp_protobuf", "dsv", "graphite",
+        "json", "otlp", "otlp_protobuf", "otlp_grpc", "dsv", "graphite",
         "statsd", "dogstatsd", "dynatrace", "carbon2", "influxdb",
         "clickhouse", "postgresql", "mongodb", "cassandra",
         "elasticsearch", "unknown"
@@ -856,6 +857,7 @@ static void test_serializer_context_matrix(void)
         METRIC_SERIALIZER_JSON,
         METRIC_SERIALIZER_OTLP,
         METRIC_SERIALIZER_OTLP_PROTOBUF,
+        METRIC_SERIALIZER_OTLP_GRPC,
         METRIC_SERIALIZER_DSV,
         METRIC_SERIALIZER_ELASTICSEARCH,
         METRIC_SERIALIZER_CASSANDRA
@@ -3591,6 +3593,125 @@ static void test_serializer_otlp_format(void)
     query_context_free(mqc);
 }
 
+static void test_otlp_grpc_frame_and_http2(void)
+{
+    const char proto[] = "pbbody";
+    string *framed;
+    const char *unwrapped;
+    size_t unwrapped_len = 0;
+    char *req;
+    size_t req_len = 0;
+    context_arg carg;
+    action_node *an;
+    json_t *action;
+    json_t *del;
+    alligator_ht *saved_action;
+
+    framed = otlp_grpc_frame_wrap(proto, sizeof(proto) - 1);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, framed);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5 + (int)(sizeof(proto) - 1), (int)framed->l);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (unsigned char)framed->s[0]);
+    unwrapped = otlp_grpc_frame_unwrap(framed->s, framed->l, &unwrapped_len);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, (void *)unwrapped);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)(sizeof(proto) - 1), (int)unwrapped_len);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, memcmp(unwrapped, proto, unwrapped_len));
+
+    req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, framed->s, framed->l, NULL, &req_len);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        memcmp(req, "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n", sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1));
+    /* Request must include END_STREAM on the (last) DATA frame. */
+    {
+        size_t off = sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1;
+        int saw_data_end = 0;
+        while (off + 9 <= req_len) {
+            uint32_t plen = ((uint32_t)(unsigned char)req[off] << 16)
+                | ((uint32_t)(unsigned char)req[off + 1] << 8)
+                | (uint32_t)(unsigned char)req[off + 2];
+            uint8_t type = (uint8_t)req[off + 3];
+            uint8_t flags = (uint8_t)req[off + 4];
+            if (off + 9 + plen > req_len)
+                break;
+            if (type == 0x0 && (flags & 0x1))
+                saw_data_end = 1;
+            off += 9 + plen;
+        }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_data_end);
+    }
+    free(req);
+    string_free(framed);
+
+    /* Compressed flag must be rejected. */
+    {
+        char bad[6] = { 1, 0, 0, 0, 1, 'x' };
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__,
+            (void *)otlp_grpc_frame_unwrap(bad, sizeof(bad), &unwrapped_len));
+    }
+
+    /* Synthetic unary response: SETTINGS + HEADERS(END_STREAM) with grpc-status:0. */
+    {
+        unsigned char resp[128];
+        size_t r = 0;
+        const unsigned char hdr_block[] = {
+            0x88, /* :status 200 */
+            0x00, 0x0b, 'g','r','p','c','-','s','t','a','t','u','s',
+            0x01, '0'
+        };
+        int grpc_status = -1;
+        char status_msg[64];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        /* SETTINGS empty */
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0x4; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        /* HEADERS END_STREAM|END_HEADERS stream 1 */
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = (unsigned char)sizeof(hdr_block);
+        resp[r++] = 0x1; resp[r++] = 0x5;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 1;
+        memcpy(resp + r, hdr_block, sizeof(hdr_block));
+        r += sizeof(hdr_block);
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)resp, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)protobuf_len);
+        free(protobuf);
+
+        /* Incomplete buffer (HEADERS cut off) must not parse as complete. */
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            otlp_grpc_http2_response_parse((char *)resp, 9, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        free(protobuf);
+    }
+
+    saved_action = ac->action;
+    ac->action = alligator_ht_init(NULL);
+    action = json_object();
+    json_array_object_insert(action, "name", json_string("ut_otlp_grpc"));
+    json_array_object_insert(action, "expr", json_string("https://collector.example:4317"));
+    json_array_object_insert(action, "serializer", json_string("otlp_grpc"));
+    action_push(action);
+    an = action_get("ut_otlp_grpc");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, METRIC_SERIALIZER_OTLP_GRPC, an->serializer);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, an->parser);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "otlp_grpc_response_catch", an->parser_name);
+    del = json_object();
+    json_array_object_insert(del, "name", json_string("ut_otlp_grpc"));
+    action_del(del);
+    json_decref(del);
+    json_decref(action);
+    ac->action = saved_action;
+
+    memset(&carg, 0, sizeof(carg));
+    otlp_grpc_response_catch(NULL, 0, &carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)carg.parser_status);
+}
+
 static void test_serializer_carbon2_format(void)
 {
     int64_t v = 11;
@@ -4644,6 +4765,7 @@ static void run_helpers_and_events_suites(void)
     test_serializer_influx_format();
     test_serializer_statsd_format();
     test_serializer_otlp_format();
+    test_otlp_grpc_frame_and_http2();
     test_serializer_carbon2_format();
     test_serializer_dogstatsd_format();
     test_serializer_dynatrace_format();

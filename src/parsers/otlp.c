@@ -13,6 +13,7 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "common/protobuf_wire.h"
+#include "common/http2_grpc.h"
 #include "common/rtime.h"
 #include "common/validator.h"
 #include "common/reject.h"
@@ -1374,4 +1375,37 @@ void otlp_protobuf_response_catch(char *metrics, size_t size, context_arg *carg)
 
 		carg->parser_status = 1;
 	}
+}
+
+void otlp_grpc_response_catch(char *metrics, size_t size, context_arg *carg)
+{
+	int grpc_status = -1;
+	char status_msg[256];
+	char *protobuf = NULL;
+	size_t protobuf_len = 0;
+
+	if (!carg)
+		return;
+
+	status_msg[0] = '\0';
+	if (!otlp_grpc_http2_response_parse(metrics, size, &grpc_status, status_msg, sizeof(status_msg), &protobuf, &protobuf_len))
+	{
+		carglog(carg, L_ERROR, "otlp_grpc_response_catch: failed to parse HTTP/2 gRPC response (size=%zu)\n", size);
+		free(protobuf);
+		return;
+	}
+
+	if (grpc_status != 0)
+	{
+		if (status_msg[0])
+			carglog(carg, L_ERROR, "otlp_grpc_response_catch: grpc-status=%d grpc-message=\"%s\"\n", grpc_status, status_msg);
+		else
+			carglog(carg, L_ERROR, "otlp_grpc_response_catch: grpc-status=%d\n", grpc_status);
+		free(protobuf);
+		return;
+	}
+
+	/* Reuse OTLP/HTTP protobuf response validation on the unwrapped body. */
+	otlp_protobuf_response_catch(protobuf ? protobuf : "", protobuf_len, carg);
+	free(protobuf);
 }

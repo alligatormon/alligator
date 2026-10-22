@@ -412,6 +412,7 @@ set(STATIC_FILES
 	common/validator.c
 	common/base64.c
 	common/http.c
+	common/http2_grpc.c
 	common/http_entrypoint.c
 	common/protobuf_wire.c
 	common/url.c

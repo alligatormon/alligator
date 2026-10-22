@@ -458,6 +458,8 @@ void aggregator_oneshot_apply_tls(context_arg *dst, context_arg *src)
 		dst->tls_verify = src->tls_verify;
 		dst->tls_verify_defined = 1;
 	}
+	if (src->tls_alpn_h2)
+		dst->tls_alpn_h2 = 1;
 }
 
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env)

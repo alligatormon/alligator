@@ -423,6 +423,16 @@ int do_client_tls_handshake(context_arg *carg) {
 			if (hs_ret == 1) {
 			carglog(carg, L_DEBUG, "tcp client: TLS handshake complete key=%s host=%s port=%s\n", carg->key, carg->host, carg->port);
 			carg->tls_handshake_done = 1;
+			if (carg->tls_alpn_h2) {
+				const unsigned char *alpn = NULL;
+				unsigned int alpn_len = 0;
+				SSL_get0_alpn_selected(carg->ssl, &alpn, &alpn_len);
+				if (alpn_len == 2 && alpn && alpn[0] == 'h' && alpn[1] == '2')
+					carglog(carg, L_DEBUG, "tcp client: ALPN negotiated h2 key=%s\n", carg->key);
+				else
+					carglog(carg, L_WARN, "tcp client: ALPN h2 not negotiated (selected=%.*s) key=%s; gRPC/HTTP2 export may fail\n",
+						alpn_len && alpn ? (int)alpn_len : 0, alpn_len && alpn ? (const char *)alpn : "", carg->key);
+			}
 			if (!carg->tls_connect_time_finish.sec && !carg->tls_connect_time_finish.nsec)
 				carg->tls_connect_time_finish = setrtime();
 			handshake_done_now = 1;

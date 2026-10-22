@@ -243,6 +243,13 @@ void action_push(json_t *action)
 			an->parser = otlp_protobuf_response_catch;
 			an->parser_name = strdup("otlp_protobuf_response_catch");
 		}
+		else if(!strcmp(srlz, "otlp_grpc"))
+		{
+			an->serializer = METRIC_SERIALIZER_OTLP_GRPC;
+			an->parser = otlp_grpc_response_catch;
+			an->parser_name = strdup("otlp_grpc_response_catch");
+			glog(L_DEBUG, "action '%s': serializer='%s' parser=%p ('%s')\n", an->name ? an->name : "?", srlz, an->parser, an->parser_name);
+		}
 		else if(!strcmp(srlz, "dsv"))
 			an->serializer = METRIC_SERIALIZER_DSV;
 		else if(!strcmp(srlz, "graphite"))

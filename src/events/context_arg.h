@@ -325,6 +325,12 @@ struct context_arg
 	/* 1 when tls_verify was set by config. 0 is a real "off", not "unset". */
 	uint8_t tls_verify_defined;
 	uint8_t tls_verify_client;
+	/* Offer ALPN "h2" on the client TLS handshake (OTLP/gRPC export). */
+	uint8_t tls_alpn_h2;
+	/* Oneshot HTTP/2: SETTINGS ACK already sent for this connection. */
+	uint8_t http2_settings_ack_sent;
+	/* Bytes of full_body already consumed by otlp_grpc_expect_complete (avoid re-ACKing). */
+	size_t http2_feed_offset;
 	revocation_policy rev;
 	uint64_t rev_gen;
 

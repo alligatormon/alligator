@@ -167,6 +167,18 @@ int tls_context_init(context_arg *carg, enum ssl_mode mode, int verify, const ch
 			tls_client_cleanup(carg, 1);
 			return 0;
 		}
+		if (carg->tls_alpn_h2) {
+			/* gRPC requires HTTP/2; advertise h2 via ALPN (RFC 7301). */
+			static const unsigned char alpn_h2[] = { 2, 'h', '2' };
+			if (SSL_set_alpn_protos(carg->ssl, alpn_h2, sizeof(alpn_h2)) != 0) {
+				char *err = openssl_get_error_string();
+				carglog(carg, L_ERROR, "tls: SSL_set_alpn_protos(h2) failed key=%s: %s\n", carg->key, err);
+				free(err);
+				tls_client_cleanup(carg, 1);
+				return 0;
+			}
+			carglog(carg, L_DEBUG, "TLS ALPN offered: h2 key=%s\n", carg->key);
+		}
 	}
 
 	if (servername && mode == SSLMODE_CLIENT) {
