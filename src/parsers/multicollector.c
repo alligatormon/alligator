@@ -6,7 +6,6 @@
 #include "mapping/mapping.h"
 #include "parsers/http_proto.h"
 #include "events/context_arg.h"
-#include "common/reject.h"
 #include "mapping/type.h"
 #include "common/http.h"
 #include "common/aggregator.h"
@@ -306,13 +305,6 @@ uint8_t parse_statsd_labels(char *str, uint64_t *i, size_t size, alligator_ht **
 			*lbl = alligator_ht_init(NULL);
 		}
 
-		if (carg && reject_metric(carg->reject, label_name, label_key))
-		{
-			multicollector_warn_reject(carg, "reject rule", str);
-			labels_hash_free(*lbl);
-			return 0;
-		}
-
 		metric_label_value_validator_normalizer(label_key, strlen(label_key));
 
 		if (metric_name_validator_promstatsd(label_name, label_name_size))
@@ -463,12 +455,6 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 
 			if (metric_name_validator(label_name, label_name_size))
 			{
-				if (carg && reject_metric(carg->reject, label_name, label_key))
-				{
-					multicollector_warn_reject(carg, "reject rule", str);
-					labels_hash_free(lbl);
-					return 0;
-				}
 				metric_label_value_validator_normalizer(label_key, strlen(label_key));
 
 				prometheus_metric_name_normalizer(label_name, label_name_size);
@@ -749,9 +735,6 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		alligator_ht *lbl = NULL;
 		if (http_data)
 			lbl = get_labels_from_url_pushgateway_format(http_data->uri, http_data->uri_size, carg);
-
-		if (lbl && (uint64_t)lbl == 1)
-			continue;
 
 		// carg is null if directory persistence read
 		if (carg && http_data && http_data->expire != -1)

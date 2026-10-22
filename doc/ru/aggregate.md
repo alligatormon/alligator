@@ -396,6 +396,32 @@ Sink для **преобразованных** log-событий после VRL
 
 Задаёт доменное имя для резолва. Подробнее о DNS-запросах в alligator — в документации [resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md).
 
+## metric_filter
+По умолчанию: - (принимать все)\
+Множественное: да (`metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label` на строке aggregate)
+
+Фильтр метрик для **всех** путей ingest на context этой строки aggregate до merge labels, transform и записи. Семантика как у [entrypoint `metric_filter`](entrypoint.md#metric_filter): пусто → принимать все; name/label include требуют совпадения; name/label exclude отбрасывают; порядок name include → label include → name exclude → label exclude (exclude побеждает). Label-правила — whole-sample drop.
+
+**Порядок:** побеждает первое определение (как у entrypoint). Более поздний native-блок `metric_filter { ... }` игнорируется, если one-liner'ы уже создали объект (WARN). Предпочтительно: сначала блок, или только one-liner'ы, или только блок.
+
+Native block после handler и URL:
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metric_filter {
+        include ^node_.*$ match_type regexp;
+        exclude ^node_network_.*$ match_type regexp;
+        exclude_label job dropme match_type strict;
+    };
+}
+```
+
+One-liner'ы на той же строке:
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metric_include ^node_.*$ match_type regexp metric_exclude ^node_network_.*$ match_type regexp metric_exclude_label job dropme;
+}
+```
+
 ## metricstransform
 По умолчанию: -\
 Множественное: нет

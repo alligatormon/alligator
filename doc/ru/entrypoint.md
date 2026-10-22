@@ -26,7 +26,6 @@ entrypoint {
     log_channel <channel_name>;
     log_channel_raw <channel_name>;
     return [empty|on]>;
-    reject <label name> <label key>;
     auth <basic|bearer|other> <user:password|token|secret>;
     auth_header <header_name>;
     header <name> <value>;
@@ -65,6 +64,16 @@ entrypoint {
     metric_name_transform_pattern <pcre>;
     metric_name_transform_replacement <string>;
     metricstransform { ... };
+    metric_filter {
+        include <name|regex> match_type strict|regexp;
+        exclude <name|regex> match_type strict|regexp;
+        include_label <label> [<value>] match_type strict|regexp;
+        exclude_label <label> [<value>] match_type strict|regexp;
+    };
+    metric_include <name|regex> match_type strict|regexp;
+    metric_exclude <name|regex> match_type strict|regexp;
+    metric_include_label <label> [<value>] match_type strict|regexp;
+    metric_exclude_label <label> [<value>] match_type strict|regexp;
     # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
     # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
@@ -107,21 +116,6 @@ entrypoint {
 - empty
 
 Включение или отключение body ответа на запросы. Полезно для портов Alligator, доступных из интернета, как решение для приёма метрик Pushgateway из JavaScript браузера.
-
-## reject
-По умолчанию: -\
-Множественное: да
-
-Включает фильтр, отбрасывающий метрики с label name и value (tags для StatsD), равными полю.
-Например, следующая конфигурация отбрасывает все метрики с labels **http_response_code="404"**, **name="bot"**:
-
-```
-entrypoint {
-    reject http_response_code 404;
-    reject name bot;
-    tcp 1111;
-}
-```
 
 ## auth
 По умолчанию: -\
@@ -513,6 +507,75 @@ entrypoint {
     allow 127.0.0.1;
     add_label received:statsd;
     add_label server:alligator;
+}
+```
+
+## metric_filter
+По умолчанию: - (принимать все)\
+Множественное: да (one-liner'ы `metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label`)
+
+Фильтр метрик на ingest (statsd / Graphite / pushgateway / OpenMetrics / OTLP push и все пути `metric_add*` / `metric_update*` на этом context) **до** merge `add_label` и `metricstransform`. Те же правила на aggregate scrape, если заданы на элементе aggregate. Matching — **whole-sample**: совпадение `exclude_label` отбрасывает весь sample (включая OTLP — раньше отклонённый label пропускался, а sample продолжал приниматься; per-label skip намеренно унифицирован в whole-sample drop).
+
+Семантика (порядок; exclude побеждает):
+
+1. Нет `metric_filter` / пустые или все невалидные правила → принимать все. Невалидный PCRE пропускается при компиляции (WARN); если валидных не осталось — фильтр очищается.
+2. **Name include**: если есть `include` → имя должно совпасть ≥1.
+3. **Label include**: если есть `include_label` → sample должен совпасть ≥1 (label присутствует; если у правила есть value — value должен совпасть `strict`/`regexp`; без value или пустая строка ≡ любое значение этого label name).
+4. **Name exclude**: совпадение с `exclude` → drop.
+5. **Label exclude**: любой label sample совпал с любым `exclude_label` → drop.
+6. `match_type`: `strict` или `regexp` / `regex` (PCRE), как у [`metricstransform`](#metricstransform). Без `match_type` — `strict`. Неизвестные значения — как `strict` (WARN). NULL / пустые sample labels → label include падает, если правила есть; label exclude — no-op.
+
+Системные метрики не фильтруются, пока опция явно не задана на system-контексте. Outbound / action — вне scope. Legacy entrypoint `reject` удалён: JSON-ключ `reject` или plain-ключевое слово `reject` игнорируется с WARN — мигрируйте на `exclude_label`. Labels из URI pushgateway больше не обрывают весь URI при reject; фильтрация — per-sample на `metric_add` / `metric_update`.
+
+**Острый край:** include-only на entrypoint также применяется к `alligator_session_*` / другим `alligator_*` через этот carg. Если session-метрики нужны — включайте их в include (или exclude-only). Автоисключения `alligator_*` нет.
+
+**Порядок в plain config:** побеждает первое определение `metric_filter` на construct.
+
+- Native-блок `metric_filter { ... }` или JSON создаёт фильтр. Последующие блоки/JSON игнорируются (WARN).
+- One-liner'ы `metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label` **дописывают** правила или **создают** фильтр.
+- Если one-liner'ы идут **раньше** блока `metric_filter { ... }`, блок **игнорируется** (first wins, WARN).
+
+Рекомендуется: сначала блок (опциональные one-liner'ы после), только one-liner'ы, или только блок.
+
+Блок:
+```
+entrypoint {
+    tcp 9091;
+    metric_filter {
+        include ^app_.*$ match_type regexp;
+        exclude go_gc_duration_seconds match_type strict;
+        exclude_label http_response_code 404 match_type strict;
+        exclude_label name bot;
+        exclude_label role;
+        include_label env prod match_type strict;
+    };
+}
+```
+
+Только one-liner'ы:
+```
+entrypoint {
+    tcp 9091;
+    metric_include ^app_.*$ match_type regexp;
+    metric_exclude go_gc_duration_seconds match_type strict;
+    metric_exclude_label http_response_code 404 match_type strict;
+    metric_include_label env prod;
+}
+```
+
+JSON:
+```json
+"metric_filter": {
+  "include": [{"metric": "^app_.*$", "match_type": "regexp"}],
+  "exclude": [{"metric": "go_.*", "match_type": "regexp"}],
+  "exclude_label": [
+    {"label": "http_response_code", "value": "404", "match_type": "strict"},
+    {"label": "name", "value": "bot"},
+    {"label": "role"}
+  ],
+  "include_label": [
+    {"label": "env", "value": "prod", "match_type": "strict"}
+  ]
 }
 ```
 

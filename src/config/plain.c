@@ -983,6 +983,429 @@ static json_t *plain_metricstransform_parse(config_parser_stat *wstokens, uint64
 	return mtx;
 }
 
+/* Ensure operator_json has metric_filter { include:[], exclude:[] }. */
+static json_t *plain_metric_filter_ensure(json_t *operator_json)
+{
+	json_t *mf;
+	json_t *inc;
+	json_t *exc;
+	json_t *inc_lbl;
+	json_t *exc_lbl;
+
+	if (!operator_json)
+		return NULL;
+
+	mf = json_object_get(operator_json, "metric_filter");
+	if (mf && json_is_object(mf))
+	{
+		if (!json_object_get(mf, "include"))
+			json_object_set_new(mf, "include", json_array());
+		if (!json_object_get(mf, "exclude"))
+			json_object_set_new(mf, "exclude", json_array());
+		if (!json_object_get(mf, "include_label"))
+			json_object_set_new(mf, "include_label", json_array());
+		if (!json_object_get(mf, "exclude_label"))
+			json_object_set_new(mf, "exclude_label", json_array());
+		return mf;
+	}
+
+	mf = json_object();
+	inc = json_array();
+	exc = json_array();
+	inc_lbl = json_array();
+	exc_lbl = json_array();
+	json_object_set_new(mf, "include", inc);
+	json_object_set_new(mf, "exclude", exc);
+	json_object_set_new(mf, "include_label", inc_lbl);
+	json_object_set_new(mf, "exclude_label", exc_lbl);
+	json_array_object_insert(operator_json, "metric_filter", mf);
+	return mf;
+}
+
+static void plain_metric_filter_append_rule(json_t *operator_json, const char *kind,
+	const char *metric, const char *match_type)
+{
+	json_t *mf;
+	json_t *arr;
+	json_t *rule;
+
+	if (!operator_json || !kind || !metric || !*metric)
+		return;
+
+	mf = plain_metric_filter_ensure(operator_json);
+	if (!mf)
+		return;
+
+	arr = json_object_get(mf, kind);
+	if (!arr || !json_is_array(arr))
+		return;
+
+	rule = json_object();
+	json_object_set_new(rule, "metric", json_string(metric));
+	json_object_set_new(rule, "match_type",
+		json_string(match_type && *match_type ? match_type : "strict"));
+	json_array_append_new(arr, rule);
+}
+
+static void plain_metric_filter_append_label_rule(json_t *operator_json, const char *kind,
+	const char *label, const char *value, const char *match_type)
+{
+	json_t *mf;
+	json_t *arr;
+	json_t *rule;
+
+	if (!operator_json || !kind || !label || !*label)
+		return;
+
+	mf = plain_metric_filter_ensure(operator_json);
+	if (!mf)
+		return;
+
+	arr = json_object_get(mf, kind);
+	if (!arr || !json_is_array(arr))
+		return;
+
+	rule = json_object();
+	json_object_set_new(rule, "label", json_string(label));
+	if (value && *value)
+		json_object_set_new(rule, "value", json_string(value));
+	json_object_set_new(rule, "match_type",
+		json_string(match_type && *match_type ? match_type : "strict"));
+	json_array_append_new(arr, rule);
+}
+
+static int plain_metric_filter_has_native_block(config_parser_stat *wstokens, uint64_t idx, uint64_t token_count)
+{
+	if (!wstokens || idx >= token_count || !wstokens[idx].token->s ||
+	    strcmp(wstokens[idx].token->s, "metric_filter"))
+		return 0;
+	if (wstokens[idx].start)
+		return 1;
+
+	for (uint64_t k = idx + 1; k < token_count; k++)
+	{
+		if (wstokens[k].start)
+			return 1;
+		if (wstokens[k].operator || wstokens[k].context)
+			return 1;
+		if (wstokens[k].argument || wstokens[k].end || wstokens[k].semicolon)
+			return 0;
+	}
+	return 0;
+}
+
+/* *idx = index of metric_filter token; on return *idx = closing }; .end cleared. */
+static json_t *plain_metric_filter_parse_native_block(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
+{
+	json_t *root;
+	json_t *include;
+	json_t *exclude;
+	json_t *include_label;
+	json_t *exclude_label;
+	uint64_t i;
+	uint64_t block_end;
+
+	if (!idx || *idx >= token_count || !wstokens[*idx].token->s ||
+	    strcmp(wstokens[*idx].token->s, "metric_filter"))
+		return NULL;
+
+	block_end = *idx + 1;
+	for (; block_end < token_count; block_end++)
+	{
+		if (wstokens[block_end].end)
+			break;
+	}
+	if (block_end >= token_count)
+		return NULL;
+
+	root = json_object();
+	include = json_array();
+	exclude = json_array();
+	include_label = json_array();
+	exclude_label = json_array();
+	json_object_set_new(root, "include", include);
+	json_object_set_new(root, "exclude", exclude);
+	json_object_set_new(root, "include_label", include_label);
+	json_object_set_new(root, "exclude_label", exclude_label);
+
+	i = *idx + 1;
+	while (i < block_end)
+	{
+		const char *op;
+		uint64_t stmt_end;
+		int is_label;
+
+		while (i < block_end && !wstokens[i].operator && !wstokens[i].context &&
+		       !wstokens[i].argument)
+			i++;
+		if (i >= block_end)
+			break;
+
+		if (!wstokens[i].token || !wstokens[i].token->s)
+		{
+			i++;
+			continue;
+		}
+
+		op = wstokens[i].token->s;
+		is_label = !strcmp(op, "include_label") || !strcmp(op, "exclude_label");
+		if (strcmp(op, "include") && strcmp(op, "exclude") && !is_label)
+		{
+			i++;
+			continue;
+		}
+
+		/* Include the token that carries ';' so "match_type regexp;" is fully visible. */
+		stmt_end = i + 1;
+		while (stmt_end < block_end)
+		{
+			int has_semi = wstokens[stmt_end].semicolon;
+			stmt_end++;
+			if (has_semi)
+				break;
+		}
+
+		if (is_label)
+		{
+			const char *label = NULL;
+			const char *value = NULL;
+			const char *match_type = "strict";
+			uint64_t p;
+
+			if (i + 1 < stmt_end && wstokens[i + 1].token && wstokens[i + 1].token->s)
+				label = wstokens[i + 1].token->s;
+
+			for (p = i + 2; p < stmt_end; p++)
+			{
+				if (!wstokens[p].token || !wstokens[p].token->s)
+					continue;
+				if (!strcmp(wstokens[p].token->s, "match_type"))
+				{
+					if (p + 1 < stmt_end && wstokens[p + 1].token && wstokens[p + 1].token->s)
+						match_type = wstokens[p + 1].token->s;
+					break;
+				}
+				if (!value)
+					value = wstokens[p].token->s;
+			}
+
+			if (label && *label)
+			{
+				json_t *rule = json_object();
+				json_object_set_new(rule, "label", json_string(label));
+				if (value && *value)
+					json_object_set_new(rule, "value", json_string(value));
+				json_object_set_new(rule, "match_type", json_string(match_type));
+				json_array_append_new(!strcmp(op, "exclude_label") ? exclude_label : include_label, rule);
+			}
+		}
+		else
+		{
+			const char *metric = NULL;
+			const char *match_type = "strict";
+
+			/* include|exclude <metric> [match_type <type>] */
+			if (i + 1 < stmt_end && wstokens[i + 1].token && wstokens[i + 1].token->s)
+				metric = wstokens[i + 1].token->s;
+
+			for (uint64_t p = i + 2; p + 1 < stmt_end; p++)
+			{
+				if (wstokens[p].token && wstokens[p].token->s &&
+				    !strcmp(wstokens[p].token->s, "match_type") &&
+				    wstokens[p + 1].token && wstokens[p + 1].token->s)
+				{
+					match_type = wstokens[p + 1].token->s;
+					break;
+				}
+			}
+
+			if (metric && *metric)
+			{
+				json_t *rule = json_object();
+				json_object_set_new(rule, "metric", json_string(metric));
+				json_object_set_new(rule, "match_type", json_string(match_type));
+				json_array_append_new(!strcmp(op, "exclude") ? exclude : include, rule);
+			}
+		}
+
+		i = stmt_end;
+	}
+
+	wstokens[block_end].end = 0;
+	*idx = block_end;
+	return root;
+}
+
+static json_t *plain_parse_metric_filter_object(const char *value)
+{
+	json_error_t error;
+	json_t *parsed;
+	char *t;
+
+	if (!value)
+		return NULL;
+
+	t = plain_strip_trailing_semicolon_ws(value);
+	if (!t)
+		return NULL;
+
+	parsed = json_loads(t, 0, &error);
+	free(t);
+	if (!parsed)
+		return NULL;
+	if (!json_is_object(parsed))
+	{
+		json_decref(parsed);
+		return NULL;
+	}
+	return parsed;
+}
+
+/* Parse metric_filter from current token. Native block or JSON argument. */
+static json_t *plain_metric_filter_parse(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
+{
+	json_t *mf;
+	uint64_t j;
+
+	if (!wstokens || !idx || *idx >= token_count || !wstokens[*idx].token->s ||
+	    strcmp(wstokens[*idx].token->s, "metric_filter"))
+		return NULL;
+
+	j = *idx;
+	mf = plain_metric_filter_has_native_block(wstokens, *idx, token_count)
+		? plain_metric_filter_parse_native_block(wstokens, &j, token_count)
+		: NULL;
+	if (!mf && *idx + 1 < token_count && wstokens[*idx + 1].argument)
+	{
+		mf = plain_parse_metric_filter_object(wstokens[*idx + 1].token->s);
+		if (mf)
+			j = *idx + 1;
+	}
+
+	if (!mf)
+		return NULL;
+
+	*idx = j;
+	return mf;
+}
+
+static int plain_metric_filter_is_oneliner_op(const char *t)
+{
+	return t && (!strcmp(t, "metric_include") || !strcmp(t, "metric_exclude") ||
+		     !strcmp(t, "metric_include_label") || !strcmp(t, "metric_exclude_label") ||
+		     !strcmp(t, "metric_filter") || !strcmp(t, "metricstransform"));
+}
+
+/* Parse metric_include / metric_exclude / metric_*_label one-liner into metric_filter. */
+static int plain_metric_filter_parse_oneliner(json_t *operator_json, config_parser_stat *wstokens,
+	uint64_t *idx, uint64_t token_count)
+{
+	const char *op;
+	const char *kind;
+	const char *match_type = "strict";
+	uint64_t stmt_end;
+	int is_label;
+
+	if (!operator_json || !wstokens || !idx || *idx >= token_count ||
+	    !wstokens[*idx].token || !wstokens[*idx].token->s)
+		return 0;
+
+	op = wstokens[*idx].token->s;
+	if (!strcmp(op, "metric_include"))
+	{
+		kind = "include";
+		is_label = 0;
+	}
+	else if (!strcmp(op, "metric_exclude"))
+	{
+		kind = "exclude";
+		is_label = 0;
+	}
+	else if (!strcmp(op, "metric_include_label"))
+	{
+		kind = "include_label";
+		is_label = 1;
+	}
+	else if (!strcmp(op, "metric_exclude_label"))
+	{
+		kind = "exclude_label";
+		is_label = 1;
+	}
+	else
+		return 0;
+
+	/* Stop at ';', '}', or the next metric_* one-liner (aggregate one-liners
+	 * may share a single trailing semicolon on the line). Include the ';' token. */
+	stmt_end = *idx + 1;
+	while (stmt_end < token_count && !wstokens[stmt_end].end)
+	{
+		const char *t = wstokens[stmt_end].token ? wstokens[stmt_end].token->s : NULL;
+		if (plain_metric_filter_is_oneliner_op(t))
+			break;
+		int has_semi = wstokens[stmt_end].semicolon;
+		stmt_end++;
+		if (has_semi)
+			break;
+	}
+
+	if (is_label)
+	{
+		const char *label = NULL;
+		const char *value = NULL;
+		uint64_t p;
+
+		if (*idx + 1 < stmt_end && wstokens[*idx + 1].token && wstokens[*idx + 1].token->s)
+			label = wstokens[*idx + 1].token->s;
+
+		for (p = *idx + 2; p < stmt_end; p++)
+		{
+			if (!wstokens[p].token || !wstokens[p].token->s)
+				continue;
+			if (!strcmp(wstokens[p].token->s, "match_type"))
+			{
+				if (p + 1 < stmt_end && wstokens[p + 1].token && wstokens[p + 1].token->s)
+					match_type = wstokens[p + 1].token->s;
+				break;
+			}
+			if (!value)
+				value = wstokens[p].token->s;
+		}
+
+		if (!label || !*label)
+			return 0;
+
+		plain_metric_filter_append_label_rule(operator_json, kind, label, value, match_type);
+	}
+	else
+	{
+		const char *metric = NULL;
+		uint64_t i = *idx + 1;
+
+		if (i < stmt_end && wstokens[i].token && wstokens[i].token->s)
+			metric = wstokens[i].token->s;
+
+		for (uint64_t p = *idx + 1; p + 1 < stmt_end; p++)
+		{
+			if (wstokens[p].token && wstokens[p].token->s &&
+			    !strcmp(wstokens[p].token->s, "match_type") &&
+			    wstokens[p + 1].token && wstokens[p + 1].token->s)
+			{
+				match_type = wstokens[p + 1].token->s;
+				break;
+			}
+		}
+
+		if (!metric || !*metric)
+			return 0;
+
+		plain_metric_filter_append_rule(operator_json, kind, metric, match_type);
+	}
+
+	if (stmt_end > *idx + 1)
+		*idx = stmt_end - 1;
+	return 1;
+}
+
 static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
 {
 	const char *token;
@@ -1181,6 +1604,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 		else if (wstokens[i].context)
 		{
 			char *context_name = wstokens[i].token->s;
+			if (context_name && !strcmp(context_name, "reject"))
+				glog(L_WARN, "reject: removed; use metric_filter exclude_label (ignored)\n");
 			char *operator_name = NULL;
 			json_t *allow_entrypoint = NULL;
 			json_t *deny_entrypoint = NULL;
@@ -1268,6 +1693,27 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					continue;
 				}
 
+			if (!strcmp(context_name, "entrypoint") && operator_json &&
+			    wstokens[i].token->s && !strcmp(wstokens[i].token->s, "metric_filter") &&
+			    (wstokens[i].context || wstokens[i].start ||
+			     plain_metric_filter_has_native_block(wstokens, i, token_count)))
+				{
+					uint64_t j = i;
+					json_t *mf = plain_metric_filter_parse(wstokens, &j, token_count);
+					if (mf)
+					{
+						if (!json_object_get(operator_json, "metric_filter"))
+							json_array_object_insert(operator_json, "metric_filter", mf);
+						else
+						{
+							glog(L_WARN, "metric_filter: ignoring subsequent metric_filter block (first wins)\n");
+							json_decref(mf);
+						}
+						i = j;
+					}
+					continue;
+				}
+
 				if (wstokens[i].operator ||
 			    ((!strcmp(context_name, "aggregate") ||
 			      !strcmp(context_name, "action") ||
@@ -1276,7 +1722,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			     wstokens[i].context &&
 			     wstokens[i].token->s &&
 			     strcmp(wstokens[i].token->s, context_name) &&
-			     strcmp(wstokens[i].token->s, "metricstransform")))
+			     strcmp(wstokens[i].token->s, "metricstransform") &&
+			     strcmp(wstokens[i].token->s, "metric_filter")))
 				{
 					operator_name = wstokens[i].token->s;
 					if (!strcmp(context_name, "system") && (!strcmp(wstokens[i].token->s, "packages") || !strcmp(wstokens[i].token->s, "process") || !strcmp(wstokens[i].token->s, "services") || !strcmp(wstokens[i].token->s, "services_process") || !strcmp(wstokens[i].token->s, "services_checking_users") || !strcmp(wstokens[i].token->s, "pidfile") || !strcmp(wstokens[i].token->s, "userprocess") || !strcmp(wstokens[i].token->s, "groupprocess") || !strcmp(wstokens[i].token->s, "cgroup") || !strcmp(wstokens[i].token->s, "sysctl")))
@@ -1519,6 +1966,34 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								i = j;
 							}
 						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "metric_filter"))
+					{
+						uint64_t j = i;
+						json_t *mf = plain_metric_filter_parse(wstokens, &j, token_count);
+						if (mf)
+						{
+							if (!json_object_get(operator_json, "metric_filter"))
+								json_array_object_insert(operator_json, "metric_filter", mf);
+							else
+							{
+								glog(L_WARN, "metric_filter: ignoring subsequent metric_filter block (first wins)\n");
+								json_decref(mf);
+							}
+							i = j;
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "reject"))
+					{
+						glog(L_WARN, "reject: removed; migrate to metric_filter exclude_label (ignored)\n");
+					}
+					else if (!strcmp(context_name, "entrypoint") &&
+						 (!strcmp(operator_name, "metric_include") || !strcmp(operator_name, "metric_exclude") ||
+						  !strcmp(operator_name, "metric_include_label") || !strcmp(operator_name, "metric_exclude_label")))
+					{
+						uint64_t j = i;
+						if (plain_metric_filter_parse_oneliner(operator_json, wstokens, &j, token_count))
+							i = j;
 					}
 					else if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && !strcmp(operator_name, "metricstransform"))
 					{
@@ -2262,6 +2737,31 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								}
 								continue;
 							}
+							if (plain_metric_filter_has_native_block(wstokens, i, token_count))
+							{
+								uint64_t j = i;
+								json_t *mf = plain_metric_filter_parse_native_block(wstokens, &j, token_count);
+								if (mf)
+								{
+									if (!json_object_get(operator_json, "metric_filter"))
+										json_array_object_insert(operator_json, "metric_filter", mf);
+									else
+									{
+										glog(L_WARN, "metric_filter: ignoring subsequent metric_filter block (first wins)\n");
+										json_decref(mf);
+									}
+									i = j;
+								}
+								continue;
+							}
+							if (opt_tok && (!strcmp(opt_tok, "metric_include") || !strcmp(opt_tok, "metric_exclude") ||
+							    !strcmp(opt_tok, "metric_include_label") || !strcmp(opt_tok, "metric_exclude_label")))
+							{
+								uint64_t j = i;
+								if (plain_metric_filter_parse_oneliner(operator_json, wstokens, &j, token_count))
+									i = j;
+								continue;
+							}
 							uint64_t sep = strcspn(opt_tok, "=");
 							size_t toklen = opt_tok ? strlen(opt_tok) : 0;
 							if (sep < toklen && opt_tok[sep] == '=')
@@ -2278,7 +2778,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								    !strcmp(arg_name, "proxy") || !strcmp(arg_name, "tls_ocsp_proxy") ||
 								    !strcmp(arg_name, "tls_ocsp_responder"))
 									semisep = toklen;
-								if (!strcmp(arg_name, "metricstransform"))
+								if (!strcmp(arg_name, "metricstransform") || !strcmp(arg_name, "metric_filter"))
 									semisep = toklen;
 
 								json_t *arg_value = NULL;
@@ -2289,6 +2789,21 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = plain_json_or_string(wstokens[i + 1].token->s);
 									if (arg_value)
 										json_array_object_insert(operator_json, arg_name, arg_value);
+									i++;
+								}
+								else if (!strcmp(arg_name, "metric_filter") && opt_tok[sep + 1] == '\0' && i + 1 < token_count)
+								{
+									arg_value = plain_parse_metric_filter_object(wstokens[i + 1].token->s);
+									if (arg_value)
+									{
+										if (!json_object_get(operator_json, "metric_filter"))
+											json_array_object_insert(operator_json, arg_name, arg_value);
+										else
+										{
+											glog(L_WARN, "metric_filter: ignoring subsequent metric_filter (first wins)\n");
+											json_decref(arg_value);
+										}
+									}
 									i++;
 								}
 								else if (semisep+1 < toklen)
@@ -2327,12 +2842,24 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 											if (!arg_value)
 												arg_value = plain_json_or_string(opt_tok+sep+1);
 										}
+										else if (!strcmp(arg_name, "metric_filter"))
+										{
+											arg_value = plain_parse_metric_filter_object(opt_tok+sep+1);
+											if (!arg_value)
+												arg_value = plain_json_or_string(opt_tok+sep+1);
+										}
 										else
 											arg_value = json_string(opt_tok+sep+1);
 									}
 
 									if (!strcmp(arg_name, "pquery")) {
 										json_array_object_insert(pquery_arr, "", arg_value);
+									}
+									else if (!strcmp(arg_name, "metric_filter") &&
+										 json_object_get(operator_json, "metric_filter"))
+									{
+										glog(L_WARN, "metric_filter: ignoring subsequent metric_filter (first wins)\n");
+										json_decref(arg_value);
 									}
 									else
 										json_array_object_insert(operator_json, arg_name, arg_value);
@@ -2467,6 +2994,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					{
 						json_t *arg_json = json_integer(strtoll(wstokens[i].token->s, NULL, 10));
 						json_array_object_insert(operator_json, operator_name, arg_json);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "reject"))
+					{
+						/* WARN already emitted when the reject operator was seen; drop args. */
 					}
 				else if ((!strcmp(context_name, "puppeteer") || !strcmp(context_name, "chromecdp")) && plain_puppeteer_insert_option(operator_json, wstokens, &i, token_count))
 				{

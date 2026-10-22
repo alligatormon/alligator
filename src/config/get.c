@@ -433,6 +433,13 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
 	}
 
+	if (carg->metric_filter)
+	{
+		json_t *metric_filter = json_deep_copy(carg->metric_filter);
+		if (metric_filter)
+			json_array_object_insert(ctx, "metric_filter", metric_filter);
+	}
+
 	if (carg->metric_name_transform_pattern)
 		json_array_object_insert(ctx, "metric_name_transform_pattern", json_string(carg->metric_name_transform_pattern));
 	if (carg->metric_name_transform_replacement)
@@ -1596,6 +1603,13 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 		json_t *metricstransform = json_deep_copy(carg->metricstransform);
 		if (metricstransform)
 			json_array_object_insert(ctx, "metricstransform", metricstransform);
+	}
+
+	if (carg->metric_filter)
+	{
+		json_t *metric_filter = json_deep_copy(carg->metric_filter);
+		if (metric_filter)
+			json_array_object_insert(ctx, "metric_filter", metric_filter);
 	}
 
 	if (carg->metric_name_transform_pattern)

@@ -338,7 +338,7 @@ static void metric_transform_trace_operation(context_arg *carg, action_node *an,
     }
 }
 
-static int metric_transform_match_pattern(const char *value, const char *pattern, int regexp)
+int metric_transform_match_pattern(const char *value, const char *pattern, int regexp)
 {
     if (!pattern || !*pattern)
         return 1;

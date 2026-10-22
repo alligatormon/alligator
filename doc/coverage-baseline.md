@@ -49,7 +49,7 @@ Some scenarios segfault or abort under `./build/alligator_tests pass` (stderr re
 
 - `api_v1` log/x509/lang/mtail JSON PUT+DELETE batches
 - `api_v1` `threaded_loop` push via plain→JSON
-- Combined `api_v1` PUT with reject + multi-block DELETE
+- Combined `api_v1` PUT with metric_filter + multi-block DELETE
 - `labels_initiate` + `metric_update` in one test
 - ClickHouse/PG/Cassandra `metric_query_deserialize` with `&ms`
 - `action_run_process` serializer matrix without proper `action_push`/`action_del` lifecycle

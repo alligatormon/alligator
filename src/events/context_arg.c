@@ -4,6 +4,7 @@
 #include "events/filetailer.h"
 #include "dstructures/uv_cache.h"
 #include "probe/probe.h"
+#include "metric/filter.h"
 #include "main.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -192,6 +193,14 @@ context_arg *carg_copy(context_arg *src)
 
 	if (src->metricstransform)
 		carg->metricstransform = json_incref(src->metricstransform);
+
+	carg->metric_filter = NULL;
+	carg->metric_filter_rules = NULL;
+	if (src->metric_filter)
+	{
+		carg->metric_filter = json_incref(src->metric_filter);
+		carg->metric_filter_rules = metric_filter_dup(src->metric_filter_rules);
+	}
 
 	carg->metric_name_transform_compiled = NULL;
 	if (src->metric_name_transform_pattern)
@@ -580,6 +589,17 @@ void carg_free(context_arg *carg)
 	{
 		json_decref(carg->metricstransform);
 		carg->metricstransform = NULL;
+	}
+
+	if (carg->metric_filter)
+	{
+		json_decref(carg->metric_filter);
+		carg->metric_filter = NULL;
+	}
+	if (carg->metric_filter_rules)
+	{
+		metric_filter_free(carg->metric_filter_rules);
+		carg->metric_filter_rules = NULL;
 	}
 
 	if (carg->metric_name_transform_pattern)
@@ -1247,6 +1267,7 @@ context_arg* context_arg_json_fill(json_t *root, host_aggregator_info *hi, void 
 	parse_add_label(carg, root);
 	parse_metricstransform(carg, root);
 	parse_metric_name_transform(carg, root);
+	parse_metric_filter(carg, root);
 
 	json_t *json_stdin = json_object_get(root, "stdin");
 	if (json_stdin)

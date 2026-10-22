@@ -18,7 +18,6 @@
 #include "common/mkdirp.h"
 #include "metric/metric_dump.h"
 #include "common/json_query.h"
-#include "common/reject.h"
 #include "parsers/multiparser.h"
 #include "mapping/type.h"
 #include "action/type.h"
@@ -931,31 +930,10 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					json_t *reject = json_object_get(entrypoint, "reject");
 					if (reject)
 					{
-						if (!carg->reject)
-						{
-							carg->reject = calloc(1, sizeof(*carg->reject));
-							alligator_ht_init(carg->reject);
-						}
-
-						uint64_t reject_size = json_array_size(reject);
-						for (uint64_t i = 0; i < reject_size; i++)
-						{
-							json_t *reject_obj = json_array_get(reject, i);
-
-							const char *reject_key;
-							json_t *reject_value;
-							json_object_foreach(reject_obj, reject_key, reject_value)
-							{
-								if (method == HTTP_METHOD_DELETE)
-									reject_delete(carg->reject, strdup(reject_key));
-								else
-								{
-									char *reject_value_str = (char*)json_string_value(reject_value);
-									char *reject_value_normalized = reject_value_str ? strdup(reject_value_str) : NULL;
-									reject_insert(carg->reject, strdup(reject_key), reject_value_normalized);
-								}
-							}
-						}
+						carglog(carg, L_WARN,
+							"entrypoint '%s': 'reject' is removed; migrate to metric_filter exclude_label "
+							"(ignored, no silent migration)\n",
+							carg->key ? carg->key : "?");
 					}
 					json_t *mapping = json_object_get(entrypoint, "mapping");
 					if (mapping)
@@ -1059,6 +1037,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					parse_metric_name_transform(carg, entrypoint);
+					parse_metric_filter(carg, entrypoint);
 
 					json_t *json_auth = json_object_get(entrypoint, "auth");
 					if (json_auth)

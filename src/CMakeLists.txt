@@ -487,7 +487,6 @@ set(STATIC_FILES
 	router/resolver.c
 	api/api_router.c
 	api/api_v1.c
-	common/reject.c
 	common/entrypoint.c
 	common/pw.c
 	common/stop.c
@@ -569,6 +568,7 @@ set(STATIC_FILES
 	metric/namespace.c
 	metric/serializer.c
 	metric/transform.c
+	metric/filter.c
 	#metric/influxdb.c
 	cadvisor/run.c
 	cadvisor/ns.c

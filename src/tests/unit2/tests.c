@@ -12,6 +12,7 @@
 #include "metric/namespace.h"
 #include "metric/metric_dump.h"
 #include "metric/labels.h"
+#include "metric/filter.h"
 #include "metric/metrictree.h"
 #include "metric/percentile_heap.h"
 #include "common/rtime.h"
@@ -26,7 +27,6 @@
 #include "query/promql.h"
 #include "common/http.h"
 #include "action/type.h"
-#include "common/reject.h"
 #include "api/api.h"
 #include "x509/type.h"
 #include "query/type.h"
@@ -1430,31 +1430,6 @@ static void test_labels_match_gen_groupkey_paths(void)
     string_free(gk);
     alligator_ht_done(res);
     free(res);
-}
-
-static void test_reject_metric_paths(void)
-{
-    alligator_ht *reject = alligator_ht_init(NULL);
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, reject);
-
-    reject_insert(reject, strdup("env"), strdup("prod"));
-    reject_insert(reject, strdup("role"), NULL);
-
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
-        reject_metric(reject, "env", "prod"));
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        reject_metric(reject, "env", "dev"));
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
-        reject_metric(reject, "role", "any"));
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        reject_metric(NULL, "env", "prod"));
-
-    reject_delete(reject, "env");
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
-        reject_metric(reject, "env", "prod"));
-
-    alligator_ht_done(reject);
-    free(reject);
 }
 
 static void test_api_router_paths(void)
@@ -4532,6 +4507,8 @@ static void run_helpers_and_events_suites(void)
     test_config_aggregator_and_lang_extra_paths();
     test_config_generators_additional_scalars();
     test_metricstransform_plain_and_ingest();
+    test_metric_filter_plain_and_ingest();
+    test_metric_filter_semantics_extra();
     test_aggregate_multi_block_plain_parse();
     test_entrypoint_log_channel_plain_parse();
     test_log_channel_raw_plain_parse();
@@ -4596,7 +4573,6 @@ static void run_helpers_and_events_suites(void)
     test_labels_merge_dup_json_paths();
     test_labels_match_gen_groupkey_paths();
     test_labels_hash_insert_and_groupkey_paths();
-    test_reject_metric_paths();
     test_api_router_paths();
     test_http_post_api_no_push_202();
     test_http_api_v1_runtime_paths();
