@@ -4619,6 +4619,7 @@ static void run_helpers_and_events_suites(void)
 {
     test_logs_helpers();
     test_log_channel_shipper_metrics();
+    test_log_channel_https_tls_config();
     test_units_human_ranges();
     test_vrl_dns_duration_config();
     test_vrl_enrichment_and_secrets();

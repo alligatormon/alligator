@@ -1,4 +1,6 @@
 #include "common/log_http.h"
+#include "events/context_arg.h"
+#include "events/tls.h"
 #include "main.h"
 
 #include <stdlib.h>
@@ -30,8 +32,15 @@ struct log_http_sink {
 	char *host;
 	char *path;
 	char *auth_basic_b64;
+	char *tls_cert_file;
+	char *tls_key_file;
+	char *tls_ca_file;
+	context_arg *tls_carg;
 	int port;
 	int state;
+	uint8_t use_tls;
+	uint8_t tls_verify;
+	uint8_t tls_verify_defined;
 	uint8_t write_in_flight;
 	uint8_t response_pending;
 	uint8_t closing;
@@ -58,6 +67,12 @@ static int log_http_is_connected(log_http_sink *sink);
 static void log_http_schedule_drain(log_http_sink *sink);
 static char *log_http_build_request(log_http_sink *sink, const char *body, size_t bodylen,
     size_t *outlen);
+static void log_http_tls_cleanup(log_http_sink *sink);
+static int log_http_tls_start(log_http_sink *sink);
+static int log_http_tls_drive(log_http_sink *sink);
+static void log_http_tls_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_t *buf);
+static void log_http_tls_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf);
+static void log_http_tls_written_cb(uv_write_t *req, int status);
 
 static void log_http_pending_drop(log_http_sink *sink)
 {
@@ -147,6 +162,234 @@ static char *log_http_build_request(log_http_sink *sink, const char *body, size_
 	return req;
 }
 
+static void log_http_tls_cleanup(log_http_sink *sink)
+{
+	if (!sink || !sink->tls_carg)
+		return;
+
+	tls_client_cleanup(sink->tls_carg, 1);
+	if (sink->tls_carg->write_buffer.base) {
+		free(sink->tls_carg->write_buffer.base);
+		sink->tls_carg->write_buffer.base = NULL;
+		sink->tls_carg->write_buffer.len = 0;
+	}
+}
+
+static context_arg *log_http_tls_carg_ensure(log_http_sink *sink)
+{
+	context_arg *carg;
+
+	if (!sink)
+		return NULL;
+
+	if (sink->tls_carg)
+		return sink->tls_carg;
+
+	carg = calloc(1, sizeof(*carg));
+	if (!carg)
+		return NULL;
+
+	carg->key = strdup(sink->host ? sink->host : "log-http");
+	if (sink->host)
+		snprintf(carg->host, sizeof(carg->host), "%s", sink->host);
+	carg->log_level = L_INFO;
+	carg->data = sink;
+	carg->tls = 1;
+	sink->tls_carg = carg;
+	return carg;
+}
+
+static int log_http_tls_verify_effective(const log_http_sink *sink)
+{
+	if (!sink)
+		return 0;
+	if (sink->tls_verify_defined)
+		return sink->tls_verify ? 1 : 0;
+	return sink->tls_ca_file ? 1 : 0;
+}
+
+static int log_http_tls_drive(log_http_sink *sink)
+{
+	context_arg *carg;
+	int hs_ret;
+	int err;
+
+	if (!sink || !sink->tls_carg || !sink->tls_carg->ssl)
+		return -1;
+
+	carg = sink->tls_carg;
+	if (carg->tls_handshake_done)
+		return 1;
+
+	hs_ret = SSL_do_handshake(carg->ssl);
+	if (hs_ret == 1) {
+		carg->tls_handshake_done = 1;
+		flush_tls_write(carg, (uv_stream_t *)&sink->tcp);
+		pthread_mutex_lock(&sink->lock);
+		sink->state = LOG_HTTP_CONNECTED;
+		pthread_mutex_unlock(&sink->lock);
+		glog(L_DEBUG, "log http: TLS handshake complete host=%s port=%d\n",
+		    sink->host ? sink->host : "?", sink->port);
+		log_http_schedule_drain(sink);
+		log_http_try_write(sink);
+		return 1;
+	}
+
+	err = SSL_get_error(carg->ssl, hs_ret);
+	flush_tls_write(carg, (uv_stream_t *)&sink->tcp);
+	if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE)
+		return 0;
+
+	{
+		char *errmsg = openssl_get_error_string();
+		glog(L_ERROR, "log http: TLS handshake failed host=%s port=%d: %s\n",
+		    sink->host ? sink->host : "?", sink->port, errmsg ? errmsg : "?");
+		free(errmsg);
+	}
+	return -1;
+}
+
+static int log_http_tls_start(log_http_sink *sink)
+{
+	context_arg *carg;
+	int verify;
+
+	if (!sink)
+		return 0;
+
+	carg = log_http_tls_carg_ensure(sink);
+	if (!carg)
+		return 0;
+
+	if (sink->host)
+		snprintf(carg->host, sizeof(carg->host), "%s", sink->host);
+	carg->data = sink;
+	carg->tls = 1;
+	if (carg->tls_ca_file) {
+		free(carg->tls_ca_file);
+		carg->tls_ca_file = NULL;
+	}
+	if (carg->tls_cert_file) {
+		free(carg->tls_cert_file);
+		carg->tls_cert_file = NULL;
+	}
+	if (carg->tls_key_file) {
+		free(carg->tls_key_file);
+		carg->tls_key_file = NULL;
+	}
+	if (sink->tls_ca_file)
+		carg->tls_ca_file = strdup(sink->tls_ca_file);
+	if (sink->tls_cert_file)
+		carg->tls_cert_file = strdup(sink->tls_cert_file);
+	if (sink->tls_key_file)
+		carg->tls_key_file = strdup(sink->tls_key_file);
+
+	verify = log_http_tls_verify_effective(sink);
+	carg->tls_verify = verify;
+	carg->tls_verify_defined = 1;
+
+	if (!tls_context_init(carg, SSLMODE_CLIENT, verify, sink->tls_ca_file,
+	    sink->tls_cert_file, sink->tls_key_file, sink->host, NULL))
+		return 0;
+
+	uv_read_start((uv_stream_t *)&sink->tcp, log_http_tls_alloc_cb, log_http_tls_read_cb);
+	if (log_http_tls_drive(sink) < 0)
+		return 0;
+	return 1;
+}
+
+static void log_http_tls_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_t *buf)
+{
+	log_http_sink *sink = handle->data;
+	context_arg *carg = sink ? sink->tls_carg : NULL;
+
+	if (carg) {
+		buf->base = carg->ssl_read_buffer;
+		buf->len = sizeof(carg->ssl_read_buffer);
+		return;
+	}
+
+	buf->base = malloc(suggested ? suggested : 256);
+	buf->len = buf->base ? (unsigned int)(suggested ? suggested : 256) : 0;
+}
+
+static void log_http_tls_written_cb(uv_write_t *req, int status)
+{
+	context_arg *carg = req->data;
+	log_http_sink *sink = carg ? carg->data : NULL;
+
+	if (carg) {
+		free(carg->write_buffer.base);
+		carg->write_buffer.base = NULL;
+		carg->write_buffer.len = 0;
+	}
+
+	if (!sink || sink->closing)
+		return;
+
+	if (status != 0) {
+		sink->write_in_flight = 0;
+		log_http_mark_disconnected(sink);
+		return;
+	}
+
+	sink->response_pending = 1;
+}
+
+static void log_http_tls_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
+{
+	log_http_sink *sink = stream->data;
+	context_arg *carg;
+	int driven;
+
+	(void)buf;
+
+	if (!sink || sink->closing)
+		return;
+
+	carg = sink->tls_carg;
+	if (nread <= 0) {
+		if (nread < 0)
+			log_http_mark_disconnected(sink);
+		return;
+	}
+
+	if (!carg || !carg->ssl || !carg->rbio) {
+		log_http_mark_disconnected(sink);
+		return;
+	}
+
+	BIO_write(carg->rbio, carg->ssl_read_buffer, (int)nread);
+
+	if (!carg->tls_handshake_done) {
+		driven = log_http_tls_drive(sink);
+		if (driven < 0)
+			log_http_mark_disconnected(sink);
+		return;
+	}
+
+	/* Drain decrypted HTTP response; we only need to know bytes arrived. */
+	{
+		char discard[EVENT_BUFFER];
+		int got_app = 0;
+
+		while (1) {
+			int r = SSL_read(carg->ssl, discard, (int)sizeof(discard));
+			if (r > 0) {
+				got_app = 1;
+				continue;
+			}
+			break;
+		}
+
+		if (got_app && sink->response_pending) {
+			sink->response_pending = 0;
+			sink->write_in_flight = 0;
+			log_http_try_write(sink);
+		}
+	}
+}
+
 static void log_http_mark_disconnected(log_http_sink *sink)
 {
 	if (!sink || sink->closing)
@@ -158,6 +401,7 @@ static void log_http_mark_disconnected(log_http_sink *sink)
 	sink->response_pending = 0;
 	pthread_mutex_unlock(&sink->lock);
 	log_http_pending_drop(sink);
+	log_http_tls_cleanup(sink);
 
 	if (!uv_is_closing((uv_handle_t *)&sink->tcp))
 	{
@@ -265,6 +509,28 @@ static void log_http_try_write(log_http_sink *sink)
 		return;
 	}
 
+	if (sink->use_tls)
+	{
+		context_arg *carg = sink->tls_carg;
+
+		if (!carg || !carg->ssl || !carg->tls_handshake_done)
+		{
+			free(request);
+			return;
+		}
+
+		sink->write_in_flight = 1;
+		ret = tls_write(carg, (uv_stream_t *)&sink->tcp, request, reqlen,
+		    log_http_tls_written_cb);
+		free(request);
+		if (ret != 0)
+		{
+			sink->write_in_flight = 0;
+			log_http_mark_disconnected(sink);
+		}
+		return;
+	}
+
 	wr = calloc(1, sizeof(*wr));
 	if (!wr)
 	{
@@ -310,6 +576,18 @@ static void log_http_connected_cb(uv_connect_t *req, int status)
 	{
 		sink->state = LOG_HTTP_IDLE;
 		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		return;
+	}
+
+	if (sink->use_tls)
+	{
+		/* Stay CONNECTING until handshake completes in log_http_tls_drive. */
+		if (!log_http_tls_start(sink))
+		{
+			sink->state = LOG_HTTP_IDLE;
+			log_http_tls_cleanup(sink);
+			uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		}
 		return;
 	}
 
@@ -479,10 +757,22 @@ static void log_http_sink_destroy(log_http_sink *sink)
 		return;
 
 	log_http_pending_drop(sink);
+	log_http_tls_cleanup(sink);
+	if (sink->tls_carg) {
+		free(sink->tls_carg->key);
+		free(sink->tls_carg->tls_ca_file);
+		free(sink->tls_carg->tls_cert_file);
+		free(sink->tls_carg->tls_key_file);
+		free(sink->tls_carg);
+		sink->tls_carg = NULL;
+	}
 	pthread_mutex_destroy(&sink->lock);
 	free(sink->host);
 	free(sink->path);
 	free(sink->auth_basic_b64);
+	free(sink->tls_cert_file);
+	free(sink->tls_key_file);
+	free(sink->tls_ca_file);
 	free(sink);
 }
 
@@ -515,7 +805,8 @@ static log_http_sink *log_http_sink_create(void)
 	return sink;
 }
 
-void log_http_sink_open(log_channel *ch, const char *host, int port, const char *path, const char *auth_basic_b64)
+void log_http_sink_open(log_channel *ch, const char *host, int port, const char *path,
+    const char *auth_basic_b64, int use_tls)
 {
 	log_http_sink *sink;
 	char *auth_header = NULL;
@@ -540,6 +831,12 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 		free(sink->path);
 	if (sink->auth_basic_b64)
 		free(sink->auth_basic_b64);
+	if (sink->tls_cert_file)
+		free(sink->tls_cert_file);
+	if (sink->tls_key_file)
+		free(sink->tls_key_file);
+	if (sink->tls_ca_file)
+		free(sink->tls_ca_file);
 
 	if (auth_basic_b64 && auth_basic_b64[0])
 	{
@@ -555,7 +852,20 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 	sink->path = path && path[0] ? strdup(path) : strdup("/");
 	sink->auth_basic_b64 = auth_header;
 	sink->port = port;
+	sink->use_tls = use_tls ? 1 : 0;
+	sink->tls_cert_file = ch->tls_cert_file && ch->tls_cert_file[0] ? strdup(ch->tls_cert_file) : NULL;
+	sink->tls_key_file = ch->tls_key_file && ch->tls_key_file[0] ? strdup(ch->tls_key_file) : NULL;
+	sink->tls_ca_file = ch->tls_ca_file && ch->tls_ca_file[0] ? strdup(ch->tls_ca_file) : NULL;
+	sink->tls_verify = ch->tls_verify;
+	sink->tls_verify_defined = ch->tls_verify_defined;
 	sink->closing = 0;
+	if (sink->tls_carg) {
+		free(sink->tls_carg->key);
+		sink->tls_carg->key = strdup(sink->host ? sink->host : "log-http");
+		if (sink->host)
+			snprintf(sink->tls_carg->host, sizeof(sink->tls_carg->host), "%s", sink->host);
+		sink->tls_carg->data = sink;
+	}
 
 	ch->dest_kind = LOG_DEST_HTTP;
 	ch->socket = -1;
@@ -566,6 +876,7 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 	if (sink->state != LOG_HTTP_IDLE)
 	{
 		log_http_pending_drop(sink);
+		log_http_tls_cleanup(sink);
 		if (!uv_is_closing((uv_handle_t *)&sink->tcp))
 		{
 			uv_read_stop((uv_stream_t *)&sink->tcp);
@@ -596,6 +907,7 @@ void log_http_sink_close(log_channel *ch)
 
 	uv_timer_stop(&sink->reconnect_timer);
 	log_http_pending_drop(sink);
+	log_http_tls_cleanup(sink);
 
 	if (!sink->uv_ready)
 	{

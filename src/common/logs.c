@@ -19,6 +19,7 @@
 #include <jansson.h>
 #include "events/context_arg.h"
 #include "common/url.h"
+#include "common/revocation.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "main.h"
@@ -480,8 +481,10 @@ static int log_channel_open_dest(log_channel *ch, char *dest)
 		ch->port = (int)strtoull(hi->port, NULL, 10);
 		log_tcp_sink_open(ch, ch->host, ch->port);
 		url_free(hi);
-	} else if (!strncmp(dest, "http://", 7)) {
+	} else if (!strncmp(dest, "http://", 7) || !strncmp(dest, "https://", 8)) {
 		host_aggregator_info *hi = parse_url(dest, strlen(dest));
+		int use_tls;
+
 		if (!hi) {
 			ch->socket = fileno(stdout);
 			ch->dest_kind = LOG_DEST_FD;
@@ -495,7 +498,8 @@ static int log_channel_open_dest(log_channel *ch, char *dest)
 		ch->port = (int)strtoull(hi->port, NULL, 10);
 		if (ch->log_format == LOG_FORMAT_INHERIT)
 			ch->log_format = LOG_FORMAT_ELASTIC;
-		log_http_sink_open(ch, ch->host, ch->port, hi->query, hi->auth);
+		use_tls = !strncmp(dest, "https://", 8) || hi->tls;
+		log_http_sink_open(ch, ch->host, ch->port, hi->query, hi->auth, use_tls);
 		url_free(hi);
 	} else if (!strncmp(dest, "kafka://", 8)) {
 		log_kafka_sink_open(ch, dest);
@@ -557,6 +561,9 @@ static void log_channel_free_foreach(void *funcarg, void *arg)
 		json_decref(ch->kafka_options);
 	free(ch->time_format);
 	free(ch->log_index);
+	free(ch->tls_cert_file);
+	free(ch->tls_key_file);
+	free(ch->tls_ca_file);
 	free(ch);
 }
 
@@ -687,6 +694,36 @@ void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka
 		ch->kafka_options = json_incref(kafka_options);
 }
 
+void log_channel_set_tls(log_channel *ch, const char *tls_cert, const char *tls_key,
+    const char *tls_ca, int tls_verify, int tls_verify_defined)
+{
+	if (!ch)
+		return;
+
+	if (ch->tls_cert_file) {
+		free(ch->tls_cert_file);
+		ch->tls_cert_file = NULL;
+	}
+	if (ch->tls_key_file) {
+		free(ch->tls_key_file);
+		ch->tls_key_file = NULL;
+	}
+	if (ch->tls_ca_file) {
+		free(ch->tls_ca_file);
+		ch->tls_ca_file = NULL;
+	}
+
+	if (tls_cert && tls_cert[0])
+		ch->tls_cert_file = strdup(tls_cert);
+	if (tls_key && tls_key[0])
+		ch->tls_key_file = strdup(tls_key);
+	if (tls_ca && tls_ca[0])
+		ch->tls_ca_file = strdup(tls_ca);
+
+	ch->tls_verify = tls_verify ? 1 : 0;
+	ch->tls_verify_defined = tls_verify_defined ? 1 : 0;
+}
+
 int log_channel_format_elastic(const log_channel *ch)
 {
 	return ch && ch->log_format == LOG_FORMAT_ELASTIC;
@@ -805,6 +842,13 @@ void log_channels_config_json(json_t *value)
 		const char *time_format = NULL;
 		const char *log_index = NULL;
 		const char *kafka_key = NULL;
+		const char *tls_cert = NULL;
+		const char *tls_key = NULL;
+		const char *tls_ca = NULL;
+		int tls_verify = 0;
+		int tls_verify_defined = 0;
+		int tls_cert_empty = 0;
+		int tls_key_empty = 0;
 		json_t *jform;
 		json_t *jtime;
 		json_t *jtime_format;
@@ -812,6 +856,10 @@ void log_channels_config_json(json_t *value)
 		json_t *jindex;
 		json_t *jkafka_key;
 		json_t *jkafka_options;
+		json_t *jtls_cert;
+		json_t *jtls_key;
+		json_t *jtls_ca;
+		json_t *jtls_verify;
 
 		if (!jdest)
 			jdest = json_object_get(item, "log_dest");
@@ -830,6 +878,10 @@ void log_channels_config_json(json_t *value)
 		jindex = json_object_get(item, "log_index");
 		jkafka_key = json_object_get(item, "kafka_key");
 		jkafka_options = json_object_get(item, "kafka_options");
+		jtls_cert = json_object_get(item, "tls_certificate");
+		jtls_key = json_object_get(item, "tls_key");
+		jtls_ca = json_object_get(item, "tls_ca");
+		jtls_verify = json_object_get(item, "tls_verify");
 		form = log_channel_parse_form(jform);
 		time = log_channel_parse_bool(jtime);
 		if (jtime_format && json_typeof(jtime_format) == JSON_STRING)
@@ -840,10 +892,48 @@ void log_channels_config_json(json_t *value)
 		if (jkafka_key && json_typeof(jkafka_key) == JSON_STRING)
 			kafka_key = json_string_value(jkafka_key);
 
+		if (jtls_cert && json_is_string(jtls_cert)) {
+			tls_cert = json_string_value(jtls_cert);
+			if (tls_cert && !tls_cert[0]) {
+				tls_cert_empty = 1;
+				tls_cert = NULL;
+			}
+		}
+		if (jtls_key && json_is_string(jtls_key)) {
+			tls_key = json_string_value(jtls_key);
+			if (tls_key && !tls_key[0]) {
+				tls_key_empty = 1;
+				tls_key = NULL;
+			}
+		}
+		if (jtls_ca && json_is_string(jtls_ca)) {
+			tls_ca = json_string_value(jtls_ca);
+			if (tls_ca && !tls_ca[0])
+				tls_ca = NULL;
+		}
+		if (jtls_verify) {
+			tls_verify_defined = 1;
+			tls_verify = config_json_is_on(jtls_verify) ? 1 : 0;
+		}
+
+		if (tls_cert_empty || tls_key_empty ||
+		    (tls_cert && !tls_key) || (!tls_cert && tls_key)) {
+			glog(L_ERROR, "log_channel '%s': tls_certificate and tls_key must both be set for client TLS; channel not installed\n", name);
+			continue;
+		}
+
+		/* CA bundle with no explicit tls_verify means check the server certificate. */
+		if (!tls_verify_defined && tls_ca) {
+			tls_verify_defined = 1;
+			tls_verify = 1;
+		}
+
 		{
 			log_channel *ch = log_channel_upsert(name, dest, form, time, time_format, log_format, log_index);
 			log_channel_set_kafka(ch, kafka_key, jkafka_options);
-			if (ch && ch->dest_kind == LOG_DEST_KAFKA)
+			log_channel_set_tls(ch, tls_cert, tls_key, tls_ca, tls_verify, tls_verify_defined);
+			/* Re-open so HTTPS sinks pick up TLS material set after upsert. */
+			if (ch && (ch->dest_kind == LOG_DEST_KAFKA || ch->dest_kind == LOG_DEST_HTTP))
 				log_channel_open(ch);
 		}
 	}
@@ -873,6 +963,14 @@ static void log_channels_generate_conf_foreach(void *funcarg, void *arg)
 		json_object_set_new(item, "kafka_key", json_string(ch->kafka_key));
 	if (ch->kafka_options)
 		json_object_set(item, "kafka_options", ch->kafka_options);
+	if (ch->tls_cert_file && ch->tls_cert_file[0])
+		json_object_set_new(item, "tls_certificate", json_string(ch->tls_cert_file));
+	if (ch->tls_key_file && ch->tls_key_file[0])
+		json_object_set_new(item, "tls_key", json_string(ch->tls_key_file));
+	if (ch->tls_ca_file && ch->tls_ca_file[0])
+		json_object_set_new(item, "tls_ca", json_string(ch->tls_ca_file));
+	if (ch->tls_verify_defined)
+		json_object_set_new(item, "tls_verify", ch->tls_verify ? json_string("on") : json_string("off"));
 	if (ch->form == FORM_SYSLOG)
 		json_object_set_new(item, "log_form", json_string("syslog"));
 	if (ch->time != LOG_CHANNEL_INHERIT)

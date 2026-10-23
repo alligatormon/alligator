@@ -229,6 +229,23 @@ void test_logs_helpers()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_elastic(http_ch));
     log_http_sink_close(http_ch);
 
+    {
+        log_channel *https_ch = log_channel_upsert("elastic-https",
+            "https://127.0.0.1:9200/alligator/_bulk", -1, -1, NULL, -1, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, https_ch);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_http(https_ch));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_format_elastic(https_ch));
+        log_channel_set_tls(https_ch, "/secrets/tls.crt", "/secrets/tls.key",
+            "/secrets/ca.crt", 1, 1);
+        log_channel_open(https_ch);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", https_ch->tls_cert_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", https_ch->tls_key_file);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", https_ch->tls_ca_file);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, https_ch->tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, https_ch->tls_verify_defined);
+        log_http_sink_close(https_ch);
+    }
+
     log_channel *kafka_ch = log_channel_upsert("kafka-test", "kafka://127.0.0.1:9092/alligator-logs?key=test-host", -1, -1, NULL,
         LOG_FORMAT_JSON, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, kafka_ch);
@@ -664,6 +681,103 @@ void test_log_channel_shipper_metrics()
 
     free(ac->system_carg);
     ac->system_carg = saved_system_carg;
+}
+
+void test_log_channel_https_tls_config(void)
+{
+    json_t *arr;
+    json_t *good;
+    json_t *bad;
+    json_t *ca_only;
+    log_channel *ch;
+    json_t *dump;
+    json_t *darr;
+    json_t *d0;
+
+    /* Good mTLS channel via JSON config. */
+    arr = json_array();
+    good = json_object();
+    json_object_set_new(good, "name", json_string("ut-elk-mtls"));
+    json_object_set_new(good, "dest", json_string("https://es.example:9200/_bulk"));
+    json_object_set_new(good, "tls_certificate", json_string("/secrets/tls.crt"));
+    json_object_set_new(good, "tls_key", json_string("/secrets/tls.key"));
+    json_object_set_new(good, "tls_ca", json_string("/secrets/ca.crt"));
+    json_object_set_new(good, "tls_verify", json_string("on"));
+    json_array_append_new(arr, good);
+    log_channels_config_json(arr);
+    json_decref(arr);
+
+    ch = log_channel_get("ut-elk-mtls");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch != log_channel_default());
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_http(ch));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", ch->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", ch->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", ch->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify_defined);
+
+    dump = json_object();
+    log_channels_generate_conf(dump);
+    darr = json_object_get(dump, "log_channel");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, darr);
+    d0 = NULL;
+    {
+        size_t i;
+        size_t n = json_array_size(darr);
+        for (i = 0; i < n; i++) {
+            json_t *it = json_array_get(darr, i);
+            json_t *jn = json_object_get(it, "name");
+            if (jn && json_is_string(jn) && !strcmp(json_string_value(jn), "ut-elk-mtls")) {
+                d0 = it;
+                break;
+            }
+        }
+    }
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, d0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt",
+        json_string_value(json_object_get(d0, "tls_certificate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key",
+        json_string_value(json_object_get(d0, "tls_key")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt",
+        json_string_value(json_object_get(d0, "tls_ca")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on",
+        json_string_value(json_object_get(d0, "tls_verify")));
+    json_decref(dump);
+
+    /* Cert without key: reject; previous channel left in place. */
+    arr = json_array();
+    bad = json_object();
+    json_object_set_new(bad, "name", json_string("ut-elk-mtls"));
+    json_object_set_new(bad, "dest", json_string("https://es.example:9200/_bulk"));
+    json_object_set_new(bad, "tls_certificate", json_string("/secrets/other.crt"));
+    json_array_append_new(arr, bad);
+    log_channels_config_json(arr);
+    json_decref(arr);
+    ch = log_channel_get("ut-elk-mtls");
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.crt", ch->tls_cert_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/tls.key", ch->tls_key_file);
+
+    /* CA alone implies tls_verify on. */
+    arr = json_array();
+    ca_only = json_object();
+    json_object_set_new(ca_only, "name", json_string("ut-elk-ca-only"));
+    json_object_set_new(ca_only, "dest", json_string("https://es.example:9200/_bulk"));
+    json_object_set_new(ca_only, "tls_ca", json_string("/secrets/ca.crt"));
+    json_array_append_new(arr, ca_only);
+    log_channels_config_json(arr);
+    json_decref(arr);
+    ch = log_channel_get("ut-elk-ca-only");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch != log_channel_default());
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ch->tls_cert_file);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ch->tls_key_file);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/secrets/ca.crt", ch->tls_ca_file);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify_defined);
+
+    log_http_sink_close(log_channel_get("ut-elk-mtls"));
+    log_http_sink_close(log_channel_get("ut-elk-ca-only"));
 }
 
 void test_dpkg_list_helpers()

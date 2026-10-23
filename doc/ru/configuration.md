@@ -168,7 +168,13 @@ TCP log destinations подключаются асинхронно через li
 
 TCP log destinations подключаются асинхронно через libuv. Если remote side не connected или write in progress, log lines drop-ятся. Reconnection retry в background каждые несколько секунд.
 
-HTTP destinations (`http://host:port/path`) POST logs в Elasticsearch-compatible endpoints через bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP channels по умолчанию `log_format elastic`. Bulk actions используют `create` (не `index`), чтобы OpenSearch/ES **data streams** принимали запись; обычные индексы без явного `_id` работают так же.
+HTTP destinations (`http://host:port/path` или `https://host:port/path`) POST logs в Elasticsearch-compatible endpoints через bulk NDJSON protocol (`Content-Type: application/x-ndjson`). HTTP(S) channels по умолчанию `log_format elastic`. Bulk actions используют `create` (не `index`), чтобы OpenSearch/ES **data streams** принимали запись; обычные индексы без явного `_id` работают так же.
+
+Опциональный **клиентский TLS** для `https://` log destinations (Elasticsearch/OpenSearch mTLS). Пути — PEM-файлы. Для `http://` эти поля игнорируются.
+
+- `tls_certificate` / `tls_key` — клиентский сертификат и ключ (mTLS). Нужны оба. Сертификат без ключа, ключ без сертификата или пустой путь пишется в лог при разборе конфигурации, и channel не устанавливается. Предыдущий channel с тем же именем остаётся.
+- `tls_ca` — опциональный CA bundle для проверки серверного сертификата. CA без клиентского сертификата допустим.
+- `tls_verify` — `on` проверяет серверный сертификат. Если не задано, проверка включается при наличии `tls_ca`, иначе остаётся выключенной. Явный `off` отключает проверку. Явный `tls_verify on` без `tls_ca` проверяет по default CA paths OpenSSL. Клиентский сертификат всё равно предъявляется, когда заданы оба файла, в том числе при выключенной проверке.
 
 Для Logstash TCP inputs с JSON codec используйте `tcp://` с `log_format elastic` — каждая log line JSON document, terminated newline.
 
@@ -182,6 +188,7 @@ Optional per-channel fields для remote logging:
 - `kafka_options` — object с `librdkafka` producer options (`name: value`)
   - JSON config: `"kafka_options": {"acks":"all","linger.ms":20}`
   - Plain config: повторите `kafka_options key:value;` внутри `log_channel { ... }`
+- `tls_certificate` / `tls_key` / `tls_ca` / `tls_verify` — HTTPS client TLS (см. выше)
 
 ```json
 {
@@ -189,6 +196,15 @@ Optional per-channel fields для remote logging:
     {
       "name": "elk-http",
       "dest": "http://127.0.0.1:9200/alligator-logs/_bulk",
+      "log_index": "alligator-%Y.%m.%d"
+    },
+    {
+      "name": "elk-mtls",
+      "dest": "https://es.example:9200/_bulk",
+      "tls_certificate": "/etc/alligator/tls/client.crt",
+      "tls_key": "/etc/alligator/tls/client.key",
+      "tls_ca": "/etc/alligator/tls/ca.crt",
+      "tls_verify": "on",
       "log_index": "alligator-%Y.%m.%d"
     },
     {
@@ -496,6 +512,17 @@ log_channel {
 log_channel {
     name elk;
     dest http://127.0.0.1:9200/alligator-logs/_bulk;
+    log_index alligator-%Y.%m.%d;
+    log_time on;
+}
+
+log_channel {
+    name elk-mtls;
+    dest https://es.example:9200/_bulk;
+    tls_certificate /etc/alligator/tls/client.crt;
+    tls_key /etc/alligator/tls/client.key;
+    tls_ca /etc/alligator/tls/ca.crt;
+    tls_verify on;
     log_index alligator-%Y.%m.%d;
     log_time on;
 }

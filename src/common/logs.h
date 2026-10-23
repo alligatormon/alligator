@@ -39,6 +39,12 @@ typedef struct log_channel {
 	uint8_t dest_kind;
 	int8_t log_format;
 	uint8_t is_default;
+	/* Optional client TLS for https:// log destinations (ES mTLS, etc.). */
+	char *tls_cert_file;
+	char *tls_key_file;
+	char *tls_ca_file;
+	uint8_t tls_verify;
+	uint8_t tls_verify_defined;
 	void *tcp_sink;
 	void *http_sink;
 	void *kafka_sink;
@@ -87,6 +93,8 @@ void glog(int priority, const char *format, ...);
 void log_channels_config_json(json_t *value);
 void log_channels_generate_conf(json_t *dst);
 void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka_options);
+void log_channel_set_tls(log_channel *ch, const char *tls_cert, const char *tls_key,
+    const char *tls_ca, int tls_verify, int tls_verify_defined);
 
 enum {
 	FORM_SIMPLE,
