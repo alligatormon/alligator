@@ -776,8 +776,26 @@ void test_log_channel_https_tls_config(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify_defined);
 
+    /* https:// without tls_ca / tls_verify still defaults verify on. */
+    arr = json_array();
+    {
+        json_t *https_only = json_object();
+        json_object_set_new(https_only, "name", json_string("ut-elk-https-default-verify"));
+        json_object_set_new(https_only, "dest", json_string("https://es.example:9200/_bulk"));
+        json_array_append_new(arr, https_only);
+    }
+    log_channels_config_json(arr);
+    json_decref(arr);
+    ch = log_channel_get("ut-elk-https-default-verify");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch != log_channel_default());
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_channel_is_http(ch));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ch->tls_verify_defined);
+
     log_http_sink_close(log_channel_get("ut-elk-mtls"));
     log_http_sink_close(log_channel_get("ut-elk-ca-only"));
+    log_http_sink_close(log_channel_get("ut-elk-https-default-verify"));
 }
 
 void test_dpkg_list_helpers()

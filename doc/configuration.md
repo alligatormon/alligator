@@ -174,7 +174,7 @@ Optional **client TLS** for `https://` log destinations (Elasticsearch/OpenSearc
 
 - `tls_certificate` / `tls_key` — client certificate and private key (mTLS). Set both. A certificate without a key, a key without a certificate, or an empty path is logged at configure time and the channel is not installed. A previous channel with the same name is left in place.
 - `tls_ca` — optional CA bundle used when verifying the server certificate. A CA with no client certificate is valid.
-- `tls_verify` — `on` checks the server certificate. When unset, verification is turned on if `tls_ca` is set, and left off otherwise. Explicit `off` disables verification. Explicit `tls_verify on` with no `tls_ca` verifies against OpenSSL's default CA paths. The client certificate is still presented when both files are set, including when verification is off.
+- `tls_verify` — `on` checks the server certificate. For `https://`, verification defaults to **on** (OpenSSL default CA paths when `tls_ca` is unset). Setting `tls_ca` also implies verify on when `tls_verify` is omitted. Explicit `off` disables verification (not recommended for production). The client certificate is still presented when both files are set, including when verification is off.
 
 For Logstash TCP inputs with a JSON codec, use `tcp://` with `log_format elastic` — each log line is a JSON document terminated by newline.
 

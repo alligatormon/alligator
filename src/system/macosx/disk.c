@@ -9,6 +9,9 @@
 
 extern aconf *ac;
 
+/* IOKit Total Time (Read|Write) is nanoseconds since driver instantiation. */
+static const double IOKIT_TIME_NS_PER_SEC = 1000000000.0;
+
 static char *cfstr_to_cstr(CFStringRef s)
 {
 	char buf[256];
@@ -30,6 +33,15 @@ static uint64_t cfnum_to_u64(CFNumberRef n)
 	return val;
 }
 
+static uint64_t stats_u64(CFDictionaryRef stats, CFStringRef key)
+{
+	CFNumberRef n = CFDictionaryGetValue(stats, key);
+
+	if (!n || CFGetTypeID(n) != CFNumberGetTypeID())
+		return 0;
+	return cfnum_to_u64(n);
+}
+
 static void emit_disk_ident(const char *disk, const char *model, const char *serial,
 	const char *firmware, uint64_t size)
 {
@@ -49,33 +61,29 @@ static void emit_disk_ident(const char *disk, const char *model, const char *ser
 
 static void emit_disk_io(const char *disk, CFDictionaryRef stats)
 {
-	CFNumberRef n;
 	int64_t bytes_read = 0, bytes_write = 0;
 	int64_t transfers_read = 0, transfers_write = 0;
 	double duration_read = 0.0, duration_write = 0.0, duration_other = 0.0;
 	double busy_time = 0.0;
 
-	if (!stats)
+	if (!stats || CFGetTypeID(stats) != CFDictionaryGetTypeID())
 		return;
 
-	n = CFDictionaryGetValue(stats, CFSTR("Bytes (Read)"));
-	if (n)
-		bytes_read = (int64_t)cfnum_to_u64(n);
-	n = CFDictionaryGetValue(stats, CFSTR("Bytes (Write)"));
-	if (n)
-		bytes_write = (int64_t)cfnum_to_u64(n);
-	n = CFDictionaryGetValue(stats, CFSTR("Reads"));
-	if (n)
-		transfers_read = (int64_t)cfnum_to_u64(n);
-	n = CFDictionaryGetValue(stats, CFSTR("Writes"));
-	if (n)
-		transfers_write = (int64_t)cfnum_to_u64(n);
-	n = CFDictionaryGetValue(stats, CFSTR("Total Time (Read)"));
-	if (n)
-		duration_read = (double)cfnum_to_u64(n) / 1000.0;
-	n = CFDictionaryGetValue(stats, CFSTR("Total Time (Write)"));
-	if (n)
-		duration_write = (double)cfnum_to_u64(n) / 1000.0;
+	bytes_read = (int64_t)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsBytesReadKey));
+	bytes_write = (int64_t)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsBytesWrittenKey));
+	/* Official keys are "Operations (Read|Write)", not "Reads"/"Writes". */
+	transfers_read = (int64_t)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsReadsKey));
+	transfers_write = (int64_t)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsWritesKey));
+	duration_read = (double)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsTotalReadTimeKey))
+		/ IOKIT_TIME_NS_PER_SEC;
+	duration_write = (double)stats_u64(stats, CFSTR(kIOBlockStorageDriverStatisticsTotalWriteTimeKey))
+		/ IOKIT_TIME_NS_PER_SEC;
+	/*
+	 * Best-effort busy seconds: IOKit exposes cumulative read/write service
+	 * time, not a single exclusive busy counter like Linux diskstats field 12.
+	 * Concurrent R+W can make this sum exceed wall-clock busy time.
+	 */
+	busy_time = duration_read + duration_write;
 
 	metric_add_labels2("disk_io", &bytes_read, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "bytes_read");
 	metric_add_labels2("disk_io", &bytes_write, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "bytes_write");
@@ -87,23 +95,89 @@ static void emit_disk_io(const char *disk, CFDictionaryRef stats)
 	metric_add_labels2("disk_io_await_seconds_total", &duration_other, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk, "type", "other");
 }
 
+static int bsd_name_from_entry(io_registry_entry_t entry, char *disk, size_t disksz)
+{
+	CFTypeRef prop;
+	CFStringRef bsd_name;
+	int ok;
+
+	prop = IORegistryEntryCreateCFProperty(entry, CFSTR("BSD Name"), kCFAllocatorDefault, 0);
+	if (!prop)
+		return 0;
+	if (CFGetTypeID(prop) != CFStringGetTypeID()) {
+		CFRelease(prop);
+		return 0;
+	}
+	bsd_name = prop;
+	ok = CFStringGetCString(bsd_name, disk, disksz, kCFStringEncodingUTF8);
+	CFRelease(bsd_name);
+	return ok && disk[0];
+}
+
+static int media_is_whole(io_registry_entry_t entry)
+{
+	CFTypeRef prop;
+	int whole = 0;
+
+	prop = IORegistryEntryCreateCFProperty(entry, CFSTR("Whole"), kCFAllocatorDefault, 0);
+	if (!prop)
+		return 0;
+	if (CFGetTypeID(prop) == CFBooleanGetTypeID())
+		whole = CFBooleanGetValue(prop);
+	CFRelease(prop);
+	return whole;
+}
+
+/*
+ * Older IOKit trees put "BSD Name" on the parent; Apple Silicon NVMe puts it on
+ * the child IOMedia. Walk parent first, then prefer Whole IOMedia children.
+ */
 static int storage_bsd_name(io_object_t service, char *disk, size_t disksz)
 {
 	io_registry_entry_t parent;
-	CFStringRef bsd_name;
-	int ok = 0;
+	io_iterator_t kids;
+	io_object_t kid;
+	char fallback[64];
+	int have_fallback = 0;
 
-	if (IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent) != KERN_SUCCESS)
+	disk[0] = 0;
+	fallback[0] = 0;
+
+	if (IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent) == KERN_SUCCESS) {
+		int ok = bsd_name_from_entry(parent, disk, disksz);
+
+		IOObjectRelease(parent);
+		if (ok)
+			return 1;
+	}
+
+	if (IORegistryEntryGetChildIterator(service, kIOServicePlane, &kids) != KERN_SUCCESS)
 		return 0;
 
-	bsd_name = IORegistryEntryCreateCFProperty(parent, CFSTR("BSD Name"), kCFAllocatorDefault, 0);
-	IOObjectRelease(parent);
-	if (!bsd_name)
-		return 0;
+	while ((kid = IOIteratorNext(kids))) {
+		char name[64];
 
-	ok = CFStringGetCString(bsd_name, disk, disksz, kCFStringEncodingUTF8);
-	CFRelease(bsd_name);
-	return ok;
+		if (bsd_name_from_entry(kid, name, sizeof(name))) {
+			if (media_is_whole(kid)) {
+				strlcpy(disk, name, disksz);
+				IOObjectRelease(kid);
+				IOObjectRelease(kids);
+				return 1;
+			}
+			if (!have_fallback || strlen(name) < strlen(fallback)) {
+				strlcpy(fallback, name, sizeof(fallback));
+				have_fallback = 1;
+			}
+		}
+		IOObjectRelease(kid);
+	}
+	IOObjectRelease(kids);
+
+	if (have_fallback) {
+		strlcpy(disk, fallback, disksz);
+		return 1;
+	}
+	return 0;
 }
 
 static void scan_storage_identity(io_object_t service)
@@ -121,12 +195,20 @@ static void scan_storage_identity(io_object_t service)
 		CFNumberRef n;
 
 		if (dc && CFGetTypeID(dc) == CFDictionaryGetTypeID()) {
-			model = cfstr_to_cstr(CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Product Name")));
-			serial = cfstr_to_cstr(CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Serial Number")));
-			firmware = cfstr_to_cstr(CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Firmware Revision")));
+			CFTypeRef v;
+
+			v = CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Product Name"));
+			if (v && CFGetTypeID(v) == CFStringGetTypeID())
+				model = cfstr_to_cstr(v);
+			v = CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Serial Number"));
+			if (v && CFGetTypeID(v) == CFStringGetTypeID())
+				serial = cfstr_to_cstr(v);
+			v = CFDictionaryGetValue((CFDictionaryRef)dc, CFSTR("Firmware Revision"));
+			if (v && CFGetTypeID(v) == CFStringGetTypeID())
+				firmware = cfstr_to_cstr(v);
 		}
 		n = CFDictionaryGetValue(props, CFSTR("Media Size"));
-		if (n)
+		if (n && CFGetTypeID(n) == CFNumberGetTypeID())
 			size = cfnum_to_u64(n);
 		CFRelease(props);
 	}
@@ -137,18 +219,25 @@ static void scan_storage_identity(io_object_t service)
 	free(firmware);
 }
 
-static void scan_storage_io(io_object_t service)
+static int scan_storage_io(io_object_t service)
 {
 	char disk[64];
+	CFTypeRef prop;
 	CFDictionaryRef stats;
 
 	if (!storage_bsd_name(service, disk, sizeof(disk)))
-		return;
+		return 0;
 
-	stats = IORegistryEntryCreateCFProperty(service, CFSTR("Statistics"), kCFAllocatorDefault, 0);
+	prop = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBlockStorageDriverStatisticsKey), kCFAllocatorDefault, 0);
+	if (!prop || CFGetTypeID(prop) != CFDictionaryGetTypeID()) {
+		if (prop)
+			CFRelease(prop);
+		return 0;
+	}
+	stats = prop;
 	emit_disk_io(disk, stats);
-	if (stats)
-		CFRelease(stats);
+	CFRelease(stats);
+	return 1;
 }
 
 static void foreach_storage(void (*cb)(io_object_t))
@@ -178,8 +267,8 @@ void disk_io_stats(void)
 		return;
 
 	while ((obj = IOIteratorNext(iter))) {
-		scan_storage_io(obj);
-		disks_num++;
+		if (scan_storage_io(obj))
+			disks_num++;
 		IOObjectRelease(obj);
 	}
 	IOObjectRelease(iter);

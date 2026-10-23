@@ -176,6 +176,8 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "open_files", "pid", pidstr);
 	val = task->pti_cow_faults;
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "COWfaults", "pid", pidstr);
+	val = (int64_t)(uint32_t)task->pti_csw;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "ctx_switches", "pid", pidstr);
 
 	if (!full)
 		return;
@@ -265,15 +267,26 @@ void get_proc_info(int8_t lightweight)
 	int8_t need_match = ac->system_process ? 1 : 0;
 	macosx_fd_counts fds;
 	uint64_t proc_count = 0;
+	/* Live sum of pti_csw across visible tasks (not boot-monotonic). */
+	uint64_t csw_sum = 0;
+	uint64_t csw_procs = 0;
 
 	if (bufsize <= 0)
 		return;
+	/* Process list can grow between size probe and fill. */
+	if (bufsize < (int)sizeof(pid_t) * 64)
+		bufsize = (int)sizeof(pid_t) * 64;
+	bufsize *= 2;
 
 	pids = malloc((size_t)bufsize);
 	if (!pids)
 		return;
 
 	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, bufsize);
+	if (bufsize <= 0) {
+		free(pids);
+		return;
+	}
 	num_pids = (size_t)bufsize / sizeof(pid_t);
 
 	if (need_match && !lightweight)
@@ -296,6 +309,10 @@ void get_proc_info(int8_t lightweight)
 			continue;
 		if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE) < 0)
 			continue;
+
+		/* Sum before process_match filter so the host gauge covers all visible PIDs. */
+		csw_sum += (uint64_t)(uint32_t)task_info.pti_csw;
+		csw_procs++;
 
 		tasks += task_info.pti_threadnum;
 		if (proc.pbi_status == SRUN)
@@ -335,6 +352,9 @@ void get_proc_info(int8_t lightweight)
 	metric_add_labels("process_states", &stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_labels("process_states", &zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("process_states", &uninterruptible, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
+
+	metric_add_labels("process_context_switches", &csw_sum, DATATYPE_UINT, ac->system_carg, "type", "sum");
+	metric_add_labels("process_context_switches", &csw_procs, DATATYPE_UINT, ac->system_carg, "type", "processes");
 
 	{
 		uint64_t proc_max;

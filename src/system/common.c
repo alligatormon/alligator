@@ -67,6 +67,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "cores_num_hw", METRIC_TYPE_GAUGE, "Number of online hardware CPU cores.");
 	namespace_metric_family_set(NULL, carg, "forks_total", METRIC_TYPE_COUNTER, "Total number of forks since boot.");
 	namespace_metric_family_set(NULL, carg, "context_switches_total", METRIC_TYPE_COUNTER, "Total number of context switches since boot.");
+	namespace_metric_family_set(NULL, carg, "process_context_switches", METRIC_TYPE_GAUGE, "Darwin only: sum of pti_csw across all currently visible processes (ignores process_match). Gauge, not a boot counter — may drop when processes exit. type=sum|processes.");
 	namespace_metric_family_set(NULL, carg, "interrupts_total", METRIC_TYPE_COUNTER, "Total number of interrupts since boot.");
 	namespace_metric_family_set(NULL, carg, "interrupts_by_irq_total", METRIC_TYPE_COUNTER, "Total interrupts by interrupt code and description.");
 	namespace_metric_family_set(NULL, carg, "cpu_cgroup_periods_total", METRIC_TYPE_COUNTER, "Total CPU cgroup scheduling periods.");

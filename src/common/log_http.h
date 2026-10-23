@@ -3,6 +3,7 @@
 #include "common/logs.h"
 
 #define LOG_HTTP_RECONNECT_MS 3000
+#define LOG_HTTP_HANDSHAKE_MS 10000
 
 typedef struct log_http_sink log_http_sink;
 

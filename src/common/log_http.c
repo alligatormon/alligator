@@ -73,6 +73,9 @@ static int log_http_tls_drive(log_http_sink *sink);
 static void log_http_tls_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_t *buf);
 static void log_http_tls_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf);
 static void log_http_tls_written_cb(uv_write_t *req, int status);
+static void log_http_handshake_timeout_cb(uv_timer_t *timer);
+static void log_http_arm_handshake_timeout(log_http_sink *sink);
+static void log_http_connect_failed(log_http_sink *sink);
 
 static void log_http_pending_drop(log_http_sink *sink)
 {
@@ -167,12 +170,56 @@ static void log_http_tls_cleanup(log_http_sink *sink)
 	if (!sink || !sink->tls_carg)
 		return;
 
+	/*
+	 * Free SSL state only. Do not free write_buffer here: tls_write may have
+	 * handed it to an in-flight uv_write; log_http_tls_written_cb owns that
+	 * free. Destroy frees any leftover after handles are closed.
+	 */
 	tls_client_cleanup(sink->tls_carg, 1);
-	if (sink->tls_carg->write_buffer.base) {
-		free(sink->tls_carg->write_buffer.base);
-		sink->tls_carg->write_buffer.base = NULL;
-		sink->tls_carg->write_buffer.len = 0;
-	}
+}
+
+static void log_http_arm_handshake_timeout(log_http_sink *sink)
+{
+	if (!sink || sink->closing || !sink->uv_ready)
+		return;
+
+	uv_timer_start(&sink->reconnect_timer, log_http_handshake_timeout_cb,
+	    LOG_HTTP_HANDSHAKE_MS, 0);
+}
+
+static void log_http_handshake_timeout_cb(uv_timer_t *timer)
+{
+	log_http_sink *sink = timer->data;
+
+	if (!sink || sink->closing)
+		return;
+
+	if (sink->state != LOG_HTTP_CONNECTING || !sink->use_tls)
+		return;
+	if (sink->tls_carg && sink->tls_carg->tls_handshake_done)
+		return;
+
+	glog(L_ERROR, "log http: TLS handshake timed out host=%s port=%d\n",
+	    sink->host ? sink->host : "?", sink->port);
+	log_http_mark_disconnected(sink);
+}
+
+/* Fail connect/DNS setup: close TCP so closed_cb reconnects (never re-init live handle). */
+static void log_http_connect_failed(log_http_sink *sink)
+{
+	if (!sink || sink->closing)
+		return;
+
+	pthread_mutex_lock(&sink->lock);
+	sink->state = LOG_HTTP_IDLE;
+	sink->write_in_flight = 0;
+	sink->response_pending = 0;
+	pthread_mutex_unlock(&sink->lock);
+	log_http_pending_drop(sink);
+	log_http_tls_cleanup(sink);
+
+	if (!uv_is_closing((uv_handle_t *)&sink->tcp))
+		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
 }
 
 static context_arg *log_http_tls_carg_ensure(log_http_sink *sink)
@@ -205,6 +252,9 @@ static int log_http_tls_verify_effective(const log_http_sink *sink)
 		return 0;
 	if (sink->tls_verify_defined)
 		return sink->tls_verify ? 1 : 0;
+	/* https:// defaults to peer verify (OpenSSL default CA paths if no tls_ca). */
+	if (sink->use_tls)
+		return 1;
 	return sink->tls_ca_file ? 1 : 0;
 }
 
@@ -224,6 +274,7 @@ static int log_http_tls_drive(log_http_sink *sink)
 	hs_ret = SSL_do_handshake(carg->ssl);
 	if (hs_ret == 1) {
 		carg->tls_handshake_done = 1;
+		uv_timer_stop(&sink->reconnect_timer);
 		flush_tls_write(carg, (uv_stream_t *)&sink->tcp);
 		pthread_mutex_lock(&sink->lock);
 		sink->state = LOG_HTTP_CONNECTED;
@@ -293,6 +344,7 @@ static int log_http_tls_start(log_http_sink *sink)
 		return 0;
 
 	uv_read_start((uv_stream_t *)&sink->tcp, log_http_tls_alloc_cb, log_http_tls_read_cb);
+	log_http_arm_handshake_timeout(sink);
 	if (log_http_tls_drive(sink) < 0)
 		return 0;
 	return 1;
@@ -303,14 +355,17 @@ static void log_http_tls_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_
 	log_http_sink *sink = handle->data;
 	context_arg *carg = sink ? sink->tls_carg : NULL;
 
+	(void)suggested;
+
 	if (carg) {
 		buf->base = carg->ssl_read_buffer;
 		buf->len = sizeof(carg->ssl_read_buffer);
 		return;
 	}
 
-	buf->base = malloc(suggested ? suggested : 256);
-	buf->len = buf->base ? (unsigned int)(suggested ? suggested : 256) : 0;
+	/* No TLS context: stop the read rather than leaking a malloc'd buf. */
+	buf->base = NULL;
+	buf->len = 0;
 }
 
 static void log_http_tls_written_cb(uv_write_t *req, int status)
@@ -329,7 +384,10 @@ static void log_http_tls_written_cb(uv_write_t *req, int status)
 
 	if (status != 0) {
 		sink->write_in_flight = 0;
-		log_http_mark_disconnected(sink);
+		/* Avoid double reconnect if disconnect/close already started. */
+		if (sink->state != LOG_HTTP_IDLE &&
+		    !uv_is_closing((uv_handle_t *)&sink->tcp))
+			log_http_mark_disconnected(sink);
 		return;
 	}
 
@@ -359,7 +417,12 @@ static void log_http_tls_read_cb(uv_stream_t *stream, ssize_t nread, const uv_bu
 		return;
 	}
 
-	BIO_write(carg->rbio, carg->ssl_read_buffer, (int)nread);
+	if (BIO_write(carg->rbio, carg->ssl_read_buffer, (int)nread) <= 0) {
+		glog(L_ERROR, "log http: TLS BIO_write failed host=%s port=%d\n",
+		    sink->host ? sink->host : "?", sink->port);
+		log_http_mark_disconnected(sink);
+		return;
+	}
 
 	if (!carg->tls_handshake_done) {
 		driven = log_http_tls_drive(sink);
@@ -378,6 +441,18 @@ static void log_http_tls_read_cb(uv_stream_t *stream, ssize_t nread, const uv_bu
 			if (r > 0) {
 				got_app = 1;
 				continue;
+			}
+
+			{
+				int err = SSL_get_error(carg->ssl, r);
+				int need = tls_io_check_shutdown_need(carg, err, r);
+
+				if (need != 0) {
+					log_http_mark_disconnected(sink);
+					return;
+				}
+				if (err == SSL_ERROR_WANT_WRITE)
+					flush_tls_write(carg, (uv_stream_t *)&sink->tcp);
 			}
 			break;
 		}
@@ -408,8 +483,7 @@ static void log_http_mark_disconnected(log_http_sink *sink)
 		uv_read_stop((uv_stream_t *)&sink->tcp);
 		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
 	}
-	else
-		log_http_schedule_reconnect(sink);
+	/* If TCP is already closing, closed_cb schedules reconnect (or shutdown). */
 }
 
 static void log_http_alloc_cb(uv_handle_t *handle, size_t suggested, uv_buf_t *buf)
@@ -457,7 +531,9 @@ static void log_http_written_cb(uv_write_t *req, int status)
 	if (status != 0)
 	{
 		sink->write_in_flight = 0;
-		log_http_mark_disconnected(sink);
+		if (sink->state != LOG_HTTP_IDLE &&
+		    !uv_is_closing((uv_handle_t *)&sink->tcp))
+			log_http_mark_disconnected(sink);
 		return;
 	}
 
@@ -574,8 +650,7 @@ static void log_http_connected_cb(uv_connect_t *req, int status)
 
 	if (status != 0)
 	{
-		sink->state = LOG_HTTP_IDLE;
-		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		log_http_connect_failed(sink);
 		return;
 	}
 
@@ -583,11 +658,7 @@ static void log_http_connected_cb(uv_connect_t *req, int status)
 	{
 		/* Stay CONNECTING until handshake completes in log_http_tls_drive. */
 		if (!log_http_tls_start(sink))
-		{
-			sink->state = LOG_HTTP_IDLE;
-			log_http_tls_cleanup(sink);
-			uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
-		}
+			log_http_connect_failed(sink);
 		return;
 	}
 
@@ -613,10 +684,9 @@ static void log_http_getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct ad
 
 	if (status != 0 || !res)
 	{
-		sink->state = LOG_HTTP_IDLE;
-		log_http_schedule_reconnect(sink);
 		if (res)
 			uv_freeaddrinfo(res);
+		log_http_connect_failed(sink);
 		return;
 	}
 
@@ -628,18 +698,16 @@ static void log_http_getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct ad
 
 	if (!ai)
 	{
-		sink->state = LOG_HTTP_IDLE;
 		uv_freeaddrinfo(res);
-		log_http_schedule_reconnect(sink);
+		log_http_connect_failed(sink);
 		return;
 	}
 
 	sink->connect_req.data = sink;
 	if (uv_tcp_connect(&sink->connect_req, &sink->tcp, ai->ai_addr, log_http_connected_cb) != 0)
 	{
-		sink->state = LOG_HTTP_IDLE;
 		uv_freeaddrinfo(res);
-		log_http_schedule_reconnect(sink);
+		log_http_connect_failed(sink);
 		return;
 	}
 
@@ -658,6 +726,13 @@ static void log_http_start_connect(log_http_sink *sink)
 
 	if (sink->state == LOG_HTTP_CONNECTING || sink->state == LOG_HTTP_CONNECTED)
 		return;
+
+	/* Never re-init a handle that still has an in-flight uv_close. */
+	if (uv_is_closing((uv_handle_t *)&sink->tcp))
+	{
+		log_http_schedule_reconnect(sink);
+		return;
+	}
 
 	uv_timer_stop(&sink->reconnect_timer);
 
@@ -691,6 +766,9 @@ static void log_http_start_connect(log_http_sink *sink)
 				freeaddrinfo(res);
 				return;
 			}
+			freeaddrinfo(res);
+			log_http_connect_failed(sink);
+			return;
 		}
 		freeaddrinfo(res);
 	}
@@ -701,10 +779,7 @@ static void log_http_start_connect(log_http_sink *sink)
 	log_http_gai_hints.ai_socktype = SOCK_STREAM;
 	if (uv_getaddrinfo(ac->loop, &sink->getaddrinfo_req, log_http_getaddrinfo_cb,
 	    sink->host, portbuf, &log_http_gai_hints) != 0)
-	{
-		sink->state = LOG_HTTP_IDLE;
-		log_http_schedule_reconnect(sink);
-	}
+		log_http_connect_failed(sink);
 }
 
 static void log_http_shutdown_next(log_http_sink *sink)
@@ -759,6 +834,9 @@ static void log_http_sink_destroy(log_http_sink *sink)
 	log_http_pending_drop(sink);
 	log_http_tls_cleanup(sink);
 	if (sink->tls_carg) {
+		free(sink->tls_carg->write_buffer.base);
+		sink->tls_carg->write_buffer.base = NULL;
+		sink->tls_carg->write_buffer.len = 0;
 		free(sink->tls_carg->key);
 		free(sink->tls_carg->tls_ca_file);
 		free(sink->tls_carg->tls_cert_file);
@@ -873,11 +951,17 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 	if (!ac || !ac->loop)
 		return;
 
-	if (sink->state != LOG_HTTP_IDLE)
+	/*
+	 * Active connection or TCP close still in flight: update settings above,
+	 * then let closed_cb reconnect with the new material. Never uv_tcp_init
+	 * on a handle that is still closing.
+	 */
+	if (sink->state != LOG_HTTP_IDLE || uv_is_closing((uv_handle_t *)&sink->tcp))
 	{
 		log_http_pending_drop(sink);
 		log_http_tls_cleanup(sink);
-		if (!uv_is_closing((uv_handle_t *)&sink->tcp))
+		if (sink->state != LOG_HTTP_IDLE &&
+		    !uv_is_closing((uv_handle_t *)&sink->tcp))
 		{
 			uv_read_stop((uv_stream_t *)&sink->tcp);
 			uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
@@ -915,12 +999,22 @@ void log_http_sink_close(log_channel *ch)
 		return;
 	}
 
-	if (sink->state != LOG_HTTP_IDLE && !uv_is_closing((uv_handle_t *)&sink->tcp))
+	/*
+	 * Disconnect may have already set state=IDLE and started uv_close(tcp).
+	 * Wait for closed_cb → shutdown_next instead of destroying via the aux
+	 * path while tcp/write callbacks are still pending.
+	 */
+	if (uv_is_closing((uv_handle_t *)&sink->tcp))
+		return;
+
+	if (sink->state != LOG_HTTP_IDLE)
 	{
 		uv_read_stop((uv_stream_t *)&sink->tcp);
 		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		return;
 	}
-	else if (!uv_is_closing((uv_handle_t *)&sink->reconnect_timer))
+
+	if (!uv_is_closing((uv_handle_t *)&sink->reconnect_timer))
 		uv_close((uv_handle_t *)&sink->reconnect_timer, log_http_aux_closed_cb);
 	else if (!uv_is_closing((uv_handle_t *)&sink->write_async))
 		uv_close((uv_handle_t *)&sink->write_async, log_http_aux_closed_cb);

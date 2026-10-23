@@ -694,6 +694,33 @@ void log_channel_set_kafka(log_channel *ch, const char *kafka_key, json_t *kafka
 		ch->kafka_options = json_incref(kafka_options);
 }
 
+static log_channel *log_channel_ensure(const char *name)
+{
+	log_channel *ch;
+	uint32_t key_hash;
+
+	if (!name || !name[0])
+		return NULL;
+	if (!strcmp(name, "default"))
+		return log_channel_default();
+
+	log_channels_init();
+	key_hash = tommy_strhash_u32(0, name);
+	ch = alligator_ht_search(ac->log_channels, log_channel_compare, (char *)name, key_hash);
+	if (ch)
+		return ch;
+
+	ch = calloc(1, sizeof(*ch));
+	if (!ch)
+		return NULL;
+	ch->name = strdup(name);
+	ch->form = LOG_CHANNEL_INHERIT;
+	ch->time = LOG_CHANNEL_INHERIT;
+	ch->log_format = LOG_FORMAT_INHERIT;
+	alligator_ht_insert(ac->log_channels, &(ch->node), ch, key_hash);
+	return ch;
+}
+
 void log_channel_set_tls(log_channel *ch, const char *tls_cert, const char *tls_key,
     const char *tls_ca, int tls_verify, int tls_verify_defined)
 {
@@ -722,6 +749,10 @@ void log_channel_set_tls(log_channel *ch, const char *tls_cert, const char *tls_
 
 	ch->tls_verify = tls_verify ? 1 : 0;
 	ch->tls_verify_defined = tls_verify_defined ? 1 : 0;
+
+	/* Refresh a live HTTPS sink so callers need not remember to reopen. */
+	if (ch->dest_kind == LOG_DEST_HTTP && ch->dest && ch->dest[0])
+		log_channel_open(ch);
 }
 
 int log_channel_format_elastic(const log_channel *ch)
@@ -922,18 +953,24 @@ void log_channels_config_json(json_t *value)
 			continue;
 		}
 
-		/* CA bundle with no explicit tls_verify means check the server certificate. */
-		if (!tls_verify_defined && tls_ca) {
+		/*
+		 * https:// defaults to peer verify. CA alone also implies verify on
+		 * (matches action TLS). Explicit tls_verify off still disables it.
+		 */
+		if (!tls_verify_defined && (tls_ca || !strncmp(dest, "https://", 8))) {
 			tls_verify_defined = 1;
 			tls_verify = 1;
 		}
 
 		{
-			log_channel *ch = log_channel_upsert(name, dest, form, time, time_format, log_format, log_index);
-			log_channel_set_kafka(ch, kafka_key, jkafka_options);
+			log_channel *ch;
+
+			/* Apply TLS before first open so the sink copies final material. */
+			ch = log_channel_ensure(name);
 			log_channel_set_tls(ch, tls_cert, tls_key, tls_ca, tls_verify, tls_verify_defined);
-			/* Re-open so HTTPS sinks pick up TLS material set after upsert. */
-			if (ch && (ch->dest_kind == LOG_DEST_KAFKA || ch->dest_kind == LOG_DEST_HTTP))
+			ch = log_channel_upsert(name, dest, form, time, time_format, log_format, log_index);
+			log_channel_set_kafka(ch, kafka_key, jkafka_options);
+			if (ch && ch->dest_kind == LOG_DEST_KAFKA)
 				log_channel_open(ch);
 		}
 	}
