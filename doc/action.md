@@ -207,7 +207,7 @@ action {
 }
 ```
 
-`serializer otlp_grpc` sends unary `MetricsService/Export` over HTTP/2 (gRPC framing, `Content-Type: application/grpc`). The path is fixed to `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Prefer `https://` with ALPN `h2` (same as otel-collector `exporters.otlp` gRPC); cleartext `http://` uses HTTP/2 prior knowledge (no upgrade). Optional `env` headers (for example `Authorization`) are included in the request. MVP limits: metrics only; no gzip; no connection pooling (oneshot per export); no send flow-control (framed payload must be ≤ 65535 bytes); response HPACK is static-table only (dynamic-table `grpc-status` may not decode).
+`serializer otlp_grpc` sends unary `MetricsService/Export` over HTTP/2 (gRPC framing, `Content-Type: application/grpc`). The path is fixed to `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Prefer `https://` with ALPN `h2` (same as otel-collector `exporters.otlp` gRPC); cleartext `http://` uses HTTP/2 prior knowledge (no upgrade). Optional `env` headers (for example `Authorization`) are included in the request. MVP limits: metrics only; no gzip; no connection pooling (oneshot per export); no send flow-control (framed payload must be ≤ 65535 bytes). Response HPACK supports the static table plus a small decoder dynamic table (typical Envoy/Istio trailers). Failures log `detail=` with `:status`, `grpc-status`, GOAWAY/RST error names, and a frame inventory.
 
 ## tls\_certificate / tls\_key / tls\_ca / tls\_verify
 Default: -\

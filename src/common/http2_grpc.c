@@ -396,7 +396,72 @@ static const char *hpack_static_value(uint32_t idx)
 
 typedef void (*hpack_header_cb)(void *arg, const char *name, size_t nlen, const char *value, size_t vlen);
 
-static int hpack_decode_block(const uint8_t *block, size_t block_len, hpack_header_cb cb, void *arg)
+/* Minimal decoder-side dynamic table (RFC 7541). Envoy/Istio often insert
+ * content-type then reference later names by dynamic index; without this,
+ * grpc-status trailers can be skipped and surface as grpc-status=-1. */
+#define HPACK_DYN_MAX 64
+#define HPACK_STATIC_ENTRIES 61
+
+typedef struct {
+	char name[128];
+	char value[256];
+	size_t nlen;
+	size_t vlen;
+} hpack_dyn_entry;
+
+typedef struct {
+	hpack_dyn_entry e[HPACK_DYN_MAX];
+	size_t n;
+} hpack_dtable;
+
+static void hpack_dtable_insert(hpack_dtable *dt, const char *name, size_t nlen, const char *value, size_t vlen)
+{
+	if (!dt || !name || nlen >= sizeof(dt->e[0].name) || vlen >= sizeof(dt->e[0].value))
+		return;
+	if (dt->n >= HPACK_DYN_MAX)
+		dt->n = HPACK_DYN_MAX - 1; /* drop oldest (highest index) */
+	if (dt->n > 0)
+		memmove(&dt->e[1], &dt->e[0], dt->n * sizeof(dt->e[0]));
+	memcpy(dt->e[0].name, name, nlen);
+	dt->e[0].name[nlen] = '\0';
+	dt->e[0].nlen = nlen;
+	if (vlen && value)
+		memcpy(dt->e[0].value, value, vlen);
+	dt->e[0].value[vlen] = '\0';
+	dt->e[0].vlen = vlen;
+	dt->n++;
+}
+
+static int hpack_lookup(hpack_dtable *dt, uint32_t idx, const char **name, size_t *nlen, const char **value, size_t *vlen)
+{
+	if (!idx)
+		return 0;
+	if (idx <= HPACK_STATIC_ENTRIES) {
+		const char *sn = hpack_static_name(idx);
+		const char *sv = hpack_static_value(idx);
+		if (!sn)
+			return 0;
+		*name = sn;
+		*nlen = strlen(sn);
+		*value = sv ? sv : "";
+		*vlen = sv ? strlen(sv) : 0;
+		return 1;
+	}
+	if (!dt)
+		return 0;
+	{
+		uint32_t di = idx - HPACK_STATIC_ENTRIES - 1;
+		if (di >= dt->n)
+			return 0;
+		*name = dt->e[di].name;
+		*nlen = dt->e[di].nlen;
+		*value = dt->e[di].value;
+		*vlen = dt->e[di].vlen;
+		return 1;
+	}
+}
+
+static int hpack_decode_block(const uint8_t *block, size_t block_len, hpack_header_cb cb, void *arg, hpack_dtable *dt)
 {
 	const uint8_t *p = block;
 	const uint8_t *end = block + block_len;
@@ -410,14 +475,16 @@ static int hpack_decode_block(const uint8_t *block, size_t block_len, hpack_head
 		uint32_t idx = 0;
 
 		if (b & 0x80) {
+			const char *nn = NULL;
+			const char *vv = NULL;
+			size_t nnlen = 0;
+			size_t vvlen = 0;
 			if (!hpack_decode_int(&p, end, 7, &idx))
 				return 0;
-			{
-				const char *sn = hpack_static_name(idx);
-				const char *sv = hpack_static_value(idx);
-				if (sn && cb)
-					cb(arg, sn, strlen(sn), sv ? sv : "", sv ? strlen(sv) : 0);
-			}
+			if (!hpack_lookup(dt, idx, &nn, &nnlen, &vv, &vvlen))
+				return 0;
+			if (cb)
+				cb(arg, nn, nnlen, vv, vvlen);
 			continue;
 		}
 		if ((b & 0xc0) == 0x40) {
@@ -428,22 +495,31 @@ static int hpack_decode_block(const uint8_t *block, size_t block_len, hpack_head
 				if (!hpack_decode_string(&p, end, name, sizeof(name), &nlen))
 					return 0;
 			} else {
-				const char *sn = hpack_static_name(idx);
-				if (!sn)
+				const char *nn = NULL;
+				const char *vv = NULL;
+				size_t nnlen = 0;
+				size_t vvlen = 0;
+				if (!hpack_lookup(dt, idx, &nn, &nnlen, &vv, &vvlen) || !nn)
 					return 0;
-				nlen = strlen(sn);
-				if (nlen >= sizeof(name))
+				if (nnlen >= sizeof(name))
 					return 0;
-				memcpy(name, sn, nlen + 1);
+				memcpy(name, nn, nnlen + 1);
+				nlen = nnlen;
+				(void)vv;
+				(void)vvlen;
 			}
 			if (!hpack_decode_string(&p, end, value, sizeof(value), &vlen))
 				return 0;
+			/* Must insert or fail: skipping would desync later indexed refs. */
+			if (!dt || nlen >= sizeof(dt->e[0].name) || vlen >= sizeof(dt->e[0].value))
+				return 0;
+			hpack_dtable_insert(dt, name, nlen, value, vlen);
 			if (cb)
 				cb(arg, name, nlen, value, vlen);
 			continue;
 		}
 		if ((b & 0xe0) == 0x20) {
-			/* Dynamic table size update — ignore value */
+			/* Dynamic table size update — ignore value (MVP keeps a fixed cap). */
 			if (!hpack_decode_int(&p, end, 5, &idx))
 				return 0;
 			(void)idx;
@@ -451,20 +527,25 @@ static int hpack_decode_block(const uint8_t *block, size_t block_len, hpack_head
 		}
 		/* Literal without indexing / never indexed */
 		{
-			uint8_t prefix = ((b & 0xf0) == 0x10) ? 4 : 4;
+			uint8_t prefix = 4;
 			if (!hpack_decode_int(&p, end, prefix, &idx))
 				return 0;
 			if (idx == 0) {
 				if (!hpack_decode_string(&p, end, name, sizeof(name), &nlen))
 					return 0;
 			} else {
-				const char *sn = hpack_static_name(idx);
-				if (!sn)
+				const char *nn = NULL;
+				const char *vv = NULL;
+				size_t nnlen = 0;
+				size_t vvlen = 0;
+				if (!hpack_lookup(dt, idx, &nn, &nnlen, &vv, &vvlen) || !nn)
 					return 0;
-				nlen = strlen(sn);
-				if (nlen >= sizeof(name))
+				if (nnlen >= sizeof(name))
 					return 0;
-				memcpy(name, sn, nlen + 1);
+				memcpy(name, nn, nnlen + 1);
+				nlen = nnlen;
+				(void)vv;
+				(void)vvlen;
 			}
 			if (!hpack_decode_string(&p, end, value, sizeof(value), &vlen))
 				return 0;
@@ -518,6 +599,10 @@ char *otlp_grpc_http2_request_build(const char *authority, const char *path,
 	if (out_len)
 		*out_len = 0;
 	if (!authority || !grpc_framed)
+		return NULL;
+	/* Defense in depth: action.c also refuses; without send flow-control a
+	 * framed body over the default 65535 connection window is unsafe. */
+	if (grpc_framed_len > 65535)
 		return NULL;
 	if (!use_path || !*use_path || !strcmp(use_path, "/"))
 		use_path = OTLP_GRPC_METRICS_PATH;
@@ -663,13 +748,31 @@ static void h2_send_ping_ack(context_arg *carg, const uint8_t *payload, size_t p
 	h2_write_control(carg, (char *)frame, 17);
 }
 
+#define H2_END_NONE 0
+#define H2_END_HEADERS 1
+#define H2_END_DATA 2
+#define H2_END_GOAWAY 3
+#define H2_END_RST 4
+
 typedef struct {
 	int grpc_status;
 	int have_status;
 	char status_msg[256];
+	char http_status[16];
 	string *data;
 	int stream_ended;
 	int headers_end;
+	int end_reason;
+	uint32_t goaway_last_sid;
+	uint32_t goaway_error;
+	uint32_t rst_error;
+	int saw_headers;
+	int saw_data;
+	int saw_settings;
+	int saw_goaway;
+	int saw_rst;
+	int hpack_ok;
+	hpack_dtable dtable;
 } h2_resp_state;
 
 static void h2_hdr_cb(void *arg, const char *name, size_t nlen, const char *value, size_t vlen)
@@ -684,7 +787,90 @@ static void h2_hdr_cb(void *arg, const char *name, size_t nlen, const char *valu
 		st->have_status = 1;
 	} else if (!strcasecmp(name, "grpc-message") && value) {
 		strlcpy(st->status_msg, value, sizeof(st->status_msg));
+	} else if (!strcasecmp(name, ":status") && value) {
+		strlcpy(st->http_status, value, sizeof(st->http_status));
 	}
+}
+
+static const char *h2_frame_type_name(uint8_t type)
+{
+	switch (type) {
+	case H2_FRAME_DATA: return "DATA";
+	case H2_FRAME_HEADERS: return "HEADERS";
+	case H2_FRAME_RST_STREAM: return "RST_STREAM";
+	case H2_FRAME_SETTINGS: return "SETTINGS";
+	case H2_FRAME_PING: return "PING";
+	case H2_FRAME_GOAWAY: return "GOAWAY";
+	case H2_FRAME_WINDOW_UPDATE: return "WINDOW_UPDATE";
+	case H2_FRAME_CONTINUATION: return "CONTINUATION";
+	default: return "OTHER";
+	}
+}
+
+/* RFC 7540 §7 — keep short for status_msg budgets. */
+static const char *h2_error_name(uint32_t code)
+{
+	switch (code) {
+	case 0: return "NO_ERROR";
+	case 1: return "PROTOCOL_ERROR";
+	case 2: return "INTERNAL_ERROR";
+	case 3: return "FLOW_CONTROL_ERROR";
+	case 4: return "SETTINGS_TIMEOUT";
+	case 5: return "STREAM_CLOSED";
+	case 6: return "FRAME_SIZE_ERROR";
+	case 7: return "REFUSED_STREAM";
+	case 8: return "CANCEL";
+	case 9: return "COMPRESSION_ERROR";
+	case 10: return "CONNECT_ERROR";
+	case 11: return "ENHANCE_YOUR_CALM";
+	case 12: return "INADEQUATE_SECURITY";
+	case 13: return "HTTP_1_1_REQUIRED";
+	default: return "UNKNOWN";
+	}
+}
+
+static const char *h2_end_reason_name(int reason)
+{
+	switch (reason) {
+	case H2_END_HEADERS: return "HEADERS";
+	case H2_END_DATA: return "DATA";
+	case H2_END_GOAWAY: return "GOAWAY";
+	case H2_END_RST: return "RST_STREAM";
+	default: return "NONE";
+	}
+}
+
+/* Build a short frame inventory for logs (binary H2 must not use %s). */
+static void h2_summarize_frames(const uint8_t *buf, size_t len, char *out, size_t outsz)
+{
+	size_t off = 0;
+	size_t used = 0;
+
+	if (!out || !outsz)
+		return;
+	out[0] = '\0';
+	while (off + 9 <= len && used + 24 < outsz) {
+		uint32_t plen = h2_get_u24(buf + off);
+		uint8_t type = buf[off + 3];
+		uint8_t flags = buf[off + 4];
+		uint32_t sid = h2_get_u32(buf + off + 5) & 0x7fffffffu;
+		int n;
+
+		if (off + 9 + plen > len) {
+			n = snprintf(out + used, outsz - used, "%s%s(trunc plen=%u)",
+				used ? " " : "", h2_frame_type_name(type), plen);
+			if (n > 0)
+				used += (size_t)n;
+			break;
+		}
+		n = snprintf(out + used, outsz - used, "%s%s(len=%u fl=0x%02x sid=%u)",
+			used ? " " : "", h2_frame_type_name(type), plen, flags, sid);
+		if (n > 0)
+			used += (size_t)n;
+		off += 9 + plen;
+	}
+	if (off < len && used + 16 < outsz)
+		snprintf(out + used, outsz - used, " +%zuB", len - off);
 }
 
 /* Parse HTTP/2 frames. When start_off is set (expect_complete path), only
@@ -716,6 +902,7 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 		do_ack = (carg_for_ack && off >= commit);
 
 		if (type == H2_FRAME_SETTINGS && sid == 0) {
+			st->saw_settings = 1;
 			if (do_ack && !(flags & H2_FLAG_ACK))
 				h2_send_settings_ack(carg_for_ack);
 		} else if (type == H2_FRAME_PING && sid == 0) {
@@ -724,13 +911,30 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 		} else if (type == H2_FRAME_WINDOW_UPDATE) {
 			/* MVP: ignore peer window updates; we do not track send window. */
 		} else if (type == H2_FRAME_GOAWAY) {
-			st->stream_ended = 1;
+			st->saw_goaway = 1;
+			if (plen >= 8) {
+				st->goaway_last_sid = h2_get_u32(payload) & 0x7fffffffu;
+				st->goaway_error = h2_get_u32(payload + 4);
+			}
+			/* last_stream_id < 1 ⇒ peer will not process stream 1. A drain
+			 * GOAWAY with last_stream_id >= 1 must not truncate a live stream
+			 * or overwrite a successful END_STREAM. */
+			if (st->goaway_last_sid < 1 && st->end_reason == H2_END_NONE) {
+				st->stream_ended = 1;
+				st->end_reason = H2_END_GOAWAY;
+			}
 		} else if (type == H2_FRAME_RST_STREAM && sid == 1) {
+			st->saw_rst = 1;
 			st->stream_ended = 1;
+			if (st->end_reason == H2_END_NONE)
+				st->end_reason = H2_END_RST;
+			if (plen >= 4)
+				st->rst_error = h2_get_u32(payload);
 		} else if ((type == H2_FRAME_HEADERS || type == H2_FRAME_CONTINUATION) && sid == 1) {
 			const uint8_t *block = payload;
 			size_t blen = plen;
 
+			st->saw_headers = 1;
 			if (type == H2_FRAME_HEADERS) {
 				if (flags & H2_FLAG_PADDED) {
 					if (blen < 1)
@@ -751,16 +955,19 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 					blen -= 5;
 				}
 			}
-			if (!hpack_decode_block(block, blen, h2_hdr_cb, st)) {
-				/* MVP: static-table HPACK only; tolerate unknown/dynamic entries. */
-			}
+			if (!hpack_decode_block(block, blen, h2_hdr_cb, st, &st->dtable))
+				st->hpack_ok = 0;
 			if (flags & H2_FLAG_END_HEADERS)
 				st->headers_end = 1;
-			if (flags & H2_FLAG_END_STREAM)
+			if (flags & H2_FLAG_END_STREAM) {
 				st->stream_ended = 1;
+				if (st->end_reason == H2_END_NONE)
+					st->end_reason = H2_END_HEADERS;
+			}
 		} else if (type == H2_FRAME_DATA && sid == 1) {
 			const uint8_t *data = payload;
 			size_t dlen = plen;
+			st->saw_data = 1;
 			if (flags & H2_FLAG_PADDED) {
 				if (dlen < 1)
 					return 0;
@@ -774,8 +981,11 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 			}
 			if (dlen && st->data)
 				string_cat(st->data, (char *)data, dlen);
-			if (flags & H2_FLAG_END_STREAM)
+			if (flags & H2_FLAG_END_STREAM) {
 				st->stream_ended = 1;
+				if (st->end_reason == H2_END_NONE)
+					st->end_reason = H2_END_DATA;
+			}
 		}
 
 		if (start_off && off == commit) {
@@ -804,6 +1014,7 @@ int8_t otlp_grpc_expect_complete(context_arg *carg, char *buf, size_t nread)
 
 	memset(&st, 0, sizeof(st));
 	st.grpc_status = -1;
+	st.hpack_ok = 1;
 	st.data = NULL;
 	/* Side-effect only (ACKs + stream_ended); advance feed offset so PINGs are not re-ACKed. */
 	h2_feed_frames((const uint8_t *)carg->full_body->s, carg->full_body->l, &st, carg,
@@ -821,6 +1032,7 @@ int otlp_grpc_http2_response_parse(const char *buf, size_t len,
 	h2_resp_state st;
 	const char *msg;
 	size_t msg_len = 0;
+	char frames[256];
 
 	if (grpc_status)
 		*grpc_status = -1;
@@ -835,24 +1047,87 @@ int otlp_grpc_http2_response_parse(const char *buf, size_t len,
 
 	memset(&st, 0, sizeof(st));
 	st.grpc_status = -1;
+	st.hpack_ok = 1;
 	st.data = string_init(256);
 	if (!st.data)
 		return 0;
 
 	if (!h2_feed_frames((const uint8_t *)buf, len, &st, NULL, NULL)) {
+		if (status_msg && status_msg_size) {
+			h2_summarize_frames((const uint8_t *)buf, len, frames, sizeof(frames));
+			snprintf(status_msg, status_msg_size,
+				"HTTP/2 frame parse error :status=%s hpack_ok=%d end=%s frames=[%s]",
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason), frames);
+		}
 		string_free(st.data);
 		return 0;
 	}
 
 	if (!st.stream_ended) {
+		if (status_msg && status_msg_size) {
+			h2_summarize_frames((const uint8_t *)buf, len, frames, sizeof(frames));
+			snprintf(status_msg, status_msg_size,
+				"incomplete unary (no END_STREAM) grpc-status=%s :status=%s hpack_ok=%d end=%s goaway=%d rst=%d frames=[%s]",
+				st.have_status ? "seen" : "missing",
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason),
+				st.saw_goaway, st.saw_rst, frames);
+		}
 		string_free(st.data);
 		return 0;
 	}
 
+	/* Peer rejected the connection/stream before a unary gRPC status. */
+	if (st.end_reason == H2_END_GOAWAY || st.end_reason == H2_END_RST) {
+		h2_summarize_frames((const uint8_t *)buf, len, frames, sizeof(frames));
+		if (status_msg && status_msg_size) {
+			if (st.end_reason == H2_END_GOAWAY)
+				snprintf(status_msg, status_msg_size,
+					"peer GOAWAY before grpc-status error=%u(%s) last_stream=%u :status=%s hpack_ok=%d frames=[%s]",
+					st.goaway_error, h2_error_name(st.goaway_error),
+					st.goaway_last_sid,
+					st.http_status[0] ? st.http_status : "?",
+					st.hpack_ok, frames);
+			else
+				snprintf(status_msg, status_msg_size,
+					"peer RST_STREAM before grpc-status error=%u(%s) :status=%s hpack_ok=%d frames=[%s]",
+					st.rst_error, h2_error_name(st.rst_error),
+					st.http_status[0] ? st.http_status : "?",
+					st.hpack_ok, frames);
+		}
+		if (grpc_status)
+			*grpc_status = -1;
+		string_free(st.data);
+		/* Return 1 so the catcher can print status_msg; grpc_status stays -1. */
+		return 1;
+	}
+
 	if (grpc_status)
 		*grpc_status = st.have_status ? st.grpc_status : -1;
-	if (status_msg && status_msg_size && st.status_msg[0])
-		strlcpy(status_msg, st.status_msg, status_msg_size);
+	if (status_msg && status_msg_size) {
+		h2_summarize_frames((const uint8_t *)buf, len, frames, sizeof(frames));
+		if (!st.have_status) {
+			snprintf(status_msg, status_msg_size,
+				"missing grpc-status :status=%s hpack_ok=%d end=%s frames=[%s]",
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason), frames);
+		} else if (st.status_msg[0]) {
+			/* grpc-message trailer present — keep it, append diagnostics. */
+			snprintf(status_msg, status_msg_size,
+				"grpc-status=%d :status=%s hpack_ok=%d end=%s grpc-message=\"%s\" frames=[%s]",
+				st.grpc_status,
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason),
+				st.status_msg, frames);
+		} else {
+			snprintf(status_msg, status_msg_size,
+				"grpc-status=%d :status=%s hpack_ok=%d end=%s frames=[%s]",
+				st.grpc_status,
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason), frames);
+		}
+	}
 
 	if (st.data->l == 0) {
 		string_free(st.data);
@@ -861,6 +1136,13 @@ int otlp_grpc_http2_response_parse(const char *buf, size_t len,
 
 	msg = otlp_grpc_frame_unwrap(st.data->s, st.data->l, &msg_len);
 	if (!msg) {
+		if (status_msg && status_msg_size) {
+			h2_summarize_frames((const uint8_t *)buf, len, frames, sizeof(frames));
+			snprintf(status_msg, status_msg_size,
+				"gRPC data frame unwrap failed :status=%s hpack_ok=%d end=%s frames=[%s]",
+				st.http_status[0] ? st.http_status : "?",
+				st.hpack_ok, h2_end_reason_name(st.end_reason), frames);
+		}
 		string_free(st.data);
 		return 0;
 	}

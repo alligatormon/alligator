@@ -366,8 +366,11 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 {
 	if (carg)
 	{
+		char preview[128];
 		carglog(carg, L_TRACE, "multiparser: begin handler=%p buflen=%zu\n", handler, slen);
-		carglog(carg, L_TRACE, "multiparser: buffer:\n'%s'\n", buf);
+		/* Binary HTTP/2 often has a NUL in the 24-bit length — '%s' looks empty. */
+		carglog(carg, L_TRACE, "multiparser: buffer preview=%s\n",
+			log_printable_preview(preview, sizeof(preview), buf, slen));
 		carglog(carg, L_TRACE, "multiparser: end\n");
 	}
 	if (!buf)

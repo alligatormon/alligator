@@ -87,7 +87,13 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 		http_version = 20;
 	else
 	{
-		glog(L_TRACE, "not an HTTP response (bad version): %s\n", http);
+		/* Binary HTTP/2 (OTLP/gRPC, h2) is expected here — do not imply HTTP/1 failure. */
+		char preview[96];
+		log_printable_preview(preview, sizeof(preview), http, (size_t)n);
+		if (!strncmp(preview, "[binary HTTP/2", 14))
+			glog(L_TRACE, "http_reply_parser: binary HTTP/2 response (%zd bytes); skipping HTTP/1.x text parse (normal for otlp_grpc/h2)\n", n);
+		else
+			glog(L_TRACE, "http_reply_parser: not HTTP/1.x text response preview=%s\n", preview);
 		return NULL;
 	}
 
@@ -98,7 +104,9 @@ http_reply_data* http_reply_parser(char *http, ssize_t n)
 	http_code = atoi(cur);
 	if (!http_code || http_code > 599)
 	{
-		glog(L_TRACE, "not an HTTP response (bad status code): %s\n", http);
+		char preview[96];
+		log_printable_preview(preview, sizeof(preview), http, (size_t)n);
+		glog(L_TRACE, "http_reply_parser: not HTTP/1.x text response (bad status code) preview=%s\n", preview);
 		return NULL;
 	}
 

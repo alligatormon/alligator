@@ -280,13 +280,20 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		int64_t chunk_ret = -2;
 		if (base)
 			base[nread] = 0;
-		carglog(carg, L_TRACE, "read chunk key %s nread %zd preview %.*s\n", carg->key, nread, (int)(nread > 80 ? 80 : nread), base ? base : "");
+		{
+			char preview[96];
+			carglog(carg, L_TRACE, "read chunk key %s nread %zd preview=%s\n", carg->key, nread,
+				log_printable_preview(preview, sizeof(preview), base, (size_t)(nread > 0 ? nread : 0)));
+		}
 		carg->read_bytes_counter += nread;
 		if (base)
 		{
 			if (!carg->full_body->l)
 			{
-				http_reply_data* hr_data = http_reply_parser(base, nread);
+				/* otlp_grpc is prior-knowledge HTTP/2 — skip HTTP/1.x probe (avoids noisy TRACE). */
+				int skip_http1 = carg->parser_name
+					&& !strcmp(carg->parser_name, "otlp_grpc_response_catch");
+				http_reply_data* hr_data = skip_http1 ? NULL : http_reply_parser(base, nread);
 				if (hr_data)
 				{
 					http_hrdata_metrics(carg, hr_data);

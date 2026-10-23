@@ -48,11 +48,13 @@ int8_t tcp_check_full(context_arg* carg, char *buf, size_t nread, int64_t chunk_
 		return 1;
 	}
 
-	// check expect function validator
+	/* Delegate to expect_function (e.g. otlp_grpc unary END_STREAM) — not a match yet. */
 	else if (carg->expect_function)
 	{
-		carglog(carg, L_TRACE, "check body full: function match\n");
-		return carg->expect_function(carg, buf, nread);
+		int8_t eret = carg->expect_function(carg, buf, nread);
+		carglog(carg, L_TRACE, "check body full: expect_function=%p complete=%d\n",
+			carg->expect_function, (int)eret);
+		return eret;
 	}
 
 	else if (carg->expect_count && (carg->expect_count <= carg->read_count))

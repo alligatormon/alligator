@@ -1383,6 +1383,7 @@ void otlp_grpc_response_catch(char *metrics, size_t size, context_arg *carg)
 	char status_msg[256];
 	char *protobuf = NULL;
 	size_t protobuf_len = 0;
+	const char *detail;
 
 	if (!carg)
 		return;
@@ -1390,20 +1391,28 @@ void otlp_grpc_response_catch(char *metrics, size_t size, context_arg *carg)
 	status_msg[0] = '\0';
 	if (!otlp_grpc_http2_response_parse(metrics, size, &grpc_status, status_msg, sizeof(status_msg), &protobuf, &protobuf_len))
 	{
-		carglog(carg, L_ERROR, "otlp_grpc_response_catch: failed to parse HTTP/2 gRPC response (size=%zu)\n", size);
+		detail = status_msg[0] ? status_msg : "no detail (empty or truncated buffer)";
+		carglog(carg, L_ERROR,
+			"otlp_grpc_response_catch: HTTP/2 parse failed grpc-status=-1 detail=\"%s\" size=%zu\n",
+			detail, size);
 		free(protobuf);
 		return;
 	}
 
+	detail = status_msg[0] ? status_msg : "no detail";
 	if (grpc_status != 0)
 	{
-		if (status_msg[0])
-			carglog(carg, L_ERROR, "otlp_grpc_response_catch: grpc-status=%d grpc-message=\"%s\"\n", grpc_status, status_msg);
-		else
-			carglog(carg, L_ERROR, "otlp_grpc_response_catch: grpc-status=%d\n", grpc_status);
+		/* -1 = peer GOAWAY/RST or missing trailers; >0 = gRPC application status. */
+		carglog(carg, L_ERROR,
+			"otlp_grpc_response_catch: export failed grpc-status=%d detail=\"%s\" size=%zu\n",
+			grpc_status, detail, size);
 		free(protobuf);
 		return;
 	}
+
+	carglog(carg, L_DEBUG,
+		"otlp_grpc_response_catch: ok grpc-status=0 detail=\"%s\" size=%zu protobuf_len=%zu\n",
+		detail, size, protobuf_len);
 
 	/* Reuse OTLP/HTTP protobuf response validation on the unwrapped body. */
 	otlp_protobuf_response_catch(protobuf ? protobuf : "", protobuf_len, carg);

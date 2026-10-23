@@ -77,7 +77,9 @@ void log_channel_write_document_kind(log_channel *ch, struct context_arg *carg, 
 void log_channel_account(const log_channel *ch, const char *kind, const char *result, const char *reason);
 int context_allows_raw_log(const struct context_arg *carg);
 /* Copy src into dst for diagnostic logs. Printable ASCII (plus tab/CR/LF) is
- * kept; if any other byte is present (DNS wire, etc.) dst is "[binary N bytes]". */
+ * kept; if any other byte is present dst is "[binary N bytes]", or
+ * "[binary HTTP/2 N bytes]" when the buffer looks like an HTTP/2 frame stream
+ * (avoids empty '' previews from NUL length octets). */
 const char *log_printable_preview(char *dst, size_t dstsz, const char *src, size_t srclen);
 
 /*

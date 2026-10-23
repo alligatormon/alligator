@@ -126,6 +126,12 @@ void test_logs_helpers()
             log_printable_preview(preview, sizeof(preview), NULL, 0));
         assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "[binary 4 bytes]",
             log_printable_preview(preview, sizeof(preview), (char *)dns_qid, sizeof(dns_qid)));
+        /* Empty SETTINGS frame — NUL length must not render as ''. */
+        {
+            unsigned char h2_settings[9] = { 0, 0, 0, 0x4, 0, 0, 0, 0, 0 };
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "[binary HTTP/2 9 bytes]",
+                log_printable_preview(preview, sizeof(preview), (char *)h2_settings, sizeof(h2_settings)));
+        }
     }
 
     ac->log_dest = NULL;

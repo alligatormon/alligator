@@ -210,7 +210,7 @@ action {
 }
 ```
 
-`serializer otlp_grpc` отправляет unary `MetricsService/Export` по HTTP/2 (gRPC framing, `Content-Type: application/grpc`). Путь фиксирован: `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Предпочтительно `https://` с ALPN `h2` (как otel-collector `exporters.otlp` gRPC); для cleartext `http://` используется HTTP/2 prior knowledge (без upgrade). Опциональные заголовки `env` (например `Authorization`) попадают в запрос. Ограничения MVP: только метрики; без gzip; без пула соединений (oneshot на каждый экспорт); без send flow-control (framed payload ≤ 65535 байт); HPACK ответа — только static table (dynamic-table `grpc-status` может не декодироваться).
+`serializer otlp_grpc` отправляет unary `MetricsService/Export` по HTTP/2 (gRPC framing, `Content-Type: application/grpc`). Путь фиксирован: `/opentelemetry.proto.collector.metrics.v1.MetricsService/Export`. Предпочтительно `https://` с ALPN `h2` (как otel-collector `exporters.otlp` gRPC); для cleartext `http://` используется HTTP/2 prior knowledge (без upgrade). Опциональные заголовки `env` (например `Authorization`) попадают в запрос. Ограничения MVP: только метрики; без gzip; без пула соединений (oneshot на каждый экспорт); без send flow-control (framed payload ≤ 65535 байт). HPACK ответа — static table плюс небольшой decoder dynamic table (типичные trailer'ы Envoy/Istio). Ошибки пишут `detail=` с `:status`, `grpc-status`, именами GOAWAY/RST и инвентарём фреймов.
 
 ## tls\_certificate / tls\_key / tls\_ca / tls\_verify
 По умолчанию: -\

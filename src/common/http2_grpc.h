@@ -8,9 +8,15 @@
 
 struct context_arg;
 
-/* MVP HTTP/2 gRPC client (no nghttp2): prior-knowledge preface, static HPACK,
- * SETTINGS/PING ACK, unary MetricsService/Export. No send flow-control
- * (payload ≤ 65535), no dynamic HPACK table, no gzip, oneshot per export. */
+/* MVP HTTP/2 gRPC client (no nghttp2): prior-knowledge preface, HPACK decoder
+ * with a small dynamic table, SETTINGS/PING ACK, unary MetricsService/Export.
+ *
+ * Accepted MVP limits (not blockers for unary metrics against Envoy/Istio/
+ * otel-collector): metrics only; no gzip; oneshot per export (no pooling);
+ * no send flow-control (framed payload ≤ 65535, else refuse); no CONTINUATION
+ * on the request; decoder dtable capped (oversized incremental entries skipped);
+ * peer SETTINGS that shrink the send window below an already-written payload
+ * are not handled; cleartext is prior-knowledge only (no h2c upgrade). */
 
 #define OTLP_GRPC_METRICS_PATH "/opentelemetry.proto.collector.metrics.v1.MetricsService/Export"
 

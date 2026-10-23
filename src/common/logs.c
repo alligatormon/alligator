@@ -1376,6 +1376,22 @@ static int log_byte_is_printable(unsigned char c)
 	return c == '\t' || c == '\n' || c == '\r' || (isprint(c) && c != '\0');
 }
 
+/* Heuristic: connection preface or a plausible first HTTP/2 control/headers frame.
+ * Exclude DATA(0)/CONTINUATION(9) as first-frame guesses — they collide with DNS wire. */
+static int log_looks_like_http2(const char *src, size_t srclen)
+{
+	static const char preface[] = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+	unsigned char type;
+
+	if (srclen >= sizeof(preface) - 1 && !memcmp(src, preface, sizeof(preface) - 1))
+		return 1;
+	if (srclen < 9)
+		return 0;
+	type = (unsigned char)src[3];
+	return type == 0x1 || type == 0x3 || type == 0x4
+		|| type == 0x6 || type == 0x7 || type == 0x8;
+}
+
 const char *log_printable_preview(char *dst, size_t dstsz, const char *src, size_t srclen)
 {
 	size_t i;
@@ -1392,7 +1408,10 @@ const char *log_printable_preview(char *dst, size_t dstsz, const char *src, size
 
 	for (i = 0; i < srclen; i++) {
 		if (!log_byte_is_printable((unsigned char)src[i])) {
-			snprintf(dst, dstsz, "[binary %zu bytes]", srclen);
+			if (log_looks_like_http2(src, srclen))
+				snprintf(dst, dstsz, "[binary HTTP/2 %zu bytes]", srclen);
+			else
+				snprintf(dst, dstsz, "[binary %zu bytes]", srclen);
 			return dst;
 		}
 	}

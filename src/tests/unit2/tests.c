@@ -3679,12 +3679,195 @@ static void test_otlp_grpc_frame_and_http2(void)
                 &protobuf, &protobuf_len));
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)protobuf_len);
+        /* Success detail= always names grpc-status / :status / frames for field logs. */
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, "grpc-status=0") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, ":status=") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, "frames=[") != NULL);
         free(protobuf);
 
         /* Incomplete buffer (HEADERS cut off) must not parse as complete. */
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
             otlp_grpc_http2_response_parse((char *)resp, 9, &grpc_status, status_msg, sizeof(status_msg),
                 &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, status_msg[0] != '\0');
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            strstr(status_msg, "incomplete") != NULL || strstr(status_msg, "frame parse") != NULL);
+        free(protobuf);
+    }
+
+    /* GOAWAY last_stream=0 must complete parse with grpc-status=-1 and named error. */
+    {
+        unsigned char goaway[32];
+        size_t r = 0;
+        int grpc_status = 0;
+        char status_msg[192];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        /* SETTINGS empty */
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0;
+        goaway[r++] = 0x4; goaway[r++] = 0;
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0;
+        /* GOAWAY last_stream=0 error=PROTOCOL_ERROR(1) */
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 8;
+        goaway[r++] = 0x7; goaway[r++] = 0;
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0;
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0; /* last stream */
+        goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 0; goaway[r++] = 1; /* error */
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)goaway, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, grpc_status);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, status_msg[0] != '\0');
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, "PROTOCOL_ERROR") != NULL);
+        free(protobuf);
+    }
+
+    /* RST_STREAM on stream 1 must complete with diagnostic. */
+    {
+        unsigned char rst[32];
+        size_t r = 0;
+        int grpc_status = 0;
+        char status_msg[192];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        rst[r++] = 0; rst[r++] = 0; rst[r++] = 0;
+        rst[r++] = 0x4; rst[r++] = 0;
+        rst[r++] = 0; rst[r++] = 0; rst[r++] = 0; rst[r++] = 0;
+        /* RST_STREAM stream=1 error=REFUSED_STREAM(7) */
+        rst[r++] = 0; rst[r++] = 0; rst[r++] = 4;
+        rst[r++] = 0x3; rst[r++] = 0;
+        rst[r++] = 0; rst[r++] = 0; rst[r++] = 0; rst[r++] = 1;
+        rst[r++] = 0; rst[r++] = 0; rst[r++] = 0; rst[r++] = 7;
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)rst, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, grpc_status);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, "REFUSED_STREAM") != NULL);
+        free(protobuf);
+    }
+
+    /* Successful trailers then drain GOAWAY (last_stream>=1) must keep grpc-status=0. */
+    {
+        unsigned char resp[128];
+        size_t r = 0;
+        const unsigned char hdr_block[] = {
+            0x88,
+            0x00, 0x0b, 'g','r','p','c','-','s','t','a','t','u','s',
+            0x01, '0'
+        };
+        int grpc_status = -1;
+        char status_msg[64];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0x4; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = (unsigned char)sizeof(hdr_block);
+        resp[r++] = 0x1; resp[r++] = 0x5;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 1;
+        memcpy(resp + r, hdr_block, sizeof(hdr_block));
+        r += sizeof(hdr_block);
+        /* GOAWAY last_stream=1 NO_ERROR — connection drain after success */
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 8;
+        resp[r++] = 0x7; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 1;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)resp, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
+        free(protobuf);
+    }
+
+    /* request_build must refuse framed payloads over the default HTTP/2 window. */
+    {
+        char *big = malloc(65536);
+        size_t out_len = 1;
+        char *req;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, big);
+        memset(big, 'x', 65536);
+        req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, big, 65536, NULL, &out_len);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)out_len);
+        free(big);
+    }
+
+    /* Dynamic-table HPACK: after inserting content-type, a later literal reuses
+     * dynamic name index 62; without a decoder dtable that aborts before grpc-status. */
+    {
+        unsigned char resp[128];
+        size_t r = 0;
+        const unsigned char hdr_block[] = {
+            0x88, /* :status 200 */
+            /* Literal incremental — new name "content-type" / "application/grpc" → dyn 62 */
+            0x40,
+            0x0c, 'c','o','n','t','e','n','t','-','t','y','p','e',
+            0x10, 'a','p','p','l','i','c','a','t','i','o','n','/','g','r','p','c',
+            /* Literal incremental — indexed name 62 (content-type) / dummy value */
+            0x7e, /* 0x40 | 62 */
+            0x01, 'x',
+            /* Literal incremental — new name "grpc-status" / "0" */
+            0x40,
+            0x0b, 'g','r','p','c','-','s','t','a','t','u','s',
+            0x01, '0'
+        };
+        int grpc_status = -1;
+        char status_msg[64];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0x4; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = (unsigned char)sizeof(hdr_block);
+        resp[r++] = 0x1; resp[r++] = 0x5;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 1;
+        memcpy(resp + r, hdr_block, sizeof(hdr_block));
+        r += sizeof(hdr_block);
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)resp, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
+        free(protobuf);
+    }
+
+    /* Indexed dynamic entry (0xBE = index 62) must replay grpc-status from dtable. */
+    {
+        unsigned char resp[128];
+        size_t r = 0;
+        const unsigned char hdr_block[] = {
+            0x88, /* :status 200 */
+            0x40,
+            0x0b, 'g','r','p','c','-','s','t','a','t','u','s',
+            0x01, '0', /* → dyn 62 */
+            0xbe  /* Indexed 62 → grpc-status: 0 */
+        };
+        int grpc_status = -1;
+        char status_msg[64];
+        char *protobuf = NULL;
+        size_t protobuf_len = 0;
+
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0x4; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 0;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = (unsigned char)sizeof(hdr_block);
+        resp[r++] = 0x1; resp[r++] = 0x5;
+        resp[r++] = 0; resp[r++] = 0; resp[r++] = 0; resp[r++] = 1;
+        memcpy(resp + r, hdr_block, sizeof(hdr_block));
+        r += sizeof(hdr_block);
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            otlp_grpc_http2_response_parse((char *)resp, r, &grpc_status, status_msg, sizeof(status_msg),
+                &protobuf, &protobuf_len));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
         free(protobuf);
     }
 
