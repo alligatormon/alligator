@@ -628,48 +628,107 @@ static void tcp_entrypoint_stop_async_cb(uv_async_t *handle)
 	uv_close((uv_handle_t *)&carg->server, tcp_entrypoint_server_closed);
 }
 
+/* Close the listening socket and drain the close so caller may carg_free safely.
+ * Must not UV_RUN_DEFAULT: loop is often the shared main loop. */
+static void tcp_server_setup_fail_closed(uv_handle_t *handle)
+{
+	context_arg *carg = handle ? handle->data : NULL;
+	if (carg)
+		carg->running = -2;
+}
+
+static void tcp_server_setup_abort(context_arg *srv_carg)
+{
+	unsigned i;
+
+	if (!srv_carg || !srv_carg->loop)
+		return;
+	if (!srv_carg->server.loop || uv_is_closing((uv_handle_t *)&srv_carg->server)) {
+		srv_carg->running = -1;
+		return;
+	}
+	/* Ensure close cb can signal via carg->running (not a stack flag: abandon
+	 * would UAF if uv_close completed after return). */
+	srv_carg->server.data = srv_carg;
+	srv_carg->running = -1;
+	uv_close((uv_handle_t *)&srv_carg->server, tcp_server_setup_fail_closed);
+	/* Bounded: UV_RUN_ONCE can block forever while entrypoint_stop_async is
+	 * still live on the threaded loop. Close cbs run under UV_RUN_NOWAIT. */
+	for (i = 0; i < 64 && srv_carg->running != -2; ++i)
+		uv_run(srv_carg->loop, UV_RUN_NOWAIT);
+	if (srv_carg->running != -2)
+		carglog(srv_carg, L_ERROR, "tcp server: setup abort close incomplete for '%s:%d'\n",
+			srv_carg->host, srv_carg->numport);
+	srv_carg->running = -1;
+}
+
 static int tcp_server_setup(context_arg *srv_carg, uv_loop_t *loop)
 {
 	struct sockaddr_in addr;
+	int rc;
 
 	srv_carg->loop = loop;
-	srv_carg->loop_allocated = 0;
+	/* Do not clear loop_allocated: tcp_server_run owns a malloc'd loop. */
 
+	/* Fail before uv_tcp_init: otherwise carg_free leaves an active handle in
+	 * the loop and later uv_run / uv_timer_init corrupt the freed context_arg. */
 	if (srv_carg->tls) {
-		int rc = tls_context_init(srv_carg, SSLMODE_SERVER, srv_carg->tls_verify, srv_carg->tls_ca_file,
-					  srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, srv_carg->rev.crl_file);
-		if (!rc)
+		rc = tls_context_init(srv_carg, SSLMODE_SERVER, srv_carg->tls_verify, srv_carg->tls_ca_file,
+				      srv_carg->tls_cert_file, srv_carg->tls_key_file, NULL, srv_carg->rev.crl_file);
+		if (!rc) {
 			srv_carg->running = -1;
+			return 0;
+		}
 	}
 
-	if (uv_ip4_addr(srv_carg->host, srv_carg->numport, &addr))
+	if (uv_ip4_addr(srv_carg->host, srv_carg->numport, &addr)) {
+		carglog(srv_carg, L_FATAL, "tcp server: invalid address '%s:%d'\n", srv_carg->host, srv_carg->numport);
 		srv_carg->running = -1;
+		return 0;
+	}
 
-	uv_tcp_init_ex(srv_carg->loop, &srv_carg->server, AF_INET);
-	uv_os_fd_t fd;
-	int on = 1;
-	uv_fileno((uv_handle_t *)&srv_carg->server, &fd);
-	setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
-
-	if (uv_tcp_bind(&srv_carg->server, (const struct sockaddr *)&addr, 0))
+	rc = uv_tcp_init_ex(srv_carg->loop, &srv_carg->server, AF_INET);
+	if (rc) {
+		carglog(srv_carg, L_FATAL, "tcp server: uv_tcp_init_ex '%s:%d' failed: %s\n",
+			srv_carg->host, srv_carg->numport, uv_strerror(rc));
 		srv_carg->running = -1;
+		return 0;
+	}
+	srv_carg->server.data = srv_carg;
 
-	if (uv_tcp_nodelay(&srv_carg->server, 1))
-		srv_carg->running = -1;
+	{
+		uv_os_fd_t fd;
+		int on = 1;
+
+		uv_fileno((uv_handle_t *)&srv_carg->server, &fd);
+		setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
+	}
+
+	if (uv_tcp_bind(&srv_carg->server, (const struct sockaddr *)&addr, 0)) {
+		carglog(srv_carg, L_FATAL, "tcp server: bind '%s:%d' failed\n", srv_carg->host, srv_carg->numport);
+		tcp_server_setup_abort(srv_carg);
+		return 0;
+	}
+
+	if (uv_tcp_nodelay(&srv_carg->server, 1)) {
+		carglog(srv_carg, L_FATAL, "tcp server: nodelay '%s:%d' failed\n", srv_carg->host, srv_carg->numport);
+		tcp_server_setup_abort(srv_carg);
+		return 0;
+	}
 
 	if (uv_listen((uv_stream_t *)&srv_carg->server, 1024, tcp_server_connected)) {
 		carglog(srv_carg, L_FATAL, "Listen '%s:%d' error\n", srv_carg->host, srv_carg->numport);
-		srv_carg->running = -1;
+		tcp_server_setup_abort(srv_carg);
+		return 0;
 	}
 
-	if (srv_carg->running != -1)
-		srv_carg->running = 1;
-
-	return srv_carg->running == 1;
+	srv_carg->running = 1;
+	return 1;
 }
 
 void tcp_server_run(void *passarg) {
 	context_arg *srv_carg = passarg;
+	unsigned i;
 
 	srv_carg->loop = malloc(sizeof *srv_carg->loop);
 	srv_carg->loop_allocated = 1;
@@ -681,12 +740,20 @@ void tcp_server_run(void *passarg) {
 	if (!tcp_server_setup(srv_carg, srv_carg->loop))
 		goto done;
 
+	/* Insert only after listen succeeds so setup-fail carg_free is not a UAF
+	 * against ac->entrypoints (init used to insert before the thread ran). */
+	alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
+
 	uv_run(srv_carg->loop, UV_RUN_DEFAULT);
 
 done:
 	if (srv_carg->entrypoint_stop_async_ready && !uv_is_closing((uv_handle_t *)&srv_carg->entrypoint_stop_async))
 		uv_close((uv_handle_t *)&srv_carg->entrypoint_stop_async, NULL);
-	uv_run(srv_carg->loop, UV_RUN_NOWAIT);
+	for (i = 0; i < 64; ++i) {
+		if (!uv_loop_alive(srv_carg->loop))
+			break;
+		uv_run(srv_carg->loop, UV_RUN_NOWAIT);
+	}
 	carg_free(srv_carg);
 }
 
@@ -704,13 +771,12 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
 
 		srv_carg->tls = tls;
-		srv_carg->server.data = srv_carg;
 
 		entrypoint_carg_replace_key(srv_carg, "tcp:%" PRIu64 ":%s:%u", i, srv_carg->host, port);
 		carglog(srv_carg, L_INFO, "tcp server: listening host=%s port=%d tls=%d\n", srv_carg->host, port, tls);
 
+		/* entrypoints insert happens in tcp_server_run after setup succeeds */
 		uv_thread_create(&srv_carg->thread, tcp_server_run, srv_carg);
-		alligator_ht_insert(ac->entrypoints, &(srv_carg->context_node), srv_carg, tommy_strhash_u32(0, srv_carg->key));
 	}
 	if (!import_carg->threads) {
 		context_arg* srv_carg = NULL;
@@ -724,7 +790,6 @@ int tcp_server_init(uv_loop_t *loop, const char* ip, int port, uint8_t tls, cont
 		strlcpy(srv_carg->host, ip, HOSTHEADER_SIZE);
 
 		srv_carg->tls = tls;
-		srv_carg->server.data = srv_carg;
 
 		entrypoint_carg_replace_key(srv_carg, "tcp:0:%s:%u", srv_carg->host, port);
 		carglog(srv_carg, L_INFO, "tcp server: listening host=%s port=%d tls=%d\n", srv_carg->host, port, tls);

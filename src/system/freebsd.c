@@ -184,11 +184,12 @@ void get_mem()
 	int rc;
 	u_int page_size;
 	struct vmtotal vmt;
-	size_t vmt_size, uint_size;
+	size_t vmt_size, uint_size, u64_size, int64_size;
 
 	vmt_size = sizeof(vmt);
 	uint_size = sizeof(page_size);
-	size_t int64_size = sizeof(int64_t);
+	u64_size = sizeof(uint64_t);
+	int64_size = sizeof(int64_t);
 	int mib[4];
 	int64_t num_cpu;
 	size_t len = sizeof(num_cpu);
@@ -228,39 +229,46 @@ void get_mem()
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 
-	u_int wire_size;
-	rc = sysctlbyname("vm.stats.vm.v_wire_count", &wire_size, &uint_size, NULL, 0);
+	u_int wire_count;
+	uint_size = sizeof(wire_count);
+	rc = sysctlbyname("vm.stats.vm.v_wire_count", &wire_count, &uint_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
 
-	int64_t vm_faults;
-	rc = sysctlbyname("vm.stats.vm.v_vm_faults", &vm_faults, &int64_size, NULL, 0);
+	uint64_t vm_faults;
+	u64_size = sizeof(vm_faults);
+	rc = sysctlbyname("vm.stats.vm.v_vm_faults", &vm_faults, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t io_faults;
-	rc = sysctlbyname("vm.stats.vm.v_io_faults", &io_faults, &int64_size, NULL, 0);
+	uint64_t io_faults;
+	u64_size = sizeof(io_faults);
+	rc = sysctlbyname("vm.stats.vm.v_io_faults", &io_faults, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_swapout;
-	rc = sysctlbyname("vm.stats.vm.v_swapout", &v_swapout, &int64_size, NULL, 0);
+	uint64_t v_swapout;
+	u64_size = sizeof(v_swapout);
+	rc = sysctlbyname("vm.stats.vm.v_swapout", &v_swapout, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_swapin;
-	rc = sysctlbyname("vm.stats.vm.v_swapin", &v_swapin, &int64_size, NULL, 0);
+	uint64_t v_swapin;
+	u64_size = sizeof(v_swapin);
+	rc = sysctlbyname("vm.stats.vm.v_swapin", &v_swapin, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_swappgsout;
-	rc = sysctlbyname("vm.stats.vm.v_swappgsout", &v_swapout, &int64_size, NULL, 0);
+	uint64_t v_swappgsout;
+	u64_size = sizeof(v_swappgsout);
+	rc = sysctlbyname("vm.stats.vm.v_swappgsout", &v_swappgsout, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_swappgsin;
-	rc = sysctlbyname("vm.stats.vm.v_swappgsin", &v_swapin, &int64_size, NULL, 0);
+	uint64_t v_swappgsin;
+	u64_size = sizeof(v_swappgsin);
+	rc = sysctlbyname("vm.stats.vm.v_swappgsin", &v_swappgsin, &u64_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
@@ -269,23 +277,25 @@ void get_mem()
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_active_count;
-	rc = sysctlbyname("vm.stats.vm.v_active_count", &v_active_count, &int64_size, NULL, 0);
+	u_int v_active_count;
+	uint_size = sizeof(v_active_count);
+	rc = sysctlbyname("vm.stats.vm.v_active_count", &v_active_count, &uint_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t v_inactive_count;
-	rc = sysctlbyname("vm.stats.vm.v_inactive_count", &v_inactive_count, &int64_size, NULL, 0);
+	u_int v_inactive_count;
+	uint_size = sizeof(v_inactive_count);
+	rc = sysctlbyname("vm.stats.vm.v_inactive_count", &v_inactive_count, &uint_size, NULL, 0);
 	if (rc < 0){
 		carglog(ac->system_carg, L_ERROR, "sysctlbyname: %s\n", strerror(errno));
 	}
-	int64_t free_memory = vmt.t_free * (u_int64_t)page_size;
-	int64_t avail_memory = vmt.t_avm * (u_int64_t)page_size;
-	int64_t active_memory = v_active_count * (u_int64_t)page_size;
-	int64_t inact_memory = v_inactive_count * page_size;
-	int64_t real_memory = vmt.t_rm * (u_int64_t)page_size;
-	int64_t wire_memory = wire_size * (u_int64_t)page_size;
-	//printf("vm.stats.vm.v_inactive_count: %ld, inact: %ld, page_size: %u\n", v_inactive_count, inact_memory, page_size);
+	int64_t free_memory = (int64_t)vmt.t_free * (int64_t)page_size;
+	int64_t active_memory = (int64_t)v_active_count * (int64_t)page_size;
+	int64_t inact_memory = (int64_t)v_inactive_count * (int64_t)page_size;
+	int64_t real_memory = (int64_t)vmt.t_rm * (int64_t)page_size;
+	int64_t wire_memory = (int64_t)wire_count * (int64_t)page_size;
+	/* available ≈ free + inactive (reclaimable); t_avm is active virtual memory, not RAM */
+	int64_t avail_memory = free_memory + inact_memory;
 
 	metric_add_labels("memory_usage", &physmem, DATATYPE_INT, ac->system_carg, "type", "total");
 	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
@@ -295,20 +305,22 @@ void get_mem()
 	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
 	metric_add_labels("memory_usage", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
 
-	double percentused = ((double)active_memory+(double)wire_memory)*100/(double)physmem;
-	double percentfree = 100 - percentused;
-	metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
-	metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
+	if (physmem > 0) {
+		double percentused = ((double)physmem - (double)avail_memory) * 100.0 / (double)physmem;
+		double percentfree = 100.0 - percentused;
+		metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
+		metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
+	}
 
-	metric_add_labels("memory_stat", &v_swapout, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
-	metric_add_labels("memory_stat", &v_swapin, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
-	metric_add_labels("memory_stat", &v_swappgsout, DATATYPE_INT, ac->system_carg, "type", "pgswpout");
-	metric_add_labels("memory_stat", &v_swappgsin, DATATYPE_INT, ac->system_carg, "type", "pgswpin");
+	metric_add_labels("memory_stat", &v_swapout, DATATYPE_UINT, ac->system_carg, "type", "pgpgout");
+	metric_add_labels("memory_stat", &v_swapin, DATATYPE_UINT, ac->system_carg, "type", "pgpgin");
+	metric_add_labels("memory_stat", &v_swappgsout, DATATYPE_UINT, ac->system_carg, "type", "pgswpout");
+	metric_add_labels("memory_stat", &v_swappgsin, DATATYPE_UINT, ac->system_carg, "type", "pgswpin");
 	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1");
 	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5");
 	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");
-	metric_add_auto("vm_faults", &vm_faults, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("io_faults", &io_faults, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("vm_faults", &vm_faults, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("io_faults", &io_faults, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
@@ -787,8 +799,9 @@ void get_system_metrics()
 		get_memory_usage_cgroup();
 		get_utmp_info();
 		get_thermal();
-		get_proc_interrupts(ac->system_interrupts);
 	}
+	if (ac->system_interrupts)
+		get_proc_interrupts(ac->system_interrupts);
 	if (ac->system_base && !ac->system_process)
 	{
 		get_proc_info(1);

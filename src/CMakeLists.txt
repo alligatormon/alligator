@@ -857,14 +857,20 @@ set(CPACK_RPM_PACKAGE_DESCRIPTION "alligator is aggregator for system and softwa
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${CPACK_RPM_PACKAGE_DESCRIPTION}")
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-	install(TARGETS ${HEAD} RUNTIME DESTINATION usr/local/bin)
-	install(FILES grok-patterns/patterns.conf DESTINATION etc/grok-patterns)
+	# Absolute destinations: default CMAKE_INSTALL_PREFIX is /usr/local, so
+	# relative "usr/local/bin" / "var/lib/..." became /usr/local/usr/local/bin
+	# and /usr/local/var/lib/alligator. Match FreeBSD LOCALBASE + FHS var.
+	install(TARGETS ${HEAD} RUNTIME DESTINATION /usr/local/bin)
+	install(FILES grok-patterns/patterns.conf DESTINATION /usr/local/etc/grok-patterns)
 	install(FILES "${CMAKE_SOURCE_DIR}/puppeteer/puppeteer-alligator.js"
-		DESTINATION var/lib/alligator)
+		DESTINATION /var/lib/alligator)
 	if(EXISTS "/var/lib/alligator/parseJks.so")
-		install(FILES "/var/lib/alligator/parseJks.so" DESTINATION var/lib/alligator)
+		install(FILES "/var/lib/alligator/parseJks.so" DESTINATION /var/lib/alligator)
 	endif()
+	install(DIRECTORY DESTINATION /var/lib/alligator/)
 	set(CPACK_GENERATOR "FREEBSD")
+	set(CPACK_SET_DESTDIR ON)
+	set(CPACK_PACKAGING_INSTALL_PREFIX "/")
 	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-FreeBSD")
 	set(CPACK_FREEBSD_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
 	set(CPACK_FREEBSD_PACKAGE_ORIGIN "misc/${PROJECT_NAME}")

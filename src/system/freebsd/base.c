@@ -209,9 +209,9 @@ void get_memory_usage_hw(void)
 	struct vmtotal vmt;
 	size_t sz;
 	int64_t physmem;
-	int64_t v_active_count;
-	int64_t v_inactive_count;
-	u_int wire_count;
+	u_int v_active_count = 0;
+	u_int v_inactive_count = 0;
+	u_int wire_count = 0;
 	int64_t free_memory, avail_memory, active_memory, inact_memory, wire_memory, usage_memory;
 	int64_t swap_total = 0, swap_used = 0, swap_free = 0;
 	struct kvm_swap swap;
@@ -236,11 +236,12 @@ void get_memory_usage_hw(void)
 	sz = sizeof(wire_count);
 	sysctlbyname("vm.stats.vm.v_wire_count", &wire_count, &sz, NULL, 0);
 
-	free_memory = vmt.t_free * (int64_t)page_size;
-	avail_memory = vmt.t_avm * (int64_t)page_size;
-	active_memory = v_active_count * (int64_t)page_size;
-	inact_memory = v_inactive_count * (int64_t)page_size;
-	wire_memory = wire_count * (int64_t)page_size;
+	free_memory = (int64_t)vmt.t_free * (int64_t)page_size;
+	active_memory = (int64_t)v_active_count * (int64_t)page_size;
+	inact_memory = (int64_t)v_inactive_count * (int64_t)page_size;
+	wire_memory = (int64_t)wire_count * (int64_t)page_size;
+	/* available ≈ free + inactive; t_avm is active virtual memory, not available RAM */
+	avail_memory = free_memory + inact_memory;
 	usage_memory = physmem - avail_memory;
 
 	metric_add_labels("memory_usage_hw", &physmem, DATATYPE_INT, ac->system_carg, "type", "total");
@@ -298,26 +299,21 @@ void get_memory_usage_cgroup(void)
 
 void get_proc_interrupts(int extended_mode)
 {
-	int ncpu = 0;
-	size_t names_sz = 0, cnt_sz = 0, sz;
+	size_t names_sz = 0, cnt_sz = 0, name_len;
 	char *names = NULL;
-	uint64_t *cnt = NULL;
-	int nintr;
-	int i, cpu;
+	unsigned long *cnt = NULL;
+	int nintr, nnames, i;
 
-	sz = sizeof(ncpu);
-	if (sysctlbyname("hw.ncpu", &ncpu, &sz, NULL, 0) != 0 || ncpu < 1)
-		return;
+	/* FreeBSD hw.intrcnt is a flat u_long[] parallel to hw.intrnames slots
+	 * (vmstat -i), not a [irq][cpu] matrix. Per-CPU IPI rows use names like
+	 * "cpuN:...". extended_mode has no real per-CPU matrix to export. */
+	(void)extended_mode;
 
 	if (sysctlbyname("hw.intrnames", NULL, &names_sz, NULL, 0) != 0)
 		return;
 	if (sysctlbyname("hw.intrcnt", NULL, &cnt_sz, NULL, 0) != 0)
 		return;
 	if (!names_sz || !cnt_sz)
-		return;
-
-	nintr = (int)(cnt_sz / (sizeof(uint64_t) * (size_t)ncpu));
-	if (!nintr)
 		return;
 
 	names = malloc(names_sz);
@@ -330,27 +326,39 @@ void get_proc_interrupts(int extended_mode)
 	if (sysctlbyname("hw.intrcnt", cnt, &cnt_sz, NULL, 0) != 0)
 		goto out;
 
+	/* Flat u_long[] parallel to fixed-width name slots (width varies by arch). */
+	nintr = (int)(cnt_sz / sizeof(unsigned long));
+	if (!nintr)
+		goto out;
+	if (names_sz % (size_t)nintr == 0)
+		name_len = names_sz / (size_t)nintr;
+	else {
+		name_len = INTRNAME_LEN;
+		nnames = (int)(names_sz / name_len);
+		if (nnames <= 0)
+			goto out;
+		if (nnames < nintr)
+			nintr = nnames;
+	}
+	if (!name_len)
+		goto out;
+
 	for (i = 0; i < nintr; i++) {
 		char code[16];
-		char description[INTRNAME_LEN + 1];
-		uint64_t total = 0;
+		char description[64];
+		uint64_t value;
+		size_t copy_len;
 
 		snprintf(code, sizeof(code), "%d", i);
-		strlcpy(description, names + i * INTRNAME_LEN, sizeof(description));
+		copy_len = name_len < sizeof(description) - 1 ? name_len : sizeof(description) - 1;
+		memcpy(description, names + (size_t)i * name_len, copy_len);
+		description[copy_len] = '\0';
 		normalize_spaces(description);
+		if (description[0] == '\0')
+			continue;
 
-		for (cpu = 0; cpu < ncpu; cpu++) {
-			uint64_t value = cnt[i * ncpu + cpu];
-			total += value;
-			if (extended_mode) {
-				char cpuname[16];
-				snprintf(cpuname, sizeof(cpuname), "CPU%d", cpu);
-				metric_add_labels3("interrupts_core_count", &value, DATATYPE_UINT, ac->system_carg,
-					"code", code, "description", description, "cpu", cpuname);
-			}
-		}
-
-		metric_add_labels2("interrupts_by_irq_total", &total, DATATYPE_UINT, ac->system_carg,
+		value = (uint64_t)cnt[i];
+		metric_add_labels2("interrupts_by_irq_total", &value, DATATYPE_UINT, ac->system_carg,
 			"code", code, "description", description);
 	}
 

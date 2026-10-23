@@ -135,11 +135,13 @@ Metric naming notes:
 
 
 ## interrupts
-Per-CPU softirq counters from `/proc/softirqs` (normal scrape):
+**Linux.** Per-CPU softirq counters from `/proc/softirqs` (normal scrape):
 
 - `softirq_stat_total{cpu,type}`
 
 When `base` is also enabled, `/proc/interrupts` is read on each scrape; with `interrupts` enabled, per-CPU IRQ breakdown is exported as `interrupts_core_count{code,description,cpu}` in addition to `interrupts_by_irq_total{code,description}`.
+
+**FreeBSD.** Aggregate `interrupts_total` / `softirq_total` come from `vm.stats.sys.v_intr` / `v_soft` under `base` (via `get_vmstat`), not from by-IRQ sysctls. With `interrupts` enabled, `hw.intrnames` / `hw.intrcnt` export flat `interrupts_by_irq_total{code,description}` (one counter per name, matching `vmstat -i`). There is no per-CPU IRQ matrix, so extended mode does not invent `interrupts_core_count` (per-CPU IPI rows already appear as separate names such as `cpuN:...`). Empty `hw.intrnames` slots (blank description) are skipped to avoid high-cardinality noise.
 
 
 ## memory
