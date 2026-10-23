@@ -24,7 +24,6 @@ entrypoint {
     log_channel <channel_name>;
     log_channel_raw <channel_name>;
     return [empty|on]>;
-    reject <label name> <label key>;
     auth <basic|bearer|other> <user:password|token|secret>;
     auth_header <header_name>;
     header <name> <value>;
@@ -63,6 +62,16 @@ entrypoint {
     metric_name_transform_pattern <pcre>;
     metric_name_transform_replacement <string>;
     metricstransform { ... };
+    metric_filter {
+        include <name|regex> match_type strict|regexp;
+        exclude <name|regex> match_type strict|regexp;
+        include_label <label> [<value>] match_type strict|regexp;
+        exclude_label <label> [<value>] match_type strict|regexp;
+    };
+    metric_include <name|regex> match_type strict|regexp;
+    metric_exclude <name|regex> match_type strict|regexp;
+    metric_include_label <label> [<value>] match_type strict|regexp;
+    metric_exclude_label <label> [<value>] match_type strict|regexp;
     # Prometheus histograms: TYPE histogram on base name (ut_hist) or on components
     # (ut_hist_bucket / _sum / _count) are merged into one family on scrape/export
     cluster <cluster_name>;
@@ -105,21 +114,6 @@ Possible values:
 - empty
 
 Enabling or disabling the response body on requests. This can be useful for Alligator ports that need to be accessed from the internet as the solution for receving Pushgateway metrics from a browser's JavaScript.
-
-## reject
-Default: -\
-Plural: yes
-
-Enable filter drop metrics with label name and value (tags for StatsD) equal to field.
-For instance, next configuration drops all metrics with labels **http_response_code="404"**, **name="bot"**:
-
-```
-entrypoint {
-    reject http_response_code 404;
-    reject name bot;
-    tcp 1111;
-}
-```
 
 ## auth
 Default: -\
@@ -511,6 +505,75 @@ entrypoint {
     allow 127.0.0.1;
     add_label received:statsd;
     add_label server:alligator;
+}
+```
+
+## metric_filter
+Default: - (accept all)\
+Plural: yes (`metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label` one-liners)
+
+Filter metrics at ingest (statsd / Graphite / pushgateway / OpenMetrics / OTLP push, and all other `metric_add*` / `metric_update*` paths on that context) **before** `add_label` merge and `metricstransform`. Aggregate scrapes use the same gate when configured on the aggregate item. Matching is **whole-sample**: a matching exclude_label drops the entire sample (including OTLP — previously a rejected label was skipped while the sample continued; that per-label skip is intentionally unified into whole-sample drop).
+
+Semantics (order; excludes win):
+
+1. No `metric_filter` / empty or all-invalid rules → accept all. Invalid PCRE rules are skipped at compile time (WARN); if nothing valid remains, the filter is cleared.
+2. **Name include**: if any `include` rules → name must match ≥1.
+3. **Label include**: if any `include_label` rules → sample must match ≥1 (label present; if the rule has a value, value must match `strict`/`regexp`; omit value or empty string ≡ any value for that label name).
+4. **Name exclude**: if name matches any `exclude` → drop.
+5. **Label exclude**: if any label on the sample matches any `exclude_label` rule → drop.
+6. `match_type` is `strict` (exact) or `regexp` / `regex` (PCRE), same vocabulary as [`metricstransform`](#metricstransform). Missing `match_type` defaults to `strict`. Unknown values are treated as `strict` (WARN). NULL / empty sample labels → label includes fail if any exist; label excludes are a no-op.
+
+Does not filter system metrics unless a system context is given this option (default: no; `NULL` carg / no filter → allow-all). Outbound / action filtering is out of scope. Legacy entrypoint `reject` is removed: if a JSON `reject` key or plain `reject` keyword is still present it is ignored with a WARN — migrate to `exclude_label`. Pushgateway URI labels are no longer whole-URI aborted on a reject match; filtering is per-sample at `metric_add` / `metric_update`.
+
+**Sharp edge:** an include-only filter on an entrypoint also applies to metrics ingested via that carg, including `alligator_session_*` / other `alligator_*` session metrics. Prefer include patterns that also match those names (or use exclude-only) if you need session metrics retained. There is no automatic `alligator_*` exemption.
+
+**Config order (plain):** the first definition of `metric_filter` on a construct wins.
+
+- A native `metric_filter { ... }` block or JSON argument creates the filter. Later blocks/JSON are ignored (WARN).
+- One-liners `metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label` **append** to an existing filter, or **create** one if none exists yet.
+- Therefore: if one-liners appear **before** a later `metric_filter { ... }` block, they already created the object and the block is **ignored** (first wins, WARN).
+
+Recommend one of: put the `metric_filter { ... }` block first (optional one-liners after it append), use only one-liners, or use only a block.
+
+Block form:
+```
+entrypoint {
+    tcp 9091;
+    metric_filter {
+        include ^app_.*$ match_type regexp;
+        exclude go_gc_duration_seconds match_type strict;
+        exclude_label http_response_code 404 match_type strict;
+        exclude_label name bot;
+        exclude_label role;
+        include_label env prod match_type strict;
+    };
+}
+```
+
+One-liners only (create the `metric_filter` object):
+```
+entrypoint {
+    tcp 9091;
+    metric_include ^app_.*$ match_type regexp;
+    metric_exclude go_gc_duration_seconds match_type strict;
+    metric_exclude_label http_response_code 404 match_type strict;
+    metric_include_label env prod;
+}
+```
+
+JSON shape:
+```json
+"metric_filter": {
+  "include": [{"metric": "^app_.*$", "match_type": "regexp"}],
+  "exclude": [{"metric": "go_.*", "match_type": "regexp"}],
+  "exclude_label": [
+    {"label": "http_response_code", "value": "404", "match_type": "strict"},
+    {"label": "name", "value": "bot"},
+    {"label": "role"}
+  ],
+  "include_label": [
+    {"label": "env", "value": "prod", "match_type": "strict"}
+  ]
 }
 ```
 

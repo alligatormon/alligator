@@ -16,7 +16,6 @@
 #include "common/http2_grpc.h"
 #include "common/rtime.h"
 #include "common/validator.h"
-#include "common/reject.h"
 #include "cluster/pass.h"
 #include "metric/metric_types.h"
 #include "parsers/http_proto.h"
@@ -136,8 +135,6 @@ static alligator_ht *otlp_kv_array_to_labels(json_t *attrs, context_arg *carg)
 		if (!otlp_anyvalue_to_buf(jwrap, vbuf, sizeof(vbuf)))
 			continue;
 		metric_label_value_validator_normalizer(vbuf, strlen(vbuf));
-		if (carg && reject_metric(carg->reject, kbuf, vbuf))
-			continue;
 		labels_hash_insert_nocache(lbl, kbuf, vbuf);
 		added++;
 	}
@@ -460,8 +457,6 @@ static int otlp_pb_kv_to_label(const uint8_t *p, size_t len, context_arg *carg, 
 	if (!metric_label_validator(key, strlen(key)))
 		return 0;
 	metric_label_value_validator_normalizer(val, strlen(val));
-	if (carg && reject_metric(carg->reject, key, val))
-		return 0;
 	labels_hash_insert_nocache(dst, key, val);
 	return 1;
 }

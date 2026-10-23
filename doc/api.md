@@ -43,7 +43,12 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
       "return": "[empty|on]"
     },
     {
-      "reject": "<key>",
+      "metric_filter": {
+        "include": [{"metric": "<name|regex>", "match_type": "strict|regexp"}],
+        "exclude": [{"metric": "<name|regex>", "match_type": "strict|regexp"}],
+        "exclude_label": [{"label": "<name>", "value": "<optional>", "match_type": "strict|regexp"}],
+        "include_label": [{"label": "<name>", "value": "<optional>", "match_type": "strict|regexp"}]
+      },
       "auth": [
         {
           "type": "<basic|bearer|other>",

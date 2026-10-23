@@ -405,6 +405,32 @@ Plural: no
 
 Specify the domain name for resolution. More information about DNS requests in alligator can be found in [resolver](https://github.com/alligatormon/alligator/blob/master/doc/resolver.md) documentation.
 
+## metric_filter
+Default: - (accept all)\
+Plural: yes (`metric_include` / `metric_exclude` / `metric_include_label` / `metric_exclude_label` on the aggregate line)
+
+Filter metrics for **all** ingest on this aggregate item's context before labels are merged, transformed, or stored. Same semantics as [entrypoint `metric_filter`](entrypoint.md#metric_filter): empty → accept all; name/label includes require a match; name/label excludes drop; order name include → label include → name exclude → label exclude (excludes win). Whole-sample drop for label rules.
+
+**Config order:** first definition wins (same as entrypoint). A later native `metric_filter { ... }` is ignored if one-liners already created the object (WARN). Prefer the block first, or only one-liners, or only a block.
+
+Native block after handler and URL:
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metric_filter {
+        include ^node_.*$ match_type regexp;
+        exclude ^node_network_.*$ match_type regexp;
+        exclude_label job dropme match_type strict;
+    };
+}
+```
+
+One-liners on the same line:
+```
+aggregate {
+    prometheus_metrics http://127.0.0.1:9100/metrics metric_include ^node_.*$ match_type regexp metric_exclude ^node_network_.*$ match_type regexp metric_exclude_label job dropme;
+}
+```
+
 ## metricstransform
 Default: -\
 Plural: no

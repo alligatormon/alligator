@@ -3196,6 +3196,598 @@ void test_metricstransform_plain_and_ingest()
     json_decref(root);
 }
 
+static int ut_metric_filter_query_count(const char *ns, const char *name)
+{
+    metric_query_context *mqc = promql_parser(NULL, (char *)name, strlen(name));
+    if (!mqc)
+        return -1;
+    string *body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, (char *)ns, NULL, NULL, NULL, NULL);
+    query_context_free(mqc);
+    if (!body)
+        return -1;
+    json_error_t error;
+    json_t *metrics = json_loads(body->s, 0, &error);
+    string_free(body);
+    if (!metrics)
+        return -1;
+    int n = (int)json_array_size(metrics);
+    json_decref(metrics);
+    return n;
+}
+
+void test_metric_filter_plain_and_ingest()
+{
+    const char *frag_ep =
+        "entrypoint { tcp 19111; metric_filter { include ^ut_mf_app_.*$ match_type regexp; include ut_mf_keep_total match_type strict; exclude ^ut_mf_app_debug_.*$ match_type regexp; }; }\n";
+    const char *frag_agg =
+        "aggregate { prometheus_metrics http://127.0.0.1:19110/metrics metric_filter { include ^ut_mf_node_.*$ match_type regexp; exclude ^ut_mf_node_net_.*$ match_type regexp; }; }\n";
+    const char *frag_oneliner =
+        "entrypoint { tcp 19112; metric_include ^ut_mf_one_.*$ match_type regexp; metric_exclude ut_mf_one_drop match_type strict; }\n";
+
+    json_error_t error;
+    json_t *root = json_object();
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    const char *fragments[3] = { frag_ep, frag_agg, frag_oneliner };
+    const char *keys[3] = { "entrypoint", "aggregate", "entrypoint" };
+    for (int f = 0; f < 3; f++) {
+        string *s = string_new();
+        string_cat(s, (char *)fragments[f], strlen(fragments[f]));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *child = json_object_get(part, keys[f]);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+        if (f == 2) {
+            json_t *merged = json_object_get(root, "entrypoint");
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, merged);
+            json_array_append(merged, json_array_get(child, 0));
+        } else {
+            json_object_set(root, keys[f], child);
+        }
+        json_decref(part);
+    }
+
+    json_t *ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+    json_t *mf = json_object_get(ep0, "metric_filter");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mf);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(json_object_get(mf, "include")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(json_object_get(mf, "exclude")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^ut_mf_app_.*$",
+        json_string_value(json_object_get(json_array_get(json_object_get(mf, "include"), 0), "metric")));
+
+    json_t *agg0 = json_array_get(json_object_get(root, "aggregate"), 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(agg0, "metric_filter"));
+
+    json_t *ep1 = json_array_get(json_object_get(root, "entrypoint"), 1);
+    json_t *mf1 = json_object_get(ep1, "metric_filter");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mf1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(json_object_get(mf1, "include")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(json_object_get(mf1, "exclude")));
+
+    const char *ns = "ut_metric_filter_plain_ns";
+    context_arg carg = {0};
+    parse_metric_filter(&carg, ep0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+    carg.namespace = strdup(ns);
+    carg.namespace_allocated = 1;
+    insert_namespace(carg.namespace, 0);
+
+    double v = 1.0;
+    metric_add("ut_mf_app_requests", NULL, &v, DATATYPE_DOUBLE, &carg);
+    metric_add("ut_mf_keep_total", NULL, &v, DATATYPE_DOUBLE, &carg);
+    metric_add("ut_mf_app_debug_trace", NULL, &v, DATATYPE_DOUBLE, &carg);
+    metric_add("ut_mf_other_total", NULL, &v, DATATYPE_DOUBLE, &carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_app_requests") > 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_keep_total") > 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_app_debug_trace"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_other_total"));
+
+    /* Empty filter → no-op (accept all). */
+    context_arg carg_empty = {0};
+    carg_empty.namespace = carg.namespace;
+    metric_add("ut_mf_empty_ok", NULL, &v, DATATYPE_DOUBLE, &carg_empty);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_empty_ok") > 0);
+
+    /* StatsD-style update path also gated. */
+    metric_update("ut_mf_app_requests", NULL, &v, DATATYPE_DOUBLE, &carg);
+    metric_update("ut_mf_other_total", NULL, &v, DATATYPE_DOUBLE, &carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_other_total"));
+
+    if (carg.metric_filter)
+        json_decref(carg.metric_filter);
+    if (carg.metric_filter_rules)
+        metric_filter_free(carg.metric_filter_rules);
+    free(carg.namespace);
+    json_decref(root);
+}
+
+void test_metric_filter_semantics_extra()
+{
+    /* exclude-only */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"exclude\":[{\"metric\":\"^drop_.*$\",\"match_type\":\"regexp\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "keep_me", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "drop_me", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* exclude wins over include */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{"
+            "\"include\":[{\"metric\":\"^app_.*$\",\"match_type\":\"regexp\"}],"
+            "\"exclude\":[{\"metric\":\"^app_debug_.*$\",\"match_type\":\"regexp\"}]"
+            "}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "app_requests", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "app_debug_trace", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* bad regexp skipped; remaining rules still apply */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{"
+            "\"include\":["
+            "{\"metric\":\"[invalid\",\"match_type\":\"regexp\"},"
+            "{\"metric\":\"good_metric\",\"match_type\":\"strict\"}"
+            "]"
+            "}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "good_metric", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "other", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* all rules bad → allow-all and JSON cleared */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include\":[{\"metric\":\"[bad\",\"match_type\":\"regexp\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "anything", NULL));
+        json_decref(root);
+    }
+
+    /* missing match_type defaults to strict */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include\":[{\"metric\":\"exact_only\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "exact_only", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "exact_only_extra", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* metric_add_labels2 gated when carg has filter */
+    {
+        const char *ns = "ut_metric_filter_labels2_ns";
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include\":[{\"metric\":\"^lbl2_ok_.*$\",\"match_type\":\"regexp\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        carg.namespace = strdup(ns);
+        carg.namespace_allocated = 1;
+        insert_namespace(carg.namespace, 0);
+        double v = 1.0;
+        metric_add_labels2("lbl2_ok_a", &v, DATATYPE_DOUBLE, &carg, "a", "1", "b", "2");
+        metric_add_labels2("lbl2_drop", &v, DATATYPE_DOUBLE, &carg, "a", "1", "b", "2");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "lbl2_ok_a") > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "lbl2_drop"));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        free(carg.namespace);
+        json_decref(root);
+    }
+
+    /* unknown match_type treated as strict */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include\":[{\"metric\":\"exact_unk\",\"match_type\":\"glob\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "exact_unk", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "exact_unk_extra", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* first-wins: one-liner then later metric_filter { } — block ignored */
+    {
+        const char *frag =
+            "entrypoint { tcp 19113; metric_include ut_mf_first_wins match_type strict; "
+            "metric_filter { include ^ut_mf_block_.*$ match_type regexp; }; }\n";
+        string *s = string_new();
+        string_cat(s, (char *)frag, strlen(frag));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_error_t error;
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *ep = json_array_get(json_object_get(part, "entrypoint"), 0);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ep);
+        json_t *mf = json_object_get(ep, "metric_filter");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mf);
+        json_t *inc = json_object_get(mf, "include");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, inc);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(inc));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_mf_first_wins",
+            json_string_value(json_object_get(json_array_get(inc, 0), "metric")));
+        context_arg carg = {0};
+        parse_metric_filter(&carg, ep);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "ut_mf_first_wins", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "ut_mf_block_kept", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(part);
+    }
+
+    /* carg_copy preserves filter behavior via metric_filter_dup */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include\":[{\"metric\":\"^copy_ok_.*$\",\"match_type\":\"regexp\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg *src = calloc(1, sizeof(*src));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src);
+        parse_metric_filter(src, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, src->metric_filter_rules);
+        context_arg *dup = carg_copy(src);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dup);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dup->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(dup, "copy_ok_a", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(dup, "copy_drop", NULL));
+        carg_free(dup);
+        carg_free(src);
+        json_decref(root);
+    }
+
+    /* exclude_label drops matching sample; non-matching kept */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"exclude_label\":["
+            "{\"label\":\"http_response_code\",\"value\":\"404\",\"match_type\":\"strict\"}"
+            "]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        alligator_ht *ok = alligator_ht_init(NULL);
+        alligator_ht *bad = alligator_ht_init(NULL);
+        labels_hash_insert(ok, "http_response_code", "200");
+        labels_hash_insert(bad, "http_response_code", "404");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "http_requests", ok));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "http_requests", bad));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "http_requests", NULL));
+        labels_hash_free(ok);
+        labels_hash_free(bad);
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* exclude_label with no value drops any value for that label */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"exclude_label\":[{\"label\":\"role\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        alligator_ht *with = alligator_ht_init(NULL);
+        alligator_ht *without = alligator_ht_init(NULL);
+        labels_hash_insert(with, "role", "anything");
+        labels_hash_insert(without, "env", "prod");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", with));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "m", without));
+        labels_hash_free(with);
+        labels_hash_free(without);
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* include_label gate */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"include_label\":["
+            "{\"label\":\"env\",\"value\":\"prod\",\"match_type\":\"strict\"}"
+            "]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        alligator_ht *prod = alligator_ht_init(NULL);
+        alligator_ht *dev = alligator_ht_init(NULL);
+        labels_hash_insert(prod, "env", "prod");
+        labels_hash_insert(dev, "env", "dev");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "m", prod));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", dev));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", NULL));
+        labels_hash_free(prod);
+        labels_hash_free(dev);
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* name+label combined: exclude_label wins after name include */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{"
+            "\"include\":[{\"metric\":\"^app_.*$\",\"match_type\":\"regexp\"}],"
+            "\"exclude_label\":[{\"label\":\"name\",\"value\":\"bot\",\"match_type\":\"strict\"}]"
+            "}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        alligator_ht *ok = alligator_ht_init(NULL);
+        alligator_ht *bot = alligator_ht_init(NULL);
+        labels_hash_insert(ok, "name", "web");
+        labels_hash_insert(bot, "name", "bot");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "app_requests", ok));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "app_requests", bot));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "other", ok));
+        labels_hash_free(ok);
+        labels_hash_free(bot);
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* plain parse of exclude_label / include_label */
+    {
+        const char *frag =
+            "entrypoint { tcp 19114; metric_filter {"
+            " exclude_label http_response_code 404 match_type strict;"
+            " exclude_label role;"
+            " include_label env prod match_type strict;"
+            "}; }\n";
+        string *s = string_new();
+        string_cat(s, (char *)frag, strlen(frag));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_error_t error;
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *ep = json_array_get(json_object_get(part, "entrypoint"), 0);
+        json_t *mf = json_object_get(ep, "metric_filter");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mf);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2,
+            (int)json_array_size(json_object_get(mf, "exclude_label")));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            (int)json_array_size(json_object_get(mf, "include_label")));
+        json_t *ex0 = json_array_get(json_object_get(mf, "exclude_label"), 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http_response_code",
+            json_string_value(json_object_get(ex0, "label")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "404",
+            json_string_value(json_object_get(ex0, "value")));
+        json_t *ex1 = json_array_get(json_object_get(mf, "exclude_label"), 1);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "role",
+            json_string_value(json_object_get(ex1, "label")));
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(ex1, "value"));
+        /* one-liner form */
+        const char *frag2 =
+            "entrypoint { tcp 19115; metric_exclude_label name bot; metric_include_label env prod; }\n";
+        s = string_new();
+        string_cat(s, (char *)frag2, strlen(frag2));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_t *part2 = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part2);
+        json_t *mf2 = json_object_get(json_array_get(json_object_get(part2, "entrypoint"), 0), "metric_filter");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mf2);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            (int)json_array_size(json_object_get(mf2, "exclude_label")));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            (int)json_array_size(json_object_get(mf2, "include_label")));
+        json_decref(part);
+        json_decref(part2);
+    }
+
+    /* reject key in JSON → ignored; no crash; no carg->reject field */
+    {
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"tcp\":[\"19116\"],\"reject\":[{\"http_response_code\":\"404\"}],"
+            "\"metric_filter\":{\"exclude\":[{\"metric\":\"drop_me\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "drop_me", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "keep_me", NULL));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        json_decref(root);
+    }
+
+    /* metric_add_labels path with label filter */
+    {
+        const char *ns = "ut_metric_filter_excl_lbl_ns";
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"exclude_label\":["
+            "{\"label\":\"http_response_code\",\"value\":\"404\",\"match_type\":\"strict\"}"
+            "]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        carg.namespace = strdup(ns);
+        carg.namespace_allocated = 1;
+        insert_namespace(carg.namespace, 0);
+        double v = 1.0;
+        metric_add_labels("ut_mf_lbl_ok", &v, DATATYPE_DOUBLE, &carg, "http_response_code", "200");
+        metric_add_labels("ut_mf_lbl_drop", &v, DATATYPE_DOUBLE, &carg, "http_response_code", "404");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_lbl_ok") > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_lbl_drop"));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        free(carg.namespace);
+        json_decref(root);
+    }
+
+    /*
+     * Ownership on filter deny: metric_add / metric_update take ownership of a
+     * non-NULL labels HT. On deny they free it (same as success via labels_initiate).
+     * Callers must NOT labels_hash_free after either path. Under ASAN a forgotten
+     * free on deny shows as a leak; a double-free here would crash.
+     */
+    {
+        const char *ns = "ut_metric_filter_ht_own_ns";
+        json_error_t error;
+        json_t *root = json_loads(
+            "{\"metric_filter\":{\"exclude\":[{\"metric\":\"^ut_mf_own_drop\",\"match_type\":\"regexp\"}]}}",
+            0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        context_arg carg = {0};
+        parse_metric_filter(&carg, root);
+        carg.namespace = strdup(ns);
+        carg.namespace_allocated = 1;
+        insert_namespace(carg.namespace, 0);
+        double v = 1.0;
+
+        /* Seed one accepted series so query helpers see a live namespace. */
+        alligator_ht *lbl_keep = alligator_ht_init(NULL);
+        labels_hash_insert_nocache(lbl_keep, "k", "v");
+        metric_add("ut_mf_own_keep", lbl_keep, &v, DATATYPE_DOUBLE, &carg);
+
+        alligator_ht *lbl_add = alligator_ht_init(NULL);
+        labels_hash_insert_nocache(lbl_add, "k", "v");
+        metric_add("ut_mf_own_drop_add", lbl_add, &v, DATATYPE_DOUBLE, &carg);
+        /* lbl_add consumed+freed on deny — do not labels_hash_free(lbl_add) */
+
+        alligator_ht *lbl_upd = alligator_ht_init(NULL);
+        labels_hash_insert_nocache(lbl_upd, "k", "v");
+        metric_update("ut_mf_own_drop_upd", lbl_upd, &v, DATATYPE_DOUBLE, &carg);
+        /* lbl_upd consumed+freed on deny — do not labels_hash_free(lbl_upd) */
+
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_own_keep") > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_own_drop_add"));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_own_drop_upd"));
+        if (carg.metric_filter)
+            json_decref(carg.metric_filter);
+        if (carg.metric_filter_rules)
+            metric_filter_free(carg.metric_filter_rules);
+        free(carg.namespace);
+        json_decref(root);
+    }
+
+    /* plain reject keyword → still parses; WARN emitted (best-effort), no crash */
+    {
+        const char *frag =
+            "entrypoint { tcp 19117; reject http_response_code 404; "
+            "metric_exclude drop_via_mf match_type strict; }\n";
+        string *s = string_new();
+        string_cat(s, (char *)frag, strlen(frag));
+        char *json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        json_error_t error;
+        json_t *part = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, part);
+        json_t *ep = json_array_get(json_object_get(part, "entrypoint"), 0);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ep);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, json_object_get(ep, "reject"));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(ep, "metric_filter"));
+        json_decref(part);
+    }
+}
+
 void test_aggregate_multi_block_plain_parse()
 {
     const char *conf =
@@ -4449,7 +5041,7 @@ static void test_config_plain_mega_document_v2()
         "system { base disk smart interrupts load add_label=site:v2; }\n"
         "x509 { name v2-x509 path /etc/ssl match .key password z type pem; }\n"
         "modules { custom /opt/libcustom.so; }\n"
-        "reject { label dc value us; }\n"
+        "entrypoint { tcp 19190; metric_filter { exclude_label dc us match_type strict; }; }\n"
         "metricstransform { include v2_.* match_type regexp label dc regex '^(.+)$' replacement 'dc-$1'; }\n"
         "grok { key v2_grok; name v2_grok_name; match '%{NUMBER:n}'; counter v2_c n; }\n"
         "mtail { name v2_mtail script /tmp/v2.mtail; }\n"
@@ -4490,8 +5082,19 @@ static void test_config_plain_mega_document_v2()
     free(json_s);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "entrypoint"));
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "reject"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(root, "metricstransform"));
+    {
+        json_t *eps = json_object_get(root, "entrypoint");
+        int found_mf = 0;
+        size_t ei;
+        for (ei = 0; eps && json_is_array(eps) && ei < json_array_size(eps); ei++) {
+            if (json_object_get(json_array_get(eps, ei), "metric_filter")) {
+                found_mf = 1;
+                break;
+            }
+        }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, found_mf);
+    }
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
         json_array_size(json_object_get(root, "aggregate")) >= 10);
     json_decref(root);
@@ -4500,12 +5103,12 @@ static void test_config_plain_mega_document_v2()
 void test_config_plain_reject_transform_batch()
 {
     const char *fragments[] = {
-        "reject { label env value prod; }\nreject { label role; }\n",
+        "entrypoint { tcp 19191; metric_filter { exclude_label env prod match_type strict; exclude_label role; }; }\n",
         "metricstransform { include ut_mt_.* match_type regexp label host regex '^(.+)$' replacement 'h-$1'; }\n",
         "query { make ut_rej_q expr up datasource internal action ut_rej_a; }\n"
         "action { name ut_rej_a expr http://127.0.0.1:9 serializer json dry_run; }\n"
     };
-    const char *keys[] = { "reject", "metricstransform", "query" };
+    const char *keys[] = { "entrypoint", "metricstransform", "query" };
 
     json_error_t error;
     for (int f = 0; f < 3; f++) {
@@ -4579,7 +5182,7 @@ void test_config_plain_fragment_library()
         "grok { key frag-grok; name frag_grok_n; match '%{WORD:w}'; counter frag_c w; }\n",
         "mtail { name frag-mtail script /tmp/frag.mtail; }\n",
         "system { base network firewall cadvisor; }\n",
-        "reject { label team value ops; }\n",
+        "entrypoint { tcp 19192; metric_exclude_label team ops match_type strict; }\n",
         "metricstransform { include frag_.* match_type strict label k regex '^(.+)$' replacement '$1'; }\n",
         "entrypoint { handler prometheus tcp 19999; }\n",
         "aggregate { json http://127.0.0.1:9100/metrics; }\n",
@@ -4591,7 +5194,7 @@ void test_config_plain_fragment_library()
         "threaded_loop", "cluster", "probe", "probe", "scheduler",
         "action", "query", "lang", "x509", "modules",
         "puppeteer", "chromecdp", "grok", "mtail", "system",
-        "reject", "metricstransform", "entrypoint", "aggregate", "aggregate"
+        "entrypoint", "metricstransform", "entrypoint", "aggregate", "aggregate"
     };
 
     json_error_t error;

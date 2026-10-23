@@ -12,7 +12,6 @@
 #include "common/http.h"
 #include "common/logs.h"
 #include "common/validator.h"
-#include "common/reject.h"
 #include "cluster/pass.h"
 #include "metric/metric_types.h"
 #include "parsers/http_proto.h"
@@ -154,11 +153,6 @@ static uint8_t dynatrace_ingest_parse_line(char *line, size_t len, context_arg *
 			dim_val[vl] = '\0';
 		}
 
-		if (carg && reject_metric(carg->reject, dim_name, dim_val))
-		{
-			labels_hash_free(lbl);
-			return 0;
-		}
 		metric_label_value_validator_normalizer(dim_val, strlen(dim_val));
 		if (!metric_label_validator(dim_name, dn_len))
 		{

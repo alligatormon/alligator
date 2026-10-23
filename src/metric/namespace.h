@@ -100,6 +100,8 @@ char* metric_transform_name(char *name, action_node *an);
 char* metric_transform_name_pattern(char *name, char *pattern, char *replacement, pcre **compiled, context_arg *carg, action_node *an);
 void action_node_bind_carg_transforms(action_node *an, context_arg *carg);
 char *metric_transform_alt_for_include(const char *export_name, const char *tree_metric_key);
+/* Shared name/value matcher used by metricstransform and metric_filter. regexp=0 → strcmp. */
+int metric_transform_match_pattern(const char *value, const char *pattern, int regexp);
 void metric_transform_labels(char *metric_name, char *metric_name_alt, alligator_ht *labels, json_t *metricstransform, context_arg *carg, action_node *an);
 char* metric_transform_label_value(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);
 char *metric_transform_label_key(char *metric_name, char *metric_name_alt, char *label_name, char *label_value, json_t *metricstransform, context_arg *carg, action_node *an);

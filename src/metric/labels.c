@@ -6,6 +6,7 @@
 #include "metric/expiretree.h"
 #include "dstructures/ht.h"
 #include "metric/namespace.h"
+#include "metric/filter.h"
 #include "mapping/mapping.h"
 #include "query/promql.h"
 #include "common/json_query.h"
@@ -985,6 +986,14 @@ alligator_ht *labels_dup(alligator_ht *labels)
 
 void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg)
 {
+	/* Ownership of `labels`: on success labels_initiate(..., no_del=0) consumes+frees
+	 * the HT. On filter deny (before initiate) we must free it here — same as metric_add_labelsN. */
+	if (!metric_filter_allow(carg, name, labels))
+	{
+		labels_hash_free(labels);
+		return;
+	}
+
 	namespace_struct *ns = get_namespace_by_carg(carg);
 
 	if (!labels)
@@ -1021,6 +1030,12 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1044,6 +1059,12 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1069,6 +1090,12 @@ void metric_update_labels4(char *name, void* value, int8_t type, context_arg *ca
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
 	labels_hash_insert(hash, name4, key4);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1098,6 +1125,12 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 	labels_hash_insert(hash, name6, key6);
 	labels_hash_insert(hash, name7, key7);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1110,8 +1143,18 @@ void metric_add_ttl(char *name, alligator_ht *labels, void* value, int8_t type, 
 {
 	//r_time start = setrtime();
 
+	/* Ownership of `labels`: success path → labels_initiate(..., no_del=0) consumes+frees.
+	 * Early returns below must free a non-NULL HT (mirror metric_add_labelsN deny path). */
 	if (numbercheck(name))
+	{
+		labels_hash_free(labels);
 		return;
+	}
+	if (!metric_filter_allow(carg, name, labels))
+	{
+		labels_hash_free(labels);
+		return;
+	}
 
 	namespace_struct *ns = ns_override ? ns_override : get_namespace_by_carg(carg);
 
@@ -1148,6 +1191,8 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 {
 	if (numbercheck(name))
 		return;
+	if (!metric_filter_allow(carg, name, NULL))
+		return;
 
 	namespace_struct *ns = get_namespace_by_carg(carg);
 	metric_tree *tree = ns->metrictree;
@@ -1178,6 +1223,12 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 
 	labels_hash_insert(hash, name1, key1);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1200,6 +1251,12 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 
 	labels_hash_insert(hash, name1, key1);
 	labels_hash_insert(hash, name2, key2);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1225,6 +1282,12 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1249,6 +1312,12 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name2, key2);
 	labels_hash_insert(hash, name3, key3);
 	labels_hash_insert(hash, name4, key4);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1276,6 +1345,12 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name4, key4);
 	labels_hash_insert(hash, name5, key5);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1302,6 +1377,12 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name4, key4);
 	labels_hash_insert(hash, name5, key5);
 	labels_hash_insert(hash, name6, key6);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1331,6 +1412,12 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name6, key6);
 	labels_hash_insert(hash, name7, key7);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1359,6 +1446,12 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name6, key6);
 	labels_hash_insert(hash, name7, key7);
 	labels_hash_insert(hash, name8, key8);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
@@ -1390,6 +1483,12 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 	labels_hash_insert(hash, name8, key8);
 	labels_hash_insert(hash, name9, key9);
 
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
+
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
 	metric_apply_context_transform(name, hash, carg);
@@ -1420,6 +1519,12 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 	labels_hash_insert(hash, name8, key8);
 	labels_hash_insert(hash, name9, key9);
 	labels_hash_insert(hash, name10, key10);
+
+	if (!metric_filter_allow(carg, name, hash))
+	{
+		labels_hash_free(hash);
+		return;
+	}
 
 	if (carg && carg->labels)
 		labels_merge(hash, carg->labels);
