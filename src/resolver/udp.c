@@ -82,7 +82,7 @@ static void resolver_udp_stop_timer(context_arg *carg)
 	carg->tt_timer = NULL;
 	uv_timer_stop(timer);
 	timer->data = NULL;
-	alligator_cache_push(ac->uv_cache_timer, timer);
+	alligator_timer_cache_push(timer);
 }
 
 static int resolver_udp_txid_compare(const void *arg, const void *obj)
@@ -484,7 +484,7 @@ void resolver_timeout_udp(uv_timer_t *timer)
 	if (carg && carg->tt_timer == timer)
 		carg->tt_timer = NULL;
 	timer->data = NULL;
-	alligator_cache_push(ac->uv_cache_timer, timer);
+	alligator_timer_cache_push(timer);
 
 	if (!carg)
 		return;

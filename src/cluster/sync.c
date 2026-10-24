@@ -91,7 +91,7 @@ void cluster_aggregate_timer_recurse(uv_timer_t *handle)
 	context_arg *carg = handle->data;
 
 	uv_timer_stop(handle);
-	alligator_cache_push(ac->uv_cache_timer, handle);
+	alligator_timer_cache_push(handle);
 	r_time time_now = setrtime();
 
 	if (!carg->cluster || !carg->instance)

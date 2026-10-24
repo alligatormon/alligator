@@ -79,7 +79,7 @@ static void unixgram_stop_timeout(context_arg *carg)
 		return;
 	uv_timer_stop(carg->tt_timer);
 	carg->tt_timer->data = NULL;
-	alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+	alligator_timer_cache_push(carg->tt_timer);
 	carg->tt_timer = NULL;
 }
 
@@ -259,7 +259,7 @@ static void unixgram_timeout_timer(uv_timer_t *timer)
 	uv_timer_stop(timer);
 	if (carg)
 		carg->tt_timer = NULL;
-	alligator_cache_push(ac->uv_cache_timer, timer);
+	alligator_timer_cache_push(timer);
 
 	if (!carg)
 		return;

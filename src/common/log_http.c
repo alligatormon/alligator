@@ -45,6 +45,10 @@ struct log_http_sink {
 	uint8_t response_pending;
 	uint8_t closing;
 	uint8_t uv_ready;
+	uint8_t tcp_initialized;
+	uint8_t pending_closes;
+	uint8_t aux_closes_started;
+	uint8_t pending_gai;
 	char *pending_body;
 	size_t pending_body_len;
 	char *pending_request;
@@ -76,6 +80,17 @@ static void log_http_tls_written_cb(uv_write_t *req, int status);
 static void log_http_handshake_timeout_cb(uv_timer_t *timer);
 static void log_http_arm_handshake_timeout(log_http_sink *sink);
 static void log_http_connect_failed(log_http_sink *sink);
+static void log_http_shutdown_next(log_http_sink *sink);
+
+static void log_http_close_handle(log_http_sink *sink, uv_handle_t *handle, uv_close_cb cb)
+{
+	if (!sink || !handle || uv_is_closing(handle))
+		return;
+	if (handle == (uv_handle_t *)&sink->tcp && !sink->tcp_initialized)
+		return;
+	sink->pending_closes++;
+	uv_close(handle, cb);
+}
 
 static void log_http_pending_drop(log_http_sink *sink)
 {
@@ -218,8 +233,7 @@ static void log_http_connect_failed(log_http_sink *sink)
 	log_http_pending_drop(sink);
 	log_http_tls_cleanup(sink);
 
-	if (!uv_is_closing((uv_handle_t *)&sink->tcp))
-		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+	log_http_close_handle(sink, (uv_handle_t *)&sink->tcp, log_http_closed_cb);
 }
 
 static context_arg *log_http_tls_carg_ensure(log_http_sink *sink)
@@ -478,10 +492,11 @@ static void log_http_mark_disconnected(log_http_sink *sink)
 	log_http_pending_drop(sink);
 	log_http_tls_cleanup(sink);
 
-	if (!uv_is_closing((uv_handle_t *)&sink->tcp))
+	if (sink->tcp_initialized &&
+	    !uv_is_closing((uv_handle_t *)&sink->tcp))
 	{
 		uv_read_stop((uv_stream_t *)&sink->tcp);
-		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		log_http_close_handle(sink, (uv_handle_t *)&sink->tcp, log_http_closed_cb);
 	}
 	/* If TCP is already closing, closed_cb schedules reconnect (or shutdown). */
 }
@@ -675,10 +690,20 @@ static void log_http_getaddrinfo_cb(uv_getaddrinfo_t *req, int status, struct ad
 	log_http_sink *sink = req->data;
 	struct addrinfo *ai;
 
-	if (!sink || sink->closing)
+	if (!sink)
 	{
 		if (res)
 			uv_freeaddrinfo(res);
+		return;
+	}
+
+	sink->pending_gai = 0;
+
+	if (sink->closing)
+	{
+		if (res)
+			uv_freeaddrinfo(res);
+		log_http_shutdown_next(sink);
 		return;
 	}
 
@@ -727,8 +752,10 @@ static void log_http_start_connect(log_http_sink *sink)
 	if (sink->state == LOG_HTTP_CONNECTING || sink->state == LOG_HTTP_CONNECTED)
 		return;
 
-	/* Never re-init a handle that still has an in-flight uv_close. */
-	if (uv_is_closing((uv_handle_t *)&sink->tcp))
+	/* tcp_initialized is cleared from log_http_closed_cb, so it tells a
+	 * finished close (handle reusable) from an in-flight one. uv_is_closing()
+	 * alone stays true forever after a close. */
+	if (sink->tcp_initialized && uv_is_closing((uv_handle_t *)&sink->tcp))
 	{
 		log_http_schedule_reconnect(sink);
 		return;
@@ -736,8 +763,16 @@ static void log_http_start_connect(log_http_sink *sink)
 
 	uv_timer_stop(&sink->reconnect_timer);
 
-	uv_tcp_init(ac->loop, &sink->tcp);
-	sink->tcp.data = sink;
+	/* uv_tcp_init() inserts the handle into loop->handle_queue; calling it on
+	 * a handle that is already initialized corrupts the queue. The handle is
+	 * initialized once by log_http_sink_uv_init() and re-initialized only
+	 * after its close callback has run. */
+	if (!sink->tcp_initialized)
+	{
+		uv_tcp_init(ac->loop, &sink->tcp);
+		sink->tcp.data = sink;
+		sink->tcp_initialized = 1;
+	}
 	sink->state = LOG_HTTP_CONNECTING;
 
 	snprintf(portbuf, sizeof(portbuf), "%d", sink->port);
@@ -774,12 +809,17 @@ static void log_http_start_connect(log_http_sink *sink)
 	}
 
 	sink->getaddrinfo_req.data = sink;
+	sink->pending_gai = 1;
 	memset(&log_http_gai_hints, 0, sizeof(log_http_gai_hints));
 	log_http_gai_hints.ai_family = AF_INET;
 	log_http_gai_hints.ai_socktype = SOCK_STREAM;
 	if (uv_getaddrinfo(ac->loop, &sink->getaddrinfo_req, log_http_getaddrinfo_cb,
 	    sink->host, portbuf, &log_http_gai_hints) != 0)
+	{
+		/* On error libuv does not invoke the callback. */
+		sink->pending_gai = 0;
 		log_http_connect_failed(sink);
+	}
 }
 
 static void log_http_shutdown_next(log_http_sink *sink)
@@ -787,22 +827,35 @@ static void log_http_shutdown_next(log_http_sink *sink)
 	if (!sink)
 		return;
 
-	if (!uv_is_closing((uv_handle_t *)&sink->reconnect_timer))
+	if (!sink->aux_closes_started)
 	{
-		uv_close((uv_handle_t *)&sink->reconnect_timer, log_http_aux_closed_cb);
-		return;
+		sink->aux_closes_started = 1;
+		log_http_close_handle(sink, (uv_handle_t *)&sink->reconnect_timer, log_http_aux_closed_cb);
+		log_http_close_handle(sink, (uv_handle_t *)&sink->write_async, log_http_aux_closed_cb);
 	}
-	if (!uv_is_closing((uv_handle_t *)&sink->write_async))
-	{
-		uv_close((uv_handle_t *)&sink->write_async, log_http_aux_closed_cb);
+
+	/* uv_is_closing() stays true after a handle is closed, so it cannot tell
+	 * "still closing" from "already finished". pending_closes is the only
+	 * reliable signal; tcp_initialized is cleared from log_http_closed_cb.
+	 * pending_gai keeps the sink alive while an async getaddrinfo request
+	 * still holds &sink->getaddrinfo_req (and req->data == sink). */
+	if (sink->pending_closes || sink->tcp_initialized || sink->pending_gai)
 		return;
-	}
+
 	log_http_sink_destroy(sink);
 }
 
 static void log_http_aux_closed_cb(uv_handle_t *handle)
 {
-	log_http_shutdown_next(handle->data);
+	log_http_sink *sink = handle->data;
+
+	if (!sink)
+		return;
+
+	if (sink->pending_closes)
+		sink->pending_closes--;
+
+	log_http_shutdown_next(sink);
 }
 
 static void log_http_closed_cb(uv_handle_t *handle)
@@ -811,6 +864,10 @@ static void log_http_closed_cb(uv_handle_t *handle)
 
 	if (!sink)
 		return;
+
+	if (sink->pending_closes)
+		sink->pending_closes--;
+	sink->tcp_initialized = 0;
 
 	sink->state = LOG_HTTP_IDLE;
 	sink->write_in_flight = 0;
@@ -861,6 +918,7 @@ static void log_http_sink_uv_init(log_http_sink *sink)
 
 	uv_tcp_init(ac->loop, &sink->tcp);
 	sink->tcp.data = sink;
+	sink->tcp_initialized = 1;
 
 	uv_timer_init(ac->loop, &sink->reconnect_timer);
 	sink->reconnect_timer.data = sink;
@@ -956,15 +1014,16 @@ void log_http_sink_open(log_channel *ch, const char *host, int port, const char 
 	 * then let closed_cb reconnect with the new material. Never uv_tcp_init
 	 * on a handle that is still closing.
 	 */
-	if (sink->state != LOG_HTTP_IDLE || uv_is_closing((uv_handle_t *)&sink->tcp))
+	if (sink->state != LOG_HTTP_IDLE ||
+	    (sink->tcp_initialized && uv_is_closing((uv_handle_t *)&sink->tcp)))
 	{
 		log_http_pending_drop(sink);
 		log_http_tls_cleanup(sink);
 		if (sink->state != LOG_HTTP_IDLE &&
-		    !uv_is_closing((uv_handle_t *)&sink->tcp))
+		    !(sink->tcp_initialized && uv_is_closing((uv_handle_t *)&sink->tcp)))
 		{
 			uv_read_stop((uv_stream_t *)&sink->tcp);
-			uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+			log_http_close_handle(sink, (uv_handle_t *)&sink->tcp, log_http_closed_cb);
 		}
 		return;
 	}
@@ -1004,22 +1063,19 @@ void log_http_sink_close(log_channel *ch)
 	 * Wait for closed_cb → shutdown_next instead of destroying via the aux
 	 * path while tcp/write callbacks are still pending.
 	 */
-	if (uv_is_closing((uv_handle_t *)&sink->tcp))
+	if (sink->tcp_initialized && uv_is_closing((uv_handle_t *)&sink->tcp))
 		return;
 
-	if (sink->state != LOG_HTTP_IDLE)
+	if (sink->tcp_initialized)
 	{
-		uv_read_stop((uv_stream_t *)&sink->tcp);
-		uv_close((uv_handle_t *)&sink->tcp, log_http_closed_cb);
+		if (sink->state != LOG_HTTP_IDLE)
+			uv_read_stop((uv_stream_t *)&sink->tcp);
+		log_http_close_handle(sink, (uv_handle_t *)&sink->tcp, log_http_closed_cb);
 		return;
 	}
 
-	if (!uv_is_closing((uv_handle_t *)&sink->reconnect_timer))
-		uv_close((uv_handle_t *)&sink->reconnect_timer, log_http_aux_closed_cb);
-	else if (!uv_is_closing((uv_handle_t *)&sink->write_async))
-		uv_close((uv_handle_t *)&sink->write_async, log_http_aux_closed_cb);
-	else
-		log_http_sink_destroy(sink);
+	/* TCP already finished (uv_is_closing stays true after close). */
+	log_http_shutdown_next(sink);
 }
 
 int log_http_sink_write(log_channel *ch, const char *data, size_t len, const char *kind)

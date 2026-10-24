@@ -28,6 +28,22 @@ typedef struct aerospike_data
 	aggregate_context *actx;
 } aerospike_data;
 
+static char *aerospike_memmem(char *haystack, size_t haystack_len, const char *needle, size_t needle_len)
+{
+	char *p;
+
+	if (!haystack || !needle || !needle_len || haystack_len < needle_len)
+		return NULL;
+
+	for (p = haystack; p <= haystack + haystack_len - needle_len; p++)
+	{
+		if (!memcmp(p, needle, needle_len))
+			return p;
+	}
+
+	return NULL;
+}
+
 static inline void aerospike_metric_set(context_arg *carg, const char *metric_name)
 {
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Aerospike exported metric value.");
@@ -44,22 +60,30 @@ static inline char *aerospike_statistics_payload(char *metrics, size_t size, siz
 		return NULL;
 
 	char *body = metrics + 8;
-	size_t body_size = size - 8;
+	char *end = metrics + size;
 	char *line = body;
 
 	*payload_size = 0;
-	while (line < body + body_size)
+	while (line < end)
 	{
-		size_t line_len = strcspn(line, "\n\r");
-		char *stats = strstr(line, "statistics");
-		if (stats && stats < line + line_len)
+		char *nl = memchr(line, '\n', end - line);
+		char *cr = memchr(line, '\r', end - line);
+		char *line_end = end;
+		if (nl && nl < line_end)
+			line_end = nl;
+		if (cr && cr < line_end)
+			line_end = cr;
+
+		char *stats = aerospike_memmem(line, line_end - line, "statistics", 10);
+		if (stats)
 		{
-			stats += strlen("statistics");
-			stats += strspn(stats, "\t ");
-			if (stats >= line + line_len)
+			stats += 10;
+			while (stats < line_end && (*stats == '\t' || *stats == ' '))
+				stats++;
+			if (stats >= line_end)
 				break;
 
-			*payload_size = line + line_len - stats;
+			*payload_size = line_end - stats;
 			if (*payload_size == 0)
 				break;
 
@@ -71,10 +95,10 @@ static inline char *aerospike_statistics_payload(char *metrics, size_t size, siz
 			return payload;
 		}
 
-		if (line_len == 0 && line + 1 >= body + body_size)
+		if (line_end >= end)
 			break;
-		line += line_len;
-		if (line < body + body_size && (*line == '\n' || *line == '\r'))
+		line = line_end;
+		if (line < end && (*line == '\n' || *line == '\r'))
 			line++;
 	}
 	return NULL;
@@ -105,22 +129,27 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 	if (!metrics || size <= 8)
 		return;
 
+	char *end = metrics + size;
 	size_t elem_size;
+	size_t list_size = size > 19 ? size - 19 : 0;
 	char namespace_name[32];
-	char *tmp = strstr(metrics+8, "namespaces\t");
-	if (tmp)
-	{
-		tmp += 11;
-		size -= 19;
-	}
-	else
+	char *tmp = aerospike_memmem(metrics+8, end - (metrics+8), "namespaces\t", 11);
+	if (!tmp)
 		return;
-	for (uint64_t i = 0; i < size; i++)
+	tmp += 11;
+
+	for (uint64_t i = 0; i < list_size; i++)
 	{
-		elem_size = strcspn(tmp, ";");
-		if (tmp[elem_size] == ';')
-			++elem_size;
-		strlcpy(namespace_name, tmp, elem_size);
+		char *semi = memchr(tmp, ';', end - tmp);
+		if (!semi)
+			break;
+
+		elem_size = semi - tmp + 1;
+		size_t name_len = elem_size - 1;
+		if (name_len >= sizeof(namespace_name))
+			name_len = sizeof(namespace_name) - 1;
+		memcpy(namespace_name, tmp, name_len);
+		namespace_name[name_len] = 0;
 
 		char *aeronamespace = malloc(64);
 		aeronamespace[0] = 2;
@@ -139,8 +168,7 @@ void aerospike_namespace_list_handler(char *metrics, size_t size, context_arg *c
 		key[strlen(key) - 1] = 0;
 		try_again(carg, aeronamespace, writelen, aerospike_namespace_handler, "aerospike_namespace", aerospike_validator, key, carg->data);
 
-		elem_size += strspn(tmp, ";");
-		tmp += elem_size;
+		tmp = semi + 1;
 		i += elem_size;
 	}
 	carg->parser_status = 1;
@@ -153,7 +181,8 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 	if (!metrics || size <= 8)
 		return;
 
-	tmp = strstr(metrics+8, "namespace/");
+	char *end = metrics + size;
+	tmp = aerospike_memmem(metrics+8, end - (metrics+8), "namespace/", 10);
 	if (!tmp)
 		return;
 
@@ -161,29 +190,57 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 	char namespace[1000];
 	char key[1000];
 	uint64_t vl;
-	uint64_t num;
+	size_t num;
 	char *typekey;
-	num = strcspn(tmp, "\t");
-	strlcpy(namespace, tmp, num+1);
-	tmp += num;
-	tmp += strspn(tmp, "\t");
+
+	char *tab = memchr(tmp, '\t', end - tmp);
+	if (!tab)
+		return;
+	num = tab - tmp;
+	if (num >= sizeof(namespace))
+		num = sizeof(namespace) - 1;
+	memcpy(namespace, tmp, num);
+	namespace[num] = 0;
+	tmp = tab + 1;
+	while (tmp < end && *tmp == '\t')
+		tmp++;
 	strlcpy(key, "aerospike_", 11);
-	while (size > tmp-metrics)
+	while (tmp < end)
 	{
-		num = strcspn(tmp, "=");
-		strlcpy(key+10, tmp, num+1);
+		char *eq = memchr(tmp, '=', end - tmp);
+		if (!eq)
+			break;
+
+		size_t keylen = eq - tmp;
+		size_t copy_len = keylen;
+		if (copy_len > sizeof(key) - 11)
+			copy_len = sizeof(key) - 11;
+		memcpy(key + 10, tmp, copy_len);
+		key[10 + copy_len] = 0;
+		if (keylen != copy_len)
+			keylen = copy_len;
+
 		if (strstr(key, "{"))
 		{
-			num = strcspn(tmp, ";");
-			tmp += num+1;
+			char *brace_semi = memchr(eq, ';', end - eq);
+			if (!brace_semi)
+				break;
+			tmp = brace_semi + 1;
 			continue;
 		}
-		metric_name_normalizer(key+10, num);
-		tmp += num+1;
+		metric_name_normalizer(key+10, keylen);
 
-		num = strcspn(tmp, ";");
-		vl = atoll(tmp);
-		tmp += num+1;
+		char *semi = memchr(eq + 1, ';', end - (eq + 1));
+		if (!semi)
+			break;
+
+		size_t vlen = semi - (eq + 1);
+		char value[64];
+		size_t vcopy = vlen < sizeof(value) - 1 ? vlen : sizeof(value) - 1;
+		memcpy(value, eq + 1, vcopy);
+		value[vcopy] = 0;
+		vl = atoll(value);
+		tmp = semi + 1;
 
 		if (!strncmp(key+10, "client", 6))
 		{
@@ -274,10 +331,15 @@ void aerospike_status_handler(char *metrics, size_t size, context_arg *carg)
 	if (!metrics || size <= 8)
 		return;
 
+	char *end = metrics + size;
 	tmp = metrics + 8;
-	tmp += strcspn(tmp, "\t");
-	tmp += strspn(tmp, "\t");
-	if (tmp >= metrics + size)
+	char *tab = memchr(tmp, '\t', end - tmp);
+	if (!tab)
+		return;
+	tmp = tab + 1;
+	while (tmp < end && *tmp == '\t')
+		tmp++;
+	if (tmp >= end)
 		return;
 	metrics[size - 1] = 0;
 	aerospike_metric_set(carg, "aerospike_status");

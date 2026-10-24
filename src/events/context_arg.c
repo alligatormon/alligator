@@ -279,23 +279,15 @@ void carg_inherited_uv_reset(context_arg *carg)
 	carg->dns_status_reported = 0;
 }
 
-static void carg_timer_recycle_cb(uv_handle_t *handle)
-{
-	if (handle)
-		alligator_cache_push(ac->uv_cache_timer, handle);
-}
-
 static void carg_timer_detach_and_close(uv_timer_t **ptimer)
 {
 	uv_timer_t *timer = (ptimer && *ptimer) ? *ptimer : NULL;
 	if (!timer)
 		return;
 
-	if (!uv_is_closing((uv_handle_t *)timer))
-		uv_timer_stop(timer);
-	timer->data = NULL;
-	uv_close((uv_handle_t *)timer, carg_timer_recycle_cb);
 	*ptimer = NULL;
+	/* Idempotent: alligator_timer_cache_push no-ops if already closing. */
+	alligator_timer_cache_push(timer);
 }
 
 void carg_uv_detach_timers(context_arg *carg)

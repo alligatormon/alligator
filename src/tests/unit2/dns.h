@@ -896,7 +896,7 @@ static void test_resolver_ephemeral_connect_tcp_reentry_releases(void)
 	if (probe->tt_timer) {
 		uv_timer_stop(probe->tt_timer);
 		probe->tt_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, probe->tt_timer);
+		alligator_timer_cache_push(probe->tt_timer);
 		probe->tt_timer = NULL;
 	}
 	memset(&probe->client, 0, sizeof(probe->client));
@@ -980,7 +980,7 @@ static void test_resolver_ephemeral_connect_udp_reentry_releases(void)
 	if (probe->tt_timer) {
 		uv_timer_stop(probe->tt_timer);
 		probe->tt_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, probe->tt_timer);
+		alligator_timer_cache_push(probe->tt_timer);
 		probe->tt_timer = NULL;
 	}
 	memset(&probe->udp_client, 0, sizeof(probe->udp_client));

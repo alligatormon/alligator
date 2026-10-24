@@ -3315,16 +3315,18 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"exclude\":[{\"metric\":\"^drop_.*$\",\"match_type\":\"regexp\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "keep_me", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "drop_me", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "keep_me", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "drop_me", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* exclude wins over include */
@@ -3337,16 +3339,18 @@ void test_metric_filter_semantics_extra()
             "}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "app_requests", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "app_debug_trace", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "app_requests", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "app_debug_trace", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* bad regexp skipped; remaining rules still apply */
@@ -3361,16 +3365,18 @@ void test_metric_filter_semantics_extra()
             "}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "good_metric", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "other", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "good_metric", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "other", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* all rules bad → allow-all and JSON cleared */
@@ -3380,12 +3386,14 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"include\":[{\"metric\":\"[bad\",\"match_type\":\"regexp\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "anything", NULL));
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "anything", NULL));
         json_decref(root);
+        free(carg);
     }
 
     /* missing match_type defaults to strict */
@@ -3395,16 +3403,18 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"include\":[{\"metric\":\"exact_only\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "exact_only", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "exact_only_extra", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "exact_only", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "exact_only_extra", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* metric_add_labels2 gated when carg has filter */
@@ -3415,22 +3425,24 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"include\":[{\"metric\":\"^lbl2_ok_.*$\",\"match_type\":\"regexp\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        carg.namespace = strdup(ns);
-        carg.namespace_allocated = 1;
-        insert_namespace(carg.namespace, 0);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        carg->namespace = strdup(ns);
+        carg->namespace_allocated = 1;
+        insert_namespace(carg->namespace, 0);
         double v = 1.0;
-        metric_add_labels2("lbl2_ok_a", &v, DATATYPE_DOUBLE, &carg, "a", "1", "b", "2");
-        metric_add_labels2("lbl2_drop", &v, DATATYPE_DOUBLE, &carg, "a", "1", "b", "2");
+        metric_add_labels2("lbl2_ok_a", &v, DATATYPE_DOUBLE, carg, "a", "1", "b", "2");
+        metric_add_labels2("lbl2_drop", &v, DATATYPE_DOUBLE, carg, "a", "1", "b", "2");
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "lbl2_ok_a") > 0);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "lbl2_drop"));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
-        free(carg.namespace);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
+        free(carg->namespace);
         json_decref(root);
+        free(carg);
     }
 
     /* unknown match_type treated as strict */
@@ -3440,16 +3452,18 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"include\":[{\"metric\":\"exact_unk\",\"match_type\":\"glob\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "exact_unk", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "exact_unk_extra", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "exact_unk", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "exact_unk_extra", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* first-wins: one-liner then later metric_filter { } — block ignored */
@@ -3475,16 +3489,18 @@ void test_metric_filter_semantics_extra()
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(inc));
         assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_mf_first_wins",
             json_string_value(json_object_get(json_array_get(inc, 0), "metric")));
-        context_arg carg = {0};
-        parse_metric_filter(&carg, ep);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "ut_mf_first_wins", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "ut_mf_block_kept", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, ep);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "ut_mf_first_wins", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "ut_mf_block_kept", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(part);
+        free(carg);
     }
 
     /* carg_copy preserves filter behavior via metric_filter_dup */
@@ -3517,23 +3533,25 @@ void test_metric_filter_semantics_extra()
             "]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
         alligator_ht *ok = alligator_ht_init(NULL);
         alligator_ht *bad = alligator_ht_init(NULL);
         labels_hash_insert(ok, "http_response_code", "200");
         labels_hash_insert(bad, "http_response_code", "404");
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "http_requests", ok));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "http_requests", bad));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "http_requests", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "http_requests", ok));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "http_requests", bad));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "http_requests", NULL));
         labels_hash_free(ok);
         labels_hash_free(bad);
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* exclude_label with no value drops any value for that label */
@@ -3543,22 +3561,24 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"exclude_label\":[{\"label\":\"role\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
         alligator_ht *with = alligator_ht_init(NULL);
         alligator_ht *without = alligator_ht_init(NULL);
         labels_hash_insert(with, "role", "anything");
         labels_hash_insert(without, "env", "prod");
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", with));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "m", without));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "m", with));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "m", without));
         labels_hash_free(with);
         labels_hash_free(without);
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* include_label gate */
@@ -3570,23 +3590,25 @@ void test_metric_filter_semantics_extra()
             "]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
         alligator_ht *prod = alligator_ht_init(NULL);
         alligator_ht *dev = alligator_ht_init(NULL);
         labels_hash_insert(prod, "env", "prod");
         labels_hash_insert(dev, "env", "dev");
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "m", prod));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", dev));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "m", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "m", prod));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "m", dev));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "m", NULL));
         labels_hash_free(prod);
         labels_hash_free(dev);
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* name+label combined: exclude_label wins after name include */
@@ -3599,23 +3621,25 @@ void test_metric_filter_semantics_extra()
             "}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
         alligator_ht *ok = alligator_ht_init(NULL);
         alligator_ht *bot = alligator_ht_init(NULL);
         labels_hash_insert(ok, "name", "web");
         labels_hash_insert(bot, "name", "bot");
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "app_requests", ok));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "app_requests", bot));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "other", ok));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "app_requests", ok));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "app_requests", bot));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "other", ok));
         labels_hash_free(ok);
         labels_hash_free(bot);
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* plain parse of exclude_label / include_label */
@@ -3680,16 +3704,18 @@ void test_metric_filter_semantics_extra()
             "\"metric_filter\":{\"exclude\":[{\"metric\":\"drop_me\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(&carg, "drop_me", NULL));
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(&carg, "keep_me", NULL));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg->metric_filter_rules);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_filter_allow(carg, "drop_me", NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_filter_allow(carg, "keep_me", NULL));
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
         json_decref(root);
+        free(carg);
     }
 
     /* metric_add_labels path with label filter */
@@ -3702,22 +3728,24 @@ void test_metric_filter_semantics_extra()
             "]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        carg.namespace = strdup(ns);
-        carg.namespace_allocated = 1;
-        insert_namespace(carg.namespace, 0);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        carg->namespace = strdup(ns);
+        carg->namespace_allocated = 1;
+        insert_namespace(carg->namespace, 0);
         double v = 1.0;
-        metric_add_labels("ut_mf_lbl_ok", &v, DATATYPE_DOUBLE, &carg, "http_response_code", "200");
-        metric_add_labels("ut_mf_lbl_drop", &v, DATATYPE_DOUBLE, &carg, "http_response_code", "404");
+        metric_add_labels("ut_mf_lbl_ok", &v, DATATYPE_DOUBLE, carg, "http_response_code", "200");
+        metric_add_labels("ut_mf_lbl_drop", &v, DATATYPE_DOUBLE, carg, "http_response_code", "404");
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_lbl_ok") > 0);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_lbl_drop"));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
-        free(carg.namespace);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
+        free(carg->namespace);
         json_decref(root);
+        free(carg);
     }
 
     /*
@@ -3733,37 +3761,39 @@ void test_metric_filter_semantics_extra()
             "{\"metric_filter\":{\"exclude\":[{\"metric\":\"^ut_mf_own_drop\",\"match_type\":\"regexp\"}]}}",
             0, &error);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
-        context_arg carg = {0};
-        parse_metric_filter(&carg, root);
-        carg.namespace = strdup(ns);
-        carg.namespace_allocated = 1;
-        insert_namespace(carg.namespace, 0);
+        context_arg *carg = calloc(1, sizeof(*carg));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+        parse_metric_filter(carg, root);
+        carg->namespace = strdup(ns);
+        carg->namespace_allocated = 1;
+        insert_namespace(carg->namespace, 0);
         double v = 1.0;
 
         /* Seed one accepted series so query helpers see a live namespace. */
         alligator_ht *lbl_keep = alligator_ht_init(NULL);
         labels_hash_insert_nocache(lbl_keep, "k", "v");
-        metric_add("ut_mf_own_keep", lbl_keep, &v, DATATYPE_DOUBLE, &carg);
+        metric_add("ut_mf_own_keep", lbl_keep, &v, DATATYPE_DOUBLE, carg);
 
         alligator_ht *lbl_add = alligator_ht_init(NULL);
         labels_hash_insert_nocache(lbl_add, "k", "v");
-        metric_add("ut_mf_own_drop_add", lbl_add, &v, DATATYPE_DOUBLE, &carg);
+        metric_add("ut_mf_own_drop_add", lbl_add, &v, DATATYPE_DOUBLE, carg);
         /* lbl_add consumed+freed on deny — do not labels_hash_free(lbl_add) */
 
         alligator_ht *lbl_upd = alligator_ht_init(NULL);
         labels_hash_insert_nocache(lbl_upd, "k", "v");
-        metric_update("ut_mf_own_drop_upd", lbl_upd, &v, DATATYPE_DOUBLE, &carg);
+        metric_update("ut_mf_own_drop_upd", lbl_upd, &v, DATATYPE_DOUBLE, carg);
         /* lbl_upd consumed+freed on deny — do not labels_hash_free(lbl_upd) */
 
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_metric_filter_query_count(ns, "ut_mf_own_keep") > 0);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_own_drop_add"));
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ut_metric_filter_query_count(ns, "ut_mf_own_drop_upd"));
-        if (carg.metric_filter)
-            json_decref(carg.metric_filter);
-        if (carg.metric_filter_rules)
-            metric_filter_free(carg.metric_filter_rules);
-        free(carg.namespace);
+        if (carg->metric_filter)
+            json_decref(carg->metric_filter);
+        if (carg->metric_filter_rules)
+            metric_filter_free(carg->metric_filter_rules);
+        free(carg->namespace);
         json_decref(root);
+        free(carg);
     }
 
     /* plain reject keyword → still parses; WARN emitted (best-effort), no crash */

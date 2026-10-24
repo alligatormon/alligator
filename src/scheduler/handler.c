@@ -41,6 +41,12 @@ void scheduler_start(scheduler_node *sn)
 
 void scheduler_stop(scheduler_node *sn)
 {
-	uv_timer_stop(sn->timer);
-	alligator_cache_push(ac->uv_cache_timer, sn->timer);
+	if (!sn || !sn->timer)
+		return;
+
+	/* Cache only fully closed timers: scheduler_start() calls uv_timer_init()
+	 * on a cache hit, and uv_timer_init() on a live handle inserts it into
+	 * loop->handle_queue twice, corrupting the loop. */
+	alligator_timer_cache_push(sn->timer);
+	sn->timer = NULL;
 }

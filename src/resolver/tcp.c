@@ -22,7 +22,7 @@ int resolver_tcp_halt(context_arg *carg)
 	if (carg->tt_timer) {
 		uv_timer_stop(carg->tt_timer);
 		carg->tt_timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, carg->tt_timer);
+		alligator_timer_cache_push(carg->tt_timer);
 		carg->tt_timer = NULL;
 	}
 
@@ -102,7 +102,7 @@ void resolver_close_tcp(uv_handle_t *handle)
 		carg->tt_timer = NULL;
 		uv_timer_stop(timer);
 		timer->data = NULL;
-		alligator_cache_push(ac->uv_cache_timer, timer);
+		alligator_timer_cache_push(timer);
 	}
 
 	carg->close_time = setrtime();
@@ -136,7 +136,7 @@ void resolver_timeout_tcp(uv_timer_t *timer)
 		carg->tt_timer = NULL;
 	timer->data = NULL;
 
-	alligator_cache_push(ac->uv_cache_timer, timer);
+	alligator_timer_cache_push(timer);
 
 	if (!carg)
 	{

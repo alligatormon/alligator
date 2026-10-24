@@ -1349,40 +1349,40 @@ static void test_labels_merge_dup_json_paths(void)
 
 static void test_labels_match_gen_groupkey_paths(void)
 {
-    sortplan sp;
-    memset(&sp, 0, sizeof(sp));
-    sp.plan[0] = "env";
-    sp.hash[0] = tommy_strhash_u32(0, "env");
-    sp.len[0] = 3;
-    sp.size = 1;
+    sortplan *sp = calloc(1, sizeof(*sp));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sp);
+    sp->plan[0] = "env";
+    sp->hash[0] = tommy_strhash_u32(0, "env");
+    sp->len[0] = 3;
+    sp->size = 1;
 
     labels_t la = {0}, lb = {0};
     la.name = "env";
     la.name_len = 3;
-    la.name_hash = sp.hash[0];
+    la.name_hash = sp->hash[0];
     la.key = "prod";
     la.key_len = 4;
 
     lb.name = "env";
     lb.name_len = 3;
-    lb.name_hash = sp.hash[0];
+    lb.name_hash = sp->hash[0];
     lb.key = "prod";
     lb.key_len = 4;
 
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(&sp, &la, &lb, 1));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(sp, &la, &lb, 1));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, metric_name_match(&la, &lb));
     lb.key = "dev";
     lb.key_len = 3;
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(&sp, &la, &lb, 1) != 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(sp, &la, &lb, 1) != 0);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, metric_name_match(&la, &lb) != 0);
 
     /* Stored chain ends before a selector key. That is not a match, and an
        empty selector slot in that position does not constrain the series. */
     {
-        sortplan sp3;
+        sortplan *sp3 = calloc(1, sizeof(*sp3));
         labels_t stored[2], query[3];
-        memset(&sp3, 0, sizeof(sp3));
-        sp3.size = 3;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sp3);
+        sp3->size = 3;
         memset(stored, 0, sizeof(stored));
         memset(query, 0, sizeof(query));
         stored[0].key = "m"; stored[0].key_len = 1; stored[0].next = &stored[1];
@@ -1390,10 +1390,11 @@ static void test_labels_match_gen_groupkey_paths(void)
         query[0].key = "m"; query[0].key_len = 1; query[0].next = &query[1];
         query[1].key = "1"; query[1].key_len = 1; query[1].next = &query[2];
         query[2].key = "9"; query[2].key_len = 1;
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(&sp3, stored, query, 2) != 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, labels_match(sp3, stored, query, 2) != 0);
         query[2].key = NULL;
         query[2].key_len = 0;
-        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, labels_match(&sp3, stored, query, 1));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, labels_match(sp3, stored, query, 1));
+        free(sp3);
     }
 
     string *gk = string_init_alloc("env", 3);
@@ -1432,6 +1433,7 @@ static void test_labels_match_gen_groupkey_paths(void)
     string_free(gk);
     alligator_ht_done(res);
     free(res);
+    free(sp);
 }
 
 static void test_api_router_paths(void)

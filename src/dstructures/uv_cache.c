@@ -1,5 +1,6 @@
 #include "dstructures/uv_cache.h"
 #include "common/rtime.h"
+#include "common/stop.h"
 #include "main.h"
 #define ALLIGATOR_TIMER_SECONDS_EXPIRE 20
 
@@ -75,6 +76,38 @@ int alligator_cache_push(tommy_list *uv_cache, void *data)
 
 	tommy_list_insert_tail(uv_cache, &acache->node, acache);
 
+	return 1;
+}
+
+static void alligator_timer_cache_closed_cb(uv_handle_t *handle)
+{
+	/* During shutdown do not re-cache: alligator_cache_full_free may already
+	 * have run, and we are about to exit. */
+	if (ac && ac->uv_cache_timer && !alligator_stop_requested())
+		alligator_cache_push(ac->uv_cache_timer, handle);
+	else
+		free(handle);
+}
+
+/*
+ * Timers in uv_cache_timer are handed out again with uv_timer_init(). libuv
+ * inserts every initialized handle into loop->handle_queue, so re-initing a
+ * live handle corrupts the loop. Only cache timers that have fully closed:
+ * closed handles may be re-initialized safely.
+ */
+int alligator_timer_cache_push(uv_timer_t *timer)
+{
+	if (!timer)
+		return 0;
+
+	/* Close already in flight (or finished): its close_cb owns recycle.
+	 * UV_HANDLE_CLOSED is not a public libuv symbol; uv_is_closing covers both. */
+	if (uv_is_closing((uv_handle_t *)timer))
+		return 0;
+
+	uv_timer_stop(timer);
+	timer->data = NULL;
+	uv_close((uv_handle_t *)timer, alligator_timer_cache_closed_cb);
 	return 1;
 }
 

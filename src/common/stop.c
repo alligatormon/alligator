@@ -102,7 +102,7 @@ void alligator_shutdown_after_loop(void)
 		return;
 
 	glog(L_INFO, "Stop signal received: %d: '%s'\n", g_stop_code, g_stop_sig[0] ? g_stop_sig : "?");
-	glog(L_INFO, "Don't forget to start me again, otherwise the alligator will bite you :)\n");
+	glog(L_OFF, "Don't forget to start me again, otherwise the alligator will bite you :)\n");
 	alligator_stop_periodic_timers();
 	ipmi_wait_idle();
 	nvml_wait_idle();
@@ -140,6 +140,12 @@ void alligator_shutdown_after_loop(void)
 	resolver_stop();
 	lang_stop();
 	grok_stop();
+	/* scheduler_del_all / detach paths uv_close timers asynchronously; drain
+	 * so close_cbs free (stop_requested) or land in the cache before we sweep. */
+	for (unsigned i = 0; i < 64; ++i) {
+		if (!uv_run(ac->loop, UV_RUN_NOWAIT))
+			break;
+	}
 	alligator_cache_full_free(ac->uv_cache_timer);
 	alligator_cache_full_free(ac->uv_cache_fs);
 

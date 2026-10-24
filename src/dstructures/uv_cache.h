@@ -13,4 +13,5 @@ typedef struct alligator_cache
 
 void *alligator_cache_get(tommy_list *uv_cache, size_t size);
 int alligator_cache_push(tommy_list *uv_cache, void *data);
+int alligator_timer_cache_push(uv_timer_t *timer);
 void alligator_cache_full_free(tommy_list *uv_cache);

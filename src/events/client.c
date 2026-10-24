@@ -221,13 +221,19 @@ void tcp_client_close(uv_handle_t *handle)
 	carg->close_time = setrtime();
 	carglog(carg, L_DEBUG, "tcp client: closing key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 
-	if (carg->tt_timer)
-		carg->tt_timer->data = NULL;
+	/* Stop+close+recycle now. Only nulling timer->data left the timer armed so
+	 * tcp_timeout_timer could alligator_timer_cache_push (uv_close) while
+	 * carg_uv_detach_timers still held carg->tt_timer and uv_close'd again. */
+	if (carg->tt_timer) {
+		uv_timer_t *timer = carg->tt_timer;
+		carg->tt_timer = NULL;
+		alligator_timer_cache_push(timer);
+	}
 
 	if (!uv_is_closing((uv_handle_t*)&carg->client))
 	{
 		carg->close_time = setrtime();
-		if (carg->tls)
+		if (carg->tls && carg->ssl)
 		{
 			int ret = SSL_get_shutdown(carg->ssl);
 			if (!ret)
@@ -626,7 +632,7 @@ void tls_connected(uv_connect_t* req, int status)
 		if (probe_emit_tcp_success(carg))
 			probe_metric_success(carg, 0);
 		tcp_client_notify_handler_empty(carg);
-		tcp_client_closed((uv_handle_t*)&carg->client);
+		tcp_client_close((uv_handle_t *)&carg->client);
 		return;
 	}
 
@@ -687,7 +693,7 @@ void tcp_timeout_timer(uv_timer_t *timer)
 	if (carg && carg->tt_timer == timer)
 		carg->tt_timer = NULL;
 
-	alligator_cache_push(ac->uv_cache_timer, timer);
+	alligator_timer_cache_push(timer);
 
 	if (!carg)
 	{
